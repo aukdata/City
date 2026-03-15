@@ -1,0 +1,33 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.aps
+ipch/
+*.ncb
+*.sdf
+*.opensdf
+
+# ビルド出力
+Intermediate/
+x64/
+Debug/
+Release/
+*.exe
+*.pdb
+*.ilk
+*.obj
+*.lib
+*.exp
+
+# Siv3D SDK 付属リソース（Siv3D インストールから復元可能）
+App/engine/
+App/example/
+App/dll/
+
+# Blender バックアップ
+*.blend1
+
+# その他
+*.DS_Store
+Thumbs.db
