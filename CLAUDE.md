@@ -24,8 +24,16 @@ Visual Studio でソリューションを開いてビルド:
 
 `.editorconfig` に従う:
 - インデント: タブ (サイズ4)
-- 文字コード: UTF-8 BOM
+- **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。
 - ドキュメントコメント: Doxygen形式
+
+## Siv3D 実装留意点
+
+コンパイルエラーや API の使い方で迷ったら、まず `plan/SIV3D_NOTES.md` を検索すること。
+Siv3D の型・関数は極力既存 API を使い、自前で再実装しない。
+
+**Siv3D クラス定義の参照先**: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`
+- API を確認するときは上記ディレクトリの `.hpp` を直接 Read すること。
 
 ## Architecture
 

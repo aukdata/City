@@ -2,9 +2,9 @@
 
 ## 現在の状態
 
-**実装フェーズ**: Phase 0（未着手）
-**Main.cpp**: Siv3D のテンプレートのみ（windmill デモ）
-**次のアクション**: Phase 1-1 から順に着手する
+**実装フェーズ**: Phase 1 完了・Phase 2 実装済み・Phase 3 実装済み
+**Main.cpp**: GameApp::run() を呼ぶだけの状態
+**次のアクション**: Phase 4-0（バス路線システム）から着手する
 
 ---
 
@@ -66,36 +66,36 @@ City/
 **目標**: 地形が描画され、手動で道路を引いて車が走る最低限の状態
 
 #### 1-1. プロジェクト基盤
-- [ ] `Main.cpp` を整理して `GameApp::run()` を呼ぶだけにする
-- [ ] `GameApp` クラスを作成し `update(dt)` / `render()` を用意
-- [ ] `GameClock` の実装（速度 ×1/×2/×4/Pause、`GameTime = double`）
+- [x] `Main.cpp` を整理して `GameApp::run()` を呼ぶだけにする
+- [x] `GameApp` クラスを作成し `update(dt)` / `render()` を用意
+- [x] `GameClock` の実装（速度 ×1/×2/×4/Pause、`GameTime = double`）
   - 参照: `02_technical_spec.md §8`
 
 #### 1-2. チャンクシステム
-- [ ] `Chunk` 構造体（HeightMap, TerrainMap, buildings, zoneMap, state）
-- [ ] `World` クラス（チャンク HashMap、カメラ周辺 5×5 のアクティブ管理）
-- [ ] フラットな HeightMap でチャンクを生成して表示（Perlin ノイズは後回し）
+- [x] `Chunk` 構造体（HeightMap, TerrainMap, buildings, zoneMap, state）
+- [x] `World` クラス（チャンク HashMap、カメラ周辺 5×5 のアクティブ管理）
+- [x] フラットな HeightMap でチャンクを生成して表示（Perlin ノイズは後回し）
   - 参照: `02_technical_spec.md §1`
 
 #### 1-3. カメラ
-- [ ] `BasicCamera3D` による見下ろし視点
-- [ ] WASD 移動・右ドラッグ回転・ホイールズーム
+- [x] `BasicCamera3D` による見下ろし視点
+- [x] WASD 移動・右ドラッグ回転・ホイールズーム
   - 参照: `06_ui_spec.md §3`
 
 #### 1-4. ベジェ道路の描画
-- [ ] `BezierUtil`: 3次ベジェ曲線の評価・弧長パラメータ化（50サンプル/区間）
+- [x] `BezierUtil`: 3次ベジェ曲線の評価・弧長パラメータ化（50サンプル/区間）
   - 弧長→t の逆引きテーブルを事前構築する（車両位置計算に使用。`arcLength → t → position` の変換）
-- [ ] `RoadTypes.hpp`: `Lane`, `RoadEdge`, `RoadNode`, `RoadPlan` の構造体
+- [x] `RoadTypes.hpp`: `Lane`, `RoadEdge`, `RoadNode`, `RoadPlan` の構造体
   - `TempOp` / `PlannedChange` も同ファイルで定義する（Phase 1 から車線状態変更規則を守るため必須）
   - 参照: `07_road_lane_spec.md`（Lane/RoadEdge/TempOp/PlannedChange の完全な定義）
-- [ ] `RoadNetwork`: エッジ・ノードの追加、交差点への分割処理
-- [ ] 道路の描画（ポリゴン帯生成、車線区画線）
+- [x] `RoadNetwork`: エッジ・ノードの追加、交差点への分割処理
+- [x] 道路の描画（ポリゴン帯生成、車線区画線）
   - 参照: `02_technical_spec.md §2`, `07_road_lane_spec.md`
 
 #### 1-5. 簡易車両走行
-- [ ] `Vehicle` 構造体（位置・速度・currentEdge・arcPos）
-- [ ] 経路探索なし・IDM なしの単純な道路上移動
-- [ ] `VehicleRenderer`: 車種別の簡易3D形状
+- [x] `Vehicle` 構造体（位置・速度・currentEdge・arcPos）
+- [x] 経路探索なし・IDM なしの単純な道路上移動
+- [x] `VehicleRenderer`: 車種別の簡易3D形状
   - 参照: `02_technical_spec.md §3`
 
 ---
@@ -105,36 +105,35 @@ City/
 **目標**: 車両が経路を選択して渋滞が発生する状態
 
 #### 2-1. 経路探索グラフ
-- [ ] `LaneNode`, `BorderNode`, `GraphEdge` の実装
-- [ ] 道路新設時に BorderNode を自動生成（フェーズ1では dirty=true のまま）
-- [ ] `LaneConnection` の自動生成（TurnType 判定含む）
-  - TurnType 判定は進入/退出エッジの方向ベクトルの内積・外積で行う。ベジェ曲線端点の接線ベクトル計算が必要なため実装上のボトルネックになりやすい（`08_pathfinding_spec.md §3` 参照）
-- [ ] `isNodePassable(nodeId)` の実装（`effectiveLane()` で Open かどうかを確認するフィルタ。Dijkstra 内で closed/unusable 車線への辺をスキップするために必須）
+- [x] `LaneNode`, `BorderNode`, `GraphEdge` の実装
+- [x] 道路新設時に LaneNode 自動生成（BorderNode は Phase 2 以降）
+- [x] `LaneConnection` の自動生成（TurnType 判定含む）
+- [x] `isNodePassable(nodeId)` の実装
   - 参照: `08_pathfinding_spec.md §1〜3`
 
 #### 2-2. Dijkstra 経路探索
-- [ ] `Pathfinding::dijkstra(startLaneNodeId, goalEdgeId)` の実装
-- [ ] コスト関数: Forward / LaneChange / Transition / BorderCross
-  - Transition コスト内の `expectedWaitTime()` は Phase 2-4（信号機）実装まで固定ペナルティで代替する（信号機未実装時は Straight=2s / Left=5s / Right=8s / UTurn=15s の定数を使用）
-- [ ] 再探索の分散（毎フレーム 10 台ずつ処理）
+- [x] `PathfindingGraph::dijkstra(startLaneNodeId, goalEdgeId)` の実装
+- [x] コスト関数: Forward / LaneChange / Transition（固定ペナルティ）
+- [x] 再探索の分散（毎フレーム 10 台ずつ処理）
   - 参照: `08_pathfinding_spec.md §2〜4, §7`
 
 #### 2-3. IDM 追従モデル
-- [ ] IDM 加速度計算の実装（パラメータは種別ごとに設定）
-- [ ] 前方車両検出・車頭距離計算
+- [x] IDM 加速度計算の実装（パラメータは種別ごとに設定）
+- [x] 前方車両検出・車頭距離計算（Forward/Backward 方向対応）
 - [ ] 車線変更ロジック（隣接車線への空き確認）
   - 参照: `02_technical_spec.md §3`, `09_vehicle_spec.md §2`
 
 #### 2-4. 信号機システム
-- [ ] `TrafficLight` / `SignalPhase` の実装
-- [ ] 信号待ち停止線でのIDM適用
-- [ ] `expectedWaitTime()` を実装し、2-2 の Transition コストの固定ペナルティを置き換える
-- [ ] `TempOp` による車線 Open/Closed 変化時に影響チャンクの BorderNode へ `dirty=true` をセットし、該当エッジ上の車両を再探索キューに追加する（`08_pathfinding_spec.md §3` のグラフ更新トリガー）
+- [x] `TrafficLight` / `SignalPhase` の実装
+- [x] 信号待ち停止線での IDM 適用（仮想停止リーダー方式）
+- [x] 3 本以上エッジがある交差点への自動信号機設置（2フェーズ）
+- [ ] `expectedWaitTime()` を Dijkstra コストへ組み込む（現在は固定ペナルティ）
+- [ ] `TempOp` による車線変化 → グラフ更新トリガー
   - 参照: `02_technical_spec.md §4`
 
 #### 2-5. 車両生成ロジック
+- [x] ランダム出発・目的地の選択（T キーで生成）
 - [ ] ゾーン別・時間帯別の車種構成比に基づいた生成
-- [ ] 出発・目的地の選択（ランダム → 後にゾーン依存へ）
   - 参照: `09_vehicle_spec.md §7`
 
 ---
@@ -144,21 +143,23 @@ City/
 **目標**: ゾーンを塗ると建物が自動生成・成長し、経済が動く
 
 #### 3-1. ゾーニングシステム
-- [ ] `ZoneType` enum（7種）、`ZoneManager` クラス
-- [ ] ゾーン塗りツール（ブラシ/矩形/バケツ）の UI
-- [ ] ゾーンオーバーレイ描画（半透明カラー）
+- [x] `ZoneType` enum（7種）、`ZoneManager` クラス
+- [x] ゾーン塗りツール（ブラシ/矩形）の UI（左クリック=ブラシ、Shift+左ドラッグ=矩形）
+- [x] ゾーンオーバーレイ描画（半透明カラー、Tab でトグル）
   - 参照: `05_zoning_spec.md`, `02_technical_spec.md §5`
 
 #### 3-2. 建物自動生成
-- [ ] 発展スコア計算（道路アクセス × 需要 × 地価）
-- [ ] 月次評価ループ（生成・アップグレード・衰退）
-- [ ] 成長段階（Stage 0〜3）と建物外観の変化
+- [x] 発展スコア計算（道路アクセス係数）
+- [x] 月次評価ループ（生成・アップグレード・衰退）
+- [x] 成長段階（Stage 0〜2）
+- [ ] 建物 3D 描画（現在は描画なし）
   - 参照: `05_zoning_spec.md`, `02_technical_spec.md §5`
 
 #### 3-3. 経済システム
-- [ ] `Economy` 構造体（資金・月次収支）
-- [ ] 収入計算（住民税・商業税・観光収入）
-- [ ] 建設コスト・維持費の計算
+- [x] `Economy` 構造体（資金・人口・幸福度）
+- [x] 交付金収入計算（人口規模・幸福度ボーナス）
+- [x] 道路維持費計算（種別 × 延長）
+- [x] 月次収支の HUD 表示（資金・人口）
   - 参照: `04_gameplay_detail_spec.md §2〜3`, `02_technical_spec.md §9`
 
 ---
@@ -286,3 +287,5 @@ City/
 |------|---------|
 | 2026-03-16 | 初版作成 |
 | 2026-03-16 | Gemini レビュー反映: 弧長逆引きテーブル・TempOp/PlannedChange を 1-4 に追加、信号機スタブ注記・isNodePassable・LaneConnection 注意点を Phase 2 に追加、バス路線システム(4-0)を追加、signal/ を traffic/ に統合、Building.hpp を分離、BusRoute.hpp を追加 |
+| 2026-03-16 | Phase 2 実装: PathfindingGraph(2-1)・Dijkstra(2-2)・IDM(2-3)・TrafficLight(2-4)・ランダム生成(2-5 一部) |
+| 2026-03-16 | Phase 3 実装: ZoneType/Building/ZoneManager(3-1)・月次建物生成(3-2)・Economy(3-3)・ZoneOverlay描画・HUD拡張 |

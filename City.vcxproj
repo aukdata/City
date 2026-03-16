@@ -120,6 +120,21 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\road\BezierUtil.cpp" />
+    <ClCompile Include="src\world\World.cpp" />
+    <ClCompile Include="src\road\RoadNetwork.cpp" />
+    <ClCompile Include="src\traffic\TrafficManager.cpp" />
+    <ClCompile Include="src\traffic\PathfindingGraph.cpp" />
+    <ClCompile Include="src\traffic\TrafficLight.cpp" />
+    <ClCompile Include="src\ui\Camera.cpp" />
+    <ClCompile Include="src\render\WorldRenderer.cpp" />
+    <ClCompile Include="src\render\RoadRenderer.cpp" />
+    <ClCompile Include="src\render\VehicleRenderer.cpp" />
+    <ClCompile Include="src\render\UIRenderer.cpp" />
+    <ClCompile Include="src\GameApp.cpp" />
+    <ClCompile Include="src\debug\DebugRenderer.cpp" />
+    <ClCompile Include="src\zone\ZoneManager.cpp" />
+    <ClCompile Include="src\economy\Economy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
@@ -326,6 +341,28 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="src\time\GameClock.hpp" />
+    <ClInclude Include="src\world\Chunk.hpp" />
+    <ClInclude Include="src\world\World.hpp" />
+    <ClInclude Include="src\road\RoadTypes.hpp" />
+    <ClInclude Include="src\road\BezierUtil.hpp" />
+    <ClInclude Include="src\road\RoadNetwork.hpp" />
+    <ClInclude Include="src\traffic\Vehicle.hpp" />
+    <ClInclude Include="src\traffic\PathfindingGraph.hpp" />
+    <ClInclude Include="src\traffic\TrafficLight.hpp" />
+    <ClInclude Include="src\traffic\TrafficManager.hpp" />
+    <ClInclude Include="src\ui\Camera.hpp" />
+    <ClInclude Include="src\render\WorldRenderer.hpp" />
+    <ClInclude Include="src\render\RoadRenderer.hpp" />
+    <ClInclude Include="src\render\VehicleRenderer.hpp" />
+    <ClInclude Include="src\render\UIRenderer.hpp" />
+    <ClInclude Include="src\GameApp.hpp" />
+    <ClInclude Include="src\debug\DebugLog.hpp" />
+    <ClInclude Include="src\debug\DebugRenderer.hpp" />
+    <ClInclude Include="src\zone\ZoneTypes.hpp" />
+    <ClInclude Include="src\zone\Building.hpp" />
+    <ClInclude Include="src\zone\ZoneManager.hpp" />
+    <ClInclude Include="src\economy\Economy.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">
