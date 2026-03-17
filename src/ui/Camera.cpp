@@ -56,9 +56,9 @@ void GameCamera::handleInput(double dt)
 			static_cast<float>(Math::ToRadians(MAX_PITCH_DEG)));
 	}
 
-	// ホイールズーム
+	// ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）
 	const double wheel = Mouse::Wheel();
-	if (wheel != 0.0)
+	if (wheel != 0.0 && !KeyControl.pressed())
 	{
 		m_distance = static_cast<float>(
 			Clamp(
@@ -96,9 +96,13 @@ Optional<Vec3> GameCamera::screenToGround(Vec2 screenPos) const
 {
 	const Ray ray = m_camera.screenToRay(screenPos);
 
-	// y=0 の無限平面（法線 = (0,1,0), 通過点 = 原点）と交差判定する
-	if (const auto hit = ray.intersectsAt(InfinitePlane{ Float3{ 0, 1, 0 }, Float3{ 0, 0, 0 } }))
-		return Vec3{ *hit };
+	// y=0 の無限平面（通過点 = 原点, 法線 = (0,1,0)）と交差判定する
+	if (const auto hit = ray.intersectsAt(InfinitePlane{ Float3{ 0, 0, 0 }, Float3{ 0, 1, 0 } }))
+	{
+		const Vec3 pos{ *hit };
+		if (IsFinite(pos.x) && IsFinite(pos.z))
+			return pos;
+	}
 
 	return none;
 }

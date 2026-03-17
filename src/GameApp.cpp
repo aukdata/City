@@ -357,6 +357,7 @@ void GameApp::render()
 	// デバッグオーバーレイ
 	m_debugRenderer.render(m_network, m_traffic.vehicles(), m_world, m_camera);
 
+
 	// UI（2D）
 	m_uiRenderer.render(m_clock, m_traffic.vehicleCount(), modeString(), m_economy);
 
@@ -599,8 +600,9 @@ void GameApp::handleTerrainEdit()
 {
 	if (!m_cursorGroundPos) return;
 
-	const float raise = MouseL.pressed() ? m_terrainBrushStrength : 0.0f;
-	const float lower = MouseR.pressed() ? m_terrainBrushStrength : 0.0f;
+	const float dt    = static_cast<float>(Scene::DeltaTime());
+	const float raise = MouseL.pressed() ? m_terrainBrushStrength * dt : 0.0f;
+	const float lower = MouseR.pressed() ? m_terrainBrushStrength * dt : 0.0f;
 	const float delta = raise - lower;
 	if (delta == 0.0f) return;
 
@@ -626,7 +628,9 @@ void GameApp::handleTerrainEdit()
 				// ブラシの影響は中心ほど強い（コサイン減衰）
 				const float t = static_cast<float>(dist / m_terrainBrushRadius);
 				const float weight = static_cast<float>(Math::Cos(t * Math::Pi / 2.0));
-				chunk->heightMap[{ col, row }] += delta * weight;
+				chunk->heightMap[{ col, row }] = Clamp(
+				chunk->heightMap[{ col, row }] + delta * weight,
+				-200.0f, 350.0f);  // カメラ eye 高さ (~386m) を超えないよう制限
 				modified = true;
 			}
 		}

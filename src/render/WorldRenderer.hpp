@@ -11,6 +11,7 @@ public:
 	/// @brief チャンクのメッシュキャッシュを無効化する
 	void markDirty(Point chunkCoord);
 
+
 private:
 	using Key = int64;
 
@@ -28,5 +29,5 @@ private:
 	/// @brief チャンク内の建物を Box で描画する
 	void drawBuildings(const Chunk& chunk);
 
-	HashTable<Key, DynamicMesh> m_meshCache;
+	HashTable<Key, Mesh> m_meshCache;
 };

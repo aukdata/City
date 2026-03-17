@@ -79,7 +79,7 @@ private:
 
 	// 地形編集
 	float           m_terrainBrushRadius   = 80.0f;   ///< ブラシ半径 [m]
-	float           m_terrainBrushStrength = 2.0f;    ///< ブラシ強度 [m/frame]
+	float           m_terrainBrushStrength = 20.0f;   ///< ブラシ強度 [m/秒]
 
 	// 月次トリガー管理
 	int             m_lastEconYear  = -1;

@@ -1,8 +1,13 @@
 ﻿#include "WorldRenderer.hpp"
+#include <Siv3D/Profiler.hpp>
 
 void WorldRenderer::render(World& world)
 {
-	for (Chunk* chunk : world.getActiveChunks())
+	// 地形メッシュを動的更新するため W100 警告を抑制する
+	Profiler::EnableAssetCreationWarning(false);
+
+	const auto chunks = world.getActiveChunks();
+	for (Chunk* chunk : chunks)
 	{
 		if (chunk)
 			drawChunk(*chunk);
@@ -13,16 +18,10 @@ void WorldRenderer::drawChunk(Chunk& chunk)
 {
 	const Key key = chunkKey(chunk.coord);
 
-	if (!m_meshCache.contains(key))
+	if (!m_meshCache.contains(key) || chunk.dirty)
 	{
-		// 初回: DynamicMesh を生成してキャッシュ
-		m_meshCache.emplace(key, DynamicMesh{ buildTerrainMeshData(chunk) });
-		chunk.dirty = false;
-	}
-	else if (chunk.dirty)
-	{
-		// 変更あり: GPU リソースを再作成せず in-place で更新
-		m_meshCache[key].fill(buildTerrainMeshData(chunk));
+		// 未キャッシュ or 変更あり: Mesh を再生成（W100 は render() 先頭で抑制済み）
+		m_meshCache[key] = Mesh{ buildTerrainMeshData(chunk) };
 		chunk.dirty = false;
 	}
 
