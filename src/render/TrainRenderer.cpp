@@ -83,12 +83,10 @@ void TrainRenderer::renderTrains(const Array<Train>& trains)
 
 		// 車体サイズ: 長さ 20m × 幅 3m × 高さ 3.5m
 		Box{ train.position + Vec3{0, 1.75, 0}, 3.0, 3.5, 20.0 }
-			.rotated(rot)
-			.draw(bodyColor);
+			.draw(rot, bodyColor);
 
 		// 前面ライン
 		Box{ train.position + Vec3{0, 2.5, 0}, 3.1, 0.3, 0.4 }
-			.rotated(rot)
-			.draw(ColorF{ 0.1, 0.1, 0.1 });
+			.draw(rot, ColorF{ 0.1, 0.1, 0.1 });
 	}
 }

@@ -1,4 +1,4 @@
-﻿\xef\xbb\xbf
+﻿
 #pragma once
 
 /// @brief カメラモード

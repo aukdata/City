@@ -1,29 +1,36 @@
 ﻿#include "WorldRenderer.hpp"
 
-void WorldRenderer::render(const World& world)
+void WorldRenderer::render(World& world)
 {
-	for (const Chunk* chunk : world.getActiveChunks())
+	for (Chunk* chunk : world.getActiveChunks())
 	{
 		if (chunk)
 			drawChunk(*chunk);
 	}
 }
 
-void WorldRenderer::drawChunk(const Chunk& chunk)
+void WorldRenderer::drawChunk(Chunk& chunk)
 {
 	const Key key = chunkKey(chunk.coord);
 
-	// dirty またはキャッシュにない場合はメッシュを再生成
-	if (chunk.dirty || !m_meshCache.contains(key))
+	if (!m_meshCache.contains(key))
 	{
-		m_meshCache[key] = buildTerrainMesh(chunk);
+		// 初回: DynamicMesh を生成してキャッシュ
+		m_meshCache.emplace(key, DynamicMesh{ buildTerrainMeshData(chunk) });
+		chunk.dirty = false;
+	}
+	else if (chunk.dirty)
+	{
+		// 変更あり: GPU リソースを再作成せず in-place で更新
+		m_meshCache[key].fill(buildTerrainMeshData(chunk));
+		chunk.dirty = false;
 	}
 
 	m_meshCache[key].draw(ColorF{ 0.35, 0.55, 0.25 });
 	drawBuildings(chunk);
 }
 
-Mesh WorldRenderer::buildTerrainMesh(const Chunk& chunk)
+MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 {
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	const Vec3 worldOrigin   = chunk.worldOrigin();
@@ -65,14 +72,14 @@ Mesh WorldRenderer::buildTerrainMesh(const Chunk& chunk)
 			const uint32 i01 = static_cast<uint32>((row + 1) * gridSize + col    );
 			const uint32 i11 = static_cast<uint32>((row + 1) * gridSize + col + 1);
 
-			// 三角形1: (row,col) → (row,col+1) → (row+1,col)
-			indices << TriangleIndex32{ i00, i10, i01 };
-			// 三角形2: (row,col+1) → (row+1,col+1) → (row+1,col)
-			indices << TriangleIndex32{ i10, i11, i01 };
+			// 三角形1: (row,col) → (row+1,col) → (row,col+1)  ※上向き法線
+			indices << TriangleIndex32{ i00, i01, i10 };
+			// 三角形2: (row,col+1) → (row+1,col) → (row+1,col+1)
+			indices << TriangleIndex32{ i10, i01, i11 };
 		}
 	}
 
-	return Mesh{ MeshData{ vertices, indices } };
+	return MeshData{ vertices, indices };
 }
 
 void WorldRenderer::drawBuildings(const Chunk& chunk)
@@ -89,7 +96,6 @@ void WorldRenderer::drawBuildings(const Chunk& chunk)
 			const Building& b = chunk.buildingGrid[{ col, row }];
 			if (b.type == BuildingType::None) continue;
 
-			// 建物の高さ（種別・成長段階で変化）
 			float height = 0.0f;
 			ColorF color;
 			switch (b.type)
@@ -123,7 +129,6 @@ void WorldRenderer::drawBuildings(const Chunk& chunk)
 				color  = ColorF{ 0.50, 0.48, 0.46 };
 				break;
 			case BuildingType::Farmland:
-				// 農地は地面と同化させる（高さなし）
 				continue;
 			case BuildingType::ParkBuilding:
 				height = 0.5f;
@@ -141,7 +146,6 @@ void WorldRenderer::drawBuildings(const Chunk& chunk)
 				continue;
 			}
 
-			// セル中心のワールド座標
 			const double cx = origin.x + (col + 0.5) * cellSize;
 			const double cz = origin.z + (row + 0.5) * cellSize;
 			const double cy = height * 0.5;
@@ -153,5 +157,7 @@ void WorldRenderer::drawBuildings(const Chunk& chunk)
 
 void WorldRenderer::markDirty(Point chunkCoord)
 {
-	m_meshCache.erase(chunkKey(chunkCoord));
+	// DynamicMesh はキャッシュを消去せず dirty フラグ経由で fill() 更新するため、
+	// ここでは何もしない（呼び出し側との互換性のために残す）
+	(void)chunkCoord;
 }

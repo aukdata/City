@@ -3,9 +3,10 @@
 
 void GameApp::run()
 {
-	constexpr int kWindowWidth  = 1440;
-	constexpr int kWindowHeight = 1080;
+	constexpr int kWindowWidth  = 1280;
+	constexpr int kWindowHeight = 768;
 
+	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
 	Window::Resize(kWindowWidth, kWindowHeight);
 	Scene::SetBackground(ColorF{ 0.2, 0.3, 0.4 });
 	Window::SetTitle(U"City Simulation");
@@ -271,7 +272,7 @@ void GameApp::render()
 		// 太陽方向（朝は東から昇り、真昼は上方、夕は西に沈む）
 		const Vec3 sunDir = Vec3{ Math::Cos(t), sinT, 0.3 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.12 + 0.45 * dayF + 0.15 * dawnF });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.25 + 0.45 * dayF + 0.15 * dawnF });
 
 		// 空の色をブレンドする（夜→薄明→昼）
 		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
@@ -633,7 +634,6 @@ void GameApp::handleTerrainEdit()
 		if (modified)
 		{
 			chunk->dirty = true;
-			m_worldRenderer.markDirty(chunk->coord);
 		}
 	}
 }

@@ -28,6 +28,9 @@ void UIRenderer::render(const GameClock& clock, int vehicleCount, StringView mod
 	}
 
 	// 右下: 操作ガイド
-	m_smallFont(U"WASD:移動 右ドラッグ:回転 ホイール:ズーム\n1-3:速度 R:道路 Z:ゾーン塗り Tab:ゾーン表示 T:車両生成").draw(
-		12, Vec2{ Scene::Width() - 380.0, Scene::Height() - 50.0 }, Palette::White);
+	m_smallFont(
+		U"WASD:移動  右ドラッグ:回転  ホイール:ズーム  F:カメラ切替\n"
+		U"R:道路  Z:ゾーン塗り  G:地形  X:線路  B:バス路線\n"
+		U"Tab:ゾーン表示  T:車両生成  0:一時停止  1-3:速度"
+	).draw(12, Vec2{ Scene::Width() - 430.0, Scene::Height() - 62.0 }, Palette::White);
 }

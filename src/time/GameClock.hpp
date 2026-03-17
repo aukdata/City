@@ -12,7 +12,7 @@ enum class TimeSpeed : uint8 { Paused, x1, x2, x4 };
 /// @brief ゲーム内時計
 struct GameClock
 {
-	GameTime  now    = 0.0;        ///< ゲーム開始からの経過ゲーム秒
+	GameTime  now    = 8.0 * 3600; ///< ゲーム開始からの経過ゲーム秒（午前8時スタート）
 	int       year   = 1;          ///< 年
 	uint8     month  = 4;          ///< 月 (1-12)
 	uint8     day    = 1;          ///< 日 (1-30)
