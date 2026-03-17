@@ -96,4 +96,9 @@ struct Vehicle
 	// ライフサイクル
 	GameTime     departedAt  = 0.0;
 	int          goalEdgeId  = -1;   ///< 目的地エッジ id
+
+	// バス専用フィールド
+	int    busRouteId      = -1;   ///< 所属バス路線 id（-1 = 一般車両）
+	int    busNextStopIdx  = 0;    ///< 次に向かうバス停のインデックス
+	float  busWaitRemaining = 0.0f; ///< バス停での残り待機時間 [ゲーム秒]
 };

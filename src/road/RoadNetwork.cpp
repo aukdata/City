@@ -145,6 +145,27 @@ int RoadNetwork::nodeIndex(int id) const
 	return -1;
 }
 
+void RoadNetwork::addTempOp(int edgeId, TempOp op)
+{
+	RoadEdge* e = getEdge(edgeId);
+	if (e)
+		e->tempOps << std::move(op);
+}
+
+bool RoadNetwork::clearExpiredTempOps(GameTime now)
+{
+	bool changed = false;
+	for (auto& edge : m_edges)
+	{
+		if (edge.id < 0) continue;
+		const int before = static_cast<int>(edge.tempOps.size());
+		edge.tempOps.remove_if([now](const TempOp& op) { return op.end < now; });
+		if (static_cast<int>(edge.tempOps.size()) != before)
+			changed = true;
+	}
+	return changed;
+}
+
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
 	float laneWidth = 3.5f;

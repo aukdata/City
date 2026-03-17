@@ -88,7 +88,27 @@ Array<const Chunk*> World::getActiveChunks() const
 
 void World::generateChunk(Chunk& chunk)
 {
-	// Phase 1: フラット地形（heightMap は Chunk コンストラクタで 0.0f 初期化済み）
+	// Phase 4-1: Perlin ノイズ（多重オクターブ）による地形生成
+	// PerlinNoise は BasicPerlinNoise<double>。world 座標を直接渡すことでチャンク間でシームレスに繋がる。
+	static const PerlinNoise s_perlin{ 20260316ULL };
+
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
+	// ノイズ周波数スケール（値が小さいほど地形がなだらか）
+	constexpr double kFreq  = 0.00035;
+	// 最大高さ [m]（道路は y=0 なので小さめに設定）
+	constexpr float  kAmp   = 18.0f;
+
+	for (int row = 0; row <= HEIGHT_CELLS; ++row)
+	{
+		for (int col = 0; col <= HEIGHT_CELLS; ++col)
+		{
+			const double wx = (chunk.coord.x * CHUNK_SIZE + col * cellSize) * kFreq;
+			const double wz = (chunk.coord.y * CHUNK_SIZE + row * cellSize) * kFreq;
+			const float h = static_cast<float>(s_perlin.octave2D0_1(wx, wz, 6, 0.5)) * kAmp - kAmp * 0.15f;
+			chunk.heightMap[{ col, row }] = h;
+		}
+	}
+
 	chunk.state = ChunkState::Active;
 	chunk.isUrbanizationArea = true;
 }

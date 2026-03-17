@@ -2,6 +2,7 @@
 #include "Vehicle.hpp"
 #include "PathfindingGraph.hpp"
 #include "TrafficLight.hpp"
+#include "BusRoute.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../zone/ZoneTypes.hpp"
 
@@ -35,6 +36,21 @@ public:
 	/// @brief 指定ノードの信号機を取得する（なければ nullptr）
 	const TrafficLight* getTrafficLight(int nodeId) const;
 
+	/// @brief バス停を追加し、割り当てた id を返す
+	int addBusStop(BusStop stop);
+
+	/// @brief バス路線を追加し、割り当てた id を返す
+	int addBusRoute(BusRoute route);
+
+	/// @brief 路線にバス停を追加する
+	void addStopToRoute(int routeId, int stopId);
+
+	/// @brief バス停一覧を返す（読み取り専用）
+	const Array<BusStop>& busStops() const { return m_busStops; }
+
+	/// @brief バス路線一覧を返す（読み取り専用）
+	const Array<BusRoute>& busRoutes() const { return m_busRoutes; }
+
 private:
 	static constexpr int   kReroutePerFrame      = 10;     ///< 毎フレームの最大再探索台数
 	static constexpr float kPeriodicRerouteInterval = 60.0f; ///< 定期再探索間隔 [ゲーム秒]
@@ -53,6 +69,12 @@ private:
 
 	// 信号機（nodeId → TrafficLight）
 	HashTable<int, TrafficLight> m_trafficLights;
+
+	// バス路線・バス停
+	Array<BusStop>  m_busStops;
+	Array<BusRoute> m_busRoutes;
+	int             m_nextStopId  = 0;
+	int             m_nextRouteId = 0;
 
 	// 再探索キュー（vehicle id リスト）
 	Array<int> m_rerouteQueue;
@@ -99,4 +121,10 @@ private:
 
 	/// @brief 全信号機を更新する
 	void updateTrafficLights(GameTime gameNow);
+
+	/// @brief バス路線に従いバスを生成・更新する
+	void updateBusRoutes(GameTime gameNow);
+
+	/// @brief バス停での停車処理を行う（Bus 車種専用）
+	void updateBusStop(Vehicle& v, double dt, GameTime gameNow);
 };

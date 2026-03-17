@@ -51,6 +51,13 @@ public:
 	/// @brief ベジェ曲線を取得する（エッジ id が有効なら）
 	Optional<CubicBezier> getBezier(int edgeId) const;
 
+	/// @brief エッジに TempOp を追加する（自動的に変更フラグを立てる）
+	void addTempOp(int edgeId, TempOp op);
+
+	/// @brief 期限切れの TempOp を全エッジから削除する
+	/// @return 変化があった場合 true
+	bool clearExpiredTempOps(GameTime now);
+
 private:
 	Array<RoadEdge> m_edges;
 	Array<RoadNode> m_nodes;

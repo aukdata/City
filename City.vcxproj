@@ -135,6 +135,10 @@
     <ClCompile Include="src\debug\DebugRenderer.cpp" />
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
+    <ClCompile Include="src\event\EventSystem.cpp" />
+    <ClCompile Include="src\railway\TrainNetwork.cpp" />
+    <ClCompile Include="src\railway\TrainManager.cpp" />
+    <ClCompile Include="src\render\TrainRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
@@ -350,6 +354,7 @@
     <ClInclude Include="src\traffic\Vehicle.hpp" />
     <ClInclude Include="src\traffic\PathfindingGraph.hpp" />
     <ClInclude Include="src\traffic\TrafficLight.hpp" />
+    <ClInclude Include="src\traffic\BusRoute.hpp" />
     <ClInclude Include="src\traffic\TrafficManager.hpp" />
     <ClInclude Include="src\ui\Camera.hpp" />
     <ClInclude Include="src\render\WorldRenderer.hpp" />
@@ -363,6 +368,12 @@
     <ClInclude Include="src\zone\Building.hpp" />
     <ClInclude Include="src\zone\ZoneManager.hpp" />
     <ClInclude Include="src\economy\Economy.hpp" />
+    <ClInclude Include="src\event\EventSystem.hpp" />
+    <ClInclude Include="src\railway\TrackTypes.hpp" />
+    <ClInclude Include="src\railway\TrainNetwork.hpp" />
+    <ClInclude Include="src\railway\Train.hpp" />
+    <ClInclude Include="src\railway\TrainManager.hpp" />
+    <ClInclude Include="src\render\TrainRenderer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">

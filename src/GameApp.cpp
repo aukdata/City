@@ -22,6 +22,7 @@ void GameApp::run()
 GameApp::GameApp()
 {
 	m_traffic.init(&m_network, &m_world, &m_zoneManager);
+	m_trainManager.init(&m_trainNetwork);
 
 	// 初期ネットワーク: 4チャンク（2048×2048）をまたぐ十字幹線 + 市街地格子 + 西側バイパス + 曲線住宅路
 	// チャンク境界: x=1024（東西）, z=1024（南北）
@@ -147,6 +148,49 @@ GameApp::GameApp()
 		      RoadType::LocalRoad, 2);
 	}
 
+	// ---- 初期鉄道ネットワーク（南北幹線に沿った路線） ----
+	{
+		// 駅を配置する（道路ネットワーク中心付近）
+		const auto S = [&](float x, float z, const String& name) -> int
+		{
+			return m_trainNetwork.addStation(Vec3{ x, 0.f, z }, name);
+		};
+		const int sN   = S(1080,  150, U"北端駅");
+		const int sN1  = S(1080,  480, U"北市駅");
+		const int sC   = S(1080, 1060, U"中央駅");
+		const int sS1  = S(1080, 1620, U"南市駅");
+		const int sSt  = S(1080, 1960, U"南端駅");
+
+		// 線路エッジ（1/3・2/3 の制御点で直線的に連結）
+		const auto TE = [&](int a, int b)
+		{
+			const Vec3 pa = m_trainNetwork.getNode(a)->position;
+			const Vec3 pb = m_trainNetwork.getNode(b)->position;
+			m_trainNetwork.addEdge(a, b,
+				pa + (pb - pa) * (1.0 / 3),
+				pa + (pb - pa) * (2.0 / 3),
+				120.0f);
+		};
+		TE(sN,  sN1);
+		TE(sN1, sC);
+		TE(sC,  sS1);
+		TE(sS1, sSt);
+
+		// ダイヤを設定する（南北を往復）
+		TrainSchedule sched;
+		sched.id = 0;
+		sched.headwaySec = 300.0f;  // 5分間隔
+		sched.loop = true;
+		for (int nodeId : { sN, sN1, sC, sS1, sSt })
+		{
+			StopEntry stop;
+			stop.stationNodeId = nodeId;
+			stop.dwellSec = 20.0f;
+			sched.stops << stop;
+		}
+		m_trainNetwork.addSchedule(sched);
+	}
+
 	// カメラをネットワーク中心（4チャンク交点付近）に移動する
 	m_camera.setFocus(Vec3{ 1040, 0, 1040 });
 
@@ -170,9 +214,26 @@ void GameApp::update(double dt)
 	m_world.update(m_camera.focusPoint());
 	m_camera.update(dt);
 	m_traffic.update(dt, m_clock.now);
+	m_trainManager.update(dt, m_clock.now);
+
+	// 追従・一人称カメラ: 対象車両の位置・方向を設定する
+	if (m_camera.mode() != CameraMode::Overview)
+	{
+		const auto& vehicles = m_traffic.vehicles();
+		if (!vehicles.isEmpty())
+		{
+			m_followVehicleIdx = m_followVehicleIdx % static_cast<int>(vehicles.size());
+			const Vehicle& v = vehicles[m_followVehicleIdx];
+			m_camera.setFollowTarget(v.position, v.heading);
+		}
+	}
+
 	handleInput();
 	updateCursor();
 	m_debugRenderer.handleInput();
+
+	// イベントシステムを更新する
+	m_eventSystem.update(m_clock.now, m_clock.month, dt);
 
 	// 月が変わったら月次更新を実行する
 	if (m_clock.year != m_lastEconYear || m_clock.month != m_lastEconMonth)
@@ -180,6 +241,15 @@ void GameApp::update(double dt)
 		m_lastEconYear  = m_clock.year;
 		m_lastEconMonth = m_clock.month;
 		m_zoneManager.monthlyUpdate(m_world, m_network, m_clock.now, m_economy);
+		m_eventSystem.rollMonthly(m_clock.now, m_clock.month, m_network);
+	}
+
+	// 新しいイベント通知を取得する
+	for (const auto& n : m_eventSystem.popNewNotifications())
+	{
+		m_notifications << n;
+		if (static_cast<int>(m_notifications.size()) > 5)
+			m_notifications.erase(m_notifications.begin());
 	}
 }
 
@@ -231,6 +301,28 @@ void GameApp::render()
 
 	m_vehicleRenderer.render(m_traffic.vehicles());
 
+	// 線路・列車の描画
+	m_trainRenderer.renderTracks(m_trainNetwork);
+	m_trainRenderer.renderTrains(m_trainManager.trains());
+
+	// 線路描画モードのカーソルプレビュー
+	if (m_mode == EditMode::TrainDraw && m_cursorGroundPos)
+	{
+		Sphere{ *m_cursorGroundPos, 6.0f }.draw(ColorF{ 0.9, 0.85, 0.2, 0.8 });
+	}
+
+	// バス停の描画
+	for (const auto& stop : m_traffic.busStops())
+	{
+		Cylinder{ stop.position, stop.position + Vec3{0,4,0}, 2.0 }.draw(ColorF{0.2, 0.5, 0.9});
+	}
+
+	// バス路線描画モードのカーソルプレビュー
+	if (m_mode == EditMode::BusRouteDraw && m_cursorGroundPos)
+	{
+		Sphere{ *m_cursorGroundPos, 4.0f }.draw(ColorF{ 0.2, 0.5, 0.9, 0.8 });
+	}
+
 	// カーソルプレビュー（道路描画モード）
 	if (m_mode == EditMode::RoadDraw && m_cursorGroundPos)
 	{
@@ -252,11 +344,35 @@ void GameApp::render()
 		Box{ cx, 0.5, cz, sx, 1.0, sz }.draw(ColorF{ zc.r, zc.g, zc.b, 0.3 });
 	}
 
+	// 地形編集ブラシのプレビュー（地形編集モード）
+	if (m_mode == EditMode::TerrainEdit && m_cursorGroundPos)
+	{
+		Cylinder{ *m_cursorGroundPos + Vec3{0, -1, 0},
+		          *m_cursorGroundPos + Vec3{0, 2, 0},
+		          static_cast<double>(m_terrainBrushRadius) }
+			.draw(ColorF{ 0.9, 0.6, 0.2, 0.25 });
+	}
+
 	// デバッグオーバーレイ
 	m_debugRenderer.render(m_network, m_traffic.vehicles(), m_world, m_camera);
 
 	// UI（2D）
 	m_uiRenderer.render(m_clock, m_traffic.vehicleCount(), modeString(), m_economy);
+
+	// イベント通知（画面右上）
+	{
+		static const Font notifFont{ 13 };
+		double y = 80.0;
+		for (const auto& ev : m_eventSystem.activeEvents())
+		{
+			const RectF bg{ Scene::Width() - 360.0, y, 350.0, 42.0 };
+			bg.draw(ColorF{ 0.05, 0.05, 0.25, 0.8 });
+			bg.drawFrame(1.0, ColorF{ 0.4, 0.4, 0.8, 0.6 });
+			notifFont(U"[!] " + ev.title).draw(Vec2{ Scene::Width() - 350.0, y + 4 }, ColorF{ 1.0, 0.9, 0.3 });
+			notifFont(ev.description).draw(Vec2{ Scene::Width() - 350.0, y + 22 }, ColorF{ 0.85, 0.85, 0.85 });
+			y += 48.0;
+		}
+	}
 }
 
 void GameApp::handleInput()
@@ -307,6 +423,55 @@ void GameApp::handleInput()
 		m_traffic.spawnVehicle();
 	}
 
+	// F: カメラモード切り替え（俯瞰 / 追従 / 一人称）
+	if (KeyF.down())
+	{
+		m_camera.cycleMode();
+	}
+
+	// G: 地形編集モード
+	if (KeyG.down())
+	{
+		m_mode = (m_mode == EditMode::TerrainEdit) ? EditMode::None : EditMode::TerrainEdit;
+		m_drawStartNode = none;
+		m_rectStart = none;
+	}
+
+	// 地形編集モードのブラシサイズ変更（Ctrl + ホイール）
+	if (m_mode == EditMode::TerrainEdit && KeyControl.pressed())
+	{
+		const double wheel = Mouse::Wheel();
+		m_terrainBrushRadius = Clamp(
+			m_terrainBrushRadius + static_cast<float>(wheel * -20.0),
+			20.0f, 400.0f);
+	}
+
+	// X: 線路描画モード
+	if (KeyX.down())
+	{
+		m_mode = (m_mode == EditMode::TrainDraw) ? EditMode::None : EditMode::TrainDraw;
+		m_trainDrawStartNode = none;
+	}
+
+	// B: バス路線描画モード
+	if (KeyB.down())
+	{
+		if (m_mode == EditMode::BusRouteDraw)
+		{
+			// 路線確定（2バス停以上あれば登録）
+			m_mode = EditMode::None;
+			m_editingRouteId = -1;
+		}
+		else
+		{
+			m_mode = EditMode::BusRouteDraw;
+			// 新しい路線を開始する
+			BusRoute newRoute;
+			newRoute.headwaySec = 120.0f;
+			m_editingRouteId = m_traffic.addBusRoute(newRoute);
+		}
+	}
+
 	// 道路描画モード中の左クリック
 	if (m_mode == EditMode::RoadDraw)
 	{
@@ -315,6 +480,18 @@ void GameApp::handleInput()
 	else if (m_mode == EditMode::ZonePaint)
 	{
 		handleZonePaint();
+	}
+	else if (m_mode == EditMode::BusRouteDraw)
+	{
+		handleBusRouteDraw();
+	}
+	else if (m_mode == EditMode::TerrainEdit)
+	{
+		handleTerrainEdit();
+	}
+	else if (m_mode == EditMode::TrainDraw)
+	{
+		handleTrainDraw();
 	}
 }
 
@@ -382,6 +559,139 @@ void GameApp::handleZonePaint()
 	}
 }
 
+void GameApp::handleBusRouteDraw()
+{
+	if (!m_cursorGroundPos) return;
+	if (m_editingRouteId < 0) return;
+
+	if (MouseL.down())
+	{
+		// バス停を追加する
+		BusStop stop;
+		stop.position = *m_cursorGroundPos;
+
+		// 近傍エッジを探す
+		float bestDist = 30.0f;
+		for (const auto& edge : m_network.edges())
+		{
+			if (edge.id < 0) continue;
+			if (const auto bez = m_network.getBezier(edge.id))
+			{
+				// ベジェの中点との距離で簡易判定
+				const Vec3 mid = bez->positionAt(bez->totalLength * 0.5f);
+				const float d = static_cast<float>(stop.position.distanceFrom(mid));
+				if (d < bestDist)
+				{
+					bestDist = d;
+					stop.edgeId = edge.id;
+					stop.arcPos = edge.length * 0.5f;  // 簡易: エッジ中点
+				}
+			}
+		}
+
+		const int stopId = m_traffic.addBusStop(stop);
+		m_traffic.addStopToRoute(m_editingRouteId, stopId);
+	}
+}
+
+void GameApp::handleTerrainEdit()
+{
+	if (!m_cursorGroundPos) return;
+
+	const float raise = MouseL.pressed() ? m_terrainBrushStrength : 0.0f;
+	const float lower = MouseR.pressed() ? m_terrainBrushStrength : 0.0f;
+	const float delta = raise - lower;
+	if (delta == 0.0f) return;
+
+	const Vec3 center = *m_cursorGroundPos;
+
+	// アクティブチャンクのハイトマップを編集する
+	for (Chunk* chunk : m_world.getActiveChunks())
+	{
+		if (!chunk) continue;
+
+		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
+		const Vec3 origin = chunk->worldOrigin();
+
+		bool modified = false;
+		for (int row = 0; row <= HEIGHT_CELLS; ++row)
+		{
+			for (int col = 0; col <= HEIGHT_CELLS; ++col)
+			{
+				const Vec3 vpos = origin + Vec3{ col * cellSize, 0.0, row * cellSize };
+				const double dist = Vec2{ vpos.x, vpos.z }.distanceFrom(Vec2{ center.x, center.z });
+				if (dist > m_terrainBrushRadius) continue;
+
+				// ブラシの影響は中心ほど強い（コサイン減衰）
+				const float t = static_cast<float>(dist / m_terrainBrushRadius);
+				const float weight = static_cast<float>(Math::Cos(t * Math::Pi / 2.0));
+				chunk->heightMap[{ col, row }] += delta * weight;
+				modified = true;
+			}
+		}
+
+		if (modified)
+		{
+			chunk->dirty = true;
+			m_worldRenderer.markDirty(chunk->coord);
+		}
+	}
+}
+
+void GameApp::handleTrainDraw()
+{
+	if (!m_cursorGroundPos) return;
+
+	if (MouseL.down())
+	{
+		// 近傍ノードを探す（20m 以内）
+		Optional<int> nearNode;
+		float bestDist = 20.0f;
+		for (const auto& node : m_trainNetwork.nodes())
+		{
+			const float d = static_cast<float>(node.position.distanceFrom(*m_cursorGroundPos));
+			if (d < bestDist)
+			{
+				bestDist = d;
+				nearNode = node.id;
+			}
+		}
+
+		// ノードがなければ駅を新設する
+		int nodeId;
+		if (!nearNode)
+		{
+			nodeId = m_trainNetwork.addStation(*m_cursorGroundPos, U"駅");
+		}
+		else
+		{
+			nodeId = *nearNode;
+		}
+
+		if (!m_trainDrawStartNode)
+		{
+			m_trainDrawStartNode = nodeId;
+		}
+		else
+		{
+			const int from = *m_trainDrawStartNode;
+			if (from != nodeId)
+			{
+				const Vec3 pa = m_trainNetwork.getNode(from)->position;
+				const Vec3 pb = m_trainNetwork.getNode(nodeId)->position;
+				m_trainNetwork.addEdge(from, nodeId,
+					pa + (pb - pa) * (1.0 / 3),
+					pa + (pb - pa) * (2.0 / 3));
+			}
+			m_trainDrawStartNode = nodeId;
+		}
+	}
+
+	// 右クリックで描画を中断する
+	if (MouseR.down())
+		m_trainDrawStartNode = none;
+}
+
 void GameApp::updateCursor()
 {
 	m_cursorGroundPos = m_camera.screenToGround(Vec2(Cursor::Pos()));
@@ -395,6 +705,12 @@ String GameApp::modeString() const
 		return U"道路描画モード（左クリックで配置）";
 	case EditMode::ZonePaint:
 		return U"ゾーン塗り [{}] 左:ブラシ Shift+左ドラッグ:矩形  0〜6:種別変更"_fmt(zoneName(m_paintZone));
+	case EditMode::BusRouteDraw:
+		return U"バス路線描画モード（左クリックでバス停配置・Bキーで確定）";
+	case EditMode::TerrainEdit:
+		return U"地形編集モード（左:盛土 右:掘削 Ctrl+ホイール:ブラシサイズ）";
+	case EditMode::TrainDraw:
+		return U"線路描画モード（左クリックで駅配置・連結 右クリックで中断）";
 	default:
 		return U"";
 	}

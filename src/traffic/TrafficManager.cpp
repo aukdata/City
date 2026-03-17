@@ -19,6 +19,10 @@ void TrafficManager::update(double dt, GameTime gameNow)
 {
 	m_lastGameNow = gameNow;
 
+	// 期限切れ TempOp を削除し、変化があればグラフを再構築する
+	if (m_network->clearExpiredTempOps(gameNow))
+		m_graphDirty = true;
+
 	// グラフが更新された場合は再構築する（信号機を先にビルドしてからグラフに反映する）
 	if (m_graphDirty)
 	{
@@ -29,6 +33,9 @@ void TrafficManager::update(double dt, GameTime gameNow)
 
 	// 信号機を更新する
 	updateTrafficLights(gameNow);
+
+	// バス路線を更新する（時刻表に従いバスを生成する）
+	updateBusRoutes(gameNow);
 
 	// 再探索キューを処理する
 	processRerouteQueue(gameNow);
@@ -140,9 +147,28 @@ void TrafficManager::updateVehicle(Vehicle& v, double dt, GameTime gameNow)
 	if (v.currentEdge == -1) return;
 	if (!m_network->getEdge(v.currentEdge)) { v.currentEdge = -1; return; }
 
+	// バス停待機中は待機タイマーを消化して復帰する
+	if (v.state == VehicleState::WaitingBusStop)
+	{
+		v.busWaitRemaining -= static_cast<float>(dt);
+		if (v.busWaitRemaining <= 0.0f)
+		{
+			v.busWaitRemaining = 0.0f;
+			v.state = VehicleState::Moving;
+			// 次のバス停インデックスを進める
+			++v.busNextStopIdx;
+		}
+		return;
+	}
+
 	// 車線変更の試行（確率的に実行してフレームごとの処理負荷を分散する）
 	if (RandomBool(0.01))
 		tryLaneChange(v);
+
+	// バス路線の停車チェック（移動前に実施）
+	if (v.type == VehicleType::Bus && v.busRouteId >= 0)
+		updateBusStop(v, dt, gameNow);
+	if (v.state == VehicleState::WaitingBusStop) return;
 
 	advanceOnEdge(v, dt, gameNow);
 
@@ -510,6 +536,108 @@ void TrafficManager::tryLaneChange(Vehicle& v)
 	{
 		if (isSafe(v.currentLane + 1))
 			v.currentLane++;
+	}
+}
+
+// ===== バス路線 =====
+
+int TrafficManager::addBusStop(BusStop stop)
+{
+	stop.id = m_nextStopId++;
+	m_busStops << std::move(stop);
+	return m_busStops.back().id;
+}
+
+int TrafficManager::addBusRoute(BusRoute route)
+{
+	route.id = m_nextRouteId++;
+	m_busRoutes << std::move(route);
+	return m_busRoutes.back().id;
+}
+
+void TrafficManager::addStopToRoute(int routeId, int stopId)
+{
+	for (auto& route : m_busRoutes)
+	{
+		if (route.id == routeId)
+		{
+			route.stopIds << stopId;
+			return;
+		}
+	}
+}
+
+void TrafficManager::updateBusRoutes(GameTime gameNow)
+{
+	for (auto& route : m_busRoutes)
+	{
+		if (route.stopIds.size() < 2) continue;
+		if (gameNow - route.lastSpawnAt < route.headwaySec) continue;
+
+		// バスを先頭バス停に生成する
+		const int firstStopId = route.stopIds[0];
+		const BusStop* stop = nullptr;
+		for (const auto& s : m_busStops)
+		{
+			if (s.id == firstStopId) { stop = &s; break; }
+		}
+		if (!stop) continue;
+
+		// 近傍エッジを探してバスを生成する
+		if (stop->edgeId >= 0)
+		{
+			Vehicle bus;
+			bus.type         = VehicleType::Bus;
+			bus.currentEdge  = stop->edgeId;
+			bus.arcPos       = stop->arcPos;
+			bus.speed        = 0.0f;
+			bus.busRouteId   = route.id;
+			bus.busNextStopIdx = 1;  // 次は index=1 のバス停へ
+			addVehicle(std::move(bus));
+		}
+		route.lastSpawnAt = gameNow;
+	}
+}
+
+void TrafficManager::updateBusStop(Vehicle& v, double dt, GameTime gameNow)
+{
+	if (v.busRouteId < 0) return;
+
+	// 対象路線を探す
+	BusRoute* route = nullptr;
+	for (auto& r : m_busRoutes)
+	{
+		if (r.id == v.busRouteId) { route = &r; break; }
+	}
+	if (!route || route->stopIds.isEmpty()) return;
+
+	// 次のバス停インデックスが終端を超えたら目的地到達と見なして消す
+	if (v.busNextStopIdx >= static_cast<int>(route->stopIds.size()))
+	{
+		v.currentEdge = -1;  // 削除マーク
+		return;
+	}
+
+	const int nextStopId = route->stopIds[v.busNextStopIdx];
+	const BusStop* nextStop = nullptr;
+	for (const auto& s : m_busStops)
+	{
+		if (s.id == nextStopId) { nextStop = &s; break; }
+	}
+	if (!nextStop) return;
+
+	// 同じエッジ上で停車位置が近ければ停車する
+	if (v.currentEdge == nextStop->edgeId)
+	{
+		const float dist = Abs(v.arcPos - nextStop->arcPos);
+		if (dist < 8.0f && v.speed < 2.0f)
+		{
+			// バス停に到着 → 待機開始
+			v.state            = VehicleState::WaitingBusStop;
+			v.speed            = 0.0f;
+			v.busWaitRemaining = 5.0f;  // 5 ゲーム秒停車
+			v.arcPos           = nextStop->arcPos;
+		}
 	}
 }
 

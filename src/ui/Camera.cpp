@@ -8,8 +8,28 @@ GameCamera::GameCamera()
 
 void GameCamera::update(double dt)
 {
-	handleInput(dt);
-	rebuild();
+	if (m_mode == CameraMode::Overview)
+	{
+		handleInput(dt);
+		rebuild();
+	}
+	else if (m_mode == CameraMode::Follow)
+	{
+		// ホイールズームで追従距離調整は不要。yaw 調整のみ許容
+		if (MouseM.pressed())
+		{
+			const Vec2 delta = Cursor::DeltaF();
+			m_followHeading -= static_cast<float>(delta.x) * ROTATE_SPEED * 4.0f;
+		}
+		rebuildFollow();
+		// Overview に戻ったとき focus を現在の追従位置にリセット
+		m_focus = m_followPos;
+	}
+	else // FirstPerson
+	{
+		rebuildFirstPerson();
+		m_focus = m_followPos;
+	}
 }
 
 void GameCamera::handleInput(double dt)
@@ -81,4 +101,36 @@ Optional<Vec3> GameCamera::screenToGround(Vec2 screenPos) const
 		return Vec3{ *hit };
 
 	return none;
+}
+
+void GameCamera::setFollowTarget(Vec3 pos, float heading)
+{
+	m_followPos     = pos;
+	m_followHeading = heading;
+}
+
+void GameCamera::rebuildFollow()
+{
+	// 車両の後方 25m・高さ 10m からターゲットを見る
+	const Vec3 back = Vec3{
+		-Math::Sin(m_followHeading),
+		0.0,
+		-Math::Cos(m_followHeading)
+	};
+	const Vec3 eye    = m_followPos + back * 25.0 + Vec3{ 0, 10, 0 };
+	const Vec3 target = m_followPos + Vec3{ 0, 2, 0 };
+	m_camera = BasicCamera3D{ Scene::Size(), 60_deg, eye, target };
+}
+
+void GameCamera::rebuildFirstPerson()
+{
+	// 運転席視点（車両位置から 1.3m 上）
+	const Vec3 eye = m_followPos + Vec3{ 0, 1.3, 0 };
+	const Vec3 fwd = Vec3{
+		Math::Sin(m_followHeading),
+		0.0,
+		Math::Cos(m_followHeading)
+	};
+	const Vec3 target = eye + fwd * 10.0;
+	m_camera = BasicCamera3D{ Scene::Size(), 80_deg, eye, target };
 }
