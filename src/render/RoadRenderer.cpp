@@ -1,7 +1,19 @@
 ﻿#include "RoadRenderer.hpp"
 
-void RoadRenderer::render(const RoadNetwork& network, GameTime now)
+void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World& world)
 {
+	Profiler::EnableAssetCreationWarning(false);
+
+	// 地形が変更されていたら道路メッシュキャッシュを破棄して再構築する
+	for (const Chunk* chunk : world.getActiveChunks())
+	{
+		if (chunk && chunk->dirty)
+		{
+			m_meshCache.clear();
+			break;
+		}
+	}
+
 	for (const RoadEdge& edge : network.edges())
 	{
 		if (edge.id == -1)
@@ -11,16 +23,16 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now)
 		if (!bez)
 			continue;
 
-		drawEdge(edge, *bez, now);
+		drawEdge(edge, *bez, now, world);
 	}
 }
 
-void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier, GameTime now)
+void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier, GameTime now, const World& world)
 {
 	// キャッシュになければ生成して登録する
 	if (!m_meshCache.contains(edge.id))
 	{
-		const MeshData meshData = buildRoadMesh(edge, bezier);
+		const MeshData meshData = buildRoadMesh(edge, bezier, world);
 		if (meshData.vertices.isEmpty())
 			return;
 		m_meshCache.emplace(edge.id, Mesh{ meshData });
@@ -35,7 +47,7 @@ void RoadRenderer::markDirty(int edgeId)
 	m_meshCache.erase(edgeId);
 }
 
-MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier) const
+MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier, const World& world) const
 {
 	if (bezier.totalLength <= 0.0f)
 		return MeshData{};
@@ -49,7 +61,10 @@ MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& be
 	for (int i = 0; i <= N; ++i)
 	{
 		const float s = (i / static_cast<float>(N)) * bezier.totalLength;
-		const Vec3 center = bezier.positionAt(s) + Vec3{ 0.0, 0.05, 0.0 };
+		const Vec3 p = bezier.positionAt(s);
+		const float terrainY = world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z));
+		// カメラ距離 600m 時のデプス精度不足による Z-fighting を防ぐため 2m 浮かせる
+		const Vec3 center{ p.x, terrainY + 2.0, p.z };
 		const Vec3 tan    = bezier.tangentAt(s);
 
 		// 水平方向の右ベクトル（tan の xz 平面での直角）
@@ -114,12 +129,12 @@ ColorF RoadRenderer::roadSurfaceColor(RoadType rt)
 	switch (rt)
 	{
 	case RoadType::LocalRoad:
-		return ColorF{ 0.35, 0.35, 0.35 };
+		return ColorF{ 0.35, 0.35, 0.35 }.removeSRGBCurve();
 	case RoadType::Arterial:
-		return ColorF{ 0.30, 0.30, 0.30 };
+		return ColorF{ 0.30, 0.30, 0.30 }.removeSRGBCurve();
 	case RoadType::Expressway:
 	case RoadType::Highway:
-		return ColorF{ 0.25, 0.25, 0.25 };
+		return ColorF{ 0.25, 0.25, 0.25 }.removeSRGBCurve();
 	}
-	return ColorF{ 0.35, 0.35, 0.35 };
+	return ColorF{ 0.35, 0.35, 0.35 }.removeSRGBCurve();
 }

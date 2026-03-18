@@ -105,18 +105,17 @@ Vec3::Zero()  // {0, 0, 0}  double ベース
 
 ## 三角形ワインディング順序
 
-Siv3D の 3D メッシュは **反時計回り (CCW) = 表面** (上方 +Y から見て CCW が見える面)。
+Siv3D (DirectX) の 3D メッシュは **時計回り (CW) = 表面** (上方 +Y から見て CW が表面)。
 
 ```cpp
 // 地面上の quad (XZ 平面): 表面が上向き
-// v0=(x0,z0), v1=(x1,z0), v2=(x0,z1), v3=(x1,z1) として
-TriangleIndex32{ v0, v1, v2 };  // CCW ✓
-TriangleIndex32{ v1, v3, v2 };  // CCW ✓
+// v0=(x0,z0), v1=(x0,z1), v2=(x1,z0), v3=(x1,z1) として
+TriangleIndex32{ v0, v1, v2 };  // CW ✓ (上から見て時計回り)
+TriangleIndex32{ v2, v1, v3 };  // CW ✓
 
 // 道路ポリゴン帯 (iL=左, iR=右, 0=現在, 1=次セグメント)
-TriangleIndex32{ iL0, iL1, iR0 };  // CCW ✓
-TriangleIndex32{ iR0, iL1, iR1 };  // CCW ✓
-// NG 例: { iL0, iR0, iL1 } は CW = 裏面 → カリングで不可視
+TriangleIndex32{ iL0, iL1, iR0 };  // ✓
+TriangleIndex32{ iR0, iL1, iR1 };  // ✓
 ```
 
 ## カメラ移動方向
@@ -170,6 +169,34 @@ m_sky.draw(exposure);                     // exposure: 夜0.15〜昼1.0 程度
 // lerp (Siv3D 組み込み)
 ColorF result = colorA.lerp(colorB, t);  // t: 0.0〜1.0
 // Clamp は個別成分への Clamp はないので Clamp(double) で係数側を制御する
+```
+
+---
+
+## 3D 深度バッファ（Zバッファ）
+
+Siv3D の 3D シーンで深度テストを正しく機能させるには、**`HasDepth::Yes` 付きの `MSRenderTexture` と `ScopedRenderTarget3D` が必須**。
+これなしではデフォルトのシーンに深度バッファがなく、`ScopedRenderStates3D{ DepthStencilState::DepthTestWrite }` を設定しても Zテストが機能しない。
+
+```cpp
+// GameApp メンバ
+MSRenderTexture m_renderTexture;
+
+// コンストラクタで初期化
+m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+
+// render() 内: 3D描画を ScopedRenderTarget3D スコープに入れる
+{
+    const ScopedRenderTarget3D target{ m_renderTexture.clear(backgroundColor) };
+    Graphics3D::SetCameraTransform(camera);
+    // ... 3D 描画 ...
+}
+// MSAA を解決してスクリーンへ転送
+Graphics3D::Flush();
+m_renderTexture.resolve();
+Shader::LinearToScreen(m_renderTexture);
+
+// UI（2D）はスコープ外で描く
 ```
 
 ---

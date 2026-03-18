@@ -86,6 +86,16 @@ Array<const Chunk*> World::getActiveChunks() const
 	return result;
 }
 
+float World::sampleHeight(float wx, float wz) const
+{
+	const int cx = static_cast<int>(Math::Floor(wx / CHUNK_SIZE));
+	const int cz = static_cast<int>(Math::Floor(wz / CHUNK_SIZE));
+	const Chunk* chunk = getChunk({ cx, cz });
+	if (!chunk)
+		return 0.0f;
+	return chunk->getHeight(wx, wz);
+}
+
 void World::generateChunk(Chunk& chunk)
 {
 	// Phase 4-1: Perlin ノイズ（多重オクターブ）による地形生成

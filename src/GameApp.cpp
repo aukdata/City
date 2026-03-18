@@ -22,6 +22,9 @@ void GameApp::run()
 
 GameApp::GameApp()
 {
+	// 深度バッファ付き MSAA レンダーテクスチャを作成する（Zバッファが機能するために必須）
+	m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+
 	m_traffic.init(&m_network, &m_world, &m_zoneManager);
 	m_trainManager.init(&m_trainNetwork);
 
@@ -151,10 +154,15 @@ GameApp::GameApp()
 
 	// ---- 初期鉄道ネットワーク（南北幹線に沿った路線） ----
 	{
-		// 駅を配置する（道路ネットワーク中心付近）
+		// 線路が通るチャンク (1,0) と (1,1) を事前生成して sampleHeight を有効にする
+		m_world.getOrCreateChunk({ 1, 0 });
+		m_world.getOrCreateChunk({ 1, 1 });
+
+		// 駅を配置する（地形高さを考慮したY座標）
 		const auto S = [&](float x, float z, const String& name) -> int
 		{
-			return m_trainNetwork.addStation(Vec3{ x, 0.f, z }, name);
+			return m_trainNetwork.addStation(
+				Vec3{ x, m_world.sampleHeight(x, z), z }, name);
 		};
 		const int sN   = S(1080,  150, U"北端駅");
 		const int sN1  = S(1080,  480, U"北市駅");
@@ -256,23 +264,26 @@ void GameApp::update(double dt)
 
 void GameApp::render()
 {
-	// カメラ変換を先に設定（Sky::draw がカメラ状態を参照するため）
-	Graphics3D::SetCameraTransform(m_camera.camera3D());
+	// ---- 太陽・空のパラメータ計算 ----
+	const float hour = m_clock.hour;
+	const float t    = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
+	const float sinT  = static_cast<float>(Math::Sin(t));
+	const float dayF  = Clamp(sinT, 0.0f, 1.0f);
+	const float dawnF = Clamp(1.0f - Abs(sinT) * 2.5f, 0.0f, 1.0f);
+	const double exposure = 0.15 + 0.85 * dayF + 0.30 * dawnF;
 
-	// ---- 太陽・空の設定 ----
+	// ---- 3D シーンを深度バッファ付きレンダーテクスチャに描画 ----
 	{
-		// ゲーム内時刻を角度に変換（6時=日の出, 18時=日没）
-		const float hour = m_clock.hour;  // 0.0〜24.0（小数部 = 分）
-		const float t    = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
+		const ScopedRenderTarget3D target{ m_renderTexture.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
+		// 深度テスト+書き込みをここで一括設定（Sky 等がステートを変えても以降で維持される）
+		const ScopedRenderStates3D depthState{ DepthStencilState::DepthTestWrite };
 
-		const float sinT  = static_cast<float>(Math::Sin(t));
-		const float dayF  = Clamp(sinT, 0.0f, 1.0f);
-		const float dawnF = Clamp(1.0f - Abs(sinT) * 2.5f, 0.0f, 1.0f);
+		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
-		// 太陽方向（朝は東から昇り、真昼は上方、夕は西に沈む）
+		// 太陽・環境光を設定する
 		const Vec3 sunDir = Vec3{ Math::Cos(t), sinT, 0.3 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.25 + 0.45 * dayF + 0.15 * dawnF });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * dayF + 0.10 * dawnF });
 
 		// 空の色をブレンドする（夜→薄明→昼）
 		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
@@ -285,83 +296,75 @@ void GameApp::render()
 		const ColorF nightHorizon{ 0.02, 0.03, 0.10 };
 		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, dawnF).lerp(dayHorizon, dayF);
 
-		// 星（日中は消える）
 		m_sky.starBrightness = Clamp(1.0 - dayF * 3.0 - dawnF * 2.0, 0.0, 1.0);
-
-		// 雲を時間とともに動かす
 		m_sky.cloudTime = Scene::Time() * 0.015;
+		m_sky.draw(exposure);
 
-		m_sky.draw(0.15 + 0.85 * dayF + 0.30 * dawnF);
+		// 地形・道路・建物・車両
+		m_worldRenderer.render(m_world);
+		m_roadRenderer.render(m_network, m_clock.now, m_world);
+		m_zoneManager.renderOverlay(m_world);
+		m_vehicleRenderer.render(m_traffic.vehicles());
+
+		// 線路・列車
+		m_trainRenderer.renderTracks(m_trainNetwork);
+		m_trainRenderer.renderTrains(m_trainManager.trains());
+
+		// 線路描画モードのカーソルプレビュー
+		if (m_mode == EditMode::TrainDraw && m_cursorGroundPos)
+		{
+			Sphere{ *m_cursorGroundPos, 6.0f }.draw(ColorF{ 0.9, 0.85, 0.2, 0.8 }.removeSRGBCurve());
+		}
+
+		// バス停
+		for (const auto& stop : m_traffic.busStops())
+		{
+			Cylinder{ stop.position, stop.position + Vec3{0,4,0}, 2.0 }.draw(ColorF{0.2, 0.5, 0.9}.removeSRGBCurve());
+		}
+
+		if (m_mode == EditMode::BusRouteDraw && m_cursorGroundPos)
+		{
+			Sphere{ *m_cursorGroundPos, 4.0f }.draw(ColorF{ 0.2, 0.5, 0.9, 0.8 }.removeSRGBCurve());
+		}
+
+		if (m_mode == EditMode::RoadDraw && m_cursorGroundPos)
+		{
+			Sphere{ *m_cursorGroundPos, 5.0f }.draw(ColorF{ 1, 1, 0, 0.8 }.removeSRGBCurve());
+		}
+
+		if (m_mode == EditMode::ZonePaint && m_rectStart && m_cursorGroundPos)
+		{
+			const double minX = Min(m_rectStart->x, m_cursorGroundPos->x);
+			const double maxX = Max(m_rectStart->x, m_cursorGroundPos->x);
+			const double minZ = Min(m_rectStart->z, m_cursorGroundPos->z);
+			const double maxZ = Max(m_rectStart->z, m_cursorGroundPos->z);
+			const double cx = (minX + maxX) * 0.5;
+			const double cz = (minZ + maxZ) * 0.5;
+			const double sx = Max(maxX - minX, 1.0);
+			const double sz = Max(maxZ - minZ, 1.0);
+			const ColorF zc = zoneColor(m_paintZone);
+			Box{ cx, 0.5, cz, sx, 1.0, sz }.draw(ColorF{ zc.r, zc.g, zc.b, 0.3 }.removeSRGBCurve());
+		}
+
+		if (m_mode == EditMode::TerrainEdit && m_cursorGroundPos)
+		{
+			Cylinder{ *m_cursorGroundPos + Vec3{0, -1, 0},
+			          *m_cursorGroundPos + Vec3{0, 2, 0},
+			          static_cast<double>(m_terrainBrushRadius) }
+				.draw(ColorF{ 0.9, 0.6, 0.2, 0.25 }.removeSRGBCurve());
+		}
+
+		m_debugRenderer.render(m_network, m_traffic.vehicles(), m_world, m_camera);
 	}
 
-	m_worldRenderer.render(m_world);
-	m_roadRenderer.render(m_network, m_clock.now);
+	// 3D コマンドをフラッシュして MSAA を解決し、スクリーンに転送する
+	Graphics3D::Flush();
+	m_renderTexture.resolve();
+	Shader::LinearToScreen(m_renderTexture);
 
-	// ゾーンオーバーレイ（道路より手前・車両より後ろで描く）
-	m_zoneManager.renderOverlay(m_world);
-
-	m_vehicleRenderer.render(m_traffic.vehicles());
-
-	// 線路・列車の描画
-	m_trainRenderer.renderTracks(m_trainNetwork);
-	m_trainRenderer.renderTrains(m_trainManager.trains());
-
-	// 線路描画モードのカーソルプレビュー
-	if (m_mode == EditMode::TrainDraw && m_cursorGroundPos)
-	{
-		Sphere{ *m_cursorGroundPos, 6.0f }.draw(ColorF{ 0.9, 0.85, 0.2, 0.8 });
-	}
-
-	// バス停の描画
-	for (const auto& stop : m_traffic.busStops())
-	{
-		Cylinder{ stop.position, stop.position + Vec3{0,4,0}, 2.0 }.draw(ColorF{0.2, 0.5, 0.9});
-	}
-
-	// バス路線描画モードのカーソルプレビュー
-	if (m_mode == EditMode::BusRouteDraw && m_cursorGroundPos)
-	{
-		Sphere{ *m_cursorGroundPos, 4.0f }.draw(ColorF{ 0.2, 0.5, 0.9, 0.8 });
-	}
-
-	// カーソルプレビュー（道路描画モード）
-	if (m_mode == EditMode::RoadDraw && m_cursorGroundPos)
-	{
-		Sphere{ *m_cursorGroundPos, 5.0f }.draw(ColorF{ 1, 1, 0, 0.8 });
-	}
-
-	// ゾーン塗りプレビュー（Shift ドラッグ中の矩形）
-	if (m_mode == EditMode::ZonePaint && m_rectStart && m_cursorGroundPos)
-	{
-		const double minX = Min(m_rectStart->x, m_cursorGroundPos->x);
-		const double maxX = Max(m_rectStart->x, m_cursorGroundPos->x);
-		const double minZ = Min(m_rectStart->z, m_cursorGroundPos->z);
-		const double maxZ = Max(m_rectStart->z, m_cursorGroundPos->z);
-		const double cx = (minX + maxX) * 0.5;
-		const double cz = (minZ + maxZ) * 0.5;
-		const double sx = Max(maxX - minX, 1.0);
-		const double sz = Max(maxZ - minZ, 1.0);
-		const ColorF zc = zoneColor(m_paintZone);
-		Box{ cx, 0.5, cz, sx, 1.0, sz }.draw(ColorF{ zc.r, zc.g, zc.b, 0.3 });
-	}
-
-	// 地形編集ブラシのプレビュー（地形編集モード）
-	if (m_mode == EditMode::TerrainEdit && m_cursorGroundPos)
-	{
-		Cylinder{ *m_cursorGroundPos + Vec3{0, -1, 0},
-		          *m_cursorGroundPos + Vec3{0, 2, 0},
-		          static_cast<double>(m_terrainBrushRadius) }
-			.draw(ColorF{ 0.9, 0.6, 0.2, 0.25 });
-	}
-
-	// デバッグオーバーレイ
-	m_debugRenderer.render(m_network, m_traffic.vehicles(), m_world, m_camera);
-
-
-	// UI（2D）
+	// ---- UI（2D）は レンダーテクスチャの外で描く ----
 	m_uiRenderer.render(m_clock, m_traffic.vehicleCount(), modeString(), m_economy);
 
-	// イベント通知（画面右上）
 	{
 		static const Font notifFont{ 13 };
 		double y = 80.0;

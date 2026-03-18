@@ -20,6 +20,9 @@ public:
 	Array<Chunk*>       getActiveChunks();
 	Array<const Chunk*> getActiveChunks() const;
 
+	/// @brief ワールド座標から地形高さをサンプリングする（チャンク未ロード時は 0 を返す）
+	float sampleHeight(float wx, float wz) const;
+
 private:
 	using Key = int64;
 

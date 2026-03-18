@@ -50,6 +50,9 @@ private:
 	// ---- イベント通知バッファ ----
 	Array<GameEvent> m_notifications;  ///< 直近の通知（最大5件）
 
+	// ---- レンダリングターゲット（深度バッファ付き MSAA テクスチャ）----
+	MSRenderTexture  m_renderTexture;
+
 	// ---- レンダラ ----
 	Sky              m_sky;
 	WorldRenderer    m_worldRenderer;

@@ -20,12 +20,12 @@ ColorF VehicleRenderer::vehicleColor(VehicleType type)
 {
 	switch (type)
 	{
-	case VehicleType::PassengerCar: return ColorF{ 0.8, 0.2, 0.2 };
-	case VehicleType::KeiCar:       return ColorF{ 0.2, 0.6, 0.8 };
-	case VehicleType::Bus:          return ColorF{ 0.9, 0.7, 0.1 };
-	case VehicleType::LargeTruck:   return ColorF{ 0.5, 0.4, 0.3 };
-	case VehicleType::Emergency:    return ColorF{ 1.0, 0.0, 0.0 };
-	default:                        return ColorF{ 0.6, 0.6, 0.6 };
+	case VehicleType::PassengerCar: return ColorF{ 0.8, 0.2, 0.2 }.removeSRGBCurve();
+	case VehicleType::KeiCar:       return ColorF{ 0.2, 0.6, 0.8 }.removeSRGBCurve();
+	case VehicleType::Bus:          return ColorF{ 0.9, 0.7, 0.1 }.removeSRGBCurve();
+	case VehicleType::LargeTruck:   return ColorF{ 0.5, 0.4, 0.3 }.removeSRGBCurve();
+	case VehicleType::Emergency:    return ColorF{ 1.0, 0.0, 0.0 }.removeSRGBCurve();
+	default:                        return ColorF{ 0.6, 0.6, 0.6 }.removeSRGBCurve();
 	}
 }
 
