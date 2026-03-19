@@ -107,6 +107,11 @@ Optional<Vec3> GameCamera::screenToGround(Vec2 screenPos) const
 	return none;
 }
 
+Ray GameCamera::screenToRay(Vec2 screenPos) const
+{
+	return m_camera.screenToRay(screenPos);
+}
+
 void GameCamera::setFollowTarget(Vec3 pos, float heading)
 {
 	m_followPos     = pos;

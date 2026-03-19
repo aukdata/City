@@ -551,7 +551,60 @@ void GameApp::handleTrainDraw()
 
 void GameApp::updateCursor()
 {
-	m_cursorGroundPos = m_camera.screenToGround(Vec2(Cursor::Pos()));
+	// レイと地形ハイトマップの交点をレイマーチングで求める
+	const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+	const Float3 orig = ray.origin;
+	const Float3 dir  = ray.direction;
+
+	// 下方向成分がなければ地形に当たらない
+	if (dir.y >= 0.0f)
+	{
+		m_cursorGroundPos = none;
+		return;
+	}
+
+	constexpr float kStep    = 8.0f;
+	constexpr float kMaxDist = 8000.0f;
+
+	float tPrev    = 0.0f;
+	bool  hitFound = false;
+
+	for (float t = kStep; t < kMaxDist; t += kStep)
+	{
+		const float px = orig.x + dir.x * t;
+		const float pz = orig.z + dir.z * t;
+		const float py = orig.y + dir.y * t;
+		const float th = m_world.sampleHeight(px, pz);
+
+		if (py <= th)
+		{
+			// tPrev〜t の間で二分探索
+			float tLo = tPrev, tHi = t;
+			for (int i = 0; i < 8; ++i)
+			{
+				const float tMid = (tLo + tHi) * 0.5f;
+				const float mx   = orig.x + dir.x * tMid;
+				const float mz   = orig.z + dir.z * tMid;
+				const float my   = orig.y + dir.y * tMid;
+				if (my <= m_world.sampleHeight(mx, mz))
+					tHi = tMid;
+				else
+					tLo = tMid;
+			}
+			const float tf = (tLo + tHi) * 0.5f;
+			const float fx = orig.x + dir.x * tf;
+			const float fz = orig.z + dir.z * tf;
+			m_cursorGroundPos = Vec3{ fx, static_cast<double>(m_world.sampleHeight(fx, fz)), fz };
+			hitFound = true;
+			break;
+		}
+
+		tPrev = t;
+	}
+
+	// 地形に当たらなかった場合は y=0 平面にフォールバック
+	if (!hitFound)
+		m_cursorGroundPos = m_camera.screenToGround(Vec2{ Cursor::Pos() });
 }
 
 String GameApp::modeString() const

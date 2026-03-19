@@ -50,6 +50,9 @@ public:
 	/// @return 地面と交差しない場合は none
 	Optional<Vec3> screenToGround(Vec2 screenPos) const;
 
+	/// @brief スクリーン座標からレイを返す
+	Ray screenToRay(Vec2 screenPos) const;
+
 	/// @brief カメラモードを次に切り替える（Overview → Follow → FirstPerson → Overview）
 	void cycleMode() { m_mode = static_cast<CameraMode>((static_cast<int>(m_mode) + 1) % 3); }
 
