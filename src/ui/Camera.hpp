@@ -70,8 +70,10 @@ private:
 	Vec3  m_followPos     = Vec3::Zero();
 	float m_followHeading = 0.0f;
 
-	// ホイールクリックドラッグ回転のカーソルアンカー（ドラッグ中は毎フレームここに戻す）
-	Point m_dragAnchor = Point{ 0, 0 };
+	// ホイールクリックドラッグ回転用
+	Point m_dragAnchor    = Point{ 0, 0 };  ///< ドラッグ開始時のカーソル位置（毎フレームここへ戻す）
+	Vec3  m_orbitPivot    = Vec3::Zero();   ///< 地形との交点（回転ピボット）
+	bool  m_hasOrbitPivot = false;          ///< ピボットが有効かどうか
 
 	static constexpr float MOVE_SPEED    = 300.0f;
 	static constexpr float ROTATE_SPEED  = 0.005f;

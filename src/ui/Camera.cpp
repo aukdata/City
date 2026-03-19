@@ -47,15 +47,15 @@ void GameCamera::handleInput(double dt, const World& world)
 
 	// ─── ホイールクリックドラッグ: 地形交点を中心に回転 ─────────────────────
 
-	// ドラッグ開始時: レイと地形の交点を求め、軌道ピボット（m_focus）として設定する
+	// ドラッグ開始時: レイと地形の交点を軌道ピボットとして保存する（m_focus は変えない）
 	if (MouseM.down())
 	{
-		m_dragAnchor = Cursor::Pos();
+		m_dragAnchor    = Cursor::Pos();
+		m_hasOrbitPivot = false;
 
-		const Vec3   old_eye = eyePosition();
-		const Ray    ray     = screenToRay(Vec2{ m_dragAnchor });
-		const Float3 orig    = ray.origin;
-		const Float3 dir     = ray.direction;
+		const Ray    ray  = screenToRay(Vec2{ m_dragAnchor });
+		const Float3 orig = ray.origin.xyz();
+		const Float3 dir  = ray.direction.xyz();
 
 		// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
 		if (dir.y < 0.0f)
@@ -72,17 +72,13 @@ void GameCamera::handleInput(double dt, const World& world)
 
 				if (py <= world.sampleHeight(px, pz))
 				{
-					// tPrev〜t の中点をピボットとして使用（精度より速度を優先）
 					const float tMid = (tPrev + t) * 0.5f;
 					const float hx   = orig.x + dir.x * tMid;
 					const float hz   = orig.z + dir.z * tMid;
 					const float hy   = world.sampleHeight(hx, hz);
-					const Vec3  pivot{ hx, hy, hz };
 
-					// focus を交点へ移動、距離を eye〜交点間に更新
-					m_focus    = pivot;
-					m_distance = static_cast<float>(old_eye.distanceFrom(pivot));
-					m_distance = Clamp(m_distance, MIN_DIST, MAX_DIST);
+					m_orbitPivot    = Vec3{ hx, hy, hz };
+					m_hasOrbitPivot = true;
 					break;
 				}
 				tPrev = t;
@@ -90,7 +86,7 @@ void GameCamera::handleInput(double dt, const World& world)
 		}
 	}
 
-	// ドラッグ中: yaw / pitch を更新し、カーソルをアンカーへ戻す（ウィンドウ外に出ない）
+	// ドラッグ中: yaw / pitch を更新し、ピボットが画面上でジャンプしないよう m_focus を補正する
 	if (MouseM.pressed())
 	{
 		const Vec2 delta = Cursor::DeltaF();
@@ -101,8 +97,37 @@ void GameCamera::handleInput(double dt, const World& world)
 			static_cast<float>(Math::ToRadians(MIN_PITCH_DEG)),
 			static_cast<float>(Math::ToRadians(MAX_PITCH_DEG)));
 
-		// カーソルをドラッグ開始位置に固定（ウィンドウ外に出さない＋無限回転を可能に）
+		// ピボット P を dragAnchor の画面位置に固定する補正
+		// ① 新しい yaw/pitch でカメラを仮ビルドする（ray 計算に必要）
+		// ② dragAnchor からのレイが P の高さ（y = P.y）と交わる点 Q を求める
+		// ③ P が Q の位置に見えるよう m_focus をパンで補正: m_focus += P - Q
+		if (m_hasOrbitPivot)
+		{
+			rebuild(&world);  // 仮ビルド（update() でもう一度ビルドされる）
+
+			const Ray    ray = screenToRay(Vec2{ m_dragAnchor });
+			const Float3 co  = ray.origin.xyz();
+			const Float3 cd  = ray.direction.xyz();
+
+			if (Math::Abs(cd.y) > 1e-6f)
+			{
+				const float t = (static_cast<float>(m_orbitPivot.y) - co.y) / cd.y;
+				if (t > 0.0f)
+				{
+					const Vec3 Q{
+						static_cast<double>(co.x + cd.x * t),
+						m_orbitPivot.y,
+						static_cast<double>(co.z + cd.z * t)
+					};
+					m_focus += m_orbitPivot - Q;
+				}
+			}
+		}
+
+		// カーソルをドラッグ開始位置に固定し、ウィンドウ外へ出るのを防ぐ
 		Cursor::SetPos(m_dragAnchor);
+		// ドラッグ中はカーソルを非表示にする
+		Cursor::RequestStyle(CursorStyle::Hidden);
 	}
 
 	// ─── ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）───
