@@ -327,9 +327,9 @@ void ZoneManager::renderOverlay(const World& world) const
 {
 	if (!showOverlay) return;
 
-	constexpr double cellSz = kCellSize;
-	constexpr double h      = 0.15;   // わずかに浮かせる高さ [m]
-	constexpr double height = 0.30;   // Box の高さ [m]
+	constexpr float cellSz = kCellSize;
+	constexpr float lift   = 0.20f;   // 地面から浮かせる高さ [m]
+	constexpr float height = 0.40f;   // Box の高さ [m]
 
 	for (const Chunk* chunk : world.getActiveChunks())
 	{
@@ -343,11 +343,13 @@ void ZoneManager::renderOverlay(const World& world) const
 				const ZoneType zone = chunk->zoneMap[{ cx, cy }];
 				if (zone == ZoneType::Unzoned) continue;
 
-				const ColorF col = zoneColor(zone);
-				const double wx = origin.x + (cx + 0.5) * cellSz;
-				const double wz = origin.z + (cy + 0.5) * cellSz;
+				const float wx = static_cast<float>(origin.x) + (cx + 0.5f) * cellSz;
+				const float wz = static_cast<float>(origin.z) + (cy + 0.5f) * cellSz;
+				const float wy = world.sampleHeight(wx, wz) + lift + height * 0.5f;
 
-				Box{ wx, h, wz, cellSz - 0.5, height, cellSz - 0.5 }.draw(col);
+				const ColorF col = zoneColor(zone).withAlpha(0.55);
+				Box{ wx, wy, wz, cellSz - 0.5f, height, cellSz - 0.5f }
+					.draw(col.removeSRGBCurve());
 			}
 		}
 	}

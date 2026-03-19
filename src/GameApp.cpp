@@ -249,6 +249,7 @@ void GameApp::handleInput()
 		m_mode = (m_mode == EditMode::ZonePaint) ? EditMode::None : EditMode::ZonePaint;
 		m_drawStartNode = none;
 		m_rectStart = none;
+		m_zoneManager.showOverlay = (m_mode == EditMode::ZonePaint);
 	}
 
 	// ゾーン種別選択（1〜6 キー）
