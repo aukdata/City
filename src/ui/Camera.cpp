@@ -6,12 +6,12 @@ GameCamera::GameCamera()
 	rebuild();
 }
 
-void GameCamera::update(double dt)
+void GameCamera::update(double dt, const World& world)
 {
 	if (m_mode == CameraMode::Overview)
 	{
-		handleInput(dt);
-		rebuild();
+		handleInput(dt, world);
+		rebuild(&world);
 	}
 	else if (m_mode == CameraMode::Follow)
 	{
@@ -32,31 +32,80 @@ void GameCamera::update(double dt)
 	}
 }
 
-void GameCamera::handleInput(double dt)
+void GameCamera::handleInput(double dt, const World& world)
 {
-	// WASD 移動（forward = カメラ視線の水平成分 = focus - eye の XZ 正規化）
-	const Vec3 forward = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
-	const Vec3 right   = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
-	const double speedScale = static_cast<double>(MOVE_SPEED) * dt * (m_distance / 300.0);
+	// ─── WASD 移動 ─────────────────────────────────────────────────────────────
+	const Vec3   forward    = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
+	const Vec3   right      = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
+	const double ctrlBoost  = KeyControl.pressed() ? 2.0 : 1.0;
+	const double speedScale = static_cast<double>(MOVE_SPEED) * dt * (m_distance / 300.0) * ctrlBoost;
 
 	if (KeyW.pressed()) m_focus += forward * speedScale;
 	if (KeyS.pressed()) m_focus -= forward * speedScale;
 	if (KeyA.pressed()) m_focus += right   * speedScale;
 	if (KeyD.pressed()) m_focus -= right   * speedScale;
 
-	// ホイールクリック（中ボタン）ドラッグ: 回転
+	// ─── ホイールクリックドラッグ: 地形交点を中心に回転 ─────────────────────
+
+	// ドラッグ開始時: レイと地形の交点を求め、軌道ピボット（m_focus）として設定する
+	if (MouseM.down())
+	{
+		m_dragAnchor = Cursor::Pos();
+
+		const Vec3   old_eye = eyePosition();
+		const Ray    ray     = screenToRay(Vec2{ m_dragAnchor });
+		const Float3 orig    = ray.origin;
+		const Float3 dir     = ray.direction;
+
+		// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
+		if (dir.y < 0.0f)
+		{
+			constexpr float kStep    = 10.0f;
+			constexpr float kMaxDist = 8000.0f;
+			float tPrev = 0.0f;
+
+			for (float t = kStep; t < kMaxDist; t += kStep)
+			{
+				const float px = orig.x + dir.x * t;
+				const float pz = orig.z + dir.z * t;
+				const float py = orig.y + dir.y * t;
+
+				if (py <= world.sampleHeight(px, pz))
+				{
+					// tPrev〜t の中点をピボットとして使用（精度より速度を優先）
+					const float tMid = (tPrev + t) * 0.5f;
+					const float hx   = orig.x + dir.x * tMid;
+					const float hz   = orig.z + dir.z * tMid;
+					const float hy   = world.sampleHeight(hx, hz);
+					const Vec3  pivot{ hx, hy, hz };
+
+					// focus を交点へ移動、距離を eye〜交点間に更新
+					m_focus    = pivot;
+					m_distance = static_cast<float>(old_eye.distanceFrom(pivot));
+					m_distance = Clamp(m_distance, MIN_DIST, MAX_DIST);
+					break;
+				}
+				tPrev = t;
+			}
+		}
+	}
+
+	// ドラッグ中: yaw / pitch を更新し、カーソルをアンカーへ戻す（ウィンドウ外に出ない）
 	if (MouseM.pressed())
 	{
 		const Vec2 delta = Cursor::DeltaF();
 		m_yaw   += static_cast<float>(delta.x) * ROTATE_SPEED;
 		m_pitch += static_cast<float>(delta.y) * ROTATE_SPEED;
-		m_pitch = Clamp(
+		m_pitch  = Clamp(
 			m_pitch,
 			static_cast<float>(Math::ToRadians(MIN_PITCH_DEG)),
 			static_cast<float>(Math::ToRadians(MAX_PITCH_DEG)));
+
+		// カーソルをドラッグ開始位置に固定（ウィンドウ外に出さない＋無限回転を可能に）
+		Cursor::SetPos(m_dragAnchor);
 	}
 
-	// ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）
+	// ─── ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）───
 	const double wheel = Mouse::Wheel();
 	if (wheel != 0.0 && !KeyControl.pressed())
 	{
@@ -67,7 +116,7 @@ void GameCamera::handleInput(double dt)
 				static_cast<double>(MAX_DIST)));
 	}
 
-	// Numpad0: 真上視点リセット
+	// ─── Numpad0: 真上視点リセット ───────────────────────────────────────────
 	if (KeyNum0.down())
 	{
 		m_pitch = static_cast<float>(Math::ToRadians(89.0));
@@ -75,13 +124,22 @@ void GameCamera::handleInput(double dt)
 	}
 }
 
-void GameCamera::rebuild()
+void GameCamera::rebuild(const World* world)
 {
-	const Vec3 eye = m_focus + Vec3{
+	Vec3 eye = m_focus + Vec3{
 		Math::Sin(m_yaw)  * Math::Cos(m_pitch),
 		Math::Sin(m_pitch),
 		Math::Cos(m_yaw)  * Math::Cos(m_pitch)
 	} * m_distance;
+
+	// 地形床クランプ: eye が地形面より低い場合は浮かせる
+	if (world)
+	{
+		const float terrainY = world->sampleHeight(
+			static_cast<float>(eye.x), static_cast<float>(eye.z));
+		if (eye.y < terrainY + MIN_HEIGHT_ABOVE_TERRAIN)
+			eye.y = terrainY + MIN_HEIGHT_ABOVE_TERRAIN;
+	}
 
 	m_camera = BasicCamera3D{ Scene::Size(), 40_deg, eye, m_focus };
 }
@@ -89,7 +147,7 @@ void GameCamera::rebuild()
 void GameCamera::setFocus(Vec3 focus)
 {
 	m_focus = focus;
-	rebuild();
+	rebuild();  // 初期化用：地形床クランプなし
 }
 
 Optional<Vec3> GameCamera::screenToGround(Vec2 screenPos) const

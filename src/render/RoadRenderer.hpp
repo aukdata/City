@@ -1,11 +1,16 @@
 ﻿#pragma once
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
+#include "../style/RoadStyleRegistry.hpp"
 
-/// @brief 道路メッシュの描画クラス
+/// @brief 道路メッシュ・車線区画線の描画クラス
 class RoadRenderer
 {
 public:
+	/// @brief スタイル定義 TOML をロードする（ゲーム起動時に一度呼ぶ）
+	/// @return ロード成功なら true
+	bool loadStyle(FilePathView tomlPath);
+
 	/// @brief 全エッジを描画する
 	void render(const RoadNetwork& network, GameTime now, const World& world);
 
@@ -13,17 +18,33 @@ public:
 	void markDirty(int edgeId);
 
 private:
-	/// @brief 単一エッジを描画する（ポリゴン帯 + 車線区画線）
-	void drawEdge(const RoadEdge& edge, const CubicBezier& bezier, GameTime now, const World& world);
+	// ---- キャッシュ構造 ----
 
-	/// @brief ベジェ曲線から道路ポリゴン帯の MeshData を生成する
-	MeshData buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier, const World& world) const;
+	/// @brief 車線区画線の描画バッチ（色ごとにまとめる）
+	struct LaneLineBatch
+	{
+		ColorF color;
+		Mesh   mesh;
+	};
 
-	/// @brief 車線区画線を描画する
-	void drawLaneLines(const RoadEdge& edge, const CubicBezier& bezier, GameTime now) const;
+	// ---- 描画サブルーチン ----
 
-	/// @brief 路面の ColorF を返す
-	static ColorF roadSurfaceColor(RoadType rt);
+	/// @brief 単一エッジを描画する（路面メッシュ + 車線区画線）
+	void drawEdge(const RoadEdge& edge, const CubicBezier& bezier, const World& world);
 
-	HashTable<int, Mesh> m_meshCache;  ///< エッジ ID → メッシュのキャッシュ
+	/// @brief ベジェ曲線から道路路面の MeshData を生成する
+	/// @note 路肩幅 (style.shoulderWidth) を両端に加えた幅でメッシュを生成する
+	MeshData buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier,
+	                       const RoadStyle& style, const World& world) const;
+
+	/// @brief 車線区画線・センターラインのメッシュバッチを生成する
+	/// @return 区画線バッチの配列（色ごとにまとめた Mesh）
+	Array<LaneLineBatch> buildLaneLineBatches(const RoadEdge& edge, const CubicBezier& bezier,
+	                                          const RoadStyle& style, const World& world) const;
+
+	// ---- メンバ ----
+
+	RoadStyleRegistry              m_styleRegistry;      ///< 道路種別 → スタイルのレジストリ
+	HashTable<int, Mesh>           m_meshCache;          ///< エッジ ID → 路面メッシュ
+	HashTable<int, Array<LaneLineBatch>> m_laneCache;    ///< エッジ ID → 車線区画線バッチ
 };

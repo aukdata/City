@@ -28,6 +28,9 @@ GameApp::GameApp()
 	m_traffic.init(&m_network, &m_world, &m_zoneManager);
 	m_trainManager.init(&m_trainNetwork);
 
+	// 道路スタイルをロードする
+	m_roadRenderer.loadStyle(U"assets/styles/road.toml");
+
 	// シード入力の初期値を設定する
 	m_seedTextState.text = U"20260316";
 }
@@ -64,7 +67,7 @@ void GameApp::update(double dt)
 
 	m_clock.advance(dt);
 	m_world.update(m_camera.focusPoint());
-	m_camera.update(dt);
+	m_camera.update(dt, m_world);
 	m_traffic.update(dt, m_clock.now);
 	m_trainManager.update(dt, m_clock.now);
 
