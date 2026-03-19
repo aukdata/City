@@ -131,9 +131,27 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
 			const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
-			const MeshData box = MeshData::Box(
+			MeshData box = MeshData::Box(
 				Float3{ cx, cy, cz },
 				Float3{ footprint, height, footprint });
+
+			// 最近傍道路の向きに合わせてY軸回転
+			if (b.angle != 0.0f)
+			{
+				const float cosA = Math::Cos(b.angle);
+				const float sinA = Math::Sin(b.angle);
+				for (auto& v : box.vertices)
+				{
+					const float dx = v.pos.x - cx;
+					const float dz = v.pos.z - cz;
+					v.pos.x = cx + dx * cosA - dz * sinA;
+					v.pos.z = cz + dx * sinA + dz * cosA;
+					const float nx = v.normal.x;
+					const float nz = v.normal.z;
+					v.normal.x = nx * cosA - nz * sinA;
+					v.normal.z = nx * sinA + nz * cosA;
+				}
+			}
 
 			auto& dst = groups[static_cast<int>(b.type)];
 			const uint32 offset = static_cast<uint32>(dst.vertices.size());

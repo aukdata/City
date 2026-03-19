@@ -38,4 +38,5 @@ struct Building
 	BuildingType type    = BuildingType::None;
 	uint8        stage   = 0;      ///< 成長段階 0〜3
 	double       builtAt = 0.0;    ///< 建設時刻 [ゲーム秒]
+	float        angle   = 0.0f;   ///< 道路方向角 [rad] (XZ平面・Y軸回軬)
 };

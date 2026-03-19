@@ -1,14 +1,76 @@
 ﻿
 #include "ZoneManager.hpp"
+#include <cmath>
 
 // ===== 定数 =====
 
 namespace
 {
 	constexpr float kCellSize       = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;  // 16.0f [m]
-	constexpr float kSpawnThreshold = 0.30f;  ///< 建物生成に必要な最低スコア
+	constexpr float kSpawnThreshold = 0.70f;  ///< 建物生成に必要な最低スコア
 	constexpr float kGrowThreshold  = 0.60f;  ///< 成長に必要なスコア
 	constexpr float kDecayThreshold = 0.10f;  ///< 衰退・撤去が起きるスコア上限
+	constexpr float kRoadClearance  = 10.0f;  ///< 道路と建物の最低クリアランス [m]
+
+	struct RoadInfo { float dist; float angle; };
+
+	RoadInfo nearestRoadInfo(float centX, float centZ, const RoadNetwork& network)
+	{
+		float minDistSq = 1e12f;
+		float bestAngle = 0.0f;
+
+		for (const auto& edge : network.edges())
+		{
+			if (edge.id < 0) continue;
+			const RoadNode* na = network.getNode(edge.nodeA);
+			const RoadNode* nb = network.getNode(edge.nodeB);
+			if (!na || !nb) continue;
+
+			const float p0x = static_cast<float>(na->position.x);
+			const float p0z = static_cast<float>(na->position.z);
+			const float p1x = static_cast<float>(edge.ctrlA.x);
+			const float p1z = static_cast<float>(edge.ctrlA.z);
+			const float p2x = static_cast<float>(edge.ctrlB.x);
+			const float p2z = static_cast<float>(edge.ctrlB.z);
+			const float p3x = static_cast<float>(nb->position.x);
+			const float p3z = static_cast<float>(nb->position.z);
+
+			constexpr int kSamples = 8;
+			for (int i = 0; i <= kSamples; ++i)
+			{
+				const float t  = static_cast<float>(i) / kSamples;
+				const float t1 = 1.0f - t;
+				const float c0 = t1*t1*t1;
+				const float c1 = 3.0f*t1*t1*t;
+				const float c2 = 3.0f*t1*t*t;
+				const float c3 = t*t*t;
+				const float px = c0*p0x + c1*p1x + c2*p2x + c3*p3x;
+				const float pz = c0*p0z + c1*p1z + c2*p2z + c3*p3z;
+				const float ddx = px - centX;
+				const float ddz = pz - centZ;
+				const float dSq = ddx*ddx + ddz*ddz;
+				if (dSq < minDistSq)
+				{
+					minDistSq = dSq;
+					// Bezier tangent: dB/dt = 3[t1^2(P1-P0) + 2t1t(P2-P1) + t^2(P3-P2)]
+					const float tanx = t1*t1*(p1x-p0x) + 2.0f*t1*t*(p2x-p1x) + t*t*(p3x-p2x);
+					const float tanz = t1*t1*(p1z-p0z) + 2.0f*t1*t*(p2z-p1z) + t*t*(p3z-p2z);
+					bestAngle = std::atan2(tanz, tanx);
+				}
+			}
+		}
+
+		return { Math::Sqrt(minDistSq), bestAngle };
+	}
+
+	inline float scoreFromDist(float dist)
+	{
+		constexpr float kNearDist = 32.0f;
+		constexpr float kFarDist  = 64.0f;
+		if      (dist < kNearDist) return 1.0f;
+		else if (dist < kFarDist)  return 1.0f - (dist - kNearDist) / (kFarDist - kNearDist);
+		else                       return 0.0f;
+	}
 }
 
 // ===== 座標変換 =====
@@ -107,28 +169,9 @@ float ZoneManager::calcDevelopmentScore(Point chunkCoord, int cx, int cy,
                                         const RoadNetwork& network) const
 {
 	const Vec3 center = cellToWorld(chunkCoord, { cx, cy });
-
-	// 最寄り道路ノードまでの距離を計算する
-	float minDistSq = 1e12f;
-	for (const auto& node : network.nodes())
-	{
-		if (node.id == -1) continue;
-		const float dx = static_cast<float>(node.position.x - center.x);
-		const float dz = static_cast<float>(node.position.z - center.z);
-		const float dSq = dx * dx + dz * dz;
-		if (dSq < minDistSq) minDistSq = dSq;
-	}
-
-	// 道路アクセス係数（最寄り道路ノードまでの距離）
-	constexpr float kNearDist  = 100.0f;   // この距離以内 → アクセス 1.0
-	constexpr float kFarDist   = 200.0f;   // この距離以内 → アクセス 0.3
-	const float dist = Math::Sqrt(minDistSq);
-	float access;
-	if      (dist < kNearDist) access = 1.0f;
-	else if (dist < kFarDist)  access = 0.3f + (kFarDist - dist) / (kFarDist - kNearDist) * 0.7f;
-	else                       access = 0.0f;
-
-	return access;
+	const auto info = nearestRoadInfo(
+		static_cast<float>(center.x), static_cast<float>(center.z), network);
+	return scoreFromDist(info.dist);
 }
 
 // ===== 建物生成 =====
@@ -204,15 +247,27 @@ void ZoneManager::monthlyUpdate(World& world, const RoadNetwork& network,
 				const ZoneType zone = chunk->zoneMap[{ cx, cy }];
 				if (zone == ZoneType::Unzoned) continue;
 
-				const float score = calcDevelopmentScore(cc, cx, cy, network);
+				// 道路情報を一度計算してスコアと方向を共用する
+				const Vec3  ctr_     = cellToWorld(cc, { cx, cy });
+				const auto  roadInfo = nearestRoadInfo(
+					static_cast<float>(ctr_.x), static_cast<float>(ctr_.z), network);
+				const float score = scoreFromDist(roadInfo.dist);
 				Building& b = chunk->buildingGrid[{ cx, cy }];
 
 				if (b.type == BuildingType::None)
 				{
-					// 空地 → 建物生成
+					// 空地 → 沿道の区画にのみスパースに建物生成
 					if (score >= kSpawnThreshold)
 					{
-						b = spawnBuilding(zone, gameNow);
+						// deterministic hash: ~28% of lots get a building
+						const uint32 h =
+							(static_cast<uint32>(cc.x * ZONE_CELLS + cx) * 2654435761u) ^
+							(static_cast<uint32>(cc.y * ZONE_CELLS + cy) * 2246822519u);
+						if (h % 100 < 28 && roadInfo.dist >= kRoadClearance)
+						{
+							b = spawnBuilding(zone, gameNow);
+							b.angle = roadInfo.angle;
+						}
 					}
 				}
 				else
