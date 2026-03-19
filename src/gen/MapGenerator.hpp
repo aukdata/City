@@ -1,0 +1,106 @@
+﻿#pragma once
+#include "TerrainType.hpp"
+#include "../world/World.hpp"
+#include "../road/RoadNetwork.hpp"
+#include "../zone/ZoneManager.hpp"
+#include "../railway/TrainNetwork.hpp"
+
+/// @brief プロシージャルマップ生成（03_procedural_generation_spec.md）
+/// Phase 1: 地形生成 / Phase 2: 集落配置 / Phase 3: 旧道生成 / Phase 6: 初期ゾーン
+class MapGenerator
+{
+public:
+	/// @brief 集落種別
+	enum class SettlementType { Urban, District, Rural };
+
+	/// @brief 集落データ
+	struct Settlement
+	{
+		Vec2           center;   ///< ワールド XZ 座標 [m]
+		SettlementType type;
+		float          radius;   ///< 影響半径 [m]
+	};
+
+	/// @brief 生成結果
+	struct Result
+	{
+		Vec3 cameraFocus;        ///< 初期カメラ注視点（都市核の位置）
+	};
+
+	/// @brief マップを生成してワールド・道路・ゾーン・鉄道を初期化する
+	/// @param seed         乱数シード（同じシード→同じマップ）
+	/// @param terrainType  地形タイプ
+	Result generate(uint64 seed, TerrainType terrainType,
+	                World& world, RoadNetwork& roads,
+	                ZoneManager& zones, TrainNetwork& trainNet);
+
+	const Array<Settlement>& settlements() const { return m_settlements; }
+
+private:
+	// ----- 定数 -----
+	static constexpr int   kMapChunksX = 4;
+	static constexpr int   kMapChunksZ = 4;
+	static constexpr float kCellSize   = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS; // 16 m
+	static constexpr int   kGridW      = kMapChunksX * HEIGHT_CELLS;  // 256
+	static constexpr int   kGridH      = kMapChunksZ * HEIGHT_CELLS;  // 256
+	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 4096 m
+	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;    // 4096 m
+
+	// ----- Phase 1: 地形生成 -----
+	/// @brief ハイトグリッドを構築する（16m セル中心の高さ、256×256）
+	void buildHeightGrid(World& world);
+
+	// ----- Phase 2: 集落配置 -----
+	/// @brief Poisson ディスクサンプリングで集落核を配置する
+	void placeSettlements(uint64 seed);
+
+	/// @brief そのセルが集落に適しているか（平坦・陸地・適度な高さ）
+	bool isSuitable(int gx, int gz) const;
+
+	// ----- Phase 3: 旧道生成 -----
+	/// @brief MST + A* で集落間を道路で繋ぐ
+	void generateRoads(RoadNetwork& roads, uint64 seed);
+
+	/// @brief Kruskal MST: 辺リスト (i,j) を返す
+	Array<std::pair<int,int>> computeMST() const;
+
+	/// @brief A* でグリッドセル間の最短経路を返す（セル座標リスト）
+	Array<Point> findPath(Point start, Point goal) const;
+
+	/// @brief A* パスをサンプリングして Vec3 ウェイポイント列に変換する
+	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 12) const;
+
+	/// @brief ウェイポイント列をベジェ道路エッジとして RoadNetwork に追加する
+	void pathToRoadEdges(const Array<Vec3>& wps,
+	                     RoadNetwork& roads,
+	                     RoadType rt, int lanes,
+	                     int startNodeId, int endNodeId);
+
+	// ----- Phase 6: 初期ゾーン -----
+	/// @brief 集落周辺にゾーンを自動割当てする
+	void assignZones(World& world, ZoneManager& zones);
+
+	// ----- 鉄道初期設定 -----
+	void setupTrain(TrainNetwork& trainNet, World& world);
+
+	// ----- ユーティリティ -----
+	/// @brief グリッド座標 → ワールド XZ 中心
+	Vec2 gridToWorld(int gx, int gz) const
+	{
+		return Vec2{ (gx + 0.5f) * kCellSize, (gz + 0.5f) * kCellSize };
+	}
+	/// @brief ワールド XZ → グリッド座標（クランプ済み）
+	Point worldToGrid(float wx, float wz) const
+	{
+		return Point{
+			Clamp(static_cast<int>(wx / kCellSize), 0, kGridW - 1),
+			Clamp(static_cast<int>(wz / kCellSize), 0, kGridH - 1)
+		};
+	}
+	int gridIdx(int gx, int gz) const { return gz * kGridW + gx; }
+	float gridHeight(int gx, int gz) const { return m_heightGrid[gridIdx(gx, gz)]; }
+
+	// ----- 状態 -----
+	Array<float>      m_heightGrid;   ///< 256×256 の高さキャッシュ [m]
+	Array<Settlement> m_settlements;
+};

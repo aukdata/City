@@ -2,6 +2,7 @@
 #pragma once
 #include "time/GameClock.hpp"
 #include "world/World.hpp"
+#include "gen/MapGenerator.hpp"
 #include "road/RoadNetwork.hpp"
 #include "traffic/TrafficManager.hpp"
 #include "zone/ZoneManager.hpp"
@@ -26,6 +27,16 @@ public:
 
 private:
 	GameApp();
+
+	// ---- ゲーム状態 ----
+	enum class GameState { Title, Playing };
+	GameState     m_gameState       = GameState::Title;
+	uint64        m_selectedSeed    = 20260316ULL;
+	TerrainType   m_selectedTerrain = TerrainType::Hills;
+	TextEditState m_seedTextState;  ///< シード値入力フィールドの状態
+
+	/// @brief MapGenerator でマップを生成してゲームを開始する
+	void initWorld();
 
 	/// @brief 毎フレームの更新処理
 	void update(double dt);
@@ -100,4 +111,7 @@ private:
 
 	/// @brief 現在のモードの表示文字列を返す
 	String modeString() const;
+
+	/// @brief タイトル画面を描画する（入力も兼ねる）
+	void renderTitle();
 };

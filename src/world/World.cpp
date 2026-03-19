@@ -1,4 +1,5 @@
 ﻿#include "World.hpp"
+#include <cmath>
 
 void World::update(Vec3 cameraWorldPos)
 {
@@ -96,25 +97,83 @@ float World::sampleHeight(float wx, float wz) const
 	return chunk->getHeight(wx, wz);
 }
 
+void World::setGenerationParams(uint64 seed, TerrainType terrainType, float mapWidth, float mapDepth)
+{
+	m_seed        = seed;
+	m_terrainType = terrainType;
+	m_mapWidth    = mapWidth;
+	m_mapDepth    = mapDepth;
+}
+
 void World::generateChunk(Chunk& chunk)
 {
-	// Phase 4-1: Perlin ノイズ（多重オクターブ）による地形生成
+	// Perlin ノイズ（多重オクターブ）による地形生成
 	// PerlinNoise は BasicPerlinNoise<double>。world 座標を直接渡すことでチャンク間でシームレスに繋がる。
-	static const PerlinNoise s_perlin{ 20260316ULL };
+	const PerlinNoise perlin{ m_seed };
 
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	// ノイズ周波数スケール（値が小さいほど地形がなだらか）
-	constexpr double kFreq  = 0.00035;
-	// 最大高さ [m]（道路は y=0 なので小さめに設定）
-	constexpr float  kAmp   = 18.0f;
+	constexpr double kFreq = 0.00035;
 
 	for (int row = 0; row <= HEIGHT_CELLS; ++row)
 	{
 		for (int col = 0; col <= HEIGHT_CELLS; ++col)
 		{
-			const double wx = (chunk.coord.x * CHUNK_SIZE + col * cellSize) * kFreq;
-			const double wz = (chunk.coord.y * CHUNK_SIZE + row * cellSize) * kFreq;
-			const float h = static_cast<float>(s_perlin.octave2D0_1(wx, wz, 6, 0.5)) * kAmp - kAmp * 0.15f;
+			// ワールド座標 [m]
+			const float wx = chunk.coord.x * CHUNK_SIZE + col * cellSize;
+			const float wz = chunk.coord.y * CHUNK_SIZE + row * cellSize;
+
+			// 基本 Perlin ノイズ [0, 1]（低周波・大地形）
+			const float p01 = static_cast<float>(
+				perlin.octave2D0_1(wx * kFreq, wz * kFreq, 6, 0.5));
+
+			float h = 0.0f;
+
+			switch (m_terrainType)
+			{
+			case TerrainType::Basin:
+			{
+				// 山間盆地: 中央を凹ませるラジアルグラデーション
+				// マップ中央が平野・低地、外周が山地
+				const float cnx    = (wx / m_mapWidth - 0.5f) * 2.0f;  // [-1, 1]
+				const float cnz    = (wz / m_mapDepth - 0.5f) * 2.0f;  // [-1, 1]
+				const float radial = Clamp(std::sqrt(cnx * cnx + cnz * cnz) / 1.414f, 0.0f, 1.0f);
+				// 中央(radial=0): 平坦・低高度  外周(radial=1): 山岳
+				const float r2     = radial * radial;
+				const float base   = r2 * 360.0f;
+				const float var    = 120.0f + r2 * 260.0f;
+				h = base + p01 * var - 80.0f;
+				break;
+			}
+			case TerrainType::Coastal:
+			{
+				// 沿岸平野: z=0 が海岸、z=kMapDepth が山地
+				const float ramp = Clamp(wz / m_mapDepth, 0.0f, 1.0f);
+				const float base = Math::Lerp(-30.0f, 240.0f, ramp);
+				const float var  = Math::Lerp(10.0f, 400.0f, ramp);
+				h = base + p01 * var;
+				break;
+			}
+			case TerrainType::RiverFan:
+			{
+				// 河川扇状地: z=0 が山（上流）、z=kMapDepth が扇端の低地
+				const float ramp = Clamp(wz / m_mapDepth, 0.0f, 1.0f);
+				const float base = Math::Lerp(440.0f, -20.0f, ramp);
+				const float var  = Math::Lerp(160.0f, 70.0f, ramp);
+				h = base + p01 * var - 40.0f;
+				break;
+			}
+			case TerrainType::Hills:
+			default:
+			{
+				// 丘陵台地: 中周波ノイズを強調して緩やかな丘を形成
+				const float p01med = static_cast<float>(
+					perlin.octave2D0_1(wx * kFreq * 3.0, wz * kFreq * 3.0, 4, 0.5));
+				h = p01 * 180.0f + p01med * 100.0f - 50.0f;
+				break;
+			}
+			}
+
 			chunk.heightMap[{ col, row }] = h;
 		}
 	}

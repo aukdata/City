@@ -28,180 +28,20 @@ GameApp::GameApp()
 	m_traffic.init(&m_network, &m_world, &m_zoneManager);
 	m_trainManager.init(&m_trainNetwork);
 
-	// 初期ネットワーク: 4チャンク（2048×2048）をまたぐ十字幹線 + 市街地格子 + 西側バイパス + 曲線住宅路
-	// チャンク境界: x=1024（東西）, z=1024（南北）
-	// ネットワーク中心: (1040, 0, 1040)
-	{
-		using NT = NodeType;
-		const auto N = [&](float x, float z, NT t = NT::Intersection)
-		{
-			return m_network.addNode(Vec3{ x, 0.f, z }, t);
-		};
+	// シード入力の初期値を設定する
+	m_seedTextState.text = U"20260316";
+}
 
-		// ---- 幹線道路ノード（Arterial） ----
-		// 東西幹線 (z≈1040 で chunk(0,x)〜chunk(1,x) をまたぐ)
-		const int mW   = N(  80, 1040, NT::Endpoint);
-		const int mW1  = N( 450, 1040);                // 西側交差点（chunk 0,0/0,1 内）
-		const int mC   = N(1040, 1040);                // 中心（chunk 境界付近）
-		const int mE1  = N(1630, 1040);                // 東側交差点（chunk 1,0/1,1 内）
-		const int mE   = N(1980, 1040, NT::Endpoint);
-		// 南北幹線 (x≈1040 で chunk(x,0)〜chunk(x,1) をまたぐ)
-		const int mN   = N(1040,   80, NT::Endpoint);
-		const int mN1  = N(1040,  450);                // 北側交差点
-		const int mS1  = N(1040, 1630);                // 南側交差点
-		const int mS   = N(1040, 1980, NT::Endpoint);
+void GameApp::initWorld()
+{
+	// MapGenerator でマップを手続き生成する
+	MapGenerator gen;
+	const auto genResult = gen.generate(
+		m_selectedSeed, m_selectedTerrain,
+		m_world, m_network, m_zoneManager, m_trainNetwork);
 
-		// ---- 市街地格子コーナーノード（LocalRoad） ----
-		// 各コーナーは異なるチャンクに分散
-		const int gNW  = N( 450,  450);   // chunk (0,0)
-		const int gNE  = N(1630,  450);   // chunk (1,0)
-		const int gSW  = N( 450, 1630);   // chunk (0,1)
-		const int gSE  = N(1630, 1630);   // chunk (1,1)
-
-		// ---- 外周 LocalRoad 端点 ----
-		const int epNN = N( 450,   80, NT::Endpoint);
-		const int epNE = N(1630,   80, NT::Endpoint);
-		const int epWN = N(  80,  450, NT::Endpoint);
-		const int epWS = N(  80, 1630, NT::Endpoint);
-		const int epEN = N(1980,  450, NT::Endpoint);
-		const int epES = N(1980, 1630, NT::Endpoint);
-		const int epSW = N( 450, 1980, NT::Endpoint);
-		const int epSE = N(1630, 1980, NT::Endpoint);
-
-		// ---- 曲線路端点（住宅街 + 郊外） ----
-		const int rNE  = N(1880,  140, NT::Endpoint);  // NE郊外住宅端
-		const int rSE  = N(1880, 1900, NT::Endpoint);  // SE郊外住宅端
-		const int rNW  = N( 160,  160, NT::Endpoint);  // NW郊外住宅端（バイパス分岐）
-
-		// ---- ヘルパー ----
-		const auto P = [&](int id) { return m_network.getNode(id)->position; };
-
-		const auto Straight = [&](int a, int b, RoadType rt, int nl)
-		{
-			const Vec3 pa = P(a), pb = P(b);
-			m_network.addEdge(a, b, pa + (pb-pa)*(1.0/3), pa + (pb-pa)*(2.0/3), rt, nl);
-		};
-		const auto Curve = [&](int a, int b, Vec3 ca, Vec3 cb, RoadType rt, int nl)
-		{
-			m_network.addEdge(a, b, ca, cb, rt, nl);
-		};
-
-		// ==================================================
-		// エッジ定義
-		// ==================================================
-
-		// ---- 東西幹線（Arterial 4 車線・直線）x=1024 をまたぐ ----
-		Straight(mW,  mW1, RoadType::Arterial, 4);
-		Straight(mW1, mC,  RoadType::Arterial, 4);   // chunk(0)→chunk(1) 横断
-		Straight(mC,  mE1, RoadType::Arterial, 4);
-		Straight(mE1, mE,  RoadType::Arterial, 4);
-
-		// ---- 南北幹線（Arterial 4 車線）z=1024 をまたぐ ----
-		Straight(mN,  mN1, RoadType::Arterial, 4);
-		Straight(mN1, mC,  RoadType::Arterial, 4);   // chunk(0)→chunk(1) 横断
-		Straight(mC,  mS1, RoadType::Arterial, 4);
-		// 南部は緩やかに西へ流れるカーブ
-		Curve(mS1, mS,
-		      Vec3{1010,0,1710}, Vec3{1020,0,1900},
-		      RoadType::Arterial, 4);
-
-		// ---- 市街地格子 水平（LocalRoad 2 車線）x=1024 をまたぐ ----
-		Straight(gNW, mN1, RoadType::LocalRoad, 2);   // chunk(0)→chunk(1)
-		Straight(mN1, gNE, RoadType::LocalRoad, 2);   // chunk(1)
-		Straight(gSW, mS1, RoadType::LocalRoad, 2);   // chunk(0)→chunk(1)
-		Straight(mS1, gSE, RoadType::LocalRoad, 2);   // chunk(1)
-
-		// ---- 市街地格子 垂直（LocalRoad 2 車線）z=1024 をまたぐ ----
-		Straight(gNW, mW1, RoadType::LocalRoad, 2);   // chunk(0)
-		Straight(mW1, gSW, RoadType::LocalRoad, 2);   // chunk(0)→chunk(1)
-		Straight(gNE, mE1, RoadType::LocalRoad, 2);   // chunk(1)
-		Straight(mE1, gSE, RoadType::LocalRoad, 2);   // chunk(1)→chunk(1)
-
-		// ---- 外周 LocalRoad 端点接続（2 車線） ----
-		Straight(epNN, gNW, RoadType::LocalRoad, 2);
-		Straight(epNE, gNE, RoadType::LocalRoad, 2);
-		Straight(epWN, gNW, RoadType::LocalRoad, 2);
-		Straight(epWS, gSW, RoadType::LocalRoad, 2);
-		Straight(gNE,  epEN, RoadType::LocalRoad, 2);
-		Straight(gSE,  epES, RoadType::LocalRoad, 2);
-		Straight(gSW,  epSW, RoadType::LocalRoad, 2);
-		Straight(gSE,  epSE, RoadType::LocalRoad, 2);
-
-		// ---- 西側バイパス（Arterial 4 車線・大きく西に膨らむ曲線）z=1024 をまたぐ ----
-		// gNW(450,450) → 西方向に迂回 → gSW(450,1630)
-		Curve(gNW, gSW,
-		      Vec3{120,0,700}, Vec3{120,0,1380},
-		      RoadType::Arterial, 4);
-
-		// ---- NW 郊外住宅街曲線路（LocalRoad 2 車線） ----
-		// epWN(80,450) → 北西へ弧を描いて → rNW(160,160)
-		Curve(epWN, rNW,
-		      Vec3{70,0,340}, Vec3{110,0,230},
-		      RoadType::LocalRoad, 2);
-
-		// ---- NE 郊外住宅街曲線路（LocalRoad 2 車線） ----
-		// gNE(1630,450) → 北東へ弧を描いて → rNE(1880,140)
-		Curve(gNE, rNE,
-		      Vec3{1750,0,370}, Vec3{1845,0,250},
-		      RoadType::LocalRoad, 2);
-
-		// ---- SE 郊外住宅街曲線路（LocalRoad 2 車線） ----
-		// gSE(1630,1630) → 南東へ弧を描いて → rSE(1880,1900)
-		Curve(gSE, rSE,
-		      Vec3{1760,0,1680}, Vec3{1850,0,1790},
-		      RoadType::LocalRoad, 2);
-	}
-
-	// ---- 初期鉄道ネットワーク（南北幹線に沿った路線） ----
-	{
-		// 線路が通るチャンク (1,0) と (1,1) を事前生成して sampleHeight を有効にする
-		m_world.getOrCreateChunk({ 1, 0 });
-		m_world.getOrCreateChunk({ 1, 1 });
-
-		// 駅を配置する（地形高さを考慮したY座標）
-		const auto S = [&](float x, float z, const String& name) -> int
-		{
-			return m_trainNetwork.addStation(
-				Vec3{ x, m_world.sampleHeight(x, z), z }, name);
-		};
-		const int sN   = S(1080,  150, U"北端駅");
-		const int sN1  = S(1080,  480, U"北市駅");
-		const int sC   = S(1080, 1060, U"中央駅");
-		const int sS1  = S(1080, 1620, U"南市駅");
-		const int sSt  = S(1080, 1960, U"南端駅");
-
-		// 線路エッジ（1/3・2/3 の制御点で直線的に連結）
-		const auto TE = [&](int a, int b)
-		{
-			const Vec3 pa = m_trainNetwork.getNode(a)->position;
-			const Vec3 pb = m_trainNetwork.getNode(b)->position;
-			m_trainNetwork.addEdge(a, b,
-				pa + (pb - pa) * (1.0 / 3),
-				pa + (pb - pa) * (2.0 / 3),
-				120.0f);
-		};
-		TE(sN,  sN1);
-		TE(sN1, sC);
-		TE(sC,  sS1);
-		TE(sS1, sSt);
-
-		// ダイヤを設定する（南北を往復）
-		TrainSchedule sched;
-		sched.id = 0;
-		sched.headwaySec = 300.0f;  // 5分間隔
-		sched.loop = true;
-		for (int nodeId : { sN, sN1, sC, sS1, sSt })
-		{
-			StopEntry stop;
-			stop.stationNodeId = nodeId;
-			stop.dwellSec = 20.0f;
-			sched.stops << stop;
-		}
-		m_trainNetwork.addSchedule(sched);
-	}
-
-	// カメラをネットワーク中心（4チャンク交点付近）に移動する
-	m_camera.setFocus(Vec3{ 1040, 0, 1040 });
+	// カメラを都市核に移動する
+	m_camera.setFocus(genResult.cameraFocus);
 
 	// 初期車両を生成する
 	for (int i = 0; i < 20; ++i)
@@ -219,6 +59,9 @@ GameApp::GameApp()
 
 void GameApp::update(double dt)
 {
+	if (m_gameState == GameState::Title)
+		return;
+
 	m_clock.advance(dt);
 	m_world.update(m_camera.focusPoint());
 	m_camera.update(dt);
@@ -264,6 +107,12 @@ void GameApp::update(double dt)
 
 void GameApp::render()
 {
+	if (m_gameState == GameState::Title)
+	{
+		renderTitle();
+		return;
+	}
+
 	// ---- 太陽・空のパラメータ計算 ----
 	const float hour = m_clock.hour;
 	const float t    = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
@@ -721,4 +570,129 @@ String GameApp::modeString() const
 	default:
 		return U"";
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// タイトル画面（仕様書 §1: 生成パラメータ選択）
+// ─────────────────────────────────────────────────────────────────────────────
+
+void GameApp::renderTitle()
+{
+	static const Font titleFont { 46, Typeface::Bold };
+	static const Font subFont   { 16 };
+	static const Font labelFont { 17 };
+	static const Font cardFont  { 17, Typeface::Bold };
+	static const Font descFont  { 13 };
+
+	const int W = Scene::Width();
+	const int H = Scene::Height();
+
+	// ---- 背景 ----
+	Rect{ 0, 0, W, H }.draw(ColorF{ 0.07, 0.11, 0.16 });
+
+	// ---- タイトル ----
+	titleFont(U"City Simulation").drawAt(W * 0.5, 80, ColorF{ 0.90, 0.95, 1.00 });
+	subFont(U"プロシージャル都市生成シミュレーター").drawAt(W * 0.5, 135, ColorF{ 0.52, 0.63, 0.74 });
+
+	// ---- シード値 ----
+	labelFont(U"シード値").draw(Vec2{ 200, 195 }, ColorF{ 0.78, 0.86, 0.93 });
+	SimpleGUI::TextBox(m_seedTextState, Vec2{ 200, 222 }, 280);
+
+	// テキストボックスの内容を uint64 に変換する
+	{
+		uint64 val = 0;
+		bool valid = !m_seedTextState.text.isEmpty();
+		for (char32 c : m_seedTextState.text)
+		{
+			if (c >= U'0' && c <= U'9')
+				val = val * 10 + (c - U'0');
+			else { valid = false; break; }
+		}
+		if (valid)
+			m_selectedSeed = val;
+	}
+
+	if (SimpleGUI::Button(U"ランダム", Vec2{ 498, 222 }, 120))
+	{
+		m_selectedSeed = static_cast<uint64>(Random(10000000, 99999999));
+		m_seedTextState.text = Format(m_selectedSeed);
+	}
+
+	// ---- 地形タイプ選択（仕様書 §2）----
+	labelFont(U"地形タイプ").draw(Vec2{ 200, 286 }, ColorF{ 0.78, 0.86, 0.93 });
+
+	struct TerrainInfo
+	{
+		TerrainType type;
+		String      name;
+		String      kana;
+		String      desc;
+		ColorF      baseColor;
+	};
+	static const TerrainInfo kInfos[] = {
+		{ TerrainType::Basin,
+		  U"山間盆地",   U"さんかんぼんち",
+		  U"四方を山に囲まれた盆地\n川が中央を縦断する",
+		  ColorF{ 0.17, 0.32, 0.25 } },
+		{ TerrainType::Coastal,
+		  U"沿岸平野",   U"えんがんへいや",
+		  U"片側が海、反対側が山地\n港町が核になる",
+		  ColorF{ 0.08, 0.24, 0.40 } },
+		{ TerrainType::RiverFan,
+		  U"河川扇状地", U"かせんせんじょうち",
+		  U"山から流れ出る扇状地\n橋が重要インフラになる",
+		  ColorF{ 0.30, 0.26, 0.10 } },
+		{ TerrainType::Hills,
+		  U"丘陵台地",   U"きゅうりょうだいち",
+		  U"緩やかな丘が連続する地形\n集落は丘の上に分散する",
+		  ColorF{ 0.16, 0.30, 0.16 } },
+	};
+
+	constexpr int kCardW = 238, kCardH = 160, kGap = 18;
+	const int totalW    = 4 * kCardW + 3 * kGap;
+	const int cardStartX = (W - totalW) / 2;
+	const int cardY      = 318;
+
+	for (int i = 0; i < 4; ++i)
+	{
+		const int         cx      = cardStartX + i * (kCardW + kGap);
+		const RoundRect   card    { static_cast<double>(cx), static_cast<double>(cardY),
+		                            static_cast<double>(kCardW), static_cast<double>(kCardH), 8.0 };
+		const bool        selected = (kInfos[i].type == m_selectedTerrain);
+
+		// 背景：選択中は明るく
+		card.draw(selected ? kInfos[i].baseColor * 2.2 : kInfos[i].baseColor);
+		card.drawFrame(2.5, selected
+			? ColorF{ 1.0, 0.88, 0.25 }
+			: ColorF{ 0.28, 0.34, 0.42 });
+
+		// クリックで選択
+		if (card.leftClicked())
+			m_selectedTerrain = kInfos[i].type;
+
+		// テキスト
+		cardFont(kInfos[i].name).draw(Arg::topLeft = Vec2{ cx + 14, cardY + 12 },
+		                              ColorF{ 0.95, 0.95, 0.95 });
+		descFont(kInfos[i].kana).draw(Arg::topLeft = Vec2{ cx + 14, cardY + 38 },
+		                              ColorF{ 0.62, 0.70, 0.77 });
+		descFont(kInfos[i].desc).draw(Arg::topLeft = Vec2{ cx + 14, cardY + 60 },
+		                              ColorF{ 0.80, 0.85, 0.87 });
+		if (selected)
+		{
+			descFont(U"✓ 選択中").draw(Arg::topLeft = Vec2{ cx + 14, cardY + 128 },
+			                           ColorF{ 1.0, 0.88, 0.25 });
+		}
+	}
+
+	// ---- 生成開始ボタン ----
+	constexpr int kBtnW = 220;
+	if (SimpleGUI::Button(U"生成開始", Vec2{ (W - kBtnW) / 2, 530 }, kBtnW))
+	{
+		initWorld();
+		m_gameState = GameState::Playing;
+	}
+
+	// ---- 操作説明 ----
+	descFont(U"生成後: WASD/QE カメラ移動　R 道路　Z ゾーン　G 地形編集　X 線路　B バス　F カメラ切替").drawAt(
+		W * 0.5, H - 36, ColorF{ 0.42, 0.50, 0.58 });
 }

@@ -139,6 +139,7 @@
     <ClCompile Include="src\railway\TrainNetwork.cpp" />
     <ClCompile Include="src\railway\TrainManager.cpp" />
     <ClCompile Include="src\render\TrainRenderer.cpp" />
+    <ClCompile Include="src\gen\MapGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
@@ -374,6 +375,8 @@
     <ClInclude Include="src\railway\Train.hpp" />
     <ClInclude Include="src\railway\TrainManager.hpp" />
     <ClInclude Include="src\render\TrainRenderer.hpp" />
+    <ClInclude Include="src\gen\TerrainType.hpp" />
+    <ClInclude Include="src\gen\MapGenerator.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">
