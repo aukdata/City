@@ -27,6 +27,10 @@ public:
 	/// @brief ワールド座標から地形高さをサンプリングする（チャンク未ロード時は 0 を返す）
 	float sampleHeight(float wx, float wz) const;
 
+	/// @brief チャンクを生成せずに直接 Perlin ノイズで高さを計算する
+	/// @details MapGenerator の A* グリッド構築など、チャンクを事前生成したくない場合に使用する
+	float computeHeight(float wx, float wz) const;
+
 private:
 	using Key = int64;
 
@@ -58,4 +62,5 @@ private:
 	TerrainType m_terrainType = TerrainType::Hills;
 	float       m_mapWidth    = 4096.0f;
 	float       m_mapDepth    = 4096.0f;
+	PerlinNoise m_perlin      = PerlinNoise{ m_seed };  ///< シードごとに一度だけ構築する
 };

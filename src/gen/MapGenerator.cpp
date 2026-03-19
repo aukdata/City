@@ -11,11 +11,8 @@ MapGenerator::Result MapGenerator::generate(
 	World& world, RoadNetwork& roads,
 	ZoneManager& zones, TrainNetwork& trainNet)
 {
-	// 生成パラメータをセットして全チャンクを事前生成する
+	// 生成パラメータをセットする（チャンクはカメラ移動時に動的生成）
 	world.setGenerationParams(seed, terrainType, kMapWidth, kMapDepth);
-	for (int cz = 0; cz < kMapChunksZ; ++cz)
-		for (int cx = 0; cx < kMapChunksX; ++cx)
-			world.getOrCreateChunk({ cx, cz });
 
 	// Phase 1: 高さグリッドを構築（A* のために全セルをキャッシュ）
 	buildHeightGrid(world);
@@ -37,7 +34,7 @@ MapGenerator::Result MapGenerator::generate(
 	if (!m_settlements.isEmpty())
 	{
 		const auto& urban = m_settlements[0];
-		const float y = world.sampleHeight(urban.center.x, urban.center.y);
+		const float y = world.computeHeight(static_cast<float>(urban.center.x), static_cast<float>(urban.center.y));
 		result.cameraFocus = Vec3{ urban.center.x, y, urban.center.y };
 	}
 	else
@@ -59,7 +56,8 @@ void MapGenerator::buildHeightGrid(World& world)
 		for (int gx = 0; gx < kGridW; ++gx)
 		{
 			const Vec2 wp = gridToWorld(gx, gz);
-			m_heightGrid[gridIdx(gx, gz)] = world.sampleHeight(
+			// computeHeight: チャンクを生成せずに直接 Perlin ノイズで高さを計算する
+			m_heightGrid[gridIdx(gx, gz)] = world.computeHeight(
 				static_cast<float>(wp.x), static_cast<float>(wp.y));
 		}
 	}
@@ -104,8 +102,8 @@ void MapGenerator::placeSettlements(uint64 seed)
 	// シャッフル
 	std::shuffle(candidates.begin(), candidates.end(), rng);
 
-	// Poisson ディスクサンプリング（最小距離 600 m）
-	constexpr float kMinDist = 600.0f;
+	// Poisson ディスクサンプリング（最小距離 800 m）
+	constexpr float kMinDist = 800.0f;
 	constexpr float kMinDistSq = kMinDist * kMinDist;
 
 	m_settlements.clear();
@@ -128,7 +126,7 @@ void MapGenerator::placeSettlements(uint64 seed)
 			s.center = wp;
 			m_settlements << s;
 		}
-		if (m_settlements.size() >= 7) break;
+		if (m_settlements.size() >= 12) break;
 	}
 
 	// 集落が 3 未満のときは条件を緩和して再試行（高さ上限を広げる）
@@ -156,7 +154,7 @@ void MapGenerator::placeSettlements(uint64 seed)
 				s.center = wp;
 				m_settlements << s;
 			}
-			if (m_settlements.size() >= 7) break;
+			if (m_settlements.size() >= 12) break;
 		}
 	}
 
@@ -181,17 +179,17 @@ void MapGenerator::placeSettlements(uint64 seed)
 		if (i == 0)
 		{
 			m_settlements[i].type   = SettlementType::Urban;
-			m_settlements[i].radius = 500.0f;
+			m_settlements[i].radius = 700.0f;
 		}
-		else if (i <= 3)
+		else if (i <= 4)
 		{
 			m_settlements[i].type   = SettlementType::District;
-			m_settlements[i].radius = 200.0f;
+			m_settlements[i].radius = 300.0f;
 		}
 		else
 		{
 			m_settlements[i].type   = SettlementType::Rural;
-			m_settlements[i].radius = 100.0f;
+			m_settlements[i].radius = 150.0f;
 		}
 	}
 }
@@ -213,7 +211,7 @@ Array<std::pair<int,int>> MapGenerator::computeMST() const
 	for (int i = 0; i < n; ++i)
 		for (int j = i + 1; j < n; ++j)
 		{
-			const float d = m_settlements[i].center.distanceFrom(m_settlements[j].center);
+			const float d = static_cast<float>(m_settlements[i].center.distanceFrom(m_settlements[j].center));
 			edges << Edge{ d, i, j };
 		}
 	edges.sort_by([](const Edge& a, const Edge& b){ return std::get<0>(a) < std::get<0>(b); });
@@ -257,7 +255,7 @@ Array<Point> MapGenerator::findPath(Point start, Point goal) const
 	Array<Cell> cells(kGridW * kGridH);
 	const int si = gridIdx(start.x, start.y);
 	cells[si].g = 0.0f;
-	cells[si].f = start.distanceFrom(goal) * kCellSize;
+	cells[si].f = static_cast<float>(start.distanceFrom(goal)) * kCellSize;
 
 	// min-heap: (f, flat_idx)
 	using PQEntry = std::pair<float, int>;
@@ -307,7 +305,7 @@ Array<Point> MapGenerator::findPath(Point start, Point goal) const
 			if (ng < cells[ni].g)
 			{
 				cells[ni].g      = ng;
-				cells[ni].f      = ng + Point{ nx, nz }.distanceFrom(goal) * kCellSize;
+				cells[ni].f      = ng + static_cast<float>(Point{ nx, nz }.distanceFrom(goal)) * kCellSize;
 				cells[ni].parent = ci;
 				pq.push({ cells[ni].f, ni });
 			}
@@ -423,7 +421,7 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 		const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
 		const int      lanes = isArterial ? 4 : 2;
 
-		const Array<Vec3> wps = samplePath(path, 12); // ~192 m 間隔でサンプリング
+		const Array<Vec3> wps = samplePath(path, 5); // ~200 m 間隔でサンプリング
 		pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
 	}
 
@@ -458,7 +456,7 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 		const Array<Point> path = findPath(gs, ge);
 		if (path.isEmpty()) continue;
 
-		const Array<Vec3> wps = samplePath(path, 12);
+		const Array<Vec3> wps = samplePath(path, 5);
 		pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
 		                settleNodeId[u], settleNodeId[v]);
 	}
@@ -472,17 +470,24 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 {
 	for (const auto& s : m_settlements)
 	{
-		// 300 m 以内 → Commercial / Residential
-		// 300〜600 m → LowResidential
-		const int innerR  = static_cast<int>(300.0f / kCellSize); // 19 cells
-		const int outerR  = static_cast<int>(600.0f / kCellSize); // 38 cells
-		const float innerSq = (300.0f * 300.0f);
-		const float outerSq = (600.0f * 600.0f);
+		// Urban:   400 m 以内 → Commercial、 400〜800 m → Residential、800〜1200 m → LowResidential
+		// District: 200 m 以内 → Residential、200〜600 m → LowResidential
+		// Rural:    100 m 以内 → Residential、100〜300 m → LowResidential
+		const float innerDist = (s.type == SettlementType::Urban)    ? 400.0f
+		                      : (s.type == SettlementType::District)  ? 200.0f : 100.0f;
+		const float midDist   = (s.type == SettlementType::Urban)    ? 800.0f
+		                      : (s.type == SettlementType::District)  ? 600.0f : 300.0f;
+		const float outerDist = (s.type == SettlementType::Urban)    ? 1200.0f
+		                      : midDist;
 
-		const int gx0 = worldToGrid(static_cast<float>(s.center.x) - 600.0f, 0.0f).x;
-		const int gx1 = worldToGrid(static_cast<float>(s.center.x) + 600.0f, 0.0f).x;
-		const int gz0 = worldToGrid(0.0f, static_cast<float>(s.center.y) - 600.0f).y;
-		const int gz1 = worldToGrid(0.0f, static_cast<float>(s.center.y) + 600.0f).y;
+		const float innerSq = innerDist * innerDist;
+		const float midSq   = midDist   * midDist;
+		const float outerSq = outerDist * outerDist;
+
+		const int gx0 = worldToGrid(static_cast<float>(s.center.x) - outerDist, 0.0f).x;
+		const int gx1 = worldToGrid(static_cast<float>(s.center.x) + outerDist, 0.0f).x;
+		const int gz0 = worldToGrid(0.0f, static_cast<float>(s.center.y) - outerDist).y;
+		const int gz1 = worldToGrid(0.0f, static_cast<float>(s.center.y) + outerDist).y;
 
 		for (int gz = gz0; gz <= gz1; ++gz)
 		{
@@ -491,7 +496,7 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 				if (gx < 0 || gx >= kGridW || gz < 0 || gz >= kGridH) continue;
 
 				const Vec2  wp   = gridToWorld(gx, gz);
-				const float dSq  = s.center.distanceFromSq(wp);
+				const float dSq  = static_cast<float>(s.center.distanceFromSq(wp));
 				const float h    = gridHeight(gx, gz);
 
 				// 水域セルはゾーン付与しない
@@ -505,6 +510,10 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 						? ZoneType::Commercial
 						: ZoneType::Residential;
 					zones.paintZone(world, wp3, zt, 0);
+				}
+				else if (dSq <= midSq)
+				{
+					zones.paintZone(world, wp3, ZoneType::Residential, 0);
 				}
 				else if (dSq <= outerSq)
 				{
@@ -546,7 +555,7 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world)
 		if (s.type == SettlementType::Rural) continue;
 		if (stationIds.size() >= 4) break;
 
-		const float y  = world.sampleHeight(
+		const float y  = world.computeHeight(
 			static_cast<float>(s.center.x),
 			static_cast<float>(s.center.y));
 		const String name = (stationIds.isEmpty()) ? U"中央駅"

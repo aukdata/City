@@ -38,16 +38,16 @@ public:
 
 private:
 	// ----- 定数 -----
-	static constexpr int   kMapChunksX = 4;
-	static constexpr int   kMapChunksZ = 4;
-	static constexpr float kCellSize   = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS; // 16 m
-	static constexpr int   kGridW      = kMapChunksX * HEIGHT_CELLS;  // 256
-	static constexpr int   kGridH      = kMapChunksZ * HEIGHT_CELLS;  // 256
-	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 4096 m
-	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;    // 4096 m
+	static constexpr int   kMapChunksX = 10;
+	static constexpr int   kMapChunksZ = 10;
+	static constexpr float kCellSize   = 40.0f;                        // 40 m/cell
+	static constexpr int   kGridW      = 256;                          // kMapWidth / kCellSize = 10240/40
+	static constexpr int   kGridH      = 256;                          // kMapDepth / kCellSize = 10240/40
+	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 10240 m
+	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;    // 10240 m
 
 	// ----- Phase 1: 地形生成 -----
-	/// @brief ハイトグリッドを構築する（16m セル中心の高さ、256×256）
+	/// @brief ハイトグリッドを構築する（40m セル中心の高さ、256×256）
 	void buildHeightGrid(World& world);
 
 	// ----- Phase 2: 集落配置 -----
@@ -68,7 +68,7 @@ private:
 	Array<Point> findPath(Point start, Point goal) const;
 
 	/// @brief A* パスをサンプリングして Vec3 ウェイポイント列に変換する
-	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 12) const;
+	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 5) const;
 
 	/// @brief ウェイポイント列をベジェ道路エッジとして RoadNetwork に追加する
 	void pathToRoadEdges(const Array<Vec3>& wps,
