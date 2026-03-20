@@ -44,8 +44,10 @@ bool PlaceNameGenerator::load(FilePathView tomlPath)
 	for (int i = 0; i < 5; ++i)
 	{
 		const auto sec = toml[kNames[i]];
-		m_words[i].prefix = readStringArray(sec[U"prefix"]);
-		m_words[i].suffix = readStringArray(sec[U"suffix"]);
+		m_words[i].prefix     = readStringArray(sec[U"prefix"]);
+		m_words[i].prefixYomi = readStringArray(sec[U"prefix_yomi"]);
+		m_words[i].suffix     = readStringArray(sec[U"suffix"]);
+		m_words[i].suffixYomi = readStringArray(sec[U"suffix_yomi"]);
 	}
 
 	m_loaded = true;
@@ -63,10 +65,11 @@ PlaceNameDB PlaceNameGenerator::generate(int settlementCount, TerrainType terrai
 		// 集落ごとに独立したシードを生成する
 		uint64 state = hashCombine(mapSeed, static_cast<uint64>(i));
 
-		const PlaceCategory cat = pickCategory(terrain, state);
-		const String name       = generateOne(cat, db, state);
+		const PlaceCategory cat    = pickCategory(terrain, state);
+		const auto [name, reading] = generateOne(cat, db, state);
 
-		db.settlementNames[i] = name;
+		db.settlementNames[i]    = name;
+		db.settlementReadings[i] = reading;
 	}
 
 	return db;
@@ -96,42 +99,81 @@ PlaceCategory PlaceNameGenerator::pickCategory(TerrainType terrain, uint64& stat
 	return PlaceCategory::General;
 }
 
-String PlaceNameGenerator::generateOne(PlaceCategory cat, PlaceNameDB& db, uint64& state) const
+std::pair<String, String> PlaceNameGenerator::generateOne(PlaceCategory cat, PlaceNameDB& db, uint64& state) const
 {
-	const int ci = static_cast<int>(cat);
+	const int ci   = static_cast<int>(cat);
 	const auto& wl = m_words[ci];
 
 	if (wl.prefix.isEmpty() || wl.suffix.isEmpty())
-		return U"不明";
+		return { U"不明", U"fumei" };
 
-	// 前節を決定（変えない）
-	const String prefix = wl.prefix[randIndex(state, wl.prefix.size())];
+	// 10% の確率で 3 文字地名（prefix+prefix+suffix または prefix+suffix+suffix）
+	const bool threeChar         = (randIndex(state, 10) == 0);
+	const bool prefixPrefixSuffix = threeChar && (randIndex(state, 2) == 0);
 
-	// 後節を決定（重複時は別の後節を選び直す）
-	constexpr int kMaxRetry = 20;
+	constexpr int kMaxRetry = 40;
 	for (int attempt = 0; attempt < kMaxRetry; ++attempt)
 	{
-		const String suffix = wl.suffix[randIndex(state, wl.suffix.size())];
-		const String name   = prefix + suffix;
+		String name, reading;
+
+		if (threeChar)
+		{
+			if (prefixPrefixSuffix)
+			{
+				// prefix1 + prefix2 + suffix
+				const size_t pi1 = randIndex(state, wl.prefix.size());
+				const size_t pi2 = randIndex(state, wl.prefix.size());
+				const size_t si  = randIndex(state, wl.suffix.size());
+				// 隣接する同一漢字を排除
+				if (wl.prefix[pi1] == wl.prefix[pi2] || wl.prefix[pi2] == wl.suffix[si])
+					continue;
+				name    = wl.prefix[pi1] + wl.prefix[pi2] + wl.suffix[si];
+				reading = wl.prefixYomi[pi1] + wl.prefixYomi[pi2] + wl.suffixYomi[si];
+			}
+			else
+			{
+				// prefix + suffix1 + suffix2
+				const size_t pi  = randIndex(state, wl.prefix.size());
+				const size_t si1 = randIndex(state, wl.suffix.size());
+				const size_t si2 = randIndex(state, wl.suffix.size());
+				if (wl.prefix[pi] == wl.suffix[si1] || wl.suffix[si1] == wl.suffix[si2])
+					continue;
+				name    = wl.prefix[pi] + wl.suffix[si1] + wl.suffix[si2];
+				reading = wl.prefixYomi[pi] + wl.suffixYomi[si1] + wl.suffixYomi[si2];
+			}
+		}
+		else
+		{
+			// 通常 2 文字地名
+			const size_t pi = randIndex(state, wl.prefix.size());
+			const size_t si = randIndex(state, wl.suffix.size());
+			if (wl.prefix[pi] == wl.suffix[si])
+				continue;
+			name    = wl.prefix[pi] + wl.suffix[si];
+			reading = wl.prefixYomi[pi] + wl.suffixYomi[si];
+		}
+
 		if (!db.usedNames.contains(name))
 		{
 			db.usedNames.emplace(name);
-			return name;
+			return { name, reading };
 		}
 	}
 
-	// 全後節が枯渇した場合：前節に連番サフィックスを付けて強制解決
+	// 枯渇時フォールバック：前節 + 連番
 	for (int n = 2; n <= 99; ++n)
 	{
-		const String name = prefix + Format(n);
+		const size_t pi   = randIndex(state, wl.prefix.size());
+		const String name = wl.prefix[pi] + Format(n);
 		if (!db.usedNames.contains(name))
 		{
 			db.usedNames.emplace(name);
-			return name;
+			return { name, wl.prefixYomi[pi] + Format(n) };
 		}
 	}
 
-	return prefix;  // 最終フォールバック
+	const size_t pi = randIndex(state, wl.prefix.size());
+	return { wl.prefix[pi], wl.prefixYomi[pi] };
 }
 
 uint64 PlaceNameGenerator::nextRand(uint64& state)

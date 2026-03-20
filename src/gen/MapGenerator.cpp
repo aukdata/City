@@ -38,7 +38,10 @@ MapGenerator::Result MapGenerator::generate(
 		static_cast<int>(m_settlements.size()), terrainType, seed);
 	// 集落データにも名前を反映する
 	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
+	{
 		m_settlements[i].name = result.placeNames.settlementName(i);
+		m_settlements[i].reading = result.placeNames.settlementReading(i);
+	}
 
 	// カメラ注視点 = 都市核の位置
 	if (!m_settlements.isEmpty())

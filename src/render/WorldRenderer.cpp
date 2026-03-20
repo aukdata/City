@@ -43,7 +43,9 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world)
 
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
-	m_meshCache[key].draw(ColorF{ 0.35, 0.55, 0.25 }.removeSRGBCurve());
+	if (m_grassTexture.isEmpty())
+		m_grassTexture = Texture{ U"assets/textures/grass.png", TextureDesc::MippedSRGB };
+	m_meshCache[key].draw(m_grassTexture, ColorF{ 1.0 }.removeSRGBCurve());
 	drawCachedBuildings(key);
 }
 
@@ -53,6 +55,15 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 	const Vec3 worldOrigin   = chunk.worldOrigin();
 
 	const int gridSize = HEIGHT_CELLS + 1;
+
+	// ワールド空間での1テクスチャタイルのサイズ [m]（= CHUNK_SIZE / kGrassTile = 1024 / 80 ≈ 12.8m）
+	// チャンク境界をまたいで連続したUVにするため、ローカルUVではなくワールド座標から計算する
+	constexpr float kTileSize = static_cast<float>(CHUNK_SIZE) / (16.0f * 5.0f);
+
+	// 整数倍でないわずかな固定角度回転でグリッド感を崩す
+	constexpr float kRotDeg = 13.5f;
+	constexpr float kCosA = 0.97237f;  // cos(13.5°)
+	constexpr float kSinA = 0.23345f;  // sin(13.5°)
 
 	Array<Vertex3D> vertices;
 	vertices.reserve(gridSize * gridSize);
@@ -76,12 +87,16 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 			// 接線ベクトル T_x=(2c,dhx,0), T_z=(0,dhz,2c) の外積 → normalize(-dhx, 2c, -dhz)
 			const Float3 n = Float3{ -dhx, 2.0f * cellSize, -dhz }.normalized();
 
-			Vertex3D v;
-			v.pos    = Float3{ static_cast<float>(wpos.x), static_cast<float>(wpos.y), static_cast<float>(wpos.z) };
-			v.normal = n;
-			v.tex    = Float2{ col / static_cast<float>(HEIGHT_CELLS), row / static_cast<float>(HEIGHT_CELLS) };
+			// ワールド座標からUVを計算することでチャンク境界をまたいで連続させる
+			const float u = static_cast<float>(wpos.x) / kTileSize;
+			const float v = static_cast<float>(wpos.z) / kTileSize;
 
-			vertices << v;
+			Vertex3D vert;
+			vert.pos    = Float3{ static_cast<float>(wpos.x), static_cast<float>(wpos.y), static_cast<float>(wpos.z) };
+			vert.normal = n;
+			vert.tex    = Float2{ kCosA * u - kSinA * v, kSinA * u + kCosA * v };
+
+			vertices << vert;
 		}
 	}
 

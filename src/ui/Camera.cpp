@@ -40,10 +40,16 @@ void GameCamera::handleInput(double dt, const World& world)
 	const double ctrlBoost  = KeyControl.pressed() ? 2.0 : 1.0;
 	const double speedScale = static_cast<double>(MOVE_SPEED) * dt * (m_distance / 300.0) * ctrlBoost;
 
-	if (KeyW.pressed()) m_focus += forward * speedScale;
-	if (KeyS.pressed()) m_focus -= forward * speedScale;
-	if (KeyA.pressed()) m_focus += right   * speedScale;
-	if (KeyD.pressed()) m_focus -= right   * speedScale;
+	Vec3 wasdDelta{ 0.0, 0.0, 0.0 };
+	if (KeyW.pressed()) wasdDelta += forward * speedScale;
+	if (KeyS.pressed()) wasdDelta -= forward * speedScale;
+	if (KeyA.pressed()) wasdDelta += right   * speedScale;
+	if (KeyD.pressed()) wasdDelta -= right   * speedScale;
+	m_focus += wasdDelta;
+
+	// ホイールドラッグ中も WASD が有効になるよう、ピボットも同量移動する
+	if (MouseM.pressed() && m_hasOrbitPivot)
+		m_orbitPivot += wasdDelta;
 
 	// ─── ホイールクリックドラッグ: 地形交点を中心に回転 ─────────────────────
 

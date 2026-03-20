@@ -25,6 +25,9 @@ struct PlaceNameDB
 	/// @brief 集落インデックス → 集落地名
 	HashTable<int, String> settlementNames;
 
+	/// @brief 集落インデックス → ローマ字読み
+	HashTable<int, String> settlementReadings;
+
 	/// @brief 施設 ID → 施設名（駅・IC・信号所）
 	HashTable<int, String> facilityNames;
 
@@ -41,6 +44,13 @@ struct PlaceNameDB
 	{
 		const auto it = settlementNames.find(idx);
 		return (it != settlementNames.end()) ? it->second : U"";
+	}
+
+	/// @brief 集落読みを返す（未登録なら空文字列）
+	String settlementReading(int idx) const
+	{
+		const auto it = settlementReadings.find(idx);
+		return (it != settlementReadings.end()) ? it->second : U"";
 	}
 
 	/// @brief 駅名を生成する
@@ -110,11 +120,13 @@ public:
 	PlaceNameDB generate(int settlementCount, TerrainType terrain, uint64 mapSeed) const;
 
 private:
-	/// @brief カテゴリ別の前節・後節リスト
+	/// @brief カテゴリ別の前節・後節リスト（漢字 + ローマ字読み）
 	struct WordList
 	{
 		Array<String> prefix;
+		Array<String> prefixYomi;
 		Array<String> suffix;
+		Array<String> suffixYomi;
 	};
 
 	/// @brief 5 カテゴリ分の語根 (インデックス = PlaceCategory)
@@ -127,8 +139,9 @@ private:
 	/// @brief 地形タイプに応じたカテゴリ重みでカテゴリを選ぶ
 	PlaceCategory pickCategory(TerrainType terrain, uint64& state) const;
 
-	/// @brief 地名を 1 件生成して usedNames に追加する（衝突時は suffix を変える）
-	String generateOne(PlaceCategory cat, PlaceNameDB& db, uint64& state) const;
+	/// @brief 地名を 1 件生成して usedNames に追加する
+	/// @return first=漢字地名, second=ローマ字読み
+	std::pair<String, String> generateOne(PlaceCategory cat, PlaceNameDB& db, uint64& state) const;
 
 	/// @brief xorshift64 ベースの軽量 RNG（state を更新しながら次の乱数を返す）
 	static uint64 nextRand(uint64& state);

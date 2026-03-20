@@ -47,4 +47,5 @@ private:
 
 	HashTable<Key, DynamicMesh>          m_meshCache;
 	HashTable<Key, Array<BuildingBatch>> m_buildingMeshCache;
+	Texture                              m_grassTexture;
 };

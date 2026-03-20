@@ -21,6 +21,7 @@ public:
 		SettlementType type;
 		float          radius;   ///< 影響半径 [m]
 		String         name;     ///< 集落地名（PlaceNameGenerator が設定）
+		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
 	};
 
 	/// @brief 生成結果

@@ -78,7 +78,7 @@ private:
 	static constexpr float MOVE_SPEED    = 300.0f;
 	static constexpr float ROTATE_SPEED  = 0.005f;
 	static constexpr float ZOOM_SPEED    = 0.12f;
-	static constexpr float MIN_DIST      = 50.0f;
+	static constexpr float MIN_DIST      = 5.0f;
 	static constexpr float MAX_DIST      = 3000.0f;
 	static constexpr float MIN_PITCH_DEG = 10.0f;
 	static constexpr float MAX_PITCH_DEG = 89.0f;
