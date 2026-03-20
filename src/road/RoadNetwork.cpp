@@ -39,6 +39,15 @@ int RoadNetwork::addEdge(int nodeA, int nodeB,
 	if (RoadNode* nb = getNode(nodeB)) nb->edgeIds << e.id;
 
 	m_edges << e;
+
+	// 両端ノードのカットオフを再計算する
+	updateNodeCutoffs(nodeA);
+	updateNodeCutoffs(nodeB);
+
+	// 接続ノードで滑らかに繋がるよう制御点を補正する
+	smoothJunction(e.id, nodeA);
+	smoothJunction(e.id, nodeB);
+
 	return e.id;
 }
 
@@ -49,13 +58,18 @@ void RoadNetwork::removeEdge(int edgeId)
 
 	RoadEdge& e = m_edges[idx];
 
+	const int nA = e.nodeA;
+	const int nB = e.nodeB;
+
 	// 両ノードの edgeIds から削除する
-	if (RoadNode* na = getNode(e.nodeA))
-		na->edgeIds.remove(edgeId);
-	if (RoadNode* nb = getNode(e.nodeB))
-		nb->edgeIds.remove(edgeId);
+	if (RoadNode* na = getNode(nA)) na->edgeIds.remove(edgeId);
+	if (RoadNode* nb = getNode(nB)) nb->edgeIds.remove(edgeId);
 
 	e.id = -1;
+
+	// edgeIds 更新後にカットオフを再計算する
+	updateNodeCutoffs(nA);
+	updateNodeCutoffs(nB);
 }
 
 void RoadNetwork::removeNode(int nodeId)
@@ -164,6 +178,97 @@ bool RoadNetwork::clearExpiredTempOps(GameTime now)
 			changed = true;
 	}
 	return changed;
+}
+
+void RoadNetwork::updateNodeCutoffs(int nodeId)
+{
+	const RoadNode* node = getNode(nodeId);
+	if (!node) return;
+
+	// 接続中の有効エッジの最大幅を求める
+	float maxWidth  = 0.0f;
+	int   validCount = 0;
+	for (int eid : node->edgeIds)
+	{
+		const RoadEdge* e = getEdge(eid);
+		if (!e) continue;
+		++validCount;
+		maxWidth = Max(maxWidth, e->totalWidth());
+	}
+
+	// 端点（接続 1 本以下）はカットなし
+	const float cutoff = (validCount >= 2) ? maxWidth * 1.5f : 0.0f;
+
+	// このノード端のカットオフ値を全接続エッジに書き込む
+	for (int eid : node->edgeIds)
+	{
+		RoadEdge* e = getEdge(eid);
+		if (!e) continue;
+		if (e->nodeA == nodeId) e->cutoffA = cutoff;
+		else                    e->cutoffB = cutoff;
+	}
+}
+
+void RoadNetwork::smoothJunction(int newEdgeId, int midNodeId)
+{
+	const RoadNode* midNode = getNode(midNodeId);
+	if (!midNode) return;
+
+	// 有効な接続エッジを列挙し、接続数が 2 でなければスキップ
+	Array<int> validEdges;
+	for (int eid : midNode->edgeIds)
+	{
+		if (getEdge(eid)) validEdges << eid;
+	}
+	if (validEdges.size() != 2) return;
+
+	// PrevRoad を特定する（新エッジでない方）
+	int prevEdgeId = -1;
+	for (int eid : validEdges)
+	{
+		if (eid != newEdgeId) { prevEdgeId = eid; break; }
+	}
+	if (prevEdgeId == -1) return;
+
+	RoadEdge* newEdge  = getEdge(newEdgeId);
+	RoadEdge* prevEdge = getEdge(prevEdgeId);
+	if (!newEdge || !prevEdge) return;
+
+	const Vec3 midPos = midNode->position;
+
+	// 各道路の反対側ノード
+	const int newOtherNodeId  = (newEdge->nodeA  == midNodeId) ? newEdge->nodeB  : newEdge->nodeA;
+	const int prevOtherNodeId = (prevEdge->nodeA == midNodeId) ? prevEdge->nodeB : prevEdge->nodeA;
+	const RoadNode* newOtherNode  = getNode(newOtherNodeId);
+	const RoadNode* prevOtherNode = getNode(prevOtherNodeId);
+	if (!newOtherNode || !prevOtherNode) return;
+
+	// MidNode から各端点への方向ベクトル（XZ 平面で判定）
+	const Vec3 dirNew  = (newOtherNode->position  - midPos).normalized();
+	const Vec3 dirPrev = (prevOtherNode->position - midPos).normalized();
+
+	// なす角: ドット積で判定。cos(90°) = 0 なので dot <= 0 → angle >= 90°
+	const double dot = dirNew.dot(dirPrev);
+	if (dot > 0.0) return; // 90度未満 → スキップ
+
+	// PrevRoad の MidNode 側制御点 CPP
+	const Vec3 cpp = (prevEdge->nodeA == midNodeId) ? prevEdge->ctrlA : prevEdge->ctrlB;
+
+	// CPP → MidNode 方向（この延長線上に CPN を置く）
+	const Vec3  cppToMid = midPos - cpp;
+	const double cppToMidLen = cppToMid.length();
+	if (cppToMidLen < 1e-6) return;
+	const Vec3 dir = cppToMid / cppToMidLen;
+
+	// NewRoad 両端間の直線距離の 1/2
+	const double halfDist = midPos.distanceFrom(newOtherNode->position) * 0.5;
+
+	// 新しい CPN を書き込む
+	const Vec3 newCpn = midPos + dir * halfDist;
+	if (newEdge->nodeA == midNodeId)
+		newEdge->ctrlA = newCpn;
+	else
+		newEdge->ctrlB = newCpn;
 }
 
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)

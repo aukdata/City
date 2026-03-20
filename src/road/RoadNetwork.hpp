@@ -58,6 +58,13 @@ public:
 	/// @return 変化があった場合 true
 	bool clearExpiredTempOps(GameTime now);
 
+	/// @brief 指定ノードに接続する全エッジの cutoffA/cutoffB を再計算する
+	/// @details
+	///   カットオフ量 = そのノードにつながる最も幅広の道路の幅 × 1.5
+	///   接続エッジが 1 本以下（端点）なら 0 を設定する。
+	///   addEdge / removeEdge 後に自動で呼ばれる。
+	void updateNodeCutoffs(int nodeId);
+
 private:
 	Array<RoadEdge> m_edges;
 	Array<RoadNode> m_nodes;
@@ -70,4 +77,14 @@ private:
 
 	/// @brief デフォルトの車線セットを生成する
 	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);
+
+	/// @brief 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
+	/// @param newEdgeId 新たに追加したエッジの id
+	/// @param midNodeId 補正対象のノード id
+	/// @details
+	///   条件: midNodeId の接続数が 2 かつ PrevRoad と NewRoad のなす角が 90° 以上。
+	///   動作: NewRoad の midNode 側制御点 (CPN) を、
+	///         PrevRoad の midNode 側制御点 (CPP) と midNode を結ぶ直線上で
+	///         midNode から NewRoad 両端間の直線距離の 1/2 の位置に移動する。
+	void smoothJunction(int newEdgeId, int midNodeId);
 };
