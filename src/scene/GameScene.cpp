@@ -12,7 +12,9 @@ GameScene::GameScene(const InitData& init)
 	m_traffic.init(&m_network, &m_world, &m_zoneManager);
 	m_trainManager.init(&m_trainNetwork);
 
-	m_roadRenderer.loadStyle(U"assets/styles/road.toml");
+	m_roadRenderer.loadStyle(U"assets/roads");
+
+	m_sandboxActive = getData().sandboxMode;
 
 	initWorld();
 }
@@ -182,6 +184,65 @@ void GameScene::renderWorld()
 				.draw(ColorF{ 0.9, 0.6, 0.2, 0.25 }.removeSRGBCurve());
 		}
 
+		if (m_mode == EditMode::SandboxEdit)
+		{
+			const Vec2 cur2D = m_cursorGroundPos
+				? Vec2{ m_cursorGroundPos->x, m_cursorGroundPos->z } : Vec2{ 0, 0 };
+
+			// 制御点ハンドルを表示（ノードとの接線ライン + 小球）
+			for (const auto& edge : m_network.edges())
+			{
+				if (edge.id < 0) continue;
+				const RoadNode* nA = m_network.getNode(edge.nodeA);
+				const RoadNode* nB = m_network.getNode(edge.nodeB);
+				if (!nA || !nB) continue;
+
+				const auto isHovCtrl = [&](Vec3 cp) {
+					return m_cursorGroundPos &&
+					       Vec2{ cp.x, cp.z }.distanceFrom(cur2D) < 18.0f;
+				};
+				const bool dragA = m_sandboxDragCtrl &&
+				    m_sandboxDragCtrl->edgeId == edge.id && m_sandboxDragCtrl->isA;
+				const bool dragB = m_sandboxDragCtrl &&
+				    m_sandboxDragCtrl->edgeId == edge.id && !m_sandboxDragCtrl->isA;
+
+				// nodeA ↔ ctrlA のハンドルライン
+				const ColorF colA = dragA
+				    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
+				    : (isHovCtrl(edge.ctrlA) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
+				                             : ColorF{ 0.2, 0.9, 0.4, 0.7 });
+				Line3D{ nA->position + Vec3{0,2,0}, edge.ctrlA + Vec3{0,2,0} }
+					.draw(ColorF{ 0.5, 0.5, 0.5, 0.5 }.removeSRGBCurve());
+				Sphere{ edge.ctrlA + Vec3{0,2,0}, dragA ? 6.0 : 4.0 }
+					.draw(colA.removeSRGBCurve());
+
+				// nodeB ↔ ctrlB のハンドルライン
+				const ColorF colB = dragB
+				    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
+				    : (isHovCtrl(edge.ctrlB) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
+				                             : ColorF{ 0.2, 0.9, 0.4, 0.7 });
+				Line3D{ nB->position + Vec3{0,2,0}, edge.ctrlB + Vec3{0,2,0} }
+					.draw(ColorF{ 0.5, 0.5, 0.5, 0.5 }.removeSRGBCurve());
+				Sphere{ edge.ctrlB + Vec3{0,2,0}, dragB ? 6.0 : 4.0 }
+					.draw(colB.removeSRGBCurve());
+			}
+
+			// ノードを球で表示
+			for (const auto& node : m_network.nodes())
+			{
+				if (node.id < 0) continue;
+				const bool dragging = m_sandboxDragNode && (*m_sandboxDragNode == node.id);
+				const bool hovered  = m_cursorGroundPos &&
+				    Vec2{ node.position.x, node.position.z }.distanceFrom(cur2D) < 20.0f;
+				const ColorF col = dragging
+				    ? ColorF{ 1.0, 0.4, 0.1, 0.95 }
+				    : (hovered ? ColorF{ 1.0, 1.0, 0.2, 0.9 }
+				               : ColorF{ 0.3, 0.8, 1.0, 0.7 });
+				Sphere{ node.position + Vec3{0, 2, 0}, dragging ? 7.0 : 5.0 }
+					.draw(col.removeSRGBCurve());
+			}
+		}
+
 		m_debugRenderer.render(m_network, m_traffic.vehicles(), m_world, m_camera);
 	}
 
@@ -228,6 +289,19 @@ void GameScene::handleInput()
 
 	if (KeyTab.down())
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
+
+	// Esc: 編集モードを抜ける
+	if (KeyEscape.down() && m_mode != EditMode::None)
+	{
+		m_mode               = EditMode::None;
+		m_drawStartNode      = none;
+		m_rectStart          = none;
+		m_trainDrawStartNode = none;
+		m_sandboxDragNode    = none;
+		m_sandboxDragCtrl    = none;
+		m_editingRouteId     = -1;
+		m_zoneManager.showOverlay = false;
+	}
 
 	if (KeyR.down())
 	{
@@ -306,11 +380,20 @@ void GameScene::handleInput()
 		}
 	}
 
+	if (m_sandboxActive && KeyV.down())
+	{
+		m_mode = (m_mode == EditMode::SandboxEdit) ? EditMode::None : EditMode::SandboxEdit;
+		m_sandboxDragNode = none;
+		m_drawStartNode   = none;
+		m_rectStart       = none;
+	}
+
 	if      (m_mode == EditMode::RoadDraw)     handleRoadDraw();
 	else if (m_mode == EditMode::ZonePaint)    handleZonePaint();
 	else if (m_mode == EditMode::BusRouteDraw) handleBusRouteDraw();
 	else if (m_mode == EditMode::TerrainEdit)  handleTerrainEdit();
 	else if (m_mode == EditMode::TrainDraw)    handleTrainDraw();
+	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 }
 
 void GameScene::handleRoadDraw()
@@ -338,6 +421,7 @@ void GameScene::handleRoadDraw()
 				Vec3 mid = (pA + pB) / 2.0;
 				m_network.addEdgeWithIntersection(from, nodeId, mid, mid, RoadType::LocalRoad, 2);
 				m_traffic.markNetworkDirty();
+				m_roadRenderer.markTopologyChanged();
 			}
 			m_drawStartNode = nodeId;
 		}
@@ -487,6 +571,124 @@ void GameScene::handleTrainDraw()
 		m_trainDrawStartNode = none;
 }
 
+void GameScene::handleSandboxEdit()
+{
+	if (!m_cursorGroundPos) return;
+
+	const Vec2 cur2D{ m_cursorGroundPos->x, m_cursorGroundPos->z };
+
+	// ---- 左ボタンを押した瞬間：ドラッグ対象を決定 ----
+	if (MouseL.down())
+	{
+		m_sandboxDragNode = none;
+		m_sandboxDragCtrl = none;
+
+		// 1) ノード優先
+		m_sandboxDragNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+
+		// 2) ノードがなければ制御点を探す
+		if (!m_sandboxDragNode)
+		{
+			float bestDist = 18.0f;
+			for (const auto& edge : m_network.edges())
+			{
+				if (edge.id < 0) continue;
+				const float dA = static_cast<float>(
+					Vec2{ edge.ctrlA.x, edge.ctrlA.z }.distanceFrom(cur2D));
+				const float dB = static_cast<float>(
+					Vec2{ edge.ctrlB.x, edge.ctrlB.z }.distanceFrom(cur2D));
+				if (dA < bestDist) { bestDist = dA; m_sandboxDragCtrl = CtrlDrag{ edge.id, true  }; }
+				if (dB < bestDist) { bestDist = dB; m_sandboxDragCtrl = CtrlDrag{ edge.id, false }; }
+			}
+		}
+
+		m_sandboxPrevCursor = *m_cursorGroundPos;
+	}
+
+	if (MouseL.up())
+	{
+		m_sandboxDragNode = none;
+		m_sandboxDragCtrl = none;
+	}
+
+	// ---- 左ドラッグ中：ノード or 制御点を移動 ----
+	if (MouseL.pressed())
+	{
+		const Vec3 delta = *m_cursorGroundPos - m_sandboxPrevCursor;
+
+		if (m_sandboxDragNode)
+		{
+			RoadNode* node = m_network.getNode(*m_sandboxDragNode);
+			if (node)
+			{
+				for (int eid : node->edgeIds)
+				{
+					RoadEdge* edge = m_network.getEdge(eid);
+					if (!edge) continue;
+					if (edge->nodeA == node->id) edge->ctrlA += delta;
+					if (edge->nodeB == node->id) edge->ctrlB += delta;
+					m_roadRenderer.markDirty(eid);
+				}
+				node->position += delta;
+				m_traffic.markNetworkDirty();
+			}
+		}
+		else if (m_sandboxDragCtrl)
+		{
+			RoadEdge* edge = m_network.getEdge(m_sandboxDragCtrl->edgeId);
+			if (edge)
+			{
+				if (m_sandboxDragCtrl->isA) edge->ctrlA += delta;
+				else                        edge->ctrlB += delta;
+				m_roadRenderer.markDirty(edge->id);
+				m_traffic.markNetworkDirty();
+			}
+		}
+
+		m_sandboxPrevCursor = *m_cursorGroundPos;
+	}
+
+	// ---- 右クリック：削除 ----
+	if (MouseR.down())
+	{
+		auto nearNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+		if (nearNode)
+		{
+			if (RoadNode* node = m_network.getNode(*nearNode))
+				for (int eid : node->edgeIds)
+					m_roadRenderer.markDirty(eid);
+			m_network.removeNode(*nearNode);
+			m_traffic.markNetworkDirty();
+			m_roadRenderer.markTopologyChanged();
+		}
+		else
+		{
+			int   bestId   = -1;
+			float bestDist = 30.0f;
+			for (const auto& edge : m_network.edges())
+			{
+				if (edge.id < 0) continue;
+				const auto bez = m_network.getBezier(edge.id);
+				if (!bez) continue;
+				for (int k = 0; k <= 4; ++k)
+				{
+					const Vec3  pt   = bez->evaluate(k * 0.25f);
+					const float dist = static_cast<float>(
+						Vec2{ pt.x, pt.z }.distanceFrom(cur2D));
+					if (dist < bestDist) { bestDist = dist; bestId = edge.id; }
+				}
+			}
+			if (bestId >= 0)
+			{
+				m_roadRenderer.markDirty(bestId);
+				m_network.removeEdge(bestId);
+				m_traffic.markNetworkDirty();
+				m_roadRenderer.markTopologyChanged();
+			}
+		}
+	}
+}
+
 void GameScene::updateCursor()
 {
 	const Ray    ray  = m_camera.screenToRay(Vec2{ Cursor::Pos() });
@@ -555,6 +757,8 @@ String GameScene::modeString() const
 		return U"地形編集モード（左:盛土 右:掘削 Ctrl+ホイール:ブラシサイズ）";
 	case EditMode::TrainDraw:
 		return U"線路描画モード（左クリックで駅配置・連結 右クリックで中断）";
+	case EditMode::SandboxEdit:
+		return U"サンドボックス編集（左ドラッグ:ノード移動 右クリック:削除）";
 	default:
 		return U"";
 	}

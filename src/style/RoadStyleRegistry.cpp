@@ -82,29 +82,33 @@ namespace
 // RoadStyleRegistry 実装
 // ─────────────────────────────────────────────────────────────────────────────
 
-bool RoadStyleRegistry::load(FilePathView tomlPath)
+bool RoadStyleRegistry::load(FilePathView dirPath)
 {
-	const TOMLReader reader{ tomlPath };
-	if (!reader)
-		return false;
-
-	// TOML セクション名と RoadType の対応表
-	struct Entry { const char32* key; RoadType rt; };
-	constexpr Entry kEntries[] = {
-		{ U"LocalRoad",  RoadType::LocalRoad  },
-		{ U"Arterial",   RoadType::Arterial   },
-		{ U"Expressway", RoadType::Expressway },
-		{ U"Highway",    RoadType::Highway    },
+	// ファイル名ステム（lower_snake_case）と RoadType の対応表
+	const HashTable<String, RoadType> kStemToType = {
+		{ U"local_road",  RoadType::LocalRoad  },
+		{ U"arterial",    RoadType::Arterial   },
+		{ U"expressway",  RoadType::Expressway },
+		{ U"highway",     RoadType::Highway    },
 	};
 
-	for (const auto& e : kEntries)
+	bool anyLoaded = false;
+	for (const FilePath& path : FileSystem::DirectoryContents(dirPath, Recursive::No))
 	{
-		const TOMLValue sec = reader[e.key];
-		if (!sec.isEmpty())
-			m_styles[static_cast<uint8>(e.rt)] = parseRoadStyle(sec);
+		if (FileSystem::Extension(path) != U"toml") continue;
+
+		const String stem = FileSystem::BaseName(path);
+		const auto   it   = kStemToType.find(stem);
+		if (it == kStemToType.end()) continue;
+
+		const TOMLReader reader{ path };
+		if (!reader) continue;
+
+		m_styles[static_cast<uint8>(it->second)] = parseRoadStyle(reader);
+		anyLoaded = true;
 	}
 
-	return true;
+	return anyLoaded;
 }
 
 const RoadStyle& RoadStyleRegistry::get(RoadType rt) const

@@ -23,7 +23,7 @@ suffix_yomi = ["no","ta","hara","daira","hata","sato","mura","zawa","kusa","haya
 prefix      = ["磯","鳴","白","浦","崎","角","荒","岩","黒","赤","大","小","三","千","新","長","松","富","日","月","潮","波","洲","砂","塩","海"]
 prefix_yomi = ["iso","naru","shira","ura","saki","kado","ara","iwa","kuro","aka","o","ko","mi","chi","shin","naga","matsu","to","hi","tsuki","shio","nami","su","suna","shio","umi"]
 suffix      = ["浜","港","崎","磯","湾","津","島","岬","浦","洲","沖","瀬"]
-suffix_yomi = ["hama","minato","zaki","iso","wan","tsu","jima","misaki","ura","su","oki","se"]
+suffix_yomi = ["hama","ko","zaki","iso","wan","tsu","jima","misaki","ura","su","oki","se"]
 
 [General]
 prefix      = ["飯","松","梅","桜","鈴","亀","甲","竹","千","三","神","金","玉","宮","藤","菊","橘","春","秋","福","栄","吉","豊","市","橋","弥","常"]

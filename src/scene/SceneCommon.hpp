@@ -7,8 +7,9 @@ enum class SceneState { Title, Game };
 /// @brief シーン間で共有するデータ
 struct SceneData
 {
-	uint64      seed    = 20260316ULL;
-	TerrainType terrain = TerrainType::Hills;
+	uint64      seed        = 20260316ULL;
+	TerrainType terrain     = TerrainType::Hills;
+	bool        sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
 };
 
 /// @brief SceneManager の型エイリアス

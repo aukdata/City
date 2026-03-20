@@ -51,88 +51,110 @@ void GameCamera::handleInput(double dt, const World& world)
 	if (MouseM.pressed() && m_hasOrbitPivot)
 		m_orbitPivot += wasdDelta;
 
-	// ─── ホイールクリックドラッグ: 地形交点を中心に回転 ─────────────────────
+	// ─── ホイールクリックドラッグ ─────────────────────────────────────────────
+	// Shift なし: 地形交点を中心に回転
+	// Shift あり: カメラ平行移動（パン）
 
-	// ドラッグ開始時: レイと地形の交点を軌道ピボットとして保存する（m_focus は変えない）
 	if (MouseM.down())
 	{
 		m_dragAnchor    = Cursor::Pos();
 		m_hasOrbitPivot = false;
 
-		const Ray    ray  = screenToRay(Vec2{ m_dragAnchor });
-		const Float3 orig = ray.origin.xyz();
-		const Float3 dir  = ray.direction.xyz();
-
-		// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
-		if (dir.y < 0.0f)
+		// Shift パン中は回転ピボット計算不要
+		if (!KeyShift.pressed())
 		{
-			constexpr float kStep    = 10.0f;
-			constexpr float kMaxDist = 8000.0f;
-			float tPrev = 0.0f;
+			const Ray    ray  = screenToRay(Vec2{ m_dragAnchor });
+			const Float3 orig = ray.origin.xyz();
+			const Float3 dir  = ray.direction.xyz();
 
-			for (float t = kStep; t < kMaxDist; t += kStep)
+			// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
+			if (dir.y < 0.0f)
 			{
-				const float px = orig.x + dir.x * t;
-				const float pz = orig.z + dir.z * t;
-				const float py = orig.y + dir.y * t;
+				constexpr float kStep    = 10.0f;
+				constexpr float kMaxDist = 8000.0f;
+				float tPrev = 0.0f;
 
-				if (py <= world.sampleHeight(px, pz))
+				for (float t = kStep; t < kMaxDist; t += kStep)
 				{
-					const float tMid = (tPrev + t) * 0.5f;
-					const float hx   = orig.x + dir.x * tMid;
-					const float hz   = orig.z + dir.z * tMid;
-					const float hy   = world.sampleHeight(hx, hz);
+					const float px = orig.x + dir.x * t;
+					const float pz = orig.z + dir.z * t;
+					const float py = orig.y + dir.y * t;
 
-					m_orbitPivot    = Vec3{ hx, hy, hz };
-					m_hasOrbitPivot = true;
-					break;
+					if (py <= world.sampleHeight(px, pz))
+					{
+						const float tMid = (tPrev + t) * 0.5f;
+						const float hx   = orig.x + dir.x * tMid;
+						const float hz   = orig.z + dir.z * tMid;
+						const float hy   = world.sampleHeight(hx, hz);
+
+						m_orbitPivot    = Vec3{ hx, hy, hz };
+						m_hasOrbitPivot = true;
+						break;
+					}
+					tPrev = t;
 				}
-				tPrev = t;
 			}
 		}
 	}
 
-	// ドラッグ中: yaw / pitch を更新し、ピボットが画面上でジャンプしないよう m_focus を補正する
 	if (MouseM.pressed())
 	{
 		const Vec2 delta = Cursor::DeltaF();
-		m_yaw   += static_cast<float>(delta.x) * ROTATE_SPEED;
-		m_pitch += static_cast<float>(delta.y) * ROTATE_SPEED;
-		m_pitch  = Clamp(
-			m_pitch,
-			static_cast<float>(Math::ToRadians(MIN_PITCH_DEG)),
-			static_cast<float>(Math::ToRadians(MAX_PITCH_DEG)));
 
-		// ピボット P を dragAnchor の画面位置に固定する補正
-		// ① 新しい yaw/pitch でカメラを仮ビルドする（ray 計算に必要）
-		// ② dragAnchor からのレイが P の高さ（y = P.y）と交わる点 Q を求める
-		// ③ P が Q の位置に見えるよう m_focus をパンで補正: m_focus += P - Q
-		if (m_hasOrbitPivot)
+		if (KeyShift.pressed())
 		{
-			rebuild(&world);  // 仮ビルド（update() でもう一度ビルドされる）
+			// ─── Shift + ホイールドラッグ: パン（平行移動）────────────────────────
+			// 1 ピクセルあたりのワールド移動量: focus 平面における見かけ上のスケール
+			const double panScale = static_cast<double>(m_distance) / Scene::Width()
+			                        * 2.0 * Math::Tan(20.0_deg);
+			const Vec3 right   = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
+			const Vec3 fwd     = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
+			m_focus += right * delta.x * panScale;
+			m_focus += fwd   * delta.y * panScale;
 
-			const Ray    ray = screenToRay(Vec2{ m_dragAnchor });
-			const Float3 co  = ray.origin.xyz();
-			const Float3 cd  = ray.direction.xyz();
-
-			if (Math::Abs(cd.y) > 1e-6f)
+			if (m_hasOrbitPivot)
 			{
-				const float t = (static_cast<float>(m_orbitPivot.y) - co.y) / cd.y;
-				if (t > 0.0f)
+				m_orbitPivot += right * delta.x * panScale;
+				m_orbitPivot += fwd   * delta.y * panScale;
+			}
+		}
+		else
+		{
+			// ─── ホイールドラッグ: 地形交点を中心に回転 ─────────────────────────
+			m_yaw   += static_cast<float>(delta.x) * ROTATE_SPEED;
+			m_pitch += static_cast<float>(delta.y) * ROTATE_SPEED;
+			m_pitch  = Clamp(
+				m_pitch,
+				static_cast<float>(Math::ToRadians(MIN_PITCH_DEG)),
+				static_cast<float>(Math::ToRadians(MAX_PITCH_DEG)));
+
+			// ピボット P を dragAnchor の画面位置に固定する補正
+			if (m_hasOrbitPivot)
+			{
+				rebuild(&world);  // 仮ビルド（update() でもう一度ビルドされる）
+
+				const Ray    ray = screenToRay(Vec2{ m_dragAnchor });
+				const Float3 co  = ray.origin.xyz();
+				const Float3 cd  = ray.direction.xyz();
+
+				if (Math::Abs(cd.y) > 1e-6f)
 				{
-					const Vec3 Q{
-						static_cast<double>(co.x + cd.x * t),
-						m_orbitPivot.y,
-						static_cast<double>(co.z + cd.z * t)
-					};
-					m_focus += m_orbitPivot - Q;
+					const float t = (static_cast<float>(m_orbitPivot.y) - co.y) / cd.y;
+					if (t > 0.0f)
+					{
+						const Vec3 Q{
+							static_cast<double>(co.x + cd.x * t),
+							m_orbitPivot.y,
+							static_cast<double>(co.z + cd.z * t)
+						};
+						m_focus += m_orbitPivot - Q;
+					}
 				}
 			}
 		}
 
 		// カーソルをドラッグ開始位置に固定し、ウィンドウ外へ出るのを防ぐ
 		Cursor::SetPos(m_dragAnchor);
-		// ドラッグ中はカーソルを非表示にする
 		Cursor::RequestStyle(CursorStyle::Hidden);
 	}
 

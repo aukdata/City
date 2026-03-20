@@ -11,10 +11,11 @@
 class RoadStyleRegistry
 {
 public:
-	/// @brief TOML ファイルからスタイルをロードする
-	/// @param tomlPath ファイルパス（実行時 WD からの相対パスまたは絶対パス）
-	/// @return ロード成功なら true
-	bool load(FilePathView tomlPath);
+	/// @brief 道路種別ごとの TOML ファイルが置かれたディレクトリからロードする
+	/// @param dirPath ディレクトリパス（例: "assets/roads"）
+	///   各ファイル名は RoadType 名に対応: LocalRoad.toml / Arterial.toml 等
+	/// @return 1 ファイル以上ロード成功なら true
+	bool load(FilePathView dirPath);
 
 	/// @brief 道路種別に対応するスタイルを返す（未登録なら fallback を返す）
 	const RoadStyle& get(RoadType rt) const;

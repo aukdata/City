@@ -15,5 +15,6 @@ private:
 	mutable TextEditState m_seedTextState;
 	mutable uint64        m_selectedSeed;
 	mutable TerrainType   m_selectedTerrain;
+	mutable bool          m_sandboxMode    = true;
 	mutable bool          m_startRequested = false;
 };

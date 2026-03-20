@@ -4,6 +4,7 @@ TitleScene::TitleScene(const InitData& init)
 	: IScene{ init }
 	, m_selectedSeed{ getData().seed }
 	, m_selectedTerrain{ getData().terrain }
+	, m_sandboxMode{ getData().sandboxMode }
 {
 	m_seedTextState.text = Format(m_selectedSeed);
 }
@@ -12,8 +13,9 @@ void TitleScene::update()
 {
 	if (m_startRequested)
 	{
-		getData().seed    = m_selectedSeed;
-		getData().terrain = m_selectedTerrain;
+		getData().seed        = m_selectedSeed;
+		getData().terrain     = m_selectedTerrain;
+		getData().sandboxMode = m_sandboxMode;
 		// フェードなしで即座にゲームシーンへ遷移（マップ生成があるため）
 		changeScene(SceneState::Game, 0s);
 	}
@@ -124,14 +126,17 @@ void TitleScene::draw() const
 		}
 	}
 
+	// ---- サンドボックスモード チェックボックス ----
+	{
+		constexpr int kCbW = 360;
+		SimpleGUI::CheckBox(m_sandboxMode, U"サンドボックスモード",
+		                    Vec2{ (W - kCbW) / 2, 495 }, kCbW);
+	}
+
 	// ---- 生成開始ボタン ----
 	constexpr int kBtnW = 220;
-	if (SimpleGUI::Button(U"生成開始", Vec2{ (W - kBtnW) / 2, 530 }, kBtnW))
+	if (SimpleGUI::Button(U"生成開始", Vec2{ (W - kBtnW) / 2, 540 }, kBtnW))
 	{
 		m_startRequested = true;
 	}
-
-	// ---- 操作説明 ----
-	descFont(U"生成後: WASD/QE カメラ移動　R 道路　Z ゾーン　G 地形編集　X 線路　B バス　F カメラ切替").drawAt(
-		W * 0.5, H - 36, ColorF{ 0.42, 0.50, 0.58 });
 }

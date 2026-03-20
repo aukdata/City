@@ -31,10 +31,12 @@ Visual Studio でソリューションを開いてビルド:
 ## Siv3D 実装留意点
 
 コンパイルエラーや API の使い方で迷ったら、まず `plan/SIV3D_NOTES.md` を検索すること。
+Siv3Dの使い方は、`gemini -p`に聞く。プロンプトには、「manual/siv3d.docs-main」を参照するよう含める。
 Siv3D の型・関数は極力既存 API を使い、自前で再実装しない。
 
 **Siv3D クラス定義の参照先**: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`
-- API を確認するときは上記ディレクトリの `.hpp` を直接 Read すること。
+ただし、トークン削減のため基本は`gemini -p`経由で確認する。
+API を確認するときは上記ディレクトリの `.hpp` を直接 Read すること。
 
 ## Architecture
 

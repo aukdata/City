@@ -20,8 +20,9 @@ namespace
 	struct SliceInfo { Vec3 center; Vec3 right; };
 	SliceInfo makeSlice(const CubicBezier& bez, const World& world, float s, double terrainLift)
 	{
-		const Vec3  p      = bez.positionAt(s);
-		const float gy     = world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z));
+		const Vec3  p  = bez.positionAt(s);
+		// sampleHeight はチャンク未ロード時に 0 を返すため computeHeight を使う
+		const float gy = world.computeHeight(static_cast<float>(p.x), static_cast<float>(p.z));
 		return { Vec3{ p.x, gy + terrainLift, p.z }, calcRight(bez.tangentAt(s)) };
 	}
 
@@ -398,8 +399,8 @@ MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
 		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
 
 		const Vec3  right    = calcRight(capTan);
-		const float gy       = world.sampleHeight(static_cast<float>(capPos.x),
-		                                          static_cast<float>(capPos.z));
+		const float gy       = world.computeHeight(static_cast<float>(capPos.x),
+		                                           static_cast<float>(capPos.z));
 		const Vec3  capCenter{ capPos.x, gy + 2.0, capPos.z };
 
 		EdgeInfo info;

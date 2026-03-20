@@ -172,6 +172,12 @@ struct RoadEdge
 	float     length     = 0.0f;            ///< 弧長 [m]
 	int       planId     = -1;              ///< 所属 RoadPlan（-1 = 既存道路）
 
+	/// @brief nodeA 端でのカットオフ量 [m]（描画メッシュをノード手前で切る距離）
+	/// @note RoadNetwork::updateNodeCutoffs() で自動計算される。0 = カットなし（端点）
+	float     cutoffA   = 0.0f;
+	/// @brief nodeB 端でのカットオフ量 [m]
+	float     cutoffB   = 0.0f;
+
 	Array<Lane>          lanes;
 	Array<TempOp>        tempOps;
 	Array<PlannedChange> planned;

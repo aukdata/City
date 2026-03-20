@@ -67,7 +67,7 @@ private:
 	PlaceNameRenderer    m_placeNameRenderer;
 
 	// ---- 編集モード ----
-	enum class EditMode { None, RoadDraw, ZonePaint, BusRouteDraw, TerrainEdit, TrainDraw };
+	enum class EditMode { None, RoadDraw, ZonePaint, BusRouteDraw, TerrainEdit, TrainDraw, SandboxEdit };
 	EditMode        m_mode          = EditMode::None;
 
 	// 道路描画
@@ -88,6 +88,13 @@ private:
 	float           m_terrainBrushRadius   = 80.0f;
 	float           m_terrainBrushStrength = 20.0f;
 
+	// サンドボックス編集
+	struct CtrlDrag { int edgeId; bool isA; };     ///< ドラッグ中の制御点
+	bool               m_sandboxActive     = false;
+	Optional<int>      m_sandboxDragNode;          ///< ドラッグ中のノード id
+	Optional<CtrlDrag> m_sandboxDragCtrl;          ///< ドラッグ中の制御点
+	Vec3               m_sandboxPrevCursor;        ///< 前フレームのカーソル地面位置
+
 	// 月次トリガー管理
 	int             m_lastEconYear  = -1;
 	int             m_lastEconMonth = -1;
@@ -105,6 +112,7 @@ private:
 	void handleBusRouteDraw();
 	void handleTerrainEdit();
 	void handleTrainDraw();
+	void handleSandboxEdit();
 	void renderWorld();
 
 	String modeString() const;
