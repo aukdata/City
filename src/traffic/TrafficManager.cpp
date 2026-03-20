@@ -106,6 +106,10 @@ void TrafficManager::spawnVehicle(VehicleType type)
 	{
 		v.arcPos   = static_cast<float>(Random(0.0, static_cast<double>(bezier->totalLength) * 0.8));
 		v.position = bezier->positionAt(v.arcPos);
+		if (m_world)
+			v.position.y = m_world->sampleHeight(
+				static_cast<float>(v.position.x),
+				static_cast<float>(v.position.z)) + 2.0f;
 	}
 
 	addVehicle(std::move(v));
@@ -237,6 +241,11 @@ void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
 	{
 		const float clampedArc = Clamp(v.arcPos, 0.0f, bezier->totalLength);
 		v.position = bezier->positionAt(clampedArc);
+		// 路面は地形 +2m に描画されるため、車両も同じ高さに配置する
+		if (m_world)
+			v.position.y = m_world->sampleHeight(
+				static_cast<float>(v.position.x),
+				static_cast<float>(v.position.z)) + 2.0f;
 		const Vec3 tangent = bezier->tangentAt(clampedArc);
 		// Backward 方向の場合は向きを反転する
 		const float sign = fwdLane ? 1.0f : -1.0f;

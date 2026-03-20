@@ -9,7 +9,7 @@ public:
 	void render(const Array<Vehicle>& vehicles);
 
 private:
-	/// @brief 単一車両を描画する（車種別の簡易 3D 形状）
+	/// @brief 単一車両を描画する
 	void drawVehicle(const Vehicle& v);
 
 	/// @brief 車種別の車体色を返す
@@ -17,4 +17,7 @@ private:
 
 	/// @brief 車種別の車体サイズ (width, height, length) を返す
 	static Vec3 vehicleSize(VehicleType type);
+
+	/// @brief 乗用車・軽自動車用 3D モデル（遅延ロード）
+	Model m_carModel;
 };

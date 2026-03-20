@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "TerrainType.hpp"
+#include "PlaceNameGenerator.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../zone/ZoneManager.hpp"
@@ -19,12 +20,14 @@ public:
 		Vec2           center;   ///< ワールド XZ 座標 [m]
 		SettlementType type;
 		float          radius;   ///< 影響半径 [m]
+		String         name;     ///< 集落地名（PlaceNameGenerator が設定）
 	};
 
 	/// @brief 生成結果
 	struct Result
 	{
-		Vec3 cameraFocus;        ///< 初期カメラ注視点（都市核の位置）
+		Vec3         cameraFocus;   ///< 初期カメラ注視点（都市核の位置）
+		PlaceNameDB  placeNames;    ///< 生成された地名データベース
 	};
 
 	/// @brief マップを生成してワールド・道路・ゾーン・鉄道を初期化する

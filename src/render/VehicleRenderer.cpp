@@ -3,17 +3,46 @@
 void VehicleRenderer::render(const Array<Vehicle>& vehicles)
 {
 	for (const auto& v : vehicles)
-	{
 		drawVehicle(v);
-	}
 }
 
 void VehicleRenderer::drawVehicle(const Vehicle& v)
 {
-	const ColorF color = vehicleColor(v.type);
-	const Vec3 size = vehicleSize(v.type);
+	// 乗用車・軽自動車は car.obj モデルで描画する
+	if (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar)
+	{
+		// 初回のみモデルとテクスチャをロードする
+		if (m_carModel.isEmpty())
+		{
+			m_carModel = Model{ U"assets/models/car.obj" };
+			Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
+		}
 
-	Box{ v.position + Vec3{ 0, size.y / 2, 0 }, size }.draw(color);
+		// heading = atan2(tx, tz)（+Z 基準）、モデルは +X を向いているため -π/2 補正
+		// Transformer3D + obj.draw(materials) で確実にワールド空間へ配置する（tutorial 37.2 方式）
+		{
+			const Mat4x4 worldMat = Mat4x4::RotateY(
+				v.heading - static_cast<float>(Math::HalfPi))
+				.translated(
+					static_cast<float>(v.position.x),
+					static_cast<float>(v.position.y),
+					static_cast<float>(v.position.z));
+			const auto& materials = m_carModel.materials();
+			for (const auto& obj : m_carModel.objects())
+			{
+				const Transformer3D transform{ worldMat };
+				obj.draw(materials);
+			}
+		}
+		return;
+	}
+
+	// その他の車種はボックスで描画する（heading 方向を向く）
+	const ColorF    color  = vehicleColor(v.type);
+	const Vec3      size   = vehicleSize(v.type);
+	const Vec3      center = v.position + Vec3{ 0, size.y / 2, 0 };
+	const Quaternion rot   = Quaternion::RotateY(v.heading);
+	OrientedBox{ center, size, rot }.draw(color);
 }
 
 ColorF VehicleRenderer::vehicleColor(VehicleType type)

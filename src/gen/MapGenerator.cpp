@@ -1,4 +1,5 @@
 ﻿#include "MapGenerator.hpp"
+#include "PlaceNameGenerator.hpp"
 #include <random>
 #include <queue>
 
@@ -29,8 +30,17 @@ MapGenerator::Result MapGenerator::generate(
 	// 鉄道
 	setupTrain(trainNet, world);
 
-	// カメラ注視点 = 都市核の位置
+	// 地名生成
+	PlaceNameGenerator placeGen;
+	placeGen.load(U"assets/placenames/placenames.toml");
 	Result result;
+	result.placeNames = placeGen.generate(
+		static_cast<int>(m_settlements.size()), terrainType, seed);
+	// 集落データにも名前を反映する
+	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
+		m_settlements[i].name = result.placeNames.settlementName(i);
+
+	// カメラ注視点 = 都市核の位置
 	if (!m_settlements.isEmpty())
 	{
 		const auto& urban = m_settlements[0];

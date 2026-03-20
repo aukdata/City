@@ -132,6 +132,8 @@
     <ClCompile Include="src\render\VehicleRenderer.cpp" />
     <ClCompile Include="src\render\UIRenderer.cpp" />
     <ClCompile Include="src\GameApp.cpp" />
+    <ClCompile Include="src\scene\TitleScene.cpp" />
+    <ClCompile Include="src\scene\GameScene.cpp" />
     <ClCompile Include="src\debug\DebugRenderer.cpp" />
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
@@ -139,7 +141,9 @@
     <ClCompile Include="src\railway\TrainNetwork.cpp" />
     <ClCompile Include="src\railway\TrainManager.cpp" />
     <ClCompile Include="src\render\TrainRenderer.cpp" />
+    <ClCompile Include="src\render\PlaceNameRenderer.cpp" />
     <ClCompile Include="src\gen\MapGenerator.cpp" />
+    <ClCompile Include="src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="src\style\RoadStyleRegistry.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -364,6 +368,9 @@
     <ClInclude Include="src\render\VehicleRenderer.hpp" />
     <ClInclude Include="src\render\UIRenderer.hpp" />
     <ClInclude Include="src\GameApp.hpp" />
+    <ClInclude Include="src\scene\SceneCommon.hpp" />
+    <ClInclude Include="src\scene\TitleScene.hpp" />
+    <ClInclude Include="src\scene\GameScene.hpp" />
     <ClInclude Include="src\debug\DebugLog.hpp" />
     <ClInclude Include="src\debug\DebugRenderer.hpp" />
     <ClInclude Include="src\zone\ZoneTypes.hpp" />
