@@ -58,6 +58,32 @@ public:
 	/// @return 変化があった場合 true
 	bool clearExpiredTempOps(GameTime now);
 
+	/// @brief 交差点（接続数 3 以上）のベジェ制御点を整列する
+	/// @details 各交差点で、隣接エッジ（他端点を結んだ直線のなす角で判定）の
+	///   なす角が 12.5° 未満のペアに対して、交差点側の制御点を調整する。
+	///   調整後の制御点方向は隣接エッジ方向から 12.5° 離れた方向とし、
+	///   制御点長は交差点〜他端点の XZ 距離の 1/2 とする。
+	bool spreadIntersectionTangents();
+
+	/// @brief 鋭角交差ポスト処理（ネットワーク作成直後に呼ぶ）
+	/// @details 同一ノードで minAngleDeg 未満の角を成すエッジペアを検出し、
+	///   幅が狭い方のエッジを、そのノードの隣接ノードのうち最も近いものに付け替える。
+	/// @param minAngleDeg 許容する最小交差角 [deg]（デフォルト 12.5°）
+	bool fixSharpAngles(float minAngleDeg = 12.5f);
+
+	/// @brief 同一ノードペアを持つ重複エッジを削除する
+	/// @details 両端が同じノードペアのエッジが複数ある場合、道幅が小さい方を削除する。
+	///   同幅のときは seed を用いた決定的ハッシュで一方を選択する。
+	/// @param seed 乱数シード（ゲームシードをそのまま渡す）
+	bool removeDuplicateEdges(uint64 seed);
+
+	/// @brief Node なし交差解消（fixSharpAngles の直後に呼ぶ）
+	/// @details エッジ同士がノードを共有せずに交差している箇所を検出し、
+	///   交差点に Intersection ノードを生成して両エッジを分割する。
+	///   新規ノードが既存ノードと 40 m 以内なら既存ノードへマージする。
+	///   交差が残る間、繰り返し処理する。
+	bool resolveIntersections();
+
 	/// @brief 指定ノードに接続する全エッジの cutoffA/cutoffB を再計算する
 	/// @details
 	///   カットオフ量 = そのノードにつながる最も幅広の道路の幅 × 1.5
@@ -78,7 +104,7 @@ private:
 	/// @brief デフォルトの車線セットを生成する
 	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);
 
-	/// @brief 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
+	/// @brief 2 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
 	/// @param newEdgeId 新たに追加したエッジの id
 	/// @param midNodeId 補正対象のノード id
 	/// @details
@@ -86,5 +112,5 @@ private:
 	///   動作: NewRoad の midNode 側制御点 (CPN) を、
 	///         PrevRoad の midNode 側制御点 (CPP) と midNode を結ぶ直線上で
 	///         midNode から NewRoad 両端間の直線距離の 1/2 の位置に移動する。
-	void smoothJunction(int newEdgeId, int midNodeId);
+	void smoothCurveAt(int newEdgeId, int midNodeId);
 };

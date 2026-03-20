@@ -69,7 +69,13 @@ private:
 	Array<std::pair<int,int>> computeMST() const;
 
 	/// @brief A* でグリッドセル間の最短経路を返す（セル座標リスト）
-	Array<Point> findPath(Point start, Point goal) const;
+	/// @param forbiddenStartDirs 始点ノードで鋭角になる進行方向（outward 単位ベクトル）
+	/// @param forbiddenGoalDirs  終点ノードで鋭角になる進行方向（outward 単位ベクトル）
+	/// @param occupiedCells      既存パスが占有するグリッドセルの flat-index 集合
+	Array<Point> findPath(Point start, Point goal,
+	                      const Array<Vec2>& forbiddenStartDirs,
+	                      const Array<Vec2>& forbiddenGoalDirs,
+	                      const HashSet<int>& occupiedCells) const;
 
 	/// @brief A* パスをサンプリングして Vec3 ウェイポイント列に変換する
 	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 5) const;

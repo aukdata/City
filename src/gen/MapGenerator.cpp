@@ -20,9 +20,15 @@ MapGenerator::Result MapGenerator::generate(
 
 	// Phase 2: 集落配置
 	placeSettlements(seed);
-
+	
 	// Phase 3: 旧道生成
 	generateRoads(roads, seed);
+
+	// Phase 3.5: ポスト処理（制御点調整前）
+	while (roads.fixSharpAngles(12.5f));         // 鋭角交差 → 狭い方を隣接 Node に付け替え
+	while (roads.resolveIntersections());        // Node なし交差 → Node 生成 + エッジ分割
+	while (roads.spreadIntersectionTangents());  // 交差点（3本以上）の制御点を整列
+	while (roads.removeDuplicateEdges(seed));    // 同一ノードペアの重複エッジを削除
 
 	// Phase 6: 初期ゾーン
 	assignZones(world, zones);
@@ -254,7 +260,10 @@ Array<std::pair<int,int>> MapGenerator::computeMST() const
 
 // --- A*（16m グリッド・8 方向）---
 
-Array<Point> MapGenerator::findPath(Point start, Point goal) const
+Array<Point> MapGenerator::findPath(Point start, Point goal,
+	const Array<Vec2>& forbiddenStartDirs,
+	const Array<Vec2>& forbiddenGoalDirs,
+	const HashSet<int>& occupiedCells) const
 {
 	// 平坦配列でノード管理
 	struct Cell
@@ -312,7 +321,50 @@ Array<Point> MapGenerator::findPath(Point start, Point goal) const
 			// 地形ペナルティ（水域回避）
 			const float terrainPenalty = (gridHeight(nx, nz) < 0.0f) ? 10.0f : 1.0f;
 
-			const float move = kCellSize * kDc[d] * gradPenalty * terrainPenalty;
+			float move = kCellSize * kDc[d] * gradPenalty * terrainPenalty;
+
+			// 重複道路ペナルティ: 既存パスと同一セルを通ると割高にして平行重複を抑制
+			// 交差（1〜2セルの一時共有）は軽微なコスト増に留まるため許容される
+			if (occupiedCells.count(ni) > 0)
+				move *= 2.5f;
+
+			// 鋭角ペナルティ（cos 12.5° ≈ 0.976）
+			// 始点・終点から 6 セル（≈240 m）以内で既存エッジと 12.5° 未満の角を
+			// 形成する方向への移動コストを大幅に増加させる
+			constexpr float kNearDist         = 6.0f;
+			constexpr float kSharpCosThresh   = 0.976f;  // cos(12.5°)
+			constexpr float kSharpPenalty     = 50.0f;
+			const Vec2 moveDir{ static_cast<float>(kDx[d]), static_cast<float>(kDz[d]) };
+			const Vec2 moveDirN = moveDir.normalized();
+
+			// 始点近傍: 新エッジの始点 outward tangent ≈ moveDir
+			if (!forbiddenStartDirs.isEmpty() &&
+			    static_cast<float>(Point{ nx, nz }.distanceFrom(start)) <= kNearDist)
+			{
+				for (const Vec2& fd : forbiddenStartDirs)
+				{
+					if (moveDirN.dot(fd) > kSharpCosThresh)
+					{
+						move *= kSharpPenalty;
+						break;
+					}
+				}
+			}
+
+			// 終点近傍: 新エッジの終点 outward tangent ≈ -moveDir
+			if (!forbiddenGoalDirs.isEmpty() &&
+			    static_cast<float>(Point{ nx, nz }.distanceFrom(goal)) <= kNearDist)
+			{
+				for (const Vec2& fd : forbiddenGoalDirs)
+				{
+					if (moveDirN.dot(fd) < -kSharpCosThresh)
+					{
+						move *= kSharpPenalty;
+						break;
+					}
+				}
+			}
+
 			const float ng   = cells[ci].g + move;
 
 			if (ng < cells[ni].g)
@@ -415,6 +467,32 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 	// MST で幹線網を決定する
 	const auto mstEdges = computeMST();
 
+	// 生成済みパスが占有するグリッドセル（始終点除く）を記録する。
+	// 後続パスがこれらのセルを通ると割高になり、平行重複を自然に回避する。
+	HashSet<int> occupiedCells;
+
+	// ノード nodeId に接続済みの全エッジの outward 方向（XZ 単位ベクトル）を返す。
+	// findPath の鋭角ペナルティに渡すための禁止方向リストを構築する。
+	auto getOutwardDirs = [&](int nodeId) -> Array<Vec2>
+	{
+		const RoadNode* node = roads.getNode(nodeId);
+		if (!node) return {};
+		Array<Vec2> dirs;
+		for (int eid : node->edgeIds)
+		{
+			const RoadEdge* edge = roads.getEdge(eid);
+			if (!edge) continue;
+			const Vec3 nodePos = node->position;
+			const Vec3 outward = (edge->nodeA == nodeId)
+				? (edge->ctrlA - nodePos)
+				: (edge->ctrlB - nodePos);
+			const float len = static_cast<float>(Vec2{ outward.x, outward.z }.length());
+			if (len > 1e-6f)
+				dirs << Vec2{ outward.x, outward.z } / len;
+		}
+		return dirs;
+	};
+
 	for (const auto& [u, v] : mstEdges)
 	{
 		const Point gs = worldToGrid(
@@ -424,8 +502,14 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 			static_cast<float>(m_settlements[v].center.x),
 			static_cast<float>(m_settlements[v].center.y));
 
-		const Array<Point> path = findPath(gs, ge);
+		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
+		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
+		const Array<Point> path = findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
+
+		// 使用セルを登録（始終点は集落ノードなので除外）
+		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
+			occupiedCells.emplace(gridIdx(path[i].x, path[i].y));
 
 		// 幹線種別: Urban ↔ District/Urban → 幹線道路、それ以外 → 一般道
 		const bool isArterial =
@@ -466,8 +550,13 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 			static_cast<float>(m_settlements[v].center.x),
 			static_cast<float>(m_settlements[v].center.y));
 
-		const Array<Point> path = findPath(gs, ge);
+		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
+		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
+		const Array<Point> path = findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
+
+		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
+			occupiedCells.emplace(gridIdx(path[i].x, path[i].y));
 
 		const Array<Vec3> wps = samplePath(path, 5);
 		pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,

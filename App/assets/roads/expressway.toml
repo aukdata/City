@@ -1,0 +1,20 @@
+# expressway.toml - 高速道路（自動車専用道）スタイル定義
+
+surface_texture    = "assets/textures/asphalt.png"
+surface_color      = [0.25, 0.25, 0.25]
+surface_tile_v     = 0.03
+default_lane_width = 3.75
+shoulder_width     = 1.5
+median_width       = 3.0
+
+[lane_marking]
+color       = [1.0, 1.0, 1.0]
+line_width  = 0.15
+dash_length = 10.0
+gap_length  = 10.0
+
+[center_line]
+color       = [1.0, 1.0, 1.0]
+line_width  = 0.20
+dash_length = 0.0
+gap_length  = 0.0
