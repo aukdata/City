@@ -20,12 +20,13 @@ MapGenerator::Result MapGenerator::generate(
 
 	// Phase 2: 集落配置
 	placeSettlements(seed);
-	
+
 	// Phase 3: 旧道生成
 	generateRoads(roads, seed);
 
 	// Phase 3.5: ポスト処理（制御点調整前）
 	while (roads.fixSharpAngles(12.5f));         // 鋭角交差 → 狭い方を隣接 Node に付け替え
+	roads.smoothAllCurves();                     // 接続数 2 のノードで曲線を滑らかにする
 	while (roads.resolveIntersections());        // Node なし交差 → Node 生成 + エッジ分割
 	while (roads.spreadIntersectionTangents());  // 交差点（3本以上）の制御点を整列
 	while (roads.removeDuplicateEdges(seed));    // 同一ノードペアの重複エッジを削除

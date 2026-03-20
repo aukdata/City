@@ -67,10 +67,6 @@ int RoadNetwork::addEdge(int nodeA, int nodeB,
 	updateNodeCutoffs(nodeA);
 	updateNodeCutoffs(nodeB);
 
-	// 接続ノードで滑らかに繋がるよう制御点を補正する
-	smoothCurveAt(e.id, nodeA);
-	smoothCurveAt(e.id, nodeB);
-
 	return e.id;
 }
 
@@ -481,6 +477,20 @@ void RoadNetwork::smoothCurveAt(int newEdgeId, int midNodeId)
 		newEdge->ctrlB = newCpn;
 }
 
+void RoadNetwork::smoothAllCurves()
+{
+	for (const RoadNode& node : m_nodes)
+	{
+		if (node.id < 0 || node.edgeIds.size() != 2) continue;
+
+		// 接続 2 本のうち、id が大きい方を newEdge とみなす
+		const int eid0 = node.edgeIds[0];
+		const int eid1 = node.edgeIds[1];
+		const int newEdgeId = (eid0 > eid1) ? eid0 : eid1;
+		smoothCurveAt(newEdgeId, node.id);
+	}
+}
+
 bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 {
 	bool removed = false;
@@ -533,7 +543,7 @@ bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 bool RoadNetwork::resolveIntersections()
 {
 	// Case 1: NodeA→NodeB の直線同士が交わる → 交点で両エッジを分割
-	// Case 2: Case 1 が外れ、かつ端点↔制御点の直線が交わる
+	// Case 2: Case 1 が外れ、かつ折れ線（端点→制御点1→制御点2→端点）の線分が交わる
 	//         → 4 端点の平均位置にノードを生成し、両エッジを t=0.5 で分割
 	// ノードマージ: 生成ノードが既存ノードと 40 m 以内ならマージ
 
@@ -550,108 +560,114 @@ bool RoadNetwork::resolveIntersections()
 			if (e.id >= 0) edgeIds << e.id;
 
 		for (int ii = 0; ii < static_cast<int>(edgeIds.size()) && !foundAny; ++ii)
-		for (int jj = ii + 1; jj < static_cast<int>(edgeIds.size()) && !foundAny; ++jj)
 		{
-			const RoadEdge* e1 = getEdge(edgeIds[ii]);
-			const RoadEdge* e2 = getEdge(edgeIds[jj]);
-			if (!e1 || !e2) continue;
-
-			// 隣接エッジ（共有ノードあり）はスキップ
-			if (e1->nodeA == e2->nodeA || e1->nodeA == e2->nodeB ||
-			    e1->nodeB == e2->nodeA || e1->nodeB == e2->nodeB) continue;
-
-			const RoadNode* na1 = getNode(e1->nodeA); const RoadNode* nb1 = getNode(e1->nodeB);
-			const RoadNode* na2 = getNode(e2->nodeA); const RoadNode* nb2 = getNode(e2->nodeB);
-			if (!na1 || !nb1 || !na2 || !nb2) continue;
-
-			// データを全てコピー（以降のポインタ失効に備える）
-			const Vec3 posA1 = na1->position, posB1 = nb1->position;
-			const Vec3 posA2 = na2->position, posB2 = nb2->position;
-			const Vec3 cA1 = e1->ctrlA, cB1 = e1->ctrlB;
-			const Vec3 cA2 = e2->ctrlA, cB2 = e2->ctrlB;
-			const RoadType rt1 = e1->roadType, rt2 = e2->roadType;
-			const int lanes1 = static_cast<int>(e1->lanes.size());
-			const int lanes2 = static_cast<int>(e2->lanes.size());
-			const int nA1 = e1->nodeA, nB1 = e1->nodeB;
-			const int nA2 = e2->nodeA, nB2 = e2->nodeB;
-
-			float bt1, bt2;
-			Vec3 intPos;
-
-			float s, t;
-			if (segIntersect2D(
-			        { posA1.x, posA1.z }, { posB1.x, posB1.z },
-			        { posA2.x, posA2.z }, { posB2.x, posB2.z }, s, t))
+			for (int jj = ii + 1; jj < static_cast<int>(edgeIds.size()) && !foundAny; ++jj)
 			{
-				// Case 1: 端点直線が交わる → s,t をそのまま分割 t に使用
-				bt1 = s; bt2 = t;
-				if (bt1 < SKIP_EPS || bt1 > 1.0f - SKIP_EPS) continue;
-				if (bt2 < SKIP_EPS || bt2 > 1.0f - SKIP_EPS) continue;
-				intPos = posA1 + (posB1 - posA1) * bt1;
-			}
-			else
-			{
-				// Case 2: 端点↔制御点の直線（4 通り）が交わるか確認
-				float ds, dt;
-				const bool cpHit =
-					segIntersect2D({ posA1.x, posA1.z }, { cA1.x, cA1.z },
-					               { posA2.x, posA2.z }, { cA2.x, cA2.z }, ds, dt) ||
-					segIntersect2D({ posA1.x, posA1.z }, { cA1.x, cA1.z },
-					               { posB2.x, posB2.z }, { cB2.x, cB2.z }, ds, dt) ||
-					segIntersect2D({ posB1.x, posB1.z }, { cB1.x, cB1.z },
-					               { posA2.x, posA2.z }, { cA2.x, cA2.z }, ds, dt) ||
-					segIntersect2D({ posB1.x, posB1.z }, { cB1.x, cB1.z },
-					               { posB2.x, posB2.z }, { cB2.x, cB2.z }, ds, dt);
-				if (!cpHit) continue;
+				const RoadEdge* e1 = getEdge(edgeIds[ii]);
+				const RoadEdge* e2 = getEdge(edgeIds[jj]);
+				if (!e1 || !e2) continue;
 
-				// 4 端点の平均を接続ノード位置とする（高さも平均）
-				bt1 = bt2 = 0.5f;
-				intPos = Vec3{
-					(posA1.x + posB1.x + posA2.x + posB2.x) * 0.25f,
-					(posA1.y + posB1.y + posA2.y + posB2.y) * 0.25f,
-					(posA1.z + posB1.z + posA2.z + posB2.z) * 0.25f
-				};
-			}
+				// 隣接エッジ（共有ノードあり）はスキップ
+				// if (e1->nodeA == e2->nodeA || e1->nodeA == e2->nodeB ||
+				//   e1->nodeB == e2->nodeA || e1->nodeB == e2->nodeB) continue;
 
-			// 既存ノードへのマージ判定（分割対象エッジの端点は除外）
-			int splitNodeId = -1;
-			{
-				float minDist = MERGE_DIST;
-				for (const RoadNode& n : m_nodes)
+				const RoadNode* na1 = getNode(e1->nodeA); const RoadNode* nb1 = getNode(e1->nodeB);
+				const RoadNode* na2 = getNode(e2->nodeA); const RoadNode* nb2 = getNode(e2->nodeB);
+				if (!na1 || !nb1 || !na2 || !nb2) continue;
+
+				// データを全てコピー（以降のポインタ失効に備える）
+				const Vec3 posA1 = na1->position, posB1 = nb1->position;
+				const Vec3 posA2 = na2->position, posB2 = nb2->position;
+				const Vec3 cA1 = e1->ctrlA, cB1 = e1->ctrlB;
+				const Vec3 cA2 = e2->ctrlA, cB2 = e2->ctrlB;
+				const RoadType rt1 = e1->roadType, rt2 = e2->roadType;
+				const int lanes1 = static_cast<int>(e1->lanes.size());
+				const int lanes2 = static_cast<int>(e2->lanes.size());
+				const int nA1 = e1->nodeA, nB1 = e1->nodeB;
+				const int nA2 = e2->nodeA, nB2 = e2->nodeB;
+
+				float bt1, bt2;
+				Vec3 intPos;
+
+				float s, t;
+				if (segIntersect2D(
+					{ posA1.x, posA1.z }, { posB1.x, posB1.z },
+					{ posA2.x, posA2.z }, { posB2.x, posB2.z }, s, t))
 				{
-					if (n.id < 0) continue;
-					if (n.id == nA1 || n.id == nB1 || n.id == nA2 || n.id == nB2) continue;
-					const float d = static_cast<float>(intPos.distanceFrom(n.position));
-					if (d < minDist) { minDist = d; splitNodeId = n.id; }
+					// Case 1: 端点直線が交わる → s,t をそのまま分割 t に使用
+					bt1 = s; bt2 = t;
+					if (bt1 < SKIP_EPS || bt1 > 1.0f - SKIP_EPS) continue;
+					if (bt2 < SKIP_EPS || bt2 > 1.0f - SKIP_EPS) continue;
+					intPos = posA1 + (posB1 - posA1) * bt1;
 				}
+				else
+				{
+					// Case 2: 折れ線（端点1→制御点1→制御点2→端点2）の線分同士が交わるか確認
+					// 各エッジの折れ線 3 線分 vs 相手の折れ線 3 線分（計 9 通り）
+					float ds, dt;
+					const Vec2 p1[4] = {
+						{ posA1.x, posA1.z }, { cA1.x, cA1.z },
+						{ cB1.x, cB1.z }, { posB1.x, posB1.z }
+					};
+					const Vec2 p2[4] = {
+						{ posA2.x, posA2.z }, { cA2.x, cA2.z },
+						{ cB2.x, cB2.z }, { posB2.x, posB2.z }
+					};
+					bool cpHit = false;
+					for (int si = 0; si < 3 && !cpHit; ++si)
+						for (int sj = 0; sj < 3 && !cpHit; ++sj)
+							cpHit = segIntersect2D(p1[si], p1[si + 1], p2[sj], p2[sj + 1], ds, dt);
+					if (!cpHit) continue;
+
+					// 4 端点の平均を接続ノード位置とする（高さも平均）
+					bt1 = bt2 = 0.5f;
+					intPos = Vec3{
+						(posA1.x + posB1.x + posA2.x + posB2.x) * 0.25f,
+						(posA1.y + posB1.y + posA2.y + posB2.y) * 0.25f,
+						(posA1.z + posB1.z + posA2.z + posB2.z) * 0.25f
+					};
+				}
+
+				// 既存ノードへのマージ判定（分割対象エッジの端点は除外）
+				int splitNodeId = -1;
+				{
+					float minDist = MERGE_DIST;
+					for (const RoadNode& n : m_nodes)
+					{
+						if (n.id < 0) continue;
+						if (n.id == nA1 || n.id == nB1 || n.id == nA2 || n.id == nB2) continue;
+						const float d = static_cast<float>(intPos.distanceFrom(n.position));
+						if (d < minDist) { minDist = d; splitNodeId = n.id; }
+					}
+				}
+
+				// 新規ノードを生成（m_nodes が realloc される可能性あり）
+				if (splitNodeId < 0)
+					splitNodeId = addNode(intPos, NodeType::Intersection);
+
+				// 分割ノードの位置（addNode 後でも ID 検索で有効）
+				const Vec3 splitPos = getNode(splitNodeId)->position;
+
+				// E1 を分割（制御点は 1/3・2/3 線形補間、smoothAllCurves が後で整える）
+				removeEdge(edgeIds[ii]);
+				addEdge(nA1, splitNodeId,
+						posA1 + (splitPos - posA1) * (1.0 / 3.0),
+						posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
+				addEdge(splitNodeId, nB1,
+						splitPos + (posB1 - splitPos) * (1.0 / 3.0),
+						splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
+
+				// E2 を分割
+				removeEdge(edgeIds[jj]);
+				addEdge(nA2, splitNodeId,
+						posA2 + (splitPos - posA2) * (1.0 / 3.0),
+						posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
+				addEdge(splitNodeId, nB2,
+						splitPos + (posB2 - splitPos) * (1.0 / 3.0),
+						splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
+
+				foundAny = true;
 			}
-
-			// 新規ノードを生成（m_nodes が realloc される可能性あり）
-			if (splitNodeId < 0)
-				splitNodeId = addNode(intPos, NodeType::Intersection);
-
-			// 分割ノードの位置（addNode 後でも ID 検索で有効）
-			const Vec3 splitPos = getNode(splitNodeId)->position;
-
-			// E1 を分割（制御点は 1/3・2/3 線形補間、smoothJunction が後で整える）
-			removeEdge(edgeIds[ii]);
-			addEdge(nA1, splitNodeId,
-			        posA1 + (splitPos - posA1) * (1.0 / 3.0),
-			        posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
-			addEdge(splitNodeId, nB1,
-			        splitPos + (posB1 - splitPos) * (1.0 / 3.0),
-			        splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
-
-			// E2 を分割
-			removeEdge(edgeIds[jj]);
-			addEdge(nA2, splitNodeId,
-			        posA2 + (splitPos - posA2) * (1.0 / 3.0),
-			        posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
-			addEdge(splitNodeId, nB2,
-			        splitPos + (posB2 - splitPos) * (1.0 / 3.0),
-			        splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
-
-			foundAny = true;
 		}
 	}
 	return foundAny;

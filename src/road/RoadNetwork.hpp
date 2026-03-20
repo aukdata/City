@@ -84,6 +84,10 @@ public:
 	///   交差が残る間、繰り返し処理する。
 	bool resolveIntersections();
 
+	/// @brief 接続数 2 の全ノードで曲線を滑らかにする（Phase 3.5 ポスト処理用）
+	/// @details 全ノードを走査し、接続数が 2 のものに対して smoothCurveAt を呼ぶ。
+	void smoothAllCurves();
+
 	/// @brief 指定ノードに接続する全エッジの cutoffA/cutoffB を再計算する
 	/// @details
 	///   カットオフ量 = そのノードにつながる最も幅広の道路の幅 × 1.5
