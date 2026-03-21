@@ -27,7 +27,12 @@ Visual Studio でソリューションを開いてビルド:
 - **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。
   - **BOM 付与スクリプト**: 新規ファイルを複数作成した後は必ず `python3 scripts/add_bom.py` を実行して BOM を付与すること。Write ツールで作成したファイルは BOM が付与されないため、このスクリプトで補完する。
 - ドキュメントコメント: Doxygen形式
-- **CRLF ファイルの編集**: `.cpp`/`.hpp` は CRLF 改行のため Edit ツールでマッチに失敗することがある。その場合は Read + Write ツールでファイル全体を書き直すこと（Python スクリプトは使わない）。
+- **CRLF/BOM ファイルの編集**: `.cpp`/`.hpp` は CRLF 改行 + UTF-8 BOM のため Edit ツールでマッチに失敗することがある。その場合は以下のスクリプトで一時的に変換してから Edit し、完了後に戻すこと:
+  ```
+  python3 scripts/convert_line_endings.py to-lf     # LF化 + BOM除去（Edit用）
+  # ... Edit ツールで編集 ...
+  python3 scripts/convert_line_endings.py to-crlf   # CRLF化 + BOM復元
+  ```
 
 ## Siv3D 実装留意点
 
@@ -62,3 +67,4 @@ API を確認するときは上記ディレクトリの `.hpp` を直接 Read �
 | `12_visual_spec.md` | レンダリング・ビジュアル設計・LOD |
 | `13_sound_spec.md` | オーディオ設計 |
 | `14_save_spec.md` | セーブシステム・チャンク永続化 |
+| `15_chunk_data_spec.md` | チャンクデータ設計（二層構造・境界ノード重複） |

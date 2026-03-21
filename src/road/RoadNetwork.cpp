@@ -98,6 +98,24 @@ void RoadNetwork::removeNode(int nodeId)
 	m_nodes[idx].id = -1;
 }
 
+void RoadNetwork::addNodeRaw(const RoadNode& node)
+{
+	if (nodeIndex(node.id) >= 0) return;   // 既に存在する場合はスキップ
+	m_nodes << node;
+	if (node.id >= m_nextNodeId) m_nextNodeId = node.id + 1;
+}
+
+void RoadNetwork::addEdgeRaw(const RoadEdge& edge)
+{
+	if (edgeIndex(edge.id) >= 0) return;   // 既に存在する場合はスキップ
+	m_edges << edge;
+	if (RoadNode* na = getNode(edge.nodeA)) na->edgeIds << edge.id;
+	if (RoadNode* nb = getNode(edge.nodeB)) nb->edgeIds << edge.id;
+	if (edge.id >= m_nextEdgeId) m_nextEdgeId = edge.id + 1;
+	updateNodeCutoffs(edge.nodeA);
+	updateNodeCutoffs(edge.nodeB);
+}
+
 RoadEdge* RoadNetwork::getEdge(int id)
 {
 	const int idx = edgeIndex(id);

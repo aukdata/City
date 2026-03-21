@@ -34,7 +34,8 @@ public:
 private:
 	// ---- 地名データベース ----
 	PlaceNameDB                     m_placeNames;
-	Array<MapGenerator::Settlement> m_settlements;
+	Array<MapGenerator::Settlement> m_districts;      ///< 全地区リスト（種別込み・名称込み）
+	Array<Vec2>                     m_urbanCenters;   ///< Urban 地区座標キャッシュ（m_districts の派生）
 
 	// ---- コアシステム ----
 	GameClock        m_clock;
@@ -103,23 +104,30 @@ private:
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
 
-	// ---- 無限ワールド: リージョン生成管理 ----
-	HashTable<int64, bool> m_generatedRegions;   ///< 生成済みリージョンのキー集合
+	// ---- 無限ワールド: チャンクデータ管理 ----
 
-	/// @brief チャンク座標をリージョン座標に変換する（負座標対応の floor 除算）
-	static Point chunkToRegion(Point chunk)
+	/// @brief チャンク内オブジェクトの永続データ（セーブ/ロード単位）
+	/// @details
+	///   ・全座標はワールド座標で保持（チャンクローカル座標は使わない）
+	///   ・クロスチャンクエッジの nodeB は、エッジ所有チャンクに境界ノードとして複製される
+	///   ・エッジの帰属チャンクは nodeA の座標で決まる
+	///   ・車両は保有しない（セーブ時にスナップショット生成）
+	///   ・現フェーズはメモリ上のテーブルで管理。将来的にファイルI/Oへ移行する
+	struct ChunkData
 	{
-		constexpr int kRC = 10;  // 1リージョン = 10チャンク
-		auto floorDiv = [](int a, int b) -> int {
-			return a / b - (a % b != 0 && (a ^ b) < 0 ? 1 : 0);
-		};
-		return { floorDiv(chunk.x, kRC), floorDiv(chunk.y, kRC) };
-	}
+		Point                           chunkCoord;  ///< このチャンクの座標
+		Array<RoadNode>                 nodes;       ///< 保有ノード（境界ノード重複あり）
+		Array<RoadEdge>                 edges;       ///< 保有エッジ（nodeA 座標で帰属決定）
+		Array<MapGenerator::Settlement> districts;   ///< 地区リスト
+	};
+
+	/// @brief チャンクキー → ChunkData（永続層）。キーの存在 = 生成済み
+	HashTable<int64, ChunkData> m_chunkStore;
 
 	/// @brief リージョン座標 → ワールドオフセット [m]
 	static Vec2 regionToWorldOffset(Point region)
 	{
-		constexpr float kRegionM = 10 * 1024.0f;
+		constexpr float kRegionM = 1024.0f;   // 1チャンク = 1リージョン
 		return Vec2{ region.x * kRegionM, region.y * kRegionM };
 	}
 
@@ -129,8 +137,27 @@ private:
 		return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
 	}
 
+	/// @brief ワールド座標 → チャンク座標（負座標対応の floor 除算）
+	static Point worldPosToChunk(Vec3 pos)
+	{
+		constexpr float kChunkM = 1024.0f;
+		const auto fd = [](float v) -> int
+		{
+			const int q = static_cast<int>(v / kChunkM);
+			return (v < 0.0f && v != static_cast<float>(q) * kChunkM) ? q - 1 : q;
+		};
+		return Point{ fd(static_cast<float>(pos.x)), fd(static_cast<float>(pos.z)) };
+	}
+
 	// ---- 内部メソッド ----
-	void initWorld();
+	void initWorld();         ///< セーブ有無を判定してロードまたは新規生成へ振り分ける
+	void initNewGame();       ///< 新規マップ生成
+	void saveGame();          ///< saves/default/ にセーブ
+	bool loadGame();          ///< saves/default/ からロード、成功なら true
+	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);
+	void generateChunk(Point chunkCoord);
+	void applyRoadPostProcess();
+	void snapshotAllChunks();
 	void checkAndGenerateRegions();
 	void handleInput();
 	void updateCursor();

@@ -14,8 +14,8 @@ MapGenerator::Result MapGenerator::generate(
 {
 	m_regionOffset = Vec2{ 0.0f, 0.0f };
 
-	// 生成パラメータをセットする（チャンクはカメラ移動時に動的生成）
-	world.setGenerationParams(seed, terrainType, kMapWidth, kMapDepth);
+	// 生成パラメータをセットする（地形スケールは 10240m 固定、チャンクはカメラ移動時に動的生成）
+	world.setGenerationParams(seed, terrainType, 10.0f * CHUNK_SIZE, 10.0f * CHUNK_SIZE);
 
 	// Phase 1: 高さグリッドを構築（A* のために全セルをキャッシュ）
 	buildHeightGrid(world);
@@ -83,17 +83,8 @@ MapGenerator::Result MapGenerator::generate(
 
 void MapGenerator::buildHeightGrid(World& world)
 {
-	m_heightGrid.resize(kGridW * kGridH);
-	for (int gz = 0; gz < kGridH; ++gz)
-	{
-		for (int gx = 0; gx < kGridW; ++gx)
-		{
-			const Vec2 wp = gridToWorld(gx, gz);
-			// computeHeight: チャンクを生成せずに直接 Perlin ノイズで高さを計算する
-			m_heightGrid[gridIdx(gx, gz)] = world.computeHeight(
-				static_cast<float>(wp.x), static_cast<float>(wp.y));
-		}
-	}
+	// RoadPathfinder に委譲（computeHeight で直接 Perlin ノイズを計算）
+	m_pf.setup(world, m_regionOffset, kGridW, kGridH, kCellSize);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,22 +112,22 @@ bool MapGenerator::isSuitable(int gx, int gz) const
 	return true;
 }
 
-void MapGenerator::placeSettlements(uint64 seed)
+void MapGenerator::placeSettlements(uint64 seed, const Array<Vec2>& existingUrbanCenters)
 {
 	std::mt19937_64 rng(seed ^ 0xABCD1234ULL);
 
-	// 候補セルを収集（端から5セル内側）
+	// 候補セルを収集（端から2セル内側）
 	Array<Point> candidates;
-	for (int gz = 5; gz < kGridH - 5; ++gz)
-		for (int gx = 5; gx < kGridW - 5; ++gx)
+	for (int gz = 2; gz < kGridH - 2; ++gz)
+		for (int gx = 2; gx < kGridW - 2; ++gx)
 			if (isSuitable(gx, gz))
 				candidates << Point{ gx, gz };
 
 	// シャッフル
 	std::shuffle(candidates.begin(), candidates.end(), rng);
 
-	// Poisson ディスクサンプリング（最小距離 800 m）
-	constexpr float kMinDist = 800.0f;
+	// Poisson ディスクサンプリング（1024m チャンクスケール）
+	constexpr float kMinDist = 200.0f;
 	constexpr float kMinDistSq = kMinDist * kMinDist;
 
 	m_settlements.clear();
@@ -159,11 +150,11 @@ void MapGenerator::placeSettlements(uint64 seed)
 			s.center = wp;
 			m_settlements << s;
 		}
-		if (m_settlements.size() >= 12) break;
+		if (m_settlements.size() >= 1) break;  // チャンク内は最大1地区
 	}
 
-	// 地区が 3 未満のときは条件を緩和して再試行（高さ上限を広げる）
-	if (m_settlements.size() < 3)
+	// 地区が 0 のときは条件を緩和して再試行（高さ上限を広げる）
+	if (m_settlements.size() < 1)
 	{
 		m_settlements.clear();
 		for (const auto& c : candidates)
@@ -187,7 +178,7 @@ void MapGenerator::placeSettlements(uint64 seed)
 				s.center = wp;
 				m_settlements << s;
 			}
-			if (m_settlements.size() >= 12) break;
+			if (m_settlements.size() >= 1) break;
 		}
 	}
 
@@ -195,7 +186,8 @@ void MapGenerator::placeSettlements(uint64 seed)
 	{
 		// フォールバック: マップ中央付近を都市核にする
 		Settlement s;
-		s.center = Vec2{ kMapWidth * 0.5f, kMapDepth * 0.5f };
+		s.center = Vec2{ m_regionOffset.x + kMapWidth * 0.5f,
+		                 m_regionOffset.y + kMapDepth * 0.5f };
 		m_settlements << s;
 	}
 
@@ -240,6 +232,15 @@ void MapGenerator::placeSettlements(uint64 seed)
 			{
 				canBeUrban = false;
 				break;
+			}
+		}
+		// 他チャンクの既存 Urban との距離チェック
+		if (canBeUrban)
+		{
+			for (const Vec2& uc : existingUrbanCenters)
+			{
+				if (static_cast<float>(s.center.distanceFromSq(uc)) < kUrbanExclusionSq)
+				{ canBeUrban = false; break; }
 			}
 		}
 		if (canBeUrban)
@@ -311,193 +312,6 @@ Array<std::pair<int,int>> MapGenerator::computeMST() const
 	return mst;
 }
 
-// --- A*（16m グリッド・8 方向）---
-
-Array<Point> MapGenerator::findPath(Point start, Point goal,
-	const Array<Vec2>& forbiddenStartDirs,
-	const Array<Vec2>& forbiddenGoalDirs,
-	const HashSet<int>& occupiedCells) const
-{
-	// 平坦配列でノード管理
-	struct Cell
-	{
-		float g      = 1e30f;
-		float f      = 1e30f;
-		int   parent = -1;
-		bool  closed = false;
-	};
-
-	Array<Cell> cells(kGridW * kGridH);
-	const int si = gridIdx(start.x, start.y);
-	cells[si].g = 0.0f;
-	cells[si].f = static_cast<float>(start.distanceFrom(goal)) * kCellSize;
-
-	// min-heap: (f, flat_idx)
-	using PQEntry = std::pair<float, int>;
-	std::priority_queue<PQEntry, std::vector<PQEntry>, std::greater<>> pq;
-	pq.push({ cells[si].f, si });
-
-	constexpr int kDx[8] = { 1,-1, 0, 0, 1, 1,-1,-1 };
-	constexpr int kDz[8] = { 0, 0, 1,-1, 1,-1, 1,-1 };
-	constexpr float kDc[8] = { 1,1,1,1,1.4142f,1.4142f,1.4142f,1.4142f };
-
-	while (!pq.empty())
-	{
-		auto [cf, ci] = pq.top();
-		pq.pop();
-
-		if (cells[ci].closed) continue;
-		cells[ci].closed = true;
-
-		const int cx = ci % kGridW;
-		const int cz = ci / kGridW;
-		if (cx == goal.x && cz == goal.y) break;
-
-		for (int d = 0; d < 8; ++d)
-		{
-			const int nx = cx + kDx[d];
-			const int nz = cz + kDz[d];
-			if (nx < 0 || nx >= kGridW || nz < 0 || nz >= kGridH) continue;
-
-			const int ni = gridIdx(nx, nz);
-			if (cells[ni].closed) continue;
-
-			// 勾配ペナルティ（仕様書 §5 Step 2）
-			const float dh    = gridHeight(nx, nz) - gridHeight(cx, cz);
-			const float slope = std::abs(dh) / (kCellSize * kDc[d]);
-			float gradPenalty;
-			if      (slope < 0.05f) gradPenalty = 1.0f;
-			else if (slope < 0.15f) gradPenalty = 2.0f;
-			else if (slope < 0.30f) gradPenalty = 5.0f;
-			else                    gradPenalty = 20.0f;
-
-			// 地形ペナルティ（水域回避）
-			const float terrainPenalty = (gridHeight(nx, nz) < 0.0f) ? 10.0f : 1.0f;
-
-			float move = kCellSize * kDc[d] * gradPenalty * terrainPenalty;
-
-			// 重複道路ペナルティ: 既存パスと同一セルを通ると割高にして平行重複を抑制
-			// 交差（1〜2セルの一時共有）は軽微なコスト増に留まるため許容される
-			if (occupiedCells.count(ni) > 0)
-				move *= 2.5f;
-
-			// 鋭角ペナルティ（cos 12.5° ≈ 0.976）
-			// 始点・終点から 6 セル（≈240 m）以内で既存エッジと 12.5° 未満の角を
-			// 形成する方向への移動コストを大幅に増加させる
-			constexpr float kNearDist         = 6.0f;
-			constexpr float kSharpCosThresh   = 0.976f;  // cos(12.5°)
-			constexpr float kSharpPenalty     = 50.0f;
-			const Vec2 moveDir{ static_cast<float>(kDx[d]), static_cast<float>(kDz[d]) };
-			const Vec2 moveDirN = moveDir.normalized();
-
-			// 始点近傍: 新エッジの始点 outward tangent ≈ moveDir
-			if (!forbiddenStartDirs.isEmpty() &&
-			    static_cast<float>(Point{ nx, nz }.distanceFrom(start)) <= kNearDist)
-			{
-				for (const Vec2& fd : forbiddenStartDirs)
-				{
-					if (moveDirN.dot(fd) > kSharpCosThresh)
-					{
-						move *= kSharpPenalty;
-						break;
-					}
-				}
-			}
-
-			// 終点近傍: 新エッジの終点 outward tangent ≈ -moveDir
-			if (!forbiddenGoalDirs.isEmpty() &&
-			    static_cast<float>(Point{ nx, nz }.distanceFrom(goal)) <= kNearDist)
-			{
-				for (const Vec2& fd : forbiddenGoalDirs)
-				{
-					if (moveDirN.dot(fd) < -kSharpCosThresh)
-					{
-						move *= kSharpPenalty;
-						break;
-					}
-				}
-			}
-
-			const float ng   = cells[ci].g + move;
-
-			if (ng < cells[ni].g)
-			{
-				cells[ni].g      = ng;
-				cells[ni].f      = ng + static_cast<float>(Point{ nx, nz }.distanceFrom(goal)) * kCellSize;
-				cells[ni].parent = ci;
-				pq.push({ cells[ni].f, ni });
-			}
-		}
-	}
-
-	// パス復元
-	Array<Point> path;
-	int cur = gridIdx(goal.x, goal.y);
-	while (cur >= 0)
-	{
-		path << Point{ cur % kGridW, cur / kGridW };
-		cur = cells[cur].parent;
-	}
-	path.reverse();
-	return path;
-}
-
-// --- パスをウェイポイントにサンプリング ---
-
-Array<Vec3> MapGenerator::samplePath(const Array<Point>& path, int stepCells) const
-{
-	if (path.isEmpty()) return {};
-
-	Array<Vec3> wps;
-	// 始点
-	const Vec2 wp0 = gridToWorld(path.front().x, path.front().y);
-	wps << Vec3{ wp0.x, m_heightGrid[gridIdx(path.front().x, path.front().y)], wp0.y };
-
-	for (int i = stepCells; i < static_cast<int>(path.size()) - 1; i += stepCells)
-	{
-		const Vec2 wp = gridToWorld(path[i].x, path[i].y);
-		wps << Vec3{ wp.x, m_heightGrid[gridIdx(path[i].x, path[i].y)], wp.y };
-	}
-
-	// 終点
-	const Vec2 wpN = gridToWorld(path.back().x, path.back().y);
-	wps << Vec3{ wpN.x, m_heightGrid[gridIdx(path.back().x, path.back().y)], wpN.y };
-
-	return wps;
-}
-
-// --- ウェイポイント列 → ベジェ道路エッジ ---
-
-void MapGenerator::pathToRoadEdges(
-	const Array<Vec3>& wps,
-	RoadNetwork& roads,
-	RoadType rt, int lanes,
-	int startNodeId, int endNodeId)
-{
-	if (wps.size() < 2) return;
-
-	// 中間ウェイポイントにノードを追加する（始終点は既存 ID を使う）
-	Array<int> nodeIds;
-	nodeIds << startNodeId;
-
-	for (int i = 1; i < static_cast<int>(wps.size()) - 1; ++i)
-	{
-		const int id = roads.addNode(wps[i], NodeType::Intersection);
-		nodeIds << id;
-	}
-	nodeIds << endNodeId;
-
-	// 連続セグメントをベジェエッジとして登録する
-	for (int i = 0; i < static_cast<int>(nodeIds.size()) - 1; ++i)
-	{
-		const Vec3& a = wps[i];
-		const Vec3& b = wps[i + 1];
-		const Vec3 ctrlA = a + (b - a) * (1.0 / 3.0);
-		const Vec3 ctrlB = a + (b - a) * (2.0 / 3.0);
-		roads.addEdge(nodeIds[i], nodeIds[i + 1], ctrlA, ctrlB, rt, lanes);
-	}
-}
-
 // --- 旧道生成 メイン ---
 
 void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
@@ -511,9 +325,8 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 	for (int i = 0; i < n; ++i)
 	{
 		const Vec2& c  = m_settlements[i].center;
-		const float y  = m_heightGrid[gridIdx(
-			Clamp(static_cast<int>(c.x / kCellSize), 0, kGridW - 1),
-			Clamp(static_cast<int>(c.y / kCellSize), 0, kGridH - 1))];
+		const Point gp = worldToGrid(static_cast<float>(c.x), static_cast<float>(c.y));
+		const float y  = m_pf.height(gp.x, gp.y);
 		settleNodeId[i] = roads.addNode(Vec3{ c.x, y, c.y }, NodeType::Intersection);
 	}
 
@@ -557,12 +370,12 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 
 		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
 		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
+		const Array<Point> path = m_pf.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
 
 		// 使用セルを登録（始終点は地区ノードなので除外）
 		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
-			occupiedCells.emplace(gridIdx(path[i].x, path[i].y));
+			occupiedCells.emplace(path[i].y * kGridW + path[i].x);
 
 		// 幹線種別: Urban ↔ Suburbs/Urban → 幹線道路、それ以外 → 一般道
 		const bool isArterial =
@@ -571,8 +384,8 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 		const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
 		const int      lanes = isArterial ? 4 : 2;
 
-		const Array<Vec3> wps = samplePath(path, 5); // ~200 m 間隔でサンプリング
-		pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
+		const Array<Vec3> wps = m_pf.samplePath(path, 5);
+		m_pf.pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
 	}
 
 	// 迂回路を追加する（仕様書：全体の 30% 追加接続）
@@ -605,15 +418,15 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 
 		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
 		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
+		const Array<Point> path = m_pf.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
 
 		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
-			occupiedCells.emplace(gridIdx(path[i].x, path[i].y));
+			occupiedCells.emplace(path[i].y * kGridW + path[i].x);
 
-		const Array<Vec3> wps = samplePath(path, 5);
-		pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
-		                settleNodeId[u], settleNodeId[v]);
+		const Array<Vec3> wps = m_pf.samplePath(path, 5);
+		m_pf.pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
+		                     settleNodeId[u], settleNodeId[v]);
 	}
 }
 
@@ -648,7 +461,7 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 		{
 			for (int gx = gx0; gx <= gx1; ++gx)
 			{
-				if (gx < 0 || gx >= kGridW || gz < 0 || gz >= kGridH) continue;
+				if (gx < 0 || gx >= m_pf.gridW() || gz < 0 || gz >= m_pf.gridH()) continue;
 
 				const Vec2  wp   = gridToWorld(gx, gz);
 				const float dSq  = static_cast<float>(s.center.distanceFromSq(wp));
@@ -679,9 +492,9 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 	}
 
 	// 農地：低地（h < 2 m）かつゾーン未設定のセルを Agricultural に
-	for (int gz = 0; gz < kGridH; ++gz)
+	for (int gz = 0; gz < m_pf.gridH(); ++gz)
 	{
-		for (int gx = 0; gx < kGridW; ++gx)
+		for (int gx = 0; gx < m_pf.gridW(); ++gx)
 		{
 			const float h = gridHeight(gx, gz);
 			if (h < 0.0f || h >= 2.0f) continue;
@@ -756,7 +569,8 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world)
 
 void MapGenerator::generateRegion(
 	Vec2 regionOffset, uint64 seed,
-	World& world, RoadNetwork& roads, ZoneManager& zones)
+	World& world, RoadNetwork& roads, ZoneManager& zones,
+	const Array<Vec2>& existingUrbanCenters)
 {
 	m_regionOffset = regionOffset;
 
@@ -768,7 +582,7 @@ void MapGenerator::generateRegion(
 		^ static_cast<uint64>(static_cast<uint32>(rz));
 
 	buildHeightGrid(world);
-	placeSettlements(regionSeed);
+	placeSettlements(regionSeed, existingUrbanCenters);
 	if (m_settlements.isEmpty()) return;
 
 	generateRoads(roads, regionSeed);

@@ -143,6 +143,8 @@
     <ClCompile Include="src\render\TrainRenderer.cpp" />
     <ClCompile Include="src\render\PlaceNameRenderer.cpp" />
     <ClCompile Include="src\gen\MapGenerator.cpp" />
+    <ClCompile Include="src\gen\RoadPathfinder.cpp" />
+    <ClCompile Include="src\save\RoadBinary.cpp" />
     <ClCompile Include="src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="src\style\RoadStyleRegistry.cpp" />
   </ItemGroup>

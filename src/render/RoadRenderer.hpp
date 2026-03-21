@@ -17,7 +17,9 @@ public:
 	void render(const RoadNetwork& network, GameTime now, const World& world);
 
 	/// @brief エッジのメッシュキャッシュを無効化する（道路変更時に呼ぶ）
-	void markDirty(int edgeId);
+	/// @param nodeA,nodeB  指定時はこれらのノードキャップのみ無効化する。
+	///                     省略時は全ノードキャップを無効化する（重い）。
+	void markDirty(int edgeId, int nodeA = -1, int nodeB = -1);
 
 	/// @brief ノード接続数が変わるトポロジー変更を通知する（道路追加・削除時に呼ぶ）
 	void markTopologyChanged();

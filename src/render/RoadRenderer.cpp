@@ -139,12 +139,21 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 	(void)now;
 }
 
-void RoadRenderer::markDirty(int edgeId)
+void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
 {
 	m_meshCache.erase(edgeId);
 	m_laneCache.erase(edgeId);
 	m_marginCache.erase(edgeId);
-	m_nodeCapCache.clear();   // 隣接ノードの特定が困難なため全クリア
+	if (nodeA >= 0 || nodeB >= 0)
+	{
+		// 指定ノードのキャップのみ無効化する（ドラッグ等の高頻度呼び出し用）
+		if (nodeA >= 0) m_nodeCapCache.erase(nodeA);
+		if (nodeB >= 0) m_nodeCapCache.erase(nodeB);
+	}
+	else
+	{
+		m_nodeCapCache.clear();
+	}
 }
 
 void RoadRenderer::markTopologyChanged()

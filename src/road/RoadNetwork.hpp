@@ -27,6 +27,24 @@ public:
 	/// @brief ノードを削除する（id を -1 にマーク）
 	void removeNode(int nodeId);
 
+	/// @brief 既存 ID を保持したままノードを追加する（チャンクリロード用）
+	/// @details 同 id が既に存在する場合は何もしない。m_nextNodeId を自動拡張する
+	void addNodeRaw(const RoadNode& node);
+
+	/// @brief 既存 ID を保持したままエッジを追加する（チャンクリロード用）
+	/// @details 同 id が既に存在する場合は何もしない。m_nextEdgeId を自動拡張する
+	void addEdgeRaw(const RoadEdge& edge);
+
+	/// @brief 次割当 ID を直接設定する（セーブロード時の復元用）
+	void setNextIds(int nextNodeId, int nextEdgeId)
+	{
+		if (nextNodeId > m_nextNodeId) m_nextNodeId = nextNodeId;
+		if (nextEdgeId > m_nextEdgeId) m_nextEdgeId = nextEdgeId;
+	}
+
+	int nextNodeId() const { return m_nextNodeId; }
+	int nextEdgeId() const { return m_nextEdgeId; }
+
 	/// @brief id でエッジを取得する（存在しなければ nullptr）
 	RoadEdge*       getEdge(int id);
 	const RoadEdge* getEdge(int id) const;

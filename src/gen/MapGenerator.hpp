@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "TerrainType.hpp"
 #include "PlaceNameGenerator.hpp"
+#include "RoadPathfinder.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../zone/ZoneManager.hpp"
@@ -39,30 +40,32 @@ public:
 	                ZoneManager& zones, TrainNetwork& trainNet);
 
 	/// @brief 既存ワールドの任意のリージョンに地区・道路・ゾーンを追加生成する
-	/// @param regionOffset  リージョン左下のワールド XZ 座標 [m]（kMapWidth / kMapDepth 単位でずらす）
-	/// @param seed          ワールドシード（リージョン座標との XOR で独立した配置になる）
+	/// @param regionOffset          リージョン左下のワールド XZ 座標 [m]
+	/// @param seed                  ワールドシード
+	/// @param existingUrbanCenters  他チャンクで既に配置済みの Urban 座標（Urban 10km 排他に使用）
 	void generateRegion(Vec2 regionOffset, uint64 seed,
-	                    World& world, RoadNetwork& roads, ZoneManager& zones);
+	                    World& world, RoadNetwork& roads, ZoneManager& zones,
+	                    const Array<Vec2>& existingUrbanCenters = {});
 
 	const Array<Settlement>& settlements() const { return m_settlements; }
 
 private:
 	// ----- 定数 -----
-	static constexpr int   kMapChunksX = 10;
-	static constexpr int   kMapChunksZ = 10;
-	static constexpr float kCellSize   = 40.0f;                        // 40 m/cell
-	static constexpr int   kGridW      = 256;                          // kMapWidth / kCellSize = 10240/40
-	static constexpr int   kGridH      = 256;                          // kMapDepth / kCellSize = 10240/40
-	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 10240 m
-	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;    // 10240 m
+	static constexpr int   kMapChunksX = 1;
+	static constexpr int   kMapChunksZ = 1;
+	static constexpr float kCellSize   = 40.0f;
+	static constexpr int   kGridW      = 26;                           // ceil(1024/40)
+	static constexpr int   kGridH      = 26;
+	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 1024 m
+	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;
 
 	// ----- Phase 1: 地形生成 -----
-	/// @brief ハイトグリッドを構築する（40m セル中心の高さ、256×256）
+	/// @brief ハイトグリッドを構築する（m_pf に委譲）
 	void buildHeightGrid(World& world);
 
 	// ----- Phase 2: 地区配置 -----
 	/// @brief Poisson ディスクサンプリングで地区核を配置する
-	void placeSettlements(uint64 seed);
+	void placeSettlements(uint64 seed, const Array<Vec2>& existingUrbanCenters = {});
 
 	/// @brief そのセルが地区に適しているか（平坦・陸地・適度な高さ）
 	bool isSuitable(int gx, int gz) const;
@@ -74,24 +77,6 @@ private:
 	/// @brief Kruskal MST: 辺リスト (i,j) を返す
 	Array<std::pair<int,int>> computeMST() const;
 
-	/// @brief A* でグリッドセル間の最短経路を返す（セル座標リスト）
-	/// @param forbiddenStartDirs 始点ノードで鋭角になる進行方向（outward 単位ベクトル）
-	/// @param forbiddenGoalDirs  終点ノードで鋭角になる進行方向（outward 単位ベクトル）
-	/// @param occupiedCells      既存パスが占有するグリッドセルの flat-index 集合
-	Array<Point> findPath(Point start, Point goal,
-	                      const Array<Vec2>& forbiddenStartDirs,
-	                      const Array<Vec2>& forbiddenGoalDirs,
-	                      const HashSet<int>& occupiedCells) const;
-
-	/// @brief A* パスをサンプリングして Vec3 ウェイポイント列に変換する
-	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 5) const;
-
-	/// @brief ウェイポイント列をベジェ道路エッジとして RoadNetwork に追加する
-	void pathToRoadEdges(const Array<Vec3>& wps,
-	                     RoadNetwork& roads,
-	                     RoadType rt, int lanes,
-	                     int startNodeId, int endNodeId);
-
 	// ----- Phase 6: 初期ゾーン -----
 	/// @brief 地区周辺にゾーンを自動割当てする
 	void assignZones(World& world, ZoneManager& zones);
@@ -99,26 +84,13 @@ private:
 	// ----- 鉄道初期設定 -----
 	void setupTrain(TrainNetwork& trainNet, World& world);
 
-	// ----- ユーティリティ -----
-	/// @brief グリッド座標 → ワールド XZ 中心（リージョンオフセット込み）
-	Vec2 gridToWorld(int gx, int gz) const
-	{
-		return Vec2{ m_regionOffset.x + (gx + 0.5f) * kCellSize,
-		             m_regionOffset.y + (gz + 0.5f) * kCellSize };
-	}
-	/// @brief ワールド XZ → グリッド座標（クランプ済み、リージョンオフセット込み）
-	Point worldToGrid(float wx, float wz) const
-	{
-		return Point{
-			Clamp(static_cast<int>((wx - m_regionOffset.x) / kCellSize), 0, kGridW - 1),
-			Clamp(static_cast<int>((wz - m_regionOffset.y) / kCellSize), 0, kGridH - 1)
-		};
-	}
-	int gridIdx(int gx, int gz) const { return gz * kGridW + gx; }
-	float gridHeight(int gx, int gz) const { return m_heightGrid[gridIdx(gx, gz)]; }
+	// ----- ユーティリティ（RoadPathfinder へ委譲）-----
+	Vec2  gridToWorld(int gx, int gz) const { return m_pf.gridToWorld(gx, gz); }
+	Point worldToGrid(float wx, float wz) const { return m_pf.worldToGrid(wx, wz); }
+	float gridHeight(int gx, int gz)  const { return m_pf.height(gx, gz); }
 
 	// ----- 状態 -----
-	Array<float>      m_heightGrid;      ///< 256×256 の高さキャッシュ [m]
+	RoadPathfinder    m_pf;           ///< 地形グリッドと A* を保持する共用パスファインダー
 	Array<Settlement> m_settlements;
-	Vec2              m_regionOffset;    ///< 現在処理中のリージョン左下ワールド座標 [m]
+	Vec2              m_regionOffset; ///< 現在処理中のリージョン左下ワールド座標 [m]
 };
