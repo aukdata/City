@@ -103,8 +103,35 @@ private:
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
 
+	// ---- 無限ワールド: リージョン生成管理 ----
+	HashTable<int64, bool> m_generatedRegions;   ///< 生成済みリージョンのキー集合
+
+	/// @brief チャンク座標をリージョン座標に変換する（負座標対応の floor 除算）
+	static Point chunkToRegion(Point chunk)
+	{
+		constexpr int kRC = 10;  // 1リージョン = 10チャンク
+		auto floorDiv = [](int a, int b) -> int {
+			return a / b - (a % b != 0 && (a ^ b) < 0 ? 1 : 0);
+		};
+		return { floorDiv(chunk.x, kRC), floorDiv(chunk.y, kRC) };
+	}
+
+	/// @brief リージョン座標 → ワールドオフセット [m]
+	static Vec2 regionToWorldOffset(Point region)
+	{
+		constexpr float kRegionM = 10 * 1024.0f;
+		return Vec2{ region.x * kRegionM, region.y * kRegionM };
+	}
+
+	/// @brief リージョン座標をハッシュキーに変換する
+	static int64 regionKey(Point p)
+	{
+		return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
+	}
+
 	// ---- 内部メソッド ----
 	void initWorld();
+	void checkAndGenerateRegions();
 	void handleInput();
 	void updateCursor();
 	void handleRoadDraw();

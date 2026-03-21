@@ -22,10 +22,10 @@ enum class PlaceCategory : uint8
 /// @brief ランタイム地名データベース
 struct PlaceNameDB
 {
-	/// @brief 集落インデックス → 集落地名
+	/// @brief 地区インデックス → 地区地名
 	HashTable<int, String> settlementNames;
 
-	/// @brief 集落インデックス → ローマ字読み
+	/// @brief 地区インデックス → ローマ字読み
 	HashTable<int, String> settlementReadings;
 
 	/// @brief 施設 ID → 施設名（駅・IC・信号所）
@@ -39,14 +39,14 @@ struct PlaceNameDB
 
 	// ---- 派生地名生成ヘルパー（11_placename_spec.md §3） ----
 
-	/// @brief 集落名を返す（未登録なら空文字列）
+	/// @brief 地区名を返す（未登録なら空文字列）
 	String settlementName(int idx) const
 	{
 		const auto it = settlementNames.find(idx);
 		return (it != settlementNames.end()) ? it->second : U"";
 	}
 
-	/// @brief 集落読みを返す（未登録なら空文字列）
+	/// @brief 地区読みを返す（未登録なら空文字列）
 	String settlementReading(int idx) const
 	{
 		const auto it = settlementReadings.find(idx);
@@ -54,7 +54,7 @@ struct PlaceNameDB
 	}
 
 	/// @brief 駅名を生成する
-	/// @param settlementIdx 集落インデックス
+	/// @param settlementIdx 地区インデックス
 	/// @param variant 0="{S}駅" 1="{S}中央駅" 2="{S}市駅" 3="{S}口駅" 4="新{S}駅"
 	String makeStationName(int settlementIdx, int variant = 0) const
 	{
@@ -113,8 +113,8 @@ public:
 	/// @return 読み込み成功なら true
 	bool load(FilePathView tomlPath);
 
-	/// @brief 集落地名を一括生成して PlaceNameDB を構築する
-	/// @param settlementCount 集落数
+	/// @brief 地区地名を一括生成して PlaceNameDB を構築する
+	/// @param settlementCount 地区数
 	/// @param terrain         マップ全体の地形タイプ
 	/// @param mapSeed         マップシード値（同じシード→同じ地名）
 	PlaceNameDB generate(int settlementCount, TerrainType terrain, uint64 mapSeed) const;
@@ -149,6 +149,6 @@ private:
 	/// @brief [0, n) の一様乱数
 	static size_t randIndex(uint64& state, size_t n);
 
-	/// @brief シード合成（集落ごとに独立したシードを作る）
+	/// @brief シード合成（地区ごとに独立したシードを作る）
 	static uint64 hashCombine(uint64 a, uint64 b);
 };

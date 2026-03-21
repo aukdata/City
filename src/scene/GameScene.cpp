@@ -34,9 +34,46 @@ void GameScene::initWorld()
 		m_traffic.spawnVehicle();
 
 	m_world.update(m_camera.focusPoint());
+	m_world.popNewChunks();   // initWorld 生成分をクリア（リージョン(0,0)は既に登録済み）
+
+	// リージョン(0,0) を生成済みとして登録
+	m_generatedRegions[regionKey({ 0, 0 })] = true;
 
 	m_lastEconYear  = m_clock.year;
 	m_lastEconMonth = m_clock.month;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 無限ワールド: 未生成リージョンの地区・道路を動的追加する
+// ─────────────────────────────────────────────────────────────────────────────
+
+void GameScene::checkAndGenerateRegions()
+{
+	const Array<Point> newChunks = m_world.popNewChunks();
+	if (newChunks.isEmpty()) return;
+
+	for (const Point& chunk : newChunks)
+	{
+		const Point region = chunkToRegion(chunk);
+		const int64 key    = regionKey(region);
+
+		if (m_generatedRegions.contains(key)) continue;
+		m_generatedRegions[key] = true;
+
+		const Vec2 offset = regionToWorldOffset(region);
+		MapGenerator gen;
+		gen.generateRegion(offset, getData().seed, m_world, m_network, m_zoneManager);
+
+		// 新リージョンの地区を m_settlements に追加（地名レンダリング用）
+		for (const auto& s : gen.settlements())
+			m_settlements << s;
+
+		// 道路ポスト処理（新規追加分を含む全体に適用）
+		m_network.resolveIntersections();
+		m_network.removeDuplicateEdges(getData().seed ^ static_cast<uint64>(key));
+		m_roadRenderer.markTopologyChanged();
+		m_traffic.markNetworkDirty();
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +92,7 @@ void GameScene::update()
 	const double physicsDt = dt * m_clock.speedMultiplier() / 60.0;
 
 	m_world.update(m_camera.focusPoint());
+	checkAndGenerateRegions();
 	m_camera.update(dt, m_world);
 	m_traffic.update(physicsDt, m_clock.now);
 	m_trainManager.update(physicsDt, m_clock.now);

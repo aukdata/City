@@ -12,13 +12,15 @@ MapGenerator::Result MapGenerator::generate(
 	World& world, RoadNetwork& roads,
 	ZoneManager& zones, TrainNetwork& trainNet)
 {
+	m_regionOffset = Vec2{ 0.0f, 0.0f };
+
 	// 生成パラメータをセットする（チャンクはカメラ移動時に動的生成）
 	world.setGenerationParams(seed, terrainType, kMapWidth, kMapDepth);
 
 	// Phase 1: 高さグリッドを構築（A* のために全セルをキャッシュ）
 	buildHeightGrid(world);
 
-	// Phase 2: 集落配置
+	// Phase 2: 地区配置
 	placeSettlements(seed);
 
 	// Phase 3: 旧道生成
@@ -27,9 +29,9 @@ MapGenerator::Result MapGenerator::generate(
 	// Phase 3.5: ポスト処理（制御点調整前）
 	while (roads.fixSharpAngles(12.5f));         // 鋭角交差 → 狭い方を隣接 Node に付け替え
 	roads.smoothAllCurves();                     // 接続数 2 のノードで曲線を滑らかにする
-	while (roads.resolveIntersections());        // Node なし交差 → Node 生成 + エッジ分割
-	while (roads.spreadIntersectionTangents());  // 交差点（3本以上）の制御点を整列
-	while (roads.removeDuplicateEdges(seed));    // 同一ノードペアの重複エッジを削除
+	roads.resolveIntersections();			     // Node なし交差 → Node 生成 + エッジ分割
+	roads.spreadIntersectionTangents();			 // 交差点（3本以上）の制御点を整列
+	roads.removeDuplicateEdges(seed);		     // 同一ノードペアの重複エッジを削除
 
 	// Phase 6: 初期ゾーン
 	assignZones(world, zones);
@@ -43,19 +45,30 @@ MapGenerator::Result MapGenerator::generate(
 	Result result;
 	result.placeNames = placeGen.generate(
 		static_cast<int>(m_settlements.size()), terrainType, seed);
-	// 集落データにも名前を反映する
+	// 地区データにも名前を反映する
 	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
 	{
 		m_settlements[i].name = result.placeNames.settlementName(i);
 		m_settlements[i].reading = result.placeNames.settlementReading(i);
 	}
 
-	// カメラ注視点 = 都市核の位置
-	if (!m_settlements.isEmpty())
+	// カメラ注視点 = 最初の Urban 地区の位置（なければ先頭地区、それもなければ中央）
+	const Settlement* urbanTarget = nullptr;
+	for (const auto& s : m_settlements)
+		if (s.type == SettlementType::Urban) { urbanTarget = &s; break; }
+
+	if (urbanTarget)
 	{
-		const auto& urban = m_settlements[0];
-		const float y = world.computeHeight(static_cast<float>(urban.center.x), static_cast<float>(urban.center.y));
-		result.cameraFocus = Vec3{ urban.center.x, y, urban.center.y };
+		const float y = world.computeHeight(
+			static_cast<float>(urbanTarget->center.x),
+			static_cast<float>(urbanTarget->center.y));
+		result.cameraFocus = Vec3{ urbanTarget->center.x, y, urbanTarget->center.y };
+	}
+	else if (!m_settlements.isEmpty())
+	{
+		const auto& s = m_settlements[0];
+		const float y = world.computeHeight(static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+		result.cameraFocus = Vec3{ s.center.x, y, s.center.y };
 	}
 	else
 	{
@@ -84,7 +97,7 @@ void MapGenerator::buildHeightGrid(World& world)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 2: 集落配置（Poisson ディスクサンプリング）
+// Phase 2: 地区配置（Poisson ディスクサンプリング）
 // ─────────────────────────────────────────────────────────────────────────────
 
 bool MapGenerator::isSuitable(int gx, int gz) const
@@ -149,7 +162,7 @@ void MapGenerator::placeSettlements(uint64 seed)
 		if (m_settlements.size() >= 12) break;
 	}
 
-	// 集落が 3 未満のときは条件を緩和して再試行（高さ上限を広げる）
+	// 地区が 3 未満のときは条件を緩和して再試行（高さ上限を広げる）
 	if (m_settlements.size() < 3)
 	{
 		m_settlements.clear();
@@ -186,30 +199,69 @@ void MapGenerator::placeSettlements(uint64 seed)
 		m_settlements << s;
 	}
 
-	// マップ中心に最も近い集落を都市核とする
-	const Vec2 mapCenter{ kMapWidth * 0.5f, kMapDepth * 0.5f };
-	m_settlements.sort_by([&](const Settlement& a, const Settlement& b)
-	{
-		return a.center.distanceFromSq(mapCenter) < b.center.distanceFromSq(mapCenter);
-	});
-
 	// 種別・影響半径を割当てる
-	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
+	// Poisson 採用順（擬似ランダム）のまま処理する
+	// Urban  : 周囲 10 km 以内に別の Urban がない場合
+	// Suburbs: 周囲  1 km 以内に Urban がある場合（全 Urban 確定後に判定）
+	// Rural  : それ以外
+
+	constexpr float kUrbanExclusionSq = 10000.0f * 10000.0f;
+	constexpr float kSuburbsRadiusSq  =  1000.0f *  1000.0f;
+
+	// まず全地区を Rural に初期化
+	for (auto& s : m_settlements)
 	{
-		if (i == 0)
+		s.type   = SettlementType::Rural;
+		s.radius = 150.0f;
+	}
+
+	// 例外: マップ中心に最も近い地区を先行 Urban 化
+	const Vec2 mapCenter{ m_regionOffset.x + kMapWidth * 0.5f,
+	                      m_regionOffset.y + kMapDepth * 0.5f };
+	Settlement* centerSettlement = &m_settlements[0];
+	float bestCenterDistSq = static_cast<float>(centerSettlement->center.distanceFromSq(mapCenter));
+	for (auto& s : m_settlements)
+	{
+		const float d = static_cast<float>(s.center.distanceFromSq(mapCenter));
+		if (d < bestCenterDistSq) { bestCenterDistSq = d; centerSettlement = &s; }
+	}
+	centerSettlement->type   = SettlementType::Urban;
+	centerSettlement->radius = 700.0f;
+
+	// パス 1: Urban を決定（処理済み Urban との距離で判定・先行 Urban を起点にする）
+	for (auto& s : m_settlements)
+	{
+		bool canBeUrban = true;
+		for (const auto& other : m_settlements)
 		{
-			m_settlements[i].type   = SettlementType::Urban;
-			m_settlements[i].radius = 700.0f;
+			if (&other == &s) continue;
+			if (other.type == SettlementType::Urban &&
+			    static_cast<float>(s.center.distanceFromSq(other.center)) < kUrbanExclusionSq)
+			{
+				canBeUrban = false;
+				break;
+			}
 		}
-		else if (i <= 4)
+		if (canBeUrban)
 		{
-			m_settlements[i].type   = SettlementType::District;
-			m_settlements[i].radius = 300.0f;
+			s.type   = SettlementType::Urban;
+			s.radius = 700.0f;
 		}
-		else
+	}
+
+	// パス 2: Suburbs 判定（全 Urban 確定後）
+	for (auto& s : m_settlements)
+	{
+		if (s.type == SettlementType::Urban) continue;
+		for (const auto& other : m_settlements)
 		{
-			m_settlements[i].type   = SettlementType::Rural;
-			m_settlements[i].radius = 150.0f;
+			if (other.type == SettlementType::Urban &&
+			    static_cast<float>(s.center.distanceFromSq(other.center)) < kSuburbsRadiusSq)
+			{
+				s.type   = SettlementType::Suburbs;
+				s.radius = 300.0f;
+				break;
+			}
 		}
 	}
 }
@@ -452,7 +504,7 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 {
 	if (m_settlements.isEmpty()) return;
 
-	// 各集落の道路ノード ID を記録する
+	// 各地区の道路ノード ID を記録する
 	const int n = static_cast<int>(m_settlements.size());
 	Array<int> settleNodeId(n, -1);
 
@@ -508,11 +560,11 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 		const Array<Point> path = findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
 
-		// 使用セルを登録（始終点は集落ノードなので除外）
+		// 使用セルを登録（始終点は地区ノードなので除外）
 		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
 			occupiedCells.emplace(gridIdx(path[i].x, path[i].y));
 
-		// 幹線種別: Urban ↔ District/Urban → 幹線道路、それ以外 → 一般道
+		// 幹線種別: Urban ↔ Suburbs/Urban → 幹線道路、それ以外 → 一般道
 		const bool isArterial =
 			m_settlements[u].type != SettlementType::Rural &&
 			m_settlements[v].type != SettlementType::Rural;
@@ -574,12 +626,12 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 	for (const auto& s : m_settlements)
 	{
 		// Urban:   400 m 以内 → Commercial、 400〜800 m → Residential、800〜1200 m → LowResidential
-		// District: 200 m 以内 → Residential、200〜600 m → LowResidential
-		// Rural:    100 m 以内 → Residential、100〜300 m → LowResidential
+		// Suburbs: 200 m 以内 → Residential、200〜600 m → LowResidential
+		// Rural:   100 m 以内 → Residential、100〜300 m → LowResidential
 		const float innerDist = (s.type == SettlementType::Urban)    ? 400.0f
-		                      : (s.type == SettlementType::District)  ? 200.0f : 100.0f;
+		                      : (s.type == SettlementType::Suburbs)  ? 200.0f : 100.0f;
 		const float midDist   = (s.type == SettlementType::Urban)    ? 800.0f
-		                      : (s.type == SettlementType::District)  ? 600.0f : 300.0f;
+		                      : (s.type == SettlementType::Suburbs)  ? 600.0f : 300.0f;
 		const float outerDist = (s.type == SettlementType::Urban)    ? 1200.0f
 		                      : midDist;
 
@@ -650,7 +702,7 @@ void MapGenerator::assignZones(World& world, ZoneManager& zones)
 
 void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world)
 {
-	// Urban 集落と District 集落（最大 4 駅）を結ぶ路線を 1 本生成する
+	// Urban 地区と Suburbs 地区（最大 4 駅）を結ぶ路線を 1 本生成する
 	Array<int> stationIds;
 
 	for (const auto& s : m_settlements)
@@ -696,4 +748,29 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world)
 		sched.stops << stop;
 	}
 	trainNet.addSchedule(sched);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 追加リージョン生成（無限ワールド対応）
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MapGenerator::generateRegion(
+	Vec2 regionOffset, uint64 seed,
+	World& world, RoadNetwork& roads, ZoneManager& zones)
+{
+	m_regionOffset = regionOffset;
+
+	// リージョン座標をシードに混ぜて、同一シードでもリージョンごとに異なる配置にする
+	const int rx = static_cast<int>(regionOffset.x / kMapWidth);
+	const int rz = static_cast<int>(regionOffset.y / kMapDepth);
+	const uint64 regionSeed = seed
+		^ (static_cast<uint64>(static_cast<uint32>(rx)) << 32)
+		^ static_cast<uint64>(static_cast<uint32>(rz));
+
+	buildHeightGrid(world);
+	placeSettlements(regionSeed);
+	if (m_settlements.isEmpty()) return;
+
+	generateRoads(roads, regionSeed);
+	assignZones(world, zones);
 }

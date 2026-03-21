@@ -3,7 +3,7 @@
 
 namespace
 {
-	constexpr float  kHideDistance  = 2000.0f;  ///< これより遠い集落は非表示
+	constexpr float  kHideDistance  = 2000.0f;  ///< これより遠い地区は非表示
 	constexpr float  kSmallDistance =  800.0f;  ///< この距離でフェード開始
 	constexpr double kLabelOffsetY  =   30.0;   ///< 地名表示の高さオフセット [m]
 	constexpr double kRomajiScale   =    0.55;  ///< 漢字サイズに対するローマ字の比率
@@ -27,7 +27,7 @@ void PlaceNameRenderer::render(const Array<MapGenerator::Settlement>& settlement
 	{
 		if (s.name.isEmpty()) continue;
 
-		// 地名の表示位置：集落中心の地形高さ + オフセット
+		// 地名の表示位置：地区中心の地形高さ + オフセット
 		const float groundY = world.sampleHeight(
 			static_cast<float>(s.center.x),
 			static_cast<float>(s.center.y));

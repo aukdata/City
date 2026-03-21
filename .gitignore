@@ -11,8 +11,8 @@ ipch/
 # ビルド出力
 Intermediate/
 x64/
-Debug/
-Release/
+/Debug/
+/Release/
 *.exe
 *.pdb
 *.ilk

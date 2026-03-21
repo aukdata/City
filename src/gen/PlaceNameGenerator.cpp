@@ -62,7 +62,7 @@ PlaceNameDB PlaceNameGenerator::generate(int settlementCount, TerrainType terrai
 
 	for (int i = 0; i < settlementCount; ++i)
 	{
-		// 集落ごとに独立したシードを生成する
+		// 地区ごとに独立したシードを生成する
 		uint64 state = hashCombine(mapSeed, static_cast<uint64>(i));
 
 		const PlaceCategory cat    = pickCategory(terrain, state);

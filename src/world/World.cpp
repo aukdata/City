@@ -42,6 +42,7 @@ Chunk& World::getOrCreateChunk(Point coord)
 	{
 		m_chunks.emplace(key, Chunk(coord));
 		generateChunk(m_chunks[key]);
+		m_newChunks << coord;
 	}
 
 	return m_chunks[key];

@@ -31,6 +31,14 @@ public:
 	/// @details MapGenerator の A* グリッド構築など、チャンクを事前生成したくない場合に使用する
 	float computeHeight(float wx, float wz) const;
 
+	/// @brief 前回 popNewChunks() 呼び出し以降に新規生成されたチャンク座標を取り出してクリアする
+	Array<Point> popNewChunks()
+	{
+		Array<Point> result = std::move(m_newChunks);
+		m_newChunks.clear();
+		return result;
+	}
+
 private:
 	using Key = int64;
 
@@ -53,6 +61,7 @@ private:
 
 	HashTable<Key, Chunk> m_chunks;
 	Point                 m_cameraChunk{ 0x7FFFFFFF, 0x7FFFFFFF };  ///< 初回更新を必ず通すための無効初期値
+	Array<Point>          m_newChunks;   ///< 前回 popNewChunks() 以降に新規生成されたチャンク座標
 
 	/// @brief アクティブ範囲（カメラ周辺 ±ACTIVE_RANGE チャンク）
 	static constexpr int ACTIVE_RANGE = 2;
