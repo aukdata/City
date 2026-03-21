@@ -8,7 +8,8 @@ void GameApp::run()
 	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
 	Window::Resize(kWindowWidth, kWindowHeight);
 	Scene::SetBackground(ColorF{ 0.2, 0.3, 0.4 });
-	Window::SetTitle(U"City Simulation");
+	Graphics::SetVSyncEnabled(false);
+	Window::SetTitle(U"Pavecity");
 
 	App manager;
 	manager.add<TitleScene>(SceneState::Title);

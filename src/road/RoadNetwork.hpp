@@ -16,10 +16,10 @@ public:
 	/// @param ctrlA    ベジェ制御点A（始点側）
 	/// @param ctrlB    ベジェ制御点B（終点側）
 	/// @param numLanes 総車線数（双方向合計）
-	int addEdge(int nodeA, int nodeB,
-	            Vec3 ctrlA, Vec3 ctrlB,
-	            RoadType rt   = RoadType::LocalRoad,
-	            int numLanes  = 2);
+	Optional<int> addEdge(int nodeA, int nodeB,
+	                      Vec3 ctrlA, Vec3 ctrlB,
+	                      RoadType rt   = RoadType::LocalRoad,
+	                      int numLanes  = 2);
 
 	/// @brief エッジを削除する（id を -1 にマーク）
 	void removeEdge(int edgeId);
@@ -61,10 +61,10 @@ public:
 	Optional<int> findNodeNear(Vec3 pos, float radius = 10.0f) const;
 
 	/// @brief 既存エッジとの交差を処理しながらエッジを追加する
-	/// @return 追加されたエッジの id
-	int addEdgeWithIntersection(int nodeA, int nodeB,
-	                            Vec3 ctrlA, Vec3 ctrlB,
-	                            RoadType rt, int numLanes);
+	/// @return 追加されたエッジの id（上限超過時は none）
+	Optional<int> addEdgeWithIntersection(int nodeA, int nodeB,
+	                                      Vec3 ctrlA, Vec3 ctrlB,
+	                                      RoadType rt, int numLanes);
 
 	/// @brief ベジェ曲線を取得する（エッジ id が有効なら）
 	Optional<CubicBezier> getBezier(int edgeId) const;

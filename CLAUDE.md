@@ -16,6 +16,12 @@ Visual Studio でソリューションを開いてビルド:
 - **Debug**: `Intermediate/City/Debug/City(debug).exe`
 - **Release**: `Intermediate/City/Release/City.exe`
 
+**CLI からのビルド**（WSL/ターミナルから実行可能）:
+```bash
+"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
+```
+Release の場合は `-p:Configuration=Release` に変更する。
+
 ビルド後、`App/` ディレクトリに実行ファイルが自動コピーされる。実行時のワーキングディレクトリは `App/` 。
 
 テスト・リントの自動化ツールはない (Visual Studio のビルド成功が確認手段)。

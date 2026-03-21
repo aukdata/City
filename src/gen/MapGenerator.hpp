@@ -4,7 +4,6 @@
 #include "RoadPathfinder.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
-#include "../zone/ZoneManager.hpp"
 #include "../railway/TrainNetwork.hpp"
 
 /// @brief プロシージャルマップ生成（03_procedural_generation_spec.md）
@@ -25,34 +24,19 @@ public:
 		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
 	};
 
-	/// @brief 生成結果
-	struct Result
+	/// @brief initWorld() の結果
+	struct InitResult
 	{
-		Vec3         cameraFocus;   ///< 初期カメラ注視点（都市核の位置）
 		PlaceNameDB  placeNames;    ///< 生成された地名データベース
 	};
 
-	/// @brief マップを生成してワールド・道路・ゾーン・鉄道を初期化する
-	/// @param seed         乱数シード（同じシード→同じマップ）
-	/// @param terrainType  地形タイプ
-	Result generate(uint64 seed, TerrainType terrainType,
-	                World& world, RoadNetwork& roads,
-	                ZoneManager& zones, TrainNetwork& trainNet);
-
-	/// @brief 既存ワールドの任意のリージョンに地区・道路・ゾーンを追加生成する
-	/// @param regionOffset          リージョン左下のワールド XZ 座標 [m]
-	/// @param seed                  ワールドシード
-	/// @param existingUrbanCenters  他チャンクで既に配置済みの Urban 座標（Urban 10km 排他に使用）
-	void generateRegion(Vec2 regionOffset, uint64 seed,
-	                    World& world, RoadNetwork& roads, ZoneManager& zones,
-	                    const Array<Vec2>& existingUrbanCenters = {});
-
-	const Array<Settlement>& settlements() const { return m_settlements; }
+	/// @brief ワールドパラメータ設定 + 地名生成（メインスレッドで即座に完了）
+	static InitResult initWorld(uint64 seed, TerrainType terrainType, World& world);
 
 	/// @brief 既存ノードの位置スナップショット（バックグラウンドスレッドでの最近傍検索用）
 	struct NodeSnapshot { int id; Vec3 position; };
 
-	/// @brief バックグラウンドスレッドでのチャンク事前構築結果
+	/// @brief チャンク事前構築結果
 	/// @details ローカル RoadNetwork で生成した道路データ + ゾーン割当用の高さグリッドキャッシュ。
 	///   ノード/エッジの ID はローカル (0-based) であり、メインスレッドでリマップが必要。
 	///   connectionNodeId のノードは既存ネットワークに存在するため addNode 不要。
@@ -68,16 +52,21 @@ public:
 		int               gridH    = 0;
 		float             cellSize = 0.0f;
 		Array<float>      heightGrid;
+		Grid<float>       terrainHeightMap;       ///< 事前計算済み地形 heightMap
 	};
 
-	/// @brief ローカル RoadNetwork でチャンクを事前構築する（バックグラウンドスレッド用）
-	/// @details World は const 読み取りのみ。共有状態を変更しないためスレッド安全。
-	///   A* 接続 + ポスト処理もバックグラウンドで実行し、ポスト処理済みの結果を返す。
-	static ChunkBuildResult buildChunkOffthread(
+	/// @brief チャンクを構築する（スレッド安全: World は const 読み取りのみ）
+	/// @param skipPostProcess  true にするとローカルポスト処理をスキップ（初期生成時用）
+	static ChunkBuildResult buildChunk(
 		Vec2 regionOffset, uint64 seed,
 		const World& world,
 		const Array<Vec2>& existingUrbanCenters,
-		const Array<NodeSnapshot>& existingNodes);
+		const Array<NodeSnapshot>& existingNodes,
+		bool skipPostProcess = false);
+
+	/// @brief 鉄道の初期路線を構築する
+	static void setupTrain(TrainNetwork& trainNet, const World& world,
+	                        const Array<Settlement>& districts);
 
 private:
 	// ----- 定数 -----
@@ -106,13 +95,6 @@ private:
 
 	/// @brief Kruskal MST: 辺リスト (i,j) を返す
 	Array<std::pair<int,int>> computeMST() const;
-
-	// ----- Phase 6: 初期ゾーン -----
-	/// @brief 地区周辺にゾーンを自動割当てする
-	void assignZones(World& world, ZoneManager& zones);
-
-	// ----- 鉄道初期設定 -----
-	void setupTrain(TrainNetwork& trainNet, World& world);
 
 	// ----- ユーティリティ（RoadPathfinder へ委譲）-----
 	Vec2  gridToWorld(int gx, int gz) const { return m_pf.gridToWorld(gx, gz); }

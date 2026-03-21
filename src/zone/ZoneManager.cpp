@@ -121,8 +121,9 @@ void ZoneManager::paintZone(World& world, Vec3 worldPos, ZoneType zone, int brus
 			if (cy < 0) { cy += ZONE_CELLS; --cc.y; }
 			else if (cy >= ZONE_CELLS) { cy -= ZONE_CELLS; ++cc.y; }
 
-			Chunk& chunk = world.getOrCreateChunk(cc);
-			chunk.zoneMap[{ cx, cy }] = zone;
+			Chunk* chunk = world.getChunk(cc);
+			if (!chunk) continue;
+			chunk->zoneMap[{ cx, cy }] = zone;
 		}
 	}
 }
@@ -149,8 +150,9 @@ void ZoneManager::paintZoneRect(World& world, Vec3 a, Vec3 b, ZoneType zone)
 			int cx = gx - chunkX * ZONE_CELLS;
 			int cy = gy - chunkY * ZONE_CELLS;
 
-			Chunk& chunk = world.getOrCreateChunk({ chunkX, chunkY });
-			chunk.zoneMap[{ cx, cy }] = zone;
+			Chunk* chunk = world.getChunk({ chunkX, chunkY });
+			if (!chunk) continue;
+			chunk->zoneMap[{ cx, cy }] = zone;
 		}
 	}
 }

@@ -16,6 +16,10 @@ public:
 	/// @brief チャンクを取得する（なければ生成して返す）
 	Chunk& getOrCreateChunk(Point coord);
 
+	/// @brief 事前計算済みの heightMap を持つチャンクをインストールする
+	/// @details バックグラウンドスレッドで計算した heightMap を受け取り、チャンクが未生成の場合のみ登録する。
+	void installChunk(Point coord, Grid<float>&& heightMap);
+
 	/// @brief チャンクを取得する（なければ nullptr）
 	const Chunk* getChunk(Point coord) const;
 	Chunk*       getChunk(Point coord);

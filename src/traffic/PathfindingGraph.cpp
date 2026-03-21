@@ -3,7 +3,7 @@
 
 // ===== rebuild =====
 
-void PathfindingGraph::rebuild(const SimGraph& graph, GameTime now,
+void PathfindingGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
                                const HashTable<int, TrafficLight>& lights)
 {
 	m_laneNodes.clear();

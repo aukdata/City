@@ -36,6 +36,18 @@ public:
 	void draw() const override {}
 
 private:
+	// ---- ゲームフェーズ ----
+	enum class GamePhase { Loading, PostProcess, Playing };
+	GamePhase m_phase = GamePhase::Loading;
+
+	// ---- ローディング管理 ----
+	int       m_totalInitChunks  = 0;    ///< 初期チャンク総数
+	Stopwatch m_loadingTimer;            ///< 生成開始からの経過時間
+	String    m_loadingStatus;           ///< 現在実行中の処理内容
+
+	/// @brief ポスト処理の非同期タスク
+	std::future<void> m_postProcessFuture;
+
 	// ---- 地名データベース ----
 	PlaceNameDB                     m_placeNames;
 	Array<MapGenerator::Settlement> m_districts;      ///< 全地区リスト（種別込み・名称込み）
@@ -120,18 +132,13 @@ private:
 
 	Array<ChunkBuildTask> m_chunkTasks;
 	HashSet<int64>        m_dispatchedKeys;              ///< 投入済みキー（二重投入防止）
-	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数
+	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数（Playing時）
 	static constexpr int  kMaxChunkTasks    = 4;         ///< 同時バックグラウンドタスク数
+	static constexpr int  kInitRange        = 5;         ///< 初期生成半径 (11x11)
 
 	// ---- 無限ワールド: チャンクデータ管理 ----
 
 	/// @brief チャンク内オブジェクトの永続データ（セーブ/ロード単位）
-	/// @details
-	///   ・全座標はワールド座標で保持（チャンクローカル座標は使わない）
-	///   ・クロスチャンクエッジの nodeB は、エッジ所有チャンクに境界ノードとして複製される
-	///   ・エッジの帰属チャンクは nodeA の座標で決まる
-	///   ・車両は保有しない（セーブ時にスナップショット生成）
-	///   ・現フェーズはメモリ上のテーブルで管理。将来的にファイルI/Oへ移行する
 	struct ChunkData
 	{
 		Point                           chunkCoord;  ///< このチャンクの座標
@@ -149,7 +156,7 @@ private:
 	/// @brief リージョン座標 → ワールドオフセット [m]
 	static Vec2 regionToWorldOffset(Point region)
 	{
-		constexpr float kRegionM = 1024.0f;   // 1チャンク = 1リージョン
+		constexpr float kRegionM = 1024.0f;
 		return Vec2{ region.x * kRegionM, region.y * kRegionM };
 	}
 
@@ -172,20 +179,22 @@ private:
 	}
 
 	// ---- 内部メソッド ----
-	void initWorld();         ///< セーブ有無を判定してロードまたは新規生成へ振り分ける
-	void initNewGame();       ///< 新規マップ生成
+	void initScene();         ///< セーブ有無を判定してロードまたは新規生成へ振り分ける
+	void initNewGame();       ///< 新規マップ生成（Loading フェーズへ遷移するのみ）
 	void saveGame();          ///< saves/default/ にセーブ
 	bool loadGame();          ///< saves/default/ からロード、成功なら true
 	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);
-	void generateChunk(Point chunkCoord);
 	void applyRoadPostProcess();
 	void snapshotAllChunks();
 	void checkAndGenerateRegions();
-	void pollChunkTasks();
+	void pollChunkTasks(int maxMerge = kMaxMergePerFrame);
 	void dispatchChunkTasks();
 	void mergeChunkResult(MapGenerator::ChunkBuildResult&& result);
 	void applyZonesFromGrid(const MapGenerator::ChunkBuildResult& result);
 	void updateLoadedChunks();
+	void updateLoading();                ///< Loading フェーズの更新
+	void drawLoadingScreen(float progress); ///< ローディング画面描画
+	void startSimThread();               ///< SimThread を起動する
 
 	/// @brief RoadNetwork 変更後に SimGraph を再構築して SimThread に通知する
 	void notifyNetworkChanged()

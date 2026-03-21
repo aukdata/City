@@ -22,14 +22,15 @@ void World::update(Vec3 cameraWorldPos)
 		}
 	}
 
-	// アクティブ範囲内のチャンクを確保・Active に設定
+	// アクティブ範囲内の installChunk 済みチャンクを Active に設定
+	// （地形生成はバックグラウンドスレッドの buildChunk → installChunk で行う）
 	for (int dy = -ACTIVE_RANGE; dy <= ACTIVE_RANGE; ++dy)
 	{
 		for (int dx = -ACTIVE_RANGE; dx <= ACTIVE_RANGE; ++dx)
 		{
 			const Point coord{ m_cameraChunk.x + dx, m_cameraChunk.y + dy };
-			Chunk& chunk = getOrCreateChunk(coord);
-			chunk.state = ChunkState::Active;
+			if (Chunk* chunk = getChunk(coord))
+				chunk->state = ChunkState::Active;
 		}
 	}
 }
@@ -46,6 +47,20 @@ Chunk& World::getOrCreateChunk(Point coord)
 	}
 
 	return m_chunks[key];
+}
+
+void World::installChunk(Point coord, Grid<float>&& heightMap)
+{
+	const Key key = makeKey(coord);
+	if (m_chunks.contains(key))
+		return;   // 既に生成済み
+
+	Chunk chunk(coord);
+	chunk.heightMap          = std::move(heightMap);
+	chunk.state              = ChunkState::Active;
+	chunk.isUrbanizationArea = true;
+	m_chunks.emplace(key, std::move(chunk));
+	m_newChunks << coord;
 }
 
 const Chunk* World::getChunk(Point coord) const

@@ -33,10 +33,18 @@ int RoadNetwork::addNode(Vec3 pos, NodeType type)
 	return n.id;
 }
 
-int RoadNetwork::addEdge(int nodeA, int nodeB,
+Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	Vec3 ctrlA, Vec3 ctrlB,
 	RoadType rt, int numLanes)
 {
+	// 1ノードあたりのエッジ上限
+	constexpr int kMaxEdgesPerNode = 6;
+	const RoadNode* chkA = getNode(nodeA);
+	const RoadNode* chkB = getNode(nodeB);
+	if ((chkA && static_cast<int>(chkA->edgeIds.size()) >= kMaxEdgesPerNode) ||
+	    (chkB && static_cast<int>(chkB->edgeIds.size()) >= kMaxEdgesPerNode))
+		return none;
+
 	RoadEdge e;
 	e.id       = m_nextEdgeId++;
 	e.nodeA    = nodeA;
@@ -158,7 +166,7 @@ Optional<int> RoadNetwork::findNodeNear(Vec3 pos, float radius) const
 	return best;
 }
 
-int RoadNetwork::addEdgeWithIntersection(int nodeA, int nodeB,
+Optional<int> RoadNetwork::addEdgeWithIntersection(int nodeA, int nodeB,
 	Vec3 ctrlA, Vec3 ctrlB,
 	RoadType rt, int numLanes)
 {
@@ -673,27 +681,27 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 
 				// E1 を分割
 				removeEdge(dirtyId);
-				const int newE1a = addEdge(nA1, splitNodeId,
+				const auto newE1a = addEdge(nA1, splitNodeId,
 					posA1 + (splitPos - posA1) * (1.0 / 3.0),
 					posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
-				const int newE1b = addEdge(splitNodeId, nB1,
+				const auto newE1b = addEdge(splitNodeId, nB1,
 					splitPos + (posB1 - splitPos) * (1.0 / 3.0),
 					splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
 
 				// E2 を分割
 				removeEdge(otherId);
-				const int newE2a = addEdge(nA2, splitNodeId,
+				const auto newE2a = addEdge(nA2, splitNodeId,
 					posA2 + (splitPos - posA2) * (1.0 / 3.0),
 					posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
-				const int newE2b = addEdge(splitNodeId, nB2,
+				const auto newE2b = addEdge(splitNodeId, nB2,
 					splitPos + (posB2 - splitPos) * (1.0 / 3.0),
 					splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
 
 				// 新しいエッジをダーティに登録
-				dirtyEdges.insert(newE1a);
-				dirtyEdges.insert(newE1b);
-				dirtyEdges.insert(newE2a);
-				dirtyEdges.insert(newE2b);
+				if (newE1a) dirtyEdges.insert(*newE1a);
+				if (newE1b) dirtyEdges.insert(*newE1b);
+				if (newE2a) dirtyEdges.insert(*newE2a);
+				if (newE2b) dirtyEdges.insert(*newE2b);
 
 				// 削除済みエッジをセットから除去
 				allEdgeSet.erase(dirtyId);
