@@ -1,6 +1,6 @@
 ﻿#include "EventSystem.hpp"
 
-void EventSystem::update(GameTime gameNow, uint8 month, double dt)
+void EventSystem::update(GameTime gameNow, [[maybe_unused]] uint8 month, [[maybe_unused]] double dt)
 {
 	removeExpired(gameNow);
 }
@@ -118,7 +118,7 @@ Optional<GameEvent> EventSystem::buildSeasonalEvent(uint8 month, GameTime now) c
 	return ev;
 }
 
-Optional<GameEvent> EventSystem::rollRandomEvent(uint8 month, GameTime now, const RoadNetwork& network) const
+Optional<GameEvent> EventSystem::rollRandomEvent(uint8 month, GameTime now, [[maybe_unused]] const RoadNetwork& network) const
 {
 	constexpr double kDay  = 86400.0;
 	constexpr double kHour = 3600.0;

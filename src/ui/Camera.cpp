@@ -107,14 +107,14 @@ void GameCamera::handleInput(double dt, const World& world)
 			// 1 ピクセルあたりのワールド移動量: focus 平面における見かけ上のスケール
 			const double panScale = static_cast<double>(m_distance) / Scene::Width()
 			                        * 2.0 * Math::Tan(20.0_deg);
-			const Vec3 right   = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
+			const Vec3 right2  = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
 			const Vec3 fwd     = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
-			m_focus += right * delta.x * panScale;
+			m_focus += right2 * delta.x * panScale;
 			m_focus += fwd   * delta.y * panScale;
 
 			if (m_hasOrbitPivot)
 			{
-				m_orbitPivot += right * delta.x * panScale;
+				m_orbitPivot += right2 * delta.x * panScale;
 				m_orbitPivot += fwd   * delta.y * panScale;
 			}
 		}

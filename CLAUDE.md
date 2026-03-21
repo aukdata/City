@@ -27,11 +27,11 @@ Visual Studio でソリューションを開いてビルド:
 - **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。
   - **BOM 付与スクリプト**: 新規ファイルを複数作成した後は必ず `python3 scripts/add_bom.py` を実行して BOM を付与すること。Write ツールで作成したファイルは BOM が付与されないため、このスクリプトで補完する。
 - ドキュメントコメント: Doxygen形式
-- **CRLF/BOM ファイルの編集**: `.cpp`/`.hpp` は CRLF 改行 + UTF-8 BOM のため Edit ツールでマッチに失敗することがある。その場合は以下のスクリプトで一時的に変換してから Edit し、完了後に戻すこと:
+- **CRLF/BOM ファイルの編集**: `.cpp`/`.hpp`/`.h` は CRLF 改行 + UTF-8 BOM のため Edit ツールでマッチに失敗する。**Edit する前に必ず**以下のスクリプトで LF 化し、**全ての Edit 完了後に**戻すこと:
   ```
-  python3 scripts/convert_line_endings.py to-lf     # LF化 + BOM除去（Edit用）
+  python3 scripts/convert_line_endings.py to-lf     # LF化 + BOM除去（Edit前に必ず実行）
   # ... Edit ツールで編集 ...
-  python3 scripts/convert_line_endings.py to-crlf   # CRLF化 + BOM復元
+  python3 scripts/convert_line_endings.py to-crlf   # CRLF化 + BOM復元（Edit後に必ず実行）
   ```
 
 ## Siv3D 実装留意点

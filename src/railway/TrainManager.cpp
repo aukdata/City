@@ -54,7 +54,7 @@ void TrainManager::updateTrain(Train& t, double dt, GameTime gameNow)
 	advanceTrain(t, dt, gameNow);
 }
 
-void TrainManager::advanceTrain(Train& t, double dt, GameTime gameNow)
+void TrainManager::advanceTrain(Train& t, double dt, [[maybe_unused]] GameTime gameNow)
 {
 	if (t.currentEdge < 0) return;
 

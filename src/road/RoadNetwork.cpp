@@ -273,15 +273,15 @@ bool RoadNetwork::spreadIntersectionTangents()
 			if (!e) continue;
 
 			const Vec3& ctrl = (e->nodeA == node.id) ? e->ctrlA : e->ctrlB;
-			const float cdx = ctrl.x - nodePos.x;
-			const float cdz = ctrl.z - nodePos.z;
+			const float cdx = static_cast<float>(ctrl.x - nodePos.x);
+			const float cdz = static_cast<float>(ctrl.z - nodePos.z);
 			const float clen = std::sqrt(cdx * cdx + cdz * cdz);
 			if (clen < 1e-6f) continue;
 
 			EdgeEntry entry;
 			entry.edgeId  = eid;
 			entry.ctrlLen = clen;
-			entry.ctrlY   = ctrl.y;
+			entry.ctrlY   = static_cast<float>(ctrl.y);
 			entry.width   = e->totalWidth();
 			entry.angle   = static_cast<float>(Math::ToDegrees(std::atan2(cdz, cdx)));
 			entries << entry;

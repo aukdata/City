@@ -61,7 +61,6 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 	constexpr float kTileSize = static_cast<float>(CHUNK_SIZE) / (16.0f * 5.0f);
 
 	// 整数倍でないわずかな固定角度回転でグリッド感を崩す
-	constexpr float kRotDeg = 13.5f;
 	constexpr float kCosA = 0.97237f;  // cos(13.5°)
 	constexpr float kSinA = 0.23345f;  // sin(13.5°)
 

@@ -261,7 +261,7 @@ void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
 		transitToNextEdge(v, gameNow);
 }
 
-bool TrafficManager::transitToNextEdge(Vehicle& v, GameTime gameNow)
+bool TrafficManager::transitToNextEdge(Vehicle& v, [[maybe_unused]] GameTime gameNow)
 {
 	// ルートが残っているならルートに従って遷移する
 	while (v.routeProgress < static_cast<int>(v.routeNodeIds.size()))
@@ -608,7 +608,7 @@ void TrafficManager::updateBusRoutes(GameTime gameNow)
 	}
 }
 
-void TrafficManager::updateBusStop(Vehicle& v, double dt, GameTime gameNow)
+void TrafficManager::updateBusStop(Vehicle& v, [[maybe_unused]] double dt, [[maybe_unused]] GameTime gameNow)
 {
 	if (v.busRouteId < 0) return;
 
