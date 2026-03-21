@@ -3,18 +3,16 @@
 #include "PathfindingGraph.hpp"
 #include "TrafficLight.hpp"
 #include "BusRoute.hpp"
-#include "../road/RoadNetwork.hpp"
-#include "../zone/ZoneTypes.hpp"
+#include "../sim/SimGraph.hpp"
 
-class World;
-class ZoneManager;
-
-/// @brief 車両生成・更新・管理クラス（Phase 2: 経路探索・IDM・信号機対応）
+/// @brief 車両生成・更新・管理クラス
+/// @details SimGraph を使用してシミュレーションを行う。
+///   RoadNetwork / World への依存を持たず、Sim スレッドで安全に実行できる。
 class TrafficManager
 {
 public:
-	/// @brief 初期化
-	void init(RoadNetwork* network, World* world = nullptr, ZoneManager* zoneManager = nullptr);
+	/// @brief SimGraph を設定する
+	void setSimGraph(std::shared_ptr<const SimGraph> graph) { m_simGraph = std::move(graph); }
 
 	/// @brief フレーム更新
 	/// @param dt      リアル経過秒
@@ -56,9 +54,7 @@ private:
 	static constexpr float kPeriodicRerouteInterval = 60.0f; ///< 定期再探索間隔 [ゲーム秒]
 	static constexpr float kSignalStopDist        = 15.0f; ///< 信号停止線手前の検出距離 [m]
 
-	RoadNetwork*   m_network    = nullptr;
-	World*         m_world      = nullptr;
-	ZoneManager*   m_zoneManager = nullptr;
+	std::shared_ptr<const SimGraph> m_simGraph;
 	Array<Vehicle> m_vehicles;
 	int            m_nextId     = 0;
 	GameTime       m_lastGameNow = 0.0;
@@ -86,11 +82,6 @@ private:
 
 	/// @brief 隣接車線への車線変更を試みる（キープレフト優先、安全ギャップ確認）
 	void tryLaneChange(Vehicle& v);
-
-	// --- 車種選択 ---
-
-	/// @brief ゾーン・時間帯に応じた車種を返す
-	VehicleType selectVehicleType(ZoneType zone, float hour) const;
 
 	// --- 車両更新 ---
 	void updateVehicle(Vehicle& v, double dt, GameTime gameNow);

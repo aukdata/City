@@ -3,7 +3,7 @@
 
 // ===== rebuild =====
 
-void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
+void PathfindingGraph::rebuild(const SimGraph& graph, GameTime now,
                                const HashTable<int, TrafficLight>& lights)
 {
 	m_laneNodes.clear();
@@ -13,16 +13,13 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 	m_nextNodeId = 0;
 
 	// --- Step 1: 各エッジの走行可能な車線ごとに入口・出口 LaneNode を生成 ---
-	for (const auto& edge : network.edges())
+	for (const auto& [eid, edge] : graph.edges)
 	{
-		if (edge.id == -1) continue;
-
 		for (int i = 0; i < static_cast<int>(edge.lanes.size()); ++i)
 		{
-			const Lane L = edge.effectiveLane(i, now);
+			const Lane& L = edge.lanes[i];
 			if (!isPassable(L)) continue;
 
-			// 進行方向ごとに入口・出口の弧長位置を決定する
 			const float entryArc = (L.dir == LaneDir::Forward) ? 0.0f : edge.length;
 			const float exitArc  = (L.dir == LaneDir::Forward) ? edge.length : 0.0f;
 
@@ -38,10 +35,9 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 			exitNode.laneIndex = i;
 			exitNode.arcPos    = exitArc;
 
-			// Forward 辺: 入口 → 出口
-			const float speedMS = edge.speedLimit / 3.6f;
+			const float speedMS  = edge.speedLimit / 3.6f;
 			const float effSpeed = speedMS * (1.0f - edge.congestion * 0.8f);
-			const float fwdCost = (effSpeed > 0.0f) ? (edge.length / effSpeed) : 1e6f;
+			const float fwdCost  = (effSpeed > 0.0f) ? (edge.length / effSpeed) : 1e6f;
 			entryNode.outgoing << GraphEdge{ GraphEdgeType::Forward, exitNode.id, fwdCost };
 
 			const int64 key = laneKey(edge.id, i);
@@ -55,17 +51,15 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 	// --- Step 2: 同一エッジの隣接車線間に LaneChange 辺を追加 ---
 	constexpr float kLaneChangeCost = 5.0f;
 
-	for (const auto& edge : network.edges())
+	for (const auto& [eid, edge] : graph.edges)
 	{
-		if (edge.id == -1) continue;
-
 		for (int i = 0; i < static_cast<int>(edge.lanes.size()) - 1; ++i)
 		{
 			const int j = i + 1;
-			const Lane Li = edge.effectiveLane(i, now);
-			const Lane Lj = edge.effectiveLane(j, now);
+			const Lane& Li = edge.lanes[i];
+			const Lane& Lj = edge.lanes[j];
 			if (!isPassable(Li) || !isPassable(Lj)) continue;
-			if (Li.dir != Lj.dir) continue;  // 異方向間の車線変更は禁止
+			if (Li.dir != Lj.dir) continue;
 
 			const auto eiIt = m_entryNodeIds.find(laneKey(edge.id, i));
 			const auto ejIt = m_entryNodeIds.find(laneKey(edge.id, j));
@@ -85,22 +79,19 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 		}
 	}
 
-	// --- Step 3: 各 RoadNode で Transition 辺を追加 ---
-	for (const auto& node : network.nodes())
+	// --- Step 3: 各ノードで Transition 辺を追加 ---
+	for (const auto& [nid, node] : graph.nodes)
 	{
-		if (node.id == -1) continue;
-
 		for (const int inEdgeId : node.edgeIds)
 		{
-			const RoadEdge* inEdge = network.getEdge(inEdgeId);
+			const SimGraph::Edge* inEdge = graph.getEdge(inEdgeId);
 			if (!inEdge) continue;
 
 			for (int i = 0; i < static_cast<int>(inEdge->lanes.size()); ++i)
 			{
-				const Lane Lin = inEdge->effectiveLane(i, now);
+				const Lane& Lin = inEdge->lanes[i];
 				if (!isPassable(Lin)) continue;
 
-				// この車線の出口が node.id にあるか確認する
 				const bool exitsAtNode =
 					(Lin.dir == LaneDir::Forward  && inEdge->nodeB == node.id) ||
 					(Lin.dir == LaneDir::Backward && inEdge->nodeA == node.id);
@@ -112,17 +103,16 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 
 				for (const int outEdgeId : node.edgeIds)
 				{
-					if (outEdgeId == inEdgeId) continue;  // 同一エッジへの折返しはスキップ
+					if (outEdgeId == inEdgeId) continue;
 
-					const RoadEdge* outEdge = network.getEdge(outEdgeId);
+					const SimGraph::Edge* outEdge = graph.getEdge(outEdgeId);
 					if (!outEdge) continue;
 
 					for (int j = 0; j < static_cast<int>(outEdge->lanes.size()); ++j)
 					{
-						const Lane Lout = outEdge->effectiveLane(j, now);
+						const Lane& Lout = outEdge->lanes[j];
 						if (!isPassable(Lout)) continue;
 
-						// この車線の入口が node.id にあるか確認する
 						const bool entersAtNode =
 							(Lout.dir == LaneDir::Forward  && outEdge->nodeA == node.id) ||
 							(Lout.dir == LaneDir::Backward && outEdge->nodeB == node.id);
@@ -132,10 +122,9 @@ void PathfindingGraph::rebuild(const RoadNetwork& network, GameTime now,
 						if (entryIt == m_entryNodeIds.end()) continue;
 						const int entryId = entryIt->second;
 
-						const TurnType turn = calcTurnType(network, inEdgeId, Lin.dir, outEdgeId, Lout.dir, node.id);
+						const TurnType turn = calcTurnType(graph, inEdgeId, Lin.dir, outEdgeId, Lout.dir, node.id);
 						float cost          = costTransition(turn);
 
-						// 信号機の期待待ち時間をコストに加算する
 						const auto tlIt = lights.find(node.id);
 						if (tlIt != lights.end())
 							cost += tlIt->second.expectedWaitTime(inEdgeId);
@@ -173,11 +162,9 @@ PathResult PathfindingGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 		const auto [d, u] = pq.top();
 		pq.pop();
 
-		// 古いエントリをスキップする
 		const auto distIt = dist.find(u);
 		if (distIt == dist.end() || d > distIt->second) continue;
 
-		// ゴールエッジに到達したか確認する
 		const LaneNode* lNode = getLaneNode(u);
 		if (lNode && lNode->edgeId == goalEdgeId)
 		{
@@ -205,7 +192,6 @@ PathResult PathfindingGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 
 	if (goalNode == -1) return result;
 
-	// 経路を逆順に復元する
 	result.found     = true;
 	result.totalCost = dist.find(goalNode)->second;
 
@@ -267,54 +253,42 @@ const BorderNode* PathfindingGraph::getBorderNode(int nodeId) const
 	return (it != m_borderNodes.end()) ? &it->second : nullptr;
 }
 
-// ===== ターン判定 =====
+// ===== ターン判定（SimGraph の接線角を使用） =====
 
 TurnType PathfindingGraph::calcTurnType(
-	const RoadNetwork& network,
+	const SimGraph& graph,
 	int fromEdgeId, LaneDir fromDir,
 	int toEdgeId,   LaneDir toDir,
 	int /*nodeId*/) const
 {
-	// 進入方向ベクトルを取得する（車両の進行方向）
-	Vec3 vIn = Vec3::Zero();
-	if (const auto bez = network.getBezier(fromEdgeId))
-	{
-		if (fromDir == LaneDir::Forward)
-			vIn = bez->tangentAt(bez->totalLength);   // nodeB 側で終わる
-		else
-			vIn = -bez->tangentAt(0.0f);              // nodeA 側で終わる（反転）
-	}
+	const SimGraph::Edge* fromE = graph.getEdge(fromEdgeId);
+	const SimGraph::Edge* toE   = graph.getEdge(toEdgeId);
+	if (!fromE || !toE) return TurnType::Straight;
 
-	// 退出方向ベクトルを取得する（車両の進行方向）
-	Vec3 vOut = Vec3::Zero();
-	if (const auto bez = network.getBezier(toEdgeId))
-	{
-		if (toDir == LaneDir::Forward)
-			vOut = bez->tangentAt(0.0f);              // nodeA 側から出発
-		else
-			vOut = -bez->tangentAt(bez->totalLength); // nodeB 側から出発（反転）
-	}
+	// 進入方向: Forward なら nodeB 端の接線、Backward なら nodeA 端の接線を反転
+	const float inAngle = (fromDir == LaneDir::Forward)
+		? fromE->tangentAngleB
+		: (fromE->tangentAngleA + static_cast<float>(Math::Pi));
 
-	// XZ 平面で正規化する
-	const double lenIn  = Math::Sqrt(vIn.x * vIn.x + vIn.z * vIn.z);
-	const double lenOut = Math::Sqrt(vOut.x * vOut.x + vOut.z * vOut.z);
-	if (lenIn < 1e-6 || lenOut < 1e-6) return TurnType::Straight;
+	// 退出方向: Forward なら nodeA 端の接線、Backward なら nodeB 端の接線を反転
+	const float outAngle = (toDir == LaneDir::Forward)
+		? toE->tangentAngleA
+		: (toE->tangentAngleB + static_cast<float>(Math::Pi));
 
-	const double ixn = vIn.x / lenIn,   izn = vIn.z / lenIn;
-	const double oxn = vOut.x / lenOut, ozn = vOut.z / lenOut;
+	const float cosIn  = std::cos(inAngle),  sinIn  = std::sin(inAngle);
+	const float cosOut = std::cos(outAngle), sinOut = std::sin(outAngle);
 
-	const double dot   = ixn * oxn + izn * ozn;
-	const double cross = ixn * ozn - izn * oxn;  // v_in × v_out の y 成分
+	const float dot   = cosIn * cosOut + sinIn * sinOut;
+	const float cross = cosIn * sinOut - sinIn * cosOut;
 
-	if (dot  >  0.7) return TurnType::Straight;
-	if (dot  < -0.7) return TurnType::UTurn;
-	if (cross > 0.0) return TurnType::Left;
+	if (dot  >  0.7f) return TurnType::Straight;
+	if (dot  < -0.7f) return TurnType::UTurn;
+	if (cross > 0.0f) return TurnType::Left;
 	return TurnType::Right;
 }
 
 float PathfindingGraph::costTransition(TurnType turn) const
 {
-	// 信号なし交差点の遅延コスト [秒]（Phase 2-4 で expectedWaitTime() に置き換える）
 	switch (turn)
 	{
 	case TurnType::Straight: return 2.0f;

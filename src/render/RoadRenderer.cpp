@@ -1,5 +1,6 @@
 ﻿# include "../../stdafx.h"
 #include "RoadRenderer.hpp"
+#include <Siv3D/ViewFrustum.hpp>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 内部ヘルパー（無名名前空間）
@@ -98,20 +99,32 @@ bool RoadRenderer::loadStyle(FilePathView tomlPath)
 	return m_styleRegistry.load(tomlPath);
 }
 
-void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World& world)
+void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World& world,
+                          const ViewFrustum& frustum, Vec3 cameraPos)
 {
 	Profiler::EnableAssetCreationWarning(false);
 
-	// 地形変更時は全キャッシュをクリアして再構築する
+	// 地形変更時は該当チャンク内のエッジ/ノードのキャッシュのみクリアする
 	for (const Chunk* chunk : world.getActiveChunks())
 	{
-		if (chunk && chunk->dirty)
+		if (!chunk || !chunk->dirty) continue;
+		const double cx = chunk->coord.x * static_cast<double>(CHUNK_SIZE);
+		const double cz = chunk->coord.y * static_cast<double>(CHUNK_SIZE);
+		const double cs = CHUNK_SIZE;
+		for (const auto& node : network.nodes())
 		{
-			m_meshCache.clear();
-			m_laneCache.clear();
-			m_marginCache.clear();
-			m_nodeCapCache.clear();
-			break;
+			if (node.id < 0) continue;
+			if (node.position.x >= cx && node.position.x < cx + cs &&
+			    node.position.z >= cz && node.position.z < cz + cs)
+			{
+				m_nodeCapCache.erase(node.id);
+				for (const int eid : node.edgeIds)
+				{
+					m_meshCache.erase(eid);
+					m_laneCache.erase(eid);
+					m_marginCache.erase(eid);
+				}
+			}
 		}
 	}
 
@@ -123,17 +136,39 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) continue;
 
+		// エッジのバウンディングスフィアで視錐台カリング
+		const Vec3 center = (bez->positionAt(0.0f) + bez->positionAt(bez->totalLength)) * 0.5;
+		const double radius = bez->totalLength * 0.6;
+		if (!frustum.intersects(Sphere{ center, radius })) continue;
+
+		// カメラからの距離（XZ 平面）で描画カット / LOD を決定
+		const double dx = center.x - cameraPos.x;
+		const double dz = center.z - cameraPos.z;
+		const double distSq = dx * dx + dz * dz;
+		if (distSq > kDrawMaxDistSq) continue;
+		const bool isClose = distSq < kLodDistSq;
+
 		const float mA = edgeMargin(edge, edge.nodeA);
 		const float mB = edgeMargin(edge, edge.nodeB);
 
-		drawEdge(edge, *bez, mA, mB, world);
+		drawEdge(edge, *bez, mA, mB, world, isClose);
 	}
 
 	// ---- ノードキャップ描画（交差点フィル）----
 	for (const RoadNode& node : network.nodes())
 	{
 		if (node.id < 0) continue;
-		drawNodeCap(network, node.id, world);
+
+		// ノード位置で視錐台カリング
+		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
+
+		const double dx = node.position.x - cameraPos.x;
+		const double dz = node.position.z - cameraPos.z;
+		const double distSq = dx * dx + dz * dz;
+		if (distSq > kDrawMaxDistSq) continue;
+		const bool isClose = distSq < kLodDistSq;
+
+		drawNodeCap(network, node.id, world, isClose);
 	}
 
 	(void)now;
@@ -146,7 +181,6 @@ void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
 	m_marginCache.erase(edgeId);
 	if (nodeA >= 0 || nodeB >= 0)
 	{
-		// 指定ノードのキャップのみ無効化する（ドラッグ等の高頻度呼び出し用）
 		if (nodeA >= 0) m_nodeCapCache.erase(nodeA);
 		if (nodeB >= 0) m_nodeCapCache.erase(nodeB);
 	}
@@ -158,10 +192,104 @@ void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
 
 void RoadRenderer::markTopologyChanged()
 {
-	// cutoff 変化（RoadNetwork 側で更新済み）を拾うためマージンキャッシュと
-	// ノードキャップキャッシュをクリアする
+	m_meshCache.clear();
+	m_laneCache.clear();
 	m_marginCache.clear();
 	m_nodeCapCache.clear();
+}
+
+void RoadRenderer::markTopologyChangedAt(int nodeId, const RoadNetwork& network)
+{
+	(void)network;
+	m_nodeCapCache.erase(nodeId);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// エッジ描画
+// ─────────────────────────────────────────────────────────────────────────────
+
+void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
+                             float marginA, float marginB, const World& world, bool isClose)
+{
+	const RoadStyle& style = m_styleRegistry.get(edge.roadType);
+
+	// マージンが変わった場合はキャッシュを破棄して再構築する
+	if (auto it = m_marginCache.find(edge.id); it != m_marginCache.end())
+	{
+		if (it->second.a != marginA || it->second.b != marginB)
+		{
+			m_meshCache.erase(edge.id);
+			m_laneCache.erase(edge.id);
+			m_marginCache.erase(edge.id);
+			m_nodeCapCache.erase(edge.nodeA);
+			m_nodeCapCache.erase(edge.nodeB);
+		}
+	}
+
+	// ---- 路面メッシュ（通常 / LOD を同時構築）----
+	if (!m_meshCache.contains(edge.id))
+	{
+		const MeshData mdDetail = buildRoadMesh(edge, bezier, style, world, marginA, marginB, 1.0f);
+		if (mdDetail.vertices.isEmpty()) return;
+		const MeshData mdLod = buildRoadMesh(edge, bezier, style, world, marginA, marginB, 0.25f);
+		m_meshCache.emplace(edge.id, LodMeshPair{ Mesh{ mdDetail }, Mesh{ mdLod } });
+		m_marginCache[edge.id] = { marginA, marginB };
+	}
+
+	const Mesh& meshToDraw = isClose ? m_meshCache[edge.id].detail : m_meshCache[edge.id].lod;
+	if (style.surface.surfaceTexture)
+		meshToDraw.draw(*style.surface.surfaceTexture,
+		                style.surface.surfaceColor.removeSRGBCurve());
+	else
+		meshToDraw.draw(style.surface.surfaceColor.removeSRGBCurve());
+
+	// ---- 車線区画線（遠方では描画しない） ----
+	if (isClose)
+	{
+		if (!m_laneCache.contains(edge.id))
+			m_laneCache[edge.id] = buildLaneLineBatches(edge, bezier, style, world, marginA, marginB);
+
+		for (const auto& b : m_laneCache[edge.id])
+			b.mesh.draw(b.color);
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ノードキャップ描画
+// ─────────────────────────────────────────────────────────────────────────────
+
+void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const World& world, bool isClose)
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node || node->edgeIds.size() < 2) return;
+
+	if (!m_nodeCapCache.contains(nodeId))
+	{
+		const MeshData mdDetail = buildNodeCapMesh(network, nodeId, world, 6);
+		if (mdDetail.vertices.isEmpty()) return;
+		const MeshData mdLod = buildNodeCapMesh(network, nodeId, world, 2);
+		m_nodeCapCache.emplace(nodeId, LodMeshPair{
+			Mesh{ mdDetail },
+			mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod }
+		});
+	}
+
+	// 最も道路種別の高いエッジのスタイルで描画する
+	RoadType maxType = RoadType::LocalRoad;
+	for (int eid : node->edgeIds)
+	{
+		const RoadEdge* e = network.getEdge(eid);
+		if (e && static_cast<int>(e->roadType) > static_cast<int>(maxType))
+			maxType = e->roadType;
+	}
+	const RoadStyle& style = m_styleRegistry.get(maxType);
+
+	const Mesh& meshToDraw = isClose ? m_nodeCapCache[nodeId].detail : m_nodeCapCache[nodeId].lod;
+	if (style.surface.surfaceTexture)
+		meshToDraw.draw(*style.surface.surfaceTexture,
+		                style.surface.surfaceColor.removeSRGBCurve());
+	else
+		meshToDraw.draw(style.surface.surfaceColor.removeSRGBCurve());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,89 +307,12 @@ float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// エッジ描画
-// ─────────────────────────────────────────────────────────────────────────────
-
-void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
-                             float marginA, float marginB, const World& world)
-{
-	const RoadStyle& style = m_styleRegistry.get(edge.roadType);
-
-	// マージンが変わった場合はキャッシュを破棄して再構築する
-	if (auto it = m_marginCache.find(edge.id); it != m_marginCache.end())
-	{
-		if (it->second.a != marginA || it->second.b != marginB)
-		{
-			m_meshCache.erase(edge.id);
-			m_laneCache.erase(edge.id);
-			m_marginCache.erase(edge.id);
-			m_nodeCapCache.clear();
-		}
-	}
-
-	// ---- 路面メッシュ ----
-	if (!m_meshCache.contains(edge.id))
-	{
-		const MeshData md = buildRoadMesh(edge, bezier, style, world, marginA, marginB);
-		if (md.vertices.isEmpty()) return;
-		m_meshCache.emplace(edge.id, Mesh{ md });
-		m_marginCache[edge.id] = { marginA, marginB };
-	}
-
-	if (style.surface.surfaceTexture)
-		m_meshCache[edge.id].draw(*style.surface.surfaceTexture,
-		                          style.surface.surfaceColor.removeSRGBCurve());
-	else
-		m_meshCache[edge.id].draw(style.surface.surfaceColor.removeSRGBCurve());
-
-	// ---- 車線区画線 ----
-	if (!m_laneCache.contains(edge.id))
-		m_laneCache[edge.id] = buildLaneLineBatches(edge, bezier, style, world, marginA, marginB);
-
-	for (const auto& b : m_laneCache[edge.id])
-		b.mesh.draw(b.color);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ノードキャップ描画
-// ─────────────────────────────────────────────────────────────────────────────
-
-void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const World& world)
-{
-	const RoadNode* node = network.getNode(nodeId);
-	if (!node || node->edgeIds.size() < 2) return;
-
-	if (!m_nodeCapCache.contains(nodeId))
-	{
-		const MeshData md = buildNodeCapMesh(network, nodeId, world);
-		if (md.vertices.isEmpty()) return;
-		m_nodeCapCache.emplace(nodeId, Mesh{ md });
-	}
-
-	// 最も道路種別の高いエッジのスタイルで描画する
-	RoadType maxType = RoadType::LocalRoad;
-	for (int eid : node->edgeIds)
-	{
-		const RoadEdge* e = network.getEdge(eid);
-		if (e && static_cast<int>(e->roadType) > static_cast<int>(maxType))
-			maxType = e->roadType;
-	}
-	const RoadStyle& style = m_styleRegistry.get(maxType);
-
-	if (style.surface.surfaceTexture)
-		m_nodeCapCache[nodeId].draw(*style.surface.surfaceTexture,
-		                            style.surface.surfaceColor.removeSRGBCurve());
-	else
-		m_nodeCapCache[nodeId].draw(style.surface.surfaceColor.removeSRGBCurve());
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // メッシュ生成
 // ─────────────────────────────────────────────────────────────────────────────
 
 MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier,
                                      const RoadStyle& style, const World& world,
-                                     float marginA, float marginB) const
+                                     float marginA, float marginB, float lodFactor) const
 {
 	// NodeCap との隙間を防ぐため、エッジメッシュをわずかにキャップ側へ延伸する
 	constexpr float kOverlap = 0.1f;
@@ -272,7 +323,8 @@ MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& be
 
 	const float  halfWidth = halfWidthWithShoulder(edge);
 	const float  spanLen   = sEnd - sStart;
-	const int    N         = Clamp(static_cast<int>(spanLen / 2.0f) + 1, 5, 100);
+	const int    N         = Clamp(static_cast<int>(spanLen / 2.0f * lodFactor) + 1,
+	                               3, static_cast<int>(100 * lodFactor));
 
 	Array<Vertex3D> vertices;
 	vertices.reserve((N + 1) * 2);
@@ -350,7 +402,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 }
 
 MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
-                                        const World& world) const
+                                        const World& world, int div) const
 {
 	// Pavecity の Intersection::BuildMesh と同一手順で構築する。
 	// ① 各接続道路の切断点情報（角・接線）を収集して角度順にソート
@@ -429,8 +481,8 @@ MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
 	// ---- ② フィレット曲線を生成 ----
 	// fillet[i]: infos[i].leftCorner → infos[(i+1)%N].rightCorner の DIV+1 点
 	// Pavecity の bezier{road1_edge, road2_edge, -road1_dir, -road2_dir} に対応
-	constexpr int DIV  = 6;   // 偶数
-	constexpr int HALF = DIV / 2;
+	const int DIV  = div;     // 偶数（6=通常、2=LOD）
+	const int HALF = DIV / 2;
 
 	Array<Array<Vec3>> fillets(N);
 	for (int i = 0; i < N; ++i)

@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../road/RoadNetwork.hpp"
+#include "../sim/SimGraph.hpp"
 #include "TrafficLight.hpp"
 
 // ===== グラフ辺種別 =====
@@ -92,9 +92,9 @@ struct PathResult
 class PathfindingGraph
 {
 public:
-	/// @brief ネットワーク全体からグラフを再構築する
+	/// @brief SimGraph からグラフを再構築する
 	/// @param lights 信号機マップ（nodeId → TrafficLight）。Transition コストに待ち時間を加算する
-	void rebuild(const RoadNetwork& network, GameTime now,
+	void rebuild(const SimGraph& graph, GameTime now,
 	             const HashTable<int, TrafficLight>& lights);
 
 	/// @brief 出発 LaneNode から目標エッジへの経路を探索する
@@ -130,12 +130,12 @@ private:
 		return ((int64)edgeId << 16) | (int64)(uint16)laneIdx;
 	}
 
-	/// @brief 進入・退出方向からターン種別を判定する
+	/// @brief 進入・退出方向からターン種別を判定する（SimGraph の接線角を使用）
 	TurnType calcTurnType(
-		const RoadNetwork& network,
+		const SimGraph& graph,
 		int fromEdgeId, LaneDir fromDir,
 		int toEdgeId,   LaneDir toDir,
-		[[maybe_unused]] int nodeId) const;
+		int nodeId) const;
 
 	/// @brief ターン種別に対応する交差点コストを返す（信号なし）
 	float costTransition(TurnType turn) const;

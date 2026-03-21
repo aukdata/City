@@ -5,7 +5,7 @@
 // グリッド構築
 // ─────────────────────────────────────────────────────────────────────────────
 
-void RoadPathfinder::setup(World& world, Vec2 offset, int gridW, int gridH, float cellSize)
+void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH, float cellSize)
 {
 	m_offset   = offset;
 	m_gridW    = gridW;

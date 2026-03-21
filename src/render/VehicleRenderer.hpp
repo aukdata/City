@@ -6,11 +6,11 @@ class VehicleRenderer
 {
 public:
 	/// @brief 全車両を描画する
-	void render(const Array<Vehicle>& vehicles);
+	void render(const Array<Vehicle>& vehicles, Vec3 cameraPos);
 
 private:
-	/// @brief 単一車両を描画する
-	void drawVehicle(const Vehicle& v);
+	/// @brief 単一車両を描画する（isClose で Model / Box を切り替え）
+	void drawVehicle(const Vehicle& v, bool isClose);
 
 	/// @brief 車種別の車体色を返す
 	static ColorF vehicleColor(VehicleType type);

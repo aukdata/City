@@ -1,15 +1,17 @@
 ﻿#include "WorldRenderer.hpp"
 #include <Siv3D/Profiler.hpp>
+#include <Siv3D/ViewFrustum.hpp>
 
-void WorldRenderer::render(World& world)
+void WorldRenderer::render(World& world, const ViewFrustum& frustum)
 {
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
 
-	// 手前チャンクから順に描画（Front-to-Back で Early-Z 最適化）
 	const Vec3 eye{ Graphics3D::GetEyePosition() };
 
 	auto chunks = world.getActiveChunks();
+
+	// 手前チャンクから順に描画（Front-to-Back で Early-Z 最適化）
 	chunks.sort_by([&](const Chunk* a, const Chunk* b)
 	{
 		return a->worldOrigin().distanceFromSq(eye) < b->worldOrigin().distanceFromSq(eye);
@@ -17,8 +19,15 @@ void WorldRenderer::render(World& world)
 
 	for (Chunk* chunk : chunks)
 	{
-		if (chunk)
-			drawChunk(*chunk, world);
+		if (!chunk) continue;
+
+		// AABB で視錐台カリング
+		const Vec3 origin = chunk->worldOrigin();
+		const Box chunkBox{ origin + Vec3{ CHUNK_SIZE * 0.5, 250.0, CHUNK_SIZE * 0.5 },
+		                    Vec3{ CHUNK_SIZE, 500.0, CHUNK_SIZE } };
+		if (!frustum.intersects(chunkBox)) continue;
+
+		drawChunk(*chunk, world);
 	}
 }
 

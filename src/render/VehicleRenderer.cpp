@@ -1,15 +1,21 @@
 ﻿#include "VehicleRenderer.hpp"
+#include "RoadRenderer.hpp"   // kLodDistSq
 
-void VehicleRenderer::render(const Array<Vehicle>& vehicles)
+void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 {
 	for (const auto& v : vehicles)
-		drawVehicle(v);
+	{
+		const double dx = v.position.x - cameraPos.x;
+		const double dz = v.position.z - cameraPos.z;
+		const bool isClose = (dx * dx + dz * dz) < RoadRenderer::kLodDistSq;
+		drawVehicle(v, isClose);
+	}
 }
 
-void VehicleRenderer::drawVehicle(const Vehicle& v)
+void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
 {
-	// 乗用車・軽自動車は car.obj モデルで描画する
-	if (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar)
+	// 近距離の乗用車・軽自動車は car.obj モデルで描画する
+	if (isClose && (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar))
 	{
 		// 初回のみモデルとテクスチャをロードする
 		if (m_carModel.isEmpty())
@@ -37,7 +43,7 @@ void VehicleRenderer::drawVehicle(const Vehicle& v)
 		return;
 	}
 
-	// その他の車種はボックスで描画する（heading 方向を向く）
+	// 遠距離、またはモデルのない車種はボックスで描画する
 	const ColorF    color  = vehicleColor(v.type);
 	const Vec3      size   = vehicleSize(v.type);
 	const Vec3      center = v.position + Vec3{ 0, size.y / 2, 0 };

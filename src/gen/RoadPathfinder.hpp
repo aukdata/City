@@ -15,7 +15,7 @@ public:
 	/// @param gridW     グリッド横セル数
 	/// @param gridH     グリッド縦セル数
 	/// @param cellSize  1 セルのサイズ [m]
-	void setup(World& world, Vec2 offset, int gridW, int gridH,
+	void setup(const World& world, Vec2 offset, int gridW, int gridH,
 	           float cellSize = kDefaultCellSize);
 
 	// ----- アクセサ -----
@@ -23,6 +23,9 @@ public:
 	int   gridH()    const { return m_gridH; }
 	float cellSize() const { return m_cellSize; }
 	Vec2  offset()   const { return m_offset; }
+
+	/// @brief 高さグリッド全体を返す（バックグラウンド生成結果のキャッシュ用）
+	const Array<float>& heightGrid() const { return m_heightGrid; }
 
 	/// @brief セルの高さを返す [m]
 	float height(int gx, int gz) const { return m_heightGrid[gz * m_gridW + gx]; }

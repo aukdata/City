@@ -136,6 +136,54 @@
     <Filter Include="Resource Files\engine\font\min">
       <UniqueIdentifier>{1b103960-f11a-4515-b4f1-f59333ce00d9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\debug">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000001}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\economy">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000002}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\event">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000003}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\gen">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000004}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\railway">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000005}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\render">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000006}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\road">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000007}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\save">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\scene">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000009}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\sim">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\style">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\time">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000010}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\traffic">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\world">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\zone">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -143,6 +191,90 @@
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameApp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\debug\DebugRenderer.cpp">
+      <Filter>Source Files\debug</Filter>
+    </ClCompile>
+    <ClCompile Include="src\economy\Economy.cpp">
+      <Filter>Source Files\economy</Filter>
+    </ClCompile>
+    <ClCompile Include="src\event\EventSystem.cpp">
+      <Filter>Source Files\event</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gen\MapGenerator.cpp">
+      <Filter>Source Files\gen</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gen\RoadPathfinder.cpp">
+      <Filter>Source Files\gen</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gen\PlaceNameGenerator.cpp">
+      <Filter>Source Files\gen</Filter>
+    </ClCompile>
+    <ClCompile Include="src\railway\TrainNetwork.cpp">
+      <Filter>Source Files\railway</Filter>
+    </ClCompile>
+    <ClCompile Include="src\railway\TrainManager.cpp">
+      <Filter>Source Files\railway</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\WorldRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\RoadRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\VehicleRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\UIRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\TrainRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\PlaceNameRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\road\BezierUtil.cpp">
+      <Filter>Source Files\road</Filter>
+    </ClCompile>
+    <ClCompile Include="src\road\RoadNetwork.cpp">
+      <Filter>Source Files\road</Filter>
+    </ClCompile>
+    <ClCompile Include="src\save\RoadBinary.cpp">
+      <Filter>Source Files\save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\TitleScene.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\GameScene.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sim\SimThread.cpp">
+      <Filter>Source Files\sim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\style\RoadStyleRegistry.cpp">
+      <Filter>Source Files\style</Filter>
+    </ClCompile>
+    <ClCompile Include="src\traffic\TrafficManager.cpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClCompile>
+    <ClCompile Include="src\traffic\PathfindingGraph.cpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClCompile>
+    <ClCompile Include="src\traffic\TrafficLight.cpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\Camera.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world\World.cpp">
+      <Filter>Source Files\world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\zone\ZoneManager.cpp">
+      <Filter>Source Files\zone</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -806,8 +938,125 @@
     </Xml>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\time\GameClock.hpp">
+      <Filter>Source Files\time</Filter>
+    </ClInclude>
+    <ClInclude Include="src\debug\DebugLog.hpp">
+      <Filter>Source Files\debug</Filter>
+    </ClInclude>
+    <ClInclude Include="src\debug\DebugRenderer.hpp">
+      <Filter>Source Files\debug</Filter>
+    </ClInclude>
+    <ClInclude Include="src\economy\Economy.hpp">
+      <Filter>Source Files\economy</Filter>
+    </ClInclude>
+    <ClInclude Include="src\event\EventSystem.hpp">
+      <Filter>Source Files\event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\TerrainType.hpp">
+      <Filter>Source Files\gen</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\MapGenerator.hpp">
+      <Filter>Source Files\gen</Filter>
+    </ClInclude>
+    <ClInclude Include="src\railway\TrackTypes.hpp">
+      <Filter>Source Files\railway</Filter>
+    </ClInclude>
+    <ClInclude Include="src\railway\TrainNetwork.hpp">
+      <Filter>Source Files\railway</Filter>
+    </ClInclude>
+    <ClInclude Include="src\railway\Train.hpp">
+      <Filter>Source Files\railway</Filter>
+    </ClInclude>
+    <ClInclude Include="src\railway\TrainManager.hpp">
+      <Filter>Source Files\railway</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\WorldRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\RoadRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\VehicleRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\UIRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TrainRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadTypes.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\BezierUtil.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadNetwork.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\SceneCommon.hpp">
+      <Filter>Source Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\TitleScene.hpp">
+      <Filter>Source Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\GameScene.hpp">
+      <Filter>Source Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sim\SimGraph.hpp">
+      <Filter>Source Files\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sim\SimThread.hpp">
+      <Filter>Source Files\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\style\LinearNetworkStyle.hpp">
+      <Filter>Source Files\style</Filter>
+    </ClInclude>
+    <ClInclude Include="src\style\RoadStyle.hpp">
+      <Filter>Source Files\style</Filter>
+    </ClInclude>
+    <ClInclude Include="src\style\RoadStyleRegistry.hpp">
+      <Filter>Source Files\style</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\Vehicle.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\PathfindingGraph.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\TrafficLight.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\BusRoute.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\TrafficManager.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Camera.hpp">
+      <Filter>Source Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\world\Chunk.hpp">
+      <Filter>Source Files\world</Filter>
+    </ClInclude>
+    <ClInclude Include="src\world\World.hpp">
+      <Filter>Source Files\world</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zone\ZoneTypes.hpp">
+      <Filter>Source Files\zone</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zone\Building.hpp">
+      <Filter>Source Files\zone</Filter>
+    </ClInclude>
+    <ClInclude Include="src\zone\ZoneManager.hpp">
+      <Filter>Source Files\zone</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameApp.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
     <ClInclude Include="stdafx.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

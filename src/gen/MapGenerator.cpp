@@ -81,7 +81,7 @@ MapGenerator::Result MapGenerator::generate(
 // Phase 1: 高さグリッド構築
 // ─────────────────────────────────────────────────────────────────────────────
 
-void MapGenerator::buildHeightGrid(World& world)
+void MapGenerator::buildHeightGrid(const World& world)
 {
 	// RoadPathfinder に委譲（computeHeight で直接 Perlin ノイズを計算）
 	m_pf.setup(world, m_regionOffset, kGridW, kGridH, kCellSize);
@@ -587,4 +587,123 @@ void MapGenerator::generateRegion(
 
 	generateRoads(roads, regionSeed);
 	assignZones(world, zones);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// バックグラウンドスレッド用チャンク事前構築
+// ─────────────────────────────────────────────────────────────────────────────
+
+MapGenerator::ChunkBuildResult MapGenerator::buildChunkOffthread(
+	Vec2 regionOffset, uint64 seed,
+	const World& world,
+	const Array<Vec2>& existingUrbanCenters,
+	const Array<NodeSnapshot>& existingNodes)
+{
+	const int rx = static_cast<int>(regionOffset.x / kMapWidth);
+	const int rz = static_cast<int>(regionOffset.y / kMapDepth);
+	const uint64 regionSeed = seed
+		^ (static_cast<uint64>(static_cast<uint32>(rx)) << 32)
+		^ static_cast<uint64>(static_cast<uint32>(rz));
+
+	MapGenerator gen;
+	gen.m_regionOffset = regionOffset;
+	gen.buildHeightGrid(world);
+	gen.placeSettlements(regionSeed, existingUrbanCenters);
+
+	ChunkBuildResult result;
+	result.chunkCoord = Point{ rx, rz };
+	result.gridOffset = gen.m_pf.offset();
+	result.gridW      = gen.m_pf.gridW();
+	result.gridH      = gen.m_pf.gridH();
+	result.cellSize   = gen.m_pf.cellSize();
+	result.heightGrid = gen.m_pf.heightGrid();
+
+	RoadNetwork tempRoads;
+
+	if (!gen.m_settlements.isEmpty())
+	{
+		gen.generateRoads(tempRoads, regionSeed);
+
+		// ---- 既存ネットワークへの接続 (バックグラウンド) ----
+		if (!existingNodes.isEmpty())
+		{
+			for (const auto& s : gen.m_settlements)
+			{
+				const float sy = world.computeHeight(
+					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+				const Vec3 sPos{ s.center.x, sy, s.center.y };
+
+				// ローカル RoadNetwork から settlement に最も近いノードを探す
+				const Optional<int> sNodeOpt = tempRoads.findNodeNear(sPos, 50.0f);
+				if (!sNodeOpt) continue;
+
+				// 既存ノードスナップショットから最近傍を検索
+				float bestDist   = 6000.0f;
+				int   bestNodeId = -1;
+				Vec3  bestNodePos{ 0, 0, 0 };
+				for (const auto& snap : existingNodes)
+				{
+					const float d = static_cast<float>(
+						Vec2{ snap.position.x, snap.position.z }.distanceFrom(s.center));
+					if (d < bestDist) { bestDist = d; bestNodeId = snap.id; bestNodePos = snap.position; }
+				}
+				if (bestNodeId < 0) continue;
+
+				// 既存ノードをローカルネットワークに追加
+				RoadNode connNode;
+				connNode.id       = bestNodeId;
+				connNode.position = bestNodePos;
+				connNode.type     = NodeType::Intersection;
+				tempRoads.addNodeRaw(connNode);
+
+				// A* pathfinding (World::computeHeight のみ使用)
+				constexpr float kMargin = 200.0f;
+				const float minX = static_cast<float>(Min(sPos.x, bestNodePos.x)) - kMargin;
+				const float minZ = static_cast<float>(Min(sPos.z, bestNodePos.z)) - kMargin;
+				const float maxX = static_cast<float>(Max(sPos.x, bestNodePos.x)) + kMargin;
+				const float maxZ = static_cast<float>(Max(sPos.z, bestNodePos.z)) + kMargin;
+				const int pfW = Max(2, static_cast<int>(
+					Ceil((maxX - minX) / RoadPathfinder::kDefaultCellSize)));
+				const int pfH = Max(2, static_cast<int>(
+					Ceil((maxZ - minZ) / RoadPathfinder::kDefaultCellSize)));
+
+				RoadPathfinder pf;
+				pf.setup(world, Vec2{ minX, minZ }, pfW, pfH);
+
+				const Point gs = pf.worldToGrid(static_cast<float>(sPos.x), static_cast<float>(sPos.z));
+				const Point ge = pf.worldToGrid(static_cast<float>(bestNodePos.x), static_cast<float>(bestNodePos.z));
+				const Array<Point> path = pf.findPath(gs, ge);
+
+				if (path.isEmpty())
+				{
+					tempRoads.addEdge(*sNodeOpt, bestNodeId,
+					                  sPos + (bestNodePos - sPos) * (1.0 / 3.0),
+					                  sPos + (bestNodePos - sPos) * (2.0 / 3.0),
+					                  RoadType::LocalRoad, 2);
+				}
+				else
+				{
+					Array<Vec3> wps = pf.samplePath(path, 5);
+					wps.front() = sPos;
+					wps.back()  = bestNodePos;
+					pf.pathToRoadEdges(wps, tempRoads, RoadType::LocalRoad, 2,
+					                   *sNodeOpt, bestNodeId);
+				}
+
+				result.connectionNodeId = bestNodeId;
+			}
+		}
+
+		// ---- ポスト処理 (ローカルネットワーク上) ----
+		while (tempRoads.fixSharpAngles(12.5f));
+		tempRoads.smoothAllCurves();
+		tempRoads.resolveIntersections();
+		tempRoads.spreadIntersectionTangents();
+		tempRoads.removeDuplicateEdges(seed);
+	}
+
+	result.localNodes  = tempRoads.nodes();
+	result.localEdges  = tempRoads.edges();
+	result.settlements = gen.m_settlements;
+	return result;
 }

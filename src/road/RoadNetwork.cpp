@@ -320,22 +320,12 @@ bool RoadNetwork::spreadIntersectionTangents()
 			angles[i] = a;
 		}
 
-		// ---- 調整前の角度リストを出力 ----
-		{
-			String s = U"[spreadIntersectionTangents] node={} before:"_fmt(node.id);
-			for (int i = 0; i < n; ++i)
-				s += U" edge{}={:.1f}deg"_fmt(rolled[i].edgeId, angles[i]);
-			Console << s;
-		}
-
 		// Step 5: n 個目（n>=2）の要素について、前との差が kMinAngleDeg 未満なら補正
 		bool changed = false;
 		for (int i = 1; i < n; ++i)
 		{
 			if (angles[i] - angles[i - 1] < kMinAngleDeg)
 			{
-				Console << U"  step5: edge{} {:.1f}->{:.1f} (prev={:.1f})"_fmt(
-					rolled[i].edgeId, angles[i], angles[i - 1] + kMinAngleDeg, angles[i - 1]);
 				angles[i] = angles[i - 1] + kMinAngleDeg + 1.0f;
 				changed = true;
 			}
@@ -360,9 +350,6 @@ bool RoadNetwork::spreadIntersectionTangents()
 
 			if (angles[n - 1] > maxLast)
 			{
-				Console << U"  step6: circular gap={:.1f}deg -> backward pass"_fmt(
-					360.0f - (angles[n - 1] - angles[0]));
-
 				changed = true;
 				angles[n - 1] = maxLast;
 
@@ -371,13 +358,10 @@ bool RoadNetwork::spreadIntersectionTangents()
 				for (int i = n - 2; i >= 1; --i)
 				{
 					if (angles[i + 1] - angles[i] >= kMinAngleDeg)
-						break; // 十分な間隔が確保できたので終了
+						break;
 
 					angles[i] = angles[i + 1] - kMinAngleDeg - 1.0f;
-					Console << U"  step6: edge{} pushed back to {:.1f}"_fmt(
-						rolled[i].edgeId, angles[i]);
 
-					// angles[0]（最太道路）との間隔も不足するなら等分配置へ
 					if (angles[i] < angles[0] + kMinAngleDeg)
 					{
 						needFallback = true;
@@ -387,7 +371,6 @@ bool RoadNetwork::spreadIntersectionTangents()
 
 				if (needFallback)
 				{
-					Console << U"  step6: fallback -> even distribution"_fmt();
 					for (int i = 1; i < n; ++i)
 						angles[i] = angles[0] + static_cast<float>(i) * 360.0f / n;
 				}
@@ -395,10 +378,7 @@ bool RoadNetwork::spreadIntersectionTangents()
 		}
 
 		if (!changed)
-		{
-			Console << U"  -> no change"_fmt();
 			continue;
-		}
 
 		// Step 7: 新しい角度を制御点に反映（長さ・Y は変更しない）
 		for (int i = 0; i < n; ++i)
@@ -417,19 +397,10 @@ bool RoadNetwork::spreadIntersectionTangents()
 			else                     e->ctrlB = newCtrl;
 		}
 
-		// ---- 調整後の角度リストを出力 ----
-		{
-			String s = U"  after:"_fmt();
-			for (int i = 0; i < n; ++i)
-				s += U" edge{}={:.1f}deg"_fmt(rolled[i].edgeId, angles[i]);
-			Console << s;
-		}
-
-		Console << U"[spreadIntersectionTangents] node={} ({} edges) adjusted"_fmt(node.id, n);
 		++adjustedNodes;
 	}
 
-	Console << U"[spreadIntersectionTangents] done: {} node(s) adjusted"_fmt(adjustedNodes);
+	Logger << U"[spreadIntersectionTangents] {} node(s) adjusted"_fmt(adjustedNodes);
 	return adjustedNodes > 0;
 }
 
@@ -512,86 +483,126 @@ void RoadNetwork::smoothAllCurves()
 bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 {
 	bool removed = false;
-	Array<int> edgeIds;
+
+	// ノードペア → 最初に見つけたエッジ ID のハッシュマップで O(E) に高速化
+	// キー: (min(nodeA,nodeB), max(nodeA,nodeB)) をパックした int64
+	HashTable<int64, int> pairMap;
+
 	for (const RoadEdge& e : m_edges)
-		if (e.id >= 0) edgeIds << e.id;
-
-	for (int ii = 0; ii < static_cast<int>(edgeIds.size()); ++ii)
 	{
-		const RoadEdge* e1 = getEdge(edgeIds[ii]);
-		if (!e1) continue;
+		if (e.id < 0) continue;
 
-		for (int jj = ii + 1; jj < static_cast<int>(edgeIds.size()); ++jj)
+		const int lo = Min(e.nodeA, e.nodeB);
+		const int hi = Max(e.nodeA, e.nodeB);
+		const int64 pairKey = (static_cast<int64>(lo) << 32) | static_cast<uint32>(hi);
+
+		const auto it = pairMap.find(pairKey);
+		if (it == pairMap.end())
 		{
-			const RoadEdge* e2 = getEdge(edgeIds[jj]);
-			if (!e2) continue;
-
-			// 同一ノードペア（順方向・逆方向どちらも）を検出
-			const bool dup =
-				(e1->nodeA == e2->nodeA && e1->nodeB == e2->nodeB) ||
-				(e1->nodeA == e2->nodeB && e1->nodeB == e2->nodeA);
-			if (!dup) continue;
-
-			// 道幅が小さい方を削除。同幅は seed + エッジ ID のハッシュで決定的に選択
-			int toRemove;
-			const float w1 = e1->totalWidth(), w2 = e2->totalWidth();
-			if (w1 < w2)
-				toRemove = edgeIds[ii];
-			else if (w2 < w1)
-				toRemove = edgeIds[jj];
-			else
-			{
-				const uint64 lo = static_cast<uint64>(Min(edgeIds[ii], edgeIds[jj]));
-				const uint64 hi = static_cast<uint64>(Max(edgeIds[ii], edgeIds[jj]));
-				const uint64 h  = (lo * 2654435761ULL ^ hi * 2246822519ULL) ^ seed;
-				toRemove = (h & 1) ? edgeIds[ii] : edgeIds[jj];
-			}
-
-			removeEdge(toRemove);
-			removed = true;
-
-			// e1 が削除されたなら内側ループを抜ける
-			e1 = getEdge(edgeIds[ii]);
-			if (!e1) break;
+			pairMap[pairKey] = e.id;
+			continue;
 		}
+
+		// 重複検出: 既存エッジと比較して道幅が小さい方を削除
+		const RoadEdge* e1 = getEdge(it->second);
+		if (!e1) { it->second = e.id; continue; }
+
+		int toRemove;
+		const float w1 = e1->totalWidth(), w2 = e.totalWidth();
+		if (w1 < w2)
+			toRemove = e1->id;
+		else if (w2 < w1)
+			toRemove = e.id;
+		else
+		{
+			const uint64 elo = static_cast<uint64>(Min(e1->id, e.id));
+			const uint64 ehi = static_cast<uint64>(Max(e1->id, e.id));
+			const uint64 h   = (elo * 2654435761ULL ^ ehi * 2246822519ULL) ^ seed;
+			toRemove = (h & 1) ? e1->id : e.id;
+		}
+
+		removeEdge(toRemove);
+		removed = true;
+
+		// 残った方のエッジ ID をマップに記録
+		if (toRemove == it->second)
+			it->second = e.id;
 	}
 	return removed;
 }
 
-bool RoadNetwork::resolveIntersections()
+bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 {
 	// Case 1: NodeA→NodeB の直線同士が交わる → 交点で両エッジを分割
 	// Case 2: Case 1 が外れ、かつ折れ線（端点→制御点1→制御点2→端点）の線分が交わる
 	//         → 4 端点の平均位置にノードを生成し、両エッジを t=0.5 で分割
 	// ノードマージ: 生成ノードが既存ノードと 40 m 以内ならマージ
+	//
+	// 最適化: sinceEdgeId 以上のエッジのみをダーティとして開始し、
+	// 分割で新しくできたエッジも追加する。ダーティエッジ vs 全エッジの判定のみ行う。
 
 	constexpr float MERGE_DIST = 40.0f;
 	constexpr float SKIP_EPS   = 0.02f;
 
-	bool foundAny = true;
-	while (foundAny)
+	// sinceEdgeId 以上のエッジのみをダーティとして開始
+	HashSet<int> dirtyEdges;
+	for (const RoadEdge& e : m_edges)
+		if (e.id >= sinceEdgeId) dirtyEdges.insert(e.id);
+
+	bool everFound = false;
+
+	while (!dirtyEdges.empty())
 	{
-		foundAny = false;
+		// ダーティリストからバッチ取得（処理中に変わるためコピー）
+		Array<int> dirtyBatch(dirtyEdges.begin(), dirtyEdges.end());
+		dirtyEdges.clear();
 
-		Array<int> edgeIds;
+		// 全有効エッジのリスト
+		Array<int> allEdgeIds;
 		for (const RoadEdge& e : m_edges)
-			if (e.id >= 0) edgeIds << e.id;
+			if (e.id >= 0) allEdgeIds << e.id;
 
-		for (int ii = 0; ii < static_cast<int>(edgeIds.size()) && !foundAny; ++ii)
+		// 全エッジの ID セット（O(1) ルックアップ用）
+		HashSet<int> allEdgeSet(allEdgeIds.begin(), allEdgeIds.end());
+
+		for (const int dirtyId : dirtyBatch)
 		{
-			for (int jj = ii + 1; jj < static_cast<int>(edgeIds.size()) && !foundAny; ++jj)
+			// ダーティエッジが削除済みならスキップ
+			if (!allEdgeSet.contains(dirtyId)) continue;
+
+			const RoadEdge* e1 = getEdge(dirtyId);
+			if (!e1) continue;
+
+			bool splitOccurred = false;
+
+			for (const int otherId : allEdgeIds)
 			{
-				const RoadEdge* e1 = getEdge(edgeIds[ii]);
-				const RoadEdge* e2 = getEdge(edgeIds[jj]);
-				if (!e1 || !e2) continue;
+				if (otherId == dirtyId) continue;
+				if (!allEdgeSet.contains(otherId)) continue;
+
+				const RoadEdge* e2 = getEdge(otherId);
+				if (!e1 || !e2) break;  // e1 が無効化されたら終了
 
 				// 隣接エッジ（共有ノードあり）はスキップ
-				// if (e1->nodeA == e2->nodeA || e1->nodeA == e2->nodeB ||
-				//   e1->nodeB == e2->nodeA || e1->nodeB == e2->nodeB) continue;
+				if (e1->nodeA == e2->nodeA || e1->nodeA == e2->nodeB ||
+				    e1->nodeB == e2->nodeA || e1->nodeB == e2->nodeB) continue;
 
 				const RoadNode* na1 = getNode(e1->nodeA); const RoadNode* nb1 = getNode(e1->nodeB);
 				const RoadNode* na2 = getNode(e2->nodeA); const RoadNode* nb2 = getNode(e2->nodeB);
 				if (!na1 || !nb1 || !na2 || !nb2) continue;
+
+				// AABB 早期棄却
+				{
+					const double minX1 = Min({ na1->position.x, nb1->position.x, e1->ctrlA.x, e1->ctrlB.x });
+					const double maxX1 = Max({ na1->position.x, nb1->position.x, e1->ctrlA.x, e1->ctrlB.x });
+					const double minZ1 = Min({ na1->position.z, nb1->position.z, e1->ctrlA.z, e1->ctrlB.z });
+					const double maxZ1 = Max({ na1->position.z, nb1->position.z, e1->ctrlA.z, e1->ctrlB.z });
+					const double minX2 = Min({ na2->position.x, nb2->position.x, e2->ctrlA.x, e2->ctrlB.x });
+					const double maxX2 = Max({ na2->position.x, nb2->position.x, e2->ctrlA.x, e2->ctrlB.x });
+					const double minZ2 = Min({ na2->position.z, nb2->position.z, e2->ctrlA.z, e2->ctrlB.z });
+					const double maxZ2 = Max({ na2->position.z, nb2->position.z, e2->ctrlA.z, e2->ctrlB.z });
+					if (maxX1 < minX2 || maxX2 < minX1 || maxZ1 < minZ2 || maxZ2 < minZ1) continue;
+				}
 
 				// データを全てコピー（以降のポインタ失効に備える）
 				const Vec3 posA1 = na1->position, posB1 = nb1->position;
@@ -612,7 +623,6 @@ bool RoadNetwork::resolveIntersections()
 					{ posA1.x, posA1.z }, { posB1.x, posB1.z },
 					{ posA2.x, posA2.z }, { posB2.x, posB2.z }, s, t))
 				{
-					// Case 1: 端点直線が交わる → s,t をそのまま分割 t に使用
 					bt1 = s; bt2 = t;
 					if (bt1 < SKIP_EPS || bt1 > 1.0f - SKIP_EPS) continue;
 					if (bt2 < SKIP_EPS || bt2 > 1.0f - SKIP_EPS) continue;
@@ -620,8 +630,6 @@ bool RoadNetwork::resolveIntersections()
 				}
 				else
 				{
-					// Case 2: 折れ線（端点1→制御点1→制御点2→端点2）の線分同士が交わるか確認
-					// 各エッジの折れ線 3 線分 vs 相手の折れ線 3 線分（計 9 通り）
 					float ds, dt;
 					const Vec2 p1[4] = {
 						{ posA1.x, posA1.z }, { cA1.x, cA1.z },
@@ -637,7 +645,6 @@ bool RoadNetwork::resolveIntersections()
 							cpHit = segIntersect2D(p1[si], p1[si + 1], p2[sj], p2[sj + 1], ds, dt);
 					if (!cpHit) continue;
 
-					// 4 端点の平均を接続ノード位置とする（高さも平均）
 					bt1 = bt2 = 0.5f;
 					intPos = Vec3{
 						(posA1.x + posB1.x + posA2.x + posB2.x) * 0.25f,
@@ -659,36 +666,47 @@ bool RoadNetwork::resolveIntersections()
 					}
 				}
 
-				// 新規ノードを生成（m_nodes が realloc される可能性あり）
 				if (splitNodeId < 0)
 					splitNodeId = addNode(intPos, NodeType::Intersection);
 
-				// 分割ノードの位置（addNode 後でも ID 検索で有効）
 				const Vec3 splitPos = getNode(splitNodeId)->position;
 
-				// E1 を分割（制御点は 1/3・2/3 線形補間、smoothAllCurves が後で整える）
-				removeEdge(edgeIds[ii]);
-				addEdge(nA1, splitNodeId,
-						posA1 + (splitPos - posA1) * (1.0 / 3.0),
-						posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
-				addEdge(splitNodeId, nB1,
-						splitPos + (posB1 - splitPos) * (1.0 / 3.0),
-						splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
+				// E1 を分割
+				removeEdge(dirtyId);
+				const int newE1a = addEdge(nA1, splitNodeId,
+					posA1 + (splitPos - posA1) * (1.0 / 3.0),
+					posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
+				const int newE1b = addEdge(splitNodeId, nB1,
+					splitPos + (posB1 - splitPos) * (1.0 / 3.0),
+					splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
 
 				// E2 を分割
-				removeEdge(edgeIds[jj]);
-				addEdge(nA2, splitNodeId,
-						posA2 + (splitPos - posA2) * (1.0 / 3.0),
-						posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
-				addEdge(splitNodeId, nB2,
-						splitPos + (posB2 - splitPos) * (1.0 / 3.0),
-						splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
+				removeEdge(otherId);
+				const int newE2a = addEdge(nA2, splitNodeId,
+					posA2 + (splitPos - posA2) * (1.0 / 3.0),
+					posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
+				const int newE2b = addEdge(splitNodeId, nB2,
+					splitPos + (posB2 - splitPos) * (1.0 / 3.0),
+					splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
 
-				foundAny = true;
+				// 新しいエッジをダーティに登録
+				dirtyEdges.insert(newE1a);
+				dirtyEdges.insert(newE1b);
+				dirtyEdges.insert(newE2a);
+				dirtyEdges.insert(newE2b);
+
+				// 削除済みエッジをセットから除去
+				allEdgeSet.erase(dirtyId);
+				allEdgeSet.erase(otherId);
+
+				everFound = true;
+				splitOccurred = true;
+				break;  // e1 は削除されたのでこのダーティエッジの処理を終了
 			}
 		}
 	}
-	return foundAny;
+
+	return everFound;
 }
 
 bool RoadNetwork::fixSharpAngles(float minAngleDeg)

@@ -99,8 +99,9 @@ public:
 	/// @details エッジ同士がノードを共有せずに交差している箇所を検出し、
 	///   交差点に Intersection ノードを生成して両エッジを分割する。
 	///   新規ノードが既存ノードと 40 m 以内なら既存ノードへマージする。
-	///   交差が残る間、繰り返し処理する。
-	bool resolveIntersections();
+	/// @param sinceEdgeId  この ID 以上のエッジのみを判定対象にする（0 なら全エッジ）。
+	///   前回ポスト処理以降に追加されたエッジだけをチェックする用途で使う。
+	bool resolveIntersections(int sinceEdgeId = 0);
 
 	/// @brief 接続数 2 の全ノードで曲線を滑らかにする（Phase 3.5 ポスト処理用）
 	/// @details 全ノードを走査し、接続数が 2 のものに対して smoothCurveAt を呼ぶ。

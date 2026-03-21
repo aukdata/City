@@ -49,6 +49,36 @@ public:
 
 	const Array<Settlement>& settlements() const { return m_settlements; }
 
+	/// @brief 既存ノードの位置スナップショット（バックグラウンドスレッドでの最近傍検索用）
+	struct NodeSnapshot { int id; Vec3 position; };
+
+	/// @brief バックグラウンドスレッドでのチャンク事前構築結果
+	/// @details ローカル RoadNetwork で生成した道路データ + ゾーン割当用の高さグリッドキャッシュ。
+	///   ノード/エッジの ID はローカル (0-based) であり、メインスレッドでリマップが必要。
+	///   connectionNodeId のノードは既存ネットワークに存在するため addNode 不要。
+	struct ChunkBuildResult
+	{
+		Point             chunkCoord;
+		Array<RoadNode>   localNodes;
+		Array<RoadEdge>   localEdges;
+		Array<Settlement> settlements;
+		int               connectionNodeId = -1; ///< 接続先の既存ノード ID (-1 = 接続なし)
+		Vec2              gridOffset;
+		int               gridW    = 0;
+		int               gridH    = 0;
+		float             cellSize = 0.0f;
+		Array<float>      heightGrid;
+	};
+
+	/// @brief ローカル RoadNetwork でチャンクを事前構築する（バックグラウンドスレッド用）
+	/// @details World は const 読み取りのみ。共有状態を変更しないためスレッド安全。
+	///   A* 接続 + ポスト処理もバックグラウンドで実行し、ポスト処理済みの結果を返す。
+	static ChunkBuildResult buildChunkOffthread(
+		Vec2 regionOffset, uint64 seed,
+		const World& world,
+		const Array<Vec2>& existingUrbanCenters,
+		const Array<NodeSnapshot>& existingNodes);
+
 private:
 	// ----- 定数 -----
 	static constexpr int   kMapChunksX = 1;
@@ -61,7 +91,7 @@ private:
 
 	// ----- Phase 1: 地形生成 -----
 	/// @brief ハイトグリッドを構築する（m_pf に委譲）
-	void buildHeightGrid(World& world);
+	void buildHeightGrid(const World& world);
 
 	// ----- Phase 2: 地区配置 -----
 	/// @brief Poisson ディスクサンプリングで地区核を配置する

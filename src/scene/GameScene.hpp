@@ -1,5 +1,8 @@
 ﻿#pragma once
+#include <future>
 #include "SceneCommon.hpp"
+#include "../sim/SimGraph.hpp"
+#include "../sim/SimThread.hpp"
 #include "../time/GameClock.hpp"
 #include "../world/World.hpp"
 #include "../gen/MapGenerator.hpp"
@@ -25,6 +28,7 @@ class GameScene : public App::Scene
 {
 public:
 	explicit GameScene(const InitData& init);
+	~GameScene();
 
 	/// @brief ロジック更新と描画を行う（非 const レンダラーがあるため描画も update 内で実施）
 	void update() override;
@@ -42,10 +46,11 @@ private:
 	World            m_world;
 	RoadNetwork      m_network;
 	GameCamera       m_camera;
-	TrafficManager   m_traffic;
 	ZoneManager      m_zoneManager;
 	Economy          m_economy;
-	EventSystem      m_eventSystem;
+
+	// ---- シミュレーションスレッド ----
+	SimThread        m_simThread;
 
 	// ---- 鉄道システム ----
 	TrainNetwork     m_trainNetwork;
@@ -54,8 +59,8 @@ private:
 	// ---- イベント通知バッファ ----
 	Array<GameEvent> m_notifications;  ///< 直近の通知（最大5件）
 
-	// ---- レンダリングターゲット（深度バッファ付き MSAA テクスチャ）----
-	MSRenderTexture  m_renderTexture;
+	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
+	RenderTexture    m_renderTexture;
 
 	// ---- レンダラ ----
 	Sky              m_sky;
@@ -104,6 +109,20 @@ private:
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
 
+	// ---- バックグラウンドチャンク生成 ----
+
+	/// @brief バックグラウンド実行中のチャンク構築タスク
+	struct ChunkBuildTask
+	{
+		Point                                          chunkCoord;
+		std::future<MapGenerator::ChunkBuildResult>    future;
+	};
+
+	Array<ChunkBuildTask> m_chunkTasks;
+	HashSet<int64>        m_dispatchedKeys;              ///< 投入済みキー（二重投入防止）
+	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数
+	static constexpr int  kMaxChunkTasks    = 4;         ///< 同時バックグラウンドタスク数
+
 	// ---- 無限ワールド: チャンクデータ管理 ----
 
 	/// @brief チャンク内オブジェクトの永続データ（セーブ/ロード単位）
@@ -123,6 +142,9 @@ private:
 
 	/// @brief チャンクキー → ChunkData（永続層）。キーの存在 = 生成済み
 	HashTable<int64, ChunkData> m_chunkStore;
+
+	/// @brief 現在ネットワークにロード済みのチャンクキー集合
+	HashSet<int64> m_loadedChunkKeys;
 
 	/// @brief リージョン座標 → ワールドオフセット [m]
 	static Vec2 regionToWorldOffset(Point region)
@@ -159,6 +181,19 @@ private:
 	void applyRoadPostProcess();
 	void snapshotAllChunks();
 	void checkAndGenerateRegions();
+	void pollChunkTasks();
+	void dispatchChunkTasks();
+	void mergeChunkResult(MapGenerator::ChunkBuildResult&& result);
+	void applyZonesFromGrid(const MapGenerator::ChunkBuildResult& result);
+	void updateLoadedChunks();
+
+	/// @brief RoadNetwork 変更後に SimGraph を再構築して SimThread に通知する
+	void notifyNetworkChanged()
+	{
+		m_simThread.notifyNetworkChanged(
+			std::make_shared<const SimGraph>(SimGraph::build(m_network)));
+	}
+
 	void handleInput();
 	void updateCursor();
 	void handleRoadDraw();

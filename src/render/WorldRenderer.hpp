@@ -1,12 +1,13 @@
 ﻿#pragma once
 #include "../world/World.hpp"
+#include <Siv3D/ViewFrustum.hpp>
 
 /// @brief 地形メッシュの描画クラス
 class WorldRenderer
 {
 public:
-	/// @brief アクティブチャンクをすべて描画する
-	void render(World& world);
+	/// @brief アクティブチャンクを視錐台カリングして描画する
+	void render(World& world, const ViewFrustum& frustum);
 
 	/// @brief チャンクのメッシュキャッシュを無効化する
 	void markDirty(Point chunkCoord);
