@@ -28,6 +28,12 @@ App/dll/
 # Blender バックアップ
 *.blend1
 
+# セーブデータ
+App/saves/
+
+# ドキュメント（外部参照用）
+manual/
+
 # その他
 *.DS_Store
 Thumbs.db
