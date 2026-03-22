@@ -9,10 +9,6 @@ public:
 	/// @brief アクティブチャンクをカリングして描画する
 	void render(World& world, const BasicCamera3D& camera);
 
-	/// @brief チャンクのメッシュキャッシュを無効化する
-	void markDirty(Point chunkCoord);
-
-
 private:
 	using Key = int64;
 
@@ -22,11 +18,6 @@ private:
 		ColorF color;
 		Mesh   mesh;
 	};
-
-	static Key chunkKey(Point p)
-	{
-		return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
-	}
 
 	/// @brief チャンクの地形メッシュデータを生成する
 	MeshData buildTerrainMeshData(const Chunk& chunk);
@@ -39,12 +30,6 @@ private:
 
 	/// @brief キャッシュ済み建物バッチを描画する
 	void drawCachedBuildings(Key key) const;
-
-	/// @brief 建物種別の高さを返す
-	static float buildingHeight(BuildingType type, uint8 stage);
-
-	/// @brief 建物種別の色を返す
-	static ColorF buildingColor(BuildingType type);
 
 	HashTable<Key, DynamicMesh>          m_meshCache;
 	HashTable<Key, Array<BuildingBatch>> m_buildingMeshCache;

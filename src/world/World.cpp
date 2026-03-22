@@ -37,7 +37,7 @@ void World::update(Vec3 cameraWorldPos)
 
 Chunk& World::getOrCreateChunk(Point coord)
 {
-	const Key key = makeKey(coord);
+	const Key key = chunkKey(coord);
 
 	if (not m_chunks.contains(key))
 	{
@@ -51,7 +51,7 @@ Chunk& World::getOrCreateChunk(Point coord)
 
 void World::installChunk(Point coord, Grid<float>&& heightMap)
 {
-	const Key key = makeKey(coord);
+	const Key key = chunkKey(coord);
 	if (m_chunks.contains(key))
 		return;   // 既に生成済み
 
@@ -69,7 +69,7 @@ void World::installChunk(Point coord, Grid<float>&& heightMap)
 
 const Chunk* World::getChunk(Point coord) const
 {
-	const Key key = makeKey(coord);
+	const Key key = chunkKey(coord);
 	const auto it = m_chunks.find(key);
 	if (it == m_chunks.end())
 		return nullptr;
@@ -78,7 +78,7 @@ const Chunk* World::getChunk(Point coord) const
 
 Chunk* World::getChunk(Point coord)
 {
-	const Key key = makeKey(coord);
+	const Key key = chunkKey(coord);
 	const auto it = m_chunks.find(key);
 	if (it == m_chunks.end())
 		return nullptr;
@@ -163,21 +163,27 @@ float World::computeHeight(float wx, float wz) const
 	}
 }
 
-void World::generateChunk(Chunk& chunk)
+Grid<float> World::buildHeightMap(Point chunkCoord) const
 {
-	const Stopwatch sw{ StartImmediately::Yes };
-
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
-
+	Grid<float> hm(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 0.0f);
 	for (int row = 0; row <= HEIGHT_CELLS; ++row)
 	{
 		for (int col = 0; col <= HEIGHT_CELLS; ++col)
 		{
-			const float wx = chunk.coord.x * CHUNK_SIZE + col * cellSize;
-			const float wz = chunk.coord.y * CHUNK_SIZE + row * cellSize;
-			chunk.heightMap[{ col, row }] = computeHeight(wx, wz);
+			const float wx = chunkCoord.x * CHUNK_SIZE + col * cellSize;
+			const float wz = chunkCoord.y * CHUNK_SIZE + row * cellSize;
+			hm[{ col, row }] = computeHeight(wx, wz);
 		}
 	}
+	return hm;
+}
+
+void World::generateChunk(Chunk& chunk)
+{
+	const Stopwatch sw{ StartImmediately::Yes };
+
+	chunk.heightMap = buildHeightMap(chunk.coord);
 
 	chunk.updateHeightBounds();
 	const bool inRange = (Abs(chunk.coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&

@@ -32,6 +32,44 @@ inline int buildingCapacity(BuildingType t)
 	}
 }
 
+/// @brief 建物種別の描画高さ [m] を返す
+inline float buildingHeight(BuildingType type, uint8 stage)
+{
+	switch (type)
+	{
+	case BuildingType::Detached:       return 4.0f  + stage * 2.0f;
+	case BuildingType::LowApartment:   return 10.0f + stage * 4.0f;
+	case BuildingType::MidApartment:   return 24.0f + stage * 8.0f;
+	case BuildingType::HighApartment:  return 48.0f + stage * 12.0f;
+	case BuildingType::Shop:           return 4.0f  + stage * 1.5f;
+	case BuildingType::Office:         return 16.0f + stage * 10.0f;
+	case BuildingType::Factory:        return 8.0f  + stage * 4.0f;
+	case BuildingType::ParkBuilding:   return 0.5f;
+	case BuildingType::PublicFacility: return 10.0f + stage * 3.0f;
+	case BuildingType::Parking:        return 2.5f;
+	default:                           return 0.0f;
+	}
+}
+
+/// @brief 建物種別の描画色を返す
+inline ColorF buildingColor(BuildingType type)
+{
+	switch (type)
+	{
+	case BuildingType::Detached:       return ColorF{ 0.90, 0.82, 0.68 };
+	case BuildingType::LowApartment:   return ColorF{ 0.65, 0.75, 0.90 };
+	case BuildingType::MidApartment:   return ColorF{ 0.45, 0.58, 0.82 };
+	case BuildingType::HighApartment:  return ColorF{ 0.30, 0.42, 0.75 };
+	case BuildingType::Shop:           return ColorF{ 0.95, 0.78, 0.30 };
+	case BuildingType::Office:         return ColorF{ 0.70, 0.75, 0.80 };
+	case BuildingType::Factory:        return ColorF{ 0.50, 0.48, 0.46 };
+	case BuildingType::ParkBuilding:   return ColorF{ 0.30, 0.70, 0.35 };
+	case BuildingType::PublicFacility: return ColorF{ 0.80, 0.60, 0.85 };
+	case BuildingType::Parking:        return ColorF{ 0.55, 0.55, 0.55 };
+	default:                           return ColorF{ 0.60, 0.60, 0.60 };
+	}
+}
+
 /// @brief チャンク内1ゾーンセルの建物データ
 struct Building
 {

@@ -858,8 +858,6 @@ void GameScene::updateLoadedChunks()
 // 毎フレーム更新（ロジック + 描画）
 // ─────────────────────────────────────────────────────────────────────────────
 
-static double s_updateLogic = 0;
-
 void GameScene::update()
 {
 	if (m_phase == GamePhase::Loading)
@@ -963,7 +961,7 @@ void GameScene::update()
 	m_world.update(m_camera.focusPoint());
 	checkAndGenerateRegions();
 	m_camera.update(dt, m_world);
-	s_updateLogic = swLogic.msF();
+	m_logicMs = swLogic.msF();
 
 	// フォローカメラ
 	if (m_camera.mode() != CameraMode::Overview)
@@ -1207,7 +1205,7 @@ void GameScene::renderWorld()
 	s_total = swTotal.msF();
 
 	// ---- 描画時間プロファイル表示（DebugRenderer に委譲） ----
-	m_debugRenderer.renderProfiler(s_total, s_updateLogic, s_sky, s_terrain,
+	m_debugRenderer.renderProfiler(s_total, m_logicMs, s_sky, s_terrain,
 	                               s_road, s_zone, s_vehicle, s_train,
 	                               s_debug, s_ui, m_network);
 

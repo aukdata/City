@@ -20,6 +20,12 @@ constexpr int HEIGHT_CELLS = 64;
 /// @brief ゾーンマップのグリッド分割数（セルサイズ = 16m）
 constexpr int ZONE_CELLS = 64;
 
+/// @brief チャンク座標をハッシュキー (int64) に変換する
+inline int64 chunkKey(Point p)
+{
+	return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
+}
+
 /// @brief チャンクデータ
 struct Chunk
 {

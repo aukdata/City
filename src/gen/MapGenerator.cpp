@@ -550,21 +550,8 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 	result.localEdges  = tempRoads.edges();
 	result.settlements = gen.m_settlements;
 
-	// 地形 heightMap を事前計算（World::generateChunk 相当、computeHeight は const でスレッド安全）
-	{
-		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
-		Grid<float> hm(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 0.0f);
-		for (int row = 0; row <= HEIGHT_CELLS; ++row)
-		{
-			for (int col = 0; col <= HEIGHT_CELLS; ++col)
-			{
-				const float wx = result.chunkCoord.x * CHUNK_SIZE + col * cellSize;
-				const float wz = result.chunkCoord.y * CHUNK_SIZE + row * cellSize;
-				hm[{ col, row }] = world.computeHeight(wx, wz);
-			}
-		}
-		result.terrainHeightMap = std::move(hm);
-	}
+	// 地形 heightMap を事前計算（computeHeight は const でスレッド安全）
+	result.terrainHeightMap = world.buildHeightMap(result.chunkCoord);
 
 	return result;
 }

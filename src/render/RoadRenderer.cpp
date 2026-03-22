@@ -180,20 +180,16 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 	{
 		if (node.id < 0) continue;
 
-		// 距離チェックを先に（安価）
+		// 距離チェック（float 演算のみ）
 		const float ndx = static_cast<float>(node.position.x) - camX;
 		const float ndz = static_cast<float>(node.position.z) - camZ;
-		if (ndx * ndx + ndz * ndz > kDrawMaxDistSqF) continue;
+		const float nodeDistSq = ndx * ndx + ndz * ndz;
+		if (nodeDistSq > kDrawMaxDistSqF) continue;
 
 		// 視錐台カリング
 		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
 
-		const double dx = node.position.x - cameraPos.x;
-		const double dz = node.position.z - cameraPos.z;
-		const double distSq = dx * dx + dz * dz;
-		if (distSq > kDrawMaxDistSq) continue;
-		const bool isClose = distSq < kLodDistSq;
-
+		const bool isClose = nodeDistSq < kLodDistSqF;
 		drawNodeCap(network, node.id, world, isClose);
 	}
 

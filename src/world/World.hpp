@@ -35,6 +35,9 @@ public:
 	/// @details MapGenerator の A* グリッド構築など、チャンクを事前生成したくない場合に使用する
 	float computeHeight(float wx, float wz) const;
 
+	/// @brief チャンク座標に対応する heightMap を生成して返す（スレッド安全: computeHeight は const）
+	Grid<float> buildHeightMap(Point chunkCoord) const;
+
 	/// @brief 前回 popNewChunks() 呼び出し以降に新規生成されたチャンク座標を取り出してクリアする
 	Array<Point> popNewChunks()
 	{
@@ -45,12 +48,6 @@ public:
 
 private:
 	using Key = int64;
-
-	/// @brief チャンク座標をハッシュキーに変換する
-	static Key makeKey(Point p)
-	{
-		return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
-	}
 
 	/// @brief ワールド座標からチャンク座標を計算する
 	static Point worldToChunkCoord(Vec3 worldPos)

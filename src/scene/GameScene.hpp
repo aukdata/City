@@ -121,6 +121,9 @@ private:
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
 
+	// 描画プロファイリング
+	double          m_logicMs = 0.0;
+
 	// ---- バックグラウンドチャンク生成 ----
 
 	/// @brief バックグラウンド実行中のチャンク構築タスク
