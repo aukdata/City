@@ -22,6 +22,27 @@ void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH
 		}
 }
 
+void RoadPathfinder::setupFromHeightMap(
+	const Grid<float>& heightMap, Point chunkCoord,
+	int gridW, int gridH, float cellSize)
+{
+	m_offset   = Vec2{ static_cast<float>(chunkCoord.x * CHUNK_SIZE),
+	                   static_cast<float>(chunkCoord.y * CHUNK_SIZE) };
+	m_gridW    = gridW;
+	m_gridH    = gridH;
+	m_cellSize = cellSize;
+
+	m_heightGrid.resize(gridW * gridH);
+	for (int gz = 0; gz < gridH; ++gz)
+		for (int gx = 0; gx < gridW; ++gx)
+		{
+			const Vec2 wp = gridToWorld(gx, gz);
+			m_heightGrid[gz * gridW + gx] = sampleHeightMap(
+				heightMap, chunkCoord,
+				static_cast<float>(wp.x), static_cast<float>(wp.y));
+		}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 座標変換
 // ─────────────────────────────────────────────────────────────────────────────

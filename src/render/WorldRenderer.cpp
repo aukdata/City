@@ -12,25 +12,33 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 		m_grassTexture = Texture{ U"assets/textures/grass.png", TextureDesc::MippedSRGB };
 
 	const Vec3 eye = camera.getEyePosition();
+	const int camCx = static_cast<int>(Math::Floor(eye.x / CHUNK_SIZE));
+	const int camCz = static_cast<int>(Math::Floor(eye.z / CHUNK_SIZE));
+	const Point camChunk{ camCx, camCz };
 
-	auto chunks = world.getActiveChunks();
+	const auto& activeChunks = world.getActiveChunks();
 
-	// 手前チャンクから順に描画（Front-to-Back で Early-Z 最適化）
-	chunks.sort_by([&](const Chunk* a, const Chunk* b)
+	// ポインタは毎フレーム取得し直す（ハッシュテーブルのリハッシュで無効化されうるため）
+	// ソートはカメラチャンクまたはチャンク数が変わった場合のみ実行する
+	m_sortedChunks = activeChunks;
+	if (camChunk != m_lastSortChunk || activeChunks.size() != m_lastActiveCount)
 	{
-		return a->worldOrigin().distanceFromSq(eye) < b->worldOrigin().distanceFromSq(eye);
-	});
+		m_sortedChunks.sort_by([&](const Chunk* a, const Chunk* b)
+		{
+			return a->worldOrigin().distanceFromSq(eye) < b->worldOrigin().distanceFromSq(eye);
+		});
+		m_lastSortChunk  = camChunk;
+		m_lastActiveCount = activeChunks.size();
+	}
 
 	const auto sceneSize = Scene::Size();
 	constexpr float kMargin = 512.0f;
 
-	for (Chunk* chunk : chunks)
+	for (Chunk* chunk : m_sortedChunks)
 	{
 		if (!chunk) continue;
 
 		// カメラが乗っているチャンクは常に描画（足元が消えるのを防止）
-		const int camCx = static_cast<int>(Math::Floor(eye.x / CHUNK_SIZE));
-		const int camCz = static_cast<int>(Math::Floor(eye.z / CHUNK_SIZE));
 		const bool isCameraChunk = (chunk->coord.x == camCx && chunk->coord.y == camCz);
 
 		// BoundingBox の 8 頂点がすべてスクリーン外なら描画スキップ。
@@ -69,20 +77,20 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 
 void WorldRenderer::drawChunk(Chunk& chunk, const World& world)
 {
-	const Key key = chunkKey(chunk.coord);
+	const Key key = chunkCoordToKey(chunk.coord);
 
 	if (!m_meshCache.contains(key))
 	{
 		// 初回: DynamicMesh を生成して GPU バッファを確保する
 		m_meshCache[key] = DynamicMesh{ buildTerrainMeshData(chunk) };
-		chunk.dirty = false;
+		chunk.meshDirty = false;
 		rebuildBuildingMeshes(key, chunk, world);
 	}
-	else if (chunk.dirty)
+	else if (chunk.meshDirty)
 	{
 		// 差分更新: GPU バッファを作り直さず頂点データだけ書き換える（W100 回避）
 		m_meshCache[key].fill(buildTerrainMeshData(chunk));
-		chunk.dirty = false;
+		chunk.meshDirty = false;
 		rebuildBuildingMeshes(key, chunk, world);
 	}
 

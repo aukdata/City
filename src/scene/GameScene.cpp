@@ -73,7 +73,7 @@ void GameScene::updateLoading()
 {
 	// 追加生成と同じ仕組みでチャンクを投入・統合する（上限を緩和）
 	m_world.update(m_camera.focusPoint());   // 地形チャンクも事前生成
-	m_world.popNewChunks();
+	m_world.takeNewChunks();
 	dispatchChunkTasks();
 	pollChunkTasks(9999);
 
@@ -365,7 +365,7 @@ bool GameScene::loadGame()
 	m_network.setNextIds(nextNodeId, nextEdgeId);
 
 	// ---- レンダラに通知 ----
-	m_roadRenderer.markTopologyChanged();
+	m_roadRenderer.invalidateAllCaches();
 
 	// ---- ゲーム時刻を復元 ----
 	m_clock.now   = gameNow;
@@ -386,7 +386,7 @@ bool GameScene::loadGame()
 
 	// ---- ワールド更新 ----
 	m_world.update(m_camera.focusPoint());
-	m_world.popNewChunks();
+	m_world.takeNewChunks();
 
 	// ---- SimThread 起動 ----
 	startSimThread();
@@ -423,7 +423,7 @@ void GameScene::applyRoadPostProcess()
 	m_network.spreadIntersectionTangents();
 	m_network.removeDuplicateEdges(getData().seed);
 	snapshotAllChunks();
-	m_roadRenderer.markTopologyChanged();
+	m_roadRenderer.invalidateAllCaches();
 	notifyNetworkChanged();
 }
 
@@ -443,7 +443,7 @@ void GameScene::snapshotAllChunks()
 	}
 
 	// ノードをワールド座標で決まるチャンクに割り当てる
-	// chunkKey → 登録済み nodeId セット（境界ノード重複管理用）
+	// chunkCoordToKey → 登録済み nodeId セット（境界ノード重複管理用）
 	HashTable<int64, HashSet<int>> registered;
 
 	for (const auto& node : m_network.nodes())
@@ -484,7 +484,7 @@ void GameScene::snapshotAllChunks()
 
 void GameScene::checkAndGenerateRegions()
 {
-	m_world.popNewChunks();
+	m_world.takeNewChunks();
 	pollChunkTasks();
 	dispatchChunkTasks();
 	updateLoadedChunks();
@@ -499,7 +499,7 @@ void GameScene::pollChunkTasks(int maxMerge)
 		if (it->future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 		{
 			auto result = it->future.get();
-			m_dispatchedKeys.erase(regionKey(result.chunkCoord));
+			m_pendingChunkKeys.erase(regionKey(result.chunkCoord));
 			mergeChunkResult(std::move(result));
 			it = m_chunkTasks.erase(it);
 			++merged;
@@ -530,7 +530,7 @@ void GameScene::dispatchChunkTasks()
 		{
 			const Point chunk{ cx + dx, cz + dz };
 			const int64 key = regionKey(chunk);
-			if (!m_chunkStore.contains(key) && !m_dispatchedKeys.contains(key))
+			if (!m_chunkStore.contains(key) && !m_pendingChunkKeys.contains(key))
 				pending << chunk;
 		}
 	}
@@ -564,7 +564,7 @@ void GameScene::dispatchChunkTasks()
 		const Vec2 offset = regionToWorldOffset(coord);
 		const int64 key   = regionKey(coord);
 
-		m_dispatchedKeys.insert(key);
+		m_pendingChunkKeys.insert(key);
 
 		ChunkBuildTask task;
 		task.chunkCoord = coord;
@@ -589,7 +589,8 @@ void GameScene::mergeChunkResult(MapGenerator::ChunkBuildResult&& result)
 
 	// 事前計算済み地形 heightMap を World にインストール
 	if (result.terrainHeightMap.size() != Size{0, 0})
-		m_world.installChunk(cc, std::move(result.terrainHeightMap));
+		m_world.installChunk(cc, std::move(result.terrainHeightMap),
+		                     result.terrainHeightMin, result.terrainHeightMax);
 
 	// ChunkData 作成（二重生成防止）
 	m_chunkStore[key].chunkCoord = result.chunkCoord;
@@ -669,7 +670,7 @@ void GameScene::mergeChunkResult(MapGenerator::ChunkBuildResult&& result)
 
 	// 追加したノード周辺のキャッシュのみ無効化する
 	for (const auto& [localId, globalId] : nodeIdMap)
-		m_roadRenderer.markTopologyChangedAt(globalId, m_network);
+		m_roadRenderer.invalidateCachesAroundNode(globalId, m_network);
 	// SimGraph 再構築は updateLoadedChunks でバッチ実行するため、ここではスキップ
 }
 
@@ -849,7 +850,7 @@ void GameScene::updateLoadedChunks()
 	if (changed)
 	{
 		for (const int nodeId : affectedNodes)
-			m_roadRenderer.markTopologyChangedAt(nodeId, m_network);
+			m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
 		notifyNetworkChanged();
 	}
 }
@@ -892,7 +893,7 @@ void GameScene::update()
 			Logger << U"[Setup] snapshotAllChunks: {:.0f}ms"_fmt(step.msF());
 			step.restart();
 
-			m_roadRenderer.markTopologyChanged();
+			m_roadRenderer.invalidateAllCaches();
 
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 			Logger << U"[Setup] setupTrain: {:.0f}ms"_fmt(step.msF());
@@ -923,7 +924,7 @@ void GameScene::update()
 			Logger << U"[Setup] world.update: {:.0f}ms"_fmt(step.msF());
 			step.restart();
 
-			m_world.popNewChunks();
+			m_world.takeNewChunks();
 			m_lastEconYear  = m_clock.year;
 			m_lastEconMonth = m_clock.month;
 
@@ -1047,7 +1048,7 @@ void GameScene::renderWorld()
 		m_worldRenderer.render(m_world, m_camera.camera3D());
 		lap(s_terrain);
 
-		m_roadRenderer.render(m_network, m_clock.now, m_world, frustum,
+		m_roadRenderer.render(m_network, m_world, frustum,
 		                     m_camera.camera3D().getEyePosition());
 		lap(s_road);
 
@@ -1056,11 +1057,12 @@ void GameScene::renderWorld()
 
 		// 車両の (edgeId, arcPos) → ワールド座標に変換して描画する
 		{
-			auto lock = m_simThread.lockForRead();
-			Array<Vehicle> renderVehicles = m_simThread.vehicles();
-			lock.unlock();
+			{
+				auto lock = m_simThread.lockForRead();
+				m_renderVehicles = m_simThread.vehicles();
+			}
 
-			for (auto& v : renderVehicles)
+			for (auto& v : m_renderVehicles)
 			{
 				if (v.currentEdge < 0) continue;
 				if (const auto bezier = m_network.getBezier(v.currentEdge))
@@ -1078,7 +1080,7 @@ void GameScene::renderWorld()
 					v.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
 				}
 			}
-			m_vehicleRenderer.render(renderVehicles, m_camera.camera3D().getEyePosition());
+			m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
 		}
 		lap(s_vehicle);
 
@@ -1144,9 +1146,9 @@ void GameScene::renderWorld()
 					       Vec2{ cp.x, cp.z }.distanceFrom(cur2D) < 18.0f;
 				};
 				const bool dragA = m_sandboxDragCtrl &&
-				    m_sandboxDragCtrl->edgeId == edge.id && m_sandboxDragCtrl->isA;
+				    m_sandboxDragCtrl->edgeId == edge.id && m_sandboxDragCtrl->isControlPointA;
 				const bool dragB = m_sandboxDragCtrl &&
-				    m_sandboxDragCtrl->edgeId == edge.id && !m_sandboxDragCtrl->isA;
+				    m_sandboxDragCtrl->edgeId == edge.id && !m_sandboxDragCtrl->isControlPointA;
 
 				// nodeA ↔ ctrlA のハンドルライン
 				const ColorF colA = dragA
@@ -1185,10 +1187,7 @@ void GameScene::renderWorld()
 			}
 		}
 
-		{
-			auto lock = m_simThread.lockForRead();
-			m_debugRenderer.render(m_network, m_simThread.vehicles(), m_world, m_camera);
-		}
+		m_debugRenderer.render(m_network, m_renderVehicles, m_world, m_camera);
 		lap(s_debug);
 	}
 
@@ -1197,10 +1196,7 @@ void GameScene::renderWorld()
 
 	// ---- UI（2D）----
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
-	{
-		auto lock = m_simThread.lockForRead();
-		m_uiRenderer.render(m_clock, static_cast<int>(m_simThread.vehicles().size()), modeString(), m_economy);
-	}
+	m_uiRenderer.render(m_clock, static_cast<int>(m_renderVehicles.size()), modeString(), m_economy);
 	lap(s_ui);
 	s_total = swTotal.msF();
 
@@ -1370,8 +1366,8 @@ void GameScene::handleRoadDraw()
 				Vec3 mid = (pA + pB) / 2.0;
 				m_network.addEdgeWithIntersection(from, nodeId, mid, mid, RoadType::LocalRoad, 2);
 				notifyNetworkChanged();
-				m_roadRenderer.markTopologyChangedAt(from, m_network);
-				m_roadRenderer.markTopologyChangedAt(nodeId, m_network);
+				m_roadRenderer.invalidateCachesAroundNode(from, m_network);
+				m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
 			}
 			m_drawStartNode = nodeId;
 		}
@@ -1472,7 +1468,7 @@ void GameScene::handleTerrainEdit()
 
 		if (modified)
 		{
-			chunk->dirty = true;
+			chunk->meshDirty = true;
 			chunk->updateHeightBounds();
 		}
 	}
@@ -1584,7 +1580,7 @@ void GameScene::handleSandboxEdit()
 					if (!edge) continue;
 					if (edge->nodeA == node->id) edge->ctrlA += delta;
 					if (edge->nodeB == node->id) edge->ctrlB += delta;
-					m_roadRenderer.markDirty(eid, edge->nodeA, edge->nodeB);
+					m_roadRenderer.invalidateEdgeCache(eid, edge->nodeA, edge->nodeB);
 				}
 				node->position += delta;
 			}
@@ -1594,9 +1590,9 @@ void GameScene::handleSandboxEdit()
 			RoadEdge* edge = m_network.getEdge(m_sandboxDragCtrl->edgeId);
 			if (edge)
 			{
-				if (m_sandboxDragCtrl->isA) edge->ctrlA += delta;
+				if (m_sandboxDragCtrl->isControlPointA) edge->ctrlA += delta;
 				else                        edge->ctrlB += delta;
-				m_roadRenderer.markDirty(edge->id, edge->nodeA, edge->nodeB);
+				m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
 			}
 		}
 
@@ -1615,7 +1611,7 @@ void GameScene::handleSandboxEdit()
 			{
 				for (int eid : node->edgeIds)
 				{
-					m_roadRenderer.markDirty(eid);
+					m_roadRenderer.invalidateEdgeCache(eid);
 					if (const RoadEdge* e = m_network.getEdge(eid))
 					{
 						const int other = (e->nodeA == *nearNode) ? e->nodeB : e->nodeA;
@@ -1626,7 +1622,7 @@ void GameScene::handleSandboxEdit()
 			m_network.removeNode(*nearNode);
 			notifyNetworkChanged();
 			for (const int nid : neighborNodes)
-				m_roadRenderer.markTopologyChangedAt(nid, m_network);
+				m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
 		}
 		else
 		{
@@ -1651,11 +1647,11 @@ void GameScene::handleSandboxEdit()
 				int nA = -1, nB = -1;
 				if (const RoadEdge* e = m_network.getEdge(bestId))
 				{ nA = e->nodeA; nB = e->nodeB; }
-				m_roadRenderer.markDirty(bestId, nA, nB);
+				m_roadRenderer.invalidateEdgeCache(bestId, nA, nB);
 				m_network.removeEdge(bestId);
 				notifyNetworkChanged();
-				if (nA >= 0) m_roadRenderer.markTopologyChangedAt(nA, m_network);
-				if (nB >= 0) m_roadRenderer.markTopologyChangedAt(nB, m_network);
+				if (nA >= 0) m_roadRenderer.invalidateCachesAroundNode(nA, m_network);
+				if (nB >= 0) m_roadRenderer.invalidateCachesAroundNode(nB, m_network);
 			}
 		}
 	}

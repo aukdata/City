@@ -25,10 +25,10 @@ MapGenerator::InitResult MapGenerator::initWorld(
 // Phase 1: 高さグリッド構築
 // ─────────────────────────────────────────────────────────────────────────────
 
-void MapGenerator::buildHeightGrid(const World& world)
+void MapGenerator::buildHeightGrid(const Grid<float>& heightMap, Point chunkCoord)
 {
-	// RoadPathfinder に委譲（computeHeight で直接 Perlin ノイズを計算）
-	m_pf.setup(world, m_regionOffset, kGridW, kGridH, kCellSize);
+	// 事前計算済み heightMap からバイリニア補間でパスファインダーグリッドを構築
+	m_pathfinder.setupFromHeightMap(heightMap, chunkCoord, kGridW, kGridH, kCellSize);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 	{
 		const Vec2& c  = m_settlements[i].center;
 		const Point gp = worldToGrid(static_cast<float>(c.x), static_cast<float>(c.y));
-		const float y  = m_pf.height(gp.x, gp.y);
+		const float y  = m_pathfinder.height(gp.x, gp.y);
 		settleNodeId[i] = roads.addNode(Vec3{ c.x, y, c.y }, NodeType::Intersection);
 	}
 
@@ -314,7 +314,7 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 
 		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
 		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = m_pf.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
+		const Array<Point> path = m_pathfinder.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
 
 		// 使用セルを登録（始終点は地区ノードなので除外）
@@ -328,8 +328,8 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 		const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
 		const int      lanes = isArterial ? 4 : 2;
 
-		const Array<Vec3> wps = m_pf.samplePath(path, 5);
-		m_pf.pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
+		const Array<Vec3> wps = m_pathfinder.samplePath(path, 5);
+		m_pathfinder.pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
 	}
 
 	// 迂回路を追加する（仕様書：全体の 30% 追加接続）
@@ -362,14 +362,14 @@ void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
 
 		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
 		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = m_pf.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
+		const Array<Point> path = m_pathfinder.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
 		if (path.isEmpty()) continue;
 
 		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
 			occupiedCells.emplace(path[i].y * kGridW + path[i].x);
 
-		const Array<Vec3> wps = m_pf.samplePath(path, 5);
-		m_pf.pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
+		const Array<Vec3> wps = m_pathfinder.samplePath(path, 5);
+		m_pathfinder.pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
 		                     settleNodeId[u], settleNodeId[v]);
 	}
 }
@@ -446,18 +446,25 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 		^ (static_cast<uint64>(static_cast<uint32>(rx)) << 32)
 		^ static_cast<uint64>(static_cast<uint32>(rz));
 
-	MapGenerator gen;
-	gen.m_regionOffset = regionOffset;
-	gen.buildHeightGrid(world);
-	gen.placeSettlements(regionSeed, existingUrbanCenters);
-
 	ChunkBuildResult result;
 	result.chunkCoord = Point{ rx, rz };
-	result.gridOffset = gen.m_pf.offset();
-	result.gridW      = gen.m_pf.gridW();
-	result.gridH      = gen.m_pf.gridH();
-	result.cellSize   = gen.m_pf.cellSize();
-	result.heightGrid = gen.m_pf.heightGrid();
+
+	// heightMap を先に生成し、パスファインダーグリッドはそこからバイリニア補間で導出する
+	auto hmr = world.buildHeightMap(result.chunkCoord);
+	result.terrainHeightMap = std::move(hmr.heightMap);
+	result.terrainHeightMin = hmr.heightMin;
+	result.terrainHeightMax = hmr.heightMax;
+
+	MapGenerator gen;
+	gen.m_regionOffset = regionOffset;
+	gen.buildHeightGrid(result.terrainHeightMap, result.chunkCoord);
+	gen.placeSettlements(regionSeed, existingUrbanCenters);
+
+	result.gridOffset = gen.m_pathfinder.offset();
+	result.gridW      = gen.m_pathfinder.gridW();
+	result.gridH      = gen.m_pathfinder.gridH();
+	result.cellSize   = gen.m_pathfinder.cellSize();
+	result.heightGrid = gen.m_pathfinder.heightGrid();
 
 	RoadNetwork tempRoads;
 
@@ -470,7 +477,7 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 		{
 			for (const auto& s : gen.m_settlements)
 			{
-				const float sy = world.computeHeight(
+				const float sy = sampleHeightMap(result.terrainHeightMap, result.chunkCoord,
 					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
 				const Vec3 sPos{ s.center.x, sy, s.center.y };
 
@@ -549,9 +556,6 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 	result.localNodes  = tempRoads.nodes();
 	result.localEdges  = tempRoads.edges();
 	result.settlements = gen.m_settlements;
-
-	// 地形 heightMap を事前計算（computeHeight は const でスレッド安全）
-	result.terrainHeightMap = world.buildHeightMap(result.chunkCoord);
 
 	return result;
 }

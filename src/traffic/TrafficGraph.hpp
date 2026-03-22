@@ -85,11 +85,11 @@ struct PathResult
 	bool       found     = false;
 };
 
-// ===== PathfindingGraph =====
+// ===== TrafficGraph =====
 
 /// @brief 経路探索グラフ（Phase 1: 単一フラットグラフ方式）
 /// @details ネットワーク全体の LaneNode + BorderNode を一つのグラフで管理する
-class PathfindingGraph
+class TrafficGraph
 {
 public:
 	/// @brief SimGraph からグラフを再構築する

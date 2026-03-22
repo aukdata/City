@@ -80,7 +80,7 @@ struct Vehicle
 	// AI 状態
 	VehicleState state       = VehicleState::Moving;
 	int          leadVehicle = -1;   ///< 前方車両 id（-1=なし）
-	float        gapToLead   = 1e9f; ///< 前方車両との車頭距離 [m]
+	float        distanceToLeadVehicle   = 1e9f; ///< 前方車両との車頭距離 [m]
 
 	// 緊急車両専用
 	bool         sirenActive = false;

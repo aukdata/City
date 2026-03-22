@@ -99,7 +99,7 @@ bool RoadRenderer::loadStyle(FilePathView tomlPath)
 	return m_styleRegistry.load(tomlPath);
 }
 
-void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World& world,
+void RoadRenderer::render(const RoadNetwork& network, const World& world,
                           const ViewFrustum& frustum, Vec3 cameraPos)
 {
 	Profiler::EnableAssetCreationWarning(false);
@@ -107,7 +107,7 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 	// 地形変更時は該当チャンク内のエッジ/ノードのキャッシュのみクリアする
 	for (const Chunk* chunk : world.getActiveChunks())
 	{
-		if (!chunk || !chunk->dirty) continue;
+		if (!chunk || !chunk->meshDirty) continue;
 		const double cx = chunk->coord.x * static_cast<double>(CHUNK_SIZE);
 		const double cz = chunk->coord.y * static_cast<double>(CHUNK_SIZE);
 		const double cs = CHUNK_SIZE;
@@ -192,11 +192,9 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 		const bool isClose = nodeDistSq < kLodDistSqF;
 		drawNodeCap(network, node.id, world, isClose);
 	}
-
-	(void)now;
 }
 
-void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
+void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 {
 	m_meshCache.erase(edgeId);
 	m_laneCache.erase(edgeId);
@@ -213,7 +211,7 @@ void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
 	}
 }
 
-void RoadRenderer::markTopologyChanged()
+void RoadRenderer::invalidateAllCaches()
 {
 	m_meshCache.clear();
 	m_laneCache.clear();
@@ -222,7 +220,7 @@ void RoadRenderer::markTopologyChanged()
 	m_boundsCache.clear();
 }
 
-void RoadRenderer::markTopologyChangedAt(int nodeId, const RoadNetwork& network)
+void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& network)
 {
 	m_nodeCapCache.erase(nodeId);
 	const RoadNode* node = network.getNode(nodeId);
@@ -250,7 +248,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	// マージンが変わった場合はキャッシュを破棄して再構築する
 	if (auto it = m_marginCache.find(edge.id); it != m_marginCache.end())
 	{
-		if (it->second.a != marginA || it->second.b != marginB)
+		if (it->second.atNodeA != marginA || it->second.atNodeB != marginB)
 		{
 			m_meshCache.erase(edge.id);
 			m_laneCache.erase(edge.id);

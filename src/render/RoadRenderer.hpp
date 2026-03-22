@@ -26,19 +26,19 @@ public:
 	bool loadStyle(FilePathView tomlPath);
 
 	/// @brief 視錐台内のエッジ・ノードキャップを描画する
-	void render(const RoadNetwork& network, GameTime now, const World& world,
+	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
 
 	/// @brief エッジのメッシュキャッシュを無効化する（道路変更時に呼ぶ）
 	/// @param nodeA,nodeB  指定時はこれらのノードキャップのみ無効化する。
 	///                     省略時は全ノードキャップを無効化する（重い）。
-	void markDirty(int edgeId, int nodeA = -1, int nodeB = -1);
+	void invalidateEdgeCache(int edgeId, int nodeA = -1, int nodeB = -1);
 
 	/// @brief 全キャッシュをクリアする（道路追加・削除時に呼ぶ）
-	void markTopologyChanged();
+	void invalidateAllCaches();
 
 	/// @brief 指定ノード周辺のキャッシュのみ無効化する（部分的トポロジー変更用）
-	void markTopologyChangedAt(int nodeId, const RoadNetwork& network);
+	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
 
 private:
 	// ---- キャッシュ構造 ----
@@ -47,7 +47,7 @@ private:
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
 
 	/// @brief エッジに適用されたマージン（端カット量）
-	struct EdgeMargins { float a = 0.0f; float b = 0.0f; };
+	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
 
 	// ---- 描画サブルーチン ----
 

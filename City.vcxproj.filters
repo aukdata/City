@@ -261,7 +261,7 @@
     <ClCompile Include="src\traffic\TrafficManager.cpp">
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
-    <ClCompile Include="src\traffic\PathfindingGraph.cpp">
+    <ClCompile Include="src\traffic\TrafficGraph.cpp">
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
     <ClCompile Include="src\traffic\TrafficLight.cpp">
@@ -1022,7 +1022,7 @@
     <ClInclude Include="src\traffic\Vehicle.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
-    <ClInclude Include="src\traffic\PathfindingGraph.hpp">
+    <ClInclude Include="src\traffic\TrafficGraph.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\TrafficLight.hpp">

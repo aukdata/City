@@ -125,7 +125,7 @@
     <ClCompile Include="src\road\RoadNetwork.cpp" />
     <ClCompile Include="src\sim\SimThread.cpp" />
     <ClCompile Include="src\traffic\TrafficManager.cpp" />
-    <ClCompile Include="src\traffic\PathfindingGraph.cpp" />
+    <ClCompile Include="src\traffic\TrafficGraph.cpp" />
     <ClCompile Include="src\traffic\TrafficLight.cpp" />
     <ClCompile Include="src\ui\Camera.cpp" />
     <ClCompile Include="src\render\WorldRenderer.cpp" />
@@ -361,7 +361,7 @@
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />
     <ClInclude Include="src\traffic\Vehicle.hpp" />
-    <ClInclude Include="src\traffic\PathfindingGraph.hpp" />
+    <ClInclude Include="src\traffic\TrafficGraph.hpp" />
     <ClInclude Include="src\traffic\TrafficLight.hpp" />
     <ClInclude Include="src\traffic\BusRoute.hpp" />
     <ClInclude Include="src\traffic\TrafficManager.hpp" />

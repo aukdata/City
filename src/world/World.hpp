@@ -18,15 +18,15 @@ public:
 
 	/// @brief 事前計算済みの heightMap を持つチャンクをインストールする
 	/// @details バックグラウンドスレッドで計算した heightMap を受け取り、チャンクが未生成の場合のみ登録する。
-	void installChunk(Point coord, Grid<float>&& heightMap);
+	void installChunk(Point coord, Grid<float>&& heightMap, float heightMin, float heightMax);
 
 	/// @brief チャンクを取得する（なければ nullptr）
 	const Chunk* getChunk(Point coord) const;
 	Chunk*       getChunk(Point coord);
 
-	/// @brief アクティブなチャンクの一覧を返す（コピー）
-	Array<Chunk*>       getActiveChunks();
-	Array<const Chunk*> getActiveChunks() const;
+	/// @brief アクティブなチャンクの一覧を返す（キャッシュ済み参照）
+	const Array<Chunk*>&       getActiveChunks();
+	const Array<const Chunk*>& getActiveChunks() const;
 
 	/// @brief ワールド座標から地形高さをサンプリングする（チャンク未ロード時は 0 を返す）
 	float sampleHeight(float wx, float wz) const;
@@ -36,10 +36,10 @@ public:
 	float computeHeight(float wx, float wz) const;
 
 	/// @brief チャンク座標に対応する heightMap を生成して返す（スレッド安全: computeHeight は const）
-	Grid<float> buildHeightMap(Point chunkCoord) const;
+	HeightMapResult buildHeightMap(Point chunkCoord) const;
 
-	/// @brief 前回 popNewChunks() 呼び出し以降に新規生成されたチャンク座標を取り出してクリアする
-	Array<Point> popNewChunks()
+	/// @brief 前回 takeNewChunks() 呼び出し以降に新規生成されたチャンク座標を取り出してクリアする
+	Array<Point> takeNewChunks()
 	{
 		Array<Point> result = std::move(m_newChunks);
 		m_newChunks.clear();
@@ -60,9 +60,14 @@ private:
 	/// @brief チャンクを手続き生成する（地形タイプ別 Perlin ノイズ）
 	void generateChunk(Chunk& chunk);
 
+	/// @brief m_activeChunks / m_activeChunksConst を再構築する
+	void rebuildActiveChunkCache();
+
 	HashTable<Key, Chunk> m_chunks;
 	Point                 m_cameraChunk{ 0x7FFFFFFF, 0x7FFFFFFF };  ///< 初回更新を必ず通すための無効初期値
-	Array<Point>          m_newChunks;   ///< 前回 popNewChunks() 以降に新規生成されたチャンク座標
+	Array<Point>          m_newChunks;   ///< 前回 takeNewChunks() 以降に新規生成されたチャンク座標
+	Array<Chunk*>         m_activeChunks;       ///< キャッシュ済みアクティブチャンク
+	Array<const Chunk*>   m_activeChunksConst;  ///< const 版キャッシュ
 
 	/// @brief アクティブ範囲（カメラ周辺 ±ACTIVE_RANGE チャンク）
 	static constexpr int ACTIVE_RANGE = 2;

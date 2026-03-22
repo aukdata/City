@@ -107,7 +107,7 @@ private:
 	float           m_terrainBrushStrength = 20.0f;
 
 	// サンドボックス編集
-	struct CtrlDrag { int edgeId; bool isA; };     ///< ドラッグ中の制御点
+	struct CtrlDrag { int edgeId; bool isControlPointA; };     ///< ドラッグ中の制御点
 	bool               m_sandboxActive     = false;
 	Optional<int>      m_sandboxDragNode;          ///< ドラッグ中のノード id
 	Optional<CtrlDrag> m_sandboxDragCtrl;          ///< ドラッグ中の制御点
@@ -120,6 +120,9 @@ private:
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
+
+	// 描画用バッファ（毎フレーム再割り当てを回避）
+	Array<Vehicle>  m_renderVehicles;
 
 	// 描画プロファイリング
 	double          m_logicMs = 0.0;
@@ -134,7 +137,7 @@ private:
 	};
 
 	Array<ChunkBuildTask> m_chunkTasks;
-	HashSet<int64>        m_dispatchedKeys;              ///< 投入済みキー（二重投入防止）
+	HashSet<int64>        m_pendingChunkKeys;              ///< 投入済みキー（二重投入防止）
 	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数（Playing時）
 	static constexpr int  kMaxChunkTasks    = 4;         ///< 同時バックグラウンドタスク数
 	static constexpr int  kInitRange        = 5;         ///< 初期生成半径 (11x11)

@@ -162,7 +162,7 @@ void TrainRenderer::renderTrains(const Array<Train>& trains)
 	}
 }
 
-void TrainRenderer::markDirty(int edgeId)
+void TrainRenderer::invalidateTrackCache(int edgeId)
 {
 	m_trackMeshCache.erase(edgeId);
 }

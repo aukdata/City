@@ -9,6 +9,7 @@ void World::update(Vec3 cameraWorldPos)
 		return;
 
 	m_cameraChunk = newChunk;
+	bool activeChanged = false;
 
 	// 範囲外チャンクを Sleeping に降格
 	for (auto& [key, chunk] : m_chunks)
@@ -18,7 +19,10 @@ void World::update(Vec3 cameraWorldPos)
 			const int dx = chunk.coord.x - m_cameraChunk.x;
 			const int dy = chunk.coord.y - m_cameraChunk.y;
 			if (Abs(dx) > ACTIVE_RANGE || Abs(dy) > ACTIVE_RANGE)
+			{
 				chunk.state = ChunkState::Sleeping;
+				activeChanged = true;
+			}
 		}
 	}
 
@@ -30,18 +34,28 @@ void World::update(Vec3 cameraWorldPos)
 		{
 			const Point coord{ m_cameraChunk.x + dx, m_cameraChunk.y + dy };
 			if (Chunk* chunk = getChunk(coord))
+			{
+				if (chunk->state != ChunkState::Active)
+					activeChanged = true;
 				chunk->state = ChunkState::Active;
+			}
 		}
 	}
+
+	if (activeChanged)
+		rebuildActiveChunkCache();
 }
 
 Chunk& World::getOrCreateChunk(Point coord)
 {
-	const Key key = chunkKey(coord);
+	const Key key = chunkCoordToKey(coord);
 
 	if (not m_chunks.contains(key))
 	{
+		const auto oldBuckets = m_chunks.bucket_count();
 		m_chunks.emplace(key, Chunk(coord));
+		if (m_chunks.bucket_count() != oldBuckets)
+			rebuildActiveChunkCache();
 		generateChunk(m_chunks[key]);
 		m_newChunks << coord;
 	}
@@ -49,27 +63,34 @@ Chunk& World::getOrCreateChunk(Point coord)
 	return m_chunks[key];
 }
 
-void World::installChunk(Point coord, Grid<float>&& heightMap)
+void World::installChunk(Point coord, Grid<float>&& heightMap, float heightMin, float heightMax)
 {
-	const Key key = chunkKey(coord);
+	const Key key = chunkCoordToKey(coord);
 	if (m_chunks.contains(key))
 		return;   // 既に生成済み
 
 	Chunk chunk(coord);
-	chunk.heightMap          = std::move(heightMap);
-	chunk.updateHeightBounds();
+	chunk.heightMap = std::move(heightMap);
+	chunk.heightMin = heightMin;
+	chunk.heightMax = heightMax;
 	// カメラの ACTIVE_RANGE 内なら Active、それ以外は Sleeping
 	const bool inRange = (Abs(coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
 	                      Abs(coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
 	chunk.state              = inRange ? ChunkState::Active : ChunkState::Sleeping;
 	chunk.isUrbanizationArea = true;
+	// emplace がリハッシュを起こすとアクティブチャンクキャッシュ内の
+	// ポインタが無効化されるため、挿入前のバケット数を記録する
+	const auto oldBuckets = m_chunks.bucket_count();
 	m_chunks.emplace(key, std::move(chunk));
 	m_newChunks << coord;
+	// リハッシュが発生した場合、または新チャンクがアクティブ範囲内の場合にキャッシュを再構築する
+	if (m_chunks.bucket_count() != oldBuckets || inRange)
+		rebuildActiveChunkCache();
 }
 
 const Chunk* World::getChunk(Point coord) const
 {
-	const Key key = chunkKey(coord);
+	const Key key = chunkCoordToKey(coord);
 	const auto it = m_chunks.find(key);
 	if (it == m_chunks.end())
 		return nullptr;
@@ -78,33 +99,35 @@ const Chunk* World::getChunk(Point coord) const
 
 Chunk* World::getChunk(Point coord)
 {
-	const Key key = chunkKey(coord);
+	const Key key = chunkCoordToKey(coord);
 	const auto it = m_chunks.find(key);
 	if (it == m_chunks.end())
 		return nullptr;
 	return &it->second;
 }
 
-Array<Chunk*> World::getActiveChunks()
+void World::rebuildActiveChunkCache()
 {
-	Array<Chunk*> result;
+	m_activeChunks.clear();
+	m_activeChunksConst.clear();
 	for (auto& [key, chunk] : m_chunks)
 	{
 		if (chunk.state == ChunkState::Active)
-			result << &chunk;
+		{
+			m_activeChunks << &chunk;
+			m_activeChunksConst << &chunk;
+		}
 	}
-	return result;
 }
 
-Array<const Chunk*> World::getActiveChunks() const
+const Array<Chunk*>& World::getActiveChunks()
 {
-	Array<const Chunk*> result;
-	for (const auto& [key, chunk] : m_chunks)
-	{
-		if (chunk.state == ChunkState::Active)
-			result << &chunk;
-	}
-	return result;
+	return m_activeChunks;
+}
+
+const Array<const Chunk*>& World::getActiveChunks() const
+{
+	return m_activeChunksConst;
 }
 
 float World::sampleHeight(float wx, float wz) const
@@ -163,29 +186,35 @@ float World::computeHeight(float wx, float wz) const
 	}
 }
 
-Grid<float> World::buildHeightMap(Point chunkCoord) const
+HeightMapResult World::buildHeightMap(Point chunkCoord) const
 {
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	Grid<float> hm(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 0.0f);
+	float lo =  1e30f;
+	float hi = -1e30f;
 	for (int row = 0; row <= HEIGHT_CELLS; ++row)
 	{
 		for (int col = 0; col <= HEIGHT_CELLS; ++col)
 		{
 			const float wx = chunkCoord.x * CHUNK_SIZE + col * cellSize;
 			const float wz = chunkCoord.y * CHUNK_SIZE + row * cellSize;
-			hm[{ col, row }] = computeHeight(wx, wz);
+			const float h  = computeHeight(wx, wz);
+			hm[{ col, row }] = h;
+			if (h < lo) lo = h;
+			if (h > hi) hi = h;
 		}
 	}
-	return hm;
+	return { std::move(hm), lo, hi };
 }
 
 void World::generateChunk(Chunk& chunk)
 {
 	const Stopwatch sw{ StartImmediately::Yes };
 
-	chunk.heightMap = buildHeightMap(chunk.coord);
-
-	chunk.updateHeightBounds();
+	auto hmr = buildHeightMap(chunk.coord);
+	chunk.heightMap = std::move(hmr.heightMap);
+	chunk.heightMin = hmr.heightMin;
+	chunk.heightMax = hmr.heightMax;
 	const bool inRange = (Abs(chunk.coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
 	                      Abs(chunk.coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
 	chunk.state = inRange ? ChunkState::Active : ChunkState::Sleeping;

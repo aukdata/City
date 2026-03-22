@@ -20,8 +20,43 @@ constexpr int HEIGHT_CELLS = 64;
 /// @brief ゾーンマップのグリッド分割数（セルサイズ = 16m）
 constexpr int ZONE_CELLS = 64;
 
+/// @brief buildHeightMap の結果（heightMap + min/max）
+struct HeightMapResult
+{
+	Grid<float> heightMap;
+	float       heightMin;
+	float       heightMax;
+};
+
+/// @brief heightMap からワールド座標の高さをバイリニア補間で取得する
+/// @param heightMap  (HEIGHT_CELLS+1)x(HEIGHT_CELLS+1) のグリッド
+/// @param chunkCoord チャンク座標
+inline float sampleHeightMap(const Grid<float>& heightMap, Point chunkCoord,
+                             float wx, float wz)
+{
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
+	const float lx = wx - static_cast<float>(chunkCoord.x * CHUNK_SIZE);
+	const float lz = wz - static_cast<float>(chunkCoord.y * CHUNK_SIZE);
+	const float fx = lx / cellSize;
+	const float fz = lz / cellSize;
+	const int ix = Clamp(static_cast<int>(fx), 0, HEIGHT_CELLS - 1);
+	const int iz = Clamp(static_cast<int>(fz), 0, HEIGHT_CELLS - 1);
+	const float tx = fx - ix;
+	const float tz = fz - iz;
+	const int ix1 = Min(ix + 1, HEIGHT_CELLS);
+	const int iz1 = Min(iz + 1, HEIGHT_CELLS);
+	const float h00 = heightMap[{ ix,  iz  }];
+	const float h10 = heightMap[{ ix1, iz  }];
+	const float h01 = heightMap[{ ix,  iz1 }];
+	const float h11 = heightMap[{ ix1, iz1 }];
+	return h00 * (1.0f - tx) * (1.0f - tz)
+	     + h10 * tx           * (1.0f - tz)
+	     + h01 * (1.0f - tx) * tz
+	     + h11 * tx           * tz;
+}
+
 /// @brief チャンク座標をハッシュキー (int64) に変換する
-inline int64 chunkKey(Point p)
+inline int64 chunkCoordToKey(Point p)
 {
 	return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
 }
@@ -36,7 +71,7 @@ struct Chunk
 	Grid<Building>    buildingGrid;                  ///< ZONE_CELLS×ZONE_CELLS の建物（type==None で空地）
 	bool              isUrbanizationArea = false;    ///< 市街化区域か
 	ChunkState        state = ChunkState::Unloaded;
-	bool              dirty = false;                 ///< メッシュ再生成が必要か
+	bool              meshDirty = false;              ///< メッシュ再生成が必要か
 	float             heightMin = 0.0f;              ///< heightMap の最小高さ
 	float             heightMax = 0.0f;              ///< heightMap の最大高さ
 
@@ -80,30 +115,6 @@ struct Chunk
 	/// @brief ワールド座標から高さをバイリニア補間で取得する
 	float getHeight(float wx, float wz) const
 	{
-		const float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
-		const float lx = wx - static_cast<float>(coord.x * CHUNK_SIZE);
-		const float lz = wz - static_cast<float>(coord.y * CHUNK_SIZE);
-
-		const float fx = lx / cellSize;
-		const float fz = lz / cellSize;
-
-		const int ix = Clamp(static_cast<int>(fx), 0, HEIGHT_CELLS - 1);
-		const int iz = Clamp(static_cast<int>(fz), 0, HEIGHT_CELLS - 1);
-		const float tx = fx - ix;
-		const float tz = fz - iz;
-
-		const int ix1 = Min(ix + 1, HEIGHT_CELLS);
-		const int iz1 = Min(iz + 1, HEIGHT_CELLS);
-
-		// Grid<T> は grid[{col, row}] = grid[{x, y}]
-		const float h00 = heightMap[{ ix,  iz  }];
-		const float h10 = heightMap[{ ix1, iz  }];
-		const float h01 = heightMap[{ ix,  iz1 }];
-		const float h11 = heightMap[{ ix1, iz1 }];
-
-		return h00 * (1.0f - tx) * (1.0f - tz)
-			+ h10 * tx           * (1.0f - tz)
-			+ h01 * (1.0f - tx) * tz
-			+ h11 * tx           * tz;
+		return sampleHeightMap(heightMap, coord, wx, wz);
 	}
 };

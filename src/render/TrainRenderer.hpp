@@ -13,7 +13,7 @@ public:
 	void renderTrains(const Array<Train>& trains);
 
 	/// @brief エッジの線路メッシュキャッシュを無効化する（線路変更時に呼ぶ）
-	void markDirty(int edgeId);
+	void invalidateTrackCache(int edgeId);
 
 private:
 	/// @brief エッジの線路メッシュを構築する

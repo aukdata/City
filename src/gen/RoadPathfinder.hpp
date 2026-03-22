@@ -18,6 +18,11 @@ public:
 	void setup(const World& world, Vec2 offset, int gridW, int gridH,
 	           float cellSize = kDefaultCellSize);
 
+	/// @brief 事前計算済み heightMap からパスファインダーグリッドを構築する（computeHeight 不要）
+	void setupFromHeightMap(const Grid<float>& heightMap, Point chunkCoord,
+	                        int gridW, int gridH,
+	                        float cellSize = kDefaultCellSize);
+
 	// ----- アクセサ -----
 	int   gridW()    const { return m_gridW; }
 	int   gridH()    const { return m_gridH; }

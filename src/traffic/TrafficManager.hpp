@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "Vehicle.hpp"
-#include "PathfindingGraph.hpp"
+#include "TrafficGraph.hpp"
 #include "TrafficLight.hpp"
 #include "BusRoute.hpp"
 #include "../sim/SimGraph.hpp"
@@ -60,7 +60,7 @@ private:
 	GameTime       m_lastGameNow = 0.0;
 
 	// 経路探索グラフ
-	PathfindingGraph m_graph;
+	TrafficGraph m_graph;
 	bool             m_graphDirty = true;
 
 	// 信号機（nodeId → TrafficLight）

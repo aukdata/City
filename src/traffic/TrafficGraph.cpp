@@ -1,9 +1,9 @@
-﻿#include "PathfindingGraph.hpp"
+﻿#include "TrafficGraph.hpp"
 #include <queue>
 
 // ===== rebuild =====
 
-void PathfindingGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
+void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
                                const HashTable<int, TrafficLight>& lights)
 {
 	m_laneNodes.clear();
@@ -139,7 +139,7 @@ void PathfindingGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime 
 
 // ===== dijkstra =====
 
-PathResult PathfindingGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
+PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 {
 	PathResult result;
 
@@ -211,19 +211,19 @@ PathResult PathfindingGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 
 // ===== クエリ =====
 
-int PathfindingGraph::entryNodeId(int edgeId, int laneIdx) const
+int TrafficGraph::entryNodeId(int edgeId, int laneIdx) const
 {
 	const auto it = m_entryNodeIds.find(laneKey(edgeId, laneIdx));
 	return (it != m_entryNodeIds.end()) ? it->second : -1;
 }
 
-int PathfindingGraph::exitNodeId(int edgeId, int laneIdx) const
+int TrafficGraph::exitNodeId(int edgeId, int laneIdx) const
 {
 	const auto it = m_exitNodeIds.find(laneKey(edgeId, laneIdx));
 	return (it != m_exitNodeIds.end()) ? it->second : -1;
 }
 
-const Array<GraphEdge>* PathfindingGraph::outgoingEdges(int nodeId) const
+const Array<GraphEdge>* TrafficGraph::outgoingEdges(int nodeId) const
 {
 	{
 		const auto it = m_laneNodes.find(nodeId);
@@ -236,18 +236,18 @@ const Array<GraphEdge>* PathfindingGraph::outgoingEdges(int nodeId) const
 	return nullptr;
 }
 
-bool PathfindingGraph::isNodePassable(int nodeId) const
+bool TrafficGraph::isNodePassable(int nodeId) const
 {
 	return m_laneNodes.contains(nodeId) || m_borderNodes.contains(nodeId);
 }
 
-const LaneNode* PathfindingGraph::getLaneNode(int nodeId) const
+const LaneNode* TrafficGraph::getLaneNode(int nodeId) const
 {
 	const auto it = m_laneNodes.find(nodeId);
 	return (it != m_laneNodes.end()) ? &it->second : nullptr;
 }
 
-const BorderNode* PathfindingGraph::getBorderNode(int nodeId) const
+const BorderNode* TrafficGraph::getBorderNode(int nodeId) const
 {
 	const auto it = m_borderNodes.find(nodeId);
 	return (it != m_borderNodes.end()) ? &it->second : nullptr;
@@ -255,7 +255,7 @@ const BorderNode* PathfindingGraph::getBorderNode(int nodeId) const
 
 // ===== ターン判定（SimGraph の接線角を使用） =====
 
-TurnType PathfindingGraph::calcTurnType(
+TurnType TrafficGraph::calcTurnType(
 	const SimGraph& graph,
 	int fromEdgeId, LaneDir fromDir,
 	int toEdgeId,   LaneDir toDir,
@@ -287,7 +287,7 @@ TurnType PathfindingGraph::calcTurnType(
 	return TurnType::Right;
 }
 
-float PathfindingGraph::costTransition(TurnType turn) const
+float TrafficGraph::costTransition(TurnType turn) const
 {
 	switch (turn)
 	{

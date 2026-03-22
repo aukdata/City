@@ -53,6 +53,8 @@ public:
 		float             cellSize = 0.0f;
 		Array<float>      heightGrid;
 		Grid<float>       terrainHeightMap;       ///< 事前計算済み地形 heightMap
+		float             terrainHeightMin = 0.0f;
+		float             terrainHeightMax = 0.0f;
 	};
 
 	/// @brief チャンクを構築する（スレッド安全: World は const 読み取りのみ）
@@ -79,8 +81,8 @@ private:
 	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;
 
 	// ----- Phase 1: 地形生成 -----
-	/// @brief ハイトグリッドを構築する（m_pf に委譲）
-	void buildHeightGrid(const World& world);
+	/// @brief 事前計算済み heightMap からパスファインダーグリッドを構築する
+	void buildHeightGrid(const Grid<float>& heightMap, Point chunkCoord);
 
 	// ----- Phase 2: 地区配置 -----
 	/// @brief Poisson ディスクサンプリングで地区核を配置する
@@ -97,12 +99,12 @@ private:
 	Array<std::pair<int,int>> computeMST() const;
 
 	// ----- ユーティリティ（RoadPathfinder へ委譲）-----
-	Vec2  gridToWorld(int gx, int gz) const { return m_pf.gridToWorld(gx, gz); }
-	Point worldToGrid(float wx, float wz) const { return m_pf.worldToGrid(wx, wz); }
-	float gridHeight(int gx, int gz)  const { return m_pf.height(gx, gz); }
+	Vec2  gridToWorld(int gx, int gz) const { return m_pathfinder.gridToWorld(gx, gz); }
+	Point worldToGrid(float wx, float wz) const { return m_pathfinder.worldToGrid(wx, wz); }
+	float gridHeight(int gx, int gz)  const { return m_pathfinder.height(gx, gz); }
 
 	// ----- 状態 -----
-	RoadPathfinder    m_pf;           ///< 地形グリッドと A* を保持する共用パスファインダー
+	RoadPathfinder    m_pathfinder;           ///< 地形グリッドと A* を保持する共用パスファインダー
 	Array<Settlement> m_settlements;
 	Vec2              m_regionOffset; ///< 現在処理中のリージョン左下ワールド座標 [m]
 };
