@@ -57,7 +57,11 @@ void World::installChunk(Point coord, Grid<float>&& heightMap)
 
 	Chunk chunk(coord);
 	chunk.heightMap          = std::move(heightMap);
-	chunk.state              = ChunkState::Active;
+	chunk.updateHeightBounds();
+	// カメラの ACTIVE_RANGE 内なら Active、それ以外は Sleeping
+	const bool inRange = (Abs(coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
+	                      Abs(coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
+	chunk.state              = inRange ? ChunkState::Active : ChunkState::Sleeping;
 	chunk.isUrbanizationArea = true;
 	m_chunks.emplace(key, std::move(chunk));
 	m_newChunks << coord;
@@ -175,7 +179,10 @@ void World::generateChunk(Chunk& chunk)
 		}
 	}
 
-	chunk.state = ChunkState::Active;
+	chunk.updateHeightBounds();
+	const bool inRange = (Abs(chunk.coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
+	                      Abs(chunk.coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
+	chunk.state = inRange ? ChunkState::Active : ChunkState::Sleeping;
 	chunk.isUrbanizationArea = true;
 
 	Logger << U"[Chunk] ({}, {}) generated in {}ms"_fmt(

@@ -123,35 +123,56 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 					m_meshCache.erase(eid);
 					m_laneCache.erase(eid);
 					m_marginCache.erase(eid);
+					m_boundsCache.erase(eid);
 				}
 			}
 		}
 	}
-
 	// ---- エッジ描画（端をノード半幅分カット）----
+	const float camX = static_cast<float>(cameraPos.x);
+	const float camZ = static_cast<float>(cameraPos.z);
+	constexpr float kDrawMaxDistSqF = static_cast<float>(kDrawMaxDistSq);
+	constexpr float kLodDistSqF     = static_cast<float>(kLodDistSq);
+
 	for (const RoadEdge& edge : network.edges())
 	{
 		if (edge.id == -1) continue;
 
-		const auto bez = network.getBezier(edge.id);
-		if (!bez) continue;
+		// バウンディング情報をキャッシュから取得（なければ計算してキャッシュ）
+		auto boundsIt = m_boundsCache.find(edge.id);
+		if (boundsIt == m_boundsCache.end())
+		{
+			const RoadNode* nA = network.getNode(edge.nodeA);
+			const RoadNode* nB = network.getNode(edge.nodeB);
+			if (!nA || !nB) continue;
+			EdgeBounds b;
+			b.center = Float3{
+				static_cast<float>((nA->position.x + nB->position.x) * 0.5),
+				static_cast<float>((nA->position.y + nB->position.y) * 0.5),
+				static_cast<float>((nA->position.z + nB->position.z) * 0.5)
+			};
+			const float chordSq = static_cast<float>((nA->position - nB->position).lengthSq());
+			const float arcR    = edge.length * 0.6f;
+			b.radiusSq = Max(arcR * arcR, chordSq * 0.36f);
+			boundsIt = m_boundsCache.emplace(edge.id, b).first;
+		}
+		const auto& bounds = boundsIt->second;
 
-		// エッジのバウンディングスフィアで視錐台カリング
-		const Vec3 center = (bez->positionAt(0.0f) + bez->positionAt(bez->totalLength)) * 0.5;
-		const double radius = bez->totalLength * 0.6;
-		if (!frustum.intersects(Sphere{ center, radius })) continue;
+		// 距離チェックを先に（安価: float 演算のみ）
+		const float dx = bounds.center.x - camX;
+		const float dz = bounds.center.z - camZ;
+		const float distSq = dx * dx + dz * dz;
+		if (distSq > kDrawMaxDistSqF) continue;
+		const bool isClose = distSq < kLodDistSqF;
 
-		// カメラからの距離（XZ 平面）で描画カット / LOD を決定
-		const double dx = center.x - cameraPos.x;
-		const double dz = center.z - cameraPos.z;
-		const double distSq = dx * dx + dz * dz;
-		if (distSq > kDrawMaxDistSq) continue;
-		const bool isClose = distSq < kLodDistSq;
+		// 視錐台カリング（距離チェックを通過した分のみ）
+		const float radius = Math::Sqrt(bounds.radiusSq);
+		if (!frustum.intersects(Sphere{ Vec3{ bounds.center }, static_cast<double>(radius) })) continue;
 
 		const float mA = edgeMargin(edge, edge.nodeA);
 		const float mB = edgeMargin(edge, edge.nodeB);
 
-		drawEdge(edge, *bez, mA, mB, world, isClose);
+		drawEdge(edge, network, mA, mB, world, isClose);
 	}
 
 	// ---- ノードキャップ描画（交差点フィル）----
@@ -159,7 +180,12 @@ void RoadRenderer::render(const RoadNetwork& network, GameTime now, const World&
 	{
 		if (node.id < 0) continue;
 
-		// ノード位置で視錐台カリング
+		// 距離チェックを先に（安価）
+		const float ndx = static_cast<float>(node.position.x) - camX;
+		const float ndz = static_cast<float>(node.position.z) - camZ;
+		if (ndx * ndx + ndz * ndz > kDrawMaxDistSqF) continue;
+
+		// 視錐台カリング
 		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
 
 		const double dx = node.position.x - cameraPos.x;
@@ -179,6 +205,7 @@ void RoadRenderer::markDirty(int edgeId, int nodeA, int nodeB)
 	m_meshCache.erase(edgeId);
 	m_laneCache.erase(edgeId);
 	m_marginCache.erase(edgeId);
+	m_boundsCache.erase(edgeId);
 	if (nodeA >= 0 || nodeB >= 0)
 	{
 		if (nodeA >= 0) m_nodeCapCache.erase(nodeA);
@@ -196,19 +223,30 @@ void RoadRenderer::markTopologyChanged()
 	m_laneCache.clear();
 	m_marginCache.clear();
 	m_nodeCapCache.clear();
+	m_boundsCache.clear();
 }
 
 void RoadRenderer::markTopologyChangedAt(int nodeId, const RoadNetwork& network)
 {
-	(void)network;
 	m_nodeCapCache.erase(nodeId);
+	const RoadNode* node = network.getNode(nodeId);
+	if (node)
+	{
+		for (const int eid : node->edgeIds)
+		{
+			m_meshCache.erase(eid);
+			m_laneCache.erase(eid);
+			m_marginCache.erase(eid);
+			m_boundsCache.erase(eid);
+		}
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // エッジ描画
 // ─────────────────────────────────────────────────────────────────────────────
 
-void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
+void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
                              float marginA, float marginB, const World& world, bool isClose)
 {
 	const RoadStyle& style = m_styleRegistry.get(edge.roadType);
@@ -229,9 +267,11 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
 	// ---- 路面メッシュ（通常 / LOD を同時構築）----
 	if (!m_meshCache.contains(edge.id))
 	{
-		const MeshData mdDetail = buildRoadMesh(edge, bezier, style, world, marginA, marginB, 1.0f);
+		const auto bez = network.getBezier(edge.id);
+		if (!bez) return;
+		const MeshData mdDetail = buildRoadMesh(edge, *bez, style, world, marginA, marginB, 1.0f);
 		if (mdDetail.vertices.isEmpty()) return;
-		const MeshData mdLod = buildRoadMesh(edge, bezier, style, world, marginA, marginB, 0.25f);
+		const MeshData mdLod = buildRoadMesh(edge, *bez, style, world, marginA, marginB, 0.25f);
 		m_meshCache.emplace(edge.id, LodMeshPair{ Mesh{ mdDetail }, Mesh{ mdLod } });
 		m_marginCache[edge.id] = { marginA, marginB };
 	}
@@ -247,7 +287,11 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
 	if (isClose)
 	{
 		if (!m_laneCache.contains(edge.id))
-			m_laneCache[edge.id] = buildLaneLineBatches(edge, bezier, style, world, marginA, marginB);
+		{
+			const auto bez = network.getBezier(edge.id);
+			if (!bez) return;
+			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, style, world, marginA, marginB);
+		}
 
 		for (const auto& b : m_laneCache[edge.id])
 			b.mesh.draw(b.color);

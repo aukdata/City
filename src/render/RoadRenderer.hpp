@@ -52,7 +52,7 @@ private:
 	// ---- 描画サブルーチン ----
 
 	/// @brief 単一エッジを描画する（路面 + 車線区画線）
-	void drawEdge(const RoadEdge& edge, const CubicBezier& bezier,
+	void drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	              float marginA, float marginB, const World& world, bool isClose);
 
 	/// @brief ノードキャップ（交差点フィル）を描画する
@@ -82,9 +82,13 @@ private:
 
 	// ---- メンバ ----
 
+	/// @brief エッジのバウンディング情報（カリング用キャッシュ）
+	struct EdgeBounds { Float3 center; float radiusSq; };
+
 	RoadStyleRegistry                    m_styleRegistry;
 	HashTable<int, LodMeshPair>          m_meshCache;       ///< エッジ ID → 路面メッシュ(通常/LOD)
 	HashTable<int, Array<LaneLineBatch>> m_laneCache;       ///< エッジ ID → 車線区画線
 	HashTable<int, EdgeMargins>          m_marginCache;     ///< エッジ ID → 適用済みマージン
 	HashTable<int, LodMeshPair>          m_nodeCapCache;    ///< ノード ID → キャップメッシュ(通常/LOD)
+	HashTable<int, EdgeBounds>           m_boundsCache;     ///< エッジ ID → バウンディング情報
 };

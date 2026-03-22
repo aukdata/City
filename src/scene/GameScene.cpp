@@ -616,50 +616,54 @@ void GameScene::mergeChunkResult(MapGenerator::ChunkBuildResult&& result)
 		nodeIdMap[localNode.id] = globalId;
 	}
 
-	// ---- 2. エッジIDリマップ＆追加 ----
-	for (const auto& localEdge : result.localEdges)
-	{
-		if (localEdge.id < 0) continue;
-		const auto itA = nodeIdMap.find(localEdge.nodeA);
-		const auto itB = nodeIdMap.find(localEdge.nodeB);
-		if (itA == nodeIdMap.end() || itB == nodeIdMap.end()) continue;
-
-		m_network.addEdge(itA->second, itB->second,
-		                  localEdge.ctrlA, localEdge.ctrlB,
-		                  localEdge.roadType,
-		                  static_cast<int>(localEdge.lanes.size()));
-	}
-
-	// ---- 3. ゾーン割当 ----
-	applyZonesFromGrid(result);
-
-	// ---- 4. 登録（リマップ済みデータを直接 ChunkData に保存） ----
+	// ---- 2. エッジIDリマップ＆追加 + ChunkData 保存 ----
 	auto& cd = m_chunkStore[key];
 	cd.districts = result.settlements;
 	cd.nodes.clear();
 	cd.edges.clear();
-	for (const auto& localNode : result.localNodes)
+
+	// ノード保存（境界ノード connectionNodeId も含む）
 	{
-		if (localNode.id < 0) continue;
-		if (localNode.id == result.connectionNodeId) continue; // 既存ノードは除外
-		const auto it = nodeIdMap.find(localNode.id);
-		if (it == nodeIdMap.end()) continue;
-		RoadNode rn = localNode;
-		rn.id = it->second;
-		cd.nodes << rn;
+		HashSet<int> savedNodeIds;
+		for (const auto& localNode : result.localNodes)
+		{
+			if (localNode.id < 0) continue;
+			const auto it = nodeIdMap.find(localNode.id);
+			if (it == nodeIdMap.end()) continue;
+			const int globalId = it->second;
+			if (savedNodeIds.contains(globalId)) continue;
+			const RoadNode* netNode = m_network.getNode(globalId);
+			if (netNode)
+			{
+				cd.nodes << *netNode;
+				savedNodeIds.insert(globalId);
+			}
+		}
 	}
+
+	// エッジ追加＋グローバルIDで保存
 	for (const auto& localEdge : result.localEdges)
 	{
 		if (localEdge.id < 0) continue;
 		const auto itA = nodeIdMap.find(localEdge.nodeA);
 		const auto itB = nodeIdMap.find(localEdge.nodeB);
 		if (itA == nodeIdMap.end() || itB == nodeIdMap.end()) continue;
-		// 実際に追加されたエッジの ID を探す（最後に追加されたもの）
-		RoadEdge re = localEdge;
-		re.nodeA = itA->second;
-		re.nodeB = itB->second;
-		cd.edges << re;
+
+		const auto globalEdgeId = m_network.addEdge(
+			itA->second, itB->second,
+			localEdge.ctrlA, localEdge.ctrlB,
+			localEdge.roadType,
+			static_cast<int>(localEdge.lanes.size()));
+
+		if (globalEdgeId)
+		{
+			const RoadEdge* ge = m_network.getEdge(*globalEdgeId);
+			if (ge) cd.edges << *ge;
+		}
 	}
+
+	// ---- 3. ゾーン割当 ----
+	applyZonesFromGrid(result);
 	m_loadedChunkKeys.insert(key);
 	addDistricts(result.settlements);
 
@@ -798,7 +802,7 @@ void GameScene::updateLoadedChunks()
 		const auto it = m_chunkStore.find(key);
 		if (it == m_chunkStore.end()) continue;
 
-		// エッジを削除（ノードは孤立しても無害なので残す）
+		// エッジを削除
 		for (const auto& edge : it->second.edges)
 		{
 			if (edge.id >= 0)
@@ -833,6 +837,15 @@ void GameScene::updateLoadedChunks()
 		changed = true;
 	}
 
+	// アンロード・リロード両方完了後に孤立ノードを除去
+	// （境界ノードはリロードで再接続されるため、ここでは本当に孤立したものだけ消える）
+	for (const int nodeId : affectedNodes)
+	{
+		const RoadNode* node = m_network.getNode(nodeId);
+		if (node && node->edgeIds.isEmpty())
+			m_network.removeNode(nodeId);
+	}
+
 	if (changed)
 	{
 		for (const int nodeId : affectedNodes)
@@ -844,6 +857,8 @@ void GameScene::updateLoadedChunks()
 // ─────────────────────────────────────────────────────────────────────────────
 // 毎フレーム更新（ロジック + 描画）
 // ─────────────────────────────────────────────────────────────────────────────
+
+static double s_updateLogic = 0;
 
 void GameScene::update()
 {
@@ -944,9 +959,11 @@ void GameScene::update()
 	}
 
 	// ---- メインスレッドのロジック ----
+	const Stopwatch swLogic{ StartImmediately::Yes };
 	m_world.update(m_camera.focusPoint());
 	checkAndGenerateRegions();
 	m_camera.update(dt, m_world);
+	s_updateLogic = swLogic.msF();
 
 	// フォローカメラ
 	if (m_camera.mode() != CameraMode::Overview)
@@ -1029,7 +1046,7 @@ void GameScene::renderWorld()
 		lap(s_sky);
 
 		const ViewFrustum frustum{ m_camera.camera3D(), 12000.0 };
-		m_worldRenderer.render(m_world, frustum);
+		m_worldRenderer.render(m_world, m_camera.camera3D());
 		lap(s_terrain);
 
 		m_roadRenderer.render(m_network, m_clock.now, m_world, frustum,
@@ -1189,26 +1206,11 @@ void GameScene::renderWorld()
 	lap(s_ui);
 	s_total = swTotal.msF();
 
-	// ---- 描画時間プロファイル表示 ----
-	{
-		const int x = 10, y = 10;
-		static const Font profFont{ FontMethod::Bitmap, 13 };
-		constexpr int lineH = 14;
-		const int lines = 9;
-		RectF{ static_cast<double>(x - 4), static_cast<double>(y - 2),
-		       180.0, static_cast<double>(lineH * lines + 6) }
-			.draw(ColorF{ 0.0, 0.0, 0.0, 0.55 });
-		const ColorF c{ 1.0 };
-		profFont(U"FPS: {}  Total: {:.1f}ms"_fmt(Profiler::FPS(), s_total)).draw(x, y, c);
-		profFont(U"Sky:     {:.1f}ms"_fmt(s_sky)).draw(x, y + lineH, c);
-		profFont(U"Terrain: {:.1f}ms"_fmt(s_terrain)).draw(x, y + lineH * 2, c);
-		profFont(U"Road:    {:.1f}ms"_fmt(s_road)).draw(x, y + lineH * 3, c);
-		profFont(U"Zone:    {:.1f}ms"_fmt(s_zone)).draw(x, y + lineH * 4, c);
-		profFont(U"Vehicle: {:.1f}ms"_fmt(s_vehicle)).draw(x, y + lineH * 5, c);
-		profFont(U"Train:   {:.1f}ms"_fmt(s_train)).draw(x, y + lineH * 6, c);
-		profFont(U"Debug:   {:.1f}ms"_fmt(s_debug)).draw(x, y + lineH * 7, c);
-		profFont(U"UI:      {:.1f}ms"_fmt(s_ui)).draw(x, y + lineH * 8, c);
-	}
+	// ---- 描画時間プロファイル表示（DebugRenderer に委譲） ----
+	m_debugRenderer.renderProfiler(s_total, s_updateLogic, s_sky, s_terrain,
+	                               s_road, s_zone, s_vehicle, s_train,
+	                               s_debug, s_ui, m_network);
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1471,7 +1473,10 @@ void GameScene::handleTerrainEdit()
 		}
 
 		if (modified)
+		{
 			chunk->dirty = true;
+			chunk->updateHeightBounds();
+		}
 	}
 }
 

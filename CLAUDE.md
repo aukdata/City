@@ -26,6 +26,10 @@ Release の場合は `-p:Configuration=Release` に変更する。
 
 テスト・リントの自動化ツールはない (Visual Studio のビルド成功が確認手段)。
 
+## Debugging Principles
+
+- **「推測するな。計測せよ。」** — パフォーマンス問題やバグの原因を推測で修正しない。必ず Console 出力やタイマーで実測データを取得し、データに基づいて修正する。
+
 ## Code Style
 
 `.editorconfig` に従う:

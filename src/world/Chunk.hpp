@@ -31,6 +31,25 @@ struct Chunk
 	bool              isUrbanizationArea = false;    ///< 市街化区域か
 	ChunkState        state = ChunkState::Unloaded;
 	bool              dirty = false;                 ///< メッシュ再生成が必要か
+	float             heightMin = 0.0f;              ///< heightMap の最小高さ
+	float             heightMax = 0.0f;              ///< heightMap の最大高さ
+
+	/// @brief heightMap から heightMin/heightMax を再計算する
+	void updateHeightBounds()
+	{
+		if (heightMap.isEmpty()) return;
+		float lo =  1e30f;
+		float hi = -1e30f;
+		for (int r = 0; r <= HEIGHT_CELLS; ++r)
+			for (int c = 0; c <= HEIGHT_CELLS; ++c)
+			{
+				const float h = heightMap[{ c, r }];
+				if (h < lo) lo = h;
+				if (h > hi) hi = h;
+			}
+		heightMin = lo;
+		heightMax = hi;
+	}
 
 	Chunk() = default;
 

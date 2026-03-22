@@ -29,7 +29,19 @@ int RoadNetwork::addNode(Vec3 pos, NodeType type)
 	n.id       = m_nextNodeId++;
 	n.position = pos;
 	n.type     = type;
-	m_nodes << n;
+
+	if (!m_freeNodeSlots.isEmpty())
+	{
+		const int idx = m_freeNodeSlots.back();
+		m_freeNodeSlots.pop_back();
+		m_nodes[idx] = n;
+		m_nodeIdToIdx[n.id] = idx;
+	}
+	else
+	{
+		m_nodeIdToIdx[n.id] = static_cast<int>(m_nodes.size());
+		m_nodes << n;
+	}
 	return n.id;
 }
 
@@ -69,7 +81,18 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	if (RoadNode* na = getNode(nodeA)) na->edgeIds << e.id;
 	if (RoadNode* nb = getNode(nodeB)) nb->edgeIds << e.id;
 
-	m_edges << e;
+	if (!m_freeEdgeSlots.isEmpty())
+	{
+		const int idx = m_freeEdgeSlots.back();
+		m_freeEdgeSlots.pop_back();
+		m_edges[idx] = e;
+		m_edgeIdToIdx[e.id] = idx;
+	}
+	else
+	{
+		m_edgeIdToIdx[e.id] = static_cast<int>(m_edges.size());
+		m_edges << e;
+	}
 
 	// 両端ノードのカットオフを再計算する
 	updateNodeCutoffs(nodeA);
@@ -93,6 +116,8 @@ void RoadNetwork::removeEdge(int edgeId)
 	if (RoadNode* nb = getNode(nB)) nb->edgeIds.remove(edgeId);
 
 	e.id = -1;
+	m_edgeIdToIdx.erase(edgeId);
+	m_freeEdgeSlots << idx;
 
 	// edgeIds 更新後にカットオフを再計算する
 	updateNodeCutoffs(nA);
@@ -104,19 +129,45 @@ void RoadNetwork::removeNode(int nodeId)
 	const int idx = nodeIndex(nodeId);
 	if (idx < 0) return;
 	m_nodes[idx].id = -1;
+	m_nodeIdToIdx.erase(nodeId);
+	m_freeNodeSlots << idx;
 }
 
 void RoadNetwork::addNodeRaw(const RoadNode& node)
 {
-	if (nodeIndex(node.id) >= 0) return;   // 既に存在する場合はスキップ
-	m_nodes << node;
+	if (m_nodeIdToIdx.contains(node.id)) return;   // 既に存在する場合はスキップ
+
+	if (!m_freeNodeSlots.isEmpty())
+	{
+		const int idx = m_freeNodeSlots.back();
+		m_freeNodeSlots.pop_back();
+		m_nodes[idx] = node;
+		m_nodeIdToIdx[node.id] = idx;
+	}
+	else
+	{
+		m_nodeIdToIdx[node.id] = static_cast<int>(m_nodes.size());
+		m_nodes << node;
+	}
 	if (node.id >= m_nextNodeId) m_nextNodeId = node.id + 1;
 }
 
 void RoadNetwork::addEdgeRaw(const RoadEdge& edge)
 {
-	if (edgeIndex(edge.id) >= 0) return;   // 既に存在する場合はスキップ
-	m_edges << edge;
+	if (m_edgeIdToIdx.contains(edge.id)) return;   // 既に存在する場合はスキップ
+
+	if (!m_freeEdgeSlots.isEmpty())
+	{
+		const int idx = m_freeEdgeSlots.back();
+		m_freeEdgeSlots.pop_back();
+		m_edges[idx] = edge;
+		m_edgeIdToIdx[edge.id] = idx;
+	}
+	else
+	{
+		m_edgeIdToIdx[edge.id] = static_cast<int>(m_edges.size());
+		m_edges << edge;
+	}
 	if (RoadNode* na = getNode(edge.nodeA)) na->edgeIds << edge.id;
 	if (RoadNode* nb = getNode(edge.nodeB)) nb->edgeIds << edge.id;
 	if (edge.id >= m_nextEdgeId) m_nextEdgeId = edge.id + 1;
@@ -188,20 +239,14 @@ Optional<CubicBezier> RoadNetwork::getBezier(int edgeId) const
 
 int RoadNetwork::edgeIndex(int id) const
 {
-	for (int i = 0; i < static_cast<int>(m_edges.size()); ++i)
-	{
-		if (m_edges[i].id == id) return i;
-	}
-	return -1;
+	const auto it = m_edgeIdToIdx.find(id);
+	return (it != m_edgeIdToIdx.end()) ? it->second : -1;
 }
 
 int RoadNetwork::nodeIndex(int id) const
 {
-	for (int i = 0; i < static_cast<int>(m_nodes.size()); ++i)
-	{
-		if (m_nodes[i].id == id) return i;
-	}
-	return -1;
+	const auto it = m_nodeIdToIdx.find(id);
+	return (it != m_nodeIdToIdx.end()) ? it->second : -1;
 }
 
 void RoadNetwork::addTempOp(int edgeId, TempOp op)

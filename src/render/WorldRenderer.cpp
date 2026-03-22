@@ -2,12 +2,12 @@
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
 
-void WorldRenderer::render(World& world, const ViewFrustum& frustum)
+void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 {
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
 
-	const Vec3 eye{ Graphics3D::GetEyePosition() };
+	const Vec3 eye = camera.getEyePosition();
 
 	auto chunks = world.getActiveChunks();
 
@@ -17,15 +17,47 @@ void WorldRenderer::render(World& world, const ViewFrustum& frustum)
 		return a->worldOrigin().distanceFromSq(eye) < b->worldOrigin().distanceFromSq(eye);
 	});
 
+	const auto sceneSize = Scene::Size();
+	constexpr float kMargin = 512.0f;
+
 	for (Chunk* chunk : chunks)
 	{
 		if (!chunk) continue;
 
-		// AABB で視錐台カリング
-		const Vec3 origin = chunk->worldOrigin();
-		const Box chunkBox{ origin + Vec3{ CHUNK_SIZE * 0.5, 250.0, CHUNK_SIZE * 0.5 },
-		                    Vec3{ CHUNK_SIZE, 500.0, CHUNK_SIZE } };
-		if (!frustum.intersects(chunkBox)) continue;
+		// カメラが乗っているチャンクは常に描画（足元が消えるのを防止）
+		const int camCx = static_cast<int>(Math::Floor(eye.x / CHUNK_SIZE));
+		const int camCz = static_cast<int>(Math::Floor(eye.z / CHUNK_SIZE));
+		const bool isCameraChunk = (chunk->coord.x == camCx && chunk->coord.y == camCz);
+
+		// BoundingBox の 8 頂点がすべてスクリーン外なら描画スキップ。
+		// 頂点単位で判定するため、連続地形の境界付近が過剰カリングされにくい。
+		const Vec3 o = chunk->worldOrigin();
+		const double yLo = static_cast<double>(chunk->heightMin);
+		const double yHi = static_cast<double>(chunk->heightMax);
+		const double cs  = static_cast<double>(CHUNK_SIZE);
+		const Float3 corners[8] = {
+			Float3{ static_cast<float>(o.x),      static_cast<float>(yLo), static_cast<float>(o.z)      },
+			Float3{ static_cast<float>(o.x + cs), static_cast<float>(yLo), static_cast<float>(o.z)      },
+			Float3{ static_cast<float>(o.x),      static_cast<float>(yLo), static_cast<float>(o.z + cs) },
+			Float3{ static_cast<float>(o.x + cs), static_cast<float>(yLo), static_cast<float>(o.z + cs) },
+			Float3{ static_cast<float>(o.x),      static_cast<float>(yHi), static_cast<float>(o.z)      },
+			Float3{ static_cast<float>(o.x + cs), static_cast<float>(yHi), static_cast<float>(o.z)      },
+			Float3{ static_cast<float>(o.x),      static_cast<float>(yHi), static_cast<float>(o.z + cs) },
+			Float3{ static_cast<float>(o.x + cs), static_cast<float>(yHi), static_cast<float>(o.z + cs) },
+		};
+		bool anyVisible = false;
+		for (const auto& c : corners)
+		{
+			const Float3 sp = camera.worldToScreenPoint(c);
+			if (sp.z > 0.0f &&
+			    sp.x >= -kMargin && sp.x <= sceneSize.x + kMargin &&
+			    sp.y >= -kMargin && sp.y <= sceneSize.y + kMargin)
+			{
+				anyVisible = true;
+				break;
+			}
+		}
+		if (!anyVisible && !isCameraChunk) continue;
 
 		drawChunk(*chunk, world);
 	}

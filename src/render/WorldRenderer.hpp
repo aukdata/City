@@ -6,8 +6,8 @@
 class WorldRenderer
 {
 public:
-	/// @brief アクティブチャンクを視錐台カリングして描画する
-	void render(World& world, const ViewFrustum& frustum);
+	/// @brief アクティブチャンクをカリングして描画する
+	void render(World& world, const BasicCamera3D& camera);
 
 	/// @brief チャンクのメッシュキャッシュを無効化する
 	void markDirty(Point chunkCoord);

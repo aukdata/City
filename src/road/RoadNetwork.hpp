@@ -117,6 +117,10 @@ public:
 private:
 	Array<RoadEdge> m_edges;
 	Array<RoadNode> m_nodes;
+	HashTable<int, int> m_edgeIdToIdx;   ///< edge ID → m_edges インデックス (O(1) ルックアップ)
+	HashTable<int, int> m_nodeIdToIdx;   ///< node ID → m_nodes インデックス (O(1) ルックアップ)
+	Array<int>          m_freeEdgeSlots; ///< m_edges 内の再利用可能スロット
+	Array<int>          m_freeNodeSlots; ///< m_nodes 内の再利用可能スロット
 	int m_nextEdgeId = 0;
 	int m_nextNodeId = 0;
 

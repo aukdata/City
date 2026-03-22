@@ -403,3 +403,40 @@ void DebugRenderer::renderHelp()
 	const double barY      = center.y + panelH * 0.5 - 4.0;
 	RectF{ barX, barY, panelW * ratio, 4.0 }.draw(ColorF{ 0.4, 0.8, 1.0, 0.8 });
 }
+
+// ===== プロファイラ HUD =====
+
+void DebugRenderer::renderProfiler(double total, double logic, double sky, double terrain,
+                                   double road, double zone, double vehicle, double train,
+                                   double debug, double ui,
+                                   const RoadNetwork& network)
+{
+	if (!m_debugMode) return;
+
+	const int x = 10, y = 10;
+	constexpr int lineH = 14;
+	constexpr int lines = 12;
+	RectF{ static_cast<double>(x - 4), static_cast<double>(y - 2),
+	       220.0, static_cast<double>(lineH * lines + 6) }
+		.draw(ColorF{ 0.0, 0.0, 0.0, 0.55 });
+
+	const ColorF c{ 1.0 };
+	m_font(U"FPS: {}  Total: {:.1f}ms"_fmt(Profiler::FPS(), total)).draw(x, y, c);
+	m_font(U"Logic:   {:.1f}ms"_fmt(logic)).draw(x, y + lineH, c);
+	m_font(U"Sky:     {:.1f}ms"_fmt(sky)).draw(x, y + lineH * 2, c);
+	m_font(U"Terrain: {:.1f}ms"_fmt(terrain)).draw(x, y + lineH * 3, c);
+	m_font(U"Road:    {:.1f}ms"_fmt(road)).draw(x, y + lineH * 4, c);
+	m_font(U"Zone:    {:.1f}ms"_fmt(zone)).draw(x, y + lineH * 5, c);
+	m_font(U"Vehicle: {:.1f}ms"_fmt(vehicle)).draw(x, y + lineH * 6, c);
+	m_font(U"Train:   {:.1f}ms"_fmt(train)).draw(x, y + lineH * 7, c);
+	m_font(U"Debug:   {:.1f}ms"_fmt(debug)).draw(x, y + lineH * 8, c);
+	m_font(U"UI:      {:.1f}ms"_fmt(ui)).draw(x, y + lineH * 9, c);
+
+	int liveEdges = 0, liveNodes = 0;
+	for (const auto& e : network.edges()) if (e.id != -1) ++liveEdges;
+	for (const auto& n : network.nodes()) if (n.id != -1) ++liveNodes;
+	m_font(U"Edges:{} Nodes:{} Arr:{}/{}"_fmt(
+		liveEdges, liveNodes,
+		network.edges().size(), network.nodes().size()
+	)).draw(x, y + lineH * 10, c);
+}

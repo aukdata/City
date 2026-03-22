@@ -18,6 +18,12 @@ public:
 	            const World& world,
 	            const GameCamera& camera);
 
+	/// @brief フレーム時間プロファイラ HUD を描画する（デバッグモード時のみ）
+	void renderProfiler(double total, double logic, double sky, double terrain,
+	                    double road, double zone, double vehicle, double train,
+	                    double debug, double ui,
+	                    const RoadNetwork& network);
+
 	bool isDebugMode() const { return m_debugMode; }
 
 private:
