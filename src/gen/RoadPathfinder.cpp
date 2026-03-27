@@ -218,12 +218,23 @@ void RoadPathfinder::pathToRoadEdges(
 		nodeIds << roads.addNode(wps[i], NodeType::Intersection);
 	nodeIds << endNodeId;
 
-	for (int i = 0; i < static_cast<int>(nodeIds.size()) - 1; ++i)
+	const int n = static_cast<int>(wps.size());
+	for (int i = 0; i < n - 1; ++i)
 	{
-		const Vec3& a    = wps[i];
-		const Vec3& b    = wps[i + 1];
-		const Vec3 ctrlA = a + (b - a) * (1.0 / 3.0);
-		const Vec3 ctrlB = a + (b - a) * (2.0 / 3.0);
+		// Catmull-Rom 接線からベジェ制御点を導出する
+		// tangent(i) = (P(i+1) - P(i-1)) / 2  （端点は線分方向を使用）
+		const Vec3& p0 = wps[i];
+		const Vec3& p1 = wps[i + 1];
+
+		const Vec3 tanA = (i > 0)
+			? (p1 - wps[i - 1]) * 0.5
+			: (p1 - p0);
+		const Vec3 tanB = (i + 2 < n)
+			? (wps[i + 2] - p0) * 0.5
+			: (p1 - p0);
+
+		const Vec3 ctrlA = p0 + tanA * (1.0 / 3.0);
+		const Vec3 ctrlB = p1 - tanB * (1.0 / 3.0);
 		roads.addEdge(nodeIds[i], nodeIds[i + 1], ctrlA, ctrlB, rt, lanes);
 	}
 }

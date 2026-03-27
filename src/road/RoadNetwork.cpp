@@ -590,12 +590,35 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 	// Case 2: Case 1 が外れ、かつ折れ線（端点→制御点1→制御点2→端点）の線分が交わる
 	//         → 4 端点の平均位置にノードを生成し、両エッジを t=0.5 で分割
 	// ノードマージ: 生成ノードが既存ノードと 40 m 以内ならマージ
-	//
-	// 最適化: sinceEdgeId 以上のエッジのみをダーティとして開始し、
-	// 分割で新しくできたエッジも追加する。ダーティエッジ vs 全エッジの判定のみ行う。
 
 	constexpr float MERGE_DIST = 40.0f;
 	constexpr float SKIP_EPS   = 0.02f;
+
+	// ---- 空間グリッド（AABB オーバーラップを高速化）----
+	constexpr float CELL_SIZE = 256.0f;
+	constexpr float INV_CELL  = 1.0f / CELL_SIZE;
+
+	struct EdgeAABB { int id; float minX, minZ, maxX, maxZ; };
+
+	// AABB を計算するラムダ
+	auto computeAABB = [this](int edgeId) -> EdgeAABB
+	{
+		const RoadEdge* e = getEdge(edgeId);
+		if (!e) return { -1, 0, 0, 0, 0 };
+		const RoadNode* na = getNode(e->nodeA);
+		const RoadNode* nb = getNode(e->nodeB);
+		if (!na || !nb) return { -1, 0, 0, 0, 0 };
+		const float x0 = static_cast<float>(Min({ na->position.x, nb->position.x, e->ctrlA.x, e->ctrlB.x }));
+		const float x1 = static_cast<float>(Max({ na->position.x, nb->position.x, e->ctrlA.x, e->ctrlB.x }));
+		const float z0 = static_cast<float>(Min({ na->position.z, nb->position.z, e->ctrlA.z, e->ctrlB.z }));
+		const float z1 = static_cast<float>(Max({ na->position.z, nb->position.z, e->ctrlA.z, e->ctrlB.z }));
+		return { edgeId, x0, z0, x1, z1 };
+	};
+
+	auto cellKey = [](int cx, int cz) -> int64
+	{
+		return (static_cast<int64>(cx) << 32) | static_cast<int64>(static_cast<uint32>(cz));
+	};
 
 	// sinceEdgeId 以上のエッジのみをダーティとして開始
 	HashSet<int> dirtyEdges;
@@ -610,52 +633,74 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 		Array<int> dirtyBatch(dirtyEdges.begin(), dirtyEdges.end());
 		dirtyEdges.clear();
 
-		// 全有効エッジのリスト
-		Array<int> allEdgeIds;
-		for (const RoadEdge& e : m_edges)
-			if (e.id >= 0) allEdgeIds << e.id;
+		// 空間グリッドを構築（全有効エッジの AABB をセルに登録）
+		HashTable<int64, Array<int>> grid;
+		HashTable<int, EdgeAABB> aabbCache;
+		HashSet<int> allEdgeSet;
 
-		// 全エッジの ID セット（O(1) ルックアップ用）
-		HashSet<int> allEdgeSet(allEdgeIds.begin(), allEdgeIds.end());
+		for (const RoadEdge& e : m_edges)
+		{
+			if (e.id < 0) continue;
+			allEdgeSet.insert(e.id);
+			auto aabb = computeAABB(e.id);
+			if (aabb.id < 0) continue;
+			aabbCache[e.id] = aabb;
+
+			const int cx0 = static_cast<int>(std::floor(aabb.minX * INV_CELL));
+			const int cz0 = static_cast<int>(std::floor(aabb.minZ * INV_CELL));
+			const int cx1 = static_cast<int>(std::floor(aabb.maxX * INV_CELL));
+			const int cz1 = static_cast<int>(std::floor(aabb.maxZ * INV_CELL));
+			for (int cz = cz0; cz <= cz1; ++cz)
+				for (int cx = cx0; cx <= cx1; ++cx)
+					grid[cellKey(cx, cz)] << e.id;
+		}
 
 		for (const int dirtyId : dirtyBatch)
 		{
-			// ダーティエッジが削除済みならスキップ
 			if (!allEdgeSet.contains(dirtyId)) continue;
+			const auto aabbIt = aabbCache.find(dirtyId);
+			if (aabbIt == aabbCache.end()) continue;
+			const auto& aabb1 = aabbIt->second;
 
 			const RoadEdge* e1 = getEdge(dirtyId);
 			if (!e1) continue;
 
-			bool splitOccurred = false;
+			// ダーティエッジの AABB が重なるセルの全エッジを候補にする
+			HashSet<int> candidates;
+			const int cx0 = static_cast<int>(std::floor(aabb1.minX * INV_CELL));
+			const int cz0 = static_cast<int>(std::floor(aabb1.minZ * INV_CELL));
+			const int cx1 = static_cast<int>(std::floor(aabb1.maxX * INV_CELL));
+			const int cz1 = static_cast<int>(std::floor(aabb1.maxZ * INV_CELL));
+			for (int cz = cz0; cz <= cz1; ++cz)
+				for (int cx = cx0; cx <= cx1; ++cx)
+				{
+					const auto git = grid.find(cellKey(cx, cz));
+					if (git != grid.end())
+						for (int eid : git->second)
+							if (eid != dirtyId) candidates.insert(eid);
+				}
 
-			for (const int otherId : allEdgeIds)
+			for (const int otherId : candidates)
 			{
-				if (otherId == dirtyId) continue;
 				if (!allEdgeSet.contains(otherId)) continue;
 
 				const RoadEdge* e2 = getEdge(otherId);
-				if (!e1 || !e2) break;  // e1 が無効化されたら終了
+				if (!e1 || !e2) break;
 
 				// 隣接エッジ（共有ノードあり）はスキップ
 				if (e1->nodeA == e2->nodeA || e1->nodeA == e2->nodeB ||
 				    e1->nodeB == e2->nodeA || e1->nodeB == e2->nodeB) continue;
 
+				// AABB 精密チェック
+				const auto aabb2It = aabbCache.find(otherId);
+				if (aabb2It == aabbCache.end()) continue;
+				const auto& aabb2 = aabb2It->second;
+				if (aabb1.maxX < aabb2.minX || aabb2.maxX < aabb1.minX ||
+				    aabb1.maxZ < aabb2.minZ || aabb2.maxZ < aabb1.minZ) continue;
+
 				const RoadNode* na1 = getNode(e1->nodeA); const RoadNode* nb1 = getNode(e1->nodeB);
 				const RoadNode* na2 = getNode(e2->nodeA); const RoadNode* nb2 = getNode(e2->nodeB);
 				if (!na1 || !nb1 || !na2 || !nb2) continue;
-
-				// AABB 早期棄却
-				{
-					const double minX1 = Min({ na1->position.x, nb1->position.x, e1->ctrlA.x, e1->ctrlB.x });
-					const double maxX1 = Max({ na1->position.x, nb1->position.x, e1->ctrlA.x, e1->ctrlB.x });
-					const double minZ1 = Min({ na1->position.z, nb1->position.z, e1->ctrlA.z, e1->ctrlB.z });
-					const double maxZ1 = Max({ na1->position.z, nb1->position.z, e1->ctrlA.z, e1->ctrlB.z });
-					const double minX2 = Min({ na2->position.x, nb2->position.x, e2->ctrlA.x, e2->ctrlB.x });
-					const double maxX2 = Max({ na2->position.x, nb2->position.x, e2->ctrlA.x, e2->ctrlB.x });
-					const double minZ2 = Min({ na2->position.z, nb2->position.z, e2->ctrlA.z, e2->ctrlB.z });
-					const double maxZ2 = Max({ na2->position.z, nb2->position.z, e2->ctrlA.z, e2->ctrlB.z });
-					if (maxX1 < minX2 || maxX2 < minX1 || maxZ1 < minZ2 || maxZ2 < minZ1) continue;
-				}
 
 				// データを全てコピー（以降のポインタ失効に備える）
 				const Vec3 posA1 = na1->position, posB1 = nb1->position;
@@ -706,7 +751,7 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 					};
 				}
 
-				// 既存ノードへのマージ判定（分割対象エッジの端点は除外）
+				// 既存ノードへのマージ判定（近傍セルのノードのみ検索）
 				int splitNodeId = -1;
 				{
 					float minDist = MERGE_DIST;
@@ -753,7 +798,6 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 				allEdgeSet.erase(otherId);
 
 				everFound = true;
-				splitOccurred = true;
 				break;  // e1 は削除されたのでこのダーティエッジの処理を終了
 			}
 		}
@@ -766,6 +810,14 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 {
 	const float cosThresh = static_cast<float>(Math::Cos(Math::ToRadians(minAngleDeg)));
 	bool anyFixed = false;
+
+	// 発振防止: 付け替え済みのノードペアを記録し、同じペアの再生成を防ぐ
+	static HashSet<int64> s_processedPairs;
+	auto pairKey = [](int a, int b) -> int64
+	{
+		if (a > b) std::swap(a, b);
+		return (static_cast<int64>(a) << 32) | static_cast<int64>(static_cast<uint32>(b));
+	};
 
 	// イテレーション中に m_nodes の要素変更が起きるため、先に ID を収集する
 	Array<int> nodeIds;
@@ -837,6 +889,13 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 				}
 				if (nearestId < 0) continue;
 
+				// 発振防止: 同じノードペアの付け替えが既に行われていたらスキップ
+				const int64 pk = pairKey(nearestId, narrowerOtherId);
+				if (s_processedPairs.contains(pk)) continue;
+				s_processedPairs.insert(pk);
+				// 元のペアも記録（逆方向の付け替えも防ぐ）
+				s_processedPairs.insert(pairKey(nodeId, narrowerOtherId));
+
 				// 付け替え後のノード位置を取得（ポインタは removeEdge 後に再取得）
 				const RoadNode* nearestNode = getNode(nearestId);
 				const RoadNode* otherNode   = getNode(narrowerOtherId);
@@ -855,6 +914,11 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 			}
 		}
 	}
+
+	// 全イテレーション完了後にリセット（呼び出し側ループの最終回で anyFixed=false になる）
+	if (!anyFixed)
+		s_processedPairs.clear();
+
 	return anyFixed;
 }
 

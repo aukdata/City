@@ -3,6 +3,9 @@
 #include "../save/RoadBinary.hpp"
 #include "../sim/SimGraph.hpp"
 #include <Siv3D/ViewFrustum.hpp>
+#include <thread>
+
+const int GameScene::kMaxChunkTasks = Max(4, static_cast<int>(std::thread::hardware_concurrency()));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 初期化
@@ -62,6 +65,7 @@ void GameScene::initNewGame()
 	// Loading フェーズへ遷移（dispatchChunkTasks が自動的にチャンクを投入する）
 	m_loadingTimer.restart();
 	m_loadingStatus = U"チャンク生成中";
+	Logger << U"[Loading] {} チャンク生成開始 (並列数: {})"_fmt(m_totalInitChunks, kMaxChunkTasks);
 	m_phase = GamePhase::Loading;
 }
 
@@ -400,8 +404,15 @@ bool GameScene::loadGame()
 
 void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts)
 {
-	for (const auto& s : newDistricts)
+	for (auto s : newDistricts)
 	{
+		// PlaceNameDB から未使用の地名を割り当てる
+		if (s.name.isEmpty())
+		{
+			const int idx = static_cast<int>(m_districts.size());
+			s.name    = m_placeNames.settlementName(idx);
+			s.reading = m_placeNames.settlementReading(idx);
+		}
 		m_districts << s;
 		if (s.type == MapGenerator::SettlementType::Urban)
 			m_urbanCenters << s.center;
@@ -548,17 +559,20 @@ void GameScene::dispatchChunkTasks()
 	const int slots = kMaxChunkTasks - static_cast<int>(m_chunkTasks.size());
 	if (slots <= 0) return;
 
-	const uint64 seed = getData().seed;
-	const Array<Vec2> urbanSnap = m_urbanCenters;
+	const int toDispatch = Min(slots, static_cast<int>(pending.size()));
 
-	// 既存ノードの位置スナップショット（A* 接続用）
+	const uint64 seed = getData().seed;
+	auto urbanSnap = std::make_shared<Array<Vec2>>(m_urbanCenters);
+
+	// 既存ノードの位置スナップショット（A* 接続用） — shared_ptr で全タスクに共有
 	using NodeSnapshot = MapGenerator::NodeSnapshot;
-	Array<NodeSnapshot> nodeSnap;
+	auto nodeSnap = std::make_shared<Array<NodeSnapshot>>();
+	nodeSnap->reserve(m_network.nodes().size());
 	for (const auto& node : m_network.nodes())
 		if (node.id >= 0)
-			nodeSnap << NodeSnapshot{ node.id, node.position };
+			nodeSnap->push_back(NodeSnapshot{ node.id, node.position });
 
-	for (int i = 0; i < Min(slots, static_cast<int>(pending.size())); ++i)
+	for (int i = 0; i < toDispatch; ++i)
 	{
 		const Point coord = pending[i];
 		const Vec2 offset = regionToWorldOffset(coord);
@@ -572,7 +586,7 @@ void GameScene::dispatchChunkTasks()
 			[offset, seed, &world = std::as_const(m_world), urbanSnap, nodeSnap]()
 			{
 				return MapGenerator::buildChunk(
-					offset, seed, world, urbanSnap, nodeSnap);
+					offset, seed, world, *urbanSnap, *nodeSnap);
 			});
 		m_chunkTasks << std::move(task);
 	}

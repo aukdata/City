@@ -258,120 +258,20 @@ Array<std::pair<int,int>> MapGenerator::computeMST() const
 
 // --- 旧道生成 メイン ---
 
-void MapGenerator::generateRoads(RoadNetwork& roads, uint64 seed)
+void MapGenerator::generateRoads(RoadNetwork& roads, [[maybe_unused]] uint64 seed)
 {
 	if (m_settlements.isEmpty()) return;
 
-	// 各地区の道路ノード ID を記録する
-	const int n = static_cast<int>(m_settlements.size());
-	Array<int> settleNodeId(n, -1);
-
-	for (int i = 0; i < n; ++i)
+	// 各地区の道路ノード ID を記録する（チャンク内接続の起点）
+	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
 	{
 		const Vec2& c  = m_settlements[i].center;
 		const Point gp = worldToGrid(static_cast<float>(c.x), static_cast<float>(c.y));
 		const float y  = m_pathfinder.height(gp.x, gp.y);
-		settleNodeId[i] = roads.addNode(Vec3{ c.x, y, c.y }, NodeType::Intersection);
+		roads.addNode(Vec3{ c.x, y, c.y }, NodeType::Intersection);
 	}
-
-	// MST で幹線網を決定する
-	const auto mstEdges = computeMST();
-
-	// 生成済みパスが占有するグリッドセル（始終点除く）を記録する。
-	// 後続パスがこれらのセルを通ると割高になり、平行重複を自然に回避する。
-	HashSet<int> occupiedCells;
-
-	// ノード nodeId に接続済みの全エッジの outward 方向（XZ 単位ベクトル）を返す。
-	// findPath の鋭角ペナルティに渡すための禁止方向リストを構築する。
-	auto getOutwardDirs = [&](int nodeId) -> Array<Vec2>
-	{
-		const RoadNode* node = roads.getNode(nodeId);
-		if (!node) return {};
-		Array<Vec2> dirs;
-		for (int eid : node->edgeIds)
-		{
-			const RoadEdge* edge = roads.getEdge(eid);
-			if (!edge) continue;
-			const Vec3 nodePos = node->position;
-			const Vec3 outward = (edge->nodeA == nodeId)
-				? (edge->ctrlA - nodePos)
-				: (edge->ctrlB - nodePos);
-			const float len = static_cast<float>(Vec2{ outward.x, outward.z }.length());
-			if (len > 1e-6f)
-				dirs << Vec2{ outward.x, outward.z } / len;
-		}
-		return dirs;
-	};
-
-	for (const auto& [u, v] : mstEdges)
-	{
-		const Point gs = worldToGrid(
-			static_cast<float>(m_settlements[u].center.x),
-			static_cast<float>(m_settlements[u].center.y));
-		const Point ge = worldToGrid(
-			static_cast<float>(m_settlements[v].center.x),
-			static_cast<float>(m_settlements[v].center.y));
-
-		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
-		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = m_pathfinder.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
-		if (path.isEmpty()) continue;
-
-		// 使用セルを登録（始終点は地区ノードなので除外）
-		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
-			occupiedCells.emplace(path[i].y * kGridW + path[i].x);
-
-		// 幹線種別: Urban ↔ Suburbs/Urban → 幹線道路、それ以外 → 一般道
-		const bool isArterial =
-			m_settlements[u].type != SettlementType::Rural &&
-			m_settlements[v].type != SettlementType::Rural;
-		const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
-		const int      lanes = isArterial ? 4 : 2;
-
-		const Array<Vec3> wps = m_pathfinder.samplePath(path, 5);
-		m_pathfinder.pathToRoadEdges(wps, roads, rt, lanes, settleNodeId[u], settleNodeId[v]);
-	}
-
-	// 迂回路を追加する（仕様書：全体の 30% 追加接続）
-	std::mt19937_64 rng(seed ^ 0x99887766ULL);
-	const int extraCount = Max(1, static_cast<int>(mstEdges.size() * 0.3));
-	for (int k = 0; k < extraCount && n >= 3; ++k)
-	{
-		const int u = static_cast<int>(rng() % n);
-		int v = static_cast<int>(rng() % (n - 1));
-		if (v >= u) ++v;
-
-		// 既に MST で接続されている辺は除外（簡易判定）
-		bool alreadyConnected = false;
-		for (const auto& [mu, mv] : mstEdges)
-		{
-			if ((mu == u && mv == v) || (mu == v && mv == u))
-			{
-				alreadyConnected = true;
-				break;
-			}
-		}
-		if (alreadyConnected) continue;
-
-		const Point gs = worldToGrid(
-			static_cast<float>(m_settlements[u].center.x),
-			static_cast<float>(m_settlements[u].center.y));
-		const Point ge = worldToGrid(
-			static_cast<float>(m_settlements[v].center.x),
-			static_cast<float>(m_settlements[v].center.y));
-
-		const Array<Vec2> forbidStart = getOutwardDirs(settleNodeId[u]);
-		const Array<Vec2> forbidGoal  = getOutwardDirs(settleNodeId[v]);
-		const Array<Point> path = m_pathfinder.findPath(gs, ge, forbidStart, forbidGoal, occupiedCells);
-		if (path.isEmpty()) continue;
-
-		for (int i = 1; i < static_cast<int>(path.size()) - 1; ++i)
-			occupiedCells.emplace(path[i].y * kGridW + path[i].x);
-
-		const Array<Vec3> wps = m_pathfinder.samplePath(path, 5);
-		m_pathfinder.pathToRoadEdges(wps, roads, RoadType::LocalRoad, 2,
-		                     settleNodeId[u], settleNodeId[v]);
-	}
+	// チャンクあたり集落1つのため、チャンク内道路生成は不要
+	// 道路はチャンク間接続（buildChunk 内）で生成される
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -440,6 +340,9 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 	const Array<NodeSnapshot>& existingNodes,
 	bool skipPostProcess)
 {
+	const Stopwatch swTotal{ StartImmediately::Yes };
+	Stopwatch swStep{ StartImmediately::Yes };
+
 	const int rx = static_cast<int>(regionOffset.x / kMapWidth);
 	const int rz = static_cast<int>(regionOffset.y / kMapDepth);
 	const uint64 regionSeed = seed
@@ -454,11 +357,13 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 	result.terrainHeightMap = std::move(hmr.heightMap);
 	result.terrainHeightMin = hmr.heightMin;
 	result.terrainHeightMax = hmr.heightMax;
+	const double msHeightMap = swStep.msF(); swStep.restart();
 
 	MapGenerator gen;
 	gen.m_regionOffset = regionOffset;
 	gen.buildHeightGrid(result.terrainHeightMap, result.chunkCoord);
 	gen.placeSettlements(regionSeed, existingUrbanCenters);
+	const double msSettle = swStep.msF(); swStep.restart();
 
 	result.gridOffset = gen.m_pathfinder.offset();
 	result.gridW      = gen.m_pathfinder.gridW();
@@ -467,14 +372,18 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 	result.heightGrid = gen.m_pathfinder.heightGrid();
 
 	RoadNetwork tempRoads;
+	double msConnection = 0.0;
+	double msPostProcess = 0.0;
 
 	if (!gen.m_settlements.isEmpty())
 	{
 		gen.generateRoads(tempRoads, regionSeed);
 
 		// ---- 既存ネットワークへの接続 ----
+		// Urban/Suburbs 集落は最初の1つだけ接続し Arterial、Rural は LocalRoad
 		if (!existingNodes.isEmpty())
 		{
+			bool connectedPrimary = false;
 			for (const auto& s : gen.m_settlements)
 			{
 				const float sy = sampleHeightMap(result.terrainHeightMap, result.chunkCoord,
@@ -496,6 +405,15 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 					if (d < bestDist) { bestDist = d; bestNodeId = snap.id; bestNodePos = snap.position; }
 				}
 				if (bestNodeId < 0) continue;
+
+				// Rural 集落は既にチャンク内 spine 経由で接続されているのでスキップ
+				if (s.type == SettlementType::Rural && connectedPrimary)
+					continue;
+
+				// 道路種別: Urban/Suburbs → Arterial、Rural → LocalRoad
+				const bool isArterial = (s.type != SettlementType::Rural);
+				const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
+				const int      lanes = isArterial ? 4 : 2;
 
 				// 既存ノードをローカルネットワークに追加
 				RoadNode connNode;
@@ -527,35 +445,41 @@ MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
 					tempRoads.addEdge(*sNodeOpt, bestNodeId,
 					                  sPos + (bestNodePos - sPos) * (1.0 / 3.0),
 					                  sPos + (bestNodePos - sPos) * (2.0 / 3.0),
-					                  RoadType::LocalRoad, 2);
+					                  rt, lanes);
 				}
 				else
 				{
-					Array<Vec3> wps = pf.samplePath(path, 5);
+					Array<Vec3> wps = pf.samplePath(path, 3);
 					wps.front() = sPos;
 					wps.back()  = bestNodePos;
-					pf.pathToRoadEdges(wps, tempRoads, RoadType::LocalRoad, 2,
+					pf.pathToRoadEdges(wps, tempRoads, rt, lanes,
 					                   *sNodeOpt, bestNodeId);
 				}
 
 				result.connectionNodeId = bestNodeId;
+				connectedPrimary = true;
 			}
 		}
+		msConnection = swStep.msF(); swStep.restart();
 
 		// ---- ポスト処理 (ローカルネットワーク上) ----
 		if (!skipPostProcess)
 		{
-			while (tempRoads.fixSharpAngles(12.5f));
+			for (int iter = 0; iter < 100 && tempRoads.fixSharpAngles(12.5f); ++iter);
 			tempRoads.smoothAllCurves();
 			tempRoads.resolveIntersections();
 			tempRoads.spreadIntersectionTangents();
 			tempRoads.removeDuplicateEdges(seed);
 		}
+		msPostProcess = swStep.msF();
 	}
 
 	result.localNodes  = tempRoads.nodes();
 	result.localEdges  = tempRoads.edges();
 	result.settlements = gen.m_settlements;
+
+	Logger << U"[buildChunk] ({},{}) {:.0f}ms total | hmap={:.0f} settle={:.0f} conn={:.0f} post={:.0f}"_fmt(
+		rx, rz, swTotal.msF(), msHeightMap, msSettle, msConnection, msPostProcess);
 
 	return result;
 }

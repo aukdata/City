@@ -139,7 +139,7 @@ private:
 	Array<ChunkBuildTask> m_chunkTasks;
 	HashSet<int64>        m_pendingChunkKeys;              ///< 投入済みキー（二重投入防止）
 	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数（Playing時）
-	static constexpr int  kMaxChunkTasks    = 4;         ///< 同時バックグラウンドタスク数
+	static const int      kMaxChunkTasks;                ///< 同時バックグラウンドタスク数
 	static constexpr int  kInitRange        = 5;         ///< 初期生成半径 (11x11)
 
 	// ---- 無限ワールド: チャンクデータ管理 ----
