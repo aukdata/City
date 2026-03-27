@@ -2,19 +2,13 @@
 #include "PlaceNameGenerator.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 内部定数：地形タイプ別カテゴリ重み（11_placename_spec.md §2 テーブル）
+// 内部定数：カテゴリ重み（バイオームベースのため均等配分）
 // 列順: River, Mountain, Plain, Coast, General
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace
 {
-	constexpr int kWeights[4][5] =
-	{
-		/* Basin    */ { 30, 40, 10,  0, 20 },
-		/* Coastal  */ { 15,  5, 30, 30, 20 },
-		/* RiverFan */ { 40, 10, 30,  0, 20 },
-		/* Hills    */ { 10, 40, 20,  0, 30 },
-	};
+	constexpr int kDefaultWeights[5] = { 20, 25, 25, 10, 20 };
 
 	/// @brief TOML 配列から String 配列を読む
 	Array<String> readStringArray(const TOMLValue& v)
@@ -54,7 +48,7 @@ bool PlaceNameGenerator::load(FilePathView tomlPath)
 	return true;
 }
 
-PlaceNameDB PlaceNameGenerator::generate(int settlementCount, TerrainType terrain, uint64 mapSeed) const
+PlaceNameDB PlaceNameGenerator::generate(int settlementCount, uint64 mapSeed) const
 {
 	PlaceNameDB db;
 	if (!m_loaded || settlementCount <= 0)
@@ -62,10 +56,32 @@ PlaceNameDB PlaceNameGenerator::generate(int settlementCount, TerrainType terrai
 
 	for (int i = 0; i < settlementCount; ++i)
 	{
-		// 地区ごとに独立したシードを生成する
 		uint64 state = hashCombine(mapSeed, static_cast<uint64>(i));
 
-		const PlaceCategory cat    = pickCategory(terrain, state);
+		const PlaceCategory cat    = pickCategory(state);
+		const auto [name, reading] = generateOne(cat, db, state);
+
+		db.settlementNames[i]    = name;
+		db.settlementReadings[i] = reading;
+	}
+
+	return db;
+}
+
+PlaceNameDB PlaceNameGenerator::generateWithBiomes(
+	int settlementCount, const Array<BiomeType>& biomes, uint64 mapSeed) const
+{
+	PlaceNameDB db;
+	if (!m_loaded || settlementCount <= 0)
+		return db;
+
+	for (int i = 0; i < settlementCount; ++i)
+	{
+		uint64 state = hashCombine(mapSeed, static_cast<uint64>(i));
+
+		const BiomeType biome = (i < static_cast<int>(biomes.size()))
+			? biomes[i] : BiomeType::Plain;
+		const PlaceCategory cat    = pickCategoryForBiome(biome, state);
 		const auto [name, reading] = generateOne(cat, db, state);
 
 		db.settlementNames[i]    = name;
@@ -79,13 +95,46 @@ PlaceNameDB PlaceNameGenerator::generate(int settlementCount, TerrainType terrai
 // 内部ヘルパー
 // ─────────────────────────────────────────────────────────────────────────────
 
-PlaceCategory PlaceNameGenerator::pickCategory(TerrainType terrain, uint64& state) const
+PlaceCategory PlaceNameGenerator::pickCategory(uint64& state) const
 {
-	const int* w   = kWeights[static_cast<int>(terrain)];
+	const int* w   = kDefaultWeights;
 	int        sum = 0;
 	for (int k = 0; k < 5; ++k) sum += w[k];
+	if (sum <= 0) return PlaceCategory::General;
 
-	// Coast の重みが 0 の地形でも安全に動作するよう sum > 0 を保証
+	int r   = static_cast<int>(randIndex(state, static_cast<size_t>(sum)));
+	int cum = 0;
+	for (int k = 0; k < 5; ++k)
+	{
+		cum += w[k];
+		if (r < cum)
+			return static_cast<PlaceCategory>(k);
+	}
+	return PlaceCategory::General;
+}
+
+PlaceCategory PlaceNameGenerator::pickCategoryForBiome(BiomeType biome, uint64& state) const
+{
+	// バイオーム別重み: { River, Mountain, Plain, Coast, General }
+	static constexpr int kBiomeWeights[][5] = {
+		/* Ocean         */ {  5,  0, 10, 60, 25 },
+		/* Lake          */ { 40,  5, 20, 15, 20 },
+		/* CoastalPlain  */ { 10,  0, 30, 40, 20 },
+		/* CoastalHill   */ { 10, 20, 15, 30, 25 },
+		/* Plain         */ { 15,  5, 50,  0, 30 },
+		/* Basin         */ { 30,  5, 30,  0, 35 },
+		/* Hill          */ { 10, 35, 25,  0, 30 },
+		/* Foothill      */ { 10, 45, 15,  0, 30 },
+		/* Plateau       */ {  5, 30, 30,  0, 35 },
+		/* Mountain      */ {  5, 55, 10,  0, 30 },
+		/* MountainRange */ {  0, 65,  5,  0, 30 },
+	};
+
+	const int idx = Clamp(static_cast<int>(biome), 0,
+		static_cast<int>(std::size(kBiomeWeights)) - 1);
+	const int* w = kBiomeWeights[idx];
+	int sum = 0;
+	for (int k = 0; k < 5; ++k) sum += w[k];
 	if (sum <= 0) return PlaceCategory::General;
 
 	int r   = static_cast<int>(randIndex(state, static_cast<size_t>(sum)));

@@ -18,7 +18,15 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 
 	const auto& activeChunks = world.getActiveChunks();
 
-	// ポインタは毎フレーム取得し直す（ハッシュテーブルのリハッシュで無効化されうるため）
+	static int s_logCount = 0;
+	if (s_logCount < 3)
+	{
+		Logger << U"[WorldRenderer] eye=({:.0f},{:.0f},{:.0f}) activeChunks={}"_fmt(
+			eye.x, eye.y, eye.z, activeChunks.size());
+		++s_logCount;
+	}
+
+	// ポインタは毎フレーム取得し直す
 	// ソートはカメラチャンクまたはチャンク数が変わった場合のみ実行する
 	m_sortedChunks = activeChunks;
 	if (camChunk != m_lastSortChunk || activeChunks.size() != m_lastActiveCount)
@@ -72,6 +80,26 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 		if (!anyVisible && !isCameraChunk) continue;
 
 		drawChunk(*chunk, world);
+	}
+
+	// ---- 水面（y=0 の半透明平面）----
+	{
+		const ScopedRenderStates3D blend{ BlendState::Default2D };
+		const ColorF waterColor = ColorF{ 0.15, 0.35, 0.55, 0.7 }.removeSRGBCurve();
+		constexpr double cs = static_cast<double>(CHUNK_SIZE);
+
+		for (const Chunk* chunk : m_sortedChunks)
+		{
+			if (!chunk) continue;
+			// 水面下の地形がないチャンクはスキップ
+			if (chunk->heightMin > 0.0f) continue;
+
+			const double ox = static_cast<double>(chunk->coord.x) * cs;
+			const double oz = static_cast<double>(chunk->coord.y) * cs;
+			const double cx = ox + cs * 0.5;
+			const double cz = oz + cs * 0.5;
+			Box{ cx, -0.5, cz, cs, 1.0, cs }.draw(waterColor);
+		}
 	}
 }
 

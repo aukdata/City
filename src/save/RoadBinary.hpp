@@ -25,4 +25,10 @@ public:
 	static bool read(const FilePath& path,
 	                 Array<RoadNode>& outNodes,
 	                 Array<RoadEdge>& outEdges);
+
+	/// @brief RoadNetwork 全体を単一ファイルに書き出す
+	static bool writeGlobal(const FilePath& path, const RoadNetwork& network);
+
+	/// @brief 単一ファイルから RoadNetwork を復元する
+	static bool readGlobal(const FilePath& path, RoadNetwork& network);
 };

@@ -5,11 +5,12 @@
 /// @brief チャンクのロード状態
 enum class ChunkState : uint8
 {
-	Unloaded,
-	Loading,
 	Active,
 	Sleeping,
 };
+
+/// @brief ワールドの一辺のチャンク数
+constexpr int WORLD_CHUNKS = 64;
 
 /// @brief チャンクの一辺の長さ [m]
 constexpr int CHUNK_SIZE = 1024;
@@ -70,7 +71,7 @@ struct Chunk
 	Grid<ZoneType>    zoneMap;                       ///< ZONE_CELLS×ZONE_CELLS のゾーン
 	Grid<Building>    buildingGrid;                  ///< ZONE_CELLS×ZONE_CELLS の建物（type==None で空地）
 	bool              isUrbanizationArea = false;    ///< 市街化区域か
-	ChunkState        state = ChunkState::Unloaded;
+	ChunkState        state = ChunkState::Sleeping;
 	bool              meshDirty = false;              ///< メッシュ再生成が必要か
 	float             heightMin = 0.0f;              ///< heightMap の最小高さ
 	float             heightMax = 0.0f;              ///< heightMap の最大高さ

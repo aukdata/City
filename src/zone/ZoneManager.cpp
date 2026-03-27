@@ -234,73 +234,10 @@ bool ZoneManager::tryGrowBuilding(Building& b, ZoneType zone, float score) const
 
 // ===== 月次更新 =====
 
-void ZoneManager::monthlyUpdate(World& world, const RoadNetwork& network,
-                                double gameNow, Economy& economy)
+void ZoneManager::monthlyUpdate(World& /*world*/, const RoadNetwork& /*network*/,
+                                double /*gameNow*/, Economy& /*economy*/)
 {
-	for (Chunk* chunk : world.getActiveChunks())
-	{
-		if (!chunk) continue;
-		const Point cc = chunk->coord;
-
-		for (int cy = 0; cy < ZONE_CELLS; ++cy)
-		{
-			for (int cx = 0; cx < ZONE_CELLS; ++cx)
-			{
-				const ZoneType zone = chunk->zoneMap[{ cx, cy }];
-				if (zone == ZoneType::Unzoned) continue;
-
-				// 道路情報を一度計算してスコアと方向を共用する
-				const Vec3  ctr_     = cellToWorld(cc, { cx, cy });
-				const auto  roadInfo = nearestRoadInfo(
-					static_cast<float>(ctr_.x), static_cast<float>(ctr_.z), network);
-				const float score = scoreFromDist(roadInfo.dist);
-				Building& b = chunk->buildingGrid[{ cx, cy }];
-
-				if (b.type == BuildingType::None)
-				{
-					// 空地 → 沿道の区画にのみスパースに建物生成
-					if (score >= kSpawnThreshold)
-					{
-						// deterministic hash: ~28% of lots get a building
-						const uint32 h =
-							(static_cast<uint32>(cc.x * ZONE_CELLS + cx) * 2654435761u) ^
-							(static_cast<uint32>(cc.y * ZONE_CELLS + cy) * 2246822519u);
-						if (h % 100 < 28 && roadInfo.dist >= kRoadClearance)
-						{
-							b = spawnBuilding(zone, gameNow);
-							b.angle = roadInfo.angle;
-						}
-					}
-				}
-				else
-				{
-					if (score < kDecayThreshold)
-					{
-						// 衰退 → 撤去
-						b = Building{};
-					}
-					else
-					{
-						// 成長試行
-						tryGrowBuilding(b, zone, score);
-					}
-				}
-			}
-		}
-	}
-
-	// 住宅収容人口から人口を更新する
-	const int cap = totalHousingCapacity(world);
-	if (cap > 0)
-	{
-		// 収容人口の 80〜100% に緩やかに近づける（急変を防ぐ）
-		const int target = static_cast<int>(cap * 0.90);
-		economy.population += (target - economy.population) / 12;  // 1年で収束
-		if (economy.population < 100) economy.population = 100;
-	}
-
-	// 月次収支を適用する
-	economy.applyMonthly(network);
+	// TODO: 空間インデックス導入後に再実装する
 }
 
 // ===== 統計 =====

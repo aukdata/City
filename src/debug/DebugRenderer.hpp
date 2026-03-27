@@ -33,6 +33,7 @@ private:
 	bool m_showVehicles  = false;  ///< F3+V: 車両デバッグ情報
 	bool m_showGrid      = false;  ///< F3+G: ワールド座標グリッド
 	bool m_showDetailHUD = false;  ///< F3+H: HUD 詳細
+	bool m_showBiomes    = false;  ///< F3+B: バイオーム表示
 	bool   m_showHelp      = false;  ///< F3+/: ヘルプパネル
 	double m_helpOpenTime  = 0.0;    ///< ヘルプを開いた Scene::Time()
 
@@ -46,6 +47,8 @@ private:
 	                     const World& world,
 	                     const GameCamera& camera,
 	                     const Array<Vehicle>& vehicles);
+	void renderBiomes(const World& world, const GameCamera& camera);
+	void renderBiomeLegend();
 	void renderLog();
 	void renderHelp();
 };

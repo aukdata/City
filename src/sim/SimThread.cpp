@@ -12,9 +12,8 @@ void SimThread::start(
 	m_clock    = clock;
 	m_graph    = std::move(graph);
 
-	// TrafficManager に SimGraph を設定
+	// TrafficManager の SimGraph を共有ポインタに差し替え（再 rebuild はしない）
 	m_traffic.setSimGraph(m_graph);
-	m_traffic.markNetworkDirty();
 
 	m_running  = true;
 	m_thread   = std::thread{ &SimThread::run, this };

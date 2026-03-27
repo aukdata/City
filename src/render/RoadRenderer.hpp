@@ -15,11 +15,11 @@ class RoadRenderer
 {
 public:
 	/// @brief LOD 切り替え距離 [m]
-	static constexpr double kLodDist   = 400.0;
+	static constexpr double kLodDist   = 800.0;
 	static constexpr double kLodDistSq = kLodDist * kLodDist;
 
 	/// @brief 道路の描画カット距離 [m]
-	static constexpr double kDrawMaxDist   = 6000.0;
+	static constexpr double kDrawMaxDist   = 12000.0;
 	static constexpr double kDrawMaxDistSq = kDrawMaxDist * kDrawMaxDist;
 
 	/// @brief スタイル定義 TOML をロードする（ゲーム起動時に一度呼ぶ）

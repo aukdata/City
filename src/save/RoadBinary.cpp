@@ -151,3 +151,19 @@ bool RoadBinary::read(const FilePath& path,
 
 	return true;
 }
+
+bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network)
+{
+	return write(path, 0, 0, network.nodes(), network.edges());
+}
+
+bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
+{
+	Array<RoadNode> nodes;
+	Array<RoadEdge> edges;
+	if (!read(path, nodes, edges)) return false;
+
+	for (const auto& n : nodes) network.addNodeRaw(n);
+	for (const auto& e : edges) network.addEdgeRaw(e);
+	return true;
+}

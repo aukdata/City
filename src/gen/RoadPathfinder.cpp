@@ -124,8 +124,16 @@ Array<Point> RoadPathfinder::findPath(
 			else if (slope < 0.30f) gradPenalty = 5.0f;
 			else                    gradPenalty = 20.0f;
 
-			// 水域回避
-			const float terrainPenalty = (height(nx, nz) < 0.0f) ? 10.0f : 1.0f;
+			// 水域・マップ範囲外は通行不可
+			float terrainPenalty = 1.0f;
+			if (height(nx, nz) < 0.0f)
+				terrainPenalty = 1e6f;
+			{
+				const Vec2 wp = gridToWorld(nx, nz);
+				const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+				if (wp.x < 0.0f || wp.x > worldSize || wp.y < 0.0f || wp.y > worldSize)
+					terrainPenalty = 1e6f;
+			}
 
 			float move = m_cellSize * kDc[d] * gradPenalty * terrainPenalty;
 
@@ -133,9 +141,9 @@ Array<Point> RoadPathfinder::findPath(
 			if (occupiedCells.count(ni) > 0)
 				move *= 2.5f;
 
-			// 鋭角ペナルティ（cos 12.5° ≈ 0.976）
+			// 鋭角ペナルティ（cos 45° ≈ 0.707）
 			constexpr float kNearDist       = 6.0f;
-			constexpr float kSharpCosThresh = 0.976f;
+			constexpr float kSharpCosThresh = 0.707f;
 			constexpr float kSharpPenalty   = 50.0f;
 			const Vec2 moveDirN = Vec2{ static_cast<float>(kDx[d]),
 			                           static_cast<float>(kDz[d]) }.normalized();

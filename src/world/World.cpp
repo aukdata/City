@@ -1,6 +1,25 @@
 ﻿#include "World.hpp"
 #include <cmath>
 
+void World::reserveChunks()
+{
+	m_chunks.reserve(WORLD_CHUNKS * WORLD_CHUNKS);
+	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
+		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+			m_chunks.emplace_back(Point{ cx, cy });
+}
+
+void World::installChunkDirect(Point coord, HeightMapResult&& hmr)
+{
+	if (!isValidCoord(coord)) return;
+
+	Chunk& chunk = m_chunks[coordToIndex(coord)];
+	chunk.heightMap = std::move(hmr.heightMap);
+	chunk.heightMin = hmr.heightMin;
+	chunk.heightMax = hmr.heightMax;
+	chunk.isUrbanizationArea = true;
+}
+
 void World::update(Vec3 cameraWorldPos)
 {
 	const Point newChunk = worldToChunkCoord(cameraWorldPos);
@@ -11,8 +30,7 @@ void World::update(Vec3 cameraWorldPos)
 	m_cameraChunk = newChunk;
 	bool activeChanged = false;
 
-	// 範囲外チャンクを Sleeping に降格
-	for (auto& [key, chunk] : m_chunks)
+	for (auto& chunk : m_chunks)
 	{
 		if (chunk.state == ChunkState::Active)
 		{
@@ -26,8 +44,6 @@ void World::update(Vec3 cameraWorldPos)
 		}
 	}
 
-	// アクティブ範囲内の installChunk 済みチャンクを Active に設定
-	// （地形生成はバックグラウンドスレッドの buildChunk → installChunk で行う）
 	for (int dy = -ACTIVE_RANGE; dy <= ACTIVE_RANGE; ++dy)
 	{
 		for (int dx = -ACTIVE_RANGE; dx <= ACTIVE_RANGE; ++dx)
@@ -46,71 +62,27 @@ void World::update(Vec3 cameraWorldPos)
 		rebuildActiveChunkCache();
 }
 
-Chunk& World::getOrCreateChunk(Point coord)
-{
-	const Key key = chunkCoordToKey(coord);
-
-	if (not m_chunks.contains(key))
-	{
-		const auto oldBuckets = m_chunks.bucket_count();
-		m_chunks.emplace(key, Chunk(coord));
-		if (m_chunks.bucket_count() != oldBuckets)
-			rebuildActiveChunkCache();
-		generateChunk(m_chunks[key]);
-		m_newChunks << coord;
-	}
-
-	return m_chunks[key];
-}
-
-void World::installChunk(Point coord, Grid<float>&& heightMap, float heightMin, float heightMax)
-{
-	const Key key = chunkCoordToKey(coord);
-	if (m_chunks.contains(key))
-		return;   // 既に生成済み
-
-	Chunk chunk(coord);
-	chunk.heightMap = std::move(heightMap);
-	chunk.heightMin = heightMin;
-	chunk.heightMax = heightMax;
-	// カメラの ACTIVE_RANGE 内なら Active、それ以外は Sleeping
-	const bool inRange = (Abs(coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
-	                      Abs(coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
-	chunk.state              = inRange ? ChunkState::Active : ChunkState::Sleeping;
-	chunk.isUrbanizationArea = true;
-	// emplace がリハッシュを起こすとアクティブチャンクキャッシュ内の
-	// ポインタが無効化されるため、挿入前のバケット数を記録する
-	const auto oldBuckets = m_chunks.bucket_count();
-	m_chunks.emplace(key, std::move(chunk));
-	m_newChunks << coord;
-	// リハッシュが発生した場合、または新チャンクがアクティブ範囲内の場合にキャッシュを再構築する
-	if (m_chunks.bucket_count() != oldBuckets || inRange)
-		rebuildActiveChunkCache();
-}
-
 const Chunk* World::getChunk(Point coord) const
 {
-	const Key key = chunkCoordToKey(coord);
-	const auto it = m_chunks.find(key);
-	if (it == m_chunks.end())
-		return nullptr;
-	return &it->second;
+	if (!isValidCoord(coord)) return nullptr;
+	const Chunk& chunk = m_chunks[coordToIndex(coord)];
+	if (chunk.heightMap.isEmpty()) return nullptr;
+	return &chunk;
 }
 
 Chunk* World::getChunk(Point coord)
 {
-	const Key key = chunkCoordToKey(coord);
-	const auto it = m_chunks.find(key);
-	if (it == m_chunks.end())
-		return nullptr;
-	return &it->second;
+	if (!isValidCoord(coord)) return nullptr;
+	Chunk& chunk = m_chunks[coordToIndex(coord)];
+	if (chunk.heightMap.isEmpty()) return nullptr;
+	return &chunk;
 }
 
 void World::rebuildActiveChunkCache()
 {
 	m_activeChunks.clear();
 	m_activeChunksConst.clear();
-	for (auto& [key, chunk] : m_chunks)
+	for (auto& chunk : m_chunks)
 	{
 		if (chunk.state == ChunkState::Active)
 		{
@@ -140,50 +112,176 @@ float World::sampleHeight(float wx, float wz) const
 	return chunk->getHeight(wx, wz);
 }
 
-void World::setGenerationParams(uint64 seed, TerrainType terrainType, float mapWidth, float mapDepth)
+void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 {
-	m_seed        = seed;
-	m_terrainType = terrainType;
-	m_mapWidth    = mapWidth;
-	m_mapDepth    = mapDepth;
-	m_perlin      = PerlinNoise{ seed };  // PerlinNoise はここで一度だけ構築する
+	m_seed     = seed;
+	m_mapWidth = mapWidth;
+	m_mapDepth = mapDepth;
+	m_perlin   = PerlinNoise{ seed };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// バイオームベース地形生成
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// @brief cont ノイズにマップ端距離補正を加える
+/// マップ端 → cont が下がり海に。中央 → cont が上がり内陸に。
+/// 海は必ずマップ端に接し、小さな内陸海を防ぐ。
+float World::adjustContinentalness(float rawCont, float wx, float wz) const
+{
+	// マップ端からの最短距離 (0 = 端, mapWidth/2 = 中央)
+	const float dLeft   = wx;
+	const float dRight  = m_mapWidth - wx;
+	const float dTop    = wz;
+	const float dBottom = m_mapDepth - wz;
+	const float edgeDist = Min({ dLeft, dRight, dTop, dBottom });
+
+	// 端からの距離を 0〜1 に正規化（5チャンク=5120m で完全に内陸扱い）
+	constexpr float kEdgeZone = 5120.0f;
+	const float edgeFactor = Clamp(edgeDist / kEdgeZone, 0.0f, 1.0f);
+
+	// edgeFactor=0(端) → cont を 0.15 下げる（海になりやすい）
+	// edgeFactor=1(中央) → cont を 0.15 上げる（海になりにくい）
+	return Clamp(rawCont + (edgeFactor - 0.5f) * 0.30f, 0.0f, 1.0f);
+}
+
+void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
+{
+	// 2つの独立した低周波ノイズ (0〜1)
+	const float rawCont = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
+	const float cont = adjustContinentalness(rawCont, wx, wz);
+	const float mtn = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
+
+	// ── 完全連続な二軸補間 ──
+	// cont 軸: 海(0) → 海岸(0.3) → 内陸(0.5) → 高地(0.8) → 山脈帯(1.0)
+	// mtn  軸: 平坦(0) → 起伏(0.5) → 険峻(1.0)
+	// 各軸で基底高・振幅の「低 mtn 時」「高 mtn 時」を連続カーブで求め、mtn で補間する
+
+	// smoothstep で遷移を滑らかにする
+	auto smoothstep = [](float edge0, float edge1, float x) -> float
+	{
+		const float t = Clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+		return t * t * (3.0f - 2.0f * t);
+	};
+
+	// cont 軸: 低 mtn 時の base/amp カーブ（平坦系: 海→海岸平野→平野→高原）
+	float baseLow, ampLow;
+	{
+		const float seaToCoast  = smoothstep(0.20f, 0.35f, cont);  // 海→海岸
+		const float coastToLand = smoothstep(0.35f, 0.50f, cont);  // 海岸→内陸
+		const float landToHigh  = smoothstep(0.60f, 0.80f, cont);  // 内陸→高地
+
+		baseLow = Math::Lerp(-40.0f, 0.0f, seaToCoast);            // 海→海岸
+		baseLow = Math::Lerp(baseLow, 15.0f, coastToLand);         // →平野
+		baseLow = Math::Lerp(baseLow, 200.0f, landToHigh);         // →高原
+
+		ampLow = Math::Lerp(8.0f, 15.0f, seaToCoast);
+		ampLow = Math::Lerp(ampLow, 20.0f, coastToLand);
+		ampLow = Math::Lerp(ampLow, 40.0f, landToHigh);
+	}
+
+	// cont 軸: 高 mtn 時の base/amp カーブ（山系: 海→海岸丘陵→山麓→山脈）
+	float baseHigh, ampHigh;
+	{
+		const float seaToCoast  = smoothstep(0.20f, 0.35f, cont);
+		const float coastToLand = smoothstep(0.35f, 0.50f, cont);
+		const float landToHigh  = smoothstep(0.55f, 0.75f, cont);
+
+		baseHigh = Math::Lerp(-40.0f, 30.0f, seaToCoast);          // 海→海岸丘陵
+		baseHigh = Math::Lerp(baseHigh, 120.0f, coastToLand);      // →山麓
+		baseHigh = Math::Lerp(baseHigh, 500.0f, landToHigh);       // →山脈
+
+		ampHigh = Math::Lerp(8.0f, 60.0f, seaToCoast);
+		ampHigh = Math::Lerp(ampHigh, 200.0f, coastToLand);
+		ampHigh = Math::Lerp(ampHigh, 450.0f, landToHigh);
+	}
+
+	// mtn 軸で低/高を滑らかに補間
+	const float mtnBlend = smoothstep(0.25f, 0.75f, mtn);
+	outBase = Math::Lerp(baseLow, baseHigh, mtnBlend);
+	outAmp  = Math::Lerp(ampLow, ampHigh, mtnBlend);
+}
+
+BiomeType World::getBiome(float wx, float wz) const
+{
+	const float rawCont = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
+	const float cont = adjustContinentalness(rawCont, wx, wz);
+	const float mtn = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
+	// 湖判定用の独立ノイズ
+	const float lake = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00015 + 3000.0, wz * 0.00015 + 3000.0));
+
+	if (cont < 0.25f) return BiomeType::Ocean;
+	if (cont < 0.38f) return (mtn < 0.5f) ? BiomeType::CoastalPlain : BiomeType::CoastalHill;
+	if (cont < 0.62f)
+	{
+		// 内陸部の低 mtn で lake ノイズが低い → 湖
+		if (mtn < 0.30f && lake < 0.20f) return BiomeType::Lake;
+		// 低 mtn で lake がやや低い → 窪地
+		if (mtn < 0.25f && lake < 0.35f) return BiomeType::Basin;
+		if (mtn < 0.30f) return BiomeType::Plain;
+		if (mtn < 0.55f) return BiomeType::Hill;
+		return BiomeType::Foothill;
+	}
+	// 高地帯でも lake ノイズが非常に低ければ高原湖
+	if (mtn < 0.35f && lake < 0.15f) return BiomeType::Lake;
+	if (mtn < 0.35f) return BiomeType::Plateau;
+	if (mtn < 0.65f) return BiomeType::Mountain;
+	return BiomeType::MountainRange;
 }
 
 float World::computeHeight(float wx, float wz) const
 {
-	constexpr double kFreq = 0.00035;
+	// 1. バイオームパラメータ（連続補間）
+	float baseHeight, amplitude;
+	computeBiomeParams(wx, wz, baseHeight, amplitude);
 
-	const float p01 = static_cast<float>(
+	// 2. ディテールノイズ（6オクターブ Perlin）
+	constexpr double kFreq = 0.00035;
+	const float detail = static_cast<float>(
 		m_perlin.octave2D0_1(wx * kFreq, wz * kFreq, 6, 0.5));
 
-	switch (m_terrainType)
+	// 3. 中周波ノイズ（丘陵ディテール）
+	const float midDetail = static_cast<float>(
+		m_perlin.octave2D0_1(wx * kFreq * 3.0, wz * kFreq * 3.0, 4, 0.5));
+
+	// 4. 湖ノイズ: 内陸の窪みを水面下に沈める
+	const float lake = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00015 + 3000.0, wz * 0.00015 + 3000.0));
+
+	float h = baseHeight
+		+ (detail - 0.5f) * amplitude * 1.6f
+		+ (midDetail - 0.5f) * amplitude * 0.4f;
+
+	// 5. 海・湖は標高をマイナスに保証
+	const float rawCont = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
+	const float cont = adjustContinentalness(rawCont, wx, wz);
+	const float mtn = static_cast<float>(
+		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
+
+	// 海: cont < 0.25 → 確実に水面下
+	if (cont < 0.20f)
+		h = Min(h, -5.0f);
+	else if (cont < 0.30f)
 	{
-	case TerrainType::Basin:
+		// 海岸遷移帯: 滑らかに水面下制約を緩和
+		const float seaClamp = (cont - 0.20f) / 0.10f;  // 0→1
+		h = Min(h, Math::Lerp(-5.0f, h, seaClamp));
+	}
+
+	// 湖: 内陸で lake ノイズが低い領域を水面下に沈める
+	if (cont >= 0.30f && lake < 0.20f && mtn < 0.35f)
 	{
-		const float cnx    = (wx / m_mapWidth - 0.5f) * 2.0f;
-		const float cnz    = (wz / m_mapDepth - 0.5f) * 2.0f;
-		const float radial = Clamp(std::sqrt(cnx * cnx + cnz * cnz) / 1.414f, 0.0f, 1.0f);
-		const float r2     = radial * radial;
-		return r2 * 360.0f + p01 * (120.0f + r2 * 260.0f) - 80.0f;
+		const float lakeDepth = (0.20f - lake) / 0.20f;  // 0→1 (lake=0.2→0, lake=0→1)
+		h = Min(h, Math::Lerp(h, -10.0f, lakeDepth * lakeDepth));
 	}
-	case TerrainType::Coastal:
-	{
-		const float ramp = Clamp(wz / m_mapDepth, 0.0f, 1.0f);
-		return Math::Lerp(-30.0f, 240.0f, ramp) + p01 * Math::Lerp(10.0f, 400.0f, ramp);
-	}
-	case TerrainType::RiverFan:
-	{
-		const float ramp = Clamp(wz / m_mapDepth, 0.0f, 1.0f);
-		return Math::Lerp(440.0f, -20.0f, ramp) + p01 * Math::Lerp(160.0f, 70.0f, ramp) - 40.0f;
-	}
-	case TerrainType::Hills:
-	default:
-	{
-		const float p01med = static_cast<float>(
-			m_perlin.octave2D0_1(wx * kFreq * 3.0, wz * kFreq * 3.0, 4, 0.5));
-		return p01 * 180.0f + p01med * 100.0f - 50.0f;
-	}
-	}
+
+	return h;
 }
 
 HeightMapResult World::buildHeightMap(Point chunkCoord) const
@@ -205,21 +303,4 @@ HeightMapResult World::buildHeightMap(Point chunkCoord) const
 		}
 	}
 	return { std::move(hm), lo, hi };
-}
-
-void World::generateChunk(Chunk& chunk)
-{
-	const Stopwatch sw{ StartImmediately::Yes };
-
-	auto hmr = buildHeightMap(chunk.coord);
-	chunk.heightMap = std::move(hmr.heightMap);
-	chunk.heightMin = hmr.heightMin;
-	chunk.heightMax = hmr.heightMax;
-	const bool inRange = (Abs(chunk.coord.x - m_cameraChunk.x) <= ACTIVE_RANGE &&
-	                      Abs(chunk.coord.y - m_cameraChunk.y) <= ACTIVE_RANGE);
-	chunk.state = inRange ? ChunkState::Active : ChunkState::Sleeping;
-	chunk.isUrbanizationArea = true;
-
-	Logger << U"[Chunk] ({}, {}) generated in {}ms"_fmt(
-		chunk.coord.x, chunk.coord.y, sw.ms());
 }

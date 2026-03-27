@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <future>
+#include <atomic>
 #include "SceneCommon.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../sim/SimThread.hpp"
@@ -37,7 +38,7 @@ public:
 
 private:
 	// ---- ゲームフェーズ ----
-	enum class GamePhase { Loading, PostProcess, Playing };
+	enum class GamePhase { Loading, Playing };
 	GamePhase m_phase = GamePhase::Loading;
 
 	// ---- ローディング管理 ----
@@ -45,8 +46,11 @@ private:
 	Stopwatch m_loadingTimer;            ///< 生成開始からの経過時間
 	String    m_loadingStatus;           ///< 現在実行中の処理内容
 
-	/// @brief ポスト処理の非同期タスク
-	std::future<void> m_postProcessFuture;
+	/// @brief バックグラウンド生成パイプラインの非同期タスク
+	std::future<void> m_generationFuture;
+
+	/// @brief 生成進捗 [0.0, 1.0]（atomic でバックグラウンドスレッドから更新）
+	std::atomic<float> m_genProgress{ 0.0f };
 
 	// ---- 地名データベース ----
 	PlaceNameDB                     m_placeNames;
@@ -107,15 +111,12 @@ private:
 	float           m_terrainBrushStrength = 20.0f;
 
 	// サンドボックス編集
-	struct CtrlDrag { int edgeId; bool isControlPointA; };     ///< ドラッグ中の制御点
+	struct CtrlDrag { int edgeId; bool isControlPointA; };
 	bool               m_sandboxActive     = false;
-	Optional<int>      m_sandboxDragNode;          ///< ドラッグ中のノード id
-	Optional<CtrlDrag> m_sandboxDragCtrl;          ///< ドラッグ中の制御点
-	Vec3               m_sandboxPrevCursor;        ///< 前フレームのカーソル地面位置
+	Optional<int>      m_sandboxDragNode;
+	Optional<CtrlDrag> m_sandboxDragCtrl;
+	Vec3               m_sandboxPrevCursor;
 
-	// 月次トリガー管理
-	int             m_lastEconYear  = -1;
-	int             m_lastEconMonth = -1;
 	int             m_followVehicleIdx = 0;
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する
@@ -127,52 +128,9 @@ private:
 	// 描画プロファイリング
 	double          m_logicMs = 0.0;
 
-	// ---- バックグラウンドチャンク生成 ----
+	// ---- ユーティリティ ----
 
-	/// @brief バックグラウンド実行中のチャンク構築タスク
-	struct ChunkBuildTask
-	{
-		Point                                          chunkCoord;
-		std::future<MapGenerator::ChunkBuildResult>    future;
-	};
-
-	Array<ChunkBuildTask> m_chunkTasks;
-	HashSet<int64>        m_pendingChunkKeys;              ///< 投入済みキー（二重投入防止）
-	static constexpr int  kMaxMergePerFrame = 1;         ///< 1フレームあたりの最大統合数（Playing時）
-	static const int      kMaxChunkTasks;                ///< 同時バックグラウンドタスク数
-	static constexpr int  kInitRange        = 5;         ///< 初期生成半径 (11x11)
-
-	// ---- 無限ワールド: チャンクデータ管理 ----
-
-	/// @brief チャンク内オブジェクトの永続データ（セーブ/ロード単位）
-	struct ChunkData
-	{
-		Point                           chunkCoord;  ///< このチャンクの座標
-		Array<RoadNode>                 nodes;       ///< 保有ノード（境界ノード重複あり）
-		Array<RoadEdge>                 edges;       ///< 保有エッジ（nodeA 座標で帰属決定）
-		Array<MapGenerator::Settlement> districts;   ///< 地区リスト
-	};
-
-	/// @brief チャンクキー → ChunkData（永続層）。キーの存在 = 生成済み
-	HashTable<int64, ChunkData> m_chunkStore;
-
-	/// @brief 現在ネットワークにロード済みのチャンクキー集合
-	HashSet<int64> m_loadedChunkKeys;
-
-	/// @brief リージョン座標 → ワールドオフセット [m]
-	static Vec2 regionToWorldOffset(Point region)
-	{
-		constexpr float kRegionM = 1024.0f;
-		return Vec2{ region.x * kRegionM, region.y * kRegionM };
-	}
-
-	/// @brief リージョン座標をハッシュキーに変換する
-	static int64 regionKey(Point p)
-	{
-		return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
-	}
-
-	/// @brief ワールド座標 → チャンク座標（負座標対応の floor 除算）
+	/// @brief ワールド座標 → チャンク座標
 	static Point worldPosToChunk(Vec3 pos)
 	{
 		constexpr float kChunkM = 1024.0f;
@@ -185,22 +143,21 @@ private:
 	}
 
 	// ---- 内部メソッド ----
-	void initScene();         ///< セーブ有無を判定してロードまたは新規生成へ振り分ける
-	void initNewGame();       ///< 新規マップ生成（Loading フェーズへ遷移するのみ）
-	void saveGame();          ///< saves/default/ にセーブ
-	bool loadGame();          ///< saves/default/ からロード、成功なら true
+	void initScene();
+	void initNewGame();
+	void saveGame();
+	bool loadGame();
 	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);
-	void applyRoadPostProcess();
-	void snapshotAllChunks();
-	void checkAndGenerateRegions();
-	void pollChunkTasks(int maxMerge = kMaxMergePerFrame);
-	void dispatchChunkTasks();
-	void mergeChunkResult(MapGenerator::ChunkBuildResult&& result);
-	void applyZonesFromGrid(const MapGenerator::ChunkBuildResult& result);
-	void updateLoadedChunks();
-	void updateLoading();                ///< Loading フェーズの更新
-	void drawLoadingScreen(float progress); ///< ローディング画面描画
-	void startSimThread();               ///< SimThread を起動する
+	void applyZonesGlobal();
+	void updateLoading();
+	void drawLoadingScreen(float progress);
+	void startSimThread();
+
+	// ---- バックグラウンド生成パイプライン ----
+	void generateAllTerrain();
+	void placeAllSettlements();
+	void generateAllRoads();
+	void postProcessRoads();
 
 	/// @brief RoadNetwork 変更後に SimGraph を再構築して SimThread に通知する
 	void notifyNetworkChanged()

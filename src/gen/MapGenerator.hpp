@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <functional>
 #include "TerrainType.hpp"
 #include "PlaceNameGenerator.hpp"
 #include "RoadPathfinder.hpp"
@@ -7,7 +8,6 @@
 #include "../railway/TrainNetwork.hpp"
 
 /// @brief プロシージャルマップ生成（03_procedural_generation_spec.md）
-/// Phase 1: 地形生成 / Phase 2: 地区配置 / Phase 3: 旧道生成 / Phase 6: 初期ゾーン
 class MapGenerator
 {
 public:
@@ -20,6 +20,7 @@ public:
 		Vec2           center;   ///< ワールド XZ 座標 [m]
 		SettlementType type;
 		float          radius;   ///< 影響半径 [m]
+		float          score;    ///< 地形適性スコア (0.0〜1.0)
 		String         name;     ///< 地区地名（PlaceNameGenerator が設定）
 		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
 	};
@@ -27,84 +28,55 @@ public:
 	/// @brief initWorld() の結果
 	struct InitResult
 	{
-		PlaceNameDB  placeNames;    ///< 生成された地名データベース
+		PlaceNameDB  placeNames;
 	};
 
 	/// @brief ワールドパラメータ設定 + 地名生成（メインスレッドで即座に完了）
-	static InitResult initWorld(uint64 seed, TerrainType terrainType, World& world);
+	static InitResult initWorld(uint64 seed, World& world);
 
-	/// @brief 既存ノードの位置スナップショット（バックグラウンドスレッドでの最近傍検索用）
-	struct NodeSnapshot { int id; Vec3 position; };
+	/// @brief 全ワールドの地区を一括配置する（地形スコアベース）
+	static Array<Settlement> placeAllSettlements(uint64 seed, const World& world);
 
-	/// @brief チャンク事前構築結果
-	/// @details ローカル RoadNetwork で生成した道路データ + ゾーン割当用の高さグリッドキャッシュ。
-	///   ノード/エッジの ID はローカル (0-based) であり、メインスレッドでリマップが必要。
-	///   connectionNodeId のノードは既存ネットワークに存在するため addNode 不要。
-	struct ChunkBuildResult
-	{
-		Point             chunkCoord;
-		Array<RoadNode>   localNodes;
-		Array<RoadEdge>   localEdges;
-		Array<Settlement> settlements;
-		int               connectionNodeId = -1; ///< 接続先の既存ノード ID (-1 = 接続なし)
-		Vec2              gridOffset;
-		int               gridW    = 0;
-		int               gridH    = 0;
-		float             cellSize = 0.0f;
-		Array<float>      heightGrid;
-		Grid<float>       terrainHeightMap;       ///< 事前計算済み地形 heightMap
-		float             terrainHeightMin = 0.0f;
-		float             terrainHeightMax = 0.0f;
-	};
+	/// @brief 進捗コールバック (0.0〜1.0)
+	using ProgressCallback = std::function<void(float)>;
 
-	/// @brief チャンクを構築する（スレッド安全: World は const 読み取りのみ）
-	/// @param skipPostProcess  true にするとローカルポスト処理をスキップ（初期生成時用）
-	static ChunkBuildResult buildChunk(
-		Vec2 regionOffset, uint64 seed,
+	/// @brief 3層分岐構造で道路を一括生成する
+	static void generateGlobalRoads(
+		uint64 seed,
+		const Array<Settlement>& settlements,
 		const World& world,
-		const Array<Vec2>& existingUrbanCenters,
-		const Array<NodeSnapshot>& existingNodes,
-		bool skipPostProcess = false);
+		RoadNetwork& network,
+		ProgressCallback onProgress = {});
 
 	/// @brief 鉄道の初期路線を構築する
 	static void setupTrain(TrainNetwork& trainNet, const World& world,
 	                        const Array<Settlement>& districts);
 
 private:
-	// ----- 定数 -----
-	static constexpr int   kMapChunksX = 1;
-	static constexpr int   kMapChunksZ = 1;
-	static constexpr float kCellSize   = 40.0f;
-	static constexpr int   kGridW      = 26;                           // ceil(1024/40)
-	static constexpr int   kGridH      = 26;
-	static constexpr float kMapWidth   = kMapChunksX * CHUNK_SIZE;    // 1024 m
-	static constexpr float kMapDepth   = kMapChunksZ * CHUNK_SIZE;
+	static constexpr float kCellSize = 40.0f;
+	static constexpr int   kGridW    = 26;
+	static constexpr int   kGridH    = 26;
 
-	// ----- Phase 1: 地形生成 -----
-	/// @brief 事前計算済み heightMap からパスファインダーグリッドを構築する
-	void buildHeightGrid(const Grid<float>& heightMap, Point chunkCoord);
+	/// @brief 地形適性スコアを計算する (0.0=不適, 1.0=最適)
+	static float scoreSuitability(const RoadPathfinder& pf, int gx, int gz);
 
-	// ----- Phase 2: 地区配置 -----
-	/// @brief Poisson ディスクサンプリングで地区核を配置する
-	void placeSettlements(uint64 seed, const Array<Vec2>& existingUrbanCenters = {});
+	/// @brief 指定インデックスの地区サブセットで Prim's MST を計算する
+	static Array<std::pair<int,int>> computeMSTSubset(
+		const Array<Settlement>& settlements, const Array<int>& indices);
 
-	/// @brief そのセルが地区に適しているか（平坦・陸地・適度な高さ）
-	bool isSuitable(int gx, int gz) const;
+	/// @brief MST 上の最長パス(diameter)を求める
+	/// @return diameter パス上のインデックス列（indices 配列内のインデックス）
+	static Array<int> findMSTDiameter(
+		const Array<std::pair<int,int>>& mst, int nodeCount);
 
-	// ----- Phase 3: 旧道生成 -----
-	/// @brief MST + A* で地区間を道路で繋ぐ
-	void generateRoads(RoadNetwork& roads, uint64 seed);
-
-	/// @brief Kruskal MST: 辺リスト (i,j) を返す
-	Array<std::pair<int,int>> computeMST() const;
-
-	// ----- ユーティリティ（RoadPathfinder へ委譲）-----
-	Vec2  gridToWorld(int gx, int gz) const { return m_pathfinder.gridToWorld(gx, gz); }
-	Point worldToGrid(float wx, float wz) const { return m_pathfinder.worldToGrid(wx, wz); }
-	float gridHeight(int gx, int gz)  const { return m_pathfinder.height(gx, gz); }
-
-	// ----- 状態 -----
-	RoadPathfinder    m_pathfinder;           ///< 地形グリッドと A* を保持する共用パスファインダー
-	Array<Settlement> m_settlements;
-	Vec2              m_regionOffset; ///< 現在処理中のリージョン左下ワールド座標 [m]
+	/// @brief 2点間の A* 道路を生成する共通ヘルパー
+	/// @param globalOccupied  既存道路が通過するワールド座標セル (cellSize=120m) のセット。
+	///                        生成後、新道路の通過セルが追加される。
+	static void buildRoadSegment(
+		const World& world, RoadNetwork& network,
+		int startNodeId, Vec3 startPos, int endNodeId, Vec3 endPos,
+		RoadType roadType, int lanes,
+		HashSet<int64>& globalOccupied,
+		const Array<Vec2>& forbiddenStartDirs = {},
+		const Array<Vec2>& forbiddenGoalDirs = {});
 };

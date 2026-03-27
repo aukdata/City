@@ -117,7 +117,11 @@ public:
 	/// @param settlementCount 地区数
 	/// @param terrain         マップ全体の地形タイプ
 	/// @param mapSeed         マップシード値（同じシード→同じ地名）
-	PlaceNameDB generate(int settlementCount, TerrainType terrain, uint64 mapSeed) const;
+	PlaceNameDB generate(int settlementCount, uint64 mapSeed) const;
+
+	/// @brief バイオームに応じた地名を一括生成する
+	/// @param biomes  各地区のバイオーム種別（settlements と同サイズ）
+	PlaceNameDB generateWithBiomes(int settlementCount, const Array<BiomeType>& biomes, uint64 mapSeed) const;
 
 private:
 	/// @brief カテゴリ別の前節・後節リスト（漢字 + ローマ字読み）
@@ -136,8 +140,11 @@ private:
 
 	// ---- 内部ヘルパー ----
 
-	/// @brief 地形タイプに応じたカテゴリ重みでカテゴリを選ぶ
-	PlaceCategory pickCategory(TerrainType terrain, uint64& state) const;
+	/// @brief デフォルト重みでカテゴリを選ぶ
+	PlaceCategory pickCategory(uint64& state) const;
+
+	/// @brief バイオームに応じた重みでカテゴリを選ぶ
+	PlaceCategory pickCategoryForBiome(BiomeType biome, uint64& state) const;
 
 	/// @brief 地名を 1 件生成して usedNames に追加する
 	/// @return first=漢字地名, second=ローマ字読み

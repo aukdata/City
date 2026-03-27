@@ -5,8 +5,6 @@
 #include <Siv3D/ViewFrustum.hpp>
 #include <thread>
 
-const int GameScene::kMaxChunkTasks = Max(4, static_cast<int>(std::thread::hardware_concurrency()));
-
 // ─────────────────────────────────────────────────────────────────────────────
 // 初期化
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,20 +24,15 @@ GameScene::GameScene(const InitData& init)
 
 GameScene::~GameScene()
 {
-	// SimThread を先に停止（m_network への参照が無効になる前に）
 	m_simThread.stop();
 
-	// バックグラウンドチャンクタスクの完了を待機
-	for (auto& task : m_chunkTasks)
-	{
-		if (task.future.valid())
-			task.future.wait();
-	}
+	// バックグラウンド生成タスクの完了を待機
+	if (m_generationFuture.valid())
+		m_generationFuture.wait();
 }
 
 void GameScene::initScene()
 {
-	// タイトルでセーブ名が指定されていればロード、なければ新規生成
 	if (!getData().saveName.isEmpty() && loadGame())
 	{
 		m_phase = GamePhase::Playing;
@@ -51,22 +44,174 @@ void GameScene::initScene()
 void GameScene::initNewGame()
 {
 	// ワールドパラメータ設定 + 地名生成（軽量・即座に完了）
-	const auto initResult = MapGenerator::initWorld(
-		getData().seed, getData().terrain, m_world);
+	const auto initResult = MapGenerator::initWorld(getData().seed, m_world);
 	m_placeNames = std::move(initResult.placeNames);
 
-	// カメラを原点付近に設定（dispatchChunkTasks が原点中心で投入するため）
-	m_camera.setFocus(Vec3{ 512.0, 0.0, 512.0 });
+	// World の配列を事前確保
+	m_world.reserveChunks();
 
-	// 初期チャンク数を計算
-	const int side = kInitRange * 2 + 1;
-	m_totalInitChunks = side * side;
+	// カメラをマップ中央に設定
+	const float worldCenter = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE * 0.5f;
+	m_camera.setFocus(Vec3{ worldCenter, 0.0, worldCenter });
 
-	// Loading フェーズへ遷移（dispatchChunkTasks が自動的にチャンクを投入する）
+	// 初期チャンク数
+	m_totalInitChunks = WORLD_CHUNKS * WORLD_CHUNKS;
+	m_genProgress = 0.0f;
+
+	// 全パイプラインをバックグラウンドで実行
+	m_generationFuture = std::async(std::launch::async, [this]()
+	{
+		generateAllTerrain();   // Phase 1
+		placeAllSettlements();  // Phase 2
+		generateAllRoads();     // Phase 3
+		postProcessRoads();     // Phase 4
+	});
+
 	m_loadingTimer.restart();
-	m_loadingStatus = U"チャンク生成中";
-	Logger << U"[Loading] {} チャンク生成開始 (並列数: {})"_fmt(m_totalInitChunks, kMaxChunkTasks);
+	m_loadingStatus = U"地形生成中";
+	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
 	m_phase = GamePhase::Loading;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// バックグラウンド生成パイプライン
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 進捗の重み配分（実測ベース）
+// 地形=3%, 地区配置=22%, 道路生成(MST+A*)=54%, ポスト処理=12%, Setup=9%
+static constexpr float kProgressTerrain     = 0.00f;
+static constexpr float kProgressSettlement  = 0.03f;
+static constexpr float kProgressRoads       = 0.25f;
+static constexpr float kProgressPostProcess = 0.79f;
+static constexpr float kProgressDone        = 0.91f;
+
+void GameScene::generateAllTerrain()
+{
+	m_loadingStatus = U"地形生成中";
+	const Stopwatch sw{ StartImmediately::Yes };
+
+	const int total = WORLD_CHUNKS * WORLD_CHUNKS;
+	const int nThreads = Max(1, static_cast<int>(std::thread::hardware_concurrency()));
+
+	Array<HeightMapResult> buffer(total);
+
+	std::atomic<int> counter{ 0 };
+	Array<std::thread> threads;
+	threads.reserve(nThreads);
+
+	for (int t = 0; t < nThreads; ++t)
+	{
+		threads.emplace_back([this, &buffer, &counter, total]()
+		{
+			while (true)
+			{
+				const int idx = counter.fetch_add(1);
+				if (idx >= total) break;
+				const int cx = idx % WORLD_CHUNKS;
+				const int cy = idx / WORLD_CHUNKS;
+				buffer[idx] = m_world.buildHeightMap(Point{ cx, cy });
+				m_genProgress.store(kProgressTerrain +
+					(kProgressSettlement - kProgressTerrain) * static_cast<float>(idx + 1) / total);
+			}
+		});
+	}
+
+	for (auto& th : threads) th.join();
+
+	for (int idx = 0; idx < total; ++idx)
+	{
+		const int cx = idx % WORLD_CHUNKS;
+		const int cy = idx / WORLD_CHUNKS;
+		m_world.installChunkDirect(Point{ cx, cy }, std::move(buffer[idx]));
+	}
+
+	m_genProgress.store(kProgressSettlement);
+	Logger << U"[Phase1] 地形生成完了: {} チャンク ({:.1f}秒)"_fmt(total, sw.sF());
+}
+
+void GameScene::placeAllSettlements()
+{
+	m_loadingStatus = U"地区配置中";
+
+	auto settlements = MapGenerator::placeAllSettlements(getData().seed, m_world);
+
+	// 各地区のバイオームを取得し、バイオームに応じた地名を生成
+	Array<BiomeType> biomes;
+	biomes.reserve(settlements.size());
+	for (const auto& s : settlements)
+		biomes << m_world.getBiome(static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+
+	PlaceNameGenerator placeGen;
+	placeGen.load(U"assets/placenames/placenames.toml");
+	m_placeNames = placeGen.generateWithBiomes(
+		static_cast<int>(settlements.size()), biomes, getData().seed);
+
+	for (int i = 0; i < static_cast<int>(settlements.size()); ++i)
+	{
+		settlements[i].name    = m_placeNames.settlementName(i);
+		settlements[i].reading = m_placeNames.settlementReading(i);
+	}
+
+	m_districts = settlements;
+	m_urbanCenters.clear();
+	for (const auto& s : m_districts)
+	{
+		if (s.type == MapGenerator::SettlementType::Urban)
+			m_urbanCenters << s.center;
+	}
+
+	m_genProgress.store(kProgressRoads);
+}
+
+void GameScene::generateAllRoads()
+{
+	m_loadingStatus = U"道路生成中";
+
+	MapGenerator::generateGlobalRoads(
+		getData().seed, m_districts, m_world, m_network,
+		[this](float fraction) {
+			m_genProgress.store(kProgressRoads +
+				(kProgressPostProcess - kProgressRoads) * fraction);
+		});
+}
+
+void GameScene::postProcessRoads()
+{
+	m_loadingStatus = U"道路ポスト処理中";
+	m_genProgress.store(kProgressPostProcess);
+
+	const Stopwatch total{ StartImmediately::Yes };
+	Stopwatch step{ StartImmediately::Yes };
+
+	Logger << U"[PostProcess] 開始 (nodes={}, edges={})"_fmt(
+		m_network.nodes().size(), m_network.edges().size());
+
+	{
+		int iter = 0;
+		constexpr int kMaxIter = 1000;
+		while (iter < kMaxIter && m_network.fixSharpAngles(45.0f))
+			++iter;
+		Logger << U"[PostProcess] fixSharpAngles: {} 回, {:.0f}ms"_fmt(iter, step.msF());
+		step.restart();
+	}
+
+	m_network.smoothAllCurves();
+	Logger << U"[PostProcess] smoothAllCurves: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
+	m_network.resolveIntersections();
+	Logger << U"[PostProcess] resolveIntersections: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
+	m_network.spreadIntersectionTangents();
+	Logger << U"[PostProcess] spreadIntersectionTangents: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
+	m_network.removeDuplicateEdges(getData().seed);
+	Logger << U"[PostProcess] removeDuplicateEdges: {:.0f}ms"_fmt(step.msF());
+
+	m_genProgress.store(kProgressDone);
+	Logger << U"[Phase4] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,76 +220,64 @@ void GameScene::initNewGame()
 
 void GameScene::updateLoading()
 {
-	// 追加生成と同じ仕組みでチャンクを投入・統合する（上限を緩和）
-	m_world.update(m_camera.focusPoint());   // 地形チャンクも事前生成
-	m_world.takeNewChunks();
-	dispatchChunkTasks();
-	pollChunkTasks(9999);
-
-	const int merged = static_cast<int>(m_chunkStore.size());
-
-	// ステータス更新
-	if (!m_chunkTasks.isEmpty())
-		m_loadingStatus = U"チャンク生成中 (残り {} タスク)"_fmt(m_chunkTasks.size());
-	else
-		m_loadingStatus = U"{} / {} チャンク完了"_fmt(merged, m_totalInitChunks);
-
-	// 全チャンク統合済みかつ残タスクなし → ポスト処理へ
-	if (m_chunkTasks.isEmpty() && merged >= m_totalInitChunks)
+	if (m_generationFuture.valid())
 	{
-		Logger << U"[Phase] Loading 完了 ({:.1f}秒, {} チャンク)"_fmt(
-			m_loadingTimer.sF(), merged);
-		m_loadingStatus = U"道路ポスト処理中...";
-
-		// ロード済みとして登録
-		for (const auto& [key, cd] : m_chunkStore)
-			m_loadedChunkKeys.insert(key);
-
-		// ポスト処理を非同期で実行（メインスレッドをブロックしない）
-		m_postProcessFuture = std::async(std::launch::async, [this]()
+		if (m_generationFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 		{
-			const Stopwatch total{ StartImmediately::Yes };
+			m_generationFuture.get();
+
+			Logger << U"[Loading] 全パイプライン完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
+			m_loadingStatus = U"初期化中...";
+
+			// メインスレッド側のセットアップ
+			const Stopwatch setupTimer{ StartImmediately::Yes };
 			Stopwatch step{ StartImmediately::Yes };
 
-			Logger << U"[PostProcess] 開始 (nodes={}, edges={})"_fmt(
-				m_network.nodes().size(), m_network.edges().size());
+			// ゾーン割り当て
+			applyZonesGlobal();
+			Logger << U"[Setup] applyZonesGlobal: {:.0f}ms"_fmt(step.msF());
+			step.restart();
 
+			m_roadRenderer.invalidateAllCaches();
+
+			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
+			Logger << U"[Setup] setupTrain: {:.0f}ms"_fmt(step.msF());
+			step.restart();
+
+			// カメラ初期位置（最初の Urban 地区）
+			const float worldCenter = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE * 0.5f;
+			Vec3 cameraFocus{ worldCenter, 0.0, worldCenter };
+			for (const auto& s : m_districts)
 			{
-				int iter = 0;
-				constexpr int kMaxIter = 1000;
-				while (iter < kMaxIter && m_network.fixSharpAngles(12.5f))
-					++iter;
-				Logger << U"[PostProcess] fixSharpAngles: {} 回, {:.0f}ms"_fmt(iter, step.msF());
-				step.restart();
+				if (s.type == MapGenerator::SettlementType::Urban)
+				{
+					const float y = m_world.computeHeight(
+						static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+					cameraFocus = Vec3{ s.center.x, y, s.center.y };
+					break;
+				}
 			}
+			m_camera.setFocus(cameraFocus);
 
-			m_network.smoothAllCurves();
-			Logger << U"[PostProcess] smoothAllCurves: {:.0f}ms"_fmt(step.msF());
+			m_world.update(m_camera.focusPoint());
+			Logger << U"[Setup] world.update: {:.0f}ms, activeChunks={}"_fmt(
+				step.msF(), m_world.getActiveChunks().size());
+			Logger << U"[Setup] cameraFocus=({:.0f},{:.0f},{:.0f})"_fmt(
+				m_camera.focusPoint().x, m_camera.focusPoint().y, m_camera.focusPoint().z);
 			step.restart();
 
-			m_network.resolveIntersections();
-			Logger << U"[PostProcess] resolveIntersections: {:.0f}ms"_fmt(step.msF());
-			step.restart();
+			startSimThread();
+			Logger << U"[Setup] startSimThread: {:.0f}ms"_fmt(step.msF());
 
-			m_network.spreadIntersectionTangents();
-			Logger << U"[PostProcess] spreadIntersectionTangents: {:.0f}ms"_fmt(step.msF());
-			step.restart();
-
-			m_network.removeDuplicateEdges(getData().seed);
-			Logger << U"[PostProcess] removeDuplicateEdges: {:.0f}ms"_fmt(step.msF());
-
-			Logger << U"[Phase] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF());
-		});
-
-		m_phase = GamePhase::PostProcess;
-		return;
+			Logger << U"[Phase] Setup 完了 ({:.0f}ms)"_fmt(setupTimer.msF());
+			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
+			m_phase = GamePhase::Playing;
+			return;
+		}
 	}
 
 	// 進捗描画
-	const float progress = (m_totalInitChunks > 0)
-		? Clamp(static_cast<float>(merged) / m_totalInitChunks, 0.0f, 1.0f)
-		: 0.0f;
-	drawLoadingScreen(progress);
+	drawLoadingScreen(Clamp(m_genProgress.load(), 0.0f, 1.0f));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,8 +291,8 @@ void GameScene::startSimThread()
 	TrafficManager traffic;
 	traffic.setSimGraph(simGraph);
 	traffic.markNetworkDirty();
-	for (int i = 0; i < 20; ++i)
-		traffic.spawnVehicle();
+	// TrafficGraph をメインスレッドで事前構築（SimThread 内でロック保持中に rebuild するのを回避）
+	traffic.update(0.0, 0.0);
 
 	m_simThread.start(std::move(traffic), TrainManager{},
 	                  EventSystem{}, m_clock, simGraph);
@@ -196,35 +329,28 @@ void GameScene::drawLoadingScreen(float progress)
 	// パーセント
 	uiFont(U"{}%"_fmt(static_cast<int>(progress * 100))).drawAt(barBg.center(), ColorF{ 1.0 });
 
-	// チャンク数
-	const int merged = static_cast<int>(m_chunkStore.size());
-	uiFont(U"{} / {} チャンク完了"_fmt(merged, m_totalInitChunks)).drawAt(
-		center.movedBy(0, 40), ColorF{ 0.7 });
-
 	// 実行中の処理内容
 	smallFont(m_loadingStatus).drawAt(
 		center.movedBy(0, 70), ColorF{ 0.5 });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// セーブ（saves/default/ に全チャンクデータを書き出す）
+// セーブ
 // ─────────────────────────────────────────────────────────────────────────────
 
 void GameScene::saveGame()
 {
-	// セーブ名が未設定（新規生成からの初回セーブ）なら default を使う
 	if (getData().saveName.isEmpty())
 		getData().saveName = U"default";
 
 	const String kRoot = U"saves/{}"_fmt(getData().saveName);
-
 	FileSystem::CreateDirectories(U"{}/global"_fmt(kRoot));
 
 	// ---- meta.json ----
 	JSON meta;
-	meta[U"version"]      = 1;
+	meta[U"version"]      = 3;
 	meta[U"seed"]         = getData().seed;
-	meta[U"terrain"]      = static_cast<int>(getData().terrain);
+	meta[U"worldChunks"]  = WORLD_CHUNKS;
 	meta[U"gameNow"]      = m_clock.now;
 	meta[U"timeScale"]    = static_cast<int>(m_clock.speed);
 	meta[U"nextNodeId"]   = m_network.nextNodeId();
@@ -241,35 +367,25 @@ void GameScene::saveGame()
 	eco[U"happiness"]  = m_economy.happiness;
 	eco.save(U"{}/global/economy.json"_fmt(kRoot));
 
-	// ---- chunks/{cx}_{cy}/ ----
-	for (const auto& [key, cd] : m_chunkStore)
+	// ---- global/roads.bin ----
+	RoadBinary::writeGlobal(U"{}/global/roads.bin"_fmt(kRoot), m_network);
+
+	// ---- global/districts.json ----
+	JSON dist;
+	dist[U"count"] = static_cast<int>(m_districts.size());
+	for (int i = 0; i < static_cast<int>(m_districts.size()); ++i)
 	{
-		const String chunkDir = U"{}/chunks/{}_{}"_fmt(
-			kRoot, cd.chunkCoord.x, cd.chunkCoord.y);
-		FileSystem::CreateDirectories(chunkDir);
-
-		// roads.bin（バイナリ）
-		RoadBinary::write(U"{}/roads.bin"_fmt(chunkDir),
-		                  cd.chunkCoord.x, cd.chunkCoord.y,
-		                  cd.nodes, cd.edges);
-
-		// districts.json（地区データ）
-		JSON dist;
-		dist[U"count"] = static_cast<int>(cd.districts.size());
-		for (int i = 0; i < static_cast<int>(cd.districts.size()); ++i)
-		{
-			const auto& s = cd.districts[i];
-			dist[U"type_{}"_fmt(i)] = static_cast<int>(s.type);
-			dist[U"cx_{}"_fmt(i)]   = s.center.x;
-			dist[U"cy_{}"_fmt(i)]   = s.center.y;
-			dist[U"name_{}"_fmt(i)] = s.name;
-		}
-		dist.save(U"{}/districts.json"_fmt(chunkDir));
+		const auto& s = m_districts[i];
+		dist[U"type_{}"_fmt(i)] = static_cast<int>(s.type);
+		dist[U"cx_{}"_fmt(i)]   = s.center.x;
+		dist[U"cy_{}"_fmt(i)]   = s.center.y;
+		dist[U"name_{}"_fmt(i)] = s.name;
 	}
+	dist.save(U"{}/global/districts.json"_fmt(kRoot));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ロード（saves/default/ から全チャンクデータを復元する）
+// ロード
 // ─────────────────────────────────────────────────────────────────────────────
 
 bool GameScene::loadGame()
@@ -281,7 +397,6 @@ bool GameScene::loadGame()
 	if (!meta) return false;
 
 	getData().seed    = meta[U"seed"].get<uint64>();
-	getData().terrain = static_cast<TerrainType>(meta[U"terrain"].get<int>());
 	const double gameNow    = meta[U"gameNow"].get<double>();
 	const int    timeScale  = meta[U"timeScale"].get<int>();
 	const int    nextNodeId = meta[U"nextNodeId"].get<int>();
@@ -293,10 +408,17 @@ bool GameScene::loadGame()
 	// ---- 地形パラメータ・地名を初期化 ----
 	{
 		const auto initResult = MapGenerator::initWorld(
-			getData().seed, getData().terrain, m_world);
+			getData().seed, m_world);
 		m_placeNames = std::move(initResult.placeNames);
 	}
-	m_chunkStore.clear();
+
+	// World の配列を事前確保 + 地形再生成
+	m_world.reserveChunks();
+	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
+		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+			m_world.installChunkDirect(Point{ cx, cy },
+				m_world.buildHeightMap(Point{ cx, cy }));
+
 	m_districts.clear();
 	m_urbanCenters.clear();
 
@@ -309,59 +431,68 @@ bool GameScene::loadGame()
 		m_economy.happiness  = eco[U"happiness"].get<double>();
 	}
 
-	// ---- chunks/{cx}_{cy}/ を列挙してロード ----
-	const FilePath chunksDir = U"{}/chunks/"_fmt(kRoot);
-	if (!FileSystem::Exists(chunksDir)) return false;
-
-	for (const auto& entry : FileSystem::DirectoryContents(chunksDir, Recursive::No))
+	// ---- global/roads.bin ----
+	if (!RoadBinary::readGlobal(U"{}/global/roads.bin"_fmt(kRoot), m_network))
 	{
-		if (!FileSystem::IsDirectory(entry)) continue;
+		// フォールバック: 旧形式（per-chunk）からの読み込みを試行
+		const FilePath chunksDir = U"{}/chunks/"_fmt(kRoot);
+		if (!FileSystem::Exists(chunksDir)) return false;
 
-		// ディレクトリ名 "{cx}_{cy}" をパース
-		const String dirName = FileSystem::FileName(entry);
-		const Array<String> parts = dirName.split(U'_');
-		if (parts.size() != 2) continue;
-		const auto cxOpt = ParseOpt<int32>(parts[0]);
-		const auto cyOpt = ParseOpt<int32>(parts[1]);
-		if (!cxOpt || !cyOpt) continue;
-		const int32 cx = *cxOpt, cy = *cyOpt;
-		const Point chunkCoord{ cx, cy };
-		const int64 key = regionKey(chunkCoord);
-
-		// roads.bin を読み込み
-		Array<RoadNode> loadedNodes;
-		Array<RoadEdge> loadedEdges;
-		if (!RoadBinary::read(U"{}/roads.bin"_fmt(entry), loadedNodes, loadedEdges))
-			continue;
-
-		// m_network に追加（addNodeRaw/addEdgeRaw は重複 ID をスキップ）
-		for (const auto& n : loadedNodes) m_network.addNodeRaw(n);
-		for (const auto& e : loadedEdges) m_network.addEdgeRaw(e);
-
-		// ChunkData を構築
-		auto& cd        = m_chunkStore[key];
-		cd.chunkCoord   = chunkCoord;
-		cd.nodes        = loadedNodes;
-		cd.edges        = loadedEdges;
-
-		// districts.json を読み込み
-		const JSON dist = JSON::Load(U"{}/districts.json"_fmt(entry));
-		if (dist)
+		for (const auto& entry : FileSystem::DirectoryContents(chunksDir, Recursive::No))
 		{
-			const int count = dist[U"count"].get<int>();
-			Array<MapGenerator::Settlement> settlements;
-			for (int i = 0; i < count; ++i)
+			if (!FileSystem::IsDirectory(entry)) continue;
+			Array<RoadNode> loadedNodes;
+			Array<RoadEdge> loadedEdges;
+			if (!RoadBinary::read(U"{}/roads.bin"_fmt(entry), loadedNodes, loadedEdges))
+				continue;
+			for (const auto& n : loadedNodes) m_network.addNodeRaw(n);
+			for (const auto& e : loadedEdges) m_network.addEdgeRaw(e);
+		}
+	}
+
+	// ---- districts.json ----
+	const JSON dist = JSON::Load(U"{}/global/districts.json"_fmt(kRoot));
+	if (dist)
+	{
+		const int count = dist[U"count"].get<int>();
+		Array<MapGenerator::Settlement> settlements;
+		for (int i = 0; i < count; ++i)
+		{
+			MapGenerator::Settlement s;
+			s.type   = static_cast<MapGenerator::SettlementType>(
+			               dist[U"type_{}"_fmt(i)].get<int>());
+			s.center = Vec2{ dist[U"cx_{}"_fmt(i)].get<double>(),
+			                 dist[U"cy_{}"_fmt(i)].get<double>() };
+			s.name   = dist[U"name_{}"_fmt(i)].get<String>();
+			settlements << s;
+		}
+		addDistricts(settlements);
+	}
+	else
+	{
+		// フォールバック: 旧形式 per-chunk districts
+		const FilePath chunksDir = U"{}/chunks/"_fmt(kRoot);
+		if (FileSystem::Exists(chunksDir))
+		{
+			for (const auto& entry : FileSystem::DirectoryContents(chunksDir, Recursive::No))
 			{
-				MapGenerator::Settlement s;
-				s.type   = static_cast<MapGenerator::SettlementType>(
-				               dist[U"type_{}"_fmt(i)].get<int>());
-				s.center = Vec2{ dist[U"cx_{}"_fmt(i)].get<double>(),
-				                 dist[U"cy_{}"_fmt(i)].get<double>() };
-				s.name   = dist[U"name_{}"_fmt(i)].get<String>();
-				settlements << s;
+				if (!FileSystem::IsDirectory(entry)) continue;
+				const JSON cdist = JSON::Load(U"{}/districts.json"_fmt(entry));
+				if (!cdist) continue;
+				const int count = cdist[U"count"].get<int>();
+				Array<MapGenerator::Settlement> settlements;
+				for (int i = 0; i < count; ++i)
+				{
+					MapGenerator::Settlement s;
+					s.type   = static_cast<MapGenerator::SettlementType>(
+					               cdist[U"type_{}"_fmt(i)].get<int>());
+					s.center = Vec2{ cdist[U"cx_{}"_fmt(i)].get<double>(),
+					                 cdist[U"cy_{}"_fmt(i)].get<double>() };
+					s.name   = cdist[U"name_{}"_fmt(i)].get<String>();
+					settlements << s;
+				}
+				addDistricts(settlements);
 			}
-			cd.districts = settlements;
-			addDistricts(settlements);
 		}
 	}
 
@@ -375,22 +506,15 @@ bool GameScene::loadGame()
 	m_clock.now   = gameNow;
 	m_clock.speed = static_cast<TimeSpeed>(timeScale);
 	m_clock.syncCalendar();
-	m_lastEconYear  = m_clock.year;
-	m_lastEconMonth = m_clock.month;
 
 	// ---- カメラを復元 ----
 	m_camera.setFocus(Vec3{ focusX, focusY, focusZ });
-
-	// ---- ロード済みチャンクを登録 ----
-	for (const auto& [key, cd] : m_chunkStore)
-		m_loadedChunkKeys.insert(key);
 
 	// ---- 鉄道初期設定 ----
 	MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 
 	// ---- ワールド更新 ----
 	m_world.update(m_camera.focusPoint());
-	m_world.takeNewChunks();
 
 	// ---- SimThread 起動 ----
 	startSimThread();
@@ -399,14 +523,13 @@ bool GameScene::loadGame()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 地区リストを一括更新（m_districts と m_urbanCenters を同時に更新）
+// 地区リストを一括更新
 // ─────────────────────────────────────────────────────────────────────────────
 
 void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts)
 {
 	for (auto s : newDistricts)
 	{
-		// PlaceNameDB から未使用の地名を割り当てる
 		if (s.name.isEmpty())
 		{
 			const int idx = static_cast<int>(m_districts.size());
@@ -420,298 +543,15 @@ void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 3.5 ポスト処理（全チャンク生成後にまとめて適用）
+// ゾーン一括割り当て
 // ─────────────────────────────────────────────────────────────────────────────
 
-void GameScene::applyRoadPostProcess()
+void GameScene::applyZonesGlobal()
 {
-	int iter = 0;
-	constexpr int kMaxIter = 1000;
-	while (iter < kMaxIter && m_network.fixSharpAngles(12.5f))
-		++iter;
-	m_network.smoothAllCurves();
-	m_network.resolveIntersections();
-	m_network.spreadIntersectionTangents();
-	m_network.removeDuplicateEdges(getData().seed);
-	snapshotAllChunks();
-	m_roadRenderer.invalidateAllCaches();
-	notifyNetworkChanged();
-}
+	const Stopwatch sw{ StartImmediately::Yes };
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ChunkStore スナップショット再構築
-// ─────────────────────────────────────────────────────────────────────────────
-
-void GameScene::snapshotAllChunks()
-{
-	// ロード済みチャンクのノード・エッジのみクリア（アンロード済みチャンクは保持）
-	for (const int64 key : m_loadedChunkKeys)
-	{
-		auto it = m_chunkStore.find(key);
-		if (it == m_chunkStore.end()) continue;
-		it->second.nodes.clear();
-		it->second.edges.clear();
-	}
-
-	// ノードをワールド座標で決まるチャンクに割り当てる
-	// chunkCoordToKey → 登録済み nodeId セット（境界ノード重複管理用）
-	HashTable<int64, HashSet<int>> registered;
-
-	for (const auto& node : m_network.nodes())
-	{
-		if (node.id < 0) continue;
-		const int64 key = regionKey(worldPosToChunk(node.position));
-		if (!m_chunkStore.contains(key)) continue;
-		m_chunkStore[key].nodes << node;
-		registered[key].insert(node.id);
-	}
-
-	// エッジを nodeA 座標で決まるチャンクに割り当てる
-	// クロスチャンクエッジの nodeB は、エッジ所有チャンクに境界ノードとして複製する
-	for (const auto& edge : m_network.edges())
-	{
-		if (edge.id < 0) continue;
-		const RoadNode* nA = m_network.getNode(edge.nodeA);
-		if (!nA || nA->id < 0) continue;
-		const int64 ownerKey = regionKey(worldPosToChunk(nA->position));
-		if (!m_chunkStore.contains(ownerKey)) continue;
-
-		m_chunkStore[ownerKey].edges << edge;
-
-		// nodeB がエッジ所有チャンクと異なる場合、境界ノードとして複製する
-		const RoadNode* nB = m_network.getNode(edge.nodeB);
-		if (!nB || nB->id < 0) continue;
-		if (!registered[ownerKey].contains(nB->id))
-		{
-			m_chunkStore[ownerKey].nodes << *nB;
-			registered[ownerKey].insert(nB->id);
-		}
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 無限ワールド: バックグラウンドチャンク生成
-// ─────────────────────────────────────────────────────────────────────────────
-
-void GameScene::checkAndGenerateRegions()
-{
-	m_world.takeNewChunks();
-	pollChunkTasks();
-	dispatchChunkTasks();
-	updateLoadedChunks();
-}
-
-void GameScene::pollChunkTasks(int maxMerge)
-{
-	int merged = 0;
-	for (auto it = m_chunkTasks.begin(); it != m_chunkTasks.end(); )
-	{
-		if (merged >= maxMerge) break;
-		if (it->future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-		{
-			auto result = it->future.get();
-			m_pendingChunkKeys.erase(regionKey(result.chunkCoord));
-			mergeChunkResult(std::move(result));
-			it = m_chunkTasks.erase(it);
-			++merged;
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-void GameScene::dispatchChunkTasks()
-{
-	const Vec3 focus = m_camera.focusPoint();
-	auto floorDiv = [](float v, float size) -> int
-	{
-		const int q = static_cast<int>(v / size);
-		return (v < 0.0f && v != static_cast<float>(q) * size) ? q - 1 : q;
-	};
-	const int cx = floorDiv(static_cast<float>(focus.x), CHUNK_SIZE);
-	const int cz = floorDiv(static_cast<float>(focus.z), CHUNK_SIZE);
-
-	// 未生成・未投入のチャンクを収集
-	Array<Point> pending;
-	for (int dz = -5; dz <= 5; ++dz)
-	{
-		for (int dx = -5; dx <= 5; ++dx)
-		{
-			const Point chunk{ cx + dx, cz + dz };
-			const int64 key = regionKey(chunk);
-			if (!m_chunkStore.contains(key) && !m_pendingChunkKeys.contains(key))
-				pending << chunk;
-		}
-	}
-
-	if (pending.isEmpty()) return;
-
-	// カメラに近い順にソート（チェビシェフ距離）
-	pending.sort_by([cx, cz](const Point& a, const Point& b)
-	{
-		return Max(Abs(a.x - cx), Abs(a.y - cz))
-		     < Max(Abs(b.x - cx), Abs(b.y - cz));
-	});
-
-	// 空きスロット分だけバックグラウンドタスクを投入
-	const int slots = kMaxChunkTasks - static_cast<int>(m_chunkTasks.size());
-	if (slots <= 0) return;
-
-	const int toDispatch = Min(slots, static_cast<int>(pending.size()));
-
-	const uint64 seed = getData().seed;
-	auto urbanSnap = std::make_shared<Array<Vec2>>(m_urbanCenters);
-
-	// 既存ノードの位置スナップショット（A* 接続用） — shared_ptr で全タスクに共有
-	using NodeSnapshot = MapGenerator::NodeSnapshot;
-	auto nodeSnap = std::make_shared<Array<NodeSnapshot>>();
-	nodeSnap->reserve(m_network.nodes().size());
-	for (const auto& node : m_network.nodes())
-		if (node.id >= 0)
-			nodeSnap->push_back(NodeSnapshot{ node.id, node.position });
-
-	for (int i = 0; i < toDispatch; ++i)
-	{
-		const Point coord = pending[i];
-		const Vec2 offset = regionToWorldOffset(coord);
-		const int64 key   = regionKey(coord);
-
-		m_pendingChunkKeys.insert(key);
-
-		ChunkBuildTask task;
-		task.chunkCoord = coord;
-		task.future = std::async(std::launch::async,
-			[offset, seed, &world = std::as_const(m_world), urbanSnap, nodeSnap]()
-			{
-				return MapGenerator::buildChunk(
-					offset, seed, world, *urbanSnap, *nodeSnap);
-			});
-		m_chunkTasks << std::move(task);
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// バックグラウンド結果をメインスレッドに統合する
-// ─────────────────────────────────────────────────────────────────────────────
-
-void GameScene::mergeChunkResult(MapGenerator::ChunkBuildResult&& result)
-{
-	const int64 key = regionKey(result.chunkCoord);
-	const Point cc = result.chunkCoord;
-
-	// 事前計算済み地形 heightMap を World にインストール
-	if (result.terrainHeightMap.size() != Size{0, 0})
-		m_world.installChunk(cc, std::move(result.terrainHeightMap),
-		                     result.terrainHeightMin, result.terrainHeightMax);
-
-	// ChunkData 作成（二重生成防止）
-	m_chunkStore[key].chunkCoord = result.chunkCoord;
-
-	if (result.settlements.isEmpty())
-	{
-		applyZonesFromGrid(result);
-		return;
-	}
-
-	// ---- 1. ノードIDリマップ＆追加 ----
-	// connectionNodeId は既存ネットワークに存在するため addNode せずリマップのみ
-	HashTable<int, int> nodeIdMap;
-	for (const auto& localNode : result.localNodes)
-	{
-		if (localNode.id < 0) continue;
-		if (localNode.id == result.connectionNodeId)
-		{
-			// 既存ノード → リマップテーブルにそのまま登録
-			nodeIdMap[localNode.id] = localNode.id;
-			continue;
-		}
-		const int globalId = m_network.addNode(localNode.position, localNode.type);
-		nodeIdMap[localNode.id] = globalId;
-	}
-
-	// ---- 2. エッジIDリマップ＆追加 + ChunkData 保存 ----
-	auto& cd = m_chunkStore[key];
-	cd.districts = result.settlements;
-	cd.nodes.clear();
-	cd.edges.clear();
-
-	// ノード保存（境界ノード connectionNodeId も含む）
-	{
-		HashSet<int> savedNodeIds;
-		for (const auto& localNode : result.localNodes)
-		{
-			if (localNode.id < 0) continue;
-			const auto it = nodeIdMap.find(localNode.id);
-			if (it == nodeIdMap.end()) continue;
-			const int globalId = it->second;
-			if (savedNodeIds.contains(globalId)) continue;
-			const RoadNode* netNode = m_network.getNode(globalId);
-			if (netNode)
-			{
-				cd.nodes << *netNode;
-				savedNodeIds.insert(globalId);
-			}
-		}
-	}
-
-	// エッジ追加＋グローバルIDで保存
-	for (const auto& localEdge : result.localEdges)
-	{
-		if (localEdge.id < 0) continue;
-		const auto itA = nodeIdMap.find(localEdge.nodeA);
-		const auto itB = nodeIdMap.find(localEdge.nodeB);
-		if (itA == nodeIdMap.end() || itB == nodeIdMap.end()) continue;
-
-		const auto globalEdgeId = m_network.addEdge(
-			itA->second, itB->second,
-			localEdge.ctrlA, localEdge.ctrlB,
-			localEdge.roadType,
-			static_cast<int>(localEdge.lanes.size()));
-
-		if (globalEdgeId)
-		{
-			const RoadEdge* ge = m_network.getEdge(*globalEdgeId);
-			if (ge) cd.edges << *ge;
-		}
-	}
-
-	// ---- 3. ゾーン割当 ----
-	applyZonesFromGrid(result);
-	m_loadedChunkKeys.insert(key);
-	addDistricts(result.settlements);
-
-	// 追加したノード周辺のキャッシュのみ無効化する
-	for (const auto& [localId, globalId] : nodeIdMap)
-		m_roadRenderer.invalidateCachesAroundNode(globalId, m_network);
-	// SimGraph 再構築は updateLoadedChunks でバッチ実行するため、ここではスキップ
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// キャッシュ済み高さグリッドからゾーンを割り当てる
-// ─────────────────────────────────────────────────────────────────────────────
-
-void GameScene::applyZonesFromGrid(const MapGenerator::ChunkBuildResult& result)
-{
-	auto gridToWorld = [&](int gx, int gz) -> Vec2
-	{
-		return Vec2{ result.gridOffset.x + (gx + 0.5f) * result.cellSize,
-		             result.gridOffset.y + (gz + 0.5f) * result.cellSize };
-	};
-	auto worldToGrid = [&](float wx, float wz) -> Point
-	{
-		return Point{
-			Clamp(static_cast<int>((wx - result.gridOffset.x) / result.cellSize), 0, result.gridW - 1),
-			Clamp(static_cast<int>((wz - result.gridOffset.y) / result.cellSize), 0, result.gridH - 1)
-		};
-	};
-	auto gridHeight = [&](int gx, int gz) -> float
-	{
-		return result.heightGrid[gz * result.gridW + gx];
-	};
-
-	for (const auto& s : result.settlements)
+	for (const auto& s : m_districts)
 	{
 		const float innerDist = (s.type == MapGenerator::SettlementType::Urban)    ? 400.0f
 		                      : (s.type == MapGenerator::SettlementType::Suburbs)  ? 200.0f : 100.0f;
@@ -724,149 +564,67 @@ void GameScene::applyZonesFromGrid(const MapGenerator::ChunkBuildResult& result)
 		const float midSq   = midDist   * midDist;
 		const float outerSq = outerDist * outerDist;
 
-		const Point g0 = worldToGrid(static_cast<float>(s.center.x) - outerDist,
-		                             static_cast<float>(s.center.y) - outerDist);
-		const Point g1 = worldToGrid(static_cast<float>(s.center.x) + outerDist,
-		                             static_cast<float>(s.center.y) + outerDist);
+		const float scx = static_cast<float>(s.center.x);
+		const float scz = static_cast<float>(s.center.y);
 
-		for (int gz = g0.y; gz <= g1.y; ++gz)
+		// 影響範囲のチャンクのみ走査（+1 不要: ceil で十分）
+		const int chunkRadius = static_cast<int>(Ceil(outerDist / CHUNK_SIZE));
+		const int ccx = static_cast<int>(Math::Floor(scx / CHUNK_SIZE));
+		const int ccz = static_cast<int>(Math::Floor(scz / CHUNK_SIZE));
+
+		for (int dcy = -chunkRadius; dcy <= chunkRadius; ++dcy)
 		{
-			for (int gx = g0.x; gx <= g1.x; ++gx)
+			for (int dcx = -chunkRadius; dcx <= chunkRadius; ++dcx)
 			{
-				if (gx < 0 || gx >= result.gridW || gz < 0 || gz >= result.gridH) continue;
+				const Point cc{ ccx + dcx, ccz + dcy };
+				Chunk* chunk = m_world.getChunk(cc);
+				if (!chunk) continue;
 
-				const Vec2  wp  = gridToWorld(gx, gz);
-				const float dSq = static_cast<float>(s.center.distanceFromSq(wp));
-				const float h   = gridHeight(gx, gz);
+				const float chunkOriginX = static_cast<float>(cc.x * CHUNK_SIZE);
+				const float chunkOriginZ = static_cast<float>(cc.y * CHUNK_SIZE);
 
-				if (h < 0.0f) continue;
+				// セル範囲を outerDist で絞り込む
+				const int gxMin = Max(0, static_cast<int>((scx - outerDist - chunkOriginX) / cellSize));
+				const int gxMax = Min(ZONE_CELLS - 1, static_cast<int>((scx + outerDist - chunkOriginX) / cellSize));
+				const int gzMin = Max(0, static_cast<int>((scz - outerDist - chunkOriginZ) / cellSize));
+				const int gzMax = Min(ZONE_CELLS - 1, static_cast<int>((scz + outerDist - chunkOriginZ) / cellSize));
 
-				const Vec3 wp3{ wp.x, h, wp.y };
+				if (gxMin > gxMax || gzMin > gzMax) continue;
 
-				if (dSq <= innerSq)
+				for (int gz = gzMin; gz <= gzMax; ++gz)
 				{
-					const ZoneType zt = (s.type == MapGenerator::SettlementType::Urban)
-						? ZoneType::Commercial
-						: ZoneType::Residential;
-					m_zoneManager.paintZone(m_world, wp3, zt, 0);
-				}
-				else if (dSq <= midSq)
-				{
-					m_zoneManager.paintZone(m_world, wp3, ZoneType::Residential, 0);
-				}
-				else if (dSq <= outerSq)
-				{
-					m_zoneManager.paintZone(m_world, wp3, ZoneType::LowResidential, 0);
+					for (int gx = gxMin; gx <= gxMax; ++gx)
+					{
+						const float wx = chunkOriginX + (gx + 0.5f) * cellSize;
+						const float wz = chunkOriginZ + (gz + 0.5f) * cellSize;
+						const float dx = wx - scx;
+						const float dz = wz - scz;
+						const float dSq = dx * dx + dz * dz;
+
+						if (dSq > outerSq) continue;
+
+						// heightMap から直接高さ取得（sampleHeight のチャンク検索を回避）
+						const float h = sampleHeightMap(chunk->heightMap, cc, wx, wz);
+						if (h < 0.0f) continue;
+
+						// zoneMap に直接書き込み（paintZone のチャンク検索を回避）
+						ZoneType zt;
+						if (dSq <= innerSq)
+							zt = (s.type == MapGenerator::SettlementType::Urban)
+								? ZoneType::Commercial : ZoneType::Residential;
+						else if (dSq <= midSq)
+							zt = ZoneType::Residential;
+						else
+							zt = ZoneType::LowResidential;
+
+						chunk->zoneMap[{ gx, gz }] = zt;
+					}
 				}
 			}
 		}
 	}
 
-	// 農地: 低地かつゾーン未設定のセルを Agriculture に
-	for (int gz = 0; gz < result.gridH; ++gz)
-	{
-		for (int gx = 0; gx < result.gridW; ++gx)
-		{
-			const float h = gridHeight(gx, gz);
-			if (h < 0.0f || h >= 2.0f) continue;
-
-			const Vec2 wp = gridToWorld(gx, gz);
-			const Vec3 wp3{ wp.x, h, wp.y };
-
-			const ZoneType existing = m_zoneManager.getZone(m_world, wp3);
-			if (existing == ZoneType::Unzoned)
-				m_zoneManager.paintZone(m_world, wp3, ZoneType::Agriculture, 0);
-		}
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 11×11 範囲外チャンクのアンロード / 範囲内チャンクのリロード
-// ─────────────────────────────────────────────────────────────────────────────
-
-void GameScene::updateLoadedChunks()
-{
-	const Vec3 focus = m_camera.focusPoint();
-	auto floorDiv = [](float v, float size) -> int
-	{
-		const int q = static_cast<int>(v / size);
-		return (v < 0.0f && v != static_cast<float>(q) * size) ? q - 1 : q;
-	};
-	const int cx = floorDiv(static_cast<float>(focus.x), CHUNK_SIZE);
-	const int cz = floorDiv(static_cast<float>(focus.z), CHUNK_SIZE);
-
-	// 現在の 11×11 範囲のキー集合を構築
-	HashSet<int64> wantedKeys;
-	for (int dz = -5; dz <= 5; ++dz)
-		for (int dx = -5; dx <= 5; ++dx)
-			wantedKeys.insert(regionKey(Point{ cx + dx, cz + dz }));
-
-	bool changed = false;
-	HashSet<int> affectedNodes;
-
-	// ---- アンロード: ロード済みだが範囲外のチャンク ----
-	Array<int64> toUnload;
-	for (const int64 key : m_loadedChunkKeys)
-	{
-		if (!wantedKeys.contains(key))
-			toUnload << key;
-	}
-	for (const int64 key : toUnload)
-	{
-		// まず最新状態をスナップショットしてから除去
-		const auto it = m_chunkStore.find(key);
-		if (it == m_chunkStore.end()) continue;
-
-		// エッジを削除
-		for (const auto& edge : it->second.edges)
-		{
-			if (edge.id >= 0)
-			{
-				affectedNodes.insert(edge.nodeA);
-				affectedNodes.insert(edge.nodeB);
-				m_network.removeEdge(edge.id);
-			}
-		}
-		m_loadedChunkKeys.erase(key);
-		changed = true;
-	}
-
-	// ---- リロード: 範囲内だが未ロードのチャンク ----
-	for (const int64 key : wantedKeys)
-	{
-		if (m_loadedChunkKeys.contains(key)) continue;
-
-		const auto it = m_chunkStore.find(key);
-		if (it == m_chunkStore.end()) continue;
-
-		for (const auto& node : it->second.nodes)
-			m_network.addNodeRaw(node);
-		for (const auto& edge : it->second.edges)
-		{
-			m_network.addEdgeRaw(edge);
-			affectedNodes.insert(edge.nodeA);
-			affectedNodes.insert(edge.nodeB);
-		}
-
-		m_loadedChunkKeys.insert(key);
-		changed = true;
-	}
-
-	// アンロード・リロード両方完了後に孤立ノードを除去
-	// （境界ノードはリロードで再接続されるため、ここでは本当に孤立したものだけ消える）
-	for (const int nodeId : affectedNodes)
-	{
-		const RoadNode* node = m_network.getNode(nodeId);
-		if (node && node->edgeIds.isEmpty())
-			m_network.removeNode(nodeId);
-	}
-
-	if (changed)
-	{
-		for (const int nodeId : affectedNodes)
-			m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
-		notifyNetworkChanged();
-	}
+	Logger << U"[applyZonesGlobal] {:.0f}ms"_fmt(sw.msF());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -881,87 +639,21 @@ void GameScene::update()
 		return;
 	}
 
-	if (m_phase == GamePhase::PostProcess)
+	static int s_frameLog = 0;
+	if (s_frameLog < 5)
 	{
-		if (m_postProcessFuture.valid())
-		{
-			// 非同期ポスト処理の完了を待つ
-			if (m_postProcessFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-			{
-				m_postProcessFuture.get();   // future を消費（valid() が false に）
-				Logger << U"[Loading] ポスト処理完了 → セットアップは次フレーム";
-				m_loadingStatus = U"初期化中...";
-			}
-			else
-			{
-				m_loadingStatus = U"道路ポスト処理中...";
-			}
-		}
-		else
-		{
-			// future 消費済み → メインスレッド側のセットアップ
-			const Stopwatch setupTimer{ StartImmediately::Yes };
-			Stopwatch step{ StartImmediately::Yes };
-
-			snapshotAllChunks();
-			Logger << U"[Setup] snapshotAllChunks: {:.0f}ms"_fmt(step.msF());
-			step.restart();
-
-			m_roadRenderer.invalidateAllCaches();
-
-			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
-			Logger << U"[Setup] setupTrain: {:.0f}ms"_fmt(step.msF());
-			step.restart();
-
-			// カメラ初期位置
-			Vec3 cameraFocus{ 512.0, 0.0, 512.0 };
-			for (const auto& s : m_districts)
-			{
-				if (s.type == MapGenerator::SettlementType::Urban)
-				{
-					const float y = m_world.computeHeight(
-						static_cast<float>(s.center.x), static_cast<float>(s.center.y));
-					cameraFocus = Vec3{ s.center.x, y, s.center.y };
-					break;
-				}
-			}
-			if (cameraFocus.y == 0.0 && !m_districts.isEmpty())
-			{
-				const auto& s = m_districts[0];
-				const float y = m_world.computeHeight(
-					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
-				cameraFocus = Vec3{ s.center.x, y, s.center.y };
-			}
-			m_camera.setFocus(cameraFocus);
-
-			m_world.update(m_camera.focusPoint());
-			Logger << U"[Setup] world.update: {:.0f}ms"_fmt(step.msF());
-			step.restart();
-
-			m_world.takeNewChunks();
-			m_lastEconYear  = m_clock.year;
-			m_lastEconMonth = m_clock.month;
-
-			startSimThread();
-			Logger << U"[Setup] startSimThread: {:.0f}ms"_fmt(step.msF());
-
-			Logger << U"[Phase] Setup 完了 ({:.0f}ms)"_fmt(setupTimer.msF());
-			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
-			m_phase = GamePhase::Playing;
-		}
-
-		// PostProcess 中は常にローディング画面を描画
-		drawLoadingScreen(1.0f);
-		return;
+		Logger << U"[Playing] frame {} start"_fmt(s_frameLog);
 	}
 
 	const double dt = Scene::DeltaTime();
 
 	// ---- SimThread から時刻を同期 ----
+	if (s_frameLog < 5) Logger << U"[Playing] lockForRead...";
 	{
 		auto lock = m_simThread.lockForRead();
 		m_clock = m_simThread.clock();
 	}
+	if (s_frameLog < 5) Logger << U"[Playing] lock done";
 
 	// ---- 通知を取得 ----
 	for (const auto& n : m_simThread.popNotifications())
@@ -974,9 +666,10 @@ void GameScene::update()
 	// ---- メインスレッドのロジック ----
 	const Stopwatch swLogic{ StartImmediately::Yes };
 	m_world.update(m_camera.focusPoint());
-	checkAndGenerateRegions();
 	m_camera.update(dt, m_world);
 	m_logicMs = swLogic.msF();
+	if (s_frameLog < 5) Logger << U"[Playing] logic done, rendering...";
+	++s_frameLog;
 
 	// フォローカメラ
 	if (m_camera.mode() != CameraMode::Overview)
@@ -991,22 +684,18 @@ void GameScene::update()
 		}
 	}
 
+	if (s_frameLog <= 5) Logger << U"[Playing] handleInput...";
 	handleInput();
+	if (s_frameLog <= 5) Logger << U"[Playing] updateCursor...";
 	updateCursor();
+	if (s_frameLog <= 5) Logger << U"[Playing] debugRenderer...";
 	m_debugRenderer.handleInput();
-
-	// ---- 月次更新 ----
-	if (m_clock.year != m_lastEconYear || m_clock.month != m_lastEconMonth)
-	{
-		m_lastEconYear  = m_clock.year;
-		m_lastEconMonth = m_clock.month;
-		m_zoneManager.monthlyUpdate(m_world, m_network, m_clock.now, m_economy);
-	}
 
 	// ---- ゲーム速度を SimThread に同期 ----
 	m_simThread.setSpeed(m_clock.speed);
 
 	// ---- 描画 ----
+	if (s_frameLog <= 5) Logger << U"[Playing] renderWorld...";
 	renderWorld();
 }
 
@@ -1058,13 +747,18 @@ void GameScene::renderWorld()
 		m_sky.draw(exposure);
 		lap(s_sky);
 
-		const ViewFrustum frustum{ m_camera.camera3D(), 12000.0 };
+		static int s_renderLog = 0;
+		if (s_renderLog < 3) Logger << U"[render] sky={:.0f}ms"_fmt(s_sky);
+
+		const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
 		m_worldRenderer.render(m_world, m_camera.camera3D());
 		lap(s_terrain);
+		if (s_renderLog < 3) Logger << U"[render] terrain={:.0f}ms"_fmt(s_terrain);
 
 		m_roadRenderer.render(m_network, m_world, frustum,
 		                     m_camera.camera3D().getEyePosition());
 		lap(s_road);
+		if (s_renderLog < 3) { Logger << U"[render] road={:.0f}ms"_fmt(s_road); ++s_renderLog; }
 
 		m_zoneManager.renderOverlay(m_world);
 		lap(s_zone);
@@ -1107,9 +801,6 @@ void GameScene::renderWorld()
 			Sphere{ *m_cursorGroundPos, 6.0f }.draw(ColorF{ 0.9, 0.85, 0.2, 0.8 }.removeSRGBCurve());
 		}
 
-		// TODO: バス停描画を SimThread 経由に移行
-		// for (const auto& stop : m_simThread.busStops()) { ... }
-
 		if (m_mode == EditMode::BusRouteDraw && m_cursorGroundPos)
 		{
 			Sphere{ *m_cursorGroundPos, 4.0f }.draw(ColorF{ 0.2, 0.5, 0.9, 0.8 }.removeSRGBCurve());
@@ -1147,7 +838,6 @@ void GameScene::renderWorld()
 			const Vec2 cur2D = m_cursorGroundPos
 				? Vec2{ m_cursorGroundPos->x, m_cursorGroundPos->z } : Vec2{ 0, 0 };
 
-			// 制御点ハンドルを表示（ノードとの接線ライン + 小球）
 			for (const auto& edge : m_network.edges())
 			{
 				if (edge.id < 0) continue;
@@ -1164,7 +854,6 @@ void GameScene::renderWorld()
 				const bool dragB = m_sandboxDragCtrl &&
 				    m_sandboxDragCtrl->edgeId == edge.id && !m_sandboxDragCtrl->isControlPointA;
 
-				// nodeA ↔ ctrlA のハンドルライン
 				const ColorF colA = dragA
 				    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
 				    : (isHovCtrl(edge.ctrlA) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
@@ -1174,7 +863,6 @@ void GameScene::renderWorld()
 				Sphere{ edge.ctrlA + Vec3{0,2,0}, dragA ? 6.0 : 4.0 }
 					.draw(colA.removeSRGBCurve());
 
-				// nodeB ↔ ctrlB のハンドルライン
 				const ColorF colB = dragB
 				    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
 				    : (isHovCtrl(edge.ctrlB) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
@@ -1185,7 +873,6 @@ void GameScene::renderWorld()
 					.draw(colB.removeSRGBCurve());
 			}
 
-			// ノードを球で表示
 			for (const auto& node : m_network.nodes())
 			{
 				if (node.id < 0) continue;
@@ -1214,7 +901,6 @@ void GameScene::renderWorld()
 	lap(s_ui);
 	s_total = swTotal.msF();
 
-	// ---- 描画時間プロファイル表示（DebugRenderer に委譲） ----
 	m_debugRenderer.renderProfiler(s_total, m_logicMs, s_sky, s_terrain,
 	                               s_road, s_zone, s_vehicle, s_train,
 	                               s_debug, s_ui, m_network);
@@ -1227,14 +913,12 @@ void GameScene::renderWorld()
 
 void GameScene::handleInput()
 {
-	// Ctrl+S: セーブ
 	if (KeyControl.pressed() && KeyS.down())
 	{
 		saveGame();
 		return;
 	}
 
-	// Space: 一時停止 / 直前の速度に復帰
 	if (KeySpace.down())
 	{
 		if (m_clock.speed == TimeSpeed::Paused)
@@ -1249,7 +933,6 @@ void GameScene::handleInput()
 	if (KeyTab.down())
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
 
-	// Esc: 編集モードを抜ける
 	if (KeyEscape.down() && m_mode != EditMode::None)
 	{
 		m_mode               = EditMode::None;
@@ -1288,7 +971,6 @@ void GameScene::handleInput()
 	}
 	else
 	{
-		// 1/2/3 キーで速度変更：Space 復帰用に直前速度を更新する
 		if (Key1.down()) { m_prevSpeed = TimeSpeed::x1; m_clock.speed = TimeSpeed::x1; }
 		if (Key2.down()) { m_prevSpeed = TimeSpeed::x2; m_clock.speed = TimeSpeed::x2; }
 		if (Key3.down()) { m_prevSpeed = TimeSpeed::x4; m_clock.speed = TimeSpeed::x4; }
@@ -1335,7 +1017,7 @@ void GameScene::handleInput()
 			m_mode = EditMode::BusRouteDraw;
 			BusRoute newRoute;
 			newRoute.headwaySec  = 120.0f;
-			m_editingRouteId = -1; // TODO: SimThread 経由でバス路線追加
+			m_editingRouteId = -1;
 		}
 	}
 
@@ -1436,10 +1118,6 @@ void GameScene::handleBusRouteDraw()
 				}
 			}
 		}
-
-		// TODO: SimThread 経由でバス停追加
-		// const int stopId = m_simThread.addBusStop(stop);
-		// m_simThread.addStopToRoute(m_editingRouteId, stopId);
 	}
 }
 
@@ -1541,16 +1219,13 @@ void GameScene::handleSandboxEdit()
 
 	const Vec2 cur2D{ m_cursorGroundPos->x, m_cursorGroundPos->z };
 
-	// ---- 左ボタンを押した瞬間：ドラッグ対象を決定 ----
 	if (MouseL.down())
 	{
 		m_sandboxDragNode = none;
 		m_sandboxDragCtrl = none;
 
-		// 1) ノード優先
 		m_sandboxDragNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
 
-		// 2) ノードがなければ制御点を探す
 		if (!m_sandboxDragNode)
 		{
 			float bestDist = 18.0f;
@@ -1571,14 +1246,12 @@ void GameScene::handleSandboxEdit()
 
 	if (MouseL.up())
 	{
-		// ドラッグ完了時にネットワーク変更を通知する（ドラッグ中は毎フレーム通知しない）
 		if (m_sandboxDragNode || m_sandboxDragCtrl)
 			notifyNetworkChanged();
 		m_sandboxDragNode = none;
 		m_sandboxDragCtrl = none;
 	}
 
-	// ---- 左ドラッグ中：ノード or 制御点を移動 ----
 	if (MouseL.pressed())
 	{
 		const Vec3 delta = *m_cursorGroundPos - m_sandboxPrevCursor;
@@ -1613,13 +1286,11 @@ void GameScene::handleSandboxEdit()
 		m_sandboxPrevCursor = *m_cursorGroundPos;
 	}
 
-	// ---- 右クリック：削除 ----
 	if (MouseR.down())
 	{
 		auto nearNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
 		if (nearNode)
 		{
-			// 削除前に影響ノードを収集
 			Array<int> neighborNodes;
 			if (const RoadNode* node = m_network.getNode(*nearNode))
 			{
@@ -1657,7 +1328,6 @@ void GameScene::handleSandboxEdit()
 			}
 			if (bestId >= 0)
 			{
-				// 削除前に両端ノードを取得
 				int nA = -1, nB = -1;
 				if (const RoadEdge* e = m_network.getEdge(bestId))
 				{ nA = e->nodeA; nB = e->nodeB; }

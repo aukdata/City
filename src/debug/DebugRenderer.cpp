@@ -12,8 +12,9 @@ void DebugRenderer::handleInput()
 	if (KeyC.down())     { m_showChunks    = !m_showChunks;    m_debugMode = true; anyChord = true; }
 	if (KeyV.down())     { m_showVehicles  = !m_showVehicles;  m_debugMode = true; anyChord = true; }
 	if (KeyG.down())     { m_showGrid      = !m_showGrid;      m_debugMode = true; anyChord = true; }
-	if (KeyH.down())     { m_showDetailHUD = !m_showDetailHUD; m_debugMode = true; anyChord = true; }
-	if (KeySlash.down())
+	if (KeyB.down())     { m_showBiomes    = !m_showBiomes;    m_debugMode = true; anyChord = true; }
+	if (KeySlash.down()) { m_showDetailHUD = !m_showDetailHUD; m_debugMode = true; anyChord = true; }
+	if (KeyH.down())
 	{
 		m_showHelp  = !m_showHelp;
 		if (m_showHelp) m_helpOpenTime = Scene::Time();
@@ -36,11 +37,12 @@ void DebugRenderer::render(const RoadNetwork& network,
 
 	// 3D オーバーレイ（描画順: グリッド → ネットワーク → チャンク → 車両）
 	if (m_showGrid)     renderGrid(camera);
+	if (m_showBiomes)   renderBiomes(world, camera);
 	if (m_showNetwork)  renderNetwork(network, camera);
 	if (m_showChunks)   renderChunks(world, camera);
 	if (m_showVehicles) renderVehicleInfo(vehicles, camera);
 
-	// 2D オーバーレイ
+	// 注: 2D オーバーレイ (renderBiomeLegend) は renderProfiler 側で描画する
 	if (m_showDetailHUD) renderDetailHUD(network, world, camera, vehicles);
 	renderLog();
 	// ヘルプパネル（10s で自動クローズ）
@@ -203,7 +205,6 @@ void DebugRenderer::renderChunks(const World& world, const GameCamera& camera)
 
 		ColorF color{ 0.2, 1.0, 0.2, 0.6 };
 		if (chunk->state == ChunkState::Sleeping) color = ColorF{ 0.5, 0.5, 0.5, 0.5 };
-		if (chunk->state == ChunkState::Loading)  color = ColorF{ 1.0, 1.0, 0.2, 0.6 };
 
 		Cylinder{ Vec3{x0, y, z0}, Vec3{x1, y, z0}, r }.draw(color);
 		Cylinder{ Vec3{x1, y, z0}, Vec3{x1, y, z1}, r }.draw(color);
@@ -384,8 +385,9 @@ void DebugRenderer::renderHelp()
 		U"F3+C   Chunk boundaries",
 		U"F3+V   Vehicle debug info",
 		U"F3+G   World grid",
-		U"F3+H   Detail HUD",
-		U"F3+/   This help",
+		U"F3+B   Biome overlay",
+		U"F3+/   Detail HUD",
+		U"F3+H   This help",
 	};
 
 	bool first = true;
@@ -402,6 +404,105 @@ void DebugRenderer::renderHelp()
 	const double barX      = center.x - panelW * 0.5;
 	const double barY      = center.y + panelH * 0.5 - 4.0;
 	RectF{ barX, barY, panelW * ratio, 4.0 }.draw(ColorF{ 0.4, 0.8, 1.0, 0.8 });
+}
+
+// ===== D-06: バイオーム表示 =====
+
+void DebugRenderer::renderBiomes(const World& world, const GameCamera& camera)
+{
+	const auto& activeChunks = world.getActiveChunks();
+	if (activeChunks.isEmpty()) return;
+
+	// バイオーム → 色のマッピング
+	auto biomeColor = [](BiomeType b) -> ColorF
+	{
+		switch (b)
+		{
+		case BiomeType::Ocean:         return ColorF{ 0.1, 0.2, 0.8, 0.35 };
+		case BiomeType::Lake:          return ColorF{ 0.2, 0.4, 0.9, 0.35 };
+		case BiomeType::CoastalPlain:  return ColorF{ 0.3, 0.7, 0.9, 0.35 };
+		case BiomeType::CoastalHill:   return ColorF{ 0.2, 0.6, 0.5, 0.35 };
+		case BiomeType::Plain:         return ColorF{ 0.5, 0.8, 0.2, 0.35 };
+		case BiomeType::Basin:         return ColorF{ 0.3, 0.5, 0.4, 0.35 };
+		case BiomeType::Hill:          return ColorF{ 0.2, 0.7, 0.3, 0.35 };
+		case BiomeType::Foothill:      return ColorF{ 0.8, 0.7, 0.2, 0.35 };
+		case BiomeType::Plateau:       return ColorF{ 0.8, 0.5, 0.2, 0.35 };
+		case BiomeType::Mountain:      return ColorF{ 0.5, 0.3, 0.1, 0.35 };
+		case BiomeType::MountainRange: return ColorF{ 0.9, 0.9, 0.9, 0.35 };
+		default:                       return ColorF{ 1, 1, 1, 0.2 };
+		}
+	};
+
+	// 粗いグリッド（8×8）で半透明ボックスを描画
+	constexpr int kStep = 8;  // HEIGHT_CELLS / kStep = 8
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS * kStep;
+
+	for (const Chunk* chunk : activeChunks)
+	{
+		if (!chunk) continue;
+		const float ox = static_cast<float>(chunk->coord.x * CHUNK_SIZE);
+		const float oz = static_cast<float>(chunk->coord.y * CHUNK_SIZE);
+
+		for (int gz = 0; gz < HEIGHT_CELLS; gz += kStep)
+		{
+			for (int gx = 0; gx < HEIGHT_CELLS; gx += kStep)
+			{
+				const float wx = ox + (gx + kStep * 0.5f) * (static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS);
+				const float wz = oz + (gz + kStep * 0.5f) * (static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS);
+				const float h  = world.sampleHeight(wx, wz);
+
+				const BiomeType b = world.getBiome(wx, wz);
+				const ColorF col = biomeColor(b).removeSRGBCurve();
+
+				Box{ static_cast<double>(wx), static_cast<double>(h + 2.0f), static_cast<double>(wz),
+				     static_cast<double>(cellSize), 4.0, static_cast<double>(cellSize) }
+					.draw(col);
+			}
+		}
+	}
+}
+
+void DebugRenderer::renderBiomeLegend()
+{
+	struct Entry { StringView name; ColorF color; };
+	static const Entry kEntries[] = {
+		{ U"Ocean",         ColorF{ 0.1, 0.2, 0.8 } },
+		{ U"Lake",          ColorF{ 0.2, 0.4, 0.9 } },
+		{ U"CoastalPlain",  ColorF{ 0.3, 0.7, 0.9 } },
+		{ U"CoastalHill",   ColorF{ 0.2, 0.6, 0.5 } },
+		{ U"Plain",         ColorF{ 0.5, 0.8, 0.2 } },
+		{ U"Basin",         ColorF{ 0.3, 0.5, 0.4 } },
+		{ U"Hill",          ColorF{ 0.2, 0.7, 0.3 } },
+		{ U"Foothill",      ColorF{ 0.8, 0.7, 0.2 } },
+		{ U"Plateau",       ColorF{ 0.8, 0.5, 0.2 } },
+		{ U"Mountain",      ColorF{ 0.5, 0.3, 0.1 } },
+		{ U"MountainRange", ColorF{ 0.9, 0.9, 0.9 } },
+	};
+
+	constexpr int kLineH = 18;
+	constexpr int kSwatchW = 14;
+	constexpr int kPadding = 8;
+	constexpr int kEntryCount = static_cast<int>(std::size(kEntries));
+	const int panelH = kPadding * 2 + kLineH * kEntryCount + kLineH;
+	const int panelW = 180;
+	const int px = 10;
+	const int py = Scene::Height() - panelH - 10;
+
+	RectF{ static_cast<double>(px), static_cast<double>(py),
+	       static_cast<double>(panelW), static_cast<double>(panelH) }
+		.draw(ColorF{ 0, 0, 0, 0.6 });
+
+	m_font(U"Biomes (F3+B)").draw(Vec2{ px + kPadding, py + kPadding }, Palette::Yellow);
+
+	for (int i = 0; i < kEntryCount; ++i)
+	{
+		const int y = py + kPadding + kLineH * (i + 1);
+		RectF{ static_cast<double>(px + kPadding), static_cast<double>(y + 2),
+		       static_cast<double>(kSwatchW), static_cast<double>(kSwatchW) }
+			.draw(kEntries[i].color);
+		m_font(kEntries[i].name).draw(
+			Vec2{ px + kPadding + kSwatchW + 6, y }, Palette::White);
+	}
 }
 
 // ===== プロファイラ HUD =====
@@ -439,4 +540,7 @@ void DebugRenderer::renderProfiler(double total, double logic, double sky, doubl
 		liveEdges, liveNodes,
 		network.edges().size(), network.nodes().size()
 	)).draw(x, y + lineH * 10, c);
+
+	// 2D オーバーレイ（ここは 3D レンダーターゲット外なので正しく表示される）
+	if (m_showBiomes) renderBiomeLegend();
 }

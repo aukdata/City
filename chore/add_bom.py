@@ -4,8 +4,8 @@ add_bom.py — src/ 以下の .cpp / .hpp / .h ファイルに UTF-8 BOM (EF BB 
 すでに BOM がある場合はスキップする。
 
 使い方:
-    python3 scripts/add_bom.py            # src/ 以下を全走査
-    python3 scripts/add_bom.py [path...]  # 指定ファイル/ディレクトリのみ
+    python3 chore/add_bom.py            # src/ 以下を全走査
+    python3 chore/add_bom.py [path...]  # 指定ファイル/ディレクトリのみ
 """
 import sys
 import os

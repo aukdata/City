@@ -4,171 +4,254 @@
 #include <queue>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// initWorld() : ワールドパラメータ設定 + 地名生成（軽量・メインスレッド）
+// initWorld()
 // ─────────────────────────────────────────────────────────────────────────────
 
 MapGenerator::InitResult MapGenerator::initWorld(
-	uint64 seed, TerrainType terrainType, World& world)
+	uint64 seed, World& world)
 {
-	world.setGenerationParams(seed, terrainType, 10.0f * CHUNK_SIZE, 10.0f * CHUNK_SIZE);
+	world.setGenerationParams(seed,
+		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE,
+		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE);
 
 	PlaceNameGenerator placeGen;
 	placeGen.load(U"assets/placenames/placenames.toml");
 
 	InitResult result;
-	// 地名は仮の地区数で生成（後から地区データに名前を反映）
-	result.placeNames = placeGen.generate(128, terrainType, seed);
+	result.placeNames = placeGen.generate(4096, seed);
 	return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 1: 高さグリッド構築
+// 地形適性スコア
 // ─────────────────────────────────────────────────────────────────────────────
 
-void MapGenerator::buildHeightGrid(const Grid<float>& heightMap, Point chunkCoord)
+float MapGenerator::scoreSuitability(const RoadPathfinder& pf, int gx, int gz)
 {
-	// 事前計算済み heightMap からバイリニア補間でパスファインダーグリッドを構築
-	m_pathfinder.setupFromHeightMap(heightMap, chunkCoord, kGridW, kGridH, kCellSize);
-}
+	const float h = pf.height(gx, gz);
+	if (h < 0.5f || h > 800.0f) return 0.0f;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Phase 2: 地区配置（Poisson ディスクサンプリング）
-// ─────────────────────────────────────────────────────────────────────────────
+	// elevation: 低地ほど高スコア
+	float elevation;
+	if      (h < 50.0f)  elevation = 1.0f;
+	else if (h < 200.0f) elevation = 0.7f;
+	else if (h < 500.0f) elevation = 0.3f;
+	else                 elevation = 0.1f;
 
-bool MapGenerator::isSuitable(int gx, int gz) const
-{
-	const float h = gridHeight(gx, gz);
-	// 水域・低地・急峻な山岳を除外
-	if (h < 0.5f || h > 800.0f) return false;
-
-	// 近傍の最大傾斜チェック（10% 以下）
+	// slope: 周囲3x3の最大傾斜をチェック
+	const int gridW = pf.gridW();
+	const int gridH = pf.gridH();
+	float maxSlope = 0.0f;
 	for (int dz = -1; dz <= 1; ++dz)
 	{
 		for (int dx = -1; dx <= 1; ++dx)
 		{
 			if (dx == 0 && dz == 0) continue;
 			const int nx = gx + dx, nz = gz + dz;
-			if (nx < 0 || nx >= kGridW || nz < 0 || nz >= kGridH) continue;
-			const float dh = std::abs(gridHeight(nx, nz) - h);
-			if (dh / kCellSize > 0.10f) return false;
+			if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridH) continue;
+			const float slope = std::abs(pf.height(nx, nz) - h) / pf.cellSize();
+			if (slope > maxSlope) maxSlope = slope;
 		}
 	}
-	return true;
+
+	float slopeBonus;
+	if      (maxSlope < 0.03f) slopeBonus = 1.0f;
+	else if (maxSlope < 0.05f) slopeBonus = 0.8f;
+	else if (maxSlope < 0.10f) slopeBonus = 0.5f;
+	else                       return 0.0f;  // 傾斜10%超は不適
+
+	return elevation * slopeBonus;
 }
 
-void MapGenerator::placeSettlements(uint64 seed, const Array<Vec2>& existingUrbanCenters)
+// ─────────────────────────────────────────────────────────────────────────────
+// 空間ハッシュ（道路ノード最近傍検索用）
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace
 {
-	std::mt19937_64 rng(seed ^ 0xABCD1234ULL);
-
-	// 候補セルを収集（端から2セル内側）
-	Array<Point> candidates;
-	for (int gz = 2; gz < kGridH - 2; ++gz)
-		for (int gx = 2; gx < kGridW - 2; ++gx)
-			if (isSuitable(gx, gz))
-				candidates << Point{ gx, gz };
-
-	// シャッフル
-	std::shuffle(candidates.begin(), candidates.end(), rng);
-
-	// Poisson ディスクサンプリング（1024m チャンクスケール）
-	constexpr float kMinDist = 200.0f;
-	constexpr float kMinDistSq = kMinDist * kMinDist;
-
-	m_settlements.clear();
-
-	for (const auto& c : candidates)
+	struct RoadNodeSpatialHash
 	{
-		const Vec2 wp = gridToWorld(c.x, c.y);
-		bool tooClose = false;
-		for (const auto& s : m_settlements)
-		{
-			if (wp.distanceFromSq(s.center) < kMinDistSq)
-			{
-				tooClose = true;
-				break;
-			}
-		}
-		if (!tooClose)
-		{
-			Settlement s;
-			s.center = wp;
-			m_settlements << s;
-		}
-		if (m_settlements.size() >= 1) break;  // チャンク内は最大1地区
-	}
+		static constexpr float kBucketSize = 200.0f;
+		HashTable<int64, Array<int>> buckets;
 
-	// 地区が 0 のときは条件を緩和して再試行（高さ上限を広げる）
-	if (m_settlements.size() < 1)
-	{
-		m_settlements.clear();
-		for (const auto& c : candidates)
+		static int64 key(float x, float z)
 		{
-			const float h = gridHeight(c.x, c.y);
-			if (h < 0.0f || h > 1000.0f) continue;
+			const int bx = static_cast<int>(Math::Floor(x / kBucketSize));
+			const int bz = static_cast<int>(Math::Floor(z / kBucketSize));
+			return (static_cast<int64>(bx) << 32) | static_cast<uint32>(bz);
+		}
 
-			const Vec2 wp = gridToWorld(c.x, c.y);
-			bool tooClose = false;
-			for (const auto& s : m_settlements)
+		void insert(Vec3 pos, int nodeId)
+		{
+			buckets[key(static_cast<float>(pos.x), static_cast<float>(pos.z))] << nodeId;
+		}
+
+		/// @brief 最寄りノードを検索（maxDist 以内、excludeId を除外、見つからなければ -1）
+		int findNearest(Vec3 pos, const RoadNetwork& net, float maxDist, int excludeId = -1) const
+		{
+			const float px = static_cast<float>(pos.x);
+			const float pz = static_cast<float>(pos.z);
+			const int range = static_cast<int>(Ceil(maxDist / kBucketSize));
+			const int bx0 = static_cast<int>(Math::Floor(px / kBucketSize));
+			const int bz0 = static_cast<int>(Math::Floor(pz / kBucketSize));
+
+			float bestDistSq = maxDist * maxDist;
+			int bestId = -1;
+
+			for (int dz = -range; dz <= range; ++dz)
 			{
-				if (wp.distanceFromSq(s.center) < kMinDistSq * 0.25f)
+				for (int dx = -range; dx <= range; ++dx)
 				{
-					tooClose = true;
-					break;
+					const int64 k = (static_cast<int64>(bx0 + dx) << 32) | static_cast<uint32>(bz0 + dz);
+					const auto it = buckets.find(k);
+					if (it == buckets.end()) continue;
+					for (const int nid : it->second)
+					{
+						if (nid == excludeId) continue;
+						const RoadNode* node = net.getNode(nid);
+						if (!node) continue;
+						const float ddx = static_cast<float>(node->position.x) - px;
+						const float ddz = static_cast<float>(node->position.z) - pz;
+						const float dSq = ddx * ddx + ddz * ddz;
+						if (dSq < bestDistSq)
+						{
+							bestDistSq = dSq;
+							bestId = nid;
+						}
+					}
 				}
 			}
-			if (!tooClose)
-			{
-				Settlement s;
-				s.center = wp;
-				m_settlements << s;
-			}
-			if (m_settlements.size() >= 1) break;
+			return bestId;
+		}
+
+		/// @brief 指定ノードの前後ノードから接線方向を返す
+		static Vec2 tangentAt(int nodeId, const RoadNetwork& net)
+		{
+			const RoadNode* node = net.getNode(nodeId);
+			if (!node || node->edgeIds.isEmpty()) return Vec2{ 1, 0 };
+
+			// 最初の接続エッジの方向を返す
+			const RoadEdge* edge = net.getEdge(node->edgeIds[0]);
+			if (!edge) return Vec2{ 1, 0 };
+
+			const RoadNode* other = net.getNode(
+				(edge->nodeA == nodeId) ? edge->nodeB : edge->nodeA);
+			if (!other) return Vec2{ 1, 0 };
+
+			Vec2 dir{
+				static_cast<float>(other->position.x - node->position.x),
+				static_cast<float>(other->position.z - node->position.z)
+			};
+			const float len = static_cast<float>(dir.length());
+			return (len > 0.01f) ? Vec2{ dir.x / len, dir.y / len } : Vec2{ 1, 0 };
+		}
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// placeAllSettlements: 地形スコアベースの地区配置
+// ─────────────────────────────────────────────────────────────────────────────
+
+Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
+	uint64 seed, const World& world)
+{
+	const Stopwatch sw{ StartImmediately::Yes };
+	std::mt19937_64 rng(seed ^ 0xABCD1234ULL);
+
+	// 候補セルを収集（スコア付き）
+	struct Candidate { Vec2 pos; float score; };
+	Array<Candidate> candidates;
+
+	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
+	{
+		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+		{
+			const Point coord{ cx, cy };
+			const Chunk* chunk = world.getChunk(coord);
+			if (!chunk) continue;
+
+			RoadPathfinder pf;
+			pf.setupFromHeightMap(chunk->heightMap, coord, kGridW, kGridH, kCellSize);
+
+			for (int gz = 2; gz < kGridH - 2; ++gz)
+				for (int gx = 2; gx < kGridW - 2; ++gx)
+				{
+					const float sc = scoreSuitability(pf, gx, gz);
+					if (sc > 0.0f)
+						candidates << Candidate{ pf.gridToWorld(gx, gz), sc };
+				}
 		}
 	}
 
-	if (m_settlements.isEmpty())
+	// スコア降順でソート（同スコアはシャッフルで乱数化）
+	std::shuffle(candidates.begin(), candidates.end(), rng);
+	candidates.sort_by([](const Candidate& a, const Candidate& b)
 	{
-		// フォールバック: マップ中央付近を都市核にする
+		return a.score > b.score;
+	});
+
+	Logger << U"[placeAllSettlements] 候補セル: {}"_fmt(candidates.size());
+
+	// Poisson ディスクサンプリング（スコア降順で採用）
+	// 8チャンクに1地区 ≒ 2.8km間隔
+	constexpr float kMinDist   = 2800.0f;
+	constexpr float kMinDistSq = kMinDist * kMinDist;
+	constexpr float kHashCell  = kMinDist;
+
+	HashTable<int64, Array<int>> spatialHash;
+	Array<Settlement> settlements;
+
+	for (const auto& [wp, sc] : candidates)
+	{
+		const int hx = static_cast<int>(wp.x / kHashCell);
+		const int hz = static_cast<int>(wp.y / kHashCell);
+
+		bool tooClose = false;
+		for (int dz = -2; dz <= 2 && !tooClose; ++dz)
+		{
+			for (int dx = -2; dx <= 2 && !tooClose; ++dx)
+			{
+				const int64 cellKey = (static_cast<int64>(hx + dx) << 32) | static_cast<uint32>(hz + dz);
+				const auto it = spatialHash.find(cellKey);
+				if (it == spatialHash.end()) continue;
+				for (const int idx : it->second)
+				{
+					if (wp.distanceFromSq(settlements[idx].center) < kMinDistSq)
+					{
+						tooClose = true;
+						break;
+					}
+				}
+			}
+		}
+		if (tooClose) continue;
+
 		Settlement s;
-		s.center = Vec2{ m_regionOffset.x + kMapWidth * 0.5f,
-		                 m_regionOffset.y + kMapDepth * 0.5f };
-		m_settlements << s;
-	}
-
-	// 種別・影響半径を割当てる
-	// Poisson 採用順（擬似ランダム）のまま処理する
-	// Urban  : 周囲 10 km 以内に別の Urban がない場合
-	// Suburbs: 周囲  1 km 以内に Urban がある場合（全 Urban 確定後に判定）
-	// Rural  : それ以外
-
-	constexpr float kUrbanExclusionSq = 10000.0f * 10000.0f;
-	constexpr float kSuburbsRadiusSq  =  1000.0f *  1000.0f;
-
-	// まず全地区を Rural に初期化
-	for (auto& s : m_settlements)
-	{
+		s.center = wp;
 		s.type   = SettlementType::Rural;
 		s.radius = 150.0f;
+		s.score  = sc;
+
+		const int idx = static_cast<int>(settlements.size());
+		const int64 cellKey = (static_cast<int64>(hx) << 32) | static_cast<uint32>(hz);
+		spatialHash[cellKey] << idx;
+		settlements << s;
 	}
 
-	// 例外: マップ中心に最も近い地区を先行 Urban 化
-	const Vec2 mapCenter{ m_regionOffset.x + kMapWidth * 0.5f,
-	                      m_regionOffset.y + kMapDepth * 0.5f };
-	Settlement* centerSettlement = &m_settlements[0];
-	float bestCenterDistSq = static_cast<float>(centerSettlement->center.distanceFromSq(mapCenter));
-	for (auto& s : m_settlements)
-	{
-		const float d = static_cast<float>(s.center.distanceFromSq(mapCenter));
-		if (d < bestCenterDistSq) { bestCenterDistSq = d; centerSettlement = &s; }
-	}
-	centerSettlement->type   = SettlementType::Urban;
-	centerSettlement->radius = 700.0f;
+	Logger << U"[placeAllSettlements] Poisson 完了: {} 地区"_fmt(settlements.size());
 
-	// パス 1: Urban を決定（処理済み Urban との距離で判定・先行 Urban を起点にする）
-	for (auto& s : m_settlements)
+	// 種別割当て
+	constexpr float kUrbanExclusionSq = 20000.0f * 20000.0f;  // 20km 排他
+	constexpr float kSuburbsRadiusSq  =  6000.0f *  6000.0f;  // 6km 以内が Suburbs
+	constexpr float kUrbanMinScore    = 0.6f;
+
+	// Pass 1: スコア上位の候補を Urban 化（10km 排他）
+	// settlements はスコア降順で入っているので、先頭から走査すればスコア最高から決まる
+	for (auto& s : settlements)
 	{
+		if (s.score < kUrbanMinScore) continue;
 		bool canBeUrban = true;
-		for (const auto& other : m_settlements)
+		for (const auto& other : settlements)
 		{
 			if (&other == &s) continue;
 			if (other.type == SettlementType::Urban &&
@@ -178,15 +261,6 @@ void MapGenerator::placeSettlements(uint64 seed, const Array<Vec2>& existingUrba
 				break;
 			}
 		}
-		// 他チャンクの既存 Urban との距離チェック
-		if (canBeUrban)
-		{
-			for (const Vec2& uc : existingUrbanCenters)
-			{
-				if (static_cast<float>(s.center.distanceFromSq(uc)) < kUrbanExclusionSq)
-				{ canBeUrban = false; break; }
-			}
-		}
 		if (canBeUrban)
 		{
 			s.type   = SettlementType::Urban;
@@ -194,11 +268,11 @@ void MapGenerator::placeSettlements(uint64 seed, const Array<Vec2>& existingUrba
 		}
 	}
 
-	// パス 2: Suburbs 判定（全 Urban 確定後）
-	for (auto& s : m_settlements)
+	// Pass 2: Suburbs 判定
+	for (auto& s : settlements)
 	{
 		if (s.type == SettlementType::Urban) continue;
-		for (const auto& other : m_settlements)
+		for (const auto& other : settlements)
 		{
 			if (other.type == SettlementType::Urban &&
 			    static_cast<float>(s.center.distanceFromSq(other.center)) < kSuburbsRadiusSq)
@@ -209,69 +283,615 @@ void MapGenerator::placeSettlements(uint64 seed, const Array<Vec2>& existingUrba
 			}
 		}
 	}
+
+	int nUrban = 0, nSuburbs = 0, nRural = 0;
+	for (const auto& s : settlements)
+	{
+		if (s.type == SettlementType::Urban)   ++nUrban;
+		else if (s.type == SettlementType::Suburbs) ++nSuburbs;
+		else ++nRural;
+	}
+	Logger << U"[placeAllSettlements] Urban={}, Suburbs={}, Rural={}, total={} ({:.0f}ms)"_fmt(
+		nUrban, nSuburbs, nRural, settlements.size(), sw.msF());
+
+	return settlements;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 3: 旧道生成
+// MST サブセット（Prim's O(n^2)）
 // ─────────────────────────────────────────────────────────────────────────────
 
-// --- MST（Kruskal 法）---
-
-Array<std::pair<int,int>> MapGenerator::computeMST() const
+Array<std::pair<int,int>> MapGenerator::computeMSTSubset(
+	const Array<Settlement>& settlements, const Array<int>& indices)
 {
-	const int n = static_cast<int>(m_settlements.size());
+	const int n = static_cast<int>(indices.size());
 	if (n <= 1) return {};
 
-	// 全辺を距離でソート
-	using Edge = std::tuple<float, int, int>;
-	Array<Edge> edges;
-	for (int i = 0; i < n; ++i)
-		for (int j = i + 1; j < n; ++j)
-		{
-			const float d = static_cast<float>(m_settlements[i].center.distanceFrom(m_settlements[j].center));
-			edges << Edge{ d, i, j };
-		}
-	edges.sort_by([](const Edge& a, const Edge& b){ return std::get<0>(a) < std::get<0>(b); });
-
-	// Union-Find
-	Array<int> parent(n);
-	std::iota(parent.begin(), parent.end(), 0);
-
-	std::function<int(int)> find = [&](int x) -> int
-	{
-		return parent[x] == x ? x : parent[x] = find(parent[x]);
-	};
-
+	Array<float> minCost(n, 1e30f);
+	Array<int>   minEdge(n, -1);
+	Array<bool>  inTree(n, false);
 	Array<std::pair<int,int>> mst;
-	for (const auto& [d, u, v] : edges)
+
+	minCost[0] = 0.0f;
+
+	for (int iter = 0; iter < n; ++iter)
 	{
-		const int pu = find(u), pv = find(v);
-		if (pu != pv)
+		int u = -1;
+		float best = 1e30f;
+		for (int i = 0; i < n; ++i)
 		{
-			parent[pu] = pv;
-			mst << std::make_pair(u, v);
-			if (static_cast<int>(mst.size()) == n - 1) break;
+			if (!inTree[i] && minCost[i] < best)
+			{
+				best = minCost[i];
+				u = i;
+			}
+		}
+		if (u < 0) break;
+
+		inTree[u] = true;
+		if (minEdge[u] >= 0)
+			mst << std::make_pair(minEdge[u], u);
+
+		for (int v = 0; v < n; ++v)
+		{
+			if (inTree[v]) continue;
+			const float d = static_cast<float>(
+				settlements[indices[u]].center.distanceFrom(
+					settlements[indices[v]].center));
+			if (d < minCost[v])
+			{
+				minCost[v] = d;
+				minEdge[v] = u;
+			}
 		}
 	}
+
 	return mst;
 }
 
-// --- 旧道生成 メイン ---
+// ─────────────────────────────────────────────────────────────────────────────
+// MST diameter（最長パス）
+// ─────────────────────────────────────────────────────────────────────────────
 
-void MapGenerator::generateRoads(RoadNetwork& roads, [[maybe_unused]] uint64 seed)
+Array<int> MapGenerator::findMSTDiameter(
+	const Array<std::pair<int,int>>& mst, int nodeCount)
 {
-	if (m_settlements.isEmpty()) return;
+	if (nodeCount <= 1) return { 0 };
 
-	// 各地区の道路ノード ID を記録する（チャンク内接続の起点）
-	for (int i = 0; i < static_cast<int>(m_settlements.size()); ++i)
+	// 隣接リスト
+	Array<Array<int>> adj(nodeCount);
+	for (const auto& [u, v] : mst)
 	{
-		const Vec2& c  = m_settlements[i].center;
-		const Point gp = worldToGrid(static_cast<float>(c.x), static_cast<float>(c.y));
-		const float y  = m_pathfinder.height(gp.x, gp.y);
-		roads.addNode(Vec3{ c.x, y, c.y }, NodeType::Intersection);
+		adj[u] << v;
+		adj[v] << u;
 	}
-	// チャンクあたり集落1つのため、チャンク内道路生成は不要
-	// 道路はチャンク間接続（buildChunk 内）で生成される
+
+	// BFS で最遠点を見つける
+	auto bfs = [&](int start) -> std::pair<int, Array<int>>
+	{
+		Array<int> dist(nodeCount, -1);
+		Array<int> parent(nodeCount, -1);
+		std::queue<int> q;
+		q.push(start);
+		dist[start] = 0;
+		int farthest = start;
+
+		while (!q.empty())
+		{
+			const int u = q.front(); q.pop();
+			for (const int v : adj[u])
+			{
+				if (dist[v] >= 0) continue;
+				dist[v] = dist[u] + 1;
+				parent[v] = u;
+				q.push(v);
+				if (dist[v] > dist[farthest])
+					farthest = v;
+			}
+		}
+
+		// パスを復元
+		Array<int> path;
+		for (int cur = farthest; cur >= 0; cur = parent[cur])
+			path << cur;
+		path.reverse();
+		return { farthest, path };
+	};
+
+	// 2回BFS: 任意→最遠u、u→最遠v
+	const auto [u, _] = bfs(0);
+	const auto [v, path] = bfs(u);
+	return path;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A* 道路セグメント生成ヘルパー
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace
+{
+	// グローバル占有セルのキー（ワールド座標を粗いグリッドに量子化）
+	constexpr float kOccupyCellSize = 120.0f;
+	int64 occupyKey(float wx, float wz)
+	{
+		const int gx = static_cast<int>(Math::Floor(wx / kOccupyCellSize));
+		const int gz = static_cast<int>(Math::Floor(wz / kOccupyCellSize));
+		return (static_cast<int64>(gx) << 32) | static_cast<uint32>(gz);
+	}
+}
+
+void MapGenerator::buildRoadSegment(
+	const World& world, RoadNetwork& network,
+	int startNodeId, Vec3 startPos, int endNodeId, Vec3 endPos,
+	RoadType roadType, int lanes,
+	HashSet<int64>& globalOccupied,
+	const Array<Vec2>& forbiddenStartDirs,
+	const Array<Vec2>& forbiddenGoalDirs)
+{
+	constexpr float kMargin = 300.0f;
+	const float sx = static_cast<float>(startPos.x);
+	const float sz = static_cast<float>(startPos.z);
+	const float ex = static_cast<float>(endPos.x);
+	const float ez = static_cast<float>(endPos.z);
+
+	const float minX = Min(sx, ex) - kMargin;
+	const float minZ = Min(sz, ez) - kMargin;
+	const float maxX = Max(sx, ex) + kMargin;
+	const float maxZ = Max(sz, ez) + kMargin;
+
+	const float dist = std::sqrt((ex - sx) * (ex - sx) + (ez - sz) * (ez - sz));
+	const float cellSize = (dist > 5000.0f) ? 120.0f
+	                     : (dist > 2000.0f) ? 80.0f
+	                     : RoadPathfinder::kDefaultCellSize;
+
+	const int pfW = Max(2, static_cast<int>(Ceil((maxX - minX) / cellSize)));
+	const int pfH = Max(2, static_cast<int>(Ceil((maxZ - minZ) / cellSize)));
+
+	RoadPathfinder pf;
+	pf.setup(world, Vec2{ minX, minZ }, pfW, pfH, cellSize);
+
+	const Point gs = pf.worldToGrid(sx, sz);
+	const Point ge = pf.worldToGrid(ex, ez);
+
+	// グローバル占有セルをローカルグリッドの occupiedCells に変換
+	HashSet<int> localOccupied;
+	for (const int64 key : globalOccupied)
+	{
+		const int gx = static_cast<int>(key >> 32);
+		const int gz = static_cast<int>(static_cast<uint32>(key));
+		const float wx = (gx + 0.5f) * kOccupyCellSize;
+		const float wz = (gz + 0.5f) * kOccupyCellSize;
+		const Point lp = pf.worldToGrid(wx, wz);
+		if (lp.x >= 0 && lp.x < pfW && lp.y >= 0 && lp.y < pfH)
+			localOccupied.insert(lp.y * pfW + lp.x);
+	}
+
+	const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
+
+	const Array<Point> path = pf.findPath(gs, ge, forbiddenStartDirs, forbiddenGoalDirs, localOccupied);
+
+	if (path.isEmpty() || path.size() < 2)
+	{
+		network.addEdge(startNodeId, endNodeId,
+		                startPos + (endPos - startPos) * (1.0 / 3.0),
+		                startPos + (endPos - startPos) * (2.0 / 3.0),
+		                roadType, lanes);
+	}
+	else
+	{
+		// 通過セルをグローバル占有セットに登録
+		for (const Point& gp : path)
+		{
+			const Vec2 wp = pf.gridToWorld(gp.x, gp.y);
+			globalOccupied.insert(occupyKey(static_cast<float>(wp.x), static_cast<float>(wp.y)));
+		}
+
+		Array<Vec3> wps = pf.samplePath(path, sampleStep);
+		wps.front() = startPos;
+		wps.back()  = endPos;
+		pf.pathToRoadEdges(wps, network, roadType, lanes, startNodeId, endNodeId);
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// generateGlobalRoads: 3層分岐構造で道路を一括生成する
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MapGenerator::generateGlobalRoads(
+	[[maybe_unused]] uint64 seed,
+	const Array<Settlement>& settlements,
+	const World& world,
+	RoadNetwork& network,
+	ProgressCallback onProgress)
+{
+	if (settlements.isEmpty()) return;
+
+	const Stopwatch swTotal{ StartImmediately::Yes };
+	Stopwatch swStep{ StartImmediately::Yes };
+
+	// 全地区のノードを作成
+	Array<int> nodeIds;
+	nodeIds.reserve(settlements.size());
+	for (const auto& s : settlements)
+	{
+		const float y = world.computeHeight(
+			static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+		nodeIds << network.addNode(Vec3{ s.center.x, y, s.center.y }, NodeType::Intersection);
+	}
+
+	// 種別ごとにインデックスを分類
+	Array<int> urbanIdx, suburbsIdx, ruralIdx;
+	for (int i = 0; i < static_cast<int>(settlements.size()); ++i)
+	{
+		switch (settlements[i].type)
+		{
+		case SettlementType::Urban:   urbanIdx << i; break;
+		case SettlementType::Suburbs: suburbsIdx << i; break;
+		case SettlementType::Rural:   ruralIdx << i; break;
+		}
+	}
+
+	Logger << U"[Roads] ノード作成: {} (Urban={}, Suburbs={}, Rural={})"_fmt(
+		nodeIds.size(), urbanIdx.size(), suburbsIdx.size(), ruralIdx.size());
+
+	RoadNodeSpatialHash roadHash;
+	HashSet<int64> globalOccupied;  // 既存道路が通過するワールドセルの集合
+
+	// =====================================================================
+	// Layer 1: 幹線街道（Urban 間チェーン）
+	// =====================================================================
+	swStep.restart();
+	if (urbanIdx.size() >= 2)
+	{
+		// Urban のみで MST を計算
+		auto urbanMST = computeMSTSubset(settlements, urbanIdx);
+
+		// MST 上の diameter（最長パス）を求める
+		Array<int> diameter = findMSTDiameter(urbanMST, static_cast<int>(urbanIdx.size()));
+
+		// diameter 上のノードをセットに登録（枝線判定用）
+		HashSet<int> diameterSet;
+		for (const int di : diameter)
+			diameterSet.insert(di);
+
+		// diameter チェーンを A* で接続
+		for (int i = 0; i + 1 < static_cast<int>(diameter.size()); ++i)
+		{
+			const int si = urbanIdx[diameter[i]];
+			const int ei = urbanIdx[diameter[i + 1]];
+			const RoadNode* sn = network.getNode(nodeIds[si]);
+			const RoadNode* en = network.getNode(nodeIds[ei]);
+			if (!sn || !en) continue;
+
+			buildRoadSegment(world, network,
+				nodeIds[si], sn->position, nodeIds[ei], en->position,
+				RoadType::Arterial, 4, globalOccupied);
+		}
+
+		// MST 枝線（diameter に含まれない Urban → diameter 上の親へ接続）
+		for (const auto& [parentLocal, childLocal] : urbanMST)
+		{
+			if (diameterSet.contains(parentLocal) && diameterSet.contains(childLocal))
+				continue;  // diameter 上の辺は既に処理済み
+
+			const int si = urbanIdx[parentLocal];
+			const int ei = urbanIdx[childLocal];
+			const RoadNode* sn = network.getNode(nodeIds[si]);
+			const RoadNode* en = network.getNode(nodeIds[ei]);
+			if (!sn || !en) continue;
+
+			buildRoadSegment(world, network,
+				nodeIds[si], sn->position, nodeIds[ei], en->position,
+				RoadType::Arterial, 4, globalOccupied);
+		}
+		// diameter 両端からマップ外端への幹線延伸
+		const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+		const int endIndices[2] = { diameter.front(), diameter.back() };
+		for (const int di : endIndices)
+		{
+			const int si = urbanIdx[di];
+			const RoadNode* sn = network.getNode(nodeIds[si]);
+			if (!sn) continue;
+
+			const float sx = static_cast<float>(sn->position.x);
+			const float sz = static_cast<float>(sn->position.z);
+
+			// 4辺への距離を計算し、最も近い外端の座標を選ぶ
+			const float dLeft   = sx;
+			const float dRight  = worldSize - sx;
+			const float dTop    = sz;
+			const float dBottom = worldSize - sz;
+			const float minEdgeDist = Min({ dLeft, dRight, dTop, dBottom });
+
+			float edgeX, edgeZ;
+			if (minEdgeDist == dLeft)        { edgeX = 0.0f;      edgeZ = sz; }
+			else if (minEdgeDist == dRight)  { edgeX = worldSize;  edgeZ = sz; }
+			else if (minEdgeDist == dTop)    { edgeX = sx;         edgeZ = 0.0f; }
+			else                             { edgeX = sx;         edgeZ = worldSize; }
+
+			// マップ端に少し余裕を持たせる（10m内側）
+			edgeX = Clamp(edgeX, 10.0f, worldSize - 10.0f);
+			edgeZ = Clamp(edgeZ, 10.0f, worldSize - 10.0f);
+
+			const float ey = world.computeHeight(edgeX, edgeZ);
+			const Vec3 edgePos{ edgeX, ey, edgeZ };
+			const int edgeNodeId = network.addNode(edgePos, NodeType::Endpoint);
+
+			buildRoadSegment(world, network,
+				nodeIds[si], sn->position, edgeNodeId, edgePos,
+				RoadType::Arterial, 4, globalOccupied);
+		}
+	}
+	else if (urbanIdx.size() == 1)
+	{
+		// Urban が1つだけ → マップ外端への接続のみ
+		const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+		const int si = urbanIdx[0];
+		const RoadNode* sn = network.getNode(nodeIds[si]);
+		if (sn)
+		{
+			const float sx = static_cast<float>(sn->position.x);
+			const float sz = static_cast<float>(sn->position.z);
+			const float dLeft = sx, dRight = worldSize - sx;
+			const float dTop = sz, dBottom = worldSize - sz;
+			const float minD = Min({ dLeft, dRight, dTop, dBottom });
+			float ex, ez;
+			if (minD == dLeft)       { ex = 10.0f;           ez = sz; }
+			else if (minD == dRight) { ex = worldSize - 10.0f; ez = sz; }
+			else if (minD == dTop)   { ex = sx;               ez = 10.0f; }
+			else                     { ex = sx;               ez = worldSize - 10.0f; }
+			const float ey = world.computeHeight(ex, ez);
+			const Vec3 ep{ ex, ey, ez };
+			const int enid = network.addNode(ep, NodeType::Endpoint);
+			buildRoadSegment(world, network, nodeIds[si], sn->position, enid, ep,
+				RoadType::Arterial, 4, globalOccupied);
+		}
+	}
+
+	// Layer 1 の全中間ノードを空間ハッシュに登録
+	for (const auto& node : network.nodes())
+	{
+		if (node.id >= 0)
+			roadHash.insert(node.position, node.id);
+	}
+
+	Logger << U"[Roads] Layer1 幹線街道: {:.0f}ms (nodes={}, edges={})"_fmt(
+		swStep.msF(), network.nodes().size(), network.edges().size());
+	if (onProgress) onProgress(0.15f);
+
+	// =====================================================================
+	// Layer 2: 地方道（Suburbs → 最寄り幹線ノードへの分岐）
+	// =====================================================================
+	swStep.restart();
+	int suburbsConnected = 0;
+	Array<int> deferredSuburbs;
+
+	for (const int si : suburbsIdx)
+	{
+		const RoadNode* sn = network.getNode(nodeIds[si]);
+		if (!sn) continue;
+
+		const int nearId = roadHash.findNearest(sn->position, network, 5000.0f, nodeIds[si]);
+		if (nearId < 0)
+		{
+			deferredSuburbs << si;
+			continue;
+		}
+
+		const RoadNode* nearNode = network.getNode(nearId);
+		if (!nearNode) { deferredSuburbs << si; continue; }
+
+		// Y字分岐: 幹線の接線方向を forbiddenGoalDirs に設定
+		const Vec2 tangent = RoadNodeSpatialHash::tangentAt(nearId, network);
+		buildRoadSegment(world, network,
+			nearId, nearNode->position, nodeIds[si], sn->position,
+			RoadType::Arterial, 2, globalOccupied,
+			{}, { tangent });
+
+		++suburbsConnected;
+	}
+
+	// deferred: 幹線から5km以上離れた Suburbs → 最寄りの接続済み Suburbs へ
+	// まず空間ハッシュを最新ノードで一括更新
+	{
+		const auto& nodes = network.nodes();
+		for (int i = 0; i < static_cast<int>(nodes.size()); ++i)
+			if (nodes[i].id >= 0)
+				roadHash.insert(nodes[i].position, nodes[i].id);
+	}
+
+	for (const int si : deferredSuburbs)
+	{
+		const RoadNode* sn = network.getNode(nodeIds[si]);
+		if (!sn) continue;
+
+		const int nearId = roadHash.findNearest(sn->position, network, 15000.0f, nodeIds[si]);
+		if (nearId < 0) continue;
+
+		const RoadNode* nearNode = network.getNode(nearId);
+		if (!nearNode) continue;
+
+		const int prevNodeCount = static_cast<int>(network.nodes().size());
+		buildRoadSegment(world, network,
+			nearId, nearNode->position, nodeIds[si], sn->position,
+			RoadType::LocalRoad, 2, globalOccupied);
+
+		// 新規ノードだけ空間ハッシュに追加
+		const auto& nodes = network.nodes();
+		for (int i = prevNodeCount; i < static_cast<int>(nodes.size()); ++i)
+			if (nodes[i].id >= 0)
+				roadHash.insert(nodes[i].position, nodes[i].id);
+
+		++suburbsConnected;
+	}
+
+	Logger << U"[Roads] Layer2 地方道: {:.0f}ms (Suburbs接続={}/{})"_fmt(
+		swStep.msF(), suburbsConnected, suburbsIdx.size());
+	if (onProgress) onProgress(0.40f);
+
+	// =====================================================================
+	// Layer 3: 集落道（Rural → 最寄り道路ノードへの直線接続）
+	// =====================================================================
+	swStep.restart();
+
+	// Layer 2 完了時点の全ノードで空間ハッシュを再構築
+	roadHash.buckets.clear();
+	for (const auto& node : network.nodes())
+		if (node.id >= 0)
+			roadHash.insert(node.position, node.id);
+
+	int ruralConnected = 0, ruralRoadFacing = 0;
+	const int totalRural = static_cast<int>(ruralIdx.size());
+
+	for (int ri = 0; ri < totalRural; ++ri)
+	{
+		const int si = ruralIdx[ri];
+		const RoadNode* sn = network.getNode(nodeIds[si]);
+		if (!sn) continue;
+
+		const int nearId = roadHash.findNearest(sn->position, network, 10000.0f, nodeIds[si]);
+		if (nearId < 0) continue;
+
+		const RoadNode* nearNode = network.getNode(nearId);
+		if (!nearNode) continue;
+
+		const float dist = static_cast<float>(sn->position.distanceFrom(nearNode->position));
+
+		if (dist < 300.0f)
+		{
+			++ruralRoadFacing;
+		}
+		else
+		{
+			const Vec2 tangent = RoadNodeSpatialHash::tangentAt(nearId, network);
+			const int prevNodeCount = static_cast<int>(network.nodes().size());
+
+			buildRoadSegment(world, network,
+				nearId, nearNode->position, nodeIds[si], sn->position,
+				RoadType::LocalRoad, 2, globalOccupied,
+				{}, { tangent });
+
+			// 新規ノードを空間ハッシュに追加（後続の Rural が利用）
+			const auto& nodes = network.nodes();
+			for (int i = prevNodeCount; i < static_cast<int>(nodes.size()); ++i)
+				if (nodes[i].id >= 0)
+					roadHash.insert(nodes[i].position, nodes[i].id);
+
+			++ruralConnected;
+		}
+
+		if (onProgress && (ri % 500 == 0))
+			onProgress(0.40f + 0.60f * static_cast<float>(ri) / totalRural);
+	}
+
+	Logger << U"[Roads] Layer3 集落道: {:.0f}ms (接続={}, 街道沿い={}, 計={})"_fmt(
+		swStep.msF(), ruralConnected, ruralRoadFacing, totalRural);
+	if (onProgress) onProgress(0.90f);
+
+	// =====================================================================
+	// 最終パス: 未接続地区の強制接続
+	// =====================================================================
+	swStep.restart();
+
+	// BFS で接続済みノードを判定
+	HashSet<int> reachable;
+	{
+		// 最初の Urban ノードから BFS
+		int startNode = -1;
+		for (const int ui : urbanIdx)
+		{
+			const RoadNode* n = network.getNode(nodeIds[ui]);
+			if (n && !n->edgeIds.isEmpty()) { startNode = nodeIds[ui]; break; }
+		}
+		if (startNode < 0)
+		{
+			// Urban がなければエッジを持つ任意のノードから
+			for (const auto& n : network.nodes())
+				if (n.id >= 0 && !n.edgeIds.isEmpty()) { startNode = n.id; break; }
+		}
+
+		if (startNode >= 0)
+		{
+			std::queue<int> q;
+			q.push(startNode);
+			reachable.insert(startNode);
+			while (!q.empty())
+			{
+				const int cur = q.front(); q.pop();
+				const RoadNode* node = network.getNode(cur);
+				if (!node) continue;
+				for (const int eid : node->edgeIds)
+				{
+					const RoadEdge* edge = network.getEdge(eid);
+					if (!edge) continue;
+					const int next = (edge->nodeA == cur) ? edge->nodeB : edge->nodeA;
+					if (!reachable.contains(next))
+					{
+						reachable.insert(next);
+						q.push(next);
+					}
+				}
+			}
+		}
+	}
+
+	// 空間ハッシュを再構築（接続済みノードのみ）
+	roadHash.buckets.clear();
+	for (const auto& node : network.nodes())
+		if (node.id >= 0 && reachable.contains(node.id))
+			roadHash.insert(node.position, node.id);
+
+	int forceConnected = 0;
+	const int nSettlements = static_cast<int>(settlements.size());
+	for (int i = 0; i < nSettlements; ++i)
+	{
+		if (reachable.contains(nodeIds[i])) continue;
+
+		const RoadNode* sn = network.getNode(nodeIds[i]);
+		if (!sn) continue;
+
+		const int nearId = roadHash.findNearest(sn->position, network, 50000.0f, nodeIds[i]);
+		if (nearId < 0) continue;
+
+		const RoadNode* nearNode = network.getNode(nearId);
+		if (!nearNode) continue;
+
+		buildRoadSegment(world, network,
+			nearId, nearNode->position, nodeIds[i], sn->position,
+			RoadType::LocalRoad, 2, globalOccupied);
+
+		// BFS で新たに到達可能になったノードを reachable に追加
+		{
+			std::queue<int> q;
+			q.push(nodeIds[i]);
+			reachable.insert(nodeIds[i]);
+			while (!q.empty())
+			{
+				const int cur = q.front(); q.pop();
+				const RoadNode* node = network.getNode(cur);
+				if (!node) continue;
+				for (const int eid : node->edgeIds)
+				{
+					const RoadEdge* edge = network.getEdge(eid);
+					if (!edge) continue;
+					const int next = (edge->nodeA == cur) ? edge->nodeB : edge->nodeA;
+					if (!reachable.contains(next))
+					{
+						reachable.insert(next);
+						q.push(next);
+						roadHash.insert(network.getNode(next)->position, next);
+					}
+				}
+			}
+		}
+		++forceConnected;
+	}
+
+	Logger << U"[Roads] 未接続強制接続: {:.0f}ms ({}地区)"_fmt(swStep.msF(), forceConnected);
+	if (onProgress) onProgress(1.0f);
+
+	Logger << U"[Roads] 合計: nodes={}, edges={} ({:.0f}ms)"_fmt(
+		network.nodes().size(), network.edges().size(), swTotal.msF());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,7 +901,6 @@ void MapGenerator::generateRoads(RoadNetwork& roads, [[maybe_unused]] uint64 see
 void MapGenerator::setupTrain(TrainNetwork& trainNet, const World& world,
                               const Array<Settlement>& districts)
 {
-	// Urban 地区と Suburbs 地区（最大 4 駅）を結ぶ路線を 1 本生成する
 	Array<int> stationIds;
 
 	for (const auto& s : districts)
@@ -302,7 +921,6 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, const World& world,
 
 	if (stationIds.size() < 2) return;
 
-	// 隣接駅間をエッジで繋ぐ
 	for (int i = 0; i + 1 < static_cast<int>(stationIds.size()); ++i)
 	{
 		const Vec3* na = trainNet.getNode(stationIds[i])     ? &trainNet.getNode(stationIds[i])->position     : nullptr;
@@ -314,10 +932,9 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, const World& world,
 		                 80.0f);
 	}
 
-	// 基本ダイヤ（仕様書 §6: 1日4往復相当）
 	TrainSchedule sched;
 	sched.id         = 0;
-	sched.headwaySec = 600.0f;  // 10 分間隔
+	sched.headwaySec = 600.0f;
 	sched.loop       = true;
 	for (int nodeId : stationIds)
 	{
@@ -327,159 +944,4 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, const World& world,
 		sched.stops << stop;
 	}
 	trainNet.addSchedule(sched);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// buildChunk() : チャンク構築（スレッド安全）
-// ─────────────────────────────────────────────────────────────────────────────
-
-MapGenerator::ChunkBuildResult MapGenerator::buildChunk(
-	Vec2 regionOffset, uint64 seed,
-	const World& world,
-	const Array<Vec2>& existingUrbanCenters,
-	const Array<NodeSnapshot>& existingNodes,
-	bool skipPostProcess)
-{
-	const Stopwatch swTotal{ StartImmediately::Yes };
-	Stopwatch swStep{ StartImmediately::Yes };
-
-	const int rx = static_cast<int>(regionOffset.x / kMapWidth);
-	const int rz = static_cast<int>(regionOffset.y / kMapDepth);
-	const uint64 regionSeed = seed
-		^ (static_cast<uint64>(static_cast<uint32>(rx)) << 32)
-		^ static_cast<uint64>(static_cast<uint32>(rz));
-
-	ChunkBuildResult result;
-	result.chunkCoord = Point{ rx, rz };
-
-	// heightMap を先に生成し、パスファインダーグリッドはそこからバイリニア補間で導出する
-	auto hmr = world.buildHeightMap(result.chunkCoord);
-	result.terrainHeightMap = std::move(hmr.heightMap);
-	result.terrainHeightMin = hmr.heightMin;
-	result.terrainHeightMax = hmr.heightMax;
-	const double msHeightMap = swStep.msF(); swStep.restart();
-
-	MapGenerator gen;
-	gen.m_regionOffset = regionOffset;
-	gen.buildHeightGrid(result.terrainHeightMap, result.chunkCoord);
-	gen.placeSettlements(regionSeed, existingUrbanCenters);
-	const double msSettle = swStep.msF(); swStep.restart();
-
-	result.gridOffset = gen.m_pathfinder.offset();
-	result.gridW      = gen.m_pathfinder.gridW();
-	result.gridH      = gen.m_pathfinder.gridH();
-	result.cellSize   = gen.m_pathfinder.cellSize();
-	result.heightGrid = gen.m_pathfinder.heightGrid();
-
-	RoadNetwork tempRoads;
-	double msConnection = 0.0;
-	double msPostProcess = 0.0;
-
-	if (!gen.m_settlements.isEmpty())
-	{
-		gen.generateRoads(tempRoads, regionSeed);
-
-		// ---- 既存ネットワークへの接続 ----
-		// Urban/Suburbs 集落は最初の1つだけ接続し Arterial、Rural は LocalRoad
-		if (!existingNodes.isEmpty())
-		{
-			bool connectedPrimary = false;
-			for (const auto& s : gen.m_settlements)
-			{
-				const float sy = sampleHeightMap(result.terrainHeightMap, result.chunkCoord,
-					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
-				const Vec3 sPos{ s.center.x, sy, s.center.y };
-
-				// ローカル RoadNetwork から settlement に最も近いノードを探す
-				const Optional<int> sNodeOpt = tempRoads.findNodeNear(sPos, 50.0f);
-				if (!sNodeOpt) continue;
-
-				// 既存ノードスナップショットから最近傍を検索
-				float bestDist   = 6000.0f;
-				int   bestNodeId = -1;
-				Vec3  bestNodePos{ 0, 0, 0 };
-				for (const auto& snap : existingNodes)
-				{
-					const float d = static_cast<float>(
-						Vec2{ snap.position.x, snap.position.z }.distanceFrom(s.center));
-					if (d < bestDist) { bestDist = d; bestNodeId = snap.id; bestNodePos = snap.position; }
-				}
-				if (bestNodeId < 0) continue;
-
-				// Rural 集落は既にチャンク内 spine 経由で接続されているのでスキップ
-				if (s.type == SettlementType::Rural && connectedPrimary)
-					continue;
-
-				// 道路種別: Urban/Suburbs → Arterial、Rural → LocalRoad
-				const bool isArterial = (s.type != SettlementType::Rural);
-				const RoadType rt    = isArterial ? RoadType::Arterial : RoadType::LocalRoad;
-				const int      lanes = isArterial ? 4 : 2;
-
-				// 既存ノードをローカルネットワークに追加
-				RoadNode connNode;
-				connNode.id       = bestNodeId;
-				connNode.position = bestNodePos;
-				connNode.type     = NodeType::Intersection;
-				tempRoads.addNodeRaw(connNode);
-
-				// A* pathfinding (World::computeHeight のみ使用)
-				constexpr float kMargin = 200.0f;
-				const float minX = static_cast<float>(Min(sPos.x, bestNodePos.x)) - kMargin;
-				const float minZ = static_cast<float>(Min(sPos.z, bestNodePos.z)) - kMargin;
-				const float maxX = static_cast<float>(Max(sPos.x, bestNodePos.x)) + kMargin;
-				const float maxZ = static_cast<float>(Max(sPos.z, bestNodePos.z)) + kMargin;
-				const int pfW = Max(2, static_cast<int>(
-					Ceil((maxX - minX) / RoadPathfinder::kDefaultCellSize)));
-				const int pfH = Max(2, static_cast<int>(
-					Ceil((maxZ - minZ) / RoadPathfinder::kDefaultCellSize)));
-
-				RoadPathfinder pf;
-				pf.setup(world, Vec2{ minX, minZ }, pfW, pfH);
-
-				const Point gs = pf.worldToGrid(static_cast<float>(sPos.x), static_cast<float>(sPos.z));
-				const Point ge = pf.worldToGrid(static_cast<float>(bestNodePos.x), static_cast<float>(bestNodePos.z));
-				const Array<Point> path = pf.findPath(gs, ge);
-
-				if (path.isEmpty())
-				{
-					tempRoads.addEdge(*sNodeOpt, bestNodeId,
-					                  sPos + (bestNodePos - sPos) * (1.0 / 3.0),
-					                  sPos + (bestNodePos - sPos) * (2.0 / 3.0),
-					                  rt, lanes);
-				}
-				else
-				{
-					Array<Vec3> wps = pf.samplePath(path, 3);
-					wps.front() = sPos;
-					wps.back()  = bestNodePos;
-					pf.pathToRoadEdges(wps, tempRoads, rt, lanes,
-					                   *sNodeOpt, bestNodeId);
-				}
-
-				result.connectionNodeId = bestNodeId;
-				connectedPrimary = true;
-			}
-		}
-		msConnection = swStep.msF(); swStep.restart();
-
-		// ---- ポスト処理 (ローカルネットワーク上) ----
-		if (!skipPostProcess)
-		{
-			for (int iter = 0; iter < 100 && tempRoads.fixSharpAngles(12.5f); ++iter);
-			tempRoads.smoothAllCurves();
-			tempRoads.resolveIntersections();
-			tempRoads.spreadIntersectionTangents();
-			tempRoads.removeDuplicateEdges(seed);
-		}
-		msPostProcess = swStep.msF();
-	}
-
-	result.localNodes  = tempRoads.nodes();
-	result.localEdges  = tempRoads.edges();
-	result.settlements = gen.m_settlements;
-
-	Logger << U"[buildChunk] ({},{}) {:.0f}ms total | hmap={:.0f} settle={:.0f} conn={:.0f} post={:.0f}"_fmt(
-		rx, rz, swTotal.msF(), msHeightMap, msSettle, msConnection, msPostProcess);
-
-	return result;
 }
