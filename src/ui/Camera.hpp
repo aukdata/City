@@ -54,8 +54,20 @@ public:
 	/// @brief スクリーン座標からレイを返す
 	Ray screenToRay(Vec2 screenPos) const;
 
-	/// @brief カメラモードを次に切り替える（Overview → Follow → FirstPerson → Overview）
-	void cycleMode() { m_mode = static_cast<CameraMode>((static_cast<int>(m_mode) + 1) % 3); }
+	/// @brief 俯瞰と一人称を切り替える
+	void cycleMode()
+	{
+		if (m_mode == CameraMode::Overview)
+		{
+			m_mode    = CameraMode::FirstPerson;
+			m_fpYaw   = m_yaw + static_cast<float>(Math::Pi);  // 俯瞰の向きを引き継ぐ
+			m_fpPitch = 0.0f;
+		}
+		else
+		{
+			m_mode = CameraMode::Overview;
+		}
+	}
 
 private:
 	BasicCamera3D m_camera;
@@ -69,6 +81,10 @@ private:
 	// 追従モード用（setFollowTarget で更新）
 	Vec3  m_followPos     = Vec3::Zero();
 	float m_followHeading = 0.0f;
+
+	// 一人称歩行モード用
+	float m_fpYaw   = 0.0f;   ///< 水平方向 [rad]
+	float m_fpPitch = 0.0f;   ///< 垂直方向 [rad]
 
 	// ホイールクリックドラッグ回転用
 	Point m_dragAnchor    = Point{ 0, 0 };  ///< ドラッグ開始時のカーソル位置（毎フレームここへ戻す）
@@ -94,6 +110,9 @@ private:
 
 	/// @brief 追従モードのカメラを再構築する
 	void rebuildFollow();
+
+	/// @brief 一人称歩行モードの入力処理
+	void handleFirstPersonInput(double dt, const World& world);
 
 	/// @brief 一人称モードのカメラを再構築する
 	void rebuildFirstPerson();

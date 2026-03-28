@@ -25,10 +25,10 @@ void GameCamera::update(double dt, const World& world)
 		// Overview に戻ったとき focus を現在の追従位置にリセット
 		m_focus = m_followPos;
 	}
-	else // FirstPerson
+	else // FirstPerson (歩行モード)
 	{
+		handleFirstPersonInput(dt, world);
 		rebuildFirstPerson();
-		m_focus = m_followPos;
 	}
 }
 
@@ -242,14 +242,50 @@ void GameCamera::rebuildFollow()
 	m_camera = BasicCamera3D{ Scene::Size(), 60_deg, eye, target };
 }
 
+void GameCamera::handleFirstPersonInput(double dt, const World& world)
+{
+	// マウスで視点回転
+	if (MouseR.pressed())
+	{
+		const Vec2 delta = Cursor::DeltaF();
+		m_fpYaw   += static_cast<float>(delta.x) * 0.003f;
+		m_fpPitch -= static_cast<float>(delta.y) * 0.003f;
+		m_fpPitch  = Clamp(m_fpPitch,
+			static_cast<float>(Math::ToRadians(-80.0)),
+			static_cast<float>(Math::ToRadians(80.0)));
+		Cursor::RequestStyle(CursorStyle::Hidden);
+	}
+
+	// WASD で水平移動
+	const Vec3 forward = Vec3{
+		Math::Sin(m_fpYaw), 0.0, Math::Cos(m_fpYaw)
+	};
+	const Vec3 right = Vec3{
+		Math::Cos(m_fpYaw), 0.0, -Math::Sin(m_fpYaw)
+	};
+	constexpr float kWalkSpeed = 30.0f;   // m/s
+	const float speed = kWalkSpeed * static_cast<float>(dt)
+	                  * (KeyShift.pressed() ? 3.0f : 1.0f);
+
+	if (KeyW.pressed()) m_focus += forward * speed;
+	if (KeyS.pressed()) m_focus -= forward * speed;
+	if (KeyA.pressed()) m_focus += right   * speed;
+	if (KeyD.pressed()) m_focus -= right   * speed;
+
+	// 地面に張り付く（目線高 5m）
+	const float groundY = world.sampleHeight(
+		static_cast<float>(m_focus.x), static_cast<float>(m_focus.z));
+	m_focus.y = groundY;
+}
+
 void GameCamera::rebuildFirstPerson()
 {
-	// 運転席視点（車両位置から 1.3m 上）
-	const Vec3 eye = m_followPos + Vec3{ 0, 1.3, 0 };
+	constexpr double kEyeHeight = 5.0;
+	const Vec3 eye = m_focus + Vec3{ 0, kEyeHeight, 0 };
 	const Vec3 fwd = Vec3{
-		Math::Sin(m_followHeading),
-		0.0,
-		Math::Cos(m_followHeading)
+		Math::Sin(m_fpYaw) * Math::Cos(m_fpPitch),
+		Math::Sin(m_fpPitch),
+		Math::Cos(m_fpYaw) * Math::Cos(m_fpPitch)
 	};
 	const Vec3 target = eye + fwd * 10.0;
 	m_camera = BasicCamera3D{ Scene::Size(), 80_deg, eye, target };

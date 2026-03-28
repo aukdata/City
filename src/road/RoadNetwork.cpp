@@ -947,3 +947,61 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 	}
 	return lanes;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 短エッジ結合
+// ─────────────────────────────────────────────────────────────────────────────
+
+int RoadNetwork::mergeShortEdges(float minLength)
+{
+	int merged = 0;
+	bool changed = true;
+
+	while (changed)
+	{
+		changed = false;
+		for (auto& edge : m_edges)
+		{
+			if (edge.id < 0) continue;
+			if (edge.length > minLength) continue;
+
+			const int keepId = edge.nodeA;
+			const int rmId   = edge.nodeB;
+			RoadNode* keepNode = getNode(keepId);
+			RoadNode* rmNode   = getNode(rmId);
+			if (!keepNode || !rmNode) continue;
+			if (keepId == rmId) continue;
+
+			// rmNode の接続エッジを keepNode に移し替える
+			for (const int eid : rmNode->edgeIds)
+			{
+				if (eid == edge.id) continue;
+				RoadEdge* e = getEdge(eid);
+				if (!e) continue;
+
+				if (e->nodeA == rmId) e->nodeA = keepId;
+				if (e->nodeB == rmId) e->nodeB = keepId;
+
+				if (e->nodeA == keepId && e->nodeB == keepId)
+				{
+					removeEdge(eid);
+					continue;
+				}
+
+				if (!keepNode->edgeIds.contains(eid))
+					keepNode->edgeIds << eid;
+			}
+
+			keepNode->position = (keepNode->position + rmNode->position) * 0.5;
+
+			removeEdge(edge.id);
+			removeNode(rmId);
+
+			++merged;
+			changed = true;
+			break;  // イテレータ無効化のためループ再開
+		}
+	}
+
+	return merged;
+}

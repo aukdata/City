@@ -104,8 +104,12 @@ public:
 	bool resolveIntersections(int sinceEdgeId = 0);
 
 	/// @brief 接続数 2 の全ノードで曲線を滑らかにする（Phase 3.5 ポスト処理用）
-	/// @details 全ノードを走査し、接続数が 2 のものに対して smoothCurveAt を呼ぶ。
 	void smoothAllCurves();
+
+	/// @brief 短すぎるエッジを結合する
+	/// @param minLength この長さ以下のエッジを削除し、両端ノードを結合する [m]
+	/// @return 結合したエッジ数
+	int mergeShortEdges(float minLength = 30.0f);
 
 	/// @brief 指定ノードに接続する全エッジの cutoffA/cutoffB を再計算する
 	/// @details

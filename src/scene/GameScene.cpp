@@ -209,6 +209,12 @@ void GameScene::postProcessRoads()
 
 	m_network.removeDuplicateEdges(getData().seed);
 	Logger << U"[PostProcess] removeDuplicateEdges: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
+	{
+		const int n = m_network.mergeShortEdges(30.0f);
+		Logger << U"[PostProcess] mergeShortEdges: {} 結合, {:.0f}ms"_fmt(n, step.msF());
+	}
 
 	m_genProgress.store(kProgressDone);
 	Logger << U"[Phase4] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF());
@@ -233,16 +239,9 @@ void GameScene::updateLoading()
 			const Stopwatch setupTimer{ StartImmediately::Yes };
 			Stopwatch step{ StartImmediately::Yes };
 
-			// ゾーン割り当て
 			applyZonesGlobal();
-			Logger << U"[Setup] applyZonesGlobal: {:.0f}ms"_fmt(step.msF());
-			step.restart();
-
 			m_roadRenderer.invalidateAllCaches();
-
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
-			Logger << U"[Setup] setupTrain: {:.0f}ms"_fmt(step.msF());
-			step.restart();
 
 			// カメラ初期位置（最初の Urban 地区）
 			const float worldCenter = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE * 0.5f;
@@ -258,18 +257,10 @@ void GameScene::updateLoading()
 				}
 			}
 			m_camera.setFocus(cameraFocus);
-
 			m_world.update(m_camera.focusPoint());
-			Logger << U"[Setup] world.update: {:.0f}ms, activeChunks={}"_fmt(
-				step.msF(), m_world.getActiveChunks().size());
-			Logger << U"[Setup] cameraFocus=({:.0f},{:.0f},{:.0f})"_fmt(
-				m_camera.focusPoint().x, m_camera.focusPoint().y, m_camera.focusPoint().z);
-			step.restart();
 
 			startSimThread();
-			Logger << U"[Setup] startSimThread: {:.0f}ms"_fmt(step.msF());
 
-			Logger << U"[Phase] Setup 完了 ({:.0f}ms)"_fmt(setupTimer.msF());
 			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
 			m_phase = GamePhase::Playing;
 			return;
@@ -639,21 +630,13 @@ void GameScene::update()
 		return;
 	}
 
-	static int s_frameLog = 0;
-	if (s_frameLog < 5)
-	{
-		Logger << U"[Playing] frame {} start"_fmt(s_frameLog);
-	}
-
 	const double dt = Scene::DeltaTime();
 
 	// ---- SimThread から時刻を同期 ----
-	if (s_frameLog < 5) Logger << U"[Playing] lockForRead...";
 	{
 		auto lock = m_simThread.lockForRead();
 		m_clock = m_simThread.clock();
 	}
-	if (s_frameLog < 5) Logger << U"[Playing] lock done";
 
 	// ---- 通知を取得 ----
 	for (const auto& n : m_simThread.popNotifications())
@@ -668,11 +651,9 @@ void GameScene::update()
 	m_world.update(m_camera.focusPoint());
 	m_camera.update(dt, m_world);
 	m_logicMs = swLogic.msF();
-	if (s_frameLog < 5) Logger << U"[Playing] logic done, rendering...";
-	++s_frameLog;
 
 	// フォローカメラ
-	if (m_camera.mode() != CameraMode::Overview)
+	if (m_camera.mode() == CameraMode::Follow)
 	{
 		auto lock = m_simThread.lockForRead();
 		const auto& vehicles = m_simThread.vehicles();
@@ -684,18 +665,14 @@ void GameScene::update()
 		}
 	}
 
-	if (s_frameLog <= 5) Logger << U"[Playing] handleInput...";
 	handleInput();
-	if (s_frameLog <= 5) Logger << U"[Playing] updateCursor...";
 	updateCursor();
-	if (s_frameLog <= 5) Logger << U"[Playing] debugRenderer...";
 	m_debugRenderer.handleInput();
 
 	// ---- ゲーム速度を SimThread に同期 ----
 	m_simThread.setSpeed(m_clock.speed);
 
 	// ---- 描画 ----
-	if (s_frameLog <= 5) Logger << U"[Playing] renderWorld...";
 	renderWorld();
 }
 
@@ -747,18 +724,13 @@ void GameScene::renderWorld()
 		m_sky.draw(exposure);
 		lap(s_sky);
 
-		static int s_renderLog = 0;
-		if (s_renderLog < 3) Logger << U"[render] sky={:.0f}ms"_fmt(s_sky);
-
 		const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
 		m_worldRenderer.render(m_world, m_camera.camera3D());
 		lap(s_terrain);
-		if (s_renderLog < 3) Logger << U"[render] terrain={:.0f}ms"_fmt(s_terrain);
 
 		m_roadRenderer.render(m_network, m_world, frustum,
 		                     m_camera.camera3D().getEyePosition());
 		lap(s_road);
-		if (s_renderLog < 3) { Logger << U"[render] road={:.0f}ms"_fmt(s_road); ++s_renderLog; }
 
 		m_zoneManager.renderOverlay(m_world);
 		lap(s_zone);
@@ -898,6 +870,84 @@ void GameScene::renderWorld()
 	// ---- UI（2D）----
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
 	m_uiRenderer.render(m_clock, static_cast<int>(m_renderVehicles.size()), modeString(), m_economy);
+
+	// ---- 地名リストパネル ----
+	if (m_showNameList)
+	{
+		static const Font listFont{ FontMethod::MSDF, 14 };
+		static const Font headerFont{ FontMethod::MSDF, 16, Typeface::Bold };
+
+		constexpr int kPanelW = 250;
+		constexpr int kLineH  = 22;
+		constexpr int kPad    = 8;
+		const int panelH = Scene::Height() - 20;
+		const int px = Scene::Width() - kPanelW - 10;
+		const int py = 10;
+
+		// 背景
+		RectF{ static_cast<double>(px), static_cast<double>(py),
+		       static_cast<double>(kPanelW), static_cast<double>(panelH) }
+			.draw(ColorF{ 0, 0, 0, 0.7 });
+
+		// ヘッダ
+		headerFont(U"地名リスト (N)").draw(Vec2{ px + kPad, py + kPad }, Palette::Yellow);
+
+		// スクロール（ホイール）
+		if (RectF{ static_cast<double>(px), static_cast<double>(py),
+		           static_cast<double>(kPanelW), static_cast<double>(panelH) }.mouseOver())
+		{
+			m_nameListScroll -= Mouse::Wheel() * kLineH * 3;
+		}
+
+		const int visibleLines = (panelH - kPad * 2 - kLineH) / kLineH;
+		const int maxScroll = Max(0, static_cast<int>(m_districts.size()) - visibleLines) * kLineH;
+		m_nameListScroll = Clamp(m_nameListScroll, 0.0, static_cast<double>(maxScroll));
+
+		const int startIdx = static_cast<int>(m_nameListScroll / kLineH);
+
+		for (int i = 0; i < visibleLines && (startIdx + i) < static_cast<int>(m_districts.size()); ++i)
+		{
+			const int di = startIdx + i;
+			const auto& s = m_districts[di];
+
+			const int ly = py + kPad + kLineH + i * kLineH;
+
+			// 種別ラベル
+			StringView typeStr;
+			ColorF typeColor;
+			switch (s.type)
+			{
+			case MapGenerator::SettlementType::Urban:
+				typeStr = U"[U]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
+			case MapGenerator::SettlementType::Suburbs:
+				typeStr = U"[S]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
+			default:
+				typeStr = U"[R]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
+			}
+
+			// クリック判定
+			const RectF itemRect{ static_cast<double>(px + kPad), static_cast<double>(ly),
+			                      static_cast<double>(kPanelW - kPad * 2), static_cast<double>(kLineH) };
+			const bool hovered = itemRect.mouseOver();
+
+			if (hovered)
+				itemRect.draw(ColorF{ 1, 1, 1, 0.1 });
+
+			listFont(typeStr).draw(Vec2{ px + kPad, ly + 2 }, typeColor);
+			listFont(s.name).draw(Vec2{ px + kPad + 30, ly + 2 },
+				hovered ? Palette::Yellow : Palette::White);
+
+			if (hovered && MouseL.down())
+			{
+				const float h = m_world.computeHeight(
+					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+				m_camera.setFocus(Vec3{ s.center.x, h, s.center.y });
+				if (m_camera.mode() != CameraMode::Overview)
+					m_camera.cycleMode();  // 俯瞰に戻す
+			}
+		}
+	}
+
 	lap(s_ui);
 	s_total = swTotal.msF();
 
@@ -1028,6 +1078,9 @@ void GameScene::handleInput()
 		m_drawStartNode   = none;
 		m_rectStart       = none;
 	}
+
+	if (KeyN.down())
+		m_showNameList = !m_showNameList;
 
 	if      (m_mode == EditMode::RoadDraw)     handleRoadDraw();
 	else if (m_mode == EditMode::ZonePaint)    handleZonePaint();

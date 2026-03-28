@@ -160,7 +160,7 @@ std::pair<String, String> PlaceNameGenerator::generateOne(PlaceCategory cat, Pla
 	const bool threeChar         = (randIndex(state, 10) == 0);
 	const bool prefixPrefixSuffix = threeChar && (randIndex(state, 2) == 0);
 
-	constexpr int kMaxRetry = 40;
+	constexpr int kMaxRetry = 200;
 	for (int attempt = 0; attempt < kMaxRetry; ++attempt)
 	{
 		String name, reading;
@@ -209,8 +209,26 @@ std::pair<String, String> PlaceNameGenerator::generateOne(PlaceCategory cat, Pla
 		}
 	}
 
-	// 枯渇時フォールバック：前節 + 連番
-	for (int n = 2; n <= 99; ++n)
+	// 枯渇時フォールバック：全カテゴリの prefix+suffix を試行
+	for (int c = 0; c < 5; ++c)
+	{
+		const auto& wl2 = m_words[c];
+		if (wl2.prefix.isEmpty() || wl2.suffix.isEmpty()) continue;
+		for (int attempt = 0; attempt < 100; ++attempt)
+		{
+			const size_t pi = randIndex(state, wl2.prefix.size());
+			const size_t si = randIndex(state, wl2.suffix.size());
+			const String name = wl2.prefix[pi] + wl2.suffix[si];
+			if (!db.usedNames.contains(name))
+			{
+				db.usedNames.emplace(name);
+				return { name, wl2.prefixYomi[pi] + wl2.suffixYomi[si] };
+			}
+		}
+	}
+
+	// 最終フォールバック：前節 + 連番
+	for (int n = 2; n <= 999; ++n)
 	{
 		const size_t pi   = randIndex(state, wl.prefix.size());
 		const String name = wl.prefix[pi] + Format(n);
@@ -221,8 +239,7 @@ std::pair<String, String> PlaceNameGenerator::generateOne(PlaceCategory cat, Pla
 		}
 	}
 
-	const size_t pi = randIndex(state, wl.prefix.size());
-	return { wl.prefix[pi], wl.prefixYomi[pi] };
+	return { U"不明", U"fumei" };
 }
 
 uint64 PlaceNameGenerator::nextRand(uint64& state)

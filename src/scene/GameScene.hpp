@@ -119,6 +119,10 @@ private:
 
 	int             m_followVehicleIdx = 0;
 
+	// 地名リストパネル
+	bool            m_showNameList     = false;
+	double          m_nameListScroll   = 0.0;
+
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
 

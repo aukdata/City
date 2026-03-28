@@ -18,15 +18,6 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 
 	const auto& activeChunks = world.getActiveChunks();
 
-	static int s_logCount = 0;
-	if (s_logCount < 3)
-	{
-		Logger << U"[WorldRenderer] eye=({:.0f},{:.0f},{:.0f}) activeChunks={}"_fmt(
-			eye.x, eye.y, eye.z, activeChunks.size());
-		++s_logCount;
-	}
-
-	// ポインタは毎フレーム取得し直す
 	// ソートはカメラチャンクまたはチャンク数が変わった場合のみ実行する
 	m_sortedChunks = activeChunks;
 	if (camChunk != m_lastSortChunk || activeChunks.size() != m_lastActiveCount)
