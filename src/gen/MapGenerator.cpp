@@ -895,6 +895,159 @@ void MapGenerator::generateGlobalRoads(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 地区内道路生成
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MapGenerator::generateDistrictRoads(
+	uint64 seed,
+	const Array<Settlement>& settlements,
+	const World& world,
+	RoadNetwork& network,
+	ProgressCallback onProgress)
+{
+	const Stopwatch swTotal{ StartImmediately::Yes };
+
+	// 既存ノードの空間ハッシュを構築
+	RoadNodeSpatialHash nodeHash;
+	for (const auto& n : network.nodes())
+	{
+		if (n.id < 0) continue;
+		nodeHash.insert(n.position, n.id);
+	}
+
+	// グリッドパラメータ（集落タイプ別）
+	struct GridParams { float extent; float interval; float noiseAmp; };
+	auto getParams = [](SettlementType type) -> GridParams
+	{
+		switch (type)
+		{
+		case SettlementType::Urban:   return { 500.0f, 60.0f, 15.0f };
+		case SettlementType::Suburbs: return { 200.0f, 70.0f, 12.0f };
+		default:                      return { 100.0f, 80.0f,  8.0f };
+		}
+	};
+
+	constexpr float kNodeMergeRadius = 25.0f;
+	constexpr float kMaxSlope        = 0.10f;  // 10%
+
+	int totalEdges = 0;
+
+	for (int si = 0; si < static_cast<int>(settlements.size()); ++si)
+	{
+		const auto& s = settlements[si];
+		const auto [extent, interval, noiseAmp] = getParams(s.type);
+		const float halfExt = extent * 0.5f;
+		const float clipRadiusSq = (s.radius * 1.1f) * (s.radius * 1.1f);
+
+		// 集落ごとに決定論的なシード
+		uint64 localSeed = seed ^ (static_cast<uint64>(si) * 2654435761ULL);
+		const PerlinNoise noise{ localSeed };
+		// グリッドの回転角
+		const float gridAngle = static_cast<float>(
+			(localSeed % 1000) / 1000.0 * Math::Pi);
+		const float cosA = Math::Cos(gridAngle);
+		const float sinA = Math::Sin(gridAngle);
+		const float cx = static_cast<float>(s.center.x);
+		const float cz = static_cast<float>(s.center.y);
+
+		// グリッド線の数
+		const int nLines = static_cast<int>(Ceil(extent / interval)) + 1;
+
+		// ローカル座標 → ワールド座標変換 (ノイズ込み)
+		auto localToWorld = [&](float lx, float lz) -> Vec3
+		{
+			const float dx = static_cast<float>(
+				(noise.noise2D(lx * 0.015, lz * 0.015 + 100.0) * 2.0 - 1.0) * noiseAmp);
+			const float dz = static_cast<float>(
+				(noise.noise2D(lx * 0.015 + 200.0, lz * 0.015) * 2.0 - 1.0) * noiseAmp);
+			const float wx = cx + (lx + dx) * cosA - (lz + dz) * sinA;
+			const float wz = cz + (lx + dx) * sinA + (lz + dz) * cosA;
+			const float wy = world.computeHeight(wx, wz);
+			return Vec3{ wx, wy, wz };
+		};
+
+		// グリッド交差点ノード: [row][col]
+		Grid<int> gridNodeIds(nLines, nLines, -1);
+
+		for (int row = 0; row < nLines; ++row)
+		{
+			for (int col = 0; col < nLines; ++col)
+			{
+				const float lx = -halfExt + col * interval;
+				const float lz = -halfExt + row * interval;
+				const Vec3 pos = localToWorld(lx, lz);
+
+				// クリッピング: 集落半径外はスキップ
+				const float ddx = static_cast<float>(pos.x) - cx;
+				const float ddz = static_cast<float>(pos.z) - cz;
+				if (ddx * ddx + ddz * ddz > clipRadiusSq) continue;
+
+				// 水面チェック
+				if (pos.y < 0.5f) continue;
+
+				// 既存ノード再利用（グローバル道路との自然接続）
+				const int existing = nodeHash.findNearest(pos, network, kNodeMergeRadius);
+				if (existing >= 0)
+				{
+					gridNodeIds[{col, row}] = existing;
+				}
+				else
+				{
+					const int nid = network.addNode(pos, NodeType::Intersection);
+					gridNodeIds[{col, row}] = nid;
+					nodeHash.insert(pos, nid);
+				}
+			}
+		}
+
+		// グリッド線に沿ってエッジを生成
+		auto tryAddEdge = [&](int nodeIdA, int nodeIdB)
+		{
+			if (nodeIdA < 0 || nodeIdB < 0) return;
+			if (nodeIdA == nodeIdB) return;
+
+			const RoadNode* na = network.getNode(nodeIdA);
+			const RoadNode* nb = network.getNode(nodeIdB);
+			if (!na || !nb) return;
+
+			// 接続数制限チェック
+			if (static_cast<int>(na->edgeIds.size()) >= 5) return;
+			if (static_cast<int>(nb->edgeIds.size()) >= 5) return;
+
+			// 傾斜チェック
+			const float dh = static_cast<float>(Math::Abs(na->position.y - nb->position.y));
+			const float dist = static_cast<float>((na->position - nb->position).length());
+			if (dist < 1.0f) return;
+			if (dh / dist > kMaxSlope) return;
+
+			// ベジェ制御点: 直線の 1/3 点
+			const Vec3 dir = (nb->position - na->position);
+			const Vec3 ctrlA = na->position + dir * (1.0 / 3.0);
+			const Vec3 ctrlB = na->position + dir * (2.0 / 3.0);
+
+			const auto eid = network.addEdge(nodeIdA, nodeIdB, ctrlA, ctrlB,
+			                                 RoadType::LocalRoad, 2);
+			if (eid) ++totalEdges;
+		};
+
+		// 水平方向 (同じrow, col→col+1)
+		for (int row = 0; row < nLines; ++row)
+			for (int col = 0; col + 1 < nLines; ++col)
+				tryAddEdge(gridNodeIds[{col, row}], gridNodeIds[{col + 1, row}]);
+
+		// 垂直方向 (同じcol, row→row+1)
+		for (int col = 0; col < nLines; ++col)
+			for (int row = 0; row + 1 < nLines; ++row)
+				tryAddEdge(gridNodeIds[{col, row}], gridNodeIds[{col, row + 1}]);
+
+		if (onProgress)
+			onProgress(static_cast<float>(si + 1) / settlements.size());
+	}
+
+	Logger << U"[DistrictRoads] 完了: {} エッジ追加 ({:.0f}ms)"_fmt(totalEdges, swTotal.msF());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 鉄道初期設定
 // ─────────────────────────────────────────────────────────────────────────────
 

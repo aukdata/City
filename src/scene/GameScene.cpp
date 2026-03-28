@@ -63,7 +63,8 @@ void GameScene::initNewGame()
 	{
 		generateAllTerrain();   // Phase 1
 		placeAllSettlements();  // Phase 2
-		generateAllRoads();     // Phase 3
+		generateAllRoads();     // Phase 3a
+		generateDistrictRoads(); // Phase 3b
 		postProcessRoads();     // Phase 4
 	});
 
@@ -78,12 +79,13 @@ void GameScene::initNewGame()
 // ─────────────────────────────────────────────────────────────────────────────
 
 // 進捗の重み配分（実測ベース）
-// 地形=3%, 地区配置=22%, 道路生成(MST+A*)=54%, ポスト処理=12%, Setup=9%
-static constexpr float kProgressTerrain     = 0.00f;
-static constexpr float kProgressSettlement  = 0.03f;
-static constexpr float kProgressRoads       = 0.25f;
-static constexpr float kProgressPostProcess = 0.79f;
-static constexpr float kProgressDone        = 0.91f;
+// 地形=3%, 地区配置=22%, グローバル道路=49%, 地区内道路=5%, ポスト処理=12%, Setup=9%
+static constexpr float kProgressTerrain      = 0.00f;
+static constexpr float kProgressSettlement   = 0.03f;
+static constexpr float kProgressRoads        = 0.25f;
+static constexpr float kProgressDistrict     = 0.74f;
+static constexpr float kProgressPostProcess  = 0.79f;
+static constexpr float kProgressDone         = 0.91f;
 
 void GameScene::generateAllTerrain()
 {
@@ -171,7 +173,20 @@ void GameScene::generateAllRoads()
 		getData().seed, m_districts, m_world, m_network,
 		[this](float fraction) {
 			m_genProgress.store(kProgressRoads +
-				(kProgressPostProcess - kProgressRoads) * fraction);
+				(kProgressDistrict - kProgressRoads) * fraction);
+		});
+}
+
+void GameScene::generateDistrictRoads()
+{
+	m_loadingStatus = U"地区内道路生成中";
+	m_genProgress.store(kProgressDistrict);
+
+	MapGenerator::generateDistrictRoads(
+		getData().seed, m_districts, m_world, m_network,
+		[this](float fraction) {
+			m_genProgress.store(kProgressDistrict +
+				(kProgressPostProcess - kProgressDistrict) * fraction);
 		});
 }
 
@@ -240,6 +255,7 @@ void GameScene::updateLoading()
 			Stopwatch step{ StartImmediately::Yes };
 
 			applyZonesGlobal();
+			placeInitialBuildings();
 			m_roadRenderer.invalidateAllCaches();
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 
@@ -616,6 +632,203 @@ void GameScene::applyZonesGlobal()
 	}
 
 	Logger << U"[applyZonesGlobal] {:.0f}ms"_fmt(sw.msF());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 初期建物配置
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace
+{
+	struct RoadSample { float x; float z; float angle; float halfWidth; };
+
+	/// @brief 集落周辺の道路サンプル点を収集する
+	Array<RoadSample> collectRoadSamples(
+		float cx, float cz, float radius,
+		const RoadNetwork& network)
+	{
+		const float radiusSq = radius * radius;
+		Array<RoadSample> samples;
+
+		for (const auto& edge : network.edges())
+		{
+			if (edge.id < 0) continue;
+			const RoadNode* na = network.getNode(edge.nodeA);
+			const RoadNode* nb = network.getNode(edge.nodeB);
+			if (!na || !nb) continue;
+
+			// エッジのバウンディングボックスで粗いフィルタ
+			const float exMin = static_cast<float>(Min({na->position.x, edge.ctrlA.x, edge.ctrlB.x, nb->position.x}));
+			const float exMax = static_cast<float>(Max({na->position.x, edge.ctrlA.x, edge.ctrlB.x, nb->position.x}));
+			const float ezMin = static_cast<float>(Min({na->position.z, edge.ctrlA.z, edge.ctrlB.z, nb->position.z}));
+			const float ezMax = static_cast<float>(Max({na->position.z, edge.ctrlA.z, edge.ctrlB.z, nb->position.z}));
+
+			if (exMax < cx - radius || exMin > cx + radius) continue;
+			if (ezMax < cz - radius || ezMin > cz + radius) continue;
+
+			const float edgeHalfWidth = edge.totalWidth() * 0.5f;
+
+			const float p0x = static_cast<float>(na->position.x);
+			const float p0z = static_cast<float>(na->position.z);
+			const float p1x = static_cast<float>(edge.ctrlA.x);
+			const float p1z = static_cast<float>(edge.ctrlA.z);
+			const float p2x = static_cast<float>(edge.ctrlB.x);
+			const float p2z = static_cast<float>(edge.ctrlB.z);
+			const float p3x = static_cast<float>(nb->position.x);
+			const float p3z = static_cast<float>(nb->position.z);
+
+			constexpr int kSamples = 8;
+			for (int i = 0; i <= kSamples; ++i)
+			{
+				const float t  = static_cast<float>(i) / kSamples;
+				const float t1 = 1.0f - t;
+				const float c0 = t1*t1*t1;
+				const float c1 = 3.0f*t1*t1*t;
+				const float c2 = 3.0f*t1*t*t;
+				const float c3 = t*t*t;
+				const float sx = c0*p0x + c1*p1x + c2*p2x + c3*p3x;
+				const float sz = c0*p0z + c1*p1z + c2*p2z + c3*p3z;
+
+				const float ddx = sx - cx;
+				const float ddz = sz - cz;
+				if (ddx*ddx + ddz*ddz > radiusSq) continue;
+
+				// タンジェント
+				const float tanx = t1*t1*(p1x-p0x) + 2.0f*t1*t*(p2x-p1x) + t*t*(p3x-p2x);
+				const float tanz = t1*t1*(p1z-p0z) + 2.0f*t1*t*(p2z-p1z) + t*t*(p3z-p2z);
+				samples.push_back({ sx, sz, std::atan2(tanz, tanx), edgeHalfWidth });
+			}
+		}
+		return samples;
+	}
+
+	/// @brief サンプル点リストから最寄り道路情報を返す (距離, 角度, 道路半幅)
+	struct NearestRoadResult { float dist; float angle; float halfWidth; };
+
+	NearestRoadResult nearestFromSamples(
+		float wx, float wz, const Array<RoadSample>& samples)
+	{
+		float bestDistSq  = 1e12f;
+		float bestAngle   = 0.0f;
+		float bestHW      = 3.5f;
+		for (const auto& s : samples)
+		{
+			const float dx = wx - s.x;
+			const float dz = wz - s.z;
+			const float dSq = dx*dx + dz*dz;
+			if (dSq < bestDistSq)
+			{
+				bestDistSq = dSq;
+				bestAngle  = s.angle;
+				bestHW     = s.halfWidth;
+			}
+		}
+		return { Math::Sqrt(bestDistSq), bestAngle, bestHW };
+	}
+}
+
+void GameScene::placeInitialBuildings()
+{
+	const Stopwatch sw{ StartImmediately::Yes };
+	constexpr float cellSize       = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	constexpr float kNearDist      = 32.0f;
+	constexpr float kFarDist       = 64.0f;
+	int placed = 0;
+
+	for (const auto& s : m_districts)
+	{
+		const float scx = static_cast<float>(s.center.x);
+		const float scz = static_cast<float>(s.center.y);
+		const float searchRadius = s.radius * 2.0f;
+		const float radiusSq = searchRadius * searchRadius;
+
+		// 集落周辺の道路サンプル点を事前収集
+		const auto roadSamples = collectRoadSamples(scx, scz, searchRadius, m_network);
+		if (roadSamples.isEmpty()) continue;
+
+		const int chunkRadius = static_cast<int>(Ceil(searchRadius / CHUNK_SIZE));
+		const int ccx = static_cast<int>(Math::Floor(scx / CHUNK_SIZE));
+		const int ccz = static_cast<int>(Math::Floor(scz / CHUNK_SIZE));
+
+		for (int dcy = -chunkRadius; dcy <= chunkRadius; ++dcy)
+		{
+			for (int dcx = -chunkRadius; dcx <= chunkRadius; ++dcx)
+			{
+				const Point cc{ ccx + dcx, ccz + dcy };
+				Chunk* chunk = m_world.getChunk(cc);
+				if (!chunk) continue;
+
+				const float chunkOriginX = static_cast<float>(cc.x * CHUNK_SIZE);
+				const float chunkOriginZ = static_cast<float>(cc.y * CHUNK_SIZE);
+
+				const int gxMin = Max(0, static_cast<int>((scx - searchRadius - chunkOriginX) / cellSize));
+				const int gxMax = Min(ZONE_CELLS - 1, static_cast<int>((scx + searchRadius - chunkOriginX) / cellSize));
+				const int gzMin = Max(0, static_cast<int>((scz - searchRadius - chunkOriginZ) / cellSize));
+				const int gzMax = Min(ZONE_CELLS - 1, static_cast<int>((scz + searchRadius - chunkOriginZ) / cellSize));
+				if (gxMin > gxMax || gzMin > gzMax) continue;
+
+				for (int gz = gzMin; gz <= gzMax; ++gz)
+				{
+					for (int gx = gxMin; gx <= gxMax; ++gx)
+					{
+						const ZoneType zone = chunk->zoneMap[{ gx, gz }];
+						if (zone == ZoneType::Unzoned) continue;
+
+						// 既に建物がある場合はスキップ
+						if (chunk->buildingGrid[{ gx, gz }].type != BuildingType::None) continue;
+
+						const float wx = chunkOriginX + (gx + 0.5f) * cellSize;
+						const float wz = chunkOriginZ + (gz + 0.5f) * cellSize;
+
+						// 集落中心からの距離
+						const float dx = wx - scx;
+						const float dz = wz - scz;
+						const float distFromCenterSq = dx*dx + dz*dz;
+						if (distFromCenterSq > radiusSq) continue;
+
+						// 水面チェック
+						const float h = sampleHeightMap(chunk->heightMap, cc, wx, wz);
+						if (h < 0.0f) continue;
+
+						// 道路距離チェック: 道路中心から totalWidth 分だけ離す
+						const auto [roadDist, angle, roadHW] = nearestFromSamples(wx, wz, roadSamples);
+						if (roadDist < roadHW * 2.0f) continue;  // 道路幅分のクリアランス
+
+						// 道路近接スコア (道路に近いほど高い)
+						float roadScore;
+						if      (roadDist < kNearDist) roadScore = 1.0f;
+						else if (roadDist < kFarDist)  roadScore = 1.0f - (roadDist - kNearDist) / (kFarDist - kNearDist);
+						else                           roadScore = 0.0f;
+
+						// 中心からの距離による密度減衰（線形: 中心=0.25, 2*radius=0）
+						const float distFromCenter = Math::Sqrt(distFromCenterSq);
+						const float densityFactor = Clamp(0.25f * (1.0f - distFromCenter / (s.radius * 2.0f)), 0.0f, 0.25f);
+
+						// 最終スコア
+						const float score = roadScore * densityFactor;
+						if (score < 0.02f) continue;
+
+						// 確率的間引き: スコアに比例して配置確率を決定
+						// 決定論的ハッシュ（セル座標ベース）
+						const uint32 cellHash = static_cast<uint32>(
+							(gx * 73856093) ^ (gz * 19349663) ^ (cc.x * 83492791) ^ (cc.y * 41729581));
+						const float roll = (cellHash % 1000) / 1000.0f;
+						if (roll > score) continue;
+
+						Building b = m_zoneManager.spawnBuilding(zone, 0.0);
+						if (b.type == BuildingType::None) continue;
+						b.angle = angle;
+
+						chunk->buildingGrid[{ gx, gz }] = b;
+						chunk->meshDirty = true;
+						++placed;
+					}
+				}
+			}
+		}
+	}
+
+	Logger << U"[placeInitialBuildings] {} 棟配置 ({:.0f}ms)"_fmt(placed, sw.msF());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

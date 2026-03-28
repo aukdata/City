@@ -49,10 +49,26 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	Vec3 ctrlA, Vec3 ctrlB,
 	RoadType rt, int numLanes)
 {
-	// 1ノードあたりのエッジ上限
-	constexpr int kMaxEdgesPerNode = 6;
+	// 自己ループ禁止
+	if (nodeA == nodeB) return none;
+
+	// 同一ノードペア間の重複エッジ禁止
 	const RoadNode* chkA = getNode(nodeA);
 	const RoadNode* chkB = getNode(nodeB);
+	if (chkA)
+	{
+		for (const int eid : chkA->edgeIds)
+		{
+			const RoadEdge* ex = getEdge(eid);
+			if (!ex) continue;
+			if ((ex->nodeA == nodeA && ex->nodeB == nodeB) ||
+			    (ex->nodeA == nodeB && ex->nodeB == nodeA))
+				return none;
+		}
+	}
+
+	// 1ノードあたりのエッジ上限
+	constexpr int kMaxEdgesPerNode = 6;
 	if ((chkA && static_cast<int>(chkA->edgeIds.size()) >= kMaxEdgesPerNode) ||
 	    (chkB && static_cast<int>(chkB->edgeIds.size()) >= kMaxEdgesPerNode))
 		return none;

@@ -161,7 +161,9 @@ private:
 	void generateAllTerrain();
 	void placeAllSettlements();
 	void generateAllRoads();
+	void generateDistrictRoads();
 	void postProcessRoads();
+	void placeInitialBuildings();
 
 	/// @brief RoadNetwork 変更後に SimGraph を再構築して SimThread に通知する
 	void notifyNetworkChanged()

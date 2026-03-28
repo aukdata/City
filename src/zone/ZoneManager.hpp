@@ -39,6 +39,11 @@ public:
 	/// @brief 3D シーンにゾーンオーバーレイを描画する（update 後・UI 前に呼ぶ）
 	void renderOverlay(const World& world) const;
 
+	// ----- 建物生成 -----
+
+	/// @brief ゾーン種別に応じた初期建物（stage=0）を返す
+	Building spawnBuilding(ZoneType zone, double gameNow) const;
+
 private:
 	// ----- 座標変換ヘルパー -----
 
@@ -55,12 +60,7 @@ private:
 	float calcDevelopmentScore(Point chunkCoord, int cx, int cy,
 	                           const RoadNetwork& network) const;
 
-	// ----- 建物生成 -----
-
-	/// @brief ゾーン種別に応じた初期建物（stage=0）を返す
-	Building spawnBuilding(ZoneType zone, double gameNow) const;
-
-	/// @brief スコアが十分であれば成長段階を1上げる（成長したら true）
+	/// @brief スコアが十分であれば成長段階を1上げる（成功したら true）
 	bool tryGrowBuilding(Building& b, ZoneType zone, float score) const;
 
 	// 最大成長段階（BuildingType × ゾーン）

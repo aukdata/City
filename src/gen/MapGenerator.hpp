@@ -48,6 +48,14 @@ public:
 		RoadNetwork& network,
 		ProgressCallback onProgress = {});
 
+	/// @brief 各地区の内部生活道路を格子ベースで生成する（03_procedural_generation_spec.md §4）
+	static void generateDistrictRoads(
+		uint64 seed,
+		const Array<Settlement>& settlements,
+		const World& world,
+		RoadNetwork& network,
+		ProgressCallback onProgress = {});
+
 	/// @brief 鉄道の初期路線を構築する
 	static void setupTrain(TrainNetwork& trainNet, const World& world,
 	                        const Array<Settlement>& districts);
