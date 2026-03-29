@@ -1,0 +1,16 @@
+id = "curb_concrete"
+name = "コンクリート縁石"
+type = "Curb"
+tiling = "CrossSection"
+model = "curb_concrete.obj"
+model_unit_width = 0.1
+model_unit_len = 1.0
+height_offset = 0.15
+symmetric = true
+
+[material]
+color = [0.78, 0.76, 0.72]
+
+[lod]
+mesh_names = ["center"]
+distances = []

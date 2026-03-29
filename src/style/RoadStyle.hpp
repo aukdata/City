@@ -10,8 +10,6 @@ struct RoadStyle
 
 	// ---- 断面寸法 ----
 	float defaultLaneWidth = 3.5f;   ///< 標準車線幅 [m]（新規道路追加時のデフォルト）
-	float shoulderWidth    = 0.5f;   ///< 路肩幅 [m]（片側、車道外側に追加される幅）
-	float medianWidth      = 0.0f;   ///< 中央分離帯幅 [m]（0 = 分離帯なし）
 
 	// ---- 車線区画線スタイル ----
 	LineMarkStyle laneMarking;       ///< 同方向車線間の区画線（白破線など）

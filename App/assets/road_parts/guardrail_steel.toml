@@ -1,0 +1,16 @@
+id = "guardrail_steel"
+name = "鋼製ガードレール"
+type = "Guardrail"
+tiling = "Longitudinal"
+model = "guardrail_steel.obj"
+model_unit_width = 0.3
+model_unit_len = 4.0
+height_offset = 0.0
+symmetric = false
+
+[material]
+color = [0.82, 0.82, 0.82]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [400.0]

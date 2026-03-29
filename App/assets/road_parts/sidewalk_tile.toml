@@ -1,0 +1,16 @@
+id = "sidewalk_tile"
+name = "タイル歩道"
+type = "Sidewalk"
+tiling = "CrossSection"
+model = "sidewalk_tile.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.15
+symmetric = false
+
+[material]
+color = [0.72, 0.70, 0.68]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [600.0]

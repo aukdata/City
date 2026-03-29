@@ -18,9 +18,18 @@ struct SimGraph
 		float    speedLimit = 60.0f;   ///< 制限速度 [km/h]
 		float    congestion = 0.0f;    ///< 渋滞度 [0,1]
 		RoadType roadType = RoadType::LocalRoad;
+		Array<RoadPart> parts;         ///< 道路部品（走行可否判定に使用）
 		Array<Lane> lanes;             ///< 車線構造（走行可否・方向判定に使用）
 		float    tangentAngleA = 0.0f; ///< nodeA 端のベジェ接線角 [rad] (atan2(tz,tx))
 		float    tangentAngleB = 0.0f; ///< nodeB 端のベジェ接線角 [rad]
+
+		/// @brief 路盤パーツが建設済みかどうか
+		[[nodiscard]] bool isRoadbedBuilt() const
+		{
+			for (const auto& p : parts)
+				if (p.type == RoadPartType::Roadbed && p.build == BuildState::Built) return true;
+			return parts.isEmpty();
+		}
 	};
 
 	/// @brief ノードのシミュレーション用データ
@@ -49,6 +58,7 @@ struct SimGraph
 			se.speedLimit = edge.speedLimit;
 			se.congestion = edge.congestion;
 			se.roadType   = edge.roadType;
+			se.parts      = edge.parts;
 			se.lanes      = edge.lanes;
 
 			// ベジェ接線角を計算（ターン判定用）
@@ -67,7 +77,7 @@ struct SimGraph
 			if (node.id < 0) continue;
 			Node sn;
 			sn.id      = node.id;
-			sn.edgeIds = node.edgeIds;
+			sn.edgeIds = node.edgeIds();
 			g.nodes[node.id] = std::move(sn);
 		}
 

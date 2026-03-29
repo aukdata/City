@@ -1,16 +1,9 @@
 ﻿#pragma once
 #include "../time/GameClock.hpp"
+#include "RoadEnums.hpp"
+#include "RoadPartTypes.hpp"
 
 // ===== 列挙型 =====
-
-/// @brief 物理状態: 路盤・構造物の建設状態（原則不可逆）
-enum class BuildState : uint8
-{
-	NotBuilt,            ///< 路盤なし（計画のみ）
-	UnderConstruction,   ///< 施工中（路盤未完成）
-	Built,               ///< 路盤完成（供用可能）
-	StubEnd,             ///< 延伸端・イカの耳
-};
 
 /// @brief 運用状態: 現在の交通への供用状態（頻繁に変化）
 enum class OpState : uint8
@@ -43,13 +36,40 @@ enum class LaneType : uint8
 	StubReserved,
 };
 
+/// @brief 区画線種別
+enum class LineType : uint8
+{
+	None,           ///< 線なし
+	SolidWhite,     ///< 白実線（車線変更禁止）
+	DashedWhite,    ///< 白破線（車線変更可）
+	SolidYellow,    ///< 黄実線（追い越し禁止）
+	DoubleYellow,   ///< 黄二重線
+};
+
 /// @brief ノード種別
 enum class NodeType : uint8
 {
-	Intersection,  ///< 交差点
-	TJunction,     ///< T字路
-	Endpoint,      ///< 端点
-	IC,            ///< インターチェンジ
+	Endpoint,      ///< 端点（1本接続）
+	Joint,         ///< 継ぎ目（2本接続）
+	Intersection,  ///< 交差点（3本以上、isThrough なし）
+	Diverge,       ///< 分岐合流（3本以上、isThrough 2本）
+};
+
+/// @brief ノードでの遷移方式（Joint 時のみ有効）
+/// @details 17_road_node_spec.md 参照
+enum class NodeTransition : uint8
+{
+	Blend,    ///< 部品を滑らかにモーフィング（車線減少・幅変化）
+	Abrupt,   ///< ノード中心で不連続に切替（延伸端・道路種別境界）
+};
+
+/// @brief エッジのノードへの接続情報
+/// @details 17_road_node_spec.md 参照
+struct EdgeAttachment
+{
+	int   edgeId = -1;
+	float lateralOffset = 0.0f;  ///< ノード中心からの横方向オフセット [m]（エッジ外向き接線に対して右が正）
+	bool  isThrough = false;     ///< Diverge ノード専用: 本線エッジなら true
 };
 
 /// @brief 道路種別
@@ -85,23 +105,29 @@ enum class PlanState : uint8
 /// @brief 車線データ
 struct Lane
 {
-	// 物理軸（原則変更されない）
-	int        index = 0;                  ///< 左端=0 の物理位置（不変）
-	BuildState build = BuildState::NotBuilt;
-	LaneType   type  = LaneType::Normal;
-	float      width = 3.5f;              ///< 車線幅 [m]
+	// --- 幾何（A端・B端で異なる位置 → テーパー車線対応） ---
+	float   offsetA_L = 0.0f;              ///< A端: 道路中心からの左端 [m]
+	float   offsetA_R = 0.0f;              ///< A端: 道路中心からの右端 [m]
+	float   offsetB_L = 0.0f;              ///< B端: 道路中心からの左端 [m]
+	float   offsetB_R = 0.0f;              ///< B端: 道路中心からの右端 [m]
 
-	// 運用軸（頻繁に変わりうる）
-	LaneDir    dir   = LaneDir::Forward;
-	OpState    op    = OpState::Open;
+	// --- 運用 ---
+	LaneDir   dir = LaneDir::Forward;      ///< 走行方向
+	OpState   op  = OpState::Open;         ///< 供用状態
+
+	// --- 車線変更 ---
+	bool      canChangeLaneLeft  = false;  ///< 左隣の車線への変更が可能か
+	bool      canChangeLaneRight = false;  ///< 右隣の車線への変更が可能か
+
+	// --- 区画線 ---
+	LineType  lineLeft  = LineType::None;  ///< 左側の区画線種別
+	LineType  lineRight = LineType::None;  ///< 右側の区画線種別
+
+	// --- ゲームプレイ ---
+	float     nominalWidth = 3.5f;         ///< 公称幅 [m]（容量計算・UI表示用）
+	LaneType  type = LaneType::Normal;     ///< 機能種別
 };
 
-/// @brief 車線が走行可能か（build==Built && op==Open||Provisional）
-inline bool isPassable(const Lane& lane)
-{
-	return lane.build == BuildState::Built
-		&& (lane.op == OpState::Open || lane.op == OpState::Provisional);
-}
 
 // ===== TempOp =====
 
@@ -133,11 +159,17 @@ struct TempOp
 
 // ===== PlannedChange =====
 
-/// @brief 将来の計画的変化における個別車線の変更仕様
+/// @brief 将来の計画的変化における部品の変更仕様
+struct PartChange
+{
+	int                  partIndex;
+	Optional<BuildState> newBuild;
+};
+
+/// @brief 将来の計画的変化における車線の変更仕様
 struct LaneChange
 {
-	int                  index;
-	Optional<BuildState> newBuild;
+	int                  laneIndex;
 	Optional<LaneDir>    newDir;
 	Optional<OpState>    newOp;
 };
@@ -152,9 +184,10 @@ enum class Trigger : uint8
 /// @brief 将来の計画的変化
 struct PlannedChange
 {
-	int               planId;
-	Trigger           trigger;
-	Array<LaneChange> changes;
+	int                planId;
+	Trigger            trigger;
+	Array<PartChange>  partChanges;
+	Array<LaneChange>  laneChanges;
 };
 
 // ===== RoadEdge =====
@@ -177,6 +210,9 @@ struct RoadEdge
 	float     cutoffA   = 0.0f;
 	/// @brief nodeB 端でのカットオフ量 [m]
 	float     cutoffB   = 0.0f;
+
+	/// @brief 物理構造（道路部品の配列、左端から右端の順）
+	Array<RoadPart>      parts;
 
 	Array<Lane>          lanes;
 	Array<TempOp>        tempOps;
@@ -238,30 +274,101 @@ struct RoadEdge
 		for (int i = 0; i < static_cast<int>(lanes.size()); ++i)
 		{
 			const Lane L = effectiveLane(i, now);
-			if (isPassable(L) && L.dir == dir)
+			if (isRoadbedBuilt() && (L.op == OpState::Open || L.op == OpState::Provisional) && L.dir == dir)
 				result << i;
 		}
 		return result;
 	}
 
-	/// @brief 総車線幅を返す [m]
+	/// @brief 道路の総幅を返す [m]（parts ベース。空なら nominalWidth の合計）
 	float totalWidth() const
 	{
+		if (!parts.isEmpty())
+		{
+			float minOff = 1e9f, maxOff = -1e9f;
+			for (const auto& p : parts)
+			{
+				minOff = Min(minOff, p.offset);
+				maxOff = Max(maxOff, p.offset + p.width);
+			}
+			return maxOff - minOff;
+		}
 		float w = 0.0f;
-		for (const auto& lane : lanes) w += lane.width;
+		for (const auto& lane : lanes) w += lane.nominalWidth;
 		return w;
+	}
+
+	/// @brief 路盤パーツが建設済みかどうか
+	[[nodiscard]]
+	bool isRoadbedBuilt() const
+	{
+		for (const auto& part : parts)
+		{
+			if (part.type == RoadPartType::Roadbed && part.build == BuildState::Built)
+				return true;
+		}
+		// parts が空なら旧ロジックにフォールバック（互換性）
+		return parts.isEmpty();
 	}
 };
 
+/// @brief 車線が走行可能か（新シグネチャ: RoadEdge + 車線インデックス）
+/// @details 路盤パーツの BuildState + 車線の OpState で判定
+inline bool isPassable(const RoadEdge& edge, int laneIndex)
+{
+	if (laneIndex < 0 || laneIndex >= static_cast<int>(edge.lanes.size()))
+		return false;
+	const auto& lane = edge.lanes[laneIndex];
+	return edge.isRoadbedBuilt()
+		&& (lane.op == OpState::Open || lane.op == OpState::Provisional);
+}
+
 // ===== RoadNode =====
 
-/// @brief 道路ノード（交差点・端点）
+/// @brief 道路ノード（端点・継ぎ目・交差点・分岐合流）
+/// @details 17_road_node_spec.md 参照
 struct RoadNode
 {
-	int        id = -1;
-	Vec3       position;
-	NodeType   type = NodeType::Endpoint;
-	Array<int> edgeIds;                    ///< 接続するエッジの id リスト
+	int                    id = -1;
+	Vec3                   position;
+	NodeType               type       = NodeType::Endpoint;
+	NodeTransition         transition = NodeTransition::Blend;
+	Array<EdgeAttachment>  attachments;
+
+	/// @brief 接続エッジ ID 一覧を返す（旧 edgeIds 互換）
+	[[nodiscard]] Array<int> edgeIds() const
+	{
+		Array<int> ids;
+		ids.reserve(attachments.size());
+		for (const auto& a : attachments) ids << a.edgeId;
+		return ids;
+	}
+
+	/// @brief エッジを追加する
+	void addEdge(int edgeId)
+	{
+		attachments << EdgeAttachment{ edgeId };
+	}
+
+	/// @brief エッジを削除する
+	void removeEdge(int edgeId)
+	{
+		attachments.remove_if([edgeId](const EdgeAttachment& a) { return a.edgeId == edgeId; });
+	}
+
+	/// @brief 指定エッジの接続情報を取得する（なければ nullptr）
+	[[nodiscard]] EdgeAttachment* getAttachment(int edgeId)
+	{
+		for (auto& a : attachments)
+			if (a.edgeId == edgeId) return &a;
+		return nullptr;
+	}
+	[[nodiscard]] const EdgeAttachment* getAttachment(int edgeId) const
+	{
+		for (const auto& a : attachments)
+			if (a.edgeId == edgeId) return &a;
+		return nullptr;
+	}
 };
 
 // ===== RoadPlan =====

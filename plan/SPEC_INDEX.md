@@ -9,7 +9,8 @@
 | `03_procedural_generation_spec.md` | マップ自動生成の詳細アルゴリズム |
 | `04_gameplay_detail_spec.md` | 数値・バランス・イベント詳細 |
 | `05_zoning_spec.md` | ゾーニングシステム詳細 |
-| `16_road_cross_section_spec.md` | 道路断面プロファイル（スロットモデル） |
+| `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
+| `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
 
 ---
 
@@ -195,15 +196,15 @@
 
 | セクション | 内容 |
 |-----------|------|
-| 1. Lane定義 | LaneDirection/State/Type のenum・Lane構造体 |
-| 2. RoadEdge構造 | lanes配列・tempConfig・plannedUpgrades |
-| 3. TemporaryLaneConfig | 1+1→2+0シフト等の一時的運用変更・差分適用ルール |
-| 4. PlannedLaneUpgrade | 着工時/開通時の2段階トリガーによる段階的供用 |
-| 5. 状態表現の例 | 暫定1+1・2+0シフト・イカの耳・延伸端・2+2・段階供用 |
-| 6. 道路容量計算 | getOpenLanes()を使った方向別容量・渋滞度の計算 |
-| 7. 視覚表現 | 各LaneStateに対応する描画内容 |
-| 8. RoadPlanとの統合 | 着工・開通トリガーとlanes変化の連動 |
-| 9. 設計上の制約 | index不変・tempConfig単一・getOpenLanesの性能 |
+| 1. 物理軸・運用軸の分離 | RoadPart（物理）と Lane（運用）の2軸分離設計 |
+| 2. 列挙型の定義 | BuildState・OpState・LaneDir・LaneType・LineType |
+| 3. Lane 構造体 | A端/B端の左右位置・テーパー対応・区画線・車線変更フラグ |
+| 4. RoadEdge 構造体 | parts 配列 + lanes 配列の統合構造 |
+| 5. 一時的な運用変更（TempOp） | 工事・踏切・イベントによる車線シフト・閉鎖 |
+| 6. 将来の計画的変化（PlannedChange） | PartChange + LaneChange の2段階トリガー |
+| 7. 状態表現の例 | oxxo・ooxx・2+0シフト・イカの耳・延伸端・段階供用 |
+| 8. 道路容量計算 | openLanes() を使った方向別容量 |
+| 9. 設計上の制約 | BuildState は PlannedChange 経由・車線位置は路盤幅内 |
 
 ---
 
@@ -245,13 +246,33 @@
 
 | セクション | 内容 |
 |-----------|------|
-| 1. スロットモデル | 横断面をスロット列として表現・隙間（空白）対応 |
-| 2. データ構造 | SlotType enum・CrossSectionSlot・CrossSectionProfile |
-| 3. 既存構造との関係 | RoadEdge との統合・Lane との1:1対応・RoadStyle からの移行 |
-| 4. のり面の特殊処理 | 地形追従・盛土/切土の描画・閾値判定 |
-| 5. 橋梁・高架 | 高低差による自動判定・橋脚配置・Slope 非表示切替 |
-| 6. プロファイル定義例 | 一般道/バイパス/橋梁/路面電車付き の TOML 例 |
-| 7. プロファイル管理 | RoadType 別プリセット・ユーザーカスタム・適用フロー |
-| 8. 断面エディタ UI | 2D断面図表示・スロット操作（追加/削除/ドラッグ） |
-| 9. 描画への影響 | スロット別帯メッシュ・交差点処理 |
-| 10. 他仕様書との関係 | 車線仕様/描画/コスト/経路探索/セーブとの連携 |
+| 1. 部品モデルの構造 | inner/outer/center の3分割モデル・タイリングモード・座標軸規約 |
+| 2. データ構造 | RoadPartType・TilingMode・RoadPartDef・RoadPart |
+| 3. OBJ メッシュ命名規約 | inner/outer/center の命名・symmetric ミラー・Siv3D での読み込み |
+| 4. TOML メタデータ | ファイル配置・フォーマット・歩道/ガードレール例 |
+| 5. のり面の特殊処理 | 地形追従・盛土/切土の描画・閾値判定 |
+| 6. 橋梁・高架 | 高低差による自動判定・橋脚配置・Slope 非表示切替 |
+| 7. プリセットプロファイル | RoadType 別デフォルト構成・一般道/バイパス/橋梁の定義例 |
+| 8. 断面エディタ UI | 2D断面図表示・部品操作（追加/削除/ドラッグ） |
+| 9. 描画パイプライン | 部品別帯メッシュ・LOD・交差点処理 |
+| 10. RoadStyle の移行 | 旧フィールドの移行先マッピング |
+| 11. 他仕様書との関係 | 車線仕様/描画/コスト/経路探索/セーブとの連携 |
+
+---
+
+## 17_road_node_spec.md
+
+| セクション | 内容 |
+|-----------|------|
+| 1. ノード種別 | Endpoint・Joint・Intersection・Diverge の4種と判定ルール |
+| 2. 遷移モード | Blend（滑らかモーフィング）・Abrupt（不連続切替） |
+| 3. データ構造 | EdgeAttachment（lateralOffset・isThrough）・RoadNode |
+| 4. lateralOffset の効果 | 接続点の横方向シフト・図解・制約 |
+| 5. Endpoint | 端点の終端キャップジオメトリ |
+| 6. Joint | Blend（部品マッチング・テーパー）・Abrupt（段差キャップ） |
+| 7. Intersection | フィレット曲線・歩道島・lateralOffset 加味 |
+| 8. Diverge | 本線継続 + ランプ剥離 + ゴアエリア・複数ランプ対応 |
+| 9. cutoff の自動計算 | ノード種別ごとの cutoff 算出ロジック |
+| 10. 具体例 | 車線減少・延伸端・T字路・IC分岐・左右同時分岐・JCT |
+| 11. 設計上の制約 | lateralOffset 上限・Blend の型一致・isThrough ルール |
+| 12. 他仕様書との関係 | 車線テーパー/部品配列/RoadNode 定義/経路探索/描画 |

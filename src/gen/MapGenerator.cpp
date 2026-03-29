@@ -128,10 +128,10 @@ namespace
 		static Vec2 tangentAt(int nodeId, const RoadNetwork& net)
 		{
 			const RoadNode* node = net.getNode(nodeId);
-			if (!node || node->edgeIds.isEmpty()) return Vec2{ 1, 0 };
+			if (!node || node->attachments.isEmpty()) return Vec2{ 1, 0 };
 
 			// 最初の接続エッジの方向を返す
-			const RoadEdge* edge = net.getEdge(node->edgeIds[0]);
+			const RoadEdge* edge = net.getEdge(node->attachments[0].edgeId);
 			if (!edge) return Vec2{ 1, 0 };
 
 			const RoadNode* other = net.getNode(
@@ -801,13 +801,13 @@ void MapGenerator::generateGlobalRoads(
 		for (const int ui : urbanIdx)
 		{
 			const RoadNode* n = network.getNode(nodeIds[ui]);
-			if (n && !n->edgeIds.isEmpty()) { startNode = nodeIds[ui]; break; }
+			if (n && !n->attachments.isEmpty()) { startNode = nodeIds[ui]; break; }
 		}
 		if (startNode < 0)
 		{
 			// Urban がなければエッジを持つ任意のノードから
 			for (const auto& n : network.nodes())
-				if (n.id >= 0 && !n.edgeIds.isEmpty()) { startNode = n.id; break; }
+				if (n.id >= 0 && !n.attachments.isEmpty()) { startNode = n.id; break; }
 		}
 
 		if (startNode >= 0)
@@ -820,8 +820,9 @@ void MapGenerator::generateGlobalRoads(
 				const int cur = q.front(); q.pop();
 				const RoadNode* node = network.getNode(cur);
 				if (!node) continue;
-				for (const int eid : node->edgeIds)
+				for (const auto& att : node->attachments)
 				{
+					const int eid = att.edgeId;
 					const RoadEdge* edge = network.getEdge(eid);
 					if (!edge) continue;
 					const int next = (edge->nodeA == cur) ? edge->nodeB : edge->nodeA;
@@ -870,8 +871,9 @@ void MapGenerator::generateGlobalRoads(
 				const int cur = q.front(); q.pop();
 				const RoadNode* node = network.getNode(cur);
 				if (!node) continue;
-				for (const int eid : node->edgeIds)
+				for (const auto& att : node->attachments)
 				{
+					const int eid = att.edgeId;
 					const RoadEdge* edge = network.getEdge(eid);
 					if (!edge) continue;
 					const int next = (edge->nodeA == cur) ? edge->nodeB : edge->nodeA;
@@ -1011,8 +1013,8 @@ void MapGenerator::generateDistrictRoads(
 			if (!na || !nb) return;
 
 			// 接続数制限チェック
-			if (static_cast<int>(na->edgeIds.size()) >= 5) return;
-			if (static_cast<int>(nb->edgeIds.size()) >= 5) return;
+			if (static_cast<int>(na->attachments.size()) >= 5) return;
+			if (static_cast<int>(nb->attachments.size()) >= 5) return;
 
 			// 傾斜チェック
 			const float dh = static_cast<float>(Math::Abs(na->position.y - nb->position.y));

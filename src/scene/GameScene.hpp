@@ -119,6 +119,10 @@ private:
 
 	int             m_followVehicleIdx = 0;
 
+	// 道路選択
+	Optional<int>   m_selectedEdgeId;
+	Optional<int>   m_selectedNodeId;
+
 	// 地名リストパネル
 	bool            m_showNameList     = false;
 	double          m_nameListScroll   = 0.0;

@@ -30,6 +30,12 @@ Release の場合は `-p:Configuration=Release` に変更する。
 
 - **「推測するな。計測せよ。」** — パフォーマンス問題やバグの原因を推測で修正しない。必ず Console 出力やタイマーで実測データを取得し、データに基づいて修正する。
 
+## Warnings Policy
+
+- **コンパイラ警告は基本的にすべて解決すること。**
+- 将来使用する予定で先んじて定義しているパラメータには `[[maybe_unused]]` を付与する。
+- `[[maybe_unused]]` を付けたパラメータが実際に使われるようになったら、`[[maybe_unused]]` を必ず除去すること。
+
 ## Code Style
 
 `.editorconfig` に従う:
@@ -79,4 +85,5 @@ API を確認するときは上記ディレクトリの `.hpp` を直接 Read �
 | `13_sound_spec.md` | オーディオ設計 |
 | `14_save_spec.md` | セーブシステム・チャンク永続化 |
 | `15_chunk_data_spec.md` | チャンクデータ設計（二層構造・境界ノード重複） |
-| `16_road_cross_section_spec.md` | 道路断面プロファイル（スロットモデル） |
+| `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
+| `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |

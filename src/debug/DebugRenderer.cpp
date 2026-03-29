@@ -67,10 +67,10 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 		ColorF color = Palette::White;
 		switch (node.type)
 		{
-		case NodeType::Intersection: color = Palette::Yellow; break;
-		case NodeType::TJunction:    color = Palette::Orange; break;
 		case NodeType::Endpoint:     color = Palette::White;  break;
-		case NodeType::IC:           color = Palette::Cyan;   break;
+		case NodeType::Joint:        color = Palette::Green;  break;
+		case NodeType::Intersection: color = Palette::Yellow; break;
+		case NodeType::Diverge:      color = Palette::Cyan;   break;
 		}
 		Sphere{ node.position + Vec3{ 0, 1, 0 }, 8.0 }.draw(color);
 
@@ -156,12 +156,12 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 			if (node)
 			{
 				static constexpr StringView nodeTypeStr[] = {
-					U"Intersection", U"TJunction", U"Endpoint", U"IC"
+					U"Endpoint", U"Joint", U"Intersection", U"Diverge"
 				};
 				const StringView typeStr = nodeTypeStr[static_cast<int>(node->type)];
 				String edgeList;
-				for (int eid : node->edgeIds)
-					edgeList += U"{} "_fmt(eid);
+				for (const auto& att : node->attachments)
+					edgeList += U"{} "_fmt(att.edgeId);
 				Console << U"[Node {}]  type={}  pos=({:.0f},{:.0f},{:.0f})  edges=[{}]"_fmt(
 					node->id, typeStr,
 					node->position.x, node->position.y, node->position.z,
@@ -408,7 +408,7 @@ void DebugRenderer::renderHelp()
 
 // ===== D-06: バイオーム表示 =====
 
-void DebugRenderer::renderBiomes(const World& world, const GameCamera& camera)
+void DebugRenderer::renderBiomes(const World& world, [[maybe_unused]] const GameCamera& camera)
 {
 	const auto& activeChunks = world.getActiveChunks();
 	if (activeChunks.isEmpty()) return;

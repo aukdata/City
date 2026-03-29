@@ -1,0 +1,17 @@
+id = "roadbed_asphalt"
+name = "アスファルト路盤"
+type = "Roadbed"
+tiling = "CrossSection"
+model = "roadbed_asphalt.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = true
+
+[material]
+texture = "../../textures/asphalt.png"
+color = [0.36, 0.36, 0.36]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [800.0]

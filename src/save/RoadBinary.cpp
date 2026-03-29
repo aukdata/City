@@ -31,8 +31,8 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		w.write(static_cast<float>(n.position.y));
 		w.write(static_cast<float>(n.position.z));
 		w.write(static_cast<uint8>(n.type));
-		w.write(static_cast<uint32>(n.edgeIds.size()));
-		for (int eid : n.edgeIds) w.write(eid);
+		w.write(static_cast<uint32>(n.attachments.size()));
+		for (const auto& att : n.attachments) w.write(att.edgeId);
 	}
 
 	// ---- RoadEdge レコード ----
@@ -59,12 +59,18 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		w.write(static_cast<uint32>(e.lanes.size()));
 		for (const auto& lane : e.lanes)
 		{
-			w.write(lane.index);
-			w.write(static_cast<uint8>(lane.build));
-			w.write(static_cast<uint8>(lane.type));
-			w.write(lane.width);
+			w.write(lane.offsetA_L);
+			w.write(lane.offsetA_R);
+			w.write(lane.offsetB_L);
+			w.write(lane.offsetB_R);
+			w.write(lane.nominalWidth);
 			w.write(static_cast<uint8>(lane.dir));
 			w.write(static_cast<uint8>(lane.op));
+			w.write(static_cast<uint8>(lane.type));
+			w.write(static_cast<uint8>(lane.lineLeft));
+			w.write(static_cast<uint8>(lane.lineRight));
+			w.write(static_cast<uint8>(lane.canChangeLaneLeft ? 1 : 0));
+			w.write(static_cast<uint8>(lane.canChangeLaneRight ? 1 : 0));
 		}
 	}
 
@@ -105,7 +111,7 @@ bool RoadBinary::read(const FilePath& path,
 		r.read(edgeCnt);
 		// edgeIds は読み飛ばす（addEdgeRaw で再構築するためクリア）
 		for (uint32 j = 0; j < edgeCnt; ++j) { int dummy; r.read(dummy); }
-		n.edgeIds.clear();
+		n.attachments.clear();
 
 		outNodes << n;
 	}
@@ -136,13 +142,19 @@ bool RoadBinary::read(const FilePath& path,
 		for (uint32 j = 0; j < laneCnt; ++j)
 		{
 			Lane& lane = e.lanes[j];
-			uint8 build, ltype, dir, op;
-			r.read(lane.index);
-			r.read(build); lane.build = static_cast<BuildState>(build);
+			uint8 dir, op, ltype, lineL, lineR, canL, canR;
+			r.read(lane.offsetA_L);
+			r.read(lane.offsetA_R);
+			r.read(lane.offsetB_L);
+			r.read(lane.offsetB_R);
+			r.read(lane.nominalWidth);
+			r.read(dir);   lane.dir   = static_cast<LaneDir>(dir);
+			r.read(op);    lane.op    = static_cast<OpState>(op);
 			r.read(ltype); lane.type  = static_cast<LaneType>(ltype);
-			r.read(lane.width);
-			r.read(dir); lane.dir = static_cast<LaneDir>(dir);
-			r.read(op);  lane.op  = static_cast<OpState>(op);
+			r.read(lineL); lane.lineLeft  = static_cast<LineType>(lineL);
+			r.read(lineR); lane.lineRight = static_cast<LineType>(lineR);
+			r.read(canL);  lane.canChangeLaneLeft  = (canL != 0);
+			r.read(canR);  lane.canChangeLaneRight = (canR != 0);
 		}
 		e.laneVehicles = Array<Array<int>>(e.lanes.size());
 

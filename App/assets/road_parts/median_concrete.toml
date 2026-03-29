@@ -1,0 +1,16 @@
+id = "median_concrete"
+name = "コンクリート中央分離帯"
+type = "Median"
+tiling = "CrossSection"
+model = "median_concrete.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = true
+
+[material]
+color = [0.75, 0.73, 0.70]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [800.0]

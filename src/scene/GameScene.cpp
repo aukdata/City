@@ -943,6 +943,37 @@ void GameScene::renderWorld()
 
 		m_roadRenderer.render(m_network, m_world, frustum,
 		                     m_camera.camera3D().getEyePosition());
+
+		// 選択中の Edge / Node をハイライト描画
+		if (m_selectedEdgeId)
+		{
+			if (const auto bez = m_network.getBezier(*m_selectedEdgeId))
+			{
+				constexpr int kDiv = 30;
+				const float len = bez->totalLength;
+				for (int i = 0; i < kDiv; ++i)
+				{
+					const Vec3 a = bez->positionAt(len * (i / static_cast<float>(kDiv)));
+					const Vec3 b = bez->positionAt(len * ((i + 1) / static_cast<float>(kDiv)));
+					const float ha = m_world.computeHeight(static_cast<float>(a.x), static_cast<float>(a.z));
+					const float hb = m_world.computeHeight(static_cast<float>(b.x), static_cast<float>(b.z));
+					const Vec3 pa{ a.x, ha + 3.0, a.z };
+					const Vec3 pb{ b.x, hb + 3.0, b.z };
+					Cylinder{ pa, pb, 1.0 }.draw(ColorF{ 0.2, 0.8, 1.0, 0.6 });
+				}
+			}
+		}
+		if (m_selectedNodeId)
+		{
+			if (const auto* node = m_network.getNode(*m_selectedNodeId))
+			{
+				const float nh = m_world.computeHeight(
+					static_cast<float>(node->position.x), static_cast<float>(node->position.z));
+				Sphere{ Vec3{ node->position.x, nh + 5.0, node->position.z }, 12.0 }
+					.draw(ColorF{ 1.0, 0.5, 0.0, 0.6 });
+			}
+		}
+
 		lap(s_road);
 
 		m_zoneManager.renderOverlay(m_world);
@@ -1161,6 +1192,172 @@ void GameScene::renderWorld()
 		}
 	}
 
+	// ---- 道路情報パネル ----
+	if (m_selectedEdgeId)
+	{
+		const RoadEdge* edge = m_network.getEdge(*m_selectedEdgeId);
+		if (edge)
+		{
+			static const Font pFont{ FontMethod::MSDF, 12 };
+			static const Font pHeader{ FontMethod::MSDF, 14, Typeface::Bold };
+
+			constexpr int kPW = 320;
+			constexpr int kPad = 8;
+			constexpr int kLH = 18;
+			const int pH = Scene::Height() - 20;
+			const int pX = Scene::Width() - kPW - 10;
+			const int pY = 10;
+
+			RectF{ static_cast<double>(pX), static_cast<double>(pY),
+			       static_cast<double>(kPW), static_cast<double>(pH) }
+				.draw(ColorF{ 0, 0, 0, 0.8 });
+
+			int y = pY + kPad;
+			auto line = [&](const String& text, ColorF color = Palette::White)
+			{
+				pFont(text).draw(Vec2{ pX + kPad, y }, color);
+				y += kLH;
+			};
+			auto header = [&](const String& text)
+			{
+				pHeader(text).draw(Vec2{ pX + kPad, y }, Palette::Yellow);
+				y += kLH + 4;
+			};
+
+			static constexpr StringView rtNames[] = { U"LocalRoad", U"Arterial", U"Expressway", U"Highway" };
+			static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersection", U"Diverge" };
+			static constexpr StringView bsNames[] = { U"NotBuilt", U"UnderConstr", U"Built", U"StubEnd" };
+			static constexpr StringView osNames[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
+			static constexpr StringView dirNames[] = { U"Forward", U"Backward" };
+			static constexpr StringView ltNames[] = { U"None", U"SolidW", U"DashW", U"SolidY", U"DblY" };
+			static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk", U"Gutter", U"Guardrail", U"Wall", U"Curb", U"Slope", U"BikeLane" };
+
+			// -- Edge 基本情報 --
+			header(U"RoadEdge #{}"_fmt(edge->id));
+			line(U"nodeA: {}  nodeB: {}"_fmt(edge->nodeA, edge->nodeB));
+			line(U"type: {}  speed: {} km/h"_fmt(rtNames[static_cast<int>(edge->roadType)], edge->speedLimit));
+			line(U"length: {:.1f} m  cutoff: {:.1f}/{:.1f}"_fmt(edge->length, edge->cutoffA, edge->cutoffB));
+			line(U"state: {}  congestion: {:.2f}"_fmt(static_cast<int>(edge->edgeState), edge->congestion));
+			line(U"totalWidth: {:.1f} m"_fmt(edge->totalWidth()));
+			y += 4;
+
+			// -- Parts --
+			header(U"Parts ({})"_fmt(edge->parts.size()));
+			for (size_t i = 0; i < edge->parts.size(); ++i)
+			{
+				const auto& p = edge->parts[i];
+				line(U"[{}] {} w={:.1f} off={:.1f} {}"_fmt(
+					i, ptNames[static_cast<int>(p.type)], p.width, p.offset,
+					bsNames[static_cast<int>(p.build)]));
+			}
+			y += 4;
+
+			// -- Lanes --
+			header(U"Lanes ({})"_fmt(edge->lanes.size()));
+			for (size_t i = 0; i < edge->lanes.size(); ++i)
+			{
+				const auto& L = edge->lanes[i];
+				line(U"[{}] {} {} nw={:.1f}"_fmt(
+					i, dirNames[static_cast<int>(L.dir)],
+					osNames[static_cast<int>(L.op)], L.nominalWidth));
+				line(U"    A: {:.1f}~{:.1f}  B: {:.1f}~{:.1f}"_fmt(
+					L.offsetA_L, L.offsetA_R, L.offsetB_L, L.offsetB_R));
+				line(U"    line: {}/{} chg: {}/{}"_fmt(
+					ltNames[static_cast<int>(L.lineLeft)],
+					ltNames[static_cast<int>(L.lineRight)],
+					L.canChangeLaneLeft ? U"Y" : U"N",
+					L.canChangeLaneRight ? U"Y" : U"N"));
+			}
+			y += 4;
+
+			// -- Nodes --
+			const RoadNode* nA = m_network.getNode(edge->nodeA);
+			const RoadNode* nB = m_network.getNode(edge->nodeB);
+			header(U"Nodes");
+			if (nA) line(U"A #{}: {} {} att={}"_fmt(nA->id, ntNames[static_cast<int>(nA->type)],
+				nA->transition == NodeTransition::Blend ? U"Blend" : U"Abrupt",
+				nA->attachments.size()));
+			if (nB) line(U"B #{}: {} {} att={}"_fmt(nB->id, ntNames[static_cast<int>(nB->type)],
+				nB->transition == NodeTransition::Blend ? U"Blend" : U"Abrupt",
+				nB->attachments.size()));
+		}
+		else
+		{
+			m_selectedEdgeId = none;
+		}
+	}
+
+	// ---- ノード情報パネル ----
+	if (m_selectedNodeId)
+	{
+		const RoadNode* node = m_network.getNode(*m_selectedNodeId);
+		if (node)
+		{
+			static const Font pFont{ FontMethod::MSDF, 12 };
+			static const Font pHeader{ FontMethod::MSDF, 14, Typeface::Bold };
+
+			constexpr int kPW = 320;
+			constexpr int kPad = 8;
+			constexpr int kLH = 18;
+			const int pH = Scene::Height() - 20;
+			const int pX = Scene::Width() - kPW - 10;
+			const int pY = 10;
+
+			RectF{ static_cast<double>(pX), static_cast<double>(pY),
+			       static_cast<double>(kPW), static_cast<double>(pH) }
+				.draw(ColorF{ 0, 0, 0, 0.8 });
+
+			int y = pY + kPad;
+			auto line = [&](const String& text, ColorF color = Palette::White)
+			{
+				pFont(text).draw(Vec2{ pX + kPad, y }, color);
+				y += kLH;
+			};
+			auto header = [&](const String& text)
+			{
+				pHeader(text).draw(Vec2{ pX + kPad, y }, Palette::Yellow);
+				y += kLH + 4;
+			};
+
+			static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersection", U"Diverge" };
+			static constexpr StringView rtNames[] = { U"LocalRoad", U"Arterial", U"Expressway", U"Highway" };
+
+			// -- Node 基本情報 --
+			header(U"RoadNode #{}"_fmt(node->id));
+			line(U"type: {}"_fmt(ntNames[static_cast<int>(node->type)]));
+			line(U"transition: {}"_fmt(node->transition == NodeTransition::Blend ? U"Blend" : U"Abrupt"));
+			line(U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(node->position.x, node->position.y, node->position.z));
+			line(U"attachments: {}"_fmt(node->attachments.size()));
+			y += 4;
+
+			// -- Attachments --
+			header(U"EdgeAttachments");
+			for (size_t i = 0; i < node->attachments.size(); ++i)
+			{
+				const auto& att = node->attachments[i];
+				const RoadEdge* e = m_network.getEdge(att.edgeId);
+				String info = U"[{}] edge #{}"_fmt(i, att.edgeId);
+				if (att.lateralOffset != 0.0f)
+					info += U" lat={:.1f}"_fmt(att.lateralOffset);
+				if (att.isThrough)
+					info += U" [THROUGH]";
+				line(info);
+
+				if (e)
+				{
+					line(U"    {} {:.0f}km/h len={:.0f}m lanes={}"_fmt(
+						rtNames[static_cast<int>(e->roadType)],
+						e->speedLimit, e->length,
+						e->lanes.size()), ColorF{ 0.7, 0.7, 0.7 });
+				}
+			}
+		}
+		else
+		{
+			m_selectedNodeId = none;
+		}
+	}
+
 	lap(s_ui);
 	s_total = swTotal.msF();
 
@@ -1196,16 +1393,21 @@ void GameScene::handleInput()
 	if (KeyTab.down())
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
 
-	if (KeyEscape.down() && m_mode != EditMode::None)
+	if (KeyEscape.down())
 	{
-		m_mode               = EditMode::None;
-		m_drawStartNode      = none;
-		m_rectStart          = none;
-		m_trainDrawStartNode = none;
-		m_sandboxDragNode    = none;
-		m_sandboxDragCtrl    = none;
-		m_editingRouteId     = -1;
-		m_zoneManager.showOverlay = false;
+		if (m_mode != EditMode::None)
+		{
+			m_mode               = EditMode::None;
+			m_drawStartNode      = none;
+			m_rectStart          = none;
+			m_trainDrawStartNode = none;
+			m_sandboxDragNode    = none;
+			m_sandboxDragCtrl    = none;
+			m_editingRouteId     = -1;
+			m_zoneManager.showOverlay = false;
+		}
+		m_selectedEdgeId = none;
+		m_selectedNodeId = none;
 	}
 
 	if (KeyR.down())
@@ -1301,6 +1503,25 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::TerrainEdit)  handleTerrainEdit();
 	else if (m_mode == EditMode::TrainDraw)    handleTrainDraw();
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
+	else if (m_mode == EditMode::None)
+	{
+		// 道路/ノード選択（左クリック、排他）
+		if (MouseL.down() && m_cursorGroundPos)
+		{
+			const auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+			if (hitNode)
+			{
+				m_selectedNodeId = hitNode;
+				m_selectedEdgeId = none;
+			}
+			else
+			{
+				const auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+				m_selectedEdgeId = hitEdge;
+				m_selectedNodeId = none;
+			}
+		}
+	}
 }
 
 void GameScene::handleRoadDraw()
@@ -1527,8 +1748,9 @@ void GameScene::handleSandboxEdit()
 			RoadNode* node = m_network.getNode(*m_sandboxDragNode);
 			if (node)
 			{
-				for (int eid : node->edgeIds)
+				for (const auto& att : node->attachments)
 				{
+					const int eid = att.edgeId;
 					RoadEdge* edge = m_network.getEdge(eid);
 					if (!edge) continue;
 					if (edge->nodeA == node->id) edge->ctrlA += delta;
@@ -1560,8 +1782,9 @@ void GameScene::handleSandboxEdit()
 			Array<int> neighborNodes;
 			if (const RoadNode* node = m_network.getNode(*nearNode))
 			{
-				for (int eid : node->edgeIds)
+				for (const auto& att : node->attachments)
 				{
+					const int eid = att.edgeId;
 					m_roadRenderer.invalidateEdgeCache(eid);
 					if (const RoadEdge* e = m_network.getEdge(eid))
 					{

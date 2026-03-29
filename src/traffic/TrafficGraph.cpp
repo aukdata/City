@@ -18,7 +18,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 		for (int i = 0; i < static_cast<int>(edge.lanes.size()); ++i)
 		{
 			const Lane& L = edge.lanes[i];
-			if (!isPassable(L)) continue;
+			if (!(edge.isRoadbedBuilt() && (L.op == OpState::Open || L.op == OpState::Provisional))) continue;
 
 			const float entryArc = (L.dir == LaneDir::Forward) ? 0.0f : edge.length;
 			const float exitArc  = (L.dir == LaneDir::Forward) ? edge.length : 0.0f;
@@ -58,7 +58,8 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			const int j = i + 1;
 			const Lane& Li = edge.lanes[i];
 			const Lane& Lj = edge.lanes[j];
-			if (!isPassable(Li) || !isPassable(Lj)) continue;
+			if (!(edge.isRoadbedBuilt() && (Li.op == OpState::Open || Li.op == OpState::Provisional))
+				|| !(edge.isRoadbedBuilt() && (Lj.op == OpState::Open || Lj.op == OpState::Provisional))) continue;
 			if (Li.dir != Lj.dir) continue;
 
 			const auto eiIt = m_entryNodeIds.find(laneKey(edge.id, i));
@@ -90,7 +91,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			for (int i = 0; i < static_cast<int>(inEdge->lanes.size()); ++i)
 			{
 				const Lane& Lin = inEdge->lanes[i];
-				if (!isPassable(Lin)) continue;
+				if (!(inEdge->isRoadbedBuilt() && (Lin.op == OpState::Open || Lin.op == OpState::Provisional))) continue;
 
 				const bool exitsAtNode =
 					(Lin.dir == LaneDir::Forward  && inEdge->nodeB == node.id) ||
@@ -111,7 +112,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 					for (int j = 0; j < static_cast<int>(outEdge->lanes.size()); ++j)
 					{
 						const Lane& Lout = outEdge->lanes[j];
-						if (!isPassable(Lout)) continue;
+						if (!(outEdge->isRoadbedBuilt() && (Lout.op == OpState::Open || Lout.op == OpState::Provisional))) continue;
 
 						const bool entersAtNode =
 							(Lout.dir == LaneDir::Forward  && outEdge->nodeA == node.id) ||

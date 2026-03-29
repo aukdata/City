@@ -1,0 +1,17 @@
+id = "slope_grass"
+name = "草のり面"
+type = "Slope"
+tiling = "CrossSection"
+model = "slope_grass.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = true
+
+[material]
+texture = "../../textures/grass.png"
+color = [0.45, 0.58, 0.35]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [600.0]

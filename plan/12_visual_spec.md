@@ -211,26 +211,29 @@ Siv3D v0.6.16 を前提とした描画設計。
 #### C++ スタイル型階層
 
 ```
-LinearNetworkStyle  路面テクスチャ・色・UV タイリング（道路・フェンス等で共用）
-LineMarkStyle       線色・幅・破線パターン（区画線・センターライン共用）
-RoadStyle           LinearNetworkStyle + 断面寸法 + 区画線 2 種
-RoadStyleRegistry   TOML → RoadType マップ（将来: FenceStyleRegistry も同パターン）
+RoadPartDef         部品アセット定義（OBJ + TOML、16_road_cross_section_spec.md 参照）
+RoadPart            道路上の部品インスタンス（defId + width + offset + BuildState）
+Lane                車線（位置・方向・供用状態・区画線、07_road_lane_spec.md 参照）
+LineType            区画線種別（SolidWhite / DashedWhite / SolidYellow / DoubleYellow）
 ```
 
-ソース: `src/style/LinearNetworkStyle.hpp`, `src/style/RoadStyle.hpp`,
-        `src/style/RoadStyleRegistry.hpp/.cpp`
+部品アセット: `App/assets/road_parts/` に TOML + OBJ のペアで配置。
+旧 RoadStyle / RoadStyleRegistry は RoadPartDef + プリセット構成に移行予定。
 
 ### 路面描画
 
 ```
-RoadEdge のベジェ曲線に沿ってポリゴン帯メッシュを生成。
-幅 = 全車線幅の合計 + 路肩幅（両端）。
+RoadEdge の各 RoadPart ごとに独立した帯メッシュを生成。
+
+各部品の OBJ モデルから断面形状を取得:
+  inner + center × N + outer で目標幅の断面を構成
+  ベジェ曲線に沿ってサンプリングし帯メッシュ化
 
 UV:
-  u: 0 = 左端、1 = 右端
+  u: 0 = 左端、1 = 右端（部品ごと）
   v: arc_length × surface_tile_v（走行方向にタイリング）
 
-テクスチャなしの場合は surface_color で単色描画。
+区画線は Lane の lineLeft / lineRight に基づいて車線ごとに個別生成。
 ```
 
 ### 車線区画線

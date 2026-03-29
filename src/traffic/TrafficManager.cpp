@@ -43,9 +43,10 @@ void TrafficManager::spawnVehicle(VehicleType type)
 	Array<int> candidates;
 	for (const auto& [eid, e] : m_simGraph->edges)
 	{
+		if (!e.isRoadbedBuilt()) continue;
 		for (const auto& lane : e.lanes)
 		{
-			if (isPassable(lane) && lane.dir == LaneDir::Forward)
+			if ((lane.op == OpState::Open || lane.op == OpState::Provisional) && lane.dir == LaneDir::Forward)
 			{
 				candidates << e.id;
 				break;
@@ -422,7 +423,7 @@ void TrafficManager::tryLaneChange(Vehicle& v)
 	{
 		if (targetLane < 0 || targetLane >= static_cast<int>(edge->lanes.size())) return false;
 		const Lane& tgt = edge->lanes[targetLane];
-		if (!isPassable(tgt)) return false;
+		if (!(edge->isRoadbedBuilt() && (tgt.op == OpState::Open || tgt.op == OpState::Provisional))) return false;
 		const LaneDir dir = fwdLane ? LaneDir::Forward : LaneDir::Backward;
 		if (tgt.dir != dir) return false;
 

@@ -75,11 +75,13 @@ struct Chunk {
 ### データ構造（グラフ）
 
 ```cpp
-// ノード: 交差点・端点
+// ノード: 端点・継ぎ目・交差点・分岐合流
+// 正式定義は 17_road_node_spec.md 参照
 struct RoadNode {
-    Vec3       position;     // 3D座標
-    NodeType   type;         // 交差点 / T字 / 端点 / IC
-    Array<int> edgeIds;      // 接続する道路辺のID
+    Vec3                   position;
+    NodeType               type;         // Endpoint / Joint / Intersection / Diverge
+    NodeTransition         transition;   // Blend / Abrupt（Joint 時のみ有効）
+    Array<EdgeAttachment>  attachments;  // 接続エッジ情報（lateralOffset・isThrough 付き）
 };
 
 // エッジ: 道路区間（3次ベジェ曲線）
@@ -87,21 +89,28 @@ struct RoadEdge {
     int      nodeA, nodeB;   // 始点・終点ノードID
     Vec3     ctrlA, ctrlB;   // ベジェ制御点
     RoadType roadType;       // 旧道/国道/バイパス/高速など
-    // 車線構成の正式定義は 07_road_lane_spec.md の RoadEdge 構造体を参照
     float    speedLimit;     // 制限速度 [km/h]
     float    length;         // 曲線の弧長（事前計算）
+
+    // 物理構造（道路部品の配列、左から右の順）
+    // 正式定義は 16_road_cross_section_spec.md 参照
+    Array<RoadPart> parts;
+
+    // 車線配列（左から右の順）
+    // 正式定義は 07_road_lane_spec.md 参照
+    Array<Lane> lanes;
 
     // 計画・工事状態
     int      planId;         // 所属する道路計画ID（-1なら既存道路）
     EdgeState state;         // Existing / Planned / UnderConstruction / Open / Closed
 
-    // 工事状態（UnderConstruction時）
-    float    constructionProgress; // 0.0 〜 1.0
-    int      lanesAvailable;       // 工事中の通行可能車線数
+    // 一時的な運用変更・将来の計画的変化（07_road_lane_spec.md §5-6 参照）
+    Array<TempOp>        tempOps;
+    Array<PlannedChange> planned;
 
     // 交通状態
     float    congestion;     // 0.0 〜 1.0
-    Array<int> vehicleIds;   // 現在この区間にいる車両ID
+    Array<Array<int>> laneVehicles;  // [laneIndex] → vehicleIds
 };
 
 // 道路計画（複数のエッジをまとめた計画単位）

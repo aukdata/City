@@ -1,0 +1,102 @@
+# Guardrail (steel) - W-beam guardrail with posts
+# X = cross-road, Y = up, Z = along-road
+# Longitudinal tiling: 4m per segment (post spacing)
+# inner = road side, outer = outside
+
+# --- inner (road-facing side of rail) ---
+o inner
+# flat face of rail on road side (height 0.3-0.8m, depth 0.05m)
+v 0.0  0.3  0.0
+v 0.05 0.3  0.0
+v 0.05 0.3  4.0
+v 0.0  0.3  4.0
+v 0.0  0.8  0.0
+v 0.05 0.8  0.0
+v 0.05 0.8  4.0
+v 0.0  0.8  4.0
+vn -1.0 0.0 0.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 0.1 0.0
+vt 0.1 1.0
+vt 0.0 1.0
+# inner face
+f 1/1/1 5/4/1 8/3/1 4/2/1
+# top rail
+f 5/1/2 6/2/2 7/3/2 8/4/2
+
+# --- center (main rail beam, tileable 4m section) ---
+o center
+# W-beam profile (simplified as a box 0.3m wide, 0.5m tall)
+# bottom
+v 0.0 0.3 0.0
+v 0.3 0.3 0.0
+v 0.3 0.3 4.0
+v 0.0 0.3 4.0
+# top
+v 0.0 0.8 0.0
+v 0.3 0.8 0.0
+v 0.3 0.8 4.0
+v 0.0 0.8 4.0
+# post (0.1m x 0.1m, at Z=2.0, from ground to rail)
+v 0.1 0.0 1.9
+v 0.2 0.0 1.9
+v 0.2 0.0 2.1
+v 0.1 0.0 2.1
+v 0.1 0.3 1.9
+v 0.2 0.3 1.9
+v 0.2 0.3 2.1
+v 0.1 0.3 2.1
+vn 0.0 1.0 0.0
+vn 0.0 0.0 -1.0
+vn 1.0 0.0 0.0
+vn 0.0 0.0 1.0
+vn -1.0 0.0 0.0
+# top of rail
+f 13/1/3 14/2/3 15/3/3 16/4/3
+# front of rail (road side)
+f 9/1/7  13/4/7 16/3/7 12/2/7
+# back of rail (outside)
+f 10/1/5 11/2/5 15/3/5 14/4/5
+# post front
+f 17/1/4 21/4/4 22/3/4 18/2/4
+# post right
+f 18/1/5 22/4/5 23/3/5 19/2/5
+# post back
+f 19/1/6 23/4/6 24/3/6 20/2/6
+# post left
+f 20/1/7 24/4/7 21/3/7 17/2/7
+
+o center_lod1
+# simplified rail (just a flat quad)
+v 0.0 0.55 0.0
+v 0.3 0.55 0.0
+v 0.3 0.55 4.0
+v 0.0 0.55 4.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+f 25/5/8 26/6/8 27/7/8 28/8/8
+
+# --- outer (outside face of rail) ---
+o outer
+v 0.25 0.3  0.0
+v 0.3  0.3  0.0
+v 0.3  0.3  4.0
+v 0.25 0.3  4.0
+v 0.25 0.8  0.0
+v 0.3  0.8  0.0
+v 0.3  0.8  4.0
+v 0.25 0.8  4.0
+vn 1.0 0.0 0.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 0.1 0.0
+vt 0.1 1.0
+vt 0.0 1.0
+# outer face
+f 30/10/9 34/13/9 37/12/9 33/11/9
+# top
+f 33/9/10 34/10/10 35/11/10 36/12/10

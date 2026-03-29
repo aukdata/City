@@ -96,7 +96,9 @@ namespace
 
 bool RoadRenderer::loadStyle(FilePathView tomlPath)
 {
-	return m_styleRegistry.load(tomlPath);
+	const bool ok = m_styleRegistry.load(tomlPath);
+	m_partRegistry.load(U"assets/road_parts");
+	return ok;
 }
 
 void RoadRenderer::render(const RoadNetwork& network, const World& world,
@@ -118,9 +120,10 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 			    node.position.z >= cz && node.position.z < cz + cs)
 			{
 				m_nodeCapCache.erase(node.id);
-				for (const int eid : node.edgeIds)
+				for (const auto& att : node.attachments)
 				{
-					m_meshCache.erase(eid);
+					const int eid = att.edgeId;
+					m_partMeshCache.erase(eid);
 					m_laneCache.erase(eid);
 					m_marginCache.erase(eid);
 					m_boundsCache.erase(eid);
@@ -196,7 +199,7 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 
 void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 {
-	m_meshCache.erase(edgeId);
+	m_partMeshCache.erase(edgeId);
 	m_laneCache.erase(edgeId);
 	m_marginCache.erase(edgeId);
 	m_boundsCache.erase(edgeId);
@@ -213,7 +216,7 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 
 void RoadRenderer::invalidateAllCaches()
 {
-	m_meshCache.clear();
+	m_partMeshCache.clear();
 	m_laneCache.clear();
 	m_marginCache.clear();
 	m_nodeCapCache.clear();
@@ -226,9 +229,10 @@ void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& net
 	const RoadNode* node = network.getNode(nodeId);
 	if (node)
 	{
-		for (const int eid : node->edgeIds)
+		for (const auto& att : node->attachments)
 		{
-			m_meshCache.erase(eid);
+			const int eid = att.edgeId;
+			m_partMeshCache.erase(eid);
 			m_laneCache.erase(eid);
 			m_marginCache.erase(eid);
 			m_boundsCache.erase(eid);
@@ -243,14 +247,12 @@ void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& net
 void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
                              float marginA, float marginB, const World& world, bool isClose)
 {
-	const RoadStyle& style = m_styleRegistry.get(edge.roadType);
-
 	// マージンが変わった場合はキャッシュを破棄して再構築する
 	if (auto it = m_marginCache.find(edge.id); it != m_marginCache.end())
 	{
 		if (it->second.atNodeA != marginA || it->second.atNodeB != marginB)
 		{
-			m_meshCache.erase(edge.id);
+			m_partMeshCache.erase(edge.id);
 			m_laneCache.erase(edge.id);
 			m_marginCache.erase(edge.id);
 			m_nodeCapCache.erase(edge.nodeA);
@@ -258,24 +260,26 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		}
 	}
 
-	// ---- 路面メッシュ（通常 / LOD を同時構築）----
-	if (!m_meshCache.contains(edge.id))
+	// ---- 部品ごとのメッシュを構築・キャッシュ ----
+	if (!m_partMeshCache.contains(edge.id))
 	{
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) return;
-		const MeshData mdDetail = buildRoadMesh(edge, *bez, style, world, marginA, marginB, 1.0f);
-		if (mdDetail.vertices.isEmpty()) return;
-		const MeshData mdLod = buildRoadMesh(edge, *bez, style, world, marginA, marginB, 0.25f);
-		m_meshCache.emplace(edge.id, LodMeshPair{ Mesh{ mdDetail }, Mesh{ mdLod } });
+		auto entries = buildPartMeshes(edge, *bez, world, marginA, marginB);
+		if (entries.isEmpty()) return;
+		m_partMeshCache[edge.id] = std::move(entries);
 		m_marginCache[edge.id] = { marginA, marginB };
 	}
 
-	const Mesh& meshToDraw = isClose ? m_meshCache[edge.id].detail : m_meshCache[edge.id].lod;
-	if (style.surface.surfaceTexture)
-		meshToDraw.draw(*style.surface.surfaceTexture,
-		                style.surface.surfaceColor.removeSRGBCurve());
-	else
-		meshToDraw.draw(style.surface.surfaceColor.removeSRGBCurve());
+	// ---- 部品ごとに描画 ----
+	for (const auto& entry : m_partMeshCache[edge.id])
+	{
+		const Mesh& mesh = isClose ? entry.meshPair.detail : entry.meshPair.lod;
+		if (entry.texture)
+			mesh.draw(*entry.texture, entry.color.removeSRGBCurve());
+		else
+			mesh.draw(entry.color.removeSRGBCurve());
+	}
 
 	// ---- 車線区画線（遠方では描画しない） ----
 	if (isClose)
@@ -284,7 +288,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
-			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, style, world, marginA, marginB);
+			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB);
 		}
 
 		for (const auto& b : m_laneCache[edge.id])
@@ -299,45 +303,28 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const World& world, bool isClose)
 {
 	const RoadNode* node = network.getNode(nodeId);
-	if (!node || node->edgeIds.size() < 2) return;
+	if (!node || node->attachments.size() < 2) return;
 
 	if (!m_nodeCapCache.contains(nodeId))
 	{
-		const MeshData mdDetail = buildNodeCapMesh(network, nodeId, world, 6);
-		if (mdDetail.vertices.isEmpty()) return;
-		const MeshData mdLod = buildNodeCapMesh(network, nodeId, world, 2);
-		m_nodeCapCache.emplace(nodeId, LodMeshPair{
-			Mesh{ mdDetail },
-			mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod }
-		});
+		auto entries = buildNodeCapParts(network, nodeId, world, 6);
+		if (entries.isEmpty()) return;
+		m_nodeCapCache[nodeId] = std::move(entries);
 	}
 
-	// 最も道路種別の高いエッジのスタイルで描画する
-	RoadType maxType = RoadType::LocalRoad;
-	for (int eid : node->edgeIds)
+	for (const auto& entry : m_nodeCapCache[nodeId])
 	{
-		const RoadEdge* e = network.getEdge(eid);
-		if (e && static_cast<int>(e->roadType) > static_cast<int>(maxType))
-			maxType = e->roadType;
+		const Mesh& mesh = isClose ? entry.meshPair.detail : entry.meshPair.lod;
+		if (entry.texture)
+			mesh.draw(*entry.texture, entry.color.removeSRGBCurve());
+		else
+			mesh.draw(entry.color.removeSRGBCurve());
 	}
-	const RoadStyle& style = m_styleRegistry.get(maxType);
-
-	const Mesh& meshToDraw = isClose ? m_nodeCapCache[nodeId].detail : m_nodeCapCache[nodeId].lod;
-	if (style.surface.surfaceTexture)
-		meshToDraw.draw(*style.surface.surfaceTexture,
-		                style.surface.surfaceColor.removeSRGBCurve());
-	else
-		meshToDraw.draw(style.surface.surfaceColor.removeSRGBCurve());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ヘルパー
 // ─────────────────────────────────────────────────────────────────────────────
-
-float RoadRenderer::halfWidthWithShoulder(const RoadEdge& edge) const
-{
-	return edge.totalWidth() / 2.0f + m_styleRegistry.get(edge.roadType).shoulderWidth;
-}
 
 float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 {
@@ -348,21 +335,17 @@ float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 // メッシュ生成
 // ─────────────────────────────────────────────────────────────────────────────
 
-MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& bezier,
-                                     const RoadStyle& style, const World& world,
-                                     float marginA, float marginB, float lodFactor) const
+MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& world,
+                                      float offsetL, float offsetR, float heightOffset,
+                                      float sStart, float sEnd, float lodFactor) const
 {
-	// NodeCap との隙間を防ぐため、エッジメッシュをわずかにキャップ側へ延伸する
-	constexpr float kOverlap = 0.1f;
-	const float totalLen = bezier.totalLength;
-	const float sStart   = Max(marginA - kOverlap, 0.0f);
-	const float sEnd     = Min(totalLen - marginB + kOverlap, totalLen);
-	if (sStart >= sEnd - 0.1f) return MeshData{};
+	const float spanLen = sEnd - sStart;
+	if (spanLen <= 0.1f) return MeshData{};
 
-	const float  halfWidth = halfWidthWithShoulder(edge);
-	const float  spanLen   = sEnd - sStart;
-	const int    N         = Clamp(static_cast<int>(spanLen / 2.0f * lodFactor) + 1,
-	                               3, static_cast<int>(100 * lodFactor));
+	const int N = Clamp(static_cast<int>(spanLen / 2.0f * lodFactor) + 1,
+	                    3, static_cast<int>(100 * lodFactor));
+
+	constexpr float kTileV = 0.05f;  // UV タイリング [1/m]
 
 	Array<Vertex3D> vertices;
 	vertices.reserve((N + 1) * 2);
@@ -370,11 +353,13 @@ MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& be
 	for (int i = 0; i <= N; ++i)
 	{
 		const float s  = sStart + (i / static_cast<float>(N)) * spanLen;
-		const auto  sl = makeSlice(bezier, world, s, 2.0);
-		const float v  = (s - sStart) * style.surface.surfaceTileV;
+		const auto  sl = makeSlice(bezier, world, s, 2.0 + static_cast<double>(heightOffset));
+		const float v  = (s - sStart) * kTileV;
 
-		vertices << makeVert(sl.center - sl.right * halfWidth, 0.0f, v);
-		vertices << makeVert(sl.center + sl.right * halfWidth, 1.0f, v);
+		const float uL = 0.0f;
+		const float uR = 1.0f;
+		vertices << makeVert(sl.center + sl.right * static_cast<double>(offsetL), uL, v);
+		vertices << makeVert(sl.center + sl.right * static_cast<double>(offsetR), uR, v);
 	}
 
 	Array<TriangleIndex32> indices;
@@ -391,9 +376,71 @@ MeshData RoadRenderer::buildRoadMesh(const RoadEdge& edge, const CubicBezier& be
 	return MeshData{ vertices, indices };
 }
 
+Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
+                                                    const World& world,
+                                                    float marginA, float marginB)
+{
+	constexpr float kOverlap = 0.1f;
+	const float totalLen = bezier.totalLength;
+	const float sStart   = Max(marginA - kOverlap, 0.0f);
+	const float sEnd     = Min(totalLen - marginB + kOverlap, totalLen);
+	if (sStart >= sEnd - 0.1f) return {};
+
+	Array<PartMeshEntry> entries;
+
+	for (const auto& part : edge.parts)
+	{
+		if (part.build != BuildState::Built) continue;
+
+		const float oL = part.offset;
+		const float oR = part.offset + part.width;
+
+		// heightOffset を RoadPartDef から取得
+		float heightOff = 0.0f;
+		ColorF color{ 0.35 };
+		const Texture* tex = nullptr;
+
+		if (!part.defId.isEmpty())
+		{
+			const auto& def = m_partRegistry.get(part.defId);
+			heightOff = def.heightOffset;
+			color     = def.color;
+			if (def.texture) tex = &(*def.texture);
+		}
+		else
+		{
+			// defId 未設定のフォールバック色
+			switch (part.type)
+			{
+			case RoadPartType::Roadbed:   color = ColorF{ 0.36, 0.36, 0.36 }; break;
+			case RoadPartType::Sidewalk:  color = ColorF{ 0.72, 0.70, 0.68 }; heightOff = 0.15f; break;
+			case RoadPartType::Curb:      color = ColorF{ 0.78, 0.76, 0.72 }; heightOff = 0.15f; break;
+			case RoadPartType::Median:    color = ColorF{ 0.75, 0.73, 0.70 }; break;
+			case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
+			case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
+			case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
+			default: break;
+			}
+		}
+
+		const MeshData mdDetail = buildStripMesh(bezier, world, oL, oR, heightOff, sStart, sEnd, 1.0f);
+		if (mdDetail.vertices.isEmpty()) continue;
+		const MeshData mdLod = buildStripMesh(bezier, world, oL, oR, heightOff, sStart, sEnd, 0.25f);
+
+		PartMeshEntry entry;
+		entry.meshPair.detail = Mesh{ mdDetail };
+		entry.meshPair.lod    = mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod };
+		entry.color   = color;
+		entry.texture = tex;
+		entries << std::move(entry);
+	}
+
+	return entries;
+}
+
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	const RoadEdge& edge, const CubicBezier& bezier,
-	const RoadStyle& style, const World& world,
+	const World& world,
 	float marginA, float marginB) const
 {
 	constexpr float kOverlap = 0.1f;
@@ -401,56 +448,131 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	const float sEnd   = Min(bezier.totalLength - marginB + kOverlap, bezier.totalLength);
 	if (sStart >= sEnd - 0.1f || edge.lanes.size() < 2) return {};
 
-	int centerBoundaryIdx = -1;
-	for (int i = 0; i + 1 < static_cast<int>(edge.lanes.size()); ++i)
+	// LineType ごとの色・破線パターン
+	struct LineStyle
 	{
-		if (edge.lanes[i].dir != edge.lanes[i + 1].dir)
+		ColorF color;
+		float  lineWidth;
+		float  dashLength;
+		float  gapLength;
+	};
+
+	auto styleForType = [](LineType lt) -> LineStyle
+	{
+		switch (lt)
 		{
-			centerBoundaryIdx = i;
-			break;
+		case LineType::SolidWhite:  return { ColorF{ 1.0, 1.0, 1.0 }, 0.15f, 0.0f, 0.0f };
+		case LineType::DashedWhite: return { ColorF{ 1.0, 1.0, 1.0 }, 0.15f, 8.0f, 12.0f };
+		case LineType::SolidYellow: return { ColorF{ 1.0, 0.9, 0.0 }, 0.20f, 0.0f, 0.0f };
+		case LineType::DoubleYellow:return { ColorF{ 1.0, 0.9, 0.0 }, 0.20f, 0.0f, 0.0f };
+		default: return {};
+		}
+	};
+
+	// 各車線の右境界に lineRight の線を描画（Lane の offsetA_R を使用）
+	Array<LaneLineBatch> batches;
+
+	for (int i = 0; i < static_cast<int>(edge.lanes.size()); ++i)
+	{
+		const auto& lane = edge.lanes[i];
+
+		// 右境界の線（最右端車線の外側は描画しない: 路肩線は別途）
+		if (lane.lineRight != LineType::None && i + 1 < static_cast<int>(edge.lanes.size()))
+		{
+			// 車線の右端位置 = 道路中心からのオフセット
+			const float offset = lane.offsetA_R;
+			const auto ls = styleForType(lane.lineRight);
+
+			MeshData md;
+			appendDashedStrip(md.vertices, md.indices,
+			                  bezier, world,
+			                  offset, ls.lineWidth * 0.5f,
+			                  ls.dashLength, ls.gapLength,
+			                  sStart, sEnd);
+			if (!md.vertices.isEmpty())
+				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
 		}
 	}
-
-	const float halfTotal = edge.totalWidth() / 2.0f;
-	MeshData    markingData, centerData;
-	float       cumFromLeft = 0.0f;
-
-	for (int i = 0; i + 1 < static_cast<int>(edge.lanes.size()); ++i)
-	{
-		cumFromLeft += edge.lanes[i].width;
-		const float offsetFromCenter = cumFromLeft - halfTotal;
-		const bool  isCenter         = (i == centerBoundaryIdx);
-		const LineMarkStyle& ms      = isCenter ? style.centerLine : style.laneMarking;
-		MeshData&   target           = isCenter ? centerData : markingData;
-
-		appendDashedStrip(target.vertices, target.indices,
-		                  bezier, world,
-		                  offsetFromCenter, ms.lineWidth * 0.5f,
-		                  ms.dashLength, ms.gapLength,
-		                  sStart, sEnd);
-	}
-
-	Array<LaneLineBatch> batches;
-	if (!markingData.vertices.isEmpty())
-		batches << LaneLineBatch{ style.laneMarking.color.removeSRGBCurve(), Mesh{ markingData } };
-	if (!centerData.vertices.isEmpty())
-		batches << LaneLineBatch{ style.centerLine.color.removeSRGBCurve(), Mesh{ centerData } };
 
 	return batches;
 }
 
-MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
-                                        const World& world, int div) const
+Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network, int nodeId,
+                                                     const World& world, int div)
 {
-	// Pavecity の Intersection::BuildMesh と同一手順で構築する。
-	// ① 各接続道路の切断点情報（角・接線）を収集して角度順にソート
-	// ② 各隣接ペアの フィレット曲線（DIV+1点）を生成 → fillets[i]
-	// ③ BridgeTwoLine: fillet[i] 後半(逆順) ↔ fillet[next] 前半 をクワッドで橋渡し
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node || node->attachments.size() < 2) return {};
+
+	// 接続エッジから部品の種類を収集（共通部品のみ）
+	// 全エッジに共通する部品種別の合併セットを作り、各部品ごとにフィレットを生成
+	// 簡略化: 最初のエッジの parts を基準にする
+	const RoadEdge* refEdge = nullptr;
+	for (const auto& att : node->attachments)
+	{
+		refEdge = network.getEdge(att.edgeId);
+		if (refEdge && !refEdge->parts.isEmpty()) break;
+	}
+	if (!refEdge || refEdge->parts.isEmpty()) return {};
+
+	Array<PartMeshEntry> entries;
+
+	for (const auto& refPart : refEdge->parts)
+	{
+		if (refPart.build != BuildState::Built) continue;
+
+		float heightOff = 0.0f;
+		ColorF color{ 0.35 };
+		const Texture* tex = nullptr;
+
+		if (!refPart.defId.isEmpty())
+		{
+			const auto& def = m_partRegistry.get(refPart.defId);
+			heightOff = def.heightOffset;
+			color     = def.color;
+			if (def.texture) tex = &(*def.texture);
+		}
+		else
+		{
+			switch (refPart.type)
+			{
+			case RoadPartType::Roadbed:   color = ColorF{ 0.36, 0.36, 0.36 }; break;
+			case RoadPartType::Sidewalk:  color = ColorF{ 0.72, 0.70, 0.68 }; heightOff = 0.15f; break;
+			case RoadPartType::Curb:      color = ColorF{ 0.78, 0.76, 0.72 }; heightOff = 0.15f; break;
+			case RoadPartType::Median:    color = ColorF{ 0.75, 0.73, 0.70 }; break;
+			case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
+			case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
+			case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
+			default: break;
+			}
+		}
+
+		const int lodDiv = Max(div / 3, 2);
+		const MeshData mdDetail = buildNodeCapMeshForRange(network, nodeId, world, div,
+			refPart.offset, refPart.offset + refPart.width, heightOff);
+		if (mdDetail.vertices.isEmpty()) continue;
+		const MeshData mdLod = buildNodeCapMeshForRange(network, nodeId, world, lodDiv,
+			refPart.offset, refPart.offset + refPart.width, heightOff);
+
+		PartMeshEntry entry;
+		entry.meshPair.detail = Mesh{ mdDetail };
+		entry.meshPair.lod    = mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod };
+		entry.color   = color;
+		entry.texture = tex;
+		entries << std::move(entry);
+	}
+
+	return entries;
+}
+
+MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,
+                                                const World& world, int div,
+                                                float partOffsetL, float partOffsetR, float heightOffset) const
+{
 	// ④ 中心ポリゴン: 各フィレット中点のファン三角形化（N≥3 のみ）
 	// 中心頂点を使わないため、傾斜地でのテント状クリースが生じない。
 
 	const RoadNode* node = network.getNode(nodeId);
-	if (!node || node->edgeIds.size() < 2) return MeshData{};
+	if (!node || node->attachments.size() < 2) return MeshData{};
 
 	// ---- ① 各エッジの切断点情報を収集 ----
 	struct EdgeInfo
@@ -463,15 +585,18 @@ MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
 
 	Array<EdgeInfo> infos;
 
-	for (int eid : node->edgeIds)
+	for (const auto& att : node->attachments)
 	{
+		const int eid = att.edgeId;
 		const RoadEdge* edge = network.getEdge(eid);
 		if (!edge) continue;
 		const auto bezOpt = network.getBezier(eid);
 		if (!bezOpt) continue;
 		const CubicBezier& bez = *bezOpt;
 
-		const double halfW  = halfWidthWithShoulder(*edge);
+		// 引数の部品幅範囲を使用
+		const double oL = static_cast<double>(partOffsetL);
+		const double oR = static_cast<double>(partOffsetR);
 		const float  capRad = (edge->nodeA == nodeId) ? edge->cutoffA : edge->cutoffB;
 
 		// 道路メッシュと同じ s 値（kOverlap 分だけカットオフより手前）を使う
@@ -500,12 +625,12 @@ MeshData RoadRenderer::buildNodeCapMesh(const RoadNetwork& network, int nodeId,
 		const Vec3  right    = calcRight(capTan);
 		const float gy       = world.computeHeight(static_cast<float>(capPos.x),
 		                                           static_cast<float>(capPos.z));
-		const Vec3  capCenter{ capPos.x, gy + 2.0, capPos.z };
+		const Vec3  capCenter{ capPos.x, gy + 2.0 + static_cast<double>(heightOffset), capPos.z };
 
 		EdgeInfo info;
 		info.capTan      = capTan;
-		info.leftCorner  = capCenter - right * halfW;
-		info.rightCorner = capCenter + right * halfW;
+		info.leftCorner  = capCenter + right * oL;
+		info.rightCorner = capCenter + right * oR;
 		info.angle       = Math::Atan2(capTan.z, capTan.x);
 		infos << info;
 	}

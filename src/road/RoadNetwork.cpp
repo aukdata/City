@@ -57,9 +57,9 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	const RoadNode* chkB = getNode(nodeB);
 	if (chkA)
 	{
-		for (const int eid : chkA->edgeIds)
+		for (const auto& att : chkA->attachments)
 		{
-			const RoadEdge* ex = getEdge(eid);
+			const RoadEdge* ex = getEdge(att.edgeId);
 			if (!ex) continue;
 			if ((ex->nodeA == nodeA && ex->nodeB == nodeB) ||
 			    (ex->nodeA == nodeB && ex->nodeB == nodeA))
@@ -69,8 +69,8 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 
 	// 1ノードあたりのエッジ上限
 	constexpr int kMaxEdgesPerNode = 6;
-	if ((chkA && static_cast<int>(chkA->edgeIds.size()) >= kMaxEdgesPerNode) ||
-	    (chkB && static_cast<int>(chkB->edgeIds.size()) >= kMaxEdgesPerNode))
+	if ((chkA && static_cast<int>(chkA->attachments.size()) >= kMaxEdgesPerNode) ||
+	    (chkB && static_cast<int>(chkB->attachments.size()) >= kMaxEdgesPerNode))
 		return none;
 
 	RoadEdge e;
@@ -92,10 +92,11 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 
 	e.lanes        = buildDefaultLanes(numLanes, rt);
 	e.laneVehicles = Array<Array<int>>(e.lanes.size());
+	buildDefaultParts(e);
 
 	// 両ノードの edgeIds に登録する
-	if (RoadNode* na = getNode(nodeA)) na->edgeIds << e.id;
-	if (RoadNode* nb = getNode(nodeB)) nb->edgeIds << e.id;
+	if (RoadNode* na = getNode(nodeA)) na->addEdge(e.id);
+	if (RoadNode* nb = getNode(nodeB)) nb->addEdge(e.id);
 
 	if (!m_freeEdgeSlots.isEmpty())
 	{
@@ -128,8 +129,8 @@ void RoadNetwork::removeEdge(int edgeId)
 	const int nB = e.nodeB;
 
 	// 両ノードの edgeIds から削除する
-	if (RoadNode* na = getNode(nA)) na->edgeIds.remove(edgeId);
-	if (RoadNode* nb = getNode(nB)) nb->edgeIds.remove(edgeId);
+	if (RoadNode* na = getNode(nA)) na->removeEdge(edgeId);
+	if (RoadNode* nb = getNode(nB)) nb->removeEdge(edgeId);
 
 	e.id = -1;
 	m_edgeIdToIdx.erase(edgeId);
@@ -184,8 +185,8 @@ void RoadNetwork::addEdgeRaw(const RoadEdge& edge)
 		m_edgeIdToIdx[edge.id] = static_cast<int>(m_edges.size());
 		m_edges << edge;
 	}
-	if (RoadNode* na = getNode(edge.nodeA)) na->edgeIds << edge.id;
-	if (RoadNode* nb = getNode(edge.nodeB)) nb->edgeIds << edge.id;
+	if (RoadNode* na = getNode(edge.nodeA)) na->addEdge(edge.id);
+	if (RoadNode* nb = getNode(edge.nodeB)) nb->addEdge(edge.id);
 	if (edge.id >= m_nextEdgeId) m_nextEdgeId = edge.id + 1;
 	updateNodeCutoffs(edge.nodeA);
 	updateNodeCutoffs(edge.nodeB);
@@ -231,6 +232,35 @@ Optional<int> RoadNetwork::findNodeNear(Vec3 pos, float radius) const
 		}
 	}
 	return best;
+}
+
+Optional<int> RoadNetwork::findEdgeNear(Vec3 pos, float maxDist) const
+{
+	Optional<int> bestId;
+	float bestDist = maxDist;
+
+	for (const auto& edge : m_edges)
+	{
+		if (edge.id < 0) continue;
+		const auto bez = getBezier(edge.id);
+		if (!bez) continue;
+
+		// ベジェ曲線上を 10 分割でサンプリングし、最短 XZ 距離を求める
+		for (int i = 0; i <= 10; ++i)
+		{
+			const float s = bez->totalLength * (i / 10.0f);
+			const Vec3 p = bez->positionAt(s);
+			const float dx = static_cast<float>(p.x - pos.x);
+			const float dz = static_cast<float>(p.z - pos.z);
+			const float dist = std::sqrt(dx * dx + dz * dz);
+			if (dist < bestDist)
+			{
+				bestDist = dist;
+				bestId = edge.id;
+			}
+		}
+	}
+	return bestId;
 }
 
 Optional<int> RoadNetwork::addEdgeWithIntersection(int nodeA, int nodeB,
@@ -288,27 +318,71 @@ bool RoadNetwork::clearExpiredTempOps(GameTime now)
 
 void RoadNetwork::updateNodeCutoffs(int nodeId)
 {
-	const RoadNode* node = getNode(nodeId);
+	RoadNode* node = getNode(nodeId);
 	if (!node) return;
 
-	// 接続中の有効エッジの最大幅を求める
+	// 接続中の有効エッジの最大幅・幅差を求める
 	float maxWidth  = 0.0f;
+	float minWidth  = 1e9f;
 	int   validCount = 0;
-	for (int eid : node->edgeIds)
+	for (const auto& att : node->attachments)
 	{
-		const RoadEdge* e = getEdge(eid);
+		const RoadEdge* e = getEdge(att.edgeId);
 		if (!e) continue;
 		++validCount;
-		maxWidth = Max(maxWidth, e->totalWidth());
+		const float w = e->totalWidth();
+		maxWidth = Max(maxWidth, w);
+		minWidth = Min(minWidth, w);
 	}
 
-	// 端点（接続 1 本以下）はカットなし
-	const float cutoff = (validCount >= 2) ? maxWidth * 1.5f : 0.0f;
+	// ノード種別を有効エッジ数から自動判定
+	if (validCount <= 1)
+	{
+		node->type = NodeType::Endpoint;
+	}
+	else if (validCount == 2)
+	{
+		node->type = NodeType::Joint;
+	}
+	else
+	{
+		// 3本以上: isThrough が2本あれば Diverge、なければ Intersection
+		int throughCount = 0;
+		for (const auto& att : node->attachments)
+			if (att.isThrough) ++throughCount;
+		node->type = (throughCount == 2) ? NodeType::Diverge : NodeType::Intersection;
+	}
+
+	// カットオフ値の計算
+	float cutoff = 0.0f;
+	switch (node->type)
+	{
+	case NodeType::Endpoint:
+		cutoff = 0.0f;
+		break;
+	case NodeType::Joint:
+		if (node->transition == NodeTransition::Blend)
+		{
+			// Blend: 幅差に応じた遷移ゾーン
+			const float widthDiff = maxWidth - minWidth;
+			cutoff = Max(widthDiff * 2.0f, 10.0f) * 0.5f;
+		}
+		else
+		{
+			// Abrupt: 最小限のキャップ
+			cutoff = 0.1f;
+		}
+		break;
+	case NodeType::Intersection:
+	case NodeType::Diverge:
+		cutoff = maxWidth * 1.5f;
+		break;
+	}
 
 	// このノード端のカットオフ値を全接続エッジに書き込む
-	for (int eid : node->edgeIds)
+	for (const auto& att : node->attachments)
 	{
-		RoadEdge* e = getEdge(eid);
+		RoadEdge* e = getEdge(att.edgeId);
 		if (!e) continue;
 		if (e->nodeA == nodeId) e->cutoffA = cutoff;
 		else                    e->cutoffB = cutoff;
@@ -322,7 +396,7 @@ bool RoadNetwork::spreadIntersectionTangents()
 
 	for (RoadNode& node : m_nodes)
 	{
-		if (node.id < 0 || node.edgeIds.size() < 3) continue;
+		if (node.id < 0 || node.attachments.size() < 3) continue;
 
 		const Vec3 nodePos = node.position;
 
@@ -336,8 +410,9 @@ bool RoadNetwork::spreadIntersectionTangents()
 		};
 
 		Array<EdgeEntry> entries;
-		for (int eid : node.edgeIds)
+		for (const auto& att : node.attachments)
 		{
+			const int eid = att.edgeId;
 			const RoadEdge* e = getEdge(eid);
 			if (!e) continue;
 
@@ -480,7 +555,7 @@ void RoadNetwork::smoothCurveAt(int newEdgeId, int midNodeId)
 
 	// 有効な接続エッジを列挙し、接続数が 2 でなければスキップ
 	Array<int> validEdges;
-	for (int eid : midNode->edgeIds)
+	for (int eid : midNode->edgeIds())
 	{
 		if (getEdge(eid)) validEdges << eid;
 	}
@@ -539,11 +614,11 @@ void RoadNetwork::smoothAllCurves()
 {
 	for (const RoadNode& node : m_nodes)
 	{
-		if (node.id < 0 || node.edgeIds.size() != 2) continue;
+		if (node.id < 0 || node.attachments.size() != 2) continue;
 
 		// 接続 2 本のうち、id が大きい方を newEdge とみなす
-		const int eid0 = node.edgeIds[0];
-		const int eid1 = node.edgeIds[1];
+		const int eid0 = node.attachments[0].edgeId;
+		const int eid1 = node.attachments[1].edgeId;
 		const int newEdgeId = (eid0 > eid1) ? eid0 : eid1;
 		smoothCurveAt(newEdgeId, node.id);
 	}
@@ -843,10 +918,10 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 	for (const int nodeId : nodeIds)
 	{
 		const RoadNode* node = getNode(nodeId);
-		if (!node || node->edgeIds.size() < 2) continue;
+		if (!node || node->attachments.size() < 2) continue;
 
 		// edgeIds をコピーしておく（removeEdge / addEdge で変化するため）
-		const Array<int> edgesCopy = node->edgeIds;
+		const Array<int> edgesCopy = node->edgeIds();
 		// node->position は removeEdge/addEdge では m_nodes が resize されないため有効
 		const Vec3 nodePos = node->position;
 
@@ -938,6 +1013,78 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 	return anyFixed;
 }
 
+void RoadNetwork::buildDefaultParts(RoadEdge& edge)
+{
+	edge.parts.clear();
+
+	const float laneW = (edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
+		? 3.75f : 3.5f;
+	const int nLanes = static_cast<int>(edge.lanes.size());
+	const float roadbedWidth = nLanes * laneW;
+	const float halfRoadbed = roadbedWidth * 0.5f;
+
+	auto addPart = [&](RoadPartType type, float offset, float width, StringView defId = U"")
+	{
+		RoadPart p;
+		p.type   = type;
+		p.defId  = String{ defId };
+		p.width  = width;
+		p.offset = offset;
+		p.build  = BuildState::Built;
+		edge.parts << p;
+	};
+
+	switch (edge.roadType)
+	{
+	case RoadType::Expressway:
+	case RoadType::Highway:
+	{
+		const float shoulderW = 1.0f;
+		const float guardrailW = 0.5f;
+		const float slopeW = 3.0f;
+		const float medianW = 2.0f;
+		const float halfForward = (nLanes / 2) * laneW;
+
+		float x = -(halfRoadbed + medianW * 0.5f) - shoulderW - guardrailW - slopeW;
+		addPart(RoadPartType::Slope,     x, slopeW,      U"slope_grass");          x += slopeW;
+		addPart(RoadPartType::Guardrail, x, guardrailW,  U"guardrail_steel");      x += guardrailW;
+		addPart(RoadPartType::Shoulder,  x, shoulderW,   U"roadbed_asphalt");      x += shoulderW;
+		addPart(RoadPartType::Roadbed,   x, halfForward, U"roadbed_asphalt");      x += halfForward;
+		addPart(RoadPartType::Median,    x, medianW,     U"median_concrete");      x += medianW;
+		addPart(RoadPartType::Roadbed,   x, roadbedWidth - halfForward, U"roadbed_asphalt"); x += roadbedWidth - halfForward;
+		addPart(RoadPartType::Shoulder,  x, shoulderW,   U"roadbed_asphalt");      x += shoulderW;
+		addPart(RoadPartType::Guardrail, x, guardrailW,  U"guardrail_steel");      x += guardrailW;
+		addPart(RoadPartType::Slope,     x, slopeW,      U"slope_grass");
+		break;
+	}
+	case RoadType::Arterial:
+	{
+		const float sidewalkW = 2.5f;
+		const float curbW = 0.2f;
+		const float slopeW = 2.0f;
+
+		float x = -halfRoadbed - curbW - sidewalkW - slopeW;
+		addPart(RoadPartType::Slope,    x, slopeW,      U"slope_grass");     x += slopeW;
+		addPart(RoadPartType::Sidewalk, x, sidewalkW,   U"sidewalk_tile");   x += sidewalkW;
+		addPart(RoadPartType::Curb,     x, curbW,       U"curb_concrete");   x += curbW;
+		addPart(RoadPartType::Roadbed,  x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
+		addPart(RoadPartType::Curb,     x, curbW,       U"curb_concrete");   x += curbW;
+		addPart(RoadPartType::Sidewalk, x, sidewalkW,   U"sidewalk_tile");   x += sidewalkW;
+		addPart(RoadPartType::Slope,    x, slopeW,      U"slope_grass");
+		break;
+	}
+	default: // LocalRoad
+	{
+		const float slopeW = 2.0f;
+		float x = -halfRoadbed - slopeW;
+		addPart(RoadPartType::Slope,   x, slopeW,      U"slope_grass");      x += slopeW;
+		addPart(RoadPartType::Roadbed, x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
+		addPart(RoadPartType::Slope,   x, slopeW,      U"slope_grass");
+		break;
+	}
+	}
+}
+
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
 	float laneWidth = 3.5f;
@@ -946,6 +1093,7 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 
 	// Forward レーン数: 過半数（偶数なら半分、奇数なら切り上げ）
 	const int forwardCount = (numLanes + 1) / 2;
+	const float halfTotal = numLanes * laneWidth * 0.5f;
 
 	Array<Lane> lanes;
 	lanes.reserve(numLanes);
@@ -953,12 +1101,57 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 	for (int i = 0; i < numLanes; ++i)
 	{
 		Lane lane;
-		lane.index = i;
-		lane.build = BuildState::Built;
-		lane.type  = LaneType::Normal;
-		lane.width = laneWidth;
-		lane.op    = OpState::Open;
-		lane.dir   = (i < forwardCount) ? LaneDir::Forward : LaneDir::Backward;
+
+		// 運用
+		lane.dir = (i < forwardCount) ? LaneDir::Forward : LaneDir::Backward;
+		lane.op  = OpState::Open;
+
+		// 幾何（A端=B端、テーパーなし）
+		const float left  = i * laneWidth - halfTotal;
+		const float right = left + laneWidth;
+		lane.offsetA_L = left;
+		lane.offsetA_R = right;
+		lane.offsetB_L = left;
+		lane.offsetB_R = right;
+		lane.nominalWidth = laneWidth;
+
+		// 区画線
+		const bool isLeftmost  = (i == 0);
+		const bool isRightmost = (i == numLanes - 1);
+		const bool isCenterBoundary = (i > 0)
+			&& (((i - 1 < forwardCount) && (i >= forwardCount))
+			 || ((i - 1 >= forwardCount) && (i < forwardCount)));
+
+		// 左側の線
+		if (isLeftmost)
+			lane.lineLeft = LineType::SolidWhite;     // 道路端
+		else if (isCenterBoundary)
+			lane.lineLeft = LineType::SolidYellow;     // 対向車線境界
+		else
+			lane.lineLeft = LineType::DashedWhite;     // 同方向車線境界
+
+		// 右側の線
+		if (isRightmost)
+			lane.lineRight = LineType::SolidWhite;
+		else
+		{
+			const bool isNextCenterBoundary = (i + 1 > 0)
+				&& (((i < forwardCount) && (i + 1 >= forwardCount))
+				 || ((i >= forwardCount) && (i + 1 < forwardCount)));
+			if (isNextCenterBoundary)
+				lane.lineRight = LineType::SolidYellow;
+			else
+				lane.lineRight = LineType::DashedWhite;
+		}
+
+		// 車線変更（同方向の隣接車線があれば可能）
+		if (i > 0 && lanes[i - 1].dir == lane.dir)
+		{
+			lane.canChangeLaneLeft = true;
+			lanes[i - 1].canChangeLaneRight = true;
+		}
+
+		lane.type = LaneType::Normal;
 		lanes << lane;
 	}
 	return lanes;
@@ -989,7 +1182,7 @@ int RoadNetwork::mergeShortEdges(float minLength)
 			if (keepId == rmId) continue;
 
 			// rmNode の接続エッジを keepNode に移し替える
-			for (const int eid : rmNode->edgeIds)
+			for (const int eid : rmNode->edgeIds())
 			{
 				if (eid == edge.id) continue;
 				RoadEdge* e = getEdge(eid);
@@ -1004,8 +1197,8 @@ int RoadNetwork::mergeShortEdges(float minLength)
 					continue;
 				}
 
-				if (!keepNode->edgeIds.contains(eid))
-					keepNode->edgeIds << eid;
+				if (!keepNode->getAttachment(eid))
+					keepNode->addEdge(eid);
 			}
 
 			keepNode->position = (keepNode->position + rmNode->position) * 0.5;

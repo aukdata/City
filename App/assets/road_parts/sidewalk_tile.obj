@@ -1,0 +1,80 @@
+# Sidewalk (tile) - raised walking surface with curb face on inner side
+# X = cross-road, Y = up, Z = along-road
+# inner: curb face (vertical step 0.15m) + top edge 0.1m
+# center: 0.5m wide flat tile at Y=0.15
+# outer: outer edge 0.1m at Y=0.15 + slope down to ground
+
+# --- inner (road-center side, includes curb vertical face) ---
+o inner
+# top surface (0.1m wide at Y=0.15)
+v 0.0 0.15 0.0
+v 0.1 0.15 0.0
+v 0.1 0.15 1.0
+v 0.0 0.15 1.0
+# curb face (vertical, from Y=0 to Y=0.15)
+v 0.0 0.0  0.0
+v 0.0 0.15 0.0
+v 0.0 0.15 1.0
+v 0.0 0.0  1.0
+vn 0.0 1.0 0.0
+vn -1.0 0.0 0.0
+vt 0.0 0.0
+vt 0.2 0.0
+vt 0.2 1.0
+vt 0.0 1.0
+vt 0.0 0.0
+vt 0.0 0.15
+vt 1.0 0.15
+vt 1.0 0.0
+# top face
+f 1/1/1 2/2/1 3/3/1 4/4/1
+# curb face
+f 5/5/2 6/6/2 7/7/2 8/8/2
+
+# --- center (tileable flat surface at Y=0.15) ---
+o center
+v 0.0 0.15 0.0
+v 0.5 0.15 0.0
+v 0.5 0.15 1.0
+v 0.0 0.15 1.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+f 9/9/3 10/10/3 11/11/3 12/12/3
+
+o center_lod1
+v 0.0 0.15 0.0
+v 0.5 0.15 0.0
+v 0.5 0.15 1.0
+v 0.0 0.15 1.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+f 13/13/4 14/14/4 15/15/4 16/16/4
+
+# --- outer (building side, slope from Y=0.15 to Y=0) ---
+o outer
+# top edge
+v 0.0 0.15 0.0
+v 0.1 0.15 0.0
+v 0.1 0.15 1.0
+v 0.0 0.15 1.0
+# slope face
+v 0.1 0.15 0.0
+v 0.2 0.0  0.0
+v 0.2 0.0  1.0
+v 0.1 0.15 1.0
+vn 0.0 1.0 0.0
+vn 0.83 0.55 0.0
+vt 0.0 0.0
+vt 0.2 0.0
+vt 0.2 1.0
+vt 0.0 1.0
+# top
+f 17/17/5 18/18/5 19/19/5 20/20/5
+# slope
+f 21/17/6 22/18/6 23/19/6 24/20/6

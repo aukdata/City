@@ -60,6 +60,12 @@ public:
 	/// @param radius 探索半径 [m]
 	Optional<int> findNodeNear(Vec3 pos, float radius = 10.0f) const;
 
+	/// @brief 指定位置に最も近いエッジを探す（XZ 平面距離）
+	/// @param pos ワールド座標
+	/// @param maxDist 最大探索距離 [m]
+	/// @return 見つかったエッジの id。なければ none
+	Optional<int> findEdgeNear(Vec3 pos, float maxDist = 15.0f) const;
+
 	/// @brief 既存エッジとの交差を処理しながらエッジを追加する
 	/// @return 追加されたエッジの id（上限超過時は none）
 	Optional<int> addEdgeWithIntersection(int nodeA, int nodeB,
@@ -134,6 +140,9 @@ private:
 
 	/// @brief デフォルトの車線セットを生成する
 	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);
+
+	/// @brief RoadType に応じたデフォルトの部品配列を生成・設定する
+	static void buildDefaultParts(RoadEdge& edge);
 
 	/// @brief 2 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
 	/// @param newEdgeId 新たに追加したエッジの id

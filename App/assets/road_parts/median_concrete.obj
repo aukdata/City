@@ -1,0 +1,43 @@
+# Median (concrete) - raised center divider
+# X = cross-road, Y = up, Z = along-road
+# Profile: trapezoidal barrier shape
+#   base width 0.5m, top width 0.3m, height 0.6m
+# symmetric = true (inner is road-center side, mirrored to outer)
+
+o inner
+# sloped face from road surface to barrier top
+v 0.0  0.0  0.0
+v 0.1  0.6  0.0
+v 0.1  0.6  1.0
+v 0.0  0.0  1.0
+vn -0.986 0.164 0.0
+vt 0.0 0.0
+vt 0.0 0.62
+vt 1.0 0.62
+vt 1.0 0.0
+f 1/1/1 2/2/1 3/3/1 4/4/1
+
+o center
+# top surface (flat, 0.3m wide at Y=0.6)
+v 0.0 0.6 0.0
+v 0.3 0.6 0.0
+v 0.3 0.6 1.0
+v 0.0 0.6 1.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+f 5/5/2 6/6/2 7/7/2 8/8/2
+
+o center_lod1
+v 0.0 0.6 0.0
+v 0.3 0.6 0.0
+v 0.3 0.6 1.0
+v 0.0 0.6 1.0
+vn 0.0 1.0 0.0
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+f 9/9/3 10/10/3 11/11/3 12/12/3

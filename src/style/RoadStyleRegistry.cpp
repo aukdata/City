@@ -53,10 +53,6 @@ namespace
 		// ---- 断面寸法 ----
 		style.defaultLaneWidth = static_cast<float>(
 			sec[U"default_lane_width"].getOr<double>(style.defaultLaneWidth));
-		style.shoulderWidth    = static_cast<float>(
-			sec[U"shoulder_width"].getOr<double>(style.shoulderWidth));
-		style.medianWidth      = static_cast<float>(
-			sec[U"median_width"].getOr<double>(style.medianWidth));
 
 		// ---- 車線区画線 ----
 		LineMarkStyle defLaneMark;
