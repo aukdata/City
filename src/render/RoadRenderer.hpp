@@ -72,6 +72,9 @@ private:
 	/// @brief ノードキャップの全部品メッシュ配列を生成する
 	Array<PartMeshEntry> buildNodeCapParts(const RoadNetwork& network, int nodeId, const World& world, int div);
 
+	/// @brief ノードキャップ上の車線区画線を生成する
+	Array<LaneLineBatch> buildNodeCapLaneLines(const RoadNetwork& network, int nodeId, const World& world) const;
+
 	// ---- ヘルパー ----
 
 	static float edgeMargin(const RoadEdge& edge, int nodeId);
@@ -81,6 +84,7 @@ private:
 	RoadStyleRegistry                         m_styleRegistry;
 	RoadPartRegistry                          m_partRegistry;
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;   ///< エッジ ID → 部品メッシュ配列
+	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線
 	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
