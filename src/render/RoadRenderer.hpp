@@ -2,7 +2,6 @@
 #include "../road/RoadNetwork.hpp"
 #include "../road/RoadPartRegistry.hpp"
 #include "../world/World.hpp"
-#include "../style/RoadStyleRegistry.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
 /// @brief 通常 / LOD の2段メッシュペア
@@ -25,7 +24,8 @@ public:
 	static constexpr double kDrawMaxDist   = 12000.0;
 	static constexpr double kDrawMaxDistSq = kDrawMaxDist * kDrawMaxDist;
 
-	bool loadStyle(FilePathView tomlPath);
+	/// @brief 道路部品アセットをロードする
+	bool loadAssets();
 
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
@@ -34,8 +34,9 @@ public:
 	void invalidateAllCaches();
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
 
-private:
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
+
+private:
 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
 	struct EdgeBounds { Float3 center; float radiusSq; };
 
@@ -56,13 +57,14 @@ private:
 	                        float sStart, float sEnd, float lodFactor) const;
 
 	/// @brief 全部品のメッシュ配列を生成する
+	/// @param flip  true ならオフセットを反転（A→B が正規方向と逆の場合）
 	Array<PartMeshEntry> buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
 	                                     const World& world,
-	                                     float marginA, float marginB);
+	                                     float marginA, float marginB, bool flip);
 
 	Array<LaneLineBatch> buildLaneLineBatches(const RoadEdge& edge, const CubicBezier& bezier,
 	                                          const World& world,
-	                                          float marginA, float marginB) const;
+	                                          float marginA, float marginB, bool flip) const;
 
 	/// @brief 1部品幅でのフィレット曲線 MeshData を生成する
 	MeshData buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,
@@ -79,9 +81,13 @@ private:
 
 	static float edgeMargin(const RoadEdge& edge, int nodeId);
 
+	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
+	/// @details 正規方向: nodeA の位置 < nodeB の位置（X優先、同値ならZ）
+	///          逆なら true を返す → レンダリング時にオフセットを反転すべき
+	static bool shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network);
+
 	// ---- メンバ ----
 
-	RoadStyleRegistry                         m_styleRegistry;
 	RoadPartRegistry                          m_partRegistry;
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;   ///< エッジ ID → 部品メッシュ配列
 	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線

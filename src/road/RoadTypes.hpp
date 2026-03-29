@@ -33,7 +33,6 @@ enum class LaneType : uint8
 	Bus,
 	ParkingBay,
 	EmergencyStop,
-	StubReserved,
 };
 
 /// @brief 区画線種別

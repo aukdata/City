@@ -37,8 +37,10 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 	{
 		if (!chunk) continue;
 
-		// カメラが乗っているチャンクは常に描画（足元が消えるのを防止）
-		const bool isCameraChunk = (chunk->coord.x == camCx && chunk->coord.y == camCz);
+		// カメラチャンクと周囲8チャンク（計9チャンク）は常に描画
+		const int dx = Math::Abs(chunk->coord.x - camCx);
+		const int dz = Math::Abs(chunk->coord.y - camCz);
+		const bool isNearCamera = (dx <= 1 && dz <= 1);
 
 		// BoundingBox の 8 頂点がすべてスクリーン外なら描画スキップ。
 		// 頂点単位で判定するため、連続地形の境界付近が過剰カリングされにくい。
@@ -68,7 +70,7 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 				break;
 			}
 		}
-		if (!anyVisible && !isCameraChunk) continue;
+		if (!anyVisible && !isNearCamera) continue;
 
 		drawChunk(*chunk, world);
 	}

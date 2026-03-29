@@ -59,10 +59,14 @@ void DebugRenderer::render(const RoadNetwork& network,
 
 void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& camera)
 {
+	const Vec3 camPos = camera.camera3D().getEyePosition();
+	constexpr double kMaxDistSq = 3000.0 * 3000.0;
+
 	// ノード
 	for (const auto& node : network.nodes())
 	{
 		if (node.id == -1) continue;
+		if ((node.position - camPos).lengthSq() > kMaxDistSq) continue;
 
 		ColorF color = Palette::White;
 		switch (node.type)
@@ -86,6 +90,15 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 	for (const auto& edge : network.edges())
 	{
 		if (edge.id == -1) continue;
+
+		// 距離カリング: エッジ中点がカメラから遠ければスキップ
+		const RoadNode* nA = network.getNode(edge.nodeA);
+		const RoadNode* nB = network.getNode(edge.nodeB);
+		if (nA && nB)
+		{
+			const Vec3 mid = (nA->position + nB->position) * 0.5;
+			if ((mid - camPos).lengthSq() > kMaxDistSq) continue;
+		}
 		++edgeCount;
 
 		const auto bezOpt = network.getBezier(edge.id);

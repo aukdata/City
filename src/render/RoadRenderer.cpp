@@ -1,5 +1,4 @@
-﻿# include "../../stdafx.h"
-#include "RoadRenderer.hpp"
+﻿#include "RoadRenderer.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,17 +87,75 @@ namespace
 			appendQuad(indices, base, base + 1, base + 2, base + 3);
 		}
 	}
+
+	/// @brief RoadPartType のフォールバック色と高さオフセットを返す
+	void getPartDefaults(RoadPartType type, ColorF& color, float& heightOff)
+	{
+		switch (type)
+		{
+		case RoadPartType::Roadbed:   color = ColorF{ 0.36, 0.36, 0.36 }; break;
+		case RoadPartType::Sidewalk:  color = ColorF{ 0.72, 0.70, 0.68 }; heightOff = 0.15f; break;
+		case RoadPartType::Curb:      color = ColorF{ 0.78, 0.76, 0.72 }; heightOff = 0.15f; break;
+		case RoadPartType::Median:    color = ColorF{ 0.75, 0.73, 0.70 }; break;
+		case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
+		case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
+		case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
+		default: break;
+		}
+	}
+
+	/// @brief LineType → 色・線幅
+	struct LineStyle { ColorF color; float lineWidth; float dashLen; float gapLen; };
+	LineStyle lineStyleFor(LineType lt)
+	{
+		switch (lt)
+		{
+		case LineType::SolidWhite:   return { ColorF{1,1,1}, 0.15f, 0, 0 };
+		case LineType::DashedWhite:  return { ColorF{1,1,1}, 0.15f, 8, 12 };
+		case LineType::SolidYellow:  return { ColorF{1,0.9,0}, 0.20f, 0, 0 };
+		case LineType::DoubleYellow: return { ColorF{1,0.9,0}, 0.20f, 0, 0 };
+		default: return {};
+		}
+	}
+
+	/// @brief 2点間の直線帯メッシュを LaneLineBatch として追記する
+	void appendStraightLine(Array<RoadRenderer::LaneLineBatch>& out,
+	                        const Vec3& from, const Vec3& to,
+	                        float lineWidth, const ColorF& color)
+	{
+		const Vec3 dir = to - from;
+		if (dir.lengthSq() < 0.01) return;
+		const Vec3 nd = dir.normalized();
+		const Vec3 r  = calcRight(nd);
+		const double hw = static_cast<double>(lineWidth * 0.5f);
+
+		constexpr int kDiv = 4;
+		MeshData md;
+		for (int k = 0; k < kDiv; ++k)
+		{
+			const float t0 = k / static_cast<float>(kDiv);
+			const float t1 = (k + 1) / static_cast<float>(kDiv);
+			const Vec3 p0 = from + dir * static_cast<double>(t0);
+			const Vec3 p1 = from + dir * static_cast<double>(t1);
+			const uint32 base = static_cast<uint32>(md.vertices.size());
+			md.vertices << makeVert(p0 - r * hw, 0, 0);
+			md.vertices << makeVert(p0 + r * hw, 1, 0);
+			md.vertices << makeVert(p1 - r * hw, 0, 1);
+			md.vertices << makeVert(p1 + r * hw, 1, 1);
+			appendQuad(md.indices, base, base + 1, base + 2, base + 3);
+		}
+		if (!md.vertices.isEmpty())
+			out << RoadRenderer::LaneLineBatch{ color.removeSRGBCurve(), Mesh{ md } };
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RoadRenderer 公開メソッド
 // ─────────────────────────────────────────────────────────────────────────────
 
-bool RoadRenderer::loadStyle(FilePathView tomlPath)
+bool RoadRenderer::loadAssets()
 {
-	const bool ok = m_styleRegistry.load(tomlPath);
-	m_partRegistry.load(U"assets/road_parts");
-	return ok;
+	return m_partRegistry.load(U"assets/road_parts");
 }
 
 void RoadRenderer::render(const RoadNetwork& network, const World& world,
@@ -266,12 +323,14 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		}
 	}
 
+	const bool flip = shouldFlipOffsets(edge, network);
+
 	// ---- 部品ごとのメッシュを構築・キャッシュ ----
 	if (!m_partMeshCache.contains(edge.id))
 	{
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) return;
-		auto entries = buildPartMeshes(edge, *bez, world, marginA, marginB);
+		auto entries = buildPartMeshes(edge, *bez, world, marginA, marginB, flip);
 		if (entries.isEmpty()) return;
 		m_partMeshCache[edge.id] = std::move(entries);
 		m_marginCache[edge.id] = { marginA, marginB };
@@ -294,7 +353,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
-			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB);
+			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB, flip);
 		}
 
 		for (const auto& b : m_laneCache[edge.id])
@@ -347,6 +406,18 @@ float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 	return (nodeId == edge.nodeA) ? edge.cutoffA : edge.cutoffB;
 }
 
+bool RoadRenderer::shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network)
+{
+	const RoadNode* nA = network.getNode(edge.nodeA);
+	const RoadNode* nB = network.getNode(edge.nodeB);
+	if (!nA || !nB) return false;
+
+	// 正規方向: A の X 座標 < B の X 座標（同値なら Z で比較）
+	if (nA->position.x != nB->position.x)
+		return nA->position.x > nB->position.x;
+	return nA->position.z > nB->position.z;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // メッシュ生成
 // ─────────────────────────────────────────────────────────────────────────────
@@ -394,7 +465,7 @@ MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& wo
 
 Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
                                                     const World& world,
-                                                    float marginA, float marginB)
+                                                    float marginA, float marginB, bool flip)
 {
 	constexpr float kOverlap = 0.1f;
 	const float totalLen = bezier.totalLength;
@@ -408,8 +479,9 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 	{
 		if (part.build != BuildState::Built) continue;
 
-		const float oL = part.offset;
-		const float oR = part.offset + part.width;
+		float oL = part.offset;
+		float oR = part.offset + part.width;
+		if (flip) { const float tmp = -oR; oR = -oL; oL = tmp; }
 
 		// heightOffset を RoadPartDef から取得
 		float heightOff = 0.0f;
@@ -425,18 +497,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 		}
 		else
 		{
-			// defId 未設定のフォールバック色
-			switch (part.type)
-			{
-			case RoadPartType::Roadbed:   color = ColorF{ 0.36, 0.36, 0.36 }; break;
-			case RoadPartType::Sidewalk:  color = ColorF{ 0.72, 0.70, 0.68 }; heightOff = 0.15f; break;
-			case RoadPartType::Curb:      color = ColorF{ 0.78, 0.76, 0.72 }; heightOff = 0.15f; break;
-			case RoadPartType::Median:    color = ColorF{ 0.75, 0.73, 0.70 }; break;
-			case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
-			case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
-			case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
-			default: break;
-			}
+			getPartDefaults(part.type, color, heightOff);
 		}
 
 		const MeshData mdDetail = buildStripMesh(bezier, world, oL, oR, heightOff, sStart, sEnd, 1.0f);
@@ -457,33 +518,12 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	const RoadEdge& edge, const CubicBezier& bezier,
 	const World& world,
-	float marginA, float marginB) const
+	float marginA, float marginB, bool flip) const
 {
 	constexpr float kOverlap = 0.1f;
 	const float sStart = Max(marginA - kOverlap, 0.0f);
 	const float sEnd   = Min(bezier.totalLength - marginB + kOverlap, bezier.totalLength);
 	if (sStart >= sEnd - 0.1f || edge.lanes.size() < 2) return {};
-
-	// LineType ごとの色・破線パターン
-	struct LineStyle
-	{
-		ColorF color;
-		float  lineWidth;
-		float  dashLength;
-		float  gapLength;
-	};
-
-	auto styleForType = [](LineType lt) -> LineStyle
-	{
-		switch (lt)
-		{
-		case LineType::SolidWhite:  return { ColorF{ 1.0, 1.0, 1.0 }, 0.15f, 0.0f, 0.0f };
-		case LineType::DashedWhite: return { ColorF{ 1.0, 1.0, 1.0 }, 0.15f, 8.0f, 12.0f };
-		case LineType::SolidYellow: return { ColorF{ 1.0, 0.9, 0.0 }, 0.20f, 0.0f, 0.0f };
-		case LineType::DoubleYellow:return { ColorF{ 1.0, 0.9, 0.0 }, 0.20f, 0.0f, 0.0f };
-		default: return {};
-		}
-	};
 
 	// 各車線の右境界に lineRight の線を描画（Lane の offsetA_R を使用）
 	Array<LaneLineBatch> batches;
@@ -495,15 +535,15 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 		// 右境界の線（最右端車線の外側は描画しない: 路肩線は別途）
 		if (lane.lineRight != LineType::None && i + 1 < static_cast<int>(edge.lanes.size()))
 		{
-			// 車線の右端位置 = 道路中心からのオフセット
-			const float offset = lane.offsetA_R;
-			const auto ls = styleForType(lane.lineRight);
+			// 車線の右端位置 = 道路中心からのオフセット（flip 時は反転）
+			const float offset = flip ? -lane.offsetA_R : lane.offsetA_R;
+			const auto ls = lineStyleFor(lane.lineRight);
 
 			MeshData md;
 			appendDashedStrip(md.vertices, md.indices,
 			                  bezier, world,
 			                  offset, ls.lineWidth * 0.5f,
-			                  ls.dashLength, ls.gapLength,
+			                  ls.dashLen, ls.gapLen,
 			                  sStart, sEnd);
 			if (!md.vertices.isEmpty())
 				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
@@ -519,62 +559,327 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 	const RoadNode* node = network.getNode(nodeId);
 	if (!node || node->attachments.size() < 2) return {};
 
-	// 接続エッジから部品の種類を収集（共通部品のみ）
-	// 全エッジに共通する部品種別の合併セットを作り、各部品ごとにフィレットを生成
-	// 簡略化: 最初のエッジの parts を基準にする
-	const RoadEdge* refEdge = nullptr;
+	// ---- ① 各エッジの切断点情報を収集（角度順ソート）----
+	struct EdgeCapInfo
+	{
+		Vec3  capTan;     // ノード外向き XZ 正規化接線
+		Vec3  capCenter;  // 切断点中心（Y=地形+リフト）
+		Vec3  right;      // XZ 直角右ベクトル
+		double angle;
+		const RoadEdge* edge;
+		bool  isNodeA;
+	};
+
+	Array<EdgeCapInfo> infos;
 	for (const auto& att : node->attachments)
 	{
-		refEdge = network.getEdge(att.edgeId);
-		if (refEdge && !refEdge->parts.isEmpty()) break;
-	}
-	if (!refEdge || refEdge->parts.isEmpty()) return {};
+		const RoadEdge* edge = network.getEdge(att.edgeId);
+		if (!edge) continue;
+		const auto bezOpt = network.getBezier(edge->id);
+		if (!bezOpt) continue;
+		const CubicBezier& bez = *bezOpt;
 
-	Array<PartMeshEntry> entries;
+		const bool isNodeA = (edge->nodeA == nodeId);
+		const float capRad = isNodeA ? edge->cutoffA : edge->cutoffB;
+		constexpr float kOverlap = 0.1f;
 
-	for (const auto& refPart : refEdge->parts)
-	{
-		if (refPart.build != BuildState::Built) continue;
-
-		float heightOff = 0.0f;
-		ColorF color{ 0.35 };
-		const Texture* tex = nullptr;
-
-		if (!refPart.defId.isEmpty())
+		Vec3 capPos, capTan;
+		if (isNodeA)
 		{
-			const auto& def = m_partRegistry.get(refPart.defId);
-			heightOff = def.heightOffset;
-			color     = def.color;
-			if (def.texture) tex = &(*def.texture);
+			const float s = Clamp(capRad - kOverlap, 0.0f, bez.totalLength * 0.45f);
+			capPos = bez.positionAt(s);
+			capTan = bez.tangentAt(s);
 		}
 		else
 		{
-			switch (refPart.type)
+			const float s = Clamp(bez.totalLength - capRad + kOverlap,
+			                      bez.totalLength * 0.55f, bez.totalLength);
+			capPos = bez.positionAt(s);
+			capTan = -bez.tangentAt(s);
+		}
+
+		const Vec2 tanXZ{ capTan.x, capTan.z };
+		const double tanLen = tanXZ.length();
+		if (tanLen < 1e-6) continue;
+		const Vec2 tanNorm = tanXZ / tanLen;
+		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
+
+		const Vec3 right = calcRight(capTan);
+		const float gy = world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z));
+
+		EdgeCapInfo info;
+		info.capTan   = capTan;
+		info.capCenter = Vec3{ capPos.x, gy + 2.0, capPos.z };
+		info.right    = right;
+		info.angle    = Math::Atan2(capTan.z, capTan.x);
+		info.edge     = edge;
+		info.isNodeA  = isNodeA;
+		infos << info;
+	}
+	if (static_cast<int>(infos.size()) < 2) return {};
+	infos.sort_by([](const EdgeCapInfo& a, const EdgeCapInfo& b) { return a.angle < b.angle; });
+
+	const int N = static_cast<int>(infos.size());
+	Array<PartMeshEntry> entries;
+
+	// ---- ② Roadbed は旧アルゴリズム（フィレット+ブリッジ+中心ポリゴン）----
+	{
+		ColorF roadbedColor{ 0.36, 0.36, 0.36 };
+		const Texture* roadbedTex = nullptr;
+		for (const auto& info : infos)
+		{
+			for (const auto& part : info.edge->parts)
 			{
-			case RoadPartType::Roadbed:   color = ColorF{ 0.36, 0.36, 0.36 }; break;
-			case RoadPartType::Sidewalk:  color = ColorF{ 0.72, 0.70, 0.68 }; heightOff = 0.15f; break;
-			case RoadPartType::Curb:      color = ColorF{ 0.78, 0.76, 0.72 }; heightOff = 0.15f; break;
-			case RoadPartType::Median:    color = ColorF{ 0.75, 0.73, 0.70 }; break;
-			case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
-			case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
-			case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
-			default: break;
+				if (part.type == RoadPartType::Roadbed && !part.defId.isEmpty())
+				{
+					const auto& def = m_partRegistry.get(part.defId);
+					roadbedColor = def.color;
+					if (def.texture) roadbedTex = &(*def.texture);
+					break;
+				}
 			}
+			if (roadbedTex) break;
 		}
 
 		const int lodDiv = Max(div / 3, 2);
-		const MeshData mdDetail = buildNodeCapMeshForRange(network, nodeId, world, div,
-			refPart.offset, refPart.offset + refPart.width, heightOff);
-		if (mdDetail.vertices.isEmpty()) continue;
-		const MeshData mdLod = buildNodeCapMeshForRange(network, nodeId, world, lodDiv,
-			refPart.offset, refPart.offset + refPart.width, heightOff);
+		const MeshData mdDetail = buildNodeCapMeshForRange(network, nodeId, world, div, -999, 999, 0.0f);
+		if (!mdDetail.vertices.isEmpty())
+		{
+			const MeshData mdLod = buildNodeCapMeshForRange(network, nodeId, world, lodDiv, -999, 999, 0.0f);
+			PartMeshEntry entry;
+			entry.meshPair.detail = Mesh{ mdDetail };
+			entry.meshPair.lod    = mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod };
+			entry.color   = roadbedColor;
+			entry.texture = roadbedTex;
+			entries << std::move(entry);
+		}
+	}
 
-		PartMeshEntry entry;
-		entry.meshPair.detail = Mesh{ mdDetail };
-		entry.meshPair.lod    = mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod };
-		entry.color   = color;
-		entry.texture = tex;
-		entries << std::move(entry);
+	// ---- ③ 非Roadbed部品: 隣接ペアごとにペアリングして帯メッシュ生成 ----
+
+	struct PartStrip
+	{
+		RoadPartType type;
+		float innerOff;  // 中心に近い端（正の距離）
+		float outerOff;  // 外側端（正の距離、innerOff < outerOff）
+		float heightOff;
+		ColorF color;
+		const Texture* tex;
+	};
+
+	// エッジの片側（左 or 右）の部品リストを取得。中心から外側順にソート
+	// outward フレームで offset を計算: capCenter + right * outwardOff が正しいワールド位置
+	auto getStrips = [&](const EdgeCapInfo& info, bool leftSide) -> Array<PartStrip>
+	{
+		Array<PartStrip> strips;
+		for (const auto& part : info.edge->parts)
+		{
+			if (part.build != BuildState::Built) continue;
+			if (part.type == RoadPartType::Roadbed) continue;
+
+			// A→B フレームの offset → outward フレーム（ノード外向き）
+			float oL = part.offset;
+			float oR = part.offset + part.width;
+			// B端: outward = -(A→B方向) なので offset を反転
+			// （flip はエッジ描画用でありノードキャップでは不要）
+			if (!info.isNodeA) { const float t = -oR; oR = -oL; oL = t; }
+
+			// leftSide: outward offset < 0 の部品
+			// rightSide: outward offset > 0 の部品
+			const bool isLeft = (oR <= 0.01f);
+			const bool isRight = (oL >= -0.01f);
+			if (leftSide && !isLeft) continue;
+			if (!leftSide && !isRight) continue;
+
+			float heightOff = 0.0f;
+			ColorF color{ 0.35 };
+			const Texture* tex = nullptr;
+			if (!part.defId.isEmpty())
+			{
+				const auto& def = m_partRegistry.get(part.defId);
+				heightOff = def.heightOffset; color = def.color;
+				if (def.texture) tex = &(*def.texture);
+			}
+			else getPartDefaults(part.type, color, heightOff);
+
+			if (leftSide)
+				strips << PartStrip{ part.type, Math::Abs(oR), Math::Abs(oL), heightOff, color, tex };
+			else
+				strips << PartStrip{ part.type, oL, oR, heightOff, color, tex };
+		}
+		strips.sort_by([](const PartStrip& a, const PartStrip& b) { return a.innerOff < b.innerOff; });
+		return strips;
+	};
+
+	// ベジェ帯メッシュ生成ヘルパー
+	auto makeBezBand = [&](const Vec3& p0i, const Vec3& p0o, const Vec3& p3i, const Vec3& p3o,
+	                       const Vec3& tan0, const Vec3& tan3, const PartStrip& s) -> Optional<PartMeshEntry>
+	{
+		const Vec2 p0i_xz{ p0i.x, p0i.z }, p0o_xz{ p0o.x, p0o.z };
+		const Vec2 p3i_xz{ p3i.x, p3i.z }, p3o_xz{ p3o.x, p3o.z };
+		const double dI = Max((p3i_xz - p0i_xz).length() / 3.0, 0.5);
+		const double dO = Max((p3o_xz - p0o_xz).length() / 3.0, 0.5);
+		const Vec2 t0xz{ -tan0.x, -tan0.z }, t3xz{ -tan3.x, -tan3.z };
+
+		auto bez = [](const Vec2& a, const Vec2& b, const Vec2& c, const Vec2& d, double t) {
+			const double m = 1.0 - t;
+			return a*(m*m*m) + b*(3*m*m*t) + c*(3*m*t*t) + d*(t*t*t);
+		};
+
+		MeshData md;
+		for (int k = 0; k < div; ++k)
+		{
+			const float t0 = k / static_cast<float>(div);
+			const float t1 = (k+1) / static_cast<float>(div);
+			const Vec2 i0 = bez(p0i_xz, p0i_xz+t0xz*dI, p3i_xz+t3xz*dI, p3i_xz, t0);
+			const Vec2 i1 = bez(p0i_xz, p0i_xz+t0xz*dI, p3i_xz+t3xz*dI, p3i_xz, t1);
+			const Vec2 o0 = bez(p0o_xz, p0o_xz+t0xz*dO, p3o_xz+t3xz*dO, p3o_xz, t0);
+			const Vec2 o1 = bez(p0o_xz, p0o_xz+t0xz*dO, p3o_xz+t3xz*dO, p3o_xz, t1);
+			const double y0 = p0i.y + (p3i.y - p0i.y) * t0;
+			const double y1 = p0i.y + (p3i.y - p0i.y) * t1;
+			const uint32 b = static_cast<uint32>(md.vertices.size());
+			md.vertices << makeVert({i0.x,y0,i0.y},0,t0) << makeVert({o0.x,y0,o0.y},1,t0)
+			            << makeVert({i1.x,y1,i1.y},0,t1) << makeVert({o1.x,y1,o1.y},1,t1);
+			appendQuad(md.indices, b, b+1, b+2, b+3);
+		}
+		if (md.vertices.isEmpty()) return none;
+		PartMeshEntry e;
+		e.meshPair.detail = Mesh{md}; e.meshPair.lod = Mesh{md};
+		e.color = s.color; e.texture = s.tex;
+		return e;
+	};
+
+	for (int i = 0; i < N; ++i)
+	{
+		const int next = (i + 1) % N;
+		const EdgeCapInfo& ei = infos[i];
+		const EdgeCapInfo& en = infos[next];
+
+		const auto stripsL = getStrips(ei, true);
+		const auto stripsR = getStrips(en, false);
+
+		// ペアリング: L を走査し R から同種 type を探す。部品タイプの canonical 順でソート
+		struct PairEntry
+		{
+			int idxL, idxR;
+			RoadPartType type;
+		};
+
+		// 部品タイプの canonical 順序（中心→外側）
+		auto typeOrder = [](RoadPartType t) -> int
+		{
+			switch (t)
+			{
+			case RoadPartType::Shoulder:  return 0;
+			case RoadPartType::Curb:      return 1;
+			case RoadPartType::Gutter:    return 2;
+			case RoadPartType::Sidewalk:  return 3;
+			case RoadPartType::BikeLane:  return 4;
+			case RoadPartType::Guardrail: return 5;
+			case RoadPartType::Wall:      return 6;
+			case RoadPartType::Slope:     return 7;
+			default: return 99;
+			}
+		};
+
+		Array<PairEntry> pairs;
+		{
+			HashSet<int> usedR;
+			for (size_t jL = 0; jL < stripsL.size(); ++jL)
+			{
+				int matchR = -1;
+				for (size_t jR = 0; jR < stripsR.size(); ++jR)
+				{
+					if (usedR.contains(static_cast<int>(jR))) continue;
+					if (stripsR[jR].type == stripsL[jL].type)
+					{ matchR = static_cast<int>(jR); usedR.insert(matchR); break; }
+				}
+				pairs << PairEntry{ static_cast<int>(jL), matchR, stripsL[jL].type };
+			}
+			for (size_t jR = 0; jR < stripsR.size(); ++jR)
+			{
+				if (!usedR.contains(static_cast<int>(jR)))
+					pairs << PairEntry{ -1, static_cast<int>(jR), stripsR[jR].type };
+			}
+			pairs.sort_by([&](const PairEntry& a, const PairEntry& b) { return typeOrder(a.type) < typeOrder(b.type); });
+		}
+
+		// Roadbed 外端（テーパーの innerBound 初期値）
+		auto roadbedOuter = [&](const EdgeCapInfo& info) -> double
+		{
+			double r = 0.0;
+			for (const auto& p : info.edge->parts)
+			{
+				if (p.type != RoadPartType::Roadbed || p.build != BuildState::Built) continue;
+				float oL = p.offset, oR = p.offset + p.width;
+				if (!info.isNodeA) { const float t = -oR; oR = -oL; oL = t; }
+				r = Max(r, static_cast<double>(Max(Math::Abs(oL), Math::Abs(oR))));
+			}
+			return r;
+		};
+		const double rbOutR = roadbedOuter(en);
+		const double rbOutL = roadbedOuter(ei);
+
+		// テーパー先: 前後のペア済み部品の隣接境界の中間
+		auto findTaperOff = [&](size_t pi, bool forR) -> double
+		{
+			const double defInner = forR ? rbOutR : rbOutL;
+			double innerBound = defInner;
+			double outerBound = 1e9;
+			for (size_t k = 0; k < pairs.size(); ++k)
+			{
+				const int idx = forR ? pairs[k].idxR : pairs[k].idxL;
+				if (idx < 0) continue;
+				const auto& s = forR ? stripsR[idx] : stripsL[idx];
+				if (k < pi) innerBound = Max(innerBound, static_cast<double>(s.outerOff));
+				if (k > pi) { outerBound = Min(outerBound, static_cast<double>(s.innerOff)); break; }
+			}
+			if (outerBound > 1e8) outerBound = innerBound;
+			return (innerBound + outerBound) * 0.5;
+		};
+
+		for (size_t pi = 0; pi < pairs.size(); ++pi)
+		{
+			const auto& pe = pairs[pi];
+			const bool hasL = (pe.idxL >= 0);
+			const bool hasR = (pe.idxR >= 0);
+			const PartStrip& ref = hasL ? stripsL[pe.idxL] : stripsR[pe.idxR];
+
+			Vec3 p0inner, p0outer;
+			if (hasL)
+			{
+				const auto& s = stripsL[pe.idxL];
+				const Vec3 h{ 0, static_cast<double>(s.heightOff), 0 };
+				p0inner = ei.capCenter - ei.right * static_cast<double>(s.innerOff) + h;
+				p0outer = ei.capCenter - ei.right * static_cast<double>(s.outerOff) + h;
+			}
+			else
+			{
+				const Vec3 h{ 0, static_cast<double>(ref.heightOff), 0 };
+				const double off = findTaperOff(pi, false);
+				p0inner = ei.capCenter - ei.right * off + h;
+				p0outer = p0inner;
+			}
+
+			Vec3 p3inner, p3outer;
+			if (hasR)
+			{
+				const auto& s = stripsR[pe.idxR];
+				const Vec3 h{ 0, static_cast<double>(s.heightOff), 0 };
+				p3inner = en.capCenter + en.right * static_cast<double>(s.innerOff) + h;
+				p3outer = en.capCenter + en.right * static_cast<double>(s.outerOff) + h;
+			}
+			else
+			{
+				const Vec3 h{ 0, static_cast<double>(ref.heightOff), 0 };
+				const double off = findTaperOff(pi, true);
+				p3inner = en.capCenter + en.right * off + h;
+				p3outer = p3inner;
+			}
+
+			if (auto e = makeBezBand(p0inner, p0outer, p3inner, p3outer, ei.capTan, en.capTan, ref))
+				entries << std::move(*e);
+		}
 	}
 
 	return entries;
@@ -586,23 +891,33 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 	const RoadNode* node = network.getNode(nodeId);
 	if (!node || node->attachments.size() < 2) return {};
 
-	// LineType → 描画パラメータ
-	struct LineStyle { ColorF color; float lineWidth; float dashLen; float gapLen; };
-	auto styleFor = [](LineType lt) -> LineStyle
+	// Intersection では車線区画線を描画しない（Joint / Diverge では描画）
+	if (node->type == NodeType::Intersection)
+		return {};
+
+	// エッジの cutoff 位置とオフセット付き線位置を計算するヘルパー
+	auto calcEdgeLinePos = [&](const RoadEdge& edge, float offset) -> Vec3
 	{
-		switch (lt)
-		{
-		case LineType::SolidWhite:   return { ColorF{1,1,1}, 0.15f, 0, 0 };
-		case LineType::DashedWhite:  return { ColorF{1,1,1}, 0.15f, 8, 12 };
-		case LineType::SolidYellow:  return { ColorF{1,0.9,0}, 0.20f, 0, 0 };
-		case LineType::DoubleYellow: return { ColorF{1,0.9,0}, 0.20f, 0, 0 };
-		default: return {};
-		}
+		const auto bez = network.getBezier(edge.id);
+		if (!bez) return node->position;
+		const bool isNodeA = (edge.nodeA == nodeId);
+		const float capRad = isNodeA ? edge.cutoffA : edge.cutoffB;
+		const float s = isNodeA
+			? Clamp(capRad - 0.1f, 0.0f, bez->totalLength * 0.45f)
+			: Clamp(bez->totalLength - capRad + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
+		const Vec3 pos = bez->positionAt(s);
+		const Vec3 tan = bez->tangentAt(s);  // 常に A→B 方向（反転しない）
+		const Vec3 right = calcRight(tan);
+		const float gy = world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
+		// shouldFlipOffsets と同じロジックでオフセットを適用
+		const bool flip = shouldFlipOffsets(edge, network);
+		const float off = flip ? -offset : offset;
+		return Vec3{ pos.x, gy + 2.05, pos.z } + right * static_cast<double>(off);
 	};
 
 	Array<LaneLineBatch> batches;
 
-	// === Joint (Blend) — 2本接続: 車線ペアリングとテーパー ===
+	// === Joint (Blend) — 2本接続: エッジAの各車線境界とエッジBの対応境界を直結 ===
 	if (node->attachments.size() == 2 && node->type == NodeType::Joint
 	    && node->transition == NodeTransition::Blend)
 	{
@@ -610,49 +925,30 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		const RoadEdge* edgeB = network.getEdge(node->attachments[1].edgeId);
 		if (!edgeA || !edgeB) return {};
 
-		const auto bezA = network.getBezier(edgeA->id);
-		const auto bezB = network.getBezier(edgeB->id);
-		if (!bezA || !bezB) return {};
+		// shouldFlipOffsets と一貫したオフセットで車線境界を取得
+		const bool flipA = shouldFlipOffsets(*edgeA, network);
+		const bool flipB = shouldFlipOffsets(*edgeB, network);
 
-		const bool aIsNodeA = (edgeA->nodeA == nodeId);
-		const bool bIsNodeA = (edgeB->nodeA == nodeId);
-
-		// ノード位置での各車線の右端オフセットを収集（B端接続時は反転）
-		auto getLaneBoundaries = [](const RoadEdge& edge, bool isNodeA) -> Array<float>
+		auto getFlippedBounds = [](const RoadEdge& edge, bool flip) -> Array<float>
 		{
-			Array<float> bounds;
+			Array<float> b;
 			for (const auto& lane : edge.lanes)
-			{
-				float r = isNodeA ? lane.offsetA_R : lane.offsetB_R;
-				if (!isNodeA) r = -r;  // B端では左右反転
-				bounds << r;
-			}
-			return bounds;
+				b << (flip ? -lane.offsetA_R : lane.offsetA_R);
+			return b;
 		};
 
-		auto getLaneLineTypes = [](const RoadEdge& edge) -> Array<LineType>
-		{
-			Array<LineType> types;
-			for (const auto& lane : edge.lanes) types << lane.lineRight;
-			return types;
-		};
+		const auto boundsA = getFlippedBounds(*edgeA, flipA);
+		const auto boundsB = getFlippedBounds(*edgeB, flipB);
 
-		const auto boundsA = getLaneBoundaries(*edgeA, aIsNodeA);
-		const auto boundsB = getLaneBoundaries(*edgeB, bIsNodeA);
-		const auto linesA  = getLaneLineTypes(*edgeA);
-
-		// ペアリング: boundsA[i] に最も位置の近い boundsB[j] をマッチ
-		Array<int> pairB(boundsA.size(), -1);  // A[i] → B[j]
+		// ペアリング: boundsA[i] に位置の近い boundsB[j] をマッチ
+		Array<int> pairB(boundsA.size(), -1);
 		HashSet<int> usedB;
-
-		for (size_t i = 0; i < boundsA.size(); ++i)
+		for (size_t i = 0; i + 1 < boundsA.size(); ++i)
 		{
-			if (i >= boundsA.size() - 1) continue;  // 最後の車線の右端はスキップ（道路端）
 			float bestDist = 1e9f;
 			int bestJ = -1;
-			for (size_t j = 0; j < boundsB.size(); ++j)
+			for (size_t j = 0; j + 1 < boundsB.size(); ++j)
 			{
-				if (j >= boundsB.size() - 1) continue;
 				if (usedB.contains(static_cast<int>(j))) continue;
 				const float d = Math::Abs(boundsA[i] - boundsB[j]);
 				if (d < bestDist) { bestDist = d; bestJ = static_cast<int>(j); }
@@ -664,169 +960,59 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 			}
 		}
 
-		// 各車線境界について、ノードの中心を通る直線状にラインを描画
-		// A側の cutoff 位置 → ノード中心 → B側の cutoff 位置
-		const Vec3 nodePos = node->position;
-		const float gy = world.computeHeight(static_cast<float>(nodePos.x), static_cast<float>(nodePos.z));
-
+		// A側の各車線境界からB側のペア境界へ直結
 		for (size_t i = 0; i + 1 < boundsA.size(); ++i)
 		{
-			const LineType lt = linesA[i];
-			if (lt == LineType::None) continue;
-			const auto ls = styleFor(lt);
+			const auto& lane = edgeA->lanes[i];
+			if (lane.lineRight == LineType::None) continue;
+			const auto ls = lineStyleFor(lane.lineRight);
 
-			const float offA = boundsA[i];
-			float offB = (pairB[i] >= 0) ? boundsB[pairB[i]] : 0.0f;  // ペアなし→0にテーパー
+			const Vec3 from = calcEdgeLinePos(*edgeA, boundsA[i]);
+			const float targetOff = (pairB[i] >= 0) ? boundsB[pairB[i]] : 0.0f;
+			const Vec3 to = calcEdgeLinePos(*edgeB, targetOff);
 
-			// A側エッジの cutoff 位置
-			const float capRadA = aIsNodeA ? edgeA->cutoffA : edgeA->cutoffB;
-			const float sA = aIsNodeA
-				? Clamp(capRadA - 0.1f, 0.0f, bezA->totalLength * 0.45f)
-				: Clamp(bezA->totalLength - capRadA + 0.1f, bezA->totalLength * 0.55f, bezA->totalLength);
-			const Vec3 posA = bezA->positionAt(sA);
-			const Vec3 tanA = aIsNodeA ? bezA->tangentAt(sA) : -bezA->tangentAt(sA);
-			const Vec3 rightA = calcRight(tanA);
-			const float gyA = world.computeHeight(static_cast<float>(posA.x), static_cast<float>(posA.z));
-
-			// B側エッジの cutoff 位置
-			const float capRadB = bIsNodeA ? edgeB->cutoffA : edgeB->cutoffB;
-			const float sB = bIsNodeA
-				? Clamp(capRadB - 0.1f, 0.0f, bezB->totalLength * 0.45f)
-				: Clamp(bezB->totalLength - capRadB + 0.1f, bezB->totalLength * 0.55f, bezB->totalLength);
-			const Vec3 posB = bezB->positionAt(sB);
-			const Vec3 tanB = bIsNodeA ? bezB->tangentAt(sB) : -bezB->tangentAt(sB);
-			const Vec3 rightB = calcRight(tanB);
-			const float gyB = world.computeHeight(static_cast<float>(posB.x), static_cast<float>(posB.z));
-
-			// A端の区画線位置
-			const Vec3 startPos = Vec3{ posA.x, gyA + 2.05, posA.z } + rightA * static_cast<double>(offA);
-			// B端の区画線位置
-			const Vec3 endPos   = Vec3{ posB.x, gyB + 2.05, posB.z } + rightB * static_cast<double>(offB);
-
-			// 4分割の直線で接続
-			constexpr int kDiv = 4;
-			MeshData md;
-			for (int k = 0; k < kDiv; ++k)
-			{
-				const float t0 = k / static_cast<float>(kDiv);
-				const float t1 = (k + 1) / static_cast<float>(kDiv);
-				const Vec3 p0 = startPos + (endPos - startPos) * static_cast<double>(t0);
-				const Vec3 p1 = startPos + (endPos - startPos) * static_cast<double>(t1);
-
-				// 接線方向に直角な幅
-				const Vec3 dir = (endPos - startPos).normalized();
-				const Vec3 r   = calcRight(dir);
-
-				const uint32 base = static_cast<uint32>(md.vertices.size());
-				md.vertices << makeVert(p0 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 0);
-				md.vertices << makeVert(p0 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 0);
-				md.vertices << makeVert(p1 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 1);
-				md.vertices << makeVert(p1 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 1);
-				appendQuad(md.indices, base, base + 1, base + 2, base + 3);
-			}
-			if (!md.vertices.isEmpty())
-				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
+			appendStraightLine(batches, from, to, ls.lineWidth, ls.color);
 		}
 
-		// B側にペアがなかった車線境界もテーパー描画
+		// B側にのみ存在する車線境界: ノード中心からテーパー
+		const float gy = world.computeHeight(static_cast<float>(node->position.x),
+		                                     static_cast<float>(node->position.z));
+		const Vec3 centerPos{ node->position.x, gy + 2.05, node->position.z };
+
 		for (size_t j = 0; j + 1 < boundsB.size(); ++j)
 		{
 			if (usedB.contains(static_cast<int>(j))) continue;
-			// B側にだけ存在する車線: 0 → boundsB[j] にテーパー
-			const auto& laneB = edgeB->lanes[j];
-			if (laneB.lineRight == LineType::None) continue;
-			const auto ls = styleFor(laneB.lineRight);
-			const float offB = boundsB[j];
-
-			const float capRadB = bIsNodeA ? edgeB->cutoffA : edgeB->cutoffB;
-			const float sB = bIsNodeA
-				? Clamp(capRadB - 0.1f, 0.0f, bezB->totalLength * 0.45f)
-				: Clamp(bezB->totalLength - capRadB + 0.1f, bezB->totalLength * 0.55f, bezB->totalLength);
-			const Vec3 posB = bezB->positionAt(sB);
-			const Vec3 tanB = bIsNodeA ? bezB->tangentAt(sB) : -bezB->tangentAt(sB);
-			const Vec3 rightB = calcRight(tanB);
-			const float gyB = world.computeHeight(static_cast<float>(posB.x), static_cast<float>(posB.z));
-
-			const Vec3 endPos = Vec3{ posB.x, gyB + 2.05, posB.z } + rightB * static_cast<double>(offB);
-			// ノード中心（オフセット0）からテーパー
-			const Vec3 startPos = Vec3{ nodePos.x, gy + 2.05, nodePos.z };
-
-			constexpr int kDiv = 4;
-			MeshData md;
-			for (int k = 0; k < kDiv; ++k)
-			{
-				const float t0 = k / static_cast<float>(kDiv);
-				const float t1 = (k + 1) / static_cast<float>(kDiv);
-				const Vec3 p0 = startPos + (endPos - startPos) * static_cast<double>(t0);
-				const Vec3 p1 = startPos + (endPos - startPos) * static_cast<double>(t1);
-				const Vec3 dir = (endPos - startPos).normalized();
-				const Vec3 r   = calcRight(dir);
-				const uint32 base = static_cast<uint32>(md.vertices.size());
-				md.vertices << makeVert(p0 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 0);
-				md.vertices << makeVert(p0 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 0);
-				md.vertices << makeVert(p1 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 1);
-				md.vertices << makeVert(p1 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 1);
-				appendQuad(md.indices, base, base + 1, base + 2, base + 3);
-			}
-			if (!md.vertices.isEmpty())
-				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
+			const auto& lane = edgeB->lanes[j];
+			if (lane.lineRight == LineType::None) continue;
+			const auto ls = lineStyleFor(lane.lineRight);
+			const Vec3 to = calcEdgeLinePos(*edgeB, boundsB[j]);
+			appendStraightLine(batches, centerPos, to, ls.lineWidth, ls.color);
 		}
 
 		return batches;
 	}
 
-	// === Intersection / Diverge — 各エッジの車線境界をノード中心に向かって直線で描画 ===
-	const Vec3 nodePos = node->position;
-	const float gy = world.computeHeight(static_cast<float>(nodePos.x), static_cast<float>(nodePos.z));
+	// === Intersection / Diverge — 各エッジの車線境界からノード中心へ直線 ===
+	const float gy = world.computeHeight(static_cast<float>(node->position.x),
+	                                     static_cast<float>(node->position.z));
+	const Vec3 centerPos{ node->position.x, gy + 2.05, node->position.z };
 
 	for (const auto& att : node->attachments)
 	{
 		const RoadEdge* edge = network.getEdge(att.edgeId);
 		if (!edge) continue;
-		const auto bezOpt = network.getBezier(edge->id);
-		if (!bezOpt) continue;
 
-		const bool isNodeA = (edge->nodeA == nodeId);
-		const float capRad = isNodeA ? edge->cutoffA : edge->cutoffB;
-		const float s = isNodeA
-			? Clamp(capRad - 0.1f, 0.0f, bezOpt->totalLength * 0.45f)
-			: Clamp(bezOpt->totalLength - capRad + 0.1f, bezOpt->totalLength * 0.55f, bezOpt->totalLength);
-		const Vec3 pos = bezOpt->positionAt(s);
-		const Vec3 tan = isNodeA ? bezOpt->tangentAt(s) : -bezOpt->tangentAt(s);
-		const Vec3 right = calcRight(tan);
-		const float gEdge = world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
+		const bool flip = shouldFlipOffsets(*edge, network);
 
 		for (size_t i = 0; i + 1 < edge->lanes.size(); ++i)
 		{
 			const auto& lane = edge->lanes[i];
 			if (lane.lineRight == LineType::None) continue;
-			const auto ls = styleFor(lane.lineRight);
+			const auto ls = lineStyleFor(lane.lineRight);
 
-			float off = lane.offsetA_R;
-			if (!isNodeA) off = -off;  // B端では反転
-
-			const Vec3 edgePos = Vec3{ pos.x, gEdge + 2.05, pos.z } + right * static_cast<double>(off);
-			const Vec3 centerPos = Vec3{ nodePos.x, gy + 2.05, nodePos.z };
-
-			constexpr int kDiv = 4;
-			MeshData md;
-			for (int k = 0; k < kDiv; ++k)
-			{
-				const float t0 = k / static_cast<float>(kDiv);
-				const float t1 = (k + 1) / static_cast<float>(kDiv);
-				const Vec3 p0 = edgePos + (centerPos - edgePos) * static_cast<double>(t0);
-				const Vec3 p1 = edgePos + (centerPos - edgePos) * static_cast<double>(t1);
-				const Vec3 dir = (centerPos - edgePos).normalized();
-				const Vec3 r   = calcRight(dir);
-				const uint32 base = static_cast<uint32>(md.vertices.size());
-				md.vertices << makeVert(p0 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 0);
-				md.vertices << makeVert(p0 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 0);
-				md.vertices << makeVert(p1 - r * static_cast<double>(ls.lineWidth * 0.5f), 0, 1);
-				md.vertices << makeVert(p1 + r * static_cast<double>(ls.lineWidth * 0.5f), 1, 1);
-				appendQuad(md.indices, base, base + 1, base + 2, base + 3);
-			}
-			if (!md.vertices.isEmpty())
-				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
+			const float off = flip ? -lane.offsetA_R : lane.offsetA_R;
+			const Vec3 edgePos = calcEdgeLinePos(*edge, off);
+			appendStraightLine(batches, edgePos, centerPos, ls.lineWidth, ls.color);
 		}
 	}
 
@@ -863,12 +1049,35 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 		if (!bezOpt) continue;
 		const CubicBezier& bez = *bezOpt;
 
-		// 部品幅範囲: B端接続時は接線が反転するため左右を入れ替え
+		// 部品幅範囲: 引数のデフォルト値をこのエッジ自身の該当部品範囲で上書き
 		const bool isNodeA = (edge->nodeA == nodeId);
-		const double oL = isNodeA ?  static_cast<double>(partOffsetL)
-		                           : -static_cast<double>(partOffsetR);
-		const double oR = isNodeA ?  static_cast<double>(partOffsetR)
-		                           : -static_cast<double>(partOffsetL);
+		float edgeOffL = partOffsetL;
+		float edgeOffR = partOffsetR;
+		// このエッジ自身の該当部品タイプの範囲を探す（Roadbed 呼び出し時はRoadbed範囲）
+		for (const auto& p : edge->parts)
+		{
+			if (p.build != BuildState::Built) continue;
+			// partOffsetL/R が Roadbed 範囲っぽいか判定（厳密ではないが実用的）
+			if (p.type == RoadPartType::Roadbed)
+			{
+				edgeOffL = Min(edgeOffL, p.offset);
+				edgeOffR = Max(edgeOffR, p.offset + p.width);
+			}
+		}
+		// このエッジ自身の Roadbed 範囲に制限
+		bool hasOwnRoadbed = false;
+		for (const auto& p : edge->parts)
+		{
+			if (p.type == RoadPartType::Roadbed && p.build == BuildState::Built)
+			{
+				if (!hasOwnRoadbed) { edgeOffL = p.offset; edgeOffR = p.offset + p.width; hasOwnRoadbed = true; }
+				else { edgeOffL = Min(edgeOffL, p.offset); edgeOffR = Max(edgeOffR, p.offset + p.width); }
+			}
+		}
+		const double oL = isNodeA ?  static_cast<double>(edgeOffL)
+		                           : -static_cast<double>(edgeOffR);
+		const double oR = isNodeA ?  static_cast<double>(edgeOffR)
+		                           : -static_cast<double>(edgeOffL);
 		const float  capRad = isNodeA ? edge->cutoffA : edge->cutoffB;
 
 		// 道路メッシュと同じ s 値（kOverlap 分だけカットオフより手前）を使う

@@ -188,6 +188,14 @@ void RoadNetwork::addEdgeRaw(const RoadEdge& edge)
 	if (RoadNode* na = getNode(edge.nodeA)) na->addEdge(edge.id);
 	if (RoadNode* nb = getNode(edge.nodeB)) nb->addEdge(edge.id);
 	if (edge.id >= m_nextEdgeId) m_nextEdgeId = edge.id + 1;
+
+	// parts が空なら RoadType からデフォルト部品を生成
+	{
+		RoadEdge* e = getEdge(edge.id);
+		if (e && e->parts.isEmpty())
+			buildDefaultParts(*e);
+	}
+
 	updateNodeCutoffs(edge.nodeA);
 	updateNodeCutoffs(edge.nodeB);
 }
@@ -380,12 +388,15 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 	}
 
 	// このノード端のカットオフ値を全接続エッジに書き込む
+	// 短いエッジでは cutoff がエッジ長を超えないようクランプ
 	for (const auto& att : node->attachments)
 	{
 		RoadEdge* e = getEdge(att.edgeId);
 		if (!e) continue;
-		if (e->nodeA == nodeId) e->cutoffA = cutoff;
-		else                    e->cutoffB = cutoff;
+		const float maxCut = e->length * 0.4f;
+		const float c = Min(cutoff, maxCut);
+		if (e->nodeA == nodeId) e->cutoffA = c;
+		else                    e->cutoffB = c;
 	}
 }
 
