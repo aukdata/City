@@ -166,9 +166,6 @@
     <Filter Include="Source Files\sim">
       <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\style">
-      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\time">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000010}</UniqueIdentifier>
     </Filter>
@@ -243,6 +240,12 @@
     <ClCompile Include="src\road\RoadNetwork.cpp">
       <Filter>Source Files\road</Filter>
     </ClCompile>
+    <ClCompile Include="src\road\ObjParser.cpp">
+      <Filter>Source Files\road</Filter>
+    </ClCompile>
+    <ClCompile Include="src\road\RoadPartRegistry.cpp">
+      <Filter>Source Files\road</Filter>
+    </ClCompile>
     <ClCompile Include="src\save\RoadBinary.cpp">
       <Filter>Source Files\save</Filter>
     </ClCompile>
@@ -255,9 +258,6 @@
     <ClCompile Include="src\sim\SimThread.cpp">
       <Filter>Source Files\sim</Filter>
     </ClCompile>
-    <ClCompile Include="src\style\RoadStyleRegistry.cpp">
-      <Filter>Source Files\style</Filter>
-    </ClCompile>
     <ClCompile Include="src\traffic\TrafficManager.cpp">
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
@@ -268,6 +268,9 @@
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
     <ClCompile Include="src\ui\Camera.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\PanelManager.cpp">
       <Filter>Source Files\ui</Filter>
     </ClCompile>
     <ClCompile Include="src\world\World.cpp">
@@ -959,6 +962,12 @@
     <ClInclude Include="src\gen\MapGenerator.hpp">
       <Filter>Source Files\gen</Filter>
     </ClInclude>
+    <ClInclude Include="src\gen\PlaceNameGenerator.hpp">
+      <Filter>Source Files\gen</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\RoadPathfinder.hpp">
+      <Filter>Source Files\gen</Filter>
+    </ClInclude>
     <ClInclude Include="src\railway\TrackTypes.hpp">
       <Filter>Source Files\railway</Filter>
     </ClInclude>
@@ -986,6 +995,9 @@
     <ClInclude Include="src\render\TrainRenderer.hpp">
       <Filter>Source Files\render</Filter>
     </ClInclude>
+    <ClInclude Include="src\render\PlaceNameRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
     <ClInclude Include="src\road\RoadTypes.hpp">
       <Filter>Source Files\road</Filter>
     </ClInclude>
@@ -993,6 +1005,18 @@
       <Filter>Source Files\road</Filter>
     </ClInclude>
     <ClInclude Include="src\road\RoadNetwork.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\ObjParser.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadPartRegistry.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadPartTypes.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadEnums.hpp">
       <Filter>Source Files\road</Filter>
     </ClInclude>
     <ClInclude Include="src\scene\SceneCommon.hpp">
@@ -1010,14 +1034,8 @@
     <ClInclude Include="src\sim\SimThread.hpp">
       <Filter>Source Files\sim</Filter>
     </ClInclude>
-    <ClInclude Include="src\style\LinearNetworkStyle.hpp">
-      <Filter>Source Files\style</Filter>
-    </ClInclude>
-    <ClInclude Include="src\style\RoadStyle.hpp">
-      <Filter>Source Files\style</Filter>
-    </ClInclude>
-    <ClInclude Include="src\style\RoadStyleRegistry.hpp">
-      <Filter>Source Files\style</Filter>
+    <ClInclude Include="src\save\RoadBinary.hpp">
+      <Filter>Source Files\save</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\Vehicle.hpp">
       <Filter>Source Files\traffic</Filter>
@@ -1035,6 +1053,9 @@
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\ui\Camera.hpp">
+      <Filter>Source Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\PanelManager.hpp">
       <Filter>Source Files\ui</Filter>
     </ClInclude>
     <ClInclude Include="src\world\Chunk.hpp">
