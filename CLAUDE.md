@@ -87,3 +87,4 @@ API を確認するときは上記ディレクトリの `.hpp` を直接 Read �
 | `15_chunk_data_spec.md` | チャンクデータ設計（二層構造・境界ノード重複） |
 | `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
 | `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
+| `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ） |

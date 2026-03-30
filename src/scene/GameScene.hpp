@@ -2,6 +2,7 @@
 #include <future>
 #include <atomic>
 #include "SceneCommon.hpp"
+#include "../ui/PanelManager.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../sim/SimThread.hpp"
 #include "../time/GameClock.hpp"
@@ -43,10 +44,12 @@ private:
 
 	// ---- ローディング管理 ----
 	int       m_totalInitChunks  = 0;    ///< 初期チャンク総数
-	Stopwatch m_loadingTimer;            ///< 生成開始からの経過時間
+	Stopwatch m_loadingTimer;            ///< 生成/ロード開始からの経過時間
 	String    m_loadingStatus;           ///< 現在実行中の処理内容
+	String    m_loadingTitle;            ///< ローディング画面のタイトル
+	bool      m_loadGameResult = false;  ///< loadGame() の結果（非同期完了後に参照）
 
-	/// @brief バックグラウンド生成パイプラインの非同期タスク
+	/// @brief バックグラウンド生成/ロードの非同期タスク
 	std::future<void> m_generationFuture;
 
 	/// @brief 生成進捗 [0.0, 1.0]（atomic でバックグラウンドスレッドから更新）
@@ -123,9 +126,8 @@ private:
 	Optional<int>   m_selectedEdgeId;
 	Optional<int>   m_selectedNodeId;
 
-	// 地名リストパネル
-	bool            m_showNameList     = false;
-	double          m_nameListScroll   = 0.0;
+	// パネルシステム
+	PanelManager    m_panelManager;
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
@@ -153,6 +155,7 @@ private:
 	// ---- 内部メソッド ----
 	void initScene();
 	void initNewGame();
+	void initLoadGame();
 	void saveGame();
 	bool loadGame();
 	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);

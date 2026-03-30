@@ -54,8 +54,9 @@ void GameCamera::handleInput(double dt, const World& world)
 	// ─── ホイールクリックドラッグ ─────────────────────────────────────────────
 	// Shift なし: 地形交点を中心に回転
 	// Shift あり: カメラ平行移動（パン）
+	// パネル上ではスキップ
 
-	if (MouseM.down())
+	if (MouseM.down() && !m_blockInput)
 	{
 		m_dragAnchor    = Cursor::Pos();
 		m_hasOrbitPivot = false;
@@ -160,7 +161,7 @@ void GameCamera::handleInput(double dt, const World& world)
 
 	// ─── ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）───
 	const double wheel = Mouse::Wheel();
-	if (wheel != 0.0 && !KeyControl.pressed())
+	if (wheel != 0.0 && !KeyControl.pressed() && !m_blockInput)
 	{
 		m_distance = static_cast<float>(
 			Clamp(

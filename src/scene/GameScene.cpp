@@ -58,12 +58,29 @@ GameScene::~GameScene()
 
 void GameScene::initScene()
 {
-	if (!getData().saveName.isEmpty() && loadGame())
+	m_panelManager.registerPanel(U"edge_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
+	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
+	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
+
+	if (!getData().saveName.isEmpty())
+		initLoadGame();
+	else
+		initNewGame();
+}
+
+void GameScene::initLoadGame()
+{
+	m_loadingTimer.restart();
+	m_loadingStatus = U"セーブデータを読み込み中...";
+	m_loadingTitle = U"ロード中...";
+	m_genProgress = 0.0f;
+
+	m_generationFuture = std::async(std::launch::async, [this]()
 	{
-		m_phase = GamePhase::Playing;
-		return;
-	}
-	initNewGame();
+		m_loadGameResult = loadGame();
+	});
+
+	m_phase = GamePhase::Loading;
 }
 
 void GameScene::initNewGame()
@@ -95,6 +112,7 @@ void GameScene::initNewGame()
 
 	m_loadingTimer.restart();
 	m_loadingStatus = U"地形生成中";
+	m_loadingTitle = U"マップ生成中...";
 	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
 	m_phase = GamePhase::Loading;
 }
@@ -272,12 +290,17 @@ void GameScene::updateLoading()
 		{
 			m_generationFuture.get();
 
+			// ロードの場合は loadGame() 内で全て完了済み
+			if (m_loadGameResult)
+			{
+				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
+				m_phase = GamePhase::Playing;
+				return;
+			}
+
+			// 新規生成の場合: メインスレッド側のセットアップ
 			Logger << U"[Loading] 全パイプライン完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
 			m_loadingStatus = U"初期化中...";
-
-			// メインスレッド側のセットアップ
-			const Stopwatch setupTimer{ StartImmediately::Yes };
-			Stopwatch step{ StartImmediately::Yes };
 
 			applyZonesGlobal();
 			placeInitialBuildings();
@@ -351,7 +374,7 @@ void GameScene::drawLoadingScreen(float progress)
 	uiFont(U"{}:{:0>2}"_fmt(min, sec)).drawAt(
 		center.movedBy(0, -110), ColorF{ 0.7 });
 
-	titleFont(U"マップ生成中...").drawAt(center.movedBy(0, -60), ColorF{ 0.9 });
+	titleFont(m_loadingTitle).drawAt(center.movedBy(0, -60), ColorF{ 0.9 });
 
 	// プログレスバー
 	const RectF barBg{ center.x - 200, center.y, 400, 24 };
@@ -474,6 +497,9 @@ bool GameScene::loadGame()
 	step.restart();
 
 	// ---- 地形をセーブデータからロード ----
+	const int totalChunks = WORLD_CHUNKS * WORLD_CHUNKS;
+	int loadedChunks = 0;
+	m_loadingStatus = U"地形データ読み込み中...";
 	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
 	{
 		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
@@ -515,6 +541,8 @@ bool GameScene::loadGame()
 				m_world.installChunkDirect(Point{ cx, cy },
 					m_world.buildHeightMap(Point{ cx, cy }));
 			}
+			++loadedChunks;
+			m_genProgress = static_cast<float>(loadedChunks) / static_cast<float>(totalChunks) * 0.7f;
 		}
 	}
 
@@ -539,6 +567,8 @@ bool GameScene::loadGame()
 	}
 	m_network.setNextIds(nextNodeId, nextEdgeId);
 
+	m_genProgress = 0.8f;
+	m_loadingStatus = U"道路・経済データ復元完了";
 	Console << U"[Load] economy+roads: {:.0f}ms"_fmt(step.msF());
 	step.restart();
 
@@ -560,6 +590,9 @@ bool GameScene::loadGame()
 		addDistricts(settlements);
 	}
 
+	m_genProgress = 0.9f;
+	m_loadingStatus = U"ゾーン・建物を復元中...";
+
 	// ---- ゾーン・建物を再配置（セーブ未対応のため再生成）----
 	applyZonesGlobal();
 	placeInitialBuildings();
@@ -579,6 +612,7 @@ bool GameScene::loadGame()
 	startSimThread();
 
 	Console << U"[Load] finish: {:.0f}ms"_fmt(step.msF());
+	m_genProgress = 1.0f;
 	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), kRoot);
 	return true;
 }
@@ -916,6 +950,8 @@ void GameScene::update()
 	// ---- メインスレッドのロジック ----
 	const Stopwatch swLogic{ StartImmediately::Yes };
 	m_world.update(m_camera.focusPoint());
+	m_panelManager.handleInput();
+	m_camera.setBlockInput(m_panelManager.isMouseOnAnyPanel());
 	m_camera.update(dt, m_world);
 	m_logicMs = swLogic.msF();
 
@@ -1169,48 +1205,25 @@ void GameScene::renderWorld()
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
 	m_uiRenderer.render(m_clock, static_cast<int>(m_renderVehicles.size()), modeString(), m_economy);
 
+	m_panelManager.drawBackgrounds();
+
 	// ---- 地名リストパネル ----
-	if (m_showNameList)
+	if (auto area = m_panelManager.beginContent(U"name_list"))
 	{
 		static const Font listFont{ FontMethod::MSDF, 14 };
 		static const Font headerFont{ FontMethod::MSDF, 16, Typeface::Bold };
+		constexpr int kLineH = 22;
+		constexpr int kPad = 8;
 
-		constexpr int kPanelW = 250;
-		constexpr int kLineH  = 22;
-		constexpr int kPad    = 8;
-		const int panelH = Scene::Height() - 20;
-		const int px = Scene::Width() - kPanelW - 10;
-		const int py = 10;
+		double y = kPad;
 
-		// 背景
-		RectF{ static_cast<double>(px), static_cast<double>(py),
-		       static_cast<double>(kPanelW), static_cast<double>(panelH) }
-			.draw(ColorF{ 0, 0, 0, 0.7 });
+		// デバッグ: カーソル座標を確認
+		if (MouseL.down())
+			Console << U"[DEBUG] CursorPos={} CursorPosF={}"_fmt(Cursor::Pos(), Cursor::PosF());
 
-		// ヘッダ
-		headerFont(U"地名リスト (N)").draw(Vec2{ px + kPad, py + kPad }, Palette::Yellow);
-
-		// スクロール（ホイール）
-		if (RectF{ static_cast<double>(px), static_cast<double>(py),
-		           static_cast<double>(kPanelW), static_cast<double>(panelH) }.mouseOver())
+		for (size_t idx = 0; idx < m_districts.size(); ++idx)
 		{
-			m_nameListScroll -= Mouse::Wheel() * kLineH * 3;
-		}
-
-		const int visibleLines = (panelH - kPad * 2 - kLineH) / kLineH;
-		const int maxScroll = Max(0, static_cast<int>(m_districts.size()) - visibleLines) * kLineH;
-		m_nameListScroll = Clamp(m_nameListScroll, 0.0, static_cast<double>(maxScroll));
-
-		const int startIdx = static_cast<int>(m_nameListScroll / kLineH);
-
-		for (int i = 0; i < visibleLines && (startIdx + i) < static_cast<int>(m_districts.size()); ++i)
-		{
-			const int di = startIdx + i;
-			const auto& s = m_districts[di];
-
-			const int ly = py + kPad + kLineH + i * kLineH;
-
-			// 種別ラベル
+			const auto& s = m_districts[idx];
 			StringView typeStr;
 			ColorF typeColor;
 			switch (s.type)
@@ -1223,31 +1236,34 @@ void GameScene::renderWorld()
 				typeStr = U"[R]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
 			}
 
-			// クリック判定
-			const RectF itemRect{ static_cast<double>(px + kPad), static_cast<double>(ly),
-			                      static_cast<double>(kPanelW - kPad * 2), static_cast<double>(kLineH) };
+			const RectF itemRect{ static_cast<double>(kPad), y,
+				240.0 - kPad * 2, static_cast<double>(kLineH) };
 			const bool hovered = itemRect.mouseOver();
 
 			if (hovered)
 				itemRect.draw(ColorF{ 1, 1, 1, 0.1 });
 
-			listFont(typeStr).draw(Vec2{ px + kPad, ly + 2 }, typeColor);
-			listFont(s.name).draw(Vec2{ px + kPad + 30, ly + 2 },
+			listFont(typeStr).draw(Vec2{ kPad, y + 2 }, typeColor);
+			listFont(s.name).draw(Vec2{ kPad + 30, y + 2 },
 				hovered ? Palette::Yellow : Palette::White);
 
 			if (hovered && MouseL.down())
 			{
+				Console << U"[NameList] clicked: {}"_fmt(s.name);
 				const float h = m_world.computeHeight(
 					static_cast<float>(s.center.x), static_cast<float>(s.center.y));
 				m_camera.setFocus(Vec3{ s.center.x, h, s.center.y });
 				if (m_camera.mode() != CameraMode::Overview)
-					m_camera.cycleMode();  // 俯瞰に戻す
+					m_camera.cycleMode();
 			}
+
+			y += kLineH;
 		}
+		m_panelManager.reportContentHeight(U"name_list", y);
 	}
 
-	if (m_selectedEdgeId) drawEdgePanel();
-	if (m_selectedNodeId) drawNodePanel();
+	drawEdgePanel();
+	drawNodePanel();
 
 	lap(s_ui);
 	s_total = swTotal.msF();
@@ -1264,25 +1280,22 @@ void GameScene::renderWorld()
 
 void GameScene::drawEdgePanel()
 {
+	if (!m_selectedEdgeId) return;
 	RoadEdge* edge = m_network.getEdge(*m_selectedEdgeId);
 	if (!edge) { m_selectedEdgeId = none; return; }
+
+	auto area = m_panelManager.beginContent(U"edge_info");
+	if (!area) return;
 
 	static const Font pFont{ FontMethod::MSDF, 14 };
 	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
 
-	constexpr int kPW = 300;
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;
-	const int pX = Scene::Width() - kPW - 10;
-	int y = 14;
+	const int pX = kPad;
+	int y = 0;
 	bool dirty = false;
 
-	RectF{ static_cast<double>(pX - kPad), 10.0,
-	       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
-		.draw(ColorF{ 0, 0, 0, 0.8 });
-
-	pBold(U"RoadEdge #{}"_fmt(edge->id)).draw(Vec2{ pX, y }, Palette::Yellow);
-	y += kLH + 2;
 	pFont(U"nodeA:{}  nodeB:{}  len:{:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length))
 		.draw(Vec2{ pX, y }, Palette::White);
 	y += kLH + 4;
@@ -1372,6 +1385,8 @@ void GameScene::drawEdgePanel()
 		y += kLH;
 	}
 
+	m_panelManager.reportContentHeight(U"edge_info", y);
+
 	if (dirty)
 	{
 		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
@@ -1386,25 +1401,22 @@ void GameScene::drawEdgePanel()
 
 void GameScene::drawNodePanel()
 {
+	if (!m_selectedNodeId) return;
 	RoadNode* node = m_network.getNode(*m_selectedNodeId);
 	if (!node) { m_selectedNodeId = none; return; }
+
+	auto area = m_panelManager.beginContent(U"node_info");
+	if (!area) return;
 
 	static const Font pFont{ FontMethod::MSDF, 14 };
 	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
 
-	constexpr int kPW = 300;
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;
-	const int pX = Scene::Width() - kPW - 10;
-	int y = 14;
+	const int pX = kPad;
+	int y = 0;
 	bool dirty = false;
 
-	RectF{ static_cast<double>(pX - kPad), 10.0,
-	       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
-		.draw(ColorF{ 0, 0, 0, 0.8 });
-
-	pBold(U"RoadNode #{}"_fmt(node->id)).draw(Vec2{ pX, y }, Palette::Yellow);
-	y += kLH + 2;
 	pFont(U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
 		node->position.x, node->position.y, node->position.z))
 		.draw(Vec2{ pX, y }, Palette::White);
@@ -1476,6 +1488,8 @@ void GameScene::drawNodePanel()
 		y += kLH + 2;
 	}
 
+	m_panelManager.reportContentHeight(U"node_info", y);
+
 	if (dirty)
 	{
 		m_network.updateNodeCutoffs(node->id);
@@ -1524,6 +1538,8 @@ void GameScene::handleInput()
 		}
 		m_selectedEdgeId = none;
 		m_selectedNodeId = none;
+		m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"node_info");
 	}
 
 	if (KeyR.down())
@@ -1611,7 +1627,13 @@ void GameScene::handleInput()
 	}
 
 	if (KeyN.down())
-		m_showNameList = !m_showNameList;
+	{
+		if (m_panelManager.isVisible(U"name_list"))
+			m_panelManager.hide(U"name_list");
+		else
+			m_panelManager.show(U"name_list", U"地名リスト (N)",
+				Vec2{static_cast<double>(Scene::Width() - 260), 10.0});
+	}
 
 	if      (m_mode == EditMode::RoadDraw)     handleRoadDraw();
 	else if (m_mode == EditMode::ZonePaint)    handleZonePaint();
@@ -1621,26 +1643,33 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		// パネル領域内のクリックは選択操作をスキップ
-		constexpr int kPanelW = 310;
-		const int panelX = Scene::Width() - kPanelW - 14;
-		const bool onPanel = (m_selectedEdgeId || m_selectedNodeId)
-			&& Cursor::Pos().x >= panelX;
-
 		// 道路/ノード選択（左クリック、排他）
-		if (MouseL.down() && m_cursorGroundPos && !onPanel)
+		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
 		{
 			const auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
 			if (hitNode)
 			{
 				m_selectedNodeId = hitNode;
 				m_selectedEdgeId = none;
+				m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
+					Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+				m_panelManager.hide(U"edge_info");
 			}
 			else
 			{
 				const auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
 				m_selectedEdgeId = hitEdge;
 				m_selectedNodeId = none;
+				if (hitEdge)
+				{
+					m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+						Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+				}
+				else
+				{
+					m_panelManager.hide(U"edge_info");
+				}
+				m_panelManager.hide(U"node_info");
 			}
 		}
 	}

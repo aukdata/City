@@ -372,7 +372,7 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 
 	if (!m_nodeCapCache.contains(nodeId))
 	{
-		auto entries = buildNodeCapParts(network, nodeId, world, 6);
+		auto entries = buildNodeCapParts(network, nodeId, world, 16);
 		if (entries.isEmpty()) return;
 		m_nodeCapCache[nodeId] = std::move(entries);
 	}
@@ -647,7 +647,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 			if (roadbedTex) break;
 		}
 
-		const int lodDiv = Max(div / 3, 2);
+		constexpr int lodDiv = 2;
 		const MeshData mdDetail = buildNodeCapMeshForRange(network, nodeId, world, div, -999, 999, 0.0f);
 		if (!mdDetail.vertices.isEmpty())
 		{

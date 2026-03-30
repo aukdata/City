@@ -54,6 +54,9 @@ public:
 	/// @brief スクリーン座標からレイを返す
 	Ray screenToRay(Vec2 screenPos) const;
 
+	/// @brief パネル上でのマウス入力ブロック設定
+	void setBlockInput(bool block) { m_blockInput = block; }
+
 	/// @brief 俯瞰と一人称を切り替える
 	void cycleMode()
 	{
@@ -100,6 +103,8 @@ private:
 	static constexpr float MAX_PITCH_DEG = 89.0f;
 	/// @brief eye が地形面から最低限浮かせる高さ [m]
 	static constexpr float MIN_HEIGHT_ABOVE_TERRAIN = 3.0f;
+
+	bool m_blockInput = false;  ///< true: ホイール・ミドルクリック操作を無視
 
 	/// @brief m_focus / m_yaw / m_pitch / m_distance から m_camera を再構築する
 	/// @param world nullptr なら地形床クランプをスキップ

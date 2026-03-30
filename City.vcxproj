@@ -125,6 +125,7 @@
     <ClCompile Include="src\road\RoadNetwork.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
+    <ClCompile Include="src\ui\PanelManager.cpp" />
     <ClCompile Include="src\sim\SimThread.cpp" />
     <ClCompile Include="src\traffic\TrafficManager.cpp" />
     <ClCompile Include="src\traffic\TrafficGraph.cpp" />

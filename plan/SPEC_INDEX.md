@@ -11,6 +11,7 @@
 | `05_zoning_spec.md` | ゾーニングシステム詳細 |
 | `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
 | `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
+| `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ） |
 
 ---
 
@@ -276,3 +277,18 @@
 | 10. 具体例 | 車線減少・延伸端・T字路・IC分岐・左右同時分岐・JCT |
 | 11. 設計上の制約 | lateralOffset 上限・Blend の型一致・isThrough ルール |
 | 12. 他仕様書との関係 | 車線テーパー/部品配列/RoadNode 定義/経路探索/描画 |
+
+---
+
+## 18_panel_system_spec.md
+
+| セクション | 内容 |
+|-----------|------|
+| 1. パネルの構造 | プロパティ（id/title/pos/size/visible/movable/zOrder）・タイトルバー・コンテンツ領域 |
+| 2. 描画 | 半透明黒背景・タイトルバー区別・zOrder 昇順描画 |
+| 3. 複数パネルの管理 | 同時表示・Z オーダー（表示/クリックで最前面移動） |
+| 4. 入力処理 | クリック遮蔽・判定順序・閉じるボタン・タイトルバードラッグ |
+| 5. パネルの種類 | edge_info / node_info / name_list の初期実装 |
+| 6. API 設計 | PanelManager クラス（registerPanel/show/hide/handleInput/drawBackgrounds） |
+| 7. 実装上の注意 | 2D コンテキスト・入力→描画順序・スクロール非対応 |
+| 8. 他仕様書との関係 | UI/ノード/車線/地名仕様との連携 |
