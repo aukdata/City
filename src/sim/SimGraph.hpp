@@ -28,7 +28,7 @@ struct SimGraph
 		{
 			for (const auto& p : parts)
 				if (p.type == RoadPartType::Roadbed && p.build == BuildState::Built) return true;
-			return parts.isEmpty();
+			return false;
 		}
 	};
 

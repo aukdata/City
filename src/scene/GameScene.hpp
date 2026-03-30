@@ -185,6 +185,8 @@ private:
 	void handleTrainDraw();
 	void handleSandboxEdit();
 	void renderWorld();
+	void drawEdgePanel();
+	void drawNodePanel();
 
 	String modeString() const;
 };

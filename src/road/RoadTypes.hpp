@@ -133,7 +133,7 @@ struct Lane
 /// @brief TempOp による個別車線の運用上書き
 struct LaneOpOverride
 {
-	int     index;
+	int     laneIndex;
 	LaneDir newDir;
 	OpState newOp;
 };
@@ -255,7 +255,7 @@ struct RoadEdge
 			{
 				for (const auto& ov : op.overrides)
 				{
-					if (ov.index == i)
+					if (ov.laneIndex == i)
 					{
 						L.dir = ov.newDir;
 						L.op  = ov.newOp;
@@ -279,22 +279,16 @@ struct RoadEdge
 		return result;
 	}
 
-	/// @brief 道路の総幅を返す [m]（parts ベース。空なら nominalWidth の合計）
+	/// @brief 道路の総幅を返す [m]（parts ベース）
 	float totalWidth() const
 	{
-		if (!parts.isEmpty())
+		float minOff = 1e9f, maxOff = -1e9f;
+		for (const auto& p : parts)
 		{
-			float minOff = 1e9f, maxOff = -1e9f;
-			for (const auto& p : parts)
-			{
-				minOff = Min(minOff, p.offset);
-				maxOff = Max(maxOff, p.offset + p.width);
-			}
-			return maxOff - minOff;
+			minOff = Min(minOff, p.offset);
+			maxOff = Max(maxOff, p.offset + p.width);
 		}
-		float w = 0.0f;
-		for (const auto& lane : lanes) w += lane.nominalWidth;
-		return w;
+		return (minOff < maxOff) ? (maxOff - minOff) : 0.0f;
 	}
 
 	/// @brief 路盤パーツが建設済みかどうか
@@ -306,8 +300,7 @@ struct RoadEdge
 			if (part.type == RoadPartType::Roadbed && part.build == BuildState::Built)
 				return true;
 		}
-		// parts が空なら旧ロジックにフォールバック（互換性）
-		return parts.isEmpty();
+		return false;
 	}
 };
 

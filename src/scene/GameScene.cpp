@@ -5,6 +5,31 @@
 #include <Siv3D/ViewFrustum.hpp>
 #include <thread>
 
+namespace
+{
+	/// @brief クリック可能なテキストボタン（ツールチップ付き）
+	/// @return クリックされたら true
+	bool drawClickButton(const Font& font, StringView label, bool active,
+	                      int x, int y, int w, int h, StringView tooltip = U"")
+	{
+		const RectF r{ static_cast<double>(x), static_cast<double>(y),
+		               static_cast<double>(w), static_cast<double>(h) };
+		const bool hover = r.mouseOver();
+		r.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
+		              : (hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
+		font(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
+		if (hover && !tooltip.isEmpty())
+		{
+			const Vec2 tp{ Cursor::Pos().x + 16, Cursor::Pos().y - 4 };
+			const auto region = font(tooltip).region(tp);
+			RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }
+				.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
+			font(tooltip).draw(tp, Palette::White);
+		}
+		return hover && MouseL.down();
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 初期化
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1221,267 +1246,8 @@ void GameScene::renderWorld()
 		}
 	}
 
-	// ---- 道路エッジ編集パネル ----
-	if (m_selectedEdgeId)
-	{
-		RoadEdge* edge = m_network.getEdge(*m_selectedEdgeId);
-		if (edge)
-		{
-			static const Font pFont{ FontMethod::MSDF, 14 };
-			static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
-
-			constexpr int kPW = 300;
-			constexpr int kPad = 6;
-			constexpr int kLH = 17;
-			const int pX = Scene::Width() - kPW - 10;
-			int y = 14;
-			bool dirty = false;
-
-			RectF{ static_cast<double>(pX - kPad), 10.0,
-			       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
-				.draw(ColorF{ 0, 0, 0, 0.8 });
-
-			// クリック可能なテキストボタン（ツールチップ付き）
-			auto clickText = [&](StringView label, bool active, int x, int w, StringView tooltip = U"") -> bool
-			{
-				const RectF r{ static_cast<double>(x), static_cast<double>(y), static_cast<double>(w), static_cast<double>(kLH) };
-				const bool hover = r.mouseOver();
-				r.draw(active ? ColorF{ 0.3, 0.5, 0.8 } : (hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
-				pFont(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
-				if (hover && !tooltip.isEmpty())
-				{
-					const Vec2 tp{ Cursor::Pos().x + 16, Cursor::Pos().y - 4 };
-					const auto region = pFont(tooltip).region(tp);
-					RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
-					pFont(tooltip).draw(tp, Palette::White);
-				}
-				return hover && MouseL.down();
-			};
-
-			pBold(U"RoadEdge #{}"_fmt(edge->id)).draw(Vec2{ pX, y }, Palette::Yellow);
-			y += kLH + 2;
-			pFont(U"nodeA:{}  nodeB:{}  len:{:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length))
-				.draw(Vec2{ pX, y }, Palette::White);
-			y += kLH + 4;
-
-			// 道路種別（クリックで切替）
-			{
-				static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-				pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
-				int bx = pX + 40;
-				for (int k = 0; k < 4; ++k)
-				{
-					if (clickText(rtNames[k], static_cast<int>(edge->roadType) == k, bx, 62))
-					{
-						edge->roadType = static_cast<RoadType>(k);
-						dirty = true;
-					}
-					bx += 64;
-				}
-				y += kLH + 4;
-			}
-
-			// 速度制限（クリックで +/- 10）
-			{
-				pFont(U"Speed: {:.0f} km/h"_fmt(edge->speedLimit)).draw(Vec2{ pX, y }, Palette::White);
-				if (clickText(U"-10", false, pX + 160, 30)) { edge->speedLimit = Max(10.0f, edge->speedLimit - 10); }
-				if (clickText(U"+10", false, pX + 192, 30)) { edge->speedLimit = Min(200.0f, edge->speedLimit + 10); }
-				y += kLH + 4;
-			}
-
-			pFont(U"width: {:.1f}m"_fmt(edge->totalWidth())).draw(Vec2{ pX, y }, Palette::White);
-			y += kLH + 4;
-
-			// -- Parts --
-			static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
-				U"Gutter", U"Guardrail", U"Wall", U"Curb", U"Slope", U"BikeLane" };
-			static constexpr StringView bsShort[] = { U"N", U"UC", U"B", U"S" };
-			static constexpr StringView bsTip[] = { U"NotBuilt", U"UnderConstruction", U"Built", U"StubEnd" };
-			pBold(U"Parts ({})"_fmt(edge->parts.size())).draw(Vec2{ pX, y }, Palette::Yellow);
-			y += kLH;
-			for (size_t i = 0; i < edge->parts.size(); ++i)
-			{
-				auto& p = edge->parts[i];
-				pFont(U"{} w={:.1f} o={:.1f}"_fmt(ptNames[static_cast<int>(p.type)], p.width, p.offset))
-					.draw(Vec2{ pX, y }, Palette::White);
-				// BuildState 切替
-				int bx = pX + 190;
-				for (int k = 0; k < 4; ++k)
-				{
-					if (clickText(bsShort[k], static_cast<int>(p.build) == k, bx, 24, bsTip[k]))
-					{
-						p.build = static_cast<BuildState>(k);
-						dirty = true;
-					}
-					bx += 26;
-				}
-				y += kLH;
-			}
-			y += 4;
-
-			// -- Lanes --
-			static constexpr StringView osShort[] = { U"O", U"P", U"C", U"R" };
-			static constexpr StringView osTip[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
-			pBold(U"Lanes ({})"_fmt(edge->lanes.size())).draw(Vec2{ pX, y }, Palette::Yellow);
-			y += kLH;
-			for (size_t i = 0; i < edge->lanes.size(); ++i)
-			{
-				auto& L = edge->lanes[i];
-				// Direction toggle
-				if (clickText(L.dir == LaneDir::Forward ? U"Fwd" : U"Bwd", false, pX, 30, U"Click to toggle direction"))
-				{
-					L.dir = (L.dir == LaneDir::Forward) ? LaneDir::Backward : LaneDir::Forward;
-					dirty = true;
-				}
-				// OpState
-				int bx = pX + 34;
-				for (int k = 0; k < 4; ++k)
-				{
-					if (clickText(osShort[k], static_cast<int>(L.op) == k, bx, 20, osTip[k]))
-					{
-						L.op = static_cast<OpState>(k);
-						dirty = true;
-					}
-					bx += 22;
-				}
-				pFont(U"nw={:.1f} {:.1f}~{:.1f}"_fmt(L.nominalWidth, L.offsetA_L, L.offsetA_R))
-					.draw(Vec2{ pX + 126, y }, ColorF{ 0.7 });
-				y += kLH;
-			}
-
-			if (dirty)
-			{
-				m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
-				m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
-				m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
-			}
-		}
-		else
-		{
-			m_selectedEdgeId = none;
-		}
-	}
-
-	// ---- ノード編集パネル ----
-	if (m_selectedNodeId)
-	{
-		RoadNode* node = m_network.getNode(*m_selectedNodeId);
-		if (node)
-		{
-			static const Font pFont{ FontMethod::MSDF, 14 };
-			static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
-
-			constexpr int kPW = 300;
-			constexpr int kPad = 6;
-			constexpr int kLH = 17;
-			const int pX = Scene::Width() - kPW - 10;
-			int y = 14;
-			bool dirty = false;
-
-			RectF{ static_cast<double>(pX - kPad), 10.0,
-			       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
-				.draw(ColorF{ 0, 0, 0, 0.8 });
-
-			auto clickText = [&](StringView label, bool active, int x, int w, StringView tooltip = U"") -> bool
-			{
-				const RectF r{ static_cast<double>(x), static_cast<double>(y), static_cast<double>(w), static_cast<double>(kLH) };
-				const bool hover = r.mouseOver();
-				r.draw(active ? ColorF{ 0.3, 0.5, 0.8 } : (hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
-				pFont(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
-				if (hover && !tooltip.isEmpty())
-				{
-					const Vec2 tp{ Cursor::Pos().x + 16, Cursor::Pos().y - 4 };
-					const auto region = pFont(tooltip).region(tp);
-					RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
-					pFont(tooltip).draw(tp, Palette::White);
-				}
-				return hover && MouseL.down();
-			};
-
-			pBold(U"RoadNode #{}"_fmt(node->id)).draw(Vec2{ pX, y }, Palette::Yellow);
-			y += kLH + 2;
-			pFont(U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
-				node->position.x, node->position.y, node->position.z))
-				.draw(Vec2{ pX, y }, Palette::White);
-			y += kLH + 4;
-
-			// NodeType
-			{
-				static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersect", U"Diverge" };
-				pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
-				int bx = pX + 40;
-				for (int k = 0; k < 4; ++k)
-				{
-					if (clickText(ntNames[k], static_cast<int>(node->type) == k, bx, 62))
-					{
-						node->type = static_cast<NodeType>(k);
-						dirty = true;
-					}
-					bx += 64;
-				}
-				y += kLH + 4;
-			}
-
-			// Transition
-			{
-				pFont(U"Trans:").draw(Vec2{ pX, y }, Palette::White);
-				if (clickText(U"Blend", node->transition == NodeTransition::Blend, pX + 50, 50))
-				{
-					node->transition = NodeTransition::Blend;
-					dirty = true;
-				}
-				if (clickText(U"Abrupt", node->transition == NodeTransition::Abrupt, pX + 104, 50))
-				{
-					node->transition = NodeTransition::Abrupt;
-					dirty = true;
-				}
-				y += kLH + 4;
-			}
-
-			// Attachments
-			static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-			pBold(U"Attachments ({})"_fmt(node->attachments.size())).draw(Vec2{ pX, y }, Palette::Yellow);
-			y += kLH;
-
-			for (size_t i = 0; i < node->attachments.size(); ++i)
-			{
-				auto& att = node->attachments[i];
-				const RoadEdge* e = m_network.getEdge(att.edgeId);
-
-				pFont(U"[{}] edge #{}"_fmt(i, att.edgeId)).draw(Vec2{ pX, y }, Palette::White);
-				if (e)
-				{
-					pFont(U"  {} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit))
-						.draw(Vec2{ pX + 100, y }, ColorF{ 0.7 });
-				}
-				y += kLH;
-
-				// lateralOffset (+/-)
-				pFont(U"lat: {:.1f}"_fmt(att.lateralOffset)).draw(Vec2{ pX + 10, y }, Palette::White);
-				if (clickText(U"-1", false, pX + 100, 24)) { att.lateralOffset -= 1.0f; dirty = true; }
-				if (clickText(U"+1", false, pX + 126, 24)) { att.lateralOffset += 1.0f; dirty = true; }
-
-				// isThrough toggle
-				if (clickText(att.isThrough ? U"[THROUGH]" : U"[through]",
-				              att.isThrough, pX + 160, 80))
-				{
-					att.isThrough = !att.isThrough;
-					dirty = true;
-				}
-				y += kLH + 2;
-			}
-
-			if (dirty)
-			{
-				m_network.updateNodeCutoffs(node->id);
-				m_roadRenderer.invalidateCachesAroundNode(node->id, m_network);
-			}
-		}
-		else
-		{
-			m_selectedNodeId = none;
-		}
-	}
+	if (m_selectedEdgeId) drawEdgePanel();
+	if (m_selectedNodeId) drawNodePanel();
 
 	lap(s_ui);
 	s_total = swTotal.msF();
@@ -1490,6 +1256,231 @@ void GameScene::renderWorld()
 	                               s_road, s_zone, s_vehicle, s_train,
 	                               s_debug, s_ui, m_network);
 
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 道路エッジ編集パネル
+// ─────────────────────────────────────────────────────────────────────────────
+
+void GameScene::drawEdgePanel()
+{
+	RoadEdge* edge = m_network.getEdge(*m_selectedEdgeId);
+	if (!edge) { m_selectedEdgeId = none; return; }
+
+	static const Font pFont{ FontMethod::MSDF, 14 };
+	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+
+	constexpr int kPW = 300;
+	constexpr int kPad = 6;
+	constexpr int kLH = 17;
+	const int pX = Scene::Width() - kPW - 10;
+	int y = 14;
+	bool dirty = false;
+
+	RectF{ static_cast<double>(pX - kPad), 10.0,
+	       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
+		.draw(ColorF{ 0, 0, 0, 0.8 });
+
+	pBold(U"RoadEdge #{}"_fmt(edge->id)).draw(Vec2{ pX, y }, Palette::Yellow);
+	y += kLH + 2;
+	pFont(U"nodeA:{}  nodeB:{}  len:{:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length))
+		.draw(Vec2{ pX, y }, Palette::White);
+	y += kLH + 4;
+
+	// 道路種別（クリックで切替）
+	{
+		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+		pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
+		int bx = pX + 40;
+		for (int k = 0; k < 4; ++k)
+		{
+			if (drawClickButton(pFont, rtNames[k], static_cast<int>(edge->roadType) == k, bx, y, 62, kLH))
+			{
+				edge->roadType = static_cast<RoadType>(k);
+				dirty = true;
+			}
+			bx += 64;
+		}
+		y += kLH + 4;
+	}
+
+	// 速度制限（クリックで +/- 10）
+	{
+		pFont(U"Speed: {:.0f} km/h"_fmt(edge->speedLimit)).draw(Vec2{ pX, y }, Palette::White);
+		if (drawClickButton(pFont, U"-10", false, pX + 160, y, 30, kLH)) { edge->speedLimit = Max(10.0f, edge->speedLimit - 10); }
+		if (drawClickButton(pFont, U"+10", false, pX + 192, y, 30, kLH)) { edge->speedLimit = Min(200.0f, edge->speedLimit + 10); }
+		y += kLH + 4;
+	}
+
+	pFont(U"width: {:.1f}m"_fmt(edge->totalWidth())).draw(Vec2{ pX, y }, Palette::White);
+	y += kLH + 4;
+
+	// -- Parts --
+	static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
+		U"Gutter", U"Guardrail", U"Wall", U"Curb", U"Slope", U"BikeLane" };
+	static constexpr StringView bsShort[] = { U"N", U"UC", U"B", U"S" };
+	static constexpr StringView bsTip[] = { U"NotBuilt", U"UnderConstruction", U"Built", U"StubEnd" };
+	pBold(U"Parts ({})"_fmt(edge->parts.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+	y += kLH;
+	for (size_t i = 0; i < edge->parts.size(); ++i)
+	{
+		auto& p = edge->parts[i];
+		pFont(U"{} w={:.1f} o={:.1f}"_fmt(ptNames[static_cast<int>(p.type)], p.width, p.offset))
+			.draw(Vec2{ pX, y }, Palette::White);
+		// BuildState 切替
+		int bx = pX + 190;
+		for (int k = 0; k < 4; ++k)
+		{
+			if (drawClickButton(pFont, bsShort[k], static_cast<int>(p.build) == k, bx, y, 24, kLH, bsTip[k]))
+			{
+				p.build = static_cast<BuildState>(k);
+				dirty = true;
+			}
+			bx += 26;
+		}
+		y += kLH;
+	}
+	y += 4;
+
+	// -- Lanes --
+	static constexpr StringView osShort[] = { U"O", U"P", U"C", U"R" };
+	static constexpr StringView osTip[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
+	pBold(U"Lanes ({})"_fmt(edge->lanes.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+	y += kLH;
+	for (size_t i = 0; i < edge->lanes.size(); ++i)
+	{
+		auto& L = edge->lanes[i];
+		// Direction toggle
+		if (drawClickButton(pFont, L.dir == LaneDir::Forward ? U"Fwd" : U"Bwd", false, pX, y, 30, kLH, U"Click to toggle direction"))
+		{
+			L.dir = (L.dir == LaneDir::Forward) ? LaneDir::Backward : LaneDir::Forward;
+			dirty = true;
+		}
+		// OpState
+		int bx = pX + 34;
+		for (int k = 0; k < 4; ++k)
+		{
+			if (drawClickButton(pFont, osShort[k], static_cast<int>(L.op) == k, bx, y, 20, kLH, osTip[k]))
+			{
+				L.op = static_cast<OpState>(k);
+				dirty = true;
+			}
+			bx += 22;
+		}
+		pFont(U"nw={:.1f} {:.1f}~{:.1f}"_fmt(L.nominalWidth, L.offsetA_L, L.offsetA_R))
+			.draw(Vec2{ pX + 126, y }, ColorF{ 0.7 });
+		y += kLH;
+	}
+
+	if (dirty)
+	{
+		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
+		m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ノード編集パネル
+// ─────────────────────────────────────────────────────────────────────────────
+
+void GameScene::drawNodePanel()
+{
+	RoadNode* node = m_network.getNode(*m_selectedNodeId);
+	if (!node) { m_selectedNodeId = none; return; }
+
+	static const Font pFont{ FontMethod::MSDF, 14 };
+	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+
+	constexpr int kPW = 300;
+	constexpr int kPad = 6;
+	constexpr int kLH = 17;
+	const int pX = Scene::Width() - kPW - 10;
+	int y = 14;
+	bool dirty = false;
+
+	RectF{ static_cast<double>(pX - kPad), 10.0,
+	       static_cast<double>(kPW + kPad * 2), static_cast<double>(Scene::Height() - 20) }
+		.draw(ColorF{ 0, 0, 0, 0.8 });
+
+	pBold(U"RoadNode #{}"_fmt(node->id)).draw(Vec2{ pX, y }, Palette::Yellow);
+	y += kLH + 2;
+	pFont(U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
+		node->position.x, node->position.y, node->position.z))
+		.draw(Vec2{ pX, y }, Palette::White);
+	y += kLH + 4;
+
+	// NodeType
+	{
+		static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersect", U"Diverge" };
+		pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
+		int bx = pX + 40;
+		for (int k = 0; k < 4; ++k)
+		{
+			if (drawClickButton(pFont, ntNames[k], static_cast<int>(node->type) == k, bx, y, 62, kLH))
+			{
+				node->type = static_cast<NodeType>(k);
+				dirty = true;
+			}
+			bx += 64;
+		}
+		y += kLH + 4;
+	}
+
+	// Transition
+	{
+		pFont(U"Trans:").draw(Vec2{ pX, y }, Palette::White);
+		if (drawClickButton(pFont, U"Blend", node->transition == NodeTransition::Blend, pX + 50, y, 50, kLH))
+		{
+			node->transition = NodeTransition::Blend;
+			dirty = true;
+		}
+		if (drawClickButton(pFont, U"Abrupt", node->transition == NodeTransition::Abrupt, pX + 104, y, 50, kLH))
+		{
+			node->transition = NodeTransition::Abrupt;
+			dirty = true;
+		}
+		y += kLH + 4;
+	}
+
+	// Attachments
+	static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+	pBold(U"Attachments ({})"_fmt(node->attachments.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+	y += kLH;
+
+	for (size_t i = 0; i < node->attachments.size(); ++i)
+	{
+		auto& att = node->attachments[i];
+		const RoadEdge* e = m_network.getEdge(att.edgeId);
+
+		pFont(U"[{}] edge #{}"_fmt(i, att.edgeId)).draw(Vec2{ pX, y }, Palette::White);
+		if (e)
+		{
+			pFont(U"  {} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit))
+				.draw(Vec2{ pX + 100, y }, ColorF{ 0.7 });
+		}
+		y += kLH;
+
+		// lateralOffset (+/-)
+		pFont(U"lat: {:.1f}"_fmt(att.lateralOffset)).draw(Vec2{ pX + 10, y }, Palette::White);
+		if (drawClickButton(pFont, U"-1", false, pX + 100, y, 24, kLH)) { att.lateralOffset -= 1.0f; dirty = true; }
+		if (drawClickButton(pFont, U"+1", false, pX + 126, y, 24, kLH)) { att.lateralOffset += 1.0f; dirty = true; }
+
+		// isThrough toggle
+		if (drawClickButton(pFont, att.isThrough ? U"[THROUGH]" : U"[through]",
+		              att.isThrough, pX + 160, y, 80, kLH))
+		{
+			att.isThrough = !att.isThrough;
+			dirty = true;
+		}
+		y += kLH + 2;
+	}
+
+	if (dirty)
+	{
+		m_network.updateNodeCutoffs(node->id);
+		m_roadRenderer.invalidateCachesAroundNode(node->id, m_network);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

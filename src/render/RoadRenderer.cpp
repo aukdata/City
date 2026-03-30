@@ -406,6 +406,27 @@ float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 	return (nodeId == edge.nodeA) ? edge.cutoffA : edge.cutoffB;
 }
 
+RoadRenderer::PartVisual RoadRenderer::getPartVisual(const RoadPart& part) const
+{
+	float heightOff = 0.0f;
+	ColorF color{ 0.35 };
+	const Texture* tex = nullptr;
+
+	if (!part.defId.isEmpty())
+	{
+		const auto& def = m_partRegistry.get(part.defId);
+		heightOff = def.heightOffset;
+		color     = def.color;
+		if (def.texture) tex = &(*def.texture);
+	}
+	else
+	{
+		getPartDefaults(part.type, color, heightOff);
+	}
+
+	return { color, heightOff, tex };
+}
+
 bool RoadRenderer::shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network)
 {
 	const RoadNode* nA = network.getNode(edge.nodeA);
@@ -483,22 +504,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 		float oR = part.offset + part.width;
 		if (flip) { const float tmp = -oR; oR = -oL; oL = tmp; }
 
-		// heightOffset を RoadPartDef から取得
-		float heightOff = 0.0f;
-		ColorF color{ 0.35 };
-		const Texture* tex = nullptr;
-
-		if (!part.defId.isEmpty())
-		{
-			const auto& def = m_partRegistry.get(part.defId);
-			heightOff = def.heightOffset;
-			color     = def.color;
-			if (def.texture) tex = &(*def.texture);
-		}
-		else
-		{
-			getPartDefaults(part.type, color, heightOff);
-		}
+		const auto [color, heightOff, tex] = getPartVisual(part);
 
 		const MeshData mdDetail = buildStripMesh(bezier, world, oL, oR, heightOff, sStart, sEnd, 1.0f);
 		if (mdDetail.vertices.isEmpty()) continue;
@@ -691,16 +697,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 			if (leftSide && !isLeft) continue;
 			if (!leftSide && !isRight) continue;
 
-			float heightOff = 0.0f;
-			ColorF color{ 0.35 };
-			const Texture* tex = nullptr;
-			if (!part.defId.isEmpty())
-			{
-				const auto& def = m_partRegistry.get(part.defId);
-				heightOff = def.heightOffset; color = def.color;
-				if (def.texture) tex = &(*def.texture);
-			}
-			else getPartDefaults(part.type, color, heightOff);
+			const auto [color, heightOff, tex] = getPartVisual(part);
 
 			if (leftSide)
 				strips << PartStrip{ part.type, Math::Abs(oR), Math::Abs(oL), heightOff, color, tex };

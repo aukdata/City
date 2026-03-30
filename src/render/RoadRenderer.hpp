@@ -79,6 +79,12 @@ private:
 
 	// ---- ヘルパー ----
 
+	/// @brief 部品の描画属性（色・高さオフセット・テクスチャ）
+	struct PartVisual { ColorF color; float heightOff; const Texture* tex; };
+
+	/// @brief RoadPart から描画属性を解決する（defId があればレジストリ参照、なければフォールバック）
+	PartVisual getPartVisual(const RoadPart& part) const;
+
 	static float edgeMargin(const RoadEdge& edge, int nodeId);
 
 	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
