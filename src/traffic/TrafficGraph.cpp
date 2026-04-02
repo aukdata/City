@@ -136,6 +136,79 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			}
 		}
 	}
+
+	buildUnionFind();
+}
+
+// ===== Union-Find =====
+
+int TrafficGraph::ufFind(int x) const
+{
+	while (true)
+	{
+		const auto it = m_ufParent.find(x);
+		if (it == m_ufParent.end() || it->second == x) return x;
+		// 経路圧縮
+		const int root = ufFind(it->second);
+		it->second = root;
+		return root;
+	}
+}
+
+void TrafficGraph::ufUnion(int a, int b)
+{
+	const int ra = ufFind(a);
+	const int rb = ufFind(b);
+	if (ra == rb) return;
+
+	const int rankA = m_ufRank[ra];
+	const int rankB = m_ufRank[rb];
+	if (rankA < rankB)
+		m_ufParent[ra] = rb;
+	else if (rankA > rankB)
+		m_ufParent[rb] = ra;
+	else
+	{
+		m_ufParent[rb] = ra;
+		m_ufRank[ra]++;
+	}
+}
+
+void TrafficGraph::buildUnionFind()
+{
+	m_ufParent.clear();
+	m_ufRank.clear();
+
+	// 全ノードを初期化
+	for (const auto& [id, _] : m_laneNodes)
+	{
+		m_ufParent[id] = id;
+		m_ufRank[id]   = 0;
+	}
+	for (const auto& [id, _] : m_borderNodes)
+	{
+		m_ufParent[id] = id;
+		m_ufRank[id]   = 0;
+	}
+
+	// 全辺を走査して union
+	for (const auto& [id, node] : m_laneNodes)
+	{
+		for (const auto& edge : node.outgoing)
+			ufUnion(id, edge.toNodeId);
+	}
+	for (const auto& [id, node] : m_borderNodes)
+	{
+		for (const auto& edge : node.outgoing)
+			ufUnion(id, edge.toNodeId);
+	}
+}
+
+bool TrafficGraph::sameComponent(int nodeA, int nodeB) const
+{
+	if (m_ufParent.find(nodeA) == m_ufParent.end()) return false;
+	if (m_ufParent.find(nodeB) == m_ufParent.end()) return false;
+	return ufFind(nodeA) == ufFind(nodeB);
 }
 
 // ===== dijkstra =====
@@ -147,8 +220,25 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 	if (m_laneNodes.find(startLaneNodeId) == m_laneNodes.end())
 		return result;
 
-	// 探索上限: 到達不能グラフでの全探索を防ぐ
-	const int maxVisits = Min(static_cast<int>(m_laneNodes.size() + m_borderNodes.size()) * 2, 10000);
+	// 連結成分チェック: ゴールエッジの任意の entry ノードと start が同成分か
+	{
+		bool reachable = false;
+		for (const auto& [key, nodeId] : m_entryNodeIds)
+		{
+			const int eid = static_cast<int>(key >> 16);
+			if (eid == goalEdgeId && sameComponent(startLaneNodeId, nodeId))
+			{
+				reachable = true;
+				break;
+			}
+		}
+		if (!reachable)
+		{
+			result.graphSize = static_cast<int>(m_laneNodes.size() + m_borderNodes.size());
+			return result;
+		}
+	}
+
 	int visited = 0;
 
 	HashTable<int, float> dist;
@@ -170,7 +260,7 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 		const auto distIt = dist.find(u);
 		if (distIt == dist.end() || d > distIt->second) continue;
 
-		if (++visited > maxVisits) break;
+		++visited;
 
 		const LaneNode* lNode = getLaneNode(u);
 		if (lNode && lNode->edgeId == goalEdgeId)

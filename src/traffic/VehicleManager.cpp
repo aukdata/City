@@ -96,6 +96,7 @@ Array<SimRequest> VehicleManager::collectRequests()
 
 void VehicleManager::update(double dt, GameTime gameNow,
                             const SimGraph& simGraph,
+                            const RoadNetwork& network,
                             const HashSet<int>& visibleEdges)
 {
 	using Clock = std::chrono::steady_clock;
@@ -103,6 +104,10 @@ void VehicleManager::update(double dt, GameTime gameNow,
 	m_stats = {};
 
 	const auto t0 = Clock::now();
+
+	// 自動スポーン: 目標台数を維持
+	if (static_cast<int>(m_vehicles.size()) < m_targetVehicleCount)
+		spawnRandom(simGraph);
 
 	if (m_lightsDirty)
 	{
@@ -118,26 +123,45 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 	for (auto& v : m_vehicles)
 	{
-		if (v.currentEdge == -1) continue;
-		if (!simGraph.getEdge(v.currentEdge)) { v.currentEdge = -1; continue; }
+		if (v.currentEdge == -1 && v.location != VehicleLocation::OnConnection) continue;
+		if (v.location == VehicleLocation::OnLane || v.location == VehicleLocation::ChangingLane)
+		{
+			if (!simGraph.getEdge(v.currentEdge)) { v.currentEdge = -1; continue; }
+		}
 
 		// --- Active / Dormant 遷移 ---
-		const bool edgeVisible = visibleEdges.contains(v.currentEdge);
+		const bool edgeVisible = (v.location == VehicleLocation::OnConnection)
+			? true  // 交差点内は常に Active
+			: visibleEdges.contains(v.currentEdge);
 		if (edgeVisible && v.mode == VehicleMode::Dormant)
 			activateVehicle(v, simGraph);
-		else if (!edgeVisible && v.mode == VehicleMode::Active)
+		else if (!edgeVisible && v.mode == VehicleMode::Active && v.location == VehicleLocation::OnLane)
 			deactivateVehicle(v, simGraph);
 
 		// --- モード別更新 ---
 		if (v.mode == VehicleMode::Active)
 		{
 			const auto lcStart = Clock::now();
-			if (RandomBool(0.01))
+			if (v.location == VehicleLocation::OnLane && RandomBool(0.01))
 				tryLaneChange(v, simGraph);
 			lcTotal += toMs(Clock::now() - lcStart);
 
+			// 車線変更ブレンド更新
+			if (v.location == VehicleLocation::ChangingLane)
+			{
+				v.laneChangeBlend += static_cast<float>(dt) * 2.0f;  // 0.5 秒で完了
+				if (v.laneChangeBlend >= 1.0f)
+				{
+					v.currentLane = v.laneTo;
+					v.location = VehicleLocation::OnLane;
+					v.laneChangeBlend = 0.0f;
+					v.laneFrom = -1;
+					v.laneTo = -1;
+				}
+			}
+
 			const auto idmStart = Clock::now();
-			updateActiveVehicle(v, dt, gameNow, simGraph);
+			updateActiveVehicle(v, dt, gameNow, simGraph, network);
 			idmTotal += toMs(Clock::now() - idmStart);
 		}
 		else
@@ -162,7 +186,8 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 // ===== Active 車両更新 =====
 
-void VehicleManager::updateActiveVehicle(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow, const SimGraph& simGraph)
+void VehicleManager::updateActiveVehicle(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow,
+                                         const SimGraph& simGraph, const RoadNetwork& network)
 {
 	if (v.state == VehicleState::WaitingBusStop)
 	{
@@ -175,11 +200,50 @@ void VehicleManager::updateActiveVehicle(Vehicle& v, double dt, [[maybe_unused]]
 		}
 		return;
 	}
-	advanceOnEdge(v, dt, gameNow, simGraph);
+	advanceOnSegment(v, dt, gameNow, simGraph, network);
 }
 
-void VehicleManager::advanceOnEdge(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow, const SimGraph& simGraph)
+void VehicleManager::advanceOnSegment(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow,
+                                      const SimGraph& simGraph, const RoadNetwork& network)
 {
+	if (v.location == VehicleLocation::OnConnection)
+	{
+		// 交差点内: 一定速度でベジェ上を前進
+		const RoadNode* node = network.getNode(v.connectionNodeId);
+		if (!node) { v.location = VehicleLocation::OnLane; return; }
+
+		const LaneConnection* conn = nullptr;
+		for (const auto& c : node->laneConnections)
+			if (c.id == v.connectionId) { conn = &c; break; }
+		if (!conn) { v.location = VehicleLocation::OnLane; return; }
+
+		const float advance = v.speed * static_cast<float>(dt);
+		v.arcPos += advance;
+
+		if (v.arcPos >= conn->path.totalLength)
+		{
+			// 交差点通過完了 → 次の Lane セグメントへ
+			v.currentEdge = conn->toEdgeId;
+			v.currentLane = conn->toLaneIndex;
+			v.location = VehicleLocation::OnLane;
+
+			const auto* nextEdge = simGraph.getEdge(v.currentEdge);
+			if (nextEdge)
+			{
+				const bool fwd = isForwardLane(*nextEdge, v.currentLane);
+				v.arcPos = fwd ? 0.0f : nextEdge->length;
+			}
+			else
+			{
+				v.arcPos = 0.0f;
+			}
+			v.connectionId = -1;
+			v.connectionNodeId = -1;
+		}
+		return;
+	}
+
+	// OnLane / ChangingLane
 	const auto* edge = simGraph.getEdge(v.currentEdge);
 	if (!edge) return;
 
@@ -223,10 +287,10 @@ void VehicleManager::advanceOnEdge(Vehicle& v, double dt, [[maybe_unused]] GameT
 		: (v.arcPos <= 0.0f);
 
 	if (reachedEnd)
-		transitToNextWaypoint(v, simGraph);
+		transitToNextWaypoint(v, simGraph, network);
 }
 
-bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph)
+bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network)
 {
 	// 経路のウェイポイントがあれば使う
 	while (v.routeIdx < static_cast<int>(v.routeWaypoints.size()))
@@ -234,50 +298,96 @@ bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph)
 		const auto& wp = v.routeWaypoints[v.routeIdx++];
 		if (wp.edgeId != v.currentEdge)
 		{
+			// 交差点の LaneConnection を探す
+			const auto* edge = simGraph.getEdge(v.currentEdge);
+			if (edge)
+			{
+				const bool fwd = isForwardLane(*edge, v.currentLane);
+				const int exitNId = fwd ? edge->nodeB : edge->nodeA;
+				const RoadNode* node = network.getNode(exitNId);
+				if (node)
+				{
+					for (const auto& conn : node->laneConnections)
+					{
+						if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane
+							&& conn.toEdgeId == wp.edgeId && conn.toLaneIndex == wp.laneIndex)
+						{
+							// Connection ベジェ上に遷移
+							v.location = VehicleLocation::OnConnection;
+							v.connectionNodeId = exitNId;
+							v.connectionId = conn.id;
+							v.arcPos = 0.0f;
+							v.speed *= 0.9f;
+							return true;
+						}
+					}
+				}
+			}
+
+			// Connection が見つからない場合は直接遷移
 			v.currentEdge    = wp.edgeId;
 			v.currentLane    = wp.laneIndex;
 			v.arcPos         = wp.entryArcPos;
 			v.dormantTotalTime = wp.estimatedTimeSec;
+			v.location       = VehicleLocation::OnLane;
 			v.speed         *= 0.8f;
 			return true;
 		}
 	}
 
-	// フォールバック: ランダムに隣接エッジへ
+	// フォールバック: 交差点の LaneConnection をランダムに選ぶ
 	const auto* edge = simGraph.getEdge(v.currentEdge);
 	if (!edge) { v.currentEdge = -1; return false; }
 
 	const int exitNId = isForwardLane(*edge, v.currentLane) ? edge->nodeB : edge->nodeA;
+	const RoadNode* node = network.getNode(exitNId);
+	if (!node) { v.currentEdge = -1; return false; }
+
+	// この車線から出発する Connection を収集
+	Array<const LaneConnection*> candidates;
+	for (const auto& conn : node->laneConnections)
+	{
+		if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane)
+			candidates << &conn;
+	}
+
+	if (!candidates.isEmpty())
+	{
+		const auto* conn = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
+		v.location = VehicleLocation::OnConnection;
+		v.connectionNodeId = exitNId;
+		v.connectionId = conn->id;
+		v.arcPos = 0.0f;
+		v.speed *= 0.9f;
+		return true;
+	}
+
+	// Connection もない場合は従来のフォールバック
 	const auto* exitNode = simGraph.getNode(exitNId);
 	if (!exitNode) { v.currentEdge = -1; return false; }
 
-	Array<int> candidates;
+	Array<int> edgeCandidates;
 	for (const int eid : exitNode->edgeIds)
-		if (eid != v.currentEdge)
-			candidates << eid;
+		if (eid != v.currentEdge) edgeCandidates << eid;
 
-	if (candidates.isEmpty()) { v.currentEdge = -1; return false; }
+	if (edgeCandidates.isEmpty()) { v.currentEdge = -1; return false; }
 
-	const int nextEdge = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
+	const int nextEdge = edgeCandidates[Random(0, static_cast<int>(edgeCandidates.size()) - 1)];
 	const auto* nextE = simGraph.getEdge(nextEdge);
 	v.currentEdge = nextEdge;
 	v.speed      *= 0.8f;
+	v.location    = VehicleLocation::OnLane;
 
 	if (nextE)
 	{
-		// exitNode が nextEdge の nodeA なら Forward、nodeB なら Backward
 		const bool enterAtA = (nextE->nodeA == exitNId);
 		const LaneDir needDir = enterAtA ? LaneDir::Forward : LaneDir::Backward;
-
 		v.currentLane = 0;
 		for (int i = 0; i < static_cast<int>(nextE->lanes.size()); ++i)
 		{
 			if (nextE->lanes[i].dir == needDir &&
 				(nextE->lanes[i].op == OpState::Open || nextE->lanes[i].op == OpState::Provisional))
-			{
-				v.currentLane = i;
-				break;
-			}
+			{ v.currentLane = i; break; }
 		}
 		v.arcPos = enterAtA ? 0.0f : nextE->length;
 		v.dormantTotalTime = nextE->length / Max(1.0f, nextE->speedLimit / 3.6f);
@@ -450,16 +560,24 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		return (frontGap >= safetyFront) && (rearGap >= safetyRear);
 	};
 
+	auto startLaneChange = [&](int target)
+	{
+		v.location = VehicleLocation::ChangingLane;
+		v.laneFrom = v.currentLane;
+		v.laneTo   = target;
+		v.laneChangeBlend = 0.0f;
+	};
+
 	if (v.currentLane > 0 && isSafe(v.currentLane - 1))
 	{
-		v.currentLane--;
+		startLaneChange(v.currentLane - 1);
 		return;
 	}
 
 	if (frontGapCurrent < params.s0 * 4.0f)
 	{
 		if (isSafe(v.currentLane + 1))
-			v.currentLane++;
+			startLaneChange(v.currentLane + 1);
 	}
 }
 

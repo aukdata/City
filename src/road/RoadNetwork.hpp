@@ -124,6 +124,9 @@ public:
 	///   addEdge / removeEdge 後に自動で呼ばれる。
 	void updateNodeCutoffs(int nodeId);
 
+	/// @brief 指定ノードの LaneConnection を再構築する
+	void rebuildLaneConnections(int nodeId);
+
 private:
 	Array<RoadEdge> m_edges;
 	Array<RoadNode> m_nodes;
@@ -153,4 +156,7 @@ private:
 	///         PrevRoad の midNode 側制御点 (CPP) と midNode を結ぶ直線上で
 	///         midNode から NewRoad 両端間の直線距離の 1/2 の位置に移動する。
 	void smoothCurveAt(int newEdgeId, int midNodeId);
+
+	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
+	bool shouldFlipOffsets(const RoadEdge& edge) const;
 };

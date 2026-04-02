@@ -64,16 +64,7 @@ enum class TurnType : uint8
 	UTurn,
 };
 
-/// @brief 交差点ノードにおける車線間接続
-struct LaneConnection
-{
-	int      nodeId;
-	int      fromEdgeId;
-	int      fromLaneIdx;
-	int      toEdgeId;
-	int      toLaneIdx;
-	TurnType turn;
-};
+// LaneConnection は RoadTypes.hpp で定義
 
 // ===== 経路探索結果 =====
 
@@ -116,6 +107,10 @@ public:
 
 	const LaneNode*   getLaneNode(int nodeId)   const;
 	const BorderNode* getBorderNode(int nodeId) const;
+	int laneNodeCount() const { return static_cast<int>(m_laneNodes.size()); }
+
+	/// @brief 2つのノードが同じ連結成分に属するかを O(1) で判定する
+	bool sameComponent(int nodeA, int nodeB) const;
 
 private:
 	HashTable<int, LaneNode>   m_laneNodes;
@@ -123,6 +118,13 @@ private:
 	HashTable<int64, int>      m_entryNodeIds;  ///< laneKey(edgeId, laneIdx) → nodeId
 	HashTable<int64, int>      m_exitNodeIds;   ///< laneKey(edgeId, laneIdx) → nodeId
 	int m_nextNodeId = 0;
+
+	// 連結成分（Union-Find）
+	mutable HashTable<int, int> m_ufParent;
+	mutable HashTable<int, int> m_ufRank;
+	int ufFind(int x) const;
+	void ufUnion(int a, int b);
+	void buildUnionFind();
 
 	int  allocId() { return m_nextNodeId++; }
 

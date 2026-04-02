@@ -130,6 +130,10 @@ private:
 	Optional<int>   m_selectedEdgeId;
 	Optional<int>   m_selectedNodeId;
 
+	// 車両選択
+	Optional<int>   m_selectedVehicleId;
+	bool            m_trackingVehicle = false;
+
 	// パネルシステム
 	PanelManager    m_panelManager;
 
@@ -198,6 +202,7 @@ private:
 	void renderWorld();
 	void drawEdgePanel();
 	void drawNodePanel();
+	void drawVehiclePanel();
 
 	String modeString() const;
 };

@@ -12,7 +12,7 @@ void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 
 		// 車両の上にマーカーを描画（視認性向上）
 		const Vec3 markerPos = v.position + Vec3{ 0, 60, 0 };
-		Sphere{ markerPos, 50 }.draw(ColorF{ 1.0, 0.3, 0.1 }.removeSRGBCurve());
+		Sphere{ markerPos, 50 }.draw(ColorF{ 1.0, 0.3, 0.1, 0.5 }.removeSRGBCurve());
 	}
 }
 

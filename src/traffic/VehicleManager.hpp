@@ -3,6 +3,7 @@
 #include "TrafficLight.hpp"
 #include "../sim/SimMessages.hpp"
 #include "../sim/SimGraph.hpp"
+#include "../road/RoadNetwork.hpp"
 #include "../debug/PerfStats.hpp"
 
 /// @brief メインスレッド側の車両管理クラス
@@ -24,6 +25,7 @@ public:
 	/// @param visibleEdges 前フレームの可視エッジ集合
 	void update(double dt, GameTime gameNow,
 	            const SimGraph& simGraph,
+	            const RoadNetwork& network,
 	            const HashSet<int>& visibleEdges);
 
 	/// @brief Sim からの RouteResponse を適用する
@@ -43,6 +45,7 @@ public:
 private:
 	Array<Vehicle> m_vehicles;
 	int            m_nextId = 0;
+	int            m_targetVehicleCount = 20;  ///< 自動スポーンの目標台数
 
 	// 信号機（Main 所有）
 	HashTable<int, TrafficLight> m_trafficLights;
@@ -58,10 +61,12 @@ private:
 	SimTickStats m_stats;
 
 	// --- 車両更新 ---
-	void updateActiveVehicle(Vehicle& v, double dt, GameTime gameNow, const SimGraph& simGraph);
+	void updateActiveVehicle(Vehicle& v, double dt, GameTime gameNow,
+	                         const SimGraph& simGraph, const RoadNetwork& network);
 	void updateDormantVehicle(Vehicle& v, double dt);
-	void advanceOnEdge(Vehicle& v, double dt, GameTime gameNow, const SimGraph& simGraph);
-	bool transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph);
+	void advanceOnSegment(Vehicle& v, double dt, GameTime gameNow,
+	                      const SimGraph& simGraph, const RoadNetwork& network);
+	bool transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
 
 	// --- Active/Dormant 遷移 ---
 	void activateVehicle(Vehicle& v, const SimGraph& simGraph);

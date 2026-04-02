@@ -2,6 +2,7 @@
 #include "../time/GameClock.hpp"
 #include "RoadEnums.hpp"
 #include "RoadPartTypes.hpp"
+#include "BezierUtil.hpp"
 
 // ===== 列挙型 =====
 
@@ -315,6 +316,20 @@ inline bool isPassable(const RoadEdge& edge, int laneIndex)
 		&& (lane.op == OpState::Open || lane.op == OpState::Provisional);
 }
 
+// ===== LaneConnection =====
+
+/// @brief 交差点内の車線接続（旋回パス）
+/// @details 19_vehicle_movement_spec.md 参照
+struct LaneConnection
+{
+	int         id            = -1;
+	int         fromEdgeId    = -1;
+	int         fromLaneIndex = 0;
+	int         toEdgeId      = -1;
+	int         toLaneIndex   = 0;
+	CubicBezier path;              ///< 交差点内の旋回ベジェ曲線
+};
+
 // ===== RoadNode =====
 
 /// @brief 道路ノード（端点・継ぎ目・交差点・分岐合流）
@@ -326,6 +341,8 @@ struct RoadNode
 	NodeType               type       = NodeType::Endpoint;
 	NodeTransition         transition = NodeTransition::Blend;
 	Array<EdgeAttachment>  attachments;
+	Array<LaneConnection>  laneConnections;  ///< 交差点の車線接続リスト
+	int                    nextConnectionId = 0;
 
 	/// @brief 接続エッジ ID 一覧を返す（旧 edgeIds 互換）
 	[[nodiscard]] Array<int> edgeIds() const

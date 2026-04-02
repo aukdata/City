@@ -5,30 +5,124 @@
 #include <Siv3D/ViewFrustum.hpp>
 #include <thread>
 
-namespace
+// ═════════════════════════════════════════════════════════════════════════════
+// パネル UI ウィジェット
+// ═════════════════════════════════════════════════════════════════════════════
+
+namespace PanelWidget   // Panel Widgets
 {
-	/// @brief クリック可能なテキストボタン（ツールチップ付き）
-	/// @return クリックされたら true
-	bool drawClickButton(const Font& font, StringView label, bool active,
-	                      int x, int y, int w, int h, StringView tooltip = U"")
+	// ── ツールチップ（パネル末尾で PanelWidget::flushTooltip() して最前面描画） ──
+
+	const Font* tipFont   = nullptr;
+	String      tipText;
+	Vec2        tipPos{ 0, 0 };
+	bool        tipActive = false;
+
+	void flushTooltip()
+	{
+		if (!tipActive || !tipFont) return;
+		const auto region = (*tipFont)(tipText).region(tipPos);
+		RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }
+			.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
+		(*tipFont)(tipText).draw(tipPos, Palette::White);
+		tipActive = false;
+	}
+
+	// ── 共通内部: 矩形の描画 + hover 判定 + ツールチップ登録 ──
+
+	struct HitResult { bool hover; bool clickL; bool clickR; int wheel; };
+
+	HitResult hitTest(const Font& font, int x, int y, int w, int h, StringView tooltip = U"")
 	{
 		const RectF r{ static_cast<double>(x), static_cast<double>(y),
 		               static_cast<double>(w), static_cast<double>(h) };
 		const bool hover = r.mouseOver();
-		r.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
-		              : (hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
-		font(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
 		if (hover && !tooltip.isEmpty())
 		{
-			const Vec2 tp{ Cursor::Pos().x + 16, Cursor::Pos().y - 4 };
-			const auto region = font(tooltip).region(tp);
-			RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }
-				.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
-			font(tooltip).draw(tp, Palette::White);
+			tipFont   = &font;
+			tipText   = String{ tooltip };
+			tipPos    = Vec2{ static_cast<double>(x + w + 4), static_cast<double>(y) };
+			tipActive = true;
 		}
-		return hover && MouseL.down();
+		return { hover, hover && MouseL.down(), hover && MouseR.down(),
+		         hover ? static_cast<int>(Mouse::Wheel()) : 0 };
+	}
+
+	// ── ボタン: 左クリックで true ──
+
+	bool button(const Font& font, StringView label, bool active,
+	            int x, int y, int w, int h, StringView tooltip = U"")
+	{
+		const auto hit = hitTest(font, x, y, w, h, tooltip);
+		RectF{ static_cast<double>(x), static_cast<double>(y),
+		       static_cast<double>(w), static_cast<double>(h) }
+			.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
+			      : (hit.hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
+		font(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
+		return hit.clickL;
+	}
+
+	// ── トグル: クリックで bool 反転。変化したら true ──
+
+	bool toggle(const Font& font, StringView labelOn, StringView labelOff, bool& value,
+	            int x, int y, int w, int h, StringView tooltip = U"")
+	{
+		if (button(font, value ? labelOn : labelOff, value, x, y, w, h, tooltip))
+		{
+			value = !value;
+			return true;
+		}
+		return false;
+	}
+
+	// ── 数値スピン: ホイールで増減。変化したら true ──
+
+	bool spin(const Font& font, float& value, float step, float lo, float hi,
+	          int x, int y, int w, int h, StringView fmt = U"{:.1f}")
+	{
+		const auto hit = hitTest(font, x, y, w, h);
+		RectF{ static_cast<double>(x), static_cast<double>(y),
+		       static_cast<double>(w), static_cast<double>(h) }
+			.draw(hit.hover ? ColorF{ 0.2, 0.2, 0.3 } : ColorF{ 0.12, 0.12, 0.18 });
+		font(Fmt(fmt)(value)).draw(Vec2{ x + 2, y }, Palette::White);
+		if (hit.wheel != 0)
+		{
+			value = Clamp(value - hit.wheel * step, lo, hi);
+			return true;
+		}
+		return false;
+	}
+
+	// ── 列挙サイクル: L クリック→次、R クリック→前。変化したら true ──
+
+	template <typename E>
+	bool cycle(const Font& font, E& value, const StringView* names, int count,
+	           int x, int y, int w, int h, StringView tooltip = U"")
+	{
+		const auto hit = hitTest(font, x, y, w, h, tooltip);
+		const bool active = false;
+		RectF{ static_cast<double>(x), static_cast<double>(y),
+		       static_cast<double>(w), static_cast<double>(h) }
+			.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
+			      : (hit.hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
+		font(names[static_cast<int>(value)]).draw(Vec2{ x + 2, y }, ColorF{ 0.7 });
+		const int dir = hit.clickL ? 1 : (hit.clickR ? -1 : 0);
+		if (dir != 0)
+		{
+			value = static_cast<E>((static_cast<int>(value) + count + dir) % count);
+			return true;
+		}
+		return false;
+	}
+
+	// ── ラベル: 読み取り専用テキスト ──
+
+	void label(const Font& font, StringView text, int x, int y, ColorF color = ColorF{ 0.5 })
+	{
+		font(text).draw(Vec2{ x, y }, color);
 	}
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 初期化
@@ -58,9 +152,10 @@ GameScene::~GameScene()
 
 void GameScene::initScene()
 {
-	m_panelManager.registerPanel(U"edge_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
+	m_panelManager.registerPanel(U"edge_info", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
+	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
 
 	if (!getData().saveName.isEmpty())
 		initLoadGame();
@@ -950,7 +1045,7 @@ void GameScene::update()
 		// 車両更新（前フレームの可視エッジ集合を使用）
 		if (m_simGraph)
 			m_vehicleManager.update(vehicleDt, m_clock.now, *m_simGraph,
-			                        m_roadRenderer.visibleEdges());
+			                        m_network, m_roadRenderer.visibleEdges());
 
 		// 車両からの経路リクエストを Sim に送信
 		for (auto& req : m_vehicleManager.collectRequests())
@@ -971,15 +1066,32 @@ void GameScene::update()
 	m_camera.update(dt, m_world);
 	m_logicMs = swLogic.msF();
 
-	// フォローカメラ
+	// 車両追跡: Overview モードのまま注視点を車両位置に追従
+	if (m_trackingVehicle && m_selectedVehicleId)
 	{
-		const auto& vehicles = m_vehicleManager.vehicles();
-		if (m_camera.mode() == CameraMode::Follow && !vehicles.isEmpty())
+		// WASD で追跡解除
+		if (KeyW.pressed() || KeyA.pressed() || KeyS.pressed() || KeyD.pressed())
 		{
-			m_followVehicleIdx = m_followVehicleIdx % static_cast<int>(vehicles.size());
-			const Vehicle& v = vehicles[m_followVehicleIdx];
-			m_camera.setFollowTarget(v.position, v.heading);
+			m_trackingVehicle = false;
 		}
+		else
+		{
+			for (const auto& rv : m_renderVehicles)
+			{
+				if (rv.id == *m_selectedVehicleId)
+				{
+					m_camera.setFocus(rv.position);
+					break;
+				}
+			}
+		}
+	}
+
+	// パネルが閉じられたら追跡解除
+	if (m_selectedVehicleId && !m_panelManager.isVisible(U"vehicle_info"))
+	{
+		m_selectedVehicleId = none;
+		m_trackingVehicle = false;
 	}
 
 	handleInput();
@@ -1054,13 +1166,18 @@ void GameScene::renderWorld()
 				const float len = bez->totalLength;
 				for (int i = 0; i < kDiv; ++i)
 				{
-					const Vec3 a = bez->positionAt(len * (i / static_cast<float>(kDiv)));
-					const Vec3 b = bez->positionAt(len * ((i + 1) / static_cast<float>(kDiv)));
+					const float tA = i / static_cast<float>(kDiv);
+					const float tB = (i + 1) / static_cast<float>(kDiv);
+					const Vec3 a = bez->positionAt(len * tA);
+					const Vec3 b = bez->positionAt(len * tB);
 					const float ha = m_world.computeHeight(static_cast<float>(a.x), static_cast<float>(a.z));
 					const float hb = m_world.computeHeight(static_cast<float>(b.x), static_cast<float>(b.z));
 					const Vec3 pa{ a.x, ha + 3.0, a.z };
 					const Vec3 pb{ b.x, hb + 3.0, b.z };
-					Cylinder{ pa, pb, 1.0 }.draw(ColorF{ 0.2, 0.8, 1.0, 0.6 });
+					// A側（赤）→ B側（緑）のグラデーション
+					const ColorF cA = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tA);
+					const ColorF cB = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tB);
+					Cylinder{ pa, pb, 1.0 }.draw(cA.lerp(cB, 0.5));
 				}
 			}
 		}
@@ -1083,25 +1200,84 @@ void GameScene::renderWorld()
 		// Active 車両のワールド座標を計算して描画する
 		{
 			m_renderVehicles.clear();
-			for (auto& v : m_vehicleManager.vehicles())
+
+			// 車線オフセット付き位置を計算するヘルパー
+			auto calcLanePos = [&](const CubicBezier& bez, int edgeId, int laneIdx, float arc) -> Vec3
 			{
-				if (v.mode != VehicleMode::Active || v.currentEdge < 0) continue;
-				if (const auto bezier = m_network.getBezier(v.currentEdge))
+				const float ca = Clamp(arc, 0.0f, bez.totalLength);
+				Vec3 pos = bez.positionAt(ca);
+				const Vec3 tan = bez.tangentAt(ca);
+				const RoadEdge* e = m_network.getEdge(edgeId);
+				if (e && laneIdx >= 0 && laneIdx < static_cast<int>(e->lanes.size()))
 				{
-					Vehicle rv = v;
-					const float clampedArc = Clamp(rv.arcPos, 0.0f, bezier->totalLength);
-					rv.position = bezier->positionAt(clampedArc);
-					rv.position.y = m_world.sampleHeight(
-						static_cast<float>(rv.position.x),
-						static_cast<float>(rv.position.z)) + 2.0f;
-					const Vec3 tangent = bezier->tangentAt(clampedArc);
-					const RoadEdge* edge = m_network.getEdge(rv.currentEdge);
-					const bool fwd = (!edge || rv.currentLane >= static_cast<int>(edge->lanes.size()))
-						? true : (edge->lanes[rv.currentLane].dir == LaneDir::Forward);
-					const float sign = fwd ? 1.0f : -1.0f;
-					rv.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
-					m_renderVehicles << rv;
+					const Lane& ln = e->lanes[laneIdx];
+					const float ft = (bez.totalLength > 0.0f) ? (ca / bez.totalLength) : 0.0f;
+					float off = (ln.offsetA_L + ln.offsetA_R) * 0.5f
+						+ ((ln.offsetB_L + ln.offsetB_R) * 0.5f - (ln.offsetA_L + ln.offsetA_R) * 0.5f) * ft;
+					if (RoadRenderer::shouldFlipOffsets(*e, m_network)) off = -off;
+					const Vec3 perp{ tan.z, 0.0, -tan.x };
+					const double pl = perp.length();
+					if (pl > 0.001) pos += (perp / pl) * static_cast<double>(off);
 				}
+				return pos;
+			};
+
+			for (const auto& v : m_vehicleManager.vehicles())
+			{
+				if (v.mode != VehicleMode::Active) continue;
+
+				Vehicle rv = v;
+				Vec3 tangent;
+
+				if (v.location == VehicleLocation::OnConnection)
+				{
+					// 交差点内: Connection ベジェ上
+					const RoadNode* node = m_network.getNode(v.connectionNodeId);
+					if (!node) continue;
+					const LaneConnection* conn = nullptr;
+					for (const auto& c : node->laneConnections)
+						if (c.id == v.connectionId) { conn = &c; break; }
+					if (!conn) continue;
+					const float ca = Clamp(v.arcPos, 0.0f, conn->path.totalLength);
+					rv.position = conn->path.positionAt(ca);
+					tangent = conn->path.tangentAt(ca);
+				}
+				else if (v.location == VehicleLocation::ChangingLane)
+				{
+					// 車線変更中: 2つの Lane 位置をブレンド
+					if (v.currentEdge < 0) continue;
+					const auto bezier = m_network.getBezier(v.currentEdge);
+					if (!bezier) continue;
+					const Vec3 posFrom = calcLanePos(*bezier, v.currentEdge, v.laneFrom, v.arcPos);
+					const Vec3 posTo   = calcLanePos(*bezier, v.currentEdge, v.laneTo,   v.arcPos);
+					rv.position = posFrom.lerp(posTo, static_cast<double>(v.laneChangeBlend));
+					tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
+				}
+				else
+				{
+					// OnLane: 通常の車線上
+					if (v.currentEdge < 0) continue;
+					const auto bezier = m_network.getBezier(v.currentEdge);
+					if (!bezier) continue;
+					rv.position = calcLanePos(*bezier, v.currentEdge, v.currentLane, v.arcPos);
+					tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
+				}
+
+				rv.position.y = m_world.sampleHeight(
+					static_cast<float>(rv.position.x),
+					static_cast<float>(rv.position.z)) + 2.0f;
+
+				// heading: 接線方向（Backward 車線なら反転）
+				float sign = 1.0f;
+				if (v.location != VehicleLocation::OnConnection)
+				{
+					const RoadEdge* edge = m_network.getEdge(v.currentEdge);
+					const int li = (v.location == VehicleLocation::ChangingLane) ? v.laneFrom : v.currentLane;
+					if (edge && li >= 0 && li < static_cast<int>(edge->lanes.size()))
+						sign = (edge->lanes[li].dir == LaneDir::Forward) ? 1.0f : -1.0f;
+				}
+				rv.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
+				m_renderVehicles << rv;
 			}
 			m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
 		}
@@ -1273,6 +1449,7 @@ void GameScene::renderWorld()
 
 	drawEdgePanel();
 	drawNodePanel();
+	drawVehiclePanel();
 
 	lap(s_ui);
 	s_total = swTotal.msF();
@@ -1321,95 +1498,184 @@ void GameScene::drawEdgePanel()
 	int y = 0;
 	bool dirty = false;
 
-	pFont(U"nodeA:{}  nodeB:{}  len:{:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length))
-		.draw(Vec2{ pX, y }, Palette::White);
-	y += kLH + 4;
+	PanelWidget::label(pFont, U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), pX, y, ColorF{1.0});
+	if (PanelWidget::button(pFont, U"Swap A/B", false, pX + 200, y, 62, kLH, U"Swap nodeA/B"))
+	{
+		std::swap(edge->nodeA, edge->nodeB);
+		std::swap(edge->ctrlA, edge->ctrlB);
+		std::swap(edge->cutoffA, edge->cutoffB);
+		for (auto& L : edge->lanes)
+		{
+			std::swap(L.offsetA_L, L.offsetB_L);
+			std::swap(L.offsetA_R, L.offsetB_R);
+		}
+		// ベジェ弧長は方向に依存しないので length は不変
+		dirty = true;
+	}
+	y += kLH + 2;
 
-	// 道路種別（クリックで切替）
+	// 道路種別（選択ボタン）
 	{
 		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-		pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
-		int bx = pX + 40;
-		for (int k = 0; k < 4; ++k)
-		{
-			if (drawClickButton(pFont, rtNames[k], static_cast<int>(edge->roadType) == k, bx, y, 62, kLH))
-			{
-				edge->roadType = static_cast<RoadType>(k);
-				dirty = true;
-			}
-			bx += 64;
-		}
-		y += kLH + 4;
+		PanelWidget::label(pFont, U"Type", pX, y, ColorF{ 0.6 });
+		if (PanelWidget::cycle(pFont, edge->roadType, rtNames, 4, pX + 34, y, 60, kLH)) dirty = true;
+		y += kLH + 2;
 	}
 
-	// 速度制限（クリックで +/- 10）
+	// 速度制限（ホイール）
 	{
-		pFont(U"Speed: {:.0f} km/h"_fmt(edge->speedLimit)).draw(Vec2{ pX, y }, Palette::White);
-		if (drawClickButton(pFont, U"-10", false, pX + 160, y, 30, kLH)) { edge->speedLimit = Max(10.0f, edge->speedLimit - 10); }
-		if (drawClickButton(pFont, U"+10", false, pX + 192, y, 30, kLH)) { edge->speedLimit = Min(200.0f, edge->speedLimit + 10); }
+		PanelWidget::label(pFont, U"Speed", pX, y, ColorF{ 0.6 });
+		if (PanelWidget::spin(pFont, edge->speedLimit, 10.0f, 10.0f, 200.0f, pX + 44, y, 44, kLH, U"{:.0f}")) dirty = true;
+		PanelWidget::label(pFont, U"km/h", pX + 90, y, ColorF{ 0.5 });
+		PanelWidget::label(pFont, U"W:{:.1f}m"_fmt(edge->totalWidth()), pX + 130, y);
 		y += kLH + 4;
 	}
 
-	pFont(U"width: {:.1f}m"_fmt(edge->totalWidth())).draw(Vec2{ pX, y }, Palette::White);
-	y += kLH + 4;
-
-	// -- Parts --
+	// ── Parts ──
 	static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
-		U"Gutter", U"Guardrail", U"Wall", U"Curb", U"Slope", U"BikeLane" };
-	static constexpr StringView bsShort[] = { U"N", U"UC", U"B", U"S" };
-	static constexpr StringView bsTip[] = { U"NotBuilt", U"UnderConstruction", U"Built", U"StubEnd" };
-	pBold(U"Parts ({})"_fmt(edge->parts.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+		U"Gutter", U"Guard", U"Wall", U"Curb", U"Slope", U"Bike" };
+	static constexpr StringView bsNames[] = { U"NotBuilt", U"Building", U"Built", U"Stub" };
+	PanelWidget::label(pBold, U"Parts ({})"_fmt(edge->parts.size()), pX, y, ColorF{1.0, 1.0, 0.4});
+	if (PanelWidget::button(pFont, U"+", false, pX + 72, y, 16, kLH, U"Add part"))
+	{
+		RoadPart np;
+		np.type = RoadPartType::Roadbed; np.width = 3.5f;
+		np.offset = edge->totalWidth() * 0.5f; np.build = BuildState::Built;
+		edge->parts << np; dirty = true;
+	}
 	y += kLH;
-	for (size_t i = 0; i < edge->parts.size(); ++i)
+	int partToRemove = -1;
+	int partSwapA = -1, partSwapB = -1;
+	for (int i = 0; i < static_cast<int>(edge->parts.size()); ++i)
 	{
 		auto& p = edge->parts[i];
-		pFont(U"{} w={:.1f} o={:.1f}"_fmt(ptNames[static_cast<int>(p.type)], p.width, p.offset))
-			.draw(Vec2{ pX, y }, Palette::White);
-		// BuildState 切替
-		int bx = pX + 190;
-		for (int k = 0; k < 4; ++k)
-		{
-			if (drawClickButton(pFont, bsShort[k], static_cast<int>(p.build) == k, bx, y, 24, kLH, bsTip[k]))
-			{
-				p.build = static_cast<BuildState>(k);
-				dirty = true;
-			}
-			bx += 26;
-		}
+		const int n = static_cast<int>(edge->parts.size());
+		int bx = pX;
+
+		// 上下
+		if (i > 0     && PanelWidget::button(pFont, U"^", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i - 1; }
+		bx += 15;
+		if (i < n - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i + 1; }
+		bx += 17;
+
+		// type (L/R cycle)
+		if (PanelWidget::cycle(pFont, p.type, ptNames, 10, bx, y, 56, kLH)) dirty = true;
+		bx += 58;
+
+		// build (L/R cycle)
+		if (PanelWidget::cycle(pFont, p.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
+		bx += 54;
+
+		// width (wheel)
+		PanelWidget::label(pFont, U"w", bx, y, ColorF{ 0.5 });
+		if (PanelWidget::spin(pFont, p.width, 0.5f, 0.5f, 50.0f, bx + 10, y, 34, kLH)) dirty = true;
+		bx += 46;
+
+		// offset (wheel)
+		PanelWidget::label(pFont, U"o", bx, y, ColorF{ 0.5 });
+		if (PanelWidget::spin(pFont, p.offset, 0.5f, -50.0f, 50.0f, bx + 10, y, 38, kLH)) dirty = true;
+		bx += 50;
+
+		// 削除
+		if (PanelWidget::button(pFont, U"X", false, bx, y, 16, kLH, U"Remove")) partToRemove = i;
 		y += kLH;
 	}
+	if (partSwapA >= 0 && partSwapB >= 0) { std::swap(edge->parts[partSwapA], edge->parts[partSwapB]); dirty = true; }
+	if (partToRemove >= 0) { edge->parts.remove_at(partToRemove); dirty = true; }
 	y += 4;
 
-	// -- Lanes --
-	static constexpr StringView osShort[] = { U"O", U"P", U"C", U"R" };
-	static constexpr StringView osTip[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
-	pBold(U"Lanes ({})"_fmt(edge->lanes.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+	// ── Lanes ──
+	static constexpr StringView osN[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
+	static constexpr StringView ltN[] = { U"Normal", U"Bus", U"Climb", U"Turn", U"Accel", U"Decel" };
+	static constexpr StringView lnN[] = { U"None", U"Solid W", U"Dash W", U"Solid Y", U"Double Y" };
+	static constexpr StringView drN[] = { U"Forward", U"Backward" };
+	PanelWidget::label(pBold, U"Lanes ({})"_fmt(edge->lanes.size()), pX, y, ColorF{1.0, 1.0, 0.4});
+	if (PanelWidget::button(pFont, U"+", false, pX + 72, y, 16, kLH, U"Add lane"))
+	{
+		Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = 3.5f;
+		const float hw = edge->totalWidth() * 0.5f;
+		nl.offsetA_L = hw; nl.offsetA_R = hw + 3.5f; nl.offsetB_L = hw; nl.offsetB_R = hw + 3.5f;
+		edge->lanes << nl; dirty = true;
+	}
 	y += kLH;
-	for (size_t i = 0; i < edge->lanes.size(); ++i)
+	int laneToRemove = -1;
+	int laneSwapA = -1, laneSwapB = -1;
+	for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 	{
 		auto& L = edge->lanes[i];
-		// Direction toggle
-		if (drawClickButton(pFont, L.dir == LaneDir::Forward ? U"Fwd" : U"Bwd", false, pX, y, 30, kLH, U"Click to toggle direction"))
-		{
-			L.dir = (L.dir == LaneDir::Forward) ? LaneDir::Backward : LaneDir::Forward;
-			dirty = true;
-		}
-		// OpState
-		int bx = pX + 34;
-		for (int k = 0; k < 4; ++k)
-		{
-			if (drawClickButton(pFont, osShort[k], static_cast<int>(L.op) == k, bx, y, 20, kLH, osTip[k]))
-			{
-				L.op = static_cast<OpState>(k);
-				dirty = true;
-			}
-			bx += 22;
-		}
-		pFont(U"nw={:.1f} {:.1f}~{:.1f}"_fmt(L.nominalWidth, L.offsetA_L, L.offsetA_R))
-			.draw(Vec2{ pX + 126, y }, ColorF{ 0.7 });
-		y += kLH;
-	}
+		const int ln = static_cast<int>(edge->lanes.size());
+		int bx;
 
+		// Row 1: 移動 | 番号 | 方向 | 状態 | 種別 | 削除
+		bx = pX;
+		if (i > 0      && PanelWidget::button(pFont, U"^", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i - 1; }
+		bx += 17;
+		if (i < ln - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i + 1; }
+		bx += 18;
+		PanelWidget::label(pBold, U"Lane {}"_fmt(i), bx, y, ColorF{0.8, 0.8, 1.0});
+		bx += 46;
+		dirty |= PanelWidget::cycle(pFont, L.dir, drN, 2, bx, y, 66, kLH);
+		bx += 68;
+		dirty |= PanelWidget::cycle(pFont, L.op, osN, 4, bx, y, 78, kLH);
+		bx += 80;
+		dirty |= PanelWidget::cycle(pFont, L.type, ltN, 6, bx, y, 50, kLH);
+		if (PanelWidget::button(pFont, U"X", false, pX + 348, y, 18, kLH, U"Remove")) laneToRemove = i;
+		y += kLH;
+
+		// Row 2: 車線変更 | 幅
+		bx = pX + 8;
+		PanelWidget::label(pFont, U"Change", bx, y);
+		bx += 50;
+		dirty |= PanelWidget::toggle(pFont, U"Left OK", U"Left --", L.canChangeLaneLeft, bx, y, 56, kLH);
+		bx += 58;
+		dirty |= PanelWidget::toggle(pFont, U"Right OK", U"Right --", L.canChangeLaneRight, bx, y, 58, kLH);
+		bx += 64;
+		PanelWidget::label(pFont, U"Width", bx, y);
+		bx += 40;
+		dirty |= PanelWidget::spin(pFont, L.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
+		y += kLH;
+
+		// Row 3: 区画線
+		bx = pX + 8;
+		PanelWidget::label(pFont, U"Line Left", bx, y);
+		bx += 72;
+		dirty |= PanelWidget::cycle(pFont, L.lineLeft, lnN, 5, bx, y, 66, kLH);
+		bx += 72;
+		PanelWidget::label(pFont, U"Right", bx, y);
+		bx += 42;
+		dirty |= PanelWidget::cycle(pFont, L.lineRight, lnN, 5, bx, y, 66, kLH);
+		y += kLH;
+
+		// Row 4: Offset A (赤)
+		bx = pX + 8;
+		PanelWidget::label(pFont, U"A", bx, y, ColorF{1.0, 0.5, 0.5});
+		bx += 14;
+		PanelWidget::label(pFont, U"Left", bx, y);
+		bx += 34;
+		dirty |= PanelWidget::spin(pFont, L.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+		bx += 50;
+		PanelWidget::label(pFont, U"Right", bx, y);
+		bx += 40;
+		dirty |= PanelWidget::spin(pFont, L.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+		y += kLH;
+
+		// Row 5: Offset B (緑)
+		bx = pX + 8;
+		PanelWidget::label(pFont, U"B", bx, y, ColorF{0.5, 1.0, 0.5});
+		bx += 14;
+		PanelWidget::label(pFont, U"Left", bx, y);
+		bx += 34;
+		dirty |= PanelWidget::spin(pFont, L.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+		bx += 50;
+		PanelWidget::label(pFont, U"Right", bx, y);
+		bx += 40;
+		dirty |= PanelWidget::spin(pFont, L.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+		y += kLH + 4;
+	}
+	if (laneSwapA >= 0 && laneSwapB >= 0) { std::swap(edge->lanes[laneSwapA], edge->lanes[laneSwapB]); dirty = true; }
+	if (laneToRemove >= 0) { edge->lanes.remove_at(laneToRemove); dirty = true; }
+
+	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"edge_info", y);
 
 	if (dirty)
@@ -1442,47 +1708,29 @@ void GameScene::drawNodePanel()
 	int y = 0;
 	bool dirty = false;
 
-	pFont(U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
-		node->position.x, node->position.y, node->position.z))
-		.draw(Vec2{ pX, y }, Palette::White);
+	PanelWidget::label(pFont, U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
+		node->position.x, node->position.y, node->position.z), pX, y, ColorF{1.0});
 	y += kLH + 4;
 
 	// NodeType
 	{
 		static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersect", U"Diverge" };
-		pFont(U"Type:").draw(Vec2{ pX, y }, Palette::White);
-		int bx = pX + 40;
-		for (int k = 0; k < 4; ++k)
-		{
-			if (drawClickButton(pFont, ntNames[k], static_cast<int>(node->type) == k, bx, y, 62, kLH))
-			{
-				node->type = static_cast<NodeType>(k);
-				dirty = true;
-			}
-			bx += 64;
-		}
-		y += kLH + 4;
+		PanelWidget::label(pFont, U"Type", pX, y);
+		dirty |= PanelWidget::cycle(pFont, node->type, ntNames, 4, pX + 36, y, 70, kLH);
+		y += kLH + 2;
 	}
 
 	// Transition
 	{
-		pFont(U"Trans:").draw(Vec2{ pX, y }, Palette::White);
-		if (drawClickButton(pFont, U"Blend", node->transition == NodeTransition::Blend, pX + 50, y, 50, kLH))
-		{
-			node->transition = NodeTransition::Blend;
-			dirty = true;
-		}
-		if (drawClickButton(pFont, U"Abrupt", node->transition == NodeTransition::Abrupt, pX + 104, y, 50, kLH))
-		{
-			node->transition = NodeTransition::Abrupt;
-			dirty = true;
-		}
+		static constexpr StringView trNames[] = { U"Blend", U"Abrupt" };
+		PanelWidget::label(pFont, U"Trans", pX, y);
+		dirty |= PanelWidget::cycle(pFont, node->transition, trNames, 2, pX + 42, y, 54, kLH);
 		y += kLH + 4;
 	}
 
 	// Attachments
 	static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-	pBold(U"Attachments ({})"_fmt(node->attachments.size())).draw(Vec2{ pX, y }, Palette::Yellow);
+	PanelWidget::label(pBold, U"Attachments ({})"_fmt(node->attachments.size()), pX, y, ColorF{1.0, 1.0, 0.4});
 	y += kLH;
 
 	for (size_t i = 0; i < node->attachments.size(); ++i)
@@ -1490,29 +1738,18 @@ void GameScene::drawNodePanel()
 		auto& att = node->attachments[i];
 		const RoadEdge* e = m_network.getEdge(att.edgeId);
 
-		pFont(U"[{}] edge #{}"_fmt(i, att.edgeId)).draw(Vec2{ pX, y }, Palette::White);
+		PanelWidget::label(pFont, U"[{}] edge #{}"_fmt(i, att.edgeId), pX, y, ColorF{1.0});
 		if (e)
-		{
-			pFont(U"  {} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit))
-				.draw(Vec2{ pX + 100, y }, ColorF{ 0.7 });
-		}
+			PanelWidget::label(pFont, U"{} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit), pX + 100, y);
 		y += kLH;
 
-		// lateralOffset (+/-)
-		pFont(U"lat: {:.1f}"_fmt(att.lateralOffset)).draw(Vec2{ pX + 10, y }, Palette::White);
-		if (drawClickButton(pFont, U"-1", false, pX + 100, y, 24, kLH)) { att.lateralOffset -= 1.0f; dirty = true; }
-		if (drawClickButton(pFont, U"+1", false, pX + 126, y, 24, kLH)) { att.lateralOffset += 1.0f; dirty = true; }
-
-		// isThrough toggle
-		if (drawClickButton(pFont, att.isThrough ? U"[THROUGH]" : U"[through]",
-		              att.isThrough, pX + 160, y, 80, kLH))
-		{
-			att.isThrough = !att.isThrough;
-			dirty = true;
-		}
+		PanelWidget::label(pFont, U"lat", pX + 10, y);
+		dirty |= PanelWidget::spin(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
+		dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
 		y += kLH + 2;
 	}
 
+	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"node_info", y);
 
 	if (dirty)
@@ -1520,6 +1757,130 @@ void GameScene::drawNodePanel()
 		m_network.updateNodeCutoffs(node->id);
 		m_roadRenderer.invalidateCachesAroundNode(node->id, m_network);
 	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 車両情報パネル
+// ─────────────────────────────────────────────────────────────────────────────
+
+void GameScene::drawVehiclePanel()
+{
+	if (!m_selectedVehicleId) return;
+
+	// 選択中の車両を探す
+	const Vehicle* veh = nullptr;
+	for (const auto& v : m_vehicleManager.vehicles())
+	{
+		if (v.id == *m_selectedVehicleId) { veh = &v; break; }
+	}
+	if (!veh)
+	{
+		m_selectedVehicleId = none;
+		m_trackingVehicle = false;
+		m_panelManager.hide(U"vehicle_info");
+		return;
+	}
+
+	auto area = m_panelManager.beginContent(U"vehicle_info");
+	if (!area) return;
+
+	static const Font pFont{ FontMethod::MSDF, 14 };
+	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+
+	constexpr int kPad = 6;
+	constexpr int kLH = 17;
+	const int pX = kPad;
+	int y = 0;
+
+	// 車種
+	static constexpr StringView typeNames[] = {
+		U"PassengerCar", U"KeiCar", U"Moped", U"LightVehicle",
+		U"Bus", U"SmallTruck", U"LargeTruck", U"Emergency"
+	};
+	const int typeIdx = static_cast<int>(veh->type);
+	PanelWidget::label(pFont, U"Type: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), pX, y, ColorF{1.0});
+	y += kLH;
+
+	// 速度
+	PanelWidget::label(pFont, U"Speed: {:.1f} km/h"_fmt(veh->speed * 3.6f), pX, y, ColorF{1.0});
+	y += kLH;
+
+	// 位置状態
+	static constexpr StringView locNames[] = { U"OnLane", U"OnConnection", U"ChangingLane" };
+	PanelWidget::label(pFont, U"Location: {}"_fmt(locNames[static_cast<int>(veh->location)]), pX, y, ColorF{1.0});
+	y += kLH;
+
+	// 現在のエッジ
+	PanelWidget::label(pFont, U"Edge: {}  Lane: {}"_fmt(veh->currentEdge, veh->currentLane), pX, y, ColorF{1.0});
+	y += kLH;
+
+	// 目的地
+	PanelWidget::label(pFont, U"Goal Edge: {}"_fmt(veh->goalEdgeId), pX, y, ColorF{1.0});
+	y += kLH + 4;
+
+	// 追跡ボタン
+	{
+		const RectF btn{ static_cast<double>(pX), static_cast<double>(y), 120.0, static_cast<double>(kLH + 2) };
+		const bool hover = btn.mouseOver();
+		btn.draw(m_trackingVehicle ? ColorF{ 0.2, 0.5, 0.8, 0.8 } : (hover ? ColorF{ 0.3, 0.3, 0.3, 0.8 } : ColorF{ 0.2, 0.2, 0.2, 0.6 }));
+		PanelWidget::label(pBold, m_trackingVehicle ? U"Tracking ON" : U"Track", pX + 4, y, ColorF{1.0});
+		if (hover && MouseL.down())
+		{
+			m_trackingVehicle = !m_trackingVehicle;
+		}
+		y += kLH + 6;
+	}
+
+	// 経路ウェイポイント
+	const int wpCount = static_cast<int>(veh->routeWaypoints.size());
+	PanelWidget::label(pBold, U"Route: {}/{} waypoints"_fmt(veh->routeIdx, wpCount), pX, y, ColorF{1.0, 1.0, 0.4});
+	y += kLH + 2;
+
+	if (wpCount == 0)
+	{
+		PanelWidget::label(pFont, veh->routeRequested ? U"(requesting...)" : U"(no route)", pX, y, ColorF{0.6});
+		y += kLH;
+	}
+
+	// 現在位置の前後を表示（前2 + 後10）
+	const int showStart = Max(0, veh->routeIdx - 2);
+	const int showEnd   = Min(wpCount, veh->routeIdx + 10);
+	for (int i = showStart; i < showEnd; ++i)
+	{
+		const auto& wp = veh->routeWaypoints[i];
+		const bool isCurrent = (i == veh->routeIdx);
+		const bool isPast    = (i < veh->routeIdx);
+
+		const RoadEdge* edge = m_network.getEdge(wp.edgeId);
+		const String label = U"{} E:{} L:{} {:.0f}m"_fmt(
+			isCurrent ? U">" : (isPast ? U" " : U" "),
+			wp.edgeId, wp.laneIndex, wp.edgeLength);
+
+		const RectF itemRect{ static_cast<double>(pX), static_cast<double>(y),
+			260.0, static_cast<double>(kLH) };
+		const bool itemHover = itemRect.mouseOver();
+
+		if (itemHover)
+			itemRect.draw(ColorF{ 0.3, 0.3, 0.5, 0.4 });
+
+		const ColorF color = isPast ? ColorF{ 0.4 }
+			: (isCurrent ? ColorF{ 0.0, 1.0, 1.0 }
+			: (itemHover ? ColorF{ 1.0, 1.0, 0.0 } : ColorF{ 1.0 }));
+		PanelWidget::label(pFont, label, pX + 2, y, color);
+
+		// クリックでカメラ移動
+		if (itemHover && MouseL.down() && edge)
+		{
+			const RoadNode* node = m_network.getNode(edge->nodeA);
+			if (node)
+				m_camera.setFocus(node->position);
+		}
+
+		y += kLH;
+	}
+
+	PanelWidget::flushTooltip();
+	m_panelManager.reportContentHeight(U"vehicle_info", y);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1668,33 +2029,77 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		// 道路/ノード選択（左クリック、排他）
+		// 車両 → ノード → エッジの優先順でクリック判定
 		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
 		{
-			const auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
-			if (hitNode)
+			// 車両クリック判定（レイキャスト）
+			Optional<int> hitVehicleId;
 			{
-				m_selectedNodeId = hitNode;
+				const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+				double bestDist = 1e9;
+				for (const auto& v : m_renderVehicles)
+				{
+					const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
+					const Vec3 center = v.position + Vec3{ 0, size.y / 2, 0 };
+					const Quaternion rot = Quaternion::RotateY(v.heading);
+					const OrientedBox box{ center, size, rot };
+					if (const auto d = box.intersects(ray))
+					{
+						if (*d < bestDist)
+						{
+							bestDist = *d;
+							hitVehicleId = v.id;
+						}
+					}
+				}
+			}
+
+			if (hitVehicleId)
+			{
+				m_selectedVehicleId = hitVehicleId;
 				m_selectedEdgeId = none;
-				m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
-					Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+				m_selectedNodeId = none;
+				m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
+					Vec2{static_cast<double>(Scene::Width() - 292), 10.0});
 				m_panelManager.hide(U"edge_info");
+				m_panelManager.hide(U"node_info");
 			}
 			else
 			{
-				const auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
-				m_selectedEdgeId = hitEdge;
-				m_selectedNodeId = none;
-				if (hitEdge)
+				// 車両選択解除
+				if (m_selectedVehicleId)
 				{
-					m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+					m_selectedVehicleId = none;
+					m_trackingVehicle = false;
+					m_panelManager.hide(U"vehicle_info");
+				}
+
+				// 道路/ノード選択
+				const auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+				if (hitNode)
+				{
+					m_selectedNodeId = hitNode;
+					m_selectedEdgeId = none;
+					m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
 						Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+					m_panelManager.hide(U"edge_info");
 				}
 				else
 				{
-					m_panelManager.hide(U"edge_info");
+					const auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+					m_selectedEdgeId = hitEdge;
+					m_selectedNodeId = none;
+					if (hitEdge)
+					{
+						m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+							Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+					}
+					else
+					{
+						m_panelManager.hide(U"edge_info");
+					}
+					m_panelManager.hide(U"node_info");
 				}
-				m_panelManager.hide(U"node_info");
 			}
 		}
 	}

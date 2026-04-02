@@ -31,6 +31,14 @@ enum class VehicleMode : uint8
 	Dormant,  ///< 画面外: タイマーベースのエッジ遷移のみ
 };
 
+/// @brief 車両の位置状態
+enum class VehicleLocation : uint8
+{
+	OnLane,        ///< エッジの車線上
+	OnConnection,  ///< 交差点の旋回パス上
+	ChangingLane,  ///< 車線変更中（2車線間をブレンド）
+};
+
 /// @brief IDM（Intelligent Driver Model）パラメータ
 struct IDMParams
 {
@@ -110,6 +118,16 @@ struct Vehicle
 	VehicleMode  mode             = VehicleMode::Active;
 	float        dormantTimer     = 0.0f;  ///< 現在エッジの残り通過時間 [game sec]
 	float        dormantTotalTime = 0.0f;  ///< 現在エッジの推定全通過時間 [game sec]
+
+	// 位置状態
+	VehicleLocation location     = VehicleLocation::OnLane;
+	int          connectionNodeId = -1;   ///< OnConnection 時の交差点ノード ID
+	int          connectionId    = -1;    ///< OnConnection 時の LaneConnection ID
+
+	// 車線変更
+	int          laneFrom        = -1;    ///< ChangingLane 時の元車線
+	int          laneTo          = -1;    ///< ChangingLane 時の目標車線
+	float        laneChangeBlend = 0.0f;  ///< ChangingLane 時のブレンド [0,1]
 
 	// バス専用フィールド
 	int    busRouteId       = -1;

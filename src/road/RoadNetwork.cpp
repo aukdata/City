@@ -111,9 +111,11 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 		m_edges << e;
 	}
 
-	// 両端ノードのカットオフを再計算する
+	// 両端ノードのカットオフと LaneConnection を再計算する
 	updateNodeCutoffs(nodeA);
 	updateNodeCutoffs(nodeB);
+	rebuildLaneConnections(nodeA);
+	rebuildLaneConnections(nodeB);
 
 	return e.id;
 }
@@ -136,9 +138,11 @@ void RoadNetwork::removeEdge(int edgeId)
 	m_edgeIdToIdx.erase(edgeId);
 	m_freeEdgeSlots << idx;
 
-	// edgeIds 更新後にカットオフを再計算する
+	// edgeIds 更新後にカットオフと LaneConnection を再計算する
 	updateNodeCutoffs(nA);
 	updateNodeCutoffs(nB);
+	rebuildLaneConnections(nA);
+	rebuildLaneConnections(nB);
 }
 
 void RoadNetwork::removeNode(int nodeId)
@@ -198,6 +202,8 @@ void RoadNetwork::addEdgeRaw(const RoadEdge& edge)
 
 	updateNodeCutoffs(edge.nodeA);
 	updateNodeCutoffs(edge.nodeB);
+	rebuildLaneConnections(edge.nodeA);
+	rebuildLaneConnections(edge.nodeB);
 }
 
 RoadEdge* RoadNetwork::getEdge(int id)
@@ -1224,4 +1230,115 @@ int RoadNetwork::mergeShortEdges(float minLength)
 	}
 
 	return merged;
+}
+
+// ===== LaneConnection 構築 =====
+
+void RoadNetwork::rebuildLaneConnections(int nodeId)
+{
+	RoadNode* node = getNode(nodeId);
+	if (!node) return;
+
+	node->laneConnections.clear();
+
+	const auto edgeIds = node->edgeIds();
+	if (edgeIds.size() < 2) return;
+
+	// 各エッジの exit 車線 → 他エッジの entry 車線の組み合わせを生成
+	for (const int fromEid : edgeIds)
+	{
+		const RoadEdge* fromEdge = getEdge(fromEid);
+		if (!fromEdge || !fromEdge->isRoadbedBuilt()) continue;
+
+		for (int fi = 0; fi < static_cast<int>(fromEdge->lanes.size()); ++fi)
+		{
+			const Lane& fromLane = fromEdge->lanes[fi];
+			if (fromLane.op != OpState::Open && fromLane.op != OpState::Provisional) continue;
+
+			// この車線がこのノードで exit するか？
+			const bool exitsAtNode =
+				(fromLane.dir == LaneDir::Forward  && fromEdge->nodeB == nodeId) ||
+				(fromLane.dir == LaneDir::Backward && fromEdge->nodeA == nodeId);
+			if (!exitsAtNode) continue;
+
+			// 出口のワールド座標と接線を取得
+			const auto fromBez = getBezier(fromEid);
+			if (!fromBez) continue;
+			const float exitArc = (fromLane.dir == LaneDir::Forward) ? fromBez->totalLength : 0.0f;
+			const Vec3 exitPos = fromBez->positionAt(exitArc);
+			const Vec3 exitTan = fromBez->tangentAt(exitArc);
+			const float exitSign = (fromLane.dir == LaneDir::Forward) ? 1.0f : -1.0f;
+
+			// 車線オフセットを適用
+			const float fromCenterA = (fromLane.offsetA_L + fromLane.offsetA_R) * 0.5f;
+			const float fromCenterB = (fromLane.offsetB_L + fromLane.offsetB_R) * 0.5f;
+			const float fromT = (fromLane.dir == LaneDir::Forward) ? 1.0f : 0.0f;
+			float fromOffset = fromCenterA + (fromCenterB - fromCenterA) * fromT;
+			if (shouldFlipOffsets(*fromEdge)) fromOffset = -fromOffset;
+			const Vec3 fromPerp = Vec3{ exitTan.z, 0.0, -exitTan.x }.normalized();
+			const Vec3 exitWorld = exitPos + fromPerp * static_cast<double>(fromOffset);
+
+			for (const int toEid : edgeIds)
+			{
+				if (toEid == fromEid) continue;
+				const RoadEdge* toEdge = getEdge(toEid);
+				if (!toEdge || !toEdge->isRoadbedBuilt()) continue;
+
+				for (int ti = 0; ti < static_cast<int>(toEdge->lanes.size()); ++ti)
+				{
+					const Lane& toLane = toEdge->lanes[ti];
+					if (toLane.op != OpState::Open && toLane.op != OpState::Provisional) continue;
+
+					// この車線がこのノードで entry するか？
+					const bool entersAtNode =
+						(toLane.dir == LaneDir::Forward  && toEdge->nodeA == nodeId) ||
+						(toLane.dir == LaneDir::Backward && toEdge->nodeB == nodeId);
+					if (!entersAtNode) continue;
+
+					// 入口のワールド座標と接線を取得
+					const auto toBez = getBezier(toEid);
+					if (!toBez) continue;
+					const float entryArc = (toLane.dir == LaneDir::Forward) ? 0.0f : toBez->totalLength;
+					const Vec3 entryPos = toBez->positionAt(entryArc);
+					const Vec3 entryTan = toBez->tangentAt(entryArc);
+					const float entrySign = (toLane.dir == LaneDir::Forward) ? 1.0f : -1.0f;
+
+					// 車線オフセットを適用
+					const float toCenterA = (toLane.offsetA_L + toLane.offsetA_R) * 0.5f;
+					const float toCenterB = (toLane.offsetB_L + toLane.offsetB_R) * 0.5f;
+					const float toT = (toLane.dir == LaneDir::Forward) ? 0.0f : 1.0f;
+					float toOffset = toCenterA + (toCenterB - toCenterA) * toT;
+					if (shouldFlipOffsets(*toEdge)) toOffset = -toOffset;
+					const Vec3 toPerp = Vec3{ entryTan.z, 0.0, -entryTan.x }.normalized();
+					const Vec3 entryWorld = entryPos + toPerp * static_cast<double>(toOffset);
+
+					// 旋回ベジェを生成
+					const double dist = (exitWorld - entryWorld).length();
+					const double handle = Max(dist * 0.33, 5.0);
+					const Vec3 p1 = exitWorld + (exitTan * exitSign).normalized() * handle;
+					const Vec3 p2 = entryWorld - (entryTan * entrySign).normalized() * handle;
+
+					LaneConnection conn;
+					conn.id            = node->nextConnectionId++;
+					conn.fromEdgeId    = fromEid;
+					conn.fromLaneIndex = fi;
+					conn.toEdgeId      = toEid;
+					conn.toLaneIndex   = ti;
+					conn.path          = CubicBezier{ exitWorld, p1, p2, entryWorld };
+
+					node->laneConnections << std::move(conn);
+				}
+			}
+		}
+	}
+}
+
+bool RoadNetwork::shouldFlipOffsets(const RoadEdge& edge) const
+{
+	const RoadNode* nA = getNode(edge.nodeA);
+	const RoadNode* nB = getNode(edge.nodeB);
+	if (!nA || !nB) return false;
+	if (nA->position.x != nB->position.x)
+		return nA->position.x > nB->position.x;
+	return nA->position.z > nB->position.z;
 }

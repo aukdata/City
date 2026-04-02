@@ -272,12 +272,12 @@ Array<LaneConnection> laneConnections;  ///< この交差点の車線接続リ�
 
 | 段階 | 内容 | 状態 |
 |---|---|---|
-| A | Lane セグメントの bezier 導出。車両を車線上に描画 | 未実装 |
-| B | Connection セグメントの自動生成。交差点データ構造追加 | 未実装 |
-| C | 車両の OnConnection 状態。交差点内走行 | 未実装 |
-| D | 車線変更の ChangingLane 状態。ブレンド描画 | 未実装 |
-| E | 信号機の Connection ベース制御 | 未実装 |
-| F | 経路探索との統合（Waypoint に Connection を含める） | 未実装 |
+| A | Lane セグメントの bezier 導出。車両を車線上に描画 | 実装済み |
+| B | Connection セグメントの自動生成。交差点データ構造追加 | 実装済み |
+| C | 車両の OnConnection 状態。交差点内走行 | 実装済み |
+| D | 車線変更の ChangingLane 状態。ブレンド描画 | 実装済み |
+| E | 信号機の Connection ベース制御 | 部分実装（既存の Edge ベース信号が動作） |
+| F | 経路探索との統合（Waypoint に Connection を含める） | 部分実装（transitToNextWaypoint 内で Connection を自動検索） |
 
 ---
 

@@ -689,8 +689,9 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 			// A→B フレームの offset → outward フレーム（ノード外向き）
 			float oL = part.offset;
 			float oR = part.offset + part.width;
-			// B端: outward = -(A→B方向) なので offset を反転
-			// （flip はエッジ描画用でありノードキャップでは不要）
+			// shouldFlipOffsets: 正規方向と逆のエッジは offset を反転
+			if (shouldFlipOffsets(*info.edge, network)) { const float t = -oR; oR = -oL; oL = t; }
+			// B端: outward = -(A→B方向) なので更に反転
 			if (!info.isNodeA) { const float t = -oR; oR = -oL; oL = t; }
 
 			// leftSide: outward offset < 0 の部品
@@ -1073,6 +1074,11 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 				if (!hasOwnRoadbed) { edgeOffL = p.offset; edgeOffR = p.offset + p.width; hasOwnRoadbed = true; }
 				else { edgeOffL = Min(edgeOffL, p.offset); edgeOffR = Max(edgeOffR, p.offset + p.width); }
 			}
+		}
+		// shouldFlipOffsets: 正規方向と逆のエッジは offset を反転
+		if (shouldFlipOffsets(*edge, network))
+		{
+			const float t = -edgeOffR; edgeOffR = -edgeOffL; edgeOffL = t;
 		}
 		const double oL = isNodeA ?  static_cast<double>(edgeOffL)
 		                           : -static_cast<double>(edgeOffR);

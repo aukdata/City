@@ -39,6 +39,11 @@ public:
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
 
+	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
+	/// @details 正規方向: nodeA の位置 < nodeB の位置（X優先、同値ならZ）
+	///          逆なら true を返す → 車線オフセットの符号を反転すべき
+	static bool shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network);
+
 private:
 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
 	struct EdgeBounds { Float3 center; float radiusSq; };
@@ -89,11 +94,6 @@ private:
 	PartVisual getPartVisual(const RoadPart& part) const;
 
 	static float edgeMargin(const RoadEdge& edge, int nodeId);
-
-	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
-	/// @details 正規方向: nodeA の位置 < nodeB の位置（X優先、同値ならZ）
-	///          逆なら true を返す → レンダリング時にオフセットを反転すべき
-	static bool shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network);
 
 	// ---- メンバ ----
 
