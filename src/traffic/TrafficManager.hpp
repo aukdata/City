@@ -4,6 +4,7 @@
 #include "TrafficLight.hpp"
 #include "BusRoute.hpp"
 #include "../sim/SimGraph.hpp"
+#include "../debug/PerfStats.hpp"
 
 /// @brief 車両生成・更新・管理クラス
 /// @details SimGraph を使用してシミュレーションを行う。
@@ -49,6 +50,9 @@ public:
 	/// @brief バス路線一覧を返す（読み取り専用）
 	const Array<BusRoute>& busRoutes() const { return m_busRoutes; }
 
+	/// @brief 直近の tick 計測値を返す
+	const SimTickStats& lastSimStats() const { return m_simStats; }
+
 private:
 	static constexpr int   kReroutePerFrame      = 10;     ///< 毎フレームの最大再探索台数
 	static constexpr float kPeriodicRerouteInterval = 60.0f; ///< 定期再探索間隔 [ゲーム秒]
@@ -74,6 +78,9 @@ private:
 
 	// 再探索キュー（vehicle id リスト）
 	Array<int> m_rerouteQueue;
+
+	// パフォーマンス計測
+	SimTickStats m_simStats;
 
 	// --- グラフ管理 ---
 	void rebuildGraph(GameTime now);

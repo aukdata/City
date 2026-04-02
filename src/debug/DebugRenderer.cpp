@@ -7,23 +7,19 @@ void DebugRenderer::handleInput()
 {
 	if (!KeyF3.pressed()) return;
 
-	bool anyChord = false;
-	if (KeyN.down())     { m_showNetwork   = !m_showNetwork;   m_debugMode = true; anyChord = true; }
-	if (KeyC.down())     { m_showChunks    = !m_showChunks;    m_debugMode = true; anyChord = true; }
-	if (KeyV.down())     { m_showVehicles  = !m_showVehicles;  m_debugMode = true; anyChord = true; }
-	if (KeyG.down())     { m_showGrid      = !m_showGrid;      m_debugMode = true; anyChord = true; }
-	if (KeyB.down())     { m_showBiomes    = !m_showBiomes;    m_debugMode = true; anyChord = true; }
-	if (KeySlash.down()) { m_showDetailHUD = !m_showDetailHUD; m_debugMode = true; anyChord = true; }
+	if (KeyN.down())     m_showNetwork   = !m_showNetwork;
+	if (KeyC.down())     m_showChunks    = !m_showChunks;
+	if (KeyV.down())     m_showVehicles  = !m_showVehicles;
+	if (KeyG.down())     m_showGrid      = !m_showGrid;
+	if (KeyB.down())     m_showBiomes    = !m_showBiomes;
+	if (KeyD.down())     m_showProfiler  = !m_showProfiler;
+	if (KeySlash.down()) m_showDetailHUD = !m_showDetailHUD;
+	if (KeyP.down() && !KeyShift.pressed()) m_showPerfGraph = !m_showPerfGraph;
 	if (KeyH.down())
 	{
-		m_showHelp  = !m_showHelp;
+		m_showHelp = !m_showHelp;
 		if (m_showHelp) m_helpOpenTime = Scene::Time();
-		m_debugMode = true;
-		anyChord    = true;
 	}
-
-	if (!anyChord && KeyF3.down())
-		m_debugMode = !m_debugMode;
 }
 
 // ===== render =====
@@ -33,8 +29,6 @@ void DebugRenderer::render(const RoadNetwork& network,
                            const World& world,
                            const GameCamera& camera)
 {
-	if (!m_debugMode) return;
-
 	// 3D オーバーレイ（描画順: グリッド → ネットワーク → チャンク → 車両）
 	if (m_showGrid)     renderGrid(camera);
 	if (m_showBiomes)   renderBiomes(world, camera);
@@ -42,7 +36,6 @@ void DebugRenderer::render(const RoadNetwork& network,
 	if (m_showChunks)   renderChunks(world, camera);
 	if (m_showVehicles) renderVehicleInfo(vehicles, camera);
 
-	// 注: 2D オーバーレイ (renderBiomeLegend) は renderProfiler 側で描画する
 	if (m_showDetailHUD) renderDetailHUD(network, world, camera, vehicles);
 	renderLog();
 	// ヘルプパネル（10s で自動クローズ）
@@ -380,8 +373,8 @@ void DebugRenderer::renderHelp()
 {
 	const Size sz = Scene::Size();
 	const Vec2 center{ sz.x * 0.5, sz.y * 0.5 };
-	constexpr double panelW = 320.0;
-	constexpr double panelH = 210.0;
+	constexpr double panelW = 340.0;
+	constexpr double panelH = 280.0;
 	constexpr double lineH  = 22.0;
 
 	const RectF panel{ Arg::center = center, panelW, panelH };
@@ -392,15 +385,18 @@ void DebugRenderer::renderHelp()
 	double y = center.y - panelH * 0.5 + 12.0;
 
 	const StringView helpLines[] = {
-		U"DEBUG MODE  (F3 to toggle)",
+		U"DEBUG OVERLAYS",
 		U"",
-		U"F3+N   Network visualizer",
-		U"F3+C   Chunk boundaries",
-		U"F3+V   Vehicle debug info",
-		U"F3+G   World grid",
-		U"F3+B   Biome overlay",
-		U"F3+/   Detail HUD",
-		U"F3+H   This help",
+		U"F3+D        Profiler (numbers)",
+		U"F3+P        Performance graph",
+		U"F3+Shift+P  Dump perf to Console",
+		U"F3+N        Network visualizer",
+		U"F3+C        Chunk boundaries",
+		U"F3+V        Vehicle debug info",
+		U"F3+G        World grid",
+		U"F3+B        Biome overlay",
+		U"F3+/        Detail HUD",
+		U"F3+H        This help",
 	};
 
 	bool first = true;
@@ -525,7 +521,7 @@ void DebugRenderer::renderProfiler(double total, double logic, double sky, doubl
                                    double debug, double ui,
                                    const RoadNetwork& network)
 {
-	if (!m_debugMode) return;
+	if (!m_showProfiler) return;
 
 	const int x = 10, y = 10;
 	constexpr int lineH = 14;
@@ -556,4 +552,194 @@ void DebugRenderer::renderProfiler(double total, double logic, double sky, doubl
 
 	// 2D オーバーレイ（ここは 3D レンダーターゲット外なので正しく表示される）
 	if (m_showBiomes) renderBiomeLegend();
+}
+
+// ===== パフォーマンスグラフ =====
+
+void DebugRenderer::renderPerfGraph(const MainPerfHistory& mainHistory,
+                                    const SimPerfHistory& simHistory)
+{
+	if (!m_showPerfGraph && !(KeyF3.pressed() && KeyShift.pressed() && KeyP.down()))
+		return;
+
+	// F3+Shift+P: Console に数値出力
+	if (KeyF3.pressed() && KeyShift.pressed() && KeyP.down())
+	{
+		dumpPerfToConsole(mainHistory, simHistory);
+	}
+
+	if (!m_showPerfGraph) return;
+
+	// グラフ描画設定
+	constexpr double kGraphW = 280.0;
+	constexpr double kGraphH = 140.0;
+	constexpr double kGap    = 10.0;
+	constexpr double kMargin = 10.0;
+	const double baseY = Scene::Height() - kGraphH - kMargin - 20.0; // 凡例分のスペース
+
+	// --- Main Thread グラフ ---
+	struct Segment { StringView name; ColorF color; };
+	static constexpr Segment kMainSegs[] = {
+		{ U"Lock",    ColorF{ 1.0, 1.0, 1.0 } },
+		{ U"Sky",     ColorF{ 0.4, 0.8, 1.0 } },
+		{ U"Terrain", ColorF{ 0.6, 0.4, 0.2 } },
+		{ U"Road",    ColorF{ 0.5, 0.5, 0.5 } },
+		{ U"Zone",    ColorF{ 0.3, 0.8, 0.3 } },
+		{ U"Vehicle", ColorF{ 0.9, 0.2, 0.2 } },
+		{ U"Train",   ColorF{ 0.9, 0.8, 0.1 } },
+		{ U"Dbg+UI",  ColorF{ 0.7, 0.3, 0.8 } },
+	};
+
+	static constexpr Segment kSimSegs[] = {
+		{ U"Graph",   ColorF{ 0.9, 0.5, 0.1 } },
+		{ U"Reroute", ColorF{ 0.9, 0.2, 0.2 } },
+		{ U"IDM",     ColorF{ 0.2, 0.5, 0.9 } },
+		{ U"Lane",    ColorF{ 0.3, 0.8, 0.3 } },
+		{ U"Signal",  ColorF{ 0.9, 0.8, 0.1 } },
+		{ U"Other",   ColorF{ 0.5, 0.5, 0.5 } },
+	};
+
+	auto getMainValues = [](const MainFrameStats& s) -> Array<double> {
+		return { s.lockWait, s.sky, s.terrain, s.road, s.zone, s.vehicle, s.train, s.debugUI };
+	};
+
+	auto getSimValues = [](const SimTickStats& s) -> Array<double> {
+		return { s.graph, s.reroute, s.idm, s.laneChange, s.signal, s.other };
+	};
+
+	constexpr double kTargetMs = 16.67; // 60 FPS ライン
+
+	auto drawGraph = [&](Vec2 origin, double w, double h, StringView title,
+	                     auto& history, const auto* segs, int segCount, auto getValues)
+	{
+		// 背景
+		RectF{ origin.x, origin.y, w, h }.draw(ColorF{ 0.0, 0.0, 0.0, 0.6 });
+
+		const size_t n = history.count();
+		if (n == 0) return;
+
+		const double barW = w / static_cast<double>(kPerfHistorySize);
+
+		// 60FPS ガイドライン
+		const double guideY = origin.y + h - (kTargetMs / kTargetMs) * h;
+		Line{ origin.x, guideY, origin.x + w, guideY }.draw(1.0, ColorF{ 1.0, 1.0, 1.0, 0.3 });
+
+		// 棒描画
+		for (size_t i = 0; i < n; ++i)
+		{
+			const auto vals = getValues(history[i]);
+			const double x = origin.x + (kPerfHistorySize - n + i) * barW;
+			double yBottom = origin.y + h;
+
+			for (int s = 0; s < segCount; ++s)
+			{
+				const double segH = (vals[s] / kTargetMs) * h;
+				if (segH < 0.1) continue;
+				const double yTop = yBottom - segH;
+				RectF{ x, Max(yTop, origin.y), barW, Min(segH, yBottom - origin.y) }
+					.draw(segs[s].color);
+				yBottom = yTop;
+			}
+		}
+
+		// タイトルと直近の合計ms
+		double latestTotal = 0;
+		if (n > 0)
+		{
+			const auto vals = getValues(history[n - 1]);
+			for (const auto& v : vals) latestTotal += v;
+		}
+		m_font(U"{} {:.1f}ms"_fmt(title, latestTotal))
+			.draw(origin.x + 4, origin.y + 2, ColorF{ 1.0 });
+
+		// 凡例（グラフ下）
+		double lx = origin.x;
+		const double ly = origin.y + h + 2;
+		for (int s = 0; s < segCount; ++s)
+		{
+			RectF{ lx, ly, 8, 8 }.draw(segs[s].color);
+			const auto text = m_font(segs[s].name);
+			text.draw(lx + 10, ly - 2, ColorF{ 0.9 });
+			lx += 10 + text.region().w + 6;
+		}
+	};
+
+	const Vec2 mainOrigin{ kMargin, baseY };
+	const Vec2 simOrigin{ kMargin + kGraphW + kGap, baseY };
+
+	drawGraph(mainOrigin, kGraphW, kGraphH, U"Main Thread",
+	          mainHistory, kMainSegs, static_cast<int>(std::size(kMainSegs)), getMainValues);
+	drawGraph(simOrigin, kGraphW, kGraphH, U"Sim Thread",
+	          simHistory, kSimSegs, static_cast<int>(std::size(kSimSegs)), getSimValues);
+}
+
+void DebugRenderer::dumpPerfToConsole(const MainPerfHistory& mainHistory,
+                                      const SimPerfHistory& simHistory)
+{
+	Console << U"===== Performance Snapshot =====";
+
+	if (mainHistory.count() > 0)
+	{
+		const size_t n = mainHistory.count();
+		MainFrameStats avg{};
+		for (size_t i = 0; i < n; ++i)
+		{
+			const auto& f = mainHistory[i];
+			avg.lockWait += f.lockWait;
+			avg.sky      += f.sky;
+			avg.terrain  += f.terrain;
+			avg.road     += f.road;
+			avg.zone     += f.zone;
+			avg.vehicle  += f.vehicle;
+			avg.train    += f.train;
+			avg.debugUI  += f.debugUI;
+		}
+		const double inv = 1.0 / static_cast<double>(n);
+		avg.lockWait *= inv; avg.sky *= inv; avg.terrain *= inv;
+		avg.road *= inv; avg.zone *= inv; avg.vehicle *= inv;
+		avg.train *= inv; avg.debugUI *= inv;
+
+		const auto& m = mainHistory.latest();
+		Console << U"--- Main Thread --- (latest / avg of {})"_fmt(n);
+		Console << U"  LockWait: {:.2f} / {:.2f}ms"_fmt(m.lockWait, avg.lockWait);
+		Console << U"  Sky:      {:.2f} / {:.2f}ms"_fmt(m.sky, avg.sky);
+		Console << U"  Terrain:  {:.2f} / {:.2f}ms"_fmt(m.terrain, avg.terrain);
+		Console << U"  Road:     {:.2f} / {:.2f}ms"_fmt(m.road, avg.road);
+		Console << U"  Zone:     {:.2f} / {:.2f}ms"_fmt(m.zone, avg.zone);
+		Console << U"  Vehicle:  {:.2f} / {:.2f}ms"_fmt(m.vehicle, avg.vehicle);
+		Console << U"  Train:    {:.2f} / {:.2f}ms"_fmt(m.train, avg.train);
+		Console << U"  Debug+UI: {:.2f} / {:.2f}ms"_fmt(m.debugUI, avg.debugUI);
+		Console << U"  Total:    {:.2f} / {:.2f}ms"_fmt(m.total(), avg.total());
+	}
+
+	if (simHistory.count() > 0)
+	{
+		const size_t n = simHistory.count();
+		SimTickStats avg{};
+		for (size_t i = 0; i < n; ++i)
+		{
+			const auto& f = simHistory[i];
+			avg.graph      += f.graph;
+			avg.reroute    += f.reroute;
+			avg.idm        += f.idm;
+			avg.laneChange += f.laneChange;
+			avg.signal     += f.signal;
+			avg.other      += f.other;
+		}
+		const double inv = 1.0 / static_cast<double>(n);
+		avg.graph *= inv; avg.reroute *= inv; avg.idm *= inv;
+		avg.laneChange *= inv; avg.signal *= inv; avg.other *= inv;
+
+		const auto& s = simHistory.latest();
+		Console << U"--- Sim Thread --- (latest / avg of {})"_fmt(n);
+		Console << U"  Graph:      {:.2f} / {:.2f}ms"_fmt(s.graph, avg.graph);
+		Console << U"  Reroute:    {:.2f} / {:.2f}ms"_fmt(s.reroute, avg.reroute);
+		Console << U"  IDM:        {:.2f} / {:.2f}ms"_fmt(s.idm, avg.idm);
+		Console << U"  LaneChange: {:.2f} / {:.2f}ms"_fmt(s.laneChange, avg.laneChange);
+		Console << U"  Signal:     {:.2f} / {:.2f}ms"_fmt(s.signal, avg.signal);
+		Console << U"  Other:      {:.2f} / {:.2f}ms"_fmt(s.other, avg.other);
+		Console << U"  Total:      {:.2f} / {:.2f}ms"_fmt(s.total(), avg.total());
+	}
+
+	Console << U"================================";
 }

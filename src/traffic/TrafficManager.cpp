@@ -1,5 +1,6 @@
 ﻿#include "TrafficManager.hpp"
 #include <cmath>
+#include <chrono>
 
 // ===== update =====
 
@@ -7,6 +8,12 @@ void TrafficManager::update(double dt, GameTime gameNow)
 {
 	if (!m_simGraph) return;
 	m_lastGameNow = gameNow;
+	m_simStats = {};
+
+	using Clock = std::chrono::steady_clock;
+	auto toMs = [](auto d) { return std::chrono::duration<double, std::milli>(d).count(); };
+
+	const auto t0 = Clock::now();
 
 	// グラフが更新された場合は再構築する
 	if (m_graphDirty)
@@ -16,14 +23,64 @@ void TrafficManager::update(double dt, GameTime gameNow)
 		m_graphDirty = false;
 	}
 
+	const auto t1 = Clock::now();
+	m_simStats.graph = toMs(t1 - t0);
+
 	updateTrafficLights(gameNow);
+
+	const auto t2 = Clock::now();
+	m_simStats.signal = toMs(t2 - t1);
+
 	updateBusRoutes(gameNow);
 	processRerouteQueue(gameNow);
 
+	const auto t3 = Clock::now();
+	m_simStats.reroute = toMs(t3 - t2);
+
+	// 車両更新 — IDM と車線変更を分離計測
+	double idmTotal = 0, lcTotal = 0;
 	for (auto& v : m_vehicles)
-		updateVehicle(v, dt, gameNow);
+	{
+		if (v.currentEdge == -1) continue;
+		if (!m_simGraph->getEdge(v.currentEdge)) { v.currentEdge = -1; continue; }
+
+		if (v.state == VehicleState::WaitingBusStop)
+		{
+			v.busWaitRemaining -= static_cast<float>(dt);
+			if (v.busWaitRemaining <= 0.0f)
+			{
+				v.busWaitRemaining = 0.0f;
+				v.state = VehicleState::Moving;
+				++v.busNextStopIdx;
+			}
+			continue;
+		}
+
+		// 車線変更
+		const auto lcStart = Clock::now();
+		if (RandomBool(0.01))
+			tryLaneChange(v);
+		const auto lcEnd = Clock::now();
+		lcTotal += toMs(lcEnd - lcStart);
+
+		if (v.type == VehicleType::Bus && v.busRouteId >= 0)
+			updateBusStop(v, dt, gameNow);
+		if (v.state == VehicleState::WaitingBusStop) continue;
+
+		// IDM (advanceOnEdge)
+		const auto idmStart = Clock::now();
+		advanceOnEdge(v, dt, gameNow);
+		const auto idmEnd = Clock::now();
+		idmTotal += toMs(idmEnd - idmStart);
+	}
+	m_simStats.idm = idmTotal;
+	m_simStats.laneChange = lcTotal;
 
 	m_vehicles.remove_if([](const Vehicle& v) { return v.currentEdge == -1; });
+
+	const auto t4 = Clock::now();
+	m_simStats.other = toMs(t4 - t0) - m_simStats.total();
+	if (m_simStats.other < 0) m_simStats.other = 0;
 }
 
 // ===== addVehicle / spawnVehicle =====
@@ -126,15 +183,6 @@ void TrafficManager::updateVehicle(Vehicle& v, double dt, GameTime gameNow)
 	if (v.state == VehicleState::WaitingBusStop) return;
 
 	advanceOnEdge(v, dt, gameNow);
-
-	if (v.speed < v.rerouteSpeedThreshold)
-	{
-		if (RandomBool(0.005))
-			enqueueReroute(v.id);
-	}
-
-	if (static_cast<float>(gameNow - v.lastReroute) > kPeriodicRerouteInterval)
-		enqueueReroute(v.id);
 }
 
 void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
@@ -308,7 +356,20 @@ void TrafficManager::doReroute(Vehicle& v, GameTime now)
 	}
 	if (startNode == -1) return;
 
+	using Clock = std::chrono::steady_clock;
+	const auto tStart = Clock::now();
+
 	const PathResult result = m_graph.dijkstra(startNode, v.goalEdgeId);
+
+	const double ms = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+	if (ms > 1.0)
+	{
+		Console << U"[Reroute] vid={} edge={} goal={} | {:.1f}ms | visited={}/{} | {}"_fmt(
+			v.id, v.currentEdge, v.goalEdgeId,
+			ms, result.nodesVisited, result.graphSize,
+			result.found ? U"FOUND" : U"NOT_FOUND");
+	}
+
 	if (result.found)
 	{
 		v.routeNodeIds  = result.nodeIds;

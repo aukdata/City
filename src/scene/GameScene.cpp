@@ -341,16 +341,9 @@ void GameScene::updateLoading()
 
 void GameScene::startSimThread()
 {
-	auto simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
-
-	TrafficManager traffic;
-	traffic.setSimGraph(simGraph);
-	traffic.markNetworkDirty();
-	// TrafficGraph をメインスレッドで事前構築（SimThread 内でロック保持中に rebuild するのを回避）
-	traffic.update(0.0, 0.0);
-
-	m_simThread.start(std::move(traffic), TrainManager{},
-	                  EventSystem{}, m_clock, simGraph);
+	m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
+	m_vehicleManager.init(*m_simGraph);
+	m_simThread.start(m_simGraph);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -932,19 +925,42 @@ void GameScene::update()
 	}
 
 	const double dt = Scene::DeltaTime();
+	m_lockWaitMs = 0.0;  // メッセージ駆動のため Lock 待ちなし
 
-	// ---- SimThread から時刻を同期 ----
+	// ---- Sim レスポンスを処理 ----
+	for (auto& resp : m_simThread.drainResponses())
 	{
-		auto lock = m_simThread.lockForRead();
-		m_clock = m_simThread.clock();
+		std::visit([&](auto& r)
+		{
+			using T = std::decay_t<decltype(r)>;
+			if constexpr (std::is_same_v<T, RouteResponse>)
+				m_vehicleManager.applyRouteResponse(r);
+			else if constexpr (std::is_same_v<T, PerfUpdate>)
+				m_simPerfHistory.push(r.stats);
+		}, resp);
 	}
 
-	// ---- 通知を取得 ----
-	for (const auto& n : m_simThread.popNotifications())
+	// ---- ゲーム時計を進める ----
+	if (m_clock.speed != TimeSpeed::Paused)
 	{
-		m_notifications << n;
-		if (static_cast<int>(m_notifications.size()) > 5)
-			m_notifications.erase(m_notifications.begin());
+		const double gameDt = dt * m_clock.speedMultiplier();
+		const double vehicleDt = gameDt / 60.0;  // 車両物理は 1/60 速度
+		m_clock.advance(dt);
+
+		// 車両更新（前フレームの可視エッジ集合を使用）
+		if (m_simGraph)
+			m_vehicleManager.update(vehicleDt, m_clock.now, *m_simGraph,
+			                        m_roadRenderer.visibleEdges());
+
+		// 車両からの経路リクエストを Sim に送信
+		for (auto& req : m_vehicleManager.collectRequests())
+			m_simThread.pushRequest(std::move(req));
+
+		// 列車更新
+		m_trainManager.update(gameDt, m_clock.now);
+
+		// イベント更新
+		m_eventSystem.update(m_clock.now, m_clock.month, dt);
 	}
 
 	// ---- メインスレッドのロジック ----
@@ -956,11 +972,9 @@ void GameScene::update()
 	m_logicMs = swLogic.msF();
 
 	// フォローカメラ
-	if (m_camera.mode() == CameraMode::Follow)
 	{
-		auto lock = m_simThread.lockForRead();
-		const auto& vehicles = m_simThread.vehicles();
-		if (!vehicles.isEmpty())
+		const auto& vehicles = m_vehicleManager.vehicles();
+		if (m_camera.mode() == CameraMode::Follow && !vehicles.isEmpty())
 		{
 			m_followVehicleIdx = m_followVehicleIdx % static_cast<int>(vehicles.size());
 			const Vehicle& v = vehicles[m_followVehicleIdx];
@@ -971,9 +985,6 @@ void GameScene::update()
 	handleInput();
 	updateCursor();
 	m_debugRenderer.handleInput();
-
-	// ---- ゲーム速度を SimThread に同期 ----
-	m_simThread.setSpeed(m_clock.speed);
 
 	// ---- 描画 ----
 	renderWorld();
@@ -1069,29 +1080,27 @@ void GameScene::renderWorld()
 		m_zoneManager.renderOverlay(m_world);
 		lap(s_zone);
 
-		// 車両の (edgeId, arcPos) → ワールド座標に変換して描画する
+		// Active 車両のワールド座標を計算して描画する
 		{
+			m_renderVehicles.clear();
+			for (auto& v : m_vehicleManager.vehicles())
 			{
-				auto lock = m_simThread.lockForRead();
-				m_renderVehicles = m_simThread.vehicles();
-			}
-
-			for (auto& v : m_renderVehicles)
-			{
-				if (v.currentEdge < 0) continue;
+				if (v.mode != VehicleMode::Active || v.currentEdge < 0) continue;
 				if (const auto bezier = m_network.getBezier(v.currentEdge))
 				{
-					const float clampedArc = Clamp(v.arcPos, 0.0f, bezier->totalLength);
-					v.position = bezier->positionAt(clampedArc);
-					v.position.y = m_world.sampleHeight(
-						static_cast<float>(v.position.x),
-						static_cast<float>(v.position.z)) + 2.0f;
+					Vehicle rv = v;
+					const float clampedArc = Clamp(rv.arcPos, 0.0f, bezier->totalLength);
+					rv.position = bezier->positionAt(clampedArc);
+					rv.position.y = m_world.sampleHeight(
+						static_cast<float>(rv.position.x),
+						static_cast<float>(rv.position.z)) + 2.0f;
 					const Vec3 tangent = bezier->tangentAt(clampedArc);
-					const RoadEdge* edge = m_network.getEdge(v.currentEdge);
-					const bool fwd = (!edge || v.currentLane >= static_cast<int>(edge->lanes.size()))
-						? true : (edge->lanes[v.currentLane].dir == LaneDir::Forward);
+					const RoadEdge* edge = m_network.getEdge(rv.currentEdge);
+					const bool fwd = (!edge || rv.currentLane >= static_cast<int>(edge->lanes.size()))
+						? true : (edge->lanes[rv.currentLane].dir == LaneDir::Forward);
 					const float sign = fwd ? 1.0f : -1.0f;
-					v.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
+					rv.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
+					m_renderVehicles << rv;
 				}
 			}
 			m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
@@ -1203,7 +1212,7 @@ void GameScene::renderWorld()
 
 	// ---- UI（2D）----
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
-	m_uiRenderer.render(m_clock, static_cast<int>(m_renderVehicles.size()), modeString(), m_economy);
+	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy);
 
 	m_panelManager.drawBackgrounds();
 
@@ -1268,9 +1277,25 @@ void GameScene::renderWorld()
 	lap(s_ui);
 	s_total = swTotal.msF();
 
+	// main 側リングバッファに push
+	{
+		MainFrameStats mf;
+		mf.lockWait = m_lockWaitMs;
+		mf.sky      = s_sky;
+		mf.terrain  = s_terrain;
+		mf.road     = s_road;
+		mf.zone     = s_zone;
+		mf.vehicle  = s_vehicle;
+		mf.train    = s_train;
+		mf.debugUI  = s_debug + s_ui;
+		m_mainPerfHistory.push(mf);
+	}
+
 	m_debugRenderer.renderProfiler(s_total, m_logicMs, s_sky, s_terrain,
 	                               s_road, s_zone, s_vehicle, s_train,
 	                               s_debug, s_ui, m_network);
+
+	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
 
 }
 
@@ -1575,8 +1600,8 @@ void GameScene::handleInput()
 		                   m_clock.speed = TimeSpeed::Paused; }
 	}
 
-	if (KeyT.down())
-		m_simThread.spawnVehicle();
+	if (KeyT.down() && m_simGraph)
+		m_vehicleManager.spawnRandom(*m_simGraph);
 
 	if (KeyF.down())
 		m_camera.cycleMode();

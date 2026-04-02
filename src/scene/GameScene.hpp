@@ -10,7 +10,8 @@
 #include "../gen/MapGenerator.hpp"
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
-#include "../traffic/TrafficManager.hpp"
+#include "../traffic/VehicleManager.hpp"
+#include "../traffic/BusRoute.hpp"
 #include "../zone/ZoneManager.hpp"
 #include "../economy/Economy.hpp"
 #include "../event/EventSystem.hpp"
@@ -68,14 +69,17 @@ private:
 	ZoneManager      m_zoneManager;
 	Economy          m_economy;
 
-	// ---- シミュレーションスレッド ----
-	SimThread        m_simThread;
+	// ---- 車両・経路サービス ----
+	VehicleManager   m_vehicleManager;
+	SimThread        m_simThread;           ///< 経路計算サービス（メッセージ駆動）
+	std::shared_ptr<const SimGraph> m_simGraph;  ///< Main 所有の SimGraph
 
 	// ---- 鉄道システム ----
 	TrainNetwork     m_trainNetwork;
 	TrainManager     m_trainManager;
 
-	// ---- イベント通知バッファ ----
+	// ---- イベント ----
+	EventSystem      m_eventSystem;
 	Array<GameEvent> m_notifications;  ///< 直近の通知（最大5件）
 
 	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
@@ -137,6 +141,9 @@ private:
 
 	// 描画プロファイリング
 	double          m_logicMs = 0.0;
+	double          m_lockWaitMs = 0.0;
+	MainPerfHistory m_mainPerfHistory;
+	SimPerfHistory  m_simPerfHistory;
 
 	// ---- ユーティリティ ----
 
@@ -172,11 +179,12 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings();
 
-	/// @brief RoadNetwork 変更後に SimGraph を再構築して SimThread に通知する
+	/// @brief RoadNetwork 変更後に SimGraph を再構築して通知する
 	void notifyNetworkChanged()
 	{
-		m_simThread.notifyNetworkChanged(
-			std::make_shared<const SimGraph>(SimGraph::build(m_network)));
+		m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
+		m_simThread.pushRequest(NetworkUpdate{ m_simGraph });
+		m_vehicleManager.onNetworkChanged(*m_simGraph);
 	}
 
 	void handleInput();

@@ -83,6 +83,8 @@ struct PathResult
 	Array<int> nodeIds;              ///< LaneNode / BorderNode の ID 列（出発→ゴール順）
 	float      totalCost = 1e30f;
 	bool       found     = false;
+	int        nodesVisited = 0;     ///< 探索したノード数
+	int        graphSize    = 0;     ///< グラフのノード総数
 };
 
 // ===== TrafficGraph =====

@@ -127,7 +127,7 @@
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
     <ClCompile Include="src\ui\PanelManager.cpp" />
     <ClCompile Include="src\sim\SimThread.cpp" />
-    <ClCompile Include="src\traffic\TrafficManager.cpp" />
+    <ClCompile Include="src\traffic\VehicleManager.cpp" />
     <ClCompile Include="src\traffic\TrafficGraph.cpp" />
     <ClCompile Include="src\traffic\TrafficLight.cpp" />
     <ClCompile Include="src\ui\Camera.cpp" />
@@ -369,6 +369,9 @@
     <ClInclude Include="src\traffic\TrafficManager.hpp" />
     <ClInclude Include="src\sim\SimGraph.hpp" />
     <ClInclude Include="src\sim\SimThread.hpp" />
+    <ClInclude Include="src\sim\MessageQueue.hpp" />
+    <ClInclude Include="src\sim\SimMessages.hpp" />
+    <ClInclude Include="src\traffic\VehicleManager.hpp" />
     <ClInclude Include="src\ui\Camera.hpp" />
     <ClInclude Include="src\render\WorldRenderer.hpp" />
     <ClInclude Include="src\render\RoadRenderer.hpp" />
@@ -380,6 +383,7 @@
     <ClInclude Include="src\scene\GameScene.hpp" />
     <ClInclude Include="src\debug\DebugLog.hpp" />
     <ClInclude Include="src\debug\DebugRenderer.hpp" />
+    <ClInclude Include="src\debug\PerfStats.hpp" />
     <ClInclude Include="src\zone\ZoneTypes.hpp" />
     <ClInclude Include="src\zone\Building.hpp" />
     <ClInclude Include="src\zone\ZoneManager.hpp" />

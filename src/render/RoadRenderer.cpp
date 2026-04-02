@@ -161,6 +161,7 @@ bool RoadRenderer::loadAssets()
 void RoadRenderer::render(const RoadNetwork& network, const World& world,
                           const ViewFrustum& frustum, Vec3 cameraPos)
 {
+	m_visibleEdges.clear();
 	Profiler::EnableAssetCreationWarning(false);
 
 	// 地形変更時は該当チャンク内のエッジ/ノードのキャッシュのみクリアする
@@ -229,6 +230,8 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 		// 視錐台カリング（距離チェックを通過した分のみ）
 		const float radius = Math::Sqrt(bounds.radiusSq);
 		if (!frustum.intersects(Sphere{ Vec3{ bounds.center }, static_cast<double>(radius) })) continue;
+
+		m_visibleEdges.emplace(edge.id);
 
 		const float mA = edgeMargin(edge, edge.nodeA);
 		const float mB = edgeMargin(edge, edge.nodeB);

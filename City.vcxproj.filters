@@ -258,7 +258,7 @@
     <ClCompile Include="src\sim\SimThread.cpp">
       <Filter>Source Files\sim</Filter>
     </ClCompile>
-    <ClCompile Include="src\traffic\TrafficManager.cpp">
+    <ClCompile Include="src\traffic\VehicleManager.cpp">
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
     <ClCompile Include="src\traffic\TrafficGraph.cpp">
@@ -950,6 +950,9 @@
     <ClInclude Include="src\debug\DebugRenderer.hpp">
       <Filter>Source Files\debug</Filter>
     </ClInclude>
+    <ClInclude Include="src\debug\PerfStats.hpp">
+      <Filter>Source Files\debug</Filter>
+    </ClInclude>
     <ClInclude Include="src\economy\Economy.hpp">
       <Filter>Source Files\economy</Filter>
     </ClInclude>
@@ -1033,6 +1036,15 @@
     </ClInclude>
     <ClInclude Include="src\sim\SimThread.hpp">
       <Filter>Source Files\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sim\MessageQueue.hpp">
+      <Filter>Source Files\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sim\SimMessages.hpp">
+      <Filter>Source Files\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\VehicleManager.hpp">
+      <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\save\RoadBinary.hpp">
       <Filter>Source Files\save</Filter>

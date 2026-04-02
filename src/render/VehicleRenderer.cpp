@@ -9,6 +9,10 @@ void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 		const double dz = v.position.z - cameraPos.z;
 		const bool isClose = (dx * dx + dz * dz) < RoadRenderer::kLodDistSq;
 		drawVehicle(v, isClose);
+
+		// 車両の上にマーカーを描画（視認性向上）
+		const Vec3 markerPos = v.position + Vec3{ 0, 60, 0 };
+		Sphere{ markerPos, 50 }.draw(ColorF{ 1.0, 0.3, 0.1 }.removeSRGBCurve());
 	}
 }
 

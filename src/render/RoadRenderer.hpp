@@ -30,6 +30,9 @@ public:
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
 
+	/// @brief 直近の render() で可視と判定されたエッジ ID の集合
+	const HashSet<int>& visibleEdges() const { return m_visibleEdges; }
+
 	void invalidateEdgeCache(int edgeId, int nodeA = -1, int nodeB = -1);
 	void invalidateAllCaches();
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
@@ -101,4 +104,5 @@ private:
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
 	HashTable<int, EdgeBounds>                m_boundsCache;
+	HashSet<int>                              m_visibleEdges;  ///< 直近 render() の可視エッジ集合
 };

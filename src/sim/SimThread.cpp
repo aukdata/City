@@ -1,113 +1,144 @@
 ﻿#include "SimThread.hpp"
 #include <chrono>
 
-void SimThread::start(
-	TrafficManager&& traffic, TrainManager&& trainMgr,
-	EventSystem&& events, const GameClock& clock,
-	std::shared_ptr<const SimGraph> graph)
+void SimThread::start(std::shared_ptr<const SimGraph> graph)
 {
-	m_traffic  = std::move(traffic);
-	m_trainMgr = std::move(trainMgr);
-	m_events   = std::move(events);
-	m_clock    = clock;
-	m_graph    = std::move(graph);
+	m_simGraph = std::move(graph);
 
-	// TrafficManager の SimGraph を共有ポインタに差し替え（再 rebuild はしない）
-	m_traffic.setSimGraph(m_graph);
+	// 初回グラフ構築
+	if (m_simGraph)
+	{
+		HashTable<int, TrafficLight> emptyLights;
+		m_graph.rebuild(*m_simGraph, 0.0, emptyLights);
+	}
 
-	m_running  = true;
-	m_thread   = std::thread{ &SimThread::run, this };
+	m_running = true;
+	m_thread  = std::thread{ &SimThread::run, this };
 }
 
 void SimThread::stop()
 {
 	m_running = false;
+	// inbox に空メッセージを送って waitFor を起こす
+	m_inbox.push(NetworkUpdate{ nullptr });
 	if (m_thread.joinable())
 		m_thread.join();
 }
 
-void SimThread::swapGraph(std::shared_ptr<const SimGraph> newGraph)
-{
-	std::lock_guard lock(m_graphMutex);
-	m_graph = std::move(newGraph);
-}
-
-Array<GameEvent> SimThread::popNotifications()
-{
-	std::lock_guard lock(m_notifyMutex);
-	Array<GameEvent> result = std::move(m_pendingNotifications);
-	m_pendingNotifications.clear();
-	return result;
-}
-
-void SimThread::spawnVehicle(VehicleType type)
-{
-	std::unique_lock lock(m_dataMutex);
-	m_traffic.spawnVehicle(type);
-}
-
-void SimThread::notifyNetworkChanged(std::shared_ptr<const SimGraph> newGraph)
-{
-	// SimGraph を swap
-	{
-		std::lock_guard lock(m_graphMutex);
-		m_graph = newGraph;
-	}
-	// TrafficManager に通知（次の update で反映される）
-	{
-		std::unique_lock lock(m_dataMutex);
-		m_traffic.setSimGraph(std::move(newGraph));
-		m_traffic.markNetworkDirty();
-	}
-}
-
 void SimThread::run()
 {
-	using Clock = std::chrono::steady_clock;
-	constexpr auto kTickInterval = std::chrono::microseconds(16667); // ~60Hz
-
-	auto lastTick = Clock::now();
-
 	while (m_running)
 	{
-		const auto now = Clock::now();
-		const double realDt = std::chrono::duration<double>(now - lastTick).count();
-		lastTick = now;
+		// リクエストが届くまで待機（10ms タイムアウト）
+		m_inbox.waitFor(std::chrono::milliseconds(10));
 
-		const TimeSpeed speed = m_speed.load();
+		auto requests = m_inbox.drain();
+		if (requests.isEmpty()) continue;
 
-		// ポーズ中はスリープのみ
-		if (speed == TimeSpeed::Paused)
+		using Clock = std::chrono::steady_clock;
+		const auto tStart = Clock::now();
+
+		SimTickStats stats{};
+
+		for (auto& req : requests)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
-			continue;
-		}
-
-		const double physicsDt = realDt * static_cast<double>(static_cast<int>(speed)) / 60.0;
-
-		// ---- sim データ更新 (unique_lock) ----
-		{
-			std::unique_lock lock(m_dataMutex);
-			m_clock.advance(realDt);
-			m_traffic.update(physicsDt, m_clock.now);
-			m_trainMgr.update(physicsDt, m_clock.now);
-			m_events.update(m_clock.now, m_clock.month, realDt);
-		}
-
-		// ---- 通知キュー更新 ----
-		{
-			const auto notifications = m_events.popNewNotifications();
-			if (!notifications.isEmpty())
+			std::visit([&](auto& r)
 			{
-				std::lock_guard lock(m_notifyMutex);
-				for (const auto& n : notifications)
-					m_pendingNotifications << n;
+				using T = std::decay_t<decltype(r)>;
+				if constexpr (std::is_same_v<T, RouteRequest>)
+					handleRouteRequest(r);
+				else if constexpr (std::is_same_v<T, NetworkUpdate>)
+					handleNetworkUpdate(r);
+			}, req);
+		}
+
+		const double totalMs = std::chrono::duration<double, std::milli>(
+			Clock::now() - tStart).count();
+		stats.reroute = totalMs;
+		m_outbox.push(PerfUpdate{ stats });
+	}
+}
+
+void SimThread::handleRouteRequest(const RouteRequest& req)
+{
+	if (!m_simGraph) return;
+
+	// 開始ノードを探す
+	int startNode = m_graph.entryNodeId(req.startEdge, req.startLane);
+	if (startNode == -1)
+	{
+		const auto* e = m_simGraph->getEdge(req.startEdge);
+		if (e)
+		{
+			for (int i = 0; i < static_cast<int>(e->lanes.size()); ++i)
+			{
+				startNode = m_graph.entryNodeId(req.startEdge, i);
+				if (startNode != -1) break;
 			}
 		}
-
-		// ---- フレームレート制御 ----
-		const auto elapsed = Clock::now() - now;
-		if (elapsed < kTickInterval)
-			std::this_thread::sleep_for(kTickInterval - elapsed);
 	}
+
+	RouteResponse resp;
+	resp.vehicleId = req.vehicleId;
+
+	if (startNode == -1)
+	{
+		resp.found = false;
+		m_outbox.push(std::move(resp));
+		return;
+	}
+
+	// Dijkstra 実行
+	using Clock = std::chrono::steady_clock;
+	const auto tDijk = Clock::now();
+
+	const PathResult result = m_graph.dijkstra(startNode, req.goalEdge);
+
+	const double ms = std::chrono::duration<double, std::milli>(
+		Clock::now() - tDijk).count();
+
+	resp.found = result.found;
+
+	if (result.found)
+	{
+		// LaneNode ID 列 → RouteWaypoint 列に変換
+		int prevEdge = req.startEdge;
+		for (const int nodeId : result.nodeIds)
+		{
+			const LaneNode* ln = m_graph.getLaneNode(nodeId);
+			if (!ln) continue;
+			if (ln->edgeId == prevEdge) continue;
+
+			const auto* edge = m_simGraph->getEdge(ln->edgeId);
+			const float length = edge ? edge->length : 100.0f;
+			const float speedMs = edge ? Max(1.0f, edge->speedLimit / 3.6f) : 10.0f;
+
+			RouteWaypoint wp;
+			wp.edgeId          = ln->edgeId;
+			wp.laneIndex       = ln->laneIndex;
+			wp.entryArcPos     = ln->arcPos;
+			wp.edgeLength      = length;
+			wp.estimatedTimeSec = length / speedMs;
+			resp.waypoints << wp;
+
+			prevEdge = ln->edgeId;
+		}
+	}
+
+	if (result.found)
+	{
+		Console << U"[Route] vid={} edge={} goal={} | {:.1f}ms | visited={}/{}"_fmt(
+			req.vehicleId, req.startEdge, req.goalEdge,
+			ms, result.nodesVisited, result.graphSize);
+	}
+
+	m_outbox.push(std::move(resp));
+}
+
+void SimThread::handleNetworkUpdate(const NetworkUpdate& update)
+{
+	if (!update.graph) return;
+	m_simGraph = update.graph;
+	HashTable<int, TrafficLight> emptyLights;
+	m_graph.rebuild(*m_simGraph, 0.0, emptyLights);
 }

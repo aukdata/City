@@ -24,6 +24,13 @@ enum class VehicleState : uint8
 	Parking,
 };
 
+/// @brief 車両の描画/更新モード
+enum class VehicleMode : uint8
+{
+	Active,   ///< 画面内: IDM + bezier 位置計算
+	Dormant,  ///< 画面外: タイマーベースのエッジ遷移のみ
+};
+
 /// @brief IDM（Intelligent Driver Model）パラメータ
 struct IDMParams
 {
@@ -61,6 +68,16 @@ inline IDMParams getDefaultIDMParams(VehicleType type, float speedLimitKmh = 60.
 	return p;
 }
 
+/// @brief 経路上の1エッジ分の情報
+struct RouteWaypoint
+{
+	int   edgeId          = -1;
+	int   laneIndex       = 0;
+	float entryArcPos     = 0.0f;   ///< このエッジに入る弧長位置
+	float edgeLength      = 0.0f;   ///< エッジ全長 [m]
+	float estimatedTimeSec = 1.0f;  ///< 推定通過時間 [game sec]
+};
+
 /// @brief 車両エージェント
 struct Vehicle
 {
@@ -74,31 +91,28 @@ struct Vehicle
 
 	// 物理状態
 	float        speed       = 0.0f; ///< 現在速度 [m/s]
-	Vec3         position;           ///< ワールド 3D 座標（描画用）
+	Vec3         position;           ///< ワールド 3D 座標（描画用、Active 時のみ有効）
 	float        heading     = 0.0f; ///< 進行方向 [rad]（Y軸周り）
 
 	// AI 状態
 	VehicleState state       = VehicleState::Moving;
-	int          leadVehicle = -1;   ///< 前方車両 id（-1=なし）
-	float        distanceToLeadVehicle   = 1e9f; ///< 前方車両との車頭距離 [m]
 
 	// 緊急車両専用
 	bool         sirenActive = false;
 
-	// 経路（ダイクストラ結果）
-	Array<int>   routeNodeIds;              ///< LaneNode / BorderNode の ID 列
-	int          routeProgress  = 0;        ///< 消化済みノード数
+	// 経路（RouteResponse で受け取ったウェイポイント列）
+	Array<RouteWaypoint> routeWaypoints;
+	int          routeIdx       = 0;     ///< 次に使うウェイポイントのインデックス
+	int          goalEdgeId     = -1;    ///< 目的地エッジ id
+	bool         routeRequested = false; ///< RouteRequest 送信済みフラグ
 
-	// 再探索管理
-	GameTime     lastReroute    = 0.0;
-	float        rerouteSpeedThreshold = 3.0f;  ///< この速度以下で再探索を検討 [m/s]
-
-	// ライフサイクル
-	GameTime     departedAt  = 0.0;
-	int          goalEdgeId  = -1;   ///< 目的地エッジ id
+	// Active / Dormant モード
+	VehicleMode  mode             = VehicleMode::Active;
+	float        dormantTimer     = 0.0f;  ///< 現在エッジの残り通過時間 [game sec]
+	float        dormantTotalTime = 0.0f;  ///< 現在エッジの推定全通過時間 [game sec]
 
 	// バス専用フィールド
-	int    busRouteId      = -1;   ///< 所属バス路線 id（-1 = 一般車両）
-	int    busNextStopIdx  = 0;    ///< 次に向かうバス停のインデックス
-	float  busWaitRemaining = 0.0f; ///< バス停での残り待機時間 [ゲーム秒]
+	int    busRouteId       = -1;
+	int    busNextStopIdx   = 0;
+	float  busWaitRemaining = 0.0f;
 };

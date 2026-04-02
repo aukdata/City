@@ -1,11 +1,12 @@
 ﻿#pragma once
 #include "../road/RoadNetwork.hpp"
-#include "../traffic/TrafficManager.hpp"
+#include "../traffic/Vehicle.hpp"
 #include "../world/World.hpp"
 #include "../ui/Camera.hpp"
+#include "PerfStats.hpp"
 
 /// @brief デバッグオーバーレイ描画クラス
-/// @details F3 でデバッグモード ON/OFF、F3+X で個別機能トグル
+/// @details F3+X で各機能を個別に ON/OFF する
 class DebugRenderer
 {
 public:
@@ -18,22 +19,28 @@ public:
 	            const World& world,
 	            const GameCamera& camera);
 
-	/// @brief フレーム時間プロファイラ HUD を描画する（デバッグモード時のみ）
+	/// @brief フレーム時間プロファイラ HUD を描画する
 	void renderProfiler(double total, double logic, double sky, double terrain,
 	                    double road, double zone, double vehicle, double train,
 	                    double debug, double ui,
 	                    const RoadNetwork& network);
 
-	bool isDebugMode() const { return m_debugMode; }
+	/// @brief パフォーマンスグラフを描画する
+	void renderPerfGraph(const MainPerfHistory& mainHistory,
+	                     const SimPerfHistory& simHistory);
+
+	bool isDebugMode() const { return m_showProfiler || m_showNetwork || m_showChunks
+		|| m_showVehicles || m_showGrid || m_showDetailHUD || m_showBiomes || m_showPerfGraph; }
 
 private:
-	bool m_debugMode     = false;
+	bool m_showProfiler  = false;  ///< F3+D: 数値プロファイラ
 	bool m_showNetwork   = false;  ///< F3+N: ネットワーク可視化
 	bool m_showChunks    = false;  ///< F3+C: チャンク境界
 	bool m_showVehicles  = false;  ///< F3+V: 車両デバッグ情報
 	bool m_showGrid      = false;  ///< F3+G: ワールド座標グリッド
 	bool m_showDetailHUD = false;  ///< F3+H: HUD 詳細
 	bool m_showBiomes    = false;  ///< F3+B: バイオーム表示
+	bool m_showPerfGraph = false;  ///< F3+P: パフォーマンスグラフ
 	bool   m_showHelp      = false;  ///< F3+/: ヘルプパネル
 	double m_helpOpenTime  = 0.0;    ///< ヘルプを開いた Scene::Time()
 
@@ -51,4 +58,14 @@ private:
 	void renderBiomeLegend();
 	void renderLog();
 	void renderHelp();
+
+	/// @brief 積み上げ棒グラフを描画するヘルパー
+	template <typename TStats, typename FSegments>
+	void drawStackedBarGraph(Vec2 origin, double width, double height,
+	                         const RingBuffer<TStats, kPerfHistorySize>& history,
+	                         StringView title, FSegments getSegments);
+
+	/// @brief 直近の計測値を Console に出力する
+	void dumpPerfToConsole(const MainPerfHistory& mainHistory,
+	                       const SimPerfHistory& simHistory);
 };

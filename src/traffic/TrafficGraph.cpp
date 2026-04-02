@@ -147,6 +147,10 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 	if (m_laneNodes.find(startLaneNodeId) == m_laneNodes.end())
 		return result;
 
+	// 探索上限: 到達不能グラフでの全探索を防ぐ
+	const int maxVisits = Min(static_cast<int>(m_laneNodes.size() + m_borderNodes.size()) * 2, 10000);
+	int visited = 0;
+
 	HashTable<int, float> dist;
 	HashTable<int, int>   prev;
 
@@ -165,6 +169,8 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 
 		const auto distIt = dist.find(u);
 		if (distIt == dist.end() || d > distIt->second) continue;
+
+		if (++visited > maxVisits) break;
 
 		const LaneNode* lNode = getLaneNode(u);
 		if (lNode && lNode->edgeId == goalEdgeId)
@@ -190,6 +196,9 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 			}
 		}
 	}
+
+	result.nodesVisited = visited;
+	result.graphSize    = static_cast<int>(m_laneNodes.size() + m_borderNodes.size());
 
 	if (goalNode == -1) return result;
 
