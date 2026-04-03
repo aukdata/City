@@ -366,7 +366,7 @@
     <ClInclude Include="src\traffic\TrafficGraph.hpp" />
     <ClInclude Include="src\traffic\TrafficLight.hpp" />
     <ClInclude Include="src\traffic\BusRoute.hpp" />
-    <ClInclude Include="src\traffic\TrafficManager.hpp" />
+    <ClInclude Include="src\ui\PanelWidget.hpp" />
     <ClInclude Include="src\sim\SimGraph.hpp" />
     <ClInclude Include="src\sim\SimThread.hpp" />
     <ClInclude Include="src\sim\MessageQueue.hpp" />

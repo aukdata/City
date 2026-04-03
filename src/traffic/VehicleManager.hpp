@@ -42,6 +42,9 @@ public:
 
 	const SimTickStats& lastStats() const { return m_stats; }
 
+	/// @brief 信号機の再構築を要求する（TrafficControl 変更時に呼ぶ）
+	void markLightsDirty() { m_lightsDirty = true; }
+
 private:
 	Array<Vehicle> m_vehicles;
 	int            m_nextId = 0;
@@ -61,11 +64,9 @@ private:
 	SimTickStats m_stats;
 
 	// --- 車両更新 ---
-	void updateActiveVehicle(Vehicle& v, double dt, GameTime gameNow,
-	                         const SimGraph& simGraph, const RoadNetwork& network);
+	void updateActiveVehicle(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	void updateDormantVehicle(Vehicle& v, double dt);
-	void advanceOnSegment(Vehicle& v, double dt, GameTime gameNow,
-	                      const SimGraph& simGraph, const RoadNetwork& network);
+	void advanceOnSegment(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	bool transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
 
 	// --- Active/Dormant 遷移 ---
@@ -73,8 +74,15 @@ private:
 	void deactivateVehicle(Vehicle& v, const SimGraph& simGraph);
 
 	// --- IDM ---
-	static constexpr float kSignalStopDist = 15.0f;
+	static constexpr float kSignalStopDist = 15.0f;  ///< 信号停止検出距離 [m]
+	static constexpr float kStopSignDist   = 12.0f;  ///< 一時停止検出距離 [m]
+	static constexpr float kYieldDist      = 20.0f;  ///< 譲れ検出距離 [m]
+	static constexpr float kStopSignWait   = 1.5f;   ///< 一時停止の待機時間 [game sec]
 	float idmAcceleration(const Vehicle& v, const IDMParams& params, bool fwdLane) const;
+
+	// --- 交通規制 ---
+	TrafficControl getEdgeControl(int nodeId, int edgeId, const SimGraph& simGraph) const;
+	bool hasConflictingTraffic(const Vehicle& v, int nodeId, int edgeId, const SimGraph& simGraph) const;
 
 	// --- 車線変更 ---
 	void tryLaneChange(Vehicle& v, const SimGraph& simGraph);

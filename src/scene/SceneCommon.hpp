@@ -8,7 +8,8 @@ struct SceneData
 {
 	uint64 seed        = 20260316ULL;
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
-	String saveName;             ///< セーブ名（空ならセーブなし）
+	bool   isNewGame   = true;   ///< true: 新規生成、false: セーブロード
+	String saveName;             ///< セーブ名（ロード時のみ使用）
 };
 
 /// @brief SceneManager の型エイリアス

@@ -326,14 +326,12 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		}
 	}
 
-	const bool flip = shouldFlipOffsets(edge, network);
-
 	// ---- 部品ごとのメッシュを構築・キャッシュ ----
 	if (!m_partMeshCache.contains(edge.id))
 	{
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) return;
-		auto entries = buildPartMeshes(edge, *bez, world, marginA, marginB, flip);
+		auto entries = buildPartMeshes(edge, *bez, world, marginA, marginB);
 		if (entries.isEmpty()) return;
 		m_partMeshCache[edge.id] = std::move(entries);
 		m_marginCache[edge.id] = { marginA, marginB };
@@ -356,7 +354,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
-			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB, flip);
+			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB);
 		}
 
 		for (const auto& b : m_laneCache[edge.id])
@@ -430,18 +428,6 @@ RoadRenderer::PartVisual RoadRenderer::getPartVisual(const RoadPart& part) const
 	return { color, heightOff, tex };
 }
 
-bool RoadRenderer::shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network)
-{
-	const RoadNode* nA = network.getNode(edge.nodeA);
-	const RoadNode* nB = network.getNode(edge.nodeB);
-	if (!nA || !nB) return false;
-
-	// 正規方向: A の X 座標 < B の X 座標（同値なら Z で比較）
-	if (nA->position.x != nB->position.x)
-		return nA->position.x > nB->position.x;
-	return nA->position.z > nB->position.z;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // メッシュ生成
 // ─────────────────────────────────────────────────────────────────────────────
@@ -489,7 +475,7 @@ MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& wo
 
 Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
                                                     const World& world,
-                                                    float marginA, float marginB, bool flip)
+                                                    float marginA, float marginB)
 {
 	constexpr float kOverlap = 0.1f;
 	const float totalLen = bezier.totalLength;
@@ -503,9 +489,8 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 	{
 		if (part.build != BuildState::Built) continue;
 
-		float oL = part.offset;
-		float oR = part.offset + part.width;
-		if (flip) { const float tmp = -oR; oR = -oL; oL = tmp; }
+		const float oL = part.offset;
+		const float oR = part.offset + part.width;
 
 		const auto [color, heightOff, tex] = getPartVisual(part);
 
@@ -527,7 +512,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	const RoadEdge& edge, const CubicBezier& bezier,
 	const World& world,
-	float marginA, float marginB, bool flip) const
+	float marginA, float marginB) const
 {
 	constexpr float kOverlap = 0.1f;
 	const float sStart = Max(marginA - kOverlap, 0.0f);
@@ -544,8 +529,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 		// 右境界の線（最右端車線の外側は描画しない: 路肩線は別途）
 		if (lane.lineRight != LineType::None && i + 1 < static_cast<int>(edge.lanes.size()))
 		{
-			// 車線の右端位置 = 道路中心からのオフセット（flip 時は反転）
-			const float offset = flip ? -lane.offsetA_R : lane.offsetA_R;
+			const float offset = lane.offsetA_R;
 			const auto ls = lineStyleFor(lane.lineRight);
 
 			MeshData md;
@@ -689,9 +673,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 			// A→B フレームの offset → outward フレーム（ノード外向き）
 			float oL = part.offset;
 			float oR = part.offset + part.width;
-			// shouldFlipOffsets: 正規方向と逆のエッジは offset を反転
-			if (shouldFlipOffsets(*info.edge, network)) { const float t = -oR; oR = -oL; oL = t; }
-			// B端: outward = -(A→B方向) なので更に反転
+			// B端: outward = -(A→B方向) なので反転
 			if (!info.isNodeA) { const float t = -oR; oR = -oL; oL = t; }
 
 			// leftSide: outward offset < 0 の部品
@@ -910,10 +892,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		const Vec3 tan = bez->tangentAt(s);  // 常に A→B 方向（反転しない）
 		const Vec3 right = calcRight(tan);
 		const float gy = world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
-		// shouldFlipOffsets と同じロジックでオフセットを適用
-		const bool flip = shouldFlipOffsets(edge, network);
-		const float off = flip ? -offset : offset;
-		return Vec3{ pos.x, gy + 2.05, pos.z } + right * static_cast<double>(off);
+		return Vec3{ pos.x, gy + 2.05, pos.z } + right * static_cast<double>(offset);
 	};
 
 	Array<LaneLineBatch> batches;
@@ -926,20 +905,16 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		const RoadEdge* edgeB = network.getEdge(node->attachments[1].edgeId);
 		if (!edgeA || !edgeB) return {};
 
-		// shouldFlipOffsets と一貫したオフセットで車線境界を取得
-		const bool flipA = shouldFlipOffsets(*edgeA, network);
-		const bool flipB = shouldFlipOffsets(*edgeB, network);
-
-		auto getFlippedBounds = [](const RoadEdge& edge, bool flip) -> Array<float>
+		auto getLaneBounds = [](const RoadEdge& edge) -> Array<float>
 		{
 			Array<float> b;
 			for (const auto& lane : edge.lanes)
-				b << (flip ? -lane.offsetA_R : lane.offsetA_R);
+				b << lane.offsetA_R;
 			return b;
 		};
 
-		const auto boundsA = getFlippedBounds(*edgeA, flipA);
-		const auto boundsB = getFlippedBounds(*edgeB, flipB);
+		const auto boundsA = getLaneBounds(*edgeA);
+		const auto boundsB = getLaneBounds(*edgeB);
 
 		// ペアリング: boundsA[i] に位置の近い boundsB[j] をマッチ
 		Array<int> pairB(boundsA.size(), -1);
@@ -1003,15 +978,13 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		const RoadEdge* edge = network.getEdge(att.edgeId);
 		if (!edge) continue;
 
-		const bool flip = shouldFlipOffsets(*edge, network);
-
 		for (size_t i = 0; i + 1 < edge->lanes.size(); ++i)
 		{
 			const auto& lane = edge->lanes[i];
 			if (lane.lineRight == LineType::None) continue;
 			const auto ls = lineStyleFor(lane.lineRight);
 
-			const float off = flip ? -lane.offsetA_R : lane.offsetA_R;
+			const float off = lane.offsetA_R;
 			const Vec3 edgePos = calcEdgeLinePos(*edge, off);
 			appendStraightLine(batches, edgePos, centerPos, ls.lineWidth, ls.color);
 		}
@@ -1074,11 +1047,6 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 				if (!hasOwnRoadbed) { edgeOffL = p.offset; edgeOffR = p.offset + p.width; hasOwnRoadbed = true; }
 				else { edgeOffL = Min(edgeOffL, p.offset); edgeOffR = Max(edgeOffR, p.offset + p.width); }
 			}
-		}
-		// shouldFlipOffsets: 正規方向と逆のエッジは offset を反転
-		if (shouldFlipOffsets(*edge, network))
-		{
-			const float t = -edgeOffR; edgeOffR = -edgeOffL; edgeOffL = t;
 		}
 		const double oL = isNodeA ?  static_cast<double>(edgeOffL)
 		                           : -static_cast<double>(edgeOffR);

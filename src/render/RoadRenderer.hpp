@@ -39,11 +39,6 @@ public:
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
 
-	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
-	/// @details 正規方向: nodeA の位置 < nodeB の位置（X優先、同値ならZ）
-	///          逆なら true を返す → 車線オフセットの符号を反転すべき
-	static bool shouldFlipOffsets(const RoadEdge& edge, const RoadNetwork& network);
-
 private:
 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
 	struct EdgeBounds { Float3 center; float radiusSq; };
@@ -65,14 +60,13 @@ private:
 	                        float sStart, float sEnd, float lodFactor) const;
 
 	/// @brief 全部品のメッシュ配列を生成する
-	/// @param flip  true ならオフセットを反転（A→B が正規方向と逆の場合）
 	Array<PartMeshEntry> buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
 	                                     const World& world,
-	                                     float marginA, float marginB, bool flip);
+	                                     float marginA, float marginB);
 
 	Array<LaneLineBatch> buildLaneLineBatches(const RoadEdge& edge, const CubicBezier& bezier,
 	                                          const World& world,
-	                                          float marginA, float marginB, bool flip) const;
+	                                          float marginA, float marginB) const;
 
 	/// @brief 1部品幅でのフィレット曲線 MeshData を生成する
 	MeshData buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,

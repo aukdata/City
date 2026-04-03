@@ -19,6 +19,7 @@ enum class VehicleState : uint8
 {
 	Moving,
 	WaitingSignal,
+	WaitingStopSign,   ///< 一時停止中（タイマー消化待ち）
 	WaitingBusStop,
 	YieldingEmergency,
 	Parking,
@@ -128,6 +129,9 @@ struct Vehicle
 	int          laneFrom        = -1;    ///< ChangingLane 時の元車線
 	int          laneTo          = -1;    ///< ChangingLane 時の目標車線
 	float        laneChangeBlend = 0.0f;  ///< ChangingLane 時のブレンド [0,1]
+
+	// 一時停止
+	float        stopSignWait    = 0.0f;  ///< 一時停止の残り待機時間 [game sec]
 
 	// バス専用フィールド
 	int    busRouteId       = -1;

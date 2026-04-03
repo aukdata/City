@@ -19,9 +19,10 @@ void VehicleManager::init(const SimGraph& simGraph)
 	m_lightsDirty = false;
 }
 
-void VehicleManager::onNetworkChanged([[maybe_unused]] const SimGraph& simGraph)
+void VehicleManager::onNetworkChanged(const SimGraph& simGraph)
 {
-	m_lightsDirty = true;
+	buildTrafficLights(simGraph);
+	m_lightsDirty = false;
 	// 全車両の経路を無効化して再リクエスト
 	for (auto& v : m_vehicles)
 	{
@@ -161,7 +162,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 			}
 
 			const auto idmStart = Clock::now();
-			updateActiveVehicle(v, dt, gameNow, simGraph, network);
+			updateActiveVehicle(v, dt, simGraph, network);
 			idmTotal += toMs(Clock::now() - idmStart);
 		}
 		else
@@ -186,7 +187,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 // ===== Active 車両更新 =====
 
-void VehicleManager::updateActiveVehicle(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow,
+void VehicleManager::updateActiveVehicle(Vehicle& v, double dt,
                                          const SimGraph& simGraph, const RoadNetwork& network)
 {
 	if (v.state == VehicleState::WaitingBusStop)
@@ -200,10 +201,20 @@ void VehicleManager::updateActiveVehicle(Vehicle& v, double dt, [[maybe_unused]]
 		}
 		return;
 	}
-	advanceOnSegment(v, dt, gameNow, simGraph, network);
+	if (v.state == VehicleState::WaitingStopSign)
+	{
+		v.stopSignWait -= static_cast<float>(dt);
+		if (v.stopSignWait <= 0.0f)
+		{
+			v.stopSignWait = 0.0f;
+			v.state = VehicleState::Moving;
+		}
+		return;
+	}
+	advanceOnSegment(v, dt, simGraph, network);
 }
 
-void VehicleManager::advanceOnSegment(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow,
+void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
                                       const SimGraph& simGraph, const RoadNetwork& network)
 {
 	if (v.location == VehicleLocation::OnConnection)
@@ -251,16 +262,18 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt, [[maybe_unused]] Ga
 	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
 	float accel = idmAcceleration(v, params, fwdLane);
 
-	// 信号停止チェック
+	// 出口ノードの交通規制チェック
 	const int exitNId = fwdLane ? edge->nodeB : edge->nodeA;
-	const TrafficLight* tl = getTrafficLight(exitNId);
-	if (tl && !tl->isGreen(v.currentEdge))
-	{
-		const float distToStop = fwdLane
-			? (edge->length - 2.0f - v.arcPos)
-			: (v.arcPos - 2.0f);
+	const TrafficControl ctrl = getEdgeControl(exitNId, v.currentEdge, simGraph);
 
-		if (distToStop > 0.0f && distToStop < kSignalStopDist)
+	const float distToStop = fwdLane
+		? (edge->length - 2.0f - v.arcPos)
+		: (v.arcPos - 2.0f);
+
+	// IDM で停止線まで減速するラムダ
+	auto applyStopAccel = [&](float detectDist)
+	{
+		if (distToStop > 0.0f && distToStop < detectDist)
 		{
 			const float dv    = v.speed;
 			const float sStar = params.s0 + Max(0.0f,
@@ -270,6 +283,42 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt, [[maybe_unused]] Ga
 				1.0f - std::powf(v.speed / Max(0.1f, params.v0), 4.0f)
 				- (sStar / gap) * (sStar / gap));
 		}
+	};
+
+	switch (ctrl)
+	{
+	case TrafficControl::None:
+		// 規制なし: 減速せず通過
+		break;
+
+	case TrafficControl::Signal:
+	{
+		const TrafficLight* tl = getTrafficLight(exitNId);
+		if (tl && !tl->isGreen(v.currentEdge))
+			applyStopAccel(kSignalStopDist);
+		break;
+	}
+
+	case TrafficControl::Stop:
+		// 一時停止: 停止線手前で減速 → 完全停止したら待機状態へ
+		applyStopAccel(kStopSignDist);
+		if (distToStop > 0.0f && distToStop < 1.0f && v.speed < 0.3f)
+		{
+			v.speed = 0.0f;
+			v.state = VehicleState::WaitingStopSign;
+			v.stopSignWait = kStopSignWait;
+			return;
+		}
+		break;
+
+	case TrafficControl::Yield:
+		// 譲れ: 交差する車両がいる場合のみ減速/停止
+		if (distToStop > 0.0f && distToStop < kYieldDist
+			&& hasConflictingTraffic(v, exitNId, v.currentEdge, simGraph))
+		{
+			applyStopAccel(kYieldDist);
+		}
+		break;
 	}
 
 	v.speed = static_cast<float>(Clamp(
@@ -588,21 +637,27 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph)
 	m_trafficLights.clear();
 	for (const auto& [nid, node] : simGraph.nodes)
 	{
-		int validEdges = 0;
+		// Signal 指定のあるエッジだけを収集
+		Array<int> signalEdges;
 		for (const int eid : node.edgeIds)
-			if (simGraph.getEdge(eid)) ++validEdges;
-		if (validEdges < 3) continue;
+		{
+			const auto it = node.edgeControl.find(eid);
+			if (it != node.edgeControl.end() && it->second == TrafficControl::Signal)
+				if (simGraph.getEdge(eid)) signalEdges << eid;
+		}
+		if (signalEdges.size() < 2) continue;
 
-		const int half = static_cast<int>(node.edgeIds.size()) / 2;
+		// 2グループに分けてフェーズ構築
+		const int half = static_cast<int>(signalEdges.size()) / 2;
 		Array<SignalPhase> phases;
 		SignalPhase phaseA; phaseA.duration = 30.0f;
 		SignalPhase phaseB; phaseB.duration = 30.0f;
-		for (int k = 0; k < static_cast<int>(node.edgeIds.size()); ++k)
+		for (int k = 0; k < static_cast<int>(signalEdges.size()); ++k)
 		{
 			if (k < half)
-				phaseA.greenEdgeIds << node.edgeIds[k];
+				phaseA.greenEdgeIds << signalEdges[k];
 			else
-				phaseB.greenEdgeIds << node.edgeIds[k];
+				phaseB.greenEdgeIds << signalEdges[k];
 		}
 		phases << std::move(phaseA) << std::move(phaseB);
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
@@ -619,6 +674,61 @@ const TrafficLight* VehicleManager::getTrafficLight(int nodeId) const
 {
 	const auto it = m_trafficLights.find(nodeId);
 	return (it != m_trafficLights.end()) ? &it->second : nullptr;
+}
+
+// ===== 交通規制ヘルパー =====
+
+TrafficControl VehicleManager::getEdgeControl(int nodeId, int edgeId, const SimGraph& simGraph) const
+{
+	const auto* node = simGraph.getNode(nodeId);
+	if (!node) return TrafficControl::None;
+
+	const auto it = node->edgeControl.find(edgeId);
+	if (it != node->edgeControl.end())
+		return it->second;
+
+	return TrafficControl::None;
+}
+
+bool VehicleManager::hasConflictingTraffic(const Vehicle& v, int nodeId,
+                                           int edgeId, const SimGraph& simGraph) const
+{
+	const auto* node = simGraph.getNode(nodeId);
+	if (!node) return false;
+
+	// このノードに接続する他のエッジ上を走行中の車両が、
+	// ノード付近（出口手前 kYieldDist 以内）にいるか確認
+	for (const auto& other : m_vehicles)
+	{
+		if (other.id == v.id) continue;
+		if (other.mode != VehicleMode::Active) continue;
+		if (other.currentEdge == edgeId) continue;  // 同じエッジは対象外
+
+		// 交差点内を通過中の車両
+		if (other.location == VehicleLocation::OnConnection && other.connectionNodeId == nodeId)
+			return true;
+
+		// 他のエッジからこのノードに向かっている車両
+		const auto* otherEdge = simGraph.getEdge(other.currentEdge);
+		if (!otherEdge) continue;
+
+		bool otherConnected = false;
+		for (const int eid : node->edgeIds)
+			if (eid == other.currentEdge) { otherConnected = true; break; }
+		if (!otherConnected) continue;
+
+		const bool otherFwd = isForwardLane(*otherEdge, other.currentLane);
+		const int otherExitNId = otherFwd ? otherEdge->nodeB : otherEdge->nodeA;
+		if (otherExitNId != nodeId) continue;
+
+		const float otherDist = otherFwd
+			? (otherEdge->length - other.arcPos)
+			: other.arcPos;
+		if (otherDist < kYieldDist && otherDist > 0.0f)
+			return true;
+	}
+
+	return false;
 }
 
 // ===== 経路リクエスト =====

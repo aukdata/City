@@ -63,6 +63,15 @@ enum class NodeTransition : uint8
 	Abrupt,   ///< ノード中心で不連続に切替（延伸端・道路種別境界）
 };
 
+/// @brief エッジ単位の交通規制
+enum class TrafficControl : uint8
+{
+	None,    ///< 規制なし（減速せず通過）
+	Yield,   ///< 譲れ（非優先道路側: 交差車両がいれば減速/停止）
+	Stop,    ///< 一時停止（必ず一旦停止してから発進）
+	Signal,  ///< 信号機制御
+};
+
 /// @brief エッジのノードへの接続情報
 /// @details 17_road_node_spec.md 参照
 struct EdgeAttachment
@@ -70,6 +79,7 @@ struct EdgeAttachment
 	int   edgeId = -1;
 	float lateralOffset = 0.0f;  ///< ノード中心からの横方向オフセット [m]（エッジ外向き接線に対して右が正）
 	bool  isThrough = false;     ///< Diverge ノード専用: 本線エッジなら true
+	TrafficControl control = TrafficControl::None;  ///< この方向の交通規制
 };
 
 /// @brief 道路種別

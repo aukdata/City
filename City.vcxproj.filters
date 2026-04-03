@@ -1061,8 +1061,8 @@
     <ClInclude Include="src\traffic\BusRoute.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
-    <ClInclude Include="src\traffic\TrafficManager.hpp">
-      <Filter>Source Files\traffic</Filter>
+    <ClInclude Include="src\ui\PanelWidget.hpp">
+      <Filter>Source Files\ui</Filter>
     </ClInclude>
     <ClInclude Include="src\ui\Camera.hpp">
       <Filter>Source Files\ui</Filter>

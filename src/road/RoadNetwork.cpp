@@ -1273,8 +1273,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			const float fromCenterA = (fromLane.offsetA_L + fromLane.offsetA_R) * 0.5f;
 			const float fromCenterB = (fromLane.offsetB_L + fromLane.offsetB_R) * 0.5f;
 			const float fromT = (fromLane.dir == LaneDir::Forward) ? 1.0f : 0.0f;
-			float fromOffset = fromCenterA + (fromCenterB - fromCenterA) * fromT;
-			if (shouldFlipOffsets(*fromEdge)) fromOffset = -fromOffset;
+			const float fromOffset = fromCenterA + (fromCenterB - fromCenterA) * fromT;
 			const Vec3 fromPerp = Vec3{ exitTan.z, 0.0, -exitTan.x }.normalized();
 			const Vec3 exitWorld = exitPos + fromPerp * static_cast<double>(fromOffset);
 
@@ -1307,8 +1306,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 					const float toCenterA = (toLane.offsetA_L + toLane.offsetA_R) * 0.5f;
 					const float toCenterB = (toLane.offsetB_L + toLane.offsetB_R) * 0.5f;
 					const float toT = (toLane.dir == LaneDir::Forward) ? 0.0f : 1.0f;
-					float toOffset = toCenterA + (toCenterB - toCenterA) * toT;
-					if (shouldFlipOffsets(*toEdge)) toOffset = -toOffset;
+					const float toOffset = toCenterA + (toCenterB - toCenterA) * toT;
 					const Vec3 toPerp = Vec3{ entryTan.z, 0.0, -entryTan.x }.normalized();
 					const Vec3 entryWorld = entryPos + toPerp * static_cast<double>(toOffset);
 
@@ -1333,12 +1331,3 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 	}
 }
 
-bool RoadNetwork::shouldFlipOffsets(const RoadEdge& edge) const
-{
-	const RoadNode* nA = getNode(edge.nodeA);
-	const RoadNode* nB = getNode(edge.nodeB);
-	if (!nA || !nB) return false;
-	if (nA->position.x != nB->position.x)
-		return nA->position.x > nB->position.x;
-	return nA->position.z > nB->position.z;
-}

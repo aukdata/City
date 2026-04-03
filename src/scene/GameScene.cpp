@@ -4,125 +4,42 @@
 #include "../sim/SimGraph.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 #include <thread>
+#include "../ui/PanelWidget.hpp"
 
-// ═════════════════════════════════════════════════════════════════════════════
-// パネル UI ウィジェット
-// ═════════════════════════════════════════════════════════════════════════════
-
-namespace PanelWidget   // Panel Widgets
+namespace
 {
-	// ── ツールチップ（パネル末尾で PanelWidget::flushTooltip() して最前面描画） ──
-
-	const Font* tipFont   = nullptr;
-	String      tipText;
-	Vec2        tipPos{ 0, 0 };
-	bool        tipActive = false;
-
-	void flushTooltip()
+	// 車線中心のワールド座標を返す（路盤ベジェ + 車線オフセット）
+	Vec3 calcLaneWorldPos(const CubicBezier& bez, const RoadEdge& edge, int laneIdx, float arc)
 	{
-		if (!tipActive || !tipFont) return;
-		const auto region = (*tipFont)(tipText).region(tipPos);
-		RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }
-			.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
-		(*tipFont)(tipText).draw(tipPos, Palette::White);
-		tipActive = false;
-	}
-
-	// ── 共通内部: 矩形の描画 + hover 判定 + ツールチップ登録 ──
-
-	struct HitResult { bool hover; bool clickL; bool clickR; int wheel; };
-
-	HitResult hitTest(const Font& font, int x, int y, int w, int h, StringView tooltip = U"")
-	{
-		const RectF r{ static_cast<double>(x), static_cast<double>(y),
-		               static_cast<double>(w), static_cast<double>(h) };
-		const bool hover = r.mouseOver();
-		if (hover && !tooltip.isEmpty())
+		const float ca = Clamp(arc, 0.0f, bez.totalLength);
+		Vec3 pos = bez.positionAt(ca);
+		const Vec3 tan = bez.tangentAt(ca);
+		if (laneIdx >= 0 && laneIdx < static_cast<int>(edge.lanes.size()))
 		{
-			tipFont   = &font;
-			tipText   = String{ tooltip };
-			tipPos    = Vec2{ static_cast<double>(x + w + 4), static_cast<double>(y) };
-			tipActive = true;
+			const Lane& ln = edge.lanes[laneIdx];
+			const float ft = (bez.totalLength > 0.0f) ? (ca / bez.totalLength) : 0.0f;
+			const float centerA = (ln.offsetA_L + ln.offsetA_R) * 0.5f;
+			const float centerB = (ln.offsetB_L + ln.offsetB_R) * 0.5f;
+			const float off = centerA + (centerB - centerA) * ft;
+			const Vec3 perp{ tan.z, 0.0, -tan.x };
+			const double pl = perp.length();
+			if (pl > 0.001) pos += (perp / pl) * static_cast<double>(off);
 		}
-		return { hover, hover && MouseL.down(), hover && MouseR.down(),
-		         hover ? static_cast<int>(Mouse::Wheel()) : 0 };
+		return pos;
 	}
 
-	// ── ボタン: 左クリックで true ──
-
-	bool button(const Font& font, StringView label, bool active,
-	            int x, int y, int w, int h, StringView tooltip = U"")
+	// パネル共通フォント（各 drawXxxPanel で使用）
+	const Font& panelFont()
 	{
-		const auto hit = hitTest(font, x, y, w, h, tooltip);
-		RectF{ static_cast<double>(x), static_cast<double>(y),
-		       static_cast<double>(w), static_cast<double>(h) }
-			.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
-			      : (hit.hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
-		font(label).draw(Vec2{ x + 2, y }, active ? ColorF{ 1.0 } : ColorF{ 0.7 });
-		return hit.clickL;
+		static const Font f{ FontMethod::MSDF, 14 };
+		return f;
 	}
-
-	// ── トグル: クリックで bool 反転。変化したら true ──
-
-	bool toggle(const Font& font, StringView labelOn, StringView labelOff, bool& value,
-	            int x, int y, int w, int h, StringView tooltip = U"")
+	const Font& panelBoldFont()
 	{
-		if (button(font, value ? labelOn : labelOff, value, x, y, w, h, tooltip))
-		{
-			value = !value;
-			return true;
-		}
-		return false;
-	}
-
-	// ── 数値スピン: ホイールで増減。変化したら true ──
-
-	bool spin(const Font& font, float& value, float step, float lo, float hi,
-	          int x, int y, int w, int h, StringView fmt = U"{:.1f}")
-	{
-		const auto hit = hitTest(font, x, y, w, h);
-		RectF{ static_cast<double>(x), static_cast<double>(y),
-		       static_cast<double>(w), static_cast<double>(h) }
-			.draw(hit.hover ? ColorF{ 0.2, 0.2, 0.3 } : ColorF{ 0.12, 0.12, 0.18 });
-		font(Fmt(fmt)(value)).draw(Vec2{ x + 2, y }, Palette::White);
-		if (hit.wheel != 0)
-		{
-			value = Clamp(value - hit.wheel * step, lo, hi);
-			return true;
-		}
-		return false;
-	}
-
-	// ── 列挙サイクル: L クリック→次、R クリック→前。変化したら true ──
-
-	template <typename E>
-	bool cycle(const Font& font, E& value, const StringView* names, int count,
-	           int x, int y, int w, int h, StringView tooltip = U"")
-	{
-		const auto hit = hitTest(font, x, y, w, h, tooltip);
-		const bool active = false;
-		RectF{ static_cast<double>(x), static_cast<double>(y),
-		       static_cast<double>(w), static_cast<double>(h) }
-			.draw(active ? ColorF{ 0.3, 0.5, 0.8 }
-			      : (hit.hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 }));
-		font(names[static_cast<int>(value)]).draw(Vec2{ x + 2, y }, ColorF{ 0.7 });
-		const int dir = hit.clickL ? 1 : (hit.clickR ? -1 : 0);
-		if (dir != 0)
-		{
-			value = static_cast<E>((static_cast<int>(value) + count + dir) % count);
-			return true;
-		}
-		return false;
-	}
-
-	// ── ラベル: 読み取り専用テキスト ──
-
-	void label(const Font& font, StringView text, int x, int y, ColorF color = ColorF{ 0.5 })
-	{
-		font(text).draw(Vec2{ x, y }, color);
+		static const Font f{ FontMethod::MSDF, 14, Typeface::Bold };
+		return f;
 	}
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 初期化
@@ -157,10 +74,10 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
 
-	if (!getData().saveName.isEmpty())
-		initLoadGame();
-	else
+	if (getData().isNewGame)
 		initNewGame();
+	else
+		initLoadGame();
 }
 
 void GameScene::initLoadGame()
@@ -1201,27 +1118,6 @@ void GameScene::renderWorld()
 		{
 			m_renderVehicles.clear();
 
-			// 車線オフセット付き位置を計算するヘルパー
-			auto calcLanePos = [&](const CubicBezier& bez, int edgeId, int laneIdx, float arc) -> Vec3
-			{
-				const float ca = Clamp(arc, 0.0f, bez.totalLength);
-				Vec3 pos = bez.positionAt(ca);
-				const Vec3 tan = bez.tangentAt(ca);
-				const RoadEdge* e = m_network.getEdge(edgeId);
-				if (e && laneIdx >= 0 && laneIdx < static_cast<int>(e->lanes.size()))
-				{
-					const Lane& ln = e->lanes[laneIdx];
-					const float ft = (bez.totalLength > 0.0f) ? (ca / bez.totalLength) : 0.0f;
-					float off = (ln.offsetA_L + ln.offsetA_R) * 0.5f
-						+ ((ln.offsetB_L + ln.offsetB_R) * 0.5f - (ln.offsetA_L + ln.offsetA_R) * 0.5f) * ft;
-					if (RoadRenderer::shouldFlipOffsets(*e, m_network)) off = -off;
-					const Vec3 perp{ tan.z, 0.0, -tan.x };
-					const double pl = perp.length();
-					if (pl > 0.001) pos += (perp / pl) * static_cast<double>(off);
-				}
-				return pos;
-			};
-
 			for (const auto& v : m_vehicleManager.vehicles())
 			{
 				if (v.mode != VehicleMode::Active) continue;
@@ -1248,8 +1144,10 @@ void GameScene::renderWorld()
 					if (v.currentEdge < 0) continue;
 					const auto bezier = m_network.getBezier(v.currentEdge);
 					if (!bezier) continue;
-					const Vec3 posFrom = calcLanePos(*bezier, v.currentEdge, v.laneFrom, v.arcPos);
-					const Vec3 posTo   = calcLanePos(*bezier, v.currentEdge, v.laneTo,   v.arcPos);
+					const RoadEdge* edgeCL = m_network.getEdge(v.currentEdge);
+					if (!edgeCL) continue;
+					const Vec3 posFrom = calcLaneWorldPos(*bezier, *edgeCL, v.laneFrom, v.arcPos);
+					const Vec3 posTo   = calcLaneWorldPos(*bezier, *edgeCL, v.laneTo,   v.arcPos);
 					rv.position = posFrom.lerp(posTo, static_cast<double>(v.laneChangeBlend));
 					tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
 				}
@@ -1259,7 +1157,9 @@ void GameScene::renderWorld()
 					if (v.currentEdge < 0) continue;
 					const auto bezier = m_network.getBezier(v.currentEdge);
 					if (!bezier) continue;
-					rv.position = calcLanePos(*bezier, v.currentEdge, v.currentLane, v.arcPos);
+					const RoadEdge* edgeOL = m_network.getEdge(v.currentEdge);
+					if (!edgeOL) continue;
+					rv.position = calcLaneWorldPos(*bezier, *edgeOL, v.currentLane, v.arcPos);
 					tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
 				}
 
@@ -1489,8 +1389,8 @@ void GameScene::drawEdgePanel()
 	auto area = m_panelManager.beginContent(U"edge_info");
 	if (!area) return;
 
-	static const Font pFont{ FontMethod::MSDF, 14 };
-	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+	const auto& pFont = panelFont();
+	const auto& pBold = panelBoldFont();
 
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;
@@ -1699,8 +1599,8 @@ void GameScene::drawNodePanel()
 	auto area = m_panelManager.beginContent(U"node_info");
 	if (!area) return;
 
-	static const Font pFont{ FontMethod::MSDF, 14 };
-	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+	const auto& pFont = panelFont();
+	const auto& pBold = panelBoldFont();
 
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;
@@ -1746,6 +1646,17 @@ void GameScene::drawNodePanel()
 		PanelWidget::label(pFont, U"lat", pX + 10, y);
 		dirty |= PanelWidget::spin(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
 		dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
+		y += kLH;
+
+		{
+			static constexpr StringView tcNames[] = { U"None", U"Yield", U"Stop", U"Signal" };
+			PanelWidget::label(pFont, U"ctrl", pX + 10, y);
+			if (PanelWidget::cycle(pFont, att.control, tcNames, 4, pX + 34, y, 52, kLH))
+			{
+				dirty = true;
+				notifyNetworkChanged();
+			}
+		}
 		y += kLH + 2;
 	}
 
@@ -1784,8 +1695,8 @@ void GameScene::drawVehiclePanel()
 	auto area = m_panelManager.beginContent(U"vehicle_info");
 	if (!area) return;
 
-	static const Font pFont{ FontMethod::MSDF, 14 };
-	static const Font pBold{ FontMethod::MSDF, 14, Typeface::Bold };
+	const auto& pFont = panelFont();
+	const auto& pBold = panelBoldFont();
 
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;

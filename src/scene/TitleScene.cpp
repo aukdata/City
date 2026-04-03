@@ -38,6 +38,7 @@ void TitleScene::update()
 	{
 		getData().seed        = m_selectedSeed;
 		getData().sandboxMode = m_sandboxMode;
+		getData().isNewGame   = true;
 		getData().saveName.clear();
 		changeScene(SceneState::Game, 0s);
 	}
@@ -47,6 +48,7 @@ void TitleScene::update()
 	{
 		getData().saveName    = m_saveNames[m_selectedSave];
 		getData().sandboxMode = m_sandboxMode;
+		getData().isNewGame   = false;
 		changeScene(SceneState::Game, 0s);
 	}
 }

@@ -157,6 +157,4 @@ private:
 	///         midNode から NewRoad 両端間の直線距離の 1/2 の位置に移動する。
 	void smoothCurveAt(int newEdgeId, int midNodeId);
 
-	/// @brief エッジの A→B 方向が正規方向と逆かどうかを判定する
-	bool shouldFlipOffsets(const RoadEdge& edge) const;
 };
