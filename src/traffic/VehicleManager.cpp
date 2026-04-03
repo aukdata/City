@@ -233,7 +233,7 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
 
 		if (v.arcPos >= conn->path.totalLength)
 		{
-			// 交差点通過完了 → 次の Lane セグメントへ
+			// 交差点通過完了 → 次の Lane セグメントへ（カットオフ位置から開始）
 			v.currentEdge = conn->toEdgeId;
 			v.currentLane = conn->toLaneIndex;
 			v.location = VehicleLocation::OnLane;
@@ -242,7 +242,12 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
 			if (nextEdge)
 			{
 				const bool fwd = isForwardLane(*nextEdge, v.currentLane);
-				v.arcPos = fwd ? 0.0f : nextEdge->length;
+				const RoadEdge* re = network.getEdge(v.currentEdge);
+				const bool isNodeA = re && (re->nodeA == v.connectionNodeId);
+				const float cutoff = re ? (isNodeA ? re->cutoffA : re->cutoffB) : 0.0f;
+				v.arcPos = fwd
+					? (isNodeA ? cutoff : nextEdge->length)
+					: (isNodeA ? 0.0f : (nextEdge->length - cutoff));
 			}
 			else
 			{
@@ -266,9 +271,14 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
 	const int exitNId = fwdLane ? edge->nodeB : edge->nodeA;
 	const TrafficControl ctrl = getEdgeControl(exitNId, v.currentEdge, simGraph);
 
+	// 停止線はカットオフ位置の少し手前
+	const RoadEdge* reStop = network.getEdge(v.currentEdge);
+	const float stopCutoff = reStop
+		? (fwdLane ? reStop->cutoffB : reStop->cutoffA)
+		: 0.0f;
 	const float distToStop = fwdLane
-		? (edge->length - 2.0f - v.arcPos)
-		: (v.arcPos - 2.0f);
+		? (edge->length - stopCutoff - 2.0f - v.arcPos)
+		: (v.arcPos - stopCutoff - 2.0f);
 
 	// IDM で停止線まで減速するラムダ
 	auto applyStopAccel = [&](float detectDist)
@@ -331,9 +341,14 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
 	else
 		v.arcPos -= advance;
 
+	// カットオフ位置に到達したらノードへ遷移
+	const RoadEdge* re = network.getEdge(v.currentEdge);
+	const float exitCutoff = re
+		? (fwdLane ? re->cutoffB : re->cutoffA)
+		: 0.0f;
 	const bool reachedEnd = fwdLane
-		? (v.arcPos >= edge->length)
-		: (v.arcPos <= 0.0f);
+		? (v.arcPos >= edge->length - exitCutoff)
+		: (v.arcPos <= exitCutoff);
 
 	if (reachedEnd)
 		transitToNextWaypoint(v, simGraph, network);

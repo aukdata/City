@@ -1261,10 +1261,14 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 				(fromLane.dir == LaneDir::Backward && fromEdge->nodeA == nodeId);
 			if (!exitsAtNode) continue;
 
-			// 出口のワールド座標と接線を取得
+			// 出口のワールド座標と接線を取得（カットオフ位置）
 			const auto fromBez = getBezier(fromEid);
 			if (!fromBez) continue;
-			const float exitArc = (fromLane.dir == LaneDir::Forward) ? fromBez->totalLength : 0.0f;
+			const bool fromIsNodeA = (fromEdge->nodeA == nodeId);
+			const float fromCutoff = fromIsNodeA ? fromEdge->cutoffA : fromEdge->cutoffB;
+			const float exitArc = fromIsNodeA
+				? fromCutoff
+				: (fromBez->totalLength - fromCutoff);
 			const Vec3 exitPos = fromBez->positionAt(exitArc);
 			const Vec3 exitTan = fromBez->tangentAt(exitArc);
 			const float exitSign = (fromLane.dir == LaneDir::Forward) ? 1.0f : -1.0f;
@@ -1272,8 +1276,8 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			// 車線オフセットを適用
 			const float fromCenterA = (fromLane.offsetA_L + fromLane.offsetA_R) * 0.5f;
 			const float fromCenterB = (fromLane.offsetB_L + fromLane.offsetB_R) * 0.5f;
-			const float fromT = (fromLane.dir == LaneDir::Forward) ? 1.0f : 0.0f;
-			const float fromOffset = fromCenterA + (fromCenterB - fromCenterA) * fromT;
+			const float fromFt = (fromBez->totalLength > 0.0f) ? (exitArc / fromBez->totalLength) : 0.0f;
+			const float fromOffset = fromCenterA + (fromCenterB - fromCenterA) * fromFt;
 			const Vec3 fromPerp = Vec3{ exitTan.z, 0.0, -exitTan.x }.normalized();
 			const Vec3 exitWorld = exitPos + fromPerp * static_cast<double>(fromOffset);
 
@@ -1294,10 +1298,14 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 						(toLane.dir == LaneDir::Backward && toEdge->nodeB == nodeId);
 					if (!entersAtNode) continue;
 
-					// 入口のワールド座標と接線を取得
+					// 入口のワールド座標と接線を取得（カットオフ位置）
 					const auto toBez = getBezier(toEid);
 					if (!toBez) continue;
-					const float entryArc = (toLane.dir == LaneDir::Forward) ? 0.0f : toBez->totalLength;
+					const bool toIsNodeA = (toEdge->nodeA == nodeId);
+					const float toCutoff = toIsNodeA ? toEdge->cutoffA : toEdge->cutoffB;
+					const float entryArc = toIsNodeA
+						? toCutoff
+						: (toBez->totalLength - toCutoff);
 					const Vec3 entryPos = toBez->positionAt(entryArc);
 					const Vec3 entryTan = toBez->tangentAt(entryArc);
 					const float entrySign = (toLane.dir == LaneDir::Forward) ? 1.0f : -1.0f;
@@ -1305,8 +1313,8 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 					// 車線オフセットを適用
 					const float toCenterA = (toLane.offsetA_L + toLane.offsetA_R) * 0.5f;
 					const float toCenterB = (toLane.offsetB_L + toLane.offsetB_R) * 0.5f;
-					const float toT = (toLane.dir == LaneDir::Forward) ? 0.0f : 1.0f;
-					const float toOffset = toCenterA + (toCenterB - toCenterA) * toT;
+					const float toFt = (toBez->totalLength > 0.0f) ? (entryArc / toBez->totalLength) : 0.0f;
+					const float toOffset = toCenterA + (toCenterB - toCenterA) * toFt;
 					const Vec3 toPerp = Vec3{ entryTan.z, 0.0, -entryTan.x }.normalized();
 					const Vec3 entryWorld = entryPos + toPerp * static_cast<double>(toOffset);
 

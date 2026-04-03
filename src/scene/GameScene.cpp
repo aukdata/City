@@ -1104,8 +1104,89 @@ void GameScene::renderWorld()
 			{
 				const float nh = m_world.computeHeight(
 					static_cast<float>(node->position.x), static_cast<float>(node->position.z));
-				Sphere{ Vec3{ node->position.x, nh + 5.0, node->position.z }, 12.0 }
-					.draw(ColorF{ 1.0, 0.5, 0.0, 0.6 });
+				// アウトラインリング
+				{
+					constexpr int kRingSeg = 24;
+					constexpr double kRadius = 12.0;
+					constexpr double kThick = 0.8;
+					const Vec3 center{ node->position.x, nh + 4.0, node->position.z };
+					const ColorF ringColor = ColorF{ 1.0, 0.6, 0.0, 0.8 }.removeSRGBCurve();
+					for (int i = 0; i < kRingSeg; ++i)
+					{
+						const double a0 = Math::TwoPi * i / kRingSeg;
+						const double a1 = Math::TwoPi * (i + 1) / kRingSeg;
+						const Vec3 p0 = center + Vec3{ Math::Cos(a0) * kRadius, 0, Math::Sin(a0) * kRadius };
+						const Vec3 p1 = center + Vec3{ Math::Cos(a1) * kRadius, 0, Math::Sin(a1) * kRadius };
+						Cylinder{ p0, p1, kThick }.draw(ringColor);
+					}
+				}
+
+				// 接続車線の端点を球で表示（カットオフ位置 = 道路面の端）
+				const int nodeId = *m_selectedNodeId;
+				for (const auto& att : node->attachments)
+				{
+					const RoadEdge* edge = m_network.getEdge(att.edgeId);
+					if (!edge || !edge->isRoadbedBuilt()) continue;
+					const auto bez = m_network.getBezier(att.edgeId);
+					if (!bez) continue;
+
+					// このノードが A 端か B 端か
+					const bool isNodeA = (edge->nodeA == nodeId);
+					const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+					// カットオフ位置の弧長（ノード側からカットオフ分だけ戻った位置）
+					const float cutoffArc = isNodeA
+						? cutoff
+						: (bez->totalLength - cutoff);
+
+					for (int li = 0; li < static_cast<int>(edge->lanes.size()); ++li)
+					{
+						const Lane& lane = edge->lanes[li];
+						if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+
+						// exit 車線（このノードから出る）
+						const bool exits =
+							(lane.dir == LaneDir::Forward  && edge->nodeB == nodeId) ||
+							(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
+						// entry 車線（このノードに入る）
+						const bool enters =
+							(lane.dir == LaneDir::Forward  && edge->nodeA == nodeId) ||
+							(lane.dir == LaneDir::Backward && edge->nodeB == nodeId);
+						if (!exits && !enters) continue;
+
+						// カットオフ位置でのワールド座標を計算
+						const Vec3 pos = bez->positionAt(cutoffArc);
+						const Vec3 tan = bez->tangentAt(cutoffArc);
+						const float centerA = (lane.offsetA_L + lane.offsetA_R) * 0.5f;
+						const float centerB = (lane.offsetB_L + lane.offsetB_R) * 0.5f;
+						const float ft = (bez->totalLength > 0.0f) ? (cutoffArc / bez->totalLength) : 0.0f;
+						const float off = centerA + (centerB - centerA) * ft;
+						const Vec3 perp = Vec3{ tan.z, 0.0, -tan.x }.normalized();
+						Vec3 world = pos + perp * static_cast<double>(off);
+						world.y = m_world.sampleHeight(static_cast<float>(world.x), static_cast<float>(world.z)) + 4.0f;
+
+						const ColorF col = exits
+							? ColorF{ 1.0, 0.3, 0.3, 0.8 }.removeSRGBCurve()   // 赤: exit
+							: ColorF{ 0.3, 1.0, 0.3, 0.8 }.removeSRGBCurve();   // 緑: entry
+						Sphere{ world, 2.0 }.draw(col);
+					}
+				}
+
+				// LaneConnection のベジェ曲線を描画
+				constexpr int kSegments = 16;
+				for (const auto& conn : node->laneConnections)
+				{
+					if (conn.path.totalLength < 0.01f) continue;
+					for (int i = 0; i < kSegments; ++i)
+					{
+						const float s0 = conn.path.totalLength * static_cast<float>(i) / kSegments;
+						const float s1 = conn.path.totalLength * static_cast<float>(i + 1) / kSegments;
+						Vec3 p0 = conn.path.positionAt(s0);
+						Vec3 p1 = conn.path.positionAt(s1);
+						p0.y = m_world.sampleHeight(static_cast<float>(p0.x), static_cast<float>(p0.z)) + 3.0f;
+						p1.y = m_world.sampleHeight(static_cast<float>(p1.x), static_cast<float>(p1.z)) + 3.0f;
+						Cylinder{ p0, p1, 0.5 }.draw(ColorF{ 0.2, 0.8, 1.0, 0.7 }.removeSRGBCurve());
+					}
+				}
 			}
 		}
 
