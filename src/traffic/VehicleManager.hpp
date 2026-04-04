@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Vehicle.hpp"
 #include "TrafficLight.hpp"
+#include "TrafficCommon.hpp"
 #include "../sim/SimMessages.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../road/RoadNetwork.hpp"
@@ -19,10 +20,6 @@ public:
 	void onNetworkChanged(const SimGraph& simGraph);
 
 	/// @brief 毎フレーム更新
-	/// @param dt          ゲーム時間の経過秒（realDt * speedMultiplier）
-	/// @param gameNow     ゲーム内時刻
-	/// @param simGraph    道路トポロジ（Main 所有、読み取り専用）
-	/// @param visibleEdges 前フレームの可視エッジ集合
 	void update(double dt, GameTime gameNow,
 	            const SimGraph& simGraph,
 	            const RoadNetwork& network,
@@ -72,13 +69,6 @@ private:
 	// --- Active/Dormant 遷移 ---
 	void activateVehicle(Vehicle& v, const SimGraph& simGraph);
 	void deactivateVehicle(Vehicle& v, const SimGraph& simGraph);
-
-	// --- IDM ---
-	static constexpr float kSignalStopDist = 15.0f;  ///< 信号停止検出距離 [m]
-	static constexpr float kStopSignDist   = 12.0f;  ///< 一時停止検出距離 [m]
-	static constexpr float kYieldDist      = 20.0f;  ///< 譲れ検出距離 [m]
-	static constexpr float kStopSignWait   = 1.5f;   ///< 一時停止の待機時間 [game sec]
-	float idmAcceleration(const Vehicle& v, const IDMParams& params, bool fwdLane) const;
 
 	// --- 交通規制 ---
 	TrafficControl getEdgeControl(int nodeId, int edgeId, const SimGraph& simGraph) const;

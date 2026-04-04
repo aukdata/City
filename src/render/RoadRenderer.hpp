@@ -89,6 +89,12 @@ private:
 
 	static float edgeMargin(const RoadEdge& edge, int nodeId);
 
+	/// @brief エッジのキャッシュ4種を一括消去する
+	void eraseEdgeCaches(int edgeId);
+
+	/// @brief ノードのキャップキャッシュ2種を一括消去する
+	void eraseNodeCaches(int nodeId);
+
 	// ---- メンバ ----
 
 	RoadPartRegistry                          m_partRegistry;

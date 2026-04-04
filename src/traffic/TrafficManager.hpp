@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Vehicle.hpp"
+#include "TrafficCommon.hpp"
 #include "TrafficGraph.hpp"
 #include "TrafficLight.hpp"
 #include "BusRoute.hpp"
@@ -54,9 +55,8 @@ public:
 	const SimTickStats& lastSimStats() const { return m_simStats; }
 
 private:
-	static constexpr int   kReroutePerFrame      = 10;     ///< 毎フレームの最大再探索台数
+	static constexpr int   kReroutePerFrame        = 10;    ///< 毎フレームの最大再探索台数
 	static constexpr float kPeriodicRerouteInterval = 60.0f; ///< 定期再探索間隔 [ゲーム秒]
-	static constexpr float kSignalStopDist        = 15.0f; ///< 信号停止線手前の検出距離 [m]
 
 	std::shared_ptr<const SimGraph> m_simGraph;
 	Array<Vehicle> m_vehicles;

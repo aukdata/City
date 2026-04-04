@@ -177,16 +177,9 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 			if (node.position.x >= cx && node.position.x < cx + cs &&
 			    node.position.z >= cz && node.position.z < cz + cs)
 			{
-				m_nodeCapCache.erase(node.id);
-				m_nodeCapLaneCache.erase(node.id);
+				eraseNodeCaches(node.id);
 				for (const auto& att : node.attachments)
-				{
-					const int eid = att.edgeId;
-					m_partMeshCache.erase(eid);
-					m_laneCache.erase(eid);
-					m_marginCache.erase(eid);
-					m_boundsCache.erase(eid);
-				}
+					eraseEdgeCaches(att.edgeId);
 			}
 		}
 	}
@@ -258,16 +251,27 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 	}
 }
 
-void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
+void RoadRenderer::eraseEdgeCaches(int edgeId)
 {
 	m_partMeshCache.erase(edgeId);
 	m_laneCache.erase(edgeId);
 	m_marginCache.erase(edgeId);
 	m_boundsCache.erase(edgeId);
+}
+
+void RoadRenderer::eraseNodeCaches(int nodeId)
+{
+	m_nodeCapCache.erase(nodeId);
+	m_nodeCapLaneCache.erase(nodeId);
+}
+
+void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
+{
+	eraseEdgeCaches(edgeId);
 	if (nodeA >= 0 || nodeB >= 0)
 	{
-		if (nodeA >= 0) { m_nodeCapCache.erase(nodeA); m_nodeCapLaneCache.erase(nodeA); }
-		if (nodeB >= 0) { m_nodeCapCache.erase(nodeB); m_nodeCapLaneCache.erase(nodeB); }
+		if (nodeA >= 0) eraseNodeCaches(nodeA);
+		if (nodeB >= 0) eraseNodeCaches(nodeB);
 	}
 	else
 	{
@@ -288,19 +292,12 @@ void RoadRenderer::invalidateAllCaches()
 
 void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& network)
 {
-	m_nodeCapCache.erase(nodeId);
-	m_nodeCapLaneCache.erase(nodeId);
+	eraseNodeCaches(nodeId);
 	const RoadNode* node = network.getNode(nodeId);
 	if (node)
 	{
 		for (const auto& att : node->attachments)
-		{
-			const int eid = att.edgeId;
-			m_partMeshCache.erase(eid);
-			m_laneCache.erase(eid);
-			m_marginCache.erase(eid);
-			m_boundsCache.erase(eid);
-		}
+			eraseEdgeCaches(att.edgeId);
 	}
 }
 
@@ -316,13 +313,9 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	{
 		if (it->second.atNodeA != marginA || it->second.atNodeB != marginB)
 		{
-			m_partMeshCache.erase(edge.id);
-			m_laneCache.erase(edge.id);
-			m_marginCache.erase(edge.id);
-			m_nodeCapCache.erase(edge.nodeA);
-			m_nodeCapCache.erase(edge.nodeB);
-			m_nodeCapLaneCache.erase(edge.nodeA);
-			m_nodeCapLaneCache.erase(edge.nodeB);
+			eraseEdgeCaches(edge.id);
+			eraseNodeCaches(edge.nodeA);
+			eraseNodeCaches(edge.nodeB);
 		}
 	}
 

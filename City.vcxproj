@@ -138,6 +138,9 @@
     <ClCompile Include="src\GameApp.cpp" />
     <ClCompile Include="src\scene\TitleScene.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
+    <ClCompile Include="src\scene\GameScene_Input.cpp" />
+    <ClCompile Include="src\scene\GameScene_Render.cpp" />
+    <ClCompile Include="src\scene\GameScene_Panels.cpp" />
     <ClCompile Include="src\debug\DebugRenderer.cpp" />
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
@@ -365,6 +368,7 @@
     <ClInclude Include="src\traffic\Vehicle.hpp" />
     <ClInclude Include="src\traffic\TrafficGraph.hpp" />
     <ClInclude Include="src\traffic\TrafficLight.hpp" />
+    <ClInclude Include="src\traffic\TrafficCommon.hpp" />
     <ClInclude Include="src\traffic\BusRoute.hpp" />
     <ClInclude Include="src\ui\PanelWidget.hpp" />
     <ClInclude Include="src\sim\SimGraph.hpp" />

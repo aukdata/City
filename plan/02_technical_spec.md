@@ -3,380 +3,175 @@
 ## アーキテクチャ概要
 
 ```
-┌─────────────────────────────────────────────┐
-│                  Game Loop                   │
-│  Update(dt) → Simulate(dt) → Render()        │
-└───────────┬──────────────┬───────────────────┘
-            │              │
-    ┌───────▼──────┐  ┌────▼────────────┐
-    │  Simulation  │  │   Renderer      │
-    │  (ゲーム状態)│  │  (Siv3D描画)    │
-    └───────┬──────┘  └─────────────────┘
-            │
-    ┌───────┼────────────────────┐
-    │       │                    │
-┌───▼───┐ ┌─▼──────┐ ┌──────────▼──────┐
-│ World │ │Traffic │ │ ZoneManager     │
-│Chunks │ │Manager │ │ (ゾーン管理)    │
-└───────┘ └─▼──────┘ └─────────────────┘
-            │
-    ┌───────┼────────┐
-    │       │        │
-┌───▼──┐ ┌─▼───┐ ┌──▼────┐
-│RoadNet│ │Veh. │ │Signal │
-│Graph  │ │Agent│ │System │
-└───────┘ └─────┘ └───────┘
+┌──────────────────────────────────────────────────────────┐
+│                     MAIN THREAD                          │
+│  GameScene (分割構成)                                     │
+│    ├─ GameScene.cpp      (初期化・ロード・更新ループ)    │
+│    ├─ GameScene_Input.cpp (入力ハンドラ・カーソル)       │
+│    ├─ GameScene_Render.cpp (3D描画・車両座標計算)        │
+│    └─ GameScene_Panels.cpp (パネルUI描画)               │
+│                                                          │
+│  ┌─────────┐  ┌──────────┐  ┌─────────────┐            │
+│  │  World  │  │ RoadNet  │  │VehicleManager│           │
+│  │ Chunks  │  │  Graph   │  │(IDM・Active/ │           │
+│  └─────────┘  └──────────┘  │ Dormant管理) │           │
+│                              └──────┬───────┘           │
+│  ┌──────────┐  ┌──────────┐        │                    │
+│  │ZoneManager│ │ Economy  │  TrafficCommon (共通)       │
+│  └──────────┘  └──────────┘  (IDM・車線変更・信号)      │
+│                                                          │
+│  ┌─────────────┐  ┌───────────────┐                     │
+│  │ TrainNetwork │  │  EventSystem  │                     │
+│  │ TrainManager │  └───────────────┘                     │
+│  └─────────────┘                                         │
+│                                                          │
+│  Renderers: World / Road / Vehicle / Train / UI / Debug  │
+│             PlaceName                                    │
+└──────────────────────┬───────────────────────────────────┘
+                       │ MessageQueue (lock-free)
+                       ▼
+┌──────────────────────────────────────────────────────────┐
+│                   SIM THREAD                             │
+│  SimThread                                               │
+│    ├─ TrafficGraph (Dijkstra経路探索)                    │
+│    └─ SimGraph (RoadNetworkの軽量コピー)                 │
+└──────────────────────────────────────────────────────────┘
 ```
+
+### スレッドモデル
+
+- **Main Thread**: ゲームループ・入力・描画・高レベル更新
+- **Sim Thread**: Dijkstra経路探索（バックグラウンド）
+- **通信**: lock-free MPSC メッセージキュー（shared_mutex 不要）
+- **共有データ**: SimGraph（const, shared_ptr で Main から Sim に渡す）
 
 ---
 
 ## 1. ワールド・チャンクシステム
 
-### チャンク設計
-
 ```
 チャンクサイズ: 1024 × 1024 メートル
-最大マップ: 256 × 256 チャンク = 16,384 × 16,384 m
-アクティブチャンク: カメラ周辺 5×5 = 25チャンク（チャンクサイズ 1024m × 1024m）のみ更新・描画
+ワールドサイズ: 64 × 64 チャンク
+アクティブチャンク: カメラ周辺 5×5 = 25チャンク のみ更新・描画
 ```
 
-### チャンクの持つデータ
+Chunk 構造の詳細は `15_chunk_data_spec.md` を参照。
 
-```cpp
-struct Chunk {
-    // 地形
-    HeightMap      heightMap;    // 高さフィールド（グリッド状）
-    TerrainMap     terrainType;  // 地表種別（舗装/土/水/草/岩など）
+### チャンクの主要データ
 
-    // 建物
-    Array<Building> buildings;
+- HeightMap (65x65 grid, 16mセル)
+- TerrainType (64x64 grid)
+- ZoneMap (64x64 grid) → `05_zoning_spec.md` 参照
+- BuildingGrid (64x64 grid)
 
-    // ゾーン（ビットマップ型、セルサイズ16m、64×64セル/チャンク）
-    Grid<ZoneType> zoneMap;
-    bool           isUrbanizationArea; // false = 全域が市街化調整区域
+### プロシージャル生成
 
-    // ロード状態
-    ChunkState state;        // Unloaded / Loading / Active / Sleeping
-};
-```
+生成パイプラインの詳細は `03_procedural_generation_spec.md` を参照。
 
-### プロシージャル生成手順
-
-1. **地形生成**: Perlinノイズ（多重オクターブ）で高さマップを生成
-2. **地形分類**: 高度・勾配から地表種別を決定（山岳/丘陵/平野/河川/海岸）
-3. **既存市街地配置**: 平野部に旧道ネットワークを自動生成
-4. **初期建物配置**: 旧道沿いに商店街・住宅を密度に応じて配置
-5. **シード値**: ユーザーが任意のシード値を入力可能
+1. **地形生成**: Perlinノイズ（多重オクターブ）で高さマップを生成（マルチスレッド）
+2. **地区配置**: ポアソン分布で集落を配置（Urban/Suburbs/Rural）
+3. **道路生成**: 3層階層（国道→県道→地区内道路）をA*で自動生成
+4. **ポスト処理**: 鋭角修正・曲線平滑化・交差点検出・重複エッジ削除
+5. **ゾーン・建物**: 地区中心からの距離に応じてゾーンと建物を自動配置
 
 ---
 
 ## 2. 道路ネットワーク
 
-### データ構造（グラフ）
+### データ構造
 
-```cpp
-// ノード: 端点・継ぎ目・交差点・分岐合流
-// 正式定義は 17_road_node_spec.md 参照
-struct RoadNode {
-    Vec3                   position;
-    NodeType               type;         // Endpoint / Joint / Intersection / Diverge
-    NodeTransition         transition;   // Blend / Abrupt（Joint 時のみ有効）
-    Array<EdgeAttachment>  attachments;  // 接続エッジ情報（lateralOffset・isThrough 付き）
-};
-
-// エッジ: 道路区間（3次ベジェ曲線）
-struct RoadEdge {
-    int      nodeA, nodeB;   // 始点・終点ノードID
-    Vec3     ctrlA, ctrlB;   // ベジェ制御点
-    RoadType roadType;       // 旧道/国道/バイパス/高速など
-    float    speedLimit;     // 制限速度 [km/h]
-    float    length;         // 曲線の弧長（事前計算）
-
-    // 物理構造（道路部品の配列、左から右の順）
-    // 正式定義は 16_road_cross_section_spec.md 参照
-    Array<RoadPart> parts;
-
-    // 車線配列（左から右の順）
-    // 正式定義は 07_road_lane_spec.md 参照
-    Array<Lane> lanes;
-
-    // 計画・工事状態
-    int      planId;         // 所属する道路計画ID（-1なら既存道路）
-    EdgeState state;         // Existing / Planned / UnderConstruction / Open / Closed
-
-    // 一時的な運用変更・将来の計画的変化（07_road_lane_spec.md §5-6 参照）
-    Array<TempOp>        tempOps;
-    Array<PlannedChange> planned;
-
-    // 交通状態
-    float    congestion;     // 0.0 〜 1.0
-    Array<Array<int>> laneVehicles;  // [laneIndex] → vehicleIds
-};
-
-// 道路計画（複数のエッジをまとめた計画単位）
-struct RoadPlan {
-    int         id;
-    String      name;          // 計画名（例: 「飯松バイパス」）
-    String      originName;    // 起点の地名
-    String      destName;      // 終点の地名
-    RoadType    roadType;      // バイパス/国道/高速など
-    Array<int>  edgeIds;       // この計画に属するエッジID群
-    float       totalCost;     // 概算総費用
-    float       totalLength;   // 総延長 [km]
-    PlanState   state;         // Planning / Approved / UnderConstruction / Complete
-
-    // 着工情報
-    Optional<GameTime> constructionStart; // 着工日（着工後にセット）
-    Optional<GameTime> completionDate;    // 完成予定日（着工時に計算）
-};
-```
-
-### 道路計画名の自動命名ルール
-
-```
-命名形式: 起点地名の頭文字 + 終点地名の頭文字 + 路線種別後置語
-
-路線種別後置語:
-  バイパス  → 「〇〇バイパス」
-  国道拡幅  → 「〇〇道路」
-  高速道路  → 「〇〇自動車道」
-  環状道路  → 「〇〇環状線」
-  県道      → 「〇〇線」
-
-例:
-  飯田 → 松本 のバイパス → 「飯松バイパス」
-  甲府 → 諏訪 の自動車道 → 「甲諏自動車道」
-  鈴鹿 → 亀山 の道路    → 「鈴亀道路」
-
-地名はノードに近い集落名・地区名から自動取得。
-プレイヤーは確定前に計画名を自由に編集可能。
-```
-
-### 新設道路と既存エッジの交差処理
-
-新設 RoadEdge のベジェ曲線と既存 RoadEdge のベジェ曲線が交差するとき:
-
-```
-① 交差点座標を検出（ベジェ×ベジェの交点計算）
-② 既存 RoadEdge を交差点で2分割
-   → edgeA（nodeA〜交差点）・edgeB（交差点〜nodeB）に分割
-   → 元の edgeId は edgeA が引き継ぎ、edgeB は新規 id を割り当て
-   → LaneNode・BorderNode も分割に合わせて再生成（PathfindingGraph を更新）
-③ 交差点に RoadNode を挿入
-   → 分岐タイプ（T字 / 十字 / 斜め交差）を自動判定
-④ LaneConnection を再構築（後述）
-⑤ PlannedChange・TempOp が存在した場合は分割後の対応エッジに引き継ぐ
-```
+- **RoadNode**: 端点・継ぎ目・交差点・分岐合流 → `17_road_node_spec.md`
+- **RoadEdge**: 3次ベジェ曲線の道路区間
+  - **物理構造**: RoadPart の配列 → `16_road_cross_section_spec.md`
+  - **車線構造**: Lane の配列 → `07_road_lane_spec.md`
+  - **運用変更**: TempOp / PlannedChange → `07_road_lane_spec.md` §5-6
+- **RoadPlan**: 複数エッジをまとめた計画単位
 
 ### ベジェ曲線の弧長パラメータ化
 
-- 曲線上を等速で移動させるために **弧長-t テーブル** を事前計算
-- 車両位置は `arcLength → t → position` で変換
-- 分割数: 50サンプル / 道路区間（精度と速度のバランス）
+- **弧長-t テーブル**: 50サンプル / エッジで事前計算
+- `arcLength → t → position` で車両位置を変換
 
-### 道路建設フロー（計画モード）
+### 新設道路と既存エッジの交差処理
 
-```
-[計画モード]
-  1. 道路種別を選択（バイパス / 国道 / 高速など）
-  2. 起点クリック → ベジェ制御点ドラッグ → 終点クリック
-     （複数区間を連続して引いて1本の路線を構成）
-  3. ルートが確定すると:
-     ・概算費用・工期を表示
-     ・計画名を自動生成（プレイヤーが編集可）
-     ・地図上に点線でプレビュー表示
-  4. [計画を保存] で RoadPlan として登録
-     → この時点では資金は消費しない
-
-[着工]
-  ・プレイヤーが任意のタイミングで計画一覧から[着工]を選択
-  ・着工時に費用が確定し引き落とし開始（月払い）
-  ・工事進捗が道路区間ごとに進む
-  ・完成した区間から順次開通（部分開通あり）
-
-[計画の破棄]
-  ・未着工の計画はいつでも無料でキャンセル可能
-  ・着工済みの計画をキャンセルすると違約金が発生
-```
+1. 交差点座標を検出（ベジェ×ベジェの交点計算）
+2. 既存 RoadEdge を交差点で2分割
+3. 交差点に RoadNode を挿入（T字/十字/斜め交差を自動判定）
+4. LaneConnection を再構築
+5. PlannedChange・TempOp を分割後のエッジに引き継ぎ
 
 ---
 
 ## 3. 車両AIシステム
 
-### 車両エージェント
+### 概要
 
-```cpp
-struct Vehicle {
-    int       id;
-    VehicleType type;        // 乗用車 / トラック / バス / 緊急車両
+車両管理は2つのクラスで構成:
+- **VehicleManager** (Main Thread): Active/Dormant管理、IDM物理更新、経路リクエスト生成
+- **TrafficManager** (Sim Thread可): 車両更新、Dijkstra経路探索、バス路線管理
+- **TrafficCommon** (共通ユーティリティ): IDM計算、車線変更安全判定、信号フェーズ生成
 
-    // 経路
-    // 正式定義は 08_pathfinding_spec.md §6 および 09_vehicle_spec.md §8 の Vehicle 構造体を参照
-    int        currentEdge;  // 現在の道路辺
-    float      arcPos;       // 現在の道路辺上での弧長位置 [m]
-
-    // 物理状態
-    float     speed;         // 現在速度 [m/s]
-    float     targetSpeed;   // 目標速度
-    Vec3      position;      // 3D位置（描画用）
-    float     heading;       // 進行方向 [rad]
-
-    // AI状態
-    VehicleState state;      // Moving / Waiting / Parking / Leaving
-    int          leadVehicle; // 前方車両ID（-1なら無し）
-    float        gapToLead;   // 前方車両との車頭距離
-};
-```
+車種別パラメータ・構造体の詳細は `09_vehicle_spec.md` を参照。
 
 ### 経路探索
 
-- **アルゴリズム**: A*（ヒューリスティック: ユークリッド距離）
-- **コスト関数**: `移動時間 = 距離 / (制限速度 × (1 - 混雑度))`
-- **再探索タイミング**:
-  - 出発時
-  - 渋滞で速度が閾値以下になったとき（確率的に）
-  - 道路新設・閉鎖イベント時
+- **アルゴリズム**: Dijkstra（TrafficGraph 上、LaneNode/BorderNode ベース）
+- **コスト関数**: `移動時間 = 距離 / (制限速度 × (1 - 混雑度 × 0.8))`
+  - Transition コスト: Straight=2, Left=5, Right=8, UTurn=15
+  - 信号コスト: 期待待ち時間を加算
+- **再探索**: 毎フレーム最大10台、道路ネットワーク変更時に全車両
 
-### 追従モデル（IDM: Intelligent Driver Model）
+詳細は `08_pathfinding_spec.md` を参照。
 
-車間距離と相対速度に基づいて加減速を計算する古典的交通流モデル。
+### 追従モデル（IDM）
 
 ```
 a = a_max × [1 - (v/v0)^4 - (s*(v, Δv) / s)^2]
-
 s* = s0 + v×T + v×Δv / (2×√(a_max×b))
 ```
 
-| パラメータ | 意味 | 値（仮） |
-|-----------|------|---------|
-| v0 | 希望速度 | 道路制限速度 |
-| T | 安全車頭時間 | 1.5 s |
-| s0 | 最小車頭距離 | 2.0 m |
-| a_max | 最大加速度 | 1.5 m/s² |
-| b | 快適減速度 | 2.0 m/s² |
+IDM パラメータは `09_vehicle_spec.md` の `getDefaultIDMParams()` で車種別に定義。
 
 ### 車線変更
 
-- 追い越し禁止区間では車線変更不可
-- 交差点手前では目的車線に移動
-- 簡易モデル: 隣接車線に空きがあれば変更
+- 出口までの距離が 30m 未満では車線変更しない
+- 安全ギャップ判定: 前方 `s0 + 8m`、後方 `s0 + T×15 + 8m`
+- キープレフト優先
 
 ---
 
 ## 4. 信号機システム
 
-```cpp
-struct SignalPhase {
-    Array<int> greenEdgeIds;  // この相位で青になる接続エッジ（RoadEdge.id）
-    float      greenTime;     // 青時間 [秒（ゲーム内）]
-    float      yellowTime;    // 黄時間 [秒]（デフォルト 3.0f）
-};
+信号機は3本以上のエッジが接続する交差点ノードに自動生成される。
 
-struct TrafficLight {
-    int               nodeId;
-    Array<SignalPhase> phases;
-    int               currentPhase;
-    float             phaseTimer;    // 現相位の経過時間
-    bool              adaptive;      // 適応制御フラグ
-};
-```
+- **フェーズ構造**: エッジを2グループに分けて交互に青
+- **フェーズ持続時間**: 30秒（ゲーム時間）
+- **VehicleManager**: edgeControl が Signal のノードにのみ信号を設置
+- **TrafficManager**: validEdges >= 3 のノードに自動設置
 
-- 車両は信号機ノードに接近すると停止線でIDM適用
-- 緊急車両は信号を強制青にできる（将来機能）
+信号停止判定距離: 15m
 
 ---
 
 ## 5. ゾーニングシステム
 
-### ゾーン指定方式（ビットマップ型）
+詳細は `05_zoning_spec.md` を参照。7種類のゾーンタイプ（Unzoned / UrbanControl / LowResidential / Residential / Commercial / Industrial / Agriculture）。
 
-マップ全体をグリッドセルに分割し、各セルに用途地域IDを格納する。
-
-```cpp
-// ゾーンの種別（都市計画法を7種に簡略化、詳細は05_zoning_spec.md）
-enum class ZoneType : uint8 {
-    Unzoned        = 0,   // 未指定（既存建物は残る、新規開発不可）
-    UrbanControl   = 1,   // 市街化調整区域（農地・公園のみ）
-    LowResidential = 2,   // 低層住居専用（戸建て・低層マンション）
-    Residential    = 3,   // 住居地域（住宅全般＋小規模店舗）
-    Commercial     = 4,   // 商業地域（店舗・オフィス・マンション全般）
-    Industrial     = 5,   // 工業地域（工場・倉庫）
-    Agriculture    = 6,   // 農業地域（農地のみ）
-    // 公園・公共施設・駐車場はゾーン外建設扱い（どのゾーンにも建設可）
-};
-// Chunk構造体は Section 1 参照
-```
-
-### ゾーン操作ツール（UI）
-
-| ツール | 操作 | 用途 |
-|-------|------|------|
-| 鉛筆 | 1セルずつ塗る | 細かい調整 |
-| ブラシ | 円形範囲を塗る（サイズ可変） | 広いエリアの指定 |
-| 矩形塗り | ドラッグで長方形を塗る | 整形地の指定 |
-| バケツ塗り | 連続する同一ゾーンを一括変更 | 大規模な変更 |
-| 消去 | 未指定（Unzoned）に戻す | ゾーン解除 |
-
-ゾーンオーバーレイは3D表示上に半透明カラーで表示（ゾーン表示のトグル可）。
-
-### 建物自動生成ロジック
-
-```
-毎ゲームターン（1ゲーム月ごと）:
-  各ゾーンセルを評価:
-    発展スコア = 道路アクセス係数
-               × 近隣施設ボーナス
-               × 需要係数（人口・商業需要）
-               × 地価係数
-
-    スコア > 生成閾値 かつ 空地:
-      → ゾーン種別に応じた建物を生成
-    スコア > 成長閾値 かつ 既存建物あり:
-      → 建物をアップグレード（次の成長段階へ）
-    スコア < 衰退閾値:
-      → 建物を縮小・撤退（空き家・廃業）
-```
-
-### 建物成長段階
-
-各ゾーンに成長段階（Stage 0〜3）があり、需要と経過年数で遷移する。
-
-```
-低層住居専用:
-  空地 →[S0] 昭和の木造戸建て →[S1] 平成の新築戸建て →[S2] 令和の戸建て
-        ↘ 老朽化 → 空き家（放置で景観悪化・地価低下）
-  空地 →[S0] 低層アパート →[S1] 低層マンション
-
-住居地域:
-  空地 →[S0] 戸建て or 低層アパート
-       →[S1] 中層マンション（需要高時）
-
-商業地域:
-  空地 →[S0] 小規模店舗 →[S1] 大型店舗・SC
-  空地 →[S0] 中層マンション →[S1] 高層マンション
-  空地 →[S0] 小規模オフィス →[S1] オフィスビル
-  （需要の高い種別が優先生成）
-
-工業地域:
-  空地 →[S0] 中小工場 →[S1] 大型工場・物流センター
-```
-
-詳細は `05_zoning_spec.md` 参照。
+ゾーン操作ツール: ブラシ、矩形塗り。3D表示上に半透明カラーオーバーレイ。
 
 ---
 
 ## 6. 地形変更システム
 
-| 操作 | 処理 | コスト要因 |
-|------|------|-----------|
-| 掘削（切土） | 高さマップを下げる | 掘削量 × 地質係数 |
-| 盛土 | 高さマップを上げる | 盛土量 × 距離 |
-| トンネル | 地下に道路エッジを追加 | 距離 × 深さ |
-| 橋梁 | 高架の道路エッジを追加 | 距離 × 高さ |
-| 護岸・埋立 | 水域を陸地に変換 | 面積 × 水深 |
+| 操作 | 処理 |
+|------|------|
+| 盛土 | 高さマップを上げる（左クリック） |
+| 掘削 | 高さマップを下げる（右クリック） |
+| ブラシサイズ | Ctrl+ホイールで調整（20〜400m） |
 
-- 地形変更はチャンクの `HeightMap` を直接編集
-- 変更後は周辺チャンクのメッシュを再生成
+- 地形変更はチャンクの HeightMap を直接編集
+- コサイン減衰でブラシ端をなめらかに
+- 変更後はチャンクのメッシュと道路キャッシュを再生成
 
 ---
 
@@ -384,34 +179,30 @@ enum class ZoneType : uint8 {
 
 ### 描画レイヤー
 
-1. **地形メッシュ** (Mesh3D): チャンクごとに生成、高さマップから作成
-2. **道路メッシュ**: ベジェ曲線を分割してポリゴンに変換
-3. **建物**: LOD付き3Dモデル or ボクセル風ブロック（未定）
-4. **車両**: 簡易3Dモデル（車種別）
-5. **歩行者**: 低ポリゴンキャラクター（区別なし）
-6. **UI**: Siv3D 2D描画でオーバーレイ
+1. **Sky**: Siv3D Sky クラス（昼夜・朝夕の色変化）
+2. **地形メッシュ**: チャンクごとの DynamicMesh（フラスタムカリング）
+3. **道路メッシュ**: ベジェ×断面部品から生成（LOD切替 800m）
+4. **ノードキャップ**: 交差点のフィレット曲線メッシュ
+5. **建物**: WorldRenderer で種別×色ブロック描画
+6. **車両**: 近距離=OBJモデル、遠距離=OrientedBox
+7. **列車**: TrainRenderer
+8. **地名**: PlaceNameRenderer（ビルボード）
+9. **UI**: UIRenderer + PanelManager（`18_panel_system_spec.md`）
+10. **デバッグ**: DebugRenderer（F3メニュー）
 
-### カメラ
+### カメラモード
 
-```cpp
-// 通常視点
-BasicCamera3D camera;
-// - Eye: マップ上空の任意点
-// - Focus: マップ上の注視点
-// - 操作: WASD移動、右ドラッグ回転、ホイールズーム
+- **Overview**: 俯瞰（WASD移動、右ドラッグ回転、ホイールズーム）
+- **Follow**: 車両追跡（チェイスビュー）
+- **FirstPerson**: 一人称視点
 
-// 一人称視点
-// - Eyeを道路面上に固定
-// - 車両/歩行者に追従するモード
-```
-
-### LOD（距離別描画品質）
+### LOD
 
 | 距離 | 描画内容 |
 |------|---------|
-| 近距離 (<100m) | フルモデル・テクスチャ・影 |
-| 中距離 (<500m) | 簡略モデル |
-| 遠距離 (>500m) | アイコン or スキップ |
+| < 800m | 高品質メッシュ |
+| 800m〜12km | LODメッシュ |
+| > 12km | 描画しない |
 
 ---
 
@@ -420,83 +211,45 @@ BasicCamera3D camera;
 ### 時間管理
 
 ```cpp
-// ゲーム内時刻を表すスカラー値（ゲーム開始からの経過ゲーム秒）
-using GameTime = double;
+using GameTime = double;  // ゲーム開始からの経過ゲーム秒
 
-// ユーティリティ
 struct GameClock {
-    GameTime now;           // 現在時刻 [ゲーム秒]
+    GameTime now;
     int      year;
-    uint8    month;         // 1〜12
-    uint8    day;           // 1〜30（簡略化・全月30日）
-    float    hour;          // 0.0〜24.0
-
-    float realSecondsPerGameMinute; // 速度係数
-    Season season;
-
-    // 変換
-    static GameTime fromYMDH(int y, int m, int d, float h);
-    float           toHourOfDay() const { return hour; }
+    uint8    month;    // 1〜12
+    uint8    day;      // 1〜30（全月30日に簡略化）
+    float    hour;     // 0.0〜24.0
+    TimeSpeed speed;   // Paused / x1 / x2 / x4
+    // 速度倍率: x1=60倍速（1リアル秒=1ゲーム分）
 };
-// 速度: x1 / x2 / x4 / Pause
-
-// 注意: 仕様書内の Date 型はすべて GameTime に統一する（07・10も同様）。
 ```
 
 ### イベントシステム
 
-| イベント | 発生条件 | 交通への影響 |
-|---------|---------|------------|
-| 祭り | 季節イベント | 特定エリアの歩行者増・車両規制 |
-| 台風 | 夏〜秋 | 速度低下・土砂崩れリスク |
-| 土砂崩れ | 大雨後・斜面 | 道路閉鎖 |
-| 冠水 | 低地・大雨 | 道路閉鎖 |
-| 工事 | ランダム | 車線減少 |
-| 事故 | 混雑時に確率発生 | 一時閉鎖 |
+`04_gameplay_detail_spec.md` を参照。季節イベント8種 + ランダムイベント9種。
+データ駆動テーブルで定義（EventSystem.cpp 内の `kSeasonalEvents[]` / `kRandomEvents[]`）。
 
 ---
 
 ## 9. 経済システム
 
-```cpp
-struct Economy {
-    int64  funds;          // 現在資金 [円]
-    float  taxRate;        // 税率
+`04_gameplay_detail_spec.md` を参照。
 
-    // 収支
-    int64  monthlyIncome;  // 住民税 + 商業税 + 観光収入
-    int64  monthlyExpense; // 施設維持費 + 公共交通費
-};
-```
-
-収入計算:
-```
-住民税   = 人口 × 平均年収 × 税率
-商業税   = 商業ゾーン売上 × 税率
-観光収入 = 観光施設数 × 来客数 × 単価
-```
+- 月次交付金: 人口ベース
+- 月次支出: 道路維持費（種別×延長）
+- 初期資金: 300億円
 
 ---
 
-## 実装優先順位（フェーズ）
+## 実装フェーズ
 
-### Phase 1: 基盤（まず動かす）
-1. チャンクベースの地形生成・描画
-2. ベジェ曲線道路の建設・描画
-3. 車両の生成と道路上の走行（経路探索なしの直線走行）
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| 1 | チャンク・ベジェ道路・車両走行・カメラ | 完了 |
+| 2 | Dijkstra経路探索・IDM・信号・車線変更 | 完了 |
+| 3 | ゾーン・建物自動生成・経済・HUD | 完了 |
+| 4 | Perlin地形・イベント・一人称・地形編集 | 完了 |
+| 5 | 鉄道（駅・ダイヤ・ブロック閉塞） | 完了 |
+| 6 | セーブ・地名・オーディオ・ビジュアル仕上げ | 一部着手 |
 
-### Phase 2: 交通シミュレーション
-4. A*経路探索の実装
-5. IDMによる車両追従
-6. 信号機システム
-
-### Phase 3: 街の発展
-7. ゾーニングシステム
-8. 建物の自動生成・成長
-9. 経済システム
-
-### Phase 4: 体験の深化
-10. プロシージャル地形生成（既成市街地付き）
-11. イベントシステム
-12. 一人称視点
-13. 地形変更ツール
+詳細は `IMPLEMENTATION_PLAN.md` を参照。

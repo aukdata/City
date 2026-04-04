@@ -8,50 +8,86 @@
 
 ---
 
-## ファイル構成方針
+## ファイル構成
 
 ```
 City/
-├── Main.cpp              # エントリーポイント。GameApp::run() を呼ぶだけ
-├── stdafx.h / stdafx.cpp # プリコンパイル済みヘッダー（Siv3D インクルード）
+├── Main.cpp                    # エントリーポイント → GameApp::run()
+├── stdafx.h / stdafx.cpp       # プリコンパイル済みヘッダー
 ├── src/
-│   ├── GameApp.hpp/.cpp       # ゲームループ統括（Update/Simulate/Render の呼び出し）
+│   ├── GameApp.hpp/.cpp        # シーン管理（Title/Game）
+│   ├── scene/
+│   │   ├── SceneCommon.hpp     # SceneState / SceneData
+│   │   ├── TitleScene.hpp/.cpp # タイトル・セーブ選択
+│   │   ├── GameScene.hpp       # ゲームシーン本体（メンバ・宣言）
+│   │   ├── GameScene.cpp       # 初期化・ロード・更新ループ・セーブ
+│   │   ├── GameScene_Input.cpp # 入力処理・モード別ハンドラ
+│   │   ├── GameScene_Render.cpp # 3D描画・車両座標計算・オーバーレイ
+│   │   └── GameScene_Panels.cpp # パネルUI（Edge/Node/Vehicle/NameList）
 │   ├── world/
-│   │   ├── Chunk.hpp/.cpp     # チャンクデータ構造
-│   │   ├── World.hpp/.cpp     # チャンク管理・ロード/アンロード
-│   │   └── TerrainMesh.hpp/.cpp # ハイトマップ → メッシュ変換
+│   │   ├── Chunk.hpp           # チャンクデータ構造
+│   │   └── World.hpp/.cpp      # チャンク管理・Perlin生成
 │   ├── road/
-│   │   ├── RoadTypes.hpp      # RoadEdge / RoadNode / RoadPlan / Lane の構造体定義
-│   │   ├── RoadNetwork.hpp/.cpp  # グラフ管理（追加・削除・交差検出）
-│   │   └── BezierUtil.hpp/.cpp   # ベジェ曲線・弧長パラメータ化
+│   │   ├── RoadTypes.hpp       # RoadEdge / RoadNode / Lane 等
+│   │   ├── RoadEnums.hpp       # OpState / LaneDir / LaneType 等
+│   │   ├── RoadPartTypes.hpp   # RoadPartType / RoadPart
+│   │   ├── RoadNetwork.hpp/.cpp # グラフ管理（追加・削除・交差・LaneConnection）
+│   │   ├── BezierUtil.hpp/.cpp  # ベジェ曲線・弧長パラメータ化
+│   │   ├── RoadPartRegistry.hpp/.cpp # TOML+OBJ アセット
+│   │   └── ObjParser.hpp/.cpp   # OBJ ファイル解析
 │   ├── traffic/
-│   │   ├── PathfindingGraph.hpp/.cpp # LaneNode / BorderNode / GraphEdge
-│   │   ├── Pathfinding.hpp/.cpp      # Dijkstra 実装
-│   │   ├── Vehicle.hpp/.cpp          # 車両エージェント・IDM
-│   │   ├── TrafficManager.hpp/.cpp   # 車両生成・更新・再探索分散
-│   │   ├── TrafficLight.hpp/.cpp     # 信号機（RoadNode に紐づくため traffic/ に配置）
-│   │   └── BusRoute.hpp/.cpp         # BusStop / BusRoute データ構造
+│   │   ├── Vehicle.hpp          # 車両構造体・IDMParams・enum
+│   │   ├── TrafficCommon.hpp    # 共通ユーティリティ（IDM・車線変更・定数）
+│   │   ├── VehicleManager.hpp/.cpp  # Main Thread 車両管理
+│   │   ├── TrafficManager.hpp/.cpp  # Sim Thread 車両管理
+│   │   ├── TrafficGraph.hpp/.cpp    # Dijkstra 経路探索グラフ
+│   │   ├── TrafficLight.hpp/.cpp    # 信号機
+│   │   └── BusRoute.hpp        # バス路線
+│   ├── sim/
+│   │   ├── SimThread.hpp/.cpp   # バックグラウンド経路探索スレッド
+│   │   ├── SimGraph.hpp         # RoadNetwork の軽量コピー
+│   │   ├── SimMessages.hpp      # RouteRequest / RouteResponse
+│   │   └── MessageQueue.hpp     # lock-free MPSC キュー
+│   ├── railway/
+│   │   ├── TrackTypes.hpp       # TrackNode / TrackEdge / Schedule
+│   │   ├── Train.hpp            # 列車構造体
+│   │   ├── TrainNetwork.hpp/.cpp # 線路ネットワーク
+│   │   └── TrainManager.hpp/.cpp # 列車運行管理
+│   ├── gen/
+│   │   ├── MapGenerator.hpp/.cpp    # 地区配置・道路自動生成
+│   │   ├── RoadPathfinder.hpp/.cpp  # A*（道路配置用）
+│   │   ├── PlaceNameGenerator.hpp/.cpp # TOML ベース地名生成
+│   │   └── TerrainType.hpp          # バイオーム定義
 │   ├── zone/
-│   │   ├── ZoneTypes.hpp      # ZoneType enum
-│   │   ├── Building.hpp       # Building 構造体・成長段階（構造が複雑なため分離）
-│   │   └── ZoneManager.hpp/.cpp # ゾーン評価・建物生成
+│   │   ├── ZoneTypes.hpp        # ZoneType enum
+│   │   ├── Building.hpp         # Building 構造体
+│   │   └── ZoneManager.hpp/.cpp # ゾーン管理・建物生成
 │   ├── economy/
-│   │   └── Economy.hpp/.cpp
+│   │   └── Economy.hpp/.cpp     # 月次収支
+│   ├── event/
+│   │   └── EventSystem.hpp/.cpp # 季節・ランダムイベント（データ駆動）
 │   ├── time/
-│   │   └── GameClock.hpp/.cpp
+│   │   └── GameClock.hpp        # GameTime / GameClock
 │   ├── render/
-│   │   ├── WorldRenderer.hpp/.cpp  # 描画レイヤー統括
-│   │   ├── RoadRenderer.hpp/.cpp
-│   │   ├── VehicleRenderer.hpp/.cpp
-│   │   └── UIRenderer.hpp/.cpp
-│   └── ui/
-│       ├── Camera.hpp/.cpp    # BasicCamera3D ラッパー・操作
-│       └── HUD.hpp/.cpp
+│   │   ├── WorldRenderer.hpp/.cpp   # 地形・建物
+│   │   ├── RoadRenderer.hpp/.cpp    # 道路メッシュ・LOD
+│   │   ├── VehicleRenderer.hpp/.cpp # 車両（モデル/Box）
+│   │   ├── TrainRenderer.hpp/.cpp   # 線路・列車
+│   │   ├── UIRenderer.hpp/.cpp      # HUD
+│   │   └── PlaceNameRenderer.hpp/.cpp # 地名ビルボード
+│   ├── ui/
+│   │   ├── Camera.hpp/.cpp      # 3カメラモード
+│   │   ├── PanelManager.hpp/.cpp # パネルUI管理
+│   │   └── PanelWidget.hpp      # パネルウィジェット
+│   ├── debug/
+│   │   ├── DebugRenderer.hpp/.cpp # F3 デバッグ表示
+│   │   ├── DebugLog.hpp         # ログ
+│   │   └── PerfStats.hpp        # パフォーマンス計測
+│   └── save/
+│       └── RoadBinary.hpp/.cpp  # 道路バイナリ保存
 └── plan/
-    └── IMPLEMENTATION_PLAN.md  ← このファイル
+    └── *.md                     # 仕様書群
 ```
-
-> 注意: ファイル構成は実装の進行に合わせて変化しうる。上記はあくまで出発点の目安。
 
 ---
 
@@ -334,3 +370,4 @@ City/
 | 2026-03-16 | Phase 3 実装: ZoneType/Building/ZoneManager(3-1)・月次建物生成(3-2)・Economy(3-3)・ZoneOverlay描画・HUD拡張 |
 | 2026-03-17 | Phase 2残・4・5実装: TempOpグラフ更新(2-4)・建物3D描画(3-2)・Sky/Perlin地形(4-1)・カメラモード(4-3)・バス路線(4-0)・イベント(4-2)・地形編集(4-4)・鉄道システム(5-1〜5-2)・add_bom.py |
 | 2026-03-22 | 「今後の実装予定」セクション追加（メモリから移行） |
+| 2026-04-04 | 総合リファクタリング: TrafficCommon 共通ユーティリティ抽出（IDM・車線変更・信号フェーズ生成）、GameScene 4分割（Input/Render/Panels）、RoadRenderer キャッシュ無効化統合、RoadNetwork LaneConnection 計算共通化（calcLaneEndpoint）、EventSystem データ駆動テーブル化、VehicleRenderer 属性テーブル統合。ファイル構成・仕様書を現行実装に同期 |

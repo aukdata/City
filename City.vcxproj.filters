@@ -255,6 +255,15 @@
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>Source Files\scene</Filter>
     </ClCompile>
+    <ClCompile Include="src\scene\GameScene_Input.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\GameScene_Render.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\GameScene_Panels.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
     <ClCompile Include="src\sim\SimThread.cpp">
       <Filter>Source Files\sim</Filter>
     </ClCompile>
@@ -1056,6 +1065,9 @@
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\TrafficLight.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\TrafficCommon.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\BusRoute.hpp">

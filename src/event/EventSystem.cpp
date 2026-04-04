@@ -1,5 +1,73 @@
 ﻿#include "EventSystem.hpp"
 
+// =============================================================================
+// 季節イベント定義テーブル
+// =============================================================================
+
+namespace
+{
+	constexpr double kDay  = 86400.0;  // 1ゲーム日 = 86400 ゲーム秒
+	constexpr double kHour = 3600.0;
+
+	struct SeasonalEventDef
+	{
+		uint8       month;
+		EventType   type;
+		StringView  title;
+		StringView  description;
+		float       speedMultiplier;
+		double      durationDays;
+	};
+
+	constexpr SeasonalEventDef kSeasonalEvents[] = {
+		{  1, EventType::HatsuMode,         U"初詣渋滞",            U"神社・寺周辺が混雑します",                   0.50f,  3 },
+		{  3, EventType::GraduationSeason,  U"卒業式シーズン",      U"学校周辺の朝ラッシュが悪化します",           0.80f,  7 },
+		{  4, EventType::GraduationSeason,  U"入学式シーズン",      U"学校周辺の朝ラッシュが悪化します",           0.85f,  7 },
+		{  5, EventType::GoldenWeek,        U"ゴールデンウィーク",  U"観光地へのアクセス路が大渋滞になります",     0.55f,  5 },
+		{  7, EventType::SummerFestival,    U"夏祭り",              U"旧市街の一部道路が歩行者天国になります",     0.70f,  2 },
+		{  8, EventType::OBonRush,          U"お盆帰省ラッシュ",    U"幹線道路の交通量が増加します",               0.60f,  4 },
+		{ 10, EventType::FoliageSeason,     U"紅葉シーズン",        U"観光地への流入が増加します",                 0.75f, 14 },
+		{ 12, EventType::NewYearRush,       U"年末年始ラッシュ",    U"幹線道路の交通量が増加します",               0.65f,  7 },
+	};
+
+	// ランダムイベント候補テーブル
+	struct RandomEventDef
+	{
+		EventType   type;
+		int         monthMin;
+		int         monthMax;
+		float       probability;
+		StringView  title;
+		StringView  description;
+		float       speedMultiplier;
+		double      durationMinSec;
+		double      durationMaxSec;
+	};
+
+	const RandomEventDef kRandomEvents[] = {
+		{ EventType::Typhoon,              8, 10, 0.05f, U"台風接近",       U"全道路の速度が低下します",               0.60f, kDay*2,     kDay*4     },
+		{ EventType::HeavyRain,            6,  9, 0.15f, U"大雨・冠水",     U"低地道路が通行困難になります",           0.70f, kDay*1,     kDay*3     },
+		{ EventType::Snowfall,            12,  2, 0.20f, U"積雪",           U"道路が滑りやすくなります",               0.70f, kDay*1,     kDay*7     },
+		{ EventType::TrafficAccident,      1, 12, 0.10f, U"交通事故発生",   U"事故区間が一時閉鎖されます",             0.80f, kHour*2,    kHour*6    },
+		{ EventType::WaterPipeWork,        1, 12, 0.20f, U"水道管工事",     U"生活道路が車線減少します",               0.85f, kDay*7*1,   kDay*7*4   },
+		{ EventType::GasPipeWork,          1, 12, 0.10f, U"ガス管工事",     U"幹線道路が片側交互通行になります",       0.60f, kDay*7*2,   kDay*7*6   },
+		{ EventType::Rockfall,             1, 12, 0.03f, U"落石注意",       U"山間道路が一時閉鎖されます",             0.80f, kDay*1,     kDay*5     },
+		{ EventType::Ekiden,              11,  1, 0.10f, U"駅伝大会",       U"指定ルートが一時閉鎖されます",           0.70f, kHour*6,    kHour*6    },
+		{ EventType::Marathon,             4,  4, 0.50f, U"マラソン大会",   U"広範囲のルートが閉鎖されます",           0.60f, kHour*8,    kHour*8    },
+	};
+
+	bool isMonthInRange(uint8 month, int monthMin, int monthMax)
+	{
+		return (monthMin <= monthMax)
+			? (month >= monthMin && month <= monthMax)
+			: (month >= monthMin || month <= monthMax);
+	}
+}
+
+// =============================================================================
+// 公開メソッド
+// =============================================================================
+
 void EventSystem::update(GameTime gameNow, [[maybe_unused]] uint8 month, [[maybe_unused]] double dt)
 {
 	removeExpired(gameNow);
@@ -10,11 +78,9 @@ void EventSystem::rollMonthly(GameTime gameNow, uint8 month, const RoadNetwork& 
 	if (m_lastRollMonth == static_cast<int>(month)) return;
 	m_lastRollMonth = static_cast<int>(month);
 
-	// 季節イベント
 	if (auto ev = buildSeasonalEvent(month, gameNow))
 		addEvent(*ev);
 
-	// ランダムイベント
 	if (auto ev = rollRandomEvent(month, gameNow, network))
 		addEvent(*ev);
 }
@@ -47,168 +113,47 @@ void EventSystem::removeExpired(GameTime now)
 	m_active.remove_if([now](const GameEvent& ev) { return ev.endAt < now; });
 }
 
+// =============================================================================
+// 季節イベント生成（テーブル駆動）
+// =============================================================================
+
 Optional<GameEvent> EventSystem::buildSeasonalEvent(uint8 month, GameTime now) const
 {
-	constexpr double kDay = 86400.0;  // 1ゲーム日 = 86400 ゲーム秒
-
-	GameEvent ev;
-	ev.startAt = now;
-
-	switch (month)
+	for (const auto& def : kSeasonalEvents)
 	{
-	case 1:
-		ev.type = EventType::HatsuMode;
-		ev.title = U"初詣渋滞";
-		ev.description = U"神社・寺周辺が混雑します";
-		ev.speedMultiplier = 0.5f;
-		ev.endAt = now + kDay * 3;
-		break;
-	case 3:
-		ev.type = EventType::GraduationSeason;
-		ev.title = U"卒業式シーズン";
-		ev.description = U"学校周辺の朝ラッシュが悪化します";
-		ev.speedMultiplier = 0.8f;
-		ev.endAt = now + kDay * 7;
-		break;
-	case 4:
-		ev.type = EventType::GraduationSeason;
-		ev.title = U"入学式シーズン";
-		ev.description = U"学校周辺の朝ラッシュが悪化します";
-		ev.speedMultiplier = 0.85f;
-		ev.endAt = now + kDay * 7;
-		break;
-	case 5:
-		ev.type = EventType::GoldenWeek;
-		ev.title = U"ゴールデンウィーク";
-		ev.description = U"観光地へのアクセス路が大渋滞になります";
-		ev.speedMultiplier = 0.55f;
-		ev.endAt = now + kDay * 5;
-		break;
-	case 7:
-		ev.type = EventType::SummerFestival;
-		ev.title = U"夏祭り";
-		ev.description = U"旧市街の一部道路が歩行者天国になります";
-		ev.speedMultiplier = 0.7f;
-		ev.endAt = now + kDay * 2;
-		break;
-	case 8:
-		ev.type = EventType::OBonRush;
-		ev.title = U"お盆帰省ラッシュ";
-		ev.description = U"幹線道路の交通量が増加します";
-		ev.speedMultiplier = 0.6f;
-		ev.endAt = now + kDay * 4;
-		break;
-	case 10:
-		ev.type = EventType::FoliageSeason;
-		ev.title = U"紅葉シーズン";
-		ev.description = U"観光地への流入が増加します";
-		ev.speedMultiplier = 0.75f;
-		ev.endAt = now + kDay * 14;
-		break;
-	case 12:
-		ev.type = EventType::NewYearRush;
-		ev.title = U"年末年始ラッシュ";
-		ev.description = U"幹線道路の交通量が増加します";
-		ev.speedMultiplier = 0.65f;
-		ev.endAt = now + kDay * 7;
-		break;
-	default:
-		return none;
+		if (def.month != month) continue;
+
+		GameEvent ev;
+		ev.type            = def.type;
+		ev.title           = String{ def.title };
+		ev.description     = String{ def.description };
+		ev.speedMultiplier = def.speedMultiplier;
+		ev.startAt         = now;
+		ev.endAt           = now + kDay * def.durationDays;
+		return ev;
 	}
-	return ev;
+	return none;
 }
 
-Optional<GameEvent> EventSystem::rollRandomEvent(uint8 month, GameTime now, [[maybe_unused]] const RoadNetwork& network) const
+// =============================================================================
+// ランダムイベント（テーブル駆動）
+// =============================================================================
+
+Optional<GameEvent> EventSystem::rollRandomEvent(uint8 month, GameTime now,
+                                                  [[maybe_unused]] const RoadNetwork& network) const
 {
-	constexpr double kDay  = 86400.0;
-	constexpr double kHour = 3600.0;
-
-	GameEvent ev;
-	ev.startAt = now;
-
-	// 季節ごとのランダムイベント確率テーブル
-	struct RollEntry { EventType type; int monthMin; int monthMax; float prob; };
-	constexpr RollEntry table[] = {
-		{ EventType::Typhoon,              8, 10, 0.05f },
-		{ EventType::HeavyRain,            6,  9, 0.15f },
-		{ EventType::Snowfall,            12,  2, 0.20f },
-		{ EventType::TrafficAccident,      1, 12, 0.10f },
-		{ EventType::WaterPipeWork,        1, 12, 0.20f },
-		{ EventType::GasPipeWork,          1, 12, 0.10f },
-		{ EventType::Rockfall,             1, 12, 0.03f },
-		{ EventType::Ekiden,              11,  1, 0.10f },
-		{ EventType::Marathon,             4,  4, 0.50f },
-	};
-
-	for (const auto& entry : table)
+	for (const auto& def : kRandomEvents)
 	{
-		bool inSeason = (entry.monthMin <= entry.monthMax)
-			? (month >= entry.monthMin && month <= entry.monthMax)
-			: (month >= entry.monthMin || month <= entry.monthMax);
-		if (!inSeason) continue;
+		if (!isMonthInRange(month, def.monthMin, def.monthMax)) continue;
+		if (Random(0.0f, 1.0f) > def.probability) continue;
 
-		if (Random(0.0f, 1.0f) > entry.prob) continue;
-
-		ev.type = entry.type;
-		switch (entry.type)
-		{
-		case EventType::Typhoon:
-			ev.title = U"台風接近";
-			ev.description = U"全道路の速度が低下します";
-			ev.speedMultiplier = 0.6f;
-			ev.endAt = now + kDay * Random(2, 4);
-			break;
-		case EventType::HeavyRain:
-			ev.title = U"大雨・冠水";
-			ev.description = U"低地道路が通行困難になります";
-			ev.speedMultiplier = 0.7f;
-			ev.endAt = now + kDay * Random(1, 3);
-			break;
-		case EventType::Snowfall:
-			ev.title = U"積雪";
-			ev.description = U"道路が滑りやすくなります";
-			ev.speedMultiplier = 0.7f;
-			ev.endAt = now + kDay * Random(1, 7);
-			break;
-		case EventType::TrafficAccident:
-			ev.title = U"交通事故発生";
-			ev.description = U"事故区間が一時閉鎖されます";
-			ev.speedMultiplier = 0.8f;
-			ev.endAt = now + kHour * Random(2, 6);
-			break;
-		case EventType::WaterPipeWork:
-			ev.title = U"水道管工事";
-			ev.description = U"生活道路が車線減少します";
-			ev.speedMultiplier = 0.85f;
-			ev.endAt = now + kDay * 7 * Random(1, 4);
-			break;
-		case EventType::GasPipeWork:
-			ev.title = U"ガス管工事";
-			ev.description = U"幹線道路が片側交互通行になります";
-			ev.speedMultiplier = 0.6f;
-			ev.endAt = now + kDay * 7 * Random(2, 6);
-			break;
-		case EventType::Rockfall:
-			ev.title = U"落石注意";
-			ev.description = U"山間道路が一時閉鎖されます";
-			ev.speedMultiplier = 0.8f;
-			ev.endAt = now + kDay * Random(1, 5);
-			break;
-		case EventType::Ekiden:
-			ev.title = U"駅伝大会";
-			ev.description = U"指定ルートが一時閉鎖されます";
-			ev.speedMultiplier = 0.7f;
-			ev.endAt = now + kHour * 6;
-			break;
-		case EventType::Marathon:
-			ev.title = U"マラソン大会";
-			ev.description = U"広範囲のルートが閉鎖されます";
-			ev.speedMultiplier = 0.6f;
-			ev.endAt = now + kHour * 8;
-			break;
-		default:
-			continue;
-		}
+		GameEvent ev;
+		ev.type            = def.type;
+		ev.title           = String{ def.title };
+		ev.description     = String{ def.description };
+		ev.speedMultiplier = def.speedMultiplier;
+		ev.startAt         = now;
+		ev.endAt           = now + Random(def.durationMinSec, def.durationMaxSec);
 		return ev;
 	}
 	return none;

@@ -2,6 +2,8 @@
 #include <cmath>
 #include <chrono>
 
+using namespace TrafficCommon;
+
 // ===== update =====
 
 void TrafficManager::update(double dt, GameTime gameNow)
@@ -15,7 +17,6 @@ void TrafficManager::update(double dt, GameTime gameNow)
 
 	const auto t0 = Clock::now();
 
-	// グラフが更新された場合は再構築する
 	if (m_graphDirty)
 	{
 		buildTrafficLights();
@@ -37,7 +38,7 @@ void TrafficManager::update(double dt, GameTime gameNow)
 	const auto t3 = Clock::now();
 	m_simStats.reroute = toMs(t3 - t2);
 
-	// 車両更新 — IDM と車線変更を分離計測
+	// 車両更新
 	double idmTotal = 0, lcTotal = 0;
 	for (auto& v : m_vehicles)
 	{
@@ -56,22 +57,18 @@ void TrafficManager::update(double dt, GameTime gameNow)
 			continue;
 		}
 
-		// 車線変更
 		const auto lcStart = Clock::now();
 		if (RandomBool(0.01))
 			tryLaneChange(v);
-		const auto lcEnd = Clock::now();
-		lcTotal += toMs(lcEnd - lcStart);
+		lcTotal += toMs(Clock::now() - lcStart);
 
 		if (v.type == VehicleType::Bus && v.busRouteId >= 0)
 			updateBusStop(v, dt, gameNow);
 		if (v.state == VehicleState::WaitingBusStop) continue;
 
-		// IDM (advanceOnEdge)
 		const auto idmStart = Clock::now();
 		advanceOnEdge(v, dt, gameNow);
-		const auto idmEnd = Clock::now();
-		idmTotal += toMs(idmEnd - idmStart);
+		idmTotal += toMs(Clock::now() - idmStart);
 	}
 	m_simStats.idm = idmTotal;
 	m_simStats.laneChange = lcTotal;
@@ -96,20 +93,7 @@ void TrafficManager::spawnVehicle(VehicleType type)
 {
 	if (!m_simGraph) return;
 
-	// Forward 方向の走行可能な車線があるエッジを候補として収集する
-	Array<int> candidates;
-	for (const auto& [eid, e] : m_simGraph->edges)
-	{
-		if (!e.isRoadbedBuilt()) continue;
-		for (const auto& lane : e.lanes)
-		{
-			if ((lane.op == OpState::Open || lane.op == OpState::Provisional) && lane.dir == LaneDir::Forward)
-			{
-				candidates << e.id;
-				break;
-			}
-		}
-	}
+	const auto candidates = collectDrivableEdges(*m_simGraph);
 	if (candidates.isEmpty()) return;
 
 	const int edgeId = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
@@ -120,7 +104,6 @@ void TrafficManager::spawnVehicle(VehicleType type)
 	v.speed       = 5.0f;
 	v.type        = type;
 
-	// 初期位置をランダムに設定する
 	const auto* edge = m_simGraph->getEdge(edgeId);
 	if (edge)
 		v.arcPos = static_cast<float>(Random(0.0, static_cast<double>(edge->length) * 0.8));
@@ -145,15 +128,6 @@ void TrafficManager::rebuildGraph(GameTime now)
 
 	for (const auto& v : m_vehicles)
 		enqueueReroute(v.id);
-}
-
-// ===== ヘルパー =====
-
-static bool isForwardLane(const SimGraph::Edge& edge, int laneIdx)
-{
-	if (laneIdx < 0 || laneIdx >= static_cast<int>(edge.lanes.size()))
-		return true;
-	return edge.lanes[laneIdx].dir == LaneDir::Forward;
 }
 
 // ===== 車両更新 =====
@@ -185,15 +159,14 @@ void TrafficManager::updateVehicle(Vehicle& v, double dt, GameTime gameNow)
 	advanceOnEdge(v, dt, gameNow);
 }
 
-void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
+void TrafficManager::advanceOnEdge(Vehicle& v, double dt, [[maybe_unused]] GameTime gameNow)
 {
 	const auto* edge = m_simGraph->getEdge(v.currentEdge);
 	if (!edge) return;
 
 	const bool fwdLane = isForwardLane(*edge, v.currentLane);
-
 	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
-	float accel = idmAcceleration(v, params, fwdLane);
+	float accel = idmAcceleration(m_vehicles, v, params, fwdLane);
 
 	// 信号停止チェック
 	const int exitNId = fwdLane ? edge->nodeB : edge->nodeA;
@@ -204,16 +177,8 @@ void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
 			? (edge->length - 2.0f - v.arcPos)
 			: (v.arcPos - 2.0f);
 
-		if (distToStop > 0.0f && distToStop < kSignalStopDist)
-		{
-			const float dv    = v.speed;
-			const float sStar = params.s0 + Max(0.0f,
-				v.speed * params.T + v.speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
-			const float gap = Max(0.1f, distToStop);
-			accel = params.aMax * (
-				1.0f - std::powf(v.speed / Max(0.1f, params.v0), 4.0f)
-				- (sStar / gap) * (sStar / gap));
-		}
+		if (const auto a = stopLineAccel(v.speed, distToStop, kSignalStopDist, params))
+			accel = *a;
 	}
 
 	v.speed = static_cast<float>(Clamp(
@@ -225,8 +190,6 @@ void TrafficManager::advanceOnEdge(Vehicle& v, double dt, GameTime gameNow)
 		v.arcPos += advance;
 	else
 		v.arcPos -= advance;
-
-	// 注: position/heading はメインスレッドで描画時にベジェ変換する
 
 	const bool reachedEnd = fwdLane
 		? (v.arcPos >= edge->length)
@@ -284,60 +247,15 @@ bool TrafficManager::transitToNextEdge(Vehicle& v, [[maybe_unused]] GameTime gam
 	return true;
 }
 
-// ===== IDM =====
-
-float TrafficManager::idmAcceleration(const Vehicle& v, const IDMParams& params, bool fwdLane) const
-{
-	float gap   = 1e9f;
-	float vLead = params.v0;
-
-	for (const auto& other : m_vehicles)
-	{
-		if (other.id == v.id)           continue;
-		if (other.currentEdge != v.currentEdge) continue;
-		if (other.currentLane != v.currentLane) continue;
-
-		const float delta = fwdLane
-			? (other.arcPos - v.arcPos)
-			: (v.arcPos - other.arcPos);
-
-		if (delta > 0.0f && delta < gap)
-		{
-			gap   = delta;
-			vLead = other.speed;
-		}
-	}
-
-	if (gap > 500.0f)
-	{
-		return params.aMax * (1.0f - std::powf(v.speed / Max(0.1f, params.v0), 4.0f));
-	}
-
-	const float dv    = v.speed - vLead;
-	const float sStar = params.s0 + Max(0.0f,
-		v.speed * params.T + v.speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
-	const float safeGap = Max(0.1f, gap);
-
-	return params.aMax * (
-		1.0f - std::powf(v.speed / Max(0.1f, params.v0), 4.0f)
-		- (sStar / safeGap) * (sStar / safeGap));
-}
-
 // ===== 経路探索 =====
 
 void TrafficManager::doReroute(Vehicle& v, GameTime now)
 {
 	if (v.goalEdgeId == -1 || v.goalEdgeId == v.currentEdge)
 	{
-		const auto ids = m_simGraph->edgeIds();
-		Array<int> candidates;
-		for (const int eid : ids)
-		{
-			if (eid != v.currentEdge)
-				candidates << eid;
-		}
-		if (candidates.isEmpty()) return;
-		v.goalEdgeId = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
+		const int goal = selectRandomGoalEdge(*m_simGraph, v.currentEdge);
+		if (goal == -1) return;
+		v.goalEdgeId = goal;
 	}
 
 	int startNode = m_graph.entryNodeId(v.currentEdge, v.currentLane);
@@ -421,31 +339,14 @@ void TrafficManager::buildTrafficLights()
 
 	for (const auto& [nid, node] : m_simGraph->nodes)
 	{
-		int validEdges = 0;
+		Array<int> validEdges;
 		for (const int eid : node.edgeIds)
 		{
-			if (m_simGraph->getEdge(eid)) ++validEdges;
+			if (m_simGraph->getEdge(eid)) validEdges << eid;
 		}
-		if (validEdges < 3) continue;
+		if (validEdges.size() < 3) continue;
 
-		const int half = static_cast<int>(node.edgeIds.size()) / 2;
-		Array<SignalPhase> phases;
-
-		SignalPhase phaseA;
-		phaseA.duration = 30.0f;
-		SignalPhase phaseB;
-		phaseB.duration = 30.0f;
-
-		for (int k = 0; k < static_cast<int>(node.edgeIds.size()); ++k)
-		{
-			if (k < half)
-				phaseA.greenEdgeIds << node.edgeIds[k];
-			else
-				phaseB.greenEdgeIds << node.edgeIds[k];
-		}
-
-		phases << std::move(phaseA) << std::move(phaseB);
-
+		auto phases = buildTwoGroupPhases(validEdges);
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
 	}
 }
@@ -468,8 +369,9 @@ void TrafficManager::tryLaneChange(Vehicle& v)
 	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
 
 	const float distToExit = fwdLane ? (edge->length - v.arcPos) : v.arcPos;
-	if (distToExit < 30.0f) return;
+	if (distToExit < kLaneChangeMinExitDist) return;
 
+	// 現在車線の前方ギャップ
 	float frontGapCurrent = 1e9f;
 	for (const auto& other : m_vehicles)
 	{
@@ -480,41 +382,22 @@ void TrafficManager::tryLaneChange(Vehicle& v)
 			frontGapCurrent = delta;
 	}
 
-	const auto isSafe = [&](int targetLane) -> bool
+	auto tryTarget = [&](int targetLane) -> bool
 	{
-		if (targetLane < 0 || targetLane >= static_cast<int>(edge->lanes.size())) return false;
-		const Lane& tgt = edge->lanes[targetLane];
-		if (!(edge->isRoadbedBuilt() && (tgt.op == OpState::Open || tgt.op == OpState::Provisional))) return false;
-		const LaneDir dir = fwdLane ? LaneDir::Forward : LaneDir::Backward;
-		if (tgt.dir != dir) return false;
-
-		float frontGap = 1e9f, rearGap = 1e9f;
-		for (const auto& other : m_vehicles)
-		{
-			if (other.id == v.id) continue;
-			if (other.currentEdge != v.currentEdge || other.currentLane != targetLane) continue;
-			const float delta = fwdLane ? (other.arcPos - v.arcPos) : (v.arcPos - other.arcPos);
-			if (delta > 0.0f) frontGap = Min(frontGap, delta);
-			else              rearGap  = Min(rearGap, -delta);
-		}
-
-		constexpr float kDeltaVMax   = 15.0f;
-		const float     safetyFront  = params.s0 + 8.0f;
-		const float     safetyRear   = params.s0 + params.T * kDeltaVMax + 8.0f;
-		return (frontGap >= safetyFront) && (rearGap >= safetyRear);
+		float frontGap, rearGap;
+		measureGaps(m_vehicles, v.id, v.currentEdge, targetLane,
+		            v.arcPos, fwdLane, false, frontGap, rearGap);
+		if (!isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, params))
+			return false;
+		v.currentLane = targetLane;
+		return true;
 	};
 
-	if (v.currentLane > 0 && isSafe(v.currentLane - 1))
-	{
-		v.currentLane--;
+	if (v.currentLane > 0 && tryTarget(v.currentLane - 1))
 		return;
-	}
 
 	if (frontGapCurrent < params.s0 * 4.0f)
-	{
-		if (isSafe(v.currentLane + 1))
-			v.currentLane++;
-	}
+		tryTarget(v.currentLane + 1);
 }
 
 // ===== バス路線 =====
@@ -612,4 +495,3 @@ void TrafficManager::updateBusStop(Vehicle& v, [[maybe_unused]] double dt, [[may
 		}
 	}
 }
-

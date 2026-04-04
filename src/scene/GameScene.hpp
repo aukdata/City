@@ -149,6 +149,14 @@ private:
 	MainPerfHistory m_mainPerfHistory;
 	SimPerfHistory  m_simPerfHistory;
 
+	// 描画タイミング（renderWorld サブメソッド間で���有）
+	struct RenderTimings
+	{
+		double sky = 0, terrain = 0, road = 0, zone = 0;
+		double vehicle = 0, train = 0, debug = 0, ui = 0, total = 0;
+	};
+	RenderTimings m_renderTimings;
+
 	// ---- ユーティリティ ----
 
 	/// @brief ワールド座標 → チャンク座標
@@ -191,6 +199,7 @@ private:
 		m_vehicleManager.onNetworkChanged(*m_simGraph);
 	}
 
+	// ---- 入力処理 (GameScene_Input.cpp) ----
 	void handleInput();
 	void updateCursor();
 	void handleRoadDraw();
@@ -199,10 +208,19 @@ private:
 	void handleTerrainEdit();
 	void handleTrainDraw();
 	void handleSandboxEdit();
+	String modeString() const;
+
+	// ---- 描画 (GameScene_Render.cpp) ----
 	void renderWorld();
+	void renderScene3D();
+	void renderVehicles();
+	void renderSelectionHighlights();
+	void renderEditModeOverlays();
+	void render2DUI();
+
+	// ---- パネル描画 (GameScene_Panels.cpp) ----
 	void drawEdgePanel();
 	void drawNodePanel();
 	void drawVehiclePanel();
-
-	String modeString() const;
+	void drawNameListPanel();
 };
