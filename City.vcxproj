@@ -149,6 +149,7 @@
     <ClCompile Include="src\railway\TrainManager.cpp" />
     <ClCompile Include="src\render\TrainRenderer.cpp" />
     <ClCompile Include="src\render\PlaceNameRenderer.cpp" />
+    <ClCompile Include="src\render\MinimapRenderer.cpp" />
     <ClCompile Include="src\gen\MapGenerator.cpp" />
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />

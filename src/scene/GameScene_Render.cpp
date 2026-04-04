@@ -432,4 +432,9 @@ void GameScene::render2DUI()
 	drawEdgePanel();
 	drawNodePanel();
 	drawVehiclePanel();
+
+	m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
+
+	m_minimapRenderer.update(m_panelManager);
+	m_minimapRenderer.render(m_camera, m_districts);
 }

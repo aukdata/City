@@ -25,6 +25,7 @@
 #include "../railway/TrainManager.hpp"
 #include "../render/TrainRenderer.hpp"
 #include "../render/PlaceNameRenderer.hpp"
+#include "../render/MinimapRenderer.hpp"
 
 /// @brief ゲームプレイシーン
 class GameScene : public App::Scene
@@ -94,6 +95,7 @@ private:
 	DebugRenderer    m_debugRenderer;
 	TrainRenderer        m_trainRenderer;
 	PlaceNameRenderer    m_placeNameRenderer;
+	MinimapRenderer      m_minimapRenderer;
 
 	// ---- 編集モード ----
 	enum class EditMode { None, RoadDraw, ZonePaint, BusRouteDraw, TerrainEdit, TrainDraw, SandboxEdit };
@@ -197,6 +199,7 @@ private:
 		m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
 		m_simThread.pushRequest(NetworkUpdate{ m_simGraph });
 		m_vehicleManager.onNetworkChanged(*m_simGraph);
+		m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 	}
 
 	// ---- 入力処理 (GameScene_Input.cpp) ----

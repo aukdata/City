@@ -124,133 +124,149 @@ void GameScene::drawEdgePanel()
 		y += kLH + 4;
 	}
 
-	// Parts
-	static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
-		U"Gutter", U"Guard", U"Wall", U"Curb", U"Slope", U"Bike" };
-	static constexpr StringView bsNames[] = { U"NotBuilt", U"Building", U"Built", U"Stub" };
-	PanelWidget::label(pBold, U"Parts ({})"_fmt(edge->parts.size()), pX, y, ColorF{1.0, 1.0, 0.4});
-	if (PanelWidget::button(pFont, U"+", false, pX + 72, y, 16, kLH, U"Add part"))
+	// Parts セクション（折りたたみ可能）
+	static bool partsCollapsed = true;
 	{
-		RoadPart np;
-		np.type = RoadPartType::Roadbed; np.width = 3.5f;
-		np.offset = edge->totalWidth() * 0.5f; np.build = BuildState::Built;
-		edge->parts << np; dirty = true;
+		static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
+			U"Gutter", U"Guard", U"Wall", U"Curb", U"Slope", U"Bike" };
+		static constexpr StringView bsNames[] = { U"NotBuilt", U"Building", U"Built", U"Stub" };
+		constexpr int kSectionW = 360;
+
+		if (PanelWidget::section(pBold, U"Parts ({})"_fmt(edge->parts.size()), partsCollapsed, pX, y, kSectionW, kLH))
+		{
+			if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add part"))
+			{
+				RoadPart np;
+				np.type = RoadPartType::Roadbed; np.width = 3.5f;
+				np.offset = edge->totalWidth() * 0.5f; np.build = BuildState::Built;
+				edge->parts << np; dirty = true;
+			}
+			y += kLH;
+
+			int partToRemove = -1;
+			int partSwapA = -1, partSwapB = -1;
+			for (int i = 0; i < static_cast<int>(edge->parts.size()); ++i)
+			{
+				auto& p = edge->parts[i];
+				const int n = static_cast<int>(edge->parts.size());
+				int bx = pX;
+
+				if (i > 0     && PanelWidget::button(pFont, U"^", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i - 1; }
+				bx += 15;
+				if (i < n - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i + 1; }
+				bx += 17;
+				if (PanelWidget::cycle(pFont, p.type, ptNames, 10, bx, y, 56, kLH)) dirty = true;
+				bx += 58;
+				if (PanelWidget::cycle(pFont, p.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
+				bx += 54;
+				PanelWidget::label(pFont, U"w", bx, y, ColorF{ 0.5 });
+				if (PanelWidget::spin(pFont, p.width, 0.5f, 0.5f, 50.0f, bx + 10, y, 34, kLH)) dirty = true;
+				bx += 46;
+				PanelWidget::label(pFont, U"o", bx, y, ColorF{ 0.5 });
+				if (PanelWidget::spin(pFont, p.offset, 0.5f, -50.0f, 50.0f, bx + 10, y, 38, kLH)) dirty = true;
+				bx += 50;
+				if (PanelWidget::button(pFont, U"X", false, bx, y, 16, kLH, U"Remove")) partToRemove = i;
+				y += kLH;
+			}
+			if (partSwapA >= 0 && partSwapB >= 0) { std::swap(edge->parts[partSwapA], edge->parts[partSwapB]); dirty = true; }
+			if (partToRemove >= 0) { edge->parts.remove_at(partToRemove); dirty = true; }
+		}
+		y += 4;
 	}
-	y += kLH;
-	int partToRemove = -1;
-	int partSwapA = -1, partSwapB = -1;
-	for (int i = 0; i < static_cast<int>(edge->parts.size()); ++i)
+
+	// Lanes セクション（折りたたみ可能）
+	static bool lanesCollapsed = true;
 	{
-		auto& p = edge->parts[i];
-		const int n = static_cast<int>(edge->parts.size());
-		int bx = pX;
+		static constexpr StringView osN[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
+		static constexpr StringView ltN[] = { U"Normal", U"Bus", U"Climb", U"Turn", U"Accel", U"Decel" };
+		static constexpr StringView lnN[] = { U"None", U"Solid W", U"Dash W", U"Solid Y", U"Double Y" };
+		static constexpr StringView drN[] = { U"Forward", U"Backward" };
+		constexpr int kSectionW = 360;
 
-		if (i > 0     && PanelWidget::button(pFont, U"^", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i - 1; }
-		bx += 15;
-		if (i < n - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i + 1; }
-		bx += 17;
-		if (PanelWidget::cycle(pFont, p.type, ptNames, 10, bx, y, 56, kLH)) dirty = true;
-		bx += 58;
-		if (PanelWidget::cycle(pFont, p.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
-		bx += 54;
-		PanelWidget::label(pFont, U"w", bx, y, ColorF{ 0.5 });
-		if (PanelWidget::spin(pFont, p.width, 0.5f, 0.5f, 50.0f, bx + 10, y, 34, kLH)) dirty = true;
-		bx += 46;
-		PanelWidget::label(pFont, U"o", bx, y, ColorF{ 0.5 });
-		if (PanelWidget::spin(pFont, p.offset, 0.5f, -50.0f, 50.0f, bx + 10, y, 38, kLH)) dirty = true;
-		bx += 50;
-		if (PanelWidget::button(pFont, U"X", false, bx, y, 16, kLH, U"Remove")) partToRemove = i;
-		y += kLH;
+		if (PanelWidget::section(pBold, U"Lanes ({})"_fmt(edge->lanes.size()), lanesCollapsed, pX, y, kSectionW, kLH))
+		{
+			if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add lane"))
+			{
+				Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = 3.5f;
+				const float hw = edge->totalWidth() * 0.5f;
+				nl.offsetA_L = hw; nl.offsetA_R = hw + 3.5f; nl.offsetB_L = hw; nl.offsetB_R = hw + 3.5f;
+				edge->lanes << nl; dirty = true;
+			}
+			y += kLH;
+
+			int laneToRemove = -1;
+			int laneSwapA = -1, laneSwapB = -1;
+			for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
+			{
+				auto& L = edge->lanes[i];
+				const int ln = static_cast<int>(edge->lanes.size());
+				int bx;
+
+				bx = pX;
+				if (i > 0      && PanelWidget::button(pFont, U"^", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i - 1; }
+				bx += 17;
+				if (i < ln - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i + 1; }
+				bx += 18;
+				PanelWidget::label(pBold, U"Lane {}"_fmt(i), bx, y, ColorF{0.8, 0.8, 1.0});
+				bx += 46;
+				dirty |= PanelWidget::cycle(pFont, L.dir, drN, 2, bx, y, 66, kLH);
+				bx += 68;
+				dirty |= PanelWidget::cycle(pFont, L.op, osN, 4, bx, y, 78, kLH);
+				bx += 80;
+				dirty |= PanelWidget::cycle(pFont, L.type, ltN, 6, bx, y, 50, kLH);
+				if (PanelWidget::button(pFont, U"X", false, pX + 348, y, 18, kLH, U"Remove")) laneToRemove = i;
+				y += kLH;
+
+				bx = pX + 8;
+				PanelWidget::label(pFont, U"Change", bx, y);
+				bx += 50;
+				dirty |= PanelWidget::toggle(pFont, U"Left OK", U"Left --", L.canChangeLaneLeft, bx, y, 56, kLH);
+				bx += 58;
+				dirty |= PanelWidget::toggle(pFont, U"Right OK", U"Right --", L.canChangeLaneRight, bx, y, 58, kLH);
+				bx += 64;
+				PanelWidget::label(pFont, U"Width", bx, y);
+				bx += 40;
+				dirty |= PanelWidget::spin(pFont, L.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
+				y += kLH;
+
+				bx = pX + 8;
+				PanelWidget::label(pFont, U"Line Left", bx, y);
+				bx += 72;
+				dirty |= PanelWidget::cycle(pFont, L.lineLeft, lnN, 5, bx, y, 66, kLH);
+				bx += 72;
+				PanelWidget::label(pFont, U"Right", bx, y);
+				bx += 42;
+				dirty |= PanelWidget::cycle(pFont, L.lineRight, lnN, 5, bx, y, 66, kLH);
+				y += kLH;
+
+				bx = pX + 8;
+				PanelWidget::label(pFont, U"A", bx, y, ColorF{1.0, 0.5, 0.5});
+				bx += 14;
+				PanelWidget::label(pFont, U"Left", bx, y);
+				bx += 34;
+				dirty |= PanelWidget::spin(pFont, L.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+				bx += 50;
+				PanelWidget::label(pFont, U"Right", bx, y);
+				bx += 40;
+				dirty |= PanelWidget::spin(pFont, L.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+				y += kLH;
+
+				bx = pX + 8;
+				PanelWidget::label(pFont, U"B", bx, y, ColorF{0.5, 1.0, 0.5});
+				bx += 14;
+				PanelWidget::label(pFont, U"Left", bx, y);
+				bx += 34;
+				dirty |= PanelWidget::spin(pFont, L.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+				bx += 50;
+				PanelWidget::label(pFont, U"Right", bx, y);
+				bx += 40;
+				dirty |= PanelWidget::spin(pFont, L.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+				y += kLH + 4;
+			}
+			if (laneSwapA >= 0 && laneSwapB >= 0) { std::swap(edge->lanes[laneSwapA], edge->lanes[laneSwapB]); dirty = true; }
+			if (laneToRemove >= 0) { edge->lanes.remove_at(laneToRemove); dirty = true; }
+		}
 	}
-	if (partSwapA >= 0 && partSwapB >= 0) { std::swap(edge->parts[partSwapA], edge->parts[partSwapB]); dirty = true; }
-	if (partToRemove >= 0) { edge->parts.remove_at(partToRemove); dirty = true; }
-	y += 4;
-
-	// Lanes
-	static constexpr StringView osN[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
-	static constexpr StringView ltN[] = { U"Normal", U"Bus", U"Climb", U"Turn", U"Accel", U"Decel" };
-	static constexpr StringView lnN[] = { U"None", U"Solid W", U"Dash W", U"Solid Y", U"Double Y" };
-	static constexpr StringView drN[] = { U"Forward", U"Backward" };
-	PanelWidget::label(pBold, U"Lanes ({})"_fmt(edge->lanes.size()), pX, y, ColorF{1.0, 1.0, 0.4});
-	if (PanelWidget::button(pFont, U"+", false, pX + 72, y, 16, kLH, U"Add lane"))
-	{
-		Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = 3.5f;
-		const float hw = edge->totalWidth() * 0.5f;
-		nl.offsetA_L = hw; nl.offsetA_R = hw + 3.5f; nl.offsetB_L = hw; nl.offsetB_R = hw + 3.5f;
-		edge->lanes << nl; dirty = true;
-	}
-	y += kLH;
-	int laneToRemove = -1;
-	int laneSwapA = -1, laneSwapB = -1;
-	for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
-	{
-		auto& L = edge->lanes[i];
-		const int ln = static_cast<int>(edge->lanes.size());
-		int bx;
-
-		bx = pX;
-		if (i > 0      && PanelWidget::button(pFont, U"^", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i - 1; }
-		bx += 17;
-		if (i < ln - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i + 1; }
-		bx += 18;
-		PanelWidget::label(pBold, U"Lane {}"_fmt(i), bx, y, ColorF{0.8, 0.8, 1.0});
-		bx += 46;
-		dirty |= PanelWidget::cycle(pFont, L.dir, drN, 2, bx, y, 66, kLH);
-		bx += 68;
-		dirty |= PanelWidget::cycle(pFont, L.op, osN, 4, bx, y, 78, kLH);
-		bx += 80;
-		dirty |= PanelWidget::cycle(pFont, L.type, ltN, 6, bx, y, 50, kLH);
-		if (PanelWidget::button(pFont, U"X", false, pX + 348, y, 18, kLH, U"Remove")) laneToRemove = i;
-		y += kLH;
-
-		bx = pX + 8;
-		PanelWidget::label(pFont, U"Change", bx, y);
-		bx += 50;
-		dirty |= PanelWidget::toggle(pFont, U"Left OK", U"Left --", L.canChangeLaneLeft, bx, y, 56, kLH);
-		bx += 58;
-		dirty |= PanelWidget::toggle(pFont, U"Right OK", U"Right --", L.canChangeLaneRight, bx, y, 58, kLH);
-		bx += 64;
-		PanelWidget::label(pFont, U"Width", bx, y);
-		bx += 40;
-		dirty |= PanelWidget::spin(pFont, L.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
-		y += kLH;
-
-		bx = pX + 8;
-		PanelWidget::label(pFont, U"Line Left", bx, y);
-		bx += 72;
-		dirty |= PanelWidget::cycle(pFont, L.lineLeft, lnN, 5, bx, y, 66, kLH);
-		bx += 72;
-		PanelWidget::label(pFont, U"Right", bx, y);
-		bx += 42;
-		dirty |= PanelWidget::cycle(pFont, L.lineRight, lnN, 5, bx, y, 66, kLH);
-		y += kLH;
-
-		bx = pX + 8;
-		PanelWidget::label(pFont, U"A", bx, y, ColorF{1.0, 0.5, 0.5});
-		bx += 14;
-		PanelWidget::label(pFont, U"Left", bx, y);
-		bx += 34;
-		dirty |= PanelWidget::spin(pFont, L.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-		bx += 50;
-		PanelWidget::label(pFont, U"Right", bx, y);
-		bx += 40;
-		dirty |= PanelWidget::spin(pFont, L.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-		y += kLH;
-
-		bx = pX + 8;
-		PanelWidget::label(pFont, U"B", bx, y, ColorF{0.5, 1.0, 0.5});
-		bx += 14;
-		PanelWidget::label(pFont, U"Left", bx, y);
-		bx += 34;
-		dirty |= PanelWidget::spin(pFont, L.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-		bx += 50;
-		PanelWidget::label(pFont, U"Right", bx, y);
-		bx += 40;
-		dirty |= PanelWidget::spin(pFont, L.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-		y += kLH + 4;
-	}
-	if (laneSwapA >= 0 && laneSwapB >= 0) { std::swap(edge->lanes[laneSwapA], edge->lanes[laneSwapB]); dirty = true; }
-	if (laneToRemove >= 0) { edge->lanes.remove_at(laneToRemove); dirty = true; }
 
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"edge_info", y);
@@ -303,35 +319,41 @@ void GameScene::drawNodePanel()
 		y += kLH + 4;
 	}
 
-	static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-	PanelWidget::label(pBold, U"Attachments ({})"_fmt(node->attachments.size()), pX, y, ColorF{1.0, 1.0, 0.4});
-	y += kLH;
-
-	for (size_t i = 0; i < node->attachments.size(); ++i)
+	// Attachments セクション（折りたたみ可能）
+	static bool attachCollapsed = false;
 	{
-		auto& att = node->attachments[i];
-		const RoadEdge* e = m_network.getEdge(att.edgeId);
+		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+		constexpr int kSectionW = 300;
 
-		PanelWidget::label(pFont, U"[{}] edge #{}"_fmt(i, att.edgeId), pX, y, ColorF{1.0});
-		if (e)
-			PanelWidget::label(pFont, U"{} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit), pX + 100, y);
-		y += kLH;
-
-		PanelWidget::label(pFont, U"lat", pX + 10, y);
-		dirty |= PanelWidget::spin(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
-		dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
-		y += kLH;
-
+		if (PanelWidget::section(pBold, U"Attachments ({})"_fmt(node->attachments.size()), attachCollapsed, pX, y, kSectionW, kLH))
 		{
-			static constexpr StringView tcNames[] = { U"None", U"Yield", U"Stop", U"Signal" };
-			PanelWidget::label(pFont, U"ctrl", pX + 10, y);
-			if (PanelWidget::cycle(pFont, att.control, tcNames, 4, pX + 34, y, 52, kLH))
+			for (size_t i = 0; i < node->attachments.size(); ++i)
 			{
-				dirty = true;
-				notifyNetworkChanged();
+				auto& att = node->attachments[i];
+				const RoadEdge* e = m_network.getEdge(att.edgeId);
+
+				PanelWidget::label(pFont, U"[{}] edge #{}"_fmt(i, att.edgeId), pX, y, ColorF{1.0});
+				if (e)
+					PanelWidget::label(pFont, U"{} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit), pX + 100, y);
+				y += kLH;
+
+				PanelWidget::label(pFont, U"lat", pX + 10, y);
+				dirty |= PanelWidget::spin(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
+				dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
+				y += kLH;
+
+				{
+					static constexpr StringView tcNames[] = { U"None", U"Yield", U"Stop", U"Signal" };
+					PanelWidget::label(pFont, U"ctrl", pX + 10, y);
+					if (PanelWidget::cycle(pFont, att.control, tcNames, 4, pX + 34, y, 52, kLH))
+					{
+						dirty = true;
+						notifyNetworkChanged();
+					}
+				}
+				y += kLH + 2;
 			}
 		}
-		y += kLH + 2;
 	}
 
 	PanelWidget::flushTooltip();

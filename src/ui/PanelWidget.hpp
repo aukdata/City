@@ -114,4 +114,29 @@ namespace PanelWidget
 	{
 		font(text).draw(Vec2{ x, y }, color);
 	}
+
+	// ── 折りたたみセクション ──
+	// クリックで開閉。開いていれば true を返す。
+	// collapsed 状態は呼び出し側が bool& で管理する。
+
+	inline bool section(const Font& font, StringView title, bool& collapsed,
+	                    int x, int& y, int w, int h, ColorF color = ColorF{ 1.0, 1.0, 0.4 })
+	{
+		const StringView arrow = collapsed ? U"▶" : U"▼";
+		const auto hit = hitTest(font, x, y, w, h);
+
+		// ヘッダ背景（ホバー時にハイライト）
+		RectF{ static_cast<double>(x), static_cast<double>(y),
+		       static_cast<double>(w), static_cast<double>(h) }
+			.draw(hit.hover ? ColorF{ 0.2, 0.2, 0.3 } : ColorF{ 0.1, 0.1, 0.15 });
+
+		font(arrow).draw(Vec2{ x + 2, y }, color);
+		font(title).draw(Vec2{ x + 16, y }, color);
+
+		if (hit.clickL)
+			collapsed = !collapsed;
+
+		y += h;
+		return !collapsed;
+	}
 }

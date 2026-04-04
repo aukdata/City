@@ -46,7 +46,7 @@ def convert_all(to_crlf: bool):
     print(f"{count} files converted to {label}")
 
 
-def convert_specified(to_crlf: bool, files: list[str]):
+def convert_specified(to_crlf: bool, files):
     """指定ファイルを変換する。"""
     count = 0
     for path_str in files:

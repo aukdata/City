@@ -35,6 +35,10 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
+	{
+		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
+		m_panelManager.registerPanel(U"minimap_expanded", Vec2{side, side}, true);
+	}
 
 	if (getData().isNewGame)
 		initNewGame();
@@ -259,6 +263,8 @@ void GameScene::updateLoading()
 			if (m_loadGameResult)
 			{
 				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
+				m_minimapRenderer.buildTerrainTexture(m_world);
+				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 				m_phase = GamePhase::Playing;
 				return;
 			}
@@ -287,6 +293,9 @@ void GameScene::updateLoading()
 			m_world.update(m_camera.focusPoint());
 
 			startSimThread();
+
+			m_minimapRenderer.buildTerrainTexture(m_world);
+			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
 			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
 			m_phase = GamePhase::Playing;
