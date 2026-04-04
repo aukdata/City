@@ -102,6 +102,7 @@ struct Vehicle
 	float        speed       = 0.0f; ///< 現在速度 [m/s]
 	Vec3         position;           ///< ワールド 3D 座標（描画用、Active 時のみ有効）
 	float        heading     = 0.0f; ///< 進行方向 [rad]（Y軸周り）
+	float        pitch       = 0.0f; ///< 傾斜角 [rad]（道路勾配追従）
 
 	// AI 状態
 	VehicleState state       = VehicleState::Moving;

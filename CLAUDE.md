@@ -24,13 +24,6 @@ Release の場合は `-p:Configuration=Release` に変更する。
 
 ビルド後、`App/` ディレクトリに実行ファイルが自動コピーされる。実行時のワーキングディレクトリは `App/` 。
 
-**ビルド成功後は exe を自動起動する**:
-```bash
-# Debug ビルド + 実行
-"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo && cmd.exe /C "cd /d D:\\Users\\Takuma\\Creations\\codes\\City\\App && start City(debug).exe"
-```
-`start` を使うことでバックグラウンド起動され、ターミナルは即座に返る。
-
 テスト・リントの自動化ツールはない (Visual Studio のビルド成功が確認手段)。
 
 ## Debugging Principles

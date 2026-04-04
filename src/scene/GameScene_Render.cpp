@@ -302,9 +302,9 @@ void GameScene::renderVehicles()
 			tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
 		}
 
-		rv.position.y = m_world.sampleHeight(
+		rv.position.y = m_world.computeHeight(
 			static_cast<float>(rv.position.x),
-			static_cast<float>(rv.position.z)) + 2.0f;
+			static_cast<float>(rv.position.z)) + 2.05f;
 
 		float sign = 1.0f;
 		if (v.location != VehicleLocation::OnConnection)
@@ -314,7 +314,11 @@ void GameScene::renderVehicles()
 			if (edge && li >= 0 && li < static_cast<int>(edge->lanes.size()))
 				sign = (edge->lanes[li].dir == LaneDir::Forward) ? 1.0f : -1.0f;
 		}
-		rv.heading = static_cast<float>(Math::Atan2(sign * tangent.x, sign * tangent.z));
+		const double fx = sign * tangent.x;
+		const double fy = sign * tangent.y;
+		const double fz = sign * tangent.z;
+		rv.heading = static_cast<float>(Math::Atan2(fx, fz));
+		rv.pitch   = static_cast<float>(Math::Atan2(fy, Math::Sqrt(fx * fx + fz * fz)));
 		m_renderVehicles << rv;
 	}
 	m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
