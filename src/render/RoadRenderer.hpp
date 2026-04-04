@@ -57,7 +57,8 @@ private:
 	/// @param heightOffset  路面基準からの高低差 [m]
 	MeshData buildStripMesh(const CubicBezier& bezier, const World& world,
 	                        float offsetL, float offsetR, float heightOffset,
-	                        float sStart, float sEnd, float lodFactor) const;
+	                        float sStart, float sEnd, float lodFactor,
+	                        bool useElevation = false) const;
 
 	/// @brief 全部品のメッシュ配列を生成する
 	Array<PartMeshEntry> buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
@@ -104,5 +105,6 @@ private:
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
 	HashTable<int, EdgeBounds>                m_boundsCache;
+	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
 	HashSet<int>                              m_visibleEdges;  ///< 直近 render() の可視エッジ集合
 };

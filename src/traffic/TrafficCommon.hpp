@@ -3,7 +3,37 @@
 #include "TrafficLight.hpp"
 #include "../sim/SimGraph.hpp"
 
-/// @brief VehicleManager / TrafficManager 間で共通する交通ユーティリティ
+/// @brief 車両シミュレーション定数
+namespace TrafficConfig
+{
+	// ── スポーン ──
+	constexpr float kSpawnSpeed        = 5.0f;   ///< 初期速度 [m/s]
+	constexpr float kSpawnPosRatio     = 0.8f;   ///< ランダムスポーン位置（エッジ長の割合）
+	constexpr float kSpawnPosRatioGoal = 0.5f;   ///< ゴール指定スポーン位置
+
+	// ── 車線変更 ──
+	constexpr float kLaneChangeProbability  = 0.01f;  ///< フレームあたり試行確率
+	constexpr float kLaneChangeBlendRate    = 2.0f;   ///< ブレンド速度 [1/s]
+	constexpr float kRightLaneGapMultiplier = 4.0f;   ///< 右車線変更 gap 閾値倍率
+
+	// ── 速度低減 ──
+	constexpr float kConnectionSpeedFactor = 0.9f;  ///< 交差点進入時
+	constexpr float kDirectTransitFactor   = 0.8f;  ///< エッジ直接遷移時
+	constexpr float kActivationSpeedFactor = 0.8f;  ///< Dormant→Active 時
+
+	// ── 交通制御 ──
+	constexpr float kStopLineOffset       = 2.0f;   ///< 停止線オフセット [m]
+	constexpr float kStopArrivalThreshold = 0.3f;   ///< 停止判定速度 [m/s]
+	constexpr int   kMinEdgesForSignal    = 2;       ///< 信号設置最小エッジ数
+
+	// ── Dormant ──
+	constexpr float kDefaultDormantTime   = 1.0f;   ///< フォールバック遷移時間 [s]
+
+	// ── 単位変換 ──
+	constexpr float kKmhToMps = 3.6f;  ///< km/h ÷ kKmhToMps = m/s
+}
+
+/// @brief 交通シミュレーション共通ユーティリティ
 namespace TrafficCommon
 {
 	// ========== 定数 ==========

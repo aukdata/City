@@ -1,4 +1,5 @@
 ﻿#include "RoadNetwork.hpp"
+#include "../world/World.hpp"
 
 namespace
 {
@@ -137,6 +138,7 @@ void RoadNetwork::removeEdge(int edgeId)
 	e.id = -1;
 	m_edgeIdToIdx.erase(edgeId);
 	m_freeEdgeSlots << idx;
+	removeObjectsByEdge(edgeId);
 
 	// edgeIds 更新後にカットオフと LaneConnection を再計算する
 	updateNodeCutoffs(nA);
@@ -1337,6 +1339,101 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 					node->laneConnections << std::move(conn);
 				}
 			}
+		}
+	}
+}
+
+// =============================================================================
+// RoadObject CRUD
+// =============================================================================
+
+int RoadNetwork::addObject(RoadObject obj)
+{
+	obj.id = m_nextObjectId++;
+	if (!m_freeObjectSlots.isEmpty())
+	{
+		const int idx = m_freeObjectSlots.back();
+		m_freeObjectSlots.pop_back();
+		m_objects[idx] = obj;
+		m_objectIdToIdx[obj.id] = idx;
+	}
+	else
+	{
+		m_objectIdToIdx[obj.id] = static_cast<int>(m_objects.size());
+		m_objects << obj;
+	}
+	return obj.id;
+}
+
+void RoadNetwork::removeObject(int objectId)
+{
+	const int idx = objectIndex(objectId);
+	if (idx < 0) return;
+	m_objects[idx].id = -1;
+	m_objectIdToIdx.erase(objectId);
+	m_freeObjectSlots << idx;
+}
+
+void RoadNetwork::removeObjectsByEdge(int edgeId)
+{
+	for (int i = 0; i < static_cast<int>(m_objects.size()); ++i)
+	{
+		auto& obj = m_objects[i];
+		if (obj.id >= 0 && obj.parentEdgeId == edgeId)
+		{
+			m_objectIdToIdx.erase(obj.id);
+			obj.id = -1;
+			m_freeObjectSlots << i;
+		}
+	}
+}
+
+RoadObject* RoadNetwork::getObject(int id)
+{
+	const int idx = objectIndex(id);
+	return (idx >= 0 && m_objects[idx].id >= 0) ? &m_objects[idx] : nullptr;
+}
+
+const RoadObject* RoadNetwork::getObject(int id) const
+{
+	const int idx = objectIndex(id);
+	return (idx >= 0 && m_objects[idx].id >= 0) ? &m_objects[idx] : nullptr;
+}
+
+void RoadNetwork::generatePiersForEdge(int edgeId, const World& world)
+{
+	const RoadEdge* edge = getEdge(edgeId);
+	if (!edge || !edge->useElevation) return;
+
+	// 既存橋脚を削除
+	removeObjectsByEdge(edgeId);
+
+	const auto bez = getBezier(edgeId);
+	if (!bez) return;
+
+	constexpr float kPierInterval  = 30.0f;
+	constexpr float kPierThreshold = 3.0f;
+
+	const float totalLen = bez->totalLength;
+	const int steps = Max(1, static_cast<int>(totalLen / kPierInterval));
+
+	for (int i = 1; i < steps; ++i)
+	{
+		const float s = kPierInterval * i;
+		if (s >= totalLen) break;
+
+		const Vec3 pos = bez->positionAt(s);
+		const float terrainY = world.computeHeight(
+			static_cast<float>(pos.x), static_cast<float>(pos.z));
+		const float gap = static_cast<float>(pos.y) - terrainY;
+
+		if (gap >= kPierThreshold)
+		{
+			RoadObject pier;
+			pier.parentEdgeId = edgeId;
+			pier.arcPos = s;
+			pier.type = RoadObjectType::Pier;
+			addObject(pier);
 		}
 	}
 }

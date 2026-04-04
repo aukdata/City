@@ -14,7 +14,24 @@ void GameApp::run()
 	App manager;
 	manager.add<TitleScene>(SceneState::Title);
 	manager.add<GameScene>(SceneState::Game);
-	manager.init(SceneState::Title, 0s);
+
+	// コマンドライン引数: --load <saveName> でタイトルを飛ばして直接ロード
+	const auto args = System::GetCommandLineArgs();
+	bool directLoad = false;
+	for (size_t i = 0; i < args.size(); ++i)
+	{
+		if (args[i] == U"--load" && i + 1 < args.size())
+		{
+			auto data = manager.get();
+			data->isNewGame   = false;
+			data->saveName    = args[i + 1];
+			data->sandboxMode = true;
+			directLoad = true;
+			break;
+		}
+	}
+
+	manager.init(directLoad ? SceneState::Game : SceneState::Title, 0s);
 
 	while (System::Update())
 	{

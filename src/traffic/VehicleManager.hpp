@@ -31,6 +31,14 @@ public:
 	/// @brief ランダムなエッジに車両をスポーンする
 	void spawnRandom(const SimGraph& simGraph, VehicleType type = VehicleType::PassengerCar);
 
+	/// @brief 指定エッジに車両をスポーンする（デバッグ用）
+	/// @param goalEdgeId 目的地エッジ (-1 でランダム)
+	void spawnOnEdge(int edgeId, const SimGraph& simGraph,
+	                 VehicleType type = VehicleType::PassengerCar, int goalEdgeId = -1);
+
+	/// @brief 車両のゴールを変更して経路を再探索する
+	void setGoalAndReroute(int vehicleId, int goalEdgeId, const SimGraph& simGraph);
+
 	/// @brief 送信待ちの SimRequest を全て取り出す
 	Array<SimRequest> collectRequests();
 
@@ -64,7 +72,10 @@ private:
 	void updateActiveVehicle(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	void updateDormantVehicle(Vehicle& v, double dt);
 	void advanceOnSegment(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
+	void advanceOnConnection(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
+	void advanceOnLane(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	bool transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
+	bool fallbackRandomTransit(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
 
 	// --- Active/Dormant 遷移 ---
 	void activateVehicle(Vehicle& v, const SimGraph& simGraph);

@@ -426,6 +426,11 @@ void GameScene::render2DUI()
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
 	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy);
 
+	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる
+	m_minimapRenderer.update(m_panelManager);
+	m_minimapRenderer.render(m_camera, m_districts);
+
+	// パネル（ミニマップより上）
 	m_panelManager.drawBackgrounds();
 
 	drawNameListPanel();
@@ -434,7 +439,4 @@ void GameScene::render2DUI()
 	drawVehiclePanel();
 
 	m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
-
-	m_minimapRenderer.update(m_panelManager);
-	m_minimapRenderer.render(m_camera, m_districts);
 }

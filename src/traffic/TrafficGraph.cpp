@@ -90,12 +90,12 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 
 			for (int i = 0; i < static_cast<int>(inEdge->lanes.size()); ++i)
 			{
-				const Lane& Lin = inEdge->lanes[i];
-				if (!(inEdge->isRoadbedBuilt() && (Lin.op == OpState::Open || Lin.op == OpState::Provisional))) continue;
+				const Lane& inLane = inEdge->lanes[i];
+				if (!(inEdge->isRoadbedBuilt() && (inLane.op == OpState::Open || inLane.op == OpState::Provisional))) continue;
 
 				const bool exitsAtNode =
-					(Lin.dir == LaneDir::Forward  && inEdge->nodeB == node.id) ||
-					(Lin.dir == LaneDir::Backward && inEdge->nodeA == node.id);
+					(inLane.dir == LaneDir::Forward  && inEdge->nodeB == node.id) ||
+					(inLane.dir == LaneDir::Backward && inEdge->nodeA == node.id);
 				if (!exitsAtNode) continue;
 
 				const auto exitIt = m_exitNodeIds.find(laneKey(inEdgeId, i));
@@ -111,19 +111,19 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 
 					for (int j = 0; j < static_cast<int>(outEdge->lanes.size()); ++j)
 					{
-						const Lane& Lout = outEdge->lanes[j];
-						if (!(outEdge->isRoadbedBuilt() && (Lout.op == OpState::Open || Lout.op == OpState::Provisional))) continue;
+						const Lane& outLane = outEdge->lanes[j];
+						if (!(outEdge->isRoadbedBuilt() && (outLane.op == OpState::Open || outLane.op == OpState::Provisional))) continue;
 
 						const bool entersAtNode =
-							(Lout.dir == LaneDir::Forward  && outEdge->nodeA == node.id) ||
-							(Lout.dir == LaneDir::Backward && outEdge->nodeB == node.id);
+							(outLane.dir == LaneDir::Forward  && outEdge->nodeA == node.id) ||
+							(outLane.dir == LaneDir::Backward && outEdge->nodeB == node.id);
 						if (!entersAtNode) continue;
 
 						const auto entryIt = m_entryNodeIds.find(laneKey(outEdgeId, j));
 						if (entryIt == m_entryNodeIds.end()) continue;
 						const int entryId = entryIt->second;
 
-						const TurnType turn = calcTurnType(graph, inEdgeId, Lin.dir, outEdgeId, Lout.dir, node.id);
+						const TurnType turn = calcTurnType(graph, inEdgeId, inLane.dir, outEdgeId, outLane.dir, node.id);
 						float cost          = costTransition(turn);
 
 						const auto tlIt = lights.find(node.id);
@@ -245,17 +245,17 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 	HashTable<int, int>   prev;
 
 	using Entry = std::pair<float, int>;
-	std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> pq;
+	std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> frontier;
 
 	dist[startLaneNodeId] = 0.0f;
-	pq.push({ 0.0f, startLaneNodeId });
+	frontier.push({ 0.0f, startLaneNodeId });
 
 	int goalNode = -1;
 
-	while (!pq.empty())
+	while (!frontier.empty())
 	{
-		const auto [d, u] = pq.top();
-		pq.pop();
+		const auto [d, u] = frontier.top();
+		frontier.pop();
 
 		const auto distIt = dist.find(u);
 		if (distIt == dist.end() || d > distIt->second) continue;
@@ -282,7 +282,7 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 			{
 				dist[ge.toNodeId] = nc;
 				prev[ge.toNodeId] = u;
-				pq.push({ nc, ge.toNodeId });
+				frontier.push({ nc, ge.toNodeId });
 			}
 		}
 	}

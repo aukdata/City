@@ -13,6 +13,7 @@
 | `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
 | `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ） |
 | `19_vehicle_movement_spec.md` | 車両移動・車線走行・交差点通過・スレッドモデル |
+| `20_road_object_spec.md` | 道路オブジェクト（橋脚・街灯・標識等）・高架橋 |
 
 ---
 

@@ -2,6 +2,8 @@
 #include "RoadTypes.hpp"
 #include "BezierUtil.hpp"
 
+class World;
+
 /// @brief 道路グラフ管理クラス
 /// @details エッジ・ノードの追加/削除・交差検出を担う
 class RoadNetwork
@@ -89,6 +91,28 @@ public:
 	///   制御点長は交差点〜他端点の XZ 距離の 1/2 とする。
 	bool spreadIntersectionTangents();
 
+	// ── RoadObject ──
+
+	/// @brief オブジェクトを追加し、割り当てた id を返す
+	int addObject(RoadObject obj);
+
+	/// @brief オブジェクトを削除する
+	void removeObject(int objectId);
+
+	/// @brief 指定エッジに属する全オブジェクトを削除する
+	void removeObjectsByEdge(int edgeId);
+
+	/// @brief id でオブジェクトを取得する
+	RoadObject*       getObject(int id);
+	const RoadObject* getObject(int id) const;
+
+	const Array<RoadObject>& objects() const { return m_objects; }
+
+	/// @brief 高架エッジに橋脚を自動配置する
+	void generatePiersForEdge(int edgeId, const World& world);
+
+	// ── ポスト処理 ──
+
 	/// @brief 鋭角交差ポスト処理（ネットワーク作成直後に呼ぶ）
 	/// @details 同一ノードで minAngleDeg 未満の角を成すエッジペアを検出し、
 	///   幅が狭い方のエッジを、そのノードの隣接ノードのうち最も近いものに付け替える。
@@ -136,6 +160,18 @@ private:
 	Array<int>          m_freeNodeSlots; ///< m_nodes 内の再利用可能スロット
 	int m_nextEdgeId = 0;
 	int m_nextNodeId = 0;
+
+	// ── RoadObject ──
+	Array<RoadObject>   m_objects;
+	HashTable<int, int> m_objectIdToIdx;
+	Array<int>          m_freeObjectSlots;
+	int                 m_nextObjectId = 0;
+
+	int objectIndex(int id) const
+	{
+		const auto it = m_objectIdToIdx.find(id);
+		return (it != m_objectIdToIdx.end()) ? it->second : -1;
+	}
 
 	/// @brief エッジ id からインデックスを返す（-1 なら存在しない）
 	int edgeIndex(int id) const;

@@ -13,6 +13,44 @@ namespace
 		static const Font f{ FontMethod::MSDF, 14, Typeface::Bold };
 		return f;
 	}
+
+	/// @brief Parts を offset 昇順にソートし、隙間・重なりを除去する
+	void resolvePartOverlapAndGap(Array<RoadPart>& parts)
+	{
+		if (parts.size() < 2) return;
+		parts.sort_by([](const RoadPart& a, const RoadPart& b) { return a.offset < b.offset; });
+		for (size_t i = 1; i < parts.size(); ++i)
+			parts[i].offset = parts[i - 1].offset + parts[i - 1].width;
+	}
+
+	/// @brief Lanes を offsetA_L 昇順にソートし、重なりを押し出す（隙間は許容）
+	void resolveLaneOverlap(Array<Lane>& lanes)
+	{
+		if (lanes.size() < 2) return;
+		lanes.sort_by([](const Lane& a, const Lane& b) { return a.offsetA_L < b.offsetA_L; });
+		for (size_t i = 1; i < lanes.size(); ++i)
+		{
+			// A端
+			const float overA = lanes[i - 1].offsetA_R - lanes[i].offsetA_L;
+			if (overA > 0.001f) { lanes[i].offsetA_L += overA; lanes[i].offsetA_R += overA; }
+			// B端
+			const float overB = lanes[i - 1].offsetB_R - lanes[i].offsetB_L;
+			if (overB > 0.001f) { lanes[i].offsetB_L += overB; lanes[i].offsetB_R += overB; }
+		}
+	}
+
+	/// @brief LineType → 断面バー描画用の色
+	ColorF lineTypeColor(LineType lt)
+	{
+		switch (lt)
+		{
+		case LineType::SolidWhite:  return ColorF{1.0, 1.0, 1.0};
+		case LineType::DashedWhite: return ColorF{1.0, 1.0, 1.0, 0.5};
+		case LineType::SolidYellow: return ColorF{1.0, 0.85, 0.0};
+		case LineType::DoubleYellow:return ColorF{1.0, 0.85, 0.0};
+		default:                    return ColorF{0, 0, 0, 0};
+		}
+	}
 }
 
 // =============================================================================
@@ -121,19 +159,118 @@ void GameScene::drawEdgePanel()
 		if (PanelWidget::spin(pFont, edge->speedLimit, 10.0f, 10.0f, 200.0f, pX + 44, y, 44, kLH, U"{:.0f}")) dirty = true;
 		PanelWidget::label(pFont, U"km/h", pX + 90, y, ColorF{ 0.5 });
 		PanelWidget::label(pFont, U"W:{:.1f}m"_fmt(edge->totalWidth()), pX + 130, y);
+
+		// デバッグ: 車両スポーン
+		if (PanelWidget::button(pFont, U"Spawn", false, pX + 200, y, 48, kLH, U"Spawn vehicle on this edge"))
+		{
+			m_vehicleManager.spawnOnEdge(edge->id, *m_simGraph);
+		}
+		y += kLH;
+
+		// 高架トグル
+		if (PanelWidget::toggle(pFont, U"Elevated ON", U"Elevated", edge->useElevation, pX, y, 80, kLH))
+		{
+			if (edge->useElevation)
+				m_network.generatePiersForEdge(edge->id, m_world);
+			else
+				m_network.removeObjectsByEdge(edge->id);
+			dirty = true;
+		}
 		y += kLH + 4;
 	}
 
-	// Parts セクション（折りたたみ可能）
-	static bool partsCollapsed = true;
+	// ── 断面共通パラメータ ──
+	constexpr int kBarX = kPad;
+	constexpr int kBarW = 356;
+	constexpr int kPartBarH = 36;
+	constexpr int kLaneBarH = 28;
+	constexpr int kEdgeGrab = 4;  // 端ドラッグ判定幅 [px]
+	constexpr int kSectionW = 360;
+
+	// 全パーツ+車線の最小/最大オフセットを求めてスケーリング
+	float extMin = 1e9f, extMax = -1e9f;
+	for (const auto& p : edge->parts)
+	{
+		extMin = Min(extMin, p.offset);
+		extMax = Max(extMax, p.offset + p.width);
+	}
+	for (const auto& L : edge->lanes)
+	{
+		extMin = Min(extMin, Min(L.offsetA_L, L.offsetB_L));
+		extMax = Max(extMax, Max(L.offsetA_R, L.offsetB_R));
+	}
+	if (extMin >= extMax) { extMin = -5.0f; extMax = 5.0f; }
+	const float margin = (extMax - extMin) * 0.08f + 0.5f;
+	extMin -= margin;
+	extMax += margin;
+	const float extRange = extMax - extMin;
+
+	// メートル → ピクセル変換ラムダ
+	auto mToPixel = [&](float m) -> double { return kBarX + (m - extMin) / extRange * kBarW; };
+	auto pixelToM = [&](double px) -> float { return extMin + static_cast<float>((px - kBarX) / kBarW) * extRange; };
+
+	// パーツ種別色
+	static constexpr ColorF partColors[] = {
+		ColorF{0.25, 0.25, 0.27},  // Roadbed  アスファルト暗灰
+		ColorF{0.35, 0.33, 0.30},  // Shoulder 路肩（暗い砂利色）
+		ColorF{0.45, 0.55, 0.30},  // Median   中央帯（緑地）
+		ColorF{0.60, 0.58, 0.55},  // Sidewalk コンクリート歩道
+		ColorF{0.20, 0.20, 0.22},  // Gutter   側溝（暗灰）
+		ColorF{0.55, 0.55, 0.55},  // Guard    ガードレール（金属灰）
+		ColorF{0.45, 0.42, 0.38},  // Wall     擁壁（コンクリート）
+		ColorF{0.50, 0.48, 0.44},  // Curb     縁石
+		ColorF{0.40, 0.52, 0.30},  // Slope    のり面（草地）
+		ColorF{0.30, 0.45, 0.55},  // BikeLane 自転車レーン（青系）
+	};
+
+	// ── ドラッグ状態 (static) ──
+	// dragMode: 0=none, 1=part center, 2=part left edge, 3=part right edge
+	//           4=lane center, 5=lane left edge, 6=lane right edge
+	static int  selectedPart = -1;
+	static int  selectedLane = -1;
+	static int  dragMode = 0;
+	static float dragAnchor = 0.0f;  // ドラッグ開始時の offset バックアップ
+
+	// パーツ/車線インデックスの範囲チェック
+	if (selectedPart >= static_cast<int>(edge->parts.size())) selectedPart = -1;
+	if (selectedLane >= static_cast<int>(edge->lanes.size())) selectedLane = -1;
+
+	// ── ドラッグ更新（毎フレーム） ──
+	if (dragMode != 0 && MouseL.pressed())
+	{
+		const float curM = pixelToM(Cursor::PosF().x);
+		const float delta = curM - dragAnchor;
+
+		if (dragMode >= 1 && dragMode <= 3 && selectedPart >= 0)
+		{
+			auto& p = edge->parts[selectedPart];
+			if (dragMode == 1)      { p.offset += delta; dragAnchor = curM; dirty = true; }
+			else if (dragMode == 2) { const float dw = delta; p.offset += dw; p.width -= dw; if (p.width < 0.5f) { p.offset -= (0.5f - p.width); p.width = 0.5f; } dragAnchor = curM; dirty = true; }
+			else if (dragMode == 3) { p.width += delta; if (p.width < 0.5f) p.width = 0.5f; dragAnchor = curM; dirty = true; }
+		}
+		else if (dragMode >= 4 && dragMode <= 6 && selectedLane >= 0)
+		{
+			auto& L = edge->lanes[selectedLane];
+			if (dragMode == 4) { L.offsetA_L += delta; L.offsetA_R += delta; L.offsetB_L += delta; L.offsetB_R += delta; dragAnchor = curM; dirty = true; }
+			else if (dragMode == 5) { L.offsetA_L += delta; L.offsetB_L += delta; dragAnchor = curM; dirty = true; }
+			else if (dragMode == 6) { L.offsetA_R += delta; L.offsetB_R += delta; dragAnchor = curM; dirty = true; }
+		}
+	}
+	else if (dragMode != 0)
+	{
+		dragMode = 0;
+	}
+
+	// ========== Parts セクション ==========
+	static bool partsCollapsed = false;
 	{
 		static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
 			U"Gutter", U"Guard", U"Wall", U"Curb", U"Slope", U"Bike" };
 		static constexpr StringView bsNames[] = { U"NotBuilt", U"Building", U"Built", U"Stub" };
-		constexpr int kSectionW = 360;
 
 		if (PanelWidget::section(pBold, U"Parts ({})"_fmt(edge->parts.size()), partsCollapsed, pX, y, kSectionW, kLH))
 		{
+			// [+] ボタン
 			if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add part"))
 			{
 				RoadPart np;
@@ -143,48 +280,108 @@ void GameScene::drawEdgePanel()
 			}
 			y += kLH;
 
-			int partToRemove = -1;
-			int partSwapA = -1, partSwapB = -1;
+			// ── 断面バー描画 ──
+			const int barY = y;
+			RectF{ static_cast<double>(kBarX), static_cast<double>(barY),
+			       static_cast<double>(kBarW), static_cast<double>(kPartBarH) }
+				.draw(ColorF{ 0.08, 0.08, 0.10 });
+
+			// 中心線
+			const double centerPx = mToPixel(0.0f);
+			if (centerPx > kBarX && centerPx < kBarX + kBarW)
+				RectF{ centerPx - 0.5, static_cast<double>(barY), 1.0, static_cast<double>(kPartBarH) }
+					.draw(ColorF{ 1.0, 1.0, 1.0, 0.3 });
+
 			for (int i = 0; i < static_cast<int>(edge->parts.size()); ++i)
 			{
-				auto& p = edge->parts[i];
-				const int n = static_cast<int>(edge->parts.size());
+				const auto& p = edge->parts[i];
+				const double px0 = mToPixel(p.offset);
+				const double px1 = mToPixel(p.offset + p.width);
+				const double pw = Max(px1 - px0, 2.0);
+				const bool sel = (i == selectedPart);
+
+				ColorF col = partColors[Clamp(static_cast<int>(p.type), 0, 9)];
+				if (p.build != BuildState::Built) col = col * 0.5;
+
+				RectF rect{ px0, static_cast<double>(barY + 2), pw, static_cast<double>(kPartBarH - 4) };
+				rect.draw(sel ? col.lerp(ColorF{1.0}, 0.25) : col);
+				rect.drawFrame(1.0, sel ? ColorF{1.0, 1.0, 0.3} : ColorF{0.3, 0.3, 0.3});
+
+				// ラベル（幅に余裕があれば）
+				if (pw > 20)
+					pFont(ptNames[static_cast<int>(p.type)]).draw(8.0,
+						Vec2{ px0 + 2, static_cast<double>(barY + 3) }, ColorF{1.0, 1.0, 1.0, 0.9});
+
+				// クリック/ドラッグ判定
+				if (dragMode == 0 && rect.mouseOver())
+				{
+					const double mx = Cursor::PosF().x;
+					if (MouseL.down())
+					{
+						selectedPart = i;
+						selectedLane = -1;
+						dragAnchor = pixelToM(mx);
+						if (mx - px0 < kEdgeGrab && pw > 10)      dragMode = 2;  // left edge
+						else if (px1 - mx < kEdgeGrab && pw > 10) dragMode = 3;  // right edge
+						else                                       dragMode = 1;  // center
+					}
+					else if (MouseR.down())
+					{
+						// 右クリック → type サイクル
+						edge->parts[i].type = static_cast<RoadPartType>(
+							(static_cast<int>(edge->parts[i].type) + 1) % 10);
+						dirty = true;
+					}
+				}
+			}
+			y += kPartBarH + 2;
+
+			// ── 選択パーツの詳細行 ──
+			if (selectedPart >= 0 && selectedPart < static_cast<int>(edge->parts.size()))
+			{
+				auto& sp = edge->parts[selectedPart];
 				int bx = pX;
 
-				if (i > 0     && PanelWidget::button(pFont, U"^", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i - 1; }
-				bx += 15;
-				if (i < n - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 14, kLH)) { partSwapA = i; partSwapB = i + 1; }
-				bx += 17;
-				if (PanelWidget::cycle(pFont, p.type, ptNames, 10, bx, y, 56, kLH)) dirty = true;
+				PanelWidget::label(pBold, U"[{}]"_fmt(selectedPart), bx, y, ColorF{1.0, 1.0, 0.5});
+				bx += 24;
+				if (PanelWidget::cycle(pFont, sp.type, ptNames, 10, bx, y, 56, kLH)) dirty = true;
 				bx += 58;
-				if (PanelWidget::cycle(pFont, p.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
-				bx += 54;
-				PanelWidget::label(pFont, U"w", bx, y, ColorF{ 0.5 });
-				if (PanelWidget::spin(pFont, p.width, 0.5f, 0.5f, 50.0f, bx + 10, y, 34, kLH)) dirty = true;
-				bx += 46;
-				PanelWidget::label(pFont, U"o", bx, y, ColorF{ 0.5 });
-				if (PanelWidget::spin(pFont, p.offset, 0.5f, -50.0f, 50.0f, bx + 10, y, 38, kLH)) dirty = true;
-				bx += 50;
-				if (PanelWidget::button(pFont, U"X", false, bx, y, 16, kLH, U"Remove")) partToRemove = i;
+				if (PanelWidget::cycle(pFont, sp.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
+				bx += 58;
+				if (PanelWidget::button(pFont, U"X", false, bx, y, 18, kLH, U"Remove"))
+				{
+					edge->parts.remove_at(selectedPart);
+					selectedPart = -1;
+					dirty = true;
+				}
 				y += kLH;
+
+				if (selectedPart >= 0)
+				{
+					bx = pX + 4;
+					PanelWidget::label(pFont, U"w", bx, y, ColorF{0.6});
+					if (PanelWidget::spin(pFont, sp.width, 0.25f, 0.5f, 50.0f, bx + 12, y, 44, kLH, U"{:.2f}")) dirty = true;
+					bx += 62;
+					PanelWidget::label(pFont, U"offset", bx, y, ColorF{0.6});
+					if (PanelWidget::spin(pFont, sp.offset, 0.25f, -50.0f, 50.0f, bx + 46, y, 48, kLH, U"{:.2f}")) dirty = true;
+					y += kLH;
+				}
 			}
-			if (partSwapA >= 0 && partSwapB >= 0) { std::swap(edge->parts[partSwapA], edge->parts[partSwapB]); dirty = true; }
-			if (partToRemove >= 0) { edge->parts.remove_at(partToRemove); dirty = true; }
 		}
 		y += 4;
 	}
 
-	// Lanes セクション（折りたたみ可能）
-	static bool lanesCollapsed = true;
+	// ========== Lanes セクション ==========
+	static bool lanesCollapsed = false;
 	{
 		static constexpr StringView osN[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
 		static constexpr StringView ltN[] = { U"Normal", U"Bus", U"Climb", U"Turn", U"Accel", U"Decel" };
 		static constexpr StringView lnN[] = { U"None", U"Solid W", U"Dash W", U"Solid Y", U"Double Y" };
 		static constexpr StringView drN[] = { U"Forward", U"Backward" };
-		constexpr int kSectionW = 360;
 
 		if (PanelWidget::section(pBold, U"Lanes ({})"_fmt(edge->lanes.size()), lanesCollapsed, pX, y, kSectionW, kLH))
 		{
+			// [+] ボタン
 			if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add lane"))
 			{
 				Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = 3.5f;
@@ -194,77 +391,158 @@ void GameScene::drawEdgePanel()
 			}
 			y += kLH;
 
-			int laneToRemove = -1;
-			int laneSwapA = -1, laneSwapB = -1;
+			// ── 車線バー描画 ──
+			const int laneBarY = y;
+			RectF{ static_cast<double>(kBarX), static_cast<double>(laneBarY),
+			       static_cast<double>(kBarW), static_cast<double>(kLaneBarH) }
+				.draw(ColorF{ 0.08, 0.08, 0.10 });
+
+			// 中心線
+			const double centerPx = mToPixel(0.0f);
+			if (centerPx > kBarX && centerPx < kBarX + kBarW)
+				RectF{ centerPx - 0.5, static_cast<double>(laneBarY), 1.0, static_cast<double>(kLaneBarH) }
+					.draw(ColorF{ 1.0, 1.0, 1.0, 0.3 });
+
 			for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 			{
-				auto& L = edge->lanes[i];
-				const int ln = static_cast<int>(edge->lanes.size());
-				int bx;
+				const auto& L = edge->lanes[i];
+				const double px0 = mToPixel(L.offsetA_L);
+				const double px1 = mToPixel(L.offsetA_R);
+				const double pw = Max(px1 - px0, 2.0);
+				const bool sel = (i == selectedLane);
 
-				bx = pX;
-				if (i > 0      && PanelWidget::button(pFont, U"^", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i - 1; }
-				bx += 17;
-				if (i < ln - 1 && PanelWidget::button(pFont, U"v", false, bx, y, 16, kLH)) { laneSwapA = i; laneSwapB = i + 1; }
-				bx += 18;
-				PanelWidget::label(pBold, U"Lane {}"_fmt(i), bx, y, ColorF{0.8, 0.8, 1.0});
-				bx += 46;
-				dirty |= PanelWidget::cycle(pFont, L.dir, drN, 2, bx, y, 66, kLH);
-				bx += 68;
-				dirty |= PanelWidget::cycle(pFont, L.op, osN, 4, bx, y, 78, kLH);
-				bx += 80;
-				dirty |= PanelWidget::cycle(pFont, L.type, ltN, 6, bx, y, 50, kLH);
-				if (PanelWidget::button(pFont, U"X", false, pX + 348, y, 18, kLH, U"Remove")) laneToRemove = i;
-				y += kLH;
+				// 路面色（アスファルト暗灰ベース、状態で変化）
+				ColorF col{0.25, 0.25, 0.27};
+				if (L.op == OpState::Closed)          col = ColorF{0.18, 0.18, 0.18};
+				else if (L.op == OpState::Reserved)   col = ColorF{0.22, 0.20, 0.25};
+				else if (L.op == OpState::Provisional) col = ColorF{0.28, 0.27, 0.22};
 
-				bx = pX + 8;
-				PanelWidget::label(pFont, U"Change", bx, y);
-				bx += 50;
-				dirty |= PanelWidget::toggle(pFont, U"Left OK", U"Left --", L.canChangeLaneLeft, bx, y, 56, kLH);
-				bx += 58;
-				dirty |= PanelWidget::toggle(pFont, U"Right OK", U"Right --", L.canChangeLaneRight, bx, y, 58, kLH);
-				bx += 64;
-				PanelWidget::label(pFont, U"Width", bx, y);
-				bx += 40;
-				dirty |= PanelWidget::spin(pFont, L.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
-				y += kLH;
+				RectF rect{ px0, static_cast<double>(laneBarY + 2), pw, static_cast<double>(kLaneBarH - 4) };
+				rect.draw(sel ? col.lerp(ColorF{1.0}, 0.15) : col);
+				if (sel) rect.drawFrame(1.0, ColorF{1.0, 1.0, 0.3});
 
-				bx = pX + 8;
-				PanelWidget::label(pFont, U"Line Left", bx, y);
-				bx += 72;
-				dirty |= PanelWidget::cycle(pFont, L.lineLeft, lnN, 5, bx, y, 66, kLH);
-				bx += 72;
-				PanelWidget::label(pFont, U"Right", bx, y);
-				bx += 42;
-				dirty |= PanelWidget::cycle(pFont, L.lineRight, lnN, 5, bx, y, 66, kLH);
-				y += kLH;
+				// 方向矢印（Forward=白、Backward=薄赤）
+				if (pw > 14)
+				{
+					const StringView arrow = (L.dir == LaneDir::Forward) ? U"\u2192" : U"\u2190";
+					const ColorF arrowCol = (L.dir == LaneDir::Forward)
+						? ColorF{1.0, 1.0, 1.0, 0.6} : ColorF{1.0, 0.5, 0.5, 0.6};
+					pBold(arrow).drawAt(10.0,
+						Vec2{ (px0 + px1) * 0.5, laneBarY + kLaneBarH * 0.5 }, arrowCol);
+				}
 
-				bx = pX + 8;
-				PanelWidget::label(pFont, U"A", bx, y, ColorF{1.0, 0.5, 0.5});
-				bx += 14;
-				PanelWidget::label(pFont, U"Left", bx, y);
-				bx += 34;
-				dirty |= PanelWidget::spin(pFont, L.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-				bx += 50;
-				PanelWidget::label(pFont, U"Right", bx, y);
-				bx += 40;
-				dirty |= PanelWidget::spin(pFont, L.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-				y += kLH;
+				// 左側ライン (lineLeft)
+				{
+					const ColorF lc = lineTypeColor(L.lineLeft);
+					if (lc.a > 0.01)
+					{
+						const double lw = (L.lineLeft == LineType::DoubleYellow) ? 3.0 : 1.0;
+						RectF{ px0 - lw * 0.5, static_cast<double>(laneBarY + 2), lw,
+						       static_cast<double>(kLaneBarH - 4) }.draw(lc);
+					}
+				}
+				// 右側ライン (lineRight)
+				{
+					const ColorF lc = lineTypeColor(L.lineRight);
+					if (lc.a > 0.01)
+					{
+						const double lw = (L.lineRight == LineType::DoubleYellow) ? 3.0 : 1.0;
+						RectF{ px1 - lw * 0.5, static_cast<double>(laneBarY + 2), lw,
+						       static_cast<double>(kLaneBarH - 4) }.draw(lc);
+					}
+				}
 
-				bx = pX + 8;
-				PanelWidget::label(pFont, U"B", bx, y, ColorF{0.5, 1.0, 0.5});
-				bx += 14;
-				PanelWidget::label(pFont, U"Left", bx, y);
-				bx += 34;
-				dirty |= PanelWidget::spin(pFont, L.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-				bx += 50;
-				PanelWidget::label(pFont, U"Right", bx, y);
-				bx += 40;
-				dirty |= PanelWidget::spin(pFont, L.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
-				y += kLH + 4;
+				// クリック/ドラッグ判定
+				if (dragMode == 0 && rect.mouseOver())
+				{
+					const double mx = Cursor::PosF().x;
+					if (MouseL.down())
+					{
+						selectedLane = i;
+						selectedPart = -1;
+						dragAnchor = pixelToM(mx);
+						if (mx - px0 < kEdgeGrab && pw > 10)      dragMode = 5;
+						else if (px1 - mx < kEdgeGrab && pw > 10) dragMode = 6;
+						else                                       dragMode = 4;
+					}
+					else if (MouseR.down())
+					{
+						edge->lanes[i].dir = (L.dir == LaneDir::Forward) ? LaneDir::Backward : LaneDir::Forward;
+						dirty = true;
+					}
+				}
 			}
-			if (laneSwapA >= 0 && laneSwapB >= 0) { std::swap(edge->lanes[laneSwapA], edge->lanes[laneSwapB]); dirty = true; }
-			if (laneToRemove >= 0) { edge->lanes.remove_at(laneToRemove); dirty = true; }
+			y += kLaneBarH + 2;
+
+			// ── 選択車線の詳細行 ──
+			if (selectedLane >= 0 && selectedLane < static_cast<int>(edge->lanes.size()))
+			{
+				auto& sl = edge->lanes[selectedLane];
+				int bx = pX;
+
+				PanelWidget::label(pBold, U"Lane {}"_fmt(selectedLane), bx, y, ColorF{0.8, 0.8, 1.0});
+				bx += 46;
+				dirty |= PanelWidget::cycle(pFont, sl.dir, drN, 2, bx, y, 66, kLH);
+				bx += 68;
+				dirty |= PanelWidget::cycle(pFont, sl.op, osN, 4, bx, y, 78, kLH);
+				bx += 80;
+				dirty |= PanelWidget::cycle(pFont, sl.type, ltN, 6, bx, y, 50, kLH);
+				bx += 54;
+				if (PanelWidget::button(pFont, U"X", false, bx, y, 18, kLH, U"Remove"))
+				{
+					edge->lanes.remove_at(selectedLane);
+					selectedLane = -1;
+					dirty = true;
+				}
+				y += kLH;
+
+				if (selectedLane >= 0)
+				{
+					bx = pX + 4;
+					PanelWidget::label(pFont, U"Width", bx, y, ColorF{0.6});
+					bx += 40;
+					dirty |= PanelWidget::spin(pFont, sl.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
+					bx += 44;
+					dirty |= PanelWidget::toggle(pFont, U"L OK", U"L --", sl.canChangeLaneLeft, bx, y, 36, kLH);
+					bx += 38;
+					dirty |= PanelWidget::toggle(pFont, U"R OK", U"R --", sl.canChangeLaneRight, bx, y, 36, kLH);
+					y += kLH;
+
+					bx = pX + 4;
+					PanelWidget::label(pFont, U"Line L", bx, y, ColorF{0.6});
+					bx += 48;
+					dirty |= PanelWidget::cycle(pFont, sl.lineLeft, lnN, 5, bx, y, 66, kLH);
+					bx += 70;
+					PanelWidget::label(pFont, U"R", bx, y, ColorF{0.6});
+					bx += 14;
+					dirty |= PanelWidget::cycle(pFont, sl.lineRight, lnN, 5, bx, y, 66, kLH);
+					y += kLH;
+
+					bx = pX + 4;
+					PanelWidget::label(pFont, U"A", bx, y, ColorF{1.0, 0.5, 0.5});
+					bx += 14;
+					PanelWidget::label(pFont, U"L", bx, y);
+					bx += 12;
+					dirty |= PanelWidget::spin(pFont, sl.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+					bx += 50;
+					PanelWidget::label(pFont, U"R", bx, y);
+					bx += 12;
+					dirty |= PanelWidget::spin(pFont, sl.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+					y += kLH;
+
+					bx = pX + 4;
+					PanelWidget::label(pFont, U"B", bx, y, ColorF{0.5, 1.0, 0.5});
+					bx += 14;
+					PanelWidget::label(pFont, U"L", bx, y);
+					bx += 12;
+					dirty |= PanelWidget::spin(pFont, sl.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+					bx += 50;
+					PanelWidget::label(pFont, U"R", bx, y);
+					bx += 12;
+					dirty |= PanelWidget::spin(pFont, sl.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+					y += kLH + 2;
+				}
+			}
 		}
 	}
 
@@ -273,6 +551,8 @@ void GameScene::drawEdgePanel()
 
 	if (dirty)
 	{
+		resolvePartOverlapAndGap(edge->parts);
+		resolveLaneOverlap(edge->lanes);
 		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
@@ -417,6 +697,15 @@ void GameScene::drawVehiclePanel()
 	y += kLH;
 
 	PanelWidget::label(pFont, U"Goal Edge: {}"_fmt(veh->goalEdgeId), pX, y, ColorF{1.0});
+	// 選択中エッジをゴールに設定するボタン
+	if (m_selectedEdgeId)
+	{
+		if (PanelWidget::button(pFont, U"Set E{}"_fmt(*m_selectedEdgeId), false,
+		                        pX + 120, y, 70, kLH, U"Set selected edge as goal"))
+		{
+			m_vehicleManager.setGoalAndReroute(veh->id, *m_selectedEdgeId, *m_simGraph);
+		}
+	}
 	y += kLH + 4;
 
 	// 追跡ボタン

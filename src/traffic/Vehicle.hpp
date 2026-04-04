@@ -107,9 +107,6 @@ struct Vehicle
 	// AI 状態
 	VehicleState state       = VehicleState::Moving;
 
-	// 緊急車両専用
-	bool         sirenActive = false;
-
 	// 経路（RouteResponse で受け取ったウェイポイント列）
 	Array<RouteWaypoint> routeWaypoints;
 	int          routeIdx       = 0;     ///< 次に使うウェイポイントのインデックス

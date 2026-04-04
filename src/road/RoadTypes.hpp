@@ -232,6 +232,8 @@ struct RoadEdge
 	EdgeState edgeState = EdgeState::Open;
 	float     congestion = 0.0f;
 
+	bool      useElevation = false;  ///< true: ベジェ Y を路面高さとして使用（高架）
+
 	// 経路探索サポート（Phase 2 で使用）
 	int borderNodeA = -1;
 	int borderNodeB = -1;

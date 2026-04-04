@@ -138,6 +138,22 @@ void GameScene::handleInput()
 				Vec2{static_cast<double>(Scene::Width() - 260), 10.0});
 	}
 
+	// ノード選択中: PgUp/PgDown で Y 座標を上下移動
+	if (m_selectedNodeId)
+	{
+		constexpr float kNodeYStep = 1.0f;
+		const bool up   = KeyPageUp.pressed();
+		const bool down = KeyPageDown.pressed();
+		if (up || down)
+		{
+			if (auto* node = m_network.getNode(*m_selectedNodeId))
+			{
+				node->position.y += up ? kNodeYStep : -kNodeYStep;
+				m_roadRenderer.invalidateCachesAroundNode(*m_selectedNodeId, m_network);
+			}
+		}
+	}
+
 	if      (m_mode == EditMode::RoadDraw)     handleRoadDraw();
 	else if (m_mode == EditMode::ZonePaint)    handleZonePaint();
 	else if (m_mode == EditMode::BusRouteDraw) handleBusRouteDraw();

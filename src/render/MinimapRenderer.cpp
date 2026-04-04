@@ -128,8 +128,8 @@ void MinimapRenderer::update(PanelManager& panels)
 {
 	if (m_terrainTex.isEmpty()) return;
 
-	// 小さいミニマップをクリック → 拡大パネルを表示
-	if (!panels.isVisible(kPanelId) && smallRect().leftClicked())
+	// 小さいミニマップをクリック → 拡大パネルを表示（パネル上のクリックは無視）
+	if (!panels.isVisible(kPanelId) && !panels.isMouseOnAnyPanel() && smallRect().leftClicked())
 	{
 		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
 		const Vec2 pos{

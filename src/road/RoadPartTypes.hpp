@@ -81,3 +81,25 @@ struct RoadPart
 	/// @note defId からの逆引きが必要な場合は RoadPartRegistry を使用
 	RoadPartType type = RoadPartType::Roadbed;
 };
+
+// ===== 道路オブジェクト =====
+
+/// @brief 道路オブジェクト種別
+enum class RoadObjectType : uint8
+{
+	Pier,           ///< 橋脚
+	// 将来拡張: StreetLight, TrafficSign, UtilityPole, StreetTree, ...
+};
+
+/// @brief 道路に紐づく汎用オブジェクト
+struct RoadObject
+{
+	int             id = -1;
+	int             parentEdgeId = -1;      ///< 親エッジ ID
+	float           arcPos = 0.0f;          ///< エッジ上の弧長位置 [m]
+	float           lateralOffset = 0.0f;   ///< 横方向オフセット [m]
+	RoadObjectType  type = RoadObjectType::Pier;
+	float           scale = 1.0f;
+	float           yawOffset = 0.0f;       ///< Y軸回転オフセット [rad]
+	float           heightOverride = -1.0f; ///< -1 = 地形まで自動延伸
+};
