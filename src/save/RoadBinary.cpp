@@ -257,10 +257,11 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 			// エッジをスキップ
 			for (uint32 i = 0; i < ec2; ++i)
 			{
-				// id, nodeA, nodeB, ctrlA(3f), ctrlB(3f), roadType, speedLimit, length,
-				// planId, cutoffA, cutoffB, edgeState, borderNodeA, borderNodeB
+				// id, nodeA, nodeB, ctrlA(3f), ctrlB(3f), roadType,
+				// speedLimit, length, planId, cutoffA, cutoffB,
+				// edgeState, borderNodeA, borderNodeB
 				r.skip(sizeof(int32) * 3 + sizeof(float) * 6 + sizeof(uint8) +
-				       sizeof(float) * 3 + sizeof(int32) + sizeof(float) * 2 +
+				       sizeof(float) * 3 + sizeof(float) * 2 +
 				       sizeof(uint8) + sizeof(int32) * 2);
 				uint32 laneCnt;
 				r.read(laneCnt);

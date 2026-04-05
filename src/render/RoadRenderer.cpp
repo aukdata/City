@@ -24,7 +24,7 @@ namespace
 		const Vec3  p  = bez.positionAt(s);
 		double y;
 		if (useElevation)
-			y = p.y + terrainLift - 2.0;  // terrainLift にはベース 2.0m が含まれるため補正
+			y = p.y + terrainLift;  // ノード Y は地形高さなので、通常と同じ terrainLift を加算
 		else
 		{
 			const float gy = world.computeHeight(static_cast<float>(p.x), static_cast<float>(p.z));
@@ -133,16 +133,18 @@ namespace
 	void appendBezierLine(Array<RoadRenderer::LaneLineBatch>& out,
 	                      const Vec3& from, const Vec3& to,
 	                      const Vec3& tanFrom, const Vec3& tanTo,
-	                      float lineWidth, const ColorF& color, const World& world)
+	                      float lineWidth, const ColorF& color, [[maybe_unused]] const World& world)
 	{
 		const Vec3 diff = to - from;
 		if (diff.lengthSq() < 0.01) return;
 		const double dist = diff.length();
 		const double ctrlLen = dist * 0.4;
 
-		// 制御点: from から tanFrom 方向、to から tanTo の逆方向
-		const Vec3 cp1 = from + tanFrom * ctrlLen;
-		const Vec3 cp2 = to   - tanTo   * ctrlLen;
+		// XZ 平面でベジェ曲線を構築（Y は線形補間）
+		// tanFrom = from の出発方向（ノード内向き）
+		// tanTo   = to の出発方向（ノード内向き）
+		const Vec3 cp1{ from.x + tanFrom.x * ctrlLen, 0.0, from.z + tanFrom.z * ctrlLen };
+		const Vec3 cp2{ to.x   + tanTo.x   * ctrlLen, 0.0, to.z   + tanTo.z   * ctrlLen };
 
 		constexpr int kDiv = 8;
 		const double hw = static_cast<double>(lineWidth * 0.5f);
@@ -159,8 +161,8 @@ namespace
 			const Vec3 tan = (cp1 - from) * (3 * u * u) + (cp2 - cp1) * (6 * u * t)
 			               + (to - cp2) * (3 * t * t);
 			const Vec3 right = calcRight(tan.lengthSq() > 0.001 ? tan.normalized() : diff.normalized());
-			const float gy = world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
-			const Vec3 p{ pos.x, gy + 2.05, pos.z };
+			// Y は from → to の線形補間（路面高さを維持）
+			const Vec3 p{ pos.x, from.y + (to.y - from.y) * t, pos.z };
 			const uint32 base = static_cast<uint32>(md.vertices.size());
 			md.vertices << makeVert(p - right * hw, 0, static_cast<float>(t));
 			md.vertices << makeVert(p + right * hw, 1, static_cast<float>(t));
@@ -427,7 +429,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 					const Vec3 tan = bez->tangentAt(Clamp(obj.arcPos, 0.0f, bez->totalLength));
 					const float terrainY = world.computeHeight(
 						static_cast<float>(pos.x), static_cast<float>(pos.z));
-					const float topY = static_cast<float>(pos.y) - 0.5f;  // 路盤厚分下げる
+					const float topY = static_cast<float>(pos.y) + 2.0f - 0.5f;  // 路面リフト(2.0) - 路盤厚(0.5)
 					const float height = topY - terrainY;
 					if (height < 1.0f) continue;
 
@@ -702,11 +704,13 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
 
 		const Vec3 right = calcRight(capTan);
-		const float gy = world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z));
+		const double capY = edge->useElevation
+			? capPos.y + 2.0
+			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z)) + 2.0;
 
 		EdgeCapInfo info;
 		info.capTan   = capTan;
-		info.capCenter = Vec3{ capPos.x, gy + 2.0, capPos.z };
+		info.capCenter = Vec3{ capPos.x, capY, capPos.z };
 		info.right    = right;
 		info.angle    = Math::Atan2(capTan.z, capTan.x);
 		info.edge     = edge;
@@ -994,12 +998,15 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 			? Clamp(capRad - 0.1f, 0.0f, bez->totalLength * 0.45f)
 			: Clamp(bez->totalLength - capRad + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
 		const Vec3 pos = bez->positionAt(s);
-		Vec3 tan = bez->tangentAt(s);
-		// ノードに向かう方向に反転（ノード外向き）
-		if (isNodeA) tan = -tan;
-		const Vec3 right = calcRight(tan);
-		const float gy = world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
-		return { Vec3{ pos.x, gy + 2.05, pos.z } + right * static_cast<double>(offset), tan };
+		const Vec3 rawTan = bez->tangentAt(s);
+		// right はオフセット用（A→B 基準で常に同じ側）
+		const Vec3 right = calcRight(rawTan);
+		// ノード内向き: tangentAt は A→B 方向なので nodeA 側では反転
+		const Vec3 tan = isNodeA ? -rawTan : rawTan;
+		const double lineY = edge.useElevation
+			? pos.y + 2.05
+			: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + 2.05;
+		return { Vec3{ pos.x, lineY, pos.z } + right * static_cast<double>(offset), tan };
 	};
 	// 位置のみ取得（後方互換）
 	auto calcEdgeLinePos = [&](const RoadEdge& edge, float offset) -> Vec3
@@ -1078,9 +1085,12 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		}
 
 		// B側にのみ存在する車線境界: ノード中心からテーパー
-		const float gy = world.computeHeight(static_cast<float>(node->position.x),
-		                                     static_cast<float>(node->position.z));
-		const Vec3 centerPos{ node->position.x, gy + 2.05, node->position.z };
+		const bool anyElevated = edgeA->useElevation || edgeB->useElevation;
+		const double centerY = anyElevated
+			? node->position.y + 2.05
+			: world.computeHeight(static_cast<float>(node->position.x),
+			                      static_cast<float>(node->position.z)) + 2.05;
+		const Vec3 centerPos{ node->position.x, centerY, node->position.z };
 
 		for (size_t j = 0; j + 1 < boundsB.size(); ++j)
 		{
@@ -1097,9 +1107,18 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 	}
 
 	// === Intersection / Diverge — 各エッジの車線境界からノード中心へベジェ曲線 ===
-	const float gy = world.computeHeight(static_cast<float>(node->position.x),
-	                                     static_cast<float>(node->position.z));
-	const Vec3 centerPos{ node->position.x, gy + 2.05, node->position.z };
+	{
+		bool anyElev = false;
+		for (const auto& att : node->attachments)
+		{
+			const RoadEdge* e = network.getEdge(att.edgeId);
+			if (e && e->useElevation) { anyElev = true; break; }
+		}
+		const double ctrY = anyElev
+			? node->position.y + 2.05
+			: world.computeHeight(static_cast<float>(node->position.x),
+			                      static_cast<float>(node->position.z)) + 2.05;
+		const Vec3 centerPos{ node->position.x, ctrY, node->position.z };
 
 	for (const auto& att : node->attachments)
 	{
@@ -1129,6 +1148,8 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 			}
 		}
 	}
+
+	} // anyElev scope
 
 	return batches;
 }
@@ -1218,9 +1239,11 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
 
 		const Vec3  right    = calcRight(capTan);
-		const float gy       = world.computeHeight(static_cast<float>(capPos.x),
-		                                           static_cast<float>(capPos.z));
-		const Vec3  capCenter{ capPos.x, gy + 2.0 + static_cast<double>(heightOffset), capPos.z };
+		const double capY = edge->useElevation
+			? capPos.y + 2.0 + static_cast<double>(heightOffset)
+			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z))
+			  + 2.0 + static_cast<double>(heightOffset);
+		const Vec3  capCenter{ capPos.x, capY, capPos.z };
 
 		EdgeInfo info;
 		info.capTan      = capTan;

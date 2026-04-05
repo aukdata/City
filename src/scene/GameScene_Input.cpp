@@ -148,7 +148,36 @@ void GameScene::handleInput()
 		{
 			if (auto* node = m_network.getNode(*m_selectedNodeId))
 			{
-				node->position.y += up ? kNodeYStep : -kNodeYStep;
+				const float dy = up ? kNodeYStep : -kNodeYStep;
+				node->position.y += dy;
+
+				// 接続エッジのコントロールポイント Y も同じ差分で移動
+				// 前後どちらかのノードが地形から離れていれば useElevation を自動設定
+				for (const int eid : node->edgeIds())
+				{
+					if (auto* edge = m_network.getEdge(eid))
+					{
+						if (edge->nodeA == *m_selectedNodeId)
+							edge->ctrlA.y += dy;
+						else
+							edge->ctrlB.y += dy;
+
+						const auto* nA = m_network.getNode(edge->nodeA);
+						const auto* nB = m_network.getNode(edge->nodeB);
+						if (nA && nB)
+						{
+							const float gyA = m_world.computeHeight(
+								static_cast<float>(nA->position.x), static_cast<float>(nA->position.z));
+							const float gyB = m_world.computeHeight(
+								static_cast<float>(nB->position.x), static_cast<float>(nB->position.z));
+							constexpr double kElevThreshold = 0.5;
+							const bool elevA = std::abs(nA->position.y - static_cast<double>(gyA)) > kElevThreshold;
+							const bool elevB = std::abs(nB->position.y - static_cast<double>(gyB)) > kElevThreshold;
+							edge->useElevation = elevA || elevB;
+						}
+					}
+				}
+
 				m_roadRenderer.invalidateCachesAroundNode(*m_selectedNodeId, m_network);
 			}
 		}

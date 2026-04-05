@@ -302,9 +302,24 @@ void GameScene::renderVehicles()
 			tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
 		}
 
-		rv.position.y = m_world.computeHeight(
-			static_cast<float>(rv.position.x),
-			static_cast<float>(rv.position.z)) + 2.05f;
+		{
+			bool onElevated = false;
+			if (v.location == VehicleLocation::OnConnection)
+			{
+				// 接続パスの場合、接続先ノードのエッジをチェック
+			}
+			else
+			{
+				const RoadEdge* eCheck = m_network.getEdge(v.currentEdge);
+				if (eCheck && eCheck->useElevation) onElevated = true;
+			}
+			if (onElevated)
+				rv.position.y += 2.05;  // ベジェ Y（=ノード地形高さ）+ 路面リフト
+			else
+				rv.position.y = m_world.computeHeight(
+					static_cast<float>(rv.position.x),
+					static_cast<float>(rv.position.z)) + 2.05;
+		}
 
 		float sign = 1.0f;
 		if (v.location != VehicleLocation::OnConnection)

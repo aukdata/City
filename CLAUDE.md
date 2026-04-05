@@ -24,6 +24,15 @@ Release の場合は `-p:Configuration=Release` に変更する。
 
 ビルド後、`App/` ディレクトリに実行ファイルが自動コピーされる。実行時のワーキングディレクトリは `App/` 。
 
+**起動コマンド**（「起動して」と言われたら実行）:
+```bash
+cd /mnt/d/Users/Takuma/Creations/codes/City/App && "./City(debug).exe" --load default &
+```
+- `--load <saveName>` でタイトル画面をスキップして直接ロード
+- ワーキングディレクトリは必ず `App/` にすること
+- `cmd.exe /c start` は括弧入りパスで失敗するため使わない
+- 起動後は `cd /mnt/d/Users/Takuma/Creations/codes/City` でプロジェクトルートに戻ること
+
 テスト・リントの自動化ツールはない (Visual Studio のビルド成功が確認手段)。
 
 ## Debugging Principles

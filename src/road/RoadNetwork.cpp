@@ -240,7 +240,9 @@ Optional<int> RoadNetwork::findNodeNear(Vec3 pos, float radius) const
 	for (const auto& n : m_nodes)
 	{
 		if (n.id == -1) continue;
-		const float dist = static_cast<float>((n.position - pos).length());
+		const float dx = static_cast<float>(n.position.x - pos.x);
+		const float dz = static_cast<float>(n.position.z - pos.z);
+		const float dist = std::sqrt(dx * dx + dz * dz);
 		if (dist <= bestDist)
 		{
 			bestDist = dist;

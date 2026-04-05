@@ -583,7 +583,45 @@ void GameScene::drawNodePanel()
 
 	PanelWidget::label(pFont, U"pos: ({:.0f}, {:.1f}, {:.0f})"_fmt(
 		node->position.x, node->position.y, node->position.z), pX, y, ColorF{1.0});
-	y += kLH + 4;
+	y += kLH;
+
+	// Y 座標スピナー（変更時にコントロールポイントも連動）
+	{
+		PanelWidget::label(pFont, U"Y", pX, y);
+		float tmpY = static_cast<float>(node->position.y);
+		if (PanelWidget::spin(pFont, tmpY, 1.0f, -100.0f, 200.0f, pX + 16, y, 54, kLH))
+		{
+			const double dy = static_cast<double>(tmpY) - node->position.y;
+			node->position.y = static_cast<double>(tmpY);
+			for (const int eid : node->edgeIds())
+			{
+				if (auto* edge = m_network.getEdge(eid))
+				{
+					if (edge->nodeA == node->id)
+						edge->ctrlA.y += dy;
+					else
+						edge->ctrlB.y += dy;
+
+					// 前後どちらかが地形から離れていれば useElevation を自動設定
+					const auto* nA = m_network.getNode(edge->nodeA);
+					const auto* nB = m_network.getNode(edge->nodeB);
+					if (nA && nB)
+					{
+						const float gyA = m_world.computeHeight(
+							static_cast<float>(nA->position.x), static_cast<float>(nA->position.z));
+						const float gyB = m_world.computeHeight(
+							static_cast<float>(nB->position.x), static_cast<float>(nB->position.z));
+						constexpr double kElevThreshold = 0.5;
+						edge->useElevation =
+							std::abs(nA->position.y - static_cast<double>(gyA)) > kElevThreshold ||
+							std::abs(nB->position.y - static_cast<double>(gyB)) > kElevThreshold;
+					}
+				}
+			}
+			dirty = true;
+		}
+		y += kLH + 4;
+	}
 
 	{
 		static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersect", U"Diverge" };
@@ -629,6 +667,20 @@ void GameScene::drawNodePanel()
 					{
 						dirty = true;
 						notifyNetworkChanged();
+					}
+				}
+				y += kLH;
+
+				// コントロールポイント Y 編集
+				if (auto* edge = m_network.getEdge(att.edgeId))
+				{
+					double& cpY = (edge->nodeA == node->id) ? edge->ctrlA.y : edge->ctrlB.y;
+					float tmpCpY = static_cast<float>(cpY);
+					PanelWidget::label(pFont, U"cpY", pX + 10, y);
+					if (PanelWidget::spin(pFont, tmpCpY, 1.0f, -100.0f, 200.0f, pX + 34, y, 54, kLH))
+					{
+						cpY = static_cast<double>(tmpCpY);
+						dirty = true;
 					}
 				}
 				y += kLH + 2;
