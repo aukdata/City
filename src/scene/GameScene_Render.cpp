@@ -141,8 +141,10 @@ void GameScene::renderSelectionHighlights()
 	// 選択中のエッジをハイライト
 	if (m_selectedEdgeId)
 	{
+		const RoadEdge* selEdge = m_network.getEdge(*m_selectedEdgeId);
 		if (const auto bez = m_network.getBezier(*m_selectedEdgeId))
 		{
+			const bool elev = selEdge && selEdge->useElevation;
 			constexpr int kDiv = 30;
 			const float len = bez->totalLength;
 			for (int i = 0; i < kDiv; ++i)
@@ -151,10 +153,12 @@ void GameScene::renderSelectionHighlights()
 				const float tB = (i + 1) / static_cast<float>(kDiv);
 				const Vec3 a = bez->positionAt(len * tA);
 				const Vec3 b = bez->positionAt(len * tB);
-				const float ha = m_world.computeHeight(static_cast<float>(a.x), static_cast<float>(a.z));
-				const float hb = m_world.computeHeight(static_cast<float>(b.x), static_cast<float>(b.z));
-				const Vec3 pa{ a.x, ha + 3.0, a.z };
-				const Vec3 pb{ b.x, hb + 3.0, b.z };
+				const double ya = elev ? a.y + 3.0
+					: m_world.computeHeight(static_cast<float>(a.x), static_cast<float>(a.z)) + 3.0;
+				const double yb = elev ? b.y + 3.0
+					: m_world.computeHeight(static_cast<float>(b.x), static_cast<float>(b.z)) + 3.0;
+				const Vec3 pa{ a.x, ya, a.z };
+				const Vec3 pb{ b.x, yb, b.z };
 				const ColorF cA = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tA);
 				const ColorF cB = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tB);
 				Cylinder{ pa, pb, 1.0 }.draw(cA.lerp(cB, 0.5));
@@ -167,8 +171,16 @@ void GameScene::renderSelectionHighlights()
 	{
 		if (const auto* node = m_network.getNode(*m_selectedNodeId))
 		{
-			const float nh = m_world.computeHeight(
-				static_cast<float>(node->position.x), static_cast<float>(node->position.z));
+			bool nodeElev = false;
+			for (const auto& att : node->attachments)
+			{
+				const RoadEdge* e = m_network.getEdge(att.edgeId);
+				if (e && e->useElevation) { nodeElev = true; break; }
+			}
+			const double nh = nodeElev
+				? node->position.y + 2.0
+				: static_cast<double>(m_world.computeHeight(
+					static_cast<float>(node->position.x), static_cast<float>(node->position.z)));
 
 			// アウトラインリング
 			{
@@ -223,7 +235,9 @@ void GameScene::renderSelectionHighlights()
 					const float off = centerA + (centerB - centerA) * ft;
 					const Vec3 perp = Vec3{ tan.z, 0.0, -tan.x }.normalized();
 					Vec3 world = pos + perp * static_cast<double>(off);
-					world.y = m_world.sampleHeight(static_cast<float>(world.x), static_cast<float>(world.z)) + 4.0f;
+					world.y = edge->useElevation
+						? pos.y + 4.0
+						: m_world.sampleHeight(static_cast<float>(world.x), static_cast<float>(world.z)) + 4.0;
 
 					const ColorF col = exits
 						? ColorF{ 1.0, 0.3, 0.3, 0.8 }.removeSRGBCurve()
@@ -243,8 +257,16 @@ void GameScene::renderSelectionHighlights()
 					const float s1 = conn.path.totalLength * static_cast<float>(i + 1) / kSegments;
 					Vec3 p0 = conn.path.positionAt(s0);
 					Vec3 p1 = conn.path.positionAt(s1);
-					p0.y = m_world.sampleHeight(static_cast<float>(p0.x), static_cast<float>(p0.z)) + 3.0f;
-					p1.y = m_world.sampleHeight(static_cast<float>(p1.x), static_cast<float>(p1.z)) + 3.0f;
+					if (nodeElev)
+					{
+						p0.y += 3.0;
+						p1.y += 3.0;
+					}
+					else
+					{
+						p0.y = m_world.sampleHeight(static_cast<float>(p0.x), static_cast<float>(p0.z)) + 3.0;
+						p1.y = m_world.sampleHeight(static_cast<float>(p1.x), static_cast<float>(p1.z)) + 3.0;
+					}
 					Cylinder{ p0, p1, 0.5 }.draw(ColorF{ 0.2, 0.8, 1.0, 0.7 }.removeSRGBCurve());
 				}
 			}
@@ -306,7 +328,13 @@ void GameScene::renderVehicles()
 			bool onElevated = false;
 			if (v.location == VehicleLocation::OnConnection)
 			{
-				// 接続パスの場合、接続先ノードのエッジをチェック
+				const RoadNode* cNode = m_network.getNode(v.connectionNodeId);
+				if (cNode)
+					for (const auto& att : cNode->attachments)
+					{
+						const RoadEdge* e = m_network.getEdge(att.edgeId);
+						if (e && e->useElevation) { onElevated = true; break; }
+					}
 			}
 			else
 			{

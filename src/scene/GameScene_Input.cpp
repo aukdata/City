@@ -234,7 +234,78 @@ void GameScene::handleInput()
 					m_panelManager.hide(U"vehicle_info");
 				}
 
-				const auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+				// 地上カーソルで検索
+				auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+				Optional<int> hitEdge;
+				if (!hitNode)
+					hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+
+				// 高架面とのレイ交差で追加検索
+				{
+					const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+					const Float3 ro = ray.origin;
+					const Float3 rd = ray.direction;
+					if (rd.y < -1e-6f)
+					{
+						for (const auto& node : m_network.nodes())
+						{
+							if (node.id < 0) continue;
+							bool anyElev = false;
+							for (const auto& att : node.attachments)
+							{
+								const RoadEdge* e = m_network.getEdge(att.edgeId);
+								if (e && e->useElevation) { anyElev = true; break; }
+							}
+							if (!anyElev) continue;
+
+							const float planeY = static_cast<float>(node.position.y) + 2.0f;
+							const float t = (planeY - ro.y) / rd.y;
+							if (t < 0) continue;
+							const float hx = ro.x + rd.x * t;
+							const float hz = ro.z + rd.z * t;
+							const float dx = hx - static_cast<float>(node.position.x);
+							const float dz = hz - static_cast<float>(node.position.z);
+							if (dx * dx + dz * dz < 20.0f * 20.0f)
+							{
+								hitNode = node.id;
+								hitEdge = none;
+								break;
+							}
+						}
+
+						if (!hitNode && !hitEdge)
+						{
+							for (const auto& edge : m_network.edges())
+							{
+								if (edge.id < 0 || !edge.useElevation) continue;
+								const auto bez = m_network.getBezier(edge.id);
+								if (!bez) continue;
+								const auto* nA = m_network.getNode(edge.nodeA);
+								const auto* nB = m_network.getNode(edge.nodeB);
+								if (!nA || !nB) continue;
+								const float planeY = static_cast<float>((nA->position.y + nB->position.y) * 0.5) + 2.0f;
+								const float t = (planeY - ro.y) / rd.y;
+								if (t < 0) continue;
+								const float hx = ro.x + rd.x * t;
+								const float hz = ro.z + rd.z * t;
+								for (int si = 0; si <= 10; ++si)
+								{
+									const float s = bez->totalLength * (si / 10.0f);
+									const Vec3 p = bez->positionAt(s);
+									const float ddx = hx - static_cast<float>(p.x);
+									const float ddz = hz - static_cast<float>(p.z);
+									if (ddx * ddx + ddz * ddz < 15.0f * 15.0f)
+									{
+										hitEdge = edge.id;
+										goto elevEdgeFound;
+									}
+								}
+							}
+							elevEdgeFound:;
+						}
+					}
+				}
+
 				if (hitNode)
 				{
 					m_selectedNodeId = hitNode;
@@ -245,7 +316,6 @@ void GameScene::handleInput()
 				}
 				else
 				{
-					const auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
 					m_selectedEdgeId = hitEdge;
 					m_selectedNodeId = none;
 					if (hitEdge)
