@@ -1665,40 +1665,42 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 
 	for (const auto& node : network.nodes())
 	{
-		if (node.id < 0) continue;
-		if (!node.signalPlacement) continue;
+		if (node.id < 0 || !node.signalPlacement)
+		{
+			continue;
+		}
 
 		const auto& sp = *node.signalPlacement;
 		const SignalDef* def = m_signalRegistry.getDef(sp.signalDefId);
-		if (!def) continue;
-
-		const SignalModel* model = m_signalRegistry.getModel(sp.signalDefId);
-		if (!model || !model->texture) continue;
+		const SignalModel* model = def ? m_signalRegistry.getModel(sp.signalDefId) : nullptr;
+		if (!def || !model || !model->texture)
+		{
+			continue;
+		}
 
 		// 距離カリング
 		const double dx = node.position.x - cameraPos.x;
 		const double dz = node.position.z - cameraPos.z;
-		if (dx * dx + dz * dz > kSignalDrawMaxDistSq) continue;
+		if (dx * dx + dz * dz > kSignalDrawMaxDistSq)
+		{
+			continue;
+		}
 
-		// 信号機の配置位置を計算
 		const bool elevated = network.isNodeElevated(node.id);
-		const double baseY = elevated
-			? node.position.y + kRoadSurfaceLift
-			: static_cast<double>(world.computeHeight(
-				static_cast<float>(node.position.x),
-				static_cast<float>(node.position.z))) + kRoadSurfaceLift;
 
-		// 各接続エッジから信号の向きを決定
-		// 交差点の各進入方向にそれぞれ信号機を配置する
 		for (const auto& att : node.attachments)
 		{
-			if (att.control != TrafficControl::Signal) continue;
+			if (att.control != TrafficControl::Signal)
+			{
+				continue;
+			}
 
 			const RoadEdge* edge = network.getEdge(att.edgeId);
-			if (!edge) continue;
-
-			const auto bez = network.getBezier(att.edgeId);
-			if (!bez) continue;
+			const auto bez = edge ? network.getBezier(att.edgeId) : Optional<CubicBezier>{};
+			if (!edge || !bez)
+			{
+				continue;
+			}
 
 			// カットオフ位置での接線・位置を求める
 			const bool isNodeA = (edge->nodeA == node.id);
@@ -1711,14 +1713,12 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 			const Vec3 faceDir = isNodeA ? tan : Vec3{ -tan.x, -tan.y, -tan.z };
 			const float yaw = static_cast<float>(Math::Atan2(faceDir.x, faceDir.z));
 
-			// 右方向ベクトル（ベジェ接線 tan 基準、A→B 方向の右が正）
+			// 右方向ベクトル（ベジェ接線基準、A→B 方向の右が正）
 			const Vec3 right{ tan.z, 0.0, -tan.x };
 			const double rLen = right.length();
 			const Vec3 rn = (rLen > 1e-6) ? right / rLen : Vec3{ 1, 0, 0 };
 
-			// 進入車線側の Roadbed 端オフセットを求める
-			// isNodeA: Backward車線が進入 → A→B方向の右側（正のoffset）
-			// !isNodeA: Forward車線が進入 → A→B方向の左側（負のoffset）
+			// 進入車線側の Roadbed 端オフセット
 			const bool entryOnRight = !isNodeA;
 			float roadEdgeOffset = 0.0f;
 			bool foundRoadbed = false;
@@ -1726,26 +1726,28 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 			{
 				if (part.type == RoadPartType::Roadbed)
 				{
-					const float edge_pos = entryOnRight
-						? (part.offset + part.width)  // 右端
-						: part.offset;                 // 左端
+					const float edgePos = entryOnRight
+						? (part.offset + part.width)
+						: part.offset;
 					if (!foundRoadbed)
 					{
-						roadEdgeOffset = edge_pos;
+						roadEdgeOffset = edgePos;
 						foundRoadbed = true;
 					}
 					else
 					{
 						roadEdgeOffset = entryOnRight
-							? Max(roadEdgeOffset, edge_pos)
-							: Min(roadEdgeOffset, edge_pos);
+							? Max(roadEdgeOffset, edgePos)
+							: Min(roadEdgeOffset, edgePos);
 					}
 				}
 			}
 			if (!foundRoadbed)
+			{
 				roadEdgeOffset = entryOnRight
 					? edge->totalWidth() * 0.5f
 					: -edge->totalWidth() * 0.5f;
+			}
 
 			const double signalY = elevated
 				? cutPos.y + kRoadSurfaceLift
@@ -1776,19 +1778,19 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 
 			// 信号状態の判定
 			const auto tlIt = trafficLights.find(node.id);
-			const bool isGreen = tlIt != trafficLights.end()
+			const bool isGreen = (tlIt != trafficLights.end())
 				? tlIt->second.isGreen(att.edgeId)
 				: true;
 
-			// 黄信号の判定（フェーズ終了間際）
 			bool isYellow = false;
 			if (tlIt != trafficLights.end())
 			{
 				const float elapsed = tlIt->second.phaseElapsed(gameNow);
 				const float duration = tlIt->second.currentPhaseDuration();
-				// フェーズ終了3秒前は黄信号
 				if (isGreen && duration > 0.0f && (duration - elapsed) < 3.0f)
+				{
 					isYellow = true;
+				}
 			}
 
 			// メインランプ描画
@@ -1796,22 +1798,35 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 			{
 				const auto& lampDef = def->lamps[li];
 				const Mesh* lampMesh = getSignalMesh(sp.signalDefId, lampDef.meshName);
-				if (!lampMesh) continue;
+				if (!lampMesh)
+				{
+					continue;
+				}
 
 				// ランプの状態を決定
 				String stateId = U"off";
 				if (lampDef.stateIds.contains(U"green") && isGreen && !isYellow)
+				{
 					stateId = U"green";
+				}
 				else if (lampDef.stateIds.contains(U"yellow") && isYellow)
+				{
 					stateId = U"yellow";
+				}
 				else if (lampDef.stateIds.contains(U"red") && !isGreen && !isYellow)
+				{
 					stateId = U"red";
+				}
 
-				// TextureRegion で状態に応じたテクスチャ領域を描画
 				auto stIt = def->states.find(stateId);
 				if (stIt == def->states.end())
+				{
 					stIt = def->states.find(U"off");
-				if (stIt == def->states.end()) continue;
+				}
+				if (stIt == def->states.end())
+				{
+					continue;
+				}
 
 				const auto& state = stIt->second;
 				const TextureRegion texRegion = (*model->texture)(
@@ -1842,7 +1857,6 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 
 					const Mat4x4 subMat = Mat4x4::Translate(offset) * baseMat;
 
-					// 矢印灯器筐体
 					if (subBodyMesh)
 					{
 						PhongMaterial sbMat;
@@ -1852,7 +1866,6 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 						subBodyMesh->draw(subMat, *model->texture, sbMat);
 					}
 
-					// 矢印ランプ
 					if (subLampMesh)
 					{
 						const String& stateId = sp.subLampStates[si];
@@ -1860,7 +1873,10 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 						const String renderStateId = subLit ? stateId : U"off";
 
 						auto renderStIt = def->states.find(renderStateId);
-						if (renderStIt == def->states.end()) continue;
+						if (renderStIt == def->states.end())
+						{
+							continue;
+						}
 						const auto& renderState = renderStIt->second;
 
 						const TextureRegion texRegion = (*model->texture)(

@@ -23,6 +23,24 @@ namespace
 		return true;
 	}
 
+	/// @brief 文字列を読み飛ばす（readString のスキップ版）
+	void skipString(BinaryReader& r)
+	{
+		uint16 len; r.read(len);
+		r.skip(len);
+	}
+
+	/// @brief SignalPlacement をスキップする
+	void skipSignalPlacement(BinaryReader& r)
+	{
+		uint8 hasSig; r.read(hasSig);
+		if (hasSig == 0) return;
+		skipString(r);  // signalDefId
+		uint32 subCnt; r.read(subCnt);
+		for (uint32 j = 0; j < subCnt; ++j) skipString(r);
+		r.skip(sizeof(float));  // yawOffset
+	}
+
 }
 
 bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
@@ -359,14 +377,7 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 		r.skip(sizeof(int32) + sizeof(float) * 3 + sizeof(uint8));
 		uint32 attCnt; r.read(attCnt);
 		r.skip(attCnt * (sizeof(int32) + sizeof(float) + sizeof(uint8) * 2));
-		uint8 hasSig; r.read(hasSig);
-		if (hasSig != 0)
-		{
-			uint16 slen; r.read(slen); r.skip(slen);
-			uint32 subCnt; r.read(subCnt);
-			for (uint32 j = 0; j < subCnt; ++j) { uint16 sl2; r.read(sl2); r.skip(sl2); }
-			r.skip(sizeof(float));
-		}
+		skipSignalPlacement(r);
 	}
 
 	// エッジをスキップ
@@ -381,7 +392,7 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 		uint32 partCnt; r.read(partCnt);
 		for (uint32 p = 0; p < partCnt; ++p)
 		{
-			uint16 slen; r.read(slen); r.skip(slen);
+			skipString(r);
 			r.skip(sizeof(float) * 2 + sizeof(uint8) * 2);
 		}
 	}

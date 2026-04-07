@@ -47,6 +47,8 @@ cd /mnt/d/Users/Takuma/Creations/codes/City/App && "./City(debug).exe" --load de
 
 ## Code Style
 
+**詳細なコーディング規約は `CODING_STYLE.md` を参照すること。**
+
 `.editorconfig` に従う:
 - インデント: タブ (サイズ4)
 - **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。

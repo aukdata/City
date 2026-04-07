@@ -24,17 +24,6 @@ namespace
 			static_cast<float>(a[2].getOr<double>(0))
 		};
 	}
-
-	ColorF parseEmission(const TOMLValue& v, ColorF def = ColorF{ 1.0 })
-	{
-		if (v.isEmpty() || v.arrayCount() < 3) return def;
-		const auto a = v.arrayView();
-		return ColorF{
-			a[0].getOr<double>(def.r),
-			a[1].getOr<double>(def.g),
-			a[2].getOr<double>(def.b)
-		};
-	}
 }
 
 bool SignalRegistry::load(FilePathView dirPath)
@@ -42,7 +31,10 @@ bool SignalRegistry::load(FilePathView dirPath)
 	int count = 0;
 	for (const auto& entry : FileSystem::DirectoryContents(dirPath))
 	{
-		if (FileSystem::Extension(entry) != U"toml") continue;
+		if (FileSystem::Extension(entry) != U"toml")
+		{
+			continue;
+		}
 		const String baseDir = FileSystem::ParentPath(entry);
 		if (auto e = loadEntry(entry, baseDir))
 		{
@@ -86,13 +78,8 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		return none;
 	}
 
-	Console << U"[SignalRegistry] TOML opened OK";
-	Console << U"[SignalRegistry] Reading id...";
-
 	SignalDef def;
 	def.id   = toml[U"id"].getOr<String>(U"");
-	Console << U"[SignalRegistry] id = " << def.id;
-	Console << U"[SignalRegistry] Reading name...";
 	def.name = toml[U"name"].getOr<String>(def.id);
 
 	if (def.id.isEmpty())
@@ -101,7 +88,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		return none;
 	}
 
-	Console << U"[SignalRegistry] Reading model path...";
 	// モデル・テクスチャパス
 	const String modelFile = toml[U"model"].getOr<String>(U"");
 	if (!modelFile.isEmpty())
@@ -109,7 +95,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 
 	def.bodyMeshName = toml[U"body_mesh"].getOr<String>(U"body");
 
-	Console << U"[SignalRegistry] Reading material...";
 	const auto mat = toml[U"material"];
 	if (!mat.isEmpty())
 	{
@@ -118,7 +103,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 			def.texturePath = String{ baseDir } + texFile;
 	}
 
-	Console << U"[SignalRegistry] Reading lamps...";
 	// ランプ定義（[[lamps]] = テーブル配列）
 	if (const auto lampsArr = toml[U"lamps"]; lampsArr.isTableArray())
 	{
@@ -136,7 +120,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		}
 	}
 
-	Console << U"[SignalRegistry] Reading sub_lamp...";
 	// sub_lamp 定義
 	if (const auto sub = toml[U"sub_lamp"]; !sub.isEmpty())
 	{
@@ -156,23 +139,18 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 	}
 
 	// 状態定義 [[state]]（テーブル配列）
-	Console << U"[SignalRegistry] Parsing states...";
 	if (const auto stateArr = toml[U"state"]; stateArr.isTableArray())
 	{
 		for (const auto& entry : stateArr.tableArrayView())
 		{
 			SignalState st;
-			st.id       = entry[U"id"].getOr<String>(U"");
-			Console << U"[SignalRegistry]   state: " << st.id;
-			st.uvRect   = parseUvRect(entry[U"uv"]);
-			st.emission = parseEmission(entry[U"emission"], ColorF{ 1.0 });
+			st.id     = entry[U"id"].getOr<String>(U"");
+			st.uvRect = parseUvRect(entry[U"uv"]);
 			if (!st.id.isEmpty())
 				def.states[st.id] = std::move(st);
 		}
 	}
-	Console << U"[SignalRegistry] States parsed: " << def.states.size();
 
-	Console << U"[SignalRegistry] Loading OBJ model...";
 	// OBJ モデルロード
 	SignalModel model;
 	if (!def.modelPath.isEmpty() && FileSystem::Exists(def.modelPath))
@@ -188,13 +166,11 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 				v.normal.x *= -1.0f;
 				v.tex.y = 1.0f - v.tex.y;
 			}
-			// X反転でワインディングが逆になるため三角形の頂点順を入れ替え
 			for (auto& tri : m.indices)
 				std::swap(tri.i0, tri.i1);
 		}
 
-		// ランプ / sub_lamp メッシュの UV を 0-1 に正規化
-		// （TextureRegion で状態切り替えするため）
+		// ランプメッシュの UV を 0-1 に正規化（TextureRegion 切替用）
 		HashSet<String> lampMeshNames;
 		for (const auto& ld : def.lamps) lampMeshNames.insert(ld.meshName);
 		if (def.subLamp) lampMeshNames.insert(def.subLamp->meshName);
@@ -203,7 +179,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		{
 			if (lampMeshNames.contains(m.name) && !m.vertices.isEmpty())
 			{
-				// UV バウンディングボックスを求める
 				float uMin = 1e9f, uMax = -1e9f, vMin = 1e9f, vMax = -1e9f;
 				for (const auto& v : m.vertices)
 				{
@@ -225,7 +200,6 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		Console << U"[SignalRegistry] " << def.id << U": " << meshes.size() << U" meshes loaded";
 	}
 
-	Console << U"[SignalRegistry] Loading texture...";
 	// テクスチャロード
 	if (!def.texturePath.isEmpty() && FileSystem::Exists(def.texturePath))
 	{

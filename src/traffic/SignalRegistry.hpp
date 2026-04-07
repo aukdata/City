@@ -2,12 +2,11 @@
 #include <Siv3D.hpp>
 #include "../road/ObjParser.hpp"
 
-/// @brief 信号ランプの状態定義（UV 座標 + emission 色）
+/// @brief 信号ランプの状態定義
 struct SignalState
 {
-	String id;               ///< 状態名 ("red", "green", "arrow_left" 等)
-	Float4 uvRect;           ///< テクスチャ内のピクセル矩形 {x, y, w, h}
-	ColorF emission{ 1.0 };  ///< 点灯時の emission 色
+	String id;       ///< 状態名 ("red", "green", "arrow_left" 等)
+	Float4 uvRect;   ///< テクスチャ内のピクセル矩形 {x, y, w, h}
 };
 
 /// @brief 1つのランプスロット定義

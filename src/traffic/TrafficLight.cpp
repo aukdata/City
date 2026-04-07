@@ -10,7 +10,10 @@ TrafficLight::TrafficLight(int nodeId, Array<SignalPhase> phases)
 
 void TrafficLight::update(GameTime gameNow)
 {
-	if (m_phases.isEmpty()) return;
+	if (m_phases.isEmpty())
+	{
+		return;
+	}
 
 	const float duration = m_phases[m_currentPhase].duration;
 	if (gameNow - m_phaseStart >= static_cast<double>(duration))
@@ -22,12 +25,18 @@ void TrafficLight::update(GameTime gameNow)
 
 bool TrafficLight::isGreen(int fromEdgeId) const
 {
-	if (m_phases.isEmpty()) return true;  // フェーズなし = 常時青
+	if (m_phases.isEmpty())
+	{
+		return true;
+	}
 
 	const auto& phase = m_phases[m_currentPhase];
 	for (const int eid : phase.greenEdgeIds)
 	{
-		if (eid == fromEdgeId) return true;
+		if (eid == fromEdgeId)
+		{
+			return true;
+		}
 	}
 	return false;
 }
@@ -35,7 +44,10 @@ bool TrafficLight::isGreen(int fromEdgeId) const
 const Array<int>& TrafficLight::currentGreenEdges() const
 {
 	static const Array<int> empty;
-	if (m_phases.isEmpty()) return empty;
+	if (m_phases.isEmpty())
+	{
+		return empty;
+	}
 	return m_phases[m_currentPhase].greenEdgeIds;
 }
 
@@ -46,14 +58,23 @@ float TrafficLight::phaseElapsed(GameTime gameNow) const
 
 float TrafficLight::currentPhaseDuration() const
 {
-	if (m_phases.isEmpty()) return 0.0f;
+	if (m_phases.isEmpty())
+	{
+		return 0.0f;
+	}
 	return m_phases[m_currentPhase].duration;
 }
 
 float TrafficLight::expectedWaitTime(int fromEdgeId) const
 {
-	if (m_phases.isEmpty()) return 0.0f;
-	if (isGreen(fromEdgeId)) return 0.0f;
+	if (m_phases.isEmpty())
+	{
+		return 0.0f;
+	}
+	if (isGreen(fromEdgeId))
+	{
+		return 0.0f;
+	}
 
 	// 現在フェーズの持続時間を上限として返す（保守的な近似）
 	return m_phases[m_currentPhase].duration;

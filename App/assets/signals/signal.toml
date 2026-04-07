@@ -31,37 +31,30 @@ cols = 3
 [[state]]
 id = "off"
 uv = [0, 920, 102, 104]
-emission = [0.05, 0.05, 0.05]
 
 [[state]]
 id = "red"
 uv = [102, 920, 102, 104]
-emission = [1.0, 0.0, 0.0]
 
 [[state]]
 id = "yellow"
 uv = [204, 920, 102, 104]
-emission = [1.0, 0.8, 0.0]
 
 [[state]]
 id = "green"
 uv = [306, 920, 102, 104]
-emission = [0.0, 1.0, 0.3]
 
 [[state]]
 id = "arrow_left"
 uv = [408, 920, 102, 104]
-emission = [0.0, 1.0, 0.3]
 
 [[state]]
 id = "arrow_straight"
 uv = [510, 920, 102, 104]
-emission = [0.0, 1.0, 0.3]
 
 [[state]]
 id = "arrow_right"
 uv = [612, 920, 102, 104]
-emission = [0.0, 1.0, 0.3]
 
 [lod]
 mesh_names = ["body", "body_lod1"]

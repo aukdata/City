@@ -751,7 +751,13 @@ void GameScene::drawNodePanel()
 	{
 		bool hasSignalEdge = false;
 		for (const auto& att : node->attachments)
-			if (att.control == TrafficControl::Signal) { hasSignalEdge = true; break; }
+		{
+			if (att.control == TrafficControl::Signal)
+			{
+				hasSignalEdge = true;
+				break;
+			}
+		}
 
 		if (hasSignalEdge)
 		{
@@ -824,9 +830,6 @@ void GameScene::drawNodePanel()
 						y += kLH + 2;
 
 						// 各矢印の状態サイクル
-						static constexpr StringView arrowNames[] = {
-							U"arrow_left", U"arrow_straight", U"arrow_right", U"off"
-						};
 						for (int si = 0; si < static_cast<int>(sp.subLampStates.size()); ++si)
 						{
 							PanelWidget::label(pFont, U"[{}]"_fmt(si), pX, y, ColorF{ 0.7 });
