@@ -1,0 +1,16 @@
+id = "wall_concrete"
+name = "コンクリート壁（高架）"
+type = "Wall"
+tiling = "Longitudinal"
+model = "wall_concrete.obj"
+model_unit_width = 0.4
+model_unit_len = 4.0
+height_offset = 0.0
+symmetric = false
+
+[material]
+color = [0.78, 0.78, 0.76]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [400.0]

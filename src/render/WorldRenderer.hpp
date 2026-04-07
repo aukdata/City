@@ -33,7 +33,6 @@ private:
 
 	HashTable<Key, DynamicMesh>          m_meshCache;
 	HashTable<Key, Array<BuildingBatch>> m_buildingMeshCache;
-	Texture                              m_grassTexture;
 	Array<Chunk*>                        m_sortedChunks;      ///< ソート済みチャンク（カメラ移動時のみ再ソート）
 	Point                                m_lastSortChunk{ 0x7FFFFFFF, 0x7FFFFFFF };
 	size_t                               m_lastActiveCount = 0;

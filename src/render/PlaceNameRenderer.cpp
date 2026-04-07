@@ -1,5 +1,6 @@
 ﻿#include "../../stdafx.h"
 #include "PlaceNameRenderer.hpp"
+#include "../asset/AssetRegistrar.hpp"
 
 namespace
 {
@@ -9,15 +10,11 @@ namespace
 	constexpr double kRomajiScale   =    0.55;  ///< 漢字サイズに対するローマ字の比率
 }
 
-PlaceNameRenderer::PlaceNameRenderer()
-	: m_font{ FontMethod::MSDF, 24, Typeface::CJK_Regular_JP }
-{
-}
-
 void PlaceNameRenderer::render(const Array<MapGenerator::Settlement>& settlements,
                                const GameCamera& camera,
                                const World& world) const
 {
+	const auto& m_font = FontAsset(Asset::CJK24);
 	const auto& cam3D    = camera.camera3D();
 	const double camDist = camera.distance();
 

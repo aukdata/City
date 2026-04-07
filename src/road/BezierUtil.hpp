@@ -32,6 +32,11 @@ struct CubicBezier
 	/// @brief 弧長 s での正規化接線を返す
 	Vec3 tangentAt(float s) const { return tangent(tFromArcLength(s)); }
 
+	/// @brief ド・カステリョ分割で2本の子ベジェに分割する
+	/// @param t 分割パラメータ [0,1]
+	/// @return {前半 [0,t], 後半 [t,1]} の CubicBezier ペア
+	std::pair<CubicBezier, CubicBezier> split(float t) const;
+
 private:
 	void buildTable();
 };

@@ -62,11 +62,25 @@ public:
 	/// @param radius 探索半径 [m]
 	Optional<int> findNodeNear(Vec3 pos, float radius = 10.0f) const;
 
-	/// @brief 指定位置に最も近いエッジを探す（XZ 平面距離）
-	/// @param pos ワールド座標
-	/// @param maxDist 最大探索距離 [m]
-	/// @return 見つかったエッジの id。なければ none
-	Optional<int> findEdgeNear(Vec3 pos, float maxDist = 15.0f) const;
+	/// @brief 指定位置に最も近いエッジと弧長位置を探す（XZ 平面距離）
+	/// @return {edgeId, arcLength} のペア。なければ none
+	Optional<std::pair<int, float>> findEdgeNearDetailed(Vec3 pos, float maxDist = 15.0f) const;
+
+	/// @brief 指定位置に最も近いエッジを探す（findEdgeNearDetailed のラッパー）
+	Optional<int> findEdgeNear(Vec3 pos, float maxDist = 15.0f) const
+	{
+		auto r = findEdgeNearDetailed(pos, maxDist);
+		return r ? Optional<int>{r->first} : none;
+	}
+
+	/// @brief テンプレートの属性（speedLimit/parts/lanes）をエッジにコピーする
+	void applyEdgeTemplate(int edgeId, const RoadEdge& tmpl);
+
+	/// @brief エッジを弧長位置で2分割し、分割点に新ノードを作成する
+	/// @param edgeId  分割対象エッジ
+	/// @param arcLength 分割する弧長位置 [m]
+	/// @return 新ノードの ID。失敗時 -1
+	int splitEdgeAt(int edgeId, float arcLength);
 
 	/// @brief 既存エッジとの交差を処理しながらエッジを追加する
 	/// @return 追加されたエッジの id（上限超過時は none）
@@ -108,6 +122,12 @@ public:
 
 	const Array<RoadObject>& objects() const { return m_objects; }
 
+	/// @brief ノードの接続エッジのいずれかが高架かどうかを返す
+	[[nodiscard]] bool isNodeElevated(int nodeId) const;
+
+	/// @brief エッジの両端ノード高さから useElevation を自動判定・更新する
+	void updateEdgeElevation(int edgeId, const World& world);
+
 	/// @brief 高架エッジに橋脚を自動配置する
 	void generatePiersForEdge(int edgeId, const World& world);
 
@@ -142,14 +162,30 @@ public:
 	int mergeShortEdges(float minLength = 30.0f);
 
 	/// @brief 指定ノードに接続する全エッジの cutoffA/cutoffB を再計算する
-	/// @details
-	///   カットオフ量 = そのノードにつながる最も幅広の道路の幅 × 1.5
-	///   接続エッジが 1 本以下（端点）なら 0 を設定する。
-	///   addEdge / removeEdge 後に自動で呼ばれる。
 	void updateNodeCutoffs(int nodeId);
 
 	/// @brief 指定ノードの LaneConnection を再構築する
 	void rebuildLaneConnections(int nodeId);
+
+	/// @brief 2ノードのカットオフと LaneConnection をまとめて再計算する
+	void rebuildNodeConnectivity(int nodeA, int nodeB)
+	{
+		updateNodeCutoffs(nodeA);
+		updateNodeCutoffs(nodeB);
+		rebuildLaneConnections(nodeA);
+		rebuildLaneConnections(nodeB);
+	}
+
+	/// @brief デフォルトの車線セットを生成する
+	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);
+
+	/// @brief RoadType に応じたデフォルトの部品配列を生成・設定する
+	static void buildDefaultParts(RoadEdge& edge);
+
+	/// @brief 2 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
+	/// @param newEdgeId 新たに追加したエッジの id
+	/// @param midNodeId 補正対象のノード id
+	void smoothCurveAt(int newEdgeId, int midNodeId);
 
 private:
 	Array<RoadEdge> m_edges;
@@ -176,21 +212,5 @@ private:
 	/// @brief エッジ id からインデックスを返す（-1 なら存在しない）
 	int edgeIndex(int id) const;
 	int nodeIndex(int id) const;
-
-	/// @brief デフォルトの車線セットを生成する
-	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);
-
-	/// @brief RoadType に応じたデフォルトの部品配列を生成・設定する
-	static void buildDefaultParts(RoadEdge& edge);
-
-	/// @brief 2 接続ノードで曲線が滑らかに繋がるよう制御点を補正する
-	/// @param newEdgeId 新たに追加したエッジの id
-	/// @param midNodeId 補正対象のノード id
-	/// @details
-	///   条件: midNodeId の接続数が 2 かつ PrevRoad と NewRoad のなす角が 90° 以上。
-	///   動作: NewRoad の midNode 側制御点 (CPN) を、
-	///         PrevRoad の midNode 側制御点 (CPP) と midNode を結ぶ直線上で
-	///         midNode から NewRoad 両端間の直線距離の 1/2 の位置に移動する。
-	void smoothCurveAt(int newEdgeId, int midNodeId);
 
 };

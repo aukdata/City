@@ -1,6 +1,77 @@
 ﻿#include "GameScene.hpp"
 
 // =============================================================================
+// ヘルパー
+// =============================================================================
+
+constexpr double kPanelMarginRight = 10.0;
+constexpr double kPanelMarginTop   = 10.0;
+
+Vec2 GameScene::panelRightPos(StringView panelId) const
+{
+	const double w = m_panelManager.getSize(panelId).x;
+	return { Scene::Width() - w - kPanelMarginRight, kPanelMarginTop };
+}
+
+GameScene::ElevatedHitResult GameScene::raycastElevated(Vec2 screenPos) const
+{
+	ElevatedHitResult result;
+	const Ray ray = m_camera.screenToRay(screenPos);
+	const Float3 ro = ray.origin;
+	const Float3 rd = ray.direction;
+	if (rd.y >= -1e-6f) return result;
+
+	// 高架ノード
+	for (const auto& node : m_network.nodes())
+	{
+		if (node.id < 0 || !m_network.isNodeElevated(node.id)) continue;
+		const float planeY = static_cast<float>(node.position.y + kRoadSurfaceLift);
+		const float t = (planeY - ro.y) / rd.y;
+		if (t < 0) continue;
+		const float hx = ro.x + rd.x * t;
+		const float hz = ro.z + rd.z * t;
+		const float dx = hx - static_cast<float>(node.position.x);
+		const float dz = hz - static_cast<float>(node.position.z);
+		if (dx * dx + dz * dz < 20.0f * 20.0f)
+		{
+			result.nodeId = node.id;
+			return result;
+		}
+	}
+
+	// 高架エッジ
+	for (const auto& edge : m_network.edges())
+	{
+		if (edge.id < 0 || !edge.useElevation) continue;
+		const auto bez = m_network.getBezier(edge.id);
+		if (!bez) continue;
+		const auto* nA = m_network.getNode(edge.nodeA);
+		const auto* nB = m_network.getNode(edge.nodeB);
+		if (!nA || !nB) continue;
+		const float planeY = static_cast<float>(
+			(nA->position.y + nB->position.y) * 0.5 + kRoadSurfaceLift);
+		const float t = (planeY - ro.y) / rd.y;
+		if (t < 0) continue;
+		const float hx = ro.x + rd.x * t;
+		const float hz = ro.z + rd.z * t;
+		for (int si = 0; si <= 10; ++si)
+		{
+			const float s = bez->totalLength * (si / 10.0f);
+			const Vec3 p = bez->positionAt(s);
+			const float ddx = hx - static_cast<float>(p.x);
+			const float ddz = hz - static_cast<float>(p.z);
+			if (ddx * ddx + ddz * ddz < 15.0f * 15.0f)
+			{
+				result.edgeId = edge.id;
+				return result;
+			}
+		}
+	}
+
+	return result;
+}
+
+// =============================================================================
 // 入力処理 (GameScene のメソッド分割)
 // =============================================================================
 
@@ -43,13 +114,19 @@ void GameScene::handleInput()
 		m_selectedNodeId = none;
 		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"node_info");
+		m_panelManager.hide(U"draw_template");
 	}
 
 	if (KeyR.down())
 	{
 		m_mode = (m_mode == EditMode::RoadDraw) ? EditMode::None : EditMode::RoadDraw;
 		m_drawStartNode = none;
+		m_drawElevation = 0.0f;
 		m_rectStart     = none;
+		if (m_mode == EditMode::RoadDraw)
+			m_panelManager.show(U"draw_template", U"Road Template", panelRightPos(U"draw_template"));
+		else
+			m_panelManager.hide(U"draw_template");
 	}
 	if (KeyZ.down())
 	{
@@ -134,8 +211,7 @@ void GameScene::handleInput()
 		if (m_panelManager.isVisible(U"name_list"))
 			m_panelManager.hide(U"name_list");
 		else
-			m_panelManager.show(U"name_list", U"地名リスト (N)",
-				Vec2{static_cast<double>(Scene::Width() - 260), 10.0});
+			m_panelManager.show(U"name_list", U"地名リスト (N)", panelRightPos(U"name_list"));
 	}
 
 	// ノード選択中: PgUp/PgDown で Y 座標を上下移動
@@ -151,8 +227,7 @@ void GameScene::handleInput()
 				const float dy = up ? kNodeYStep : -kNodeYStep;
 				node->position.y += dy;
 
-				// 接続エッジのコントロールポイント Y も同じ差分で移動
-				// 前後どちらかのノードが地形から離れていれば useElevation を自動設定
+				// 接続エッジのコントロールポイント Y も同じ差分で移動し、elevation を自動判定
 				for (const int eid : node->edgeIds())
 				{
 					if (auto* edge = m_network.getEdge(eid))
@@ -161,20 +236,7 @@ void GameScene::handleInput()
 							edge->ctrlA.y += dy;
 						else
 							edge->ctrlB.y += dy;
-
-						const auto* nA = m_network.getNode(edge->nodeA);
-						const auto* nB = m_network.getNode(edge->nodeB);
-						if (nA && nB)
-						{
-							const float gyA = m_world.computeHeight(
-								static_cast<float>(nA->position.x), static_cast<float>(nA->position.z));
-							const float gyB = m_world.computeHeight(
-								static_cast<float>(nB->position.x), static_cast<float>(nB->position.z));
-							constexpr double kElevThreshold = 0.5;
-							const bool elevA = std::abs(nA->position.y - static_cast<double>(gyA)) > kElevThreshold;
-							const bool elevB = std::abs(nB->position.y - static_cast<double>(gyB)) > kElevThreshold;
-							edge->useElevation = elevA || elevB;
-						}
+						m_network.updateEdgeElevation(eid, m_world);
 					}
 				}
 
@@ -221,7 +283,7 @@ void GameScene::handleInput()
 				m_selectedEdgeId = none;
 				m_selectedNodeId = none;
 				m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
-					Vec2{static_cast<double>(Scene::Width() - 292), 10.0});
+					panelRightPos(U"vehicle_info"));
 				m_panelManager.hide(U"edge_info");
 				m_panelManager.hide(U"node_info");
 			}
@@ -242,68 +304,9 @@ void GameScene::handleInput()
 
 				// 高架面とのレイ交差で追加検索
 				{
-					const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
-					const Float3 ro = ray.origin;
-					const Float3 rd = ray.direction;
-					if (rd.y < -1e-6f)
-					{
-						for (const auto& node : m_network.nodes())
-						{
-							if (node.id < 0) continue;
-							bool anyElev = false;
-							for (const auto& att : node.attachments)
-							{
-								const RoadEdge* e = m_network.getEdge(att.edgeId);
-								if (e && e->useElevation) { anyElev = true; break; }
-							}
-							if (!anyElev) continue;
-
-							const float planeY = static_cast<float>(node.position.y) + 2.0f;
-							const float t = (planeY - ro.y) / rd.y;
-							if (t < 0) continue;
-							const float hx = ro.x + rd.x * t;
-							const float hz = ro.z + rd.z * t;
-							const float dx = hx - static_cast<float>(node.position.x);
-							const float dz = hz - static_cast<float>(node.position.z);
-							if (dx * dx + dz * dz < 20.0f * 20.0f)
-							{
-								hitNode = node.id;
-								hitEdge = none;
-								break;
-							}
-						}
-
-						if (!hitNode && !hitEdge)
-						{
-							for (const auto& edge : m_network.edges())
-							{
-								if (edge.id < 0 || !edge.useElevation) continue;
-								const auto bez = m_network.getBezier(edge.id);
-								if (!bez) continue;
-								const auto* nA = m_network.getNode(edge.nodeA);
-								const auto* nB = m_network.getNode(edge.nodeB);
-								if (!nA || !nB) continue;
-								const float planeY = static_cast<float>((nA->position.y + nB->position.y) * 0.5) + 2.0f;
-								const float t = (planeY - ro.y) / rd.y;
-								if (t < 0) continue;
-								const float hx = ro.x + rd.x * t;
-								const float hz = ro.z + rd.z * t;
-								for (int si = 0; si <= 10; ++si)
-								{
-									const float s = bez->totalLength * (si / 10.0f);
-									const Vec3 p = bez->positionAt(s);
-									const float ddx = hx - static_cast<float>(p.x);
-									const float ddz = hz - static_cast<float>(p.z);
-									if (ddx * ddx + ddz * ddz < 15.0f * 15.0f)
-									{
-										hitEdge = edge.id;
-										goto elevEdgeFound;
-									}
-								}
-							}
-							elevEdgeFound:;
-						}
-					}
+					const auto elev = raycastElevated(Vec2{ Cursor::Pos() });
+					if (elev.nodeId) { hitNode = elev.nodeId; hitEdge = none; }
+					else if (!hitNode && elev.edgeId) { hitEdge = elev.edgeId; }
 				}
 
 				if (hitNode)
@@ -311,7 +314,7 @@ void GameScene::handleInput()
 					m_selectedNodeId = hitNode;
 					m_selectedEdgeId = none;
 					m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
-						Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+						panelRightPos(U"node_info"));
 					m_panelManager.hide(U"edge_info");
 				}
 				else
@@ -320,7 +323,7 @@ void GameScene::handleInput()
 					m_selectedNodeId = none;
 					if (hitEdge)
 						m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
-							Vec2{static_cast<double>(Scene::Width() - 322), 10.0});
+							panelRightPos(U"edge_info"));
 					else
 						m_panelManager.hide(U"edge_info");
 					m_panelManager.hide(U"node_info");
@@ -334,16 +337,98 @@ void GameScene::handleInput()
 // モード別入力ハンドラ
 // =============================================================================
 
+std::pair<Vec3, Vec3> GameScene::calcRoadDrawControlPoints(int startNodeId, Vec3 endPos) const
+{
+	const RoadNode* startNode = m_network.getNode(startNodeId);
+	if (!startNode) return { endPos, endPos };
+
+	const Vec3 pA = startNode->position;
+	const Vec3 mid = (pA + endPos) / 2.0;
+	Vec3 ctrlB = mid;
+	Vec3 ctrlA = mid;
+
+	// 有効な接続エッジを列挙
+	Array<int> validEdges;
+	for (int eid : startNode->edgeIds())
+		if (m_network.getEdge(eid)) validEdges << eid;
+
+	if (validEdges.size() == 1)
+	{
+		// 既存エッジのCP → 始点方向の延長線上に配置
+		const RoadEdge* prevEdge = m_network.getEdge(validEdges[0]);
+		const Vec3 cpp = (prevEdge->nodeA == startNodeId) ? prevEdge->ctrlA : prevEdge->ctrlB;
+		const Vec3 dir = pA - cpp;
+		const double dirLen = dir.length();
+		if (dirLen > 1e-6)
+		{
+			const double dist = pA.distanceFrom(endPos) / 3.0;
+			ctrlA = pA + (dir / dirLen) * dist;
+		}
+	}
+
+	return { ctrlA, ctrlB };
+}
+
 void GameScene::handleRoadDraw()
 {
+	// PgUp/PgDown: 高さオフセットを変更
+	{
+		constexpr float kElevStep = 1.0f;
+		if (KeyPageUp.pressed())   m_drawElevation += kElevStep;
+		if (KeyPageDown.pressed()) m_drawElevation = Max(m_drawElevation - kElevStep, 0.0f);
+	}
+
+	// ホイールクリック: 既存道路の構成をテンプレートにコピー
+	if (MouseM.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
+	{
+		auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+		if (!hitEdge)
+			hitEdge = raycastElevated(Vec2{ Cursor::Pos() }).edgeId;
+		if (hitEdge)
+		{
+			const RoadEdge* src = m_network.getEdge(*hitEdge);
+			if (src)
+			{
+				m_drawTemplate.roadType   = src->roadType;
+				m_drawTemplate.speedLimit = src->speedLimit;
+				m_drawTemplate.parts      = src->parts;
+				m_drawTemplate.lanes      = src->lanes;
+			}
+		}
+	}
+
+	// 左クリック: 道路設置
 	if (MouseL.down() && m_cursorGroundPos)
 	{
-		auto nearNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+		Vec3 clickPos = *m_cursorGroundPos;
+		clickPos.y += m_drawElevation;
+
+		// ノード決定: 既存ノード → エッジ分割 → 新規作成
+		auto nearNode = m_network.findNodeNear(clickPos, 20.0f);
 		int nodeId;
-		if (!nearNode)
-			nodeId = m_network.addNode(*m_cursorGroundPos);
-		else
+		if (nearNode)
+		{
 			nodeId = *nearNode;
+		}
+		else
+		{
+			auto edgeHit = m_network.findEdgeNearDetailed(*m_cursorGroundPos, 15.0f);
+			if (edgeHit)
+			{
+				nodeId = m_network.splitEdgeAt(edgeHit->first, edgeHit->second);
+				if (nodeId < 0)
+					nodeId = m_network.addNode(clickPos);
+				else
+				{
+					notifyNetworkChanged({ nodeId });
+					m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
+				}
+			}
+			else
+			{
+				nodeId = m_network.addNode(clickPos);
+			}
+		}
 
 		if (!m_drawStartNode)
 		{
@@ -354,17 +439,29 @@ void GameScene::handleRoadDraw()
 			int from = *m_drawStartNode;
 			if (from != nodeId)
 			{
-				Vec3 pA  = m_network.getNode(from)->position;
-				Vec3 pB  = m_network.getNode(nodeId)->position;
-				Vec3 mid = (pA + pB) / 2.0;
-				m_network.addEdgeWithIntersection(from, nodeId, mid, mid, RoadType::LocalRoad, 2);
-				notifyNetworkChanged();
+				const auto [ctrlA, ctrlB] = calcRoadDrawControlPoints(from, m_network.getNode(nodeId)->position);
+				const int numLanes = static_cast<int>(m_drawTemplate.lanes.size());
+				auto newEdgeId = m_network.addEdgeWithIntersection(
+					from, nodeId, ctrlA, ctrlB, m_drawTemplate.roadType, numLanes);
+				if (newEdgeId)
+				{
+					m_network.applyEdgeTemplate(*newEdgeId, m_drawTemplate);
+					m_network.smoothCurveAt(*newEdgeId, from);
+					m_network.updateEdgeElevation(*newEdgeId, m_world);
+					if (m_network.getEdge(*newEdgeId)->useElevation)
+						m_network.generatePiersForEdge(*newEdgeId, m_world);
+				}
+				notifyNetworkChanged({ from, nodeId });
 				m_roadRenderer.invalidateCachesAroundNode(from, m_network);
 				m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
 			}
 			m_drawStartNode = nodeId;
 		}
 	}
+
+	// 右クリック: 敷設中の始点をキャンセル
+	if (MouseR.down())
+		m_drawStartNode = none;
 }
 
 void GameScene::handleZonePaint()
@@ -543,8 +640,16 @@ void GameScene::handleSandboxEdit()
 
 	if (MouseL.up())
 	{
-		if (m_sandboxDragNode || m_sandboxDragCtrl)
-			notifyNetworkChanged();
+		if (m_sandboxDragNode)
+		{
+			notifyNetworkChanged({ *m_sandboxDragNode });
+		}
+		else if (m_sandboxDragCtrl)
+		{
+			const RoadEdge* e = m_network.getEdge(m_sandboxDragCtrl->edgeId);
+			if (e) notifyNetworkChanged({ e->nodeA, e->nodeB });
+			else   notifyNetworkChanged();
+		}
 		m_sandboxDragNode = none;
 		m_sandboxDragCtrl = none;
 	}
@@ -604,7 +709,7 @@ void GameScene::handleSandboxEdit()
 				}
 			}
 			m_network.removeNode(*nearNode);
-			notifyNetworkChanged();
+			notifyNetworkChanged(neighborNodes);
 			for (const int nid : neighborNodes)
 				m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
 		}
@@ -632,7 +737,12 @@ void GameScene::handleSandboxEdit()
 				{ nA = e->nodeA; nB = e->nodeB; }
 				m_roadRenderer.invalidateEdgeCache(bestId, nA, nB);
 				m_network.removeEdge(bestId);
-				notifyNetworkChanged();
+				{
+					Array<int> dirty;
+					if (nA >= 0) dirty << nA;
+					if (nB >= 0) dirty << nB;
+					notifyNetworkChanged(dirty);
+				}
 				if (nA >= 0) m_roadRenderer.invalidateCachesAroundNode(nA, m_network);
 				if (nB >= 0) m_roadRenderer.invalidateCachesAroundNode(nB, m_network);
 			}

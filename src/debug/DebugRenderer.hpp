@@ -3,6 +3,7 @@
 #include "../traffic/Vehicle.hpp"
 #include "../world/World.hpp"
 #include "../ui/Camera.hpp"
+#include "../asset/AssetRegistrar.hpp"
 #include "PerfStats.hpp"
 
 /// @brief デバッグオーバーレイ描画クラス
@@ -44,7 +45,7 @@ private:
 	bool   m_showHelp      = false;  ///< F3+/: ヘルプパネル
 	double m_helpOpenTime  = 0.0;    ///< ヘルプを開いた Scene::Time()
 
-	Font m_font{ FontMethod::MSDF, 16 };
+	Font m_font = FontAsset(Asset::Small16);
 
 	void renderNetwork(const RoadNetwork& network, const GameCamera& camera);
 	void renderChunks(const World& world, const GameCamera& camera);

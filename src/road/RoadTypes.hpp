@@ -4,6 +4,15 @@
 #include "RoadPartTypes.hpp"
 #include "BezierUtil.hpp"
 
+// ===== 高架関連定数 =====
+
+/// @brief 路面リフト（地形高さから路面までのオフセット）[m]
+constexpr double kRoadSurfaceLift     = 2.0;
+/// @brief 路面ライン描画用リフト（路面よりわずかに上）[m]
+constexpr double kRoadLineLift        = 2.05;
+/// @brief 高架自動判定の閾値（ノードYと地形高の差）[m]
+constexpr double kElevationThreshold  = 0.5;
+
 // ===== 列挙型 =====
 
 /// @brief 運用状態: 現在の交通への供用状態（頻繁に変化）

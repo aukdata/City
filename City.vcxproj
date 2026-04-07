@@ -154,6 +154,7 @@
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
     <ClCompile Include="src\gen\PlaceNameGenerator.cpp" />
+    <ClCompile Include="src\asset\AssetRegistrar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />
@@ -401,6 +402,7 @@
     <ClInclude Include="src\render\TrainRenderer.hpp" />
     <ClInclude Include="src\gen\TerrainType.hpp" />
     <ClInclude Include="src\gen\MapGenerator.hpp" />
+    <ClInclude Include="src\asset\AssetRegistrar.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App\example\obj\blacksmith.obj">

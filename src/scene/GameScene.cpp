@@ -2,6 +2,7 @@
 #include "../gen/RoadPathfinder.hpp"
 #include "../save/RoadBinary.hpp"
 #include "../sim/SimGraph.hpp"
+#include "../asset/AssetRegistrar.hpp"
 #include <thread>
 
 // =============================================================================
@@ -35,10 +36,17 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
+	m_panelManager.registerPanel(U"draw_template", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
 	{
 		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
 		m_panelManager.registerPanel(U"minimap_expanded", Vec2{side, side}, true);
 	}
+
+	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
+	m_drawTemplate.roadType   = RoadType::LocalRoad;
+	m_drawTemplate.speedLimit = 60.0f;
+	m_drawTemplate.lanes      = RoadNetwork::buildDefaultLanes(2, RoadType::LocalRoad);
+	RoadNetwork::buildDefaultParts(m_drawTemplate);
 
 	if (getData().isNewGame)
 		initNewGame();
@@ -48,17 +56,10 @@ void GameScene::initScene()
 
 void GameScene::initLoadGame()
 {
-	m_loadingTimer.restart();
-	m_loadingStatus = U"セーブデータを読み込み中...";
-	m_loadingTitle = U"ロード中...";
-	m_genProgress = 0.0f;
-
-	m_generationFuture = std::async(std::launch::async, [this]()
+	startLoadingPhase(U"ロード中...", U"セーブデータを読み込み中...", [this]()
 	{
 		m_loadGameResult = loadGame();
 	});
-
-	m_phase = GamePhase::Loading;
 }
 
 void GameScene::initNewGame()
@@ -72,9 +73,8 @@ void GameScene::initNewGame()
 	m_camera.setFocus(Vec3{ worldCenter, 0.0, worldCenter });
 
 	m_totalInitChunks = WORLD_CHUNKS * WORLD_CHUNKS;
-	m_genProgress = 0.0f;
 
-	m_generationFuture = std::async(std::launch::async, [this]()
+	startLoadingPhase(U"マップ生成中...", U"地形生成中", [this]()
 	{
 		generateAllTerrain();
 		placeAllSettlements();
@@ -82,11 +82,18 @@ void GameScene::initNewGame()
 		generateDistrictRoads();
 		postProcessRoads();
 	});
-
-	m_loadingTimer.restart();
-	m_loadingStatus = U"地形生成中";
-	m_loadingTitle = U"マップ生成中...";
 	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
+}
+
+// =============================================================================
+void GameScene::startLoadingPhase(StringView title, StringView status,
+                                  std::function<void()> pipeline)
+{
+	m_loadingTimer.restart();
+	m_loadingTitle  = title;
+	m_loadingStatus = status;
+	m_genProgress   = 0.0f;
+	m_generationFuture = std::async(std::launch::async, std::move(pipeline));
 	m_phase = GamePhase::Loading;
 }
 
@@ -325,9 +332,9 @@ void GameScene::drawLoadingScreen(float progress)
 {
 	Scene::Rect().draw(ColorF{ 0.07, 0.11, 0.16 });
 
-	static const Font titleFont{ FontMethod::MSDF, 48, Typeface::Bold };
-	static const Font uiFont{ FontMethod::MSDF, 20 };
-	static const Font smallFont{ FontMethod::MSDF, 16 };
+	const auto& titleFont = FontAsset(Asset::TitleBold48);
+	const auto& uiFont    = FontAsset(Asset::UI20);
+	const auto& smallFont = FontAsset(Asset::Small16);
 
 	const Vec2 center = Scene::Center();
 
@@ -391,10 +398,11 @@ void GameScene::saveGame()
 	for (int i = 0; i < static_cast<int>(m_districts.size()); ++i)
 	{
 		const auto& s = m_districts[i];
-		dist[U"type_{}"_fmt(i)] = static_cast<int>(s.type);
-		dist[U"cx_{}"_fmt(i)]   = s.center.x;
-		dist[U"cy_{}"_fmt(i)]   = s.center.y;
-		dist[U"name_{}"_fmt(i)] = s.name;
+		dist[U"type_{}"_fmt(i)]    = static_cast<int>(s.type);
+		dist[U"cx_{}"_fmt(i)]      = s.center.x;
+		dist[U"cy_{}"_fmt(i)]      = s.center.y;
+		dist[U"name_{}"_fmt(i)]    = s.name;
+		dist[U"reading_{}"_fmt(i)] = s.reading;
 	}
 	dist.save(U"{}/global/districts.json"_fmt(kRoot));
 
@@ -539,6 +547,9 @@ bool GameScene::loadGame()
 			s.type   = static_cast<MapGenerator::SettlementType>(dist[U"type_{}"_fmt(i)].get<int>());
 			s.center = Vec2{ dist[U"cx_{}"_fmt(i)].get<double>(), dist[U"cy_{}"_fmt(i)].get<double>() };
 			s.name   = dist[U"name_{}"_fmt(i)].get<String>();
+			const String readingKey = U"reading_{}"_fmt(i);
+			if (dist.hasElement(readingKey))
+				s.reading = dist[readingKey].get<String>();
 			settlements << s;
 		}
 		addDistricts(settlements);

@@ -6,8 +6,6 @@
 class UIRenderer
 {
 public:
-	UIRenderer();
-
 	/// @brief HUD を描画する（毎フレーム呼ぶ）
 	/// @param clock        ゲーム時計
 	/// @param vehicleCount 現在の車両数
@@ -15,8 +13,4 @@ public:
 	/// @param economy      経済状態
 	void render(const GameClock& clock, int vehicleCount, StringView modeText,
 	            const Economy& economy);
-
-private:
-	Font m_font;
-	Font m_smallFont;
 };

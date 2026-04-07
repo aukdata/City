@@ -1,4 +1,5 @@
 ﻿#include "GameApp.hpp"
+#include "asset/AssetRegistrar.hpp"
 
 void GameApp::run()
 {
@@ -10,6 +11,8 @@ void GameApp::run()
 	Scene::SetBackground(ColorF{ 0.2, 0.3, 0.4 });
 	Graphics::SetVSyncEnabled(false);
 	Window::SetTitle(U"Pavecity");
+
+	RegisterAssets();
 
 	App manager;
 	manager.add<TitleScene>(SceneState::Title);

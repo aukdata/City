@@ -171,14 +171,9 @@ void GameScene::renderSelectionHighlights()
 	{
 		if (const auto* node = m_network.getNode(*m_selectedNodeId))
 		{
-			bool nodeElev = false;
-			for (const auto& att : node->attachments)
-			{
-				const RoadEdge* e = m_network.getEdge(att.edgeId);
-				if (e && e->useElevation) { nodeElev = true; break; }
-			}
+			const bool nodeElev = m_network.isNodeElevated(*m_selectedNodeId);
 			const double nh = nodeElev
-				? node->position.y + 2.0
+				? node->position.y + kRoadSurfaceLift
 				: static_cast<double>(m_world.computeHeight(
 					static_cast<float>(node->position.x), static_cast<float>(node->position.z)));
 
@@ -325,28 +320,15 @@ void GameScene::renderVehicles()
 		}
 
 		{
-			bool onElevated = false;
-			if (v.location == VehicleLocation::OnConnection)
-			{
-				const RoadNode* cNode = m_network.getNode(v.connectionNodeId);
-				if (cNode)
-					for (const auto& att : cNode->attachments)
-					{
-						const RoadEdge* e = m_network.getEdge(att.edgeId);
-						if (e && e->useElevation) { onElevated = true; break; }
-					}
-			}
-			else
-			{
-				const RoadEdge* eCheck = m_network.getEdge(v.currentEdge);
-				if (eCheck && eCheck->useElevation) onElevated = true;
-			}
+			const bool onElevated = (v.location == VehicleLocation::OnConnection)
+				? m_network.isNodeElevated(v.connectionNodeId)
+				: [&]{ const RoadEdge* e = m_network.getEdge(v.currentEdge); return e && e->useElevation; }();
 			if (onElevated)
-				rv.position.y += 2.05;  // ベジェ Y（=ノード地形高さ）+ 路面リフト
+				rv.position.y += kRoadLineLift;
 			else
 				rv.position.y = m_world.computeHeight(
 					static_cast<float>(rv.position.x),
-					static_cast<float>(rv.position.z)) + 2.05;
+					static_cast<float>(rv.position.z)) + kRoadLineLift;
 		}
 
 		float sign = 1.0f;
@@ -380,7 +362,57 @@ void GameScene::renderEditModeOverlays()
 		Sphere{ *m_cursorGroundPos, 4.0f }.draw(ColorF{ 0.2, 0.5, 0.9, 0.8 }.removeSRGBCurve());
 
 	if (m_mode == EditMode::RoadDraw && m_cursorGroundPos)
+	{
 		Sphere{ *m_cursorGroundPos, 5.0f }.draw(ColorF{ 1, 1, 0, 0.8 }.removeSRGBCurve());
+
+		// 始点が設定済みならプレビュー描画
+		if (m_drawStartNode)
+		{
+			const RoadNode* startNode = m_network.getNode(*m_drawStartNode);
+			if (startNode)
+			{
+				// 始点ノードを強調
+				Sphere{ startNode->position + Vec3{0, 2, 0}, 5.0f }
+					.draw(ColorF{ 1, 1, 0, 0.5 }.removeSRGBCurve());
+
+				const Vec3 pA = startNode->position;
+				const Vec3 pB = *m_cursorGroundPos;
+				if (pA.distanceFrom(pB) > 5.0)
+				{
+					const auto [ctrlA, ctrlB] = calcRoadDrawControlPoints(*m_drawStartNode, pB);
+					CubicBezier preview{ pA, ctrlA, ctrlB, pB };
+					const float halfW = m_drawTemplate.totalWidth() * 0.5f;
+					const ColorF previewCol = ColorF{ 1, 1, 1, 0.3 }.removeSRGBCurve();
+					constexpr int N = 20;
+
+					Vec3 prevL, prevR;
+					for (int i = 0; i <= N; ++i)
+					{
+						const float s = preview.totalLength * (static_cast<float>(i) / N);
+						const Vec3 center = preview.positionAt(s);
+						const Vec3 tan = preview.tangentAt(s);
+						Vec3 right = tan.cross(Vec3::Up());
+						const double rLen = right.length();
+						right = (rLen > 1e-6) ? right / rLen : Vec3::Right();
+
+						const double yOff = m_world.computeHeight(
+							static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift;
+						const Vec3 c = Vec3{ center.x, yOff, center.z };
+						const Vec3 L = c - right * halfW;
+						const Vec3 R = c + right * halfW;
+
+						if (i > 0)
+						{
+							Line3D{ prevL, L }.draw(previewCol);
+							Line3D{ prevR, R }.draw(previewCol);
+						}
+						prevL = L;
+						prevR = R;
+					}
+				}
+			}
+		}
+	}
 
 	if (m_mode == EditMode::ZonePaint && m_rectStart && m_cursorGroundPos)
 	{
@@ -416,32 +448,26 @@ void GameScene::renderEditModeOverlays()
 			const RoadNode* nB = m_network.getNode(edge.nodeB);
 			if (!nA || !nB) continue;
 
-			const auto isHovCtrl = [&](Vec3 cp) {
-				return m_cursorGroundPos &&
-				       Vec2{ cp.x, cp.z }.distanceFrom(cur2D) < 18.0f;
+			// 制御点の描画ラムダ
+			const auto drawCtrlPoint = [&](Vec3 nodePos, Vec3 cp, bool isDragging) {
+				const bool hov = m_cursorGroundPos &&
+					Vec2{ cp.x, cp.z }.distanceFrom(cur2D) < 18.0f;
+				const ColorF col = isDragging
+					? ColorF{ 1.0, 0.5, 0.0, 1.0 }
+					: (hov ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
+					       : ColorF{ 0.2, 0.9, 0.4, 0.7 });
+				Line3D{ nodePos + Vec3{0,2,0}, cp + Vec3{0,2,0} }
+					.draw(ColorF{ 0.5, 0.5, 0.5, 0.5 }.removeSRGBCurve());
+				Sphere{ cp + Vec3{0,2,0}, isDragging ? 6.0 : 4.0 }
+					.draw(col.removeSRGBCurve());
 			};
+
 			const bool dragA = m_sandboxDragCtrl &&
 			    m_sandboxDragCtrl->edgeId == edge.id && m_sandboxDragCtrl->isControlPointA;
 			const bool dragB = m_sandboxDragCtrl &&
 			    m_sandboxDragCtrl->edgeId == edge.id && !m_sandboxDragCtrl->isControlPointA;
-
-			const ColorF colA = dragA
-			    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
-			    : (isHovCtrl(edge.ctrlA) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
-			                             : ColorF{ 0.2, 0.9, 0.4, 0.7 });
-			Line3D{ nA->position + Vec3{0,2,0}, edge.ctrlA + Vec3{0,2,0} }
-				.draw(ColorF{ 0.5, 0.5, 0.5, 0.5 }.removeSRGBCurve());
-			Sphere{ edge.ctrlA + Vec3{0,2,0}, dragA ? 6.0 : 4.0 }
-				.draw(colA.removeSRGBCurve());
-
-			const ColorF colB = dragB
-			    ? ColorF{ 1.0, 0.5, 0.0, 1.0 }
-			    : (isHovCtrl(edge.ctrlB) ? ColorF{ 1.0, 1.0, 0.3, 0.9 }
-			                             : ColorF{ 0.2, 0.9, 0.4, 0.7 });
-			Line3D{ nB->position + Vec3{0,2,0}, edge.ctrlB + Vec3{0,2,0} }
-				.draw(ColorF{ 0.5, 0.5, 0.5, 0.5 }.removeSRGBCurve());
-			Sphere{ edge.ctrlB + Vec3{0,2,0}, dragB ? 6.0 : 4.0 }
-				.draw(colB.removeSRGBCurve());
+			drawCtrlPoint(nA->position, edge.ctrlA, dragA);
+			drawCtrlPoint(nB->position, edge.ctrlB, dragB);
 		}
 
 		for (const auto& node : m_network.nodes())
@@ -478,6 +504,7 @@ void GameScene::render2DUI()
 
 	drawNameListPanel();
 	drawEdgePanel();
+	drawDrawTemplatePanel();
 	drawNodePanel();
 	drawVehiclePanel();
 

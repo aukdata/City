@@ -112,12 +112,7 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 		m_edges << e;
 	}
 
-	// 両端ノードのカットオフと LaneConnection を再計算する
-	updateNodeCutoffs(nodeA);
-	updateNodeCutoffs(nodeB);
-	rebuildLaneConnections(nodeA);
-	rebuildLaneConnections(nodeB);
-
+	rebuildNodeConnectivity(nodeA, nodeB);
 	return e.id;
 }
 
@@ -140,11 +135,7 @@ void RoadNetwork::removeEdge(int edgeId)
 	m_freeEdgeSlots << idx;
 	removeObjectsByEdge(edgeId);
 
-	// edgeIds 更新後にカットオフと LaneConnection を再計算する
-	updateNodeCutoffs(nA);
-	updateNodeCutoffs(nB);
-	rebuildLaneConnections(nA);
-	rebuildLaneConnections(nB);
+	rebuildNodeConnectivity(nA, nB);
 }
 
 void RoadNetwork::removeNode(int nodeId)
@@ -252,9 +243,9 @@ Optional<int> RoadNetwork::findNodeNear(Vec3 pos, float radius) const
 	return best;
 }
 
-Optional<int> RoadNetwork::findEdgeNear(Vec3 pos, float maxDist) const
+Optional<std::pair<int, float>> RoadNetwork::findEdgeNearDetailed(Vec3 pos, float maxDist) const
 {
-	Optional<int> bestId;
+	Optional<std::pair<int, float>> best;
 	float bestDist = maxDist;
 
 	for (const auto& edge : m_edges)
@@ -263,10 +254,12 @@ Optional<int> RoadNetwork::findEdgeNear(Vec3 pos, float maxDist) const
 		const auto bez = getBezier(edge.id);
 		if (!bez) continue;
 
-		// ベジェ曲線上を 10 分割でサンプリングし、最短 XZ 距離を求める
-		for (int i = 0; i <= 10; ++i)
+		// 20 分割でサンプリング
+		constexpr int N = 20;
+		int bestIdx = -1;
+		for (int i = 0; i <= N; ++i)
 		{
-			const float s = bez->totalLength * (i / 10.0f);
+			const float s = bez->totalLength * (static_cast<float>(i) / N);
 			const Vec3 p = bez->positionAt(s);
 			const float dx = static_cast<float>(p.x - pos.x);
 			const float dz = static_cast<float>(p.z - pos.z);
@@ -274,11 +267,77 @@ Optional<int> RoadNetwork::findEdgeNear(Vec3 pos, float maxDist) const
 			if (dist < bestDist)
 			{
 				bestDist = dist;
-				bestId = edge.id;
+				bestIdx = i;
+				best = std::pair<int, float>{ edge.id, s };
 			}
 		}
+
+		// 隣接区間内で二分探索精緻化
+		if (bestIdx >= 0 && best && best->first == edge.id)
+		{
+			const float sLo = bez->totalLength * (Max(bestIdx - 1, 0) / static_cast<float>(N));
+			const float sHi = bez->totalLength * (Min(bestIdx + 1, N) / static_cast<float>(N));
+			float lo = sLo, hi = sHi;
+			for (int iter = 0; iter < 8; ++iter)
+			{
+				const float m1 = lo + (hi - lo) / 3.0f;
+				const float m2 = hi - (hi - lo) / 3.0f;
+				const Vec3 p1 = bez->positionAt(m1);
+				const Vec3 p2 = bez->positionAt(m2);
+				const float d1 = static_cast<float>((p1.x - pos.x) * (p1.x - pos.x) + (p1.z - pos.z) * (p1.z - pos.z));
+				const float d2 = static_cast<float>((p2.x - pos.x) * (p2.x - pos.x) + (p2.z - pos.z) * (p2.z - pos.z));
+				if (d1 < d2) hi = m2; else lo = m1;
+			}
+			best->second = (lo + hi) * 0.5f;
+		}
 	}
-	return bestId;
+	return best;
+}
+
+void RoadNetwork::applyEdgeTemplate(int edgeId, const RoadEdge& tmpl)
+{
+	RoadEdge* e = getEdge(edgeId);
+	if (!e) return;
+	e->speedLimit   = tmpl.speedLimit;
+	e->parts        = tmpl.parts;
+	e->lanes        = tmpl.lanes;
+	e->laneVehicles = Array<Array<int>>(e->lanes.size());
+}
+
+int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
+{
+	RoadEdge* edge = getEdge(edgeId);
+	if (!edge) return -1;
+
+	const RoadNode* nA = getNode(edge->nodeA);
+	const RoadNode* nB = getNode(edge->nodeB);
+	if (!nA || !nB) return -1;
+
+	CubicBezier bez{ nA->position, edge->ctrlA, edge->ctrlB, nB->position };
+	const float t = bez.tFromArcLength(arcLength);
+	if (t <= 0.01f || t >= 0.99f) return -1;
+
+	const auto [bezA, bezB] = bez.split(t);
+	const Vec3 splitPos = bez.evaluate(t);
+
+	// 元エッジの属性を保存（removeEdge で無効化される前にコピー）
+	const int origNodeA  = edge->nodeA;
+	const int origNodeB  = edge->nodeB;
+	const RoadType rt    = edge->roadType;
+	const int numLanes   = static_cast<int>(edge->lanes.size());
+	const RoadEdge tmpl  = *edge;  // テンプレートとして属性を丸ごとコピー
+
+	removeEdge(edgeId);
+
+	const int midNodeId = addNode(splitPos, NodeType::Joint);
+
+	if (auto eidA = addEdge(origNodeA, midNodeId, bezA.p1, bezA.p2, rt, numLanes))
+		applyEdgeTemplate(*eidA, tmpl);
+
+	if (auto eidB = addEdge(midNodeId, origNodeB, bezB.p1, bezB.p2, rt, numLanes))
+		applyEdgeTemplate(*eidB, tmpl);
+
+	return midNodeId;
 }
 
 Optional<int> RoadNetwork::addEdgeWithIntersection(int nodeA, int nodeB,
@@ -1400,6 +1459,34 @@ const RoadObject* RoadNetwork::getObject(int id) const
 {
 	const int idx = objectIndex(id);
 	return (idx >= 0 && m_objects[idx].id >= 0) ? &m_objects[idx] : nullptr;
+}
+
+bool RoadNetwork::isNodeElevated(int nodeId) const
+{
+	const RoadNode* node = getNode(nodeId);
+	if (!node) return false;
+	for (const auto& att : node->attachments)
+	{
+		const RoadEdge* e = getEdge(att.edgeId);
+		if (e && e->useElevation) return true;
+	}
+	return false;
+}
+
+void RoadNetwork::updateEdgeElevation(int edgeId, const World& world)
+{
+	RoadEdge* edge = getEdge(edgeId);
+	if (!edge) return;
+	const RoadNode* nA = getNode(edge->nodeA);
+	const RoadNode* nB = getNode(edge->nodeB);
+	if (!nA || !nB) return;
+	const double gyA = world.computeHeight(
+		static_cast<float>(nA->position.x), static_cast<float>(nA->position.z));
+	const double gyB = world.computeHeight(
+		static_cast<float>(nB->position.x), static_cast<float>(nB->position.z));
+	edge->useElevation =
+		std::abs(nA->position.y - gyA) > kElevationThreshold ||
+		std::abs(nB->position.y - gyB) > kElevationThreshold;
 }
 
 void RoadNetwork::generatePiersForEdge(int edgeId, const World& world)

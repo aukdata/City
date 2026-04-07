@@ -59,7 +59,7 @@ namespace
 		Array<TriangleIndex32>& indices,
 		const CubicBezier&      bez,
 		const World&            world,
-		float offset, float halfLW,
+		float offsetA, float offsetB, float halfLW,
 		float dashLength, float gapLength,
 		float sStart, float sEnd,
 		float terrainLift = 2.05f,
@@ -71,6 +71,7 @@ namespace
 		const bool  solid    = (dashLength <= 0.0f || gapLength <= 0.0f);
 		const float cycleLen = dashLength + gapLength;
 		const int   N        = Clamp(static_cast<int>(spanLen / 2.0f) + 1, 5, 200);
+		const float totalLen = bez.totalLength;
 
 		for (int i = 0; i < N; ++i)
 		{
@@ -87,9 +88,12 @@ namespace
 			{
 				const float   s  = (j == 0) ? s0 : s1;
 				const auto    sl = makeSlice(bez, world, s, terrainLift, useElevation);
+				// A端→B端のオフセット線形補間でテーパーを表現
+				const float   t  = (totalLen > 0.0f) ? (s / totalLen) : 0.0f;
+				const float   offset = offsetA * (1.0f - t) + offsetB * t;
 				const Vec3    lc = sl.center + sl.right * offset;
-				vertices << makeVert(lc - sl.right * halfLW, 0.0f, s / bez.totalLength);
-				vertices << makeVert(lc + sl.right * halfLW, 1.0f, s / bez.totalLength);
+				vertices << makeVert(lc - sl.right * halfLW, 0.0f, s / totalLen);
+				vertices << makeVert(lc + sl.right * halfLW, 1.0f, s / totalLen);
 			}
 
 			appendQuad(indices, base, base + 1, base + 2, base + 3);
@@ -108,6 +112,7 @@ namespace
 		case RoadPartType::Shoulder:  color = ColorF{ 0.40, 0.40, 0.40 }; break;
 		case RoadPartType::Slope:     color = ColorF{ 0.45, 0.58, 0.35 }; break;
 		case RoadPartType::Guardrail: color = ColorF{ 0.82, 0.82, 0.82 }; break;
+		case RoadPartType::Wall:      color = ColorF{ 0.78, 0.78, 0.76 }; break;
 		default: break;
 		}
 	}
@@ -429,7 +434,8 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 					const Vec3 tan = bez->tangentAt(Clamp(obj.arcPos, 0.0f, bez->totalLength));
 					const float terrainY = world.computeHeight(
 						static_cast<float>(pos.x), static_cast<float>(pos.z));
-					const float topY = static_cast<float>(pos.y) + 2.0f - 0.5f;  // 路面リフト(2.0) - 路盤厚(0.5)
+					constexpr float kRoadBedThickness = 0.5f;
+					const float topY = static_cast<float>(pos.y + kRoadSurfaceLift) - kRoadBedThickness;
 					const float height = topY - terrainY;
 					if (height < 1.0f) continue;
 
@@ -616,32 +622,30 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	{
 		const auto& lane = edge.lanes[i];
 
-		// 右境界の線（最右端車線の外側は描画しない: 路肩線は別途）
-		if (lane.lineRight != LineType::None && i + 1 < static_cast<int>(edge.lanes.size()))
+		// 右境界の線（lineRight が None でなければ描画）
+		if (lane.lineRight != LineType::None)
 		{
-			const float offset = lane.offsetA_R;
 			const auto ls = lineStyleFor(lane.lineRight);
 
 			MeshData md;
 			appendDashedStrip(md.vertices, md.indices,
 			                  bezier, world,
-			                  offset, ls.lineWidth * 0.5f,
+			                  lane.offsetA_R, lane.offsetB_R, ls.lineWidth * 0.5f,
 			                  ls.dashLen, ls.gapLen,
 			                  sStart, sEnd, 2.05f, edge.useElevation);
 			if (!md.vertices.isEmpty())
 				batches << LaneLineBatch{ ls.color.removeSRGBCurve(), Mesh{ md } };
 		}
 
-		// 左境界の線（最左端車線の外側は描画しない）
-		if (lane.lineLeft != LineType::None && i > 0)
+		// 左境界の線（lineLeft が None でなければ描画）
+		if (lane.lineLeft != LineType::None)
 		{
-			const float offset = lane.offsetA_L;
 			const auto ls = lineStyleFor(lane.lineLeft);
 
 			MeshData md;
 			appendDashedStrip(md.vertices, md.indices,
 			                  bezier, world,
-			                  offset, ls.lineWidth * 0.5f,
+			                  lane.offsetA_L, lane.offsetB_L, ls.lineWidth * 0.5f,
 			                  ls.dashLen, ls.gapLen,
 			                  sStart, sEnd, 2.05f, edge.useElevation);
 			if (!md.vertices.isEmpty())
@@ -705,8 +709,8 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 
 		const Vec3 right = calcRight(capTan);
 		const double capY = edge->useElevation
-			? capPos.y + 2.0
-			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z)) + 2.0;
+			? capPos.y + kRoadSurfaceLift
+			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z)) + kRoadSurfaceLift;
 
 		EdgeCapInfo info;
 		info.capTan   = capTan;
@@ -1004,8 +1008,8 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		// ノード内向き: tangentAt は A→B 方向なので nodeA 側では反転
 		const Vec3 tan = isNodeA ? -rawTan : rawTan;
 		const double lineY = edge.useElevation
-			? pos.y + 2.05
-			: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + 2.05;
+			? pos.y + kRoadLineLift
+			: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
 		return { Vec3{ pos.x, lineY, pos.z } + right * static_cast<double>(offset), tan };
 	};
 	// 位置のみ取得（後方互換）
@@ -1016,7 +1020,9 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 
 	Array<LaneLineBatch> batches;
 
-	// === Joint (Blend) — 2本接続: エッジAの各車線境界とエッジBの対応境界を直結 ===
+	// === Joint (Blend) — 2本接続: 流れグループごとに最近傍ペアリング ===
+	// 全データを共通フレーム（edgeA の A→B 右基準）に正規化してから処理する。
+	// flipB は LaneAtNode 構築時のみ内部で吸収され、下流処理には現れない。
 	if (node->attachments.size() == 2 && node->type == NodeType::Joint
 	    && node->transition == NodeTransition::Blend)
 	{
@@ -1024,83 +1030,348 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		const RoadEdge* edgeB = network.getEdge(node->attachments[1].edgeId);
 		if (!edgeA || !edgeB) return {};
 
-		auto getLaneBounds = [](const RoadEdge& edge) -> Array<float>
+		// 共通フレームに正規化された車線情報（描画に必要な一切を事前計算）
+		struct LaneAtNode
 		{
-			Array<float> b;
-			for (const auto& lane : edge.lanes)
-				b << lane.offsetA_R;
-			return b;
+			Vec3     leftPos,  leftTan;   ///< 共通フレーム左境界（world）
+			Vec3     rightPos, rightTan;  ///< 共通フレーム右境界（world）
+			LineType lineLeft;             ///< 共通フレーム左境界線種
+			LineType lineRight;
+			float    centerCommon;         ///< 共通フレーム中心位置（ソート用、符号あり）
+			int      rawFlow;              ///< 0/1: world 進行方向
+			int      groupId;              ///< 横方向の連続同方向ラン ID（他ランを跨がない）
 		};
 
-		const auto boundsA = getLaneBounds(*edgeA);
-		const auto boundsB = getLaneBounds(*edgeB);
+		// 参照フレーム: edgeA の切断点を原点とし、右ベクトルと前進方向を幾何的に取得。
+		// L/R と flowGroup は refRight / refForward への投影で判定するため、
+		// A/B 反転 (flip) を変数として扱う必要がない。
+		const auto refZero  = calcEdgeLine(*edgeA, 0.0f);
+		const auto refUnit  = calcEdgeLine(*edgeA, 1.0f);
+		const Vec3 refRight = (refUnit.pos - refZero.pos).normalized();
+		// refForward: 参照内向き接線の XZ 正規化（ノード方向へ）
+		const Vec3 refForward = Vec3{ refZero.tangent.x, 0.0, refZero.tangent.z }.normalized();
+		const Vec3 refOrigin  = node->position;
 
-		// ペアリング: boundsA[i] に位置の近い boundsB[j] をマッチ
-		Array<int> pairB(boundsA.size(), -1);
-		HashSet<int> usedB;
-		for (size_t i = 0; i + 1 < boundsA.size(); ++i)
+		auto buildInfos = [&](const RoadEdge& edge, bool isNodeAEdge) -> Array<LaneAtNode>
 		{
-			float bestDist = 1e9f;
-			int bestJ = -1;
-			for (size_t j = 0; j + 1 < boundsB.size(); ++j)
+			Array<LaneAtNode> out;
+			out.reserve(edge.lanes.size());
+			for (const auto& L : edge.lanes)
 			{
-				if (usedB.contains(static_cast<int>(j))) continue;
-				const float d = Math::Abs(boundsA[i] - boundsB[j]);
-				if (d < bestDist) { bestDist = d; bestJ = static_cast<int>(j); }
+				const float oL = isNodeAEdge ? L.offsetA_L : L.offsetB_L;
+				const float oR = isNodeAEdge ? L.offsetA_R : L.offsetB_R;
+				const auto  infoL = calcEdgeLine(edge, oL);
+				const auto  infoR = calcEdgeLine(edge, oR);
+				const Vec3  laneCenter = (infoL.pos + infoR.pos) * 0.5;
+
+				// L/R 判定: edge ローカルの L を refRight に投影し、符号で共通L/Rを決める
+				const double lProj = (infoL.pos - laneCenter).dot(refRight);
+				const bool   swap  = (lProj > 0.0);
+
+				LaneAtNode info;
+				if (swap)
+				{
+					info.leftPos  = infoR.pos;  info.leftTan  = infoR.tangent;
+					info.rightPos = infoL.pos;  info.rightTan = infoL.tangent;
+					info.lineLeft = L.lineRight;
+					info.lineRight = L.lineLeft;
+				}
+				else
+				{
+					info.leftPos  = infoL.pos;  info.leftTan  = infoL.tangent;
+					info.rightPos = infoR.pos;  info.rightTan = infoR.tangent;
+					info.lineLeft = L.lineLeft;
+					info.lineRight = L.lineRight;
+				}
+				info.centerCommon = static_cast<float>((laneCenter - refOrigin).dot(refRight));
+
+				// rawFlow: 車線の world 進行方向を refForward に投影
+				// 内向き接線は「ノードへ向かう」向き。outgoing なら逆向きに進む。
+				const bool outgoing = (L.dir == LaneDir::Forward) == isNodeAEdge;
+				const Vec3 travelDir = outgoing ? -infoL.tangent : infoL.tangent;
+				info.rawFlow = (travelDir.dot(refForward) > 0.0) ? 0 : 1;
+				info.groupId = -1;  // 後で付与
+
+				out << info;
 			}
-			if (bestJ >= 0 && bestDist < 5.0f)
+			return out;
+		};
+
+		const bool isNodeA_A = (edgeA->nodeA == nodeId);
+		const bool isNodeA_B = (edgeB->nodeA == nodeId);
+
+		auto infosA = buildInfos(*edgeA, isNodeA_A);
+		auto infosB = buildInfos(*edgeB, isNodeA_B);
+
+		// groupId の付与: 車線を centerCommon 昇順（左→右）に並べ、
+		// rawFlow が変わるたびにグループ ID を新しく採番。
+		// これにより他ランを跨ぐ接続を防ぐ。
+		// 両エッジで同じ rawFlow シーケンスを仮定（違っても超過分は taper になる）。
+		auto assignGroups = [](Array<LaneAtNode>& infos) -> int
+		{
+			if (infos.isEmpty()) return 0;
+			Array<int> ids(infos.size());
+			for (int i = 0; i < static_cast<int>(infos.size()); ++i) ids[i] = i;
+			ids.sort_by([&](int a, int b)
 			{
-				pairB[i] = bestJ;
-				usedB.insert(bestJ);
+				return infos[a].centerCommon < infos[b].centerCommon;
+			});
+			int gid = 0;
+			int prevFlow = infos[ids[0]].rawFlow;
+			infos[ids[0]].groupId = gid;
+			for (int k = 1; k < static_cast<int>(ids.size()); ++k)
+			{
+				const int i = ids[k];
+				if (infos[i].rawFlow != prevFlow) { ++gid; prevFlow = infos[i].rawFlow; }
+				infos[i].groupId = gid;
+			}
+			return gid + 1;
+		};
+
+		const int numGroupsA = assignGroups(infosA);
+		const int numGroupsB = assignGroups(infosB);
+		const int numGroups  = Max(numGroupsA, numGroupsB);
+
+		// --- DEBUG: Node #906 の詳細ログ（フレーム判定を一度だけ評価） ---
+		bool dbg = false;
+		if (nodeId == 906)
+		{
+			static int s_frame = 0;
+			if (++s_frame % 120 == 1)
+			{
+				dbg = true;
+				Console << U"=== Node " << nodeId << U" A=" << edgeA->id
+				       << U" B=" << edgeB->id
+				       << U" numGroups=" << numGroups << U" ===";
+				Console << U"A lanes:";
+				for (int i = 0; i < static_cast<int>(infosA.size()); ++i)
+				{
+					const auto& L = infosA[i];
+					Console << U"  A[" << i << U"] cc=" << L.centerCommon
+					       << U" flow=" << L.rawFlow << U" gid=" << L.groupId;
+				}
+				Console << U"B lanes:";
+				for (int i = 0; i < static_cast<int>(infosB.size()); ++i)
+				{
+					const auto& L = infosB[i];
+					Console << U"  B[" << i << U"] cc=" << L.centerCommon
+					       << U" flow=" << L.rawFlow << U" gid=" << L.groupId;
+				}
 			}
 		}
 
-		// A側の各車線境界からB側のペア境界へベジェ曲線で接続（lineRight）
-		for (size_t i = 0; i + 1 < boundsA.size(); ++i)
-		{
-			const auto& lane = edgeA->lanes[i];
-			if (lane.lineRight == LineType::None) continue;
-			const auto ls = lineStyleFor(lane.lineRight);
-
-			const auto infoA = calcEdgeLine(*edgeA, boundsA[i]);
-			const float targetOff = (pairB[i] >= 0) ? boundsB[pairB[i]] : 0.0f;
-			const auto infoB = calcEdgeLine(*edgeB, targetOff);
-
-			appendBezierLine(batches, infoA.pos, infoB.pos, infoA.tangent, infoB.tangent,
-			                 ls.lineWidth, ls.color, world);
-		}
-
-		// A側 lineLeft
-		for (size_t i = 0; i < boundsA.size(); ++i)
-		{
-			if (i == 0) continue;  // 最左端は描画しない
-			const auto& lane = edgeA->lanes[i];
-			if (lane.lineLeft == LineType::None) continue;
-			const auto ls = lineStyleFor(lane.lineLeft);
-			const auto infoA = calcEdgeLine(*edgeA, lane.offsetA_L);
-			// ペア先を B 側の対応する左境界に
-			const auto infoB = calcEdgeLine(*edgeB, lane.offsetA_L);  // 近似
-			appendBezierLine(batches, infoA.pos, infoB.pos, infoA.tangent, infoB.tangent,
-			                 ls.lineWidth, ls.color, world);
-		}
-
-		// B側にのみ存在する車線境界: ノード中心からテーパー
-		const bool anyElevated = edgeA->useElevation || edgeB->useElevation;
-		const double centerY = anyElevated
-			? node->position.y + 2.05
+		// ノード中心点（テーパーのフォールバック先）
+		const bool anyElev = edgeA->useElevation || edgeB->useElevation;
+		const double centerY = anyElev
+			? node->position.y + kRoadLineLift
 			: world.computeHeight(static_cast<float>(node->position.x),
-			                      static_cast<float>(node->position.z)) + 2.05;
+			                      static_cast<float>(node->position.z)) + kRoadLineLift;
 		const Vec3 centerPos{ node->position.x, centerY, node->position.z };
 
-		for (size_t j = 0; j + 1 < boundsB.size(); ++j)
+		// 未ペア車線テーパー: 左右両方を targetPos に収束
+		auto drawTaper = [&](const LaneAtNode& l, const Vec3& targetPos, const Vec3& targetTan)
 		{
-			if (usedB.contains(static_cast<int>(j))) continue;
-			const auto& lane = edgeB->lanes[j];
-			if (lane.lineRight == LineType::None) continue;
-			const auto ls = lineStyleFor(lane.lineRight);
-			const auto infoB = calcEdgeLine(*edgeB, boundsB[j]);
-			appendBezierLine(batches, centerPos, infoB.pos,
-			                 infoB.tangent, infoB.tangent, ls.lineWidth, ls.color, world);
+			if (l.lineLeft != LineType::None)
+			{
+				const auto ls = lineStyleFor(l.lineLeft);
+				appendBezierLine(batches, l.leftPos, targetPos, l.leftTan, targetTan,
+				                 ls.lineWidth, ls.color, world);
+			}
+			if (l.lineRight != LineType::None)
+			{
+				const auto ls = lineStyleFor(l.lineRight);
+				appendBezierLine(batches, l.rightPos, targetPos, l.rightTan, targetTan,
+				                 ls.lineWidth, ls.color, world);
+			}
+		};
+
+		// グループ境界を越えた参照のために、ペアリングと未ペアをグローバル追跡
+		Array<int> globalPairA(infosA.size(), -1);  // A[i] → B のインデックス
+		Array<int> globalPairB(infosB.size(), -1);  // B[i] → A のインデックス
+		Array<int> unpairedA, unpairedB;             // 未ペア A/B インデックス
+
+		for (int group = 0; group < numGroups; ++group)
+		{
+			Array<int> idsA, idsB;
+			for (int i = 0; i < static_cast<int>(infosA.size()); ++i)
+				if (infosA[i].groupId == group) idsA << i;
+			for (int j = 0; j < static_cast<int>(infosB.size()); ++j)
+				if (infosB[j].groupId == group) idsB << j;
+
+			// 内側から順（|centerCommon| 昇順）
+			const auto sortInsideOut = [&](const Array<LaneAtNode>& infos)
+			{
+				return [&infos](int a, int b)
+				{
+					return Math::Abs(infos[a].centerCommon) < Math::Abs(infos[b].centerCommon);
+				};
+			};
+			idsA.sort_by(sortInsideOut(infosA));
+			idsB.sort_by(sortInsideOut(infosB));
+
+			// 最近傍ペアリング（内側から貪欲）
+			Array<int>  pairIdx(idsA.size(), -1);
+			Array<bool> usedB(idsB.size(), false);
+			for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+			{
+				const float ca = infosA[idsA[k]].centerCommon;
+				float best = 1e9f; int bestM = -1;
+				for (int m = 0; m < static_cast<int>(idsB.size()); ++m)
+				{
+					if (usedB[m]) continue;
+					const float d = Math::Abs(ca - infosB[idsB[m]].centerCommon);
+					if (d < best) { best = d; bestM = m; }
+				}
+				if (bestM >= 0) { pairIdx[k] = bestM; usedB[bestM] = true; }
+			}
+
+			if (dbg)
+			{
+				Console << U"Group " << group << U": idsA=" << idsA.size()
+				       << U" idsB=" << idsB.size();
+				for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+				{
+					Console << U"  A[" << idsA[k] << U"] cc="
+					       << infosA[idsA[k]].centerCommon
+					       << U" -> "
+					       << (pairIdx[k] >= 0
+					           ? (U"B[" + Format(idsB[pairIdx[k]]) + U"] cc="
+					              + Format(infosB[idsB[pairIdx[k]]].centerCommon))
+					           : U"UNPAIRED");
+				}
+				for (int m = 0; m < static_cast<int>(idsB.size()); ++m)
+				{
+					if (usedB[m]) continue;
+					Console << U"  B[" << idsB[m] << U"] cc="
+					       << infosB[idsB[m]].centerCommon << U" UNPAIRED";
+				}
+			}
+
+			// ペア車線を描画: 共通フレーム L/R 同士を直結
+			for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+			{
+				if (pairIdx[k] < 0) continue;
+				const auto& lA = infosA[idsA[k]];
+				const auto& lB = infosB[idsB[pairIdx[k]]];
+				// 線種: A 側優先、None なら B 側
+				const LineType lineL = (lA.lineLeft  != LineType::None) ? lA.lineLeft  : lB.lineLeft;
+				const LineType lineR = (lA.lineRight != LineType::None) ? lA.lineRight : lB.lineRight;
+				if (lineL != LineType::None)
+				{
+					const auto ls = lineStyleFor(lineL);
+					appendBezierLine(batches, lA.leftPos, lB.leftPos, lA.leftTan, lB.leftTan,
+					                 ls.lineWidth, ls.color, world);
+				}
+				if (lineR != LineType::None)
+				{
+					const auto ls = lineStyleFor(lineR);
+					appendBezierLine(batches, lA.rightPos, lB.rightPos, lA.rightTan, lB.rightTan,
+					                 ls.lineWidth, ls.color, world);
+				}
+			}
+
+			// ペアリング結果をグローバル配列に反映（グループ境界を越えて参照するため）
+			for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+				if (pairIdx[k] >= 0) globalPairA[idsA[k]] = idsB[pairIdx[k]];
+			for (int m = 0; m < static_cast<int>(idsB.size()); ++m)
+				if (usedB[m])
+				{
+					// pairIdx から m を引いた元 k を探す
+					for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+						if (pairIdx[k] == m) { globalPairB[idsB[m]] = idsA[k]; break; }
+				}
+
+			// 未ペアのテーパー描画はグループループ後にまとめて行うため、ここでは保存のみ
+			for (int k = 0; k < static_cast<int>(idsA.size()); ++k)
+				if (pairIdx[k] < 0) unpairedA << idsA[k];
+			for (int m = 0; m < static_cast<int>(idsB.size()); ++m)
+				if (!usedB[m]) unpairedB << idsB[m];
+		}
+
+		// グローバル内側隣接検索: X の centerCommon と同符号で |cc|<|X.cc| のうち最大 |cc| の lane
+		auto findInnerNeighbor = [](const Array<LaneAtNode>& infos, int xIdx) -> int
+		{
+			const float xc = infos[xIdx].centerCommon;
+			const float xMag = Math::Abs(xc);
+			const bool xPositive = (xc >= 0.0f);
+			int bestIdx = -1;
+			float bestMag = -1.0f;
+			for (int i = 0; i < static_cast<int>(infos.size()); ++i)
+			{
+				if (i == xIdx) continue;
+				const float c = infos[i].centerCommon;
+				if ((c >= 0.0f) != xPositive) continue;  // 同じ側だけ
+				const float mag = Math::Abs(c);
+				if (mag >= xMag) continue;  // より内側のみ
+				if (mag > bestMag) { bestMag = mag; bestIdx = i; }
+			}
+			return bestIdx;
+		};
+
+		// テーパー対象のターゲット計算: 内側隣接 Y の外側境界の、反対側エッジ切断点上の位置
+		auto computeTaperTarget = [&](int xIdx, bool fromIsA)
+			-> Optional<std::pair<Vec3, Vec3>>
+		{
+			const auto& infosFrom = fromIsA ? infosA : infosB;
+			const auto& infosTo   = fromIsA ? infosB : infosA;
+			const auto& globalPairFrom = fromIsA ? globalPairA : globalPairB;
+
+			const int innerIdx = findInnerNeighbor(infosFrom, xIdx);
+			if (innerIdx < 0) return none;
+			const int pairedIdx = globalPairFrom[innerIdx];
+			if (pairedIdx < 0) return none;
+			const LaneAtNode& Y  = infosFrom[innerIdx];
+			const LaneAtNode& pY = infosTo[pairedIdx];
+			const bool outerIsRight = (Y.centerCommon >= 0.0f);
+			return std::make_pair(
+				outerIsRight ? pY.rightPos : pY.leftPos,
+				outerIsRight ? pY.rightTan : pY.leftTan);
+		};
+
+		auto logTaper = [&](bool fromIsA, int xIdx, const Optional<std::pair<Vec3, Vec3>>& tgt)
+		{
+			if (!dbg) return;
+			const auto& infosFrom = fromIsA ? infosA : infosB;
+			const int innerIdx = findInnerNeighbor(infosFrom, xIdx);
+			const String edgeLabel = fromIsA ? U"A" : U"B";
+			const String otherLabel = fromIsA ? U"B" : U"A";
+			if (!tgt)
+			{
+				Console << U"  Taper " << edgeLabel << U"[" << xIdx << U"] -> "
+				         << otherLabel << U" cutoff center (FALLBACK: "
+				         << (innerIdx < 0 ? U"no inner neighbor"
+				                          : U"inner " + edgeLabel + U"[" + Format(innerIdx) + U"] unpaired")
+				         << U")";
+			}
+			else
+			{
+				const int pairedIdx = (fromIsA ? globalPairA : globalPairB)[innerIdx];
+				Console << U"  Taper " << edgeLabel << U"[" << xIdx << U"] -> outer of "
+				         << edgeLabel << U"[" << innerIdx << U"]'s pair "
+				         << otherLabel << U"[" << pairedIdx << U"]";
+			}
+		};
+
+		// フォールバック先: 反対側エッジの切断面中心（offset=0）
+		const auto fallbackFromA = calcEdgeLine(*edgeB, 0.0f);  // A 未ペア → edgeB 切断中心
+		const auto fallbackFromB = calcEdgeLine(*edgeA, 0.0f);  // B 未ペア → edgeA 切断中心
+
+		if (dbg) Console << U"--- Taper targets ---";
+		for (int xIdx : unpairedA)
+		{
+			const auto tgt = computeTaperTarget(xIdx, true);
+			logTaper(true, xIdx, tgt);
+			const Vec3 tPos = tgt ? tgt->first  : fallbackFromA.pos;
+			const Vec3 tTan = tgt ? tgt->second : fallbackFromA.tangent;
+			drawTaper(infosA[xIdx], tPos, tTan);
+		}
+		for (int xIdx : unpairedB)
+		{
+			const auto tgt = computeTaperTarget(xIdx, false);
+			logTaper(false, xIdx, tgt);
+			const Vec3 tPos = tgt ? tgt->first  : fallbackFromB.pos;
+			const Vec3 tTan = tgt ? tgt->second : fallbackFromB.tangent;
+			drawTaper(infosB[xIdx], tPos, tTan);
 		}
 
 		return batches;
@@ -1108,16 +1379,11 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 
 	// === Intersection / Diverge — 各エッジの車線境界からノード中心へベジェ曲線 ===
 	{
-		bool anyElev = false;
-		for (const auto& att : node->attachments)
-		{
-			const RoadEdge* e = network.getEdge(att.edgeId);
-			if (e && e->useElevation) { anyElev = true; break; }
-		}
+		const bool anyElev = network.isNodeElevated(nodeId);
 		const double ctrY = anyElev
-			? node->position.y + 2.05
+			? node->position.y + kRoadLineLift
 			: world.computeHeight(static_cast<float>(node->position.x),
-			                      static_cast<float>(node->position.z)) + 2.05;
+			                      static_cast<float>(node->position.z)) + kRoadLineLift;
 		const Vec3 centerPos{ node->position.x, ctrY, node->position.z };
 
 	for (const auto& att : node->attachments)
@@ -1129,8 +1395,8 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 		{
 			const auto& lane = edge->lanes[i];
 
-			// lineRight（最右端車線の外側は描画しない）
-			if (lane.lineRight != LineType::None && i + 1 < edge->lanes.size())
+			// lineRight
+			if (lane.lineRight != LineType::None)
 			{
 				const auto ls = lineStyleFor(lane.lineRight);
 				const auto info = calcEdgeLine(*edge, lane.offsetA_R);
@@ -1138,8 +1404,8 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 				                 info.tangent, info.tangent, ls.lineWidth, ls.color, world);
 			}
 
-			// lineLeft（最左端車線の外側は描画しない）
-			if (lane.lineLeft != LineType::None && i > 0)
+			// lineLeft
+			if (lane.lineLeft != LineType::None)
 			{
 				const auto ls = lineStyleFor(lane.lineLeft);
 				const auto info = calcEdgeLine(*edge, lane.offsetA_L);
@@ -1240,9 +1506,9 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 
 		const Vec3  right    = calcRight(capTan);
 		const double capY = edge->useElevation
-			? capPos.y + 2.0 + static_cast<double>(heightOffset)
+			? capPos.y + kRoadSurfaceLift + static_cast<double>(heightOffset)
 			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z))
-			  + 2.0 + static_cast<double>(heightOffset);
+			  + kRoadSurfaceLift + static_cast<double>(heightOffset);
 		const Vec3  capCenter{ capPos.x, capY, capPos.z };
 
 		EdgeInfo info;

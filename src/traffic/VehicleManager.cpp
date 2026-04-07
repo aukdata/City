@@ -17,12 +17,6 @@ void VehicleManager::onNetworkChanged(const SimGraph& simGraph)
 {
 	buildTrafficLights(simGraph);
 	m_lightsDirty = false;
-	for (auto& v : m_vehicles)
-	{
-		v.routeWaypoints.clear();
-		v.routeIdx = 0;
-		v.routeRequested = false;
-	}
 }
 
 // ===== スポーン =====
@@ -202,6 +196,15 @@ void VehicleManager::update(double dt, GameTime gameNow,
 			else if (!v.routeWaypoints.isEmpty())
 				v.currentEdge = -1;  // 経路を走りきった → デスポーン
 		}
+		// 次のウェイポイントのエッジが存在しない場合は経路を再探索
+		else if (v.routeIdx < static_cast<int>(v.routeWaypoints.size())
+			&& !v.routeRequested
+			&& !simGraph.getEdge(v.routeWaypoints[v.routeIdx].edgeId))
+		{
+			v.routeWaypoints.clear();
+			v.routeIdx = 0;
+			requestRoute(v, simGraph);
+		}
 	}
 
 	m_stats.idm = idmTotal;
@@ -376,50 +379,67 @@ void VehicleManager::advanceOnSegment(Vehicle& v, double dt,
 		advanceOnLane(v, dt, simGraph, network);
 }
 
+namespace
+{
+	/// @brief 車両を Connection に遷移させる
+	void enterConnection(Vehicle& v, int exitNodeId, int connectionId)
+	{
+		v.location         = VehicleLocation::OnConnection;
+		v.connectionNodeId = exitNodeId;
+		v.connectionId     = connectionId;
+		v.arcPos           = 0.0f;
+		v.speed           *= kConnectionSpeedFactor;
+	}
+
+	/// @brief 車両を指定エッジに直接遷移させる（Connection なし）
+	void enterEdgeDirect(Vehicle& v, int edgeId, int laneIndex,
+	                     float arcPos, float estimatedTime)
+	{
+		v.currentEdge      = edgeId;
+		v.currentLane      = laneIndex;
+		v.arcPos           = arcPos;
+		v.dormantTotalTime = estimatedTime;
+		v.location         = VehicleLocation::OnLane;
+		v.speed           *= kDirectTransitFactor;
+	}
+
+	/// @brief 出口ノード ID を求める
+	int getExitNodeId(const Vehicle& v, const SimGraph::Edge& edge)
+	{
+		return isForwardLane(edge, v.currentLane) ? edge.nodeB : edge.nodeA;
+	}
+}
+
 bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network)
 {
-	// 経路のウェイポイントがあれば使う
 	while (v.routeIdx < static_cast<int>(v.routeWaypoints.size()))
 	{
 		const auto& wp = v.routeWaypoints[v.routeIdx++];
-		if (wp.edgeId != v.currentEdge)
+		if (wp.edgeId == v.currentEdge) continue;
+
+		const auto* edge = simGraph.getEdge(v.currentEdge);
+		if (edge)
 		{
-			const auto* edge = simGraph.getEdge(v.currentEdge);
-			if (edge)
+			const int exitNId = getExitNodeId(v, *edge);
+			const RoadNode* node = network.getNode(exitNId);
+			if (node)
 			{
-				const bool fwd = isForwardLane(*edge, v.currentLane);
-				const int exitNId = fwd ? edge->nodeB : edge->nodeA;
-				const RoadNode* node = network.getNode(exitNId);
-				if (node)
+				for (const auto& conn : node->laneConnections)
 				{
-					for (const auto& conn : node->laneConnections)
+					if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane
+						&& conn.toEdgeId == wp.edgeId && conn.toLaneIndex == wp.laneIndex)
 					{
-						if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane
-							&& conn.toEdgeId == wp.edgeId && conn.toLaneIndex == wp.laneIndex)
-						{
-							v.location = VehicleLocation::OnConnection;
-							v.connectionNodeId = exitNId;
-							v.connectionId = conn.id;
-							v.arcPos = 0.0f;
-							v.speed *= kConnectionSpeedFactor;
-							return true;
-						}
+						enterConnection(v, exitNId, conn.id);
+						return true;
 					}
 				}
 			}
-
-			// Connection が見つからない場合は直接遷移
-			v.currentEdge      = wp.edgeId;
-			v.currentLane      = wp.laneIndex;
-			v.arcPos           = wp.entryArcPos;
-			v.dormantTotalTime = wp.estimatedTimeSec;
-			v.location         = VehicleLocation::OnLane;
-			v.speed           *= kDirectTransitFactor;
-			return true;
 		}
+
+		enterEdgeDirect(v, wp.edgeId, wp.laneIndex, wp.entryArcPos, wp.estimatedTimeSec);
+		return true;
 	}
 
-	// フォールバック: 交差点の LaneConnection をランダムに選ぶ
 	return fallbackRandomTransit(v, simGraph, network);
 }
 
@@ -429,10 +449,11 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 	const auto* edge = simGraph.getEdge(v.currentEdge);
 	if (!edge) { v.currentEdge = -1; return false; }
 
-	const int exitNId = isForwardLane(*edge, v.currentLane) ? edge->nodeB : edge->nodeA;
+	const int exitNId = getExitNodeId(v, *edge);
 	const RoadNode* node = network.getNode(exitNId);
 	if (!node) { v.currentEdge = -1; return false; }
 
+	// LaneConnection から候補を探す
 	Array<const LaneConnection*> candidates;
 	for (const auto& conn : node->laneConnections)
 	{
@@ -443,15 +464,11 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 	if (!candidates.isEmpty())
 	{
 		const auto* conn = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
-		v.location = VehicleLocation::OnConnection;
-		v.connectionNodeId = exitNId;
-		v.connectionId = conn->id;
-		v.arcPos = 0.0f;
-		v.speed *= kConnectionSpeedFactor;
+		enterConnection(v, exitNId, conn->id);
 		return true;
 	}
 
-	// Connection もない場合は従来のフォールバック
+	// Connection もない場合はランダムなエッジにフォールバック
 	const auto* exitNode = simGraph.getNode(exitNId);
 	if (!exitNode) { v.currentEdge = -1; return false; }
 
@@ -463,29 +480,25 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 
 	const int nextEdge = edgeCandidates[Random(0, static_cast<int>(edgeCandidates.size()) - 1)];
 	const auto* nextE = simGraph.getEdge(nextEdge);
-	v.currentEdge = nextEdge;
-	v.speed      *= kDirectTransitFactor;
-	v.location    = VehicleLocation::OnLane;
 
 	if (nextE)
 	{
 		const bool enterAtA = (nextE->nodeA == exitNId);
 		const LaneDir needDir = enterAtA ? LaneDir::Forward : LaneDir::Backward;
-		v.currentLane = 0;
+		int lane = 0;
 		for (int i = 0; i < static_cast<int>(nextE->lanes.size()); ++i)
 		{
 			if (nextE->lanes[i].dir == needDir &&
 				(nextE->lanes[i].op == OpState::Open || nextE->lanes[i].op == OpState::Provisional))
-			{ v.currentLane = i; break; }
+			{ lane = i; break; }
 		}
-		v.arcPos = enterAtA ? 0.0f : nextE->length;
-		v.dormantTotalTime = nextE->length / Max(1.0f, nextE->speedLimit / kKmhToMps);
+		const float arcPos = enterAtA ? 0.0f : nextE->length;
+		const float estTime = nextE->length / Max(1.0f, nextE->speedLimit / kKmhToMps);
+		enterEdgeDirect(v, nextEdge, lane, arcPos, estTime);
 	}
 	else
 	{
-		v.currentLane = 0;
-		v.arcPos = 0.0f;
-		v.dormantTotalTime = kDefaultDormantTime;
+		enterEdgeDirect(v, nextEdge, 0, 0.0f, kDefaultDormantTime);
 	}
 	return true;
 }
@@ -519,23 +532,16 @@ void VehicleManager::activateVehicle(Vehicle& v, const SimGraph& simGraph)
 {
 	v.mode = VehicleMode::Active;
 
-	if (v.dormantTotalTime > 0.0f)
-	{
-		const float elapsed = v.dormantTotalTime - v.dormantTimer;
-		const float fraction = Clamp(elapsed / v.dormantTotalTime, 0.0f, 1.0f);
+	const auto* edge = simGraph.getEdge(v.currentEdge);
+	if (!edge || v.dormantTotalTime <= 0.0f) return;
 
-		const auto* edge = simGraph.getEdge(v.currentEdge);
-		if (edge)
-		{
-			const bool fwd = isForwardLane(*edge, v.currentLane);
-			if (fwd)
-				v.arcPos = v.arcPos + fraction * (edge->length - v.arcPos);
-			else
-				v.arcPos = v.arcPos - fraction * v.arcPos;
-
-			v.speed = edge->speedLimit / kKmhToMps * kActivationSpeedFactor;
-		}
-	}
+	// Dormant 中に経過した割合から arcPos を補間する
+	const float fraction = Clamp(
+		(v.dormantTotalTime - v.dormantTimer) / v.dormantTotalTime, 0.0f, 1.0f);
+	const bool fwd = isForwardLane(*edge, v.currentLane);
+	const float target = fwd ? edge->length : 0.0f;
+	v.arcPos = v.arcPos + fraction * (target - v.arcPos);
+	v.speed  = edge->speedLimit / kKmhToMps * kActivationSpeedFactor;
 }
 
 void VehicleManager::deactivateVehicle(Vehicle& v, const SimGraph& simGraph)
@@ -543,21 +549,17 @@ void VehicleManager::deactivateVehicle(Vehicle& v, const SimGraph& simGraph)
 	v.mode = VehicleMode::Dormant;
 
 	const auto* edge = simGraph.getEdge(v.currentEdge);
-	if (edge)
+	if (!edge)
 	{
-		const bool fwd = isForwardLane(*edge, v.currentLane);
-		const float remaining = fwd
-			? (edge->length - v.arcPos)
-			: v.arcPos;
-		const float speedMs = Max(1.0f, edge->speedLimit / kKmhToMps);
-		v.dormantTimer     = remaining / speedMs;
-		v.dormantTotalTime = edge->length / speedMs;
+		v.dormantTimer = v.dormantTotalTime = kDefaultDormantTime;
+		return;
 	}
-	else
-	{
-		v.dormantTimer     = kDefaultDormantTime;
-		v.dormantTotalTime = kDefaultDormantTime;
-	}
+
+	const bool fwd = isForwardLane(*edge, v.currentLane);
+	const float remaining = fwd ? (edge->length - v.arcPos) : v.arcPos;
+	const float speedMs   = Max(1.0f, edge->speedLimit / kKmhToMps);
+	v.dormantTimer     = remaining / speedMs;
+	v.dormantTotalTime = edge->length / speedMs;
 }
 
 // ===== 車線変更 =====

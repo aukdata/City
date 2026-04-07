@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include "../asset/AssetRegistrar.hpp"
 
 /// @brief パネルの状態
 struct PanelState
@@ -58,13 +59,24 @@ public:
 	/// @brief マウスがいずれかの表示中パネル上にあるか
 	[[nodiscard]] bool isMouseOnAnyPanel() const;
 
+	/// @brief 直前の handleInput() でクリックが消費されたか
+	[[nodiscard]] bool consumedInput() const { return m_consumedInput; }
+
+	/// @brief 登録済みパネルのサイズを返す（未登録なら {0,0}）
+	[[nodiscard]] Vec2 getSize(StringView id) const
+	{
+		const auto* p = find(id);
+		return p ? p->size : Vec2{0, 0};
+	}
+
 private:
+	bool   m_consumedInput = false;
 	HashTable<String, PanelState> m_panels;
 	int    m_nextZOrder = 0;
 	String m_draggingId;
 	Vec2   m_dragOffset;
 
-	Font m_titleFont{ FontMethod::MSDF, 14, Typeface::Bold };
+	Font m_titleFont = FontAsset(Asset::PanelBold14);
 
 	PanelState* find(StringView id);
 	const PanelState* find(StringView id) const;

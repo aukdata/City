@@ -104,6 +104,8 @@ private:
 	// 道路描画
 	Optional<int>   m_drawStartNode;
 	Optional<Vec3>  m_cursorGroundPos;
+	RoadEdge        m_drawTemplate;    ///< 設置する道路のテンプレート
+	float           m_drawElevation = 0.0f;  ///< 描画モードの高さオフセット [m]
 
 	// ゾーン塗り
 	ZoneType        m_paintZone     = ZoneType::Residential;
@@ -184,6 +186,8 @@ private:
 	void updateLoading();
 	void drawLoadingScreen(float progress);
 	void startSimThread();
+	/// @brief ローディングフェーズを開始する（共通初期化 + async 起動）
+	void startLoadingPhase(StringView title, StringView status, std::function<void()> pipeline);
 
 	// ---- バックグラウンド生成パイプライン ----
 	void generateAllTerrain();
@@ -193,13 +197,26 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings();
 
-	/// @brief RoadNetwork 変更後に SimGraph を再構築して通知する
-	void notifyNetworkChanged()
+	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
+	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
+	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
 	{
-		m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
+		if (dirtyNodeIds.isEmpty())
+		{
+			// フォールバック: 全再構築
+			m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
+			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
+		}
+		else
+		{
+			// 差分更新
+			auto sg = std::make_shared<SimGraph>(*m_simGraph);
+			sg->updateAround(dirtyNodeIds, m_network);
+			m_simGraph = std::move(sg);
+			m_minimapRenderer.updateRoadOverlayAround(dirtyNodeIds, m_network);
+		}
 		m_simThread.pushRequest(NetworkUpdate{ m_simGraph });
 		m_vehicleManager.onNetworkChanged(*m_simGraph);
-		m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 	}
 
 	// ---- 入力処理 (GameScene_Input.cpp) ----
@@ -212,6 +229,13 @@ private:
 	void handleTrainDraw();
 	void handleSandboxEdit();
 	String modeString() const;
+	/// @brief 道路描画用の制御点を自動計算する
+	std::pair<Vec3, Vec3> calcRoadDrawControlPoints(int startNodeId, Vec3 endPos) const;
+	/// @brief 高架面とのレイ交差でノード/エッジを検索する
+	struct ElevatedHitResult { Optional<int> nodeId; Optional<int> edgeId; };
+	ElevatedHitResult raycastElevated(Vec2 screenPos) const;
+	/// @brief パネルを画面右端に表示するための位置を返す
+	Vec2 panelRightPos(StringView panelId) const;
 
 	// ---- 描画 (GameScene_Render.cpp) ----
 	void renderWorld();
@@ -223,6 +247,7 @@ private:
 
 	// ---- パネル描画 (GameScene_Panels.cpp) ----
 	void drawEdgePanel();
+	void drawDrawTemplatePanel();
 	void drawNodePanel();
 	void drawVehiclePanel();
 	void drawNameListPanel();

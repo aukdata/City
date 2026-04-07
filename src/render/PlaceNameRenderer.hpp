@@ -8,8 +8,6 @@
 class PlaceNameRenderer
 {
 public:
-	PlaceNameRenderer();
-
 	/// @brief 地区地名を描画する（Shader::LinearToScreen の後に呼ぶこと）
 	/// @param settlements  地区リスト（MapGenerator::settlements()）
 	/// @param camera       ゲームカメラ
@@ -17,7 +15,4 @@ public:
 	void render(const Array<MapGenerator::Settlement>& settlements,
 	            const GameCamera& camera,
 	            const World& world) const;
-
-private:
-	Font m_font;
 };

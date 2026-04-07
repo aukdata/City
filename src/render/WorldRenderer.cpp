@@ -1,4 +1,5 @@
 ﻿#include "WorldRenderer.hpp"
+#include "../asset/AssetRegistrar.hpp"
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
 
@@ -6,10 +7,6 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 {
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
-
-	// 草テクスチャを初回のみロードする
-	if (m_grassTexture.isEmpty())
-		m_grassTexture = Texture{ U"assets/textures/grass.png", TextureDesc::MippedSRGB };
 
 	const Vec3 eye = camera.getEyePosition();
 	const int camCx = static_cast<int>(Math::Floor(eye.x / CHUNK_SIZE));
@@ -117,7 +114,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world)
 
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
-	m_meshCache[key].draw(m_grassTexture, ColorF{ 1.0 }.removeSRGBCurve());
+	m_meshCache[key].draw(TextureAsset(Asset::Grass), ColorF{ 1.0 }.removeSRGBCurve());
 	drawCachedBuildings(key);
 }
 

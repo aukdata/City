@@ -54,6 +54,20 @@ Vec3 CubicBezier::tangent(float t) const
 	return d / static_cast<float>(len);
 }
 
+std::pair<CubicBezier, CubicBezier> CubicBezier::split(float t) const
+{
+	const auto lerp = [](Vec3 a, Vec3 b, float u) { return a + (b - a) * u; };
+
+	const Vec3 a = lerp(p0, p1, t);
+	const Vec3 b = lerp(p1, p2, t);
+	const Vec3 c = lerp(p2, p3, t);
+	const Vec3 d = lerp(a, b, t);
+	const Vec3 e = lerp(b, c, t);
+	const Vec3 f = lerp(d, e, t);
+
+	return { CubicBezier{p0, a, d, f}, CubicBezier{f, e, c, p3} };
+}
+
 float CubicBezier::tFromArcLength(float s) const
 {
 	if (s <= 0.0f)

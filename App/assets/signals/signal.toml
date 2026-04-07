@@ -1,0 +1,53 @@
+id = "signal_3lamp"
+name = "3灯式信号機"
+model = "signal.obj"
+
+body_mesh = "body"
+
+[material]
+texture = "signal.png"
+
+[[lamps]]
+mesh = "lamp_0"
+states = ["green", "off"]
+
+[[lamps]]
+mesh = "lamp_1"
+states = ["yellow", "off"]
+
+[[lamps]]
+mesh = "lamp_2"
+states = ["red", "off"]
+
+[sub_lamp]
+mesh = "sub_lamp"
+body_mesh = "sub_body"
+states = ["arrow_left", "arrow_straight", "arrow_right", "off"]
+col_stride = [0.0, 0.0, -0.4]
+row_stride = [0.0, -0.4, 0.0]
+cols = 3
+
+[states.off]
+uv = [0, 0, 922, 0]
+
+[states.red]
+uv = [0, 0, 922, 102]
+
+[states.yellow]
+uv = [0, 0, 922, 205]
+
+[states.green]
+uv = [0, 0, 922, 307]
+
+[states.arrow_left]
+uv = [0, 0, 922, 410]
+
+[states.arrow_straight]
+uv = [0, 0, 922, 512]
+
+[states.arrow_right]
+uv = [0, 0, 922, 614]
+
+[lod]
+mesh_names = ["body", "body_lod1"]
+distances = [300.0]

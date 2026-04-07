@@ -87,6 +87,82 @@ struct SimGraph
 		return g;
 	}
 
+	/// @brief 指定ノード周辺のエッジ・ノードだけ差分更新する
+	void updateAround(const Array<int>& dirtyNodeIds, const RoadNetwork& network)
+	{
+		// 変更ノードに接続するエッジを収集
+		HashSet<int> edgeIds;
+		HashSet<int> nodeIds;
+		for (const int nid : dirtyNodeIds)
+		{
+			nodeIds.insert(nid);
+			const RoadNode* rn = network.getNode(nid);
+			if (rn)
+			{
+				for (const auto& att : rn->attachments)
+				{
+					edgeIds.insert(att.edgeId);
+					const RoadEdge* re = network.getEdge(att.edgeId);
+					if (re)
+					{
+						nodeIds.insert(re->nodeA);
+						nodeIds.insert(re->nodeB);
+					}
+				}
+			}
+			else
+			{
+				// 削除されたノード
+				nodes.erase(nid);
+			}
+		}
+
+		// 古いエッジで、もう RoadNetwork に存在しないものを削除
+		for (auto it = edges.begin(); it != edges.end(); )
+		{
+			if (edgeIds.contains(it->first) && !network.getEdge(it->first))
+				it = edges.erase(it);
+			else
+				++it;
+		}
+
+		// エッジを更新
+		for (const int eid : edgeIds)
+		{
+			const RoadEdge* re = network.getEdge(eid);
+			if (!re) { edges.erase(eid); continue; }
+			Edge se;
+			se.id         = re->id;
+			se.nodeA      = re->nodeA;
+			se.nodeB      = re->nodeB;
+			se.length     = re->length;
+			se.speedLimit = re->speedLimit;
+			se.congestion = re->congestion;
+			se.roadType   = re->roadType;
+			se.parts      = re->parts;
+			se.lanes      = re->lanes;
+			if (const auto bez = network.getBezier(re->id))
+			{
+				se.tangentAngleA = static_cast<float>(Math::Atan2(bez->tangentAt(0.0f).x, bez->tangentAt(0.0f).z));
+				se.tangentAngleB = static_cast<float>(Math::Atan2(bez->tangentAt(bez->totalLength).x, bez->tangentAt(bez->totalLength).z));
+			}
+			edges[eid] = std::move(se);
+		}
+
+		// ノードを更新
+		for (const int nid : nodeIds)
+		{
+			const RoadNode* rn = network.getNode(nid);
+			if (!rn) { nodes.erase(nid); continue; }
+			Node sn;
+			sn.id      = rn->id;
+			sn.edgeIds = rn->edgeIds();
+			for (const auto& att : rn->attachments)
+				sn.edgeControl[att.edgeId] = att.control;
+			nodes[nid] = std::move(sn);
+		}
+	}
+
 	/// @brief 全エッジ ID リストを返す
 	Array<int> edgeIds() const
 	{

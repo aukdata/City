@@ -1,5 +1,30 @@
 ﻿#include "RoadBinary.hpp"
 
+namespace
+{
+	/// @brief 文字列を uint16 長さ + UTF-8 バイト列で書き出す
+	void writeString(BinaryWriter& w, const String& s)
+	{
+		const std::string u8 = s.toUTF8();
+		const uint16 len = static_cast<uint16>(u8.size());
+		w.write(len);
+		if (len > 0) w.write(u8.data(), len);
+	}
+
+	/// @brief writeString と対称に文字列を読み込む
+	bool readString(BinaryReader& r, String& out)
+	{
+		uint16 len = 0;
+		if (!r.read(len)) return false;
+		if (len == 0) { out.clear(); return true; }
+		std::string buf(len, '\0');
+		if (r.read(buf.data(), len) != static_cast<int64>(len)) return false;
+		out = Unicode::FromUTF8(buf);
+		return true;
+	}
+
+}
+
 bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
                        const Array<RoadNode>& nodes,
                        const Array<RoadEdge>& edges)
@@ -75,6 +100,17 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 
 		// v2: useElevation
 		w.write(static_cast<uint8>(e.useElevation ? 1 : 0));
+
+		// v3: parts（道路部品配列）
+		w.write(static_cast<uint32>(e.parts.size()));
+		for (const auto& p : e.parts)
+		{
+			writeString(w, p.defId);
+			w.write(p.width);
+			w.write(p.offset);
+			w.write(static_cast<uint8>(p.build));
+			w.write(static_cast<uint8>(p.type));
+		}
 	}
 
 	return true;
@@ -167,6 +203,26 @@ bool RoadBinary::read(const FilePath& path,
 			uint8 elev;
 			r.read(elev);
 			e.useElevation = (elev != 0);
+		}
+
+		// v3: parts
+		if (version >= 3)
+		{
+			uint32 partCnt;
+			r.read(partCnt);
+			e.parts.clear();
+			e.parts.reserve(partCnt);
+			for (uint32 p = 0; p < partCnt; ++p)
+			{
+				RoadPart part;
+				uint8 bs, pt;
+				if (!readString(r, part.defId)) return false;
+				r.read(part.width);
+				r.read(part.offset);
+				r.read(bs); part.build = static_cast<BuildState>(bs);
+				r.read(pt); part.type  = static_cast<RoadPartType>(pt);
+				e.parts << part;
+			}
 		}
 
 		outEdges << e;
@@ -269,6 +325,18 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 				r.skip(laneCnt * (sizeof(float) * 5 + sizeof(uint8) * 7));
 				// v2: useElevation
 				r.skip(sizeof(uint8));
+				// v3: parts (可変長 defId を含むため実際に読み飛ばす)
+				if (ver2 >= 3)
+				{
+					uint32 partCnt;
+					r.read(partCnt);
+					for (uint32 p = 0; p < partCnt; ++p)
+					{
+						uint16 slen; r.read(slen);
+						r.skip(slen);
+						r.skip(sizeof(float) * 2 + sizeof(uint8) * 2);
+					}
+				}
 			}
 
 			// RoadObject を読み込み

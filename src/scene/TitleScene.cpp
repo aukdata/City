@@ -1,4 +1,5 @@
 ﻿#include "TitleScene.hpp"
+#include "../asset/AssetRegistrar.hpp"
 
 TitleScene::TitleScene(const InitData& init)
 	: IScene{ init }
@@ -55,10 +56,10 @@ void TitleScene::update()
 
 void TitleScene::draw() const
 {
-	static const Font titleFont{ 46, Typeface::Bold };
-	static const Font subFont  { 16 };
-	static const Font labelFont{ 17 };
-	static const Font listFont { 15 };
+	const auto& titleFont = FontAsset(Asset::TitleBold46);
+	const auto& subFont   = FontAsset(Asset::Sub16);
+	const auto& labelFont = FontAsset(Asset::Label17);
+	const auto& listFont  = FontAsset(Asset::List15);
 
 	const int W = Scene::Width();
 	const int H = Scene::Height();

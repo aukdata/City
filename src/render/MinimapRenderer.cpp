@@ -57,11 +57,6 @@ namespace
 	constexpr StringView kPanelId = U"minimap_expanded";
 }
 
-MinimapRenderer::MinimapRenderer()
-	: m_font{ FontMethod::MSDF, 14, Typeface::CJK_Regular_JP }
-{
-}
-
 void MinimapRenderer::buildTerrainTexture(const World& world)
 {
 	m_worldMinX = 0.0f;
@@ -90,34 +85,85 @@ void MinimapRenderer::buildTerrainTexture(const World& world)
 
 void MinimapRenderer::updateRoadOverlay(const RoadNetwork& network, [[maybe_unused]] const World& world)
 {
-	Image img{ kMapSize, kMapSize, Color{ 0, 0, 0, 0 } };
+	m_roadImage = Image{ kMapSize, kMapSize, Color{ 0, 0, 0, 0 } };
 
 	for (const auto& edge : network.edges())
 	{
-		if (edge.id < 0) continue;
-		if (edge.edgeState == EdgeState::Planned) continue;
-
+		if (edge.id < 0 || edge.edgeState == EdgeState::Planned) continue;
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) continue;
 
 		const Color col = roadTypeColor(edge.roadType);
 		constexpr int kSegments = 32;
-
 		for (int i = 0; i < kSegments; ++i)
 		{
-			const float tA = static_cast<float>(i) / kSegments;
-			const float tB = static_cast<float>(i + 1) / kSegments;
-			const Vec3 a = bez->positionAt(bez->totalLength * tA);
-			const Vec3 b = bez->positionAt(bez->totalLength * tB);
-
-			const Point pa = worldToPixel(static_cast<float>(a.x), static_cast<float>(a.z));
-			const Point pb = worldToPixel(static_cast<float>(b.x), static_cast<float>(b.z));
-
-			Line{ pa, pb }.overwrite(img, 1, col);
+			const Vec3 a = bez->positionAt(bez->totalLength * (static_cast<float>(i) / kSegments));
+			const Vec3 b = bez->positionAt(bez->totalLength * (static_cast<float>(i + 1) / kSegments));
+			Line{ worldToPixel(static_cast<float>(a.x), static_cast<float>(a.z)),
+			      worldToPixel(static_cast<float>(b.x), static_cast<float>(b.z)) }
+				.overwrite(m_roadImage, 1, col);
 		}
 	}
 
-	m_roadTex = DynamicTexture{ img };
+	m_roadTex = DynamicTexture{ m_roadImage };
+}
+
+void MinimapRenderer::updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
+                                               const RoadNetwork& network)
+{
+	if (m_roadImage.isEmpty()) return;
+
+	// 変更ノードに接続するエッジを収集
+	HashSet<int> edgeIds;
+	for (const int nid : dirtyNodeIds)
+	{
+		const RoadNode* node = network.getNode(nid);
+		if (!node) continue;
+		for (const auto& att : node->attachments)
+			edgeIds.insert(att.edgeId);
+	}
+
+	// 該当エッジを透明で消去して再描画
+	constexpr int kSegments = 32;
+	const Color clear{ 0, 0, 0, 0 };
+
+	for (const int eid : edgeIds)
+	{
+		const RoadEdge* edge = network.getEdge(eid);
+		if (!edge) continue;
+		const auto bez = network.getBezier(eid);
+		if (!bez) continue;
+
+		// まず透明で消去（太めに3pxで消す）
+		for (int i = 0; i < kSegments; ++i)
+		{
+			const Vec3 a = bez->positionAt(bez->totalLength * (static_cast<float>(i) / kSegments));
+			const Vec3 b = bez->positionAt(bez->totalLength * (static_cast<float>(i + 1) / kSegments));
+			Line{ worldToPixel(static_cast<float>(a.x), static_cast<float>(a.z)),
+			      worldToPixel(static_cast<float>(b.x), static_cast<float>(b.z)) }
+				.overwrite(m_roadImage, 3, clear);
+		}
+	}
+
+	for (const int eid : edgeIds)
+	{
+		const RoadEdge* edge = network.getEdge(eid);
+		if (!edge || edge->edgeState == EdgeState::Planned) continue;
+		const auto bez = network.getBezier(eid);
+		if (!bez) continue;
+
+		const Color col = roadTypeColor(edge->roadType);
+		for (int i = 0; i < kSegments; ++i)
+		{
+			const Vec3 a = bez->positionAt(bez->totalLength * (static_cast<float>(i) / kSegments));
+			const Vec3 b = bez->positionAt(bez->totalLength * (static_cast<float>(i + 1) / kSegments));
+			Line{ worldToPixel(static_cast<float>(a.x), static_cast<float>(a.z)),
+			      worldToPixel(static_cast<float>(b.x), static_cast<float>(b.z)) }
+				.overwrite(m_roadImage, 1, col);
+		}
+	}
+
+	m_roadTex.fill(m_roadImage);
 }
 
 // =============================================================================
@@ -129,7 +175,8 @@ void MinimapRenderer::update(PanelManager& panels)
 	if (m_terrainTex.isEmpty()) return;
 
 	// 小さいミニマップをクリック → 拡大パネルを表示（パネル上のクリックは無視）
-	if (!panels.isVisible(kPanelId) && !panels.isMouseOnAnyPanel() && smallRect().leftClicked())
+	if (!panels.isVisible(kPanelId) && !panels.isMouseOnAnyPanel()
+		&& !panels.consumedInput() && smallRect().leftClicked())
 	{
 		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
 		const Vec2 pos{

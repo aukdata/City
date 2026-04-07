@@ -4,18 +4,21 @@
 #include "../ui/PanelManager.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
+#include "../asset/AssetRegistrar.hpp"
 
 /// @brief 画面右上に表示するミニマップレンダラ
 class MinimapRenderer
 {
 public:
-	MinimapRenderer();
-
 	/// @brief 地形テクスチャを生成する（ロード完了後に1回呼ぶ）
 	void buildTerrainTexture(const World& world);
 
-	/// @brief 道路オーバーレイテクスチャを更新する（道路変更時に呼ぶ）
+	/// @brief 道路オーバーレイテクスチャを全道路から再構築する
 	void updateRoadOverlay(const RoadNetwork& network, const World& world);
+
+	/// @brief 指定ノード周辺の道路オーバーレイだけ差分更新する
+	void updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
+	                              const RoadNetwork& network);
 
 	/// @brief 入力処理（クリックで拡大パネル表示）。毎フレーム render の前に呼ぶ
 	void update(PanelManager& panels);
@@ -36,7 +39,8 @@ private:
 
 	DynamicTexture m_terrainTex;  ///< 地形テクスチャ
 	DynamicTexture m_roadTex;     ///< 道路オーバーレイテクスチャ
-	Font           m_font;        ///< 地名用フォント
+	Image          m_roadImage;   ///< 道路オーバーレイ画像（差分更新用）
+	Font           m_font = FontAsset(Asset::CJK14);  ///< 地名用フォント
 
 	/// @brief ワールド範囲（テクスチャ生成時に確定）
 	float m_worldMinX = 0, m_worldMinZ = 0;

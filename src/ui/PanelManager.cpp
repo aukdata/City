@@ -61,6 +61,8 @@ bool PanelManager::isVisible(StringView id) const
 
 bool PanelManager::handleInput()
 {
+	m_consumedInput = false;
+
 	// ドラッグ中の処理（パネル移動）
 	if (!m_draggingId.isEmpty())
 	{
@@ -68,6 +70,7 @@ bool PanelManager::handleInput()
 		{
 			if (auto* p = find(m_draggingId))
 				p->pos = Cursor::PosF() - m_dragOffset;
+			m_consumedInput = true;
 			return true;
 		}
 		m_draggingId.clear();
@@ -90,6 +93,7 @@ bool PanelManager::handleInput()
 		if (closeRect.mouseOver() && MouseL.down())
 		{
 			p->visible = false;
+			m_consumedInput = true;
 			return true;
 		}
 

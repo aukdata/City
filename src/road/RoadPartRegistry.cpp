@@ -153,9 +153,12 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 		}
 	}
 
-	// テクスチャロード
+	// テクスチャロード（同一パスのアセットは TextureAsset で共有される）
 	if (!def.texturePath.isEmpty() && FileSystem::Exists(def.texturePath))
-		def.texture = Texture{ def.texturePath, TextureDesc::MippedSRGB };
+	{
+		TextureAsset::Register(def.texturePath, def.texturePath, TextureDesc::MippedSRGB);
+		def.texture = TextureAsset(def.texturePath);
+	}
 
 	// OBJ モデルロード
 	RoadPartModel model;

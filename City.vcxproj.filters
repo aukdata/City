@@ -148,6 +148,9 @@
     <Filter Include="Source Files\gen">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000004}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\asset">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-00000000000b}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\railway">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000005}</UniqueIdentifier>
     </Filter>
@@ -209,6 +212,9 @@
     </ClCompile>
     <ClCompile Include="src\gen\PlaceNameGenerator.cpp">
       <Filter>Source Files\gen</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetRegistrar.cpp">
+      <Filter>Source Files\asset</Filter>
     </ClCompile>
     <ClCompile Include="src\railway\TrainNetwork.cpp">
       <Filter>Source Files\railway</Filter>
@@ -979,6 +985,9 @@
     </ClInclude>
     <ClInclude Include="src\gen\RoadPathfinder.hpp">
       <Filter>Source Files\gen</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AssetRegistrar.hpp">
+      <Filter>Source Files\asset</Filter>
     </ClInclude>
     <ClInclude Include="src\railway\TrackTypes.hpp">
       <Filter>Source Files\railway</Filter>
