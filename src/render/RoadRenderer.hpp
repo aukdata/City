@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "../road/RoadNetwork.hpp"
 #include "../road/RoadPartRegistry.hpp"
+#include "../traffic/SignalRegistry.hpp"
+#include "../traffic/TrafficLight.hpp"
 #include "../world/World.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
@@ -29,6 +31,14 @@ public:
 
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
+
+	/// @brief 信号機を描画する
+	void drawSignals(const RoadNetwork& network, const World& world,
+	                 const HashTable<int, TrafficLight>& trafficLights,
+	                 GameTime gameNow, Vec3 cameraPos);
+
+	/// @brief 信号レジストリへのアクセス
+	const SignalRegistry& signalRegistry() const { return m_signalRegistry; }
 
 	/// @brief 直近の render() で可視と判定されたエッジ ID の集合
 	const HashSet<int>& visibleEdges() const { return m_visibleEdges; }
@@ -96,8 +106,23 @@ private:
 	/// @brief ノードのキャップキャッシュ2種を一括消去する
 	void eraseNodeCaches(int nodeId);
 
+	// ---- 信号描画ヘルパー ----
+
+	/// @brief 信号メッシュキャッシュ（メッシュ名 → Mesh）
+	struct SignalMeshCache
+	{
+		HashTable<String, Mesh> meshes;
+	};
+
+	/// @brief 信号定義 ID → メッシュキャッシュ
+	HashTable<String, SignalMeshCache> m_signalMeshCache;
+
+	/// @brief 信号定義のメッシュを取得（キャッシュ付き）
+	const Mesh* getSignalMesh(const String& defId, const String& meshName);
+
 	// ---- メンバ ----
 
+	SignalRegistry                            m_signalRegistry;
 	RoadPartRegistry                          m_partRegistry;
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;   ///< エッジ ID → 部品メッシュ配列
 	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線

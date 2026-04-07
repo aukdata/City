@@ -216,6 +216,7 @@ namespace
 
 bool RoadRenderer::loadAssets()
 {
+	m_signalRegistry.load(U"assets/signals");
 	return m_partRegistry.load(U"assets/road_parts");
 }
 
@@ -350,6 +351,7 @@ void RoadRenderer::invalidateAllCaches()
 	m_nodeCapCache.clear();
 	m_nodeCapLaneCache.clear();
 	m_boundsCache.clear();
+	m_signalMeshCache.clear();
 }
 
 void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& network)
@@ -1626,4 +1628,251 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 	}
 
 	return MeshData{ vertices, indices };
+}
+
+// ---------------------------------------------------------------------------
+// 信号メッシュキャッシュ
+// ---------------------------------------------------------------------------
+
+const Mesh* RoadRenderer::getSignalMesh(const String& defId, const String& meshName)
+{
+	auto& cache = m_signalMeshCache[defId];
+	if (auto it = cache.meshes.find(meshName); it != cache.meshes.end())
+		return &it->second;
+
+	const SignalModel* model = m_signalRegistry.getModel(defId);
+	if (!model) return nullptr;
+
+	auto mit = model->meshes.find(meshName);
+	if (mit == model->meshes.end()) return nullptr;
+
+	const auto& pmd = mit->second;
+	if (pmd.isEmpty()) return nullptr;
+
+	cache.meshes[meshName] = Mesh{ MeshData{ pmd.vertices, pmd.indices } };
+	return &cache.meshes[meshName];
+}
+
+// ---------------------------------------------------------------------------
+// 信号機描画
+// ---------------------------------------------------------------------------
+
+void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
+                               const HashTable<int, TrafficLight>& trafficLights,
+                               GameTime gameNow, Vec3 cameraPos)
+{
+	constexpr double kSignalDrawMaxDistSq = 800.0 * 800.0;
+
+	for (const auto& node : network.nodes())
+	{
+		if (node.id < 0) continue;
+		if (!node.signalPlacement) continue;
+
+		const auto& sp = *node.signalPlacement;
+		const SignalDef* def = m_signalRegistry.getDef(sp.signalDefId);
+		if (!def) continue;
+
+		const SignalModel* model = m_signalRegistry.getModel(sp.signalDefId);
+		if (!model || !model->texture) continue;
+
+		// 距離カリング
+		const double dx = node.position.x - cameraPos.x;
+		const double dz = node.position.z - cameraPos.z;
+		if (dx * dx + dz * dz > kSignalDrawMaxDistSq) continue;
+
+		// 信号機の配置位置を計算
+		const bool elevated = network.isNodeElevated(node.id);
+		const double baseY = elevated
+			? node.position.y + kRoadSurfaceLift
+			: static_cast<double>(world.computeHeight(
+				static_cast<float>(node.position.x),
+				static_cast<float>(node.position.z))) + kRoadSurfaceLift;
+
+		// 各接続エッジから信号の向きを決定
+		// 交差点の各進入方向にそれぞれ信号機を配置する
+		for (const auto& att : node.attachments)
+		{
+			if (att.control != TrafficControl::Signal) continue;
+
+			const RoadEdge* edge = network.getEdge(att.edgeId);
+			if (!edge) continue;
+
+			const auto bez = network.getBezier(att.edgeId);
+			if (!bez) continue;
+
+			// カットオフ位置での接線・位置を求める
+			const bool isNodeA = (edge->nodeA == node.id);
+			const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
+			const Vec3 cutPos = bez->positionAt(cutoffArc);
+			const Vec3 tan = bez->tangentAt(cutoffArc);
+
+			// 信号は車両に向かって正面を向ける（進入方向と逆）
+			const Vec3 faceDir = isNodeA ? tan : Vec3{ -tan.x, -tan.y, -tan.z };
+			const float yaw = static_cast<float>(Math::Atan2(faceDir.x, faceDir.z));
+
+			// 右方向ベクトル（ベジェ接線 tan 基準、A→B 方向の右が正）
+			const Vec3 right{ tan.z, 0.0, -tan.x };
+			const double rLen = right.length();
+			const Vec3 rn = (rLen > 1e-6) ? right / rLen : Vec3{ 1, 0, 0 };
+
+			// 進入車線側の Roadbed 端オフセットを求める
+			// isNodeA: Backward車線が進入 → A→B方向の右側（正のoffset）
+			// !isNodeA: Forward車線が進入 → A→B方向の左側（負のoffset）
+			const bool entryOnRight = !isNodeA;
+			float roadEdgeOffset = 0.0f;
+			bool foundRoadbed = false;
+			for (const auto& part : edge->parts)
+			{
+				if (part.type == RoadPartType::Roadbed)
+				{
+					const float edge_pos = entryOnRight
+						? (part.offset + part.width)  // 右端
+						: part.offset;                 // 左端
+					if (!foundRoadbed)
+					{
+						roadEdgeOffset = edge_pos;
+						foundRoadbed = true;
+					}
+					else
+					{
+						roadEdgeOffset = entryOnRight
+							? Max(roadEdgeOffset, edge_pos)
+							: Min(roadEdgeOffset, edge_pos);
+					}
+				}
+			}
+			if (!foundRoadbed)
+				roadEdgeOffset = entryOnRight
+					? edge->totalWidth() * 0.5f
+					: -edge->totalWidth() * 0.5f;
+
+			const double signalY = elevated
+				? cutPos.y + kRoadSurfaceLift
+				: static_cast<double>(world.computeHeight(
+					static_cast<float>(cutPos.x), static_cast<float>(cutPos.z))) + kRoadSurfaceLift;
+
+			const Vec3 signalPos{
+				cutPos.x - rn.x * roadEdgeOffset,
+				signalY,
+				cutPos.z - rn.z * roadEdgeOffset
+			};
+
+			const Mat4x4 baseMat = Mat4x4::RotateY(yaw)
+				* Mat4x4::Translate(Float3{
+					static_cast<float>(signalPos.x),
+					static_cast<float>(signalPos.y),
+					static_cast<float>(signalPos.z) });
+
+			// 筐体メッシュ描画
+			if (const Mesh* bodyMesh = getSignalMesh(sp.signalDefId, def->bodyMeshName))
+			{
+				PhongMaterial bodyMat;
+				bodyMat.ambientColor = ColorF{ 0.5 };
+				bodyMat.diffuseColor = ColorF{ 1.0 };
+				bodyMat.hasDiffuseTexture = true;
+				bodyMesh->draw(baseMat, *model->texture, bodyMat);
+			}
+
+			// 信号状態の判定
+			const auto tlIt = trafficLights.find(node.id);
+			const bool isGreen = tlIt != trafficLights.end()
+				? tlIt->second.isGreen(att.edgeId)
+				: true;
+
+			// 黄信号の判定（フェーズ終了間際）
+			bool isYellow = false;
+			if (tlIt != trafficLights.end())
+			{
+				const float elapsed = tlIt->second.phaseElapsed(gameNow);
+				const float duration = tlIt->second.currentPhaseDuration();
+				// フェーズ終了3秒前は黄信号
+				if (isGreen && duration > 0.0f && (duration - elapsed) < 3.0f)
+					isYellow = true;
+			}
+
+			// メインランプ描画
+			for (size_t li = 0; li < def->lamps.size(); ++li)
+			{
+				const auto& lampDef = def->lamps[li];
+				const Mesh* lampMesh = getSignalMesh(sp.signalDefId, lampDef.meshName);
+				if (!lampMesh) continue;
+
+				// ランプの状態を決定
+				String stateId = U"off";
+				if (lampDef.stateIds.contains(U"green") && isGreen && !isYellow)
+					stateId = U"green";
+				else if (lampDef.stateIds.contains(U"yellow") && isYellow)
+					stateId = U"yellow";
+				else if (lampDef.stateIds.contains(U"red") && !isGreen && !isYellow)
+					stateId = U"red";
+
+				// TextureRegion で状態に応じたテクスチャ領域を描画
+				auto stIt = def->states.find(stateId);
+				if (stIt == def->states.end())
+					stIt = def->states.find(U"off");
+				if (stIt == def->states.end()) continue;
+
+				const auto& state = stIt->second;
+				const TextureRegion texRegion = (*model->texture)(
+					static_cast<int>(state.uvRect.x),
+					static_cast<int>(state.uvRect.y),
+					static_cast<int>(state.uvRect.z),
+					static_cast<int>(state.uvRect.w));
+
+				lampMesh->draw(baseMat, texRegion);
+			}
+
+			// sub_lamp（矢印信号）描画
+			if (def->subLamp && !sp.subLampStates.isEmpty())
+			{
+				const auto& sld = *def->subLamp;
+				const Mesh* subLampMesh = getSignalMesh(sp.signalDefId, sld.meshName);
+				const Mesh* subBodyMesh = getSignalMesh(sp.signalDefId, sld.bodyMeshName);
+
+				for (int si = 0; si < static_cast<int>(sp.subLampStates.size()); ++si)
+				{
+					const int col = si % sld.cols;
+					const int row = si / sld.cols;
+					const Float3 offset{
+						sld.colStride.x * col + sld.rowStride.x * row,
+						sld.colStride.y * col + sld.rowStride.y * row,
+						sld.colStride.z * col + sld.rowStride.z * row
+					};
+
+					const Mat4x4 subMat = Mat4x4::Translate(offset) * baseMat;
+
+					// 矢印灯器筐体
+					if (subBodyMesh)
+					{
+						PhongMaterial sbMat;
+						sbMat.ambientColor = ColorF{ 0.5 };
+						sbMat.diffuseColor = ColorF{ 1.0 };
+						sbMat.hasDiffuseTexture = true;
+						subBodyMesh->draw(subMat, *model->texture, sbMat);
+					}
+
+					// 矢印ランプ
+					if (subLampMesh)
+					{
+						const String& stateId = sp.subLampStates[si];
+						const bool subLit = isGreen && stateId != U"off";
+						const String renderStateId = subLit ? stateId : U"off";
+
+						auto renderStIt = def->states.find(renderStateId);
+						if (renderStIt == def->states.end()) continue;
+						const auto& renderState = renderStIt->second;
+
+						const TextureRegion texRegion = (*model->texture)(
+							static_cast<int>(renderState.uvRect.x),
+							static_cast<int>(renderState.uvRect.y),
+							static_cast<int>(renderState.uvRect.z),
+							static_cast<int>(renderState.uvRect.w));
+
+						subLampMesh->draw(subMat, texRegion);
+					}
+				}
+			}
+		}
+	}
 }

@@ -130,6 +130,10 @@ void GameScene::renderScene3D()
 	m_worldRenderer.render(m_world, m_camera.camera3D());
 	m_roadRenderer.render(m_network, m_world, frustum,
 	                     m_camera.camera3D().getEyePosition());
+	m_roadRenderer.drawSignals(m_network, m_world,
+	                           m_vehicleManager.trafficLights(),
+	                           m_clock.now,
+	                           m_camera.camera3D().getEyePosition());
 }
 
 // =============================================================================

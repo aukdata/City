@@ -28,6 +28,21 @@ public:
 
 	int nodeId() const { return m_nodeId; }
 
+	/// @brief 現在のフェーズインデックスを返す
+	int currentPhaseIndex() const { return m_currentPhase; }
+
+	/// @brief フェーズ数を返す
+	int phaseCount() const { return static_cast<int>(m_phases.size()); }
+
+	/// @brief 現在のフェーズで青になっているエッジ ID リストを返す
+	const Array<int>& currentGreenEdges() const;
+
+	/// @brief 現在のフェーズの経過時間 [ゲーム秒] を返す
+	float phaseElapsed(GameTime gameNow) const;
+
+	/// @brief 現在のフェーズの持続時間を返す
+	float currentPhaseDuration() const;
+
 private:
 	int                m_nodeId;
 	Array<SignalPhase> m_phases;

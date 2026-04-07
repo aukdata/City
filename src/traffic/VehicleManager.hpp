@@ -50,6 +50,9 @@ public:
 	/// @brief 信号機の再構築を要求する（TrafficControl 変更時に呼ぶ）
 	void markLightsDirty() { m_lightsDirty = true; }
 
+	/// @brief 信号機マップを返す（描画用）
+	const HashTable<int, TrafficLight>& trafficLights() const { return m_trafficLights; }
+
 private:
 	Array<Vehicle> m_vehicles;
 	int            m_nextId = 0;

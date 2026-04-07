@@ -83,6 +83,19 @@ void GameScene::handleInput()
 		return;
 	}
 
+	// ---- F3 コマンド ----
+	if (KeyF3.pressed())
+	{
+		if (KeyR.down())
+		{
+			Console << U"[Reload] Reloading all assets...";
+			m_roadRenderer.loadAssets();
+			m_roadRenderer.invalidateAllCaches();
+			Console << U"[Reload] Done.";
+		}
+		return;  // F3 押下中は通常操作を無効化
+	}
+
 	if (KeySpace.down())
 	{
 		if (m_clock.speed == TimeSpeed::Paused)

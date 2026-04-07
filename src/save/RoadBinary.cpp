@@ -57,7 +57,25 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		w.write(static_cast<float>(n.position.z));
 		w.write(static_cast<uint8>(n.type));
 		w.write(static_cast<uint32>(n.attachments.size()));
-		for (const auto& att : n.attachments) w.write(att.edgeId);
+		for (const auto& att : n.attachments)
+		{
+			w.write(att.edgeId);
+			w.write(att.lateralOffset);
+			w.write(static_cast<uint8>(att.isThrough ? 1 : 0));
+			w.write(static_cast<uint8>(att.control));
+		}
+
+		// v4: SignalPlacement
+		const bool hasSignal = n.signalPlacement.has_value();
+		w.write(static_cast<uint8>(hasSignal ? 1 : 0));
+		if (hasSignal)
+		{
+			const auto& sp = *n.signalPlacement;
+			writeString(w, sp.signalDefId);
+			w.write(static_cast<uint32>(sp.subLampStates.size()));
+			for (const auto& s : sp.subLampStates) writeString(w, s);
+			w.write(sp.yawOffset);
+		}
 	}
 
 	// ---- RoadEdge レコード ----
@@ -127,7 +145,11 @@ bool RoadBinary::read(const FilePath& path,
 	uint32 magic;
 	if (!r.read(magic) || magic != kMagic) return false;
 	uint16 version;
-	if (!r.read(version) || version > kVersion) return false;
+	if (!r.read(version) || version != kVersion)
+	{
+		Console << U"[RoadBinary] Unsupported save version: " << version << U" (expected " << kVersion << U")";
+		return false;
+	}
 
 	int32  cx, cy;
 	r.read(cx); r.read(cy);
@@ -148,9 +170,38 @@ bool RoadBinary::read(const FilePath& path,
 		n.position = Vec3{ px, py, pz };
 		r.read(type); n.type = static_cast<NodeType>(type);
 		r.read(edgeCnt);
-		// edgeIds は読み飛ばす（addEdgeRaw で再構築するためクリア）
-		for (uint32 j = 0; j < edgeCnt; ++j) { int dummy; r.read(dummy); }
-		n.attachments.clear();
+
+		// attachment の全フィールドを読む
+		for (uint32 j = 0; j < edgeCnt; ++j)
+		{
+			EdgeAttachment att;
+			r.read(att.edgeId);
+			r.read(att.lateralOffset);
+			uint8 isThrough, ctrl;
+			r.read(isThrough); att.isThrough = (isThrough != 0);
+			r.read(ctrl); att.control = static_cast<TrafficControl>(ctrl);
+			n.attachments << att;
+		}
+
+		// SignalPlacement
+		{
+			uint8 hasSignal;
+			if (r.read(hasSignal) && hasSignal != 0)
+			{
+				SignalPlacement sp;
+				if (!readString(r, sp.signalDefId)) return false;
+				uint32 subCnt;
+				r.read(subCnt);
+				for (uint32 j = 0; j < subCnt; ++j)
+				{
+					String s;
+					if (!readString(r, s)) return false;
+					sp.subLampStates << s;
+				}
+				r.read(sp.yawOffset);
+				n.signalPlacement = std::move(sp);
+			}
+		}
 
 		outNodes << n;
 	}
@@ -197,16 +248,14 @@ bool RoadBinary::read(const FilePath& path,
 		}
 		e.laneVehicles = Array<Array<int>>(e.lanes.size());
 
-		// v2: useElevation
-		if (version >= 2)
+		// useElevation
 		{
 			uint8 elev;
 			r.read(elev);
 			e.useElevation = (elev != 0);
 		}
 
-		// v3: parts
-		if (version >= 3)
+		// parts
 		{
 			uint32 partCnt;
 			r.read(partCnt);
@@ -265,100 +314,95 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 	Array<RoadEdge> edges;
 	if (!read(path, nodes, edges)) return false;
 
+	// attachment 情報を退避（addEdgeRaw がデフォルト attachment で上書きするため）
+	HashTable<int, Array<EdgeAttachment>> savedAttachments;
+	for (const auto& n : nodes)
+		if (!n.attachments.isEmpty())
+			savedAttachments[n.id] = n.attachments;
+
+	for (auto& n : nodes) n.attachments.clear();
 	for (const auto& n : nodes) network.addNodeRaw(n);
 	for (const auto& e : edges) network.addEdgeRaw(e);
 
-	// RoadObject を読み込む（v2 以降）
-	// read() がファイルを閉じた後に残りを読む
-	BinaryReader r{ path };
-	if (r)
+	// 保存した attachment 情報を復元
+	for (const auto& [nid, atts] : savedAttachments)
 	{
-		// ヘッダーをスキップして残りのデータ位置を計算
-		// → 簡易方式: ファイル末尾から objects を読む
-		// read() が version >= 2 なら objects が存在する
-
-		// ヘッダーの version をチェック
-		r.setPos(4);  // magic の後
-		uint16 version;
-		r.read(version);
-
-		if (version >= 2)
+		RoadNode* node = network.getNode(nid);
+		if (!node) continue;
+		for (const auto& saved : atts)
 		{
-			// read() でファイル末尾まで読んだ位置を再現するのは難しいため、
-			// ファイル末尾からオブジェクト数を読む方式は使えない。
-			// 代わりに、全レコードを再度走査してオブジェクト開始位置を見つける。
-			// → もっとシンプルに: read() 後のストリーム位置を使う。
-			// ただし read() は BinaryReader を閉じるため、再度開いて先頭から走査する。
-
-			// 簡易実装: ファイル全体を再度開いて、ヘッダー+ノード+エッジをスキップ
-			r.setPos(0);
-			uint32 magic2;
-			r.read(magic2);
-			uint16 ver2;
-			r.read(ver2);
-			int32 cx2, cy2;
-			r.read(cx2); r.read(cy2);
-			uint32 nc2, ec2, pc2, lc2;
-			r.read(nc2); r.read(ec2); r.read(pc2); r.read(lc2);
-
-			// ノードをスキップ
-			for (uint32 i = 0; i < nc2; ++i)
+			if (auto* att = node->getAttachment(saved.edgeId))
 			{
-				r.skip(sizeof(int32) + sizeof(float) * 3 + sizeof(uint8));
-				uint32 attCnt;
-				r.read(attCnt);
-				r.skip(attCnt * sizeof(int32));
+				att->lateralOffset = saved.lateralOffset;
+				att->isThrough     = saved.isThrough;
+				att->control       = saved.control;
 			}
+		}
+	}
 
-			// エッジをスキップ
-			for (uint32 i = 0; i < ec2; ++i)
-			{
-				// id, nodeA, nodeB, ctrlA(3f), ctrlB(3f), roadType,
-				// speedLimit, length, planId, cutoffA, cutoffB,
-				// edgeState, borderNodeA, borderNodeB
-				r.skip(sizeof(int32) * 3 + sizeof(float) * 6 + sizeof(uint8) +
-				       sizeof(float) * 3 + sizeof(float) * 2 +
-				       sizeof(uint8) + sizeof(int32) * 2);
-				uint32 laneCnt;
-				r.read(laneCnt);
-				// 各レーン: 5 float + 7 uint8
-				r.skip(laneCnt * (sizeof(float) * 5 + sizeof(uint8) * 7));
-				// v2: useElevation
-				r.skip(sizeof(uint8));
-				// v3: parts (可変長 defId を含むため実際に読み飛ばす)
-				if (ver2 >= 3)
-				{
-					uint32 partCnt;
-					r.read(partCnt);
-					for (uint32 p = 0; p < partCnt; ++p)
-					{
-						uint16 slen; r.read(slen);
-						r.skip(slen);
-						r.skip(sizeof(float) * 2 + sizeof(uint8) * 2);
-					}
-				}
-			}
+	// RoadObject を読み込む
+	// read() 後にファイルを再度開いてノード+エッジをスキップする
+	BinaryReader r{ path };
+	if (!r) return true;
 
-			// RoadObject を読み込み
-			uint32 objCount;
-			if (r.read(objCount))
-			{
-				for (uint32 i = 0; i < objCount; ++i)
-				{
-					RoadObject obj;
-					r.read(obj.id);
-					r.read(obj.parentEdgeId);
-					r.read(obj.arcPos);
-					r.read(obj.lateralOffset);
-					uint8 objType;
-					r.read(objType);
-					obj.type = static_cast<RoadObjectType>(objType);
-					r.read(obj.scale);
-					r.read(obj.yawOffset);
-					r.read(obj.heightOverride);
-					network.addObject(obj);
-				}
-			}
+	// ヘッダーをスキップ
+	r.setPos(0);
+	uint32 magic2; r.read(magic2);
+	uint16 ver2;   r.read(ver2);
+	int32 cx2, cy2; r.read(cx2); r.read(cy2);
+	uint32 nc2, ec2, pc2, lc2;
+	r.read(nc2); r.read(ec2); r.read(pc2); r.read(lc2);
+
+	// ノードをスキップ
+	for (uint32 i = 0; i < nc2; ++i)
+	{
+		r.skip(sizeof(int32) + sizeof(float) * 3 + sizeof(uint8));
+		uint32 attCnt; r.read(attCnt);
+		r.skip(attCnt * (sizeof(int32) + sizeof(float) + sizeof(uint8) * 2));
+		uint8 hasSig; r.read(hasSig);
+		if (hasSig != 0)
+		{
+			uint16 slen; r.read(slen); r.skip(slen);
+			uint32 subCnt; r.read(subCnt);
+			for (uint32 j = 0; j < subCnt; ++j) { uint16 sl2; r.read(sl2); r.skip(sl2); }
+			r.skip(sizeof(float));
+		}
+	}
+
+	// エッジをスキップ
+	for (uint32 i = 0; i < ec2; ++i)
+	{
+		r.skip(sizeof(int32) * 3 + sizeof(float) * 6 + sizeof(uint8) +
+		       sizeof(float) * 3 + sizeof(float) * 2 +
+		       sizeof(uint8) + sizeof(int32) * 2);
+		uint32 laneCnt; r.read(laneCnt);
+		r.skip(laneCnt * (sizeof(float) * 5 + sizeof(uint8) * 7));
+		r.skip(sizeof(uint8));  // useElevation
+		uint32 partCnt; r.read(partCnt);
+		for (uint32 p = 0; p < partCnt; ++p)
+		{
+			uint16 slen; r.read(slen); r.skip(slen);
+			r.skip(sizeof(float) * 2 + sizeof(uint8) * 2);
+		}
+	}
+
+	// RoadObject を読み込み
+	uint32 objCount;
+	if (r.read(objCount))
+	{
+		for (uint32 i = 0; i < objCount; ++i)
+		{
+			RoadObject obj;
+			r.read(obj.id);
+			r.read(obj.parentEdgeId);
+			r.read(obj.arcPos);
+			r.read(obj.lateralOffset);
+			uint8 objType; r.read(objType);
+			obj.type = static_cast<RoadObjectType>(objType);
+			r.read(obj.scale);
+			r.read(obj.yawOffset);
+			r.read(obj.heightOverride);
+			network.addObject(obj);
 		}
 	}
 

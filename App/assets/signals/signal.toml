@@ -27,26 +27,41 @@ col_stride = [0.0, 0.0, -0.4]
 row_stride = [0.0, -0.4, 0.0]
 cols = 3
 
-[states.off]
-uv = [0, 0, 922, 0]
+# uv = [x, y, w, h] ピクセル座標 (左上原点)
+[[state]]
+id = "off"
+uv = [0, 920, 102, 104]
+emission = [0.05, 0.05, 0.05]
 
-[states.red]
-uv = [0, 0, 922, 102]
+[[state]]
+id = "red"
+uv = [102, 920, 102, 104]
+emission = [1.0, 0.0, 0.0]
 
-[states.yellow]
-uv = [0, 0, 922, 205]
+[[state]]
+id = "yellow"
+uv = [204, 920, 102, 104]
+emission = [1.0, 0.8, 0.0]
 
-[states.green]
-uv = [0, 0, 922, 307]
+[[state]]
+id = "green"
+uv = [306, 920, 102, 104]
+emission = [0.0, 1.0, 0.3]
 
-[states.arrow_left]
-uv = [0, 0, 922, 410]
+[[state]]
+id = "arrow_left"
+uv = [408, 920, 102, 104]
+emission = [0.0, 1.0, 0.3]
 
-[states.arrow_straight]
-uv = [0, 0, 922, 512]
+[[state]]
+id = "arrow_straight"
+uv = [510, 920, 102, 104]
+emission = [0.0, 1.0, 0.3]
 
-[states.arrow_right]
-uv = [0, 0, 922, 614]
+[[state]]
+id = "arrow_right"
+uv = [612, 920, 102, 104]
+emission = [0.0, 1.0, 0.3]
 
 [lod]
 mesh_names = ["body", "body_lod1"]

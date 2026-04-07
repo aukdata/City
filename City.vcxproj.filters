@@ -282,6 +282,9 @@
     <ClCompile Include="src\traffic\TrafficLight.cpp">
       <Filter>Source Files\traffic</Filter>
     </ClCompile>
+    <ClCompile Include="src\traffic\SignalRegistry.cpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClCompile>
     <ClCompile Include="src\ui\Camera.cpp">
       <Filter>Source Files\ui</Filter>
     </ClCompile>
@@ -1074,6 +1077,9 @@
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\TrafficLight.hpp">
+      <Filter>Source Files\traffic</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\SignalRegistry.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\TrafficCommon.hpp">

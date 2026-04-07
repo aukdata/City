@@ -32,6 +32,24 @@ bool TrafficLight::isGreen(int fromEdgeId) const
 	return false;
 }
 
+const Array<int>& TrafficLight::currentGreenEdges() const
+{
+	static const Array<int> empty;
+	if (m_phases.isEmpty()) return empty;
+	return m_phases[m_currentPhase].greenEdgeIds;
+}
+
+float TrafficLight::phaseElapsed(GameTime gameNow) const
+{
+	return static_cast<float>(gameNow - m_phaseStart);
+}
+
+float TrafficLight::currentPhaseDuration() const
+{
+	if (m_phases.isEmpty()) return 0.0f;
+	return m_phases[m_currentPhase].duration;
+}
+
 float TrafficLight::expectedWaitTime(int fromEdgeId) const
 {
 	if (m_phases.isEmpty()) return 0.0f;

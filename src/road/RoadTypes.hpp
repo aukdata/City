@@ -351,6 +351,16 @@ struct LaneConnection
 	CubicBezier path;              ///< 交差点内の旋回ベジェ曲線
 };
 
+// ===== 信号配置 =====
+
+/// @brief ノードに設置された信号機の配置情報
+struct SignalPlacement
+{
+	String signalDefId;          ///< SignalRegistry の定義 ID
+	Array<String> subLampStates; ///< sub_lamp の各ランプの状態 ID（個数で複製数を決定）
+	float yawOffset = 0.0f;      ///< Y 軸回転オフセット [rad]
+};
+
 // ===== RoadNode =====
 
 /// @brief 道路ノード（端点・継ぎ目・交差点・分岐合流）
@@ -364,6 +374,9 @@ struct RoadNode
 	Array<EdgeAttachment>  attachments;
 	Array<LaneConnection>  laneConnections;  ///< 交差点の車線接続リスト
 	int                    nextConnectionId = 0;
+
+	/// @brief 信号機の配置情報（none = 信号なし）
+	Optional<SignalPlacement> signalPlacement;
 
 	/// @brief 接続エッジ ID 一覧を返す（旧 edgeIds 互換）
 	[[nodiscard]] Array<int> edgeIds() const

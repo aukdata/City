@@ -747,6 +747,110 @@ void GameScene::drawNodePanel()
 		}
 	}
 
+	// Signal セクション（TrafficControl::Signal のエッジがあれば表示）
+	{
+		bool hasSignalEdge = false;
+		for (const auto& att : node->attachments)
+			if (att.control == TrafficControl::Signal) { hasSignalEdge = true; break; }
+
+		if (hasSignalEdge)
+		{
+			y += 4;
+			static bool sigCollapsed = false;
+			constexpr int kSectionW = 300;
+
+			if (PanelWidget::section(pBold, U"Signal", sigCollapsed, pX, y, kSectionW, kLH))
+			{
+				// 信号設置トグル
+				const bool hasPlacement = node->signalPlacement.has_value();
+				bool enabled = hasPlacement;
+				if (PanelWidget::toggle(pFont, U"SIGNAL", U"signal", enabled, pX, y, 80, kLH))
+				{
+					if (enabled && !hasPlacement)
+					{
+						// デフォルトの信号を設置
+						const auto defIds = m_roadRenderer.signalRegistry().defIds();
+						if (!defIds.isEmpty())
+						{
+							SignalPlacement sp;
+							sp.signalDefId = defIds[0];
+							node->signalPlacement = sp;
+							dirty = true;
+						}
+					}
+					else if (!enabled && hasPlacement)
+					{
+						node->signalPlacement = none;
+						dirty = true;
+					}
+				}
+				y += kLH + 2;
+
+				if (node->signalPlacement)
+				{
+					auto& sp = *node->signalPlacement;
+					PanelWidget::label(pFont, U"Def: {}"_fmt(sp.signalDefId), pX, y, ColorF{ 0.8 });
+					y += kLH;
+
+					// sub_lamp 管理
+					const SignalDef* sigDef = m_roadRenderer.signalRegistry().getDef(sp.signalDefId);
+					if (sigDef && sigDef->subLamp)
+					{
+						PanelWidget::label(pFont, U"Arrows: {}"_fmt(sp.subLampStates.size()), pX, y, ColorF{ 0.8 });
+
+						// 矢印追加ボタン
+						if (PanelWidget::button(pFont, U"+", false, pX + 80, y, 20, kLH, U"Add arrow lamp"))
+						{
+							const auto& states = sigDef->subLamp->stateIds;
+							if (!states.isEmpty())
+							{
+								// "off"以外の最初の状態をデフォルトに
+								String defaultState = U"off";
+								for (const auto& s : states)
+									if (s != U"off") { defaultState = s; break; }
+								sp.subLampStates << defaultState;
+								dirty = true;
+							}
+						}
+						// 矢印削除ボタン
+						if (!sp.subLampStates.isEmpty())
+						{
+							if (PanelWidget::button(pFont, U"-", false, pX + 104, y, 20, kLH, U"Remove last arrow lamp"))
+							{
+								sp.subLampStates.pop_back();
+								dirty = true;
+							}
+						}
+						y += kLH + 2;
+
+						// 各矢印の状態サイクル
+						static constexpr StringView arrowNames[] = {
+							U"arrow_left", U"arrow_straight", U"arrow_right", U"off"
+						};
+						for (int si = 0; si < static_cast<int>(sp.subLampStates.size()); ++si)
+						{
+							PanelWidget::label(pFont, U"[{}]"_fmt(si), pX, y, ColorF{ 0.7 });
+
+							// 状態サイクルボタン
+							const String& cur = sp.subLampStates[si];
+							if (PanelWidget::button(pFont, cur, false, pX + 24, y, 100, kLH, U"Cycle arrow state"))
+							{
+								// 次の状態にサイクル
+								const auto& states = sigDef->subLamp->stateIds;
+								int idx = -1;
+								for (int k = 0; k < static_cast<int>(states.size()); ++k)
+									if (states[k] == cur) { idx = k; break; }
+								sp.subLampStates[si] = states[(idx + 1) % static_cast<int>(states.size())];
+								dirty = true;
+							}
+							y += kLH;
+						}
+					}
+				}
+			}
+		}
+	}
+
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"node_info", y);
 

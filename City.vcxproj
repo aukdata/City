@@ -130,6 +130,7 @@
     <ClCompile Include="src\traffic\VehicleManager.cpp" />
     <ClCompile Include="src\traffic\TrafficGraph.cpp" />
     <ClCompile Include="src\traffic\TrafficLight.cpp" />
+    <ClCompile Include="src\traffic\SignalRegistry.cpp" />
     <ClCompile Include="src\ui\Camera.cpp" />
     <ClCompile Include="src\render\WorldRenderer.cpp" />
     <ClCompile Include="src\render\RoadRenderer.cpp" />
@@ -370,6 +371,7 @@
     <ClInclude Include="src\traffic\Vehicle.hpp" />
     <ClInclude Include="src\traffic\TrafficGraph.hpp" />
     <ClInclude Include="src\traffic\TrafficLight.hpp" />
+    <ClInclude Include="src\traffic\SignalRegistry.hpp" />
     <ClInclude Include="src\traffic\TrafficCommon.hpp" />
     <ClInclude Include="src\traffic\BusRoute.hpp" />
     <ClInclude Include="src\ui\PanelWidget.hpp" />
