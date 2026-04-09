@@ -23,7 +23,7 @@ states = ["red", "off"]
 mesh = "sub_lamp"
 body_mesh = "sub_body"
 states = ["arrow_left", "arrow_straight", "arrow_right", "off"]
-col_stride = [0.0, 0.0, -0.4]
+col_stride = [-0.4, 0.0, 0.0]
 row_stride = [0.0, -0.4, 0.0]
 cols = 3
 

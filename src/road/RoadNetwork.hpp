@@ -76,6 +76,10 @@ public:
 	/// @brief テンプレートの属性（speedLimit/parts/lanes）をエッジにコピーする
 	void applyEdgeTemplate(int edgeId, const RoadEdge& tmpl);
 
+	/// @brief 2本のエッジを持つノードを溶解し、1本のエッジに統合する
+	/// @return 統合後のエッジ ID。失敗時 none
+	Optional<int> dissolveNode(int nodeId);
+
 	/// @brief エッジを弧長位置で2分割し、分割点に新ノードを作成する
 	/// @param edgeId  分割対象エッジ
 	/// @param arcLength 分割する弧長位置 [m]

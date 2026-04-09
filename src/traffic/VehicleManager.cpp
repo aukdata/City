@@ -130,7 +130,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 	if (m_lightsDirty)
 	{
-		buildTrafficLights(simGraph);
+		buildTrafficLights(simGraph, &network);
 		m_lightsDirty = false;
 	}
 	updateTrafficLights(gameNow);
@@ -611,7 +611,7 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 
 // ===== 信号機 =====
 
-void VehicleManager::buildTrafficLights(const SimGraph& simGraph)
+void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetwork* network)
 {
 	m_trafficLights.clear();
 	for (const auto& [nid, node] : simGraph.nodes)
@@ -621,11 +621,29 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph)
 		{
 			const auto it = node.edgeControl.find(eid);
 			if (it != node.edgeControl.end() && it->second == TrafficControl::Signal)
+			{
 				if (simGraph.getEdge(eid)) signalEdges << eid;
+			}
 		}
 		if (static_cast<int>(signalEdges.size()) < kMinEdgesForSignal) continue;
 
-		auto phases = buildTwoGroupPhases(signalEdges);
+		// ユーザー定義フェーズがあればそれを使う
+		Array<SignalPhase> phases;
+		const RoadNode* rn = network ? network->getNode(nid) : nullptr;
+		if (rn && rn->signalPlacement && !rn->signalPlacement->phases.isEmpty())
+		{
+			for (const auto& pd : rn->signalPlacement->phases)
+			{
+				SignalPhase sp;
+				sp.duration = pd.duration;
+				sp.greenEdgeIds = pd.greenEdgeIds;
+				phases << std::move(sp);
+			}
+		}
+		else
+		{
+			phases = buildTwoGroupPhases(signalEdges);
+		}
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
 	}
 }

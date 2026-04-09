@@ -628,6 +628,40 @@ bool RoadNetwork::spreadIntersectionTangents()
 	return adjustedNodes > 0;
 }
 
+Optional<int> RoadNetwork::dissolveNode(int nodeId)
+{
+	RoadNode* mid = getNode(nodeId);
+	if (!mid || mid->attachments.size() != 2) return none;
+
+	const int eid0 = mid->attachments[0].edgeId;
+	const int eid1 = mid->attachments[1].edgeId;
+	RoadEdge* e0 = getEdge(eid0);
+	RoadEdge* e1 = getEdge(eid1);
+	if (!e0 || !e1) return none;
+
+	// e0 の「中間ノードでない側」が新エッジの nodeA
+	const int farA = (e0->nodeA == nodeId) ? e0->nodeB : e0->nodeA;
+	// e1 の「中間ノードでない側」が新エッジの nodeB
+	const int farB = (e1->nodeA == nodeId) ? e1->nodeB : e1->nodeA;
+	if (farA == farB) return none;
+
+	// 制御点: farA 側は e0 の farA 側制御点、farB 側は e1 の farB 側制御点
+	const Vec3 ctrlA = (e0->nodeA == nodeId) ? e0->ctrlB : e0->ctrlA;
+	const Vec3 ctrlB = (e1->nodeA == nodeId) ? e1->ctrlB : e1->ctrlA;
+
+	// 属性は e0 から引き継ぐ
+	const RoadType rt = e0->roadType;
+	const int numLanes = static_cast<int>(e0->lanes.size());
+
+	// 旧エッジ・ノードを削除
+	removeEdge(eid0);
+	removeEdge(eid1);
+	removeNode(nodeId);
+
+	// 統合エッジを追加
+	return addEdge(farA, farB, ctrlA, ctrlB, rt, numLanes);
+}
+
 void RoadNetwork::smoothCurveAt(int newEdgeId, int midNodeId)
 {
 	const RoadNode* midNode = getNode(midNodeId);

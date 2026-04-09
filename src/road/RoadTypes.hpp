@@ -353,12 +353,22 @@ struct LaneConnection
 
 // ===== 信号配置 =====
 
+/// @brief 信号フェーズ（永続化用）
+struct SignalPhaseDef
+{
+	float      duration = 30.0f;   ///< フェーズ持続時間 [ゲーム秒]
+	Array<int> greenEdgeIds;       ///< このフェーズで青になる進入エッジ ID リスト
+};
+
 /// @brief ノードに設置された信号機の配置情報
 struct SignalPlacement
 {
 	String signalDefId;          ///< SignalRegistry の定義 ID
-	Array<String> subLampStates; ///< sub_lamp の各ランプの状態 ID（個数で複製数を決定）
+	/// @brief edgeId → sub_lamp 状態リスト（方向ごとに矢印信号を個別設定）
+	HashTable<int, Array<String>> subLampStates;
 	float yawOffset = 0.0f;      ///< Y 軸回転オフセット [rad]
+	/// @brief ユーザー定義の信号フェーズ（空なら自動生成）
+	Array<SignalPhaseDef> phases;
 };
 
 // ===== RoadNode =====

@@ -1838,21 +1838,67 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 				lampMesh->draw(baseMat, texRegion);
 			}
 
-			// sub_lamp（矢印信号）描画
-			if (def->subLamp && !sp.subLampStates.isEmpty())
+			// sub_lamp（矢印信号）描画 — edgeId 別
+			// 状態IDから配置列を決定（arrow_left=0, arrow_straight=1, arrow_right=2）
+			const auto subIt = sp.subLampStates.find(att.edgeId);
+			if (def->subLamp && subIt != sp.subLampStates.end() && !subIt->second.isEmpty())
 			{
 				const auto& sld = *def->subLamp;
+				const auto& edgeSubStates = subIt->second;
 				const Mesh* subLampMesh = getSignalMesh(sp.signalDefId, sld.meshName);
 				const Mesh* subBodyMesh = getSignalMesh(sp.signalDefId, sld.bodyMeshName);
 
-				for (int si = 0; si < static_cast<int>(sp.subLampStates.size()); ++si)
+				// 状態IDごとの優先列（arrow_left=0, arrow_straight=1, arrow_right=2）
+				static const HashTable<String, int> kPreferredCol = {
+					{ U"arrow_left", 0 },
+					{ U"arrow_straight", 1 },
+					{ U"arrow_right", 2 },
+				};
+
+				// 優先列順にソートして配置（同優先列なら出現順）
+				Array<std::pair<int, int>> sorted; // {preferredCol, stateIndex}
+				for (int si = 0; si < static_cast<int>(edgeSubStates.size()); ++si)
 				{
-					const int col = si % sld.cols;
-					const int row = si / sld.cols;
+					const auto pIt = kPreferredCol.find(edgeSubStates[si]);
+					const int pref = (pIt != kPreferredCol.end()) ? pIt->second : 1;
+					sorted.emplace_back(pref, si);
+				}
+				sorted.sort_by([](const auto& a, const auto& b) { return a.first < b.first; });
+
+				// 優先列から空き列を探して配置（前→後の順で探索）
+				HashSet<int> usedCols;
+				Array<std::pair<int, int>> colSlots; // {assignedCol, stateIndex}
+				for (const auto& [pref, si] : sorted)
+				{
+					int col = pref;
+					if (usedCols.contains(col))
+					{
+						// まず前方(pref-1, pref-2, ...)を探し、なければ後方(pref+1, pref+2, ...)
+						bool found = false;
+						for (int c = pref - 1; c >= 0; --c)
+						{
+							if (!usedCols.contains(c)) { col = c; found = true; break; }
+						}
+						if (!found)
+						{
+							for (int c = pref + 1; ; ++c)
+							{
+								if (!usedCols.contains(c)) { col = c; break; }
+							}
+						}
+					}
+					usedCols.insert(col);
+					colSlots.emplace_back(col, si);
+				}
+
+				for (const auto& [col, si] : colSlots)
+				{
+					const int row = col / sld.cols;
+					const int c   = col % sld.cols;
 					const Float3 offset{
-						sld.colStride.x * col + sld.rowStride.x * row,
-						sld.colStride.y * col + sld.rowStride.y * row,
-						sld.colStride.z * col + sld.rowStride.z * row
+						sld.colStride.x * c + sld.rowStride.x * row,
+						sld.colStride.y * c + sld.rowStride.y * row,
+						sld.colStride.z * c + sld.rowStride.z * row
 					};
 
 					const Mat4x4 subMat = Mat4x4::Translate(offset) * baseMat;
@@ -1868,7 +1914,7 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 
 					if (subLampMesh)
 					{
-						const String& stateId = sp.subLampStates[si];
+						const String& stateId = edgeSubStates[si];
 						const bool subLit = isGreen && stateId != U"off";
 						const String renderStateId = subLit ? stateId : U"off";
 

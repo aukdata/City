@@ -13,6 +13,7 @@ namespace
 		return FontAsset(Asset::PanelBold14);
 	}
 
+
 	/// @brief RoadPartType に対するデフォルト defId を返す
 	StringView defaultDefIdForType(RoadPartType type)
 	{
@@ -747,109 +748,125 @@ void GameScene::drawNodePanel()
 		}
 	}
 
-	// Signal セクション（TrafficControl::Signal のエッジがあれば表示）
+	// Dissolve ボタン（接続エッジが2本のときのみ表示）
+	if (node->attachments.size() == 2)
 	{
-		bool hasSignalEdge = false;
-		for (const auto& att : node->attachments)
+		if (PanelWidget::button(pFont, U"Dissolve", false, pX, y, 80, kLH, U"Remove node and merge 2 edges into 1"))
 		{
-			if (att.control == TrafficControl::Signal)
+			const int nid = *m_selectedNodeId;
+			// dissolve 前に隣接ノードを収集
+			Array<int> neighbors;
+			for (const auto& att : node->attachments)
 			{
-				hasSignalEdge = true;
-				break;
+				if (const RoadEdge* e = m_network.getEdge(att.edgeId))
+				{
+					const int other = (e->nodeA == nid) ? e->nodeB : e->nodeA;
+					neighbors << other;
+				}
+			}
+			if (const auto newEdgeId = m_network.dissolveNode(nid))
+			{
+				m_selectedNodeId = none;
+				notifyNetworkChanged(neighbors);
 			}
 		}
+		y += kLH + 4;
+	}
 
-		if (hasSignalEdge)
+	// Signal セクション
+	{
+		y += 4;
+		const bool hasPlacement = node->signalPlacement.has_value();
+		bool enabled = hasPlacement;
+		PanelWidget::label(pBold, U"Signal", pX, y, ColorF{ 1.0, 1.0, 0.4 });
+		if (PanelWidget::toggle(pFont, U"ON", U"OFF", enabled, pX + 60, y, 50, kLH))
 		{
-			y += 4;
-			static bool sigCollapsed = false;
-			constexpr int kSectionW = 300;
-
-			if (PanelWidget::section(pBold, U"Signal", sigCollapsed, pX, y, kSectionW, kLH))
+			if (enabled && !hasPlacement)
 			{
-				// 信号設置トグル
-				const bool hasPlacement = node->signalPlacement.has_value();
-				bool enabled = hasPlacement;
-				if (PanelWidget::toggle(pFont, U"SIGNAL", U"signal", enabled, pX, y, 80, kLH))
+				const auto defIds = m_roadRenderer.signalRegistry().defIds();
+				if (!defIds.isEmpty())
 				{
-					if (enabled && !hasPlacement)
+					SignalPlacement sp;
+					sp.signalDefId = defIds[0];
+					node->signalPlacement = sp;
+					// 全 Signal エッジの attachment.control を設定
+					for (auto& att : node->attachments)
 					{
-						// デフォルトの信号を設置
-						const auto defIds = m_roadRenderer.signalRegistry().defIds();
-						if (!defIds.isEmpty())
+						att.control = TrafficControl::Signal;
+					}
+					dirty = true;
+				}
+			}
+			else if (!enabled && hasPlacement)
+			{
+				node->signalPlacement = none;
+				for (auto& att : node->attachments)
+				{
+					if (att.control == TrafficControl::Signal)
+					{
+						att.control = TrafficControl::None;
+					}
+				}
+				dirty = true;
+			}
+		}
+		if (hasPlacement)
+		{
+			if (PanelWidget::button(pFont, U"Edit...", false, pX + 120, y, 60, kLH, U"Open signal cycle editor"))
+			{
+				const Vec2 panelSize = m_panelManager.getSize(U"signal_edit");
+				const Vec2 ctr{
+					(Scene::Width() - panelSize.x) * 0.5,
+					(Scene::Height() - panelSize.y) * 0.5
+				};
+				m_panelManager.show(U"signal_edit",
+					U"Signal - Node #{}"_fmt(node->id), ctr);
+			}
+		}
+		y += kLH + 2;
+
+		// 矢印信号の種別選択（方向ごと）
+		if (hasPlacement)
+		{
+			auto& spRef = *node->signalPlacement;
+			const SignalDef* sigDef = m_roadRenderer.signalRegistry().getDef(spRef.signalDefId);
+			if (sigDef && sigDef->subLamp)
+			{
+				static constexpr StringView arrowTypes[] = { U"arrow_left", U"arrow_straight", U"arrow_right" };
+				static constexpr StringView arrowLabels[] = { U"L", U"S", U"R" };
+
+				for (const auto& att : node->attachments)
+				{
+					if (att.control != TrafficControl::Signal) continue;
+					PanelWidget::label(pFont, U"E{}"_fmt(att.edgeId), pX, y, ColorF{ 0.7 });
+
+					auto& states = spRef.subLampStates[att.edgeId];
+					int bx = pX + 36;
+					for (int ai = 0; ai < 3; ++ai)
+					{
+						const String id{ arrowTypes[ai] };
+						bool has = states.contains(id);
+						if (PanelWidget::toggle(pFont, arrowLabels[ai], arrowLabels[ai], has, bx, y, 24, kLH))
 						{
-							SignalPlacement sp;
-							sp.signalDefId = defIds[0];
-							node->signalPlacement = sp;
+							if (has && !states.contains(id))
+							{
+								states << id;
+							}
+							else if (!has)
+							{
+								states.remove(id);
+							}
+							if (states.isEmpty())
+							{
+								spRef.subLampStates.erase(att.edgeId);
+							}
 							dirty = true;
 						}
+						bx += 26;
 					}
-					else if (!enabled && hasPlacement)
-					{
-						node->signalPlacement = none;
-						dirty = true;
-					}
-				}
-				y += kLH + 2;
-
-				if (node->signalPlacement)
-				{
-					auto& sp = *node->signalPlacement;
-					PanelWidget::label(pFont, U"Def: {}"_fmt(sp.signalDefId), pX, y, ColorF{ 0.8 });
 					y += kLH;
-
-					// sub_lamp 管理
-					const SignalDef* sigDef = m_roadRenderer.signalRegistry().getDef(sp.signalDefId);
-					if (sigDef && sigDef->subLamp)
-					{
-						PanelWidget::label(pFont, U"Arrows: {}"_fmt(sp.subLampStates.size()), pX, y, ColorF{ 0.8 });
-
-						// 矢印追加ボタン
-						if (PanelWidget::button(pFont, U"+", false, pX + 80, y, 20, kLH, U"Add arrow lamp"))
-						{
-							const auto& states = sigDef->subLamp->stateIds;
-							if (!states.isEmpty())
-							{
-								// "off"以外の最初の状態をデフォルトに
-								String defaultState = U"off";
-								for (const auto& s : states)
-									if (s != U"off") { defaultState = s; break; }
-								sp.subLampStates << defaultState;
-								dirty = true;
-							}
-						}
-						// 矢印削除ボタン
-						if (!sp.subLampStates.isEmpty())
-						{
-							if (PanelWidget::button(pFont, U"-", false, pX + 104, y, 20, kLH, U"Remove last arrow lamp"))
-							{
-								sp.subLampStates.pop_back();
-								dirty = true;
-							}
-						}
-						y += kLH + 2;
-
-						// 各矢印の状態サイクル
-						for (int si = 0; si < static_cast<int>(sp.subLampStates.size()); ++si)
-						{
-							PanelWidget::label(pFont, U"[{}]"_fmt(si), pX, y, ColorF{ 0.7 });
-
-							// 状態サイクルボタン
-							const String& cur = sp.subLampStates[si];
-							if (PanelWidget::button(pFont, cur, false, pX + 24, y, 100, kLH, U"Cycle arrow state"))
-							{
-								// 次の状態にサイクル
-								const auto& states = sigDef->subLamp->stateIds;
-								int idx = -1;
-								for (int k = 0; k < static_cast<int>(states.size()); ++k)
-									if (states[k] == cur) { idx = k; break; }
-								sp.subLampStates[si] = states[(idx + 1) % static_cast<int>(states.size())];
-								dirty = true;
-							}
-							y += kLH;
-						}
-					}
 				}
+				y += 2;
 			}
 		}
 	}
@@ -985,4 +1002,513 @@ void GameScene::drawVehiclePanel()
 
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"vehicle_info", y);
+}
+
+// ===== 信号サイクル編集パネル =====
+
+namespace
+{
+	/// @brief LineType に応じた描画色を返す
+	ColorF lineColor(LineType lt)
+	{
+		switch (lt)
+		{
+		case LineType::SolidWhite:  return ColorF{ 1.0, 1.0, 1.0 };
+		case LineType::DashedWhite: return ColorF{ 1.0, 1.0, 1.0 };
+		case LineType::SolidYellow: return ColorF{ 1.0, 0.9, 0.0 };
+		case LineType::DoubleYellow:return ColorF{ 1.0, 0.9, 0.0 };
+		default: return ColorF{ 0.0, 0.0 };
+		}
+	}
+
+	/// @brief RoadPartType に応じた描画色を返す
+	ColorF partColor(RoadPartType type)
+	{
+		switch (type)
+		{
+		case RoadPartType::Roadbed:   return ColorF{ 0.25, 0.25, 0.28 };
+		case RoadPartType::Sidewalk:  return ColorF{ 0.50, 0.48, 0.44 };
+		case RoadPartType::Curb:      return ColorF{ 0.55, 0.53, 0.50 };
+		case RoadPartType::Median:    return ColorF{ 0.35, 0.38, 0.30 };
+		case RoadPartType::Guardrail: return ColorF{ 0.45, 0.45, 0.48 };
+		case RoadPartType::Slope:     return ColorF{ 0.35, 0.45, 0.25 };
+		case RoadPartType::Shoulder:  return ColorF{ 0.30, 0.30, 0.28 };
+		default: return ColorF{ 0.3 };
+		}
+	}
+
+	/// @brief 2D 3次ベジェ補間
+	Vec2 bezier2D(const Vec2& p0, const Vec2& p1, const Vec2& p2, const Vec2& p3, double t)
+	{
+		const double m = 1.0 - t;
+		return p0 * (m * m * m) + p1 * (3 * m * m * t) + p2 * (3 * m * t * t) + p3 * (t * t * t);
+	}
+
+	/// @brief 2D ベジェ帯（内側+外側カーブ）を Polygon 化する
+	Array<Vec2> bezierBand(const Vec2& iP0, const Vec2& iP3, const Vec2& oP0, const Vec2& oP3,
+	                       const Vec2& tan0, const Vec2& tan3, int div = 8)
+	{
+		const double dI = Max((iP3 - iP0).length() / 3.0, 1.0);
+		const double dO = Max((oP3 - oP0).length() / 3.0, 1.0);
+
+		Array<Vec2> pts;
+		// 内側: 0→1
+		for (int k = 0; k <= div; ++k)
+		{
+			const double t = k / static_cast<double>(div);
+			pts << bezier2D(iP0, iP0 + tan0 * dI, iP3 + tan3 * dI, iP3, t);
+		}
+		// 外側: 1→0（逆順）
+		for (int k = div; k >= 0; --k)
+		{
+			const double t = k / static_cast<double>(div);
+			pts << bezier2D(oP0, oP0 + tan0 * dO, oP3 + tan3 * dO, oP3, t);
+		}
+		return pts;
+	}
+
+	/// @brief エッジの cutoff 位置の情報（2D 図描画用）
+	struct EdgeCap2D
+	{
+		Vec2 center;     ///< カットオフ中心（2D）
+		Vec2 fwd;        ///< ノード外向き正規化方向
+		Vec2 right;      ///< 右方向
+		double angle;    ///< 角度（ソート用）
+		const RoadEdge* edge;
+		int edgeId;
+		bool isNodeA;
+	};
+}
+
+void GameScene::drawSignalEditPanel()
+{
+	if (!m_selectedNodeId) { m_panelManager.hide(U"signal_edit"); return; }
+	RoadNode* node = m_network.getNode(*m_selectedNodeId);
+	if (!node || !node->signalPlacement) { m_panelManager.hide(U"signal_edit"); return; }
+
+	auto area = m_panelManager.beginContent(U"signal_edit");
+	if (!area) return;
+
+	auto& sp = *node->signalPlacement;
+	const auto& pFont = panelFont();
+	const auto& pBold = panelBoldFont();
+	constexpr int kPad = 6;
+	constexpr int kLH = 17;
+	constexpr int kLeftW = 180;  // 左ペイン幅
+	const Vec2 panelSize = m_panelManager.getSize(U"signal_edit");
+	bool dirty = false;
+
+	// 信号エッジを収集（左ペインの表示順を固定）
+	Array<int> signalEdgeIds;
+	for (const auto& att : node->attachments)
+	{
+		if (att.control == TrafficControl::Signal)
+		{
+			signalEdgeIds << att.edgeId;
+		}
+	}
+
+	// ========================================
+	// 左ペイン: フェーズ一覧
+	// ========================================
+	int ly = kPad;
+	constexpr int kRowH = 38; // フェーズ行の高さ（2段: ランプ + 時間）
+
+	PanelWidget::label(pBold, U"Phases", kPad, ly, ColorF{ 1.0, 1.0, 0.4 });
+	if (PanelWidget::button(pFont, U"+", false, kLeftW - 26, ly, 20, kLH, U"Add phase"))
+	{
+		SignalPhaseDef ph;
+		ph.duration = 30.0f;
+		sp.phases << std::move(ph);
+		m_signalEditPhase = static_cast<int>(sp.phases.size()) - 1;
+		dirty = true;
+	}
+	ly += kLH + 4;
+
+	float totalDuration = 0.0f;
+	for (int pi = 0; pi < static_cast<int>(sp.phases.size()); ++pi)
+	{
+		auto& ph = sp.phases[pi];
+		totalDuration += ph.duration;
+
+		const bool selected = (pi == m_signalEditPhase);
+		const ColorF bg = selected ? ColorF{ 0.25, 0.35, 0.55 } : ColorF{ 0.16 };
+		RectF{ static_cast<double>(kPad), static_cast<double>(ly),
+		       static_cast<double>(kLeftW - kPad * 2), static_cast<double>(kRowH) }.rounded(3).draw(bg);
+
+		// クリックでフェーズ選択
+		{
+			auto hit = PanelWidget::hitTest(pFont, kPad, ly, kLeftW - kPad * 2, kRowH);
+			if (hit.clickL)
+			{
+				m_signalEditPhase = pi;
+			}
+		}
+
+		// 1段目: フェーズ番号 + 小さな信号ランプ
+		int lx = kPad + 4;
+		PanelWidget::label(pFont, U"P{}"_fmt(pi + 1), lx, ly + 1, selected ? ColorF{ 1.0 } : ColorF{ 0.7 });
+		lx += 22;
+
+		for (const int eid : signalEdgeIds)
+		{
+			const bool g = ph.greenEdgeIds.contains(eid);
+			const ColorF lampC = g ? ColorF{ 0.1, 0.9, 0.3 } : ColorF{ 0.9, 0.15, 0.1 };
+			Circle{ Vec2{ lx + 5.0, ly + 8.0 }, 4.0 }.draw(lampC);
+			lx += 14;
+		}
+
+		// 削除ボタン（右端）
+		if (sp.phases.size() > 1)
+		{
+			if (PanelWidget::button(pFont, U"x", false, kLeftW - 24, ly + 1, 16, kLH - 2, U"Delete phase"))
+			{
+				sp.phases.remove_at(pi);
+				if (m_signalEditPhase >= static_cast<int>(sp.phases.size()))
+				{
+					m_signalEditPhase = Max(0, static_cast<int>(sp.phases.size()) - 1);
+				}
+				dirty = true;
+				break;
+			}
+		}
+
+		// 2段目: 持続時間
+		if (PanelWidget::spin(pFont, ph.duration, 5.0f, 5.0f, 120.0f,
+		                      kPad + 4, ly + kLH + 1, 56, kLH - 2))
+		{
+			dirty = true;
+		}
+		PanelWidget::label(pFont, U"s", kPad + 62, ly + kLH + 1, ColorF{ 0.5 });
+
+		ly += kRowH + 3;
+	}
+
+	// サイクル合計
+	ly += 4;
+	PanelWidget::label(pBold, U"Cycle: {:.0f}s"_fmt(totalDuration), kPad, ly, ColorF{ 0.9, 0.8, 0.4 });
+	ly += kLH + 4;
+
+	// ========================================
+	// 右ペイン: 交差点図 + 信号表示
+	// ========================================
+	const double rightX = kLeftW;
+	const double rightW = panelSize.x - kLeftW;
+	const double diagramSize = Min(rightW - kPad, 380.0);
+	const Vec2 center{ rightX + rightW * 0.5, kPad + diagramSize * 0.5 };
+	const double armLen = diagramSize * 0.28;
+	constexpr double kScale = 4.5;
+
+	// 選択フェーズの青エッジ集合
+	HashSet<int> greenSet;
+	if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
+	{
+		for (const int eid : sp.phases[m_signalEditPhase].greenEdgeIds)
+		{
+			greenSet.insert(eid);
+		}
+	}
+
+	auto outwardOffset = [](float off, float width, bool isNodeA) -> std::pair<float, float>
+	{
+		if (isNodeA) return { off, off + width };
+		return { -(off + width), -off };
+	};
+
+	// 道路全幅の outward left/right を取得
+	auto getRoadExtent = [&](const RoadEdge* edge, bool isNodeA) -> std::pair<float, float>
+	{
+		float minL = 1e9f, maxR = -1e9f;
+		for (const auto& p : edge->parts)
+		{
+			if (p.build != BuildState::Built) continue;
+			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			minL = Min(minL, l);
+			maxR = Max(maxR, r);
+		}
+		return { minL, maxR };
+	};
+
+	// 路盤の outward left/right を取得
+	auto getRoadbedExtent = [&](const RoadEdge* edge, bool isNodeA) -> std::pair<float, float>
+	{
+		float minL = 1e9f, maxR = -1e9f;
+		for (const auto& p : edge->parts)
+		{
+			if (p.type != RoadPartType::Roadbed) continue;
+			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			minL = Min(minL, l);
+			maxR = Max(maxR, r);
+		}
+		return { minL, maxR };
+	};
+
+	// ---- カットオフ情報を収集（角度順ソート）----
+	Array<EdgeCap2D> caps;
+	for (const auto& att : node->attachments)
+	{
+		const RoadEdge* edge = m_network.getEdge(att.edgeId);
+		if (!edge) continue;
+		const auto bez = m_network.getBezier(att.edgeId);
+		if (!bez) continue;
+
+		const bool isNodeA = (edge->nodeA == node->id);
+		const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+
+		Vec3 capTan;
+		if (isNodeA)
+		{
+			const float s = Clamp(cutoff - 0.1f, 0.0f, bez->totalLength * 0.45f);
+			capTan = bez->tangentAt(s);
+		}
+		else
+		{
+			const float s = Clamp(bez->totalLength - cutoff + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
+			capTan = -bez->tangentAt(s);
+		}
+
+		const Vec2 fwd{ capTan.x, capTan.z };
+		const double fwdLen = fwd.length();
+		if (fwdLen < 1e-6) continue;
+		const Vec2 dn = fwd / fwdLen;
+
+		EdgeCap2D cap;
+		cap.center  = center + dn * (cutoff * kScale);
+		cap.fwd     = dn;
+		cap.right   = Vec2{ -dn.y, dn.x };
+		cap.angle   = Math::Atan2(dn.y, dn.x);
+		cap.edge    = edge;
+		cap.edgeId  = att.edgeId;
+		cap.isNodeA = isNodeA;
+		caps << cap;
+	}
+	caps.sort_by([](const EdgeCap2D& a, const EdgeCap2D& b) { return a.angle < b.angle; });
+
+	// ---- 交差点内エリアを全周ポリゴンで塗りつぶし ----
+	if (caps.size() >= 2)
+	{
+		const int N = static_cast<int>(caps.size());
+		const ColorF junctionColor{ 0.25, 0.25, 0.28 };
+		constexpr int kBezDiv = 12;
+
+		// 全周ポリゴンの頂点を構築
+		Array<Vec2> boundary;
+		for (int i = 0; i < N; ++i)
+		{
+			const auto& capCur = caps[i];
+			const auto& capNext = caps[(i + 1) % N];
+			const auto [rbL, rbR] = getRoadbedExtent(capCur.edge, capCur.isNodeA);
+			const auto [nbL, nbR] = getRoadbedExtent(capNext.edge, capNext.isNodeA);
+
+			// このエッジの左端→右端
+			boundary << (capCur.center + capCur.right * (rbL * kScale));
+			boundary << (capCur.center + capCur.right * (rbR * kScale));
+
+			// 次のエッジの左端へベジェ曲線
+			const Vec2 pA = capCur.center + capCur.right * (rbR * kScale);
+			const Vec2 pB = capNext.center + capNext.right * (nbL * kScale);
+			const Vec2 tanA{ -capCur.fwd.x, -capCur.fwd.y };
+			const Vec2 tanB{ -capNext.fwd.x, -capNext.fwd.y };
+			const double d = Max((pB - pA).length() / 3.0, 2.0);
+
+			for (int k = 1; k < kBezDiv; ++k)
+			{
+				const double t = k / static_cast<double>(kBezDiv);
+				boundary << bezier2D(pA, pA + tanA * d, pB + tanB * d, pB, t);
+			}
+		}
+
+		// 三角形ファンで塗りつぶし
+		for (int k = 0; k < static_cast<int>(boundary.size()); ++k)
+		{
+			const int next = (k + 1) % static_cast<int>(boundary.size());
+			Triangle{ center, boundary[k], boundary[next] }.draw(junctionColor);
+		}
+	}
+
+	// ---- 各エッジアーム ----
+	for (const auto& cap : caps)
+	{
+		const auto* edge = cap.edge;
+		const Vec2& dn = cap.fwd;
+		const Vec2& rt = cap.right;
+
+		// パーツ描画
+		for (const auto& part : edge->parts)
+		{
+			if (part.build != BuildState::Built) continue;
+
+			const auto [oL, oR] = outwardOffset(part.offset, part.width, cap.isNodeA);
+			const double pLeft  = static_cast<double>(oL) * kScale;
+			const double pRight = static_cast<double>(oR) * kScale;
+
+			const Vec2 nearL = cap.center + rt * pLeft;
+			const Vec2 nearR = cap.center + rt * pRight;
+			const Vec2 farL  = nearL + dn * armLen;
+			const Vec2 farR  = nearR + dn * armLen;
+
+			Quad{ nearL, nearR, farR, farL }.draw(partColor(part.type));
+		}
+
+		// 道路外周の白線
+		const auto [totalL, totalR] = getRoadExtent(edge, cap.isNodeA);
+		{
+			const Vec2 outerL0 = cap.center + rt * (totalL * kScale);
+			const Vec2 outerL1 = outerL0 + dn * armLen;
+			const Vec2 outerR0 = cap.center + rt * (totalR * kScale);
+			const Vec2 outerR1 = outerR0 + dn * armLen;
+			Line{ outerL0, outerL1 }.draw(1.5, ColorF{ 1.0 });
+			Line{ outerR0, outerR1 }.draw(1.5, ColorF{ 1.0 });
+		}
+
+		// 車線区画線描画
+		for (const auto& lane : edge->lanes)
+		{
+			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+
+			auto drawLaneLine = [&](LineType lt, float rawOffset)
+			{
+				if (lt == LineType::None) return;
+				const double off = static_cast<double>(cap.isNodeA ? rawOffset : -rawOffset) * kScale;
+				const Vec2 p0 = cap.center + rt * off;
+				const Vec2 p1 = p0 + dn * armLen;
+				const bool dashed = (lt == LineType::DashedWhite);
+				if (dashed)
+				{
+					for (double dd = 0; dd < armLen; dd += 10.0)
+					{
+						const double d1 = Min(dd + 4.0, armLen);
+						Line{ p0 + dn * dd, p0 + dn * d1 }.draw(1.0, lineColor(lt));
+					}
+				}
+				else
+				{
+					Line{ p0, p1 }.draw(1.0, lineColor(lt));
+				}
+			};
+			const float oL = cap.isNodeA ? lane.offsetA_L : lane.offsetB_L;
+			const float oR = cap.isNodeA ? lane.offsetA_R : lane.offsetB_R;
+			if (cap.isNodeA)
+			{
+				drawLaneLine(lane.lineLeft, oL);
+				drawLaneLine(lane.lineRight, oR);
+			}
+			else
+			{
+				drawLaneLine(lane.lineRight, oL);
+				drawLaneLine(lane.lineLeft, oR);
+			}
+		}
+
+		// --- 信号機描画（横向き・クリック可能）---
+		const auto* att = node->getAttachment(cap.edgeId);
+		const bool hasSigControl = att && att->control == TrafficControl::Signal;
+		const bool isGreen = greenSet.contains(cap.edgeId);
+
+		if (hasSigControl)
+		{
+			float roadRight = 0.0f;
+			for (const auto& part : edge->parts)
+			{
+				if (part.type == RoadPartType::Roadbed)
+				{
+					const auto [l, r] = outwardOffset(part.offset, part.width, cap.isNodeA);
+					roadRight = Max(roadRight, r);
+				}
+			}
+			const Vec2 sigPos = cap.center + dn * 2.0 + rt * (roadRight * kScale + 30.0);
+
+			constexpr double kSigW = 100.0;
+			constexpr double kSigH = 32.0;
+			RectF{ Arg::center = sigPos, kSigW, kSigH }.rounded(4).draw(ColorF{ 0.3, 0.3, 0.32 });
+			RectF{ Arg::center = sigPos, kSigW - 2, kSigH - 2 }.rounded(3).draw(ColorF{ 0.2, 0.2, 0.22 });
+
+			constexpr double kLampR = 10.0;
+			constexpr double kLampSpacing = 28.0;
+			const Vec2 redPos    = sigPos + Vec2{ -kLampSpacing, 0 };
+			const Vec2 yellowPos = sigPos;
+			const Vec2 greenPos  = sigPos + Vec2{ kLampSpacing, 0 };
+			const ColorF offColor{ 0.12 };
+
+			Circle{ redPos,    kLampR }.draw(isGreen ? offColor : ColorF{ 1.0, 0.15, 0.1 });
+			Circle{ redPos,    kLampR }.drawFrame(1.0, ColorF{ 0.35 });
+			Circle{ yellowPos, kLampR }.draw(offColor);
+			Circle{ yellowPos, kLampR }.drawFrame(1.0, ColorF{ 0.35 });
+			Circle{ greenPos,  kLampR }.draw(isGreen ? ColorF{ 0.1, 1.0, 0.3 } : offColor);
+			Circle{ greenPos,  kLampR }.drawFrame(1.0, ColorF{ 0.35 });
+
+			// クリックで青/赤切替
+			if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
+			{
+				const int hx = static_cast<int>(sigPos.x - kSigW * 0.5);
+				const int hy = static_cast<int>(sigPos.y - kSigH * 0.5);
+				auto hit = PanelWidget::hitTest(pFont, hx, hy,
+				                                static_cast<int>(kSigW), static_cast<int>(kSigH),
+				                                U"Click to toggle");
+				if (hit.clickL)
+				{
+					auto& ph = sp.phases[m_signalEditPhase];
+					if (isGreen) ph.greenEdgeIds.remove(cap.edgeId);
+					else         ph.greenEdgeIds << cap.edgeId;
+					dirty = true;
+				}
+			}
+
+			// 矢印ランプ
+			const auto subIt = sp.subLampStates.find(cap.edgeId);
+			if (subIt != sp.subLampStates.end() && !subIt->second.isEmpty())
+			{
+				const Vec2 arrowBase = sigPos + Vec2{ 0, kSigH * 0.5 + 18.0 };
+				constexpr double kArrSp = 32.0;
+				const int cnt = static_cast<int>(subIt->second.size());
+				const double tw = (cnt - 1) * kArrSp;
+				RectF{ Arg::center = arrowBase, tw + 36.0, 32.0 }.rounded(3).draw(ColorF{ 0.3, 0.3, 0.32 });
+
+				for (int ai = 0; ai < cnt; ++ai)
+				{
+					const Vec2 ap = arrowBase + Vec2{ -tw * 0.5 + ai * kArrSp, 0 };
+					const String& stId = subIt->second[ai];
+					const bool lit = isGreen && stId != U"off";
+					const ColorF ac = lit ? ColorF{ 0.1, 1.0, 0.3 } : offColor;
+					if (lit && stId == U"arrow_left")
+						Triangle{ ap + Vec2{-8, 0}, ap + Vec2{4, -7}, ap + Vec2{4, 7} }.draw(ac);
+					else if (lit && stId == U"arrow_right")
+						Triangle{ ap + Vec2{8, 0}, ap + Vec2{-4, -7}, ap + Vec2{-4, 7} }.draw(ac);
+					else if (lit && stId == U"arrow_straight")
+						Triangle{ ap + Vec2{0, -8}, ap + Vec2{-7, 4}, ap + Vec2{7, 4} }.draw(ac);
+					else
+						Circle{ ap, 8.0 }.draw(ac);
+					Circle{ ap, 9.0 }.drawFrame(1.0, ColorF{ 0.35 });
+				}
+			}
+		}
+
+		// 進行方向矢印
+		if (hasSigControl && isGreen)
+		{
+			const Vec2 inward{ -dn.x, -dn.y };
+			const Vec2 tip  = cap.center + inward * 6.0;
+			const Vec2 base = cap.center + dn * (armLen * 0.5);
+			const Vec2 perp = rt * 3.0;
+			Line{ base, tip }.draw(2.5, ColorF{ 0.2, 0.85, 0.4, 0.7 });
+			Triangle{ tip, tip - inward * 10.0 + perp * 2.5,
+			          tip - inward * 10.0 - perp * 2.5 }.draw(ColorF{ 0.2, 0.85, 0.4, 0.7 });
+		}
+
+		// エッジIDラベル
+		pFont(U"E{}"_fmt(cap.edgeId)).drawAt(cap.center + dn * (armLen + 12.0), ColorF{ 0.8 });
+	}
+
+	// ========================================
+	// 高さ計算
+	// ========================================
+	const int totalHeight = Max(ly, static_cast<int>(diagramSize) + kPad * 2);
+
+	if (dirty)
+	{
+		m_vehicleManager.markLightsDirty();
+	}
+
+	PanelWidget::flushTooltip();
+	m_panelManager.reportContentHeight(U"signal_edit", totalHeight);
 }

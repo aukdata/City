@@ -204,6 +204,15 @@ void GameCamera::setFocus(Vec3 focus)
 	rebuild();  // 初期化用：地形床クランプなし
 }
 
+void GameCamera::setState(Vec3 focus, float distance, float yaw, float pitch)
+{
+	m_focus    = focus;
+	m_distance = distance;
+	m_yaw      = yaw;
+	m_pitch    = pitch;
+	rebuild();
+}
+
 Optional<Vec3> GameCamera::screenToGround(Vec2 screenPos) const
 {
 	const Ray ray = m_camera.screenToRay(screenPos);

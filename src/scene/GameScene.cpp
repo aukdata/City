@@ -41,6 +41,7 @@ void GameScene::initScene()
 		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
 		m_panelManager.registerPanel(U"minimap_expanded", Vec2{side, side}, true);
 	}
+	m_panelManager.registerPanel(U"signal_edit", Vec2{700, 550}, true, true);
 
 	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
 	m_drawTemplate.roadType   = RoadType::LocalRoad;
@@ -377,9 +378,12 @@ void GameScene::saveGame()
 	meta[U"timeScale"]    = static_cast<int>(m_clock.speed);
 	meta[U"nextNodeId"]   = m_network.nextNodeId();
 	meta[U"nextEdgeId"]   = m_network.nextEdgeId();
-	meta[U"cameraFocusX"] = m_camera.focusPoint().x;
-	meta[U"cameraFocusY"] = m_camera.focusPoint().y;
-	meta[U"cameraFocusZ"] = m_camera.focusPoint().z;
+	meta[U"cameraFocusX"]  = m_camera.focusPoint().x;
+	meta[U"cameraFocusY"]  = m_camera.focusPoint().y;
+	meta[U"cameraFocusZ"]  = m_camera.focusPoint().z;
+	meta[U"cameraDistance"] = m_camera.distance();
+	meta[U"cameraYaw"]     = m_camera.yaw();
+	meta[U"cameraPitch"]   = m_camera.pitch();
 	meta.save(U"{}/meta.json"_fmt(kRoot));
 
 	// economy.json
@@ -451,6 +455,9 @@ bool GameScene::loadGame()
 	const double focusX     = meta[U"cameraFocusX"].get<double>();
 	const double focusY     = meta[U"cameraFocusY"].get<double>();
 	const double focusZ     = meta[U"cameraFocusZ"].get<double>();
+	const float  camDist    = meta[U"cameraDistance"].getOr<float>(600.0f);
+	const float  camYaw     = meta[U"cameraYaw"].getOr<float>(0.0f);
+	const float  camPitch   = meta[U"cameraPitch"].getOr<float>(static_cast<float>(40.0_deg));
 
 	m_world.setGenerationParams(getData().seed,
 		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE,
@@ -567,7 +574,7 @@ bool GameScene::loadGame()
 	m_clock.speed = static_cast<TimeSpeed>(timeScale);
 	m_clock.syncCalendar();
 
-	m_camera.setFocus(Vec3{ focusX, focusY, focusZ });
+	m_camera.setState(Vec3{ focusX, focusY, focusZ }, camDist, camYaw, camPitch);
 
 	MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 

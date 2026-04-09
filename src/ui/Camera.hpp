@@ -47,6 +47,9 @@ public:
 	/// @brief 注視点を設定する（初期化用。地形床クランプは適用しない）
 	void setFocus(Vec3 focus);
 
+	/// @brief カメラ姿勢を一括設定する（セーブロード用）
+	void setState(Vec3 focus, float distance, float yaw, float pitch);
+
 	/// @brief スクリーン座標からグラウンド（y=0）上のワールド座標を返す
 	/// @return 地面と交差しない場合は none
 	Optional<Vec3> screenToGround(Vec2 screenPos) const;

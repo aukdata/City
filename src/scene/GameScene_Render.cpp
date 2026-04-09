@@ -510,6 +510,7 @@ void GameScene::render2DUI()
 	drawEdgePanel();
 	drawDrawTemplatePanel();
 	drawNodePanel();
+	drawSignalEditPanel();
 	drawVehiclePanel();
 
 	m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);

@@ -61,7 +61,7 @@ private:
 	// 信号機（Main 所有）
 	HashTable<int, TrafficLight> m_trafficLights;
 	bool m_lightsDirty = true;
-	void buildTrafficLights(const SimGraph& simGraph);
+	void buildTrafficLights(const SimGraph& simGraph, const RoadNetwork* network = nullptr);
 	void updateTrafficLights(GameTime gameNow);
 	const TrafficLight* getTrafficLight(int nodeId) const;
 

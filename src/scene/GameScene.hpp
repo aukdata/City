@@ -140,6 +140,7 @@ private:
 
 	// パネルシステム
 	PanelManager    m_panelManager;
+	int             m_signalEditPhase = 0;  ///< 信号編集パネルの選択フェーズ
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
@@ -249,6 +250,7 @@ private:
 	void drawEdgePanel();
 	void drawDrawTemplatePanel();
 	void drawNodePanel();
+	void drawSignalEditPanel();
 	void drawVehiclePanel();
 	void drawNameListPanel();
 };
