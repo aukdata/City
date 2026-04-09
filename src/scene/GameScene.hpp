@@ -3,6 +3,7 @@
 #include <atomic>
 #include "SceneCommon.hpp"
 #include "../ui/PanelManager.hpp"
+#include "../ui/PanelLayout.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../sim/SimThread.hpp"
 #include "../time/GameClock.hpp"
@@ -140,6 +141,8 @@ private:
 
 	// パネルシステム
 	PanelManager    m_panelManager;
+	PanelLayout     m_vehicleLayout;       ///< 車両パネルの宣言的レイアウト
+	bool            m_vehicleLayoutReady = false;
 	int             m_signalEditPhase = 0;  ///< 信号編集パネルの選択フェーズ
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する

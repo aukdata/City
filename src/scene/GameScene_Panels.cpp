@@ -905,6 +905,13 @@ void GameScene::drawVehiclePanel()
 	auto area = m_panelManager.beginContent(U"vehicle_info");
 	if (!area) return;
 
+	// ── PanelLayout テスト: 追跡ボタンだけ新システムで描画 ──
+	if (!m_vehicleLayoutReady)
+	{
+		m_vehicleLayout.button(U"track", U"Track", m_trackingVehicle, 120);
+		m_vehicleLayoutReady = true;
+	}
+
 	const auto& pFont = panelFont();
 	const auto& pBold = panelBoldFont();
 
@@ -943,15 +950,16 @@ void GameScene::drawVehiclePanel()
 	}
 	y += kLH + 4;
 
-	// 追跡ボタン
+	// 追跡ボタン（PanelLayout で描画）
 	{
-		const RectF btn{ static_cast<double>(pX), static_cast<double>(y), 120.0, static_cast<double>(kLH + 2) };
-		const bool hover = btn.mouseOver();
-		btn.draw(m_trackingVehicle ? ColorF{ 0.2, 0.5, 0.8, 0.8 } : (hover ? ColorF{ 0.3, 0.3, 0.3, 0.8 } : ColorF{ 0.2, 0.2, 0.2, 0.6 }));
-		PanelWidget::label(pBold, m_trackingVehicle ? U"Tracking ON" : U"Track", pX + 4, y, ColorF{1.0});
-		if (hover && MouseL.down())
+		const int contentW = static_cast<int>(m_panelManager.getSize(U"vehicle_info").x) - pX * 2;
+		m_vehicleLayout.update(contentW);
+		m_vehicleLayout.draw();
+		if (m_vehicleLayout.clicked(U"track"))
+		{
 			m_trackingVehicle = !m_trackingVehicle;
-		y += kLH + 6;
+		}
+		y += m_vehicleLayout.contentHeight() + 4;
 	}
 
 	// 経路ウェイポ���ント

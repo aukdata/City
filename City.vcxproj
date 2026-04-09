@@ -125,6 +125,7 @@
     <ClCompile Include="src\road\RoadNetwork.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
+    <ClCompile Include="src\ui\PanelLayout.cpp" />
     <ClCompile Include="src\ui\PanelManager.cpp" />
     <ClCompile Include="src\sim\SimThread.cpp" />
     <ClCompile Include="src\traffic\VehicleManager.cpp" />
@@ -374,6 +375,7 @@
     <ClInclude Include="src\traffic\SignalRegistry.hpp" />
     <ClInclude Include="src\traffic\TrafficCommon.hpp" />
     <ClInclude Include="src\traffic\BusRoute.hpp" />
+    <ClInclude Include="src\ui\PanelLayout.hpp" />
     <ClInclude Include="src\ui\PanelWidget.hpp" />
     <ClInclude Include="src\sim\SimGraph.hpp" />
     <ClInclude Include="src\sim\SimThread.hpp" />

@@ -276,7 +276,138 @@ if (m_panelManager.isVisible(U"edge_info"))
 
 ---
 
-## 9. 他仕様書との関係
+## 9. PanelLayout（宣言的UIレイアウト）
+
+### 9.1 概要
+
+`PanelLayout` は、パネル内のウィジェット配置を宣言的に構築するシステム。既存の即時モード描画（`PanelWidget` による手動 y 座標管理）を置き換え、VStack/HStack による自動レイアウトを提供する。
+
+ファイル: `src/ui/PanelLayout.hpp`, `src/ui/PanelLayout.cpp`
+
+### 9.2 設計思想
+
+- **初回構築・毎フレーム更新**: UIツリーは一度だけ構築し、毎フレーム `update()` → `draw()` で描画
+- **自動レイアウト**: VStack/HStack が子要素の位置を自動計算。手動の `y += kLH` が不要
+- **データバインド**: ラムダ（`std::function<String()>` 等）または参照（`float&`, `bool&`）で値を渡す
+- **イベント分離**: `update()` で入力処理、`draw()` で描画、`clicked()` / `changed()` でイベント取得
+
+### 9.3 使用フロー
+
+```cpp
+// ── 初回構築（initScene 等） ──
+PanelLayout layout;
+layout.label(U"speed", U"Speed: {}",
+    [this] { return U"{:.1f} km/h"_fmt(speed); }, ColorF{1.0});
+layout.button(U"track", U"Track", m_tracking, 120);
+layout.beginHStack(8);
+    layout.label(U"edge", U"Edge: {}",
+        [this] { return U"{}"_fmt(edgeId); });
+    layout.label(U"lane", U"Lane: {}",
+        [this] { return U"{}"_fmt(laneId); });
+layout.end();
+
+// ── 毎フレーム ──
+layout.setVisible(U"set_goal", m_selectedEdgeId.has_value());
+layout.update(contentWidth);   // dirty ならレイアウト再計算 → 入力処理
+layout.draw();                 // 描画のみ
+
+if (layout.clicked(U"track")) { m_tracking = !m_tracking; }
+int totalH = layout.contentHeight();
+```
+
+### 9.4 ウィジェット一覧
+
+#### レイアウトコンテナ
+
+| メソッド | 説明 |
+|---|---|
+| `beginVStack(gap, padding)` / `end()` | 縦並び。子を上から下に積む |
+| `beginHStack(gap)` / `end()` | 横並び。子を左から右に並べる |
+| `spacer(height)` | 固定スペース |
+| `separator()` | 区切り線 |
+
+#### データウィジェット
+
+| メソッド | データバインド |
+|---|---|
+| `label(key, text, source, color, bold)` | ラムダ `std::function<String()>` |
+| `label(key, text, ref, color, bold)` | 参照（String& / float& / int&） |
+| `label(key, text, color, bold)` | 固定テキスト |
+| `button(key, label, active, width, tooltip)` | ラムダ or bool& でアクティブ状態 |
+| `toggle(key, labelOn, labelOff, ref, width, tooltip)` | bool& に直接読み書き |
+| `spin(key, ref, step, lo, hi, format, width)` | float& に直接読み書き |
+| `cycle(key, ref, options, width, tooltip)` | int& に直接読み書き（enum は reinterpret_cast） |
+
+#### 特殊ウィジェット
+
+| メソッド | 説明 |
+|---|---|
+| `beginSection(key, title, collapsed, color)` / `endSection()` | 折りたたみセクション |
+| `custom(key, onDraw, height)` | C++ コールバックによるカスタム描画 |
+
+### 9.5 レイアウトモデル
+
+**幅（トップダウン）:**
+- ルート: `update(availableWidth)` で渡された幅
+- vstack 内の子: 親幅 - padding*2
+- hstack 内の子: `width` 指定があればその値、なければコンテンツ幅を推定
+
+**高さ（ボトムアップ）:**
+- 通常ウィジェット: 17px
+- spacer: 指定値、separator: 5px
+- vstack: 子の高さ合計 + gap*(n-1) + padding*2
+- hstack: 子の最大高さ
+- section: ヘッダ(17px) + 展開時は子の高さ合計
+- custom: height 指定値、または onDraw の戻り値
+
+**dirty フラグ:**
+- 初期値 `true`（初回 `update()` で自動計算）
+- `setVisible()` やセクション折りたたみで `true` に設定
+- `update()` 冒頭で dirty なら再計算
+
+### 9.6 イベント
+
+| メソッド | 説明 |
+|---|---|
+| `clicked(key)` | ボタンがクリックされたか |
+| `changed(key)` | toggle/spin/cycle の値が変化したか |
+| `setVisible(key, vis)` | ウィジェットの表示/非表示を設定 |
+
+イベントは `update()` 内で記録され、次の `update()` 冒頭でクリアされる。
+
+### 9.7 PanelManager との統合
+
+PanelLayout は PanelManager の `beginContent()` スコープ内で使用する。PanelManager 側の変更は不要。
+
+```cpp
+auto area = m_panelManager.beginContent(U"vehicle_info");
+if (!area) return;
+
+m_vehicleLayout.update(contentWidth);
+m_vehicleLayout.draw();
+m_panelManager.reportContentHeight(U"vehicle_info", m_vehicleLayout.contentHeight());
+```
+
+既存の即時モード描画との混在も可能。PanelLayout の描画後に `y += layout.contentHeight()` で座標を進めれば、後続の即時モード描画と共存できる。
+
+### 9.8 内部実装
+
+全ウィジェット型を `std::variant`（`UIVariant`）で統一。コンテナ型は `Array<std::unique_ptr<UIElement>>` で子を持つ再帰構造。構築時は `beginVStack()` / `end()` のスタックで入れ子を管理。
+
+`std::function` のキャプチャが `[this]`（8バイト）のみであれば MSVC の Small Buffer Optimization によりヒープ確保は発生しない。
+
+### 9.9 段階的移行
+
+各パネルを個別に PanelLayout に移行できる。移行順序の制約はない。
+
+1. パネル毎に `PanelLayout` メンバ変数を追加
+2. `drawXxxPanel()` 内で構築（初回のみ）
+3. 旧コードを `update()` + `draw()` + イベント処理に置換
+4. 複雑な部分は `custom()` で旧コードを包む
+
+---
+
+## 10. 他仕様書との関係
 
 | 仕様書 | 関係 |
 |---|---|
