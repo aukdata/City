@@ -35,6 +35,15 @@ cd /mnt/d/Users/Takuma/Creations/codes/City/App && "./City(debug).exe" --load de
 
 テスト・リントの自動化ツールはない (Visual Studio のビルド成功が確認手段)。
 
+**カスタム Agent**（`.claude/agents/` に定義、全て Sonnet モデル）:
+
+| Agent | 説明 | 呼び出し例 |
+|---|---|---|
+| `build.md` | MSBuild 実行 + エラー・警告解析 | 「ビルドして」 |
+| `review.md` | コードレビュー（バグ・規約・設計） | 「レビューして」 |
+| `explore.md` | コードベース調査・構造分析 | 「〇〇を調べて」 |
+| `siv3d-api.md` | Siv3D v0.6.16 API 調査 | 「Siv3D の〇〇の使い方」 |
+
 ## Debugging Principles
 
 - **「推測するな。計測せよ。」** — パフォーマンス問題やバグの原因を推測で修正しない。必ず Console 出力やタイマーで実測データを取得し、データに基づいて修正する。
@@ -64,11 +73,11 @@ cd /mnt/d/Users/Takuma/Creations/codes/City/App && "./City(debug).exe" --load de
 ## Siv3D 実装留意点
 
 コンパイルエラーや API の使い方で迷ったら、まず `plan/SIV3D_NOTES.md` を検索すること。
-Siv3Dの使い方は、`gemini -p`に聞く。プロンプトには、「manual/siv3d.docs-main」を参照するよう含める。
+Siv3D の使い方は `siv3d-api` Agent で調査する（ヘッダファイルを直接読む）。
 Siv3D の型・関数は極力既存 API を使い、自前で再実装しない。
 
 **Siv3D クラス定義の参照先**: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`
-ただし、トークン削減のため基本は`gemini -p`経由で確認する。
+トークン削減のため基本は `siv3d-api` Agent 経由で確認する。
 API を確認するときは上記ディレクトリの `.hpp` を直接 Read すること。
 
 ## Architecture
@@ -98,5 +107,5 @@ API を確認するときは上記ディレクトリの `.hpp` を直接 Read �
 | `15_chunk_data_spec.md` | チャンクデータ設計（二層構造・境界ノード重複） |
 | `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
 | `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
-| `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ） |
+| `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ・PanelLayout 宣言的UI） |
 | `20_road_object_spec.md` | 道路オブジェクト（橋脚・街灯・標識等）・高架橋 |
