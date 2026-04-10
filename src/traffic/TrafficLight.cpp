@@ -23,7 +23,7 @@ void TrafficLight::update(GameTime gameNow)
 	}
 }
 
-bool TrafficLight::isGreen(int fromEdgeId) const
+bool TrafficLight::isGreen(int connectionId) const
 {
 	if (m_phases.isEmpty())
 	{
@@ -31,9 +31,9 @@ bool TrafficLight::isGreen(int fromEdgeId) const
 	}
 
 	const auto& phase = m_phases[m_currentPhase];
-	for (const int eid : phase.greenEdgeIds)
+	for (const int cid : phase.greenConnectionIds)
 	{
-		if (eid == fromEdgeId)
+		if (cid == connectionId)
 		{
 			return true;
 		}
@@ -41,14 +41,14 @@ bool TrafficLight::isGreen(int fromEdgeId) const
 	return false;
 }
 
-const Array<int>& TrafficLight::currentGreenEdges() const
+const Array<int>& TrafficLight::currentGreenConnections() const
 {
 	static const Array<int> empty;
 	if (m_phases.isEmpty())
 	{
 		return empty;
 	}
-	return m_phases[m_currentPhase].greenEdgeIds;
+	return m_phases[m_currentPhase].greenConnectionIds;
 }
 
 float TrafficLight::phaseElapsed(GameTime gameNow) const
@@ -65,13 +65,13 @@ float TrafficLight::currentPhaseDuration() const
 	return m_phases[m_currentPhase].duration;
 }
 
-float TrafficLight::expectedWaitTime(int fromEdgeId) const
+float TrafficLight::expectedWaitTime(int connectionId) const
 {
 	if (m_phases.isEmpty())
 	{
 		return 0.0f;
 	}
-	if (isGreen(fromEdgeId))
+	if (isGreen(connectionId))
 	{
 		return 0.0f;
 	}

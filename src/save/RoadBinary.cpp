@@ -30,21 +30,14 @@ namespace
 		r.skip(len);
 	}
 
-	/// @brief SignalPlacement をスキップする (v6: edgeId 別 subLampStates + phases)
+	/// @brief SignalPlacement をスキップする (v7: greenConnectionIds、subLampStates 廃止)
 	void skipSignalPlacement(BinaryReader& r)
 	{
 		uint8 hasSig; r.read(hasSig);
 		if (hasSig == 0) return;
 		skipString(r);  // signalDefId
-		uint32 mapSize; r.read(mapSize);
-		for (uint32 j = 0; j < mapSize; ++j)
-		{
-			r.skip(sizeof(int32));  // edgeId
-			uint32 stCnt; r.read(stCnt);
-			for (uint32 k = 0; k < stCnt; ++k) skipString(r);
-		}
 		r.skip(sizeof(float));  // yawOffset
-		// v6: phases
+		// phases
 		uint32 phaseCnt; r.read(phaseCnt);
 		for (uint32 pi = 0; pi < phaseCnt; ++pi)
 		{
@@ -96,29 +89,21 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 			w.write(static_cast<uint8>(att.control));
 		}
 
-		// v5: SignalPlacement（subLampStates を edgeId 別に保存）
+		// v7: SignalPlacement（subLampStates 廃止、greenConnectionIds 化）
 		const bool hasSignal = n.signalPlacement.has_value();
 		w.write(static_cast<uint8>(hasSignal ? 1 : 0));
 		if (hasSignal)
 		{
 			const auto& sp = *n.signalPlacement;
 			writeString(w, sp.signalDefId);
-			// edgeId → subLampStates マップ
-			w.write(static_cast<uint32>(sp.subLampStates.size()));
-			for (const auto& [edgeId, states] : sp.subLampStates)
-			{
-				w.write(static_cast<int32>(edgeId));
-				w.write(static_cast<uint32>(states.size()));
-				for (const auto& s : states) writeString(w, s);
-			}
 			w.write(sp.yawOffset);
-			// v6: フェーズ定義
+			// フェーズ定義
 			w.write(static_cast<uint32>(sp.phases.size()));
 			for (const auto& ph : sp.phases)
 			{
 				w.write(ph.duration);
-				w.write(static_cast<uint32>(ph.greenEdgeIds.size()));
-				for (const int eid : ph.greenEdgeIds) w.write(static_cast<int32>(eid));
+				w.write(static_cast<uint32>(ph.greenConnectionIds.size()));
+				for (const int cid : ph.greenConnectionIds) w.write(static_cast<int32>(cid));
 			}
 		}
 	}
@@ -228,32 +213,15 @@ bool RoadBinary::read(const FilePath& path,
 			n.attachments << att;
 		}
 
-		// v5: SignalPlacement（edgeId 別 subLampStates）
+		// v7: SignalPlacement（greenConnectionIds、subLampStates なし）
 		{
 			uint8 hasSignal;
 			if (r.read(hasSignal) && hasSignal != 0)
 			{
 				SignalPlacement sp;
 				if (!readString(r, sp.signalDefId)) return false;
-				uint32 mapSize;
-				r.read(mapSize);
-				for (uint32 j = 0; j < mapSize; ++j)
-				{
-					int32 edgeId;
-					r.read(edgeId);
-					uint32 stCnt;
-					r.read(stCnt);
-					Array<String> states;
-					for (uint32 k = 0; k < stCnt; ++k)
-					{
-						String s;
-						if (!readString(r, s)) return false;
-						states << s;
-					}
-					sp.subLampStates[edgeId] = std::move(states);
-				}
 				r.read(sp.yawOffset);
-				// v6: フェーズ定義
+				// フェーズ定義
 				uint32 phaseCnt;
 				if (r.read(phaseCnt))
 				{
@@ -264,8 +232,8 @@ bool RoadBinary::read(const FilePath& path,
 						uint32 gCnt; r.read(gCnt);
 						for (uint32 gi = 0; gi < gCnt; ++gi)
 						{
-							int32 eid; r.read(eid);
-							ph.greenEdgeIds << eid;
+							int32 cid; r.read(cid);
+							ph.greenConnectionIds << cid;
 						}
 						sp.phases << std::move(ph);
 					}

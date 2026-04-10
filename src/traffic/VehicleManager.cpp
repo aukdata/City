@@ -5,6 +5,12 @@
 using namespace TrafficCommon;
 using namespace TrafficConfig;
 
+// 匿名名前空間内ヘルパーの前方宣言（定義は本ファイル下方）
+namespace
+{
+	Array<int> predictUpcomingConnections(const Vehicle& v, const SimGraph::Node& node);
+}
+
 // ===== 初期化 =====
 
 void VehicleManager::init(const SimGraph& simGraph)
@@ -320,10 +326,22 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 	case TrafficControl::Signal:
 	{
 		const TrafficLight* tl = getTrafficLight(exitNId);
-		if (tl && !tl->isGreen(v.currentEdge))
+		const auto* exitNode = simGraph.getNode(exitNId);
+		if (tl && exitNode)
 		{
-			if (const auto a = stopLineAccel(v.speed, distToStop, kSignalStopDist, params))
-				accel = *a;
+			// これから使う LaneConnection を先読みして判定。
+			// 経路あり: 一意に特定。経路なし: 候補のうち一つでも青なら進入 OK（案 β）。
+			const Array<int> candidates = predictUpcomingConnections(v, *exitNode);
+			bool anyGreen = false;
+			for (const int cid : candidates)
+			{
+				if (tl->isGreen(cid)) { anyGreen = true; break; }
+			}
+			if (!candidates.isEmpty() && !anyGreen)
+			{
+				if (const auto a = stopLineAccel(v.speed, distToStop, kSignalStopDist, params))
+					accel = *a;
+			}
 		}
 		break;
 	}
@@ -452,6 +470,50 @@ namespace
 			}
 		}
 		return bestFromLane;
+	}
+
+	/// @brief 信号判定用に、車両がこの先使う LaneConnection ID 候補を予測する
+	/// @details 経路あり: 次ウェイポイントから一意に特定して 1 個だけ返す。
+	///   経路なし or 一致なし: 現在車線から出る全 LaneConnection を返す（fallback 案 β）。
+	///   詳細は plan/19_vehicle_movement_spec.md §6 参照。
+	Array<int> predictUpcomingConnections(const Vehicle& v, const SimGraph::Node& node)
+	{
+		// 経路の次ウェイポイント（現在エッジと異なる最初のもの）を探す
+		int nextWpIdx = -1;
+		for (int i = v.routeIdx; i < static_cast<int>(v.routeWaypoints.size()); ++i)
+		{
+			if (v.routeWaypoints[i].edgeId != v.currentEdge)
+			{
+				nextWpIdx = i;
+				break;
+			}
+		}
+
+		Array<int> result;
+		if (nextWpIdx >= 0)
+		{
+			const auto& wp = v.routeWaypoints[nextWpIdx];
+			// 経路一致 LaneConnection を探す（現在車線から出るもののみ）
+			for (const auto& conn : node.laneConnections)
+			{
+				if (conn.fromEdgeId   == v.currentEdge
+				    && conn.fromLaneIndex == v.currentLane
+				    && conn.toEdgeId    == wp.edgeId
+				    && conn.toLaneIndex == wp.laneIndex)
+				{
+					result << conn.id;
+					return result;
+				}
+			}
+		}
+
+		// 経路なし or 一致なし: 現在車線から出る全 LaneConnection を候補として返す
+		for (const auto& conn : node.laneConnections)
+		{
+			if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane)
+				result << conn.id;
+		}
+		return result;
 	}
 
 	/// @brief 出口ノード ID を求める
@@ -742,7 +804,7 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetw
 		}
 		if (static_cast<int>(signalEdges.size()) < kMinEdgesForSignal) continue;
 
-		// ユーザー定義フェーズがあればそれを使う
+		// ユーザー定義フェーズがあればそれを使う（永続化型 SignalPhaseDef → 実行時型 SignalPhase へ変換）
 		Array<SignalPhase> phases;
 		const RoadNode* rn = network ? network->getNode(nid) : nullptr;
 		if (rn && rn->signalPlacement && !rn->signalPlacement->phases.isEmpty())
@@ -751,13 +813,15 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetw
 			{
 				SignalPhase sp;
 				sp.duration = pd.duration;
-				sp.greenEdgeIds = pd.greenEdgeIds;
+				sp.greenConnectionIds = pd.greenConnectionIds;
 				phases << std::move(sp);
 			}
 		}
 		else
 		{
-			phases = buildTwoGroupPhases(signalEdges);
+			// デフォルト: 全 LaneConnection を 1 フェーズで常時青
+			// 自動生成の賢さ（対向直進グループ化等）は別途実装する
+			phases = buildDefaultPhases(node.laneConnections);
 		}
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
 	}

@@ -1,11 +1,11 @@
 ﻿#pragma once
 #include "../time/GameClock.hpp"
 
-/// @brief 信号フェーズ（どの進入エッジが青かを定義する）
+/// @brief 信号フェーズ（どの LaneConnection が青かを定義する）
 struct SignalPhase
 {
-	float       duration;         ///< フェーズ持続時間 [ゲーム秒]
-	Array<int>  greenEdgeIds;     ///< このフェーズで青になる進入エッジ ID リスト
+	float       duration;             ///< フェーズ持続時間 [ゲーム秒]
+	Array<int>  greenConnectionIds;   ///< このフェーズで青になる LaneConnection の ID リスト
 };
 
 /// @brief 信号機（RoadNode に紐づく）
@@ -20,11 +20,11 @@ public:
 	/// @brief ゲーム時刻に基づいてフェーズを更新する
 	void update(GameTime gameNow);
 
-	/// @brief 指定の進入エッジが現在青かどうかを返す
-	bool isGreen(int fromEdgeId) const;
+	/// @brief 指定の LaneConnection が現在青かどうかを返す
+	bool isGreen(int connectionId) const;
 
-	/// @brief 指定の進入エッジの期待待ち時間 [ゲーム秒] を返す
-	float expectedWaitTime(int fromEdgeId) const;
+	/// @brief 指定の LaneConnection の期待待ち時間 [ゲーム秒] を返す
+	float expectedWaitTime(int connectionId) const;
 
 	int nodeId() const { return m_nodeId; }
 
@@ -34,8 +34,8 @@ public:
 	/// @brief フェーズ数を返す
 	int phaseCount() const { return static_cast<int>(m_phases.size()); }
 
-	/// @brief 現在のフェーズで青になっているエッジ ID リストを返す
-	const Array<int>& currentGreenEdges() const;
+	/// @brief 現在のフェーズで青になっている LaneConnection ID リストを返す
+	const Array<int>& currentGreenConnections() const;
 
 	/// @brief 現在のフェーズの経過時間 [ゲーム秒] を返す
 	float phaseElapsed(GameTime gameNow) const;

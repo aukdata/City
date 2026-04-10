@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
+#include "../ui/PanelLayout.hpp"
 #include "../asset/AssetRegistrar.hpp"
 
 namespace
@@ -514,66 +515,72 @@ void GameScene::drawEdgePanel()
 	const auto& pFont = panelFont();
 	const auto& pBold = panelBoldFont();
 
-	constexpr int kPad = 6;
-	constexpr int kLH = 17;
-	const int pX = kPad;
-	int y = 0;
+	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"edge_info").x));
 	bool dirty = false;
 
-	PanelWidget::label(pFont, U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), pX, y, ColorF{1.0});
-	if (PanelWidget::button(pFont, U"Swap A/B", false, pX + 200, y, 62, kLH, U"Swap nodeA/B"))
-	{
-		std::swap(edge->nodeA, edge->nodeB);
-		std::swap(edge->ctrlA, edge->ctrlB);
-		std::swap(edge->cutoffA, edge->cutoffB);
-		for (auto& L : edge->lanes)
+	ui.row(4, [&] {
+		ui.label(U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), ColorF{1.0});
+		if (ui.button(U"Swap A/B", false, 62, U"Swap nodeA/B"))
 		{
-			std::swap(L.offsetA_L, L.offsetB_L);
-			std::swap(L.offsetA_R, L.offsetB_R);
+			std::swap(edge->nodeA, edge->nodeB);
+			std::swap(edge->ctrlA, edge->ctrlB);
+			std::swap(edge->cutoffA, edge->cutoffB);
+			for (auto& L : edge->lanes)
+			{
+				std::swap(L.offsetA_L, L.offsetB_L);
+				std::swap(L.offsetA_R, L.offsetB_R);
+			}
+			dirty = true;
 		}
-		dirty = true;
-	}
-	y += kLH + 2;
+	});
+	ui.spacer(2);
 
 	// 道路種別
 	{
 		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-		PanelWidget::label(pFont, U"Type", pX, y, ColorF{ 0.6 });
-		if (PanelWidget::cycle(pFont, edge->roadType, rtNames, 4, pX + 34, y, 60, kLH)) dirty = true;
-		y += kLH + 2;
+		ui.row(4, [&] {
+			ui.label(U"Type", ColorF{ 0.6 });
+			if (ui.cycle(edge->roadType, rtNames, 4, 60)) { dirty = true; }
+		});
+		ui.spacer(2);
 	}
 
 	// 速度制限
 	{
-		PanelWidget::label(pFont, U"Speed", pX, y, ColorF{ 0.6 });
-		if (PanelWidget::spin(pFont, edge->speedLimit, 10.0f, 10.0f, 200.0f, pX + 44, y, 44, kLH, U"{:.0f}")) dirty = true;
-		PanelWidget::label(pFont, U"km/h", pX + 90, y, ColorF{ 0.5 });
-		PanelWidget::label(pFont, U"W:{:.1f}m"_fmt(edge->totalWidth()), pX + 130, y);
-
-		// デバッグ: 車両スポーン
-		if (PanelWidget::button(pFont, U"Spawn", false, pX + 200, y, 48, kLH, U"Spawn vehicle on this edge"))
-		{
-			m_vehicleManager.spawnOnEdge(edge->id, *m_simGraph);
-		}
-		y += kLH;
+		ui.row(4, [&] {
+			ui.label(U"Speed", ColorF{ 0.6 });
+			if (ui.spin(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
+			ui.label(U"km/h", ColorF{ 0.5 });
+			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
+			// デバッグ: 車両スポーン
+			if (ui.button(U"Spawn", false, 48, U"Spawn vehicle on this edge"))
+			{
+				m_vehicleManager.spawnOnEdge(edge->id, *m_simGraph);
+			}
+		});
 
 		// 高架トグル
-		if (PanelWidget::toggle(pFont, U"Elevated ON", U"Elevated", edge->useElevation, pX, y, 80, kLH))
+		if (ui.toggle(U"Elevated ON", U"Elevated", edge->useElevation, 80))
 		{
 			if (edge->useElevation)
+			{
 				m_network.generatePiersForEdge(edge->id, m_world);
+			}
 			else
+			{
 				m_network.removeObjectsByEdge(edge->id);
+			}
 			dirty = true;
 		}
-		y += kLH + 4;
+		ui.spacer(4);
 	}
 
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState edgeSectionState;
-	dirty |= drawRoadSections(*edge, edgeSectionState, pFont, pBold, pX, y);
+	int y = ui.height();
+	dirty |= drawRoadSections(*edge, edgeSectionState, pFont, pBold, 6, y);
 
-	PanelWidget::flushTooltip();
+	ui.flush();
 	m_panelManager.reportContentHeight(U"edge_info", y);
 
 	if (dirty)
@@ -583,8 +590,6 @@ void GameScene::drawEdgePanel()
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
 	}
 }
-
-// NOTE: 旧コード削除マーカー開始
 
 // =============================================================================
 // 道路設置テンプレートパネル
@@ -602,34 +607,36 @@ void GameScene::drawDrawTemplatePanel()
 	const auto& pFont = panelFont();
 	const auto& pBold = panelBoldFont();
 
-	constexpr int kPad = 6;
-	constexpr int kLH = 17;
-	const int pX = kPad;
-	int y = 0;
+	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"draw_template").x));
 	bool dirty = false;
 
 	// 道路種別
 	{
 		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
-		PanelWidget::label(pFont, U"Type", pX, y, ColorF{ 0.6 });
-		if (PanelWidget::cycle(pFont, edge->roadType, rtNames, 4, pX + 34, y, 60, kLH)) dirty = true;
-		y += kLH + 2;
+		ui.row(4, [&] {
+			ui.label(U"Type", ColorF{ 0.6 });
+			if (ui.cycle(edge->roadType, rtNames, 4, 60)) { dirty = true; }
+		});
+		ui.spacer(2);
 	}
 
 	// 速度制限
 	{
-		PanelWidget::label(pFont, U"Speed", pX, y, ColorF{ 0.6 });
-		if (PanelWidget::spin(pFont, edge->speedLimit, 10.0f, 10.0f, 200.0f, pX + 44, y, 44, kLH, U"{:.0f}")) dirty = true;
-		PanelWidget::label(pFont, U"km/h", pX + 90, y, ColorF{ 0.5 });
-		PanelWidget::label(pFont, U"W:{:.1f}m"_fmt(edge->totalWidth()), pX + 130, y);
-		y += kLH + 4;
+		ui.row(4, [&] {
+			ui.label(U"Speed", ColorF{ 0.6 });
+			if (ui.spin(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
+			ui.label(U"km/h", ColorF{ 0.5 });
+			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
+		});
+		ui.spacer(4);
 	}
 
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState tplSectionState;
-	dirty |= drawRoadSections(*edge, tplSectionState, pFont, pBold, pX, y);
+	int y = ui.height();
+	dirty |= drawRoadSections(*edge, tplSectionState, pFont, pBold, 6, y);
 
-	PanelWidget::flushTooltip();
+	ui.flush();
 	m_panelManager.reportContentHeight(U"draw_template", y);
 }
 
@@ -825,50 +832,8 @@ void GameScene::drawNodePanel()
 		}
 		y += kLH + 2;
 
-		// 矢印信号の種別選択（方向ごと）
-		if (hasPlacement)
-		{
-			auto& spRef = *node->signalPlacement;
-			const SignalDef* sigDef = m_roadRenderer.signalRegistry().getDef(spRef.signalDefId);
-			if (sigDef && sigDef->subLamp)
-			{
-				static constexpr StringView arrowTypes[] = { U"arrow_left", U"arrow_straight", U"arrow_right" };
-				static constexpr StringView arrowLabels[] = { U"L", U"S", U"R" };
-
-				for (const auto& att : node->attachments)
-				{
-					if (att.control != TrafficControl::Signal) continue;
-					PanelWidget::label(pFont, U"E{}"_fmt(att.edgeId), pX, y, ColorF{ 0.7 });
-
-					auto& states = spRef.subLampStates[att.edgeId];
-					int bx = pX + 36;
-					for (int ai = 0; ai < 3; ++ai)
-					{
-						const String id{ arrowTypes[ai] };
-						bool has = states.contains(id);
-						if (PanelWidget::toggle(pFont, arrowLabels[ai], arrowLabels[ai], has, bx, y, 24, kLH))
-						{
-							if (has && !states.contains(id))
-							{
-								states << id;
-							}
-							else if (!has)
-							{
-								states.remove(id);
-							}
-							if (states.isEmpty())
-							{
-								spRef.subLampStates.erase(att.edgeId);
-							}
-							dirty = true;
-						}
-						bx += 26;
-					}
-					y += kLH;
-				}
-				y += 2;
-			}
-		}
+		// 矢印サブランプは LaneConnection の旋回分類から自動導出されるため UI 不要
+		// (旧 subLampStates 廃止 / plan/19_vehicle_movement_spec.md §6 参照)
 	}
 
 	PanelWidget::flushTooltip();
@@ -905,74 +870,56 @@ void GameScene::drawVehiclePanel()
 	auto area = m_panelManager.beginContent(U"vehicle_info");
 	if (!area) return;
 
-	// ── PanelLayout テスト: 追跡ボタンだけ新システムで描画 ──
-	if (!m_vehicleLayoutReady)
-	{
-		m_vehicleLayout.button(U"track", U"Track", m_trackingVehicle, 120);
-		m_vehicleLayoutReady = true;
-	}
-
 	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
 
-	constexpr int kPad = 6;
-	constexpr int kLH = 17;
-	const int pX = kPad;
-	int y = 0;
+	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"vehicle_info").x));
 
 	static constexpr StringView typeNames[] = {
 		U"PassengerCar", U"KeiCar", U"Moped", U"LightVehicle",
 		U"Bus", U"SmallTruck", U"LargeTruck", U"Emergency"
 	};
 	const int typeIdx = static_cast<int>(veh->type);
-	PanelWidget::label(pFont, U"Type: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), pX, y, ColorF{1.0});
-	y += kLH;
-
-	PanelWidget::label(pFont, U"Speed: {:.1f} km/h"_fmt(veh->speed * 3.6f), pX, y, ColorF{1.0});
-	y += kLH;
+	ui.label(U"Type: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), ColorF{1.0});
+	ui.label(U"Speed: {:.1f} km/h"_fmt(veh->speed * 3.6f), ColorF{1.0});
 
 	static constexpr StringView locNames[] = { U"OnLane", U"OnConnection", U"ChangingLane" };
-	PanelWidget::label(pFont, U"Location: {}"_fmt(locNames[static_cast<int>(veh->location)]), pX, y, ColorF{1.0});
-	y += kLH;
+	ui.label(U"Location: {}"_fmt(locNames[static_cast<int>(veh->location)]), ColorF{1.0});
+	ui.label(U"Edge: {}  Lane: {}"_fmt(veh->currentEdge, veh->currentLane), ColorF{1.0});
 
-	PanelWidget::label(pFont, U"Edge: {}  Lane: {}"_fmt(veh->currentEdge, veh->currentLane), pX, y, ColorF{1.0});
-	y += kLH;
-
-	PanelWidget::label(pFont, U"Goal Edge: {}"_fmt(veh->goalEdgeId), pX, y, ColorF{1.0});
-	// 選択中エッジをゴールに設定するボタン
-	if (m_selectedEdgeId)
-	{
-		if (PanelWidget::button(pFont, U"Set E{}"_fmt(*m_selectedEdgeId), false,
-		                        pX + 120, y, 70, kLH, U"Set selected edge as goal"))
+	ui.row(4, [&] {
+		ui.label(U"Goal Edge: {}"_fmt(veh->goalEdgeId), ColorF{1.0});
+		// 選択中エッジをゴールに設定するボタン
+		if (m_selectedEdgeId)
 		{
-			m_vehicleManager.setGoalAndReroute(veh->id, *m_selectedEdgeId, *m_simGraph);
+			if (ui.button(U"Set E{}"_fmt(*m_selectedEdgeId), false, 70, U"Set selected edge as goal"))
+			{
+				m_vehicleManager.setGoalAndReroute(veh->id, *m_selectedEdgeId, *m_simGraph);
+			}
 		}
-	}
-	y += kLH + 4;
+	});
+	ui.spacer(4);
 
-	// 追跡ボタン（PanelLayout で描画）
+	// 追跡ボタン
+	if (ui.button(m_trackingVehicle ? U"Tracking ON" : U"Track", m_trackingVehicle, 120))
 	{
-		const int contentW = static_cast<int>(m_panelManager.getSize(U"vehicle_info").x) - pX * 2;
-		m_vehicleLayout.update(contentW);
-		m_vehicleLayout.draw();
-		if (m_vehicleLayout.clicked(U"track"))
-		{
-			m_trackingVehicle = !m_trackingVehicle;
-		}
-		y += m_vehicleLayout.contentHeight() + 4;
+		m_trackingVehicle = !m_trackingVehicle;
 	}
+	ui.spacer(6);
 
-	// 経路ウェイポ���ント
+	// 経路ウェイポイント
 	const int wpCount = static_cast<int>(veh->routeWaypoints.size());
-	PanelWidget::label(pBold, U"Route: {}/{} waypoints"_fmt(veh->routeIdx, wpCount), pX, y, ColorF{1.0, 1.0, 0.4});
-	y += kLH + 2;
+	ui.label(U"Route: {}/{} waypoints"_fmt(veh->routeIdx, wpCount), ColorF{1.0, 1.0, 0.4}, true);
+	ui.spacer(2);
 
 	if (wpCount == 0)
 	{
-		PanelWidget::label(pFont, veh->routeRequested ? U"(requesting...)" : U"(no route)", pX, y, ColorF{0.6});
-		y += kLH;
+		ui.label(veh->routeRequested ? U"(requesting...)" : U"(no route)", ColorF{0.6});
 	}
 
+	// ウェイポイントリスト（手動座標制御）
+	constexpr int kLH = 17;
+	constexpr int kPad = 6;
+	int y = ui.height();
 	const int showStart = Max(0, veh->routeIdx - 2);
 	const int showEnd   = Min(wpCount, veh->routeIdx + 10);
 	for (int i = showStart; i < showEnd; ++i)
@@ -986,29 +933,33 @@ void GameScene::drawVehiclePanel()
 			isCurrent ? U">" : (isPast ? U" " : U" "),
 			wp.edgeId, wp.laneIndex, wp.edgeLength);
 
-		const RectF itemRect{ static_cast<double>(pX), static_cast<double>(y),
+		const RectF itemRect{ static_cast<double>(kPad), static_cast<double>(y),
 			260.0, static_cast<double>(kLH) };
 		const bool itemHover = itemRect.mouseOver();
 
 		if (itemHover)
+		{
 			itemRect.draw(ColorF{ 0.3, 0.3, 0.5, 0.4 });
+		}
 
 		const ColorF color = isPast ? ColorF{ 0.4 }
 			: (isCurrent ? ColorF{ 0.0, 1.0, 1.0 }
 			: (itemHover ? ColorF{ 1.0, 1.0, 0.0 } : ColorF{ 1.0 }));
-		PanelWidget::label(pFont, label, pX + 2, y, color);
+		PanelWidget::label(pFont, label, kPad + 2, y, color);
 
 		if (itemHover && MouseL.down() && edge)
 		{
 			const RoadNode* node = m_network.getNode(edge->nodeA);
 			if (node)
+			{
 				m_camera.setFocus(node->position);
+			}
 		}
 
 		y += kLH;
 	}
 
-	PanelWidget::flushTooltip();
+	ui.flush();
 	m_panelManager.reportContentHeight(U"vehicle_info", y);
 }
 
@@ -1106,16 +1057,6 @@ void GameScene::drawSignalEditPanel()
 	const Vec2 panelSize = m_panelManager.getSize(U"signal_edit");
 	bool dirty = false;
 
-	// 信号エッジを収集（左ペインの表示順を固定）
-	Array<int> signalEdgeIds;
-	for (const auto& att : node->attachments)
-	{
-		if (att.control == TrafficControl::Signal)
-		{
-			signalEdgeIds << att.edgeId;
-		}
-	}
-
 	// ========================================
 	// 左ペイン: フェーズ一覧
 	// ========================================
@@ -1132,6 +1073,8 @@ void GameScene::drawSignalEditPanel()
 		dirty = true;
 	}
 	ly += kLH + 4;
+
+	const int totalConn = static_cast<int>(node->laneConnections.size());
 
 	float totalDuration = 0.0f;
 	for (int pi = 0; pi < static_cast<int>(sp.phases.size()); ++pi)
@@ -1153,17 +1096,18 @@ void GameScene::drawSignalEditPanel()
 			}
 		}
 
-		// 1段目: フェーズ番号 + 小さな信号ランプ
+		// 1段目: フェーズ番号 + LaneConnection 別の小ランプ
 		int lx = kPad + 4;
 		PanelWidget::label(pFont, U"P{}"_fmt(pi + 1), lx, ly + 1, selected ? ColorF{ 1.0 } : ColorF{ 0.7 });
 		lx += 22;
 
-		for (const int eid : signalEdgeIds)
+		for (const auto& conn : node->laneConnections)
 		{
-			const bool g = ph.greenEdgeIds.contains(eid);
+			const bool g = ph.greenConnectionIds.contains(conn.id);
 			const ColorF lampC = g ? ColorF{ 0.1, 0.9, 0.3 } : ColorF{ 0.9, 0.15, 0.1 };
-			Circle{ Vec2{ lx + 5.0, ly + 8.0 }, 4.0 }.draw(lampC);
-			lx += 14;
+			Circle{ Vec2{ lx + 3.0, ly + 8.0 }, 2.5 }.draw(lampC);
+			lx += 7;
+			if (lx > kLeftW - 32) break;  // 表示幅オーバー対策
 		}
 
 		// 削除ボタン（右端）
@@ -1181,13 +1125,14 @@ void GameScene::drawSignalEditPanel()
 			}
 		}
 
-		// 2段目: 持続時間
+		// 2段目: 持続時間 + 青連数
 		if (PanelWidget::spin(pFont, ph.duration, 5.0f, 5.0f, 120.0f,
 		                      kPad + 4, ly + kLH + 1, 56, kLH - 2))
 		{
 			dirty = true;
 		}
-		PanelWidget::label(pFont, U"s", kPad + 62, ly + kLH + 1, ColorF{ 0.5 });
+		PanelWidget::label(pFont, U"s  {}/{} green"_fmt(ph.greenConnectionIds.size(), totalConn),
+		                   kPad + 62, ly + kLH + 1, ColorF{ 0.55 });
 
 		ly += kRowH + 3;
 	}
@@ -1207,13 +1152,15 @@ void GameScene::drawSignalEditPanel()
 	const double armLen = diagramSize * 0.28;
 	constexpr double kScale = 4.5;
 
-	// 選択フェーズの青エッジ集合
+	// 選択フェーズの青 LaneConnection 集合
 	HashSet<int> greenSet;
+	SignalPhaseDef* curPhasePtr = nullptr;
 	if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
 	{
-		for (const int eid : sp.phases[m_signalEditPhase].greenEdgeIds)
+		curPhasePtr = &sp.phases[m_signalEditPhase];
+		for (const int cid : curPhasePtr->greenConnectionIds)
 		{
-			greenSet.insert(eid);
+			greenSet.insert(cid);
 		}
 	}
 
@@ -1408,103 +1355,83 @@ void GameScene::drawSignalEditPanel()
 			}
 		}
 
-		// --- 信号機描画（横向き・クリック可能）---
-		const auto* att = node->getAttachment(cap.edgeId);
-		const bool hasSigControl = att && att->control == TrafficControl::Signal;
-		const bool isGreen = greenSet.contains(cap.edgeId);
-
-		if (hasSigControl)
-		{
-			float roadRight = 0.0f;
-			for (const auto& part : edge->parts)
-			{
-				if (part.type == RoadPartType::Roadbed)
-				{
-					const auto [l, r] = outwardOffset(part.offset, part.width, cap.isNodeA);
-					roadRight = Max(roadRight, r);
-				}
-			}
-			const Vec2 sigPos = cap.center + dn * 2.0 + rt * (roadRight * kScale + 30.0);
-
-			constexpr double kSigW = 100.0;
-			constexpr double kSigH = 32.0;
-			RectF{ Arg::center = sigPos, kSigW, kSigH }.rounded(4).draw(ColorF{ 0.3, 0.3, 0.32 });
-			RectF{ Arg::center = sigPos, kSigW - 2, kSigH - 2 }.rounded(3).draw(ColorF{ 0.2, 0.2, 0.22 });
-
-			constexpr double kLampR = 10.0;
-			constexpr double kLampSpacing = 28.0;
-			const Vec2 redPos    = sigPos + Vec2{ -kLampSpacing, 0 };
-			const Vec2 yellowPos = sigPos;
-			const Vec2 greenPos  = sigPos + Vec2{ kLampSpacing, 0 };
-			const ColorF offColor{ 0.12 };
-
-			Circle{ redPos,    kLampR }.draw(isGreen ? offColor : ColorF{ 1.0, 0.15, 0.1 });
-			Circle{ redPos,    kLampR }.drawFrame(1.0, ColorF{ 0.35 });
-			Circle{ yellowPos, kLampR }.draw(offColor);
-			Circle{ yellowPos, kLampR }.drawFrame(1.0, ColorF{ 0.35 });
-			Circle{ greenPos,  kLampR }.draw(isGreen ? ColorF{ 0.1, 1.0, 0.3 } : offColor);
-			Circle{ greenPos,  kLampR }.drawFrame(1.0, ColorF{ 0.35 });
-
-			// クリックで青/赤切替
-			if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
-			{
-				const int hx = static_cast<int>(sigPos.x - kSigW * 0.5);
-				const int hy = static_cast<int>(sigPos.y - kSigH * 0.5);
-				auto hit = PanelWidget::hitTest(pFont, hx, hy,
-				                                static_cast<int>(kSigW), static_cast<int>(kSigH),
-				                                U"Click to toggle");
-				if (hit.clickL)
-				{
-					auto& ph = sp.phases[m_signalEditPhase];
-					if (isGreen) ph.greenEdgeIds.remove(cap.edgeId);
-					else         ph.greenEdgeIds << cap.edgeId;
-					dirty = true;
-				}
-			}
-
-			// 矢印ランプ
-			const auto subIt = sp.subLampStates.find(cap.edgeId);
-			if (subIt != sp.subLampStates.end() && !subIt->second.isEmpty())
-			{
-				const Vec2 arrowBase = sigPos + Vec2{ 0, kSigH * 0.5 + 18.0 };
-				constexpr double kArrSp = 32.0;
-				const int cnt = static_cast<int>(subIt->second.size());
-				const double tw = (cnt - 1) * kArrSp;
-				RectF{ Arg::center = arrowBase, tw + 36.0, 32.0 }.rounded(3).draw(ColorF{ 0.3, 0.3, 0.32 });
-
-				for (int ai = 0; ai < cnt; ++ai)
-				{
-					const Vec2 ap = arrowBase + Vec2{ -tw * 0.5 + ai * kArrSp, 0 };
-					const String& stId = subIt->second[ai];
-					const bool lit = isGreen && stId != U"off";
-					const ColorF ac = lit ? ColorF{ 0.1, 1.0, 0.3 } : offColor;
-					if (lit && stId == U"arrow_left")
-						Triangle{ ap + Vec2{-8, 0}, ap + Vec2{4, -7}, ap + Vec2{4, 7} }.draw(ac);
-					else if (lit && stId == U"arrow_right")
-						Triangle{ ap + Vec2{8, 0}, ap + Vec2{-4, -7}, ap + Vec2{-4, 7} }.draw(ac);
-					else if (lit && stId == U"arrow_straight")
-						Triangle{ ap + Vec2{0, -8}, ap + Vec2{-7, 4}, ap + Vec2{7, 4} }.draw(ac);
-					else
-						Circle{ ap, 8.0 }.draw(ac);
-					Circle{ ap, 9.0 }.drawFrame(1.0, ColorF{ 0.35 });
-				}
-			}
-		}
-
-		// 進行方向矢印
-		if (hasSigControl && isGreen)
-		{
-			const Vec2 inward{ -dn.x, -dn.y };
-			const Vec2 tip  = cap.center + inward * 6.0;
-			const Vec2 base = cap.center + dn * (armLen * 0.5);
-			const Vec2 perp = rt * 3.0;
-			Line{ base, tip }.draw(2.5, ColorF{ 0.2, 0.85, 0.4, 0.7 });
-			Triangle{ tip, tip - inward * 10.0 + perp * 2.5,
-			          tip - inward * 10.0 - perp * 2.5 }.draw(ColorF{ 0.2, 0.85, 0.4, 0.7 });
-		}
-
 		// エッジIDラベル
 		pFont(U"E{}"_fmt(cap.edgeId)).drawAt(cap.center + dn * (armLen + 12.0), ColorF{ 0.8 });
+	}
+
+	// ========================================
+	// LaneConnection 描画 + クリックトグル
+	// ========================================
+	{
+		// world XZ → diagram 座標への変換
+		auto worldToDiag = [&](const Vec3& w) -> Vec2
+		{
+			return center + Vec2{
+				(w.x - node->position.x) * kScale,
+				(w.z - node->position.z) * kScale
+			};
+		};
+
+		// 1パス目: 赤の connection を先に描く
+		// 2パス目: 緑の connection を上から描く
+		// 3パス目: クリック用ハンドル
+		for (int pass = 0; pass < 3; ++pass)
+		{
+			for (const auto& conn : node->laneConnections)
+			{
+				const bool isGreen = greenSet.contains(conn.id);
+				if (pass == 0 && isGreen) continue;   // 1 パス目は赤のみ
+				if (pass == 1 && !isGreen) continue;  // 2 パス目は緑のみ
+
+				// Bezier をディビジョンして diagram 座標に変換
+				constexpr int kBezDiv = 14;
+				Array<Vec2> diagPath;
+				diagPath.reserve(kBezDiv + 1);
+				const float bezLen = conn.path.totalLength;
+				if (bezLen <= 0.0f) continue;
+				for (int k = 0; k <= kBezDiv; ++k)
+				{
+					const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
+					diagPath << worldToDiag(conn.path.positionAt(s));
+				}
+
+				if (pass < 2)
+				{
+					// パスを線で描画
+					const ColorF lineC = isGreen
+						? ColorF{ 0.2, 0.95, 0.4, 0.85 }
+						: ColorF{ 0.95, 0.25, 0.15, 0.55 };
+					const double thickness = isGreen ? 2.5 : 1.5;
+					for (int k = 0; k + 1 < static_cast<int>(diagPath.size()); ++k)
+						Line{ diagPath[k], diagPath[k + 1] }.draw(thickness, lineC);
+				}
+				else
+				{
+					// クリックハンドル（中央の丸）
+					const Vec2 mid = diagPath[kBezDiv / 2];
+					constexpr double r = 6.0;
+					const ColorF handleC = isGreen
+						? ColorF{ 0.1, 0.95, 0.35 }
+						: ColorF{ 0.95, 0.2, 0.1 };
+					Circle{ mid, r }.draw(handleC);
+					Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
+
+					if (curPhasePtr)
+					{
+						const int hx = static_cast<int>(mid.x - r);
+						const int hy = static_cast<int>(mid.y - r);
+						const int hw = static_cast<int>(r * 2);
+						auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
+						if (hit.clickL)
+						{
+							if (isGreen) curPhasePtr->greenConnectionIds.remove(conn.id);
+							else         curPhasePtr->greenConnectionIds << conn.id;
+							dirty = true;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// ========================================

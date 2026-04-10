@@ -7,7 +7,7 @@ class RoadBinary
 {
 public:
 	static constexpr uint32 kMagic   = 0x004E4452u;  ///< "RDN\0"（リトルエンディアン）
-	static constexpr uint16 kVersion = 6;
+	static constexpr uint16 kVersion = 7;  ///< v7: SignalPhaseDef を greenConnectionIds 化、subLampStates 廃止
 
 	/// @brief roads.bin を書き出す
 	/// @param path     出力ファイルパス

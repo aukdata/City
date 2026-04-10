@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "../traffic/TrafficCommon.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1776,17 +1777,68 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 				bodyMesh->draw(baseMat, *model->texture, bodyMat);
 			}
 
-			// 信号状態の判定
+			// 信号状態の判定（LaneConnection ベース）
+			// 進入エッジに属する LaneConnection を旋回別に集計し、本体ランプ・矢印を導出する
 			const auto tlIt = trafficLights.find(node.id);
-			const bool isGreen = (tlIt != trafficLights.end())
-				? tlIt->second.isGreen(att.edgeId)
-				: true;
+			const TrafficLight* tl = (tlIt != trafficLights.end()) ? &tlIt->second : nullptr;
+
+			// 各旋回方向ごとに「青の LaneConnection が存在するか」を集計
+			bool hasStraightConn = false, straightGreen = false;
+			bool hasLeftConn     = false, leftGreen     = false;
+			bool hasRightConn    = false, rightGreen    = false;
+			for (const auto& conn : node.laneConnections)
+			{
+				if (conn.fromEdgeId != att.edgeId) continue;
+
+				// 接線角を bezier から計算（45° ルール用）
+				const RoadEdge* fromE = network.getEdge(conn.fromEdgeId);
+				const RoadEdge* toE   = network.getEdge(conn.toEdgeId);
+				const auto fromBez = fromE ? network.getBezier(conn.fromEdgeId) : Optional<CubicBezier>{};
+				const auto toBez   = toE   ? network.getBezier(conn.toEdgeId)   : Optional<CubicBezier>{};
+				if (!fromE || !toE || !fromBez || !toBez) continue;
+				if (conn.fromLaneIndex < 0 || conn.fromLaneIndex >= static_cast<int>(fromE->lanes.size())) continue;
+				if (conn.toLaneIndex   < 0 || conn.toLaneIndex   >= static_cast<int>(toE->lanes.size())) continue;
+
+				const LaneDir fromDir = fromE->lanes[conn.fromLaneIndex].dir;
+				const LaneDir toDir   = toE->lanes[conn.toLaneIndex].dir;
+				const Vec3 tInA = fromBez->tangentAt(0.0f);
+				const Vec3 tInB = fromBez->tangentAt(fromBez->totalLength);
+				const Vec3 tOutA = toBez->tangentAt(0.0f);
+				const Vec3 tOutB = toBez->tangentAt(toBez->totalLength);
+				const float fromAngleA = static_cast<float>(Math::Atan2(tInA.x, tInA.z));
+				const float fromAngleB = static_cast<float>(Math::Atan2(tInB.x, tInB.z));
+				const float toAngleA   = static_cast<float>(Math::Atan2(tOutA.x, tOutA.z));
+				const float toAngleB   = static_cast<float>(Math::Atan2(tOutB.x, tOutB.z));
+
+				const float inAngle = (fromDir == LaneDir::Forward)
+					? fromAngleB
+					: (fromAngleA + static_cast<float>(Math::Pi));
+				const float outAngle = (toDir == LaneDir::Forward)
+					? toAngleA
+					: (toAngleB + static_cast<float>(Math::Pi));
+
+				const TurnType turn = TrafficCommon::classifyTurnByAngles(inAngle, outAngle);
+				const bool connGreen = tl ? tl->isGreen(conn.id) : true;
+
+				switch (turn)
+				{
+				case TurnType::Straight: hasStraightConn = true; if (connGreen) straightGreen = true; break;
+				case TurnType::Left:     hasLeftConn     = true; if (connGreen) leftGreen     = true; break;
+				case TurnType::Right:    hasRightConn    = true; if (connGreen) rightGreen    = true; break;
+				case TurnType::UTurn:    break;  // 描画上は無視
+				}
+			}
+
+			// メインランプ: 直進 LaneConnection が青なら緑。直進が無ければ全方向の論理和
+			const bool isGreen = hasStraightConn
+				? straightGreen
+				: (leftGreen || rightGreen);
 
 			bool isYellow = false;
-			if (tlIt != trafficLights.end())
+			if (tl)
 			{
-				const float elapsed = tlIt->second.phaseElapsed(gameNow);
-				const float duration = tlIt->second.currentPhaseDuration();
+				const float elapsed = tl->phaseElapsed(gameNow);
+				const float duration = tl->currentPhaseDuration();
 				if (isGreen && duration > 0.0f && (duration - elapsed) < 3.0f)
 				{
 					isYellow = true;
@@ -1838,63 +1890,33 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 				lampMesh->draw(baseMat, texRegion);
 			}
 
-			// sub_lamp（矢印信号）描画 — edgeId 別
-			// 状態IDから配置列を決定（arrow_left=0, arrow_straight=1, arrow_right=2）
-			const auto subIt = sp.subLampStates.find(att.edgeId);
-			if (def->subLamp && subIt != sp.subLampStates.end() && !subIt->second.isEmpty())
+			// sub_lamp（矢印信号）描画 — フェーズから自動導出
+			// 進入エッジに属する LaneConnection を旋回別に分類し、
+			// メインランプが赤のときに該当方向が青の場合のみ矢印を点灯する。
+			// 配置列: arrow_left=0, arrow_straight=1, arrow_right=2
+			if (def->subLamp)
 			{
 				const auto& sld = *def->subLamp;
-				const auto& edgeSubStates = subIt->second;
 				const Mesh* subLampMesh = getSignalMesh(sp.signalDefId, sld.meshName);
 				const Mesh* subBodyMesh = getSignalMesh(sp.signalDefId, sld.bodyMeshName);
 
-				// 状態IDごとの優先列（arrow_left=0, arrow_straight=1, arrow_right=2）
-				static const HashTable<String, int> kPreferredCol = {
-					{ U"arrow_left", 0 },
-					{ U"arrow_straight", 1 },
-					{ U"arrow_right", 2 },
-				};
+				// メインランプが青/黄のときは矢印は点灯しない（重複を避ける）
+				const bool mainLit = (isGreen || isYellow);
 
-				// 優先列順にソートして配置（同優先列なら出現順）
-				Array<std::pair<int, int>> sorted; // {preferredCol, stateIndex}
-				for (int si = 0; si < static_cast<int>(edgeSubStates.size()); ++si)
-				{
-					const auto pIt = kPreferredCol.find(edgeSubStates[si]);
-					const int pref = (pIt != kPreferredCol.end()) ? pIt->second : 1;
-					sorted.emplace_back(pref, si);
-				}
-				sorted.sort_by([](const auto& a, const auto& b) { return a.first < b.first; });
+				// 各方向の点灯判定: 該当 LaneConnection が青 かつ メインが赤
+				struct ArrowSlot { int col; String stateId; bool lit; };
+				Array<ArrowSlot> slots;
+				if (hasLeftConn)
+					slots << ArrowSlot{ 0, U"arrow_left",     leftGreen     && !mainLit };
+				if (hasStraightConn)
+					slots << ArrowSlot{ 1, U"arrow_straight", straightGreen && !mainLit };
+				if (hasRightConn)
+					slots << ArrowSlot{ 2, U"arrow_right",    rightGreen    && !mainLit };
 
-				// 優先列から空き列を探して配置（前→後の順で探索）
-				HashSet<int> usedCols;
-				Array<std::pair<int, int>> colSlots; // {assignedCol, stateIndex}
-				for (const auto& [pref, si] : sorted)
+				for (const auto& s : slots)
 				{
-					int col = pref;
-					if (usedCols.contains(col))
-					{
-						// まず前方(pref-1, pref-2, ...)を探し、なければ後方(pref+1, pref+2, ...)
-						bool found = false;
-						for (int c = pref - 1; c >= 0; --c)
-						{
-							if (!usedCols.contains(c)) { col = c; found = true; break; }
-						}
-						if (!found)
-						{
-							for (int c = pref + 1; ; ++c)
-							{
-								if (!usedCols.contains(c)) { col = c; break; }
-							}
-						}
-					}
-					usedCols.insert(col);
-					colSlots.emplace_back(col, si);
-				}
-
-				for (const auto& [col, si] : colSlots)
-				{
-					const int row = col / sld.cols;
-					const int c   = col % sld.cols;
+					const int row = s.col / sld.cols;
+					const int c   = s.col % sld.cols;
 					const Float3 offset{
 						sld.colStride.x * c + sld.rowStride.x * row,
 						sld.colStride.y * c + sld.rowStride.y * row,
@@ -1914,10 +1936,7 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 
 					if (subLampMesh)
 					{
-						const String& stateId = edgeSubStates[si];
-						const bool subLit = isGreen && stateId != U"off";
-						const String renderStateId = subLit ? stateId : U"off";
-
+						const String renderStateId = s.lit ? s.stateId : U"off";
 						auto renderStIt = def->states.find(renderStateId);
 						if (renderStIt == def->states.end())
 						{

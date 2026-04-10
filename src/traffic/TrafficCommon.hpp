@@ -276,21 +276,19 @@ namespace TrafficCommon
 
 	// ========== 信号フェーズ生成 ==========
 
-	/// @brief エッジリストを2グループに分けて信号フェーズを構築する
-	inline Array<SignalPhase> buildTwoGroupPhases(const Array<int>& edgeIds, float duration = 30.0f)
+	/// @brief 全 LaneConnection を 1 フェーズで常時青にするデフォルトフェーズを構築する
+	/// @details 自動生成の賢さ（対向直進グループ化等）は将来実装。
+	///   現状は「信号設置 = 常時青」の最小実装。ユーザーが UI で明示的にフェーズを定義する前提。
+	inline Array<SignalPhase> buildDefaultPhases(const Array<LaneConnection>& laneConnections,
+	                                             float duration = 30.0f)
 	{
-		const int half = static_cast<int>(edgeIds.size()) / 2;
-		SignalPhase phaseA; phaseA.duration = duration;
-		SignalPhase phaseB; phaseB.duration = duration;
-		for (int k = 0; k < static_cast<int>(edgeIds.size()); ++k)
-		{
-			if (k < half)
-				phaseA.greenEdgeIds << edgeIds[k];
-			else
-				phaseB.greenEdgeIds << edgeIds[k];
-		}
+		SignalPhase phase;
+		phase.duration = duration;
+		for (const auto& conn : laneConnections)
+			phase.greenConnectionIds << conn.id;
+
 		Array<SignalPhase> phases;
-		phases << std::move(phaseA) << std::move(phaseB);
+		phases << std::move(phase);
 		return phases;
 	}
 }
