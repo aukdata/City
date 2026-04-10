@@ -133,14 +133,4 @@ private:
 	{
 		return ((int64)edgeId << 16) | (int64)(uint16)laneIdx;
 	}
-
-	/// @brief 進入・退出方向からターン種別を判定する（SimGraph の接線角を使用）
-	TurnType calcTurnType(
-		const SimGraph& graph,
-		int fromEdgeId, LaneDir fromDir,
-		int toEdgeId,   LaneDir toDir,
-		int nodeId) const;
-
-	/// @brief ターン種別に対応する交差点コストを返す（信号なし）
-	float costTransition(TurnType turn) const;
 };

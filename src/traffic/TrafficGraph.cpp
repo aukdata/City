@@ -1,4 +1,5 @@
 ﻿#include "TrafficGraph.hpp"
+#include "TrafficCommon.hpp"
 #include <queue>
 
 // ===== rebuild =====
@@ -81,59 +82,42 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 	}
 
 	// --- Step 3: 各ノードで Transition 辺を追加 ---
+	// RoadNode.laneConnections に実在する旋回パスにのみ辺を張る。
+	// これにより「左折専用レーンから直進」のような物理不可能な経路が
+	// 探索結果に含まれないことが保証される。
+	// 詳細は plan/08_pathfinding_spec.md §3 参照。
 	for (const auto& [nid, node] : graph.nodes)
 	{
-		for (const int inEdgeId : node.edgeIds)
+		for (const LaneConnection& conn : node.laneConnections)
 		{
-			const SimGraph::Edge* inEdge = graph.getEdge(inEdgeId);
-			if (!inEdge) continue;
+			const SimGraph::Edge* fromE = graph.getEdge(conn.fromEdgeId);
+			const SimGraph::Edge* toE   = graph.getEdge(conn.toEdgeId);
+			if (!fromE || !toE) continue;
 
-			for (int i = 0; i < static_cast<int>(inEdge->lanes.size()); ++i)
-			{
-				const Lane& inLane = inEdge->lanes[i];
-				if (!(inEdge->isRoadbedBuilt() && (inLane.op == OpState::Open || inLane.op == OpState::Provisional))) continue;
+			// from 側車線が走行可能か
+			if (conn.fromLaneIndex < 0 || conn.fromLaneIndex >= static_cast<int>(fromE->lanes.size())) continue;
+			const Lane& fromLane = fromE->lanes[conn.fromLaneIndex];
+			if (!(fromE->isRoadbedBuilt() && (fromLane.op == OpState::Open || fromLane.op == OpState::Provisional))) continue;
 
-				const bool exitsAtNode =
-					(inLane.dir == LaneDir::Forward  && inEdge->nodeB == node.id) ||
-					(inLane.dir == LaneDir::Backward && inEdge->nodeA == node.id);
-				if (!exitsAtNode) continue;
+			// to 側車線が走行可能か
+			if (conn.toLaneIndex < 0 || conn.toLaneIndex >= static_cast<int>(toE->lanes.size())) continue;
+			const Lane& toLane = toE->lanes[conn.toLaneIndex];
+			if (!(toE->isRoadbedBuilt() && (toLane.op == OpState::Open || toLane.op == OpState::Provisional))) continue;
 
-				const auto exitIt = m_exitNodeIds.find(laneKey(inEdgeId, i));
-				if (exitIt == m_exitNodeIds.end()) continue;
-				const int exitId = exitIt->second;
+			// 進入エッジの exit ノード ID と退出エッジの entry ノード ID を取得
+			const auto exitIt = m_exitNodeIds.find(laneKey(conn.fromEdgeId, conn.fromLaneIndex));
+			if (exitIt == m_exitNodeIds.end()) continue;
+			const auto entryIt = m_entryNodeIds.find(laneKey(conn.toEdgeId, conn.toLaneIndex));
+			if (entryIt == m_entryNodeIds.end()) continue;
 
-				for (const int outEdgeId : node.edgeIds)
-				{
-					if (outEdgeId == inEdgeId) continue;
+			const TurnType turn = TrafficCommon::classifyTurn(graph, conn);
+			float cost          = TrafficCommon::costTransition(turn);
 
-					const SimGraph::Edge* outEdge = graph.getEdge(outEdgeId);
-					if (!outEdge) continue;
+			const auto tlIt = lights.find(node.id);
+			if (tlIt != lights.end())
+				cost += tlIt->second.expectedWaitTime(conn.id);
 
-					for (int j = 0; j < static_cast<int>(outEdge->lanes.size()); ++j)
-					{
-						const Lane& outLane = outEdge->lanes[j];
-						if (!(outEdge->isRoadbedBuilt() && (outLane.op == OpState::Open || outLane.op == OpState::Provisional))) continue;
-
-						const bool entersAtNode =
-							(outLane.dir == LaneDir::Forward  && outEdge->nodeA == node.id) ||
-							(outLane.dir == LaneDir::Backward && outEdge->nodeB == node.id);
-						if (!entersAtNode) continue;
-
-						const auto entryIt = m_entryNodeIds.find(laneKey(outEdgeId, j));
-						if (entryIt == m_entryNodeIds.end()) continue;
-						const int entryId = entryIt->second;
-
-						const TurnType turn = calcTurnType(graph, inEdgeId, inLane.dir, outEdgeId, outLane.dir, node.id);
-						float cost          = costTransition(turn);
-
-						const auto tlIt = lights.find(node.id);
-						if (tlIt != lights.end())
-							cost += tlIt->second.expectedWaitTime(inEdgeId);
-
-						m_laneNodes[exitId].outgoing << GraphEdge{ GraphEdgeType::Transition, entryId, cost };
-					}
-				}
-			}
+			m_laneNodes[exitIt->second].outgoing << GraphEdge{ GraphEdgeType::Transition, entryIt->second, cost };
 		}
 	}
 
@@ -353,48 +337,4 @@ const BorderNode* TrafficGraph::getBorderNode(int nodeId) const
 	return (it != m_borderNodes.end()) ? &it->second : nullptr;
 }
 
-// ===== ターン判定（SimGraph の接線角を使用） =====
-
-TurnType TrafficGraph::calcTurnType(
-	const SimGraph& graph,
-	int fromEdgeId, LaneDir fromDir,
-	int toEdgeId,   LaneDir toDir,
-	int /*nodeId*/) const
-{
-	const SimGraph::Edge* fromE = graph.getEdge(fromEdgeId);
-	const SimGraph::Edge* toE   = graph.getEdge(toEdgeId);
-	if (!fromE || !toE) return TurnType::Straight;
-
-	// 進入方向: Forward なら nodeB 端の接線、Backward なら nodeA 端の接線を反転
-	const float inAngle = (fromDir == LaneDir::Forward)
-		? fromE->tangentAngleB
-		: (fromE->tangentAngleA + static_cast<float>(Math::Pi));
-
-	// 退出方向: Forward なら nodeA 端の接線、Backward なら nodeB 端の接線を反転
-	const float outAngle = (toDir == LaneDir::Forward)
-		? toE->tangentAngleA
-		: (toE->tangentAngleB + static_cast<float>(Math::Pi));
-
-	const float cosIn  = std::cos(inAngle),  sinIn  = std::sin(inAngle);
-	const float cosOut = std::cos(outAngle), sinOut = std::sin(outAngle);
-
-	const float dot   = cosIn * cosOut + sinIn * sinOut;
-	const float cross = cosIn * sinOut - sinIn * cosOut;
-
-	if (dot  >  0.7f) return TurnType::Straight;
-	if (dot  < -0.7f) return TurnType::UTurn;
-	if (cross > 0.0f) return TurnType::Left;
-	return TurnType::Right;
-}
-
-float TrafficGraph::costTransition(TurnType turn) const
-{
-	switch (turn)
-	{
-	case TurnType::Straight: return 2.0f;
-	case TurnType::Left:     return 5.0f;
-	case TurnType::Right:    return 8.0f;
-	case TurnType::UTurn:    return 15.0f;
-	}
-	return 2.0f;
-}
+// ターン判定とコスト関数は TrafficCommon::classifyTurn / TrafficCommon::costTransition に移動した

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Vehicle.hpp"
 #include "TrafficLight.hpp"
+#include "TrafficGraph.hpp"
 #include "../sim/SimGraph.hpp"
 
 /// @brief 車両シミュレーション定数
@@ -42,7 +43,8 @@ namespace TrafficCommon
 	constexpr float kStopSignDist   = 12.0f;  ///< 一時停止検出距離 [m]
 	constexpr float kYieldDist      = 20.0f;  ///< 譲れ検出距離 [m]
 	constexpr float kStopSignWait   = 1.5f;   ///< 一時停止の待機時間 [game sec]
-	constexpr float kLaneChangeMinExitDist = 30.0f;  ///< 車線変更を行う出口までの最小距離 [m]
+	constexpr float kLaneChangeMinExitDist = 30.0f;  ///< 気まぐれ車線変更を行う出口までの最小距離 [m]
+	constexpr float kLaneChangePerNeedDist = 60.0f;  ///< 経路駆動車線変更: 1 車線変更あたりの余裕距離 [m]
 	constexpr float kFreeFlowGap   = 500.0f;  ///< 前方車両が遠い場合のフリーフロー閾値 [m]
 
 	// ========== 車線判定 ==========
@@ -202,6 +204,74 @@ namespace TrafficCommon
 		const float safetyFront = params.s0 + 8.0f;
 		const float safetyRear  = params.s0 + params.T * kDeltaVMax + 8.0f;
 		return (frontGap >= safetyFront) && (rearGap >= safetyRear);
+	}
+
+	// ========== 旋回分類 (45° ルール) ==========
+
+	/// @brief 進入・退出方向角から旋回種別を分類する（45° ルール、プリミティブ版）
+	/// @details
+	///   |θ| ≤ 45°            → Straight
+	///   45° < θ < 135°       → Left
+	///   -135° < θ < -45°     → Right
+	///   |θ| ≥ 135°           → UTurn
+	///
+	///   経路探索・信号フェーズ自動生成・矢印ランプ描画の 3 箇所で共通使用する。
+	///   詳細は plan/08_pathfinding_spec.md §3 参照。
+	/// @param inAngle  ノードに到達する直前の進行方向 [rad] (atan2(tx, tz))
+	/// @param outAngle ノードを出た直後の進行方向 [rad]
+	inline TurnType classifyTurnByAngles(float inAngle, float outAngle)
+	{
+		const float cosIn  = std::cos(inAngle),  sinIn  = std::sin(inAngle);
+		const float cosOut = std::cos(outAngle), sinOut = std::sin(outAngle);
+
+		const float dot   = cosIn * cosOut + sinIn * sinOut;
+		const float cross = cosIn * sinOut - sinIn * cosOut;
+
+		// 45° ルール: cos 45° = √2/2 ≈ 0.7071
+		constexpr float kCos45 = 0.70710678f;
+		if (dot >=  kCos45) return TurnType::Straight;
+		if (dot <= -kCos45) return TurnType::UTurn;
+		return (cross > 0.0f) ? TurnType::Left : TurnType::Right;
+	}
+
+	/// @brief LaneConnection を旋回種別に分類する（SimGraph 版）
+	inline TurnType classifyTurn(const SimGraph& graph, const LaneConnection& conn)
+	{
+		const SimGraph::Edge* fromE = graph.getEdge(conn.fromEdgeId);
+		const SimGraph::Edge* toE   = graph.getEdge(conn.toEdgeId);
+		if (!fromE || !toE) return TurnType::Straight;
+		if (conn.fromLaneIndex < 0 || conn.fromLaneIndex >= static_cast<int>(fromE->lanes.size())) return TurnType::Straight;
+		if (conn.toLaneIndex   < 0 || conn.toLaneIndex   >= static_cast<int>(toE->lanes.size()))   return TurnType::Straight;
+
+		const LaneDir fromDir = fromE->lanes[conn.fromLaneIndex].dir;
+		const LaneDir toDir   = toE->lanes[conn.toLaneIndex].dir;
+
+		// 進入: Forward なら nodeB 端の接線、Backward なら nodeA 端の接線を反転
+		const float inAngle = (fromDir == LaneDir::Forward)
+			? fromE->tangentAngleB
+			: (fromE->tangentAngleA + static_cast<float>(Math::Pi));
+
+		// 退出: Forward なら nodeA 端の接線、Backward なら nodeB 端の接線を反転
+		const float outAngle = (toDir == LaneDir::Forward)
+			? toE->tangentAngleA
+			: (toE->tangentAngleB + static_cast<float>(Math::Pi));
+
+		return classifyTurnByAngles(inAngle, outAngle);
+	}
+
+	/// @brief TurnType に対応する Transition コスト [ゲーム秒]
+	/// @details LaneConnection 自体にはコストを持たせず、ターン種別のみで決定する。
+	///   厳密な通過時間ではなく「極端な遠回りを避ける」目安。
+	inline float costTransition(TurnType turn)
+	{
+		switch (turn)
+		{
+		case TurnType::Straight: return 2.0f;
+		case TurnType::Left:     return 5.0f;
+		case TurnType::Right:    return 8.0f;
+		case TurnType::UTurn:    return 15.0f;
+		}
+		return 2.0f;
 	}
 
 	// ========== 信号フェーズ生成 ==========

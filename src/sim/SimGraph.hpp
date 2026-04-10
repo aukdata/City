@@ -38,6 +38,7 @@ struct SimGraph
 		int        id = -1;
 		Array<int> edgeIds;   ///< 接続エッジ ID リスト
 		HashTable<int, TrafficControl> edgeControl;  ///< edgeId → 交通規制
+		Array<LaneConnection> laneConnections;  ///< 交差点内の車線接続（旋回パス）
 	};
 
 	HashTable<int, Edge> edges;
@@ -81,6 +82,7 @@ struct SimGraph
 			sn.edgeIds = node.edgeIds();
 			for (const auto& att : node.attachments)
 				sn.edgeControl[att.edgeId] = att.control;
+			sn.laneConnections = node.laneConnections;
 			g.nodes[node.id] = std::move(sn);
 		}
 
@@ -159,6 +161,7 @@ struct SimGraph
 			sn.edgeIds = rn->edgeIds();
 			for (const auto& att : rn->attachments)
 				sn.edgeControl[att.edgeId] = att.control;
+			sn.laneConnections = rn->laneConnections;
 			nodes[nid] = std::move(sn);
 		}
 	}

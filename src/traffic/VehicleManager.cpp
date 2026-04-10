@@ -161,7 +161,10 @@ void VehicleManager::update(double dt, GameTime gameNow,
 		if (v.mode == VehicleMode::Active)
 		{
 			const auto lcStart = Clock::now();
-			if (v.location == VehicleLocation::OnLane && RandomBool(kLaneChangeProbability))
+			// 経路駆動車線変更（先読み + urgency 強引モード）は毎フレーム判定する必要がある。
+			// 経路駆動が不要な場合のみ tryLaneChange 内で気まぐれ変更を低確率で発動。
+			// 詳細は plan/19_vehicle_movement_spec.md §7 参照。
+			if (v.location == VehicleLocation::OnLane)
 				tryLaneChange(v, simGraph);
 			lcTotal += toMs(Clock::now() - lcStart);
 
@@ -403,6 +406,54 @@ namespace
 		v.speed           *= kDirectTransitFactor;
 	}
 
+	/// @brief 経路の次ウェイポイントが要求する車線（targetLane）を返す
+	/// @details routeWaypoints から「現在エッジと異なる最初のウェイポイント」を探し、
+	///   その edgeId / laneIndex に行ける LaneConnection を現在エッジの exit ノードから検索する。
+	///   候補のうち conn.fromLaneIndex が現在車線に最も近いものを返す。
+	///   詳細は plan/19_vehicle_movement_spec.md §7 参照。
+	/// @return 必要な fromLaneIndex (-1 = 経路駆動車線変更不要 / 必要情報なし)
+	int findRouteTargetLane(const Vehicle& v, const SimGraph& simGraph)
+	{
+		if (v.routeIdx >= static_cast<int>(v.routeWaypoints.size()))
+			return -1;
+
+		const auto* edge = simGraph.getEdge(v.currentEdge);
+		if (!edge) return -1;
+
+		const int exitNId = isForwardLane(*edge, v.currentLane) ? edge->nodeB : edge->nodeA;
+		const auto* node = simGraph.getNode(exitNId);
+		if (!node) return -1;
+
+		// 現在エッジと異なる最初のウェイポイントを探す（1 waypoint 先のみ）
+		int wpIdx = v.routeIdx;
+		while (wpIdx < static_cast<int>(v.routeWaypoints.size())
+		       && v.routeWaypoints[wpIdx].edgeId == v.currentEdge)
+		{
+			++wpIdx;
+		}
+		if (wpIdx >= static_cast<int>(v.routeWaypoints.size()))
+			return -1;
+
+		const auto& wp = v.routeWaypoints[wpIdx];
+
+		int bestFromLane = -1;
+		int bestDelta    = 1 << 20;
+		for (const auto& conn : node->laneConnections)
+		{
+			if (conn.fromEdgeId  != v.currentEdge) continue;
+			if (conn.toEdgeId    != wp.edgeId)     continue;
+			if (conn.toLaneIndex != wp.laneIndex)  continue;
+
+			const int delta = std::abs(conn.fromLaneIndex - v.currentLane);
+			if (delta < bestDelta)
+			{
+				bestDelta    = delta;
+				bestFromLane = conn.fromLaneIndex;
+			}
+		}
+		return bestFromLane;
+	}
+
 	/// @brief 出口ノード ID を求める
 	int getExitNodeId(const Vehicle& v, const SimGraph::Edge& edge)
 	{
@@ -571,9 +622,72 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 	if (!edge) return;
 
 	const bool fwdLane = isForwardLane(*edge, v.currentLane);
-	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
+	const IDMParams baseParams = getDefaultIDMParams(v.type, edge->speedLimit);
 
 	const float distToExit = fwdLane ? (edge->length - v.arcPos) : v.arcPos;
+
+	// ===== 1. 経路駆動: targetLane を計算 =====
+	const int routeTargetLane = findRouteTargetLane(v, simGraph);
+	const int routeNeeded = (routeTargetLane >= 0 && routeTargetLane != v.currentLane)
+		? std::abs(routeTargetLane - v.currentLane)
+		: 0;
+
+	// ===== 2. 経路駆動車線変更（urgency モデル + 段階的緩和 = 強引モード） =====
+	if (routeNeeded > 0)
+	{
+		// urgency = 1 - distToExit / (needed * kLaneChangePerNeedDist)
+		const float spaceNeeded = static_cast<float>(routeNeeded) * kLaneChangePerNeedDist;
+		const float urgency     = 1.0f - distToExit / Max(0.1f, spaceNeeded);
+
+		// 進行方向は routeTargetLane に向かって 1 歩
+		const int step       = (routeTargetLane > v.currentLane) ? +1 : -1;
+		const int targetLane = v.currentLane + step;
+
+		auto commitChange = [&]()
+		{
+			v.location = VehicleLocation::ChangingLane;
+			v.laneFrom = v.currentLane;
+			v.laneTo   = targetLane;
+			v.laneChangeBlend = 0.0f;
+		};
+
+		if (urgency > 1.0f)
+		{
+			// 距離不足: 強制スイッチ（周囲は IDM が自然に反応）
+			commitChange();
+			return;
+		}
+		if (urgency >= 0.7f)
+		{
+			// 強引モード: 安全チェックスキップで割り込み
+			// 後続車は次フレームから自車を新しい前車として IDM 追従し急減速する
+			commitChange();
+			return;
+		}
+
+		// urgency 0.0-0.7: マージンを段階的に縮小して試行
+		IDMParams params = baseParams;
+		if (urgency >= 0.3f)
+		{
+			// t = (urgency - 0.3) / 0.4 で 0 → 1
+			const float t     = (urgency - 0.3f) / 0.4f;
+			const float scale = Math::Lerp(1.0f, 0.3f, t);
+			params.s0 *= scale;
+			params.T  *= scale;
+		}
+
+		float frontGap, rearGap;
+		measureGaps(m_vehicles, v.id, v.currentEdge, targetLane,
+		            v.arcPos, fwdLane, true, frontGap, rearGap);
+		if (isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, params))
+			commitChange();
+		// 経路駆動を試みた場合はここで終了（気まぐれ変更には進まない）
+		return;
+	}
+
+	// ===== 3. 経路駆動不要: 気まぐれ車線変更（追い越し / キープレフト） =====
+	// 低確率ガード（経路駆動が不要なときのみ毎フレーム判定するわけではない）
+	if (!RandomBool(kLaneChangeProbability)) return;
 	if (distToExit < kLaneChangeMinExitDist) return;
 
 	// 現在車線の前方ギャップ
@@ -592,7 +706,7 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		float frontGap, rearGap;
 		measureGaps(m_vehicles, v.id, v.currentEdge, targetLane,
 		            v.arcPos, fwdLane, true, frontGap, rearGap);
-		if (!isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, params))
+		if (!isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, baseParams))
 			return false;
 		v.location = VehicleLocation::ChangingLane;
 		v.laneFrom = v.currentLane;
@@ -601,11 +715,12 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		return true;
 	};
 
-	// キープレフト優先
+	// キープレフト優先（左へ）
 	if (v.currentLane > 0 && tryTarget(v.currentLane - 1))
 		return;
 
-	if (frontGapCurrent < params.s0 * kRightLaneGapMultiplier)
+	// 追い越し: 前方が詰まっていれば右へ
+	if (frontGapCurrent < baseParams.s0 * kRightLaneGapMultiplier)
 		tryTarget(v.currentLane + 1);
 }
 
