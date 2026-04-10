@@ -30,7 +30,7 @@ namespace
 		r.skip(len);
 	}
 
-	/// @brief SignalPlacement をスキップする (v7: greenConnectionIds、subLampStates 廃止)
+	/// @brief SignalPlacement をスキップする
 	void skipSignalPlacement(BinaryReader& r)
 	{
 		uint8 hasSig; r.read(hasSig);
@@ -89,7 +89,7 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 			w.write(static_cast<uint8>(att.control));
 		}
 
-		// v7: SignalPlacement（subLampStates 廃止、greenConnectionIds 化）
+		// SignalPlacement
 		const bool hasSignal = n.signalPlacement.has_value();
 		w.write(static_cast<uint8>(hasSignal ? 1 : 0));
 		if (hasSignal)
@@ -213,7 +213,7 @@ bool RoadBinary::read(const FilePath& path,
 			n.attachments << att;
 		}
 
-		// v7: SignalPlacement（greenConnectionIds、subLampStates なし）
+		// SignalPlacement
 		{
 			uint8 hasSignal;
 			if (r.read(hasSignal) && hasSignal != 0)

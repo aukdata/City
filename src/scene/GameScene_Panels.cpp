@@ -833,7 +833,6 @@ void GameScene::drawNodePanel()
 		y += kLH + 2;
 
 		// 矢印サブランプは LaneConnection の旋回分類から自動導出されるため UI 不要
-		// (旧 subLampStates 廃止 / plan/19_vehicle_movement_spec.md §6 参照)
 	}
 
 	PanelWidget::flushTooltip();
@@ -1372,63 +1371,68 @@ void GameScene::drawSignalEditPanel()
 			};
 		};
 
-		// 1パス目: 赤の connection を先に描く
-		// 2パス目: 緑の connection を上から描く
-		// 3パス目: クリック用ハンドル
-		for (int pass = 0; pass < 3; ++pass)
+		// 各 LaneConnection の bezier を 1 度だけ離散化してキャッシュ
+		constexpr int kBezDiv = 14;
+		struct ConnDraw { int connId; bool isGreen; Array<Vec2> path; };
+		Array<ConnDraw> draws;
+		draws.reserve(node->laneConnections.size());
+		for (const auto& conn : node->laneConnections)
 		{
-			for (const auto& conn : node->laneConnections)
+			const float bezLen = conn.path.totalLength;
+			if (bezLen <= 0.0f) continue;
+			ConnDraw d;
+			d.connId  = conn.id;
+			d.isGreen = greenSet.contains(conn.id);
+			d.path.reserve(kBezDiv + 1);
+			for (int k = 0; k <= kBezDiv; ++k)
 			{
-				const bool isGreen = greenSet.contains(conn.id);
-				if (pass == 0 && isGreen) continue;   // 1 パス目は赤のみ
-				if (pass == 1 && !isGreen) continue;  // 2 パス目は緑のみ
+				const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
+				d.path << worldToDiag(conn.path.positionAt(s));
+			}
+			draws << std::move(d);
+		}
 
-				// Bezier をディビジョンして diagram 座標に変換
-				constexpr int kBezDiv = 14;
-				Array<Vec2> diagPath;
-				diagPath.reserve(kBezDiv + 1);
-				const float bezLen = conn.path.totalLength;
-				if (bezLen <= 0.0f) continue;
-				for (int k = 0; k <= kBezDiv; ++k)
-				{
-					const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
-					diagPath << worldToDiag(conn.path.positionAt(s));
-				}
+		// 1 パス目: 赤の bezier 線
+		// 2 パス目: 緑の bezier 線（上に重ねる）
+		// 3 パス目: クリックハンドル
+		auto drawLines = [&](bool greenPass)
+		{
+			for (const auto& d : draws)
+			{
+				if (d.isGreen != greenPass) continue;
+				const ColorF lineC = greenPass
+					? ColorF{ 0.2, 0.95, 0.4, 0.85 }
+					: ColorF{ 0.95, 0.25, 0.15, 0.55 };
+				const double thickness = greenPass ? 2.5 : 1.5;
+				for (int k = 0; k + 1 < static_cast<int>(d.path.size()); ++k)
+					Line{ d.path[k], d.path[k + 1] }.draw(thickness, lineC);
+			}
+		};
+		drawLines(false);
+		drawLines(true);
 
-				if (pass < 2)
-				{
-					// パスを線で描画
-					const ColorF lineC = isGreen
-						? ColorF{ 0.2, 0.95, 0.4, 0.85 }
-						: ColorF{ 0.95, 0.25, 0.15, 0.55 };
-					const double thickness = isGreen ? 2.5 : 1.5;
-					for (int k = 0; k + 1 < static_cast<int>(diagPath.size()); ++k)
-						Line{ diagPath[k], diagPath[k + 1] }.draw(thickness, lineC);
-				}
-				else
-				{
-					// クリックハンドル（中央の丸）
-					const Vec2 mid = diagPath[kBezDiv / 2];
-					constexpr double r = 6.0;
-					const ColorF handleC = isGreen
-						? ColorF{ 0.1, 0.95, 0.35 }
-						: ColorF{ 0.95, 0.2, 0.1 };
-					Circle{ mid, r }.draw(handleC);
-					Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
+		// クリックハンドル
+		for (const auto& d : draws)
+		{
+			const Vec2 mid = d.path[kBezDiv / 2];
+			constexpr double r = 6.0;
+			const ColorF handleC = d.isGreen
+				? ColorF{ 0.1, 0.95, 0.35 }
+				: ColorF{ 0.95, 0.2, 0.1 };
+			Circle{ mid, r }.draw(handleC);
+			Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
 
-					if (curPhasePtr)
-					{
-						const int hx = static_cast<int>(mid.x - r);
-						const int hy = static_cast<int>(mid.y - r);
-						const int hw = static_cast<int>(r * 2);
-						auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
-						if (hit.clickL)
-						{
-							if (isGreen) curPhasePtr->greenConnectionIds.remove(conn.id);
-							else         curPhasePtr->greenConnectionIds << conn.id;
-							dirty = true;
-						}
-					}
+			if (curPhasePtr)
+			{
+				const int hx = static_cast<int>(mid.x - r);
+				const int hy = static_cast<int>(mid.y - r);
+				const int hw = static_cast<int>(r * 2);
+				auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
+				if (hit.clickL)
+				{
+					if (d.isGreen) curPhasePtr->greenConnectionIds.remove(d.connId);
+					else           curPhasePtr->greenConnectionIds << d.connId;
+					dirty = true;
 				}
 			}
 		}

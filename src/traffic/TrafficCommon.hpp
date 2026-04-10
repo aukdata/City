@@ -45,6 +45,11 @@ namespace TrafficCommon
 	constexpr float kStopSignWait   = 1.5f;   ///< 一時停止の待機時間 [game sec]
 	constexpr float kLaneChangeMinExitDist = 30.0f;  ///< 気まぐれ車線変更を行う出口までの最小距離 [m]
 	constexpr float kLaneChangePerNeedDist = 60.0f;  ///< 経路駆動車線変更: 1 車線変更あたりの余裕距離 [m]
+	// 経路駆動車線変更の urgency 閾値（plan/19_vehicle_movement_spec.md §7 参照）
+	constexpr float kUrgencyRelaxStart = 0.3f;  ///< これ以上で安全マージンを段階的に縮小開始
+	constexpr float kUrgencyAggressive = 0.7f;  ///< これ以上で強引モード（安全チェックスキップ）
+	constexpr float kUrgencyForce      = 1.0f;  ///< これを超えたら強制スイッチ（距離不足）
+	constexpr float kUrgencyMinScale   = 0.3f;  ///< 段階的緩和の安全マージン縮小下限
 	constexpr float kFreeFlowGap   = 500.0f;  ///< 前方車両が遠い場合のフリーフロー閾値 [m]
 
 	// ========== 車線判定 ==========

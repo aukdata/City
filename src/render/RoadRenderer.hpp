@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "../road/RoadNetwork.hpp"
 #include "../road/RoadPartRegistry.hpp"
+#include "../sim/SimGraph.hpp"
 #include "../traffic/SignalRegistry.hpp"
 #include "../traffic/TrafficLight.hpp"
 #include "../world/World.hpp"
@@ -33,7 +34,9 @@ public:
 	            const ViewFrustum& frustum, Vec3 cameraPos);
 
 	/// @brief 信号機を描画する
-	void drawSignals(const RoadNetwork& network, const World& world,
+	/// @param simGraph 旋回分類用に precomputed なエッジ接線角を取得する
+	void drawSignals(const RoadNetwork& network, const SimGraph& simGraph,
+	                 const World& world,
 	                 const HashTable<int, TrafficLight>& trafficLights,
 	                 GameTime gameNow, Vec3 cameraPos);
 

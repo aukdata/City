@@ -8,7 +8,7 @@ using namespace TrafficConfig;
 // 匿名名前空間内ヘルパーの前方宣言（定義は本ファイル下方）
 namespace
 {
-	Array<int> predictUpcomingConnections(const Vehicle& v, const SimGraph::Node& node);
+	int findPlannedConnectionId(const Vehicle& v, const SimGraph::Node& node);
 }
 
 // ===== 初期化 =====
@@ -167,9 +167,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 		if (v.mode == VehicleMode::Active)
 		{
 			const auto lcStart = Clock::now();
-			// 経路駆動車線変更（先読み + urgency 強引モード）は毎フレーム判定する必要がある。
-			// 経路駆動が不要な場合のみ tryLaneChange 内で気まぐれ変更を低確率で発動。
-			// 詳細は plan/19_vehicle_movement_spec.md §7 参照。
+			// 経路駆動車線変更を毎フレーム判定（気まぐれ変更は tryLaneChange 内で低確率ガード）
 			if (v.location == VehicleLocation::OnLane)
 				tryLaneChange(v, simGraph);
 			lcTotal += toMs(Clock::now() - lcStart);
@@ -330,14 +328,30 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 		if (tl && exitNode)
 		{
 			// これから使う LaneConnection を先読みして判定。
-			// 経路あり: 一意に特定。経路なし: 候補のうち一つでも青なら進入 OK（案 β）。
-			const Array<int> candidates = predictUpcomingConnections(v, *exitNode);
+			// 経路あり: findPlannedConnectionId が一意に特定。
+			// 経路なし or 一致なし: 現在車線から出る candidate のうち一つでも青なら進入 OK（案 β）。
+			const int planned = findPlannedConnectionId(v, *exitNode);
+
+			bool anyMatch = false;
 			bool anyGreen = false;
-			for (const int cid : candidates)
+			if (planned >= 0)
 			{
-				if (tl->isGreen(cid)) { anyGreen = true; break; }
+				anyMatch = true;
+				anyGreen = tl->isGreen(planned);
 			}
-			if (!candidates.isEmpty() && !anyGreen)
+			else
+			{
+				for (const auto& conn : exitNode->laneConnections)
+				{
+					if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane)
+					{
+						anyMatch = true;
+						if (tl->isGreen(conn.id)) { anyGreen = true; break; }
+					}
+				}
+			}
+
+			if (anyMatch && !anyGreen)
 			{
 				if (const auto a = stopLineAccel(v.speed, distToStop, kSignalStopDist, params))
 					accel = *a;
@@ -424,16 +438,24 @@ namespace
 		v.speed           *= kDirectTransitFactor;
 	}
 
+	/// @brief routeWaypoints から「現在エッジと異なる最初のウェイポイント」を返す
+	const RouteWaypoint* findNextDifferentWaypoint(const Vehicle& v)
+	{
+		for (int i = v.routeIdx; i < static_cast<int>(v.routeWaypoints.size()); ++i)
+		{
+			if (v.routeWaypoints[i].edgeId != v.currentEdge)
+				return &v.routeWaypoints[i];
+		}
+		return nullptr;
+	}
+
 	/// @brief 経路の次ウェイポイントが要求する車線（targetLane）を返す
-	/// @details routeWaypoints から「現在エッジと異なる最初のウェイポイント」を探し、
-	///   その edgeId / laneIndex に行ける LaneConnection を現在エッジの exit ノードから検索する。
-	///   候補のうち conn.fromLaneIndex が現在車線に最も近いものを返す。
-	///   詳細は plan/19_vehicle_movement_spec.md §7 参照。
+	/// @details 詳細は plan/19_vehicle_movement_spec.md §7 参照。
 	/// @return 必要な fromLaneIndex (-1 = 経路駆動車線変更不要 / 必要情報なし)
 	int findRouteTargetLane(const Vehicle& v, const SimGraph& simGraph)
 	{
-		if (v.routeIdx >= static_cast<int>(v.routeWaypoints.size()))
-			return -1;
+		const RouteWaypoint* wp = findNextDifferentWaypoint(v);
+		if (!wp) return -1;
 
 		const auto* edge = simGraph.getEdge(v.currentEdge);
 		if (!edge) return -1;
@@ -442,25 +464,14 @@ namespace
 		const auto* node = simGraph.getNode(exitNId);
 		if (!node) return -1;
 
-		// 現在エッジと異なる最初のウェイポイントを探す（1 waypoint 先のみ）
-		int wpIdx = v.routeIdx;
-		while (wpIdx < static_cast<int>(v.routeWaypoints.size())
-		       && v.routeWaypoints[wpIdx].edgeId == v.currentEdge)
-		{
-			++wpIdx;
-		}
-		if (wpIdx >= static_cast<int>(v.routeWaypoints.size()))
-			return -1;
-
-		const auto& wp = v.routeWaypoints[wpIdx];
-
+		// 候補のうち conn.fromLaneIndex が現在車線に最も近いものを選ぶ
 		int bestFromLane = -1;
 		int bestDelta    = 1 << 20;
 		for (const auto& conn : node->laneConnections)
 		{
 			if (conn.fromEdgeId  != v.currentEdge) continue;
-			if (conn.toEdgeId    != wp.edgeId)     continue;
-			if (conn.toLaneIndex != wp.laneIndex)  continue;
+			if (conn.toEdgeId    != wp->edgeId)    continue;
+			if (conn.toLaneIndex != wp->laneIndex) continue;
 
 			const int delta = std::abs(conn.fromLaneIndex - v.currentLane);
 			if (delta < bestDelta)
@@ -472,48 +483,23 @@ namespace
 		return bestFromLane;
 	}
 
-	/// @brief 信号判定用に、車両がこの先使う LaneConnection ID 候補を予測する
-	/// @details 経路あり: 次ウェイポイントから一意に特定して 1 個だけ返す。
-	///   経路なし or 一致なし: 現在車線から出る全 LaneConnection を返す（fallback 案 β）。
-	///   詳細は plan/19_vehicle_movement_spec.md §6 参照。
-	Array<int> predictUpcomingConnections(const Vehicle& v, const SimGraph::Node& node)
+	/// @brief 信号判定用に、車両がこの先使う LaneConnection を経路から特定する
+	/// @details 詳細は plan/19_vehicle_movement_spec.md §6 参照。
+	/// @return 経路一致した LaneConnection ID (-1 = 経路なし、または現在車線から行けない)
+	int findPlannedConnectionId(const Vehicle& v, const SimGraph::Node& node)
 	{
-		// 経路の次ウェイポイント（現在エッジと異なる最初のもの）を探す
-		int nextWpIdx = -1;
-		for (int i = v.routeIdx; i < static_cast<int>(v.routeWaypoints.size()); ++i)
-		{
-			if (v.routeWaypoints[i].edgeId != v.currentEdge)
-			{
-				nextWpIdx = i;
-				break;
-			}
-		}
+		const RouteWaypoint* wp = findNextDifferentWaypoint(v);
+		if (!wp) return -1;
 
-		Array<int> result;
-		if (nextWpIdx >= 0)
-		{
-			const auto& wp = v.routeWaypoints[nextWpIdx];
-			// 経路一致 LaneConnection を探す（現在車線から出るもののみ）
-			for (const auto& conn : node.laneConnections)
-			{
-				if (conn.fromEdgeId   == v.currentEdge
-				    && conn.fromLaneIndex == v.currentLane
-				    && conn.toEdgeId    == wp.edgeId
-				    && conn.toLaneIndex == wp.laneIndex)
-				{
-					result << conn.id;
-					return result;
-				}
-			}
-		}
-
-		// 経路なし or 一致なし: 現在車線から出る全 LaneConnection を候補として返す
 		for (const auto& conn : node.laneConnections)
 		{
-			if (conn.fromEdgeId == v.currentEdge && conn.fromLaneIndex == v.currentLane)
-				result << conn.id;
+			if (conn.fromEdgeId   == v.currentEdge
+			    && conn.fromLaneIndex == v.currentLane
+			    && conn.toEdgeId    == wp->edgeId
+			    && conn.toLaneIndex == wp->laneIndex)
+				return conn.id;
 		}
-		return result;
+		return -1;
 	}
 
 	/// @brief 出口ノード ID を求める
@@ -694,46 +680,36 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		? std::abs(routeTargetLane - v.currentLane)
 		: 0;
 
+	// 車線変更を確定する小ヘルパー（経路駆動・気まぐれ共通）
+	auto beginLaneChange = [&](int targetLane)
+	{
+		v.location = VehicleLocation::ChangingLane;
+		v.laneFrom = v.currentLane;
+		v.laneTo   = targetLane;
+		v.laneChangeBlend = 0.0f;
+	};
+
 	// ===== 2. 経路駆動車線変更（urgency モデル + 段階的緩和 = 強引モード） =====
 	if (routeNeeded > 0)
 	{
-		// urgency = 1 - distToExit / (needed * kLaneChangePerNeedDist)
 		const float spaceNeeded = static_cast<float>(routeNeeded) * kLaneChangePerNeedDist;
-		const float urgency     = 1.0f - distToExit / Max(0.1f, spaceNeeded);
+		const float urgency     = 1.0f - distToExit / spaceNeeded;
+		const int   targetLane  = v.currentLane + ((routeTargetLane > v.currentLane) ? +1 : -1);
 
-		// 進行方向は routeTargetLane に向かって 1 歩
-		const int step       = (routeTargetLane > v.currentLane) ? +1 : -1;
-		const int targetLane = v.currentLane + step;
-
-		auto commitChange = [&]()
+		// 距離不足 or 強引モード: 安全チェックスキップで割り込み
+		// （後続車は次フレームから自車を新しい前車として IDM 追従し急減速する）
+		if (urgency > kUrgencyForce || urgency >= kUrgencyAggressive)
 		{
-			v.location = VehicleLocation::ChangingLane;
-			v.laneFrom = v.currentLane;
-			v.laneTo   = targetLane;
-			v.laneChangeBlend = 0.0f;
-		};
-
-		if (urgency > 1.0f)
-		{
-			// 距離不足: 強制スイッチ（周囲は IDM が自然に反応）
-			commitChange();
-			return;
-		}
-		if (urgency >= 0.7f)
-		{
-			// 強引モード: 安全チェックスキップで割り込み
-			// 後続車は次フレームから自車を新しい前車として IDM 追従し急減速する
-			commitChange();
+			beginLaneChange(targetLane);
 			return;
 		}
 
-		// urgency 0.0-0.7: マージンを段階的に縮小して試行
+		// urgency kUrgencyRelaxStart 〜 kUrgencyAggressive: マージンを段階的に縮小して試行
 		IDMParams params = baseParams;
-		if (urgency >= 0.3f)
+		if (urgency >= kUrgencyRelaxStart)
 		{
-			// t = (urgency - 0.3) / 0.4 で 0 → 1
-			const float t     = (urgency - 0.3f) / 0.4f;
-			const float scale = Math::Lerp(1.0f, 0.3f, t);
+			const float t     = (urgency - kUrgencyRelaxStart) / (kUrgencyAggressive - kUrgencyRelaxStart);
+			const float scale = Math::Lerp(1.0f, kUrgencyMinScale, t);
 			params.s0 *= scale;
 			params.T  *= scale;
 		}
@@ -742,26 +718,19 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		measureGaps(m_vehicles, v.id, v.currentEdge, targetLane,
 		            v.arcPos, fwdLane, true, frontGap, rearGap);
 		if (isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, params))
-			commitChange();
+			beginLaneChange(targetLane);
 		// 経路駆動を試みた場合はここで終了（気まぐれ変更には進まない）
 		return;
 	}
 
 	// ===== 3. 経路駆動不要: 気まぐれ車線変更（追い越し / キープレフト） =====
-	// 低確率ガード（経路駆動が不要なときのみ毎フレーム判定するわけではない）
 	if (!RandomBool(kLaneChangeProbability)) return;
 	if (distToExit < kLaneChangeMinExitDist) return;
 
 	// 現在車線の前方ギャップ
-	float frontGapCurrent = 1e9f;
-	for (const auto& other : m_vehicles)
-	{
-		if (other.id == v.id || other.mode != VehicleMode::Active) continue;
-		if (other.currentEdge != v.currentEdge || other.currentLane != v.currentLane) continue;
-		const float delta = fwdLane ? (other.arcPos - v.arcPos) : (v.arcPos - other.arcPos);
-		if (delta > 0.0f && delta < frontGapCurrent)
-			frontGapCurrent = delta;
-	}
+	float frontGapCurrent = 1e9f, rearGapDummy = 1e9f;
+	measureGaps(m_vehicles, v.id, v.currentEdge, v.currentLane,
+	            v.arcPos, fwdLane, true, frontGapCurrent, rearGapDummy);
 
 	auto tryTarget = [&](int targetLane) -> bool
 	{
@@ -770,10 +739,7 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 		            v.arcPos, fwdLane, true, frontGap, rearGap);
 		if (!isLaneChangeSafe(*edge, targetLane, fwdLane, frontGap, rearGap, baseParams))
 			return false;
-		v.location = VehicleLocation::ChangingLane;
-		v.laneFrom = v.currentLane;
-		v.laneTo   = targetLane;
-		v.laneChangeBlend = 0.0f;
+		beginLaneChange(targetLane);
 		return true;
 	};
 

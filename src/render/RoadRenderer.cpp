@@ -1658,11 +1658,20 @@ const Mesh* RoadRenderer::getSignalMesh(const String& defId, const String& meshN
 // 信号機描画
 // ---------------------------------------------------------------------------
 
-void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
+void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGraph,
+                               const World& world,
                                const HashTable<int, TrafficLight>& trafficLights,
                                GameTime gameNow, Vec3 cameraPos)
 {
 	constexpr double kSignalDrawMaxDistSq = 800.0 * 800.0;
+
+	// 進入エッジ単位の信号状態サマリー
+	struct EdgeSignalSummary
+	{
+		bool hasStraight = false, straightGreen = false;
+		bool hasLeft     = false, leftGreen     = false;
+		bool hasRight    = false, rightGreen    = false;
+	};
 
 	for (const auto& node : network.nodes())
 	{
@@ -1688,6 +1697,28 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 		}
 
 		const bool elevated = network.isNodeElevated(node.id);
+
+		// この交差点の LaneConnection を進入エッジ別 × 旋回別に 1 度だけ集計する。
+		// attachments ループの中で繰り返し計算しないようここで作る。
+		const auto tlIt = trafficLights.find(node.id);
+		const TrafficLight* tl = (tlIt != trafficLights.end()) ? &tlIt->second : nullptr;
+
+		HashTable<int, EdgeSignalSummary> edgeSummaries;
+		for (const auto& conn : node.laneConnections)
+		{
+			const TurnType turn = TrafficCommon::classifyTurn(simGraph, conn);
+			if (turn == TurnType::UTurn) continue;  // 描画上は無視
+
+			const bool connGreen = tl ? tl->isGreen(conn.id) : true;
+			EdgeSignalSummary& sum = edgeSummaries[conn.fromEdgeId];
+			switch (turn)
+			{
+			case TurnType::Straight: sum.hasStraight = true; if (connGreen) sum.straightGreen = true; break;
+			case TurnType::Left:     sum.hasLeft     = true; if (connGreen) sum.leftGreen     = true; break;
+			case TurnType::Right:    sum.hasRight    = true; if (connGreen) sum.rightGreen    = true; break;
+			default: break;
+			}
+		}
 
 		for (const auto& att : node.attachments)
 		{
@@ -1777,62 +1808,16 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 				bodyMesh->draw(baseMat, *model->texture, bodyMat);
 			}
 
-			// 信号状態の判定（LaneConnection ベース）
-			// 進入エッジに属する LaneConnection を旋回別に集計し、本体ランプ・矢印を導出する
-			const auto tlIt = trafficLights.find(node.id);
-			const TrafficLight* tl = (tlIt != trafficLights.end()) ? &tlIt->second : nullptr;
-
-			// 各旋回方向ごとに「青の LaneConnection が存在するか」を集計
-			bool hasStraightConn = false, straightGreen = false;
-			bool hasLeftConn     = false, leftGreen     = false;
-			bool hasRightConn    = false, rightGreen    = false;
-			for (const auto& conn : node.laneConnections)
-			{
-				if (conn.fromEdgeId != att.edgeId) continue;
-
-				// 接線角を bezier から計算（45° ルール用）
-				const RoadEdge* fromE = network.getEdge(conn.fromEdgeId);
-				const RoadEdge* toE   = network.getEdge(conn.toEdgeId);
-				const auto fromBez = fromE ? network.getBezier(conn.fromEdgeId) : Optional<CubicBezier>{};
-				const auto toBez   = toE   ? network.getBezier(conn.toEdgeId)   : Optional<CubicBezier>{};
-				if (!fromE || !toE || !fromBez || !toBez) continue;
-				if (conn.fromLaneIndex < 0 || conn.fromLaneIndex >= static_cast<int>(fromE->lanes.size())) continue;
-				if (conn.toLaneIndex   < 0 || conn.toLaneIndex   >= static_cast<int>(toE->lanes.size())) continue;
-
-				const LaneDir fromDir = fromE->lanes[conn.fromLaneIndex].dir;
-				const LaneDir toDir   = toE->lanes[conn.toLaneIndex].dir;
-				const Vec3 tInA = fromBez->tangentAt(0.0f);
-				const Vec3 tInB = fromBez->tangentAt(fromBez->totalLength);
-				const Vec3 tOutA = toBez->tangentAt(0.0f);
-				const Vec3 tOutB = toBez->tangentAt(toBez->totalLength);
-				const float fromAngleA = static_cast<float>(Math::Atan2(tInA.x, tInA.z));
-				const float fromAngleB = static_cast<float>(Math::Atan2(tInB.x, tInB.z));
-				const float toAngleA   = static_cast<float>(Math::Atan2(tOutA.x, tOutA.z));
-				const float toAngleB   = static_cast<float>(Math::Atan2(tOutB.x, tOutB.z));
-
-				const float inAngle = (fromDir == LaneDir::Forward)
-					? fromAngleB
-					: (fromAngleA + static_cast<float>(Math::Pi));
-				const float outAngle = (toDir == LaneDir::Forward)
-					? toAngleA
-					: (toAngleB + static_cast<float>(Math::Pi));
-
-				const TurnType turn = TrafficCommon::classifyTurnByAngles(inAngle, outAngle);
-				const bool connGreen = tl ? tl->isGreen(conn.id) : true;
-
-				switch (turn)
-				{
-				case TurnType::Straight: hasStraightConn = true; if (connGreen) straightGreen = true; break;
-				case TurnType::Left:     hasLeftConn     = true; if (connGreen) leftGreen     = true; break;
-				case TurnType::Right:    hasRightConn    = true; if (connGreen) rightGreen    = true; break;
-				case TurnType::UTurn:    break;  // 描画上は無視
-				}
-			}
+			// 進入エッジ単位の集計サマリーを引き当てる（loop 外で計算済み）
+			const auto sumIt = edgeSummaries.find(att.edgeId);
+			const EdgeSignalSummary sum = (sumIt != edgeSummaries.end())
+				? sumIt->second
+				: EdgeSignalSummary{};
 
 			// メインランプ: 直進 LaneConnection が青なら緑。直進が無ければ全方向の論理和
-			const bool isGreen = hasStraightConn
-				? straightGreen
-				: (leftGreen || rightGreen);
+			const bool isGreen = sum.hasStraight
+				? sum.straightGreen
+				: (sum.leftGreen || sum.rightGreen);
 
 			bool isYellow = false;
 			if (tl)
@@ -1906,12 +1891,12 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const World& world,
 				// 各方向の点灯判定: 該当 LaneConnection が青 かつ メインが赤
 				struct ArrowSlot { int col; String stateId; bool lit; };
 				Array<ArrowSlot> slots;
-				if (hasLeftConn)
-					slots << ArrowSlot{ 0, U"arrow_left",     leftGreen     && !mainLit };
-				if (hasStraightConn)
-					slots << ArrowSlot{ 1, U"arrow_straight", straightGreen && !mainLit };
-				if (hasRightConn)
-					slots << ArrowSlot{ 2, U"arrow_right",    rightGreen    && !mainLit };
+				if (sum.hasLeft)
+					slots << ArrowSlot{ 0, U"arrow_left",     sum.leftGreen     && !mainLit };
+				if (sum.hasStraight)
+					slots << ArrowSlot{ 1, U"arrow_straight", sum.straightGreen && !mainLit };
+				if (sum.hasRight)
+					slots << ArrowSlot{ 2, U"arrow_right",    sum.rightGreen    && !mainLit };
 
 				for (const auto& s : slots)
 				{
