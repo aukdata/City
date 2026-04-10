@@ -146,31 +146,135 @@ Lane と Connection で分岐しない。同一ロジック。
 
 ## 6. 信号機
 
-- 信号は Connection セグメントの通行可否として動作
-- 赤信号 = 該当 Connection が通行不可
-- 車両は Connection の入口手前（= 直前の Lane セグメントの出口付近）で IDM 停止
-- 既存の `kSignalStopDist` の停止ロジックをそのまま活用
+信号は **LaneConnection 単位**で通行可否を制御する。
+
+### 基本モデル
+
+```cpp
+struct SignalPhaseDef {
+    float      duration;            ///< フェーズ持続時間 [ゲーム秒]
+    Array<int> greenConnectionIds;  ///< このフェーズで青になる LaneConnection の ID リスト
+};
+```
+
+- フェーズは「青になる LaneConnection ID のリスト」を保持する
+- エッジ単位ではなく旋回パス単位なので、以下が表現可能:
+  - 時差式右折青矢印（右折 LaneConnection のみ青、直進・左折は赤）
+  - 歩車分離（車両 LaneConnection は全青または全赤）
+  - スクランブル交差点（全 LaneConnection 赤 + 歩行者青）
+- 黄色フェーズは持たず、描画時にフェーズ終了 3 秒前から派生表示する
+- 全赤期間（クリアランス）は初期実装では持たない（将来拡張）
+
+### 停止位置と判定タイミング
+
+- 車両は Connection の入口手前で停止（`kSignalStopDist = 15m` 付近で減速開始）
+- 判定は「これから使う LaneConnection が青かどうか」で行う
+- 停止線到達時点で、車両は次に使う LaneConnection を先読みして判定する（後述「経路先読み」）
+- Connection に進入したあと（`location == OnConnection`）は信号状態を参照しない（進入済みは突っ切る）
+
+### フェーズ編集 UI
+
+- `signal_edit` パネルの右ペインに交差点図を描画し、各 LaneConnection の Bezier を可視化
+- 各フェーズで LaneConnection ごとに青/赤をクリックでトグル
+- フェーズ一覧表示では、フェーズごとに LaneConnection の青数を小アイコンで表示
+
+### 矢印サブランプの描画
+
+- 旧仕様の `SignalPlacement.subLampStates`（edgeId ごとの矢印状態手動設定）は**廃止**
+- 矢印ランプの点灯はフェーズから**自動導出**する:
+  - 進入エッジに属する LaneConnection のうち、現在青のものを `classifyTurn()`（8章参照 / `08_pathfinding_spec.md`）で旋回分類
+  - 左折の LaneConnection が青 ⇔ 左矢印ランプ点灯
+  - 右折の LaneConnection が青 ⇔ 右矢印ランプ点灯
+  - 直進の LaneConnection が青 ⇔ 本体ランプ（青）点灯
 
 ---
 
 ## 7. 車線変更
 
-### トリガー
+### トリガーの優先順位
 
-- キープレフト（左車線が空いていれば左へ）
-- 前方車両が遅い場合（右車線が空いていれば右へ）
-- 経路が次の交差点で特定車線を要求する場合
+車線変更は以下の優先順位で判断する。経路駆動（必要車線変更）が常に優先される。
 
-### 実行
+1. **経路駆動（必須）**: 次の交差点で必要な LaneConnection に乗るための車線変更
+2. **追い越し（任意）**: 前方車両が遅い場合の追い越し。経路駆動と逆方向への車線変更は禁止
+3. **キープレフト（任意）**: 必要車線変更がなく追い越しも不要な場合、左寄せ
+
+### 経路駆動車線変更（先読み）
+
+車両は現在走行中エッジ上で、`routeWaypoints[routeIdx]` の次のウェイポイント（**1 waypoint 先**）が要求する車線 = `targetLane` を常に把握する。
+
+`targetLane` の決定手順:
+
+```
+次ウェイポイント wp = routeWaypoints[routeIdx]
+候補 = node.laneConnections を走査して
+  { conn | conn.fromEdgeId == currentEdge
+        && conn.toEdgeId   == wp.edgeId
+        && conn.toLaneIndex == wp.laneIndex }
+候補のうち、現在車線 currentLane に最も近い conn.fromLaneIndex を targetLane とする
+（完全一致があればそれ、なければ |fromLaneIndex - currentLane| が最小のもの）
+```
+
+**先読み範囲は 1 waypoint まで**。複数先を見ない理由はグラフが車線ノード単位で構築されているので総合コストに反映済みであること。
+
+### 緊急度（urgency）モデル
+
+残り距離に応じて車線変更の切迫度を計算する。
+
+```
+d            = エッジ終端までの残り距離 [m]
+needed       = |currentLane - targetLane|   // 必要な車線変更回数
+kLaneChangePerNeedDist = 60.0f              // 1 車線変更あたりの余裕距離 [m]
+
+urgency = clamp01(1 - d / (needed * kLaneChangePerNeedDist))
+  // d が needed * 60m 以上 → urgency = 0 （余裕）
+  // d が 0 付近           → urgency = 1 （ギリギリ）
+  // d が不足              → urgency > 1 （距離不足）
+```
+
+`needed == 0` のとき urgency は定義せず、経路駆動変更は発動しない（追い越し・キープレフトのみ）。
+
+### urgency に応じた挙動（段階的緩和 = 強引モード）
+
+| urgency 範囲 | 挙動 |
+|---|---|
+| 0.0 ～ 0.3 | 通常の安全基準 (`isLaneChangeSafe` デフォルト) で試行。ギャップが無ければ待機 |
+| 0.3 ～ 0.7 | 安全マージン（`s0`・`T`）を段階的に縮小して試行 |
+| 0.7 ～ 1.0 | **強引モード**: 安全チェックをスキップして割り込む。自車は軽減速、ターゲット車線の後続車は既存 IDM により急減速で受け入れ |
+| 1.0 超 | 強制スイッチ: `location = ChangingLane` に即座遷移。周囲車両は IDM が自然に反応（一時的に車体が重なって見えても許容） |
+
+強引モードの実装原則:
+- 既存 IDM（追従モデル）を一切改造しない
+- 「割り込み挿入 → 後続車が次フレームから新しい前車として自車を追従 → 急減速」という自然な連鎖で譲り合いを表現
+- 割り込まれた後続車が一時的に安全距離を下回っても、IDM の強いブレーキ項が距離を回復する
+
+### 追い越し・キープレフト（気まぐれ車線変更の統合）
+
+経路駆動車線変更が不要（`needed == 0`）な場合に限り、以下を発動する:
+
+- **追い越し**: 前方車両の速度が `currentSpeedLimit * 0.7` 未満かつ右車線が空いていれば右へ車線変更
+- **キープレフト**: 追い越しも不要なら左車線が空いていれば左へ車線変更
+
+**禁止条件**:
+- 経路駆動による `targetLane` と逆方向への気まぐれ変更は禁止（例: `targetLane` が左側なのに追い越しで右へ行くのは NG）
+- 交差点手前 `kNoLaneChangeNearIntersection`（仮 20m）以内での気まぐれ変更は禁止
+- 強引モード発動中は気まぐれ変更の判定をスキップ
+
+### 実行フロー（共通）
 
 1. `location = ChangingLane`, `laneFrom = currentLane`, `laneTo = targetLane`
 2. 毎フレーム `blendWeight += dt / changeDuration`
 3. 位置は `lerp(laneFrom.posAt(arc), laneTo.posAt(arc), blend)`
 4. `blendWeight >= 1.0` で `location = OnLane`, `laneIndex = laneTo`
 
-### 安全チェック
+### 車線整合性の保証条件
 
-車線変更開始前に目標車線上の前方/後方ギャップを確認（既存ロジック）。交差点手前では車線変更を禁止。
+経路先読み車線変更が正しく機能するには、経路探索側が以下を満たしている必要がある:
+
+1. 経路探索グラフの Transition 辺は `RoadNode.laneConnections` に実在する接続にのみ張られていること（`08_pathfinding_spec.md` 参照）
+2. `routeWaypoints` の `laneIndex` は `RoadNode.laneConnections` を使って辿れる車線のみを含むこと
+
+これが保証されていない場合、車両は「物理的に行けない車線」に誘導されフォールバック（テレポート）が多発する。
 
 ---
 
@@ -278,6 +382,12 @@ Array<LaneConnection> laneConnections;  ///< この交差点の車線接続リ�
 | D | 車線変更の ChangingLane 状態。ブレンド描画 | 実装済み |
 | E | 信号機の Connection ベース制御 | 部分実装（既存の Edge ベース信号が動作） |
 | F | 経路探索との統合（Waypoint に Connection を含める） | 部分実装（transitToNextWaypoint 内で Connection を自動検索） |
+| G | **経路探索の車線整合性修正**: `TrafficGraph::rebuild()` の Transition 辺を `RoadNode.laneConnections` に実在するものだけに制限。`classifyTurn()` ヘルパー（45° ルール）を `TrafficCommon.hpp` に実装 | 未実装 |
+| H | **経路駆動車線変更（先読み + 強引モード）**: 1 waypoint 先の `targetLane` を計算、urgency モデルで段階的緩和、気まぐれ変更を経路駆動に統合 | 未実装 |
+| I | **信号の LaneConnection 単位化**: `SignalPhaseDef.greenEdgeIds` → `greenConnectionIds`。`TrafficLight::isGreen(connectionId)`。`subLampStates` 廃止してフェーズから描画自動導出 | 未実装 |
+| J | **信号編集 UI の LaneConnection 対応**: `signal_edit` パネルで旋回パス Bezier を可視化、LaneConnection ごとの青/赤トグル | 未実装 |
+
+段階 G → H → I → J の順に進める。G と H は車線整合性の修正でセットで必要（G だけだと経路通りに走れず fallback が増える）。I と J は信号仕様の変更でセット。I は G/H が先に完了していないと信号判定の意味が薄い。
 
 ---
 

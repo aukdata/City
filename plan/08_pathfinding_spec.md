@@ -82,14 +82,15 @@ float costForward(int edgeId, int laneIndex, float arcFrom, float arcTo) {
 // LaneChange コスト: 固定ペナルティ
 const float kLaneChangeCost = 5.0f;   // 秒
 
-// 交差点ノードにおける車線間接続を表す
+// 交差点ノードにおける車線間接続（実データは RoadTypes.hpp の LaneConnection を参照）
+// ここではコスト計算に必要な最小構造のみ示す
 struct LaneConnection {
-    int       nodeId;       // 交差点 RoadNode の ID
-    int       fromEdgeId;   // 進入エッジ
-    int       fromLaneIdx;  // 進入車線インデックス
-    int       toEdgeId;     // 退出エッジ
-    int       toLaneIdx;    // 退出車線インデックス
-    TurnType  turn;         // Straight / Left / Right / UTurn
+    int         nodeId;
+    int         fromEdgeId;
+    int         fromLaneIndex;
+    int         toEdgeId;
+    int         toLaneIndex;
+    CubicBezier path;         // 旋回パス
 };
 
 enum class TurnType : uint8 {
@@ -99,16 +100,20 @@ enum class TurnType : uint8 {
     UTurn,
 };
 
-// Transition コスト: 交差点遅延
-float costTransition(const LaneConnection& conn) {
-    if (hasSignal(conn.nodeId))
-        return expectedWaitTime(conn.nodeId, conn.inLane, conn.turn);
-    switch (conn.turn) {
-        case TurnType::Straight: return 2.0f;
-        case TurnType::Left:     return 5.0f;
-        case TurnType::Right:    return 8.0f;  // 対向をまたぐ右折
-        case TurnType::UTurn:    return 15.0f;
+// Transition コスト: 交差点遅延（LaneConnection 自体にコストは持たせない。
+// 極端な遠回りを避けるための目安であって、厳密な通過時間ではない）
+float costTransition(const LaneConnection& conn, const RoadNetwork& network) {
+    const TurnType turn = classifyTurn(conn, network);  // 45° ルール（下記参照）
+    float base;
+    switch (turn) {
+        case TurnType::Straight: base = 2.0f;  break;
+        case TurnType::Left:     base = 5.0f;  break;
+        case TurnType::Right:    base = 8.0f;  break;  // 対向をまたぐ右折
+        case TurnType::UTurn:    base = 15.0f; break;
     }
+    if (hasSignal(conn.nodeId))
+        base += expectedWaitTime(conn.nodeId, conn);
+    return base;
 }
 
 // BorderCross コスト: 0（BorderNode は位置の区切りであり移動ではない）
@@ -144,25 +149,55 @@ ChunkBoundary(1|2)         ChunkBoundary(2|3)
                           chunkTo=2                 chunkTo=3
 ```
 
-### LaneConnection の自動生成
+### LaneConnection の参照と Transition 辺の生成
 
-RoadNode に接続する RoadEdge の組み合わせごとに LaneConnection を生成する。
+`TrafficGraph::rebuild()` は、経路探索グラフの Transition 辺を **`RoadNode.laneConnections` に実在する接続にのみ** 張る。
 
-TurnType の判定:
-  進入エッジの終端方向ベクトル と 退出エッジの始端方向ベクトル の内積・外積から計算
-  内積 > 0.7   → Straight
-  外積 > 0     → Left（日本: 左折は対向なし）
-  外積 < 0     → Right（日本: 右折は対向をまたぐ）
-  内積 < -0.7  → UTurn
+```
+for (node in allNodes)
+    for (conn in node.laneConnections)
+        turn = classifyTurn(conn, roadNetwork)
+        cost = costTransition(conn, roadNetwork)
+        辺を登録:
+            from = LaneNode(conn.fromEdgeId, conn.fromLaneIndex, exit 側)
+            to   = LaneNode(conn.toEdgeId,   conn.toLaneIndex,   entry 側)
+            type = GraphEdgeType::Transition
+```
 
-車線の対応:
-  進入エッジの右端車線（最右 open lane）→ 右折の LaneConnection
-  進入エッジの左端車線（最左 open lane）→ 左折の LaneConnection
-  それ以外 → Straight に接続
+**重要な不変条件**: `RoadNode.laneConnections` に存在しない車線間遷移は、経路探索グラフにも存在しない。これにより「左折専用レーンから直進」のような物理的に不可能な経路が探索結果に含まれないことが保証される。
 
-禁止接続:
-  同一エッジへの折返し（UTurn 禁止交差点）はコスト = ∞
-  大型車・バスの右端車線への接続はコスト加算（laneUsagePenalty を参照）
+- LaneConnection の「生成」（どの進入車線からどの退出車線へ接続するか）は道路ネットワーク編集時の幾何的決定であり、経路探索の責務ではない。詳細は `17_road_node_spec.md` を参照
+- 経路探索は「与えられた `laneConnections` を尊重する」だけで、接続を作り出さない
+- `laneConnections` が 0 個のノードは経路探索上「通過不可」として扱う（将来、実害が出た場合に対応）
+
+### `classifyTurn()` — 旋回分類ヘルパー
+
+```
+classifyTurn(conn, network):
+    fromTangent = conn.fromEdge の conn.fromLaneIndex 車線が
+                  ノードに到達する直前の進行方向ベクトル
+    toTangent   = conn.toEdge   の conn.toLaneIndex   車線が
+                  ノードを出た直後の進行方向ベクトル
+    θ = 符号付き水平角度(fromTangent → toTangent)   // 左が正、右が負
+
+    |θ| <= 45°                 → Straight
+    45° < θ  < 135°            → Left
+    -135° < θ < -45°           → Right
+    |θ| >= 135°                → UTurn
+```
+
+「前方 45° を閾値」とする 45° ルール。直進の判定を厳しめに取ることで、急カーブの交差点で「実質曲がっているのに直進扱い」になる誤分類を防ぐ。
+
+このヘルパーは `src/traffic/TrafficCommon.hpp::classifyTurn()` に実装し、以下の 3 箇所で共通使用する:
+1. 経路探索 (`TrafficGraph::rebuild()`) — Transition 辺のコスト決定
+2. 信号フェーズ自動生成 — 「対向直進を同一フェーズに」等の分類
+3. 信号描画 — 矢印サブランプの自動表示判定（`19_vehicle_movement_spec.md` §6 参照）
+
+### 設計原則
+
+- **LaneConnection 自体にコストは持たせない**。Transition 辺のコストは TurnType に基づく固定値 + 信号待ち時間の加算のみ。車線別の細かい重み付けはしない
+- 経路のコストは「極端に遠回りしない程度」の精度で十分と割り切る
+- 大型車・バス等の車両種別による車線制限は、別途 LaneNode の通行可否（`isNodePassable`）で表現する
 
 ### グラフ更新のトリガー
 
