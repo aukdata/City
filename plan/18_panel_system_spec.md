@@ -276,134 +276,93 @@ if (m_panelManager.isVisible(U"edge_info"))
 
 ---
 
-## 9. PanelLayout（宣言的UIレイアウト）
+## 9. PanelBuilder（即時モード自動レイアウト）
 
 ### 9.1 概要
 
-`PanelLayout` は、パネル内のウィジェット配置を宣言的に構築するシステム。既存の即時モード描画（`PanelWidget` による手動 y 座標管理）を置き換え、VStack/HStack による自動レイアウトを提供する。
+`PanelBuilder` は、パネル内ウィジェットの y 座標管理を自動化する即時モードレイアウトヘルパー。毎フレームスタック上に構築し、描画と入力処理を同時に行う。
 
 ファイル: `src/ui/PanelLayout.hpp`, `src/ui/PanelLayout.cpp`
 
 ### 9.2 設計思想
 
-- **初回構築・毎フレーム更新**: UIツリーは一度だけ構築し、毎フレーム `update()` → `draw()` で描画
-- **自動レイアウト**: VStack/HStack が子要素の位置を自動計算。手動の `y += kLH` が不要
-- **データバインド**: ラムダ（`std::function<String()>` 等）または参照（`float&`, `bool&`）で値を渡す
-- **イベント分離**: `update()` で入力処理、`draw()` で描画、`clicked()` / `changed()` でイベント取得
+- **毎フレーム構築**: `beginContent()` スコープ内でスタック上に `PanelBuilder` を作り、ウィジェットを順に呼ぶ
+- **即時モード**: 各ウィジェット関数が描画と入力処理を同時に行い、結果を即座に返す
+- **y 座標の自動管理**: `y += kLH` の手動管理が不要。要素間のスペースも gap で自動挿入
+- **横並びはラムダ**: `row(gap, [&]{ ... })` でラムダ内のウィジェットが横に並ぶ
 
 ### 9.3 使用フロー
 
 ```cpp
-// ── 初回構築（initScene 等） ──
-PanelLayout layout;
-layout.label(U"speed", U"Speed: {}",
-    [this] { return U"{:.1f} km/h"_fmt(speed); }, ColorF{1.0});
-layout.button(U"track", U"Track", m_tracking, 120);
-layout.beginHStack(8);
-    layout.label(U"edge", U"Edge: {}",
-        [this] { return U"{}"_fmt(edgeId); });
-    layout.label(U"lane", U"Lane: {}",
-        [this] { return U"{}"_fmt(laneId); });
-layout.end();
+auto area = m_panelManager.beginContent(U"edge_info");
+if (!area) return;
 
-// ── 毎フレーム ──
-layout.setVisible(U"set_goal", m_selectedEdgeId.has_value());
-layout.update(contentWidth);   // dirty ならレイアウト再計算 → 入力処理
-layout.draw();                 // 描画のみ
+PanelBuilder ui(contentWidth);
 
-if (layout.clicked(U"track")) { m_tracking = !m_tracking; }
-int totalH = layout.contentHeight();
+ui.label(U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), ColorF{1.0});
+
+if (ui.button(U"Swap A/B", false, 62, U"Swap nodeA/B"))
+{
+    std::swap(edge->nodeA, edge->nodeB);
+}
+
+ui.row(4, [&] {
+    ui.label(U"Type", ColorF{0.6});
+    ui.cycle(edge->roadType, rtNames, 4, 60);
+});
+
+ui.row(4, [&] {
+    ui.label(U"Speed", ColorF{0.6});
+    if (ui.spin(edge->speedLimit, 10.f, 10.f, 200.f, U"{:.0f}", 44))
+        dirty = true;
+    ui.label(U"km/h", ColorF{0.5});
+});
+
+if (ui.section(U"Parts", partsCollapsed))
+{
+    // 折りたたみ内のコンテンツ
+}
+
+ui.flush();
+m_panelManager.reportContentHeight(U"edge_info", ui.height());
 ```
 
 ### 9.4 ウィジェット一覧
 
-#### レイアウトコンテナ
-
-| メソッド | 説明 |
-|---|---|
-| `beginVStack(gap, padding)` / `end()` | 縦並び。子を上から下に積む |
-| `beginHStack(gap)` / `end()` | 横並び。子を左から右に並べる |
-| `spacer(height)` | 固定スペース |
-| `separator()` | 区切り線 |
-
-#### データウィジェット
-
-| メソッド | データバインド |
-|---|---|
-| `label(key, text, source, color, bold)` | ラムダ `std::function<String()>` |
-| `label(key, text, ref, color, bold)` | 参照（String& / float& / int&） |
-| `label(key, text, color, bold)` | 固定テキスト |
-| `button(key, label, active, width, tooltip)` | ラムダ or bool& でアクティブ状態 |
-| `toggle(key, labelOn, labelOff, ref, width, tooltip)` | bool& に直接読み書き |
-| `spin(key, ref, step, lo, hi, format, width)` | float& に直接読み書き |
-| `cycle(key, ref, options, width, tooltip)` | int& に直接読み書き（enum は reinterpret_cast） |
-
-#### 特殊ウィジェット
-
-| メソッド | 説明 |
-|---|---|
-| `beginSection(key, title, collapsed, color)` / `endSection()` | 折りたたみセクション |
-| `custom(key, onDraw, height)` | C++ コールバックによるカスタム描画 |
+| メソッド | 戻り値 | 説明 |
+|---|---|---|
+| `label(text, color, bold)` | void | 読み取り専用テキスト |
+| `button(label, active, width, tooltip)` | bool | クリックされたら true |
+| `toggle(labelOn, labelOff, value&, width, tooltip)` | bool | 変化したら true |
+| `spin(value&, step, lo, hi, fmt, width)` | bool | 変化したら true。値を直接書き換え |
+| `cycle(value&, names, count, width, tooltip)` | bool | 変化したら true。値を直接書き換え |
+| `section(title, collapsed&, color)` | bool | 開いていれば true |
+| `spacer(height)` | void | 固定スペース |
+| `separator()` | void | 区切り線 |
+| `row(gap, lambda)` | void | ラムダ内のウィジェットを横並びに |
+| `flush()` | void | ツールチップ描画（最後に呼ぶ） |
+| `height()` | int | コンテンツ全体の高さ |
 
 ### 9.5 レイアウトモデル
 
-**幅（トップダウン）:**
-- ルート: `update(availableWidth)` で渡された幅
-- vstack 内の子: 親幅 - padding*2
-- hstack 内の子: `width` 指定があればその値、なければコンテンツ幅を推定
+- 縦方向: ウィジェットを上から下に積む。要素間に `gap`（デフォルト 2px）を自動挿入
+- 横方向: `row()` 内ではウィジェットを左から右に並べる。各ウィジェットの幅は `width` 引数か、label はテキスト幅
+- 幅: コンストラクタで受け取る `width` から `padding` を引いた値がデフォルト幅
+- 高さ: 各ウィジェットは 17px（kLineH）。spacer は指定値、separator は 5px
 
-**高さ（ボトムアップ）:**
-- 通常ウィジェット: 17px
-- spacer: 指定値、separator: 5px
-- vstack: 子の高さ合計 + gap*(n-1) + padding*2
-- hstack: 子の最大高さ
-- section: ヘッダ(17px) + 展開時は子の高さ合計
-- custom: height 指定値、または onDraw の戻り値
+### 9.6 PanelManager との統合
 
-**dirty フラグ:**
-- 初期値 `true`（初回 `update()` で自動計算）
-- `setVisible()` やセクション折りたたみで `true` に設定
-- `update()` 冒頭で dirty なら再計算
-
-### 9.6 イベント
-
-| メソッド | 説明 |
-|---|---|
-| `clicked(key)` | ボタンがクリックされたか |
-| `changed(key)` | toggle/spin/cycle の値が変化したか |
-| `setVisible(key, vis)` | ウィジェットの表示/非表示を設定 |
-
-イベントは `update()` 内で記録され、次の `update()` 冒頭でクリアされる。
-
-### 9.7 PanelManager との統合
-
-PanelLayout は PanelManager の `beginContent()` スコープ内で使用する。PanelManager 側の変更は不要。
+`beginContent()` のスコープ内でスタック上に構築する。メンバ変数不要。
 
 ```cpp
-auto area = m_panelManager.beginContent(U"vehicle_info");
+auto area = m_panelManager.beginContent(U"panel_id");
 if (!area) return;
 
-m_vehicleLayout.update(contentWidth);
-m_vehicleLayout.draw();
-m_panelManager.reportContentHeight(U"vehicle_info", m_vehicleLayout.contentHeight());
+PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"panel_id").x));
+// ... ウィジェット ...
+ui.flush();
+m_panelManager.reportContentHeight(U"panel_id", ui.height());
 ```
-
-既存の即時モード描画との混在も可能。PanelLayout の描画後に `y += layout.contentHeight()` で座標を進めれば、後続の即時モード描画と共存できる。
-
-### 9.8 内部実装
-
-全ウィジェット型を `std::variant`（`UIVariant`）で統一。コンテナ型は `Array<std::unique_ptr<UIElement>>` で子を持つ再帰構造。構築時は `beginVStack()` / `end()` のスタックで入れ子を管理。
-
-`std::function` のキャプチャが `[this]`（8バイト）のみであれば MSVC の Small Buffer Optimization によりヒープ確保は発生しない。
-
-### 9.9 段階的移行
-
-各パネルを個別に PanelLayout に移行できる。移行順序の制約はない。
-
-1. パネル毎に `PanelLayout` メンバ変数を追加
-2. `drawXxxPanel()` 内で構築（初回のみ）
-3. 旧コードを `update()` + `draw()` + イベント処理に置換
-4. 複雑な部分は `custom()` で旧コードを包む
 
 ---
 
