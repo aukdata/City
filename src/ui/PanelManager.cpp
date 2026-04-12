@@ -62,6 +62,7 @@ bool PanelManager::isVisible(StringView id) const
 bool PanelManager::handleInput()
 {
 	m_consumedInput = false;
+	m_mouseOwner.clear();
 
 	// ドラッグ中の処理（パネル移動）
 	if (!m_draggingId.isEmpty())
@@ -71,6 +72,7 @@ bool PanelManager::handleInput()
 			if (auto* p = find(m_draggingId))
 				p->pos = Cursor::PosF() - m_dragOffset;
 			m_consumedInput = true;
+			m_mouseOwner = m_draggingId;
 			return true;
 		}
 		m_draggingId.clear();
@@ -85,7 +87,8 @@ bool PanelManager::handleInput()
 		const RectF panelRect{ p->pos, p->size };
 		if (!panelRect.mouseOver()) continue;
 
-		// このパネルが入力を消費する
+		// このパネルがカーソルの最前面オーナー
+		m_mouseOwner = p->id;
 
 		// 閉じるボタン判定
 		const RectF closeRect{ p->pos.x + p->size.x - kTitleBarH, p->pos.y,
@@ -135,43 +138,69 @@ bool PanelManager::handleInput()
 void PanelManager::drawBackgrounds()
 {
 	auto panels = sortedPanels();
-
 	for (const auto* p : panels)
 	{
-		// パネル背景
-		RectF{ p->pos, p->size }.draw(ColorF{ 0, 0, 0, 0.8 });
+		drawBackground(p->id);
+	}
+}
 
-		// タイトルバー
-		RectF{ p->pos.x, p->pos.y, p->size.x, static_cast<double>(kTitleBarH) }
-			.draw(ColorF{ 0.15, 0.15, 0.2 });
+void PanelManager::drawBackground(StringView id)
+{
+	const auto* p = find(id);
+	if (!p || !p->visible) return;
 
-		// タイトルテキスト
-		m_titleFont(p->title).draw(p->pos + Vec2{ 6, 3 }, Palette::White);
+	// パネル背景
+	RectF{ p->pos, p->size }.draw(ColorF{ 0, 0, 0, 0.8 });
 
-		// 閉じるボタン [x]
-		const RectF closeRect{ p->pos.x + p->size.x - kTitleBarH, p->pos.y,
-		                       static_cast<double>(kTitleBarH), static_cast<double>(kTitleBarH) };
-		if (closeRect.mouseOver())
-			closeRect.draw(ColorF{ 0.5, 0.2, 0.2 });
-		m_titleFont(U"x").drawAt(closeRect.center(), Palette::White);
+	// タイトルバー
+	RectF{ p->pos.x, p->pos.y, p->size.x, static_cast<double>(kTitleBarH) }
+		.draw(ColorF{ 0.15, 0.15, 0.2 });
 
-		// スクロールバー（コンテンツがはみ出す場合のみ）
-		if (p->scrollable)
+	// タイトルテキスト
+	m_titleFont(p->title).draw(p->pos + Vec2{ 6, 3 }, Palette::White);
+
+	// 閉じるボタン [x]
+	const RectF closeRect{ p->pos.x + p->size.x - kTitleBarH, p->pos.y,
+	                       static_cast<double>(kTitleBarH), static_cast<double>(kTitleBarH) };
+	if (closeRect.mouseOver())
+	{
+		closeRect.draw(ColorF{ 0.5, 0.2, 0.2 });
+	}
+	m_titleFont(U"x").drawAt(closeRect.center(), Palette::White);
+
+	// スクロールバー（コンテンツがはみ出す場合のみ）
+	if (p->scrollable)
+	{
+		const double viewH = p->size.y - kTitleBarH;
+		if (p->contentHeight > viewH && viewH > 0)
 		{
-			const double viewH = p->size.y - kTitleBarH;
-			if (p->contentHeight > viewH && viewH > 0)
-			{
-				const double barX = p->pos.x + p->size.x - 4;
-				const double barY = p->pos.y + kTitleBarH;
-				const double barH = viewH;
-				const double thumbH = Max(20.0, barH * viewH / p->contentHeight);
-				const double thumbY = barY + (barH - thumbH) * (p->scrollOffset / (p->contentHeight - viewH));
+			const double barX = p->pos.x + p->size.x - 4;
+			const double barY = p->pos.y + kTitleBarH;
+			const double barH = viewH;
+			const double thumbH = Max(20.0, barH * viewH / p->contentHeight);
+			const double thumbY = barY + (barH - thumbH) * (p->scrollOffset / (p->contentHeight - viewH));
 
-				RectF{ barX, barY, 4.0, barH }.draw(ColorF{ 0.1, 0.1, 0.1, 0.5 });
-				RectF{ barX, thumbY, 4.0, thumbH }.draw(ColorF{ 0.5, 0.5, 0.5, 0.7 });
-			}
+			RectF{ barX, barY, 4.0, barH }.draw(ColorF{ 0.1, 0.1, 0.1, 0.5 });
+			RectF{ barX, thumbY, 4.0, thumbH }.draw(ColorF{ 0.5, 0.5, 0.5, 0.7 });
 		}
 	}
+}
+
+Array<String> PanelManager::sortedPanelIds() const
+{
+	Array<std::pair<String, int>> items;
+	for (const auto& [k, v] : m_panels)
+	{
+		if (v.visible) items << std::pair{ k, v.zOrder };
+	}
+	items.sort_by([](const auto& a, const auto& b) { return a.second < b.second; });
+
+	Array<String> result;
+	for (auto& [id, z] : items)
+	{
+		result << std::move(id);
+	}
+	return result;
 }
 
 Optional<ScopedContentArea> PanelManager::beginContent(StringView id)
@@ -188,16 +217,18 @@ Optional<ScopedContentArea> PanelManager::beginContent(StringView id)
 
 	const Rect clipRect{ cx, cy, cw, ch };
 
-	// シザーレクトでクリッピング + Transformer2D で座標変換
-	// 描画変換: ローカル (lx, ly) → スクリーン (cx + lx, cy + ly - scrollOffset)
-	// カーソル逆変換: スクリーン (sx, sy) → ローカル (sx - cx, sy - cy + scrollOffset)
 	Graphics2D::SetScissorRect(clipRect);
+
+	const Mat3x2 drawMat = Mat3x2::Translate(static_cast<double>(cx), static_cast<double>(cy) - p->scrollOffset);
+
+	// カーソルがこのパネル上にあり、かつ別のパネルが最前面の場合はカーソル変換を無効化
+	const bool interactive = m_mouseOwner.isEmpty() || m_mouseOwner == p->id;
 
 	return ScopedContentArea{
 		ScopedRenderStates2D{ RasterizerState{ FillMode::Solid, CullMode::Back, true } },
 		Transformer2D{
-			Mat3x2::Translate(static_cast<double>(cx), static_cast<double>(cy) - p->scrollOffset),
-			TransformCursor::Yes
+			drawMat,
+			interactive ? TransformCursor::Yes : TransformCursor::No
 		}
 	};
 }

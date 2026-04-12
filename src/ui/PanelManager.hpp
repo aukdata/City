@@ -49,6 +49,12 @@ public:
 	/// @brief 全パネルの背景・タイトルバーを描画（zOrder 昇順）
 	void drawBackgrounds();
 
+	/// @brief 指定パネルの背景・タイトルバーを描画する
+	void drawBackground(StringView id);
+
+	/// @brief 表示中パネルの ID を zOrder 昇順で返す
+	[[nodiscard]] Array<String> sortedPanelIds() const;
+
 	/// @brief スクロール対応のコンテンツ描画を開始する
 	/// @return RAII ガード。visible でなければ none
 	[[nodiscard]] Optional<ScopedContentArea> beginContent(StringView id);
@@ -75,6 +81,7 @@ private:
 	int    m_nextZOrder = 0;
 	String m_draggingId;
 	Vec2   m_dragOffset;
+	String m_mouseOwner;  ///< カーソル位置で最前面のパネル ID
 
 	Font m_titleFont = FontAsset(Asset::PanelBold14);
 
