@@ -171,6 +171,12 @@ public:
 	/// @brief 指定ノードの LaneConnection を再構築する
 	void rebuildLaneConnections(int nodeId);
 
+	/// @brief 既存�� LaneConnection のベジェパスだ���を再計算する（接続構造は変えない）
+	void updateLaneConnectionPaths(int nodeId);
+
+	/// @brief 直進ペ���ベースのデフォルト信号フェーズを生成���る
+	Array<SignalPhaseDef> buildDefaultSignalPhases(int nodeId) const;
+
 	/// @brief 2ノードのカットオフと LaneConnection をまとめて再計算する
 	void rebuildNodeConnectivity(int nodeA, int nodeB)
 	{
