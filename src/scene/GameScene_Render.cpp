@@ -176,27 +176,6 @@ void GameScene::renderSelectionHighlights()
 		if (const auto* node = m_network.getNode(*m_selectedNodeId))
 		{
 			const bool nodeElev = m_network.isNodeElevated(*m_selectedNodeId);
-			const double nh = nodeElev
-				? node->position.y + kRoadSurfaceLift
-				: static_cast<double>(m_world.computeHeight(
-					static_cast<float>(node->position.x), static_cast<float>(node->position.z)));
-
-			// アウトラインリング
-			{
-				constexpr int kRingSeg = 24;
-				constexpr double kRadius = 12.0;
-				constexpr double kThick = 0.8;
-				const Vec3 center{ node->position.x, nh + 4.0, node->position.z };
-				const ColorF ringColor = ColorF{ 1.0, 0.6, 0.0, 0.8 }.removeSRGBCurve();
-				for (int i = 0; i < kRingSeg; ++i)
-				{
-					const double a0 = Math::TwoPi * i / kRingSeg;
-					const double a1 = Math::TwoPi * (i + 1) / kRingSeg;
-					const Vec3 p0 = center + Vec3{ Math::Cos(a0) * kRadius, 0, Math::Sin(a0) * kRadius };
-					const Vec3 p1 = center + Vec3{ Math::Cos(a1) * kRadius, 0, Math::Sin(a1) * kRadius };
-					Cylinder{ p0, p1, kThick }.draw(ringColor);
-				}
-			}
 
 			// 接続車線の端点を球で表示
 			const int nodeId = *m_selectedNodeId;
@@ -238,18 +217,22 @@ void GameScene::renderSelectionHighlights()
 						? pos.y + 4.0
 						: m_world.sampleHeight(static_cast<float>(world.x), static_cast<float>(world.z)) + 4.0;
 
-					const ColorF col = exits
-						? ColorF{ 1.0, 0.3, 0.3, 0.8 }.removeSRGBCurve()
-						: ColorF{ 0.3, 1.0, 0.3, 0.8 }.removeSRGBCurve();
-					Sphere{ world, 2.0 }.draw(col);
+					Sphere{ world, 0.5 }.draw(ColorF{ 1.0, 1.0, 0.0, 0.8 }.removeSRGBCurve());
 				}
 			}
 
-			// LaneConnection のベジェ曲線を描画
+			// LaneConnection のベジェ曲線を描画（信号状態で色分け）
 			constexpr int kSegments = 16;
+			const TrafficLight* tl = m_vehicleManager.getTrafficLight(node->id);
 			for (const auto& conn : node->laneConnections)
 			{
 				if (conn.path.totalLength < 0.01f) continue;
+				const bool green = tl ? tl->isGreen(conn.id) : true;
+				const ColorF connColor = green
+					? ColorF{ 0.2, 0.95, 0.3, 0.7 }.removeSRGBCurve()
+					: ColorF{ 0.95, 0.2, 0.15, 0.7 }.removeSRGBCurve();
+				constexpr double kArrowLen = 1.5;
+				constexpr double kArrowRadius = 0.4;
 				for (int i = 0; i < kSegments; ++i)
 				{
 					const float s0 = conn.path.totalLength * static_cast<float>(i) / kSegments;
@@ -258,15 +241,22 @@ void GameScene::renderSelectionHighlights()
 					Vec3 p1 = conn.path.positionAt(s1);
 					if (nodeElev)
 					{
-						p0.y += 3.0;
-						p1.y += 3.0;
+						p0.y += 4.0;
+						p1.y += 4.0;
 					}
 					else
 					{
-						p0.y = m_world.sampleHeight(static_cast<float>(p0.x), static_cast<float>(p0.z)) + 3.0;
-						p1.y = m_world.sampleHeight(static_cast<float>(p1.x), static_cast<float>(p1.z)) + 3.0;
+						p0.y = m_world.sampleHeight(static_cast<float>(p0.x), static_cast<float>(p0.z)) + 4.0;
+						p1.y = m_world.sampleHeight(static_cast<float>(p1.x), static_cast<float>(p1.z)) + 4.0;
 					}
-					Cylinder{ p0, p1, 0.5 }.draw(ColorF{ 0.2, 0.8, 1.0, 0.7 }.removeSRGBCurve());
+					Cylinder{ p0, p1, 0.125 }.draw(connColor);
+
+					// 4セグメントごとに矢印（コーン）を描画
+					if ((i + 1) % 4 == 0)
+					{
+						const Vec3 dir = (p1 - p0).normalized();
+						Cone{ p1, p1 + dir * kArrowLen, kArrowRadius }.draw(connColor);
+					}
 				}
 			}
 		}
@@ -503,15 +493,96 @@ void GameScene::render2DUI()
 	m_minimapRenderer.update(m_panelManager);
 	m_minimapRenderer.render(m_camera, m_districts);
 
-	// パネル（ミニマップより上）
-	m_panelManager.drawBackgrounds();
+	// パネル（ミニマップより上）— zOrder 昇順で背景+コンテンツを描画
+	for (const auto& panelId : m_panelManager.sortedPanelIds())
+	{
+		m_panelManager.drawBackground(panelId);
 
-	drawNameListPanel();
-	drawEdgePanel();
-	drawDrawTemplatePanel();
-	drawNodePanel();
-	drawSignalEditPanel();
-	drawVehiclePanel();
+		if (panelId == U"name_list")         { drawNameListPanel(); }
+		else if (panelId == U"edge_info")    { drawEdgePanel(); }
+		else if (panelId == U"draw_template"){ drawDrawTemplatePanel(); }
+		else if (panelId == U"node_info")    { drawNodePanel(); }
+		else if (panelId == U"signal_edit")  { drawSignalEditPanel(); }
+		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
+		else if (panelId == U"minimap_expanded")
+		{
+			m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
+		}
+	}
 
-	m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
+	if (m_showPauseMenu)
+		drawPauseMenu();
+}
+
+void GameScene::drawPauseMenu()
+{
+	const double sw = Scene::Width();
+	const double sh = Scene::Height();
+
+	// 半透明オーバーレイ
+	Scene::Rect().draw(ColorF{ 0.0, 0.0, 0.0, 0.6 });
+
+	// メニューパネル
+	constexpr double panelW = 320;
+	constexpr double panelH = 340;
+	const RectF panel{ (sw - panelW) / 2, (sh - panelH) / 2, panelW, panelH };
+	panel.rounded(8).draw(ColorF{ 0.12, 0.12, 0.15, 0.95 });
+	panel.rounded(8).drawFrame(1.0, ColorF{ 0.5, 0.5, 0.55, 0.6 });
+
+	// タイトル
+	const Font& font = SimpleGUI::GetFont();
+	font(U"PAUSED").drawAt(32, Vec2{ sw / 2, panel.y + 40 }, ColorF{ 0.9 });
+
+	// ボタン配置
+	constexpr double btnW = 240;
+	constexpr double btnH = 44;
+	constexpr double gap  = 12;
+	const double startY = panel.y + 90;
+	const double btnX = (sw - btnW) / 2;
+
+	struct MenuItem { String label; };
+	const Array<MenuItem> items =
+	{
+		{ U"ゲームに戻る" },
+		{ U"セーブ" },
+		{ U"設定" },
+		{ U"タイトルに戻る" },
+		{ U"ゲーム終了" },
+	};
+
+	for (int32 i = 0; i < static_cast<int32>(items.size()); ++i)
+	{
+		const RectF btn{ btnX, startY + i * (btnH + gap), btnW, btnH };
+		const bool hover = btn.mouseOver();
+
+		btn.rounded(4).draw(hover ? ColorF{ 0.35, 0.38, 0.45 } : ColorF{ 0.2, 0.22, 0.28 });
+		btn.rounded(4).drawFrame(1.0, hover ? ColorF{ 0.7, 0.75, 0.85 } : ColorF{ 0.4, 0.42, 0.48 });
+		font(items[i].label).drawAt(20, btn.center(), ColorF{ 0.92 });
+
+		if (hover && MouseL.down())
+		{
+			switch (i)
+			{
+			case 0: // ゲームに戻る
+				m_showPauseMenu = false;
+				break;
+
+			case 1: // セーブ
+				saveGame();
+				break;
+
+			case 2: // 設定（仮）
+				break;
+
+			case 3: // タイトルに戻る
+				m_showPauseMenu = false;
+				changeScene(SceneState::Title, 0s);
+				break;
+
+			case 4: // ゲーム終了
+				System::Exit();
+				break;
+			}
+		}
+	}
 }

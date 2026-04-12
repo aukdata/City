@@ -57,15 +57,35 @@ namespace
 		}
 	}
 
-	/// @brief LineType → 断面バー描画用の色
+	/// @brief RoadPartType → UI 描画色（断面バー / 信号編集図 共用）
+	ColorF partTypeColor(RoadPartType type)
+	{
+		switch (type)
+		{
+		case RoadPartType::Roadbed:   return ColorF{0.25, 0.25, 0.27};
+		case RoadPartType::Shoulder:  return ColorF{0.35, 0.33, 0.30};
+		case RoadPartType::Median:    return ColorF{0.45, 0.55, 0.30};
+		case RoadPartType::Sidewalk:  return ColorF{0.60, 0.58, 0.55};
+		case RoadPartType::Gutter:    return ColorF{0.20, 0.20, 0.22};
+		case RoadPartType::Guardrail: return ColorF{0.55, 0.55, 0.55};
+		case RoadPartType::Wall:      return ColorF{0.45, 0.42, 0.38};
+		case RoadPartType::Curb:      return ColorF{0.50, 0.48, 0.44};
+		case RoadPartType::Slope:     return ColorF{0.40, 0.52, 0.30};
+		case RoadPartType::BikeLane:  return ColorF{0.30, 0.45, 0.55};
+		default:                      return ColorF{0.3};
+		}
+	}
+
+	/// @brief LineType → 描画色（断面バー / 信号編集図 共用）
+	/// @note DashedWhite は alpha=0.5（バー上で破線を視覚的に示す）
 	ColorF lineTypeColor(LineType lt)
 	{
 		switch (lt)
 		{
 		case LineType::SolidWhite:  return ColorF{1.0, 1.0, 1.0};
 		case LineType::DashedWhite: return ColorF{1.0, 1.0, 1.0, 0.5};
-		case LineType::SolidYellow: return ColorF{1.0, 0.85, 0.0};
-		case LineType::DoubleYellow:return ColorF{1.0, 0.85, 0.0};
+		case LineType::SolidYellow: return ColorF{1.0, 0.9, 0.0};
+		case LineType::DoubleYellow:return ColorF{1.0, 0.9, 0.0};
 		default:                    return ColorF{0, 0, 0, 0};
 		}
 	}
@@ -115,13 +135,6 @@ namespace
 
 		auto mToPixel = [&](float m) -> double { return kBarX + (m - extMin) / extRange * kBarW; };
 		auto pixelToM = [&](double px) -> float { return extMin + static_cast<float>((px - kBarX) / kBarW) * extRange; };
-
-		static constexpr ColorF partColors[] = {
-			ColorF{0.25, 0.25, 0.27}, ColorF{0.35, 0.33, 0.30}, ColorF{0.45, 0.55, 0.30},
-			ColorF{0.60, 0.58, 0.55}, ColorF{0.20, 0.20, 0.22}, ColorF{0.55, 0.55, 0.55},
-			ColorF{0.45, 0.42, 0.38}, ColorF{0.50, 0.48, 0.44}, ColorF{0.40, 0.52, 0.30},
-			ColorF{0.30, 0.45, 0.55},
-		};
 
 		// 範囲チェック
 		if (st.selectedPart >= static_cast<int>(edge.parts.size())) st.selectedPart = -1;
@@ -189,7 +202,7 @@ namespace
 					const double pw = Max(px1 - px0, 2.0);
 					const bool sel = (i == st.selectedPart);
 
-					ColorF col = partColors[Clamp(static_cast<int>(p.type), 0, 9)];
+					ColorF col = partTypeColor(p.type);
 					if (p.build != BuildState::Built) col = col * 0.5;
 
 					RectF rect{ px0, static_cast<double>(barY + 2), pw, static_cast<double>(kPartBarH - 4) };
@@ -747,6 +760,12 @@ void GameScene::drawNodePanel()
 					if (PanelWidget::spin(pFont, tmpCpY, 1.0f, -100.0f, 200.0f, pX + 34, y, 54, kLH))
 					{
 						cpY = static_cast<double>(tmpCpY);
+						// ベジェ形状が変わるので弧長を再計算
+						if (const auto bez = m_network.getBezier(att.edgeId))
+							edge->length = bez->totalLength;
+						m_network.updateNodeCutoffs(node->id);
+						m_network.updateLaneConnectionPaths(node->id);
+						notifyNetworkChanged({ node->id });
 						dirty = true;
 					}
 				}
@@ -775,6 +794,8 @@ void GameScene::drawNodePanel()
 			{
 				m_selectedNodeId = none;
 				notifyNetworkChanged(neighbors);
+				for (const int nid2 : neighbors)
+					m_roadRenderer.invalidateCachesAroundNode(nid2, m_network);
 			}
 		}
 		y += kLH + 4;
@@ -795,6 +816,7 @@ void GameScene::drawNodePanel()
 				{
 					SignalPlacement sp;
 					sp.signalDefId = defIds[0];
+					sp.phases = m_network.buildDefaultSignalPhases(node->id);
 					node->signalPlacement = sp;
 					// 全 Signal エッジの attachment.control を設定
 					for (auto& att : node->attachments)
@@ -966,35 +988,6 @@ void GameScene::drawVehiclePanel()
 
 namespace
 {
-	/// @brief LineType に応じた描画色を返す
-	ColorF lineColor(LineType lt)
-	{
-		switch (lt)
-		{
-		case LineType::SolidWhite:  return ColorF{ 1.0, 1.0, 1.0 };
-		case LineType::DashedWhite: return ColorF{ 1.0, 1.0, 1.0 };
-		case LineType::SolidYellow: return ColorF{ 1.0, 0.9, 0.0 };
-		case LineType::DoubleYellow:return ColorF{ 1.0, 0.9, 0.0 };
-		default: return ColorF{ 0.0, 0.0 };
-		}
-	}
-
-	/// @brief RoadPartType に応じた描画色を返す
-	ColorF partColor(RoadPartType type)
-	{
-		switch (type)
-		{
-		case RoadPartType::Roadbed:   return ColorF{ 0.25, 0.25, 0.28 };
-		case RoadPartType::Sidewalk:  return ColorF{ 0.50, 0.48, 0.44 };
-		case RoadPartType::Curb:      return ColorF{ 0.55, 0.53, 0.50 };
-		case RoadPartType::Median:    return ColorF{ 0.35, 0.38, 0.30 };
-		case RoadPartType::Guardrail: return ColorF{ 0.45, 0.45, 0.48 };
-		case RoadPartType::Slope:     return ColorF{ 0.35, 0.45, 0.25 };
-		case RoadPartType::Shoulder:  return ColorF{ 0.30, 0.30, 0.28 };
-		default: return ColorF{ 0.3 };
-		}
-	}
-
 	/// @brief 2D 3次ベジェ補間
 	Vec2 bezier2D(const Vec2& p0, const Vec2& p1, const Vec2& p2, const Vec2& p3, double t)
 	{
@@ -1036,6 +1029,282 @@ namespace
 		int edgeId;
 		bool isNodeA;
 	};
+
+	/// @brief outward フレームの offset を返す
+	std::pair<float, float> outwardOffset(float off, float width, bool isNodeA)
+	{
+		if (isNodeA) return { off, off + width };
+		return { -(off + width), -off };
+	}
+
+	/// @brief 道路全幅の outward left/right を取得
+	std::pair<float, float> getRoadExtent(const RoadEdge* edge, bool isNodeA)
+	{
+		float minL = 1e9f, maxR = -1e9f;
+		for (const auto& p : edge->parts)
+		{
+			if (p.build != BuildState::Built) continue;
+			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			minL = Min(minL, l);
+			maxR = Max(maxR, r);
+		}
+		return { minL, maxR };
+	}
+
+	/// @brief 路盤の outward left/right を取得
+	std::pair<float, float> getRoadbedExtent(const RoadEdge* edge, bool isNodeA)
+	{
+		float minL = 1e9f, maxR = -1e9f;
+		for (const auto& p : edge->parts)
+		{
+			if (p.type != RoadPartType::Roadbed) continue;
+			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			minL = Min(minL, l);
+			maxR = Max(maxR, r);
+		}
+		return { minL, maxR };
+	}
+
+	/// @brief 信号編集パネルの交差点図を描画する
+	/// @param[in,out] dirty 変更があった場合 true にセットされる
+	void drawSignalDiagram(const RoadNode& node, const RoadNetwork& network,
+	                       const Font& pFont, Vec2 panelSize, int kLeftW,
+	                       const HashSet<int>& greenSet, SignalPhaseDef* curPhasePtr,
+	                       bool& dirty)
+	{
+		constexpr int kPad = 6;
+		const double rightX = kLeftW;
+		const double rightW = panelSize.x - kLeftW;
+		const double diagramSize = Min(rightW - kPad, 380.0);
+		const Vec2 center{ rightX + rightW * 0.5, kPad + diagramSize * 0.5 };
+		const double armLen = diagramSize * 0.28;
+		constexpr double kScale = 4.5;
+
+		auto flipY = [&](Vec2 p) -> Vec2 { return { p.x, 2.0 * center.y - p.y }; };
+
+		// ---- カットオフ情報を収集（角度順ソート）----
+		Array<EdgeCap2D> caps;
+		for (const auto& att : node.attachments)
+		{
+			const RoadEdge* edge = network.getEdge(att.edgeId);
+			if (!edge) continue;
+			const auto bez = network.getBezier(att.edgeId);
+			if (!bez) continue;
+
+			const bool isNodeA = (edge->nodeA == node.id);
+			const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+
+			Vec3 capTan;
+			if (isNodeA)
+			{
+				const float s = Clamp(cutoff - 0.1f, 0.0f, bez->totalLength * 0.45f);
+				capTan = bez->tangentAt(s);
+			}
+			else
+			{
+				const float s = Clamp(bez->totalLength - cutoff + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
+				capTan = -bez->tangentAt(s);
+			}
+
+			const Vec2 fwd{ capTan.x, capTan.z };
+			const double fwdLen = fwd.length();
+			if (fwdLen < 1e-6) continue;
+			const Vec2 dn = fwd / fwdLen;
+
+			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
+			const Vec3 cutPos = bez->positionAt(cutoffArc);
+
+			EdgeCap2D cap;
+			cap.center  = center + Vec2{
+				(cutPos.x - node.position.x) * kScale,
+				(cutPos.z - node.position.z) * kScale
+			};
+			cap.fwd     = dn;
+			cap.right   = Vec2{ -dn.y, dn.x };
+			cap.angle   = Math::Atan2(dn.y, dn.x);
+			cap.edge    = edge;
+			cap.edgeId  = att.edgeId;
+			cap.isNodeA = isNodeA;
+			caps << cap;
+		}
+		caps.sort_by([](const EdgeCap2D& a, const EdgeCap2D& b) { return a.angle < b.angle; });
+
+		// ---- 交差点内エリアを全周ポリゴンで塗りつぶし ----
+		if (caps.size() >= 2)
+		{
+			const int N = static_cast<int>(caps.size());
+			const ColorF junctionColor{ 0.25, 0.25, 0.28 };
+			constexpr int kBezDiv = 12;
+
+			Array<Vec2> boundary;
+			for (int i = 0; i < N; ++i)
+			{
+				const auto& capCur = caps[i];
+				const auto& capNext = caps[(i + 1) % N];
+				const auto [rbL, rbR] = getRoadbedExtent(capCur.edge, capCur.isNodeA);
+				const auto [nbL, nbR] = getRoadbedExtent(capNext.edge, capNext.isNodeA);
+
+				boundary << (capCur.center + capCur.right * (rbL * kScale));
+				boundary << (capCur.center + capCur.right * (rbR * kScale));
+
+				const Vec2 pA = capCur.center + capCur.right * (rbR * kScale);
+				const Vec2 pB = capNext.center + capNext.right * (nbL * kScale);
+				const Vec2 tanA{ -capCur.fwd.x, -capCur.fwd.y };
+				const Vec2 tanB{ -capNext.fwd.x, -capNext.fwd.y };
+				const double d = Max((pB - pA).length() / 3.0, 2.0);
+
+				for (int k = 1; k < kBezDiv; ++k)
+				{
+					const double t = k / static_cast<double>(kBezDiv);
+					boundary << bezier2D(pA, pA + tanA * d, pB + tanB * d, pB, t);
+				}
+			}
+
+			for (int k = 0; k < static_cast<int>(boundary.size()); ++k)
+			{
+				const int next = (k + 1) % static_cast<int>(boundary.size());
+				Triangle{ center, flipY(boundary[next]), flipY(boundary[k]) }.draw(junctionColor);
+			}
+		}
+
+		// ---- 各エッジアーム ----
+		for (const auto& cap : caps)
+		{
+			const auto* edge = cap.edge;
+			const Vec2& dn = cap.fwd;
+			const Vec2& rt = cap.right;
+
+			for (const auto& part : edge->parts)
+			{
+				if (part.build != BuildState::Built) continue;
+
+				const auto [oL, oR] = outwardOffset(part.offset, part.width, cap.isNodeA);
+				const double pLeft  = static_cast<double>(oL) * kScale;
+				const double pRight = static_cast<double>(oR) * kScale;
+
+				const Vec2 nearL = cap.center + rt * pLeft;
+				const Vec2 nearR = cap.center + rt * pRight;
+				const Vec2 farL  = nearL + dn * armLen;
+				const Vec2 farR  = nearR + dn * armLen;
+
+				Quad{ flipY(nearL), flipY(nearR), flipY(farR), flipY(farL) }.draw(partTypeColor(part.type));
+			}
+
+			const auto [totalL, totalR] = getRoadExtent(edge, cap.isNodeA);
+			{
+				const Vec2 outerL0 = cap.center + rt * (totalL * kScale);
+				const Vec2 outerL1 = outerL0 + dn * armLen;
+				const Vec2 outerR0 = cap.center + rt * (totalR * kScale);
+				const Vec2 outerR1 = outerR0 + dn * armLen;
+				Line{ flipY(outerL0), flipY(outerL1) }.draw(1.5, ColorF{ 1.0 });
+				Line{ flipY(outerR0), flipY(outerR1) }.draw(1.5, ColorF{ 1.0 });
+			}
+
+			for (const auto& lane : edge->lanes)
+			{
+				if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+
+				auto drawLaneLine = [&](LineType lt, float rawOffset)
+				{
+					if (lt == LineType::None) return;
+					const double off = static_cast<double>(cap.isNodeA ? rawOffset : -rawOffset) * kScale;
+					const Vec2 p0 = cap.center + rt * off;
+					const Vec2 p1 = p0 + dn * armLen;
+					const bool dashed = (lt == LineType::DashedWhite);
+					if (dashed)
+					{
+						for (double dd = 0; dd < armLen; dd += 10.0)
+						{
+							const double d1 = Min(dd + 4.0, armLen);
+							Line{ flipY(p0 + dn * dd), flipY(p0 + dn * d1) }.draw(1.0, lineTypeColor(lt));
+						}
+					}
+					else
+					{
+						Line{ flipY(p0), flipY(p1) }.draw(1.0, lineTypeColor(lt));
+					}
+				};
+				const float oL = cap.isNodeA ? lane.offsetA_L : lane.offsetB_L;
+				const float oR = cap.isNodeA ? lane.offsetA_R : lane.offsetB_R;
+				drawLaneLine(lane.lineLeft, oL);
+				drawLaneLine(lane.lineRight, oR);
+			}
+
+			pFont(U"E{}"_fmt(cap.edgeId)).drawAt(flipY(cap.center + dn * (armLen + 12.0)), ColorF{ 0.8 });
+		}
+
+		// ---- LaneConnection 描画 + クリックトグル ----
+		{
+			auto worldToDiag = [&](const Vec3& w) -> Vec2
+			{
+				return flipY(center + Vec2{
+					(w.x - node.position.x) * kScale,
+					(w.z - node.position.z) * kScale
+				});
+			};
+
+			constexpr int kBezDiv = 14;
+			struct ConnDraw { int connId; bool isGreen; Array<Vec2> path; };
+			Array<ConnDraw> draws;
+			draws.reserve(node.laneConnections.size());
+			for (const auto& conn : node.laneConnections)
+			{
+				const float bezLen = conn.path.totalLength;
+				if (bezLen <= 0.0f) continue;
+				ConnDraw dd;
+				dd.connId  = conn.id;
+				dd.isGreen = greenSet.contains(conn.id);
+				dd.path.reserve(kBezDiv + 1);
+				for (int k = 0; k <= kBezDiv; ++k)
+				{
+					const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
+					dd.path << worldToDiag(conn.path.positionAt(s));
+				}
+				draws << std::move(dd);
+			}
+
+			auto drawLines = [&](bool greenPass)
+			{
+				for (const auto& dd : draws)
+				{
+					if (dd.isGreen != greenPass) continue;
+					const ColorF lineC = greenPass
+						? ColorF{ 0.2, 0.95, 0.4, 0.85 }
+						: ColorF{ 0.95, 0.25, 0.15, 0.55 };
+					const double thickness = greenPass ? 2.5 : 1.5;
+					for (int k = 0; k + 1 < static_cast<int>(dd.path.size()); ++k)
+						Line{ dd.path[k], dd.path[k + 1] }.draw(thickness, lineC);
+				}
+			};
+			drawLines(false);
+			drawLines(true);
+
+			for (const auto& dd : draws)
+			{
+				const Vec2 mid = dd.path[kBezDiv / 2];
+				constexpr double r = 6.0;
+				const ColorF handleC = dd.isGreen
+					? ColorF{ 0.1, 0.95, 0.35 }
+					: ColorF{ 0.95, 0.2, 0.1 };
+				Circle{ mid, r }.draw(handleC);
+				Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
+
+				if (curPhasePtr)
+				{
+					const int hx = static_cast<int>(mid.x - r);
+					const int hy = static_cast<int>(mid.y - r);
+					const int hw = static_cast<int>(r * 2);
+					auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
+					if (hit.clickL)
+					{
+						if (dd.isGreen) curPhasePtr->greenConnectionIds.remove(dd.connId);
+						else            curPhasePtr->greenConnectionIds << dd.connId;
+						dirty = true;
+					}
+				}
+			}
+		}
+	}
 }
 
 void GameScene::drawSignalEditPanel()
@@ -1079,7 +1348,7 @@ void GameScene::drawSignalEditPanel()
 	for (int pi = 0; pi < static_cast<int>(sp.phases.size()); ++pi)
 	{
 		auto& ph = sp.phases[pi];
-		totalDuration += ph.duration;
+		totalDuration += ph.duration + kYellowDuration;
 
 		const bool selected = (pi == m_signalEditPhase);
 		const ColorF bg = selected ? ColorF{ 0.25, 0.35, 0.55 } : ColorF{ 0.16 };
@@ -1124,8 +1393,8 @@ void GameScene::drawSignalEditPanel()
 			}
 		}
 
-		// 2段目: 持続時間 + 青連数
-		if (PanelWidget::spin(pFont, ph.duration, 5.0f, 5.0f, 120.0f,
+		// 2段目: 持続時間（実時間秒）+ 青連数
+		if (PanelWidget::spin(pFont, ph.duration, 1.0f, 5.0f, 120.0f,
 		                      kPad + 4, ly + kLH + 1, 56, kLH - 2))
 		{
 			dirty = true;
@@ -1144,303 +1413,19 @@ void GameScene::drawSignalEditPanel()
 	// ========================================
 	// 右ペイン: 交差点図 + 信号表示
 	// ========================================
-	const double rightX = kLeftW;
-	const double rightW = panelSize.x - kLeftW;
-	const double diagramSize = Min(rightW - kPad, 380.0);
-	const Vec2 center{ rightX + rightW * 0.5, kPad + diagramSize * 0.5 };
-	const double armLen = diagramSize * 0.28;
-	constexpr double kScale = 4.5;
-
-	// 選択フェーズの青 LaneConnection 集合
 	HashSet<int> greenSet;
 	SignalPhaseDef* curPhasePtr = nullptr;
 	if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
 	{
 		curPhasePtr = &sp.phases[m_signalEditPhase];
 		for (const int cid : curPhasePtr->greenConnectionIds)
-		{
 			greenSet.insert(cid);
-		}
 	}
 
-	auto outwardOffset = [](float off, float width, bool isNodeA) -> std::pair<float, float>
-	{
-		if (isNodeA) return { off, off + width };
-		return { -(off + width), -off };
-	};
+	drawSignalDiagram(*node, m_network, pFont, panelSize, kLeftW, greenSet, curPhasePtr, dirty);
 
-	// 道路全幅の outward left/right を取得
-	auto getRoadExtent = [&](const RoadEdge* edge, bool isNodeA) -> std::pair<float, float>
-	{
-		float minL = 1e9f, maxR = -1e9f;
-		for (const auto& p : edge->parts)
-		{
-			if (p.build != BuildState::Built) continue;
-			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
-			minL = Min(minL, l);
-			maxR = Max(maxR, r);
-		}
-		return { minL, maxR };
-	};
-
-	// 路盤の outward left/right を取得
-	auto getRoadbedExtent = [&](const RoadEdge* edge, bool isNodeA) -> std::pair<float, float>
-	{
-		float minL = 1e9f, maxR = -1e9f;
-		for (const auto& p : edge->parts)
-		{
-			if (p.type != RoadPartType::Roadbed) continue;
-			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
-			minL = Min(minL, l);
-			maxR = Max(maxR, r);
-		}
-		return { minL, maxR };
-	};
-
-	// ---- カットオフ情報を収集（角度順ソート）----
-	Array<EdgeCap2D> caps;
-	for (const auto& att : node->attachments)
-	{
-		const RoadEdge* edge = m_network.getEdge(att.edgeId);
-		if (!edge) continue;
-		const auto bez = m_network.getBezier(att.edgeId);
-		if (!bez) continue;
-
-		const bool isNodeA = (edge->nodeA == node->id);
-		const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
-
-		Vec3 capTan;
-		if (isNodeA)
-		{
-			const float s = Clamp(cutoff - 0.1f, 0.0f, bez->totalLength * 0.45f);
-			capTan = bez->tangentAt(s);
-		}
-		else
-		{
-			const float s = Clamp(bez->totalLength - cutoff + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
-			capTan = -bez->tangentAt(s);
-		}
-
-		const Vec2 fwd{ capTan.x, capTan.z };
-		const double fwdLen = fwd.length();
-		if (fwdLen < 1e-6) continue;
-		const Vec2 dn = fwd / fwdLen;
-
-		EdgeCap2D cap;
-		cap.center  = center + dn * (cutoff * kScale);
-		cap.fwd     = dn;
-		cap.right   = Vec2{ -dn.y, dn.x };
-		cap.angle   = Math::Atan2(dn.y, dn.x);
-		cap.edge    = edge;
-		cap.edgeId  = att.edgeId;
-		cap.isNodeA = isNodeA;
-		caps << cap;
-	}
-	caps.sort_by([](const EdgeCap2D& a, const EdgeCap2D& b) { return a.angle < b.angle; });
-
-	// ---- 交差点内エリアを全周ポリゴンで塗りつぶし ----
-	if (caps.size() >= 2)
-	{
-		const int N = static_cast<int>(caps.size());
-		const ColorF junctionColor{ 0.25, 0.25, 0.28 };
-		constexpr int kBezDiv = 12;
-
-		// 全周ポリゴンの頂点を構築
-		Array<Vec2> boundary;
-		for (int i = 0; i < N; ++i)
-		{
-			const auto& capCur = caps[i];
-			const auto& capNext = caps[(i + 1) % N];
-			const auto [rbL, rbR] = getRoadbedExtent(capCur.edge, capCur.isNodeA);
-			const auto [nbL, nbR] = getRoadbedExtent(capNext.edge, capNext.isNodeA);
-
-			// このエッジの左端→右端
-			boundary << (capCur.center + capCur.right * (rbL * kScale));
-			boundary << (capCur.center + capCur.right * (rbR * kScale));
-
-			// 次のエッジの左端へベジェ曲線
-			const Vec2 pA = capCur.center + capCur.right * (rbR * kScale);
-			const Vec2 pB = capNext.center + capNext.right * (nbL * kScale);
-			const Vec2 tanA{ -capCur.fwd.x, -capCur.fwd.y };
-			const Vec2 tanB{ -capNext.fwd.x, -capNext.fwd.y };
-			const double d = Max((pB - pA).length() / 3.0, 2.0);
-
-			for (int k = 1; k < kBezDiv; ++k)
-			{
-				const double t = k / static_cast<double>(kBezDiv);
-				boundary << bezier2D(pA, pA + tanA * d, pB + tanB * d, pB, t);
-			}
-		}
-
-		// 三角形ファンで塗りつぶし
-		for (int k = 0; k < static_cast<int>(boundary.size()); ++k)
-		{
-			const int next = (k + 1) % static_cast<int>(boundary.size());
-			Triangle{ center, boundary[k], boundary[next] }.draw(junctionColor);
-		}
-	}
-
-	// ---- 各エッジアーム ----
-	for (const auto& cap : caps)
-	{
-		const auto* edge = cap.edge;
-		const Vec2& dn = cap.fwd;
-		const Vec2& rt = cap.right;
-
-		// パーツ描画
-		for (const auto& part : edge->parts)
-		{
-			if (part.build != BuildState::Built) continue;
-
-			const auto [oL, oR] = outwardOffset(part.offset, part.width, cap.isNodeA);
-			const double pLeft  = static_cast<double>(oL) * kScale;
-			const double pRight = static_cast<double>(oR) * kScale;
-
-			const Vec2 nearL = cap.center + rt * pLeft;
-			const Vec2 nearR = cap.center + rt * pRight;
-			const Vec2 farL  = nearL + dn * armLen;
-			const Vec2 farR  = nearR + dn * armLen;
-
-			Quad{ nearL, nearR, farR, farL }.draw(partColor(part.type));
-		}
-
-		// 道路外周の白線
-		const auto [totalL, totalR] = getRoadExtent(edge, cap.isNodeA);
-		{
-			const Vec2 outerL0 = cap.center + rt * (totalL * kScale);
-			const Vec2 outerL1 = outerL0 + dn * armLen;
-			const Vec2 outerR0 = cap.center + rt * (totalR * kScale);
-			const Vec2 outerR1 = outerR0 + dn * armLen;
-			Line{ outerL0, outerL1 }.draw(1.5, ColorF{ 1.0 });
-			Line{ outerR0, outerR1 }.draw(1.5, ColorF{ 1.0 });
-		}
-
-		// 車線区画線描画
-		for (const auto& lane : edge->lanes)
-		{
-			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
-
-			auto drawLaneLine = [&](LineType lt, float rawOffset)
-			{
-				if (lt == LineType::None) return;
-				const double off = static_cast<double>(cap.isNodeA ? rawOffset : -rawOffset) * kScale;
-				const Vec2 p0 = cap.center + rt * off;
-				const Vec2 p1 = p0 + dn * armLen;
-				const bool dashed = (lt == LineType::DashedWhite);
-				if (dashed)
-				{
-					for (double dd = 0; dd < armLen; dd += 10.0)
-					{
-						const double d1 = Min(dd + 4.0, armLen);
-						Line{ p0 + dn * dd, p0 + dn * d1 }.draw(1.0, lineColor(lt));
-					}
-				}
-				else
-				{
-					Line{ p0, p1 }.draw(1.0, lineColor(lt));
-				}
-			};
-			const float oL = cap.isNodeA ? lane.offsetA_L : lane.offsetB_L;
-			const float oR = cap.isNodeA ? lane.offsetA_R : lane.offsetB_R;
-			if (cap.isNodeA)
-			{
-				drawLaneLine(lane.lineLeft, oL);
-				drawLaneLine(lane.lineRight, oR);
-			}
-			else
-			{
-				drawLaneLine(lane.lineRight, oL);
-				drawLaneLine(lane.lineLeft, oR);
-			}
-		}
-
-		// エッジIDラベル
-		pFont(U"E{}"_fmt(cap.edgeId)).drawAt(cap.center + dn * (armLen + 12.0), ColorF{ 0.8 });
-	}
-
-	// ========================================
-	// LaneConnection 描画 + クリックトグル
-	// ========================================
-	{
-		// world XZ → diagram 座標への変換
-		auto worldToDiag = [&](const Vec3& w) -> Vec2
-		{
-			return center + Vec2{
-				(w.x - node->position.x) * kScale,
-				(w.z - node->position.z) * kScale
-			};
-		};
-
-		// 各 LaneConnection の bezier を 1 度だけ離散化してキャッシュ
-		constexpr int kBezDiv = 14;
-		struct ConnDraw { int connId; bool isGreen; Array<Vec2> path; };
-		Array<ConnDraw> draws;
-		draws.reserve(node->laneConnections.size());
-		for (const auto& conn : node->laneConnections)
-		{
-			const float bezLen = conn.path.totalLength;
-			if (bezLen <= 0.0f) continue;
-			ConnDraw d;
-			d.connId  = conn.id;
-			d.isGreen = greenSet.contains(conn.id);
-			d.path.reserve(kBezDiv + 1);
-			for (int k = 0; k <= kBezDiv; ++k)
-			{
-				const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
-				d.path << worldToDiag(conn.path.positionAt(s));
-			}
-			draws << std::move(d);
-		}
-
-		// 1 パス目: 赤の bezier 線
-		// 2 パス目: 緑の bezier 線（上に重ねる）
-		// 3 パス目: クリックハンドル
-		auto drawLines = [&](bool greenPass)
-		{
-			for (const auto& d : draws)
-			{
-				if (d.isGreen != greenPass) continue;
-				const ColorF lineC = greenPass
-					? ColorF{ 0.2, 0.95, 0.4, 0.85 }
-					: ColorF{ 0.95, 0.25, 0.15, 0.55 };
-				const double thickness = greenPass ? 2.5 : 1.5;
-				for (int k = 0; k + 1 < static_cast<int>(d.path.size()); ++k)
-					Line{ d.path[k], d.path[k + 1] }.draw(thickness, lineC);
-			}
-		};
-		drawLines(false);
-		drawLines(true);
-
-		// クリックハンドル
-		for (const auto& d : draws)
-		{
-			const Vec2 mid = d.path[kBezDiv / 2];
-			constexpr double r = 6.0;
-			const ColorF handleC = d.isGreen
-				? ColorF{ 0.1, 0.95, 0.35 }
-				: ColorF{ 0.95, 0.2, 0.1 };
-			Circle{ mid, r }.draw(handleC);
-			Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
-
-			if (curPhasePtr)
-			{
-				const int hx = static_cast<int>(mid.x - r);
-				const int hy = static_cast<int>(mid.y - r);
-				const int hw = static_cast<int>(r * 2);
-				auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
-				if (hit.clickL)
-				{
-					if (d.isGreen) curPhasePtr->greenConnectionIds.remove(d.connId);
-					else           curPhasePtr->greenConnectionIds << d.connId;
-					dirty = true;
-				}
-			}
-		}
-	}
-
-	// ========================================
-	// 高さ計算
-	// ========================================
+	const double rightW = panelSize.x - kLeftW;
+	const double diagramSize = Min(rightW - kPad, 380.0);
 	const int totalHeight = Max(ly, static_cast<int>(diagramSize) + kPad * 2);
 
 	if (dirty)
