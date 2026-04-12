@@ -2,16 +2,17 @@
 """CRLF/BOM 変換スクリプト
 
 Usage:
-    python3 chore/convert_line_endings.py to-lf              # src/ 内の .cpp/.hpp/.h を全て LF 化
-    python3 chore/convert_line_endings.py to-crlf            # src/ 内の .cpp/.hpp/.h を全て CRLF 化
-    python3 chore/convert_line_endings.py to-lf  file1 file2 # 指定ファイルのみ LF 化
-    python3 chore/convert_line_endings.py to-crlf file1 file2 # 指定ファイルのみ CRLF 化
+    python3 chore/convert_line_endings.py to-lf                # src/ 内の .cpp/.hpp/.h を全て LF 化
+    python3 chore/convert_line_endings.py to-crlf              # src/ 内の .cpp/.hpp/.h を全て CRLF 化
+    python3 chore/convert_line_endings.py to-lf  -d src Test   # 指定ディレクトリを走査
+    python3 chore/convert_line_endings.py to-crlf file1 file2  # 指定ファイルのみ CRLF 化
 """
 
 import sys
 import pathlib
 
-SRC_DIR = pathlib.Path(__file__).resolve().parent.parent / "src"
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+DEFAULT_DIRS = ["src"]
 EXTENSIONS = {".cpp", ".hpp", ".h"}
 BOM = b"\xef\xbb\xbf"
 
@@ -34,16 +35,15 @@ def convert_file(f: pathlib.Path, to_crlf: bool) -> bool:
     return False
 
 
-def convert_all(to_crlf: bool):
-    """src/ 内の対象ファイルを全て変換する。"""
+def convert_dir(dir_path: pathlib.Path, to_crlf: bool) -> int:
+    """ディレクトリ内の対象ファイルを全て変換し、変換数を返す。"""
     count = 0
-    for f in SRC_DIR.rglob("*"):
+    for f in dir_path.rglob("*"):
         if f.suffix not in EXTENSIONS:
             continue
         if convert_file(f, to_crlf):
             count += 1
-    label = "CRLF+BOM" if to_crlf else "LF (no BOM)"
-    print(f"{count} files converted to {label}")
+    return count
 
 
 def convert_specified(to_crlf: bool, files):
@@ -65,10 +65,30 @@ def main():
         print(__doc__)
         sys.exit(1)
     to_crlf = sys.argv[1] == "to-crlf"
-    if len(sys.argv) >= 3:
-        convert_specified(to_crlf, sys.argv[2:])
+    args = sys.argv[2:]
+
+    if args and args[0] == "-d":
+        # -d dir1 dir2 ... : ディレクトリ指定モード
+        dirs = args[1:] if len(args) > 1 else DEFAULT_DIRS
+        count = 0
+        for d in dirs:
+            p = PROJECT_ROOT / d
+            if p.is_dir():
+                count += convert_dir(p, to_crlf)
+            else:
+                print(f"Warning: {d} is not a directory, skipping", file=sys.stderr)
+        label = "CRLF+BOM" if to_crlf else "LF (no BOM)"
+        print(f"{count} files converted to {label}")
+    elif args:
+        # ファイル指定モード
+        convert_specified(to_crlf, args)
     else:
-        convert_all(to_crlf)
+        # デフォルト: src/
+        count = 0
+        for d in DEFAULT_DIRS:
+            count += convert_dir(PROJECT_ROOT / d, to_crlf)
+        label = "CRLF+BOM" if to_crlf else "LF (no BOM)"
+        print(f"{count} files converted to {label}")
 
 
 if __name__ == "__main__":
