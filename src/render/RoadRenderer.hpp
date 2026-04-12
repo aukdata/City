@@ -93,6 +93,10 @@ private:
 	/// @brief ノードキャップ上の車線区画線を生成する
 	Array<LaneLineBatch> buildNodeCapLaneLines(const RoadNetwork& network, int nodeId, const World& world) const;
 
+	/// @brief Joint (Blend) ノードの車線区画線を生成する
+	Array<LaneLineBatch> buildJointBlendLaneLines(const RoadNetwork& network, int nodeId,
+	                                              const RoadNode& node, const World& world) const;
+
 	// ---- ヘルパー ----
 
 	/// @brief 部品の描画属性（色・高さオフセット・テクスチャ）
@@ -129,6 +133,7 @@ private:
 	RoadPartRegistry                          m_partRegistry;
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;   ///< エッジ ID → 部品メッシュ配列
 	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線
+	HashTable<int, Array<LaneLineBatch>>      m_stopLineCache;    ///< ノード ID → 停止線
 	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
