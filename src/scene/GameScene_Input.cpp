@@ -77,6 +77,47 @@ GameScene::ElevatedHitResult GameScene::raycastElevated(Vec2 screenPos) const
 
 void GameScene::handleInput()
 {
+	// ---- ESC: ポーズメニュートグル ----
+	if (KeyEscape.down())
+	{
+		if (m_showPauseMenu)
+		{
+			m_showPauseMenu = false;
+		}
+		else if (m_mode != EditMode::None
+			|| m_selectedEdgeId || m_selectedNodeId)
+		{
+			if (m_mode != EditMode::None)
+			{
+				m_mode               = EditMode::None;
+				m_drawStartNode      = none;
+				m_rectStart          = none;
+				m_trainDrawStartNode = none;
+				m_sandboxDragNode    = none;
+				m_sandboxDragCtrl    = none;
+				m_editingRouteId     = -1;
+				m_zoneManager.showOverlay = false;
+			}
+			m_selectedEdgeId = none;
+			m_selectedNodeId = none;
+			m_panelManager.hide(U"edge_info");
+			m_panelManager.hide(U"node_info");
+			m_panelManager.hide(U"draw_template");
+		}
+		else
+		{
+			m_showPauseMenu = true;
+			if (m_clock.speed != TimeSpeed::Paused)
+			{
+				m_prevSpeed   = m_clock.speed;
+				m_clock.speed = TimeSpeed::Paused;
+			}
+		}
+	}
+
+	// ポーズメニュー表示中は他の入力をブロック
+	if (m_showPauseMenu) return;
+
 	if (KeyControl.pressed() && KeyShift.pressed() && KeyS.down())
 	{
 		saveGame();
@@ -109,26 +150,6 @@ void GameScene::handleInput()
 
 	if (KeyTab.down())
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
-
-	if (KeyEscape.down())
-	{
-		if (m_mode != EditMode::None)
-		{
-			m_mode               = EditMode::None;
-			m_drawStartNode      = none;
-			m_rectStart          = none;
-			m_trainDrawStartNode = none;
-			m_sandboxDragNode    = none;
-			m_sandboxDragCtrl    = none;
-			m_editingRouteId     = -1;
-			m_zoneManager.showOverlay = false;
-		}
-		m_selectedEdgeId = none;
-		m_selectedNodeId = none;
-		m_panelManager.hide(U"edge_info");
-		m_panelManager.hide(U"node_info");
-		m_panelManager.hide(U"draw_template");
-	}
 
 	if (KeyR.down())
 	{

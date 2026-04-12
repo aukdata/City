@@ -321,7 +321,7 @@ void GameScene::updateLoading()
 void GameScene::startSimThread()
 {
 	m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
-	m_vehicleManager.init(*m_simGraph);
+	m_vehicleManager.init(*m_simGraph, m_network);
 	m_simThread.start(m_simGraph);
 }
 
@@ -901,7 +901,7 @@ void GameScene::update()
 	// ゲーム時計を進める
 	if (m_clock.speed != TimeSpeed::Paused)
 	{
-		const double gameDt = dt * m_clock.speedMultiplier();
+		const double gameDt = dt * m_clock.speedMultiplier() * 60.0; // 物理用: 実時間1秒=ゲーム内60秒相当の移動
 		const double vehicleDt = gameDt / 60.0;
 		m_clock.advance(dt);
 
@@ -919,8 +919,9 @@ void GameScene::update()
 	// メインスレッドのロジック
 	const Stopwatch swLogic{ StartImmediately::Yes };
 	m_world.update(m_camera.focusPoint());
-	m_panelManager.handleInput();
-	m_camera.setBlockInput(m_panelManager.isMouseOnAnyPanel());
+	if (!m_showPauseMenu)
+		m_panelManager.handleInput();
+	m_camera.setBlockInput(m_showPauseMenu || m_panelManager.isMouseOnAnyPanel());
 	m_camera.update(dt, m_world);
 	m_logicMs = swLogic.msF();
 
