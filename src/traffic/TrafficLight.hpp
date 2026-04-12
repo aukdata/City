@@ -1,10 +1,13 @@
 ﻿#pragma once
 #include "../time/GameClock.hpp"
 
+/// @brief 黄色信号の持続時間 [ゲーム秒]
+constexpr float kYellowDuration = 3.0f;
+
 /// @brief 信号フェーズ（どの LaneConnection が青かを定義する）
 struct SignalPhase
 {
-	float       duration;             ///< フェーズ持続時間 [ゲーム秒]
+	float       duration;             ///< 青信号の持続時間 [ゲーム秒]（黄色時間を含まない）
 	Array<int>  greenConnectionIds;   ///< このフェーズで青になる LaneConnection の ID リスト
 };
 

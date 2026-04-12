@@ -13,15 +13,15 @@ namespace
 
 // ===== 初期化 =====
 
-void VehicleManager::init(const SimGraph& simGraph)
+void VehicleManager::init(const SimGraph& simGraph, const RoadNetwork& network)
 {
-	buildTrafficLights(simGraph);
+	buildTrafficLights(simGraph, &network);
 	m_lightsDirty = false;
 }
 
-void VehicleManager::onNetworkChanged(const SimGraph& simGraph)
+void VehicleManager::onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network)
 {
-	buildTrafficLights(simGraph);
+	buildTrafficLights(simGraph, &network);
 	m_lightsDirty = false;
 }
 
@@ -51,7 +51,7 @@ void VehicleManager::spawnRandom(const SimGraph& simGraph, VehicleType type)
 void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleType type, int goalEdgeId)
 {
 	const auto* edge = simGraph.getEdge(edgeId);
-	if (!edge) return;
+	if (!edge) { Console << U"[spawnOnEdge] edge not found: " << edgeId; return; }
 
 	// 走行可能な車線を探す
 	int laneIdx = -1;
@@ -63,7 +63,7 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 			break;
 		}
 	}
-	if (laneIdx < 0) return;
+	if (laneIdx < 0) { Console << U"[spawnOnEdge] no drivable lane on edge " << edgeId; return; }
 
 	Vehicle v;
 	v.id          = m_nextId++;
@@ -74,6 +74,11 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 	v.mode        = VehicleMode::Active;
 	v.goalEdgeId  = goalEdgeId;
 	v.arcPos      = static_cast<float>(Random(0.0, static_cast<double>(edge->length) * kSpawnPosRatioGoal));
+
+	Console << U"[spawnOnEdge] id=" << v.id << U" edge=" << edgeId
+		<< U" lane=" << laneIdx << U" dir=" << (isForwardLane(*edge, laneIdx) ? U"Fwd" : U"Bwd")
+		<< U" arc=" << v.arcPos << U"/" << edge->length
+		<< U" speed=" << v.speed << U" goal=" << goalEdgeId;
 
 	m_vehicles << std::move(v);
 }
@@ -96,6 +101,8 @@ void VehicleManager::setGoalAndReroute(int vehicleId, int goalEdgeId, const SimG
 
 void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 {
+	Console << U"[applyRoute] v=" << resp.vehicleId << U" found=" << resp.found
+		<< U" waypoints=" << resp.waypoints.size();
 	for (auto& v : m_vehicles)
 	{
 		if (v.id != resp.vehicleId) continue;
@@ -770,24 +777,19 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetw
 		}
 		if (static_cast<int>(signalEdges.size()) < kMinEdgesForSignal) continue;
 
-		// ユーザー定義フェーズがあればそれを使う（永続化型 SignalPhaseDef → 実行時型 SignalPhase へ変換）
 		Array<SignalPhase> phases;
 		const RoadNode* rn = network ? network->getNode(nid) : nullptr;
 		if (rn && rn->signalPlacement && !rn->signalPlacement->phases.isEmpty())
 		{
-			for (const auto& pd : rn->signalPlacement->phases)
-			{
-				SignalPhase sp;
-				sp.duration = pd.duration;
-				sp.greenConnectionIds = pd.greenConnectionIds;
-				phases << std::move(sp);
-			}
+			phases = convertPhaseDefs(rn->signalPlacement->phases);
+		}
+		else if (rn && network)
+		{
+			phases = convertPhaseDefs(network->buildDefaultSignalPhases(nid));
 		}
 		else
 		{
-			// デフォルト: 全 LaneConnection を 1 フェーズで常時青
-			// 自動生成の賢さ（対向直進グループ化等）は別途実装する
-			phases = buildDefaultPhases(node.laneConnections);
+			phases = buildAllGreenPhase(node.laneConnections);
 		}
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
 	}
@@ -863,6 +865,7 @@ void VehicleManager::requestRoute(Vehicle& v, const SimGraph& simGraph)
 	if (v.goalEdgeId == -1 || v.goalEdgeId == v.currentEdge)
 	{
 		const int goal = selectRandomGoalEdge(simGraph, v.currentEdge);
+		Console << U"[requestRoute] v=" << v.id << U" selectRandomGoal=" << goal;
 		if (goal == -1) return;
 		v.goalEdgeId = goal;
 	}
@@ -872,6 +875,7 @@ void VehicleManager::requestRoute(Vehicle& v, const SimGraph& simGraph)
 	req.startEdge = v.currentEdge;
 	req.startLane = v.currentLane;
 	req.goalEdge  = v.goalEdgeId;
+	Console << U"[requestRoute] v=" << v.id << U" start=" << req.startEdge << U" goal=" << req.goalEdge;
 
 	m_pendingRequests << SimRequest{ req };
 	v.routeRequested = true;

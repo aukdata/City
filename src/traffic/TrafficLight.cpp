@@ -15,8 +15,8 @@ void TrafficLight::update(GameTime gameNow)
 		return;
 	}
 
-	const float duration = m_phases[m_currentPhase].duration;
-	if (gameNow - m_phaseStart >= static_cast<double>(duration))
+	const float totalDuration = m_phases[m_currentPhase].duration + kYellowDuration;
+	if (gameNow - m_phaseStart >= static_cast<double>(totalDuration))
 	{
 		m_currentPhase = (m_currentPhase + 1) % static_cast<int>(m_phases.size());
 		m_phaseStart   = gameNow;
@@ -62,7 +62,7 @@ float TrafficLight::currentPhaseDuration() const
 	{
 		return 0.0f;
 	}
-	return m_phases[m_currentPhase].duration;
+	return m_phases[m_currentPhase].duration + kYellowDuration;
 }
 
 float TrafficLight::expectedWaitTime(int connectionId) const
@@ -77,5 +77,5 @@ float TrafficLight::expectedWaitTime(int connectionId) const
 	}
 
 	// 現在フェーズの持続時間を上限として返す（保守的な近似）
-	return m_phases[m_currentPhase].duration;
+	return m_phases[m_currentPhase].duration + kYellowDuration;
 }

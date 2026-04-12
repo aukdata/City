@@ -12,11 +12,11 @@ enum class TimeSpeed : uint8 { Paused, x1, x2, x4 };
 /// @brief ゲーム内時計
 struct GameClock
 {
-	GameTime  now    = 8.0 * 3600; ///< ゲーム開始からの経過ゲーム秒（午前8時スタート）
+	GameTime  now    = 8.0 * 60; ///< ゲーム開始からの経過ゲーム秒（午前8時スタート）
 	int       year   = 1;          ///< 年
 	uint8     month  = 4;          ///< 月 (1-12)
 	uint8     day    = 1;          ///< 日 (1-30)
-	float     hour   = 6.0f;      ///< 時刻 (0.0-24.0)
+	float     hour   = 8.0f;      ///< 時刻 (0.0-24.0)
 	Season    season = Season::Spring;
 	TimeSpeed speed  = TimeSpeed::x1;
 
@@ -25,17 +25,15 @@ struct GameClock
 	void advance(double realDt)
 	{
 		if (speed == TimeSpeed::Paused) return;
-		const double multiplier = (speed == TimeSpeed::x1) ? 60.0
-			: (speed == TimeSpeed::x2) ? 120.0 : 240.0;
-		now += realDt * multiplier;
+		now += realDt * speedMultiplier();
 		syncCalendar();
 	}
 
 	/// @brief year/month/day/hour/season を now から再計算する
 	void syncCalendar()
 	{
-		constexpr int64 SecsPerHour = 3600;
-		constexpr int64 SecsPerDay  = 86400;
+		constexpr int64 SecsPerHour = 60;
+		constexpr int64 SecsPerDay  = 60 * 24;
 
 		const int64 s = static_cast<int64>(now);
 		hour  = static_cast<float>((s % SecsPerDay) / static_cast<double>(SecsPerHour));
@@ -69,9 +67,9 @@ struct GameClock
 		switch (speed)
 		{
 		case TimeSpeed::Paused: return 0.0;
-		case TimeSpeed::x1:     return 60.0;
-		case TimeSpeed::x2:     return 120.0;
-		case TimeSpeed::x4:     return 240.0;
+		case TimeSpeed::x1:     return 1.0;
+		case TimeSpeed::x2:     return 2.0;
+		case TimeSpeed::x4:     return 4.0;
 		}
 		return 0.0;
 	}
@@ -92,9 +90,8 @@ struct GameClock
 	/// @brief 時刻文字列を返す（"Year1 04/01 06:00" 形式）
 	String timeString() const
 	{
-		return U"Year{} {:02}/{:02} {:02}:{:02}"_fmt(
-			year, month, day,
-			static_cast<int>(hour),
-			static_cast<int>((hour - static_cast<int>(hour)) * 60));
+		const int h = static_cast<int>(hour);
+		const int s = static_cast<int>((hour - h) * 60);
+		return U"Year{} {:02}/{:02} {:02}:{:02}"_fmt(year, month, day, h, s);
 	}
 };

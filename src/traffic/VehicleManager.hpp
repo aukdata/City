@@ -14,10 +14,10 @@ class VehicleManager
 {
 public:
 	/// @brief SimGraph から信号機を構築する
-	void init(const SimGraph& simGraph);
+	void init(const SimGraph& simGraph, const RoadNetwork& network);
 
 	/// @brief ネットワーク変更通知
-	void onNetworkChanged(const SimGraph& simGraph);
+	void onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network);
 
 	/// @brief 毎フレーム更新
 	void update(double dt, GameTime gameNow,
@@ -53,6 +53,9 @@ public:
 	/// @brief 信号機マップを返す（描画用）
 	const HashTable<int, TrafficLight>& trafficLights() const { return m_trafficLights; }
 
+	/// @brief 指定ノードの信号機を返す（なければ nullptr）
+	const TrafficLight* getTrafficLight(int nodeId) const;
+
 private:
 	Array<Vehicle> m_vehicles;
 	int            m_nextId = 0;
@@ -63,7 +66,6 @@ private:
 	bool m_lightsDirty = true;
 	void buildTrafficLights(const SimGraph& simGraph, const RoadNetwork* network = nullptr);
 	void updateTrafficLights(GameTime gameNow);
-	const TrafficLight* getTrafficLight(int nodeId) const;
 
 	// 送信待ちリクエスト
 	Array<SimRequest> m_pendingRequests;

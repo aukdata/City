@@ -279,18 +279,37 @@ namespace TrafficCommon
 		return 2.0f;
 	}
 
+	// ========== 信号フェーズ変換 ==========
+
+	/// @brief SignalPhaseDef（永続化型）の配列を SignalPhase（実行時型）の配列に変換する
+	inline Array<SignalPhase> convertPhaseDefs(const Array<SignalPhaseDef>& defs)
+	{
+		Array<SignalPhase> phases;
+		phases.reserve(defs.size());
+		for (const auto& pd : defs)
+		{
+			SignalPhase sp;
+			sp.duration = pd.duration;
+			sp.greenConnectionIds = pd.greenConnectionIds;
+			phases << std::move(sp);
+		}
+		return phases;
+	}
+
 	// ========== 信号フェーズ生成 ==========
 
-	/// @brief 全 LaneConnection を 1 フェーズで常時青にするデフォルトフェーズを構築する
-	/// @details 自動生成の賢さ（対向直進グループ化等）は将来実装。
-	///   現状は「信号設置 = 常時青」の最小実装。ユーザーが UI で明示的にフェーズを定義する前提。
-	inline Array<SignalPhase> buildDefaultPhases(const Array<LaneConnection>& laneConnections,
+	/// @brief 全 LaneConnection を 1 フェーズで常時青にするフェーズを構築する
+	/// @details RoadNetwork::buildDefaultSignalPhases() の直進ペア分割とは異なり、
+	///   全接続を単一フェーズに収める最小実装。RoadNetwork が利用不可の場合のフォールバック。
+	inline Array<SignalPhase> buildAllGreenPhase(const Array<LaneConnection>& laneConnections,
 	                                             float duration = 30.0f)
 	{
 		SignalPhase phase;
 		phase.duration = duration;
 		for (const auto& conn : laneConnections)
+		{
 			phase.greenConnectionIds << conn.id;
+		}
 
 		Array<SignalPhase> phases;
 		phases << std::move(phase);
