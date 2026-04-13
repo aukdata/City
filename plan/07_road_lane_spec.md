@@ -472,3 +472,64 @@ float capBackward = nBackward * laneCapacity(edge.roadType);
 - 車線の `offsetA_L` / `offsetA_R` / `offsetB_L` / `offsetB_R` は路盤パーツの幅の範囲内であること
 - `LineType` は車線ごとに左右個別に指定する。隣接車線の境界では、左の車線の `lineRight` と右の車線の `lineLeft` が同じ位置に描画されるため、一方を `None` にするか同じ値にすること
 - ノードでの接続（継ぎ目・交差点・分岐合流）の詳細は `17_road_node_spec.md` を参照
+
+
+---
+
+## 10. 路面標示矢印（RoadArrow）
+
+交差点進入時の進路指示用に、車線中心線上に矢印メッシュを描画する。
+
+### 矢印タイプ
+
+```cpp
+enum class RoadArrowType : uint8
+{
+    None,             ///< 矢印なし
+    Straight,         ///< 直進 (ht2 相当)
+    Left,             ///< 左折 (ht1 相当)
+    Right,            ///< 右折 (ht1 を上下反転)
+    StraightLeft,     ///< 直進+左折 (ht3 相当)
+    StraightRight,    ///< 直進+右折 (ht3 を上下反転)
+    LeftRight,        ///< 左折+右折 (将来)
+    All,              ///< 直進+左折+右折 (将来)
+    UTurn,            ///< U ターン (将来)
+};
+```
+
+### 形状データの出典
+
+`reference/204.ht{1,2,3}.gif` から OpenCV `findContours` + `approxPolyDP` で抽出した多角形を `src/road/RoadArrow.cpp` 内に定数として埋め込む。
+横方向は実測値（500cm）に正規化、縦方向は規格寸法（直進=4.5m, 左折=2.2m, 直進+左折=4.5m）にスケールフィットする。
+
+### 配置ルール
+
+- 配置単位: ノード進入側 entry レーン1本につき1個
+- 配置位置: ノード境界（cutoff 位置）から進行方向と逆向きに 8.0m
+- 向き: レーン中心線の接線方向（矢印先端 = +X = 進行方向）
+- 描画条件: `Lane.op == Open || Provisional` のレーンのみ
+
+### 自動推論
+
+`RoadArrow::InferType(network, edgeId, laneIndex, towardNodeId)` が以下の手順で矢印タイプを決定する。
+
+1. 当該レーンから出る `LaneConnection` を `node.laneConnections` から抽出
+2. 各 connection の旋回種別を `TrafficCommon::classifyTurnByAngles`（45° ルール）で分類
+3. UTurn は `conn.toEdgeId == conn.fromEdgeId` のトポロジ条件を優先
+4. 出口の方向集合 → ArrowType マッピング:
+   - {Straight} → Straight
+   - {Left} → Left
+   - {Right} → Right
+   - {Straight, Left} → StraightLeft
+   - {Straight, Right} → StraightRight
+   - {Left, Right} → LeftRight
+   - {Straight, Left, Right} → All
+   - 接続なし → None
+
+### キャッシュ
+
+`RoadRenderer::m_laneArrowCache[nodeId]` に `Array<LaneLineBatch>` として保持。`eraseNodeCaches(nodeId)` で停止線と一緒に無効化される。
+
+### 描画
+
+`drawNodeCap()` 内で停止線の直後に白色（`ColorF{1,1,1}`）で描画する。LOD 距離 800m 以遠では描画スキップ（停止線と同様）。
