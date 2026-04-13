@@ -122,6 +122,7 @@
     </ClCompile>
     <ClCompile Include="src\road\BezierUtil.cpp" />
     <ClCompile Include="src\world\World.cpp" />
+    <ClCompile Include="src\road\RoadArrow.cpp" />
     <ClCompile Include="src\road\RoadNetwork.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
@@ -366,6 +367,7 @@
     <ClInclude Include="src\time\GameClock.hpp" />
     <ClInclude Include="src\world\Chunk.hpp" />
     <ClInclude Include="src\world\World.hpp" />
+    <ClInclude Include="src\road\RoadArrow.hpp" />
     <ClInclude Include="src\road\RoadTypes.hpp" />
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />
