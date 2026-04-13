@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "../road/RoadArrow.hpp"
 #include "../traffic/TrafficCommon.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
@@ -351,6 +352,7 @@ void RoadRenderer::eraseNodeCaches(int nodeId)
 	m_nodeCapCache.erase(nodeId);
 	m_nodeCapLaneCache.erase(nodeId);
 	m_stopLineCache.erase(nodeId);
+	m_laneArrowCache.erase(nodeId);
 }
 
 void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
@@ -366,6 +368,7 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 		m_nodeCapCache.clear();
 		m_nodeCapLaneCache.clear();
 		m_stopLineCache.clear();
+		m_laneArrowCache.clear();
 	}
 }
 
@@ -377,6 +380,7 @@ void RoadRenderer::invalidateAllCaches()
 	m_nodeCapCache.clear();
 	m_nodeCapLaneCache.clear();
 	m_stopLineCache.clear();
+	m_laneArrowCache.clear();
 	m_boundsCache.clear();
 	m_signalMeshCache.clear();
 }
@@ -574,6 +578,15 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 
 	for (const auto& b : m_stopLineCache[nodeId])
 		b.mesh.draw(b.color);
+
+	// 路面標示矢印（近距離のみ）
+	if (isClose)
+	{
+		if (!m_laneArrowCache.contains(nodeId))
+			m_laneArrowCache[nodeId] = buildLaneArrowMeshes(network, nodeId, world);
+		for (const auto& b : m_laneArrowCache[nodeId])
+			b.mesh.draw(b.color);
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1386,6 +1399,104 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 		const Vec3 tPos = tgt ? tgt->first  : fallbackFromB.pos;
 		const Vec3 tTan = tgt ? tgt->second : fallbackFromB.tangent;
 		drawTaper(infosB[xIdx], tPos, tTan);
+	}
+
+	return batches;
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneArrowMeshes(
+	const RoadNetwork& network, int nodeId, const World& world) const
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node) return {};
+
+	Array<LaneLineBatch> batches;
+
+	for (const auto& att : node->attachments)
+	{
+		const RoadEdge* edge = network.getEdge(att.edgeId);
+		if (!edge || !edge->isRoadbedBuilt()) continue;
+		const auto bez = network.getBezier(att.edgeId);
+		if (!bez) continue;
+
+		const bool isAtA = (edge->nodeA == nodeId);
+		const float cutoff = isAtA ? edge->cutoffA : edge->cutoffB;
+		// 矢印中心の弧長位置: ノード境界から内側へ kArrowOffset
+		const float arcAtNode = isAtA ? cutoff : (bez->totalLength - cutoff);
+		const float arcCenter = isAtA
+			? (cutoff + static_cast<float>(RoadArrow::kArrowOffsetFromNode_m))
+			: (bez->totalLength - cutoff - static_cast<float>(RoadArrow::kArrowOffsetFromNode_m));
+		// 弧長範囲外なら矢印を出さない（短いエッジ）
+		if (arcCenter < cutoff || arcCenter > bez->totalLength - cutoff)
+			continue;
+		// kArrowLength_m 分のスペースが取れるかチェック
+		const float halfLen = static_cast<float>(RoadArrow::kArrowLength_m) * 0.5f;
+		if (arcCenter - halfLen < cutoff || arcCenter + halfLen > bez->totalLength - cutoff)
+			continue;
+
+		(void)arcAtNode;
+
+		for (int li = 0; li < static_cast<int>(edge->lanes.size()); ++li)
+		{
+			const Lane& lane = edge->lanes[li];
+			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+
+			// このノードへの entry レーンか
+			const bool entersHere =
+				(lane.dir == LaneDir::Forward  && edge->nodeB == nodeId) ||
+				(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
+			if (!entersHere) continue;
+
+			// 矢印種別を推論
+			const RoadArrowType atype = RoadArrow::InferType(network, edge->id, li, nodeId);
+			if (atype == RoadArrowType::None) continue;
+
+			// メッシュ生成（ローカル座標: tip=+X, lateral=Z, Y=0）
+			MeshData md = RoadArrow::CreateMesh(atype);
+			if (md.vertices.isEmpty()) continue;
+
+			// 配置位置・向きを計算（レーン中心線）
+			const Vec3 centerPos = bez->positionAt(arcCenter);
+			const Vec3 rawTan = bez->tangentAt(arcCenter);
+			const Vec3 right = calcRight(rawTan);
+			// 進行方向単位ベクトル: Forward なら +tangent, Backward なら -tangent
+			const Vec3 forward = (lane.dir == LaneDir::Forward) ? rawTan : -rawTan;
+			const double fLen = Math::Sqrt(forward.x * forward.x + forward.z * forward.z);
+			const Vec3 fwdN = (fLen > 1e-6)
+				? Vec3{ forward.x / fLen, 0.0, forward.z / fLen }
+				: Vec3{ 1.0, 0.0, 0.0 };
+			// 進行方向に対する右ベクトル（forward が反転すれば right も反転）
+			const Vec3 rightForLane = (lane.dir == LaneDir::Forward) ? right : -right;
+
+			// レーン中心の横方向オフセット（A端/B端でテーパー補間）
+			const float oL = isAtA ? lane.offsetA_L : lane.offsetB_L;
+			const float oR = isAtA ? lane.offsetA_R : lane.offsetB_R;
+			const float laneCenterOffset = (oL + oR) * 0.5f;
+
+			// 路面高さ
+			const double surfaceY = edge->useElevation
+				? centerPos.y + kRoadLineLift
+				: world.computeHeight(static_cast<float>(centerPos.x), static_cast<float>(centerPos.z)) + kRoadLineLift;
+
+			const Vec3 anchor{
+				centerPos.x + right.x * static_cast<double>(laneCenterOffset),
+				surfaceY,
+				centerPos.z + right.z * static_cast<double>(laneCenterOffset)
+			};
+
+			// 各頂点をローカル → ワールド変換
+			// ローカル: pos = (x_forward, 0, z_lateral)
+			// ワールド: anchor + fwdN * x_forward + rightForLane * z_lateral
+			for (auto& v : md.vertices)
+			{
+				const double lx = v.pos.x;
+				const double lz = v.pos.z;
+				const Vec3 wp = anchor + fwdN * lx + rightForLane * lz;
+				v.pos = Float3{ static_cast<float>(wp.x), static_cast<float>(wp.y), static_cast<float>(wp.z) };
+			}
+
+			batches << LaneLineBatch{ ColorF{ 1.0, 1.0, 1.0 }, Mesh{ md } };
+		}
 	}
 
 	return batches;

@@ -97,6 +97,13 @@ private:
 	Array<LaneLineBatch> buildJointBlendLaneLines(const RoadNetwork& network, int nodeId,
 	                                              const RoadNode& node, const World& world) const;
 
+	/// @brief ノードに進入する各車線の路面標示矢印メッシュを生成する
+	/// @details plan/07_road_lane_spec.md §10 参照。
+	///   配置: ノード境界（cutoff）から進行方向と逆向きに kArrowOffset_m
+	///   種別: RoadArrow::InferType による LaneConnection 自動推論
+	Array<LaneLineBatch> buildLaneArrowMeshes(const RoadNetwork& network, int nodeId,
+	                                          const World& world) const;
+
 	// ---- ヘルパー ----
 
 	/// @brief 部品の描画属性（色・高さオフセット・テクスチャ）
@@ -134,6 +141,7 @@ private:
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;   ///< エッジ ID → 部品メッシュ配列
 	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線
 	HashTable<int, Array<LaneLineBatch>>      m_stopLineCache;    ///< ノード ID → 停止線
+	HashTable<int, Array<LaneLineBatch>>      m_laneArrowCache;   ///< ノード ID → 路面標示矢印
 	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
