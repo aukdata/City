@@ -1,24 +1,22 @@
 ﻿# include <Siv3D.hpp>
 
-// ===== reference/204.ht*.gif から OpenCV で抽出した輪郭 =====
-// 1px = 1単位, X 左端=0, Y 中心=0, 巻き順 CW (Siv3D 互換)
+// 路面標示矢印テスト (2D確認)
+// 各タイプのポリゴンを2D描画してスケールと形状を確認する
 
-namespace ArrowContour
+namespace
 {
-	static const Array<Vec2> kStraight = {
+	const Array<Vec2> kPx_Straight = {
 		Vec2{ 253.0, -26.5 }, Vec2{ 254.0, -10.5 }, Vec2{ 501.0, -10.5 },
 		Vec2{ 501.0,   9.5 }, Vec2{ 254.0,   9.5 }, Vec2{ 253.0,  26.5 },
 		Vec2{   0.0,  -5.5 },
 	};
-
-	static const Array<Vec2> kLeft = {
+	const Array<Vec2> kPx_Left = {
 		Vec2{  75.0,   0.0 }, Vec2{  89.0, -24.0 }, Vec2{ 113.0, -38.0 },
 		Vec2{ 492.0, -38.0 }, Vec2{ 492.0, -19.0 }, Vec2{ 147.0, -19.0 },
 		Vec2{ 135.0, -10.0 }, Vec2{ 134.0,   0.0 }, Vec2{ 208.0,   0.0 },
 		Vec2{ 103.0,  38.0 }, Vec2{   0.0,   0.0 },
 	};
-
-	static const Array<Vec2> kStraightLeft = {
+	const Array<Vec2> kPx_StraightLeft = {
 		Vec2{ 222.0, -46.5 }, Vec2{ 223.0, -28.5 }, Vec2{ 501.0, -28.5 },
 		Vec2{ 501.0, -10.5 }, Vec2{ 428.0, -10.5 }, Vec2{ 416.0,  -6.5 },
 		Vec2{ 409.0,   9.5 }, Vec2{ 483.0,   9.5 }, Vec2{ 373.0,  46.5 },
@@ -26,93 +24,86 @@ namespace ArrowContour
 		Vec2{ 352.0, -10.5 }, Vec2{ 223.0, -10.5 }, Vec2{ 219.0,   8.5 },
 		Vec2{   0.0, -18.5 },
 	};
-}
 
-/// @brief 2D Polygon を XZ 平面の MeshData に変換 (Y=0, normal=+Y)
-MeshData PolygonToMeshDataXZ(const Polygon& polygon, double scale = 1.0)
-{
-	MeshData md;
-	const auto& outerVerts = polygon.outer();
-	const auto& triIndices = polygon.indices();
+	constexpr double kPxXMax_Straight       = 501.0;
+	constexpr double kPxYRange_Straight     = 53.0;
+	constexpr double kPxXMax_Left           = 492.0;
+	constexpr double kPxYRange_Left         = 76.0;
+	constexpr double kPxXMax_StraightLeft   = 501.0;
+	constexpr double kPxYRange_StraightLeft = 93.0;
+	constexpr double kArrowLength_m         = 5.0;
+	// 等方スケール (1px ≈ 1cm 両軸): 5.0 × pxYRange / pxXMax
+	constexpr double kWidthStraight_m       = kArrowLength_m * kPxYRange_Straight    / kPxXMax_Straight;     // ≈ 0.529m
+	constexpr double kWidthTurn_m           = kArrowLength_m * kPxYRange_Left        / kPxXMax_Left;         // ≈ 0.773m
+	constexpr double kWidthCombined_m       = kArrowLength_m * kPxYRange_StraightLeft / kPxXMax_StraightLeft; // ≈ 0.928m
 
-	md.vertices.reserve(outerVerts.size());
-	for (const auto& v : outerVerts)
+	Array<Vec2> normalize(const Array<Vec2>& px, double pxXMax,
+	                      double widthMeters, double pxYRange, bool flipY)
 	{
-		Vertex3D vert;
-		vert.pos = Float3{ static_cast<float>(v.x * scale), 0.0f, static_cast<float>(v.y * scale) };
-		vert.normal = Float3{ 0.0f, 1.0f, 0.0f };
-		vert.tex = Float2{ static_cast<float>(v.x), static_cast<float>(v.y) };
-		md.vertices << vert;
+		const double scaleX = kArrowLength_m / pxXMax;
+		const double scaleY = widthMeters / pxYRange;
+		Array<Vec2> out;
+		for (const auto& v : px)
+			out << Vec2{ (pxXMax - v.x) * scaleX,
+			             v.y * scaleY * (flipY ? -1.0 : 1.0) };
+		if (!flipY) out.reverse();
+		return out;
 	}
-
-	md.indices.reserve(triIndices.size());
-	for (const auto& tri : triIndices)
-	{
-		md.indices << TriangleIndex32{ tri.i0, tri.i1, tri.i2 };
-	}
-
-	return md;
 }
 
 void Main()
 {
-	Scene::SetBackground(ColorF{ 0.45, 0.45, 0.5 });
-	Window::Resize(1400, 900);
+	Window::Resize(1280, 720);
+	Scene::SetBackground(ColorF{ 0.15 });
 
-	const Font font{ 16 };
+	const Array<std::pair<String, Polygon>> polys = {
+		{ U"Straight",      Polygon{ normalize(kPx_Straight,     kPxXMax_Straight,     kWidthStraight_m, kPxYRange_Straight,     false) } },
+		{ U"Left",          Polygon{ normalize(kPx_Left,         kPxXMax_Left,         kWidthTurn_m,     kPxYRange_Left,         false) } },
+		{ U"Right(flipY)",  Polygon{ normalize(kPx_Left,         kPxXMax_Left,         kWidthTurn_m,     kPxYRange_Left,         true)  } },
+		{ U"StraightLeft",  Polygon{ normalize(kPx_StraightLeft, kPxXMax_StraightLeft, kWidthCombined_m, kPxYRange_StraightLeft, false) } },
+		{ U"StraightRight", Polygon{ normalize(kPx_StraightLeft, kPxXMax_StraightLeft, kWidthCombined_m, kPxYRange_StraightLeft, true)  } },
+	};
 
-	const Polygon pStraight{ ArrowContour::kStraight };
-	const Polygon pLeft{ ArrowContour::kLeft };
-	const Polygon pStraightLeft{ ArrowContour::kStraightLeft };
+	for (const auto& [name, poly] : polys)
+		Print << name << U" empty=" << poly.isEmpty() << U" verts=" << poly.outer().size();
 
-	// MeshData 生成 (検証: Polygon の三角形分割を MeshData に詰める)
-	const MeshData mdStraight = PolygonToMeshDataXZ(pStraight, 1.0);
-	const MeshData mdLeft = PolygonToMeshDataXZ(pLeft, 1.0);
-	const MeshData mdStraightLeft = PolygonToMeshDataXZ(pStraightLeft, 1.0);
-
-	const String diag = U"Polygons -- Straight: {}v {}t / Left: {}v {}t / S+L: {}v {}t  |  MeshData OK"_fmt(
-		pStraight.outer().size(), pStraight.indices().size(),
-		pLeft.outer().size(), pLeft.indices().size(),
-		pStraightLeft.outer().size(), pStraightLeft.indices().size()
-	);
-
-	const Texture refHt1{ U"example/reference/204.ht1.png" };
-	const Texture refHt2{ U"example/reference/204.ht2.png" };
-	const Texture refHt3{ U"example/reference/204.ht3.png" };
+	// 1m = 80px。各タイプを縦に 130px 間隔で並べる
+	// ローカル X=[0,5m] → 画面 X=[50, 450]
+	// ローカル Z(横)=[-halfW, +halfW] → 画面 Y (中心からのオフセット)
+	constexpr double kScale  = 80.0;
+	constexpr double kStartX = 50.0;  // ローカル X=0 の画面 X 位置
+	constexpr double kStartY = 80.0;
+	constexpr double kStepY  = 130.0;
 
 	int frame = 0;
-	constexpr int kCaptureFrame = 5;
-
 	while (System::Update())
 	{
-		font(diag).draw(20, 870, ColorF{ 1, 1, 0 });
-		font(U"Reference (left)  vs  Generated Polygon (right)").draw(450, 5, ColorF{ 1 });
-
-		auto drawRow = [&](int row, const Texture& ref, const Polygon& poly, const String& name)
+		for (int i = 0; i < static_cast<int>(polys.size()); ++i)
 		{
-			const double yBase = 30 + row * 280;
-			font(name).draw(20, static_cast<int32>(yBase), ColorF{ 1 });
+			const auto& [name, poly] = polys[i];
+			const double cy = kStartY + i * kStepY;
 
-			ref.draw(20, yBase + 25);
+			// ラベル
+			FontAsset(U"debug")(name + (poly.isEmpty() ? U" [EMPTY]" : U""))
+				.draw(10, cy - 55, poly.isEmpty() ? Palette::Red : Palette::White);
 
-			const double offX = 700;
-			const double offY = yBase + 25 + 218 / 2.0;
-			Transformer2D t{ Mat3x2::Translate(offX, offY) };
-			poly.draw(ColorF{ 1 });
-		};
+			// 車線幅参考線 (±1.75m)
+			const double laneHW = 1.75 * kScale;
+			Line{ kStartX, cy - laneHW, kStartX + 5 * kScale, cy - laneHW }.draw(1.0, ColorF{ 0.8, 0.8, 0.0, 0.5 });
+			Line{ kStartX, cy + laneHW, kStartX + 5 * kScale, cy + laneHW }.draw(1.0, ColorF{ 0.8, 0.8, 0.0, 0.5 });
 
-		drawRow(0, refHt2, pStraight, U"ht2: Straight");
-		drawRow(1, refHt1, pLeft, U"ht1: Left Turn");
-		drawRow(2, refHt3, pStraightLeft, U"ht3: Straight + Left");
+			if (poly.isEmpty()) continue;
 
-		if (frame == kCaptureFrame)
-		{
-			ScreenCapture::SaveCurrentFrame(U"arrow_test.png");
+			// ローカル座標 → 画面座標変換して描画
+			Array<Vec2> screen;
+			for (const auto& v : poly.outer())
+				screen << Vec2{ kStartX + v.x * kScale, cy + v.y * kScale };
+			Polygon{ screen }.draw(ColorF{ 1.0, 1.0, 1.0, 0.75 });
+			Polygon{ screen }.drawFrame(1.0, Palette::Yellow);
 		}
-		if (frame > kCaptureFrame)
-		{
-			break;
-		}
+
+		if (frame == 3) ScreenCapture::SaveCurrentFrame(U"arrow_test.png");
+		if (frame > 3) break;
 		++frame;
 	}
 }
