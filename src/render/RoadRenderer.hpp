@@ -40,6 +40,12 @@ public:
 	                 const HashTable<int, TrafficLight>& trafficLights,
 	                 GameTime gameNow, Vec3 cameraPos);
 
+	/// @brief 国道標識テクスチャを事前合成する（3D シーン描画前・2D パイプライン有効時に呼ぶこと）
+	void prepareRouteSignTextures(const RoadNetwork& network);
+
+	/// @brief 国道路線標識（3D ポール＋テクスチャ板）を描画する
+	void drawRouteSigns(const RoadNetwork& network, const World& world, Vec3 cameraPos);
+
 	/// @brief 信号レジストリへのアクセス
 	const SignalRegistry& signalRegistry() const { return m_signalRegistry; }
 
@@ -51,6 +57,14 @@ public:
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
+
+	/// @brief ポール＋看板 1基分の描画情報（OBJ メッシュ + Mat4x4 変換）
+	struct SignDraw
+	{
+		Mat4x4 poleMat;     ///< pole.obj に適用（Scale(1,h,1) * Translate(groundPos)）
+		Mat4x4 boardMat;    ///< 看板OBJ に適用（RotateY(yaw) * Translate(boardCenter)）
+		ColorF boardColor;  ///< 看板描画色
+	};
 
 private:
 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
@@ -104,6 +118,12 @@ private:
 	Array<LaneLineBatch> buildLaneArrowMeshes(const RoadNetwork& network, int nodeId,
 	                                          const World& world) const;
 
+	/// @brief 1エッジ分の道路標識変換情報を生成する
+	/// @details plan/07_road_lane_spec.md §11 参照。RoadEdge.signs の各エントリに
+	///   ポール・看板それぞれの Mat4x4 変換を生成する。メッシュはキャッシュ済み OBJ を利用。
+	Array<SignDraw> buildEdgeSignMeshes(const RoadNetwork& network, int edgeId,
+	                                    const World& world) const;
+
 	// ---- ヘルパー ----
 
 	/// @brief 部品の描画属性（色・高さオフセット・テクスチャ）
@@ -147,5 +167,10 @@ private:
 	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
 	HashTable<int, EdgeBounds>                m_boundsCache;
 	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
-	HashSet<int>                              m_visibleEdges;  ///< 直近 render() の可視エッジ集合
+	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
+	HashSet<int>                              m_visibleEdges;     ///< 直近 render() の可視エッジ集合
+	HashTable<int, RenderTexture>             m_routeSignTexCache; ///< 国道号数 → 合成テクスチャ
+	Optional<Mesh>                            m_poleMesh;          ///< 共通ポールメッシュ（単位高さ=1m、初回ロード後キャッシュ）
+	Optional<Mesh>                            m_stopSignMesh;      ///< 止まれ看板メッシュ（初回ロード後キャッシュ）
+	Optional<Mesh>                            m_routeSignMesh;     ///< 国道標識看板メッシュ（初回生成後キャッシュ）
 };

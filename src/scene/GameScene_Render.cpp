@@ -42,6 +42,9 @@ void GameScene::renderWorld()
 	const float dawnF = Clamp(1.0f - Abs(sinT) * 2.5f, 0.0f, 1.0f);
 	const double exposure = 0.15 + 0.85 * dayF + 0.30 * dawnF;
 
+	// 国道標識テクスチャ合成（3D シーン前・2D パイプライン有効時）
+	m_roadRenderer.prepareRouteSignTextures(m_network);
+
 	// 3D シーン描画
 	{
 		const ScopedRenderTarget3D target{ m_renderTexture.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
@@ -134,6 +137,8 @@ void GameScene::renderScene3D()
 	                           m_vehicleManager.trafficLights(),
 	                           m_clock.now,
 	                           m_camera.camera3D().getEyePosition());
+	m_roadRenderer.drawRouteSigns(m_network, m_world,
+	                              m_camera.camera3D().getEyePosition());
 }
 
 // =============================================================================
@@ -487,6 +492,7 @@ void GameScene::renderEditModeOverlays()
 void GameScene::render2DUI()
 {
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
+	m_routeSignRenderer.render(m_network, m_camera);
 	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる

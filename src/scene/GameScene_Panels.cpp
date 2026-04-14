@@ -588,6 +588,24 @@ void GameScene::drawEdgePanel()
 		ui.spacer(4);
 	}
 
+	// 所属路線（RoadRoute）- plan/22_road_route_spec.md
+	if (!edge->routeIds.isEmpty())
+	{
+		ui.spacer(3);
+		ui.row(4, [&] {
+			ui.label(U"Routes", ColorF{ 0.6 });
+		});
+		for (const int rid : edge->routeIds)
+		{
+			const RoadRoute* route = m_network.getRoute(rid);
+			if (!route) continue;
+			ui.row(4, [&] {
+				ui.label(U"■", route->color);  // 色スウォッチ
+				ui.label(route->name, ColorF{ 1.0 });
+			});
+		}
+	}
+
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState edgeSectionState;
 	int y = ui.height();
@@ -863,6 +881,9 @@ void GameScene::drawNodePanel()
 	if (dirty)
 	{
 		m_network.updateNodeCutoffs(node->id);
+		// attachment.control が変わった可能性があるため各エッジの標識を再生成
+		for (const auto& att : node->attachments)
+			m_network.recomputeAutoSignsForEdge(att.edgeId);
 		m_roadRenderer.invalidateCachesAroundNode(node->id, m_network);
 	}
 }

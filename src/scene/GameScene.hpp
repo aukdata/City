@@ -25,6 +25,7 @@
 #include "../railway/TrainManager.hpp"
 #include "../render/TrainRenderer.hpp"
 #include "../render/PlaceNameRenderer.hpp"
+#include "../render/RoadRouteSignRenderer.hpp"
 #include "../render/MinimapRenderer.hpp"
 
 /// @brief ゲームプレイシーン
@@ -95,6 +96,7 @@ private:
 	DebugRenderer    m_debugRenderer;
 	TrainRenderer        m_trainRenderer;
 	PlaceNameRenderer    m_placeNameRenderer;
+	RoadRouteSignRenderer m_routeSignRenderer;
 	MinimapRenderer      m_minimapRenderer;
 
 	// ---- 編集モード ----

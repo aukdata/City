@@ -123,6 +123,7 @@
     <ClCompile Include="src\road\BezierUtil.cpp" />
     <ClCompile Include="src\world\World.cpp" />
     <ClCompile Include="src\road\RoadArrow.cpp" />
+    <ClCompile Include="src\road\RoadSign.cpp" />
     <ClCompile Include="src\road\RoadNetwork.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
@@ -152,6 +153,7 @@
     <ClCompile Include="src\railway\TrainManager.cpp" />
     <ClCompile Include="src\render\TrainRenderer.cpp" />
     <ClCompile Include="src\render\PlaceNameRenderer.cpp" />
+    <ClCompile Include="src\render\RoadRouteSignRenderer.cpp" />
     <ClCompile Include="src\render\MinimapRenderer.cpp" />
     <ClCompile Include="src\gen\MapGenerator.cpp" />
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
@@ -368,6 +370,7 @@
     <ClInclude Include="src\world\Chunk.hpp" />
     <ClInclude Include="src\world\World.hpp" />
     <ClInclude Include="src\road\RoadArrow.hpp" />
+    <ClInclude Include="src\road\RoadSign.hpp" />
     <ClInclude Include="src\road\RoadTypes.hpp" />
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />

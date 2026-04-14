@@ -240,6 +240,9 @@
     <ClCompile Include="src\render\PlaceNameRenderer.cpp">
       <Filter>Source Files\render</Filter>
     </ClCompile>
+    <ClCompile Include="src\render\RoadRouteSignRenderer.cpp">
+      <Filter>Source Files\render</Filter>
+    </ClCompile>
     <ClCompile Include="src\road\BezierUtil.cpp">
       <Filter>Source Files\road</Filter>
     </ClCompile>
@@ -1020,6 +1023,9 @@
       <Filter>Source Files\render</Filter>
     </ClInclude>
     <ClInclude Include="src\render\PlaceNameRenderer.hpp">
+      <Filter>Source Files\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\RoadRouteSignRenderer.hpp">
       <Filter>Source Files\render</Filter>
     </ClInclude>
     <ClInclude Include="src\road\RoadTypes.hpp">
