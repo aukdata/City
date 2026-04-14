@@ -216,7 +216,8 @@ Array<Vec3> RoadPathfinder::samplePath(const Array<Point>& path, int stepCells) 
 void RoadPathfinder::pathToRoadEdges(
 	const Array<Vec3>& wps, RoadNetwork& roads,
 	RoadType rt, int lanes,
-	int startNodeId, int endNodeId)
+	int startNodeId, int endNodeId,
+	Array<int>* outEdgeIds)
 {
 	if (wps.size() < 2) return;
 
@@ -243,6 +244,9 @@ void RoadPathfinder::pathToRoadEdges(
 
 		const Vec3 ctrlA = p0 + tanA * (1.0 / 3.0);
 		const Vec3 ctrlB = p1 - tanB * (1.0 / 3.0);
-		roads.addEdge(nodeIds[i], nodeIds[i + 1], ctrlA, ctrlB, rt, lanes);
+		if (auto eid = roads.addEdge(nodeIds[i], nodeIds[i + 1], ctrlA, ctrlB, rt, lanes))
+		{
+			if (outEdgeIds) *outEdgeIds << *eid;
+		}
 	}
 }

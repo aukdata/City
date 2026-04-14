@@ -4,6 +4,7 @@ void RegisterAssets()
 {
 	// ---- テクスチャ ----
 	TextureAsset::Register(Asset::Grass, U"assets/textures/grass.png", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/national_road_sign.png", TextureDesc::Mipped);
 
 	// ---- フォント（MSDF）----
 	FontAsset::Register(Asset::TitleBold48, FontMethod::MSDF, 48, Typeface::Bold);
@@ -14,6 +15,8 @@ void RegisterAssets()
 	FontAsset::Register(Asset::PanelBold14, FontMethod::MSDF, 14, Typeface::Bold);
 	FontAsset::Register(Asset::CJK24,       FontMethod::MSDF, 24, Typeface::CJK_Regular_JP);
 	FontAsset::Register(Asset::CJK14,       FontMethod::MSDF, 14, Typeface::CJK_Regular_JP);
+	// Arial Bold（国道標識の号数表示用）— Windows 標準フォントを直接読み込む
+	FontAsset::Register(Asset::Arial24,     FontMethod::MSDF, 24, U"C:/Windows/Fonts/arialbd.ttf");
 
 	// ---- フォント（TitleScene 用・非 MSDF）----
 	FontAsset::Register(Asset::TitleBold46, 46, Typeface::Bold);

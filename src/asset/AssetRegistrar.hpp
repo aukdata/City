@@ -5,7 +5,8 @@
 namespace Asset
 {
 	// ---- テクスチャ ----
-	constexpr StringView Grass = U"Tex_Grass";
+	constexpr StringView Grass            = U"Tex_Grass";
+	constexpr StringView NationalRoadSign = U"Tex_NationalRoadSign";
 
 	// ---- フォント ----
 	constexpr StringView TitleBold48   = U"Font_TitleBold48";
@@ -16,6 +17,7 @@ namespace Asset
 	constexpr StringView PanelBold14   = U"Font_PanelBold14";
 	constexpr StringView CJK24         = U"Font_CJK24";
 	constexpr StringView CJK14         = U"Font_CJK14";
+	constexpr StringView Arial24       = U"Font_Arial24";  ///< 国道標識の号数用 (Arial Bold)
 
 	// TitleScene 用（非 MSDF）
 	constexpr StringView TitleBold46   = U"Font_TitleBold46";

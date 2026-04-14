@@ -426,7 +426,8 @@ void MapGenerator::buildRoadSegment(
 	RoadType roadType, int lanes,
 	HashSet<int64>& globalOccupied,
 	const Array<Vec2>& forbiddenStartDirs,
-	const Array<Vec2>& forbiddenGoalDirs)
+	const Array<Vec2>& forbiddenGoalDirs,
+	Array<int>* outEdgeIds)
 {
 	constexpr float kMargin = 300.0f;
 	const float sx = static_cast<float>(startPos.x);
@@ -472,10 +473,13 @@ void MapGenerator::buildRoadSegment(
 
 	if (path.isEmpty() || path.size() < 2)
 	{
-		network.addEdge(startNodeId, endNodeId,
+		if (auto eid = network.addEdge(startNodeId, endNodeId,
 		                startPos + (endPos - startPos) * (1.0 / 3.0),
 		                startPos + (endPos - startPos) * (2.0 / 3.0),
-		                roadType, lanes);
+		                roadType, lanes))
+		{
+			if (outEdgeIds) *outEdgeIds << *eid;
+		}
 	}
 	else
 	{
@@ -489,7 +493,7 @@ void MapGenerator::buildRoadSegment(
 		Array<Vec3> wps = pf.samplePath(path, sampleStep);
 		wps.front() = startPos;
 		wps.back()  = endPos;
-		pf.pathToRoadEdges(wps, network, roadType, lanes, startNodeId, endNodeId);
+		pf.pathToRoadEdges(wps, network, roadType, lanes, startNodeId, endNodeId, outEdgeIds);
 	}
 }
 
@@ -539,8 +543,16 @@ void MapGenerator::generateGlobalRoads(
 
 	// =====================================================================
 	// Layer 1: 幹線街道（Urban 間チェーン）
+	// plan/22_road_route_spec.md §1 参照: 生成した幹線街道を RoadRoute::NationalRoute として登録
 	// =====================================================================
 	swStep.restart();
+
+	// 国道指定用の edge ID 収集
+	Array<int> chainEdges;   // diameter チェーンの連続 edge 群
+	Array<int> frontExtEdges; // diameter.front() 側の map 延伸 (urban → map edge 順で格納)
+	Array<int> backExtEdges;  // diameter.back() 側の map 延伸
+	Array<Array<int>> branchRoutes;  // MST 枝線 (diameter に含まれないもの)
+
 	if (urbanIdx.size() >= 2)
 	{
 		// Urban のみで MST を計算
@@ -565,7 +577,8 @@ void MapGenerator::generateGlobalRoads(
 
 			buildRoadSegment(world, network,
 				nodeIds[si], sn->position, nodeIds[ei], en->position,
-				RoadType::Arterial, 4, globalOccupied);
+				RoadType::Arterial, 4, globalOccupied,
+				{}, {}, &chainEdges);
 		}
 
 		// MST 枝線（diameter に含まれない Urban → diameter 上の親へ接続）
@@ -580,15 +593,20 @@ void MapGenerator::generateGlobalRoads(
 			const RoadNode* en = network.getNode(nodeIds[ei]);
 			if (!sn || !en) continue;
 
+			Array<int> branchEdges;
 			buildRoadSegment(world, network,
 				nodeIds[si], sn->position, nodeIds[ei], en->position,
-				RoadType::Arterial, 4, globalOccupied);
+				RoadType::Arterial, 4, globalOccupied,
+				{}, {}, &branchEdges);
+			if (!branchEdges.isEmpty())
+				branchRoutes << std::move(branchEdges);
 		}
 		// diameter 両端からマップ外端への幹線延伸
 		const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
 		const int endIndices[2] = { diameter.front(), diameter.back() };
-		for (const int di : endIndices)
+		for (int ei2 = 0; ei2 < 2; ++ei2)
 		{
+			const int di = endIndices[ei2];
 			const int si = urbanIdx[di];
 			const RoadNode* sn = network.getNode(nodeIds[si]);
 			if (!sn) continue;
@@ -617,9 +635,11 @@ void MapGenerator::generateGlobalRoads(
 			const Vec3 edgePos{ edgeX, ey, edgeZ };
 			const int edgeNodeId = network.addNode(edgePos, NodeType::Endpoint);
 
+			Array<int>& extOut = (ei2 == 0) ? frontExtEdges : backExtEdges;
 			buildRoadSegment(world, network,
 				nodeIds[si], sn->position, edgeNodeId, edgePos,
-				RoadType::Arterial, 4, globalOccupied);
+				RoadType::Arterial, 4, globalOccupied,
+				{}, {}, &extOut);
 		}
 	}
 	else if (urbanIdx.size() == 1)
@@ -644,9 +664,36 @@ void MapGenerator::generateGlobalRoads(
 			const Vec3 ep{ ex, ey, ez };
 			const int enid = network.addNode(ep, NodeType::Endpoint);
 			buildRoadSegment(world, network, nodeIds[si], sn->position, enid, ep,
-				RoadType::Arterial, 4, globalOccupied);
+				RoadType::Arterial, 4, globalOccupied,
+				{}, {}, &chainEdges);
 		}
 	}
+
+	// Layer 1 幹線を国道として登録
+	// 主要国道: frontExt (逆順) + chain + backExt を 1 本の route として
+	{
+		Array<int> mainRoute;
+		mainRoute.reserve(frontExtEdges.size() + chainEdges.size() + backExtEdges.size());
+		// frontExt は urban→map_edge 順で格納されているので、route 先頭に持ってくるには逆順
+		for (int i = static_cast<int>(frontExtEdges.size()) - 1; i >= 0; --i)
+			mainRoute << frontExtEdges[i];
+		for (const int eid : chainEdges)    mainRoute << eid;
+		for (const int eid : backExtEdges)  mainRoute << eid;
+
+		if (!mainRoute.isEmpty())
+		{
+			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(mainRoute));
+		}
+	}
+	// 支線国道（MST 枝線）
+	for (auto& br : branchRoutes)
+	{
+		if (!br.isEmpty())
+			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(br));
+	}
+	Logger << U"[Roads] Layer1 国道指定: main={} branches={}"_fmt(
+		(chainEdges.size() + frontExtEdges.size() + backExtEdges.size() > 0 ? 1 : 0),
+		branchRoutes.size());
 
 	// Layer 1 の全中間ノードを空間ハッシュに登録
 	for (const auto& node : network.nodes())

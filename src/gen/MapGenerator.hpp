@@ -80,11 +80,13 @@ private:
 	/// @brief 2点間の A* 道路を生成する共通ヘルパー
 	/// @param globalOccupied  既存道路が通過するワールド座標セル (cellSize=120m) のセット。
 	///                        生成後、新道路の通過セルが追加される。
+	/// @param outEdgeIds (optional) 生成されたエッジ ID を起点→終点順で追記
 	static void buildRoadSegment(
 		const World& world, RoadNetwork& network,
 		int startNodeId, Vec3 startPos, int endNodeId, Vec3 endPos,
 		RoadType roadType, int lanes,
 		HashSet<int64>& globalOccupied,
 		const Array<Vec2>& forbiddenStartDirs = {},
-		const Array<Vec2>& forbiddenGoalDirs = {});
+		const Array<Vec2>& forbiddenGoalDirs = {},
+		Array<int>* outEdgeIds = nullptr);
 };

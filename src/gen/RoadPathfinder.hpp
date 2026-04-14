@@ -54,9 +54,11 @@ public:
 	Array<Vec3> samplePath(const Array<Point>& path, int stepCells = 5) const;
 
 	/// @brief ウェイポイント列をベジェ道路エッジとして RoadNetwork に追加する
+	/// @param outEdgeIds (optional) 生成されたエッジ ID を起点→終点の順で追記する
 	void pathToRoadEdges(const Array<Vec3>& wps, RoadNetwork& roads,
 	                     RoadType rt, int lanes,
-	                     int startNodeId, int endNodeId);
+	                     int startNodeId, int endNodeId,
+	                     Array<int>* outEdgeIds = nullptr);
 
 private:
 	int          m_gridW    = 0;
