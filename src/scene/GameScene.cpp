@@ -909,12 +909,13 @@ void GameScene::update()
 			m_vehicleManager.update(vehicleDt, m_clock.now, *m_simGraph,
 			                        m_network, m_roadRenderer.visibleEdges());
 
-		for (auto& req : m_vehicleManager.collectRequests())
-			m_simThread.pushRequest(std::move(req));
-
 		m_trainManager.update(gameDt, m_clock.now);
 		m_eventSystem.update(m_clock.now, m_clock.month, dt);
 	}
+
+	// 経路リクエストはゲーム内時間停止中でも送信する
+	for (auto& req : m_vehicleManager.collectRequests())
+		m_simThread.pushRequest(std::move(req));
 
 	// メインスレッドのロジック
 	const Stopwatch swLogic{ StartImmediately::Yes };
