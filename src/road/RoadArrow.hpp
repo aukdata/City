@@ -28,16 +28,16 @@ namespace RoadArrow
 	constexpr double kArrowLength_m = 5.0;
 
 	/// @brief 直進矢印の縦寸法（perpendicular）[m]
-	/// @details JIS 規格 4.5m
-	constexpr double kArrowWidthStraight_m = 4.5;
+	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 53px / 501px ≈ 0.529m
+	constexpr double kArrowWidthStraight_m = kArrowLength_m * 53.0 / 501.0;
 
 	/// @brief 左折/右折矢印の縦寸法 [m]
-	/// @details 出典: TBD（リファレンス画像由来の暫定値、要 JIS 確認）
-	constexpr double kArrowWidthTurn_m = 2.2;
+	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 76px / 492px ≈ 0.773m
+	constexpr double kArrowWidthTurn_m = kArrowLength_m * 76.0 / 492.0;
 
 	/// @brief 直進+左/右折矢印の縦寸法 [m]
-	/// @details 直進部分の幅と一致
-	constexpr double kArrowWidthCombined_m = 4.5;
+	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 93px / 501px ≈ 0.928m
+	constexpr double kArrowWidthCombined_m = kArrowLength_m * 93.0 / 501.0;
 
 	/// @brief ノード境界から矢印中心までのオフセット [m]
 	constexpr double kArrowOffsetFromNode_m = 8.0;

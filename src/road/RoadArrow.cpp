@@ -101,7 +101,10 @@ Polygon RoadArrow::CreateContour(RoadArrowType type)
 MeshData RoadArrow::CreateMesh(RoadArrowType type)
 {
 	const Polygon poly = CreateContour(type);
-	if (poly.isEmpty()) return MeshData{};
+	if (poly.isEmpty())
+	{
+		return MeshData{};
+	}
 
 	const auto& outerVerts = poly.outer();
 	const auto& triIndices = poly.indices();
@@ -132,33 +135,52 @@ RoadArrowType RoadArrow::InferType(const RoadNetwork& network,
 {
 	const RoadEdge* edge = network.getEdge(edgeId);
 	const RoadNode* node = network.getNode(towardNodeId);
-	if (!edge || !node) return RoadArrowType::None;
-	if (laneIndex < 0 || laneIndex >= static_cast<int>(edge->lanes.size()))
+	if (!edge || !node)
+	{
 		return RoadArrowType::None;
+	}
+	if (laneIndex < 0 || laneIndex >= static_cast<int>(edge->lanes.size()))
+	{
+		return RoadArrowType::None;
+	}
 
 	const Lane& lane = edge->lanes[laneIndex];
 
 	// このレーンが当該ノードへの entry かチェック
 	const bool isAtA = (edge->nodeA == towardNodeId);
 	const bool isAtB = (edge->nodeB == towardNodeId);
-	if (!isAtA && !isAtB) return RoadArrowType::None;
+	if (!isAtA && !isAtB)
+	{
+		return RoadArrowType::None;
+	}
 	const bool entersHere =
 		(lane.dir == LaneDir::Forward  && isAtB) ||
 		(lane.dir == LaneDir::Backward && isAtA);
-	if (!entersHere) return RoadArrowType::None;
+	if (!entersHere)
+	{
+		return RoadArrowType::None;
+	}
 
 	// このレーンから出る LaneConnection を抽出
 	Array<const LaneConnection*> outConns;
 	for (const auto& c : node->laneConnections)
 	{
 		if (c.fromEdgeId == edgeId && c.fromLaneIndex == laneIndex)
+		{
 			outConns << &c;
+		}
 	}
-	if (outConns.isEmpty()) return RoadArrowType::None;
+	if (outConns.isEmpty())
+	{
+		return RoadArrowType::None;
+	}
 
 	// entry の進行方向角度（ノードに向かって入る方向）
 	const auto bezIn = network.getBezier(edgeId);
-	if (!bezIn) return RoadArrowType::None;
+	if (!bezIn)
+	{
+		return RoadArrowType::None;
+	}
 	// Forward + nodeB end: tangent at end (B→outside だが、ここでは A→B 方向 = 進行方向)
 	// Backward + nodeA end: -tangent at start (進行方向は B→A)
 	const Vec3 tInRaw = isAtB
@@ -178,18 +200,20 @@ RoadArrowType RoadArrow::InferType(const RoadNetwork& network,
 		}
 
 		const RoadEdge* outEdge = network.getEdge(c->toEdgeId);
-		if (!outEdge) continue;
+		if (!outEdge) { continue; }
 		if (c->toLaneIndex < 0 || c->toLaneIndex >= static_cast<int>(outEdge->lanes.size()))
+		{
 			continue;
+		}
 		const auto bezOut = network.getBezier(c->toEdgeId);
-		if (!bezOut) continue;
+		if (!bezOut) { continue; }
 
 		const LaneDir outDir = outEdge->lanes[c->toLaneIndex].dir;
 		const bool outAtA = (outEdge->nodeA == towardNodeId);
 		// 退出方向: Forward + nodeA → tangent at start, Backward + nodeB → -tangent at end
 		const Vec3 tOutRaw = (outDir == LaneDir::Forward)
 			? (outAtA ? bezOut->tangentAt(0.0f) : -bezOut->tangentAt(bezOut->totalLength))
-			: (outAtA ? -bezOut->tangentAt(0.0f) : bezOut->tangentAt(bezOut->totalLength));
+			: (outAtA ? -bezOut->tangentAt(0.0f) : -bezOut->tangentAt(bezOut->totalLength));
 		const float outAngle = static_cast<float>(Math::Atan2(tOutRaw.x, tOutRaw.z));
 
 		const TurnType turn = TrafficCommon::classifyTurnByAngles(inAngle, outAngle);
@@ -211,17 +235,17 @@ RoadArrowType RoadArrow::InferType(const RoadNetwork& network,
 	{
 		return hasUTurn ? RoadArrowType::UTurn : RoadArrowType::None;
 	}
-	if (n == 1)
+	else if (n == 1)
 	{
-		if (s) return RoadArrowType::Straight;
-		if (l) return RoadArrowType::Left;
-		if (r) return RoadArrowType::Right;
+		if (s) { return RoadArrowType::Straight; }
+		if (l) { return RoadArrowType::Left; }
+		return RoadArrowType::Right;
 	}
-	if (n == 2)
+	else if (n == 2)
 	{
-		if (s && l) return RoadArrowType::StraightLeft;
-		if (s && r) return RoadArrowType::StraightRight;
-		if (l && r) return RoadArrowType::LeftRight;
+		if (s && l) { return RoadArrowType::StraightLeft; }
+		if (s && r) { return RoadArrowType::StraightRight; }
+		return RoadArrowType::LeftRight;
 	}
 	// n == 3
 	return RoadArrowType::All;
