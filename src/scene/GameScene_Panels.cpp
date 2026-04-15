@@ -283,12 +283,61 @@ namespace
 
 			if (PanelWidget::section(pBold, U"Lanes ({})"_fmt(edge.lanes.size()), st.lanesCollapsed, pX, y, kSectionW, kLH))
 			{
-				if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add lane"))
+				auto addLane = [&edge](int side)
 				{
-					Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = 3.5f;
-					const float hw = edge.totalWidth() * 0.5f;
-					nl.offsetA_L = hw; nl.offsetA_R = hw + 3.5f; nl.offsetB_L = hw; nl.offsetB_R = hw + 3.5f;
-					edge.lanes << nl; dirty = true;
+					constexpr float laneW = 3.5f;
+					float edgeX = 0.0f;
+					bool hasRoadbed = false;
+					for (const auto& p : edge.parts)
+					{
+						if (p.type != RoadPartType::Roadbed) continue;
+						const float x = (side > 0) ? (p.offset + p.width) : p.offset;
+						if (!hasRoadbed || (side > 0 ? x > edgeX : x < edgeX))
+						{
+							edgeX = x;
+							hasRoadbed = true;
+						}
+					}
+					if (!hasRoadbed)
+					{
+						edgeX = (side > 0) ? (edge.totalWidth() * 0.5f) : (-edge.totalWidth() * 0.5f);
+					}
+
+					// 外側のパーツをシフト & 末端 Roadbed を拡張
+					for (auto& p : edge.parts)
+					{
+						const bool outside = (side > 0)
+							? (p.offset >= edgeX - 1e-4f)
+							: (p.offset + p.width <= edgeX + 1e-4f);
+						const bool extendTarget = hasRoadbed && p.type == RoadPartType::Roadbed
+							&& ((side > 0 && Abs((p.offset + p.width) - edgeX) < 1e-4f)
+								|| (side < 0 && Abs(p.offset - edgeX) < 1e-4f));
+						if (extendTarget)
+						{
+							p.width += laneW;
+							if (side < 0) p.offset -= laneW;
+						}
+						else if (outside)
+						{
+							p.offset += static_cast<float>(side) * laneW;
+						}
+					}
+
+					Lane nl; nl.dir = LaneDir::Forward; nl.op = OpState::Open; nl.nominalWidth = laneW;
+					const float laneL = (side > 0) ? edgeX : (edgeX - laneW);
+					const float laneR = laneL + laneW;
+					nl.offsetA_L = laneL; nl.offsetA_R = laneR;
+					nl.offsetB_L = laneL; nl.offsetB_R = laneR;
+					edge.lanes << nl;
+				};
+
+				if (PanelWidget::button(pFont, U"+L", false, pX + 4, y, 24, kLH, U"Add lane (left)"))
+				{
+					addLane(-1); dirty = true;
+				}
+				if (PanelWidget::button(pFont, U"+R", false, pX + 32, y, 24, kLH, U"Add lane (right)"))
+				{
+					addLane(+1); dirty = true;
 				}
 				y += kLH;
 
