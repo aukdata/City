@@ -466,52 +466,74 @@ bool GameScene::loadGame()
 	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
 	step.restart();
 
-	// 地形データ
+	// 地形データ（チャンクごとに並列読み込み + バルク I/O）
 	const int totalChunks = WORLD_CHUNKS * WORLD_CHUNKS;
-	int loadedChunks = 0;
 	m_loadingStatus = U"地形データ読み込み中...";
-	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
 	{
-		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+		Array<HeightMapResult> buffer(totalChunks);
+		std::atomic<int> counter{ 0 };
+		std::atomic<int> loadedAtomic{ 0 };
+		const int nThreads = Max(1, static_cast<int>(std::thread::hardware_concurrency()));
+		Array<std::thread> threads;
+		threads.reserve(nThreads);
+
+		for (int t = 0; t < nThreads; ++t)
 		{
-			const String terrainPath = U"{}/chunks/{}_{}/terrain.bin"_fmt(kRoot, cx, cy);
-			bool loaded = false;
-
-			if (FileSystem::Exists(terrainPath))
+			threads.emplace_back([this, &buffer, &counter, &loadedAtomic, totalChunks, &kRoot]()
 			{
-				BinaryReader r{ terrainPath };
-				if (r)
+				while (true)
 				{
-					int32 gridSize = 0;
-					r.read(gridSize);
-					if (gridSize == HEIGHT_CELLS + 1)
-					{
-						HeightMapResult hmr;
-						hmr.heightMap = Grid<float>(gridSize, gridSize);
-						hmr.heightMin =  1e30f;
-						hmr.heightMax = -1e30f;
-						for (int row = 0; row < gridSize; ++row)
-							for (int col = 0; col < gridSize; ++col)
-							{
-								float h;
-								r.read(h);
-								hmr.heightMap[{ col, row }] = h;
-								hmr.heightMin = Min(hmr.heightMin, h);
-								hmr.heightMax = Max(hmr.heightMax, h);
-							}
-						m_world.installChunkDirect(Point{ cx, cy }, std::move(hmr));
-						loaded = true;
-					}
-				}
-			}
+					const int idx = counter.fetch_add(1);
+					if (idx >= totalChunks) break;
+					const int cx = idx % WORLD_CHUNKS;
+					const int cy = idx / WORLD_CHUNKS;
 
-			if (!loaded)
-			{
-				m_world.installChunkDirect(Point{ cx, cy },
-					m_world.buildHeightMap(Point{ cx, cy }));
-			}
-			++loadedChunks;
-			m_genProgress = static_cast<float>(loadedChunks) / static_cast<float>(totalChunks) * 0.7f;
+					const String terrainPath = U"{}/chunks/{}_{}/terrain.bin"_fmt(kRoot, cx, cy);
+					bool loaded = false;
+
+					if (FileSystem::Exists(terrainPath))
+					{
+						BinaryReader r{ terrainPath };
+						if (r)
+						{
+							int32 gridSize = 0;
+							r.read(gridSize);
+							if (gridSize == HEIGHT_CELLS + 1)
+							{
+								HeightMapResult hmr;
+								hmr.heightMap = Grid<float>(gridSize, gridSize);
+								// バルク読み込み: gridSize² 個の float を1 回で取得
+								const size_t cellCount = static_cast<size_t>(gridSize) * gridSize;
+								r.read(hmr.heightMap.data(), cellCount * sizeof(float));
+								// min/max は読み込み完了後にまとめて算出
+								float mn =  1e30f, mx = -1e30f;
+								const float* p = hmr.heightMap.data();
+								for (size_t i = 0; i < cellCount; ++i) { mn = Min(mn, p[i]); mx = Max(mx, p[i]); }
+								hmr.heightMin = mn;
+								hmr.heightMax = mx;
+								buffer[idx] = std::move(hmr);
+								loaded = true;
+							}
+						}
+					}
+
+					if (!loaded)
+					{
+						buffer[idx] = m_world.buildHeightMap(Point{ cx, cy });
+					}
+					const int done = loadedAtomic.fetch_add(1) + 1;
+					m_genProgress = static_cast<float>(done) / static_cast<float>(totalChunks) * 0.7f;
+				}
+			});
+		}
+		for (auto& th : threads) th.join();
+
+		// installChunkDirect は m_world 内部状態を変更するためメインスレッドで直列に
+		for (int idx = 0; idx < totalChunks; ++idx)
+		{
+			const int cx = idx % WORLD_CHUNKS;
+			const int cy = idx / WORLD_CHUNKS;
+			m_world.installChunkDirect(Point{ cx, cy }, std::move(buffer[idx]));
 		}
 	}
 
