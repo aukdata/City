@@ -1412,11 +1412,9 @@ static LaneEndpoint calcLaneEndpoint(
 	const Vec3 tan = bez.tangentAt(arc);
 
 	// 車線オフセットを適用
-	const float centerA = (lane.offsetA_L + lane.offsetA_R) * 0.5f;
-	const float centerB = (lane.offsetB_L + lane.offsetB_R) * 0.5f;
 	const float ft = (bez.totalLength > 0.0f) ? (arc / bez.totalLength) : 0.0f;
-	const float offset = centerA + (centerB - centerA) * ft;
-	const Vec3 perp = Vec3{ tan.z, 0.0, -tan.x }.normalized();
+	const float offset = lane.centerAt(ft);
+	const Vec3 perp = tangentToRight(tan);
 
 	return {
 		pos + perp * static_cast<double>(offset),
@@ -1687,26 +1685,15 @@ void RoadNetwork::onEdgeRemovedFromRoutes(int edgeId)
 	}
 }
 
-void RoadNetwork::rebuildLaneConnections(int nodeId)
+// =============================================================================
+// エッジ方向・直進ペア構築（rebuildLaneConnections / buildDefaultSignalPhases 共通）
+// =============================================================================
+
+HashTable<int, Vec2> RoadNetwork::buildEdgeDirs(int nodeId) const
 {
-	RoadNode* node = getNode(nodeId);
-	if (!node) return;
+	const RoadNode* node = getNode(nodeId);
+	if (!node) return {};
 
-	// 旧接続の論理キー → ID マッピングを保持（信号フェーズの greenConnectionIds を維持するため）
-	auto packKey = [](int fe, int fl, int te, int tl) -> int64 {
-		return (static_cast<int64>(fe) << 48) | (static_cast<int64>(fl & 0xFFFF) << 32)
-			 | (static_cast<int64>(te & 0xFFFF) << 16) | static_cast<int64>(tl & 0xFFFF);
-	};
-	HashTable<int64, int> oldKeyToId;
-	for (const auto& conn : node->laneConnections)
-		oldKeyToId[packKey(conn.fromEdgeId, conn.fromLaneIndex, conn.toEdgeId, conn.toLaneIndex)] = conn.id;
-
-	node->laneConnections.clear();
-
-	const auto allEdgeIds = node->edgeIds();
-	if (allEdgeIds.size() < 2) return;
-
-	// ── エッジ方向マップ（ノードへの接近方向） ──
 	HashTable<int, Vec2> edgeDirs;
 	for (const auto& att : node->attachments)
 	{
@@ -1720,8 +1707,15 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			tan = bez->tangent(1.0f);
 		edgeDirs[att.edgeId] = Vec2{ tan.x, tan.z }.normalized();
 	}
+	return edgeDirs;
+}
 
-	// ── 直進ペアの構築（buildDefaultSignalPhases と同一アルゴリズム） ──
+Array<Array<int>> RoadNetwork::buildStraightPairs(int nodeId,
+                                                   const HashTable<int, Vec2>& edgeDirs) const
+{
+	const RoadNode* node = getNode(nodeId);
+	if (!node) return {};
+
 	constexpr float kOppositeAngleThreshold = static_cast<float>(Math::QuarterPi);
 	HashSet<int> selected;
 	Array<Array<int>> pairs;
@@ -1730,6 +1724,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 	{
 		if (selected.contains(att.edgeId)) continue;
 		selected.insert(att.edgeId);
+
 		const auto dirIt = edgeDirs.find(att.edgeId);
 		if (dirIt == edgeDirs.end()) continue;
 		const Vec2 opposite = -dirIt->second;
@@ -1759,6 +1754,31 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		}
 		pairs << std::move(pair);
 	}
+	return pairs;
+}
+
+void RoadNetwork::rebuildLaneConnections(int nodeId)
+{
+	RoadNode* node = getNode(nodeId);
+	if (!node) return;
+
+	// 旧接続の論理キー → ID マッピングを保持（信号フェーズの greenConnectionIds を維持するため）
+	auto packKey = [](int fe, int fl, int te, int tl) -> int64 {
+		return (static_cast<int64>(fe) << 48) | (static_cast<int64>(fl & 0xFFFF) << 32)
+			 | (static_cast<int64>(te & 0xFFFF) << 16) | static_cast<int64>(tl & 0xFFFF);
+	};
+	HashTable<int64, int> oldKeyToId;
+	for (const auto& conn : node->laneConnections)
+		oldKeyToId[packKey(conn.fromEdgeId, conn.fromLaneIndex, conn.toEdgeId, conn.toLaneIndex)] = conn.id;
+
+	node->laneConnections.clear();
+
+	const auto allEdgeIds = node->edgeIds();
+	if (allEdgeIds.size() < 2) return;
+
+	// ── エッジ方向マップ・直進ペア構築 ──
+	const auto edgeDirs = buildEdgeDirs(nodeId);
+	const auto pairs    = buildStraightPairs(nodeId, edgeDirs);
 
 	// ── 車線参照 ──
 	struct LaneRef
@@ -1783,9 +1803,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 				(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
 			if (!exits) continue;
 			const bool isAtA = (edge->nodeA == nodeId);
-			const float center = isAtA
-				? (lane.offsetA_L + lane.offsetA_R) * 0.5f
-				: (lane.offsetB_L + lane.offsetB_R) * 0.5f;
+			const float center = lane.centerAt(isAtA ? 0.0f : 1.0f);
 			const float drvOff = (lane.dir == LaneDir::Forward) ? center : -center;
 			result << LaneRef{ edgeId, i, drvOff };
 		}
@@ -1808,9 +1826,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 				(lane.dir == LaneDir::Backward && edge->nodeB == nodeId);
 			if (!enters) continue;
 			const bool isAtA = (edge->nodeA == nodeId);
-			const float center = isAtA
-				? (lane.offsetA_L + lane.offsetA_R) * 0.5f
-				: (lane.offsetB_L + lane.offsetB_R) * 0.5f;
+			const float center = lane.centerAt(isAtA ? 0.0f : 1.0f);
 			const float drvOff = (lane.dir == LaneDir::Forward) ? center : -center;
 			result << LaneRef{ edgeId, i, drvOff };
 		}
@@ -2103,64 +2119,10 @@ Array<SignalPhaseDef> RoadNetwork::buildDefaultSignalPhases(int nodeId) const
 
 	constexpr float kMinPhaseDuration = 5.0f;       // 実時間秒
 	constexpr float kDurationPerConnection = 2.0f;  // 実時間秒
-	const float kOppositeAngleThreshold = static_cast<float>(Math::QuarterPi); // 45度
 
-	// 各エッジのノードから外に向かう方向（XZ平面）を計算
-	HashTable<int, Vec2> edgeDirs;
-	for (const auto& att : node->attachments)
-	{
-		const auto bez = getBezier(att.edgeId);
-		const RoadEdge* e = getEdge(att.edgeId);
-		if (!bez || !e) continue;
-
-		Vec3 tan;
-		if (e->nodeA == nodeId)
-			tan = -bez->tangent(0.0f);
-		else
-			tan = bez->tangent(1.0f);
-
-		edgeDirs[att.edgeId] = Vec2{ tan.x, tan.z }.normalized();
-	}
-
-	// 直進ペアの構築（attachments 順）
-	HashSet<int> selected;
-	Array<Array<int>> pairs;
-
-	for (const auto& att : node->attachments)
-	{
-		if (selected.contains(att.edgeId)) continue;
-		selected.insert(att.edgeId);
-
-		const auto dirIt = edgeDirs.find(att.edgeId);
-		if (dirIt == edgeDirs.end()) continue;
-		const Vec2 opposite = -dirIt->second;
-
-		int bestEdge = -1;
-		float bestAngle = kOppositeAngleThreshold;
-
-		for (const auto& other : node->attachments)
-		{
-			if (other.edgeId == att.edgeId || selected.contains(other.edgeId)) continue;
-			const auto otherIt = edgeDirs.find(other.edgeId);
-			if (otherIt == edgeDirs.end()) continue;
-			const float angle = static_cast<float>(std::acos(std::clamp(
-				opposite.dot(otherIt->second), -1.0, 1.0)));
-			if (angle < bestAngle)
-			{
-				bestAngle = angle;
-				bestEdge = other.edgeId;
-			}
-		}
-
-		Array<int> pair;
-		pair << att.edgeId;
-		if (bestEdge >= 0)
-		{
-			pair << bestEdge;
-			selected.insert(bestEdge);
-		}
-		pairs << std::move(pair);
-	}
+	// エッジ方向マップ・直進ペア構築
+	const auto edgeDirs = buildEdgeDirs(nodeId);
+	const auto pairs    = buildStraightPairs(nodeId, edgeDirs);
 
 	// フェーズの生成
 	Array<SignalPhaseDef> phases;

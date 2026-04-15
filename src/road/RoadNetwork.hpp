@@ -280,4 +280,13 @@ private:
 	int edgeIndex(int id) const;
 	int nodeIndex(int id) const;
 
+	/// @brief ノードに接続する各エッジのノード外向き方向（XZ 正規化）を返す
+	/// @details rebuildLaneConnections / buildDefaultSignalPhases で共通利用
+	HashTable<int, Vec2> buildEdgeDirs(int nodeId) const;
+
+	/// @brief エッジ方向マップから直進ペア配列を構築する
+	/// @details 各エッジについて最も逆方向に近い（角度差が QuarterPi 未満の）エッジをペアにする
+	Array<Array<int>> buildStraightPairs(int nodeId,
+	                                     const HashTable<int, Vec2>& edgeDirs) const;
+
 };

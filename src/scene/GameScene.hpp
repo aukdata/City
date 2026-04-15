@@ -159,13 +159,23 @@ private:
 	MainPerfHistory m_mainPerfHistory;
 	SimPerfHistory  m_simPerfHistory;
 
-	// 描画タイミング（renderWorld サブメソッド間で���有）
+	// 描画タイミング（renderWorld サブメソッド間で共有）
 	struct RenderTimings
 	{
 		double sky = 0, terrain = 0, road = 0, zone = 0;
 		double vehicle = 0, train = 0, debug = 0, ui = 0, total = 0;
 	};
 	RenderTimings m_renderTimings;
+
+	/// @brief 時刻から空・太陽パラメータを計算した結果
+	struct SkyParams
+	{
+		float  t        = 0.0f;   ///< 時角 [rad]
+		float  sinT     = 0.0f;   ///< sin(t)
+		float  dayF     = 0.0f;   ///< 昼間度 [0,1]
+		float  dawnF    = 0.0f;   ///< 黎明/夕暮れ度 [0,1]
+		double exposure = 0.0;    ///< 露出値
+	};
 
 	// ---- ユーティリティ ----
 
@@ -203,6 +213,11 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings();
 
+	/// @brief loadGame 内: 全チャンクの地形データを並列で読み込む（またはフォールバック生成する）
+	/// @param kRoot  セーブデータルートパス (e.g. "saves/default")
+	/// @param step   呼び出し元の区間ストップウォッチ（完了後に restart される）
+	void loadTerrainChunks(const String& kRoot, Stopwatch& step);
+
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
 	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
@@ -228,6 +243,8 @@ private:
 	// ---- 入力処理 (GameScene_Input.cpp) ----
 	void handleInput();
 	void updateCursor();
+	/// @brief 通常モード (EditMode::None) でのクリック選択処理（車両→ノード→エッジの優先順）
+	void handleSelectionClick();
 	void handleRoadDraw();
 	void handleZonePaint();
 	void handleBusRouteDraw();
@@ -250,6 +267,10 @@ private:
 	void renderSelectionHighlights();
 	void renderEditModeOverlays();
 	void render2DUI();
+	/// @brief 時刻から空・太陽パラメータを計算する
+	SkyParams calcSkyParams() const;
+	/// @brief renderWorld のパフォーマンス計測値をリングバッファに記録する
+	void pushPerfStats();
 
 	// ---- パネル描画 (GameScene_Panels.cpp) ----
 	void drawEdgePanel();

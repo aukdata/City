@@ -70,7 +70,7 @@ void GameScene::initNewGame()
 
 	m_world.reserveChunks();
 
-	const float worldCenter = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE * 0.5f;
+	const float worldCenter = WORLD_SIZE * 0.5f;
 	m_camera.setFocus(Vec3{ worldCenter, 0.0, worldCenter });
 
 	m_totalInitChunks = WORLD_CHUNKS * WORLD_CHUNKS;
@@ -285,7 +285,7 @@ void GameScene::updateLoading()
 			m_roadRenderer.invalidateAllCaches();
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 
-			const float worldCenter = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE * 0.5f;
+			const float worldCenter = WORLD_SIZE * 0.5f;
 			Vec3 cameraFocus{ worldCenter, 0.0, worldCenter };
 			for (const auto& s : m_districts)
 			{
@@ -436,36 +436,12 @@ void GameScene::saveGame()
 	Console << U"[Save] Saved to " << kRoot;
 }
 
-bool GameScene::loadGame()
+// =============================================================================
+// 地形チャンク並列ロード（loadGame のサブルーチン）
+// =============================================================================
+
+void GameScene::loadTerrainChunks(const String& kRoot, Stopwatch& step)
 {
-	const Stopwatch loadTotal{ StartImmediately::Yes };
-	Stopwatch step{ StartImmediately::Yes };
-
-	const String kRoot = U"saves/{}"_fmt(getData().saveName);
-
-	// meta.json
-	const JSON meta = JSON::Load(U"{}/meta.json"_fmt(kRoot));
-	if (!meta) return false;
-
-	getData().seed    = meta[U"seed"].get<uint64>();
-	const double gameNow    = meta[U"gameNow"].get<double>();
-	const int    timeScale  = meta[U"timeScale"].get<int>();
-	const int    nextNodeId = meta[U"nextNodeId"].get<int>();
-	const int    nextEdgeId = meta[U"nextEdgeId"].get<int>();
-	const double focusX     = meta[U"cameraFocusX"].get<double>();
-	const double focusY     = meta[U"cameraFocusY"].get<double>();
-	const double focusZ     = meta[U"cameraFocusZ"].get<double>();
-	const float  camDist    = meta[U"cameraDistance"].getOr<float>(600.0f);
-	const float  camYaw     = meta[U"cameraYaw"].getOr<float>(0.0f);
-	const float  camPitch   = meta[U"cameraPitch"].getOr<float>(static_cast<float>(40.0_deg));
-
-	m_world.setGenerationParams(getData().seed,
-		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE,
-		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE);
-	m_world.reserveChunks();
-	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
-	step.restart();
-
 	// 地形データ（チャンクごとに並列読み込み + バルク I/O）
 	const int totalChunks = WORLD_CHUNKS * WORLD_CHUNKS;
 	m_loadingStatus = U"地形データ読み込み中...";
@@ -539,6 +515,43 @@ bool GameScene::loadGame()
 
 	Console << U"[Load] terrain: {:.0f}ms"_fmt(step.msF());
 	step.restart();
+}
+
+// =============================================================================
+// ゲームデータ保存・ロード
+// =============================================================================
+
+bool GameScene::loadGame()
+{
+	const Stopwatch loadTotal{ StartImmediately::Yes };
+	Stopwatch step{ StartImmediately::Yes };
+
+	const String kRoot = U"saves/{}"_fmt(getData().saveName);
+
+	// meta.json
+	const JSON meta = JSON::Load(U"{}/meta.json"_fmt(kRoot));
+	if (!meta) return false;
+
+	getData().seed    = meta[U"seed"].get<uint64>();
+	const double gameNow    = meta[U"gameNow"].get<double>();
+	const int    timeScale  = meta[U"timeScale"].get<int>();
+	const int    nextNodeId = meta[U"nextNodeId"].get<int>();
+	const int    nextEdgeId = meta[U"nextEdgeId"].get<int>();
+	const double focusX     = meta[U"cameraFocusX"].get<double>();
+	const double focusY     = meta[U"cameraFocusY"].get<double>();
+	const double focusZ     = meta[U"cameraFocusZ"].get<double>();
+	const float  camDist    = meta[U"cameraDistance"].getOr<float>(600.0f);
+	const float  camYaw     = meta[U"cameraYaw"].getOr<float>(0.0f);
+	const float  camPitch   = meta[U"cameraPitch"].getOr<float>(static_cast<float>(40.0_deg));
+
+	m_world.setGenerationParams(getData().seed,
+		WORLD_SIZE,
+		WORLD_SIZE);
+	m_world.reserveChunks();
+	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
+	loadTerrainChunks(kRoot, step);
 
 	// 経済
 	if (const JSON eco = JSON::Load(U"{}/global/economy.json"_fmt(kRoot)))
