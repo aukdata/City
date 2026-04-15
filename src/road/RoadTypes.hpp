@@ -43,6 +43,8 @@ enum class LaneType : uint8
 	Bus,
 	ParkingBay,
 	EmergencyStop,
+	KeepOut,        ///< 立入り禁止部分（規制標示101・ゼブラゾーン）
+	TrafficIsland,  ///< 導流帯（指示標示208の2・分岐合流鼻の縞模様）
 };
 
 /// @brief 区画線種別
@@ -121,16 +123,30 @@ enum class PlanState : uint8
 
 // ===== RoadSign（標識） =====
 
+/// @brief 道交法上の標識分類
+/// @details 道路標識、区画線及び道路標示に関する命令（昭和35年総理府建設省令3号）に準拠。
+enum class RoadSignCategory : uint8
+{
+	Regulatory,   ///< 規制標識（赤円・逆三角 等／禁止・規制）
+	Warning,      ///< 警戒標識（黄ひし形／危険予告）
+	Instruction,  ///< 指示標識（青角丸四角／通行方法の指示）
+	Guide,        ///< 案内標識（緑/青長方形・おにぎり／方面案内）
+	Auxiliary,    ///< 補助標識（白長方形／本標識の補足）
+};
+
 /// @brief 道路標識の種別
-/// @details 詳細は plan/07_road_lane_spec.md §11、API は RoadSign.hpp 参照
+/// @details 詳細は plan/07_road_lane_spec.md §11、API は RoadSign.hpp 参照。
+///   各種別は RoadSign::visualOf(type) で (category, 形状OBJ, テクスチャ) に解決される。
 enum class RoadSignType : uint8
 {
 	None,
-	Stop,           ///< 一時停止 (規制標識 330)
-	SpeedLimit,     ///< 最高速度 (将来)
-	NoEntry,        ///< 進入禁止 (将来)
-	OneWay,         ///< 一方通行 (将来)
-	Yield,          ///< 譲れ (将来)
+	Stop,           ///< 一時停止（規制・逆三角・330）
+	Yield,          ///< 徐行（規制・逆三角・329）
+	SpeedLimit,               ///< 最高速度（規制・赤円・323）(将来)
+	NoEntry,                  ///< 車両進入禁止（規制・赤円・303）
+	OneWay,                   ///< 一方通行（指示・青矩形・326）(将来)
+	NationalRoute,            ///< 一般国道標識（案内・おにぎり・118）— route 由来の動的生成
+	DirectionalRestriction,   ///< 指定方向外進行禁止（規制・青円・311）
 };
 
 /// @brief 道路標識の配置情報（RoadEdge.signs に格納）
