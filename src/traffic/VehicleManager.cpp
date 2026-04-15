@@ -101,8 +101,6 @@ void VehicleManager::setGoalAndReroute(int vehicleId, int goalEdgeId, const SimG
 
 void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 {
-	Console << U"[applyRoute] v=" << resp.vehicleId << U" found=" << resp.found
-		<< U" waypoints=" << resp.waypoints.size();
 	for (auto& v : m_vehicles)
 	{
 		if (v.id != resp.vehicleId) continue;
@@ -111,6 +109,11 @@ void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 		{
 			v.routeWaypoints = resp.waypoints;
 			v.routeIdx = 0;
+		}
+		else
+		{
+			// 経路探索失敗 → ゴールをリセットして次フレームで別ゴールを再試行
+			v.goalEdgeId = -1;
 		}
 		break;
 	}
