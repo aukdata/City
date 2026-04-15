@@ -4,7 +4,12 @@ void RegisterAssets()
 {
 	// ---- テクスチャ ----
 	TextureAsset::Register(Asset::Grass, U"assets/textures/grass.png", TextureDesc::MippedSRGB);
-	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/national_road_sign.png", TextureDesc::Mipped);
+	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/guide/national_route.png", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::StopSign,         U"assets/signs/regulatory/stop.png",      TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::YieldSign,        U"assets/signs/regulatory/yield.png",     TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::NoEntrySign,      U"assets/signs/regulatory/no_entry.png",  TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::DirectionalRestrictionSign,
+	                       U"assets/signs/regulatory/directional_restriction.png",            TextureDesc::MippedSRGB);
 
 	// ---- フォント（MSDF）----
 	FontAsset::Register(Asset::TitleBold48, FontMethod::MSDF, 48, Typeface::Bold);

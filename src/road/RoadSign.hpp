@@ -11,16 +11,16 @@ namespace RoadSign
 	// ===== 寸法定数 =====
 
 	constexpr double kPoleRadius_m   = 0.03;   ///< ポール半径 (φ60mm)
-	constexpr double kStopBoardSide_m = 0.8;   ///< 止まれ標識: 一辺
-	constexpr double kBoardThickness_m = 0.02;
+	constexpr double kRouteBoardSize_m = 0.8;  ///< 国道標識（おにぎり）: 外接サイズ
 	constexpr double kBoardCenterFromPoleTop_m = 0.4; ///< ポール頂上から看板中心までの距離 [m]
 	constexpr double kSideMargin_m   = 0.5;    ///< 路肩外側へのマージン [m]
+	constexpr float  kDefaultPoleHeight_m = 2.5f;    ///< 規制標識のポール高さ既定値
+	constexpr float  kRoutePoleHeight_m   = 3.5f;    ///< 国道標識のポール高さ既定値
+	constexpr float  kBoardForwardShift_m = 0.05f;   ///< 看板をポール正面に出すためのオフセット [m]
 
 	// ===== メッシュ ColorF =====
 
 	const ColorF kPoleColor    { 0.65, 0.65, 0.7 };
-	const ColorF kBoardRedBg   { 0.85, 0.10, 0.10 };
-	const ColorF kBoardWhiteBorder { 0.95, 0.95, 0.95 };
 
 	// ===== API =====
 
@@ -30,18 +30,31 @@ namespace RoadSign
 	///   Y 軸: 上向き
 	MeshData CreatePoleMesh(float poleHeight);
 
-	/// @brief 看板メッシュ（種別ごとの形状）
-	/// @details ローカル座標:
-	///   原点 = 看板中心
-	///   X-Y 平面: 看板面（X 右、Y 上）
-	///   Z 軸: 看板の前面法線（手前を向く方向）
+	/// @brief 標識種別の表示情報
+	/// @details 形状 OBJ は種別をまたいで共用可（例: Stop と Yield は inverted_triangle.obj）。
+	///   textureAssetName が空の場合は動的生成テクスチャ（NationalRoute の号数合成等）。
+	struct SignVisual
+	{
+		RoadSignCategory category;
+		StringView       shapeObjPath;     ///< 形状 OBJ の相対パス (assets/signs/<cat>/xxx.obj)
+		StringView       textureAssetName; ///< Asset:: 定数。空なら動的解決
+	};
+
+	/// @brief RoadSignType → SignVisual 解決
+	const SignVisual& visualOf(RoadSignType type);
+
+	/// @brief 看板メッシュ（形状 OBJ をロード）
+	/// @details ローカル座標: 原点=看板中心, X 右・Y 上・Z 前面法線。
+	///   形状は RoadSignCategory ごとに assets/signs/<category>/<shape>.obj に配置。
 	MeshData CreateBoardMesh(RoadSignType type);
 
-	/// @brief 国道標識の看板メッシュ（assets/signs/national_road_sign.obj をロード）
-	/// @details ローカル座標: 原点=看板中心, X 右・Y 上・Z 前面法線
-	///   OBJ は Test プロジェクトで national_road_sign.png の輪郭から事前生成。
-	///   UV: u = 0.5 − x/size, v = 0.5 − y/size（テクスチャ全域をマッピング）
-	MeshData CreateOnigiriBoard(float size);
+	/// @brief 看板中心がポール頂上から下方向に何 m 下がった位置かを返す
+	double BoardCenterFromPoleTop(RoadSignType type);
+
+	/// @brief Roadbed 部品の左端 / 右端オフセット [m]
+	/// @details Roadbed が無い場合は ±totalWidth/2 にフォールバック
+	struct RoadbedExtents { float left; float right; };
+	RoadbedExtents roadbedExtentsOf(const RoadEdge& edge);
 
 	/// @brief 1エッジ分の自動生成 Stop 標識を作る
 	/// @details

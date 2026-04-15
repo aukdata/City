@@ -58,12 +58,16 @@ public:
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
 
-	/// @brief ポール＋看板 1基分の描画情報（OBJ メッシュ + Mat4x4 変換）
+	/// @brief ポール＋看板 1基分の描画情報
+	/// @details 種別ごとに OBJ メッシュ + テクスチャで描画。テクスチャは type + auxNumber から
+	///   描画時に引き当てる（TextureAsset / m_routeSignTexCache）。
 	struct SignDraw
 	{
-		Mat4x4 poleMat;     ///< pole.obj に適用（Scale(1,h,1) * Translate(groundPos)）
-		Mat4x4 boardMat;    ///< 看板OBJ に適用（RotateY(yaw) * Translate(boardCenter)）
-		ColorF boardColor;  ///< 看板描画色
+		Mat4x4       poleMat;                 ///< ポールに適用（Scale(1,h,1) * Translate(groundPos)）
+		Mat4x4       boardMat;                ///< 看板に適用（RotateY(yaw) * Translate(boardCenter)）
+		Vec3         poleTop;                 ///< ポール頂上のワールド座標（デバッグ目印用）
+		RoadSignType type      = RoadSignType::None;
+		int          auxNumber = 0;           ///< NationalRoute: 号数（m_routeSignTexCache キー）
 	};
 
 private:
@@ -124,6 +128,32 @@ private:
 	Array<SignDraw> buildEdgeSignMeshes(const RoadNetwork& network, int edgeId,
 	                                    const World& world) const;
 
+	/// @brief 1路線分の国道標識描画情報を生成する
+	/// @details route 全長を2等分した各区間中央に1基ずつ配置。
+	///   合成済みテクスチャは m_routeSignTexCache から参照（未登録なら空配列）。
+	Array<SignDraw> buildRouteSignDraws(const RoadRoute& route, const RoadNetwork& network,
+	                                    const World& world) const;
+
+	/// @brief ポール+看板の Mat4x4 変換を計算する共通ヘルパー
+	/// @param arcLen        Bezier 上の弧長位置
+	/// @param lateralOffset 道路中心からの横方向オフセット [m]（A→B 右向きが正）
+	/// @param boardFacesTan true なら看板正面が +tangent 方向、false なら -tangent 方向
+	/// @param poleHeight    ポール高さ [m]
+	/// @param boardCenterFromTop 看板中心がポール頂上から下方向に何 m 下がるか
+	static bool computeSignTransforms(const CubicBezier& bezier, const World& world,
+	                                  float arcLen, float lateralOffset,
+	                                  bool boardFacesTan, float poleHeight,
+	                                  double boardCenterFromTop,
+	                                  bool useElevation,
+	                                  Mat4x4& outPole, Mat4x4& outBoard,
+	                                  Vec3& outPoleTop);
+
+	/// @brief 看板メッシュを取得（未ロードなら遅延生成）
+	const Mesh* getSignBoardMesh(RoadSignType type);
+
+	/// @brief SignDraw 配列を統一的に描画する（ポール + 看板）
+	void drawSigns(const Array<SignDraw>& draws);
+
 	// ---- ヘルパー ----
 
 	/// @brief 部品の描画属性（色・高さオフセット・テクスチャ）
@@ -170,7 +200,7 @@ private:
 	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
 	HashSet<int>                              m_visibleEdges;     ///< 直近 render() の可視エッジ集合
 	HashTable<int, RenderTexture>             m_routeSignTexCache; ///< 国道号数 → 合成テクスチャ
-	Optional<Mesh>                            m_poleMesh;          ///< 共通ポールメッシュ（単位高さ=1m、初回ロード後キャッシュ）
-	Optional<Mesh>                            m_stopSignMesh;      ///< 止まれ看板メッシュ（初回ロード後キャッシュ）
-	Optional<Mesh>                            m_routeSignMesh;     ///< 国道標識看板メッシュ（初回生成後キャッシュ）
+	HashTable<int, Array<SignDraw>>           m_routeSignCache;    ///< route ID → 国道標識描画情報
+	Optional<Mesh>                            m_poleMesh;          ///< 共通ポールメッシュ（単位高さ=1m）
+	HashTable<String, Mesh>                   m_signBoardMeshes;   ///< 看板メッシュ（形状 OBJ パス別・遅延生成、カテゴリ内の同形状は共有）
 };

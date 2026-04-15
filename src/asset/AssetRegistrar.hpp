@@ -6,7 +6,11 @@ namespace Asset
 {
 	// ---- テクスチャ ----
 	constexpr StringView Grass            = U"Tex_Grass";
-	constexpr StringView NationalRoadSign = U"Tex_NationalRoadSign";
+	constexpr StringView NationalRoadSign = U"Tex_NationalRoadSign";  ///< 案内・国道おにぎり（地）
+	constexpr StringView StopSign         = U"Tex_StopSign";           ///< 規制・一時停止「止まれ」
+	constexpr StringView YieldSign        = U"Tex_YieldSign";          ///< 規制・徐行
+	constexpr StringView NoEntrySign      = U"Tex_NoEntrySign";        ///< 規制・車両進入禁止 (303)
+	constexpr StringView DirectionalRestrictionSign = U"Tex_DirectionalRestrictionSign"; ///< 規制・指定方向外進行禁止 (311)
 
 	// ---- フォント ----
 	constexpr StringView TitleBold48   = U"Font_TitleBold48";
