@@ -44,6 +44,15 @@ public:
 		} * m_distance;
 	}
 
+	/// @brief ワールド座標とカメラ視点との水平距離 (XZ 平面) を返す
+	float horizontalDistanceTo(const Float3& worldPos) const
+	{
+		const Vec3 eye = eyePosition();
+		const float dx = worldPos.x - static_cast<float>(eye.x);
+		const float dz = worldPos.z - static_cast<float>(eye.z);
+		return Math::Sqrt(dx * dx + dz * dz);
+	}
+
 	/// @brief 注視点を設定する（初期化用。地形床クランプは適用しない）
 	void setFocus(Vec3 focus);
 

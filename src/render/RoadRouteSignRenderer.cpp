@@ -64,9 +64,7 @@ void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera&
 			if (sp.z <= 0.0f) continue;
 
 			// カメラとの水平距離でフェード
-			const float dx   = worldPos.x - static_cast<float>(camera.eyePosition().x);
-			const float dz   = worldPos.z - static_cast<float>(camera.eyePosition().z);
-			const float dist = Math::Sqrt(dx * dx + dz * dz);
+			const float dist = camera.horizontalDistanceTo(worldPos);
 			if (dist > kHideDistance) continue;
 
 			const double t     = Math::Clamp(static_cast<double>(dist - kFadeDistance) / (kHideDistance - kFadeDistance), 0.0, 1.0);
