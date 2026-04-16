@@ -21,6 +21,9 @@ constexpr int HEIGHT_CELLS = 64;
 /// @brief ゾーンマップのグリッド分割数（セルサイズ = 16m）
 constexpr int ZONE_CELLS = 64;
 
+/// @brief ワールドの一辺の長さ [m]
+constexpr float WORLD_SIZE = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+
 /// @brief buildHeightMap の結果（heightMap + min/max）
 struct HeightMapResult
 {

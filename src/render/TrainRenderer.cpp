@@ -52,7 +52,7 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 			const float t      = static_cast<float>(i) / kSegments;
 			const Vec3  pos    = bez.evaluate(t);
 			const Vec3  tan    = bez.tangent(t).normalized();
-			const Vec3  right  = Vec3{ tan.z, 0, -tan.x };
+			const Vec3  right  = tangentToRight(tan);
 
 			// レール中心（左右どちらか）
 			const Vec3  center = pos + right * (sideSign * kTrackWidth * 0.5f)

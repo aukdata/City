@@ -61,8 +61,8 @@ void MinimapRenderer::buildTerrainTexture(const World& world)
 {
 	m_worldMinX = 0.0f;
 	m_worldMinZ = 0.0f;
-	m_worldMaxX = static_cast<float>(WORLD_CHUNKS * CHUNK_SIZE);
-	m_worldMaxZ = static_cast<float>(WORLD_CHUNKS * CHUNK_SIZE);
+	m_worldMaxX = WORLD_SIZE;
+	m_worldMaxZ = WORLD_SIZE;
 
 	Image img{ kMapSize, kMapSize, Palette::Black };
 

@@ -11,8 +11,8 @@ MapGenerator::InitResult MapGenerator::initWorld(
 	uint64 seed, World& world)
 {
 	world.setGenerationParams(seed,
-		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE,
-		static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE);
+		WORLD_SIZE,
+		WORLD_SIZE);
 
 	PlaceNameGenerator placeGen;
 	placeGen.load(U"assets/placenames/placenames.toml");
@@ -602,7 +602,7 @@ void MapGenerator::generateGlobalRoads(
 				branchRoutes << std::move(branchEdges);
 		}
 		// diameter 両端からマップ外端への幹線延伸
-		const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+		const float worldSize = WORLD_SIZE;
 		const int endIndices[2] = { diameter.front(), diameter.back() };
 		for (int ei2 = 0; ei2 < 2; ++ei2)
 		{
@@ -645,7 +645,7 @@ void MapGenerator::generateGlobalRoads(
 	else if (urbanIdx.size() == 1)
 	{
 		// Urban が1つだけ → マップ外端への接続のみ
-		const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
+		const float worldSize = WORLD_SIZE;
 		const int si = urbanIdx[0];
 		const RoadNode* sn = network.getNode(nodeIds[si]);
 		if (sn)

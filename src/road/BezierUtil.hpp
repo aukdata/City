@@ -1,5 +1,16 @@
 ﻿#pragma once
 
+/// @brief 接線ベクトルから XZ 平面の右方向（Y=0）を求める
+/// @param tan  接線ベクトル（正規化済みでなくても可）
+/// @return 正規化された右方向ベクトル。XZ 長さが極端に小さい場合は (1,0,0)
+inline Vec3 tangentToRight(const Vec3& tan)
+{
+	const double lenXZ = Math::Sqrt(tan.x * tan.x + tan.z * tan.z);
+	if (lenXZ > 1e-6)
+		return Vec3{ tan.z / lenXZ, 0.0, -tan.x / lenXZ };
+	return Vec3{ 1.0, 0.0, 0.0 };
+}
+
 /// @brief 3次ベジェ曲線ユーティリティ
 /// @details B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
 struct CubicBezier

@@ -130,8 +130,7 @@ Array<Point> RoadPathfinder::findPath(
 				terrainPenalty = 1e6f;
 			{
 				const Vec2 wp = gridToWorld(nx, nz);
-				const float worldSize = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
-				if (wp.x < 0.0f || wp.x > worldSize || wp.y < 0.0f || wp.y > worldSize)
+				if (wp.x < 0.0f || wp.x > WORLD_SIZE || wp.y < 0.0f || wp.y > WORLD_SIZE)
 					terrainPenalty = 1e6f;
 			}
 

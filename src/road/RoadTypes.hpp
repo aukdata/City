@@ -213,6 +213,16 @@ struct Lane
 	// --- ゲームプレイ ---
 	float     nominalWidth = 3.5f;         ///< 公称幅 [m]（容量計算・UI表示用）
 	LaneType  type = LaneType::Normal;     ///< 機能種別
+
+	/// @brief A端・B端の中心オフセットを弧長割合 ft で補間した値を返す
+	/// @param ft  0.0 = A端, 1.0 = B端（bez.totalLength > 0 なら arc / totalLength）
+	/// @return 道路中心からの横方向オフセット [m]（右が正）
+	float centerAt(float ft) const
+	{
+		const float cA = (offsetA_L + offsetA_R) * 0.5f;
+		const float cB = (offsetB_L + offsetB_R) * 0.5f;
+		return cA + (cB - cA) * ft;
+	}
 };
 
 
