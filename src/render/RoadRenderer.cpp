@@ -11,15 +11,6 @@
 
 namespace
 {
-	/// @brief 接線の XZ 直角右ベクトルを返す（Y=0）
-	Vec3 calcRight(const Vec3& tan)
-	{
-		const double lenXZ = Math::Sqrt(tan.x * tan.x + tan.z * tan.z);
-		if (lenXZ > 1e-6)
-			return Vec3{ tan.z / lenXZ, 0.0, -tan.x / lenXZ };
-		return Vec3{ 1.0, 0.0, 0.0 };
-	}
-
 	/// @brief 弧長 s での中心・右ベクトルを返す（Y は地形 + リフト）
 	struct SliceInfo { Vec3 center; Vec3 right; };
 	SliceInfo makeSlice(const CubicBezier& bez, const World& world,
@@ -34,7 +25,7 @@ namespace
 			const float gy = world.computeHeight(static_cast<float>(p.x), static_cast<float>(p.z));
 			y = gy + terrainLift;
 		}
-		return { Vec3{ p.x, y, p.z }, calcRight(bez.tangentAt(s)) };
+		return { Vec3{ p.x, y, p.z }, tangentToRight(bez.tangentAt(s)) };
 	}
 
 	/// @brief Vertex3D を生成する
@@ -225,7 +216,7 @@ namespace
 			: Clamp(bez->totalLength - capRad + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
 		const Vec3 pos = bez->positionAt(s);
 		const Vec3 rawTan = bez->tangentAt(s);
-		const Vec3 right = calcRight(rawTan);
+		const Vec3 right = tangentToRight(rawTan);
 		const Vec3 tan = isNodeA ? -rawTan : rawTan;
 		const double lineY = edge.useElevation
 			? pos.y + kRoadLineLift
@@ -266,7 +257,7 @@ namespace
 			// tangent: B'(t)
 			const Vec3 tan = (cp1 - from) * (3 * u * u) + (cp2 - cp1) * (6 * u * t)
 			               + (to - cp2) * (3 * t * t);
-			const Vec3 right = calcRight(tan.lengthSq() > 0.001 ? tan.normalized() : diff.normalized());
+			const Vec3 right = tangentToRight(tan.lengthSq() > 0.001 ? tan.normalized() : diff.normalized());
 			// Y は from → to の線形補間（路面高さを維持）
 			const Vec3 p{ pos.x, from.y + (to.y - from.y) * t, pos.z };
 			const uint32 base = static_cast<uint32>(md.vertices.size());
@@ -288,7 +279,7 @@ namespace
 		const Vec3 dir = to - from;
 		if (dir.lengthSq() < 0.01) return;
 		const Vec3 nd = dir.normalized();
-		const Vec3 r  = calcRight(nd);
+		const Vec3 r  = tangentToRight(nd);
 		const double hw = static_cast<double>(lineWidth * 0.5f);
 
 		constexpr int kDiv = 4;
@@ -617,58 +608,10 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 
 	// 停止線（Stop / Signal の Entry 側のみ）
 	if (!m_stopLineCache.contains(nodeId))
-	{
-		Array<LaneLineBatch> stopBatches;
-		for (const auto& att : node->attachments)
-		{
-			if (att.control != TrafficControl::Stop && att.control != TrafficControl::Signal) { continue; }
-
-			const RoadEdge* edge = network.getEdge(att.edgeId);
-			if (!edge || !edge->isRoadbedBuilt()) { continue; }
-			const auto bez = network.getBezier(att.edgeId);
-			if (!bez) { continue; }
-
-			const bool isNodeA = (edge->nodeA == nodeId);
-			const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
-			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
-			const Vec3 pos = bez->positionAt(cutoffArc);
-			const Vec3 tan = bez->tangentAt(cutoffArc);
-			const Vec3 right = calcRight(tan);
-
-			// Entry 車線（ノードに進入する方向）のオフセット範囲を求める
-			float entryMin = 1e9f, entryMax = -1e9f;
-			bool hasEntry = false;
-			for (const auto& lane : edge->lanes)
-			{
-				if (lane.op != OpState::Open && lane.op != OpState::Provisional) { continue; }
-				const bool enters =
-					(lane.dir == LaneDir::Forward  && edge->nodeB == nodeId) ||
-					(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
-				if (!enters) { continue; }
-
-				const float oL = isNodeA ? lane.offsetA_L : lane.offsetB_L;
-				const float oR = isNodeA ? lane.offsetA_R : lane.offsetB_R;
-				entryMin = Min(entryMin, Min(oL, oR));
-				entryMax = Max(entryMax, Max(oL, oR));
-				hasEntry = true;
-			}
-			if (!hasEntry) { continue; }
-
-			const double lineY = edge->useElevation
-				? pos.y + kRoadLineLift
-				: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
-
-			const Vec3 p0{ pos.x + right.x * entryMin, lineY, pos.z + right.z * entryMin };
-			const Vec3 p1{ pos.x + right.x * entryMax, lineY, pos.z + right.z * entryMax };
-			appendStraightLine(stopBatches, p0, p1, 0.3f, ColorF{ 1.0, 1.0, 1.0 });
-		}
-		m_stopLineCache[nodeId] = std::move(stopBatches);
-	}
+		m_stopLineCache[nodeId] = buildStopLineBatches(network, nodeId, world);
 
 	for (const auto& b : m_stopLineCache[nodeId])
-	{
 		b.mesh.draw(b.color);
-	}
 
 	// 路面標示矢印（近距離のみ）
 	if (isClose)
@@ -918,7 +861,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 		const Vec2 tanNorm = tanXZ / tanLen;
 		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
 
-		const Vec3 right = calcRight(capTan);
+		const Vec3 right = tangentToRight(capTan);
 		const double capY = edge->useElevation
 			? capPos.y + kRoadSurfaceLift
 			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z)) + kRoadSurfaceLift;
@@ -1259,6 +1202,64 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ノード境界の停止線生成
+// ─────────────────────────────────────────────────────────────────────────────
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStopLineBatches(
+	const RoadNetwork& network, int nodeId, const World& world) const
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node) return {};
+
+	Array<LaneLineBatch> batches;
+	for (const auto& att : node->attachments)
+	{
+		if (att.control != TrafficControl::Stop && att.control != TrafficControl::Signal)
+			continue;
+
+		const RoadEdge* edge = network.getEdge(att.edgeId);
+		if (!edge || !edge->isRoadbedBuilt()) continue;
+		const auto bez = network.getBezier(att.edgeId);
+		if (!bez) continue;
+
+		const bool isNodeA = (edge->nodeA == nodeId);
+		const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+		const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
+		const Vec3 pos = bez->positionAt(cutoffArc);
+		const Vec3 tan = bez->tangentAt(cutoffArc);
+		const Vec3 right = tangentToRight(tan);
+
+		// Entry 車線（ノードに進入する方向）のオフセット範囲を求める
+		float entryMin = 1e9f, entryMax = -1e9f;
+		bool hasEntry = false;
+		for (const auto& lane : edge->lanes)
+		{
+			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+			const bool enters =
+				(lane.dir == LaneDir::Forward  && edge->nodeB == nodeId) ||
+				(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
+			if (!enters) continue;
+
+			const float oL = isNodeA ? lane.offsetA_L : lane.offsetB_L;
+			const float oR = isNodeA ? lane.offsetA_R : lane.offsetB_R;
+			entryMin = Min(entryMin, Min(oL, oR));
+			entryMax = Max(entryMax, Max(oL, oR));
+			hasEntry = true;
+		}
+		if (!hasEntry) continue;
+
+		const double lineY = edge->useElevation
+			? pos.y + kRoadLineLift
+			: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
+
+		const Vec3 p0{ pos.x + right.x * entryMin, lineY, pos.z + right.z * entryMin };
+		const Vec3 p1{ pos.x + right.x * entryMax, lineY, pos.z + right.z * entryMax };
+		appendStraightLine(batches, p0, p1, 0.3f, ColorF{ 1.0, 1.0, 1.0 });
+	}
+	return batches;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Joint (Blend) ノードの車線区画線
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1528,7 +1529,7 @@ bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World&
 
 	const Vec3 roadPos = bezier.positionAt(arcLen);
 	const Vec3 rawTan  = bezier.tangentAt(arcLen);
-	const Vec3 right   = calcRight(rawTan);
+	const Vec3 right   = tangentToRight(rawTan);
 
 	const double anchorX = roadPos.x + right.x * static_cast<double>(lateralOffset);
 	const double anchorZ = roadPos.z + right.z * static_cast<double>(lateralOffset);
@@ -1765,7 +1766,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneArrowMeshes(
 			// 配置位置・向きを計算（レーン中心線）
 			const Vec3 centerPos = bez->positionAt(arcCenter);
 			const Vec3 rawTan = bez->tangentAt(arcCenter);
-			const Vec3 right = calcRight(rawTan);
+			const Vec3 right = tangentToRight(rawTan);
 			// 進行方向単位ベクトル: Forward なら +tangent, Backward なら -tangent
 			const Vec3 forward = (lane.dir == LaneDir::Forward) ? rawTan : -rawTan;
 			const double fLen = Math::Sqrt(forward.x * forward.x + forward.z * forward.z);
@@ -1902,7 +1903,7 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 		const Vec2 tanNorm = tanXZ / tanLen;
 		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
 
-		const Vec3  right    = calcRight(capTan);
+		const Vec3  right    = tangentToRight(capTan);
 		const double capY = edge->useElevation
 			? capPos.y + kRoadSurfaceLift + static_cast<double>(heightOffset)
 			: world.computeHeight(static_cast<float>(capPos.x), static_cast<float>(capPos.z))
@@ -2053,20 +2054,44 @@ const Mesh* RoadRenderer::getSignalMesh(const String& defId, const String& meshN
 // 信号機描画
 // ---------------------------------------------------------------------------
 
+// =============================================================================
+// 信号描画ヘルパー
+// =============================================================================
+
+HashTable<int, RoadRenderer::EdgeSignalSummary>
+RoadRenderer::buildEdgeSignalSummaries(const RoadNode& node,
+                                        const SimGraph& simGraph,
+                                        const TrafficLight* tl)
+{
+	HashTable<int, EdgeSignalSummary> summaries;
+	for (const auto& conn : node.laneConnections)
+	{
+		const TurnType turn = TrafficCommon::classifyTurn(simGraph, conn);
+		if (turn == TurnType::UTurn) continue;  // 描画上は無視
+
+		const bool connGreen = tl ? tl->isGreen(conn.id) : true;
+		EdgeSignalSummary& sum = summaries[conn.fromEdgeId];
+		switch (turn)
+		{
+		case TurnType::Straight: sum.hasStraight = true; if (connGreen) sum.straightGreen = true; break;
+		case TurnType::Left:     sum.hasLeft     = true; if (connGreen) sum.leftGreen     = true; break;
+		case TurnType::Right:    sum.hasRight    = true; if (connGreen) sum.rightGreen    = true; break;
+		default: break;
+		}
+	}
+	return summaries;
+}
+
+// =============================================================================
+// 信号機描画
+// =============================================================================
+
 void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGraph,
                                const World& world,
                                const HashTable<int, TrafficLight>& trafficLights,
                                GameTime gameNow, Vec3 cameraPos)
 {
 	constexpr double kSignalDrawMaxDistSq = 800.0 * 800.0;
-
-	// 進入エッジ単位の信号状態サマリー
-	struct EdgeSignalSummary
-	{
-		bool hasStraight = false, straightGreen = false;
-		bool hasLeft     = false, leftGreen     = false;
-		bool hasRight    = false, rightGreen    = false;
-	};
 
 	for (const auto& node : network.nodes())
 	{
@@ -2093,27 +2118,13 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGr
 
 		const bool elevated = network.isNodeElevated(node.id);
 
-		// この交差点の LaneConnection を進入エッジ別 × 旋回別に 1 度だけ集計する。
-		// attachments ループの中で繰り返し計算しないようここで作る。
+		// この交差点の LaneConnection を進入エッジ別 × 旋回別に集計する。
+		// attachments ループの中で繰り返し計算しないようここで一度だけ作る。
 		const auto tlIt = trafficLights.find(node.id);
 		const TrafficLight* tl = (tlIt != trafficLights.end()) ? &tlIt->second : nullptr;
 
-		HashTable<int, EdgeSignalSummary> edgeSummaries;
-		for (const auto& conn : node.laneConnections)
-		{
-			const TurnType turn = TrafficCommon::classifyTurn(simGraph, conn);
-			if (turn == TurnType::UTurn) continue;  // 描画上は無視
-
-			const bool connGreen = tl ? tl->isGreen(conn.id) : true;
-			EdgeSignalSummary& sum = edgeSummaries[conn.fromEdgeId];
-			switch (turn)
-			{
-			case TurnType::Straight: sum.hasStraight = true; if (connGreen) sum.straightGreen = true; break;
-			case TurnType::Left:     sum.hasLeft     = true; if (connGreen) sum.leftGreen     = true; break;
-			case TurnType::Right:    sum.hasRight    = true; if (connGreen) sum.rightGreen    = true; break;
-			default: break;
-			}
-		}
+		const HashTable<int, EdgeSignalSummary> edgeSummaries =
+			buildEdgeSignalSummaries(node, simGraph, tl);
 
 		for (const auto& att : node.attachments)
 		{
@@ -2141,9 +2152,7 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGr
 			const float yaw = static_cast<float>(Math::Atan2(faceDir.x, faceDir.z));
 
 			// 右方向ベクトル（ベジェ接線基準、A→B 方向の右が正）
-			const Vec3 right{ tan.z, 0.0, -tan.x };
-			const double rLen = right.length();
-			const Vec3 rn = (rLen > 1e-6) ? right / rLen : Vec3{ 1, 0, 0 };
+			const Vec3 rn = tangentToRight(tan);
 
 			// 進入車線側の Roadbed 端オフセット
 			const bool entryOnRight = !isNodeA;

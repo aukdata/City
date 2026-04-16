@@ -287,83 +287,89 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		// 車両 -> ノード -> エッジの優先順でクリック判定
 		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
+			handleSelectionClick();
+	}
+}
+
+// =============================================================================
+// 通常モード クリック選択処理
+// =============================================================================
+
+void GameScene::handleSelectionClick()
+{
+	// 車両 -> ノード -> エッジの優先順でクリック判定
+	Optional<int> hitVehicleId;
+	{
+		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+		double bestDist = 1e9;
+		for (const auto& v : m_renderVehicles)
 		{
-			Optional<int> hitVehicleId;
+			const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
+			const Vec3 center = v.position + Vec3{ 0, size.y / 2, 0 };
+			const Quaternion rot = Quaternion::RotateY(v.heading);
+			const OrientedBox box{ center, size, rot };
+			if (const auto d = box.intersects(ray))
 			{
-				const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
-				double bestDist = 1e9;
-				for (const auto& v : m_renderVehicles)
+				if (*d < bestDist)
 				{
-					const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
-					const Vec3 center = v.position + Vec3{ 0, size.y / 2, 0 };
-					const Quaternion rot = Quaternion::RotateY(v.heading);
-					const OrientedBox box{ center, size, rot };
-					if (const auto d = box.intersects(ray))
-					{
-						if (*d < bestDist)
-						{
-							bestDist = *d;
-							hitVehicleId = v.id;
-						}
-					}
-				}
-			}
-
-			if (hitVehicleId)
-			{
-				m_selectedVehicleId = hitVehicleId;
-				m_selectedEdgeId = none;
-				m_selectedNodeId = none;
-				m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
-					panelRightPos(U"vehicle_info"));
-				m_panelManager.hide(U"edge_info");
-				m_panelManager.hide(U"node_info");
-			}
-			else
-			{
-				if (m_selectedVehicleId)
-				{
-					m_selectedVehicleId = none;
-					m_trackingVehicle = false;
-					m_panelManager.hide(U"vehicle_info");
-				}
-
-				// 地上カーソルで検索
-				auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
-				Optional<int> hitEdge;
-				if (!hitNode)
-					hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
-
-				// 高架面とのレイ交差で追加検索
-				{
-					const auto elev = raycastElevated(Vec2{ Cursor::Pos() });
-					if (elev.nodeId) { hitNode = elev.nodeId; hitEdge = none; }
-					else if (!hitNode && elev.edgeId) { hitEdge = elev.edgeId; }
-				}
-
-				if (hitNode)
-				{
-					m_selectedNodeId = hitNode;
-					m_selectedEdgeId = none;
-					m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
-						panelRightPos(U"node_info"));
-					m_panelManager.hide(U"edge_info");
-				}
-				else
-				{
-					m_selectedEdgeId = hitEdge;
-					m_selectedNodeId = none;
-					if (hitEdge)
-						m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
-							panelRightPos(U"edge_info"));
-					else
-						m_panelManager.hide(U"edge_info");
-					m_panelManager.hide(U"node_info");
+					bestDist = *d;
+					hitVehicleId = v.id;
 				}
 			}
 		}
+	}
+
+	if (hitVehicleId)
+	{
+		m_selectedVehicleId = hitVehicleId;
+		m_selectedEdgeId = none;
+		m_selectedNodeId = none;
+		m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
+			panelRightPos(U"vehicle_info"));
+		m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"node_info");
+		return;
+	}
+
+	if (m_selectedVehicleId)
+	{
+		m_selectedVehicleId = none;
+		m_trackingVehicle = false;
+		m_panelManager.hide(U"vehicle_info");
+	}
+
+	// 地上カーソルで検索
+	auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+	Optional<int> hitEdge;
+	if (!hitNode)
+		hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+
+	// 高架面とのレイ交差で追加検索
+	{
+		const auto elev = raycastElevated(Vec2{ Cursor::Pos() });
+		if (elev.nodeId) { hitNode = elev.nodeId; hitEdge = none; }
+		else if (!hitNode && elev.edgeId) { hitEdge = elev.edgeId; }
+	}
+
+	if (hitNode)
+	{
+		m_selectedNodeId = hitNode;
+		m_selectedEdgeId = none;
+		m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
+			panelRightPos(U"node_info"));
+		m_panelManager.hide(U"edge_info");
+	}
+	else
+	{
+		m_selectedEdgeId = hitEdge;
+		m_selectedNodeId = none;
+		if (hitEdge)
+			m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+				panelRightPos(U"edge_info"));
+		else
+			m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"node_info");
 	}
 }
 

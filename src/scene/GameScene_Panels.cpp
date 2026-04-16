@@ -1506,3 +1506,82 @@ void GameScene::drawSignalEditPanel()
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"signal_edit", totalHeight);
 }
+
+// =============================================================================
+// ポーズメニュー (GameScene_Panels.cpp)
+// 注意: 描画だけでなく saveGame() / changeScene() / System::Exit() の呼び出しを含む。
+// UI 入力を受けて状態遷移を起こすため _Panels.cpp に配置する。
+// =============================================================================
+
+void GameScene::drawPauseMenu()
+{
+	const double sw = Scene::Width();
+	const double sh = Scene::Height();
+
+	// 半透明オーバーレイ
+	Scene::Rect().draw(ColorF{ 0.0, 0.0, 0.0, 0.6 });
+
+	// メニューパネル
+	constexpr double panelW = 320;
+	constexpr double panelH = 340;
+	const RectF panel{ (sw - panelW) / 2, (sh - panelH) / 2, panelW, panelH };
+	panel.rounded(8).draw(ColorF{ 0.12, 0.12, 0.15, 0.95 });
+	panel.rounded(8).drawFrame(1.0, ColorF{ 0.5, 0.5, 0.55, 0.6 });
+
+	// タイトル
+	const Font& font = SimpleGUI::GetFont();
+	font(U"PAUSED").drawAt(32, Vec2{ sw / 2, panel.y + 40 }, ColorF{ 0.9 });
+
+	// ボタン配置
+	constexpr double btnW = 240;
+	constexpr double btnH = 44;
+	constexpr double gap  = 12;
+	const double startY = panel.y + 90;
+	const double btnX = (sw - btnW) / 2;
+
+	struct MenuItem { String label; };
+	const Array<MenuItem> items =
+	{
+		{ U"ゲームに戻る" },
+		{ U"セーブ" },
+		{ U"設定" },
+		{ U"タイトルに戻る" },
+		{ U"ゲーム終了" },
+	};
+
+	for (int32 i = 0; i < static_cast<int32>(items.size()); ++i)
+	{
+		const RectF btn{ btnX, startY + i * (btnH + gap), btnW, btnH };
+		const bool hover = btn.mouseOver();
+
+		btn.rounded(4).draw(hover ? ColorF{ 0.35, 0.38, 0.45 } : ColorF{ 0.2, 0.22, 0.28 });
+		btn.rounded(4).drawFrame(1.0, hover ? ColorF{ 0.7, 0.75, 0.85 } : ColorF{ 0.4, 0.42, 0.48 });
+		font(items[i].label).drawAt(20, btn.center(), ColorF{ 0.92 });
+
+		if (hover && MouseL.down())
+		{
+			switch (i)
+			{
+			case 0: // ゲームに戻る
+				m_showPauseMenu = false;
+				break;
+
+			case 1: // セーブ
+				saveGame();
+				break;
+
+			case 2: // 設定（仮）
+				break;
+
+			case 3: // タイトルに戻る
+				m_showPauseMenu = false;
+				changeScene(SceneState::Title, 0s);
+				break;
+
+			case 4: // ゲーム終了
+				System::Exit();
+				break;
+			}
+		}
+	}
+}

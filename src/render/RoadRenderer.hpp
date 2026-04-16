@@ -111,6 +111,9 @@ private:
 	/// @brief ノードキャップ上の車線区画線を生成する
 	Array<LaneLineBatch> buildNodeCapLaneLines(const RoadNetwork& network, int nodeId, const World& world) const;
 
+	/// @brief ノード境界の停止線メッシュ配列を生成する（Stop / Signal 制御の Entry 側のみ）
+	Array<LaneLineBatch> buildStopLineBatches(const RoadNetwork& network, int nodeId, const World& world) const;
+
 	/// @brief Joint (Blend) ノードの車線区画線を生成する
 	Array<LaneLineBatch> buildJointBlendLaneLines(const RoadNetwork& network, int nodeId,
 	                                              const RoadNode& node, const World& world) const;
@@ -171,6 +174,24 @@ private:
 	void eraseNodeCaches(int nodeId);
 
 	// ---- 信号描画ヘルパー ----
+
+	/// @brief 1交差点分の進入エッジ別・旋回別信号状態サマリー
+	struct EdgeSignalSummary
+	{
+		bool hasStraight = false, straightGreen = false;
+		bool hasLeft     = false, leftGreen     = false;
+		bool hasRight    = false, rightGreen    = false;
+	};
+
+	/// @brief 交差点の LaneConnection を進入エッジ別 × 旋回別に集計する
+	/// @param node          対象ノード
+	/// @param simGraph      旋回分類用 SimGraph
+	/// @param tl            交通信号（nullptr なら全方向青扱い）
+	/// @return edgeId → EdgeSignalSummary のテーブル
+	static HashTable<int, EdgeSignalSummary> buildEdgeSignalSummaries(
+		const RoadNode& node,
+		const SimGraph& simGraph,
+		const TrafficLight* tl);
 
 	/// @brief 信号メッシュキャッシュ（メッシュ名 → Mesh）
 	struct SignalMeshCache

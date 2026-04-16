@@ -13,15 +13,50 @@ namespace
 		{
 			const Lane& ln = edge.lanes[laneIdx];
 			const float ft = (bez.totalLength > 0.0f) ? (ca / bez.totalLength) : 0.0f;
-			const float centerA = (ln.offsetA_L + ln.offsetA_R) * 0.5f;
-			const float centerB = (ln.offsetB_L + ln.offsetB_R) * 0.5f;
-			const float off = centerA + (centerB - centerA) * ft;
-			const Vec3 perp{ tan.z, 0.0, -tan.x };
-			const double pl = perp.length();
-			if (pl > 0.001) pos += (perp / pl) * static_cast<double>(off);
+			const float off = ln.centerAt(ft);
+			const Vec3 perp = tangentToRight(tan);
+			pos += perp * static_cast<double>(off);
 		}
 		return pos;
 	}
+}
+
+// =============================================================================
+// メイン描画エントリポイント
+// =============================================================================
+
+// =============================================================================
+// 空・太陽パラメータ計算
+// =============================================================================
+
+GameScene::SkyParams GameScene::calcSkyParams() const
+{
+	SkyParams p;
+	const float hour = m_clock.hour;
+	p.t     = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
+	p.sinT  = static_cast<float>(Math::Sin(p.t));
+	p.dayF  = Clamp(p.sinT, 0.0f, 1.0f);
+	p.dawnF = Clamp(1.0f - Abs(p.sinT) * 2.5f, 0.0f, 1.0f);
+	p.exposure = 0.15 + 0.85 * p.dayF + 0.30 * p.dawnF;
+	return p;
+}
+
+// =============================================================================
+// パフォーマンス統計記録
+// =============================================================================
+
+void GameScene::pushPerfStats()
+{
+	MainFrameStats mf;
+	mf.lockWait = m_lockWaitMs;
+	mf.sky      = m_renderTimings.sky;
+	mf.terrain  = m_renderTimings.terrain;
+	mf.road     = m_renderTimings.road;
+	mf.zone     = m_renderTimings.zone;
+	mf.vehicle  = m_renderTimings.vehicle;
+	mf.train    = m_renderTimings.train;
+	mf.debugUI  = m_renderTimings.debug + m_renderTimings.ui;
+	m_mainPerfHistory.push(mf);
 }
 
 // =============================================================================
@@ -34,13 +69,7 @@ void GameScene::renderWorld()
 	const Stopwatch swTotal{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = swStep.msF(); swStep.restart(); };
 
-	// 太陽・空のパラメータ計算
-	const float hour = m_clock.hour;
-	const float t    = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
-	const float sinT  = static_cast<float>(Math::Sin(t));
-	const float dayF  = Clamp(sinT, 0.0f, 1.0f);
-	const float dawnF = Clamp(1.0f - Abs(sinT) * 2.5f, 0.0f, 1.0f);
-	const double exposure = 0.15 + 0.85 * dayF + 0.30 * dawnF;
+	const SkyParams sky = calcSkyParams();
 
 	// 国道標識テクスチャ合成（3D シーン前・2D パイプライン有効時）
 	m_roadRenderer.prepareRouteSignTextures(m_network);
@@ -52,23 +81,23 @@ void GameScene::renderWorld()
 
 		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
-		const Vec3 sunDir = Vec3{ Math::Cos(t), sinT, 0.3 }.normalized();
+		const Vec3 sunDir = Vec3{ Math::Cos(sky.t), sky.sinT, 0.3 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * dayF + 0.10 * dawnF });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * sky.dayF + 0.10 * sky.dawnF });
 
 		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
 		const ColorF dawnZenith { 0.22, 0.18, 0.38 };
 		const ColorF nightZenith{ 0.01, 0.02, 0.07 };
-		m_sky.zenithColor = nightZenith.lerp(dawnZenith, dawnF).lerp(dayZenith, dayF);
+		m_sky.zenithColor = nightZenith.lerp(dawnZenith, sky.dawnF).lerp(dayZenith, sky.dayF);
 
 		const ColorF dayHorizon  { 0.60, 0.78, 0.95 };
 		const ColorF dawnHorizon { 0.85, 0.42, 0.15 };
 		const ColorF nightHorizon{ 0.02, 0.03, 0.10 };
-		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, dawnF).lerp(dayHorizon, dayF);
+		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, sky.dawnF).lerp(dayHorizon, sky.dayF);
 
-		m_sky.starBrightness = Clamp(1.0 - dayF * 3.0 - dawnF * 2.0, 0.0, 1.0);
+		m_sky.starBrightness = Clamp(1.0 - sky.dayF * 3.0 - sky.dawnF * 2.0, 0.0, 1.0);
 		m_sky.cloudTime = Scene::Time() * 0.015;
-		m_sky.draw(exposure);
+		m_sky.draw(sky.exposure);
 		lap(m_renderTimings.sky);
 
 		renderScene3D();
@@ -100,19 +129,7 @@ void GameScene::renderWorld()
 	lap(m_renderTimings.ui);
 	m_renderTimings.total = swTotal.msF();
 
-	// パフォーマンスリングバッファに push
-	{
-		MainFrameStats mf;
-		mf.lockWait = m_lockWaitMs;
-		mf.sky      = m_renderTimings.sky;
-		mf.terrain  = m_renderTimings.terrain;
-		mf.road     = m_renderTimings.road;
-		mf.zone     = m_renderTimings.zone;
-		mf.vehicle  = m_renderTimings.vehicle;
-		mf.train    = m_renderTimings.train;
-		mf.debugUI  = m_renderTimings.debug + m_renderTimings.ui;
-		m_mainPerfHistory.push(mf);
-	}
+	pushPerfStats();
 
 	m_debugRenderer.renderProfiler(m_renderTimings.total, m_logicMs,
 	                               m_renderTimings.sky, m_renderTimings.terrain,
@@ -212,11 +229,9 @@ void GameScene::renderSelectionHighlights()
 
 					const Vec3 pos = bez->positionAt(cutoffArc);
 					const Vec3 tan = bez->tangentAt(cutoffArc);
-					const float centerA = (lane.offsetA_L + lane.offsetA_R) * 0.5f;
-					const float centerB = (lane.offsetB_L + lane.offsetB_R) * 0.5f;
 					const float ft = (bez->totalLength > 0.0f) ? (cutoffArc / bez->totalLength) : 0.0f;
-					const float off = centerA + (centerB - centerA) * ft;
-					const Vec3 perp = Vec3{ tan.z, 0.0, -tan.x }.normalized();
+					const float off = lane.centerAt(ft);
+					const Vec3 perp = tangentToRight(tan);
 					Vec3 world = pos + perp * static_cast<double>(off);
 					world.y = edge->useElevation
 						? pos.y + 4.0
@@ -520,75 +535,3 @@ void GameScene::render2DUI()
 		drawPauseMenu();
 }
 
-void GameScene::drawPauseMenu()
-{
-	const double sw = Scene::Width();
-	const double sh = Scene::Height();
-
-	// 半透明オーバーレイ
-	Scene::Rect().draw(ColorF{ 0.0, 0.0, 0.0, 0.6 });
-
-	// メニューパネル
-	constexpr double panelW = 320;
-	constexpr double panelH = 340;
-	const RectF panel{ (sw - panelW) / 2, (sh - panelH) / 2, panelW, panelH };
-	panel.rounded(8).draw(ColorF{ 0.12, 0.12, 0.15, 0.95 });
-	panel.rounded(8).drawFrame(1.0, ColorF{ 0.5, 0.5, 0.55, 0.6 });
-
-	// タイトル
-	const Font& font = SimpleGUI::GetFont();
-	font(U"PAUSED").drawAt(32, Vec2{ sw / 2, panel.y + 40 }, ColorF{ 0.9 });
-
-	// ボタン配置
-	constexpr double btnW = 240;
-	constexpr double btnH = 44;
-	constexpr double gap  = 12;
-	const double startY = panel.y + 90;
-	const double btnX = (sw - btnW) / 2;
-
-	struct MenuItem { String label; };
-	const Array<MenuItem> items =
-	{
-		{ U"ゲームに戻る" },
-		{ U"セーブ" },
-		{ U"設定" },
-		{ U"タイトルに戻る" },
-		{ U"ゲーム終了" },
-	};
-
-	for (int32 i = 0; i < static_cast<int32>(items.size()); ++i)
-	{
-		const RectF btn{ btnX, startY + i * (btnH + gap), btnW, btnH };
-		const bool hover = btn.mouseOver();
-
-		btn.rounded(4).draw(hover ? ColorF{ 0.35, 0.38, 0.45 } : ColorF{ 0.2, 0.22, 0.28 });
-		btn.rounded(4).drawFrame(1.0, hover ? ColorF{ 0.7, 0.75, 0.85 } : ColorF{ 0.4, 0.42, 0.48 });
-		font(items[i].label).drawAt(20, btn.center(), ColorF{ 0.92 });
-
-		if (hover && MouseL.down())
-		{
-			switch (i)
-			{
-			case 0: // ゲームに戻る
-				m_showPauseMenu = false;
-				break;
-
-			case 1: // セーブ
-				saveGame();
-				break;
-
-			case 2: // 設定（仮）
-				break;
-
-			case 3: // タイトルに戻る
-				m_showPauseMenu = false;
-				changeScene(SceneState::Title, 0s);
-				break;
-
-			case 4: // ゲーム終了
-				System::Exit();
-				break;
-			}
-		}
-	}
-}
