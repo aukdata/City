@@ -112,6 +112,7 @@ struct Vehicle
 	int          routeIdx       = 0;     ///< 次に使うウェイポイントのインデックス
 	int          goalEdgeId     = -1;    ///< 目的地エッジ id
 	bool         routeRequested = false; ///< RouteRequest 送信済みフラグ
+	int          routeFailCount = 0;     ///< 経路探索連続失敗回数
 
 	// Active / Dormant モード
 	VehicleMode  mode             = VehicleMode::Active;

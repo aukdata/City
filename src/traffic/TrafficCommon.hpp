@@ -236,7 +236,7 @@ namespace TrafficCommon
 		constexpr float kCos45 = 0.70710678f;
 		if (dot >=  kCos45) return TurnType::Straight;
 		if (dot <= -kCos45) return TurnType::UTurn;
-		return (cross > 0.0f) ? TurnType::Left : TurnType::Right;
+		return (cross > 0.0f) ? TurnType::Right : TurnType::Left;
 	}
 
 	/// @brief LaneConnection を旋回種別に分類する（SimGraph 版）

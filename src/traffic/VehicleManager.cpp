@@ -109,11 +109,16 @@ void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 		{
 			v.routeWaypoints = resp.waypoints;
 			v.routeIdx = 0;
+			v.routeFailCount = 0;
 		}
 		else
 		{
-			// 経路探索失敗 → ゴールをリセットして次フレームで別ゴールを再試行
-			v.goalEdgeId = -1;
+			// 経路探索失敗 → 5回連続失敗で削除、そうでなければゴールをリセットして再試行
+			++v.routeFailCount;
+			if (v.routeFailCount >= 5)
+				v.currentEdge = -1;
+			else
+				v.goalEdgeId = -1;
 		}
 		break;
 	}
