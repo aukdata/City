@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <future>
 #include <atomic>
 #include "SceneCommon.hpp"
@@ -134,13 +134,26 @@ private:
 	int             m_followVehicleIdx = 0;
 
 	// 選択状態（道路・付帯設備を統合）
-	enum class SelectionKind { None, Edge, Node, GuideSign, Signal };
+	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building };
 	struct Selection {
 		SelectionKind kind = SelectionKind::None;
 		int id = -1;
 		void clear() { kind = SelectionKind::None; id = -1; }
 	};
 	Selection m_selection;
+
+	/// @brief 建物の一意識別子（チャンク座標 + ゾーンセル座標）
+	struct BuildingRef
+	{
+		int chunkX = 0;
+		int chunkZ = 0;
+		int col    = 0;
+		int row    = 0;
+	};
+	Optional<BuildingRef> m_selectedBuilding;
+
+	/// @brief 道路路線選択（Edge/Node 選択と独立に保持）
+	Optional<int> m_selectedRouteId;
 
 	// 既存コードとの互換ヘルパー
 	Optional<int> selectedEdgeId() const
@@ -151,11 +164,14 @@ private:
 	{
 		return (m_selection.kind == SelectionKind::Node) ? Optional<int>{m_selection.id} : none;
 	}
+	Optional<int> selectedRouteId() const { return m_selectedRouteId; }
 	void selectEdge(int id)   { m_selection = { SelectionKind::Edge, id }; }
 	void selectNode(int id)   { m_selection = { SelectionKind::Node, id }; }
 	void selectGuideSign(int id) { m_selection = { SelectionKind::GuideSign, id }; }
 	void selectSignal(int nodeId) { m_selection = { SelectionKind::Signal, nodeId }; }
-	void clearSelection()     { m_selection.clear(); }
+	void selectBuilding(BuildingRef ref) { m_selection = { SelectionKind::Building, 0 }; m_selectedBuilding = ref; }
+	void selectRoute(int id)  { m_selectedRouteId = id; }
+	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedBuilding = none; }
 	void recomputeGuideSignsAroundNode(int nodeId);
 
 	// 車両選択
@@ -253,6 +269,9 @@ private:
 	/// @brief 指定位置に最も近い信号機ノード ID を返す（signalPlacement を持つノードのみ）
 	Optional<int> findSignalAt(Vec3 pos, float radius) const;
 
+	/// @brief カメラからのレイに最も近い建物セルを返す（OBB レイキャスト）
+	Optional<BuildingRef> findBuildingAt(const Ray& ray) const;
+
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
 	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
@@ -313,8 +332,13 @@ private:
 	void drawNodePanel();
 	void drawSignalEditPanel();
 	void drawVehiclePanel();
+	void drawBuildingPanel();
 	void drawNameListPanel();
+	void drawRoutePanel();
 	void drawPauseMenu();
+
+	/// @brief 道路路線編集パネル用の名前テキスト編集状態
+	TextEditState m_routeNameEditState;
 
 	/// @brief 案内標識セクションを描画（edge_info パネル内、plan/21_guide_sign_spec.md）
 	/// @return 変更があったら true（呼び出し側でキャッシュ無効化）
