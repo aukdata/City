@@ -313,7 +313,7 @@ ui.row(4, [&] {
 
 ui.row(4, [&] {
     ui.label(U"Speed", ColorF{0.6});
-    if (ui.spin(edge->speedLimit, 10.f, 10.f, 200.f, U"{:.0f}", 44))
+    if (ui.numberInput(edge->speedLimit, 10.f, 10.f, 200.f, U"{:.0f}", 44))
         dirty = true;
     ui.label(U"km/h", ColorF{0.5});
 });
@@ -334,7 +334,8 @@ m_panelManager.reportContentHeight(U"edge_info", ui.height());
 | `label(text, color, bold)` | void | 読み取り専用テキスト |
 | `button(label, active, width, tooltip)` | bool | クリックされたら true |
 | `toggle(labelOn, labelOff, value&, width, tooltip)` | bool | 変化したら true |
-| `spin(value&, step, lo, hi, fmt, width)` | bool | 変化したら true。値を直接書き換え |
+| `numberInput(value&, step, lo, hi, fmt, width)` | bool | 変化したら true。ホイールで増減 / クリックでテキスト編集（TextEditState は内部で自動管理） |
+| `textInput(state&, width, maxChars)` | bool | 変化したら true。日本語 IME 対応 |
 | `cycle(value&, names, count, width, tooltip)` | bool | 変化したら true。値を直接書き換え |
 | `section(title, collapsed&, color)` | bool | 開いていれば true |
 | `spacer(height)` | void | 固定スペース |

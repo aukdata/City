@@ -151,7 +151,6 @@ Building 構造体の正式定義は `05_zoning_spec.md` を参照。
       type:        uint8,    // BuildingType enum（05参照）
       position:    {x, y, z},
       rotation:    float,    // ヨー角 [ラジアン]
-      growthStage: uint8,    // 成長段階
       builtYear:   int32,    // 建設ゲーム内年
       zoneType:    uint8,    // 建設時のゾーン種別
     }
