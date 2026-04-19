@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/PanelWidget.hpp"
 
 // =============================================================================
 // ヘルパー
@@ -77,6 +78,17 @@ GameScene::ElevatedHitResult GameScene::raycastElevated(Vec2 screenPos) const
 
 void GameScene::handleInput()
 {
+	// テキスト入力フォーカス中はゲーム入力を抑制（ESC のみ通す）
+	if (PanelWidget::activeTextInput != nullptr)
+	{
+		if (KeyEscape.down())
+		{
+			PanelWidget::activeTextInput->active = false;
+			PanelWidget::activeTextInput = nullptr;
+		}
+		return;
+	}
+
 	// ---- ESC: ポーズメニュートグル ----
 	if (KeyEscape.down())
 	{
@@ -85,7 +97,7 @@ void GameScene::handleInput()
 			m_showPauseMenu = false;
 		}
 		else if (m_mode != EditMode::None
-			|| m_selectedEdgeId || m_selectedNodeId)
+			|| m_selection.kind != SelectionKind::None)
 		{
 			if (m_mode != EditMode::None)
 			{
@@ -98,10 +110,11 @@ void GameScene::handleInput()
 				m_editingRouteId     = -1;
 				m_zoneManager.showOverlay = false;
 			}
-			m_selectedEdgeId = none;
-			m_selectedNodeId = none;
+			clearSelection();
 			m_panelManager.hide(U"edge_info");
 			m_panelManager.hide(U"node_info");
+			m_panelManager.hide(U"guide_sign_edit");
+			m_panelManager.hide(U"signal_edit");
 			m_panelManager.hide(U"draw_template");
 		}
 		else
@@ -249,14 +262,14 @@ void GameScene::handleInput()
 	}
 
 	// ノード選択中: PgUp/PgDown で Y 座標を上下移動
-	if (m_selectedNodeId)
+	if (selectedNodeId())
 	{
 		constexpr float kNodeYStep = 1.0f;
 		const bool up   = KeyPageUp.pressed();
 		const bool down = KeyPageDown.pressed();
 		if (up || down)
 		{
-			if (auto* node = m_network.getNode(*m_selectedNodeId))
+			if (auto* node = m_network.getNode(*selectedNodeId()))
 			{
 				const float dy = up ? kNodeYStep : -kNodeYStep;
 				node->position.y += dy;
@@ -266,7 +279,7 @@ void GameScene::handleInput()
 				{
 					if (auto* edge = m_network.getEdge(eid))
 					{
-						if (edge->nodeA == *m_selectedNodeId)
+						if (edge->nodeA == *selectedNodeId())
 							edge->ctrlA.y += dy;
 						else
 							edge->ctrlB.y += dy;
@@ -274,7 +287,7 @@ void GameScene::handleInput()
 					}
 				}
 
-				m_roadRenderer.invalidateCachesAroundNode(*m_selectedNodeId, m_network);
+				m_roadRenderer.invalidateCachesAroundNode(*selectedNodeId(), m_network);
 			}
 		}
 	}
@@ -287,7 +300,8 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
+		if (MouseL.down() && m_cursorGroundPos
+		    && !m_panelManager.isMouseOnAnyPanel() && !m_panelManager.consumedInput())
 			handleSelectionClick();
 	}
 }
@@ -323,8 +337,7 @@ void GameScene::handleSelectionClick()
 	if (hitVehicleId)
 	{
 		m_selectedVehicleId = hitVehicleId;
-		m_selectedEdgeId = none;
-		m_selectedNodeId = none;
+		clearSelection();
 		m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
 			panelRightPos(U"vehicle_info"));
 		m_panelManager.hide(U"edge_info");
@@ -339,7 +352,31 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"vehicle_info");
 	}
 
-	// 地上カーソルで検索
+	// ── 付帯設備（看板・信号）のヒットテスト（ノード/エッジより優先） ──
+	constexpr float kInfraHitRadius = 10.0f;
+	if (const auto hitGuideSignId = findGuideSignAt(*m_cursorGroundPos, kInfraHitRadius))
+	{
+		selectGuideSign(*hitGuideSignId);
+		m_guideSignEditor.open(*hitGuideSignId, m_network);
+		m_panelManager.show(U"guide_sign_edit",
+			U"案内標識 #{}"_fmt(*hitGuideSignId), Vec2{ 20, 100 });
+		m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"node_info");
+		m_panelManager.hide(U"signal_edit");
+		return;
+	}
+	if (const auto hitSignalNodeId = findSignalAt(*m_cursorGroundPos, kInfraHitRadius))
+	{
+		selectSignal(*hitSignalNodeId);
+		m_panelManager.show(U"signal_edit",
+			U"信号 N#{}"_fmt(*hitSignalNodeId), panelRightPos(U"signal_edit"));
+		m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"node_info");
+		m_panelManager.hide(U"guide_sign_edit");
+		return;
+	}
+
+	// 地上カーソルで検索（ノード・エッジ）
 	auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
 	Optional<int> hitEdge;
 	if (!hitNode)
@@ -354,22 +391,30 @@ void GameScene::handleSelectionClick()
 
 	if (hitNode)
 	{
-		m_selectedNodeId = hitNode;
-		m_selectedEdgeId = none;
+		selectNode(*hitNode);
 		m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
 			panelRightPos(U"node_info"));
 		m_panelManager.hide(U"edge_info");
+		m_panelManager.hide(U"guide_sign_edit");
+		m_panelManager.hide(U"signal_edit");
+		recomputeGuideSignsAroundNode(*hitNode);
+	}
+	else if (hitEdge)
+	{
+		selectEdge(*hitEdge);
+		m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+			panelRightPos(U"edge_info"));
+		m_panelManager.hide(U"node_info");
+		m_panelManager.hide(U"guide_sign_edit");
+		m_panelManager.hide(U"signal_edit");
 	}
 	else
 	{
-		m_selectedEdgeId = hitEdge;
-		m_selectedNodeId = none;
-		if (hitEdge)
-			m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
-				panelRightPos(U"edge_info"));
-		else
-			m_panelManager.hide(U"edge_info");
+		clearSelection();
+		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"node_info");
+		m_panelManager.hide(U"guide_sign_edit");
+		m_panelManager.hide(U"signal_edit");
 	}
 }
 
@@ -419,7 +464,8 @@ void GameScene::handleRoadDraw()
 	}
 
 	// ホイールクリック: 既存道路の構成をテンプレートにコピー
-	if (MouseM.down() && m_cursorGroundPos && !m_panelManager.isMouseOnAnyPanel())
+	if (MouseM.down() && m_cursorGroundPos
+	    && !m_panelManager.isMouseOnAnyPanel() && !m_panelManager.consumedInput())
 	{
 		auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
 		if (!hitEdge)
@@ -871,4 +917,48 @@ String GameScene::modeString() const
 	default:
 		return U"";
 	}
+}
+
+// =============================================================================
+// ヒットテストヘルパー（付帯設備）
+// =============================================================================
+
+Optional<int> GameScene::findGuideSignAt(Vec3 pos, float radius) const
+{
+	Optional<int> best;
+	float bestDistSq = radius * radius;
+	for (const auto& gs : m_network.guideSigns())
+	{
+		if (gs.id < 0) continue;
+		const RoadEdge* edge = m_network.getEdge(gs.parentEdgeId);
+		if (!edge) continue;
+		const auto bez = m_network.getBezier(gs.parentEdgeId);
+		if (!bez) continue;
+		const bool atA = (gs.nodeEndId == edge->nodeA);
+		const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
+		const float arc = atA
+			? (cutoff + gs.arcOffset)
+			: (bez->totalLength - cutoff - gs.arcOffset);
+		const Vec3 signPos = bez->positionAt(Clamp(arc, 0.0f, bez->totalLength));
+		const float dx = static_cast<float>(signPos.x - pos.x);
+		const float dz = static_cast<float>(signPos.z - pos.z);
+		const float d2 = dx * dx + dz * dz;
+		if (d2 < bestDistSq) { bestDistSq = d2; best = gs.id; }
+	}
+	return best;
+}
+
+Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
+{
+	Optional<int> best;
+	float bestDistSq = radius * radius;
+	for (const auto& node : m_network.nodes())
+	{
+		if (node.id < 0 || !node.signalPlacement) continue;
+		const float dx = static_cast<float>(node.position.x - pos.x);
+		const float dz = static_cast<float>(node.position.z - pos.z);
+		const float d2 = dx * dx + dz * dz;
+		if (d2 < bestDistSq) { bestDistSq = d2; best = node.id; }
+	}
+	return best;
 }
