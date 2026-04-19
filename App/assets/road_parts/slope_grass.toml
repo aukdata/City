@@ -9,7 +9,7 @@ height_offset = 0.0
 symmetric = true
 
 [material]
-texture = "../../textures/grass.png"
+texture = "../../terrain/grass.png"
 color = [0.45, 0.58, 0.35]
 
 [lod]
