@@ -70,6 +70,22 @@ public:
 	/// @brief 直近の render() で可視と判定されたエッジ ID の集合
 	const HashSet<int>& visibleEdges() const { return m_visibleEdges; }
 
+	/// @brief 選択アウトライン用: 指定エッジのシルエットを描画する（キャッシュ済みメッシュを単色で再利用）
+	void drawEdgeSilhouette(int edgeId, const RoadNetwork& network, const World& world,
+	                         const ColorF& color);
+
+	/// @brief 選択アウトライン用: 指定ノードキャップのシルエットを描画する
+	void drawNodeSilhouette(int nodeId, const RoadNetwork& network, const World& world,
+	                         const ColorF& color);
+
+	/// @brief 選択アウトライン用: 指定ノードの信号機のシルエットを描画する
+	void drawSignalSilhouette(int nodeId, const RoadNetwork& network, const World& world,
+	                           const ColorF& color);
+
+	/// @brief 選択アウトライン用: 指定 ID の案内標識のシルエットを描画する
+	void drawGuideSignSilhouette(int signId, const RoadNetwork& network, const World& world,
+	                              const ColorF& color);
+
 	void invalidateEdgeCache(int edgeId, int nodeA = -1, int nodeB = -1);
 	void invalidateAllCaches();
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
