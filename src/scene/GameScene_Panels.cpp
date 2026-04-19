@@ -2,6 +2,8 @@
 #include "../ui/PanelWidget.hpp"
 #include "../ui/PanelLayout.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../road/GuideSign.hpp"
+#include "../road/RoadSign.hpp"
 
 namespace
 {
@@ -567,9 +569,9 @@ void GameScene::drawNameListPanel()
 
 void GameScene::drawEdgePanel()
 {
-	if (!m_selectedEdgeId) return;
-	RoadEdge* edge = m_network.getEdge(*m_selectedEdgeId);
-	if (!edge) { m_selectedEdgeId = none; return; }
+	if (!selectedEdgeId()) return;
+	RoadEdge* edge = m_network.getEdge(*selectedEdgeId());
+	if (!edge) { clearSelection(); return; }
 
 	auto area = m_panelManager.beginContent(U"edge_info");
 	if (!area) return;
@@ -655,6 +657,9 @@ void GameScene::drawEdgePanel()
 		}
 	}
 
+	// 案内標識（plan/21_guide_sign_spec.md）
+	dirty |= drawGuideSignSection(ui, *edge);
+
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState edgeSectionState;
 	int y = ui.height();
@@ -668,6 +673,50 @@ void GameScene::drawEdgePanel()
 		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+	}
+}
+
+// =============================================================================
+// 案内標識編集セクション（drawEdgePanel から呼び出す）
+// =============================================================================
+
+bool GameScene::drawGuideSignSection(PanelBuilder& ui, RoadEdge& edge)
+{
+	return m_guideSignEditor.drawEdgeSection(ui, edge, m_network, m_panelManager, m_roadRenderer);
+}
+
+
+// =============================================================================
+// 看板編集パネル（GuideSignEditor へフォワード）
+// =============================================================================
+
+void GameScene::drawGuideSignEditPanel()
+{
+	const bool dirty = m_guideSignEditor.drawEditPanel(m_network, m_panelManager, m_roadRenderer);
+	if (dirty)
+	{
+		if (auto* gp = m_network.getGuideSign(m_guideSignEditor.editingId()))
+		{
+			const RoadEdge* edge = m_network.getEdge(gp->parentEdgeId);
+			if (edge) m_roadRenderer.invalidateEdgeCache(gp->parentEdgeId, edge->nodeA, edge->nodeB);
+			else      m_roadRenderer.invalidateAllCaches();
+		}
+	}
+}
+
+void GameScene::drawGuideSignEditorPanel()
+{
+	// close() が drawEditorPanel 内で呼ばれると editingId() が -1 になるため、先に取得する
+	const int editingId = m_guideSignEditor.editingId();
+	const bool dirty = m_guideSignEditor.drawEditorPanel(m_network, m_panelManager, m_roadRenderer);
+	if (dirty)
+	{
+		if (auto* gp = m_network.getGuideSign(editingId))
+		{
+			const RoadEdge* edge = m_network.getEdge(gp->parentEdgeId);
+			if (edge) m_roadRenderer.invalidateEdgeCache(gp->parentEdgeId, edge->nodeA, edge->nodeB);
+			else      m_roadRenderer.invalidateAllCaches();
+		}
 	}
 }
 
@@ -726,9 +775,9 @@ void GameScene::drawDrawTemplatePanel()
 
 void GameScene::drawNodePanel()
 {
-	if (!m_selectedNodeId) return;
-	RoadNode* node = m_network.getNode(*m_selectedNodeId);
-	if (!node) { m_selectedNodeId = none; return; }
+	if (!selectedNodeId()) return;
+	RoadNode* node = m_network.getNode(*selectedNodeId());
+	if (!node) { clearSelection(); return; }
 
 	auto area = m_panelManager.beginContent(U"node_info");
 	if (!area) return;
@@ -813,7 +862,7 @@ void GameScene::drawNodePanel()
 					if (PanelWidget::cycle(pFont, att.control, tcNames, 4, pX + 34, y, 52, kLH))
 					{
 						dirty = true;
-						notifyNetworkChanged({ *m_selectedNodeId });
+						notifyNetworkChanged({ *selectedNodeId() });
 					}
 				}
 				y += kLH;
@@ -846,7 +895,7 @@ void GameScene::drawNodePanel()
 	{
 		if (PanelWidget::button(pFont, U"Dissolve", false, pX, y, 80, kLH, U"Remove node and merge 2 edges into 1"))
 		{
-			const int nid = *m_selectedNodeId;
+			const int nid = *selectedNodeId();
 			// dissolve 前に隣接ノードを収集
 			Array<int> neighbors;
 			for (const auto& att : node->attachments)
@@ -859,7 +908,7 @@ void GameScene::drawNodePanel()
 			}
 			if (const auto newEdgeId = m_network.dissolveNode(nid))
 			{
-				m_selectedNodeId = none;
+				clearSelection();
 				notifyNetworkChanged(neighbors);
 				for (const int nid2 : neighbors)
 					m_roadRenderer.invalidateCachesAroundNode(nid2, m_network);
@@ -924,6 +973,17 @@ void GameScene::drawNodePanel()
 		// 矢印サブランプは LaneConnection の旋回分類から自動導出されるため UI 不要
 	}
 
+	// 案内標識セクション
+	{
+		y += 4;
+		PanelWidget::label(pBold, U"Guide Signs", pX, y, ColorF{ 0.4, 1.0, 0.6 });
+		if (PanelWidget::button(pFont, U"Set Signs", false, pX + 90, y, 80, kLH, U"この交差点の案内標識を再計算して設置"))
+		{
+			recomputeGuideSignsAroundNode(node->id);
+		}
+		y += kLH + 2;
+	}
+
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"node_info", y);
 
@@ -934,6 +994,58 @@ void GameScene::drawNodePanel()
 		for (const auto& att : node->attachments)
 			m_network.recomputeAutoSignsForEdge(att.edgeId);
 		m_roadRenderer.invalidateCachesAroundNode(node->id, m_network);
+	}
+}
+
+void GameScene::recomputeGuideSignsAroundNode(int nodeId)
+{
+	const RoadNode* node = m_network.getNode(nodeId);
+	if (!node)
+	{
+		return;
+	}
+
+	// 隣接するユニークなノード（self + 隣接ノード）をノード単位で処理する。
+	// チェーン探索により標識の parentEdgeId が隣接エッジまで伸びるケースがあり、
+	// エッジ単位で再計算すると後のエッジ処理が前のエッジで生成した標識を消してしまう。
+	HashSet<int> nodesToProcess;
+	nodesToProcess.insert(nodeId);
+	for (const auto& att : node->attachments)
+	{
+		const RoadEdge* edge = m_network.getEdge(att.edgeId);
+		if (!edge)
+		{
+			continue;
+		}
+		nodesToProcess.insert(edge->nodeA);
+		nodesToProcess.insert(edge->nodeB);
+	}
+	for (int nid : nodesToProcess)
+	{
+		m_network.recomputeAutoGuideSignsForNode(nid);
+	}
+
+	// 生成された標識の parentEdgeId が直接接続エッジ以外の場合もあるため、
+	// そのエッジの両端ノードのキャッシュも無効化する。
+	HashSet<int> edgesToInvalidate;
+	for (const auto& g : m_network.guideSigns())
+	{
+		if (g.id >= 0 && g.autoGenerated && g.parentEdgeId >= 0
+			&& nodesToProcess.contains(g.sourceNodeId))
+		{
+			edgesToInvalidate.insert(g.parentEdgeId);
+		}
+	}
+	m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network);
+	for (int eid : edgesToInvalidate)
+	{
+		const RoadEdge* e = m_network.getEdge(eid);
+		if (!e)
+		{
+			continue;
+		}
+		m_roadRenderer.invalidateCachesAroundNode(e->nodeA, m_network);
+		m_roadRenderer.invalidateCachesAroundNode(e->nodeB, m_network);
 	}
 }
 
@@ -980,11 +1092,11 @@ void GameScene::drawVehiclePanel()
 	ui.row(4, [&] {
 		ui.label(U"Goal Edge: {}"_fmt(veh->goalEdgeId), ColorF{1.0});
 		// 選択中エッジをゴールに設定するボタン
-		if (m_selectedEdgeId)
+		if (selectedEdgeId())
 		{
-			if (ui.button(U"Set E{}"_fmt(*m_selectedEdgeId), false, 70, U"Set selected edge as goal"))
+			if (ui.button(U"Set E{}"_fmt(*selectedEdgeId()), false, 70, U"Set selected edge as goal"))
 			{
-				m_vehicleManager.setGoalAndReroute(veh->id, *m_selectedEdgeId, *m_simGraph);
+				m_vehicleManager.setGoalAndReroute(veh->id, *selectedEdgeId(), *m_simGraph);
 			}
 		}
 	});
@@ -1379,8 +1491,12 @@ namespace
 
 void GameScene::drawSignalEditPanel()
 {
-	if (!m_selectedNodeId) { m_panelManager.hide(U"signal_edit"); return; }
-	RoadNode* node = m_network.getNode(*m_selectedNodeId);
+	// Signal 選択 or Node 選択どちらでも対応
+	const Optional<int> sigNodeId = (m_selection.kind == SelectionKind::Signal)
+		? Optional<int>{ m_selection.id }
+		: selectedNodeId();
+	if (!sigNodeId) { m_panelManager.hide(U"signal_edit"); return; }
+	RoadNode* node = m_network.getNode(*sigNodeId);
 	if (!node || !node->signalPlacement) { m_panelManager.hide(U"signal_edit"); return; }
 
 	auto area = m_panelManager.beginContent(U"signal_edit");
