@@ -1,4 +1,4 @@
-#include "GameScene.hpp"
+﻿#include "GameScene.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 #include <fstream>
 
@@ -130,6 +130,8 @@ void GameScene::renderWorld()
 	Graphics3D::Flush();
 	Shader::LinearToScreen(m_renderTexture);
 
+	renderSelectionOutline();
+
 	render2DUI();
 	lap(m_renderTimings.ui);
 	m_renderTimings.total = swTotal.msF();
@@ -240,8 +242,6 @@ void GameScene::renderSelectionHighlights()
 	{
 		if (const auto* node = m_network.getNode(*selectedNodeId()))
 		{
-			const bool nodeElev = m_network.isNodeElevated(*selectedNodeId());
-
 			// 接続車線の端点を球で表示
 			const int nodeId = *selectedNodeId();
 			for (const auto& att : node->attachments)
@@ -296,13 +296,20 @@ void GameScene::renderSelectionHighlights()
 					: ColorF{ 0.95, 0.2, 0.15, 0.7 }.removeSRGBCurve();
 				constexpr double kArrowLen = 1.5;
 				constexpr double kArrowRadius = 0.4;
+
+				// 接続元・接続先いずれかのエッジが useElevation の場合は高架扱い
+				const RoadEdge* fromEdge = m_network.getEdge(conn.fromEdgeId);
+				const RoadEdge* toEdge   = m_network.getEdge(conn.toEdgeId);
+				const bool connElev = (fromEdge && fromEdge->useElevation)
+				                   || (toEdge   && toEdge->useElevation);
+
 				for (int i = 0; i < kSegments; ++i)
 				{
 					const float s0 = conn.path.totalLength * static_cast<float>(i) / kSegments;
 					const float s1 = conn.path.totalLength * static_cast<float>(i + 1) / kSegments;
 					Vec3 p0 = conn.path.positionAt(s0);
 					Vec3 p1 = conn.path.positionAt(s1);
-					if (nodeElev)
+					if (connElev)
 					{
 						p0.y += 4.0;
 						p1.y += 4.0;
@@ -325,29 +332,85 @@ void GameScene::renderSelectionHighlights()
 		}
 	}
 
-	// 選択中の建物をハイライト（OrientedBox ワイヤーフレーム + 上空アイコン）
-	if (m_selectedBuilding)
+	// 建物の選択表示はアウトラインシェーダ (renderSelectionOutline) で行う
+}
+
+// =============================================================================
+// 選択オブジェクト アウトライン描画
+// =============================================================================
+
+void GameScene::renderSelectionOutline()
+{
+	if (not m_outlineMask) return;
+	if (not m_outlinePS) return;
+
+	// 選択対象が無ければ何もしない
+	const bool hasSelection = m_selectedBuilding || m_selectedVehicleId
+		|| m_selection.kind != SelectionKind::None;
+	if (!hasSelection) return;
+
+	const ColorF maskColor{ 1.0, 1.0, 1.0, 1.0 };
+
+	// --- 1) マスクテクスチャに選択オブジェクトを単色で描画（書き込み先を差し替えるだけ） ---
 	{
-		constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-		constexpr float footprint = 10.0f;
-		const auto& ref = *m_selectedBuilding;
-		if (const Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ }))
+		const ScopedRenderTarget3D target{ m_outlineMask.clear(ColorF{ 0, 0, 0, 0 }) };
+		const ScopedRenderStates3D depthState{ DepthStencilState::Default3D };
+
+		Graphics3D::SetCameraTransform(m_camera.camera3D());
+
+		// 建物
+		if (m_selectedBuilding)
 		{
-			const Building& b = chunk->buildingGrid[{ ref.col, ref.row }];
-			if (b.type != BuildingType::None)
+			if (const Chunk* chunk = m_world.getChunk(Point{ m_selectedBuilding->chunkX, m_selectedBuilding->chunkZ }))
+				m_worldRenderer.drawBuildingSilhouette(*chunk, m_world,
+					m_selectedBuilding->col, m_selectedBuilding->row, maskColor);
+		}
+
+		// 車両
+		if (m_selectedVehicleId)
+		{
+			for (const auto& v : m_renderVehicles)
 			{
-				const Vec3 origin = chunk->worldOrigin();
-				const float cx = static_cast<float>(origin.x + (ref.col + 0.5) * cellSize);
-				const float cz = static_cast<float>(origin.z + (ref.row + 0.5) * cellSize);
-				const float gy = m_world.sampleHeight(cx, cz);
-				const float h  = Max(buildingHeight(b.type), 1.0f);
-				const Vec3 center{ cx, gy + h * 0.5, cz };
-				const Vec3 size{ footprint + 0.6, h + 0.2, footprint + 0.6 };
-				const Quaternion rot = Quaternion::RotateY(b.angle);
-				const ColorF col = ColorF{ 1.0, 0.9, 0.1, 0.65 }.removeSRGBCurve();
-				OrientedBox{ center, size, rot }.drawFrame(col);
+				if (v.id == *m_selectedVehicleId)
+				{
+					m_vehicleRenderer.drawVehicleSilhouette(v, m_camera.camera3D().getEyePosition(), maskColor);
+					break;
+				}
 			}
 		}
+
+		// 道路系（Edge/Node/Signal/GuideSign）
+		switch (m_selection.kind)
+		{
+		case SelectionKind::Edge:
+			m_roadRenderer.drawEdgeSilhouette(m_selection.id, m_network, m_world, maskColor);
+			break;
+		case SelectionKind::Node:
+			m_roadRenderer.drawNodeSilhouette(m_selection.id, m_network, m_world, maskColor);
+			break;
+		case SelectionKind::Signal:
+			m_roadRenderer.drawSignalSilhouette(m_selection.id, m_network, m_world, maskColor);
+			break;
+		case SelectionKind::GuideSign:
+			m_roadRenderer.drawGuideSignSilhouette(m_selection.id, m_network, m_world, maskColor);
+			break;
+		default:
+			break;
+		}
+
+		Graphics3D::Flush();
+	}
+
+	// --- 2) 2D: アウトライン抽出シェーダでスクリーンに加算合成 ---
+	{
+		m_outlineCB->texelSize    = Float4{ 1.0f / m_outlineMask.width(), 1.0f / m_outlineMask.height(), 0, 0 };
+		m_outlineCB->outlineColor = Float4{ 1.0f, 0.85f, 0.1f, 1.0f };
+		m_outlineCB->outlineScale = Float4{ 6.0f, 0, 0, 0 };
+
+		Graphics2D::SetPSConstantBuffer(1, m_outlineCB);
+		const ScopedCustomShader2D shader{ m_outlinePS };
+		const ScopedRenderStates2D blend{ BlendState::Additive };
+		m_outlineMask.draw();
 	}
 }
 
