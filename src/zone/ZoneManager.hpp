@@ -1,4 +1,4 @@
-
+﻿
 #pragma once
 #include "Building.hpp"
 #include "../world/World.hpp"

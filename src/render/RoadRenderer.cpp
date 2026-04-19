@@ -1,4 +1,4 @@
-#include "RoadRenderer.hpp"
+﻿#include "RoadRenderer.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/RoadSign.hpp"
 #include "../road/ObjParser.hpp"
@@ -1832,7 +1832,7 @@ void RoadRenderer::drawSigns(const Array<SignDraw>& draws)
 	// ポール
 	for (const auto& signDraw : draws)
 	{
-		if (m_signPoleMesh) m_signPoleMesh->draw(signDraw.poleMat, RoadSign::kPoleColor);
+		if (m_signPoleMesh) m_signPoleMesh->draw(signDraw.poleMat, RoadSign::kPoleColor.removeSRGBCurve());
 	}
 
 	// 看板裏面: 灰色（前面ポリゴンをカリングして裏面のみ表示）
@@ -1842,7 +1842,7 @@ void RoadRenderer::drawSigns(const Array<SignDraw>& draws)
 		{
 			const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
 			if (!boardMesh) continue;
-			boardMesh->draw(signDraw.boardMat, ColorF{ 0.55 });
+			boardMesh->draw(signDraw.boardMat, ColorF{ 0.55 }.removeSRGBCurve());
 		}
 	}
 
@@ -2658,9 +2658,10 @@ void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 		const ColorF bg = (g.bgColor.a > 0.001)
 			? g.bgColor
 			: ColorF{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
-		// デフォルト format（R8G8B8A8_Unorm）を使い、HasMipMap なしでシンプルに
-		// （Test 検証の結果、HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
-		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg };
+		// SRGB format でサンプリング時に線形空間へ自動変換させる（ルート看板と色合いを合わせる）
+		// HasMipMap なし（Test 検証の結果、HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
+		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,
+		                  TextureFormat::R8G8B8A8_Unorm_SRGB };
 		{
 			const ScopedRenderTarget2D target{ rt };
 			const ScopedRenderStates2D blend{ BlendState::Default2D };
@@ -2737,6 +2738,149 @@ const Texture* RoadRenderer::getGuideSignCachedTexture(const GuideSignPlacement&
 	return nullptr;
 }
 
+// =============================================================================
+// 選択アウトライン用シルエット描画（書き込み先を差し替え、通常パスと同じメッシュ・変換で描画）
+// =============================================================================
+
+void RoadRenderer::drawEdgeSilhouette(int edgeId, const RoadNetwork& network, const World& world,
+                                       const ColorF& color)
+{
+	const RoadEdge* edge = network.getEdge(edgeId);
+	if (!edge) return;
+
+	// 必要ならキャッシュ構築
+	auto meshIt = m_partMeshCache.find(edgeId);
+	if (meshIt == m_partMeshCache.end())
+	{
+		const auto bez = network.getBezier(edgeId);
+		if (!bez) return;
+		const float mA = edgeMargin(*edge, edge->nodeA);
+		const float mB = edgeMargin(*edge, edge->nodeB);
+		auto entries = buildPartMeshes(*edge, *bez, world, mA, mB);
+		if (entries.isEmpty()) return;
+		meshIt = m_partMeshCache.emplace(edgeId, std::move(entries)).first;
+		m_marginCache[edgeId] = { mA, mB };
+	}
+
+	for (const auto& entry : meshIt->second)
+		entry.meshPair.detail.draw(color);
+
+	// 橋脚
+	if (edge->useElevation)
+	{
+		if (const auto it = m_pierMeshCache.find(edgeId); it != m_pierMeshCache.end())
+			for (const auto& m : it->second) m.draw(color);
+	}
+}
+
+void RoadRenderer::drawNodeSilhouette(int nodeId, const RoadNetwork& network, const World& world,
+                                       const ColorF& color)
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node || node->attachments.size() < 2) return;
+
+	if (!m_nodeCapCache.contains(nodeId))
+	{
+		auto entries = buildNodeCapParts(network, nodeId, world, 16);
+		if (entries.isEmpty()) return;
+		m_nodeCapCache.emplace(nodeId, std::move(entries));
+	}
+	const auto it = m_nodeCapCache.find(nodeId);
+	if (it == m_nodeCapCache.end()) return;
+	for (const auto& entry : it->second)
+		entry.meshPair.detail.draw(color);
+}
+
+void RoadRenderer::drawSignalSilhouette(int nodeId, const RoadNetwork& network, const World& world,
+                                         const ColorF& color)
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node || !node->signalPlacement) return;
+
+	const auto& sigPlacement = *node->signalPlacement;
+	const SignalDef* def = m_signalRegistry.getDef(sigPlacement.signalDefId);
+	if (!def) return;
+
+	const bool elevated = network.isNodeElevated(nodeId);
+	auto& geomCacheArr = m_signalAttachGeomCache[nodeId];
+	ensureSignalAttachGeomCache(*node, network, world, elevated, geomCacheArr);
+
+	for (size_t ai = 0; ai < node->attachments.size(); ++ai)
+	{
+		const auto& att = node->attachments[ai];
+		if (att.control != TrafficControl::Signal) continue;
+		if (ai >= geomCacheArr.size() || !geomCacheArr[ai].valid) continue;
+
+		const Mat4x4& baseMat = geomCacheArr[ai].baseMat;
+		if (const Mesh* bodyMesh = getSignalMesh(sigPlacement.signalDefId, def->bodyMeshName))
+			bodyMesh->draw(baseMat, color);
+		for (const auto& lampDef : def->lamps)
+		{
+			if (const Mesh* lampMesh = getSignalMesh(sigPlacement.signalDefId, lampDef.meshName))
+				lampMesh->draw(baseMat, color);
+		}
+		if (def->subLamp)
+		{
+			if (const Mesh* subMesh = getSignalMesh(sigPlacement.signalDefId, def->subLamp->meshName))
+				subMesh->draw(baseMat, color);
+		}
+	}
+}
+
+void RoadRenderer::drawGuideSignSilhouette(int signId, const RoadNetwork& network, const World& world,
+                                            const ColorF& color)
+{
+	const GuideSignPlacement* target = nullptr;
+	for (const auto& g : network.guideSigns())
+	{
+		if (g.id == signId) { target = &g; break; }
+	}
+	if (!target) return;
+
+	const RoadEdge* edge = network.getEdge(target->parentEdgeId);
+	if (!edge || !edge->isRoadbedBuilt()) return;
+	const auto bez = network.getBezier(target->parentEdgeId);
+	if (!bez) return;
+
+	const bool atA = (target->nodeEndId == edge->nodeA);
+	const bool atB = (target->nodeEndId == edge->nodeB);
+	if (!atA && !atB) return;
+
+	const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
+	const float arc = atA ? (cutoff + target->arcOffset)
+	                      : (bez->totalLength - cutoff - target->arcOffset);
+	const bool boardFacesTan = atA;
+
+	const auto bs = GuideSign::computeBoardSizeFor(*target);
+	const auto& meta = GuideSign::poleMetadata();
+
+	Mat4x4 poleMat, boardMat;
+	Vec3 poleTop;
+	if (!computeSignTransforms(*bez, world, arc, target->lateralOffset, boardFacesTan,
+	                           meta.offsetX, meta.offsetY, meta.offsetZ,
+	                           edge->useElevation, poleMat, boardMat, poleTop))
+		return;
+
+	if (not m_guidePoleMesh)
+	{
+		const MeshData md = GuideSign::CreatePoleMesh();
+		if (not md.vertices.isEmpty()) m_guidePoleMesh = Mesh{ md };
+	}
+	if (m_guidePoleMesh)
+	{
+		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
+		m_guidePoleMesh->draw(poleMat, color);
+	}
+
+	MeshData md = GuideSign::CreateBoardMesh(bs.width, bs.height);
+	if (!md.vertices.isEmpty())
+	{
+		const Mesh boardMesh{ md };
+		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
+		boardMesh.draw(boardMat, color);
+	}
+}
+
 void RoadRenderer::drawGuideSigns(const Array<GuideSignDraw>& draws)
 {
 	if (draws.isEmpty()) return;
@@ -2753,14 +2897,14 @@ void RoadRenderer::drawGuideSigns(const Array<GuideSignDraw>& draws)
 	{
 		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
 		for (const auto& d : draws)
-			m_guidePoleMesh->draw(d.poleMat, RoadSign::kPoleColor);
+			m_guidePoleMesh->draw(d.poleMat, RoadSign::kPoleColor.removeSRGBCurve());
 	}
 
 	// 看板裏面: 灰色（前面ポリゴンをカリングして裏面のみ表示）
 	{
 		const ScopedRenderStates3D states{ RasterizerState::SolidCullFront };
 		for (const auto& d : draws)
-			d.boardMesh.draw(d.boardMat, ColorF{ 0.55 });
+			d.boardMesh.draw(d.boardMat, ColorF{ 0.55 }.removeSRGBCurve());
 	}
 
 	// 看板前面: テクスチャ（裏面ポリゴンをカリングして前面のみ表示）

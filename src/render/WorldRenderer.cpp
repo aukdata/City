@@ -1,4 +1,4 @@
-#include "WorldRenderer.hpp"
+﻿#include "WorldRenderer.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
@@ -229,6 +229,107 @@ Model& WorldRenderer::getBuildingModel(uint8 idx)
 		Model::RegisterDiffuseTextures(m_buildingModels[idx], TextureDesc::MippedSRGB);
 	}
 	return m_buildingModels[idx];
+}
+
+Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const World& world,
+                                                     int col, int row)
+{
+	if (col < 0 || col >= ZONE_CELLS || row < 0 || row >= ZONE_CELLS) return none;
+	const Building& b = chunk.buildingGrid[{ col, row }];
+	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return none;
+
+	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	constexpr float footprint = 10.0f;
+	const Vec3 origin = chunk.worldOrigin();
+	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
+	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+
+	if (isResidential(b.type))
+	{
+		const float gy = world.sampleHeight(cx, cz);
+		const int gx = chunk.coord.x * ZONE_CELLS + col;
+		const int gz = chunk.coord.y * ZONE_CELLS + row;
+		Model& model = getBuildingModel(pickResidentialModel(b.type, gx, gz));
+		if (model.isEmpty()) return none;
+
+		const Box& lb = model.boundingBox();
+		const Vec3 localCenter = lb.center;
+		const Vec3 size = lb.size;
+		// drawCachedBuildings と同じ Mat4x4::RotateY → translate 変換を再現
+		const double cosA = Math::Cos(b.angle);
+		const double sinA = Math::Sin(b.angle);
+		const Vec3 worldCenter{
+			cx + localCenter.x * cosA + localCenter.z * sinA,
+			gy + localCenter.y,
+			cz - localCenter.x * sinA + localCenter.z * cosA
+		};
+		return OrientedBox{ worldCenter, size, Quaternion::RotateY(b.angle) };
+	}
+
+	const float height = buildingHeight(b.type);
+	if (height <= 0.0f) return none;
+	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
+	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ footprint, height, footprint },
+	                   Quaternion::RotateY(b.angle) };
+}
+
+void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& world,
+                                            int col, int row, const ColorF& color)
+{
+	if (col < 0 || col >= ZONE_CELLS || row < 0 || row >= ZONE_CELLS) return;
+	const Building& b = chunk.buildingGrid[{ col, row }];
+	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return;
+
+	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	constexpr float footprint = 10.0f;
+	const Vec3 origin = chunk.worldOrigin();
+	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
+	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+
+	if (isResidential(b.type))
+	{
+		const float gy = world.sampleHeight(cx, cz);
+		const int gx = chunk.coord.x * ZONE_CELLS + col;
+		const int gz = chunk.coord.y * ZONE_CELLS + row;
+		Model& model = getBuildingModel(pickResidentialModel(b.type, gx, gz));
+		if (model.isEmpty()) return;
+
+		const Mat4x4 worldMat = Mat4x4::RotateY(b.angle)
+			.translated(cx, gy, cz);
+		const Transformer3D transform{ worldMat };
+		for (const auto& obj : model.objects())
+		{
+			for (const auto& part : obj.parts)
+				part.mesh.draw(color);
+		}
+		return;
+	}
+
+	const float height = buildingHeight(b.type);
+	if (height <= 0.0f) return;
+	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
+
+	// rebuildBuildingMeshes と同じパイプライン（MeshData::Box + 頂点手動回転）で描画する
+	MeshData box = MeshData::Box(
+		Float3{ cx, cy, cz },
+		Float3{ footprint, height, footprint });
+	if (b.angle != 0.0f)
+	{
+		const float cosA = Math::Cos(b.angle);
+		const float sinA = Math::Sin(b.angle);
+		for (auto& v : box.vertices)
+		{
+			const float dx = v.pos.x - cx;
+			const float dz = v.pos.z - cz;
+			v.pos.x = cx + dx * cosA - dz * sinA;
+			v.pos.z = cz + dx * sinA + dz * cosA;
+			const float nx = v.normal.x;
+			const float nz = v.normal.z;
+			v.normal.x = nx * cosA - nz * sinA;
+			v.normal.z = nx * sinA + nz * cosA;
+		}
+	}
+	Mesh{ box }.draw(color);
 }
 
 void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
