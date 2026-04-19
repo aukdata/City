@@ -1,4 +1,4 @@
-﻿
+
 #include "ZoneManager.hpp"
 #include <cmath>
 
@@ -8,7 +8,6 @@ namespace
 {
 	constexpr float kCellSize       = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;  // 16.0f [m]
 	constexpr float kSpawnThreshold = 0.70f;  ///< 建物生成に必要な最低スコア
-	constexpr float kGrowThreshold  = 0.60f;  ///< 成長に必要なスコア
 	constexpr float kDecayThreshold = 0.10f;  ///< 衰退・撤去が起きるスコア上限
 	constexpr float kRoadClearance  = 10.0f;  ///< 道路と建物の最低クリアランス [m]
 
@@ -181,7 +180,6 @@ float ZoneManager::calcDevelopmentScore(Point chunkCoord, int cx, int cy,
 Building ZoneManager::spawnBuilding(ZoneType zone, double gameNow) const
 {
 	Building b;
-	b.stage   = 0;
 	b.builtAt = gameNow;
 
 	switch (zone)
@@ -207,37 +205,6 @@ Building ZoneManager::spawnBuilding(ZoneType zone, double gameNow) const
 		break;
 	}
 	return b;
-}
-
-int ZoneManager::maxStage(BuildingType t, [[maybe_unused]] ZoneType zone)
-{
-	switch (t)
-	{
-	case BuildingType::Detached:      return 2;
-	case BuildingType::LowApartment:  return 1;
-	case BuildingType::MidApartment:  return 1;
-	case BuildingType::Shop:          return 1;
-	case BuildingType::Office:        return 1;
-	case BuildingType::Factory:       return 1;
-	default:                          return 0;
-	}
-}
-
-bool ZoneManager::tryGrowBuilding(Building& b, ZoneType zone, float score) const
-{
-	if (score < kGrowThreshold) return false;
-	const int ms = maxStage(b.type, zone);
-	if (b.stage >= ms) return false;
-	b.stage++;
-	return true;
-}
-
-// ===== 月次更新 =====
-
-void ZoneManager::monthlyUpdate(World& /*world*/, const RoadNetwork& /*network*/,
-                                double /*gameNow*/, Economy& /*economy*/)
-{
-	// TODO: 空間インデックス導入後に再実装する
 }
 
 // ===== 統計 =====
