@@ -22,16 +22,14 @@ x64/
 # ただしアセット OBJ はリソースとして追跡する（ビルド中間ファイルではない）
 !App/assets/**/*.obj
 
-# Siv3D SDK 付属リソース（Siv3D インストールから復元可能）
-App/engine/
-App/example/
-App/dll/
-
 # Blender バックアップ
 *.blend1
 
-# セーブデータ
+# セーブデータ（大容量・可変のため除外）
 App/saves/
+
+# 実行ログ
+App/*.log
 
 # ドキュメント（外部参照用）
 manual/
