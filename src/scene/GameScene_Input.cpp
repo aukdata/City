@@ -1,4 +1,4 @@
-#include "GameScene.hpp"
+﻿#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
 
 // =============================================================================
@@ -1032,12 +1032,8 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 	return best;
 }
 
-Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray) const
+Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
 {
-	// WorldRenderer::rebuildBuildingMeshes と同じ配置式を使う（セルサイズ 16m / フットプリント 10m）
-	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	constexpr float footprint = 10.0f;
-
 	Optional<BuildingRef> best;
 	double bestDist = 1e9;
 
@@ -1058,20 +1054,9 @@ Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray) const
 		{
 			for (int col = 0; col < ZONE_CELLS; ++col)
 			{
-				const Building& b = chunk->buildingGrid[{ col, row }];
-				if (b.type == BuildingType::None || b.type == BuildingType::Farmland) continue;
-
-				const float height = buildingHeight(b.type);
-				if (height <= 0.0f) continue;
-
-				const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
-				const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
-				const float gy = m_world.sampleHeight(cx, cz);
-
-				const Vec3 center{ cx, gy + height * 0.5, cz };
-				const Vec3 size{ footprint, height, footprint };
-				const OrientedBox obox{ center, size, Quaternion::RotateY(b.angle) };
-				if (const auto d = obox.intersects(ray))
+				const auto obox = m_worldRenderer.buildingHitBox(*chunk, m_world, col, row);
+				if (!obox) continue;
+				if (const auto d = obox->intersects(ray))
 				{
 					if (*d < bestDist)
 					{
