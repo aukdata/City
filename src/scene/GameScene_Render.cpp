@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include <Siv3D/ViewFrustum.hpp>
+#include <fstream>
 
 namespace
 {
@@ -22,10 +23,6 @@ namespace
 }
 
 // =============================================================================
-// メイン描画エントリポイント
-// =============================================================================
-
-// =============================================================================
 // 空・太陽パラメータ計算
 // =============================================================================
 
@@ -33,11 +30,11 @@ GameScene::SkyParams GameScene::calcSkyParams() const
 {
 	SkyParams p;
 	const float hour = m_clock.hour;
-	p.t     = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
-	p.sinT  = static_cast<float>(Math::Sin(p.t));
-	p.dayF  = Clamp(p.sinT, 0.0f, 1.0f);
-	p.dawnF = Clamp(1.0f - Abs(p.sinT) * 2.5f, 0.0f, 1.0f);
-	p.exposure = 0.15 + 0.85 * p.dayF + 0.30 * p.dawnF;
+	p.timeAngle  = (hour - 6.0f) * static_cast<float>(Math::Pi / 12.0);
+	p.sinTime    = static_cast<float>(Math::Sin(p.timeAngle));
+	p.dayFactor  = Clamp(p.sinTime, 0.0f, 1.0f);
+	p.dawnFactor = Clamp(1.0f - Abs(p.sinTime) * 2.5f, 0.0f, 1.0f);
+	p.exposure   = 0.15 + 0.85 * p.dayFactor + 0.30 * p.dawnFactor;
 	return p;
 }
 
@@ -47,16 +44,16 @@ GameScene::SkyParams GameScene::calcSkyParams() const
 
 void GameScene::pushPerfStats()
 {
-	MainFrameStats mf;
-	mf.lockWait = m_lockWaitMs;
-	mf.sky      = m_renderTimings.sky;
-	mf.terrain  = m_renderTimings.terrain;
-	mf.road     = m_renderTimings.road;
-	mf.zone     = m_renderTimings.zone;
-	mf.vehicle  = m_renderTimings.vehicle;
-	mf.train    = m_renderTimings.train;
-	mf.debugUI  = m_renderTimings.debug + m_renderTimings.ui;
-	m_mainPerfHistory.push(mf);
+	MainFrameStats stats;
+	stats.lockWait = m_lockWaitMs;
+	stats.sky      = m_renderTimings.sky;
+	stats.terrain  = m_renderTimings.terrain;
+	stats.road     = m_renderTimings.road;
+	stats.zone     = m_renderTimings.zone;
+	stats.vehicle  = m_renderTimings.vehicle;
+	stats.train    = m_renderTimings.train;
+	stats.debugUI  = m_renderTimings.debug + m_renderTimings.ui;
+	m_mainPerfHistory.push(stats);
 }
 
 // =============================================================================
@@ -71,32 +68,40 @@ void GameScene::renderWorld()
 
 	const SkyParams sky = calcSkyParams();
 
+	double dbgRouteSign = 0, dbgGuideSign = 0, dbgRtSetup = 0;
+
 	// 国道標識テクスチャ合成（3D シーン前・2D パイプライン有効時）
 	m_roadRenderer.prepareRouteSignTextures(m_network);
+	lap(dbgRouteSign);
+	// 案内標識テクスチャ合成（同上）
+	m_roadRenderer.prepareGuideSignTextures(m_network);
+	lap(dbgGuideSign);
 
 	// 3D シーン描画
 	{
 		const ScopedRenderTarget3D target{ m_renderTexture.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
 		const ScopedRenderStates3D depthState{ DepthStencilState::DepthTestWrite };
+		lap(dbgRtSetup);
 
 		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
-		const Vec3 sunDir = Vec3{ Math::Cos(sky.t), sky.sinT, 0.3 }.normalized();
+		const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), sky.sinTime, 0.3 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * sky.dayF + 0.10 * sky.dawnF });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * sky.dayFactor + 0.10 * sky.dawnFactor });
 
 		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
 		const ColorF dawnZenith { 0.22, 0.18, 0.38 };
 		const ColorF nightZenith{ 0.01, 0.02, 0.07 };
-		m_sky.zenithColor = nightZenith.lerp(dawnZenith, sky.dawnF).lerp(dayZenith, sky.dayF);
+		m_sky.zenithColor = nightZenith.lerp(dawnZenith, sky.dawnFactor).lerp(dayZenith, sky.dayFactor);
 
 		const ColorF dayHorizon  { 0.60, 0.78, 0.95 };
 		const ColorF dawnHorizon { 0.85, 0.42, 0.15 };
 		const ColorF nightHorizon{ 0.02, 0.03, 0.10 };
-		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, sky.dawnF).lerp(dayHorizon, sky.dayF);
+		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, sky.dawnFactor).lerp(dayHorizon, sky.dayFactor);
 
-		m_sky.starBrightness = Clamp(1.0 - sky.dayF * 3.0 - sky.dawnF * 2.0, 0.0, 1.0);
+		m_sky.starBrightness = Clamp(1.0 - sky.dayFactor * 3.0 - sky.dawnFactor * 2.0, 0.0, 1.0);
 		m_sky.cloudTime = Scene::Time() * 0.015;
+		m_sky.cloudsEnabled = false;
 		m_sky.draw(sky.exposure);
 		lap(m_renderTimings.sky);
 
@@ -138,6 +143,34 @@ void GameScene::renderWorld()
 	                               m_renderTimings.debug, m_renderTimings.ui, m_network);
 
 	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
+
+	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
+	constexpr int kPerfLogIntervalFrames = 120;
+	static int           s_perfFrameCount = 0;
+	static std::ofstream s_perfLog{ "perf.log", std::ios::app };
+	if (++s_perfFrameCount >= kPerfLogIntervalFrames)
+	{
+		s_perfFrameCount = 0;
+		const double fps = 1000.0 / Max(m_renderTimings.total, 0.001);
+		s_perfLog
+			<< "[PERF] FPS=" << fps << " total=" << m_renderTimings.total << "ms\n"
+			<< "  sky="      << m_renderTimings.sky
+			<< " terrain="   << m_renderTimings.terrain
+			<< " road="      << m_renderTimings.road
+			<< " zone="      << m_renderTimings.zone
+			<< " vehicle="   << m_renderTimings.vehicle
+			<< " train="     << m_renderTimings.train
+			<< " ui="        << m_renderTimings.ui << "\n"
+			<< "  [scene3D] terrainOnly=" << m_renderTimings.terrainOnly
+			<< " roadMesh="   << m_renderTimings.roadMesh
+			<< " signals="    << m_renderTimings.signals
+			<< " routeSigns=" << m_renderTimings.routeSigns << "\n"
+			<< "  logic=" << m_logicMs << "ms\n"
+			<< "  [pre3D] routeSignPrep=" << dbgRouteSign
+			<< " guideSignPrep=" << dbgGuideSign
+			<< " rtSetup="       << dbgRtSetup << "\n"
+			<< std::flush;
+	}
 }
 
 // =============================================================================
@@ -146,16 +179,26 @@ void GameScene::renderWorld()
 
 void GameScene::renderScene3D()
 {
+	Stopwatch sw{ StartImmediately::Yes };
+	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
+
 	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
 	m_worldRenderer.render(m_world, m_camera.camera3D());
+	lap(m_renderTimings.terrainOnly);
+
 	m_roadRenderer.render(m_network, m_world, frustum,
 	                     m_camera.camera3D().getEyePosition());
+	lap(m_renderTimings.roadMesh);
+
 	m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
 	                           m_vehicleManager.trafficLights(),
 	                           m_clock.now,
 	                           m_camera.camera3D().getEyePosition());
+	lap(m_renderTimings.signals);
+
 	m_roadRenderer.drawRouteSigns(m_network, m_world,
 	                              m_camera.camera3D().getEyePosition());
+	lap(m_renderTimings.routeSigns);
 }
 
 // =============================================================================
@@ -165,10 +208,10 @@ void GameScene::renderScene3D()
 void GameScene::renderSelectionHighlights()
 {
 	// 選択中のエッジをハイライト
-	if (m_selectedEdgeId)
+	if (selectedEdgeId())
 	{
-		const RoadEdge* selEdge = m_network.getEdge(*m_selectedEdgeId);
-		if (const auto bez = m_network.getBezier(*m_selectedEdgeId))
+		const RoadEdge* selEdge = m_network.getEdge(*selectedEdgeId());
+		if (const auto bez = m_network.getBezier(*selectedEdgeId()))
 		{
 			const bool elev = selEdge && selEdge->useElevation;
 			constexpr int kDiv = 30;
@@ -193,14 +236,14 @@ void GameScene::renderSelectionHighlights()
 	}
 
 	// 選択中のノードをハイライト
-	if (m_selectedNodeId)
+	if (selectedNodeId())
 	{
-		if (const auto* node = m_network.getNode(*m_selectedNodeId))
+		if (const auto* node = m_network.getNode(*selectedNodeId()))
 		{
-			const bool nodeElev = m_network.isNodeElevated(*m_selectedNodeId);
+			const bool nodeElev = m_network.isNodeElevated(*selectedNodeId());
 
 			// 接続車線の端点を球で表示
-			const int nodeId = *m_selectedNodeId;
+			const int nodeId = *selectedNodeId();
 			for (const auto& att : node->attachments)
 			{
 				const RoadEdge* edge = m_network.getEdge(att.edgeId);
@@ -524,6 +567,8 @@ void GameScene::render2DUI()
 		else if (panelId == U"draw_template"){ drawDrawTemplatePanel(); }
 		else if (panelId == U"node_info")    { drawNodePanel(); }
 		else if (panelId == U"signal_edit")  { drawSignalEditPanel(); }
+		else if (panelId == U"guide_sign_edit") { drawGuideSignEditPanel(); }
+		else if (panelId == U"guide_sign_editor") { drawGuideSignEditorPanel(); }
 		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
 		else if (panelId == U"minimap_expanded")
 		{
