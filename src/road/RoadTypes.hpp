@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../time/GameClock.hpp"
 #include "RoadEnums.hpp"
 #include "RoadPartTypes.hpp"
@@ -214,7 +214,7 @@ struct GuideSignPlacement
 	// ── 自由度フィールド（上書き。0/空 = 自動計算 / デフォルト使用）──
 	float                 widthOverride  = 0.0f; ///< 板幅 [m]（0=自動）
 	float                 heightOverride = 0.0f; ///< 板高 [m]（0=自動）
-	ColorF                bgColor       { 0.0, 0.0 }; ///< 背景色（alpha=0 でデフォルト青を使用）
+	ColorF                bgColor       { 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 }; ///< 背景色。デフォルトは national_route.png 背景と同じ青。alpha=0 なら描画時にデフォルト青にフォールバック
 	bool                  showReading   = true;  ///< 下段にローマ字を表示するか
 
 	/// @brief 看板要素（自由配置）。InferAutoForEdge も含めて常にここから描画する。
