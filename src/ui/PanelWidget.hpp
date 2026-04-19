@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <Siv3D.hpp>
 
 /// @brief パネル内 UI ウィジェット（即時モード描画）

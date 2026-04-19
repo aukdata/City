@@ -1,4 +1,4 @@
-#include "PanelLayout.hpp"
+﻿#include "PanelLayout.hpp"
 
 PanelBuilder::PanelBuilder(int width, int padding, int gap)
 	: m_width(width)
