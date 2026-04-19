@@ -17,10 +17,10 @@ public:
 	/// @brief 地区データ
 	struct Settlement
 	{
-		Vec2           center;   ///< ワールド XZ 座標 [m]
-		SettlementType type;
-		float          radius;   ///< 影響半径 [m]
-		float          score;    ///< 地形適性スコア (0.0〜1.0)
+		Vec2           center;                       ///< ワールド XZ 座標 [m]
+		SettlementType type   = SettlementType::Rural;
+		float          radius = 0.0f;                ///< 影響半径 [m]
+		float          score  = 0.0f;                ///< 地形適性スコア (0.0〜1.0)
 		String         name;     ///< 地区地名（PlaceNameGenerator が設定）
 		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
 	};
