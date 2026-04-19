@@ -90,29 +90,20 @@ MeshData GuideSign::CreateBoardMesh(double width, double height)
 {
 	const double hx = width  * 0.5;
 	const double hy = height * 0.5;
-	const double hz = kBoardThickness_m * 0.5;
 
 	MeshData md;
-	md.vertices.reserve(8);
-	md.indices.reserve(4);
+	md.vertices.reserve(4);
+	md.indices.reserve(2);
 
-	// 前面 (+Z)
+	// 片面メッシュ（z=0 平面）。裏面は RoadRenderer の CullFront パスで灰色描画される。
 	// computeSignTransforms が RotateY(yaw+π) を適用するため、driver 視点で
 	// local +X が左に来る。よって U=0 を +hx、U=1 を -hx に割当てる。
-	md.vertices << makeBoardVertex( hx,  hy,  hz, 0.0f, 0.0f,  1.0);
-	md.vertices << makeBoardVertex(-hx,  hy,  hz, 1.0f, 0.0f,  1.0);
-	md.vertices << makeBoardVertex(-hx, -hy,  hz, 1.0f, 1.0f,  1.0);
-	md.vertices << makeBoardVertex( hx, -hy,  hz, 0.0f, 1.0f,  1.0);
+	md.vertices << makeBoardVertex( hx,  hy, 0.0, 0.0f, 0.0f,  1.0);
+	md.vertices << makeBoardVertex(-hx,  hy, 0.0, 1.0f, 0.0f,  1.0);
+	md.vertices << makeBoardVertex(-hx, -hy, 0.0, 1.0f, 1.0f,  1.0);
+	md.vertices << makeBoardVertex( hx, -hy, 0.0, 0.0f, 1.0f,  1.0);
 	md.indices << TriangleIndex32{ 0, 1, 2 };
 	md.indices << TriangleIndex32{ 0, 2, 3 };
-
-	// 背面 (-Z): 裏面でも同じ向きで文字が読めるよう UV を反転せず設定
-	md.vertices << makeBoardVertex(-hx,  hy, -hz, 0.0f, 0.0f, -1.0);
-	md.vertices << makeBoardVertex( hx,  hy, -hz, 1.0f, 0.0f, -1.0);
-	md.vertices << makeBoardVertex( hx, -hy, -hz, 1.0f, 1.0f, -1.0);
-	md.vertices << makeBoardVertex(-hx, -hy, -hz, 0.0f, 1.0f, -1.0);
-	md.indices << TriangleIndex32{ 4, 5, 6 };
-	md.indices << TriangleIndex32{ 4, 6, 7 };
 
 	return md;
 }

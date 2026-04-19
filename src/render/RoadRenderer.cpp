@@ -1822,24 +1822,42 @@ void RoadRenderer::drawSigns(const Array<SignDraw>& draws)
 		if (!combined.vertices.isEmpty()) m_signPoleMesh = Mesh{ combined };
 	}
 
-	const ScopedRenderStates3D blend{ BlendState::Default2D };
+	// ポール
 	for (const auto& signDraw : draws)
 	{
 		if (m_signPoleMesh) m_signPoleMesh->draw(signDraw.poleMat, RoadSign::kPoleColor);
-		const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
-		if (!boardMesh) continue;
+	}
 
-		// テクスチャ解決: 静的アセット名があればそれを、空なら動的生成（国道号数合成）を使う
-		const auto& vis = RoadSign::visualOf(signDraw.type);
-		if (!vis.textureAssetName.isEmpty())
+	// 看板裏面: 灰色（前面ポリゴンをカリングして裏面のみ表示）
+	{
+		const ScopedRenderStates3D states{ RasterizerState::SolidCullFront };
+		for (const auto& signDraw : draws)
 		{
-			boardMesh->draw(signDraw.boardMat, TextureAsset(vis.textureAssetName));
-			continue;
+			const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
+			if (!boardMesh) continue;
+			boardMesh->draw(signDraw.boardMat, ColorF{ 0.55 });
 		}
-		if (signDraw.type == RoadSignType::NationalRoute)
+	}
+
+	// 看板前面: テクスチャ（裏面ポリゴンをカリングして前面のみ表示）
+	{
+		const ScopedRenderStates3D states{ BlendState::Default2D, RasterizerState::SolidCullBack };
+		for (const auto& signDraw : draws)
 		{
-			if (auto it = m_routeSignTexCache.find(signDraw.auxNumber); it != m_routeSignTexCache.end())
-				boardMesh->draw(signDraw.boardMat, it->second);
+			const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
+			if (!boardMesh) continue;
+
+			const auto& vis = RoadSign::visualOf(signDraw.type);
+			if (!vis.textureAssetName.isEmpty())
+			{
+				boardMesh->draw(signDraw.boardMat, TextureAsset(vis.textureAssetName));
+				continue;
+			}
+			if (signDraw.type == RoadSignType::NationalRoute)
+			{
+				if (auto it = m_routeSignTexCache.find(signDraw.auxNumber); it != m_routeSignTexCache.end())
+					boardMesh->draw(signDraw.boardMat, it->second);
+			}
 		}
 	}
 }
