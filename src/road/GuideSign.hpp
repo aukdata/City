@@ -32,6 +32,22 @@ namespace GuideSignLayout
 ///   RoadSign（規制標識）とは別系統で、板サイズ可変・複数エントリを扱う。
 namespace GuideSign
 {
+	// ===== 色定数 =====
+
+	/// @brief 案内標識の既定背景色（国道おにぎりアイコン背景と同一の青 RGB(21,87,161)）
+	/// @details App/assets/signs/guide/national_route.png の主要ピクセル色と揃えてある。
+	///   色を変更するときは PNG 側も同時に更新すること。
+	inline constexpr ColorF kDefaultBgColor{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
+
+	/// @brief bgColor.a がこの値を超えれば個別指定色、それ以下なら kDefaultBgColor
+	inline constexpr double kBgColorAlphaEps = 0.001;
+
+	/// @brief 個別指定色（g.bgColor）がある場合はそれ、無ければ kDefaultBgColor を返す
+	inline ColorF resolveBgColor(const ColorF& specified)
+	{
+		return (specified.a > kBgColorAlphaEps) ? specified : kDefaultBgColor;
+	}
+
 	// ===== 寸法定数 =====
 
 	constexpr float  kPoleHeight_m     = 3.5f;   ///< ポール高さ既定値 [m]

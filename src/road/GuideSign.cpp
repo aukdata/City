@@ -9,23 +9,18 @@
 namespace
 {
 	// ===== 共通定数 =====
+	// 背景色定数 kDefaultBgColor / kBgColorAlphaEps / resolveBgColor() は
+	// GuideSign.hpp に公開されている（RoadRenderer / GuideSignEditor からも参照するため）
 
-	/// @brief 案内標識の既定背景色（国道おにぎりアイコン背景と同じ青 RGB(21,87,161)）
-	constexpr ColorF kDefaultBgColor{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
+	using GuideSign::kDefaultBgColor;
+	using GuideSign::kBgColorAlphaEps;
+	using GuideSign::resolveBgColor;
 
 	/// @brief 看板テクスチャの解像度（リファレンス準拠の高解像度）
 	constexpr double kPxPerM = 180.0;
 
 	/// @brief 板厚（裏面描画用、視覚的にはほぼ平面）
 	constexpr double kBoardThickness_m = 0.04;
-
-	/// @brief bgColor.a > kBgColorAlphaEps なら指定色、それ以外はデフォルト青
-	constexpr double kBgColorAlphaEps = 0.001;
-
-	ColorF resolveBgColor(const ColorF& specified)
-	{
-		return (specified.a > kBgColorAlphaEps) ? specified : kDefaultBgColor;
-	}
 
 	// ===== Vertex 構築 =====
 

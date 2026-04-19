@@ -2655,9 +2655,7 @@ void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 		const auto bs = GuideSign::computeBoardSizeFor(g);
 		const Size texSize = GuideSign::guideSignTexSize(bs.width, bs.height);
 
-		const ColorF bg = (g.bgColor.a > 0.001)
-			? g.bgColor
-			: ColorF{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
+		const ColorF bg = GuideSign::resolveBgColor(g.bgColor);
 		// SRGB format でサンプリング時に線形空間へ自動変換させる（ルート看板と色合いを合わせる）
 		// HasMipMap なし（Test 検証の結果、HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
 		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,

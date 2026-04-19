@@ -262,8 +262,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 			tmp.elements = m_draftElements;
 			const auto bs = GuideSign::computeBoardSizeFor(tmp);
 			const Size ts = GuideSign::guideSignTexSize(bs.width, bs.height);
-			const ColorF bgCol = (tmp.bgColor.a > 0.001)
-				? tmp.bgColor : ColorF{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
+			const ColorF bgCol = GuideSign::resolveBgColor(tmp.bgColor);
 			RenderTexture rt{ static_cast<uint32>(ts.x), static_cast<uint32>(ts.y), bgCol };
 			{
 				const ScopedRenderTarget2D target{ rt };
