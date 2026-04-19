@@ -1,4 +1,4 @@
-﻿#include "GameScene.hpp"
+#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
 
 // =============================================================================
@@ -116,6 +116,7 @@ void GameScene::handleInput()
 			m_panelManager.hide(U"guide_sign_edit");
 			m_panelManager.hide(U"signal_edit");
 			m_panelManager.hide(U"draw_template");
+			m_panelManager.hide(U"route_info");
 		}
 		else
 		{
@@ -373,7 +374,23 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"node_info");
 		m_panelManager.hide(U"guide_sign_edit");
+		m_panelManager.hide(U"building_info");
 		return;
+	}
+
+	// ── 建物のヒットテスト（道路より先に判定） ──
+	{
+		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+		if (const auto hitBuilding = findBuildingAt(ray))
+		{
+			selectBuilding(*hitBuilding);
+			m_panelManager.show(U"building_info", U"建物", panelRightPos(U"building_info"));
+			m_panelManager.hide(U"edge_info");
+			m_panelManager.hide(U"node_info");
+			m_panelManager.hide(U"guide_sign_edit");
+			m_panelManager.hide(U"signal_edit");
+			return;
+		}
 	}
 
 	// 地上カーソルで検索（ノード・エッジ）
@@ -397,6 +414,7 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"guide_sign_edit");
 		m_panelManager.hide(U"signal_edit");
+		m_panelManager.hide(U"building_info");
 		recomputeGuideSignsAroundNode(*hitNode);
 	}
 	else if (hitEdge)
@@ -407,6 +425,7 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"node_info");
 		m_panelManager.hide(U"guide_sign_edit");
 		m_panelManager.hide(U"signal_edit");
+		m_panelManager.hide(U"building_info");
 	}
 	else
 	{
@@ -415,6 +434,7 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"node_info");
 		m_panelManager.hide(U"guide_sign_edit");
 		m_panelManager.hide(U"signal_edit");
+		m_panelManager.hide(U"building_info");
 	}
 }
 
@@ -939,9 +959,14 @@ Optional<int> GameScene::findGuideSignAt(Vec3 pos, float radius) const
 		const float arc = atA
 			? (cutoff + gs.arcOffset)
 			: (bez->totalLength - cutoff - gs.arcOffset);
-		const Vec3 signPos = bez->positionAt(Clamp(arc, 0.0f, bez->totalLength));
-		const float dx = static_cast<float>(signPos.x - pos.x);
-		const float dz = static_cast<float>(signPos.z - pos.z);
+		const float clampedArc = Clamp(arc, 0.0f, bez->totalLength);
+		const Vec3  roadPos = bez->positionAt(clampedArc);
+		const Vec3  right   = tangentToRight(bez->tangentAt(clampedArc));
+		// 描画位置と一致させるため横方向オフセットを反映（RoadRenderer::computeSignTransforms と同じ計算）
+		const double sx = roadPos.x + right.x * static_cast<double>(gs.lateralOffset);
+		const double sz = roadPos.z + right.z * static_cast<double>(gs.lateralOffset);
+		const float dx = static_cast<float>(sx - pos.x);
+		const float dz = static_cast<float>(sz - pos.z);
 		const float d2 = dx * dx + dz * dz;
 		if (d2 < bestDistSq) { bestDistSq = d2; best = gs.id; }
 	}
@@ -952,13 +977,110 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 {
 	Optional<int> best;
 	float bestDistSq = radius * radius;
+	// RoadRenderer::ensureSignalAttachGeomCache と同じ計算で各 attachment の描画位置を算出する
 	for (const auto& node : m_network.nodes())
 	{
 		if (node.id < 0 || !node.signalPlacement) continue;
-		const float dx = static_cast<float>(node.position.x - pos.x);
-		const float dz = static_cast<float>(node.position.z - pos.z);
-		const float d2 = dx * dx + dz * dz;
-		if (d2 < bestDistSq) { bestDistSq = d2; best = node.id; }
+		for (const auto& att : node.attachments)
+		{
+			if (att.control != TrafficControl::Signal) continue;
+			const RoadEdge* edge = m_network.getEdge(att.edgeId);
+			if (!edge) continue;
+			const auto bez = m_network.getBezier(att.edgeId);
+			if (!bez) continue;
+
+			const bool  isNodeA   = (edge->nodeA == node.id);
+			const float cutoff    = isNodeA ? edge->cutoffA : edge->cutoffB;
+			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
+			const Vec3  cutPos    = bez->positionAt(cutoffArc);
+			const Vec3  rightVec  = tangentToRight(bez->tangentAt(cutoffArc));
+
+			const bool entryOnRight = !isNodeA;
+			float roadEdgeOffset = 0.0f;
+			bool  foundRoadbed   = false;
+			for (const auto& part : edge->parts)
+			{
+				if (part.type != RoadPartType::Roadbed) continue;
+				const float edgePos = entryOnRight ? (part.offset + part.width) : part.offset;
+				if (!foundRoadbed)
+				{
+					roadEdgeOffset = edgePos;
+					foundRoadbed   = true;
+				}
+				else
+				{
+					roadEdgeOffset = entryOnRight
+						? Max(roadEdgeOffset, edgePos)
+						: Min(roadEdgeOffset, edgePos);
+				}
+			}
+			if (!foundRoadbed)
+			{
+				roadEdgeOffset = entryOnRight
+					? edge->totalWidth() * 0.5f
+					: -edge->totalWidth() * 0.5f;
+			}
+
+			const double sx = cutPos.x - rightVec.x * roadEdgeOffset;
+			const double sz = cutPos.z - rightVec.z * roadEdgeOffset;
+			const float dx = static_cast<float>(sx - pos.x);
+			const float dz = static_cast<float>(sz - pos.z);
+			const float d2 = dx * dx + dz * dz;
+			if (d2 < bestDistSq) { bestDistSq = d2; best = node.id; }
+		}
+	}
+	return best;
+}
+
+Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray) const
+{
+	// WorldRenderer::rebuildBuildingMeshes と同じ配置式を使う（セルサイズ 16m / フットプリント 10m）
+	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	constexpr float footprint = 10.0f;
+
+	Optional<BuildingRef> best;
+	double bestDist = 1e9;
+
+	for (const Chunk* chunk : m_world.getActiveChunks())
+	{
+		if (!chunk) continue;
+
+		// チャンクの AABB で粗く弾く
+		const Vec3 origin = chunk->worldOrigin();
+		const Vec3 chunkMin{ origin.x, chunk->heightMin, origin.z };
+		const Vec3 chunkMax{ origin.x + CHUNK_SIZE, chunk->heightMax + 60.0, origin.z + CHUNK_SIZE };
+		const Box chunkAabb{
+			(chunkMin + chunkMax) * 0.5,
+			Vec3{ chunkMax.x - chunkMin.x, chunkMax.y - chunkMin.y, chunkMax.z - chunkMin.z } };
+		if (!chunkAabb.intersects(ray)) continue;
+
+		for (int row = 0; row < ZONE_CELLS; ++row)
+		{
+			for (int col = 0; col < ZONE_CELLS; ++col)
+			{
+				const Building& b = chunk->buildingGrid[{ col, row }];
+				if (b.type == BuildingType::None || b.type == BuildingType::Farmland) continue;
+
+				const float height = buildingHeight(b.type);
+				if (height <= 0.0f) continue;
+
+				const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
+				const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+				const float gy = m_world.sampleHeight(cx, cz);
+
+				const Vec3 center{ cx, gy + height * 0.5, cz };
+				const Vec3 size{ footprint, height, footprint };
+				const OrientedBox obox{ center, size, Quaternion::RotateY(b.angle) };
+				if (const auto d = obox.intersects(ray))
+				{
+					if (*d < bestDist)
+					{
+						bestDist = *d;
+						best = BuildingRef{ chunk->coord.x, chunk->coord.y, col, row };
+					}
+				}
+			}
+		}
 	}
 	return best;
 }
