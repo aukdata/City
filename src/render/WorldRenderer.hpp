@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "../world/World.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 
@@ -8,6 +8,16 @@ class WorldRenderer
 public:
 	/// @brief アクティブチャンクをカリングして描画する
 	void render(World& world, const BasicCamera3D& camera);
+
+	/// @brief 選択アウトライン用: 指定建物 1 棟のシルエットを描画する
+	/// @details OBJ 建物はモデル形状、それ以外は Box 形状で描画する。
+	///          色は呼び出し側の RT に白塗りされる想定（アルファ 1.0）。
+	void drawBuildingSilhouette(const Chunk& chunk, const World& world,
+	                            int col, int row, const ColorF& color);
+
+	/// @brief 建物の当たり判定用 OrientedBox を返す（OBJ は外接直方体、それ以外は規定サイズ）
+	Optional<OrientedBox> buildingHitBox(const Chunk& chunk, const World& world,
+	                                     int col, int row);
 
 private:
 	using Key = int64;
