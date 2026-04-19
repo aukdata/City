@@ -1,109 +1,120 @@
-﻿# include <Siv3D.hpp>
-
-// 路面標示矢印テスト (2D確認)
-// 各タイプのポリゴンを2D描画してスケールと形状を確認する
+﻿// 路面標示矢印 TOML を reference/204.ht{1,2,3}.gif 上にオーバーレイ
+// 参考画像座標系を基準に、画像の実測シャフト幅で TOML y をスケール（shaft が必ず重なる）
+// Right/StraightRight は ht1/ht3 をそのまま表示し、TOML y は +y 側（上方向）に出るので
+// 下側 hook ではなく上側 hook を描くことで Left のミラーになっていることを確認する
+# include <Siv3D.hpp>
 
 namespace
 {
-	const Array<Vec2> kPx_Straight = {
-		Vec2{ 253.0, -26.5 }, Vec2{ 254.0, -10.5 }, Vec2{ 501.0, -10.5 },
-		Vec2{ 501.0,   9.5 }, Vec2{ 254.0,   9.5 }, Vec2{ 253.0,  26.5 },
-		Vec2{   0.0,  -5.5 },
-	};
-	const Array<Vec2> kPx_Left = {
-		Vec2{  75.0,   0.0 }, Vec2{  89.0, -24.0 }, Vec2{ 113.0, -38.0 },
-		Vec2{ 492.0, -38.0 }, Vec2{ 492.0, -19.0 }, Vec2{ 147.0, -19.0 },
-		Vec2{ 135.0, -10.0 }, Vec2{ 134.0,   0.0 }, Vec2{ 208.0,   0.0 },
-		Vec2{ 103.0,  38.0 }, Vec2{   0.0,   0.0 },
-	};
-	const Array<Vec2> kPx_StraightLeft = {
-		Vec2{ 222.0, -46.5 }, Vec2{ 223.0, -28.5 }, Vec2{ 501.0, -28.5 },
-		Vec2{ 501.0, -10.5 }, Vec2{ 428.0, -10.5 }, Vec2{ 416.0,  -6.5 },
-		Vec2{ 409.0,   9.5 }, Vec2{ 483.0,   9.5 }, Vec2{ 373.0,  46.5 },
-		Vec2{ 260.0,   9.5 }, Vec2{ 334.0,   9.5 }, Vec2{ 339.0,  -2.5 },
-		Vec2{ 352.0, -10.5 }, Vec2{ 223.0, -10.5 }, Vec2{ 219.0,   8.5 },
-		Vec2{   0.0, -18.5 },
-	};
-
-	constexpr double kPxXMax_Straight       = 501.0;
-	constexpr double kPxYRange_Straight     = 53.0;
-	constexpr double kPxXMax_Left           = 492.0;
-	constexpr double kPxYRange_Left         = 76.0;
-	constexpr double kPxXMax_StraightLeft   = 501.0;
-	constexpr double kPxYRange_StraightLeft = 93.0;
-	constexpr double kArrowLength_m         = 5.0;
-	// 等方スケール (1px ≈ 1cm 両軸): 5.0 × pxYRange / pxXMax
-	constexpr double kWidthStraight_m       = kArrowLength_m * kPxYRange_Straight    / kPxXMax_Straight;     // ≈ 0.529m
-	constexpr double kWidthTurn_m           = kArrowLength_m * kPxYRange_Left        / kPxXMax_Left;         // ≈ 0.773m
-	constexpr double kWidthCombined_m       = kArrowLength_m * kPxYRange_StraightLeft / kPxXMax_StraightLeft; // ≈ 0.928m
-
-	Array<Vec2> normalize(const Array<Vec2>& px, double pxXMax,
-	                      double widthMeters, double pxYRange, bool flipY)
+	Array<Vec2> LoadArrowVerts(FilePathView path)
 	{
-		const double scaleX = kArrowLength_m / pxXMax;
-		const double scaleY = widthMeters / pxYRange;
-		Array<Vec2> out;
-		for (const auto& v : px)
-			out << Vec2{ (pxXMax - v.x) * scaleX,
-			             v.y * scaleY * (flipY ? -1.0 : 1.0) };
-		if (!flipY) out.reverse();
-		return out;
+		Array<Vec2> v;
+		const TOMLReader t{ path };
+		if (!t) return v;
+		for (const auto& row : t[U"verts"].arrayView())
+		{
+			if (row.arrayCount() < 2) continue;
+			const auto a = row.arrayView();
+			v << Vec2{ a[0].get<double>(), a[1].get<double>() };
+		}
+		return v;
 	}
+
+	struct Item
+	{
+		String label;
+		String tomlFile;
+		String refImage;
+		double refTipX;     // image 内 arrow tip の x (bbox 左端)
+		double refCenterY;  // image 内 shaft 中心 y
+		double imgWidthPx;  // arrow 全長の image px 幅
+		double shaftPx;     // image 内の shaft 太さ (px)
+	};
 }
 
 void Main()
 {
-	Window::Resize(1280, 720);
-	Scene::SetBackground(ColorF{ 0.15 });
+	Window::Resize(1400, 1600);
+	Scene::SetBackground(ColorF{ 0.92, 0.92, 0.92 });
 
-	const Array<std::pair<String, Polygon>> polys = {
-		{ U"Straight",      Polygon{ normalize(kPx_Straight,     kPxXMax_Straight,     kWidthStraight_m, kPxYRange_Straight,     false) } },
-		{ U"Left",          Polygon{ normalize(kPx_Left,         kPxXMax_Left,         kWidthTurn_m,     kPxYRange_Left,         false) } },
-		{ U"Right(flipY)",  Polygon{ normalize(kPx_Left,         kPxXMax_Left,         kWidthTurn_m,     kPxYRange_Left,         true)  } },
-		{ U"StraightLeft",  Polygon{ normalize(kPx_StraightLeft, kPxXMax_StraightLeft, kWidthCombined_m, kPxYRange_StraightLeft, false) } },
-		{ U"StraightRight", Polygon{ normalize(kPx_StraightLeft, kPxXMax_StraightLeft, kWidthCombined_m, kPxYRange_StraightLeft, true)  } },
+	// 画素実測 (cv2 で確認済):
+	//   ht1.gif: bbox x=[92,584] y=[77,96] at tail, shaft 19px, tip y=115
+	//   ht2.gif: bbox x=[83,584] y=[97,115] at tail, shaft 18px, tip y=101
+	//   ht3.gif: bbox x=[85,586] y=[97,115] at tail, shaft 18px, tip y=106
+	const Array<Item> items = {
+		{ U"Straight (ht2)",        U"../../App/assets/road_markings/straight.toml",      U"../../reference/204.ht2.gif", 83,  106, 501, 18 },
+		{ U"Left (ht1)",            U"../../App/assets/road_markings/left.toml",          U"../../reference/204.ht1.gif", 92,   86.5, 492, 19 },
+		{ U"Right (ht1 ref)",       U"../../App/assets/road_markings/right.toml",         U"../../reference/204.ht1.gif", 92,   86.5, 492, 19 },
+		{ U"StraightLeft (ht3)",    U"../../App/assets/road_markings/straightleft.toml",  U"../../reference/204.ht3.gif", 85,  105,   501, 18 },
+		{ U"StraightRight (ht3)",   U"../../App/assets/road_markings/straightright.toml", U"../../reference/204.ht3.gif", 85,  105,   501, 18 },
 	};
 
-	for (const auto& [name, poly] : polys)
-		Print << name << U" empty=" << poly.isEmpty() << U" verts=" << poly.outer().size();
+	Array<Array<Vec2>> vertsList;
+	for (const auto& it : items) vertsList << LoadArrowVerts(it.tomlFile);
 
-	// 1m = 80px。各タイプを縦に 130px 間隔で並べる
-	// ローカル X=[0,5m] → 画面 X=[50, 450]
-	// ローカル Z(横)=[-halfW, +halfW] → 画面 Y (中心からのオフセット)
-	constexpr double kScale  = 80.0;
-	constexpr double kStartX = 50.0;  // ローカル X=0 の画面 X 位置
-	constexpr double kStartY = 80.0;
-	constexpr double kStepY  = 130.0;
+	Array<Texture> texList;
+	for (const auto& it : items) texList << Texture{ it.refImage };
+
+	const Font font{ 18, Typeface::Bold };
 
 	int frame = 0;
 	while (System::Update())
 	{
-		for (int i = 0; i < static_cast<int>(polys.size()); ++i)
+		Scene::SetBackground(ColorF{ 0.92, 0.92, 0.92 });
+
+		for (size_t i = 0; i < items.size(); ++i)
 		{
-			const auto& [name, poly] = polys[i];
-			const double cy = kStartY + i * kStepY;
+			const auto& it = items[i];
+			const double baseY = 10 + i * 260;
+			const double baseX = 40;
 
-			// ラベル
-			FontAsset(U"debug")(name + (poly.isEmpty() ? U" [EMPTY]" : U""))
-				.draw(10, cy - 55, poly.isEmpty() ? Palette::Red : Palette::White);
+			font(it.label).draw(baseX, baseY, ColorF{ 0.0 });
 
-			// 車線幅参考線 (±1.75m)
-			const double laneHW = 1.75 * kScale;
-			Line{ kStartX, cy - laneHW, kStartX + 5 * kScale, cy - laneHW }.draw(1.0, ColorF{ 0.8, 0.8, 0.0, 0.5 });
-			Line{ kStartX, cy + laneHW, kStartX + 5 * kScale, cy + laneHW }.draw(1.0, ColorF{ 0.8, 0.8, 0.0, 0.5 });
+			if (!texList[i]) continue;
 
-			if (poly.isEmpty()) continue;
+			const double imgX = baseX + 100;
+			const double imgY = baseY + 30;
 
-			// ローカル座標 → 画面座標変換して描画
+			texList[i].draw(imgX, imgY);
+
+			// TOML の shaft 15cm が image の shaft(18-19px) に一致するように y をスケール
+			// x は arrow 全長 5m が imgWidthPx に一致するようにスケール
+			const double xScale = it.imgWidthPx / 5.0;                     // px per TOML m
+			const double yScale = it.shaftPx / (2.0 * 0.075);              // px per TOML m (shaft half 0.075m)
+
 			Array<Vec2> screen;
-			for (const auto& v : poly.outer())
-				screen << Vec2{ kStartX + v.x * kScale, cy + v.y * kScale };
-			Polygon{ screen }.draw(ColorF{ 1.0, 1.0, 1.0, 0.75 });
-			Polygon{ screen }.drawFrame(1.0, Palette::Yellow);
+			for (const auto& v : vertsList[i])
+			{
+				// TOML tip (+2.5) → image refTipX, tail (-2.5) → refTipX + imgWidthPx
+				const double sx = imgX + it.refTipX + (2.5 - v.x) * xScale;
+				const double sy = imgY + it.refCenterY - v.y * yScale;
+				screen << Vec2{ sx, sy };
+			}
+
+			if (screen.size() >= 3)
+			{
+				const Polygon poly{ screen };
+				if (poly)
+				{
+					poly.draw(ColorF{ 1.0, 0.1, 0.1, 0.45 });
+					poly.drawFrame(1.5, ColorF{ 0.85, 0.0, 0.0 });
+				}
+				else
+				{
+					// Polygon 化失敗時は頂点を線で結んで描画
+					for (size_t k = 0; k + 1 < screen.size(); ++k)
+						Line{ screen[k], screen[k+1] }.draw(2, ColorF{ 0.85, 0, 0 });
+					Line{ screen.back(), screen.front() }.draw(2, ColorF{ 0.85, 0, 0 });
+				}
+				for (const auto& p : screen)
+					Circle{ p, 2.5 }.draw(ColorF{ 0.1, 0.1, 0.8 });
+			}
 		}
 
-		if (frame == 3) ScreenCapture::SaveCurrentFrame(U"arrow_test.png");
+		if (frame == 3)
+			ScreenCapture::SaveCurrentFrame(U"arrow_overlay.png");
 		if (frame > 3) break;
 		++frame;
 	}
+	System::Exit();
 }
