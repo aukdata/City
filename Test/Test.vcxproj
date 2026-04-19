@@ -116,7 +116,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="RoadNetworkStubs.cpp" />
     <ClCompile Include="..\src\asset\AssetRegistrar.cpp" />
+    <ClCompile Include="..\src\road\BezierUtil.cpp" />
+    <ClCompile Include="..\src\road\GuideSign.cpp" />
+    <ClCompile Include="..\src\road\ObjParser.cpp" />
+    <ClCompile Include="..\src\road\RoadSign.cpp" />
     <ClCompile Include="..\src\ui\PanelManager.cpp" />
     <ClCompile Include="..\src\ui\PanelLayout.cpp" />
     <ClCompile Include="stdafx.cpp">

@@ -124,7 +124,10 @@
     <ClCompile Include="src\world\World.cpp" />
     <ClCompile Include="src\road\RoadArrow.cpp" />
     <ClCompile Include="src\road\RoadSign.cpp" />
+    <ClCompile Include="src\road\GuideSign.cpp" />
+    <ClCompile Include="src\save\GuideSignStorage.cpp" />
     <ClCompile Include="src\road\RoadNetwork.cpp" />
+    <ClCompile Include="src\road\ArrowMarkingRegistry.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
     <ClCompile Include="src\ui\PanelLayout.cpp" />
@@ -145,6 +148,7 @@
     <ClCompile Include="src\scene\GameScene_Input.cpp" />
     <ClCompile Include="src\scene\GameScene_Render.cpp" />
     <ClCompile Include="src\scene\GameScene_Panels.cpp" />
+    <ClCompile Include="src\scene\GuideSignEditor.cpp" />
     <ClCompile Include="src\debug\DebugRenderer.cpp" />
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
@@ -371,6 +375,8 @@
     <ClInclude Include="src\world\World.hpp" />
     <ClInclude Include="src\road\RoadArrow.hpp" />
     <ClInclude Include="src\road\RoadSign.hpp" />
+    <ClInclude Include="src\road\GuideSign.hpp" />
+    <ClInclude Include="src\save\GuideSignStorage.hpp" />
     <ClInclude Include="src\road\RoadTypes.hpp" />
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />
@@ -396,6 +402,7 @@
     <ClInclude Include="src\scene\SceneCommon.hpp" />
     <ClInclude Include="src\scene\TitleScene.hpp" />
     <ClInclude Include="src\scene\GameScene.hpp" />
+    <ClInclude Include="src\scene\GuideSignEditor.hpp" />
     <ClInclude Include="src\debug\DebugLog.hpp" />
     <ClInclude Include="src\debug\DebugRenderer.hpp" />
     <ClInclude Include="src\debug\PerfStats.hpp" />
