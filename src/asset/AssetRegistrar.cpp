@@ -1,9 +1,9 @@
-﻿#include "AssetRegistrar.hpp"
+#include "AssetRegistrar.hpp"
 
 void RegisterAssets()
 {
 	// ---- テクスチャ ----
-	TextureAsset::Register(Asset::Grass, U"assets/textures/grass.png", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Grass, U"assets/terrain/grass.png", TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/guide/national_route.png", TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::StopSign,         U"assets/signs/regulatory/stop.png",      TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::YieldSign,        U"assets/signs/regulatory/yield.png",     TextureDesc::MippedSRGB);
