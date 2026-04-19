@@ -1,4 +1,4 @@
-﻿#include "RoadRenderer.hpp"
+#include "RoadRenderer.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/RoadSign.hpp"
 #include "../road/ObjParser.hpp"
@@ -37,6 +37,17 @@ namespace
 		vt.normal = Float3{ 0.0f, 1.0f, 0.0f };
 		vt.tex    = Float2{ u, v };
 		return vt;
+	}
+
+	/// @brief 世界空間タイリング係数 [1/m]。道路・交差点の大きさに依らず一定スケールで繰り返す。
+	constexpr float kWorldUV = 1.0f;
+
+	/// @brief ワールド XZ 座標から世界空間 UV を生成
+	Vertex3D makeVertWorldUV(const Vec3& pos)
+	{
+		return makeVert(pos,
+			static_cast<float>(pos.x) * kWorldUV,
+			static_cast<float>(pos.z) * kWorldUV);
 	}
 
 	/// @brief 四角形を頂点・インデックス配列に追記する（CW ワインディング）
@@ -729,8 +740,6 @@ MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& wo
 	const int N = Clamp(static_cast<int>(spanLen / 2.0f * lodFactor) + 1,
 	                    3, static_cast<int>(100 * lodFactor));
 
-	constexpr float kTileV = 0.05f;  // UV タイリング [1/m]
-
 	Array<Vertex3D> vertices;
 	vertices.reserve((N + 1) * 2);
 
@@ -738,12 +747,10 @@ MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& wo
 	{
 		const float s  = sStart + (i / static_cast<float>(N)) * spanLen;
 		const auto  sl = makeSlice(bezier, world, s, 2.0 + static_cast<double>(heightOffset), useElevation);
-		const float v  = (s - sStart) * kTileV;
-
-		const float uL = 0.0f;
-		const float uR = 1.0f;
-		vertices << makeVert(sl.center + sl.right * static_cast<double>(offsetL), uL, v);
-		vertices << makeVert(sl.center + sl.right * static_cast<double>(offsetR), uR, v);
+		const Vec3  pL = sl.center + sl.right * static_cast<double>(offsetL);
+		const Vec3  pR = sl.center + sl.right * static_cast<double>(offsetR);
+		vertices << makeVertWorldUV(pL);
+		vertices << makeVertWorldUV(pR);
 	}
 
 	Array<TriangleIndex32> indices;
@@ -1106,8 +1113,8 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 			const double y0 = p0i.y + (p3i.y - p0i.y) * t0;
 			const double y1 = p0i.y + (p3i.y - p0i.y) * t1;
 			const uint32 b = static_cast<uint32>(md.vertices.size());
-			md.vertices << makeVert({i0.x,y0,i0.y},0,t0) << makeVert({o0.x,y0,o0.y},1,t0)
-			            << makeVert({i1.x,y1,i1.y},0,t1) << makeVert({o1.x,y1,o1.y},1,t1);
+			md.vertices << makeVertWorldUV({i0.x,y0,i0.y}) << makeVertWorldUV({o0.x,y0,o0.y})
+			            << makeVertWorldUV({i1.x,y1,i1.y}) << makeVertWorldUV({o1.x,y1,o1.y});
 			appendQuad(md.indices, b, b+1, b+2, b+3);
 		}
 		if (md.vertices.isEmpty()) return none;
@@ -2145,10 +2152,10 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 			const Vec3& p3 = fb[k + 1];         // lineB[k+1] : 中心側
 
 			const uint32 base = static_cast<uint32>(vertices.size());
-			vertices << makeVert(p0, 0.0f, 0.0f)   // base+0
-			         << makeVert(p1, 0.0f, 1.0f)   // base+1
-			         << makeVert(p2, 1.0f, 0.0f)   // base+2
-			         << makeVert(p3, 1.0f, 1.0f);  // base+3
+			vertices << makeVertWorldUV(p0)   // base+0
+			         << makeVertWorldUV(p1)   // base+1
+			         << makeVertWorldUV(p2)   // base+2
+			         << makeVertWorldUV(p3);  // base+3
 
 			indices << TriangleIndex32{ base + 0, base + 1, base + 2 };
 			indices << TriangleIndex32{ base + 1, base + 3, base + 2 };
@@ -2167,9 +2174,9 @@ MeshData RoadRenderer::buildNodeCapMeshForRange(const RoadNetwork& network, int 
 		while (static_cast<int>(mids.size()) >= 3)
 		{
 			const uint32 base = static_cast<uint32>(vertices.size());
-			vertices << makeVert(mids[0], 0.5f, 0.5f)   // base+0
-			         << makeVert(mids[1], 0.5f, 0.5f)   // base+1
-			         << makeVert(mids[2], 0.5f, 0.5f);  // base+2
+			vertices << makeVertWorldUV(mids[0])   // base+0
+			         << makeVertWorldUV(mids[1])   // base+1
+			         << makeVertWorldUV(mids[2]);  // base+2
 			indices << TriangleIndex32{ base + 2, base + 1, base + 0 };
 			mids.erase(mids.begin() + 1);
 		}
@@ -2650,7 +2657,7 @@ void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 
 		const ColorF bg = (g.bgColor.a > 0.001)
 			? g.bgColor
-			: ColorF{ 0.05, 0.20, 0.55, 1.0 };
+			: ColorF{ 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 };
 		// デフォルト format（R8G8B8A8_Unorm）を使い、HasMipMap なしでシンプルに
 		// （Test 検証の結果、HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
 		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg };
