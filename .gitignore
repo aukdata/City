@@ -19,6 +19,8 @@ x64/
 *.obj
 *.lib
 *.exp
+# ただしアセット OBJ はリソースとして追跡する（ビルド中間ファイルではない）
+!App/assets/**/*.obj
 
 # Siv3D SDK 付属リソース（Siv3D インストールから復元可能）
 App/engine/
