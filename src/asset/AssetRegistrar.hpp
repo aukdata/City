@@ -21,6 +21,7 @@ namespace Asset
 	constexpr StringView PanelBold14   = U"Font_PanelBold14";
 	constexpr StringView CJK24         = U"Font_CJK24";
 	constexpr StringView CJK14         = U"Font_CJK14";
+	constexpr StringView CJK32Bold     = U"Font_CJK32Bold";  ///< 案内標識の地名用（太字）
 	constexpr StringView Arial24       = U"Font_Arial24";  ///< 国道標識の号数用 (Arial Bold)
 
 	// TitleScene 用（非 MSDF）
