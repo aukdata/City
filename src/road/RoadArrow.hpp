@@ -27,39 +27,10 @@ namespace RoadArrow
 	/// @brief 全長（進行方向）[m]
 	constexpr double kArrowLength_m = 5.0;
 
-	/// @brief 直進矢印の縦寸法（perpendicular）[m]
-	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 53px / 501px ≈ 0.529m
-	constexpr double kArrowWidthStraight_m = kArrowLength_m * 53.0 / 501.0;
-
-	/// @brief 左折/右折矢印の縦寸法 [m]
-	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 76px / 492px ≈ 0.773m
-	constexpr double kArrowWidthTurn_m = kArrowLength_m * 76.0 / 492.0;
-
-	/// @brief 直進+左/右折矢印の縦寸法 [m]
-	/// @details 等方スケール (1px≈1cm): kArrowLength_m × 93px / 501px ≈ 0.928m
-	constexpr double kArrowWidthCombined_m = kArrowLength_m * 93.0 / 501.0;
-
 	/// @brief ノード境界から矢印中心までのオフセット [m]
 	constexpr double kArrowOffsetFromNode_m = 8.0;
 
 	// ===== API =====
-
-	/// @brief 種別から 2D Polygon を生成する（ローカル座標）
-	/// @details ローカル座標規約:
-	///   - X 軸: 進行方向（矢印先端 = +X、テール = -X）
-	///   - Y 軸: 横方向（perpendicular）
-	///   - 単位: メートル
-	///   左折系（Left, StraightLeft）: 矢じり先端は +Y 方向
-	///   右折系（Right, StraightRight）: 矢じり先端は -Y 方向
-	/// @param type 矢印種別
-	/// @return 構築済み Polygon。未対応種別 / None なら空 Polygon
-	Polygon CreateContour(RoadArrowType type);
-
-	/// @brief 種別から 3D MeshData を生成する（ローカル座標、Y=0 平面）
-	/// @details normal は +Y 固定。CreateContour() の三角形分割を MeshData に詰める。
-	/// @param type 矢印種別
-	/// @return MeshData。未対応 / None なら空 MeshData
-	MeshData CreateMesh(RoadArrowType type);
 
 	/// @brief LaneConnection 群から矢印種別を自動推論する
 	/// @details
@@ -75,4 +46,5 @@ namespace RoadArrow
 	/// @return 推論された矢印種別。接続なし or 非 entry なら None
 	RoadArrowType InferType(const RoadNetwork& network,
 	                        int edgeId, int laneIndex, int towardNodeId);
+
 }
