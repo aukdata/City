@@ -1,4 +1,4 @@
-﻿#include "WorldRenderer.hpp"
+#include "WorldRenderer.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
@@ -189,6 +189,48 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 	return MeshData{ vertices, indices };
 }
 
+namespace
+{
+	/// @brief 住宅建物タイプ → 使用する OBJ モデル群
+	bool isResidential(BuildingType t)
+	{
+		return t == BuildingType::Detached
+		    || t == BuildingType::LowApartment
+		    || t == BuildingType::MidApartment
+		    || t == BuildingType::HighApartment;
+	}
+
+	/// @brief Building タイプ + セル座標から決定論的に OBJ インデックス（0〜9）を選ぶ
+	uint8 pickResidentialModel(BuildingType t, int gx, int gz)
+	{
+		const uint32 h = (static_cast<uint32>(gx) * 73856093u)
+		               ^ (static_cast<uint32>(gz) * 19349663u);
+		switch (t)
+		{
+		case BuildingType::Detached:      return 0;                          // 001
+		case BuildingType::LowApartment:  return static_cast<uint8>(1 + h % 2); // 002-003
+		case BuildingType::MidApartment:  return static_cast<uint8>(3 + h % 3); // 004-006
+		case BuildingType::HighApartment: return static_cast<uint8>(6 + h % 4); // 007-010
+		default:                          return 0;
+		}
+	}
+}
+
+Model& WorldRenderer::getBuildingModel(uint8 idx)
+{
+	if (m_buildingModels.isEmpty())
+	{
+		m_buildingModels.resize(10);
+	}
+	if (m_buildingModels[idx].isEmpty())
+	{
+		const String path = U"assets/buildings/residential/residential_{:03d}.obj"_fmt(idx + 1);
+		m_buildingModels[idx] = Model{ path };
+		Model::RegisterDiffuseTextures(m_buildingModels[idx], TextureDesc::MippedSRGB);
+	}
+	return m_buildingModels[idx];
+}
+
 void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
 {
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
@@ -196,8 +238,10 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 
 	const Vec3 origin = chunk.worldOrigin();
 
-	// 建物種別ごとに MeshData を積み上げる
+	// 建物種別ごとに MeshData を積み上げる（Box 描画用）
 	HashTable<int, MeshData> groups;
+	// 住宅 OBJ インスタンス
+	Array<BuildingModelInstance> modelInstances;
 
 	for (int row = 0; row < ZONE_CELLS; ++row)
 	{
@@ -207,11 +251,25 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			if (b.type == BuildingType::None || b.type == BuildingType::Farmland)
 				continue;
 
-			const float height = buildingHeight(b.type, b.stage);
-			if (height <= 0.0f) continue;
-
 			const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
 			const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+
+			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
+			if (isResidential(b.type))
+			{
+				const float gy = world.sampleHeight(cx, cz);
+				const int gx = chunk.coord.x * ZONE_CELLS + col;
+				const int gz = chunk.coord.y * ZONE_CELLS + row;
+				modelInstances.push_back({
+					pickResidentialModel(b.type, gx, gz),
+					Float3{ cx, gy, cz },
+					b.angle
+				});
+				continue;
+			}
+
+			const float height = buildingHeight(b.type);
+			if (height <= 0.0f) continue;
 			const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
 			MeshData box = MeshData::Box(
@@ -257,15 +315,37 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			Mesh{ meshData }
 		});
 	}
+
+	m_buildingModelCache[key] = std::move(modelInstances);
 }
 
 void WorldRenderer::drawCachedBuildings(Key key) const
 {
-	const auto it = m_buildingMeshCache.find(key);
-	if (it == m_buildingMeshCache.end()) return;
-	for (const auto& batch : it->second)
+	if (const auto it = m_buildingMeshCache.find(key); it != m_buildingMeshCache.end())
 	{
-		batch.mesh.draw(batch.color);
+		for (const auto& batch : it->second)
+		{
+			batch.mesh.draw(batch.color);
+		}
+	}
+
+	if (const auto it = m_buildingModelCache.find(key); it != m_buildingModelCache.end())
+	{
+		auto* self = const_cast<WorldRenderer*>(this);
+		for (const auto& inst : it->second)
+		{
+			Model& model = self->getBuildingModel(inst.modelIdx);
+			if (model.isEmpty()) continue;
+
+			const Mat4x4 worldMat = Mat4x4::RotateY(inst.angle)
+				.translated(inst.pos.x, inst.pos.y, inst.pos.z);
+			const auto& materials = model.materials();
+			for (const auto& obj : model.objects())
+			{
+				const Transformer3D transform{ worldMat };
+				obj.draw(materials);
+			}
+		}
 	}
 }
 
