@@ -1,4 +1,4 @@
-﻿#include "VehicleRenderer.hpp"
+#include "VehicleRenderer.hpp"
 #include "RoadRenderer.hpp"   // kLodDistSq
 
 namespace
@@ -45,7 +45,7 @@ void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
 	{
 		if (m_carModel.isEmpty())
 		{
-			m_carModel = Model{ U"assets/models/car.obj" };
+			m_carModel = Model{ U"assets/vehicles/car.obj" };
 			Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
 		}
 
