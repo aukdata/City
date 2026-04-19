@@ -59,48 +59,31 @@ def main():
         # 看板は driver 側 (local -Z 面) が視認面。u を反転して左右を合わせる
         return 1.0 - px[0] / w_img, px[1] / h_img
 
-    half_t = THICKNESS_M * 0.5
+    # 片面メッシュ（z=0 平面）。裏面は RoadRenderer の CullFront パスで灰色描画する
     verts_front = []
-    verts_back  = []
     uvs         = []
     for p in pts:
         lx, ly = to_local(p)
         u, v   = to_uv(p)
-        verts_front.append((lx, ly,  half_t))
-        verts_back.append( (lx, ly, -half_t))
+        verts_front.append((lx, ly, 0.0))
         uvs.append((u, v))
 
     lines = []
     lines.append("# Onigiri (national route sign shape, extracted from national_route.png)")
-    lines.append(f"# width={WIDTH_M}m height={height_m:.4f}m thickness={THICKNESS_M}m verts={N}")
+    lines.append(f"# width={WIDTH_M}m height={height_m:.4f}m verts={N} (single-sided)")
 
-    # 前面 (+Z)
-    lines.append("o OnigiriFront")
+    # 前面 (+Z 法線) — CullBack でテクスチャ描画 / CullFront で灰色描画される
+    lines.append("o Onigiri")
     for x, y, z in verts_front:
         lines.append(f"v {x:.6f} {y:.6f} {z:.6f}")
     for u, v in uvs:
         lines.append(f"vt {u:.6f} {v:.6f}")
     lines.append("vn 0.0 0.0 1.0")
-    # findContours は画像座標で時計回り → 3D では y 反転で CCW → 扇形三角形分割
     for i in range(1, N - 1):
         a = 1
         b = i + 1
         c = i + 2
         lines.append(f"f {a}/{a}/1 {b}/{b}/1 {c}/{c}/1")
-
-    # 背面 (-Z, 巻き順逆)
-    lines.append("o OnigiriBack")
-    off = N
-    for x, y, z in verts_back:
-        lines.append(f"v {x:.6f} {y:.6f} {z:.6f}")
-    for u, v in uvs:
-        lines.append(f"vt {u:.6f} {v:.6f}")
-    lines.append("vn 0.0 0.0 -1.0")
-    for i in range(1, N - 1):
-        a = off + 1
-        b = off + i + 2
-        c = off + i + 1
-        lines.append(f"f {a}/{a}/2 {b}/{b}/2 {c}/{c}/2")
 
     Path(OUT_OBJ).write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"書き出し: {OUT_OBJ}")
