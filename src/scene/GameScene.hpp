@@ -27,6 +27,7 @@
 #include "../render/PlaceNameRenderer.hpp"
 #include "../render/RoadRouteSignRenderer.hpp"
 #include "../render/MinimapRenderer.hpp"
+#include "GuideSignEditor.hpp"
 
 /// @brief ゲームプレイシーン
 class GameScene : public App::Scene
@@ -132,9 +133,30 @@ private:
 
 	int             m_followVehicleIdx = 0;
 
-	// 道路選択
-	Optional<int>   m_selectedEdgeId;
-	Optional<int>   m_selectedNodeId;
+	// 選択状態（道路・付帯設備を統合）
+	enum class SelectionKind { None, Edge, Node, GuideSign, Signal };
+	struct Selection {
+		SelectionKind kind = SelectionKind::None;
+		int id = -1;
+		void clear() { kind = SelectionKind::None; id = -1; }
+	};
+	Selection m_selection;
+
+	// 既存コードとの互換ヘルパー
+	Optional<int> selectedEdgeId() const
+	{
+		return (m_selection.kind == SelectionKind::Edge) ? Optional<int>{m_selection.id} : none;
+	}
+	Optional<int> selectedNodeId() const
+	{
+		return (m_selection.kind == SelectionKind::Node) ? Optional<int>{m_selection.id} : none;
+	}
+	void selectEdge(int id)   { m_selection = { SelectionKind::Edge, id }; }
+	void selectNode(int id)   { m_selection = { SelectionKind::Node, id }; }
+	void selectGuideSign(int id) { m_selection = { SelectionKind::GuideSign, id }; }
+	void selectSignal(int nodeId) { m_selection = { SelectionKind::Signal, nodeId }; }
+	void clearSelection()     { m_selection.clear(); }
+	void recomputeGuideSignsAroundNode(int nodeId);
 
 	// 車両選択
 	Optional<int>   m_selectedVehicleId;
@@ -164,17 +186,19 @@ private:
 	{
 		double sky = 0, terrain = 0, road = 0, zone = 0;
 		double vehicle = 0, train = 0, debug = 0, ui = 0, total = 0;
+		// renderScene3D 内訳
+		double terrainOnly = 0, roadMesh = 0, signals = 0, routeSigns = 0;
 	};
 	RenderTimings m_renderTimings;
 
 	/// @brief 時刻から空・太陽パラメータを計算した結果
 	struct SkyParams
 	{
-		float  t        = 0.0f;   ///< 時角 [rad]
-		float  sinT     = 0.0f;   ///< sin(t)
-		float  dayF     = 0.0f;   ///< 昼間度 [0,1]
-		float  dawnF    = 0.0f;   ///< 黎明/夕暮れ度 [0,1]
-		double exposure = 0.0;    ///< 露出値
+		float  timeAngle   = 0.0f;   ///< 時角 [rad]
+		float  sinTime     = 0.0f;   ///< sin(timeAngle)
+		float  dayFactor   = 0.0f;   ///< 昼間度 [0,1]
+		float  dawnFactor  = 0.0f;   ///< 黎明/夕暮れ度 [0,1]
+		double exposure    = 0.0;    ///< 露出値
 	};
 
 	// ---- ユーティリティ ----
@@ -213,10 +237,21 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings();
 
+	/// @brief m_districts の各地区に対応する最寄り RoadNode を
+	///   NamedDestination として RoadNetwork に登録し、案内標識を自動生成する。
+	/// @details plan/21_guide_sign_spec.md §2.2 参照
+	void registerGuideDestinations();
+
 	/// @brief loadGame 内: 全チャンクの地形データを並列で読み込む（またはフォールバック生成する）
-	/// @param kRoot  セーブデータルートパス (e.g. "saves/default")
-	/// @param step   呼び出し元の区間ストップウォッチ（完了後に restart される）
-	void loadTerrainChunks(const String& kRoot, Stopwatch& step);
+	/// @param saveRoot セーブデータルートパス (e.g. "saves/default")
+	/// @param step     呼び出し元の区間ストップウォッチ（完了後に restart される）
+	void loadTerrainChunks(const String& saveRoot, Stopwatch& step);
+
+	/// @brief 指定位置に最も近い案内標識 ID を返す（XZ 平面距離、設置位置基準）
+	Optional<int> findGuideSignAt(Vec3 pos, float radius) const;
+
+	/// @brief 指定位置に最も近い信号機ノード ID を返す（signalPlacement を持つノードのみ）
+	Optional<int> findSignalAt(Vec3 pos, float radius) const;
 
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
@@ -280,4 +315,17 @@ private:
 	void drawVehiclePanel();
 	void drawNameListPanel();
 	void drawPauseMenu();
+
+	/// @brief 案内標識セクションを描画（edge_info パネル内、plan/21_guide_sign_spec.md）
+	/// @return 変更があったら true（呼び出し側でキャッシュ無効化）
+	bool drawGuideSignSection(class PanelBuilder& ui, RoadEdge& edge);
+
+	/// @brief 案内標識編集パネル（プロパティ表示 + プレビュー）
+	void drawGuideSignEditPanel();
+
+	/// @brief 案内標識 WYSIWYG エディタパネル（画面中央・ドラッグ/回転/整列）
+	void drawGuideSignEditorPanel();
+
+	/// @brief 案内標識の編集状態とパネル描画を集約
+	GuideSignEditor m_guideSignEditor;
 };

@@ -1,6 +1,7 @@
 ﻿#include "GameScene.hpp"
 #include "../gen/RoadPathfinder.hpp"
 #include "../save/RoadBinary.hpp"
+#include "../save/GuideSignStorage.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include <thread>
@@ -42,6 +43,8 @@ void GameScene::initScene()
 		m_panelManager.registerPanel(U"minimap_expanded", Vec2{side, side}, true);
 	}
 	m_panelManager.registerPanel(U"signal_edit", Vec2{700, 550}, true, true);
+	m_panelManager.registerPanel(U"guide_sign_edit", Vec2{360, 600}, true, true);
+	m_panelManager.registerPanel(U"guide_sign_editor", Vec2{500, 600}, true, true);
 
 	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
 	m_drawTemplate.roadType   = RoadType::LocalRoad;
@@ -252,8 +255,61 @@ void GameScene::postProcessRoads()
 		Logger << U"[PostProcess] mergeShortEdges: {} 結合, {:.0f}ms"_fmt(n, step.msF());
 	}
 
+	registerGuideDestinations();
+	Logger << U"[PostProcess] registerGuideDestinations: {:.0f}ms"_fmt(step.msF());
+	step.restart();
+
 	m_genProgress.store(kProgressDone);
 	Logger << U"[Phase4] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF());
+}
+
+// =============================================================================
+// 案内標識: NamedDestination 登録 + 自動生成 (plan/21_guide_sign_spec.md)
+// =============================================================================
+
+void GameScene::registerGuideDestinations()
+{
+	m_network.clearNamedDestinations();
+
+	const auto tierOf = [](MapGenerator::SettlementType t) -> uint8 {
+		switch (t)
+		{
+		case MapGenerator::SettlementType::Urban:   return 0;
+		case MapGenerator::SettlementType::Suburbs: return 1;
+		case MapGenerator::SettlementType::Rural:   return 2;
+		}
+		return 2;
+	};
+
+	int registered = 0;
+	for (const auto& s : m_districts)
+	{
+		if (s.name.isEmpty()) continue;
+
+		// 地区中心から最寄り RoadNode を線形検索
+		const Vec3 target{ s.center.x, 0.0, s.center.y };
+		int   bestNode = -1;
+		float bestDistSq = std::numeric_limits<float>::max();
+		for (const auto& n : m_network.nodes())
+		{
+			if (n.id < 0) continue;
+			const float dx = static_cast<float>(n.position.x - target.x);
+			const float dz = static_cast<float>(n.position.z - target.z);
+			const float d2 = dx * dx + dz * dz;
+			if (d2 < bestDistSq)
+			{
+				bestDistSq = d2;
+				bestNode = n.id;
+			}
+		}
+		if (bestNode < 0) continue;
+
+		m_network.addNamedDestination(bestNode, s.name, s.reading, tierOf(s.type));
+		++registered;
+	}
+
+	m_network.recomputeAllAutoGuideSigns();
+	Logger << U"[GuideSign] {} 地区を登録, 案内標識自動生成完了"_fmt(registered);
 }
 
 // =============================================================================
@@ -366,8 +422,8 @@ void GameScene::saveGame()
 	if (getData().saveName.isEmpty())
 		getData().saveName = U"default";
 
-	const String kRoot = U"saves/{}"_fmt(getData().saveName);
-	FileSystem::CreateDirectories(U"{}/global"_fmt(kRoot));
+	const String saveRoot = U"saves/{}"_fmt(getData().saveName);
+	FileSystem::CreateDirectories(U"{}/global"_fmt(saveRoot));
 
 	// meta.json
 	JSON meta;
@@ -384,17 +440,20 @@ void GameScene::saveGame()
 	meta[U"cameraDistance"] = m_camera.distance();
 	meta[U"cameraYaw"]     = m_camera.yaw();
 	meta[U"cameraPitch"]   = m_camera.pitch();
-	meta.save(U"{}/meta.json"_fmt(kRoot));
+	meta.save(U"{}/meta.json"_fmt(saveRoot));
 
 	// economy.json
 	JSON eco;
 	eco[U"funds"]      = m_economy.funds;
 	eco[U"population"] = m_economy.population;
 	eco[U"happiness"]  = m_economy.happiness;
-	eco.save(U"{}/global/economy.json"_fmt(kRoot));
+	eco.save(U"{}/global/economy.json"_fmt(saveRoot));
 
 	// roads.bin
-	RoadBinary::writeGlobal(U"{}/global/roads.bin"_fmt(kRoot), m_network);
+	RoadBinary::writeGlobal(U"{}/global/roads.bin"_fmt(saveRoot), m_network);
+
+	// 案内標識（独立 JSON、テクスチャはランタイム再生成）
+	GuideSignStorage::writeJson(U"{}/global/guide_signs.json"_fmt(saveRoot), m_network);
 
 	// districts.json
 	JSON dist;
@@ -408,10 +467,10 @@ void GameScene::saveGame()
 		dist[U"name_{}"_fmt(i)]    = s.name;
 		dist[U"reading_{}"_fmt(i)] = s.reading;
 	}
-	dist.save(U"{}/global/districts.json"_fmt(kRoot));
+	dist.save(U"{}/global/districts.json"_fmt(saveRoot));
 
 	// 地形データ（チャンクごと）
-	const String chunksDir = U"{}/chunks"_fmt(kRoot);
+	const String chunksDir = U"{}/chunks"_fmt(saveRoot);
 	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
 	{
 		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
@@ -433,14 +492,14 @@ void GameScene::saveGame()
 		}
 	}
 
-	Console << U"[Save] Saved to " << kRoot;
+	Console << U"[Save] Saved to " << saveRoot;
 }
 
 // =============================================================================
 // 地形チャンク並列ロード（loadGame のサブルーチン）
 // =============================================================================
 
-void GameScene::loadTerrainChunks(const String& kRoot, Stopwatch& step)
+void GameScene::loadTerrainChunks(const String& saveRoot, Stopwatch& step)
 {
 	// 地形データ（チャンクごとに並列読み込み + バルク I/O）
 	const int totalChunks = WORLD_CHUNKS * WORLD_CHUNKS;
@@ -455,7 +514,7 @@ void GameScene::loadTerrainChunks(const String& kRoot, Stopwatch& step)
 
 		for (int t = 0; t < nThreads; ++t)
 		{
-			threads.emplace_back([this, &buffer, &counter, &loadedAtomic, totalChunks, &kRoot]()
+			threads.emplace_back([this, &buffer, &counter, &loadedAtomic, totalChunks, &saveRoot]()
 			{
 				while (true)
 				{
@@ -464,7 +523,7 @@ void GameScene::loadTerrainChunks(const String& kRoot, Stopwatch& step)
 					const int cx = idx % WORLD_CHUNKS;
 					const int cy = idx / WORLD_CHUNKS;
 
-					const String terrainPath = U"{}/chunks/{}_{}/terrain.bin"_fmt(kRoot, cx, cy);
+					const String terrainPath = U"{}/chunks/{}_{}/terrain.bin"_fmt(saveRoot, cx, cy);
 					bool loaded = false;
 
 					if (FileSystem::Exists(terrainPath))
@@ -526,10 +585,10 @@ bool GameScene::loadGame()
 	const Stopwatch loadTotal{ StartImmediately::Yes };
 	Stopwatch step{ StartImmediately::Yes };
 
-	const String kRoot = U"saves/{}"_fmt(getData().saveName);
+	const String saveRoot = U"saves/{}"_fmt(getData().saveName);
 
 	// meta.json
-	const JSON meta = JSON::Load(U"{}/meta.json"_fmt(kRoot));
+	const JSON meta = JSON::Load(U"{}/meta.json"_fmt(saveRoot));
 	if (!meta) return false;
 
 	getData().seed    = meta[U"seed"].get<uint64>();
@@ -551,10 +610,10 @@ bool GameScene::loadGame()
 	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
 	step.restart();
 
-	loadTerrainChunks(kRoot, step);
+	loadTerrainChunks(saveRoot, step);
 
 	// 経済
-	if (const JSON eco = JSON::Load(U"{}/global/economy.json"_fmt(kRoot)))
+	if (const JSON eco = JSON::Load(U"{}/global/economy.json"_fmt(saveRoot)))
 	{
 		m_economy.funds      = eco[U"funds"].get<double>();
 		m_economy.population = eco[U"population"].get<int>();
@@ -563,8 +622,11 @@ bool GameScene::loadGame()
 
 	// 道路ネットワーク
 	{
-		const String roadPath = U"{}/global/roads.bin"_fmt(kRoot);
+		const String roadPath = U"{}/global/roads.bin"_fmt(saveRoot);
 		const bool roadOk = RoadBinary::readGlobal(roadPath, m_network);
+		// 案内標識（独立 JSON。テクスチャは render 時に prepareGuideSignTextures で合成）
+		m_network.clearGuideSigns();
+		GuideSignStorage::readJson(U"{}/global/guide_signs.json"_fmt(saveRoot), m_network);
 		Console << U"[Load] roads: " << (roadOk ? U"OK" : U"FAILED (format mismatch? re-save needed)")
 		        << U" nodes=" << m_network.nodes().size()
 		        << U" edges=" << m_network.edges().size();
@@ -579,7 +641,7 @@ bool GameScene::loadGame()
 	// 集落
 	m_districts.clear();
 	m_urbanCenters.clear();
-	if (const JSON dist = JSON::Load(U"{}/global/districts.json"_fmt(kRoot)))
+	if (const JSON dist = JSON::Load(U"{}/global/districts.json"_fmt(saveRoot)))
 	{
 		const int count = dist[U"count"].get<int>();
 		Array<MapGenerator::Settlement> settlements;
@@ -602,6 +664,7 @@ bool GameScene::loadGame()
 
 	applyZonesGlobal();
 	placeInitialBuildings();
+	registerGuideDestinations();
 
 	m_roadRenderer.invalidateAllCaches();
 
@@ -618,7 +681,7 @@ bool GameScene::loadGame()
 
 	Console << U"[Load] finish: {:.0f}ms"_fmt(step.msF());
 	m_genProgress = 1.0f;
-	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), kRoot);
+	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), saveRoot);
 	return true;
 }
 
