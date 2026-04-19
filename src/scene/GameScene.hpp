@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <future>
 #include <atomic>
 #include "SceneCommon.hpp"
@@ -87,6 +87,17 @@ private:
 
 	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
 	RenderTexture    m_renderTexture;
+
+	// ---- 選択オブジェクトのアウトライン描画 ----
+	RenderTexture    m_outlineMask;        ///< 選択対象をソリッド白で描画するマスク
+	PixelShader      m_outlinePS;          ///< アウトライン抽出 2D PS
+	struct OutlineParams
+	{
+		Float4 texelSize;     ///< xy = 1/w, 1/h
+		Float4 outlineColor;  ///< 線色
+		Float4 outlineScale;  ///< x = 線幅 [px]
+	};
+	ConstantBuffer<OutlineParams> m_outlineCB;
 
 	// ---- レンダラ ----
 	Sky              m_sky;
@@ -270,7 +281,7 @@ private:
 	Optional<int> findSignalAt(Vec3 pos, float radius) const;
 
 	/// @brief カメラからのレイに最も近い建物セルを返す（OBB レイキャスト）
-	Optional<BuildingRef> findBuildingAt(const Ray& ray) const;
+	Optional<BuildingRef> findBuildingAt(const Ray& ray);
 
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
@@ -319,6 +330,8 @@ private:
 	void renderScene3D();
 	void renderVehicles();
 	void renderSelectionHighlights();
+	/// @brief 選択オブジェクトを別レイヤに白塗りで描画 → 2D で外縁のみ合成する
+	void renderSelectionOutline();
 	void renderEditModeOverlays();
 	void render2DUI();
 	/// @brief 時刻から空・太陽パラメータを計算する

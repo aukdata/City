@@ -14,6 +14,12 @@ GameScene::GameScene(const InitData& init)
 	: IScene{ init }
 {
 	m_renderTexture = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+	m_outlineMask   = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm,      HasDepth::Yes };
+	m_outlinePS     = HLSL{ U"shaders/hlsl/selection_outline.hlsl", U"PS" };
+	if (not m_outlinePS)
+	{
+		Print << U"[WARN] selection_outline.hlsl load failed";
+	}
 	m_trainManager.init(&m_trainNetwork);
 
 	m_roadRenderer.loadAssets();
@@ -464,6 +470,8 @@ void GameScene::saveGame()
 		dist[U"type_{}"_fmt(i)]    = static_cast<int>(s.type);
 		dist[U"cx_{}"_fmt(i)]      = s.center.x;
 		dist[U"cy_{}"_fmt(i)]      = s.center.y;
+		dist[U"radius_{}"_fmt(i)]  = s.radius;
+		dist[U"score_{}"_fmt(i)]   = s.score;
 		dist[U"name_{}"_fmt(i)]    = s.name;
 		dist[U"reading_{}"_fmt(i)] = s.reading;
 	}
@@ -651,6 +659,19 @@ bool GameScene::loadGame()
 			s.type   = static_cast<MapGenerator::SettlementType>(dist[U"type_{}"_fmt(i)].get<int>());
 			s.center = Vec2{ dist[U"cx_{}"_fmt(i)].get<double>(), dist[U"cy_{}"_fmt(i)].get<double>() };
 			s.name   = dist[U"name_{}"_fmt(i)].get<String>();
+			const String radiusKey = U"radius_{}"_fmt(i);
+			if (dist.hasElement(radiusKey))
+				s.radius = dist[radiusKey].get<float>();
+			else
+			{
+				// 旧セーブとの互換: 種別からデフォルト半径を復元
+				s.radius = (s.type == MapGenerator::SettlementType::Urban)   ? 700.0f
+				         : (s.type == MapGenerator::SettlementType::Suburbs) ? 300.0f
+				                                                             : 150.0f;
+			}
+			const String scoreKey = U"score_{}"_fmt(i);
+			if (dist.hasElement(scoreKey))
+				s.score = dist[scoreKey].get<float>();
 			const String readingKey = U"reading_{}"_fmt(i);
 			if (dist.hasElement(readingKey))
 				s.reading = dist[readingKey].get<String>();
