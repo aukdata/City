@@ -1,4 +1,4 @@
-﻿#include "GameScene.hpp"
+#include "GameScene.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 #include <fstream>
 
@@ -324,6 +324,31 @@ void GameScene::renderSelectionHighlights()
 			}
 		}
 	}
+
+	// 選択中の建物をハイライト（OrientedBox ワイヤーフレーム + 上空アイコン）
+	if (m_selectedBuilding)
+	{
+		constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		constexpr float footprint = 10.0f;
+		const auto& ref = *m_selectedBuilding;
+		if (const Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ }))
+		{
+			const Building& b = chunk->buildingGrid[{ ref.col, ref.row }];
+			if (b.type != BuildingType::None)
+			{
+				const Vec3 origin = chunk->worldOrigin();
+				const float cx = static_cast<float>(origin.x + (ref.col + 0.5) * cellSize);
+				const float cz = static_cast<float>(origin.z + (ref.row + 0.5) * cellSize);
+				const float gy = m_world.sampleHeight(cx, cz);
+				const float h  = Max(buildingHeight(b.type), 1.0f);
+				const Vec3 center{ cx, gy + h * 0.5, cz };
+				const Vec3 size{ footprint + 0.6, h + 0.2, footprint + 0.6 };
+				const Quaternion rot = Quaternion::RotateY(b.angle);
+				const ColorF col = ColorF{ 1.0, 0.9, 0.1, 0.65 }.removeSRGBCurve();
+				OrientedBox{ center, size, rot }.drawFrame(col);
+			}
+		}
+	}
 }
 
 // =============================================================================
@@ -570,6 +595,8 @@ void GameScene::render2DUI()
 		else if (panelId == U"guide_sign_edit") { drawGuideSignEditPanel(); }
 		else if (panelId == U"guide_sign_editor") { drawGuideSignEditorPanel(); }
 		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
+		else if (panelId == U"building_info"){ drawBuildingPanel(); }
+		else if (panelId == U"route_info")   { drawRoutePanel(); }
 		else if (panelId == U"minimap_expanded")
 		{
 			m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
