@@ -24,11 +24,32 @@ namespace RoadSign
 
 	// ===== API =====
 
-	/// @brief ポールメッシュ（地面〜poleHeight 高さの円柱）
+	/// @brief ポールメッシュ（地面〜poleHeight 高さの円柱、実寸で生成）
 	/// @details 戻り値の MeshData は **ローカル座標**:
 	///   原点 = ポール接地点（地面）
 	///   Y 軸: 上向き
+	/// @note 実寸のため、描画時に Y スケールしないこと。
 	MeshData CreatePoleMesh(float poleHeight);
+
+	/// @brief RoadSign ポール/看板メタデータ（assets/signs/sign_pole.json）
+	/// @details 全 RoadSign 種別で共通のポール（2.5m 円柱）を使用。
+	///   座標系:
+	///     X: 道路に対して横方向（車線と直交）
+	///     Y: 垂直（上向き）。ポール接地 = 0
+	///     Z: 道路の長手方向（driver の進行方向と逆＝手前へ伸ばす軸）
+	struct PoleMetadata
+	{
+		float poleHeight = 2.5f;
+		float offsetX    = 0.0f;
+		float offsetY    = 2.1f;
+		float offsetZ    = 0.05f;
+	};
+
+	/// @brief 共通ポールのメタデータ（JSON ロード、キャッシュ）
+	const PoleMetadata& poleMetadata();
+
+	/// @brief poleMetadata() のキャッシュを破棄（次回呼び出し時に JSON から再ロード）
+	void reloadPoleMetadata();
 
 	/// @brief 標識種別の表示情報
 	/// @details 形状 OBJ は種別をまたいで共用可（例: Stop と Yield は inverted_triangle.obj）。

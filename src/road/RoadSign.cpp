@@ -7,7 +7,7 @@
 namespace
 {
 	/// @brief Vertex3D を生成する
-	Vertex3D mkVert(double x, double y, double z, float u, float v,
+	Vertex3D makeVert(double x, double y, double z, float u, float v,
 	                double nx = 0.0, double ny = 1.0, double nz = 0.0)
 	{
 		Vertex3D vt;
@@ -31,8 +31,8 @@ namespace
 			const double cx = Math::Cos(theta) * r;
 			const double cz = Math::Sin(theta) * r;
 			const float u = static_cast<float>(i) / segments;
-			md.vertices << mkVert(cx, 0.0, cz, u, 0.0f, cx / r, 0.0, cz / r);
-			md.vertices << mkVert(cx, h,   cz, u, 1.0f, cx / r, 0.0, cz / r);
+			md.vertices << makeVert(cx, 0.0, cz, u, 0.0f, cx / r, 0.0, cz / r);
+			md.vertices << makeVert(cx, h,   cz, u, 1.0f, cx / r, 0.0, cz / r);
 		}
 
 		for (int i = 0; i < segments; ++i)
@@ -65,6 +65,38 @@ namespace
 MeshData RoadSign::CreatePoleMesh(float poleHeight)
 {
 	return makeCylinder(kPoleRadius_m, static_cast<double>(poleHeight), 10);
+}
+
+namespace
+{
+	RoadSign::PoleMetadata g_poleMetadata;
+	bool                   g_poleMetadataLoaded = false;
+}
+
+const RoadSign::PoleMetadata& RoadSign::poleMetadata()
+{
+	if (!g_poleMetadataLoaded)
+	{
+		const JSON j = JSON::Load(U"assets/signs/sign_pole.json");
+		if (j)
+		{
+			g_poleMetadata.poleHeight = j[U"poleHeight"].getOr<float>(2.5f);
+			const auto& b = j[U"board"];
+			if (b)
+			{
+				g_poleMetadata.offsetX = b[U"offsetX"].getOr<float>(0.0f);
+				g_poleMetadata.offsetY = b[U"offsetY"].getOr<float>(2.1f);
+				g_poleMetadata.offsetZ = b[U"offsetZ"].getOr<float>(0.05f);
+			}
+		}
+		g_poleMetadataLoaded = true;
+	}
+	return g_poleMetadata;
+}
+
+void RoadSign::reloadPoleMetadata()
+{
+	g_poleMetadataLoaded = false;
 }
 
 const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
