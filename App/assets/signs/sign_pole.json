@@ -1,0 +1,15 @@
+{
+	"_comment": "RoadSign 共通ポール（2.5m 円柱）のメタデータ。対応 OBJ: sign_pole.obj",
+	"_note": "OBJ は実寸 [m] で設計。board は看板中心のポール基底からの相対 3D オフセット [m]",
+	"_axes": {
+		"X": "道路に対して横方向（車線と直交）",
+		"Y": "垂直（上向き）。ポール接地 = 0",
+		"Z": "道路の長手方向（driver の進行方向と逆＝手前へ伸ばす軸）"
+	},
+	"poleHeight": 2.5,
+	"board": {
+		"offsetX": 0.0,
+		"offsetY": 2.1,
+		"offsetZ": 0.05
+	}
+}
