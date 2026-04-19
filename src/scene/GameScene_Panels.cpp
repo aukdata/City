@@ -1,4 +1,4 @@
-#include "GameScene.hpp"
+﻿#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../ui/PanelLayout.hpp"
 #include "../asset/AssetRegistrar.hpp"

@@ -1,4 +1,4 @@
-#include "GuideSignEditor.hpp"
+﻿#include "GuideSignEditor.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../road/GuideSign.hpp"
 #include "../road/RoadSign.hpp"
