@@ -1,4 +1,4 @@
-﻿#include "GameScene.hpp"
+#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../ui/PanelLayout.hpp"
 #include "../asset/AssetRegistrar.hpp"
@@ -265,10 +265,10 @@ namespace
 					{
 						bx = pX + 4;
 						PanelWidget::label(pFont, U"w", bx, y, ColorF{0.6});
-						if (PanelWidget::spin(pFont, sp.width, 0.25f, 0.5f, 50.0f, bx + 12, y, 44, kLH, U"{:.2f}")) dirty = true;
+						if (PanelWidget::numberInput(pFont, sp.width, 0.25f, 0.5f, 50.0f, bx + 12, y, 44, kLH, U"{:.2f}")) dirty = true;
 						bx += 62;
 						PanelWidget::label(pFont, U"offset", bx, y, ColorF{0.6});
-						if (PanelWidget::spin(pFont, sp.offset, 0.25f, -50.0f, 50.0f, bx + 46, y, 48, kLH, U"{:.2f}")) dirty = true;
+						if (PanelWidget::numberInput(pFont, sp.offset, 0.25f, -50.0f, 50.0f, bx + 46, y, 48, kLH, U"{:.2f}")) dirty = true;
 						y += kLH;
 					}
 				}
@@ -454,7 +454,7 @@ namespace
 						bx = pX + 4;
 						PanelWidget::label(pFont, U"Width", bx, y, ColorF{0.6});
 						bx += 40;
-						dirty |= PanelWidget::spin(pFont, sl.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
+						dirty |= PanelWidget::numberInput(pFont, sl.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
 						bx += 44;
 						dirty |= PanelWidget::toggle(pFont, U"L OK", U"L --", sl.canChangeLaneLeft, bx, y, 36, kLH);
 						bx += 38;
@@ -476,11 +476,11 @@ namespace
 						bx += 14;
 						PanelWidget::label(pFont, U"L", bx, y);
 						bx += 12;
-						dirty |= PanelWidget::spin(pFont, sl.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+						dirty |= PanelWidget::numberInput(pFont, sl.offsetA_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
 						bx += 50;
 						PanelWidget::label(pFont, U"R", bx, y);
 						bx += 12;
-						dirty |= PanelWidget::spin(pFont, sl.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+						dirty |= PanelWidget::numberInput(pFont, sl.offsetA_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
 						y += kLH;
 
 						bx = pX + 4;
@@ -488,11 +488,11 @@ namespace
 						bx += 14;
 						PanelWidget::label(pFont, U"L", bx, y);
 						bx += 12;
-						dirty |= PanelWidget::spin(pFont, sl.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+						dirty |= PanelWidget::numberInput(pFont, sl.offsetB_L, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
 						bx += 50;
 						PanelWidget::label(pFont, U"R", bx, y);
 						bx += 12;
-						dirty |= PanelWidget::spin(pFont, sl.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
+						dirty |= PanelWidget::numberInput(pFont, sl.offsetB_R, 0.25f, -50.f, 50.f, bx, y, 46, kLH, U"{:.2f}");
 						y += kLH + 2;
 					}
 				}
@@ -613,7 +613,7 @@ void GameScene::drawEdgePanel()
 	{
 		ui.row(4, [&] {
 			ui.label(U"Speed", ColorF{ 0.6 });
-			if (ui.spin(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
+			if (ui.numberInput(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
 			ui.label(U"km/h", ColorF{ 0.5 });
 			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
 			// デバッグ: 車両スポーン
@@ -652,7 +652,15 @@ void GameScene::drawEdgePanel()
 			if (!route) continue;
 			ui.row(4, [&] {
 				ui.label(U"■", route->color);  // 色スウォッチ
-				ui.label(route->name, ColorF{ 1.0 });
+				const bool active = (selectedRouteId() == rid);
+				if (ui.button(route->name, active, 240, U"Edit route"))
+				{
+					selectRoute(rid);
+					m_routeNameEditState = TextEditState{};
+					m_routeNameEditState.text = route->name;
+					m_panelManager.show(U"route_info",
+						U"Route #{}"_fmt(rid), panelRightPos(U"route_info"));
+				}
 			});
 		}
 	}
@@ -753,7 +761,7 @@ void GameScene::drawDrawTemplatePanel()
 	{
 		ui.row(4, [&] {
 			ui.label(U"Speed", ColorF{ 0.6 });
-			if (ui.spin(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
+			if (ui.numberInput(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
 			ui.label(U"km/h", ColorF{ 0.5 });
 			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
 		});
@@ -798,11 +806,10 @@ void GameScene::drawNodePanel()
 	// Y 座標スピナー（変更時にコントロールポイントも連動）
 	{
 		PanelWidget::label(pFont, U"Y", pX, y);
-		float tmpY = static_cast<float>(node->position.y);
-		if (PanelWidget::spin(pFont, tmpY, 1.0f, -100.0f, 200.0f, pX + 16, y, 54, kLH))
+		const double prevY = node->position.y;
+		if (PanelWidget::numberInput(pFont, node->position.y, 1.0, -100.0, 200.0, pX + 16, y, 54, kLH))
 		{
-			const double dy = static_cast<double>(tmpY) - node->position.y;
-			node->position.y = static_cast<double>(tmpY);
+			const double dy = node->position.y - prevY;
 			for (const int eid : node->edgeIds())
 			{
 				if (auto* edge = m_network.getEdge(eid))
@@ -852,7 +859,7 @@ void GameScene::drawNodePanel()
 				y += kLH;
 
 				PanelWidget::label(pFont, U"lat", pX + 10, y);
-				dirty |= PanelWidget::spin(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
+				dirty |= PanelWidget::numberInput(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
 				dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
 				y += kLH;
 
@@ -871,11 +878,9 @@ void GameScene::drawNodePanel()
 				if (auto* edge = m_network.getEdge(att.edgeId))
 				{
 					double& cpY = (edge->nodeA == node->id) ? edge->ctrlA.y : edge->ctrlB.y;
-					float tmpCpY = static_cast<float>(cpY);
 					PanelWidget::label(pFont, U"cpY", pX + 10, y);
-					if (PanelWidget::spin(pFont, tmpCpY, 1.0f, -100.0f, 200.0f, pX + 34, y, 54, kLH))
+					if (PanelWidget::numberInput(pFont, cpY, 1.0, -100.0, 200.0, pX + 34, y, 54, kLH))
 					{
-						cpY = static_cast<double>(tmpCpY);
 						// ベジェ形状が変わるので弧長を再計算
 						if (const auto bez = m_network.getBezier(att.edgeId))
 							edge->length = bez->totalLength;
@@ -1164,6 +1169,64 @@ void GameScene::drawVehiclePanel()
 
 	ui.flush();
 	m_panelManager.reportContentHeight(U"vehicle_info", y);
+}
+
+// =============================================================================
+// 建物情報パネル
+// =============================================================================
+
+void GameScene::drawBuildingPanel()
+{
+	if (!m_selectedBuilding)
+	{
+		m_panelManager.hide(U"building_info");
+		return;
+	}
+	const auto& ref = *m_selectedBuilding;
+	const Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ });
+	if (!chunk)
+	{
+		m_panelManager.hide(U"building_info");
+		return;
+	}
+	const Building& b = chunk->buildingGrid[{ ref.col, ref.row }];
+	if (b.type == BuildingType::None)
+	{
+		m_panelManager.hide(U"building_info");
+		return;
+	}
+
+	auto area = m_panelManager.beginContent(U"building_info");
+	if (!area) return;
+
+	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"building_info").x));
+
+	static constexpr StringView typeNames[] = {
+		U"(None)", U"戸建て住宅", U"低層マンション", U"中層マンション", U"高層マンション",
+		U"店舗", U"オフィス", U"工場", U"農地", U"公園", U"公共施設", U"駐車場"
+	};
+	const int typeIdx = static_cast<int>(b.type);
+	const StringView typeName = (typeIdx >= 0 && typeIdx < static_cast<int>(std::size(typeNames)))
+		? typeNames[typeIdx] : U"?";
+
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	const Vec3 origin = chunk->worldOrigin();
+	const double cx = origin.x + (ref.col + 0.5) * cellSize;
+	const double cz = origin.z + (ref.row + 0.5) * cellSize;
+
+	ui.label(U"種別: {}"_fmt(typeName), ColorF{1.0});
+	ui.label(U"高さ: {:.1f} m"_fmt(buildingHeight(b.type)), ColorF{1.0});
+	const int cap = buildingCapacity(b.type);
+	if (cap > 0)
+		ui.label(U"収容: {} 人"_fmt(cap), ColorF{1.0});
+	ui.label(U"建設時刻: {:.1f}"_fmt(b.builtAt), ColorF{0.8, 0.8, 0.8});
+	ui.label(U"向き: {:.1f}°"_fmt(Math::ToDegrees(b.angle)), ColorF{0.8, 0.8, 0.8});
+	ui.label(U"位置: ({:.0f}, {:.0f})"_fmt(cx, cz), ColorF{0.8, 0.8, 0.8});
+	ui.label(U"Chunk({}, {}) Cell({}, {})"_fmt(ref.chunkX, ref.chunkZ, ref.col, ref.row),
+		ColorF{0.6, 0.6, 0.6});
+
+	ui.flush();
+	m_panelManager.reportContentHeight(U"building_info", ui.height());
 }
 
 // ===== 信号サイクル編集パネル =====
@@ -1580,7 +1643,7 @@ void GameScene::drawSignalEditPanel()
 		}
 
 		// 2段目: 持続時間（実時間秒）+ 青連数
-		if (PanelWidget::spin(pFont, ph.duration, 1.0f, 5.0f, 120.0f,
+		if (PanelWidget::numberInput(pFont, ph.duration, 1.0f, 5.0f, 120.0f,
 		                      kPad + 4, ly + kLH + 1, 56, kLH - 2))
 		{
 			dirty = true;
@@ -1699,5 +1762,110 @@ void GameScene::drawPauseMenu()
 				break;
 			}
 		}
+	}
+}
+
+// =============================================================================
+// 道路路線（RoadRoute）編集パネル — plan/22_road_route_spec.md
+// =============================================================================
+
+void GameScene::drawRoutePanel()
+{
+	if (!selectedRouteId()) return;
+	RoadRoute* route = m_network.getRoute(*selectedRouteId());
+	if (!route || route->id < 0) { clearSelection(); m_panelManager.hide(U"route_info"); return; }
+
+	auto area = m_panelManager.beginContent(U"route_info");
+	if (!area) return;
+
+	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"route_info").x));
+	bool structureDirty = false;  // 路線の kind/number 変更時: ガイド標識の再推論トリガ
+
+	// ── 基本情報 ──
+	ui.label(U"ID: {}   edges: {}"_fmt(route->id, route->edgeIds.size()), ColorF{ 1.0 });
+	ui.spacer(2);
+
+	// 名前（テキスト編集）
+	ui.row(4, [&] {
+		ui.label(U"Name", ColorF{ 0.6 });
+		if (ui.textInput(m_routeNameEditState, 240, 64))
+		{
+			route->name = m_routeNameEditState.text;
+		}
+	});
+
+	// 種別
+	{
+		static constexpr StringView kindNames[] = {
+			U"Expressway", U"National", U"Prefecture", U"City", U"Named"
+		};
+		ui.row(4, [&] {
+			ui.label(U"Kind", ColorF{ 0.6 });
+			if (ui.cycle(route->kind, kindNames, 5, 90))
+			{
+				// kind 変更時はデフォルト色へリセット（ユーザ編集済みなら上書きしない方針だが v1 では単純化）
+				route->color = RoadNetwork::defaultRouteColor(route->kind);
+				structureDirty = true;
+			}
+		});
+	}
+
+	// 番号
+	ui.row(4, [&] {
+		ui.label(U"No.", ColorF{ 0.6 });
+		if (ui.numberInput(route->number, 1, 0, 400, U"{}", 60))
+		{
+			structureDirty = true;
+		}
+	});
+
+	// 色スウォッチ（表示のみ、将来のカラーピッカー用）
+	ui.row(4, [&] {
+		ui.label(U"Color", ColorF{ 0.6 });
+		ui.label(U"■■■■■", route->color);
+	});
+
+	ui.separator();
+
+	// ── 構成エッジリスト（クリックで該当エッジへジャンプ） ──
+	ui.label(U"Edges", ColorF{ 0.9 }, true);
+	for (size_t i = 0; i < route->edgeIds.size(); ++i)
+	{
+		const int eid = route->edgeIds[i];
+		const RoadEdge* e = m_network.getEdge(eid);
+		ui.row(4, [&] {
+			ui.label(U"[{}]"_fmt(i), ColorF{ 0.5 });
+			const bool active = (selectedEdgeId() == eid);
+			const String lbl = e ? U"E#{}  {:.0f}m"_fmt(eid, e->length)
+			                     : U"E#{}  (missing)"_fmt(eid);
+			if (ui.button(lbl, active, 180, U"Select edge"))
+			{
+				selectEdge(eid);
+				m_panelManager.show(U"edge_info",
+					U"RoadEdge #{}"_fmt(eid), panelRightPos(U"edge_info"));
+			}
+		});
+	}
+
+	ui.spacer(4);
+
+	// ── 操作ボタン ──
+	ui.row(4, [&] {
+		if (ui.button(U"Delete", false, 70, U"Remove this route"))
+		{
+			const int rid = route->id;
+			m_network.removeRoute(rid);
+			clearSelection();
+			m_panelManager.hide(U"route_info");
+		}
+	});
+
+	ui.flush();
+	m_panelManager.reportContentHeight(U"route_info", ui.height());
+
+	if (structureDirty)
+	{
+		// 路線の kind/number 変更は ガイド標識の自動生成テキストに影響
+		notifyNetworkChanged({});
 	}
 }
