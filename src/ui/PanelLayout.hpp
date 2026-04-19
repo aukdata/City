@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <Siv3D.hpp>
 #include <functional>
 #include "PanelWidget.hpp"
@@ -13,7 +13,7 @@
 /// ui.label(U"Type: {}"_fmt(type));
 /// ui.row(8, [&] {
 ///     ui.label(U"Speed", ColorF{0.6});
-///     ui.spin(speed, 10.f, 10.f, 200.f, U"{:.0f}", 44);
+///     ui.numberInput(speed, 10.f, 10.f, 200.f, U"{:.0f}", 44);
 /// });
 /// if (ui.button(U"Track", tracking, 120))
 ///     tracking = !tracking;
@@ -41,10 +41,6 @@ public:
 	bool toggle(StringView labelOn, StringView labelOff, bool& value,
 	            int width = 0, StringView tooltip = U"");
 
-	/// @brief 数値スピナー。変化したら true
-	bool spin(float& value, float step, float lo, float hi,
-	          StringView fmt = U"{:.1f}", int width = 0);
-
 	/// @brief 列挙サイクル。変化したら true
 	template <typename E>
 	bool cycle(E& value, const StringView* names, int count,
@@ -54,10 +50,12 @@ public:
 	/// @param state 呼び出し元が永続保持する TextEditState
 	bool textInput(TextEditState& state, int width = 0, size_t maxChars = 32);
 
-	/// @brief 数値入力。値が変更されたら true
-	/// @param state 呼び出し元が永続保持する TextEditState（内部で double 変換）
-	bool numberInput(float& value, float lo, float hi,
-	                 TextEditState& state, int width = 0);
+	/// @brief 数値入力（ホイール増減 + クリックでテキスト編集）。変化したら true
+	/// @details 内部で &value をキーに TextEditState をキャッシュするため、呼び出し側で状態を保持する必要はない。
+	///   T は float / double / 整数型に対応。
+	template <class T>
+	bool numberInput(T& value, T step, T lo, T hi,
+	                 StringView fmt = U"{:.1f}", int width = 0);
 
 	/// @brief 折りたたみセクション。開いていれば true
 	bool section(StringView title, bool& collapsed,
@@ -112,6 +110,18 @@ bool PanelBuilder::cycle(E& value, const StringView* names, int count,
 	const int w = widgetW(width);
 	const bool changed = PanelWidget::cycle(m_font, value, names, count,
 	                                        x, m_y, w, kLineH, tooltip);
+	advance(w, kLineH);
+	return changed;
+}
+
+template <class T>
+bool PanelBuilder::numberInput(T& value, T step, T lo, T hi,
+                               StringView fmt, int width)
+{
+	const int x = widgetX();
+	const int w = widgetW(width);
+	const bool changed = PanelWidget::numberInput(m_font, value, step, lo, hi,
+	                                              x, m_y, w, kLineH, fmt);
 	advance(w, kLineH);
 	return changed;
 }

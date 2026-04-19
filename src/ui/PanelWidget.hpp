@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <Siv3D.hpp>
 
 /// @brief パネル内 UI ウィジェット（即時モード描画）
@@ -65,24 +65,6 @@ namespace PanelWidget
 		if (button(font, value ? labelOn : labelOff, value, x, y, w, h, tooltip))
 		{
 			value = !value;
-			return true;
-		}
-		return false;
-	}
-
-	// ── 数値スピン: ホイールで増減。変化したら true ──
-
-	inline bool spin(const Font& font, float& value, float step, float lo, float hi,
-	                 int x, int y, int w, int h, StringView fmt = U"{:.1f}")
-	{
-		const auto hit = hitTest(font, x, y, w, h);
-		RectF{ static_cast<double>(x), static_cast<double>(y),
-		       static_cast<double>(w), static_cast<double>(h) }
-			.draw(hit.hover ? ColorF{ 0.2, 0.2, 0.3 } : ColorF{ 0.12, 0.12, 0.18 });
-		font(Fmt(fmt)(value)).draw(Vec2{ x + 2, y }, Palette::White);
-		if (hit.wheel != 0)
-		{
-			value = Clamp(value - hit.wheel * step, lo, hi);
 			return true;
 		}
 		return false;
@@ -186,6 +168,68 @@ namespace PanelWidget
 				Line{ curX, textY + 1.0, curX, textY + h - 3.0 }
 					.draw(1.0, ColorF{ 1.0, 1.0, 1.0, 0.8 });
 			}
+		}
+
+		return changed;
+	}
+
+	// ── 数値入力: ホイールで増減 + クリックでテキスト編集。変化したら true ──
+	// 状態は &value をキーにした内部キャッシュで自動管理される。
+	// hover + ホイール: step 単位で増減 / クリック: テキスト編集モードへ移行
+	// Enter または外部クリックで確定（パース失敗時は元の値へ戻す）。
+
+	inline HashTable<uint64, TextEditState> numberInputStates;
+
+	/// @tparam T float または double
+	template <class T>
+	inline bool numberInput(const Font& font, T& value, T step, T lo, T hi,
+	                        int x, int y, int w, int h, StringView fmt = U"{:.1f}")
+	{
+		static_assert(std::is_arithmetic_v<T>, "numberInput requires arithmetic T");
+
+		const uint64 id = static_cast<uint64>(reinterpret_cast<uintptr_t>(&value));
+		TextEditState& state = numberInputStates[id];
+		const bool wasActive = (activeTextInput == &state);
+
+		// 非編集中は value → text を同期（外部から value が変わっても追従）
+		if (!wasActive && !state.textChanged)
+		{
+			state.text = Fmt(fmt)(value);
+		}
+
+		bool changed = false;
+
+		// 非編集中のみホイール増減を受け付ける
+		if (!wasActive)
+		{
+			const RectF rect{ static_cast<double>(x), static_cast<double>(y),
+			                  static_cast<double>(w), static_cast<double>(h) };
+			if (rect.mouseOver())
+			{
+				const int wheel = static_cast<int>(Mouse::Wheel());
+				if (wheel != 0)
+				{
+					value = static_cast<T>(Clamp(static_cast<double>(value) - wheel * static_cast<double>(step),
+					                             static_cast<double>(lo), static_cast<double>(hi)));
+					state.text = Fmt(fmt)(value);
+					changed = true;
+				}
+			}
+		}
+
+		textInput(font, state, x, y, w, h, 12);
+
+		// 編集確定（Enter / 外部クリックで textChanged が立つ）
+		const bool nowActive = (activeTextInput == &state);
+		if (!nowActive && state.textChanged)
+		{
+			if (const auto parsed = ParseOpt<double>(state.text))
+			{
+				const T nv = static_cast<T>(Clamp(*parsed, static_cast<double>(lo), static_cast<double>(hi)));
+				if (nv != value) { value = nv; changed = true; }
+			}
+			state.text = Fmt(fmt)(value);
+			state.textChanged = false;
 		}
 
 		return changed;
