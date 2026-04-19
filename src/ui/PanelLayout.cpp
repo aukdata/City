@@ -100,6 +100,45 @@ bool PanelBuilder::spin(float& value, float step, float lo, float hi,
 	return changed;
 }
 
+bool PanelBuilder::textInput(TextEditState& state, int width, size_t maxChars)
+{
+	const int x = widgetX();
+	const int w = widgetW(width);
+	const int h = kLineH + 2;
+	const bool changed = PanelWidget::textInput(m_font, state, x, m_y, w, h, maxChars);
+	advance(w, h);
+	return changed;
+}
+
+bool PanelBuilder::numberInput(float& value, float lo, float hi,
+                               TextEditState& state, int width)
+{
+	// フォーカスが外れたら value に反映
+	if (!state.active && state.textChanged)
+	{
+		if (const auto parsed = ParseOpt<double>(state.text))
+			value = static_cast<float>(Clamp(*parsed, static_cast<double>(lo), static_cast<double>(hi)));
+		state.text = U"{:.1f}"_fmt(value);
+		state.textChanged = false;
+	}
+	if (state.text.isEmpty() && !state.active)
+		state.text = U"{:.1f}"_fmt(value);
+
+	const int x = widgetX();
+	const int w = widgetW(width);
+	const int h = kLineH + 2;
+	const bool edited = PanelWidget::textInput(m_font, state, x, m_y, w, h, 10);
+
+	if (!state.active && edited)
+	{
+		if (const auto parsed = ParseOpt<double>(state.text))
+			value = static_cast<float>(Clamp(*parsed, static_cast<double>(lo), static_cast<double>(hi)));
+		state.text = U"{:.1f}"_fmt(value);
+	}
+	advance(w, h);
+	return edited;
+}
+
 bool PanelBuilder::section(StringView title, bool& collapsed, ColorF color)
 {
 	const int x = widgetX();

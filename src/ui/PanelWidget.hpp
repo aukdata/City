@@ -108,6 +108,89 @@ namespace PanelWidget
 		return false;
 	}
 
+	// ── テキスト入力（コンパクト・IME 対応） ──
+	// SimpleGUI::TextBox は大きすぎるため独自実装。
+	// activeId: 現在フォーカス中のウィジェットを追跡するグローバルポインタ。
+	// クリックでフォーカス取得、外部クリックでフォーカス喪失。
+
+	inline TextEditState* activeTextInput = nullptr;
+
+	inline bool textInput(const Font& font, TextEditState& state,
+	                       int x, int y, int w, int h, size_t maxChars = 32)
+	{
+		const RectF rect{ static_cast<double>(x), static_cast<double>(y),
+		                  static_cast<double>(w), static_cast<double>(h) };
+		const bool isActive = (activeTextInput == &state);
+		const bool hover    = rect.mouseOver();
+		bool changed = false;
+
+		// 背景
+		rect.draw(isActive ? ColorF{ 0.15, 0.15, 0.25 } : (hover ? ColorF{ 0.18, 0.18, 0.24 } : ColorF{ 0.10, 0.10, 0.16 }));
+		rect.drawFrame(1.0, 0.0, isActive ? ColorF{ 0.5, 0.6, 1.0 } : ColorF{ 0.25 });
+
+		// クリックでフォーカス
+		if (hover && MouseL.down())
+		{
+			activeTextInput = &state;
+			state.active = true;
+			state.cursorPos = state.text.size();
+		}
+		// 外部クリックでフォーカス喪失
+		if (isActive && MouseL.down() && !hover)
+		{
+			activeTextInput = nullptr;
+			state.active = false;
+			state.textChanged = true;
+		}
+
+		// テキスト入力処理（フォーカス中のみ）
+		if (isActive)
+		{
+			const size_t prevLen = state.text.size();
+			state.cursorPos = TextInput::UpdateText(state.text, state.cursorPos);
+			if (maxChars > 0 && state.text.size() > maxChars)
+				state.text = state.text.substr(0, maxChars);
+			if (state.text.size() != prevLen) { changed = true; state.textChanged = true; }
+
+			// Enter で確定
+			if (KeyEnter.down())
+			{
+				activeTextInput = nullptr;
+				state.active = false;
+				state.textChanged = true;
+			}
+		}
+
+		// テキスト描画
+		const double textX = x + 3.0;
+		const double textY = y + 1.0;
+		font(state.text).draw(Vec2{ textX, textY }, ColorF{ 0.9 });
+
+		// IME 変換中テキスト（下線付きで表示）
+		if (isActive)
+		{
+			const String editing = TextInput::GetEditingText();
+			if (!editing.isEmpty())
+			{
+				const double curX = textX + font(state.text.substr(0, state.cursorPos)).region().w;
+				font(editing).draw(Vec2{ curX, textY }, ColorF{ 0.7, 0.9, 1.0 });
+				const double editW = font(editing).region().w;
+				Line{ curX, textY + h - 2.0, curX + editW, textY + h - 2.0 }
+					.draw(1.0, ColorF{ 0.7, 0.9, 1.0 });
+			}
+
+			// カーソル描画（点滅）
+			if (static_cast<int>(Scene::Time() * 2) % 2 == 0)
+			{
+				const double curX = textX + font(state.text.substr(0, state.cursorPos)).region().w;
+				Line{ curX, textY + 1.0, curX, textY + h - 3.0 }
+					.draw(1.0, ColorF{ 1.0, 1.0, 1.0, 0.8 });
+			}
+		}
+
+		return changed;
+	}
+
 	// ── ラベル: 読み取り専用テキスト ──
 
 	inline void label(const Font& font, StringView text, int x, int y, ColorF color = ColorF{ 0.5 })

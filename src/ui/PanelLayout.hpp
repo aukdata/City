@@ -50,6 +50,15 @@ public:
 	bool cycle(E& value, const StringView* names, int count,
 	           int width = 0, StringView tooltip = U"");
 
+	/// @brief テキスト入力（日本語 IME 対応）。テキストが変更されたら true
+	/// @param state 呼び出し元が永続保持する TextEditState
+	bool textInput(TextEditState& state, int width = 0, size_t maxChars = 32);
+
+	/// @brief 数値入力。値が変更されたら true
+	/// @param state 呼び出し元が永続保持する TextEditState（内部で double 変換）
+	bool numberInput(float& value, float lo, float hi,
+	                 TextEditState& state, int width = 0);
+
 	/// @brief 折りたたみセクション。開いていれば true
 	bool section(StringView title, bool& collapsed,
 	             ColorF color = ColorF{ 1.0, 1.0, 0.4 });
