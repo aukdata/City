@@ -53,6 +53,8 @@ python3 /mnt/d/Users/Takuma/Creations/codes/City/chore/convert_line_endings.py t
 - [ ] 深いネストより、条件不成立時の早期 `return` / `continue` を使う
 - [ ] マジックナンバーは `constexpr` 定数に置き換える
 - [ ] `-1` 返却が残っていたら `Optional<T>` に置き換える
+- [ ] なるべく一般的（汎用的）なコードにする。特殊ケース専用の分岐を積み重ねず、共通処理で扱えるよう抽象化する
+- [ ] 不要な分岐をなくす。同じ結果になる `if`/`else`、効果のない条件、デフォルト値と同じ値を代入するだけの分岐などは削除する
 
 **Siv3D / コーディング規約**
 - [ ] 命名規則に従う（クラス: PascalCase、メンバ変数: m_ プレフィックス + camelCase、関数: camelCase）
