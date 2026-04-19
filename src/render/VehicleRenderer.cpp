@@ -1,4 +1,4 @@
-#include "VehicleRenderer.hpp"
+﻿#include "VehicleRenderer.hpp"
 #include "RoadRenderer.hpp"   // kLodDistSq
 
 namespace
@@ -37,6 +37,40 @@ void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 		const Vec3 markerPos = v.position + Vec3{ 0, 60, 0 };
 		Sphere{ markerPos, 6.25 }.draw(ColorF{ 1.0, 0.3, 0.1, 0.5 }.removeSRGBCurve());
 	}
+}
+
+void VehicleRenderer::drawVehicleSilhouette(const Vehicle& v, Vec3 cameraPos, const ColorF& color)
+{
+	const double dx = v.position.x - cameraPos.x;
+	const double dz = v.position.z - cameraPos.z;
+	const bool isClose = (dx * dx + dz * dz) < RoadRenderer::kLodDistSq;
+
+	if (isClose && (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar))
+	{
+		if (m_carModel.isEmpty())
+		{
+			m_carModel = Model{ U"assets/vehicles/car.obj" };
+			Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
+		}
+		const Mat4x4 worldMat = (Mat4x4::RotateZ(v.pitch)
+			* Mat4x4::RotateY(v.heading - static_cast<float>(Math::HalfPi)))
+			.translated(
+				static_cast<float>(v.position.x),
+				static_cast<float>(v.position.y),
+				static_cast<float>(v.position.z));
+		const Transformer3D transform{ worldMat };
+		for (const auto& obj : m_carModel.objects())
+		{
+			for (const auto& part : obj.parts)
+				part.mesh.draw(color);
+		}
+		return;
+	}
+
+	const auto vis = getVehicleVisual(v.type);
+	const Vec3 center = v.position + Vec3{ 0, vis.size.y / 2, 0 };
+	const Quaternion rot = Quaternion::RotateX(-v.pitch) * Quaternion::RotateY(v.heading);
+	OrientedBox{ center, vis.size, rot }.draw(color);
 }
 
 void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
