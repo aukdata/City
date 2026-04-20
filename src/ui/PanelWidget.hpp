@@ -57,6 +57,19 @@ namespace PanelWidget
 		return hit.clickL;
 	}
 
+	// ── 危険操作ボタン（削除など）: 赤系配色 ──
+
+	inline bool buttonDanger(const Font& font, StringView label,
+	                         int x, int y, int w, int h, StringView tooltip = U"")
+	{
+		const auto hit = hitTest(font, x, y, w, h, tooltip);
+		RectF{ static_cast<double>(x), static_cast<double>(y),
+		       static_cast<double>(w), static_cast<double>(h) }
+			.draw(hit.hover ? ColorF{ 0.6, 0.15, 0.15 } : ColorF{ 0.4, 0.1, 0.1 });
+		font(label).draw(Vec2{ x + 2, y }, ColorF{ 1.0, 0.7, 0.7 });
+		return hit.clickL;
+	}
+
 	// ── トグル: クリックで bool 反転。変化したら true ──
 
 	inline bool toggle(const Font& font, StringView labelOn, StringView labelOff, bool& value,

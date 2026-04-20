@@ -78,6 +78,16 @@ bool PanelBuilder::button(StringView lbl, bool active, int width, StringView too
 	return clicked;
 }
 
+bool PanelBuilder::buttonDanger(StringView lbl, int width, StringView tooltip)
+{
+	const int x = widgetX();
+	const int w = widgetW(width);
+	const bool clicked = PanelWidget::buttonDanger(m_font, lbl,
+	                                               x, m_y, w, kLineH, tooltip);
+	advance(w, kLineH);
+	return clicked;
+}
+
 bool PanelBuilder::toggle(StringView labelOn, StringView labelOff, bool& value,
                           int width, StringView tooltip)
 {

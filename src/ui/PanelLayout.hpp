@@ -37,6 +37,9 @@ public:
 	/// @brief ボタン。クリックされたら true
 	bool button(StringView lbl, bool active = false, int width = 0, StringView tooltip = U"");
 
+	/// @brief 危険操作ボタン（削除など、赤系配色）。クリックされたら true
+	bool buttonDanger(StringView lbl, int width = 0, StringView tooltip = U"");
+
 	/// @brief ON/OFF トグル。変化したら true
 	bool toggle(StringView labelOn, StringView labelOff, bool& value,
 	            int width = 0, StringView tooltip = U"");
