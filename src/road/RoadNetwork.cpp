@@ -1266,9 +1266,14 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 	if (rt == RoadType::Expressway || rt == RoadType::Highway)
 		laneWidth = 3.75f;
 
-	// Forward レーン数: 過半数（偶数なら半分、奇数なら切り上げ）
-	const int forwardCount = (numLanes + 1) / 2;
-	const float halfTotal = numLanes * laneWidth * 0.5f;
+	// 分離帯のある道路（Expressway/Highway）は中央に medianW の隙間を空けて配置し、
+	// buildDefaultParts の Median Part と車線が重ならないようにする
+	const bool hasMedian = (rt == RoadType::Expressway || rt == RoadType::Highway);
+	const float medianW = hasMedian ? 2.0f : 0.0f;
+
+	// Forward レーン数: 分離帯ありなら前半（左側）、無しなら過半数（切り上げ）
+	const int forwardCount = hasMedian ? (numLanes / 2) : ((numLanes + 1) / 2);
+	const float halfForward = forwardCount * laneWidth;
 
 	Array<Lane> lanes;
 	lanes.reserve(numLanes);
@@ -1282,7 +1287,13 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 		lane.op  = OpState::Open;
 
 		// 幾何（A端=B端、テーパーなし）
-		const float left  = i * laneWidth - halfTotal;
+		// Forward 側は [-halfForward - medianW/2, -medianW/2]、
+		// Backward 側は [+medianW/2, ...] に配置する
+		float left;
+		if (i < forwardCount)
+			left = -halfForward - medianW * 0.5f + i * laneWidth;
+		else
+			left = medianW * 0.5f + (i - forwardCount) * laneWidth;
 		const float right = left + laneWidth;
 		lane.offsetA_L = left;
 		lane.offsetA_R = right;
