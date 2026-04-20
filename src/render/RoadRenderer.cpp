@@ -2631,6 +2631,30 @@ namespace
 
 }
 
+namespace
+{
+	/// @brief 1基分の案内標識テクスチャを合成する
+	/// @details SRGB format でサンプリング時に線形空間へ自動変換させる（ルート看板と色合いを合わせる）
+	///   HasMipMap なし（Test 検証: HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
+	RenderTexture buildGuideSignTexture(const GuideSignPlacement& g, const Font& fontJa, const Font& fontNum)
+	{
+		const auto   bs      = GuideSign::computeBoardSizeFor(g);
+		const Size   texSize = GuideSign::guideSignTexSize(bs.width, bs.height);
+		const ColorF bg      = GuideSign::resolveBgColor(g.bgColor);
+
+		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,
+		                  TextureFormat::R8G8B8A8_Unorm_SRGB };
+		{
+			const ScopedRenderTarget2D target{ rt };
+			const ScopedRenderStates2D blend{ BlendState::Default2D };
+			GuideSign::renderContents(g, texSize, fontJa, fontNum);
+			Graphics2D::Flush();
+		}
+		rt.generateMips();
+		return rt;
+	}
+}
+
 void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 {
 	// 全テクスチャ準備済みなら即リターン（毎フレーム 5000 件を走査するコストを回避）
@@ -2652,22 +2676,7 @@ void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 		if (m_guideSignTexCache.contains(key)) continue;
 		++missCount;
 
-		const auto bs = GuideSign::computeBoardSizeFor(g);
-		const Size texSize = GuideSign::guideSignTexSize(bs.width, bs.height);
-
-		const ColorF bg = GuideSign::resolveBgColor(g.bgColor);
-		// SRGB format でサンプリング時に線形空間へ自動変換させる（ルート看板と色合いを合わせる）
-		// HasMipMap なし（Test 検証の結果、HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
-		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,
-		                  TextureFormat::R8G8B8A8_Unorm_SRGB };
-		{
-			const ScopedRenderTarget2D target{ rt };
-			const ScopedRenderStates2D blend{ BlendState::Default2D };
-			GuideSign::renderContents(g, texSize, fontJa, fontNum);
-			Graphics2D::Flush();
-		}
-		rt.generateMips();
-		m_guideSignTexCache[key] = std::move(rt);
+		m_guideSignTexCache[key] = buildGuideSignTexture(g, fontJa, fontNum);
 	}
 
 	// キャッシュミスがなくなったら準備完了フラグをセット
