@@ -59,6 +59,8 @@ void GameScene::initScene()
 	m_drawTemplate.lanes      = RoadNetwork::buildDefaultLanes(2, RoadType::LocalRoad);
 	RoadNetwork::buildDefaultParts(m_drawTemplate);
 
+	m_roadPresets.load();
+
 	if (getData().isNewGame)
 		initNewGame();
 	else

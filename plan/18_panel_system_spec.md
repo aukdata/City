@@ -129,6 +129,30 @@
 | `node_info` | RoadNode #N | true | 道路ノードの情報表示・編集 |
 | `route_info` | Route #N | true | 国道路線の情報表示・編集 |
 | `name_list` | 地名一覧 | false | 集落の一覧表示（画面右上固定） |
+| `draw_template` | Draw Template | true | 道路敷設モードのテンプレートパネル（3セクション構成） |
+
+### `draw_template` パネルの構成
+
+道路敷設モード（`EditMode::RoadDraw`）時に表示される道路テンプレート設定パネル。
+
+**Section 1: 現在の組み合わせ（常時展開）**
+- ヘッダ行: 右端に「★ お気に入りに追加」ボタン（幅140）を配置
+- Type（RoadType サイクル） / Speed（数値入力） / 総幅表示
+- 断面編集（Parts + Lanes 共通の `drawRoadSections()` 呼び出し）
+
+**Section 2: お気に入り**
+- ユーザーが「★ お気に入りに追加」で保存したプリセット一覧
+- 空時は `"(なし) ヘッダの ★ で追加"` を表示
+- 各行: 名前ラベル + 「選択」ボタン + 「×」削除ボタン（削除時即時 save）
+
+**Section 3: デフォルト**
+- ハードコードされた4種（市道2車線60/市道4車線60/幹線4車線80/高速4車線100）
+- 各行: 名前ラベル + 「選択」ボタン（削除ボタンなし）
+
+**プリセット管理（`RoadPresetStore`）**
+- 保存先: `App/user_data/draw_presets.json`（グローバル・即時保存）
+- 永続化対象: `roadType / speedLimit / parts / lanes` のみ
+- 名前自動生成: `"{Type} {lanes}車線 {speed}km/h"`、重複時 `(2)` 付加
 
 ---
 

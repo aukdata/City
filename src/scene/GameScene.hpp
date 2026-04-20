@@ -28,6 +28,7 @@
 #include "../render/RoadRouteSignRenderer.hpp"
 #include "../render/MinimapRenderer.hpp"
 #include "GuideSignEditor.hpp"
+#include "../road/RoadPreset.hpp"
 
 /// @brief ゲームプレイシーン
 class GameScene : public App::Scene
@@ -119,6 +120,7 @@ private:
 	Optional<int>   m_drawStartNode;
 	Optional<Vec3>  m_cursorGroundPos;
 	RoadEdge        m_drawTemplate;    ///< 設置する道路のテンプレート
+	RoadPresetStore m_roadPresets;     ///< 道路テンプレートのプリセット管理
 	float           m_drawElevation = 0.0f;  ///< 描画モードの高さオフセット [m]
 
 	// ゾーン塗り

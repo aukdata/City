@@ -127,6 +127,7 @@
     <ClCompile Include="src\road\GuideSign.cpp" />
     <ClCompile Include="src\save\GuideSignStorage.cpp" />
     <ClCompile Include="src\road\RoadNetwork.cpp" />
+    <ClCompile Include="src\road\RoadPreset.cpp" />
     <ClCompile Include="src\road\ArrowMarkingRegistry.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
     <ClCompile Include="src\road\RoadPartRegistry.cpp" />
@@ -378,6 +379,7 @@
     <ClInclude Include="src\road\GuideSign.hpp" />
     <ClInclude Include="src\save\GuideSignStorage.hpp" />
     <ClInclude Include="src\road\RoadTypes.hpp" />
+    <ClInclude Include="src\road\RoadPreset.hpp" />
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />
     <ClInclude Include="src\traffic\Vehicle.hpp" />

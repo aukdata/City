@@ -249,6 +249,9 @@
     <ClCompile Include="src\road\RoadNetwork.cpp">
       <Filter>Source Files\road</Filter>
     </ClCompile>
+    <ClCompile Include="src\road\RoadPreset.cpp">
+      <Filter>Source Files\road</Filter>
+    </ClCompile>
     <ClCompile Include="src\road\ObjParser.cpp">
       <Filter>Source Files\road</Filter>
     </ClCompile>
@@ -1029,6 +1032,9 @@
       <Filter>Source Files\render</Filter>
     </ClInclude>
     <ClInclude Include="src\road\RoadTypes.hpp">
+      <Filter>Source Files\road</Filter>
+    </ClInclude>
+    <ClInclude Include="src\road\RoadPreset.hpp">
       <Filter>Source Files\road</Filter>
     </ClInclude>
     <ClInclude Include="src\road\BezierUtil.hpp">
