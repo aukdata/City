@@ -214,6 +214,37 @@ namespace
 		default:                          return 0;
 		}
 	}
+
+	/// @brief 建物 Box メッシュの頂点を中心 (cx, cz) まわりに角度 angle で Y 軸回転する
+	/// @details rebuildBuildingMeshes と drawBuildingSilhouette で同じ変換を適用するための共通処理
+	void rotateBoxVerticesY(MeshData& box, float cx, float cz, float angle)
+	{
+		if (angle == 0.0f) return;
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		for (auto& v : box.vertices)
+		{
+			const float dx = v.pos.x - cx;
+			const float dz = v.pos.z - cz;
+			v.pos.x = cx + dx * cosA - dz * sinA;
+			v.pos.z = cz + dx * sinA + dz * cosA;
+			const float nx = v.normal.x;
+			const float nz = v.normal.z;
+			v.normal.x = nx * cosA - nz * sinA;
+			v.normal.z = nx * sinA + nz * cosA;
+		}
+	}
+
+	/// @brief 住宅 OBJ を全 part 単色で描画する（シルエット用）
+	void drawModelSilhouette(Model& model, const Mat4x4& worldMat, const ColorF& color)
+	{
+		const Transformer3D transform{ worldMat };
+		for (const auto& obj : model.objects())
+		{
+			for (const auto& part : obj.parts)
+				part.mesh.draw(color);
+		}
+	}
 }
 
 Model& WorldRenderer::getBuildingModel(uint8 idx)
@@ -294,14 +325,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 		Model& model = getBuildingModel(pickResidentialModel(b.type, gx, gz));
 		if (model.isEmpty()) return;
 
-		const Mat4x4 worldMat = Mat4x4::RotateY(b.angle)
-			.translated(cx, gy, cz);
-		const Transformer3D transform{ worldMat };
-		for (const auto& obj : model.objects())
-		{
-			for (const auto& part : obj.parts)
-				part.mesh.draw(color);
-		}
+		drawModelSilhouette(model, Mat4x4::RotateY(b.angle).translated(cx, gy, cz), color);
 		return;
 	}
 
@@ -313,22 +337,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	MeshData box = MeshData::Box(
 		Float3{ cx, cy, cz },
 		Float3{ footprint, height, footprint });
-	if (b.angle != 0.0f)
-	{
-		const float cosA = Math::Cos(b.angle);
-		const float sinA = Math::Sin(b.angle);
-		for (auto& v : box.vertices)
-		{
-			const float dx = v.pos.x - cx;
-			const float dz = v.pos.z - cz;
-			v.pos.x = cx + dx * cosA - dz * sinA;
-			v.pos.z = cz + dx * sinA + dz * cosA;
-			const float nx = v.normal.x;
-			const float nz = v.normal.z;
-			v.normal.x = nx * cosA - nz * sinA;
-			v.normal.z = nx * sinA + nz * cosA;
-		}
-	}
+	rotateBoxVerticesY(box, cx, cz, b.angle);
 	Mesh{ box }.draw(color);
 }
 
@@ -378,22 +387,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				Float3{ footprint, height, footprint });
 
 			// 最近傍道路の向きに合わせてY軸回転
-			if (b.angle != 0.0f)
-			{
-				const float cosA = Math::Cos(b.angle);
-				const float sinA = Math::Sin(b.angle);
-				for (auto& v : box.vertices)
-				{
-					const float dx = v.pos.x - cx;
-					const float dz = v.pos.z - cz;
-					v.pos.x = cx + dx * cosA - dz * sinA;
-					v.pos.z = cz + dx * sinA + dz * cosA;
-					const float nx = v.normal.x;
-					const float nz = v.normal.z;
-					v.normal.x = nx * cosA - nz * sinA;
-					v.normal.z = nx * sinA + nz * cosA;
-				}
-			}
+			rotateBoxVerticesY(box, cx, cz, b.angle);
 
 			auto& dst = groups[static_cast<int>(b.type)];
 			const uint32 offset = static_cast<uint32>(dst.vertices.size());
