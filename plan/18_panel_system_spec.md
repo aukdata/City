@@ -127,6 +127,7 @@
 |---|---|---|---|
 | `edge_info` | RoadEdge #N | true | 道路エッジの情報表示・編集 |
 | `node_info` | RoadNode #N | true | 道路ノードの情報表示・編集 |
+| `route_info` | Route #N | true | 国道路線の情報表示・編集 |
 | `name_list` | 地名一覧 | false | 集落の一覧表示（画面右上固定） |
 
 ---
