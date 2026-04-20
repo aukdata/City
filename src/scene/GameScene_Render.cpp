@@ -4,6 +4,13 @@
 
 namespace
 {
+	// ===== 選択アウトライン描画パラメータ =====
+
+	/// @brief アウトライン色（ゴールド寄りの黄色）
+	constexpr Float4 kSelectionOutlineColor{ 1.0f, 0.85f, 0.1f, 1.0f };
+	/// @brief アウトラインの幅（ピクセル単位、シェーダ内で texelSize と乗算される）
+	constexpr float  kSelectionOutlineWidthPx = 6.0f;
+
 	// 車線中心のワールド座標を返す（路盤ベジェ + 車線オフセット）
 	Vec3 calcLaneWorldPos(const CubicBezier& bez, const RoadEdge& edge, int laneIdx, float arc)
 	{
@@ -404,8 +411,8 @@ void GameScene::renderSelectionOutline()
 	// --- 2) 2D: アウトライン抽出シェーダでスクリーンに加算合成 ---
 	{
 		m_outlineCB->texelSize    = Float4{ 1.0f / m_outlineMask.width(), 1.0f / m_outlineMask.height(), 0, 0 };
-		m_outlineCB->outlineColor = Float4{ 1.0f, 0.85f, 0.1f, 1.0f };
-		m_outlineCB->outlineScale = Float4{ 6.0f, 0, 0, 0 };
+		m_outlineCB->outlineColor = kSelectionOutlineColor;
+		m_outlineCB->outlineScale = Float4{ kSelectionOutlineWidthPx, 0, 0, 0 };
 
 		Graphics2D::SetPSConstantBuffer(1, m_outlineCB);
 		const ScopedCustomShader2D shader{ m_outlinePS };
