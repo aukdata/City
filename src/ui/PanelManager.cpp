@@ -128,7 +128,8 @@ bool PanelManager::handleInput()
 			p->scrollOffset = Clamp(p->scrollOffset, 0.0, Max(0.0, p->contentHeight - viewH));
 		}
 
-		// パネル上にマウスがあるので入力消費
+		// パネル上にマウスがあるので入力消費（ホバーのみでも 3D 空間側へ伝播させない）
+		m_consumedInput = true;
 		return true;
 	}
 

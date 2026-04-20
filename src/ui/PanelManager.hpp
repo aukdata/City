@@ -68,6 +68,10 @@ public:
 	/// @brief 直前の handleInput() でクリックが消費されたか
 	[[nodiscard]] bool consumedInput() const { return m_consumedInput; }
 
+	/// @brief マウス操作がパネルにより吸収されるか（パネル上にカーソルがある or 入力消費済み）
+	/// @details 3D空間のクリック・ドラッグ処理は、このフラグが true のときスキップすべき
+	[[nodiscard]] bool blocksMouseInput() const { return isMouseOnAnyPanel() || m_consumedInput; }
+
 	/// @brief 登録済みパネルのサイズを返す（未登録なら {0,0}）
 	[[nodiscard]] Vec2 getSize(StringView id) const
 	{

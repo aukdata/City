@@ -172,7 +172,7 @@ void GameScene::handleInput()
 		m_drawElevation = 0.0f;
 		m_rectStart     = none;
 		if (m_mode == EditMode::RoadDraw)
-			m_panelManager.show(U"draw_template", U"Road Template", panelRightPos(U"draw_template"));
+			m_panelManager.show(U"draw_template", U"道路テンプレート", panelRightPos(U"draw_template"));
 		else
 			m_panelManager.hide(U"draw_template");
 	}
@@ -301,8 +301,7 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		if (MouseL.down() && m_cursorGroundPos
-		    && !m_panelManager.isMouseOnAnyPanel() && !m_panelManager.consumedInput())
+		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.blocksMouseInput())
 			handleSelectionClick();
 	}
 }
@@ -339,7 +338,7 @@ void GameScene::handleSelectionClick()
 	{
 		m_selectedVehicleId = hitVehicleId;
 		clearSelection();
-		m_panelManager.show(U"vehicle_info", U"Vehicle #{}"_fmt(*hitVehicleId),
+		m_panelManager.show(U"vehicle_info", U"車両 #{}"_fmt(*hitVehicleId),
 			panelRightPos(U"vehicle_info"));
 		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"node_info");
@@ -402,7 +401,7 @@ void GameScene::handleSelectionClick()
 			m_routeNameEditState = TextEditState{};
 			m_routeNameEditState.text = r->name;
 			m_panelManager.show(U"route_info",
-				U"Route #{}"_fmt(*hitRoute), panelRightPos(U"route_info"));
+				U"路線 #{}"_fmt(*hitRoute), panelRightPos(U"route_info"));
 			m_panelManager.hide(U"edge_info");
 			m_panelManager.hide(U"node_info");
 			m_panelManager.hide(U"guide_sign_edit");
@@ -428,7 +427,7 @@ void GameScene::handleSelectionClick()
 	if (hitNode)
 	{
 		selectNode(*hitNode);
-		m_panelManager.show(U"node_info", U"RoadNode #{}"_fmt(*hitNode),
+		m_panelManager.show(U"node_info", U"道路ノード #{}"_fmt(*hitNode),
 			panelRightPos(U"node_info"));
 		m_panelManager.hide(U"edge_info");
 		m_panelManager.hide(U"guide_sign_edit");
@@ -439,7 +438,7 @@ void GameScene::handleSelectionClick()
 	else if (hitEdge)
 	{
 		selectEdge(*hitEdge);
-		m_panelManager.show(U"edge_info", U"RoadEdge #{}"_fmt(*hitEdge),
+		m_panelManager.show(U"edge_info", U"道路エッジ #{}"_fmt(*hitEdge),
 			panelRightPos(U"edge_info"));
 		m_panelManager.hide(U"node_info");
 		m_panelManager.hide(U"guide_sign_edit");
@@ -495,16 +494,18 @@ std::pair<Vec3, Vec3> GameScene::calcRoadDrawControlPoints(int startNodeId, Vec3
 
 void GameScene::handleRoadDraw()
 {
-	// PgUp/PgDown: 高さオフセットを変更
+	// PgUp/PgDown: 高さオフセットを変更（キー操作はパネル上でも有効）
 	{
 		constexpr float kElevStep = 1.0f;
 		if (KeyPageUp.pressed())   m_drawElevation += kElevStep;
 		if (KeyPageDown.pressed()) m_drawElevation = Max(m_drawElevation - kElevStep, 0.0f);
 	}
 
+	// パネル上にカーソルがあるときはマウス操作をすべて吸収
+	if (m_panelManager.blocksMouseInput()) return;
+
 	// ホイールクリック: 既存道路の構成をテンプレートにコピー
-	if (MouseM.down() && m_cursorGroundPos
-	    && !m_panelManager.isMouseOnAnyPanel() && !m_panelManager.consumedInput())
+	if (MouseM.down() && m_cursorGroundPos)
 	{
 		auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
 		if (!hitEdge)
@@ -592,6 +593,7 @@ void GameScene::handleRoadDraw()
 void GameScene::handleZonePaint()
 {
 	if (!m_cursorGroundPos) return;
+	if (m_panelManager.blocksMouseInput()) return;
 
 	if (KeyShift.pressed())
 	{
@@ -615,6 +617,7 @@ void GameScene::handleBusRouteDraw()
 {
 	if (!m_cursorGroundPos) return;
 	if (m_editingRouteId < 0) return;
+	if (m_panelManager.blocksMouseInput()) return;
 
 	if (MouseL.down())
 	{
@@ -643,6 +646,7 @@ void GameScene::handleBusRouteDraw()
 void GameScene::handleTerrainEdit()
 {
 	if (!m_cursorGroundPos) return;
+	if (m_panelManager.blocksMouseInput()) return;
 
 	const float dt    = static_cast<float>(Scene::DeltaTime());
 	const float raise = MouseL.pressed() ? m_terrainBrushStrength * dt : 0.0f;
@@ -688,6 +692,7 @@ void GameScene::handleTerrainEdit()
 void GameScene::handleTrainDraw()
 {
 	if (!m_cursorGroundPos) return;
+	if (m_panelManager.blocksMouseInput()) return;
 
 	if (MouseL.down())
 	{
@@ -735,6 +740,9 @@ void GameScene::handleTrainDraw()
 void GameScene::handleSandboxEdit()
 {
 	if (!m_cursorGroundPos) return;
+	// ドラッグ継続中（MouseL.pressed かつドラッグ対象が確定済み）はパネル上でも処理を続ける
+	const bool dragging = MouseL.pressed() && (m_sandboxDragNode || m_sandboxDragCtrl);
+	if (!dragging && m_panelManager.blocksMouseInput()) return;
 
 	const Vec2 cur2D{ m_cursorGroundPos->x, m_cursorGroundPos->z };
 
