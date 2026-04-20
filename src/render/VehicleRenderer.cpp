@@ -23,6 +23,39 @@ namespace
 		default:                        return { ColorF{ 0.6, 0.6, 0.6 }, { 1.8, 1.5, 4.0 } };
 		}
 	}
+
+	/// @brief OrientedBox 用のワールド変換 Quaternion（Z=前方）
+	Quaternion boxWorldRotation(const Vehicle& v)
+	{
+		return Quaternion::RotateX(-v.pitch) * Quaternion::RotateY(v.heading);
+	}
+}
+
+Mat4x4 VehicleRenderer::carModelWorldMatrix(const Vehicle& v)
+{
+	// car.obj: X=前方, Y=上, Z=横 → RotateZ で pitch, RotateY で yaw
+	return (Mat4x4::RotateZ(v.pitch)
+		* Mat4x4::RotateY(v.heading - static_cast<float>(Math::HalfPi)))
+		.translated(
+			static_cast<float>(v.position.x),
+			static_cast<float>(v.position.y),
+			static_cast<float>(v.position.z));
+}
+
+bool VehicleRenderer::usesCarModel(const Vehicle& v, bool isClose)
+{
+	return isClose
+		&& (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar);
+}
+
+Model& VehicleRenderer::ensureCarModel()
+{
+	if (m_carModel.isEmpty())
+	{
+		m_carModel = Model{ U"assets/vehicles/car.obj" };
+		Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
+	}
+	return m_carModel;
 }
 
 void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
@@ -45,21 +78,11 @@ void VehicleRenderer::drawVehicleSilhouette(const Vehicle& v, Vec3 cameraPos, co
 	const double dz = v.position.z - cameraPos.z;
 	const bool isClose = (dx * dx + dz * dz) < RoadRenderer::kLodDistSq;
 
-	if (isClose && (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar))
+	if (usesCarModel(v, isClose))
 	{
-		if (m_carModel.isEmpty())
-		{
-			m_carModel = Model{ U"assets/vehicles/car.obj" };
-			Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
-		}
-		const Mat4x4 worldMat = (Mat4x4::RotateZ(v.pitch)
-			* Mat4x4::RotateY(v.heading - static_cast<float>(Math::HalfPi)))
-			.translated(
-				static_cast<float>(v.position.x),
-				static_cast<float>(v.position.y),
-				static_cast<float>(v.position.z));
-		const Transformer3D transform{ worldMat };
-		for (const auto& obj : m_carModel.objects())
+		Model& model = ensureCarModel();
+		const Transformer3D transform{ carModelWorldMatrix(v) };
+		for (const auto& obj : model.objects())
 		{
 			for (const auto& part : obj.parts)
 				part.mesh.draw(color);
@@ -69,34 +92,19 @@ void VehicleRenderer::drawVehicleSilhouette(const Vehicle& v, Vec3 cameraPos, co
 
 	const auto vis = getVehicleVisual(v.type);
 	const Vec3 center = v.position + Vec3{ 0, vis.size.y / 2, 0 };
-	const Quaternion rot = Quaternion::RotateX(-v.pitch) * Quaternion::RotateY(v.heading);
-	OrientedBox{ center, vis.size, rot }.draw(color);
+	OrientedBox{ center, vis.size, boxWorldRotation(v) }.draw(color);
 }
 
 void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
 {
-	if (isClose && (v.type == VehicleType::PassengerCar || v.type == VehicleType::KeiCar))
+	if (usesCarModel(v, isClose))
 	{
-		if (m_carModel.isEmpty())
+		Model& model = ensureCarModel();
+		const auto& materials = model.materials();
+		for (const auto& obj : model.objects())
 		{
-			m_carModel = Model{ U"assets/vehicles/car.obj" };
-			Model::RegisterDiffuseTextures(m_carModel, TextureDesc::MippedSRGB);
-		}
-
-		{
-			// car.obj: X=前方, Y=上, Z=横 → RotateZ で pitch, RotateY で yaw
-			const Mat4x4 worldMat = (Mat4x4::RotateZ(v.pitch)
-				* Mat4x4::RotateY(v.heading - static_cast<float>(Math::HalfPi)))
-				.translated(
-					static_cast<float>(v.position.x),
-					static_cast<float>(v.position.y),
-					static_cast<float>(v.position.z));
-			const auto& materials = m_carModel.materials();
-			for (const auto& obj : m_carModel.objects())
-			{
-				const Transformer3D transform{ worldMat };
-				obj.draw(materials);
-			}
+			const Transformer3D transform{ carModelWorldMatrix(v) };
+			obj.draw(materials);
 		}
 		return;
 	}
@@ -104,6 +112,5 @@ void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
 	const auto vis = getVehicleVisual(v.type);
 	const Vec3 center = v.position + Vec3{ 0, vis.size.y / 2, 0 };
 	// OrientedBox: Z=前方 → RotateX(-pitch) で傾斜, RotateY で yaw
-	const Quaternion rot = Quaternion::RotateX(-v.pitch) * Quaternion::RotateY(v.heading);
-	OrientedBox{ center, vis.size, rot }.draw(vis.color.removeSRGBCurve());
+	OrientedBox{ center, vis.size, boxWorldRotation(v) }.draw(vis.color.removeSRGBCurve());
 }
