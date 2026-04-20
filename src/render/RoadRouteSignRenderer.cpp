@@ -9,6 +9,7 @@ namespace
 	constexpr double kLabelOffsetY  =   18.0;    ///< 標識の高さオフセット [m]
 	constexpr double kSignSizeNear  =   72.0;    ///< 近距離時の標識高さ [px]
 	constexpr double kSignSizeFar   =   40.0;    ///< 遠距離時の標識高さ [px]
+	constexpr double kMinHitAlpha   =    0.5;    ///< この alpha 未満の標識はヒット判定しない
 
 	/// @brief RoadRoute の代表表示位置を返す（route 全体に沿って等間隔に N 個）
 	Array<Vec3> routeAnchors(const RoadRoute& route, const RoadNetwork& network, int count)
@@ -35,6 +36,8 @@ namespace
 
 void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera& camera) const
 {
+	m_hits.clear();
+
 	const Texture& tex = TextureAsset(Asset::NationalRoadSign);
 	if (not tex) return;
 
@@ -76,10 +79,27 @@ void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera&
 			// 標識本体（お握り型テクスチャ）
 			tex.resized(size).drawAt(screenPos, ColorF{ 1.0, alpha });
 
+			// クリック判定用にスクリーン矩形をキャッシュ
+			m_hits << SignHit{ RectF{ Arg::center = screenPos, size, size }, alpha, route.id };
+
 			// 号数（Arial・フチなし）を標識中央からやや上に配置
 			const double numberSize = size * 0.361;  // 0.38 * 0.95
 			const Vec2   numberPos{ screenPos.x, screenPos.y - size * 0.02 };
 			fontNum(route.number).drawAt(numberSize, numberPos, ColorF{ 1.0, 1.0, 1.0, alpha });
 		}
 	}
+}
+
+Optional<int> RoadRouteSignRenderer::hitTest(Vec2 p) const
+{
+	// 後から描画された（手前の）標識を優先するため逆順走査
+	for (int i = static_cast<int>(m_hits.size()) - 1; i >= 0; --i)
+	{
+		const auto& hit = m_hits[i];
+		if (hit.alpha >= kMinHitAlpha && hit.rect.contains(p))
+		{
+			return hit.routeId;
+		}
+	}
+	return none;
 }

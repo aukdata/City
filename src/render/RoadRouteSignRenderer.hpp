@@ -10,4 +10,18 @@ class RoadRouteSignRenderer
 public:
 	/// @brief 国道路線標識を描画する（Shader::LinearToScreen の後に呼ぶこと）
 	void render(const RoadNetwork& network, const GameCamera& camera) const;
+
+	/// @brief スクリーン座標 p にある標識の routeId を返す（alpha < kMinHitAlpha は無視）
+	Optional<int> hitTest(Vec2 p) const;
+
+private:
+	/// @brief render() でキャッシュされる標識のスクリーン矩形・alpha・routeId
+	struct SignHit
+	{
+		RectF rect;
+		double alpha;
+		int routeId;
+	};
+
+	mutable Array<SignHit> m_hits;
 };
