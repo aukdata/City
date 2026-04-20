@@ -78,4 +78,14 @@ private:
 		return m_selectedElement >= 0
 			&& m_selectedElement < static_cast<int>(m_draftElements.size());
 	}
+
+	/// @brief 必要なら m_draftTex を m_draftElements から再生成する
+	/// @details パネル座標変換の影響を受けないよう beginContent の前に呼ぶこと
+	void regenerateDraftTextureIfDirty(const GuideSignPlacement& g);
+
+	/// @brief 指定種別の新規要素をツールバーから追加する
+	void addElementFromToolbar(SignElementKind kind);
+
+	/// @brief 選択中要素を削除し、選択状態をクリアする
+	void deleteSelectedElement();
 };

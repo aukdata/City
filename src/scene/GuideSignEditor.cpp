@@ -11,6 +11,51 @@ namespace
 {
 	constexpr StringView kKindNames[] = { U"方面及び距離", U"方面及び方向" };
 
+	/// @brief 看板エディタパネルの初期オープン時サイズ [px]
+	constexpr Vec2 kEditorPanelInitialSize{ 500.0, 600.0 };
+
+	/// @brief 選択ハイライトの外枠色
+	constexpr ColorF kSelectionHighlightColor{ 1.0, 1.0, 0.0, 0.8 };
+	/// @brief 選択ハイライトの外枠太さ
+	constexpr double kSelectionHighlightThickness = 1.5;
+
+	/// @brief プレビュー内のクリックヒット半径（px）二乗
+	constexpr double kClickHitRadiusSq = 1600.0;  // 40px 半径
+
+	/// @brief 矢印キーでの移動量（Shift なし / Shift ありの 1 フレーム当たり px）
+	constexpr float  kArrowKeyStepPx       = 1.0f;
+	constexpr float  kArrowKeyShiftStepPx  = 10.0f;
+
+	/// @brief ホイール回転ステップ [度]
+	constexpr float  kArrowWheelRotateDeg  = 15.0f;
+
+	/// @brief 指定種別に応じた新規 SignElement を生成する
+	SignElement createNewElement(SignElementKind kind)
+	{
+		SignElement el;
+		el.kind = kind;
+		el.posX = 0.5f;
+		el.posY = 0.5f;
+		switch (kind)
+		{
+		case SignElementKind::Text:
+			el.text = U"地名";
+			break;
+		case SignElementKind::DestName:
+			el.scale = 0.08f;
+			el.text  = U"地名";
+			break;
+		case SignElementKind::DestDistance:
+			el.scale = 0.08f;
+			el.value = 10.0f;
+			break;
+		case SignElementKind::Arrow:
+		default:
+			break;
+		}
+		return el;
+	}
+
 	/// @brief 配置パラメータ (弧長 / 横) を1行で表示
 	/// @details ポール高と看板位置はポール OBJ の JSON で定義する
 	bool drawPlacementRow(PanelBuilder& ui, GuideSignPlacement& g)
@@ -50,13 +95,6 @@ namespace
 		return Vec2{ drawW, static_cast<double>(drawH) };
 	}
 
-	/// @brief エッジ経由でレンダラのキャッシュを破棄
-	void invalidateForSign(const GuideSignPlacement& g, const RoadNetwork& network, RoadRenderer& renderer)
-	{
-		const RoadEdge* edge = network.getEdge(g.parentEdgeId);
-		if (edge) renderer.invalidateEdgeCache(g.parentEdgeId, edge->nodeA, edge->nodeB);
-		else      renderer.invalidateAllCaches();
-	}
 }
 
 // =============================================================================
@@ -228,8 +266,8 @@ bool GuideSignEditor::drawEditPanel(RoadNetwork& network, PanelManager& panelMan
 		m_lastSelectedElement = -1;
 
 		const Vec2 center{
-			(Scene::Width() - 500) * 0.5,
-			(Scene::Height() - 600) * 0.5 };
+			(Scene::Width()  - kEditorPanelInitialSize.x) * 0.5,
+			(Scene::Height() - kEditorPanelInitialSize.y) * 0.5 };
 		panelManager.show(U"guide_sign_editor",
 			U"看板エディタ #{}"_fmt(m_editingSignId), center);
 	}
@@ -243,6 +281,47 @@ bool GuideSignEditor::drawEditPanel(RoadNetwork& network, PanelManager& panelMan
 // WYSIWYG エディタパネル
 // =============================================================================
 
+void GuideSignEditor::regenerateDraftTextureIfDirty(const GuideSignPlacement& g)
+{
+	if (!m_draftValid || !m_draftTexDirty) return;
+
+	const Font& fontJa  = FontAsset(Asset::CJK32Bold);
+	const Font& fontNum = FontAsset(Asset::Arial24);
+	if (!fontJa || !fontNum) return;
+
+	GuideSignPlacement tmp = g;
+	tmp.elements = m_draftElements;
+	const auto   bs    = GuideSign::computeBoardSizeFor(tmp);
+	const Size   ts    = GuideSign::guideSignTexSize(bs.width, bs.height);
+	const ColorF bgCol = GuideSign::resolveBgColor(tmp.bgColor);
+
+	RenderTexture rt{ static_cast<uint32>(ts.x), static_cast<uint32>(ts.y), bgCol };
+	{
+		const ScopedRenderTarget2D target{ rt };
+		const ScopedRenderStates2D blend{ BlendState::Default2D };
+		GuideSign::renderContents(tmp, ts, fontJa, fontNum);
+		Graphics2D::Flush();
+	}
+	rt.generateMips();
+	m_draftTex      = std::move(rt);
+	m_draftTexDirty = false;
+}
+
+void GuideSignEditor::addElementFromToolbar(SignElementKind kind)
+{
+	m_draftElements << createNewElement(kind);
+	m_selectedElement = static_cast<int>(m_draftElements.size()) - 1;
+	m_draftTexDirty   = true;
+}
+
+void GuideSignEditor::deleteSelectedElement()
+{
+	if (!isDraftSelValid()) return;
+	m_draftElements.erase(m_draftElements.begin() + m_selectedElement);
+	m_selectedElement = -1;
+	m_draftTexDirty   = true;
+}
+
 bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelManager,
                                       [[maybe_unused]] const RoadRenderer& renderer)
 {
@@ -252,29 +331,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 	auto& g = *gp;
 
 	// ── draft テクスチャ生成（beginContent の前 = パネル座標変換なし）──
-	if (m_draftValid && m_draftTexDirty)
-	{
-		const Font& fontJa  = FontAsset(Asset::CJK32Bold);
-		const Font& fontNum = FontAsset(Asset::Arial24);
-		if (fontJa && fontNum)
-		{
-			GuideSignPlacement tmp = g;
-			tmp.elements = m_draftElements;
-			const auto bs = GuideSign::computeBoardSizeFor(tmp);
-			const Size ts = GuideSign::guideSignTexSize(bs.width, bs.height);
-			const ColorF bgCol = GuideSign::resolveBgColor(tmp.bgColor);
-			RenderTexture rt{ static_cast<uint32>(ts.x), static_cast<uint32>(ts.y), bgCol };
-			{
-				const ScopedRenderTarget2D target{ rt };
-				const ScopedRenderStates2D blend{ BlendState::Default2D };
-				GuideSign::renderContents(tmp, ts, fontJa, fontNum);
-				Graphics2D::Flush();
-			}
-			rt.generateMips();
-			m_draftTex = std::move(rt);
-			m_draftTexDirty = false;
-		}
-	}
+	regenerateDraftTextureIfDirty(g);
 
 	auto area = panelManager.beginContent(U"guide_sign_editor");
 	if (!area) return false;
@@ -308,46 +365,13 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 			m_selectedElement = -1;
 			m_draftTexDirty = true;
 		}
-		if (ui.button(U"+テキスト", false, 75))
+		if (ui.button(U"+テキスト", false, 75)) addElementFromToolbar(SignElementKind::Text);
+		if (ui.button(U"+地名",     false, 55)) addElementFromToolbar(SignElementKind::DestName);
+		if (ui.button(U"+距離",     false, 55)) addElementFromToolbar(SignElementKind::DestDistance);
+		if (ui.button(U"+矢印",     false, 55)) addElementFromToolbar(SignElementKind::Arrow);
+		if (isDraftSelValid() && ui.button(U"Del", false, 35))
 		{
-			SignElement el; el.kind = SignElementKind::Text;
-			el.posX = 0.5f; el.posY = 0.5f; el.text = U"地名";
-			els << el;
-			m_selectedElement = static_cast<int>(els.size()) - 1;
-			m_draftTexDirty = true;
-		}
-		if (ui.button(U"+地名", false, 55))
-		{
-			SignElement el; el.kind = SignElementKind::DestName;
-			el.posX = 0.5f; el.posY = 0.5f; el.scale = 0.08f; el.text = U"地名";
-			els << el;
-			m_selectedElement = static_cast<int>(els.size()) - 1;
-			m_draftTexDirty = true;
-		}
-		if (ui.button(U"+距離", false, 55))
-		{
-			SignElement el; el.kind = SignElementKind::DestDistance;
-			el.posX = 0.5f; el.posY = 0.5f; el.scale = 0.08f; el.value = 10.0f;
-			els << el;
-			m_selectedElement = static_cast<int>(els.size()) - 1;
-			m_draftTexDirty = true;
-		}
-		if (ui.button(U"+矢印", false, 55))
-		{
-			SignElement el; el.kind = SignElementKind::Arrow;
-			el.posX = 0.5f; el.posY = 0.5f;
-			els << el;
-			m_selectedElement = static_cast<int>(els.size()) - 1;
-			m_draftTexDirty = true;
-		}
-		if (isDraftSelValid())
-		{
-			if (ui.button(U"Del", false, 35))
-			{
-				els.erase(els.begin() + m_selectedElement);
-				m_selectedElement = -1;
-				m_draftTexDirty = true;
-			}
+			deleteSelectedElement();
 		}
 	});
 
@@ -443,7 +467,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 				}
 				RectF{ center.x + minX * scaleX, center.y + minY * scaleY,
 				       (maxX - minX) * scaleX, (maxY - minY) * scaleY }
-					.drawFrame(1.5, ColorF{ 1.0, 1.0, 0.0, 0.8 });
+					.drawFrame(kSelectionHighlightThickness, kSelectionHighlightColor);
 			}
 			else if (sel.kind == SignElementKind::DestName)
 			{
@@ -451,7 +475,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 				const double tw = FontAsset(Asset::CJK32Bold)(sel.text).region(th).w * scaleX;
 				const double h  = th * scaleY;
 				RectF{ center.x, center.y - h * 0.5, tw, h }
-					.drawFrame(1.5, ColorF{ 1.0, 1.0, 0.0, 0.8 });
+					.drawFrame(kSelectionHighlightThickness, kSelectionHighlightColor);
 			}
 			else if (sel.kind == SignElementKind::DestDistance)
 			{
@@ -459,7 +483,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 				const double tw = FontAsset(Asset::Arial24)(U"{:.0f} km"_fmt(sel.value)).region(th).w * scaleX;
 				const double h  = th * scaleY;
 				RectF{ center.x - tw, center.y - h * 0.5, tw, h }
-					.drawFrame(1.5, ColorF{ 1.0, 1.0, 0.0, 0.8 });
+					.drawFrame(kSelectionHighlightThickness, kSelectionHighlightColor);
 			}
 			else
 			{
@@ -467,7 +491,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 				const auto   rgn = FontAsset(Asset::CJK32Bold)(sel.text).region(th);
 				RectF{ center.x - rgn.w * 0.5 * scaleX, center.y - rgn.h * 0.5 * scaleY,
 				       rgn.w * scaleX, rgn.h * scaleY }
-					.drawFrame(1.5, ColorF{ 1.0, 1.0, 0.0, 0.8 });
+					.drawFrame(kSelectionHighlightThickness, kSelectionHighlightColor);
 			}
 		}
 
@@ -476,7 +500,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 		{
 			m_selectedElement = -1;
 			m_dragging = false;
-			double bestD2 = 1600.0;  // 40px 半径
+			double bestD2 = kClickHitRadiusSq;
 			for (int i = 0; i < static_cast<int>(els.size()); ++i)
 			{
 				const auto& eli = els[i];
@@ -539,7 +563,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 		if (isDraftSelValid())
 		{
 			auto& el = els[m_selectedElement];
-			const float step = KeyShift.pressed() ? 10.0f : 1.0f;
+			const float step = KeyShift.pressed() ? kArrowKeyShiftStepPx : kArrowKeyStepPx;
 			const float dx = step / static_cast<float>(previewW);
 			const float dy = step / static_cast<float>(drawH);
 			if (KeyUp.down())    { el.posY = Max(0.0f, el.posY - dy); m_draftTexDirty = true; }
@@ -548,9 +572,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 			if (KeyRight.down()) { el.posX = Min(1.0f, el.posX + dx); m_draftTexDirty = true; }
 			if (KeyDelete.down())
 			{
-				els.erase(els.begin() + m_selectedElement);
-				m_selectedElement = -1;
-				m_draftTexDirty = true;
+				deleteSelectedElement();
 			}
 		}
 
@@ -562,7 +584,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 			if (wh != 0)
 			{
 				auto& a = els[m_selectedElement].arrowAngle;
-				a += wh * 15.0f;
+				a += wh * kArrowWheelRotateDeg;
 				while (a < 0.0f)    a += 360.0f;
 				while (a >= 360.0f) a -= 360.0f;
 				m_draftTexDirty = true;
