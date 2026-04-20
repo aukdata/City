@@ -12,27 +12,39 @@ namespace
 	// 背景色定数 kDefaultBgColor / kBgColorAlphaEps / resolveBgColor() は
 	// GuideSign.hpp に公開されている（RoadRenderer / GuideSignEditor からも参照するため）
 
-	using GuideSign::kDefaultBgColor;
-	using GuideSign::kBgColorAlphaEps;
 	using GuideSign::resolveBgColor;
 
 	/// @brief 看板テクスチャの解像度（リファレンス準拠の高解像度）
 	constexpr double kPxPerM = 180.0;
 
-	/// @brief 板厚（裏面描画用、視覚的にはほぼ平面）
-	constexpr double kBoardThickness_m = 0.04;
-
 	// ===== Vertex 構築 =====
 
-	Vertex3D makeBoardVertex(double x, double y, double z, float u, float v, double nz)
+	Vertex3D makeBoardVertex(double x, double y, double z, float u, float v)
 	{
 		Vertex3D vt;
 		vt.pos    = Float3{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
-		vt.normal = Float3{ 0.0f, 0.0f, static_cast<float>(nz) };
+		vt.normal = Float3{ 0.0f, 0.0f, 1.0f };
 		vt.tex    = Float2{ u, v };
 		return vt;
 	}
 
+	/// @brief DirectionDistance 用の板寸法を計算する（rows / maxNameLen から）
+	/// @details computeBoardSizeFor と buildDirectionDistance_Elements で共有
+	GuideSign::BoardSize computeDirectionDistanceBoardSize(int rows, int maxNameLen)
+	{
+		const double height    = GuideSignLayout::DirectionDistance::PaddingM * 2.0
+		                       + GuideSignLayout::DirectionDistance::RowHeightM * Max(1, rows);
+		const double textAreaW = maxNameLen * GuideSign::kBoardCharWidth_m + 1.5;
+		const double width     = Max(GuideSign::kBoardMinWidth_m,
+		                             textAreaW / (1.0 - GuideSignLayout::DirectionDistance::ArrowColRatio));
+		return { width, height };
+	}
+
+	/// @brief DirectionArrow 用の板寸法を計算する
+	GuideSign::BoardSize computeDirectionArrowBoardSize(int maxNameLen)
+	{
+		return { Max(3.5, maxNameLen * 0.5 * 2 + 1.5), 3.0 };
+	}
 }
 
 GuideSign::BoardSize GuideSign::computeBoardSizeFor(const GuideSignPlacement& g)
@@ -49,8 +61,7 @@ GuideSign::BoardSize GuideSign::computeBoardSizeFor(const GuideSignPlacement& g)
 				maxLen = Max(maxLen, static_cast<int>(element.text.size()));
 			}
 		}
-		boardSize.width  = Max(3.5, maxLen * 0.5 * 2 + 1.5);
-		boardSize.height = 3.0;
+		boardSize = computeDirectionArrowBoardSize(maxLen);
 	}
 	else
 	{
@@ -64,11 +75,7 @@ GuideSign::BoardSize GuideSign::computeBoardSizeFor(const GuideSignPlacement& g)
 				maxNameLen = Max(maxNameLen, static_cast<int>(element.text.size()));
 			}
 		}
-		rows = Max(1, rows);
-		const double height    = GuideSignLayout::DirectionDistance::PaddingM * 2.0 + GuideSignLayout::DirectionDistance::RowHeightM * rows;
-		const double textAreaW = maxNameLen * kBoardCharWidth_m + 1.5;
-		const double width     = Max(kBoardMinWidth_m, textAreaW / (1.0 - GuideSignLayout::DirectionDistance::ArrowColRatio));
-		boardSize = { width, height };
+		boardSize = computeDirectionDistanceBoardSize(rows, maxNameLen);
 	}
 	if (g.widthOverride > 0.0f)
 	{
@@ -93,10 +100,10 @@ MeshData GuideSign::CreateBoardMesh(double width, double height)
 	// 片面メッシュ（z=0 平面）。裏面は RoadRenderer の CullFront パスで灰色描画される。
 	// computeSignTransforms が RotateY(yaw+π) を適用するため、driver 視点で
 	// local +X が左に来る。よって U=0 を +hx、U=1 を -hx に割当てる。
-	md.vertices << makeBoardVertex( hx,  hy, 0.0, 0.0f, 0.0f,  1.0);
-	md.vertices << makeBoardVertex(-hx,  hy, 0.0, 1.0f, 0.0f,  1.0);
-	md.vertices << makeBoardVertex(-hx, -hy, 0.0, 1.0f, 1.0f,  1.0);
-	md.vertices << makeBoardVertex( hx, -hy, 0.0, 0.0f, 1.0f,  1.0);
+	md.vertices << makeBoardVertex( hx,  hy, 0.0, 0.0f, 0.0f);
+	md.vertices << makeBoardVertex(-hx,  hy, 0.0, 1.0f, 0.0f);
+	md.vertices << makeBoardVertex(-hx, -hy, 0.0, 1.0f, 1.0f);
+	md.vertices << makeBoardVertex( hx, -hy, 0.0, 0.0f, 1.0f);
 	md.indices << TriangleIndex32{ 0, 1, 2 };
 	md.indices << TriangleIndex32{ 0, 2, 3 };
 
@@ -548,11 +555,10 @@ namespace
 		int maxNameLen = 3;
 		for (const auto& d : dests)
 			maxNameLen = Max(maxNameLen, static_cast<int>(d.name.size()));
-		const double boardH    = GuideSignLayout::DirectionDistance::PaddingM * 2.0 + GuideSignLayout::DirectionDistance::RowHeightM * layoutRows;
-		const double textAreaW = maxNameLen * GuideSign::kBoardCharWidth_m + 1.5;
-		const double boardW    = Max(GuideSign::kBoardMinWidth_m, textAreaW / (1.0 - GuideSignLayout::DirectionDistance::ArrowColRatio));
-		const double tsX       = Max(256.0, std::ceil(boardW  * kPxPerM));
-		const double tsY       = Max(96.0,  std::ceil(boardH  * kPxPerM));
+		const auto   boardSize = computeDirectionDistanceBoardSize(layoutRows, maxNameLen);
+		const Size   texSize   = GuideSign::guideSignTexSize(boardSize.width, boardSize.height);
+		const double tsX       = static_cast<double>(texSize.x);
+		const double tsY       = static_cast<double>(texSize.y);
 
 		const double borderPx  = Max(2.0, tsY * 0.015);
 		const double insetPx   = borderPx * 2.0;
@@ -617,8 +623,23 @@ namespace
 
 	struct Arm { String name; String reading; TurnType turn; int routeNumber = 0; };
 
-	/// @brief DirectionArrow 用 elements を生成する
-	Array<SignElement> buildDirectionArrow_Elements(const Array<Arm>& arms, int signRouteNumber = 0)
+	/// @brief DirectionArrow の幾何学的配置情報
+	struct ArrowLayoutGeom
+	{
+		float armCy;            ///< 側方アーム Y 比（中心線）
+		float leftArmTailX;     ///< 左アーム始点（シャフト隣接端） X 比
+		float rightArmTailX;    ///< 右アーム始点 X 比
+		float leftTextCx;       ///< 左アーム用テキスト X 比
+		float rightTextCx;      ///< 右アーム用テキスト X 比
+		float leftIconCx;       ///< 左アーム国道アイコン X 比
+		float rightIconCx;      ///< 右アーム国道アイコン X 比
+		float upArrowLength;    ///< 直進矢印の全長 [px]
+		float sideArmLength;    ///< 側方アームの全長 [px]
+		bool  hasThrough;       ///< 直進アームを持つ（= 有頭矢印）
+	};
+
+	/// @brief arms 内容から ArrowLayoutGeom を計算する
+	ArrowLayoutGeom computeArrowLayout(const Array<Arm>& arms)
 	{
 		// computeBoardSizeFor + guideSignTexSize と同じ式でサイン寸法を推定する
 		// （板上の正規化座標を決めるためにピクセル寸法が必要）
@@ -628,127 +649,169 @@ namespace
 			maxLen = Max(maxLen, static_cast<int>(arm.name.size()));
 		}
 		const double tsX      = Max(256.0, std::ceil(Max(3.5, maxLen * 1.0 + 1.5) * kPxPerM));
-		constexpr double tsY  = 540.0;
+		constexpr double tsY  = GuideSignLayout::DirectionArrow::ReferenceTexHeight;
 		const double insetPx  = Max(3.0, tsY * 0.02) * 1.8;
 		const double upCx     = tsX * 0.5;
-		const double laX      = insetPx + tsX * GuideSignLayout::DirectionArrow::LeftArmEndX;  // 左アーム先端 x [px]
-		const double laTailX  = upCx - GuideSign::kArrowShaftWidth * 0.5;  // 左アーム始点 x [px]（シャフト左端）
-		// 側方アーム基準長（シャフト端 laTailX から laX までの幅）
-		const double sideLenBase = laTailX - laX;
+
+		// 左アーム先端 x [px]
+		const double laX      = insetPx + tsX * GuideSignLayout::DirectionArrow::LeftArmEndX;
+		// 左アーム始点 x [px]（シャフト左端）
+		const double laTailX  = upCx - GuideSign::kArrowShaftWidth * 0.5;
 		// 左右矢印は基準長の 1.2 倍で描画する（見た目のボリューム感向上）
-		constexpr double kSideArmScale = 1.2;
-		const double sideLen  = sideLenBase * kSideArmScale;  // 描画される矢印全長 [px]
+		const double sideLen  = (laTailX - laX) * GuideSignLayout::DirectionArrow::SideArmLengthScale;
 		// 矢印の先端 x [px]（シャフト端から sideLen 分だけ外側）
 		const double laTipX   = laTailX - sideLen;
 
-		// 直進矢印: 始点 = ArrowBotY（下端）、全長 [px]
-		const float upArrowLen    = static_cast<float>((GuideSignLayout::DirectionArrow::ArrowBotY
-		                          - GuideSignLayout::DirectionArrow::ArrowTopY) * tsY);
-		// 側方アーム: 始点 = シャフト隣接端（laTailX）、全長 [px]
-		const float leftArmTailX  = static_cast<float>(laTailX / tsX);
-		const float rightArmTailX = 1.0f - leftArmTailX;
-		// アイコン配置用（延長後アームの中点 x = 先端と末端の中点）
-		const float leftIconCx    = static_cast<float>((laTipX + laTailX) * 0.5 / tsX);
-		const float rightIconCx   = 1.0f - leftIconCx;
-		// テキストは矢印の外側（先端より更に外側の余白）に配置する
-		const float leftTextCx    = static_cast<float>((insetPx + laTipX) * 0.5 / tsX);
-		const float rightTextCx   = 1.0f - leftTextCx;
-
-		// 側方アーム用テキストの Y 座標（ArmCy より少し上に表示）
-		constexpr float kSideTextDy = 0.055f;
+		constexpr float kArrowBotY = GuideSignLayout::DirectionArrow::ArrowBotY;
+		constexpr float kArrowTopY = GuideSignLayout::DirectionArrow::ArrowTopY;
 
 		// 丁字路（直進アームなし）は上向きシャフトを矢頭なしにし、左右矢印の位置(ArmCy)までの長さに収める
 		const bool hasThrough = arms.any([](const Arm& a){ return a.turn == TurnType::Straight; });
 
+		ArrowLayoutGeom g;
+		g.hasThrough = hasThrough;
+
 		// 側方アームの Y 位置:
 		//   直進あり: 直進矢印の下から 1/4（矢印下端側に寄せる）
 		//   直進なし: 上から 1/4（丁字路）
-		constexpr float kArrowBotY = GuideSignLayout::DirectionArrow::ArrowBotY;
-		constexpr float kArrowTopY = GuideSignLayout::DirectionArrow::ArrowTopY;
-		const float armCy = hasThrough
+		g.armCy = hasThrough
 			? (kArrowBotY - (kArrowBotY - kArrowTopY) * 0.25f)
 			: (kArrowTopY + (kArrowBotY - kArrowTopY) * 0.25f);
 
-		Array<SignElement> out;
+		g.leftArmTailX  = static_cast<float>(laTailX / tsX);
+		g.rightArmTailX = 1.0f - g.leftArmTailX;
+		g.leftIconCx    = static_cast<float>((laTipX + laTailX) * 0.5 / tsX);
+		g.rightIconCx   = 1.0f - g.leftIconCx;
+		// テキストは矢印の外側（先端より更に外側の余白）に配置する
+		g.leftTextCx    = static_cast<float>((insetPx + laTipX) * 0.5 / tsX);
+		g.rightTextCx   = 1.0f - g.leftTextCx;
 
-		SignElement upArrow;
-		upArrow.kind       = hasThrough ? SignElementKind::Arrow : SignElementKind::ArrowNoHead;
-		upArrow.posX       = 0.50f;
-		upArrow.posY       = kArrowBotY;  // 始点（下端）
-		upArrow.arrowAngle = 0.0f;
-		if (hasThrough)
+		g.upArrowLength = static_cast<float>((kArrowBotY - kArrowTopY) * tsY);
+		g.sideArmLength = static_cast<float>(sideLen);
+
+		return g;
+	}
+
+	/// @brief 直進矢印（中央上向き）の要素を生成する
+	SignElement makeUpArrowElement(const ArrowLayoutGeom& geom)
+	{
+		constexpr float kArrowBotY = GuideSignLayout::DirectionArrow::ArrowBotY;
+		constexpr double tsY       = GuideSignLayout::DirectionArrow::ReferenceTexHeight;
+
+		SignElement el;
+		el.kind       = geom.hasThrough ? SignElementKind::Arrow : SignElementKind::ArrowNoHead;
+		el.posX       = 0.50f;
+		el.posY       = kArrowBotY;  // 始点（下端）
+		el.arrowAngle = 0.0f;
+		if (geom.hasThrough)
 		{
-			upArrow.arrowLength = upArrowLen;
+			el.arrowLength = geom.upArrowLength;
 		}
 		else
 		{
 			// 丁字路: armCy（側方アームと半シャフト分重なる）～ ArrowBotY
-			upArrow.arrowLength = static_cast<float>(
-				(kArrowBotY - armCy) * tsY
+			el.arrowLength = static_cast<float>(
+				(kArrowBotY - geom.armCy) * tsY
 				+ GuideSign::kArrowShaftWidth * 0.5);
 		}
-		out << upArrow;
+		return el;
+	}
 
-		// 国道アイコンは最後にまとめて追加するため一時バッファに収集する
+	/// @brief 側方アーム（矢印 + テキスト）を out に追加する
+	/// @param tailX      矢印始点（シャフト末端、中央シャフト側）X 比
+	/// @param textCx     テキスト中心 X 比
+	/// @param arrowAngle 270=左向き / 90=右向き
+	void appendSideArmElements(Array<SignElement>& out, const Arm& arm,
+	                           const ArrowLayoutGeom& geom,
+	                           float tailX, float textCx, float arrowAngle)
+	{
+		SignElement a;
+		a.kind        = SignElementKind::Arrow;
+		a.posX        = tailX;
+		a.posY        = geom.armCy;
+		a.arrowAngle  = arrowAngle;
+		a.arrowLength = geom.sideArmLength;
+		out << a;
+
+		SignElement t;
+		t.kind    = SignElementKind::Text;
+		t.posX    = textCx;
+		t.posY    = geom.armCy - GuideSignLayout::DirectionArrow::SideTextDy;
+		t.text    = arm.name;
+		t.reading = arm.reading;
+		out << t;
+	}
+
+	/// @brief 直進アーム（中央上部のラベル）を out に追加する
+	void appendStraightLabelElement(Array<SignElement>& out, const Arm& arm)
+	{
+		SignElement t;
+		t.kind    = SignElementKind::Text;
+		t.posX    = 0.50f;
+		t.posY    = GuideSignLayout::DirectionArrow::UpTextCy;
+		t.text    = arm.name;
+		t.reading = arm.reading;
+		out << t;
+	}
+
+	/// @brief 直進シャフト上に重ねる国道アイコン要素を生成する
+	/// @details 直進あり: (ArrowTopY + ArrowBotY) / 2、丁字路: (armCy + ArrowBotY) / 2
+	SignElement makeShaftRouteIconElement(const ArrowLayoutGeom& geom, int routeNumber)
+	{
+		constexpr float kArrowBotY = GuideSignLayout::DirectionArrow::ArrowBotY;
+		constexpr float kArrowTopY = GuideSignLayout::DirectionArrow::ArrowTopY;
+		const float shaftTopY = geom.hasThrough ? kArrowTopY : geom.armCy;
+		const float iconPosY  = (shaftTopY + kArrowBotY) * 0.5f;
+		return makeRouteNumberElement(0.50f, iconPosY,
+		                              GuideSignLayout::DirectionArrow::RouteIconScale, routeNumber);
+	}
+
+	/// @brief DirectionArrow 用 elements を生成する
+	Array<SignElement> buildDirectionArrow_Elements(const Array<Arm>& arms, int signRouteNumber = 0)
+	{
+		const ArrowLayoutGeom geom = computeArrowLayout(arms);
+
+		Array<SignElement> out;
+		out << makeUpArrowElement(geom);
+
+		// 国道アイコンは最後にまとめて追加するため一時バッファに収集する（常に最前面）
 		Array<SignElement> iconElements;
 
-		// 国道上の看板：直進シャフトの中点にアイコンを表示
-		//   直進あり: シャフトは kArrowTopY..kArrowBotY → 中点 = (ArrowTopY+ArrowBotY)/2
-		//   丁字路  : シャフトは armCy..kArrowBotY → 中点 = (armCy+ArrowBotY)/2
 		if (signRouteNumber > 0)
 		{
-			const float shaftTopY = hasThrough ? kArrowTopY : armCy;
-			const float iconPosY  = (shaftTopY + kArrowBotY) * 0.5f;
-			iconElements << makeRouteNumberElement(0.50f, iconPosY, 0.165f, signRouteNumber);
+			iconElements << makeShaftRouteIconElement(geom, signRouteNumber);
 		}
-
-		// 側方アーム（左/右）の要素を生成する共通処理
-		// tailX: 矢印始点（シャフト末端、中央シャフト側）、angle=270 で左向き / angle=90 で右向き
-		const auto appendSideArm = [&](const Arm& arm, float tailX, float textCx, float arrowAngle)
-		{
-			SignElement a;
-			a.kind        = SignElementKind::Arrow;
-			a.posX        = tailX;
-			a.posY        = armCy;
-			a.arrowAngle  = arrowAngle;
-			a.arrowLength = static_cast<float>(sideLen);
-			out << a;
-			SignElement t;
-			t.kind    = SignElementKind::Text;
-			t.posX    = textCx;
-			t.posY    = armCy - kSideTextDy;
-			t.text    = arm.name;
-			t.reading = arm.reading;
-			out << t;
-		};
 
 		for (const auto& arm : arms)
 		{
-			if (arm.turn == TurnType::Straight)
+			switch (arm.turn)
 			{
-				SignElement t;
-				t.kind    = SignElementKind::Text;
-				t.posX    = 0.50f;
-				t.posY    = GuideSignLayout::DirectionArrow::UpTextCy;
-				t.text    = arm.name;
-				t.reading = arm.reading;
-				out << t;
-			}
-			else if (arm.turn == TurnType::Left)
-			{
-				appendSideArm(arm, leftArmTailX, leftTextCx, 270.0f);
+			case TurnType::Straight:
+				appendStraightLabelElement(out, arm);
+				break;
+			case TurnType::Left:
+				appendSideArmElements(out, arm, geom, geom.leftArmTailX, geom.leftTextCx, 270.0f);
 				if (signRouteNumber == 0 && arm.routeNumber > 0)
-					iconElements << makeRouteNumberElement(leftIconCx, armCy, 0.165f, arm.routeNumber);
-			}
-			else if (arm.turn == TurnType::Right)
-			{
-				appendSideArm(arm, rightArmTailX, rightTextCx, 90.0f);
+				{
+					iconElements << makeRouteNumberElement(geom.leftIconCx, geom.armCy,
+					                                       GuideSignLayout::DirectionArrow::RouteIconScale,
+					                                       arm.routeNumber);
+				}
+				break;
+			case TurnType::Right:
+				appendSideArmElements(out, arm, geom, geom.rightArmTailX, geom.rightTextCx, 90.0f);
 				if (signRouteNumber == 0 && arm.routeNumber > 0)
-					iconElements << makeRouteNumberElement(rightIconCx, armCy, 0.165f, arm.routeNumber);
+				{
+					iconElements << makeRouteNumberElement(geom.rightIconCx, geom.armCy,
+					                                       GuideSignLayout::DirectionArrow::RouteIconScale,
+					                                       arm.routeNumber);
+				}
+				break;
+			default:
+				break;
 			}
 		}
 
-		// 国道アイコンを最後に追加（常に最前面に描画）
 		out.insert(out.end(), iconElements.begin(), iconElements.end());
 		return out;
 	}

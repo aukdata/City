@@ -24,6 +24,11 @@ namespace GuideSignLayout
 		constexpr float LeftArmEndX     = 0.28f;   ///< 左アーム先端 X 比（inset 基準 +）
 		constexpr float UpTextCy        = 0.12f;   ///< 上部地名 Y 比
 		constexpr float UpTextH         = 0.13f;   ///< 上部地名高さ比
+
+		constexpr double ReferenceTexHeight = 540.0;  ///< 要素配置計算に使う基準テクスチャ高さ [px]
+		constexpr double SideArmLengthScale = 1.2;    ///< 側方アーム長 = 基準長 * SideArmLengthScale
+		constexpr float  SideTextDy         = 0.055f; ///< 側方アームテキストの Y オフセット（ArmCy 基準、上方向）
+		constexpr float  RouteIconScale     = 0.165f; ///< 国道アイコンの Y 比スケール
 	}
 }
 
