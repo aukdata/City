@@ -12,7 +12,7 @@ void UIRenderer::render(const GameClock& clock, int vehicleCount, StringView mod
 	Rect{ 10, 10, 300, 120 }.draw(ColorF{ 0, 0, 0, 0.5 });
 	font(clock.timeString()).draw(16, Vec2{ 18, 16 }, Palette::White);
 	font(clock.speedString()).draw(16, Vec2{ 18, 40 }, Palette::Yellow);
-	smallFont(U"Vehicles: {}"_fmt(vehicleCount)).draw(12, Vec2{ 18, 64 }, Palette::White);
+	smallFont(U"車両数: {}"_fmt(vehicleCount)).draw(12, Vec2{ 18, 64 }, Palette::White);
 
 	// 資金・人口
 	const ColorF fundsColor = (economy.funds >= 0.0) ? Palette::Lightgreen : Palette::Tomato;

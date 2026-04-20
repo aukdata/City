@@ -43,23 +43,7 @@ namespace
 			parts[i].offset = parts[i - 1].offset + parts[i - 1].width;
 	}
 
-	/// @brief Lanes を offsetA_L 昇順にソートし、重なりを押し出す（隙間は許容）
-	void resolveLaneOverlap(Array<Lane>& lanes)
-	{
-		if (lanes.size() < 2) return;
-		lanes.sort_by([](const Lane& a, const Lane& b) { return a.offsetA_L < b.offsetA_L; });
-		for (size_t i = 1; i < lanes.size(); ++i)
-		{
-			// A端
-			const float overA = lanes[i - 1].offsetA_R - lanes[i].offsetA_L;
-			if (overA > 0.001f) { lanes[i].offsetA_L += overA; lanes[i].offsetA_R += overA; }
-			// B端
-			const float overB = lanes[i - 1].offsetB_R - lanes[i].offsetB_L;
-			if (overB > 0.001f) { lanes[i].offsetB_L += overB; lanes[i].offsetB_R += overB; }
-		}
-	}
-
-	/// @brief RoadPartType → UI 描画色（断面バー / 信号編集図 共用）
+/// @brief RoadPartType → UI 描画色（断面バー / 信号編集図 共用）
 	ColorF partTypeColor(RoadPartType type)
 	{
 		switch (type)
@@ -170,13 +154,13 @@ namespace
 
 		// ========== Parts セクション ==========
 		{
-			static constexpr StringView ptNames[] = { U"Roadbed", U"Shoulder", U"Median", U"Sidewalk",
-				U"Gutter", U"Guard", U"Wall", U"Curb", U"Slope", U"Bike" };
-			static constexpr StringView bsNames[] = { U"NotBuilt", U"Building", U"Built", U"Stub" };
+			static constexpr StringView ptNames[] = { U"路盤", U"路肩", U"中央帯", U"歩道",
+				U"側溝", U"ガードレール", U"壁", U"縁石", U"法面", U"自転車道" };
+			static constexpr StringView bsNames[] = { U"未建設", U"建設中", U"建設済", U"スタブ" };
 
-			if (PanelWidget::section(pBold, U"Parts ({})"_fmt(edge.parts.size()), st.partsCollapsed, pX, y, kSectionW, kLH))
+			if (PanelWidget::section(pBold, U"断面部品 ({})"_fmt(edge.parts.size()), st.partsCollapsed, pX, y, kSectionW, kLH))
 			{
-				if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"Add part"))
+				if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"部品を追加"))
 				{
 					RoadPart np;
 					np.type = RoadPartType::Roadbed; np.width = 3.5f;
@@ -253,7 +237,7 @@ namespace
 					bx += 58;
 					if (PanelWidget::cycle(pFont, sp.build, bsNames, 4, bx, y, 52, kLH)) dirty = true;
 					bx += 58;
-					if (PanelWidget::button(pFont, U"X", false, bx, y, 18, kLH, U"Remove"))
+					if (PanelWidget::buttonDanger(pFont, U"X", bx, y, 18, kLH, U"削除"))
 					{
 						edge.parts.remove_at(st.selectedPart);
 						st.selectedPart = -1;
@@ -278,12 +262,12 @@ namespace
 
 		// ========== Lanes セクション ==========
 		{
-			static constexpr StringView osN[] = { U"Open", U"Provisional", U"Closed", U"Reserved" };
-			static constexpr StringView ltN[] = { U"Normal", U"Bus", U"Climb", U"Turn", U"Accel", U"Decel" };
-			static constexpr StringView lnN[] = { U"None", U"Solid W", U"Dash W", U"Solid Y", U"Double Y" };
-			static constexpr StringView drN[] = { U"Forward", U"Backward" };
+			static constexpr StringView osN[] = { U"開放", U"暫定供用", U"閉鎖", U"予約" };
+			static constexpr StringView ltN[] = { U"通常", U"バス専用", U"登坂車線", U"右左折", U"加速", U"減速" };
+			static constexpr StringView lnN[] = { U"なし", U"白実線", U"白破線", U"黄実線", U"黄二重線" };
+			static constexpr StringView drN[] = { U"順方向", U"逆方向" };
 
-			if (PanelWidget::section(pBold, U"Lanes ({})"_fmt(edge.lanes.size()), st.lanesCollapsed, pX, y, kSectionW, kLH))
+			if (PanelWidget::section(pBold, U"車線 ({})"_fmt(edge.lanes.size()), st.lanesCollapsed, pX, y, kSectionW, kLH))
 			{
 				auto addLane = [&edge](int side)
 				{
@@ -333,11 +317,11 @@ namespace
 					edge.lanes << nl;
 				};
 
-				if (PanelWidget::button(pFont, U"+L", false, pX + 4, y, 24, kLH, U"Add lane (left)"))
+				if (PanelWidget::button(pFont, U"+L", false, pX + 4, y, 24, kLH, U"左に車線を追加"))
 				{
 					addLane(-1); dirty = true;
 				}
-				if (PanelWidget::button(pFont, U"+R", false, pX + 32, y, 24, kLH, U"Add lane (right)"))
+				if (PanelWidget::button(pFont, U"+R", false, pX + 32, y, 24, kLH, U"右に車線を追加"))
 				{
 					addLane(+1); dirty = true;
 				}
@@ -433,7 +417,7 @@ namespace
 					auto& sl = edge.lanes[st.selectedLane];
 					int bx = pX;
 
-					PanelWidget::label(pBold, U"Lane {}"_fmt(st.selectedLane), bx, y, ColorF{0.8, 0.8, 1.0});
+					PanelWidget::label(pBold, U"車線 {}"_fmt(st.selectedLane), bx, y, ColorF{0.8, 0.8, 1.0});
 					bx += 46;
 					dirty |= PanelWidget::cycle(pFont, sl.dir, drN, 2, bx, y, 66, kLH);
 					bx += 68;
@@ -441,7 +425,7 @@ namespace
 					bx += 80;
 					dirty |= PanelWidget::cycle(pFont, sl.type, ltN, 6, bx, y, 50, kLH);
 					bx += 54;
-					if (PanelWidget::button(pFont, U"X", false, bx, y, 18, kLH, U"Remove"))
+					if (PanelWidget::buttonDanger(pFont, U"X", bx, y, 18, kLH, U"削除"))
 					{
 						edge.lanes.remove_at(st.selectedLane);
 						st.selectedLane = -1;
@@ -452,17 +436,17 @@ namespace
 					if (st.selectedLane >= 0)
 					{
 						bx = pX + 4;
-						PanelWidget::label(pFont, U"Width", bx, y, ColorF{0.6});
+						PanelWidget::label(pFont, U"幅", bx, y, ColorF{0.6});
 						bx += 40;
 						dirty |= PanelWidget::numberInput(pFont, sl.nominalWidth, 0.5f, 1.0f, 10.0f, bx, y, 38, kLH);
 						bx += 44;
-						dirty |= PanelWidget::toggle(pFont, U"L OK", U"L --", sl.canChangeLaneLeft, bx, y, 36, kLH);
+						dirty |= PanelWidget::toggle(pFont, U"左変更可", U"左変更不可", sl.canChangeLaneLeft, bx, y, 36, kLH);
 						bx += 38;
-						dirty |= PanelWidget::toggle(pFont, U"R OK", U"R --", sl.canChangeLaneRight, bx, y, 36, kLH);
+						dirty |= PanelWidget::toggle(pFont, U"右変更可", U"右変更不可", sl.canChangeLaneRight, bx, y, 36, kLH);
 						y += kLH;
 
 						bx = pX + 4;
-						PanelWidget::label(pFont, U"Line L", bx, y, ColorF{0.6});
+						PanelWidget::label(pFont, U"左区画線", bx, y, ColorF{0.6});
 						bx += 48;
 						dirty |= PanelWidget::cycle(pFont, sl.lineLeft, lnN, 5, bx, y, 66, kLH);
 						bx += 70;
@@ -502,7 +486,7 @@ namespace
 		if (dirty)
 		{
 			resolvePartOverlapAndGap(edge.parts);
-			resolveLaneOverlap(edge.lanes);
+			// 車線は隙間・重なりを許容する（自動調整しない）
 		}
 		return dirty;
 	}
@@ -584,7 +568,7 @@ void GameScene::drawEdgePanel()
 
 	ui.row(4, [&] {
 		ui.label(U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), ColorF{1.0});
-		if (ui.button(U"Swap A/B", false, 62, U"Swap nodeA/B"))
+		if (ui.button(U"A/B入替", false, 62, U"ノードA/Bを入れ替える"))
 		{
 			std::swap(edge->nodeA, edge->nodeB);
 			std::swap(edge->ctrlA, edge->ctrlB);
@@ -601,9 +585,9 @@ void GameScene::drawEdgePanel()
 
 	// 道路種別
 	{
-		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+		static constexpr StringView rtNames[] = { U"生活道路", U"幹線道路", U"自動車専用道", U"高速道路" };
 		ui.row(4, [&] {
-			ui.label(U"Type", ColorF{ 0.6 });
+			ui.label(U"種別", ColorF{ 0.6 });
 			if (ui.cycle(edge->roadType, rtNames, 4, 60)) { dirty = true; }
 		});
 		ui.spacer(2);
@@ -612,19 +596,19 @@ void GameScene::drawEdgePanel()
 	// 速度制限
 	{
 		ui.row(4, [&] {
-			ui.label(U"Speed", ColorF{ 0.6 });
+			ui.label(U"速度制限", ColorF{ 0.6 });
 			if (ui.numberInput(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
 			ui.label(U"km/h", ColorF{ 0.5 });
 			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
 			// デバッグ: 車両スポーン
-			if (ui.button(U"Spawn", false, 48, U"Spawn vehicle on this edge"))
+			if (ui.button(U"車両生成", false, 48, U"このエッジに車両を生成"))
 			{
 				m_vehicleManager.spawnOnEdge(edge->id, *m_simGraph);
 			}
 		});
 
 		// 高架トグル
-		if (ui.toggle(U"Elevated ON", U"Elevated", edge->useElevation, 80))
+		if (ui.toggle(U"高架ON", U"高架", edge->useElevation, 80))
 		{
 			if (edge->useElevation)
 			{
@@ -644,7 +628,7 @@ void GameScene::drawEdgePanel()
 	{
 		ui.spacer(3);
 		ui.row(4, [&] {
-			ui.label(U"Routes", ColorF{ 0.6 });
+			ui.label(U"路線", ColorF{ 0.6 });
 		});
 		for (const int rid : edge->routeIds)
 		{
@@ -653,13 +637,13 @@ void GameScene::drawEdgePanel()
 			ui.row(4, [&] {
 				ui.label(U"■", route->color);  // 色スウォッチ
 				const bool active = (selectedRouteId() == rid);
-				if (ui.button(route->name, active, 240, U"Edit route"))
+				if (ui.button(route->name, active, 240, U"路線を編集"))
 				{
 					selectRoute(rid);
 					m_routeNameEditState = TextEditState{};
 					m_routeNameEditState.text = route->name;
 					m_panelManager.show(U"route_info",
-						U"Route #{}"_fmt(rid), panelRightPos(U"route_info"));
+						U"路線 #{}"_fmt(rid), panelRightPos(U"route_info"));
 				}
 			});
 		}
@@ -681,6 +665,42 @@ void GameScene::drawEdgePanel()
 		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
 		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+	}
+
+	// 削除ボタン（危険操作のため赤系の色で描画）
+	{
+		const int btnW = 120;
+		const int btnX = 6;
+		const int btnY = y + 8;
+		const auto& font = panelFont();
+		const bool clicked = PanelWidget::buttonDanger(font, U"エッジを削除",
+		                                               btnX, btnY, btnW, PanelBuilder::kLineH,
+		                                               U"このエッジを削除します（接続数0のノードも削除）");
+		PanelWidget::flushTooltip();
+		m_panelManager.reportContentHeight(U"edge_info", btnY + PanelBuilder::kLineH + 6);
+		if (clicked)
+		{
+			const int nA = edge->nodeA;
+			const int nB = edge->nodeB;
+			const int edgeId = edge->id;
+			m_network.removeEdge(edgeId);
+
+			// 孤立ノード（接続なし）を削除
+			if (auto* na = m_network.getNode(nA); na && na->attachments.isEmpty())
+			{
+				m_network.removeNode(nA);
+			}
+			if (auto* nb = m_network.getNode(nB); nb && nb->attachments.isEmpty())
+			{
+				m_network.removeNode(nB);
+			}
+
+			clearSelection();
+			m_panelManager.hide(U"edge_info");
+			m_roadRenderer.invalidateAllCaches();
+			notifyNetworkChanged({ nA, nB });
+			return;
+		}
 	}
 }
 
@@ -744,14 +764,45 @@ void GameScene::drawDrawTemplatePanel()
 	const auto& pFont = panelFont();
 	const auto& pBold = panelBoldFont();
 
-	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"draw_template").x));
+	const int panelW = static_cast<int>(m_panelManager.getSize(U"draw_template").x);
+	constexpr int kPad = 6;
+	constexpr int kLH  = 17;
+
+	// ==========================================================================
+	// Section 1: 現在の組み合わせ（常時展開）
+	// ==========================================================================
+
+	// セクションヘッダ行: タイトルと「★ お気に入りに追加」ボタンを同じ行に配置
+	{
+		const int btnW = 140;
+		const int btnX = panelW - kPad - btnW;
+		const int headerY = 0;
+
+		// ヘッダ背景
+		RectF{ 0, static_cast<double>(headerY), static_cast<double>(panelW), static_cast<double>(kLH) }
+			.draw(ColorF{ 0.1, 0.1, 0.15 });
+		pBold(U"現在の組み合わせ").draw(Vec2{ kPad + 2, headerY }, ColorF{ 1.0, 1.0, 0.4 });
+
+		if (PanelWidget::button(pFont, U"★ お気に入りに追加", false, btnX, headerY, btnW, kLH, U"現在の設定をお気に入りに保存"))
+		{
+			const String name = RoadTemplatePreset::autoName(*edge);
+			m_roadPresets.addFavorite(RoadTemplatePreset::fromEdge(*edge, name));
+			m_roadPresets.save();
+		}
+	}
+
+	PanelBuilder ui(panelW, kPad, 2);
 	bool dirty = false;
+
+	// y を 1行分オフセット（ヘッダ行を手書きで描いた分）
+	// PanelBuilder は内部 y=0 から開始するので、spacer で調整
+	ui.spacer(kLH + 2);
 
 	// 道路種別
 	{
-		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+		static constexpr StringView rtNames[] = { U"生活道路", U"幹線道路", U"自動車専用道", U"高速道路" };
 		ui.row(4, [&] {
-			ui.label(U"Type", ColorF{ 0.6 });
+			ui.label(U"種別", ColorF{ 0.6 });
 			if (ui.cycle(edge->roadType, rtNames, 4, 60)) { dirty = true; }
 		});
 		ui.spacer(2);
@@ -760,7 +811,7 @@ void GameScene::drawDrawTemplatePanel()
 	// 速度制限
 	{
 		ui.row(4, [&] {
-			ui.label(U"Speed", ColorF{ 0.6 });
+			ui.label(U"速度制限", ColorF{ 0.6 });
 			if (ui.numberInput(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
 			ui.label(U"km/h", ColorF{ 0.5 });
 			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
@@ -771,9 +822,89 @@ void GameScene::drawDrawTemplatePanel()
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState tplSectionState;
 	int y = ui.height();
-	dirty |= drawRoadSections(*edge, tplSectionState, pFont, pBold, 6, y);
+	dirty |= drawRoadSections(*edge, tplSectionState, pFont, pBold, kPad, y);
 
+	// ==========================================================================
+	// Section 2: お気に入り
+	// ==========================================================================
+	{
+		static bool favCollapsed = false;
+		PanelWidget::section(pBold, U"お気に入り", favCollapsed, 0, y, panelW, kLH,
+		                     ColorF{ 1.0, 0.85, 0.3 });
+
+		if (!favCollapsed)
+		{
+			const auto& favs = m_roadPresets.favorites();
+			if (favs.isEmpty())
+			{
+				PanelWidget::label(pFont, U"(なし) ヘッダの ★ で追加", kPad, y, ColorF{ 0.5 });
+				y += kLH + 2;
+			}
+			else
+			{
+				// 削除インデックスを後処理（ループ内で erase しない）
+				Optional<size_t> removePending;
+				for (size_t i = 0; i < favs.size(); ++i)
+				{
+					const int rowY  = y;
+					const int xBtn  = panelW - kPad - 20;
+					const int xSel  = xBtn - 2 - 36;
+					const int nameW = xSel - kPad - 2;
+
+					PanelWidget::label(pFont, favs[i].name, kPad, rowY, ColorF{ 0.85 });
+
+					if (PanelWidget::button(pFont, U"選択", false, xSel, rowY, 36, kLH, U"このプリセットを適用"))
+					{
+						favs[i].applyTo(*edge);
+						dirty = true;
+					}
+					if (PanelWidget::buttonDanger(pFont, U"×", xBtn, rowY, 20, kLH, U"削除"))
+					{
+						removePending = i;
+					}
+					(void)nameW;
+					y += kLH + 2;
+				}
+				if (removePending.has_value())
+				{
+					m_roadPresets.removeFavoriteAt(*removePending);
+					m_roadPresets.save();
+				}
+			}
+		}
+	}
+
+	// ==========================================================================
+	// Section 3: デフォルト
+	// ==========================================================================
+	{
+		static bool defCollapsed = false;
+		PanelWidget::section(pBold, U"デフォルト", defCollapsed, 0, y, panelW, kLH,
+		                     ColorF{ 0.7, 0.85, 1.0 });
+
+		if (!defCollapsed)
+		{
+			const auto& defs = m_roadPresets.defaults();
+			for (size_t i = 0; i < defs.size(); ++i)
+			{
+				const int rowY = y;
+				const int xSel = panelW - kPad - 36;
+
+				PanelWidget::label(pFont, defs[i].name, kPad, rowY, ColorF{ 0.8 });
+
+				if (PanelWidget::button(pFont, U"選択", false, xSel, rowY, 36, kLH, U"このプリセットを適用"))
+				{
+					defs[i].applyTo(*edge);
+					dirty = true;
+				}
+				y += kLH + 2;
+			}
+		}
+	}
+
+	(void)dirty;
 	ui.flush();
+	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"draw_template", y);
 }
 
@@ -827,15 +958,15 @@ void GameScene::drawNodePanel()
 	}
 
 	{
-		static constexpr StringView ntNames[] = { U"Endpoint", U"Joint", U"Intersect", U"Diverge" };
-		PanelWidget::label(pFont, U"Type", pX, y);
+		static constexpr StringView ntNames[] = { U"端点", U"継ぎ目", U"交差点", U"分岐合流" };
+		PanelWidget::label(pFont, U"種別", pX, y);
 		dirty |= PanelWidget::cycle(pFont, node->type, ntNames, 4, pX + 36, y, 70, kLH);
 		y += kLH + 2;
 	}
 
 	{
-		static constexpr StringView trNames[] = { U"Blend", U"Abrupt" };
-		PanelWidget::label(pFont, U"Trans", pX, y);
+		static constexpr StringView trNames[] = { U"なめらか", U"急変" };
+		PanelWidget::label(pFont, U"遷移", pX, y);
 		dirty |= PanelWidget::cycle(pFont, node->transition, trNames, 2, pX + 42, y, 54, kLH);
 		y += kLH + 4;
 	}
@@ -843,10 +974,10 @@ void GameScene::drawNodePanel()
 	// Attachments セクション（折りたたみ可能）
 	static bool attachCollapsed = false;
 	{
-		static constexpr StringView rtNames[] = { U"Local", U"Arterial", U"Express", U"Highway" };
+		static constexpr StringView rtNames[] = { U"生活道路", U"幹線道路", U"自動車専用道", U"高速道路" };
 		constexpr int kSectionW = 300;
 
-		if (PanelWidget::section(pBold, U"Attachments ({})"_fmt(node->attachments.size()), attachCollapsed, pX, y, kSectionW, kLH))
+		if (PanelWidget::section(pBold, U"接続 ({})"_fmt(node->attachments.size()), attachCollapsed, pX, y, kSectionW, kLH))
 		{
 			for (size_t i = 0; i < node->attachments.size(); ++i)
 			{
@@ -858,13 +989,13 @@ void GameScene::drawNodePanel()
 					PanelWidget::label(pFont, U"{} {:.0f}km/h"_fmt(rtNames[static_cast<int>(e->roadType)], e->speedLimit), pX + 100, y);
 				y += kLH;
 
-				PanelWidget::label(pFont, U"lat", pX + 10, y);
+				PanelWidget::label(pFont, U"横オフセット", pX + 10, y);
 				dirty |= PanelWidget::numberInput(pFont, att.lateralOffset, 1.0f, -20.0f, 20.0f, pX + 34, y, 44, kLH);
-				dirty |= PanelWidget::toggle(pFont, U"THROUGH", U"through", att.isThrough, pX + 84, y, 60, kLH);
+				dirty |= PanelWidget::toggle(pFont, U"通過", U"通過", att.isThrough, pX + 84, y, 60, kLH);
 				y += kLH;
 
 				{
-					static constexpr StringView tcNames[] = { U"None", U"Yield", U"Stop", U"Signal" };
+					static constexpr StringView tcNames[] = { U"なし", U"徐行優先", U"一時停止", U"信号" };
 					PanelWidget::label(pFont, U"ctrl", pX + 10, y);
 					if (PanelWidget::cycle(pFont, att.control, tcNames, 4, pX + 34, y, 52, kLH))
 					{
@@ -898,7 +1029,7 @@ void GameScene::drawNodePanel()
 	// Dissolve ボタン（接続エッジが2本のときのみ表示）
 	if (node->attachments.size() == 2)
 	{
-		if (PanelWidget::button(pFont, U"Dissolve", false, pX, y, 80, kLH, U"Remove node and merge 2 edges into 1"))
+		if (PanelWidget::button(pFont, U"中間ノードを削除", false, pX, y, 80, kLH, U"ノードを削除して2エッジを1本に結合"))
 		{
 			const int nid = *selectedNodeId();
 			// dissolve 前に隣接ノードを収集
@@ -927,7 +1058,7 @@ void GameScene::drawNodePanel()
 		y += 4;
 		const bool hasPlacement = node->signalPlacement.has_value();
 		bool enabled = hasPlacement;
-		PanelWidget::label(pBold, U"Signal", pX, y, ColorF{ 1.0, 1.0, 0.4 });
+		PanelWidget::label(pBold, U"信号", pX, y, ColorF{ 1.0, 1.0, 0.4 });
 		if (PanelWidget::toggle(pFont, U"ON", U"OFF", enabled, pX + 60, y, 50, kLH))
 		{
 			if (enabled && !hasPlacement)
@@ -962,7 +1093,7 @@ void GameScene::drawNodePanel()
 		}
 		if (hasPlacement)
 		{
-			if (PanelWidget::button(pFont, U"Edit...", false, pX + 120, y, 60, kLH, U"Open signal cycle editor"))
+			if (PanelWidget::button(pFont, U"編集...", false, pX + 120, y, 60, kLH, U"信号サイクルエディタを開く"))
 			{
 				const Vec2 panelSize = m_panelManager.getSize(U"signal_edit");
 				const Vec2 ctr{
@@ -970,7 +1101,7 @@ void GameScene::drawNodePanel()
 					(Scene::Height() - panelSize.y) * 0.5
 				};
 				m_panelManager.show(U"signal_edit",
-					U"Signal - Node #{}"_fmt(node->id), ctr);
+					U"信号 - ノード #{}"_fmt(node->id), ctr);
 			}
 		}
 		y += kLH + 2;
@@ -981,8 +1112,8 @@ void GameScene::drawNodePanel()
 	// 案内標識セクション
 	{
 		y += 4;
-		PanelWidget::label(pBold, U"Guide Signs", pX, y, ColorF{ 0.4, 1.0, 0.6 });
-		if (PanelWidget::button(pFont, U"Set Signs", false, pX + 90, y, 80, kLH, U"この交差点の案内標識を再計算して設置"))
+		PanelWidget::label(pBold, U"案内標識", pX, y, ColorF{ 0.4, 1.0, 0.6 });
+		if (PanelWidget::button(pFont, U"標識を配置", false, pX + 90, y, 80, kLH, U"この交差点の案内標識を再計算して設置"))
 		{
 			recomputeGuideSignsAroundNode(node->id);
 		}
@@ -1083,23 +1214,23 @@ void GameScene::drawVehiclePanel()
 	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"vehicle_info").x));
 
 	static constexpr StringView typeNames[] = {
-		U"PassengerCar", U"KeiCar", U"Moped", U"LightVehicle",
-		U"Bus", U"SmallTruck", U"LargeTruck", U"Emergency"
+		U"乗用車", U"軽自動車", U"原付", U"小型車",
+		U"バス", U"小型トラック", U"大型トラック", U"緊急車両"
 	};
 	const int typeIdx = static_cast<int>(veh->type);
-	ui.label(U"Type: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), ColorF{1.0});
-	ui.label(U"Speed: {:.1f} km/h"_fmt(veh->speed * 3.6f), ColorF{1.0});
+	ui.label(U"種別: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), ColorF{1.0});
+	ui.label(U"速度: {:.1f} km/h"_fmt(veh->speed * 3.6f), ColorF{1.0});
 
-	static constexpr StringView locNames[] = { U"OnLane", U"OnConnection", U"ChangingLane" };
-	ui.label(U"Location: {}"_fmt(locNames[static_cast<int>(veh->location)]), ColorF{1.0});
-	ui.label(U"Edge: {}  Lane: {}"_fmt(veh->currentEdge, veh->currentLane), ColorF{1.0});
+	static constexpr StringView locNames[] = { U"車線上", U"交差点内", U"車線変更中" };
+	ui.label(U"位置種別: {}"_fmt(locNames[static_cast<int>(veh->location)]), ColorF{1.0});
+	ui.label(U"エッジ: {}  車線: {}"_fmt(veh->currentEdge, veh->currentLane), ColorF{1.0});
 
 	ui.row(4, [&] {
-		ui.label(U"Goal Edge: {}"_fmt(veh->goalEdgeId), ColorF{1.0});
+		ui.label(U"目標エッジ: {}"_fmt(veh->goalEdgeId), ColorF{1.0});
 		// 選択中エッジをゴールに設定するボタン
 		if (selectedEdgeId())
 		{
-			if (ui.button(U"Set E{}"_fmt(*selectedEdgeId()), false, 70, U"Set selected edge as goal"))
+			if (ui.button(U"目標に設定", false, 70, U"選択中エッジを目標に設定"))
 			{
 				m_vehicleManager.setGoalAndReroute(veh->id, *selectedEdgeId(), *m_simGraph);
 			}
@@ -1108,7 +1239,7 @@ void GameScene::drawVehiclePanel()
 	ui.spacer(4);
 
 	// 追跡ボタン
-	if (ui.button(m_trackingVehicle ? U"Tracking ON" : U"Track", m_trackingVehicle, 120))
+	if (ui.button(m_trackingVehicle ? U"追跡中" : U"追跡", m_trackingVehicle, 120))
 	{
 		m_trackingVehicle = !m_trackingVehicle;
 	}
@@ -1116,12 +1247,12 @@ void GameScene::drawVehiclePanel()
 
 	// 経路ウェイポイント
 	const int wpCount = static_cast<int>(veh->routeWaypoints.size());
-	ui.label(U"Route: {}/{} waypoints"_fmt(veh->routeIdx, wpCount), ColorF{1.0, 1.0, 0.4}, true);
+	ui.label(U"経路: {}/{} 点"_fmt(veh->routeIdx, wpCount), ColorF{1.0, 1.0, 0.4}, true);
 	ui.spacer(2);
 
 	if (wpCount == 0)
 	{
-		ui.label(veh->routeRequested ? U"(requesting...)" : U"(no route)", ColorF{0.6});
+		ui.label(veh->routeRequested ? U"(経路要求中...)" : U"(経路なし)", ColorF{0.6});
 	}
 
 	// ウェイポイントリスト（手動座標制御）
@@ -1539,7 +1670,7 @@ namespace
 					const int hx = static_cast<int>(mid.x - r);
 					const int hy = static_cast<int>(mid.y - r);
 					const int hw = static_cast<int>(r * 2);
-					auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"Toggle green");
+					auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"青/赤を切替");
 					if (hit.clickL)
 					{
 						if (dd.isGreen) curPhasePtr->greenConnectionIds.remove(dd.connId);
@@ -1580,8 +1711,8 @@ void GameScene::drawSignalEditPanel()
 	int ly = kPad;
 	constexpr int kRowH = 38; // フェーズ行の高さ（2段: ランプ + 時間）
 
-	PanelWidget::label(pBold, U"Phases", kPad, ly, ColorF{ 1.0, 1.0, 0.4 });
-	if (PanelWidget::button(pFont, U"+", false, kLeftW - 26, ly, 20, kLH, U"Add phase"))
+	PanelWidget::label(pBold, U"フェーズ", kPad, ly, ColorF{ 1.0, 1.0, 0.4 });
+	if (PanelWidget::button(pFont, U"+", false, kLeftW - 26, ly, 20, kLH, U"フェーズを追加"))
 	{
 		SignalPhaseDef ph;
 		ph.duration = 30.0f;
@@ -1630,7 +1761,7 @@ void GameScene::drawSignalEditPanel()
 		// 削除ボタン（右端）
 		if (sp.phases.size() > 1)
 		{
-			if (PanelWidget::button(pFont, U"x", false, kLeftW - 24, ly + 1, 16, kLH - 2, U"Delete phase"))
+			if (PanelWidget::button(pFont, U"x", false, kLeftW - 24, ly + 1, 16, kLH - 2, U"フェーズを削除"))
 			{
 				sp.phases.remove_at(pi);
 				if (m_signalEditPhase >= static_cast<int>(sp.phases.size()))
@@ -1648,7 +1779,7 @@ void GameScene::drawSignalEditPanel()
 		{
 			dirty = true;
 		}
-		PanelWidget::label(pFont, U"s  {}/{} green"_fmt(ph.greenConnectionIds.size(), totalConn),
+		PanelWidget::label(pFont, U"秒  {}/{} 青"_fmt(ph.greenConnectionIds.size(), totalConn),
 		                   kPad + 62, ly + kLH + 1, ColorF{ 0.55 });
 
 		ly += kRowH + 3;
@@ -1656,7 +1787,7 @@ void GameScene::drawSignalEditPanel()
 
 	// サイクル合計
 	ly += 4;
-	PanelWidget::label(pBold, U"Cycle: {:.0f}s"_fmt(totalDuration), kPad, ly, ColorF{ 0.9, 0.8, 0.4 });
+	PanelWidget::label(pBold, U"サイクル: {:.0f}秒"_fmt(totalDuration), kPad, ly, ColorF{ 0.9, 0.8, 0.4 });
 	ly += kLH + 4;
 
 	// ========================================
@@ -1787,7 +1918,7 @@ void GameScene::drawRoutePanel()
 
 	// 名前（テキスト編集）
 	ui.row(4, [&] {
-		ui.label(U"Name", ColorF{ 0.6 });
+		ui.label(U"名前", ColorF{ 0.6 });
 		if (ui.textInput(m_routeNameEditState, 240, 64))
 		{
 			route->name = m_routeNameEditState.text;
@@ -1797,10 +1928,10 @@ void GameScene::drawRoutePanel()
 	// 種別
 	{
 		static constexpr StringView kindNames[] = {
-			U"Expressway", U"National", U"Prefecture", U"City", U"Named"
+			U"高速道路", U"国道", U"都道府県道", U"市区町村道", U"名称路線"
 		};
 		ui.row(4, [&] {
-			ui.label(U"Kind", ColorF{ 0.6 });
+			ui.label(U"種別", ColorF{ 0.6 });
 			if (ui.cycle(route->kind, kindNames, 5, 90))
 			{
 				// kind 変更時はデフォルト色へリセット（ユーザ編集済みなら上書きしない方針だが v1 では単純化）
@@ -1812,7 +1943,7 @@ void GameScene::drawRoutePanel()
 
 	// 番号
 	ui.row(4, [&] {
-		ui.label(U"No.", ColorF{ 0.6 });
+		ui.label(U"路線番号", ColorF{ 0.6 });
 		if (ui.numberInput(route->number, 1, 0, 400, U"{}", 60))
 		{
 			structureDirty = true;
@@ -1821,14 +1952,14 @@ void GameScene::drawRoutePanel()
 
 	// 色スウォッチ（表示のみ、将来のカラーピッカー用）
 	ui.row(4, [&] {
-		ui.label(U"Color", ColorF{ 0.6 });
+		ui.label(U"色", ColorF{ 0.6 });
 		ui.label(U"■■■■■", route->color);
 	});
 
 	ui.separator();
 
 	// ── 構成エッジリスト（クリックで該当エッジへジャンプ） ──
-	ui.label(U"Edges", ColorF{ 0.9 }, true);
+	ui.label(U"構成エッジ", ColorF{ 0.9 }, true);
 	for (size_t i = 0; i < route->edgeIds.size(); ++i)
 	{
 		const int eid = route->edgeIds[i];
@@ -1838,11 +1969,11 @@ void GameScene::drawRoutePanel()
 			const bool active = (selectedEdgeId() == eid);
 			const String lbl = e ? U"E#{}  {:.0f}m"_fmt(eid, e->length)
 			                     : U"E#{}  (missing)"_fmt(eid);
-			if (ui.button(lbl, active, 180, U"Select edge"))
+			if (ui.button(lbl, active, 180, U"エッジを選択"))
 			{
 				selectEdge(eid);
 				m_panelManager.show(U"edge_info",
-					U"RoadEdge #{}"_fmt(eid), panelRightPos(U"edge_info"));
+					U"道路エッジ #{}"_fmt(eid), panelRightPos(U"edge_info"));
 			}
 		});
 	}
@@ -1851,7 +1982,7 @@ void GameScene::drawRoutePanel()
 
 	// ── 操作ボタン ──
 	ui.row(4, [&] {
-		if (ui.button(U"Delete", false, 70, U"Remove this route"))
+		if (ui.buttonDanger(U"削除", 70, U"この路線を削除"))
 		{
 			const int rid = route->id;
 			m_network.removeRoute(rid);

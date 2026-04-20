@@ -242,7 +242,7 @@ bool GuideSignEditor::drawEditPanel(RoadNetwork& network, PanelManager& panelMan
 	ui.spacer(2);
 	bool deleteRequested = false;
 	ui.row(2, [&] {
-		if (ui.button(U"削除", false, 60, U"この案内標識を削除"))
+		if (ui.buttonDanger(U"削除", 60, U"この案内標識を削除"))
 			deleteRequested = true;
 	});
 	if (deleteRequested)
@@ -369,7 +369,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 		if (ui.button(U"+地名",     false, 55)) addElementFromToolbar(SignElementKind::DestName);
 		if (ui.button(U"+距離",     false, 55)) addElementFromToolbar(SignElementKind::DestDistance);
 		if (ui.button(U"+矢印",     false, 55)) addElementFromToolbar(SignElementKind::Arrow);
-		if (isDraftSelValid() && ui.button(U"Del", false, 35))
+		if (isDraftSelValid() && ui.button(U"削除", false, 35))
 		{
 			deleteSelectedElement();
 		}
