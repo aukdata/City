@@ -393,6 +393,25 @@ void GameScene::handleSelectionClick()
 		}
 	}
 
+	// ── 国道路線標識のヒットテスト（ノード・エッジより優先） ──
+	if (const auto hitRoute = m_routeSignRenderer.hitTest(Vec2{ Cursor::Pos() }))
+	{
+		if (const RoadRoute* r = m_network.getRoute(*hitRoute))
+		{
+			selectRoute(*hitRoute);
+			m_routeNameEditState = TextEditState{};
+			m_routeNameEditState.text = r->name;
+			m_panelManager.show(U"route_info",
+				U"Route #{}"_fmt(*hitRoute), panelRightPos(U"route_info"));
+			m_panelManager.hide(U"edge_info");
+			m_panelManager.hide(U"node_info");
+			m_panelManager.hide(U"guide_sign_edit");
+			m_panelManager.hide(U"signal_edit");
+			m_panelManager.hide(U"building_info");
+			return;
+		}
+	}
+
 	// 地上カーソルで検索（ノード・エッジ）
 	auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
 	Optional<int> hitEdge;

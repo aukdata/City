@@ -51,6 +51,7 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"signal_edit", Vec2{700, 550}, true, true);
 	m_panelManager.registerPanel(U"guide_sign_edit", Vec2{360, 600}, true, true);
 	m_panelManager.registerPanel(U"guide_sign_editor", Vec2{500, 600}, true, true);
+	m_panelManager.registerPanel(U"route_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 
 	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
 	m_drawTemplate.roadType   = RoadType::LocalRoad;
