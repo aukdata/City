@@ -1,4 +1,4 @@
-#include "AssetRegistrar.hpp"
+﻿#include "AssetRegistrar.hpp"
 
 void RegisterAssets()
 {
