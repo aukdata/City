@@ -1,4 +1,7 @@
 ﻿#include "GameScene.hpp"
+#include "EdgeSectionState.hpp"
+#include "../ui/PanelWidget.hpp"
+#include "../asset/AssetRegistrar.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 #include <fstream>
 
@@ -216,33 +219,7 @@ void GameScene::renderScene3D()
 
 void GameScene::renderSelectionHighlights()
 {
-	// 選択中のエッジをハイライト
-	if (selectedEdgeId())
-	{
-		const RoadEdge* selEdge = m_network.getEdge(*selectedEdgeId());
-		if (const auto bez = m_network.getBezier(*selectedEdgeId()))
-		{
-			const bool elev = selEdge && selEdge->useElevation;
-			constexpr int kDiv = 30;
-			const float len = bez->totalLength;
-			for (int i = 0; i < kDiv; ++i)
-			{
-				const float tA = i / static_cast<float>(kDiv);
-				const float tB = (i + 1) / static_cast<float>(kDiv);
-				const Vec3 a = bez->positionAt(len * tA);
-				const Vec3 b = bez->positionAt(len * tB);
-				const double ya = elev ? a.y + 3.0
-					: m_world.computeHeight(static_cast<float>(a.x), static_cast<float>(a.z)) + 3.0;
-				const double yb = elev ? b.y + 3.0
-					: m_world.computeHeight(static_cast<float>(b.x), static_cast<float>(b.z)) + 3.0;
-				const Vec3 pa{ a.x, ya, a.z };
-				const Vec3 pb{ b.x, yb, b.z };
-				const ColorF cA = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tA);
-				const ColorF cB = ColorF{ 1.0, 0.2, 0.2, 0.6 }.lerp(ColorF{ 0.2, 1.0, 0.2, 0.6 }, tB);
-				Cylinder{ pa, pb, 1.0 }.draw(cA.lerp(cB, 0.5));
-			}
-		}
-	}
+	// エッジ選択時の中央線ハイライトは廃止（3D ハンドルで可視化する）
 
 	// 選択中のノードをハイライト
 	if (selectedNodeId())
@@ -652,6 +629,9 @@ void GameScene::render2DUI()
 	m_minimapRenderer.update(m_panelManager);
 	m_minimapRenderer.render(m_camera, m_districts);
 
+	// 選択中エッジの 3D 編集ハンドル（パネルより後ろに描画）
+	renderEdgeHandles();
+
 	// パネル（ミニマップより上）— zOrder 昇順で背景+コンテンツを描画
 	for (const auto& panelId : m_panelManager.sortedPanelIds())
 	{
@@ -675,5 +655,174 @@ void GameScene::render2DUI()
 
 	if (m_showPauseMenu)
 		drawPauseMenu();
+}
+
+// =============================================================================
+// 3D エッジ編集ハンドル描画
+// =============================================================================
+
+namespace
+{
+	/// @brief Part 種別→基本色（GameScene_Panels.cpp 側と同じ対応）
+	ColorF handlePartColor(RoadPartType type)
+	{
+		switch (type)
+		{
+		case RoadPartType::Roadbed:   return ColorF{0.45, 0.45, 0.48};
+		case RoadPartType::Shoulder:  return ColorF{0.55, 0.53, 0.48};
+		case RoadPartType::Median:    return ColorF{0.65, 0.75, 0.45};
+		case RoadPartType::Sidewalk:  return ColorF{0.80, 0.78, 0.75};
+		case RoadPartType::Gutter:    return ColorF{0.40, 0.40, 0.42};
+		case RoadPartType::Guardrail: return ColorF{0.75, 0.75, 0.75};
+		case RoadPartType::Wall:      return ColorF{0.65, 0.62, 0.58};
+		case RoadPartType::Curb:      return ColorF{0.70, 0.68, 0.64};
+		case RoadPartType::Slope:     return ColorF{0.60, 0.72, 0.50};
+		case RoadPartType::BikeLane:  return ColorF{0.50, 0.65, 0.75};
+		default:                      return ColorF{0.5};
+		}
+	}
+
+	/// @brief 道路端 A/B / L/R 向けのティント（A=暖色赤、B=寒色緑、L=明、R=暗）
+	ColorF sideTint(bool atA, bool isRight)
+	{
+		const ColorF base = atA ? ColorF{1.0, 0.55, 0.45} : ColorF{0.45, 1.0, 0.55};
+		return isRight ? (base * 0.7 + ColorF{0.15}) : base;
+	}
+}
+
+void GameScene::renderEdgeHandles()
+{
+	if (m_selection.kind != SelectionKind::Edge) return;
+	const RoadEdge* edge = m_network.getEdge(m_selection.id);
+	if (!edge) return;
+	const auto bezOpt = m_network.getBezier(edge->id);
+	if (!bezOpt) return;
+	const CubicBezier& bez = *bezOpt;
+	const auto& cam = m_camera.camera3D();
+	const Vec2 cur = Cursor::PosF();
+	constexpr double kR = 7.0;
+	static const Font& tipFontRef = FontAsset(Asset::Panel14);
+
+	auto rightVec = [](const Vec3& tan) -> Vec3
+	{
+		Vec3 t = tan; t.y = 0;
+		if (t.lengthSq() < 1e-8) return Vec3{ 1, 0, 0 };
+		t.normalize();
+		return Vec3{ t.z, 0, -t.x };
+	};
+
+	enum class Shape { Circle, Square };
+	auto drawHandle = [&](Vec3 wp, ColorF baseCol, StringView tip, bool active, Shape shape)
+	{
+		const Vec2 sp = cam.worldToScreenPoint(wp).xy();
+		const bool hover = (sp.distanceFrom(cur) <= kR + 2.0);
+		const ColorF col = (active || hover) ? ColorF{1.0, 1.0, 0.4} : baseCol;
+		if (shape == Shape::Circle)
+		{
+			Circle{ sp, kR }.draw(col).drawFrame(1.5, ColorF{0.1});
+		}
+		else
+		{
+			// 幅（サイズ変更）ハンドルは四角
+			RectF{ sp.x - kR, sp.y - kR, kR * 2, kR * 2 }.draw(col).drawFrame(1.5, ColorF{0.1});
+		}
+		if (hover)
+		{
+			Cursor::RequestStyle(CursorStyle::Hand);
+			PanelWidget::tipFont = &tipFontRef;
+			PanelWidget::tipText = String{ tip };
+			PanelWidget::tipPos  = Vec2{ sp.x + 10, sp.y + 10 };
+			PanelWidget::tipActive = true;
+			PanelWidget::flushTooltip();
+		}
+	};
+
+	// Cutoff A/B（移動＝円）
+	drawHandle(bez.positionAt(edge->cutoffA), sideTint(true, false),
+		U"A端カットオフ {:.1f}m / ドラッグで調整"_fmt(edge->cutoffA),
+		m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::CutoffA, Shape::Circle);
+	{
+		const float sB = Max(0.0f, bez.totalLength - edge->cutoffB);
+		drawHandle(bez.positionAt(sB), sideTint(false, false),
+			U"B端カットオフ {:.1f}m / ドラッグで調整"_fmt(edge->cutoffB),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::CutoffB, Shape::Circle);
+	}
+
+	// Part と Lane は排他表示。Lane が選択されていれば Lane のみ、それ以外で Part が選択されていれば Part のみ
+	const int partIdxSel = EdgeSectionState::selectedPart;
+	const int laneIdxSel = EdgeSectionState::selectedLane;
+	const bool showLane = (laneIdxSel >= 0 && laneIdxSel < static_cast<int>(edge->lanes.size()));
+	const bool showPart = (!showLane) && (partIdxSel >= 0 && partIdxSel < static_cast<int>(edge->parts.size()));
+
+	// Part: 中央=円(移動), 左右エッジ=四角(サイズ変更), 色は部品種別に依存
+	if (showPart)
+	{
+		const float sMid = bez.totalLength * 0.5f;
+		const Vec3 c0 = bez.positionAt(sMid);
+		const Vec3 right = rightVec(bez.tangentAt(sMid));
+		{
+			const int i = partIdxSel;
+			const auto& p = edge->parts[i];
+			const ColorF pc = handlePartColor(p.type);
+			const Vec3 wpC = c0 + right * (p.offset + p.width * 0.5f);
+			const Vec3 wpL = c0 + right * p.offset;
+			const Vec3 wpR = c0 + right * (p.offset + p.width);
+			drawHandle(wpC, pc,
+				U"部品[{}] offset {:.2f}m / ドラッグで左右移動"_fmt(i, p.offset),
+				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartCenter && m_edgeHandleDrag.idx == i,
+				Shape::Circle);
+			drawHandle(wpL, pc * 0.85,
+				U"部品[{}] 左端 / ドラッグで幅変更（右端固定）"_fmt(i),
+				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartLeft && m_edgeHandleDrag.idx == i,
+				Shape::Square);
+			drawHandle(wpR, pc * 0.85,
+				U"部品[{}] 右端 / ドラッグで幅変更（左端固定）"_fmt(i),
+				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartRight && m_edgeHandleDrag.idx == i,
+				Shape::Square);
+		}
+	}
+
+	// Lane: 中央=円(移動), L/R side=四角(両端幅), 四隅=四角(個別幅)
+	if (showLane)
+	{
+		const auto& L = edge->lanes[laneIdxSel];
+		const float sA = edge->cutoffA;
+		const float sB = Max(0.0f, bez.totalLength - edge->cutoffB);
+		const float sMid = (sA + sB) * 0.5f;
+		const Vec3 pA = bez.positionAt(sA);
+		const Vec3 pB = bez.positionAt(sB);
+		const Vec3 pM = bez.positionAt(sMid);
+		const Vec3 rA = rightVec(bez.tangentAt(sA));
+		const Vec3 rB = rightVec(bez.tangentAt(sB));
+		const Vec3 rM = rightVec(bez.tangentAt(sMid));
+
+		// 中央（位置移動）
+		const float midL = (L.offsetA_L + L.offsetB_L) * 0.5f;
+		const float midR = (L.offsetA_R + L.offsetB_R) * 0.5f;
+		drawHandle(pM + rM * ((midL + midR) * 0.5f), ColorF{0.9, 0.9, 1.0},
+			U"車線位置 / ドラッグで左右移動"_fmt,
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneCenter, Shape::Circle);
+		// L/R side（両端同時幅）
+		drawHandle(pM + rM * midL, ColorF{1.0, 0.85, 0.3},
+			U"車線左端（両端同時） / ドラッグで幅変更"_fmt,
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneLeftSide, Shape::Square);
+		drawHandle(pM + rM * midR, ColorF{0.3, 0.85, 1.0},
+			U"車線右端（両端同時） / ドラッグで幅変更"_fmt,
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneRightSide, Shape::Square);
+
+		// 四隅: A 側=暖色、B 側=寒色
+		drawHandle(pA + rA * L.offsetA_L, sideTint(true,  false),
+			U"A端左 {:.2f}m / ドラッグで幅変更"_fmt(L.offsetA_L),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneAL, Shape::Square);
+		drawHandle(pA + rA * L.offsetA_R, sideTint(true,  true),
+			U"A端右 {:.2f}m / ドラッグで幅変更"_fmt(L.offsetA_R),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneAR, Shape::Square);
+		drawHandle(pB + rB * L.offsetB_L, sideTint(false, false),
+			U"B端左 {:.2f}m / ドラッグで幅変更"_fmt(L.offsetB_L),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneBL, Shape::Square);
+		drawHandle(pB + rB * L.offsetB_R, sideTint(false, true),
+			U"B端右 {:.2f}m / ドラッグで幅変更"_fmt(L.offsetB_R),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneBR, Shape::Square);
+	}
 }
 

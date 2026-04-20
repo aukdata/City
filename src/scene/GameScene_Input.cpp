@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "EdgeSectionState.hpp"
 #include "../ui/PanelWidget.hpp"
 
 // =============================================================================
@@ -301,9 +302,281 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
-		if (MouseL.down() && m_cursorGroundPos && !m_panelManager.blocksMouseInput())
+		// エッジ選択中は 3D ハンドルのドラッグ/ヒットテストを優先
+		const bool handleConsumed = handleEdgeHandleInput();
+		if (!handleConsumed
+			&& MouseL.down() && m_cursorGroundPos && !m_panelManager.blocksMouseInput())
 			handleSelectionClick();
 	}
+}
+
+// =============================================================================
+// 3D エッジ編集ハンドル（Cutoff A/B）
+// =============================================================================
+
+namespace
+{
+	/// @brief ベジェ接線を XZ 平面で 90 度右に回した単位ベクトル（道路右向き）
+	Vec3 rightOf(const Vec3& tangent)
+	{
+		Vec3 t = tangent; t.y = 0;
+		if (t.lengthSq() < 1e-8) return Vec3{ 1, 0, 0 };
+		t.normalize();
+		return Vec3{ t.z, 0, -t.x };
+	}
+
+	/// @brief スクリーン上で dir（ワールドベクトル）方向の「1m あたりピクセル」を返す
+	double metersPerPixelAlong(const BasicCamera3D& cam, const Vec3& worldPos, const Vec3& dir)
+	{
+		const Vec2 sp0 = cam.worldToScreenPoint(worldPos).xy();
+		const Vec2 sp1 = cam.worldToScreenPoint(worldPos + dir).xy();
+		const double px = (sp1 - sp0).length();
+		return (px > 1e-6) ? (1.0 / px) : 0.0;
+	}
+}
+
+bool GameScene::handleEdgeHandleInput()
+{
+	if (m_selection.kind != SelectionKind::Edge) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return false; }
+	RoadEdge* edge = m_network.getEdge(m_selection.id);
+	if (!edge) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return false; }
+	const auto bezOpt = m_network.getBezier(edge->id);
+	if (!bezOpt) return false;
+	const CubicBezier& bez = *bezOpt;
+	const auto& cam = m_camera.camera3D();
+
+	// 各ハンドル種別のワールド位置 / ドラッグ方向を算出
+	auto handleWorld = [&](EdgeHandleDrag::Kind k, int idx, Vec3& outPos, Vec3& outDir) -> bool
+	{
+		switch (k)
+		{
+		case EdgeHandleDrag::Kind::CutoffA:
+			outPos = bez.positionAt(edge->cutoffA);
+			outDir = bez.tangentAt(edge->cutoffA);
+			return true;
+		case EdgeHandleDrag::Kind::CutoffB:
+		{
+			const float s = Max(0.0f, bez.totalLength - edge->cutoffB);
+			outPos = bez.positionAt(s);
+			outDir = -bez.tangentAt(s);
+			return true;
+		}
+		case EdgeHandleDrag::Kind::PartCenter:
+		case EdgeHandleDrag::Kind::PartLeft:
+		case EdgeHandleDrag::Kind::PartRight:
+		{
+			if (idx < 0 || idx >= static_cast<int>(edge->parts.size())) return false;
+			const auto& p = edge->parts[idx];
+			const float s = bez.totalLength * 0.5f;
+			const Vec3 center = bez.positionAt(s);
+			const Vec3 right = rightOf(bez.tangentAt(s));
+			float localOffs = p.offset + p.width * 0.5f;
+			if      (k == EdgeHandleDrag::Kind::PartLeft)  localOffs = p.offset;
+			else if (k == EdgeHandleDrag::Kind::PartRight) localOffs = p.offset + p.width;
+			outPos = center + right * localOffs;
+			outDir = right;
+			return true;
+		}
+		case EdgeHandleDrag::Kind::LaneCenter:
+		case EdgeHandleDrag::Kind::LaneLeftSide:
+		case EdgeHandleDrag::Kind::LaneRightSide:
+		{
+			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size())) return false;
+			const auto& L = edge->lanes[idx];
+			const float s = bez.totalLength * 0.5f;
+			const Vec3 center = bez.positionAt(s);
+			const Vec3 right = rightOf(bez.tangentAt(s));
+			const float midL = (L.offsetA_L + L.offsetB_L) * 0.5f;
+			const float midR = (L.offsetA_R + L.offsetB_R) * 0.5f;
+			float offs = (midL + midR) * 0.5f;
+			if      (k == EdgeHandleDrag::Kind::LaneLeftSide)  offs = midL;
+			else if (k == EdgeHandleDrag::Kind::LaneRightSide) offs = midR;
+			outPos = center + right * offs;
+			outDir = right;
+			return true;
+		}
+		case EdgeHandleDrag::Kind::LaneAL:
+		case EdgeHandleDrag::Kind::LaneAR:
+		case EdgeHandleDrag::Kind::LaneBL:
+		case EdgeHandleDrag::Kind::LaneBR:
+		{
+			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size())) return false;
+			const auto& L = edge->lanes[idx];
+			const bool atA = (k == EdgeHandleDrag::Kind::LaneAL || k == EdgeHandleDrag::Kind::LaneAR);
+			const float s = atA ? edge->cutoffA : Max(0.0f, bez.totalLength - edge->cutoffB);
+			const Vec3 p0 = bez.positionAt(s);
+			const Vec3 right = rightOf(bez.tangentAt(s));
+			float offs = 0;
+			if      (k == EdgeHandleDrag::Kind::LaneAL) offs = L.offsetA_L;
+			else if (k == EdgeHandleDrag::Kind::LaneAR) offs = L.offsetA_R;
+			else if (k == EdgeHandleDrag::Kind::LaneBL) offs = L.offsetB_L;
+			else                                         offs = L.offsetB_R;
+			outPos = p0 + right * offs;
+			outDir = right;
+			return true;
+		}
+		default: return false;
+		}
+	};
+
+	// ドラッグ中: スクリーン上のマウス移動を dir 方向に投影して値を更新
+	if (m_edgeHandleDrag.kind != EdgeHandleDrag::Kind::None && m_edgeHandleDrag.edgeId == edge->id)
+	{
+		if (!MouseL.pressed()) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return true; }
+		// マウスが動いていないフレームはキャッシュ無効化を含む更新自体をスキップ
+		if (Cursor::Delta().isZero()) return true;
+
+		Vec3 wp, dir;
+		if (!handleWorld(m_edgeHandleDrag.kind, m_edgeHandleDrag.idx, wp, dir))
+		{ m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return true; }
+
+		const Vec2 sp0 = cam.worldToScreenPoint(wp).xy();
+		const Vec2 sp1 = cam.worldToScreenPoint(wp + dir).xy();
+		const Vec2 ds = sp1 - sp0;
+		if (ds.lengthSq() < 1e-6) return true;
+		const Vec2 dsN = ds.normalized();
+		const double mPerPx = 1.0 / ds.length();
+		const Vec2 mouseDelta = Cursor::PosF() - m_edgeHandleDrag.anchorScreen;
+		const float deltaM = static_cast<float>(mouseDelta.dot(dsN) * mPerPx);
+
+		const int pi = m_edgeHandleDrag.idx;
+		const int li = m_edgeHandleDrag.idx;
+		switch (m_edgeHandleDrag.kind)
+		{
+		case EdgeHandleDrag::Kind::CutoffA:
+			edge->cutoffA = Clamp(m_edgeHandleDrag.anchorValue + deltaM, 0.0f, bez.totalLength * 0.45f);
+			break;
+		case EdgeHandleDrag::Kind::CutoffB:
+			edge->cutoffB = Clamp(m_edgeHandleDrag.anchorValue + deltaM, 0.0f, bez.totalLength * 0.45f);
+			break;
+		case EdgeHandleDrag::Kind::PartCenter:
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+				edge->parts[pi].offset = m_edgeHandleDrag.anchorValue + deltaM;
+			break;
+		case EdgeHandleDrag::Kind::PartLeft:
+			// 左端ドラッグ: 右端固定 → offset += delta, width -= delta
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				const float newOffset = m_edgeHandleDrag.anchorValue + deltaM;
+				const float newWidth  = Max(0.1f, m_edgeHandleDrag.anchorA - deltaM);
+				edge->parts[pi].offset = newOffset;
+				edge->parts[pi].width  = newWidth;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartRight:
+			// 右端ドラッグ: 左端固定 → width += delta
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+				edge->parts[pi].width = Max(0.1f, m_edgeHandleDrag.anchorValue + deltaM);
+			break;
+		case EdgeHandleDrag::Kind::LaneCenter:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
+				auto& L = edge->lanes[li];
+				L.offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+				L.offsetA_R = m_edgeHandleDrag.anchorA    + deltaM;
+				L.offsetB_L = m_edgeHandleDrag.anchorB    + deltaM;
+				L.offsetB_R = m_edgeHandleDrag.anchorC    + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::LaneLeftSide:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
+				edge->lanes[li].offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+				edge->lanes[li].offsetB_L = m_edgeHandleDrag.anchorA    + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::LaneRightSide:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
+				edge->lanes[li].offsetA_R = m_edgeHandleDrag.anchorValue + deltaM;
+				edge->lanes[li].offsetB_R = m_edgeHandleDrag.anchorA    + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::LaneAL:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+				edge->lanes[li].offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+			break;
+		case EdgeHandleDrag::Kind::LaneAR:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+				edge->lanes[li].offsetA_R = m_edgeHandleDrag.anchorValue + deltaM;
+			break;
+		case EdgeHandleDrag::Kind::LaneBL:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+				edge->lanes[li].offsetB_L = m_edgeHandleDrag.anchorValue + deltaM;
+			break;
+		case EdgeHandleDrag::Kind::LaneBR:
+			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+				edge->lanes[li].offsetB_R = m_edgeHandleDrag.anchorValue + deltaM;
+			break;
+		default: break;
+		}
+		// メッシュキャッシュ無効化
+		m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
+		m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+		m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+		return true;
+	}
+
+	// ヒットテスト
+	if (!MouseL.down() || m_panelManager.blocksMouseInput()) return false;
+	const Vec2 cur = Cursor::PosF();
+	constexpr double kHitRadius = 10.0;
+
+	auto beginDrag = [&](EdgeHandleDrag::Kind k, int idx,
+	                     float v, float a = 0.0f, float b = 0.0f, float c = 0.0f)
+	{
+		m_edgeHandleDrag.kind = k;
+		m_edgeHandleDrag.edgeId = edge->id;
+		m_edgeHandleDrag.idx   = idx;
+		m_edgeHandleDrag.anchorScreen = cur;
+		m_edgeHandleDrag.anchorValue = v;
+		m_edgeHandleDrag.anchorA = a;
+		m_edgeHandleDrag.anchorB = b;
+		m_edgeHandleDrag.anchorC = c;
+	};
+	auto hitAt = [&](EdgeHandleDrag::Kind k, int idx) -> bool
+	{
+		Vec3 wp, dir;
+		if (!handleWorld(k, idx, wp, dir)) return false;
+		const Vec2 sp = cam.worldToScreenPoint(wp).xy();
+		return sp.distanceFrom(cur) <= kHitRadius;
+	};
+
+	// Cutoff
+	if (hitAt(EdgeHandleDrag::Kind::CutoffA, -1)) { beginDrag(EdgeHandleDrag::Kind::CutoffA, -1, edge->cutoffA); return true; }
+	if (hitAt(EdgeHandleDrag::Kind::CutoffB, -1)) { beginDrag(EdgeHandleDrag::Kind::CutoffB, -1, edge->cutoffB); return true; }
+	// Part/Lane は排他。Lane 選択中は Part のヒットは取らない
+	const int partIdx = EdgeSectionState::selectedPart;
+	const int laneIdx = EdgeSectionState::selectedLane;
+	const bool laneActive = (laneIdx >= 0 && laneIdx < static_cast<int>(edge->lanes.size()));
+	const bool partActive = (!laneActive) && (partIdx >= 0 && partIdx < static_cast<int>(edge->parts.size()));
+	if (partActive)
+	{
+		const auto& p = edge->parts[partIdx];
+		if (hitAt(EdgeHandleDrag::Kind::PartLeft, partIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::PartLeft, partIdx, p.offset, p.width); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::PartRight, partIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::PartRight, partIdx, p.width); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::PartCenter, partIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::PartCenter, partIdx, p.offset); return true; }
+	}
+	// Lane: 四隅 > L/R side > 中央 の優先順
+	if (laneActive)
+	{
+		const auto& L = edge->lanes[laneIdx];
+		if (hitAt(EdgeHandleDrag::Kind::LaneAL, laneIdx)) { beginDrag(EdgeHandleDrag::Kind::LaneAL, laneIdx, L.offsetA_L); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneAR, laneIdx)) { beginDrag(EdgeHandleDrag::Kind::LaneAR, laneIdx, L.offsetA_R); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneBL, laneIdx)) { beginDrag(EdgeHandleDrag::Kind::LaneBL, laneIdx, L.offsetB_L); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneBR, laneIdx)) { beginDrag(EdgeHandleDrag::Kind::LaneBR, laneIdx, L.offsetB_R); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneLeftSide, laneIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::LaneLeftSide, laneIdx, L.offsetA_L, L.offsetB_L); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneRightSide, laneIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::LaneRightSide, laneIdx, L.offsetA_R, L.offsetB_R); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::LaneCenter, laneIdx))
+		{ beginDrag(EdgeHandleDrag::Kind::LaneCenter, laneIdx,
+			L.offsetA_L, L.offsetA_R, L.offsetB_L, L.offsetB_R); return true; }
+	}
+	return false;
 }
 
 // =============================================================================

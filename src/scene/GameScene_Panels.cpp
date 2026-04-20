@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "EdgeSectionState.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../ui/PanelLayout.hpp"
 #include "../asset/AssetRegistrar.hpp"
@@ -32,15 +33,6 @@ namespace
 		case RoadPartType::Wall:      return U"wall_concrete";
 		default:                       return U"";
 		}
-	}
-
-	/// @brief Parts を offset 昇順にソートし、隙間・重なりを除去する
-	void resolvePartOverlapAndGap(Array<RoadPart>& parts)
-	{
-		if (parts.size() < 2) return;
-		parts.sort_by([](const RoadPart& a, const RoadPart& b) { return a.offset < b.offset; });
-		for (size_t i = 1; i < parts.size(); ++i)
-			parts[i].offset = parts[i - 1].offset + parts[i - 1].width;
 	}
 
 /// @brief RoadPartType → UI 描画色（断面バー / 信号編集図 共用）
@@ -81,11 +73,32 @@ namespace
 	{
 		int   selectedPart = -1;
 		int   selectedLane = -1;
-		int   dragMode     = 0;   // 0=none, 1-3=part, 4-6=lane
-		float dragAnchor   = 0.0f;
-		bool  partsCollapsed = false;
-		bool  lanesCollapsed = false;
+		// dragMode:
+		//   0=none
+		//   1=part移動, 2=part左端, 3=part右端
+		//   4=lane移動, 5=lane左端(両側), 6=lane右端(両側)
+		//   7=offsetA_L, 8=offsetB_L, 9=offsetA_R, 10=offsetB_R
+		int    dragMode      = 0;
+		float  dragAnchor    = 0.0f;
+		bool   partsCollapsed = false;
+		bool   lanesCollapsed = false;
+		// 簡易ダブルクリック検出
+		double lastClickTime = -1.0;
+		Vec2   lastClickPos  { -1, -1 };
 	};
+
+	/// @brief マウス L の押下が直前クリックから 350ms 以内ならダブルクリックと判定
+	bool detectDoubleClick(SectionEditState& st)
+	{
+		if (!MouseL.down()) return false;
+		const double now = Scene::Time();
+		const Vec2 pos = Cursor::PosF();
+		const bool dbl = (st.lastClickTime > 0.0) && (now - st.lastClickTime < 0.35)
+			&& (pos.distanceFrom(st.lastClickPos) < 6.0);
+		st.lastClickTime = dbl ? -1.0 : now;
+		st.lastClickPos  = pos;
+		return dbl;
+	}
 
 	/// @brief Parts + Lanes の断面編集UIを描画する（drawEdgePanel / drawDrawTemplatePanel 共用）
 	/// @return パーツ/車線が変更されたか
@@ -100,6 +113,7 @@ namespace
 		constexpr int kSectionW = 360;
 		constexpr int kLH = 17;
 		bool dirty = false;
+		const bool doubleClickedThisFrame = detectDoubleClick(st);
 
 		// スケーリング計算
 		float extMin = 1e9f, extMax = -1e9f;
@@ -139,12 +153,16 @@ namespace
 				else if (st.dragMode == 2) { p.offset += delta; p.width -= delta; if (p.width < 0.5f) { p.offset -= (0.5f - p.width); p.width = 0.5f; } st.dragAnchor = curM; dirty = true; }
 				else if (st.dragMode == 3) { p.width += delta; if (p.width < 0.5f) p.width = 0.5f; st.dragAnchor = curM; dirty = true; }
 			}
-			else if (st.dragMode >= 4 && st.dragMode <= 6 && st.selectedLane >= 0)
+			else if (st.dragMode >= 4 && st.dragMode <= 10 && st.selectedLane >= 0)
 			{
 				auto& L = edge.lanes[st.selectedLane];
 				if (st.dragMode == 4) { L.offsetA_L += delta; L.offsetA_R += delta; L.offsetB_L += delta; L.offsetB_R += delta; st.dragAnchor = curM; dirty = true; }
 				else if (st.dragMode == 5) { L.offsetA_L += delta; L.offsetB_L += delta; st.dragAnchor = curM; dirty = true; }
 				else if (st.dragMode == 6) { L.offsetA_R += delta; L.offsetB_R += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 7)  { L.offsetA_L += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 8)  { L.offsetB_L += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 9)  { L.offsetA_R += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 10) { L.offsetB_R += delta; st.dragAnchor = curM; dirty = true; }
 			}
 		}
 		else if (st.dragMode != 0)
@@ -202,14 +220,18 @@ namespace
 					if (st.dragMode == 0 && rect.mouseOver())
 					{
 						const double mx = Cursor::PosF().x;
+						const bool onLeftEdge  = (mx - px0 < kEdgeGrab && pw > 10);
+						const bool onRightEdge = (px1 - mx < kEdgeGrab && pw > 10);
+						Cursor::RequestStyle(onLeftEdge || onRightEdge
+							? CursorStyle::ResizeLeftRight : CursorStyle::Hand);
 						if (MouseL.down())
 						{
 							st.selectedPart = i;
 							st.selectedLane = -1;
 							st.dragAnchor = pixelToM(mx);
-							if (mx - px0 < kEdgeGrab && pw > 10)      st.dragMode = 2;
-							else if (px1 - mx < kEdgeGrab && pw > 10) st.dragMode = 3;
-							else                                       st.dragMode = 1;
+							if (onLeftEdge)       st.dragMode = 2;
+							else if (onRightEdge) st.dragMode = 3;
+							else                  st.dragMode = 1;
 						}
 						else if (MouseR.down())
 						{
@@ -220,6 +242,45 @@ namespace
 						}
 					}
 				}
+
+				// 部品間ギャップのダブルクリック詰め
+				// default: 外側→内側 / Shift: 内側→外側 / Ctrl: 両側を広げる
+				if (st.dragMode == 0 && edge.parts.size() >= 2 && doubleClickedThisFrame)
+				{
+					Array<RoadPart*> sorted;
+					for (auto& p : edge.parts) sorted << &p;
+					sorted.sort_by([](const RoadPart* a, const RoadPart* b) { return a->offset < b->offset; });
+					for (size_t i = 1; i < sorted.size(); ++i)
+					{
+						const float leftEnd  = sorted[i - 1]->offset + sorted[i - 1]->width;
+						const float rightBeg = sorted[i]->offset;
+						if (rightBeg - leftEnd <= 0.01f) continue;
+						const double pxL = mToPixel(leftEnd);
+						const double pxR = mToPixel(rightBeg);
+						const RectF gap{ pxL, static_cast<double>(barY),
+							Max(pxR - pxL, 2.0), static_cast<double>(kPartBarH) };
+						if (!gap.mouseOver()) continue;
+						const float gapM = rightBeg - leftEnd;
+						if (KeyControl.pressed())
+						{
+							sorted[i - 1]->width += gapM * 0.5f;
+							sorted[i]->offset    -= gapM * 0.5f;
+							sorted[i]->width     += gapM * 0.5f;
+						}
+						else if (KeyShift.pressed())
+						{
+							sorted[i - 1]->offset += gapM;
+							sorted[i]->offset     -= gapM;
+						}
+						else
+						{
+							sorted[i]->offset = leftEnd;
+						}
+						dirty = true;
+						break;
+					}
+				}
+
 				y += kPartBarH + 2;
 
 				if (st.selectedPart >= 0 && st.selectedPart < static_cast<int>(edge.parts.size()))
@@ -394,14 +455,18 @@ namespace
 						const double pxMid0 = (pxA0 + pxB0) * 0.5;
 						const double pxMid1 = (pxA1 + pxB1) * 0.5;
 						const double pw = Max(pxMid1 - pxMid0, 2.0);
+						const bool onLeftEdge  = (mx - pxMid0 < kEdgeGrab && pw > 10);
+						const bool onRightEdge = (pxMid1 - mx < kEdgeGrab && pw > 10);
+						Cursor::RequestStyle(onLeftEdge || onRightEdge
+							? CursorStyle::ResizeLeftRight : CursorStyle::Hand);
 						if (MouseL.down())
 						{
 							st.selectedLane = i;
 							st.selectedPart = -1;
 							st.dragAnchor = pixelToM(mx);
-							if (mx - pxMid0 < kEdgeGrab && pw > 10)      st.dragMode = 5;
-							else if (pxMid1 - mx < kEdgeGrab && pw > 10) st.dragMode = 6;
-							else                                          st.dragMode = 4;
+							if (onLeftEdge)       st.dragMode = 5;
+							else if (onRightEdge) st.dragMode = 6;
+							else                  st.dragMode = 4;
 						}
 						else if (MouseR.down())
 						{
@@ -410,6 +475,93 @@ namespace
 						}
 					}
 				}
+				// 車線間ギャップのダブルクリック詰め（A 端・B 端を独立に処理）
+			// default: 外側 → 内側 / Shift: 内側 → 外側 / Ctrl: 両側を広げる
+			if (st.dragMode == 0 && edge.lanes.size() >= 2 && doubleClickedThisFrame)
+			{
+				struct LanePos { int idx; float aL, aR, bL, bR; };
+				Array<LanePos> sorted;
+				for (int i = 0; i < static_cast<int>(edge.lanes.size()); ++i)
+				{
+					const auto& L = edge.lanes[i];
+					sorted << LanePos{ i, L.offsetA_L, L.offsetA_R, L.offsetB_L, L.offsetB_R };
+				}
+				sorted.sort_by([](const LanePos& a, const LanePos& b)
+					{ return (a.aL + a.bL) < (b.aL + b.bL); });
+				for (size_t i = 1; i < sorted.size(); ++i)
+				{
+					const float aGap = sorted[i].aL - sorted[i - 1].aR;
+					const float bGap = sorted[i].bL - sorted[i - 1].bR;
+					if (aGap <= 0.01f && bGap <= 0.01f) continue;
+					const double pxL = mToPixel(Min(sorted[i - 1].aR, sorted[i - 1].bR));
+					const double pxR = mToPixel(Max(sorted[i].aL,     sorted[i].bL));
+					const RectF gap{ pxL, static_cast<double>(laneBarY),
+						Max(pxR - pxL, 2.0), static_cast<double>(kLaneBarH) };
+					if (!gap.mouseOver()) continue;
+					auto& prev = edge.lanes[sorted[i - 1].idx];
+					auto& cur  = edge.lanes[sorted[i].idx];
+					if (KeyControl.pressed())
+					{
+						prev.offsetA_R += aGap * 0.5f; prev.offsetB_R += bGap * 0.5f;
+						cur.offsetA_L  -= aGap * 0.5f; cur.offsetB_L  -= bGap * 0.5f;
+					}
+					else if (KeyShift.pressed())
+					{
+						prev.offsetA_L += aGap; prev.offsetA_R += aGap;
+						prev.offsetB_L += bGap; prev.offsetB_R += bGap;
+						cur.offsetA_L  -= aGap; cur.offsetA_R  -= aGap;
+						cur.offsetB_L  -= bGap; cur.offsetB_R  -= bGap;
+					}
+					else
+					{
+						cur.offsetA_L -= aGap; cur.offsetA_R -= aGap;
+						cur.offsetB_L -= bGap; cur.offsetB_R -= bGap;
+					}
+					dirty = true;
+					break;
+				}
+			}
+
+			// 選択車線の四隅マーカー（A_L / A_R / B_L / B_R 個別編集）
+				// 色は 3D 空間のハンドルと統一: A 側=暖色（赤）、B 側=寒色（緑）、R 側は暗め
+				if (st.selectedLane >= 0 && st.selectedLane < static_cast<int>(edge.lanes.size()))
+				{
+					const auto& SL = edge.lanes[st.selectedLane];
+					struct Corner { double px; double py; int mode; StringView tip; ColorF col; };
+					const double yTopC = static_cast<double>(laneBarY + 2);
+					const double yBotC = static_cast<double>(laneBarY + kLaneBarH - 2);
+					auto tint = [](bool atA, bool isRight) {
+						const ColorF base = atA ? ColorF{1.0, 0.55, 0.45} : ColorF{0.45, 1.0, 0.55};
+						return isRight ? (base * 0.7 + ColorF{0.15}) : base;
+					};
+					const Corner corners[4] = {
+						{ mToPixel(SL.offsetA_L), yTopC, 7,  U"A端左 / ドラッグで幅変更", tint(true,  false) },
+						{ mToPixel(SL.offsetB_L), yBotC, 8,  U"B端左 / ドラッグで幅変更", tint(false, false) },
+						{ mToPixel(SL.offsetA_R), yTopC, 9,  U"A端右 / ドラッグで幅変更", tint(true,  true)  },
+						{ mToPixel(SL.offsetB_R), yBotC, 10, U"B端右 / ドラッグで幅変更", tint(false, true)  },
+					};
+					for (const auto& c : corners)
+					{
+						const Circle mk{ c.px, c.py, 4.0 };
+						const bool hover = mk.mouseOver();
+						mk.draw(hover ? ColorF{ 1.0, 1.0, 0.4 } : c.col);
+						mk.drawFrame(1.0, ColorF{ 0.1 });
+						if (st.dragMode == 0 && hover)
+						{
+							Cursor::RequestStyle(CursorStyle::ResizeLeftRight);
+							PanelWidget::tipFont = &pFont;
+							PanelWidget::tipText = String{ c.tip };
+							PanelWidget::tipPos  = Vec2{ c.px + 8, c.py + 8 };
+							PanelWidget::tipActive = true;
+							if (MouseL.down())
+							{
+								st.dragMode = c.mode;
+								st.dragAnchor = pixelToM(Cursor::PosF().x);
+							}
+						}
+					}
+				}
+
 				y += kLaneBarH + 2;
 
 				if (st.selectedLane >= 0 && st.selectedLane < static_cast<int>(edge.lanes.size()))
@@ -483,11 +635,8 @@ namespace
 			}
 		}
 
-		if (dirty)
-		{
-			resolvePartOverlapAndGap(edge.parts);
-			// 車線は隙間・重なりを許容する（自動調整しない）
-		}
+		// 部品・車線ともに隙間・重なりを許容する（自動調整しない）
+		// ギャップはダブルクリックで明示的に詰める
 		return dirty;
 	}
 }
@@ -656,6 +805,8 @@ void GameScene::drawEdgePanel()
 	static SectionEditState edgeSectionState;
 	int y = ui.height();
 	dirty |= drawRoadSections(*edge, edgeSectionState, pFont, pBold, 6, y);
+	EdgeSectionState::selectedPart = edgeSectionState.selectedPart;
+	EdgeSectionState::selectedLane = edgeSectionState.selectedLane;
 
 	ui.flush();
 	m_panelManager.reportContentHeight(U"edge_info", y);

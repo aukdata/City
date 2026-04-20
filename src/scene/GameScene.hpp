@@ -191,6 +191,28 @@ private:
 	Optional<int>   m_selectedVehicleId;
 	bool            m_trackingVehicle = false;
 
+	// エッジ 3D 編集ハンドル（Cutoff A/B のドラッグ状態）
+	struct EdgeHandleDrag
+	{
+		enum class Kind {
+			None,
+			CutoffA, CutoffB,
+			PartCenter, PartLeft, PartRight,
+			LaneCenter, LaneLeftSide, LaneRightSide,
+			LaneAL, LaneAR, LaneBL, LaneBR,
+		};
+		Kind  kind     = Kind::None;
+		int   edgeId   = -1;
+		int   idx      = -1;
+		Vec2  anchorScreen{ 0, 0 };
+		// 初期値スナップショット（最大 4 値）
+		float anchorValue = 0.0f;
+		float anchorA = 0.0f;
+		float anchorB = 0.0f;
+		float anchorC = 0.0f;
+	};
+	EdgeHandleDrag m_edgeHandleDrag;
+
 	// パネルシステム
 	PanelManager    m_panelManager;
 	int             m_signalEditPhase = 0;  ///< 信号編集パネルの選択フェーズ
@@ -312,6 +334,10 @@ private:
 	void updateCursor();
 	/// @brief 通常モード (EditMode::None) でのクリック選択処理（車両→ノード→エッジの優先順）
 	void handleSelectionClick();
+	/// @brief 選択中エッジの 3D ハンドル入力を処理する。クリックを消費したら true
+	bool handleEdgeHandleInput();
+	/// @brief 選択中エッジの 3D ハンドル（Cutoff A/B）を描画する
+	void renderEdgeHandles();
 	void handleRoadDraw();
 	void handleZonePaint();
 	void handleBusRouteDraw();

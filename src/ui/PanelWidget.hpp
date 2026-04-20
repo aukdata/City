@@ -13,14 +13,49 @@ namespace PanelWidget
 	inline Vec2        tipPos{ 0, 0 };
 	inline bool        tipActive = false;
 
+	/// @brief 溜まったツールチップを描画してフラグをリセット。
+	/// @details `/` を改行区切りとして複数行表示。画面端を超えそうなら位置を調整。
 	inline void flushTooltip()
 	{
 		if (!tipActive || !tipFont) return;
-		const auto region = (*tipFont)(tipText).region(tipPos);
-		RectF{ region.x - 3, region.y - 1, region.w + 6, region.h + 2 }
-			.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
-		(*tipFont)(tipText).draw(tipPos, Palette::White);
 		tipActive = false;
+
+		Array<String> lines;
+		for (const auto& s : tipText.split(U'/'))
+		{
+			String trimmed = s.trimmed();
+			if (!trimmed.isEmpty()) lines << std::move(trimmed);
+		}
+		if (lines.isEmpty()) return;
+
+		double maxW = 0.0;
+		double lineH = static_cast<double>((*tipFont)(U"Ay").region().h);
+		for (const auto& ln : lines)
+		{
+			const auto r = (*tipFont)(ln).region(Vec2{ 0, 0 });
+			maxW = Max(maxW, r.w);
+			lineH = Max(lineH, r.h);
+		}
+		const double totalH = lineH * lines.size();
+
+		const double screenW = Scene::Size().x;
+		const double screenH = Scene::Size().y;
+		Vec2 drawPos = tipPos;
+		if (drawPos.x + maxW + 3 > screenW) drawPos.x = Max(0.0, screenW - maxW - 3);
+		if (drawPos.y + totalH + 2 > screenH) drawPos.y = Max(0.0, screenH - totalH - 2);
+
+		RectF{ drawPos.x - 3, drawPos.y - 1, maxW + 6, totalH + 2 }
+			.draw(ColorF{ 0.1, 0.1, 0.1, 0.95 });
+		for (size_t i = 0; i < lines.size(); ++i)
+		{
+			(*tipFont)(lines[i]).draw(Vec2{ drawPos.x, drawPos.y + lineH * i }, Palette::White);
+		}
+	}
+
+	/// @brief ラベルに必要な最小ボタン幅（パディング込み）を算出
+	inline int buttonMinWidth(const Font& font, StringView label)
+	{
+		return static_cast<int>(font(label).region().w) + 8;
 	}
 
 	// ── 共通: hover / click / wheel 判定 + ツールチップ登録 ──
@@ -48,6 +83,7 @@ namespace PanelWidget
 	inline bool button(const Font& font, StringView label, bool active,
 	                   int x, int y, int w, int h, StringView tooltip = U"")
 	{
+		w = Max(w, buttonMinWidth(font, label));
 		const auto hit = hitTest(font, x, y, w, h, tooltip);
 		RectF{ static_cast<double>(x), static_cast<double>(y),
 		       static_cast<double>(w), static_cast<double>(h) }
@@ -62,6 +98,7 @@ namespace PanelWidget
 	inline bool buttonDanger(const Font& font, StringView label,
 	                         int x, int y, int w, int h, StringView tooltip = U"")
 	{
+		w = Max(w, buttonMinWidth(font, label));
 		const auto hit = hitTest(font, x, y, w, h, tooltip);
 		RectF{ static_cast<double>(x), static_cast<double>(y),
 		       static_cast<double>(w), static_cast<double>(h) }
