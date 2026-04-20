@@ -1,4 +1,4 @@
-﻿#include "GuideSign.hpp"
+#include "GuideSign.hpp"
 #include "RoadNetwork.hpp"
 #include "RoadSign.hpp"
 #include "ObjParser.hpp"
@@ -200,10 +200,12 @@ namespace
 	}
 
 	/// @brief 案内標識の統一レンダラ（DirectionDistance / DirectionArrow 共通）
+	/// @details 板背景を全面塗りしてから白枠と elements を重ねる。
+	///   3D 側で国道アイコン PNG（Mipped / Unorm 読み込み）と明るさを揃えるため、
+	///   bg は SRGB 符号化の linear 入力として扱う（removeSRGBCurve しない）。
 	void renderSign(const GuideSignPlacement& g, const Size& texSize,
 	                const Font& fontJa, const Font& fontNum)
 	{
-		// 板背景 + 白枠（両種別共通）
 		Rect{ 0, 0, texSize }.draw(resolveBgColor(g.bgColor));
 		const double borderPx = Max(2.0, texSize.y * 0.015);
 		const double insetPx  = borderPx * 2.0;
@@ -274,10 +276,10 @@ namespace
 		}
 	}
 
+	/// @brief 空要素時のプレースホルダ描画（板背景も含めて全て描画）
 	void renderEmptyPlaceholder(const GuideSignPlacement& g, const Size& texSize, const Font& fontJa)
 	{
-		const ColorF bg = resolveBgColor(g.bgColor);
-		Rect{ 0, 0, texSize }.draw(bg);
+		Rect{ 0, 0, texSize }.draw(resolveBgColor(g.bgColor));
 		const double borderPx = Max(2.0, texSize.y * 0.015);
 		RectF{ borderPx * 2, borderPx * 2, texSize.x - borderPx * 4, texSize.y - borderPx * 4 }
 			.drawFrame(borderPx, 0.0, ColorF{ 1.0 });

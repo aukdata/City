@@ -1,10 +1,13 @@
-﻿#include "AssetRegistrar.hpp"
+#include "AssetRegistrar.hpp"
 
 void RegisterAssets()
 {
 	// ---- テクスチャ ----
 	TextureAsset::Register(Asset::Grass, U"assets/terrain/grass.png", TextureDesc::MippedSRGB);
-	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/guide/national_route.png", TextureDesc::MippedSRGB);
+	// NationalRoadSign は SRGB RenderTexture 上で案内標識の背景（Rect::draw でクリア色塗り）と
+	// 合成される。PNG 物理バイト (21,87,161) を linear として扱う Mipped（非 SRGB）にすることで、
+	// 背景（Rect.draw）と PNG が同じ明るめの青で 3D 表示されるようにする
+	TextureAsset::Register(Asset::NationalRoadSign, U"assets/signs/guide/national_route.png", TextureDesc::Mipped);
 	TextureAsset::Register(Asset::StopSign,         U"assets/signs/regulatory/stop.png",      TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::YieldSign,        U"assets/signs/regulatory/yield.png",     TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::NoEntrySign,      U"assets/signs/regulatory/no_entry.png",  TextureDesc::MippedSRGB);

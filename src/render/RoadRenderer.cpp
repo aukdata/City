@@ -1,4 +1,4 @@
-﻿#include "RoadRenderer.hpp"
+#include "RoadRenderer.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/RoadSign.hpp"
 #include "../road/ObjParser.hpp"
@@ -2642,6 +2642,10 @@ namespace
 		const Size   texSize = GuideSign::guideSignTexSize(bs.width, bs.height);
 		const ColorF bg      = GuideSign::resolveBgColor(g.bgColor);
 
+		// SRGB フォーマットへのクリア色は linear 値として解釈されて sRGB 符号化される。
+		// bgColor (21/255, 87/255, 161/255) を linear とみなして encode した結果が物理バイトに
+		// 入るため、3D でサンプリングしたとき国道アイコン PNG（Mipped / Unorm 読み込み）と
+		// 同じ明るめの青 ≒ (94,193,230) で表示され両者の色味が一致する。
 		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,
 		                  TextureFormat::R8G8B8A8_Unorm_SRGB };
 		{
