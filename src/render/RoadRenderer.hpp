@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../road/RoadNetwork.hpp"
 #include "../road/GuideSign.hpp"
 #include "../road/ArrowMarkingRegistry.hpp"
@@ -90,6 +90,17 @@ public:
 	void invalidateAllCaches();
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
 
+	/// @brief Planned / UnderConstruction エッジをワイヤーフレームで描画する
+	void drawEdgeWireframe(const RoadEdge& edge, const RoadNetwork& network,
+	                       const World& world, ColorF color);
+
+	/// @brief 交差点ノードのワイヤーフレーム（B パス）を描画する
+	void drawNodeCapWireframe(const RoadNetwork& network, int nodeId, const World& world);
+
+	/// @brief Planned / UnderConstruction エッジを含む全交差点のワイヤーフレームを描画する
+	void renderWireframes(const RoadNetwork& network, const World& world,
+	                      const ViewFrustum& frustum, Vec3 cameraPos);
+
 	struct LaneLineBatch { ColorF color; Mesh mesh; };
 
 	/// @brief ポール＋看板 1基分の描画情報
@@ -135,6 +146,18 @@ private:
 	                        float sStart, float sEnd, float lodFactor,
 	                        bool useElevation = false) const;
 
+	/// @brief テーパー対応ストリップメッシュ生成（A/B 端で左右オフセットが異なる場合）
+	/// @param offsetA_L  A 端（s=0）の左端 [m]
+	/// @param offsetA_R  A 端（s=0）の右端 [m]
+	/// @param offsetB_L  B 端（s=totalLength）の左端 [m]
+	/// @param offsetB_R  B 端（s=totalLength）の右端 [m]
+	MeshData buildStripMeshTapered(const CubicBezier& bezier, const World& world,
+	                               float offsetA_L, float offsetA_R,
+	                               float offsetB_L, float offsetB_R,
+	                               float heightOffset,
+	                               float sStart, float sEnd, float lodFactor,
+	                               bool useElevation = false) const;
+
 	/// @brief 全部品のメッシュ配列を生成する
 	Array<PartMeshEntry> buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
 	                                     const World& world,
@@ -150,12 +173,22 @@ private:
 	                                          float marginA, float marginB) const;
 
 	/// @brief 1部品幅でのフィレット曲線 MeshData を生成する
+	/// @param onlyOpenEdges true なら Open/Existing のエッジのみを使う
 	MeshData buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,
 	                                  const World& world, int div,
-	                                  float partOffsetL, float partOffsetR, float heightOffset) const;
+	                                  float partOffsetL, float partOffsetR, float heightOffset,
+	                                  bool onlyOpenEdges = true) const;
+
+	/// @brief ノードキャップの輪郭線分を生成する（全エッジ対象、ワイヤーフレーム B パス用）
+	/// @return 線分の始点・終点ペア配列（Y は cap 面より 0.015 上げて Z ファイト回避）
+	Array<std::pair<Vec3, Vec3>> buildNodeCapWireLines(const RoadNetwork& network, int nodeId,
+	                                                   const World& world) const;
 
 	/// @brief ノードキャップの全部品メッシュ配列を生成する
-	Array<PartMeshEntry> buildNodeCapParts(const RoadNetwork& network, int nodeId, const World& world, int div);
+	/// @param onlyOpenEdges true なら Open/Existing のエッジのみを使う（A パス用）
+	Array<PartMeshEntry> buildNodeCapParts(const RoadNetwork& network, int nodeId,
+	                                       const World& world, int div,
+	                                       bool onlyOpenEdges = true);
 
 	/// @brief ノードキャップ上の車線区画線を生成する
 	Array<LaneLineBatch> buildNodeCapLaneLines(const RoadNetwork& network, int nodeId, const World& world) const;
@@ -301,7 +334,8 @@ private:
 	HashTable<int, Array<LaneLineBatch>>      m_laneArrowCache;   ///< ノード ID → 路面標示矢印
 	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
-	HashTable<int, Array<PartMeshEntry>>      m_nodeCapCache;    ///< ノード ID → 部品メッシュ配列
+	HashTable<int, Array<PartMeshEntry>>              m_nodeCapCache;        ///< ノード ID → 部品メッシュ配列（Open/Existing エッジのみ）
+	HashTable<int, Array<std::pair<Vec3, Vec3>>>      m_nodeCapWireCache;    ///< ノード ID → ワイヤーフレーム輪郭線分配列（B パス用）
 	HashTable<int, EdgeBounds>                m_boundsCache;
 	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
 	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
