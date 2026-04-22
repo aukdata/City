@@ -268,6 +268,13 @@ void GameScene::postProcessRoads()
 	Logger << U"[PostProcess] registerGuideDestinations: {:.0f}ms"_fmt(step.msF());
 	step.restart();
 
+	// 初期生成された道路はすべて建設済み（供用中）とする
+	for (const auto& edge : m_network.edges())
+	{
+		if (edge.id < 0) continue;
+		if (RoadEdge* e = m_network.getEdge(edge.id)) e->edgeState = EdgeState::Open;
+	}
+
 	m_genProgress.store(kProgressDone);
 	Logger << U"[Phase4] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF());
 }
@@ -993,6 +1000,42 @@ void GameScene::placeInitialBuildings()
 }
 
 // =============================================================================
+// 施工中エッジの Open 遷移
+// =============================================================================
+
+namespace
+{
+	constexpr double kConstructionDurationSec = 60.0;
+}
+
+void GameScene::tickConstruction()
+{
+	// 遷移対象の ID を先に収集し、後でまとめて変更する
+	Array<int> toOpen;
+	for (const auto& edge : m_network.edges())
+	{
+		if (edge.id < 0) continue;
+		if (edge.edgeState != EdgeState::UnderConstruction) continue;
+		if (m_clock.now - edge.constructionStartTime < kConstructionDurationSec) continue;
+		toOpen << edge.id;
+	}
+	Array<int> dirtyNodes;
+	for (const int eid : toOpen)
+	{
+		RoadEdge* edge = m_network.getEdge(eid);
+		if (!edge) continue;
+		edge->edgeState = EdgeState::Open;
+		dirtyNodes << edge->nodeA << edge->nodeB;
+	}
+	if (!dirtyNodes.isEmpty())
+	{
+		for (const int nid : dirtyNodes)
+			m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+		notifyNetworkChanged(dirtyNodes);
+	}
+}
+
+// =============================================================================
 // 毎フレーム更新
 // =============================================================================
 
@@ -1033,6 +1076,7 @@ void GameScene::update()
 
 		m_trainManager.update(gameDt, m_clock.now);
 		m_eventSystem.update(m_clock.now, m_clock.month, dt);
+		tickConstruction();
 	}
 
 	// 経路リクエストはゲーム内時間停止中でも送信する
