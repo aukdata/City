@@ -181,6 +181,12 @@ void GameScene::renderWorld()
 			<< "  [pre3D] routeSignPrep=" << dbgRouteSign
 			<< " guideSignPrep=" << dbgGuideSign
 			<< " rtSetup="       << dbgRtSetup << "\n"
+			<< "  [ui] placeNames="  << m_renderTimings.uiPlaceNames
+			<< " routeSigns="        << m_renderTimings.uiRouteSigns
+			<< " uiRenderer="        << m_renderTimings.uiRenderer
+			<< " minimap="           << m_renderTimings.uiMinimap
+			<< " edgeHandles="       << m_renderTimings.uiEdgeHandles
+			<< " panels="            << m_renderTimings.uiPanels << "\n"
 			<< std::flush;
 	}
 }
@@ -200,6 +206,10 @@ void GameScene::renderScene3D()
 
 	m_roadRenderer.render(m_network, m_world, frustum,
 	                     m_camera.camera3D().getEyePosition());
+
+	// Planned / UnderConstruction エッジのワイヤーフレーム
+	m_roadRenderer.renderWireframes(m_network, m_world, frustum,
+	                                m_camera.camera3D().getEyePosition());
 	lap(m_renderTimings.roadMesh);
 
 	m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
@@ -494,6 +504,43 @@ void GameScene::renderEditModeOverlays()
 	{
 		Sphere{ *m_cursorGroundPos, 5.0f }.draw(ColorF{ 1, 1, 0, 0.8 }.removeSRGBCurve());
 
+		// スタート/ゴール指定モードのプレビュー描画
+		if (m_autoPlaceMode)
+		{
+			if (m_autoPlaceStart)
+			{
+				// スタートマーカー（赤球）
+				Sphere{ *m_autoPlaceStart + Vec3{0, 2, 0}, 6.0f }
+					.draw(ColorF{ 1.0, 0.2, 0.2, 0.9 }.removeSRGBCurve());
+
+				// スタート → カーソルの点線（短線分連続描画）
+				const Vec3 from = *m_autoPlaceStart;
+				const Vec3 to   = *m_cursorGroundPos;
+				const double totalDist = from.distanceFrom(to);
+				if (totalDist > 5.0)
+				{
+					constexpr double kSegLen  = 15.0;  // 実線区間 [m]
+					constexpr double kGapLen  = 8.0;   // 空白区間 [m]
+					constexpr double kPeriod  = kSegLen + kGapLen;
+					const ColorF dotCol = ColorF{ 1.0, 0.4, 0.4, 0.7 }.removeSRGBCurve();
+					const Vec3 dir = (to - from) / totalDist;
+					double d = 0.0;
+					while (d < totalDist)
+					{
+						const double segEnd = Min(d + kSegLen, totalDist);
+						Line3D{ from + dir * d, from + dir * segEnd }.draw(dotCol);
+						d += kPeriod;
+					}
+				}
+			}
+			else
+			{
+				// スタート未指定: カーソル地点に白球（既存黄色球の上に重ねない）
+				Sphere{ *m_cursorGroundPos + Vec3{0, 2, 0}, 5.0f }
+					.draw(ColorF{ 1.0, 0.5, 0.5, 0.7 }.removeSRGBCurve());
+			}
+		}
+
 		// 始点が設定済みならプレビュー描画
 		if (m_drawStartNode)
 		{
@@ -621,16 +668,26 @@ void GameScene::renderEditModeOverlays()
 
 void GameScene::render2DUI()
 {
+	Stopwatch sw{ StartImmediately::Yes };
+	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
+
 	m_placeNameRenderer.render(m_districts, m_camera, m_world);
+	lap(m_renderTimings.uiPlaceNames);
+
 	m_routeSignRenderer.render(m_network, m_camera);
+	lap(m_renderTimings.uiRouteSigns);
+
 	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy);
+	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる
 	m_minimapRenderer.update(m_panelManager);
 	m_minimapRenderer.render(m_camera, m_districts);
+	lap(m_renderTimings.uiMinimap);
 
 	// 選択中エッジの 3D 編集ハンドル（パネルより後ろに描画）
 	renderEdgeHandles();
+	lap(m_renderTimings.uiEdgeHandles);
 
 	// パネル（ミニマップより上）— zOrder 昇順で背景+コンテンツを描画
 	for (const auto& panelId : m_panelManager.sortedPanelIds())
@@ -655,6 +712,8 @@ void GameScene::render2DUI()
 
 	if (m_showPauseMenu)
 		drawPauseMenu();
+
+	lap(m_renderTimings.uiPanels);
 }
 
 // =============================================================================
@@ -703,14 +762,6 @@ void GameScene::renderEdgeHandles()
 	constexpr double kR = 7.0;
 	static const Font& tipFontRef = FontAsset(Asset::Panel14);
 
-	auto rightVec = [](const Vec3& tan) -> Vec3
-	{
-		Vec3 t = tan; t.y = 0;
-		if (t.lengthSq() < 1e-8) return Vec3{ 1, 0, 0 };
-		t.normalize();
-		return Vec3{ t.z, 0, -t.x };
-	};
-
 	enum class Shape { Circle, Square };
 	auto drawHandle = [&](Vec3 wp, ColorF baseCol, StringView tip, bool active, Shape shape)
 	{
@@ -754,32 +805,54 @@ void GameScene::renderEdgeHandles()
 	const bool showLane = (laneIdxSel >= 0 && laneIdxSel < static_cast<int>(edge->lanes.size()));
 	const bool showPart = (!showLane) && (partIdxSel >= 0 && partIdxSel < static_cast<int>(edge->parts.size()));
 
-	// Part: 中央=円(移動), 左右エッジ=四角(サイズ変更), 色は部品種別に依存
+	// Part: 中央=円（一律移動）, 左右=四角（A/B 両端一律）, 四隅=四角（個別）
 	if (showPart)
 	{
-		const float sMid = bez.totalLength * 0.5f;
-		const Vec3 c0 = bez.positionAt(sMid);
-		const Vec3 right = rightVec(bez.tangentAt(sMid));
-		{
-			const int i = partIdxSel;
-			const auto& p = edge->parts[i];
-			const ColorF pc = handlePartColor(p.type);
-			const Vec3 wpC = c0 + right * (p.offset + p.width * 0.5f);
-			const Vec3 wpL = c0 + right * p.offset;
-			const Vec3 wpR = c0 + right * (p.offset + p.width);
-			drawHandle(wpC, pc,
-				U"部品[{}] offset {:.2f}m / ドラッグで左右移動"_fmt(i, p.offset),
-				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartCenter && m_edgeHandleDrag.idx == i,
-				Shape::Circle);
-			drawHandle(wpL, pc * 0.85,
-				U"部品[{}] 左端 / ドラッグで幅変更（右端固定）"_fmt(i),
-				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartLeft && m_edgeHandleDrag.idx == i,
-				Shape::Square);
-			drawHandle(wpR, pc * 0.85,
-				U"部品[{}] 右端 / ドラッグで幅変更（左端固定）"_fmt(i),
-				m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartRight && m_edgeHandleDrag.idx == i,
-				Shape::Square);
-		}
+		const float sA   = edge->cutoffA;
+		const float sB   = Max(0.0f, bez.totalLength - edge->cutoffB);
+		const float sMid = (sA + sB) * 0.5f;
+		const Vec3 pA    = bez.positionAt(sA);
+		const Vec3 pB    = bez.positionAt(sB);
+		const Vec3 pM    = bez.positionAt(sMid);
+		const Vec3 rA    = tangentToRight(bez.tangentAt(sA));
+		const Vec3 rB    = tangentToRight(bez.tangentAt(sB));
+		const Vec3 rM    = tangentToRight(bez.tangentAt(sMid));
+
+		const int i = partIdxSel;
+		const auto& p = edge->parts[i];
+		const ColorF pc = handlePartColor(p.type);
+
+		// 一律操作ハンドル（代表中央/左/右）
+		drawHandle(pM + rM * ((p.offsetL() + p.offsetR()) * 0.5f), pc,
+			U"部品[{}] 一律移動 (代表 {:.2f}m)"_fmt(i, p.offsetL()),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartCenter && m_edgeHandleDrag.idx == i,
+			Shape::Circle);
+		drawHandle(pM + rM * p.offsetL(), pc * 0.85f,
+			U"部品[{}] 左端（A/B 一律）"_fmt(i),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartLeft && m_edgeHandleDrag.idx == i,
+			Shape::Square);
+		drawHandle(pM + rM * p.offsetR(), pc * 0.85f,
+			U"部品[{}] 右端（A/B 一律）"_fmt(i),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartRight && m_edgeHandleDrag.idx == i,
+			Shape::Square);
+
+		// 四隅ハンドル: A 側=暖色, B 側=寒色
+		drawHandle(pA + rA * p.offsetA_L, sideTint(true,  false),
+			U"部品[{}] A端左 {:.2f}m / 個別調整"_fmt(i, p.offsetA_L),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartAL && m_edgeHandleDrag.idx == i,
+			Shape::Square);
+		drawHandle(pA + rA * p.offsetA_R, sideTint(true,  true),
+			U"部品[{}] A端右 {:.2f}m / 個別調整"_fmt(i, p.offsetA_R),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartAR && m_edgeHandleDrag.idx == i,
+			Shape::Square);
+		drawHandle(pB + rB * p.offsetB_L, sideTint(false, false),
+			U"部品[{}] B端左 {:.2f}m / 個別調整"_fmt(i, p.offsetB_L),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartBL && m_edgeHandleDrag.idx == i,
+			Shape::Square);
+		drawHandle(pB + rB * p.offsetB_R, sideTint(false, true),
+			U"部品[{}] B端右 {:.2f}m / 個別調整"_fmt(i, p.offsetB_R),
+			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::PartBR && m_edgeHandleDrag.idx == i,
+			Shape::Square);
 	}
 
 	// Lane: 中央=円(移動), L/R side=四角(両端幅), 四隅=四角(個別幅)
@@ -792,9 +865,9 @@ void GameScene::renderEdgeHandles()
 		const Vec3 pA = bez.positionAt(sA);
 		const Vec3 pB = bez.positionAt(sB);
 		const Vec3 pM = bez.positionAt(sMid);
-		const Vec3 rA = rightVec(bez.tangentAt(sA));
-		const Vec3 rB = rightVec(bez.tangentAt(sB));
-		const Vec3 rM = rightVec(bez.tangentAt(sMid));
+		const Vec3 rA = tangentToRight(bez.tangentAt(sA));
+		const Vec3 rB = tangentToRight(bez.tangentAt(sB));
+		const Vec3 rM = tangentToRight(bez.tangentAt(sMid));
 
 		// 中央（位置移動）
 		const float midL = (L.offsetA_L + L.offsetB_L) * 0.5f;
