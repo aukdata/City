@@ -314,34 +314,24 @@ void GameScene::handleInput()
 // 3D エッジ編集ハンドル（Cutoff A/B）
 // =============================================================================
 
-namespace
-{
-	/// @brief ベジェ接線を XZ 平面で 90 度右に回した単位ベクトル（道路右向き）
-	Vec3 rightOf(const Vec3& tangent)
-	{
-		Vec3 t = tangent; t.y = 0;
-		if (t.lengthSq() < 1e-8) return Vec3{ 1, 0, 0 };
-		t.normalize();
-		return Vec3{ t.z, 0, -t.x };
-	}
-
-	/// @brief スクリーン上で dir（ワールドベクトル）方向の「1m あたりピクセル」を返す
-	double metersPerPixelAlong(const BasicCamera3D& cam, const Vec3& worldPos, const Vec3& dir)
-	{
-		const Vec2 sp0 = cam.worldToScreenPoint(worldPos).xy();
-		const Vec2 sp1 = cam.worldToScreenPoint(worldPos + dir).xy();
-		const double px = (sp1 - sp0).length();
-		return (px > 1e-6) ? (1.0 / px) : 0.0;
-	}
-}
-
 bool GameScene::handleEdgeHandleInput()
 {
-	if (m_selection.kind != SelectionKind::Edge) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return false; }
+	if (m_selection.kind != SelectionKind::Edge)
+	{
+		m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None;
+		return false;
+	}
 	RoadEdge* edge = m_network.getEdge(m_selection.id);
-	if (!edge) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return false; }
+	if (!edge)
+	{
+		m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None;
+		return false;
+	}
 	const auto bezOpt = m_network.getBezier(edge->id);
-	if (!bezOpt) return false;
+	if (!bezOpt)
+	{
+		return false;
+	}
 	const CubicBezier& bez = *bezOpt;
 	const auto& cam = m_camera.camera3D();
 
@@ -365,15 +355,41 @@ bool GameScene::handleEdgeHandleInput()
 		case EdgeHandleDrag::Kind::PartLeft:
 		case EdgeHandleDrag::Kind::PartRight:
 		{
-			if (idx < 0 || idx >= static_cast<int>(edge->parts.size())) return false;
+			if (idx < 0 || idx >= static_cast<int>(edge->parts.size()))
+			{
+				return false;
+			}
 			const auto& p = edge->parts[idx];
 			const float s = bez.totalLength * 0.5f;
 			const Vec3 center = bez.positionAt(s);
-			const Vec3 right = rightOf(bez.tangentAt(s));
-			float localOffs = p.offset + p.width * 0.5f;
-			if      (k == EdgeHandleDrag::Kind::PartLeft)  localOffs = p.offset;
-			else if (k == EdgeHandleDrag::Kind::PartRight) localOffs = p.offset + p.width;
+			const Vec3 right = tangentToRight(bez.tangentAt(s));
+			float localOffs = (p.offsetL() + p.offsetR()) * 0.5f;
+			if      (k == EdgeHandleDrag::Kind::PartLeft)  localOffs = p.offsetL();
+			else if (k == EdgeHandleDrag::Kind::PartRight) localOffs = p.offsetR();
 			outPos = center + right * localOffs;
+			outDir = right;
+			return true;
+		}
+		case EdgeHandleDrag::Kind::PartAL:
+		case EdgeHandleDrag::Kind::PartAR:
+		case EdgeHandleDrag::Kind::PartBL:
+		case EdgeHandleDrag::Kind::PartBR:
+		{
+			if (idx < 0 || idx >= static_cast<int>(edge->parts.size()))
+			{
+				return false;
+			}
+			const auto& p = edge->parts[idx];
+			const bool atA = (k == EdgeHandleDrag::Kind::PartAL || k == EdgeHandleDrag::Kind::PartAR);
+			const float s  = atA ? edge->cutoffA : Max(0.0f, bez.totalLength - edge->cutoffB);
+			const Vec3 p0  = bez.positionAt(s);
+			const Vec3 right = tangentToRight(bez.tangentAt(s));
+			float offs = 0.0f;
+			if      (k == EdgeHandleDrag::Kind::PartAL) offs = p.offsetA_L;
+			else if (k == EdgeHandleDrag::Kind::PartAR) offs = p.offsetA_R;
+			else if (k == EdgeHandleDrag::Kind::PartBL) offs = p.offsetB_L;
+			else                                         offs = p.offsetB_R;
+			outPos = p0 + right * offs;
 			outDir = right;
 			return true;
 		}
@@ -381,11 +397,14 @@ bool GameScene::handleEdgeHandleInput()
 		case EdgeHandleDrag::Kind::LaneLeftSide:
 		case EdgeHandleDrag::Kind::LaneRightSide:
 		{
-			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size())) return false;
+			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size()))
+			{
+				return false;
+			}
 			const auto& L = edge->lanes[idx];
 			const float s = bez.totalLength * 0.5f;
 			const Vec3 center = bez.positionAt(s);
-			const Vec3 right = rightOf(bez.tangentAt(s));
+			const Vec3 right = tangentToRight(bez.tangentAt(s));
 			const float midL = (L.offsetA_L + L.offsetB_L) * 0.5f;
 			const float midR = (L.offsetA_R + L.offsetB_R) * 0.5f;
 			float offs = (midL + midR) * 0.5f;
@@ -400,12 +419,15 @@ bool GameScene::handleEdgeHandleInput()
 		case EdgeHandleDrag::Kind::LaneBL:
 		case EdgeHandleDrag::Kind::LaneBR:
 		{
-			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size())) return false;
+			if (idx < 0 || idx >= static_cast<int>(edge->lanes.size()))
+			{
+				return false;
+			}
 			const auto& L = edge->lanes[idx];
 			const bool atA = (k == EdgeHandleDrag::Kind::LaneAL || k == EdgeHandleDrag::Kind::LaneAR);
 			const float s = atA ? edge->cutoffA : Max(0.0f, bez.totalLength - edge->cutoffB);
 			const Vec3 p0 = bez.positionAt(s);
-			const Vec3 right = rightOf(bez.tangentAt(s));
+			const Vec3 right = tangentToRight(bez.tangentAt(s));
 			float offs = 0;
 			if      (k == EdgeHandleDrag::Kind::LaneAL) offs = L.offsetA_L;
 			else if (k == EdgeHandleDrag::Kind::LaneAR) offs = L.offsetA_R;
@@ -422,18 +444,31 @@ bool GameScene::handleEdgeHandleInput()
 	// ドラッグ中: スクリーン上のマウス移動を dir 方向に投影して値を更新
 	if (m_edgeHandleDrag.kind != EdgeHandleDrag::Kind::None && m_edgeHandleDrag.edgeId == edge->id)
 	{
-		if (!MouseL.pressed()) { m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return true; }
+		if (!MouseL.pressed())
+		{
+			m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None;
+			return true;
+		}
 		// マウスが動いていないフレームはキャッシュ無効化を含む更新自体をスキップ
-		if (Cursor::Delta().isZero()) return true;
+		if (Cursor::Delta().isZero())
+		{
+			return true;
+		}
 
 		Vec3 wp, dir;
 		if (!handleWorld(m_edgeHandleDrag.kind, m_edgeHandleDrag.idx, wp, dir))
-		{ m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None; return true; }
+		{
+			m_edgeHandleDrag.kind = EdgeHandleDrag::Kind::None;
+			return true;
+		}
 
 		const Vec2 sp0 = cam.worldToScreenPoint(wp).xy();
 		const Vec2 sp1 = cam.worldToScreenPoint(wp + dir).xy();
 		const Vec2 ds = sp1 - sp0;
-		if (ds.lengthSq() < 1e-6) return true;
+		if (ds.lengthSq() < 1e-6)
+		{
+			return true;
+		}
 		const Vec2 dsN = ds.normalized();
 		const double mPerPx = 1.0 / ds.length();
 		const Vec2 mouseDelta = Cursor::PosF() - m_edgeHandleDrag.anchorScreen;
@@ -450,23 +485,57 @@ bool GameScene::handleEdgeHandleInput()
 			edge->cutoffB = Clamp(m_edgeHandleDrag.anchorValue + deltaM, 0.0f, bez.totalLength * 0.45f);
 			break;
 		case EdgeHandleDrag::Kind::PartCenter:
-			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
-				edge->parts[pi].offset = m_edgeHandleDrag.anchorValue + deltaM;
-			break;
-		case EdgeHandleDrag::Kind::PartLeft:
-			// 左端ドラッグ: 右端固定 → offset += delta, width -= delta
+			// 4 隅を一律に平行移動
 			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
 			{
-				const float newOffset = m_edgeHandleDrag.anchorValue + deltaM;
-				const float newWidth  = Max(0.1f, m_edgeHandleDrag.anchorA - deltaM);
-				edge->parts[pi].offset = newOffset;
-				edge->parts[pi].width  = newWidth;
+				auto& pp = edge->parts[pi];
+				pp.offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+				pp.offsetA_R = m_edgeHandleDrag.anchorA    + deltaM;
+				pp.offsetB_L = m_edgeHandleDrag.anchorB    + deltaM;
+				pp.offsetB_R = m_edgeHandleDrag.anchorC    + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartLeft:
+			// 左端ドラッグ（A/B 両端の左端を一律移動）: 右端固定
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				auto& pp = edge->parts[pi];
+				pp.offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+				pp.offsetB_L = m_edgeHandleDrag.anchorA    + deltaM;
 			}
 			break;
 		case EdgeHandleDrag::Kind::PartRight:
-			// 右端ドラッグ: 左端固定 → width += delta
+			// 右端ドラッグ（A/B 両端の右端を一律移動）: 左端固定
 			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
-				edge->parts[pi].width = Max(0.1f, m_edgeHandleDrag.anchorValue + deltaM);
+			{
+				auto& pp = edge->parts[pi];
+				pp.offsetA_R = m_edgeHandleDrag.anchorValue + deltaM;
+				pp.offsetB_R = m_edgeHandleDrag.anchorA    + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartAL:
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				edge->parts[pi].offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartAR:
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				edge->parts[pi].offsetA_R = m_edgeHandleDrag.anchorValue + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartBL:
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				edge->parts[pi].offsetB_L = m_edgeHandleDrag.anchorValue + deltaM;
+			}
+			break;
+		case EdgeHandleDrag::Kind::PartBR:
+			if (pi >= 0 && pi < static_cast<int>(edge->parts.size()))
+			{
+				edge->parts[pi].offsetB_R = m_edgeHandleDrag.anchorValue + deltaM;
+			}
 			break;
 		case EdgeHandleDrag::Kind::LaneCenter:
 			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
@@ -494,19 +563,27 @@ bool GameScene::handleEdgeHandleInput()
 			break;
 		case EdgeHandleDrag::Kind::LaneAL:
 			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
 				edge->lanes[li].offsetA_L = m_edgeHandleDrag.anchorValue + deltaM;
+			}
 			break;
 		case EdgeHandleDrag::Kind::LaneAR:
 			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
 				edge->lanes[li].offsetA_R = m_edgeHandleDrag.anchorValue + deltaM;
+			}
 			break;
 		case EdgeHandleDrag::Kind::LaneBL:
 			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
 				edge->lanes[li].offsetB_L = m_edgeHandleDrag.anchorValue + deltaM;
+			}
 			break;
 		case EdgeHandleDrag::Kind::LaneBR:
 			if (li >= 0 && li < static_cast<int>(edge->lanes.size()))
+			{
 				edge->lanes[li].offsetB_R = m_edgeHandleDrag.anchorValue + deltaM;
+			}
 			break;
 		default: break;
 		}
@@ -518,7 +595,10 @@ bool GameScene::handleEdgeHandleInput()
 	}
 
 	// ヒットテスト
-	if (!MouseL.down() || m_panelManager.blocksMouseInput()) return false;
+	if (!MouseL.down() || m_panelManager.blocksMouseInput())
+	{
+		return false;
+	}
 	const Vec2 cur = Cursor::PosF();
 	constexpr double kHitRadius = 10.0;
 
@@ -537,7 +617,10 @@ bool GameScene::handleEdgeHandleInput()
 	auto hitAt = [&](EdgeHandleDrag::Kind k, int idx) -> bool
 	{
 		Vec3 wp, dir;
-		if (!handleWorld(k, idx, wp, dir)) return false;
+		if (!handleWorld(k, idx, wp, dir))
+		{
+			return false;
+		}
 		const Vec2 sp = cam.worldToScreenPoint(wp).xy();
 		return sp.distanceFrom(cur) <= kHitRadius;
 	};
@@ -553,12 +636,18 @@ bool GameScene::handleEdgeHandleInput()
 	if (partActive)
 	{
 		const auto& p = edge->parts[partIdx];
+		// 四隅ハンドル優先
+		if (hitAt(EdgeHandleDrag::Kind::PartAL, partIdx)) { beginDrag(EdgeHandleDrag::Kind::PartAL, partIdx, p.offsetA_L); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::PartAR, partIdx)) { beginDrag(EdgeHandleDrag::Kind::PartAR, partIdx, p.offsetA_R); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::PartBL, partIdx)) { beginDrag(EdgeHandleDrag::Kind::PartBL, partIdx, p.offsetB_L); return true; }
+		if (hitAt(EdgeHandleDrag::Kind::PartBR, partIdx)) { beginDrag(EdgeHandleDrag::Kind::PartBR, partIdx, p.offsetB_R); return true; }
+		// 一律操作ハンドル
 		if (hitAt(EdgeHandleDrag::Kind::PartLeft, partIdx))
-		{ beginDrag(EdgeHandleDrag::Kind::PartLeft, partIdx, p.offset, p.width); return true; }
+		{ beginDrag(EdgeHandleDrag::Kind::PartLeft, partIdx, p.offsetA_L, p.offsetB_L); return true; }
 		if (hitAt(EdgeHandleDrag::Kind::PartRight, partIdx))
-		{ beginDrag(EdgeHandleDrag::Kind::PartRight, partIdx, p.width); return true; }
+		{ beginDrag(EdgeHandleDrag::Kind::PartRight, partIdx, p.offsetA_R, p.offsetB_R); return true; }
 		if (hitAt(EdgeHandleDrag::Kind::PartCenter, partIdx))
-		{ beginDrag(EdgeHandleDrag::Kind::PartCenter, partIdx, p.offset); return true; }
+		{ beginDrag(EdgeHandleDrag::Kind::PartCenter, partIdx, p.offsetA_L, p.offsetA_R, p.offsetB_L, p.offsetB_R); return true; }
 	}
 	// Lane: 四隅 > L/R side > 中央 の優先順
 	if (laneActive)
@@ -777,6 +866,44 @@ void GameScene::handleRoadDraw()
 	// パネル上にカーソルがあるときはマウス操作をすべて吸収
 	if (m_panelManager.blocksMouseInput()) return;
 
+	// ────────────────────────────────────────────────────────────────
+	// スタート/ゴール指定モード: 左クリックで2点指定して自動敷設
+	// ────────────────────────────────────────────────────────────────
+	if (m_autoPlaceMode)
+	{
+		// ESC でスタートをクリア（モードは継続）
+		if (KeyEscape.down())
+		{
+			m_autoPlaceStart = none;
+			return;
+		}
+
+		if (MouseL.down() && m_cursorGroundPos)
+		{
+			const Vec3 clickPos = *m_cursorGroundPos;
+
+			// 水域チェック
+			if (m_world.computeHeight(static_cast<float>(clickPos.x),
+			                          static_cast<float>(clickPos.z)) < 0.0f)
+			{
+				Console << U"[AutoPlace] 水域の地点は選択できません";
+				return;
+			}
+
+			if (!m_autoPlaceStart)
+			{
+				m_autoPlaceStart = clickPos;
+			}
+			else
+			{
+				invokeAutoPlace(*m_autoPlaceStart, clickPos);
+				m_autoPlaceStart = none;
+			}
+		}
+		// 通常ドロー操作は抑止
+		return;
+	}
+
 	// ホイールクリック: 既存道路の構成をテンプレートにコピー
 	if (MouseM.down() && m_cursorGroundPos)
 	{
@@ -849,6 +976,18 @@ void GameScene::handleRoadDraw()
 					m_network.updateEdgeElevation(*newEdgeId, m_world);
 					if (m_network.getEdge(*newEdgeId)->useElevation)
 						m_network.generatePiersForEdge(*newEdgeId, m_world);
+
+					// 敷設パネルで選択中のルートに新規エッジを追加
+					if (!m_pendingRouteIds.isEmpty())
+					{
+						for (const int rid : m_pendingRouteIds)
+						{
+							RoadRoute* route = m_network.getRoute(rid);
+							if (!route) continue;
+							route->edgeIds << *newEdgeId;
+						}
+						m_network.rebuildEdgeRouteIndex();
+					}
 				}
 				notifyNetworkChanged({ from, nodeId });
 				m_roadRenderer.invalidateCachesAroundNode(from, m_network);
@@ -861,6 +1000,43 @@ void GameScene::handleRoadDraw()
 	// 右クリック: 敷設中の始点をキャンセル
 	if (MouseR.down())
 		m_drawStartNode = none;
+}
+
+void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
+{
+	const Array<int> edgeIds = RoadAutoPlace::buildPlanned(m_network, m_world, start, goal, m_pendingRouteIds, m_drawTemplate);
+
+	if (edgeIds.isEmpty())
+	{
+		Console << U"[AutoPlace] 敷設失敗: 経路が見つかりませんでした";
+		return;
+	}
+
+	// 生成エッジの高さ・橋脚更新
+	for (const int eid : edgeIds)
+	{
+		m_network.updateEdgeElevation(eid, m_world);
+		if (const RoadEdge* edge = m_network.getEdge(eid))
+		{
+			if (edge->useElevation)
+				m_network.generatePiersForEdge(eid, m_world);
+		}
+	}
+
+	// 影響ノードを収集して差分更新
+	Array<int> dirtyNodes;
+	for (const int eid : edgeIds)
+	{
+		if (const RoadEdge* edge = m_network.getEdge(eid))
+		{
+			dirtyNodes << edge->nodeA << edge->nodeB;
+			m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+			m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+		}
+	}
+	notifyNetworkChanged(dirtyNodes);
+
+	Console << U"[AutoPlace] 敷設完了: {} エッジ"_fmt(edgeIds.size());
 }
 
 void GameScene::handleZonePaint()
@@ -1301,7 +1477,9 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 			for (const auto& part : edge->parts)
 			{
 				if (part.type != RoadPartType::Roadbed) continue;
-				const float edgePos = entryOnRight ? (part.offset + part.width) : part.offset;
+				const float oL = isNodeA ? part.offsetA_L : part.offsetB_L;
+				const float oR = isNodeA ? part.offsetA_R : part.offsetB_R;
+				const float edgePos = entryOnRight ? oR : oL;
 				if (!foundRoadbed)
 				{
 					roadEdgeOffset = edgePos;
