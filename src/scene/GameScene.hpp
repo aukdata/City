@@ -64,7 +64,7 @@ private:
 	// ---- 地名データベース ----
 	PlaceNameDB                     m_placeNames;
 	Array<MapGenerator::Settlement> m_districts;      ///< 全地区リスト（種別込み・名称込み）
-	Array<Vec2>                     m_urbanCenters;   ///< Urban 地区座標キャッシュ（m_districts の派生）
+	Array<Vec2>                     m_castleTownCenters;   ///< 城下町座標キャッシュ（m_districts の派生）
 
 	// ---- コアシステム ----
 	GameClock        m_clock;

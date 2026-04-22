@@ -741,14 +741,14 @@ void GameScene::drawNameListPanel()
 		const auto& s = m_districts[idx];
 		StringView typeStr;
 		ColorF typeColor;
-		switch (s.type)
+		switch (s.kind)
 		{
-		case MapGenerator::SettlementType::Urban:
-			typeStr = U"[U]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
-		case MapGenerator::SettlementType::Suburbs:
-			typeStr = U"[S]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
+		case MapGenerator::SettlementKind::CastleTown:
+			typeStr = U"[城]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
+		case MapGenerator::SettlementKind::PostTown:
+			typeStr = U"[宿]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
 		default:
-			typeStr = U"[R]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
+			typeStr = U"[村]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
 		}
 
 		const RectF itemRect{ static_cast<double>(kPad), y,

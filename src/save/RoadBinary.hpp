@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "../road/RoadNetwork.hpp"
 
 /// @brief chunks/{cx}_{cy}/roads.bin の読み書きユーティリティ

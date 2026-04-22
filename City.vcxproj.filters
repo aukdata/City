@@ -213,6 +213,9 @@
     <ClCompile Include="src\gen\RoadAutoPlace.cpp">
       <Filter>Source Files\gen</Filter>
     </ClCompile>
+    <ClCompile Include="src\gen\DistrictRoads.cpp">
+      <Filter>Source Files\gen</Filter>
+    </ClCompile>
     <ClCompile Include="src\gen\PlaceNameGenerator.cpp">
       <Filter>Source Files\gen</Filter>
     </ClCompile>
@@ -999,6 +1002,9 @@
       <Filter>Source Files\gen</Filter>
     </ClInclude>
     <ClInclude Include="src\gen\RoadAutoPlace.hpp">
+      <Filter>Source Files\gen</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\DistrictRoads.hpp">
       <Filter>Source Files\gen</Filter>
     </ClInclude>
     <ClInclude Include="src\asset\AssetRegistrar.hpp">

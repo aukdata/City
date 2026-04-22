@@ -188,11 +188,11 @@ void GameScene::placeAllSettlements()
 	}
 
 	m_districts = settlements;
-	m_urbanCenters.clear();
+	m_castleTownCenters.clear();
 	for (const auto& s : m_districts)
 	{
-		if (s.type == MapGenerator::SettlementType::Urban)
-			m_urbanCenters << s.center;
+		if (s.kind == MapGenerator::SettlementKind::CastleTown)
+			m_castleTownCenters << s.center;
 	}
 
 	m_genProgress.store(kProgressRoads);
@@ -287,12 +287,12 @@ void GameScene::registerGuideDestinations()
 {
 	m_network.clearNamedDestinations();
 
-	const auto tierOf = [](MapGenerator::SettlementType t) -> uint8 {
+	const auto tierOf = [](MapGenerator::SettlementKind t) -> uint8 {
 		switch (t)
 		{
-		case MapGenerator::SettlementType::Urban:   return 0;
-		case MapGenerator::SettlementType::Suburbs: return 1;
-		case MapGenerator::SettlementType::Rural:   return 2;
+		case MapGenerator::SettlementKind::CastleTown:   return 0;
+		case MapGenerator::SettlementKind::PostTown: return 1;
+		case MapGenerator::SettlementKind::Village:   return 2;
 		}
 		return 2;
 	};
@@ -320,7 +320,7 @@ void GameScene::registerGuideDestinations()
 		}
 		if (bestNode < 0) continue;
 
-		m_network.addNamedDestination(bestNode, s.name, s.reading, tierOf(s.type));
+		m_network.addNamedDestination(bestNode, s.name, s.reading, tierOf(s.kind));
 		++registered;
 	}
 
@@ -361,7 +361,7 @@ void GameScene::updateLoading()
 			Vec3 cameraFocus{ worldCenter, 0.0, worldCenter };
 			for (const auto& s : m_districts)
 			{
-				if (s.type == MapGenerator::SettlementType::Urban)
+				if (s.kind == MapGenerator::SettlementKind::CastleTown)
 				{
 					const float y = m_world.computeHeight(
 						static_cast<float>(s.center.x), static_cast<float>(s.center.y));
@@ -477,7 +477,7 @@ void GameScene::saveGame()
 	for (int i = 0; i < static_cast<int>(m_districts.size()); ++i)
 	{
 		const auto& s = m_districts[i];
-		dist[U"type_{}"_fmt(i)]    = static_cast<int>(s.type);
+		dist[U"type_{}"_fmt(i)]    = static_cast<int>(s.kind);
 		dist[U"cx_{}"_fmt(i)]      = s.center.x;
 		dist[U"cy_{}"_fmt(i)]      = s.center.y;
 		dist[U"radius_{}"_fmt(i)]  = s.radius;
@@ -658,7 +658,7 @@ bool GameScene::loadGame()
 
 	// 集落
 	m_districts.clear();
-	m_urbanCenters.clear();
+	m_castleTownCenters.clear();
 	if (const JSON dist = JSON::Load(U"{}/global/districts.json"_fmt(saveRoot)))
 	{
 		const int count = dist[U"count"].get<int>();
@@ -666,7 +666,7 @@ bool GameScene::loadGame()
 		for (int i = 0; i < count; ++i)
 		{
 			MapGenerator::Settlement s;
-			s.type   = static_cast<MapGenerator::SettlementType>(dist[U"type_{}"_fmt(i)].get<int>());
+			s.kind   = static_cast<MapGenerator::SettlementKind>(dist[U"type_{}"_fmt(i)].get<int>());
 			s.center = Vec2{ dist[U"cx_{}"_fmt(i)].get<double>(), dist[U"cy_{}"_fmt(i)].get<double>() };
 			s.name   = dist[U"name_{}"_fmt(i)].get<String>();
 			const String radiusKey = U"radius_{}"_fmt(i);
@@ -675,8 +675,8 @@ bool GameScene::loadGame()
 			else
 			{
 				// 旧セーブとの互換: 種別からデフォルト半径を復元
-				s.radius = (s.type == MapGenerator::SettlementType::Urban)   ? 700.0f
-				         : (s.type == MapGenerator::SettlementType::Suburbs) ? 300.0f
+				s.radius = (s.kind == MapGenerator::SettlementKind::CastleTown)   ? 700.0f
+				         : (s.kind == MapGenerator::SettlementKind::PostTown) ? 300.0f
 				                                                             : 150.0f;
 			}
 			const String scoreKey = U"score_{}"_fmt(i);
@@ -731,8 +731,8 @@ void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts
 			s.reading = m_placeNames.settlementReading(idx);
 		}
 		m_districts << s;
-		if (s.type == MapGenerator::SettlementType::Urban)
-			m_urbanCenters << s.center;
+		if (s.kind == MapGenerator::SettlementKind::CastleTown)
+			m_castleTownCenters << s.center;
 	}
 }
 
@@ -747,11 +747,11 @@ void GameScene::applyZonesGlobal()
 
 	for (const auto& s : m_districts)
 	{
-		const float innerDist = (s.type == MapGenerator::SettlementType::Urban)    ? 400.0f
-		                      : (s.type == MapGenerator::SettlementType::Suburbs)  ? 200.0f : 100.0f;
-		const float midDist   = (s.type == MapGenerator::SettlementType::Urban)    ? 800.0f
-		                      : (s.type == MapGenerator::SettlementType::Suburbs)  ? 600.0f : 300.0f;
-		const float outerDist = (s.type == MapGenerator::SettlementType::Urban)    ? 1200.0f
+		const float innerDist = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 400.0f
+		                      : (s.kind == MapGenerator::SettlementKind::PostTown)  ? 200.0f : 100.0f;
+		const float midDist   = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 800.0f
+		                      : (s.kind == MapGenerator::SettlementKind::PostTown)  ? 600.0f : 300.0f;
+		const float outerDist = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 1200.0f
 		                      : midDist;
 
 		const float innerSq = innerDist * innerDist;
@@ -800,7 +800,7 @@ void GameScene::applyZonesGlobal()
 
 						ZoneType zt;
 						if (dSq <= innerSq)
-							zt = (s.type == MapGenerator::SettlementType::Urban)
+							zt = (s.kind == MapGenerator::SettlementKind::CastleTown)
 								? ZoneType::Commercial : ZoneType::Residential;
 						else if (dSq <= midSq)
 							zt = ZoneType::Residential;

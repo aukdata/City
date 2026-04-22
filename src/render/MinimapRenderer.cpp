@@ -248,20 +248,20 @@ void MinimapRenderer::drawMapContent(const RectF& rect,
 		m_roadTex.resized(rect.size).draw(rect.pos);
 	}
 
-	// 地名描画（Urban / Suburbs のみ）
+	// 地名描画（城下町 / 宿場町 のみ）
 	if (showLabels)
 	{
 		const double scale = rect.w / kDisplaySize;  // 拡大率
 		for (const auto& s : settlements)
 		{
 			if (s.name.isEmpty()) continue;
-			if (s.type == MapGenerator::SettlementType::Rural) continue;
+			if (s.kind == MapGenerator::SettlementKind::Village) continue;
 
 			const Vec2 sp = worldToScreen(static_cast<float>(s.center.x),
 			                              static_cast<float>(s.center.y), rect);
 			if (!rect.contains(sp)) continue;
 
-			const double fontSize = (s.type == MapGenerator::SettlementType::Urban)
+			const double fontSize = (s.kind == MapGenerator::SettlementKind::CastleTown)
 				? 10.0 * scale : 8.0 * scale;
 			m_font(s.name).drawAt(TextStyle::Outline(0.3, ColorF{ 0.0, 0.8 }),
 			                      fontSize, sp, ColorF{ 1.0, 1.0, 0.9, 0.9 });

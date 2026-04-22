@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "../road/RoadNetwork.hpp"
 #include "../road/GuideSign.hpp"
 #include "../road/ArrowMarkingRegistry.hpp"

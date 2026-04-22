@@ -11,14 +11,19 @@
 class MapGenerator
 {
 public:
-	/// @brief 地区種別
-	enum class SettlementType { Urban, Suburbs, Rural };
+	/// @brief 地区種別（日本の歴史的集落類型に対応）
+	enum class SettlementKind : uint8
+	{
+		CastleTown = 0,  ///< 城下町（旧 Urban、格子＋街道クランク＋城）
+		PostTown   = 1,  ///< 宿場町（旧 Suburbs、はしご状）
+		Village    = 2,  ///< 農村（旧 Rural、櫛状）
+	};
 
 	/// @brief 地区データ
 	struct Settlement
 	{
 		Vec2           center;                       ///< ワールド XZ 座標 [m]
-		SettlementType type   = SettlementType::Rural;
+		SettlementKind kind   = SettlementKind::Village;
 		float          radius = 0.0f;                ///< 影響半径 [m]
 		float          score  = 0.0f;                ///< 地形適性スコア (0.0〜1.0)
 		String         name;     ///< 地区地名（PlaceNameGenerator が設定）

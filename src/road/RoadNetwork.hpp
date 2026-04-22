@@ -240,7 +240,7 @@ public:
 		int    nodeId;
 		String name;
 		String reading;  ///< ローマ字（空なら非表示）
-		uint8  tier;     ///< 0=Urban 1=Suburbs 2=Rural（優先度）
+		uint8  tier;     ///< 0=城下町 1=宿場町 2=農村（優先度）
 	};
 
 	/// @brief 名称付き目的地を登録する

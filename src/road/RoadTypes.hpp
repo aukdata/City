@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "../time/GameClock.hpp"
 #include "RoadEnums.hpp"
 #include "RoadPartTypes.hpp"

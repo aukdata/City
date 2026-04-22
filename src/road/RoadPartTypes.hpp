@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RoadEnums.hpp"
 
 // ===== 道路部品の型定義 =====
