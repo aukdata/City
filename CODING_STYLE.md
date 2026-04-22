@@ -197,6 +197,66 @@ if (!r.read(version) || version != kVersion) {
 }
 ```
 
+## 描画パフォーマンス（カリング・キャッシュ戦略）
+
+Debug ビルドでも 60 FPS を維持することを目標とする。描画系クラスは以下のパターンを徹底する。
+
+### 原則
+
+- **推測するな・計測せよ** — `perf.log` / `Stopwatch` / `m_renderTimings` で実測してからボトルネックを潰す
+- 毎フレームループ内で **重い計算を同期呼び出ししない**（allocation・O(N²) 走査・`getBezier`+`positionAt` の連打など）
+- **計測コードは残す** — 内訳タイミングは `RenderTimings` 構造体 + `perf.log` に出力する仕組みを保持する
+
+### カリング
+
+描画ループの最初に、安価なチェックから順に早期 `continue` する：
+
+```cpp
+// 1. 距離カリング（float 演算のみ、Sqrt なし）
+const float distSq = dx * dx + dz * dz;
+if (distSq > kDrawMaxDistSqF) { continue; }
+
+// 2. 視錐台カリング（距離を通過した分のみ実施）
+if (!frustum.intersects(Sphere{ center, radius })) { continue; }
+
+// 3. LOD 判定（近距離のみ高精細）
+const bool isClose = (distSq < kLodDistSqF);
+```
+
+距離閾値は `constexpr` で定義し、二乗値も事前計算（`kDrawMaxDist` と `kDrawMaxDistSq` をペアで置く）。
+
+### キャッシュ戦略
+
+**「毎フレーム不変なものは計算しない」** を徹底する。キャッシュは以下の 3 層を使い分ける：
+
+| 層 | 無効化タイミング | 例 |
+|---|---|---|
+| **ID ベースキャッシュ** | 対象の編集時に `erase(id)` で明示的に落とす | `m_partMeshCache`, `m_boundsCache`（edgeId キー） |
+| **状態フラグ** | 参照側の状態変化を検知して全無効化 | `m_signalSummaryCache[node]` を `lastPhaseIdx` の変化で再構築 |
+| **件数＋周期キャッシュ** | ネットワーク件数の変化 or N フレーム経過で再構築 | `RoadRouteSignRenderer::m_anchorCache`（30 フレーム周期 + `nodes/edges/routes` 件数監視 + 明示 `invalidate()`） |
+
+設計指針：
+
+- **カメラ依存とネットワーク依存を分離** — アンカー位置はネットワーク依存（キャッシュ）、`worldToScreenPoint` やフェードはカメラ依存（毎フレーム計算）
+- **キャッシュは `mutable` で `const` メソッドからも書ける** — 描画メソッドは論理的には `const` なので
+- **明示的な `invalidate()` を用意** — 呼び出し側が編集タイミングで叩けるようにする
+- **周期再構築を保険に入れる** — 「ベジエ形状ドラッグ」など件数では拾えない変化があるため、N フレーム（例: 30 = 約0.5秒）ごとの再構築を併用する
+
+### 計測を仕込む
+
+新規の描画系クラスは最初から `perf.log` に内訳を出せるようにしておく：
+
+```cpp
+// GameScene::RenderTimings に double フィールドを追加
+Stopwatch sw{ StartImmediately::Yes };
+auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
+
+m_fooRenderer.render(...); lap(m_renderTimings.foo);
+m_barRenderer.render(...); lap(m_renderTimings.bar);
+```
+
+ピンポイント内訳（どの呼び出しが重いか）は `Console` に 120 フレームごとの集計を出すと `perf.log` と突き合わせやすい。
+
 ## アセット管理パターン（Registry）
 
 ```cpp
