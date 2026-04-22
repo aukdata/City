@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "RoadTypes.hpp"
 #include "BezierUtil.hpp"
 
@@ -292,6 +292,18 @@ public:
 
 	/// @brief エッジ側の逆引き routeIds を再構築する（ロード時）
 	void rebuildEdgeRouteIndex();
+
+	/// @brief 国道標識の配置アンカーを列挙する
+	/// @details 路線の各エッジについて、交差点（接続数 2 以上）側から
+	///   distFromJunction_m の位置にアンカーを 1〜2 本配置する。
+	///   エッジ長が minEdgeLen_m 未満の場合はスキップ。
+	///   100m 未満のエッジは nodeA 側のみ配置して重複を避ける。
+	///   Planned / UnderConstruction エッジは除外する。
+	/// @return (edgeId, arcLen [m]) のペア列
+	Array<std::pair<int, float>> routeSignAnchors(
+		const RoadRoute& route,
+		float distFromJunction_m = 50.0f,
+		float minEdgeLen_m = 20.0f) const;
 
 	/// @brief デフォルトの車線セットを生成する
 	static Array<Lane> buildDefaultLanes(int numLanes, RoadType rt);

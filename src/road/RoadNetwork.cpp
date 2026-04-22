@@ -1,4 +1,4 @@
-﻿#include "RoadNetwork.hpp"
+#include "RoadNetwork.hpp"
 #include "RoadSign.hpp"
 #include "GuideSign.hpp"
 #include "../world/World.hpp"
@@ -96,6 +96,7 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	e.lanes        = buildDefaultLanes(numLanes, rt);
 	e.laneVehicles = Array<Array<int>>(e.lanes.size());
 	buildDefaultParts(e);
+	e.edgeState    = EdgeState::Planned;
 
 	// 両ノードの edgeIds に登録する
 	if (RoadNode* na = getNode(nodeA)) na->addEdge(e.id);
@@ -353,12 +354,24 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 	if (auto eidA = addEdge(origNodeA, midNodeId, bezA.p1, bezA.p2, rt, numLanes))
 	{
 		applyEdgeTemplate(*eidA, tmpl);
+		if (RoadEdge* ea = getEdge(*eidA))
+		{
+			ea->edgeState             = tmpl.edgeState;
+			ea->constructionStartTime = tmpl.constructionStartTime;
+			ea->useElevation          = tmpl.useElevation;
+		}
 		newEidA = *eidA;
 	}
 
 	if (auto eidB = addEdge(midNodeId, origNodeB, bezB.p1, bezB.p2, rt, numLanes))
 	{
 		applyEdgeTemplate(*eidB, tmpl);
+		if (RoadEdge* eb = getEdge(*eidB))
+		{
+			eb->edgeState             = tmpl.edgeState;
+			eb->constructionStartTime = tmpl.constructionStartTime;
+			eb->useElevation          = tmpl.useElevation;
+		}
 		newEidB = *eidB;
 	}
 
@@ -1201,11 +1214,13 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	auto addPart = [&](RoadPartType type, float offset, float width, StringView defId = U"")
 	{
 		RoadPart p;
-		p.type   = type;
-		p.defId  = String{ defId };
-		p.width  = width;
-		p.offset = offset;
-		p.build  = BuildState::Built;
+		p.type      = type;
+		p.defId     = String{ defId };
+		p.offsetA_L = offset;
+		p.offsetA_R = offset + width;
+		p.offsetB_L = offset;
+		p.offsetB_R = offset + width;
+		p.build     = BuildState::Built;
 		edge.parts << p;
 	};
 
@@ -1803,6 +1818,54 @@ void RoadNetwork::rebuildEdgeRouteIndex()
 			}
 		}
 	}
+}
+
+Array<std::pair<int, float>> RoadNetwork::routeSignAnchors(
+	const RoadRoute& route,
+	float distFromJunction_m,
+	float minEdgeLen_m) const
+{
+	Array<std::pair<int, float>> result;
+
+	for (const int edgeId : route.edgeIds)
+	{
+		const RoadEdge* edge = getEdge(edgeId);
+		if (!edge || edge->id < 0) continue;
+
+		// Planned / UnderConstruction は対象外
+		if (edge->edgeState == EdgeState::Planned ||
+		    edge->edgeState == EdgeState::UnderConstruction)
+			continue;
+
+		const auto bezier = getBezier(edgeId);
+		if (!bezier) continue;
+
+		const float totalLen = bezier->totalLength;
+		if (totalLen < minEdgeLen_m) continue;
+
+		// 信号のある交差点の先 50m のみに配置する
+		// nodeA 側: nodeA に信号があるとき
+		{
+			const RoadNode* nodeA = getNode(edge->nodeA);
+			if (nodeA && nodeA->signalPlacement.has_value())
+			{
+				const float arc = Min(distFromJunction_m, totalLen * 0.5f);
+				result.emplace_back(edgeId, arc);
+			}
+		}
+
+		// nodeB 側: nodeB に信号があるとき
+		{
+			const RoadNode* nodeB = getNode(edge->nodeB);
+			if (nodeB && nodeB->signalPlacement.has_value())
+			{
+				const float arc = totalLen - Min(distFromJunction_m, totalLen * 0.5f);
+				result.emplace_back(edgeId, arc);
+			}
+		}
+	}
+
+	return result;
 }
 
 void RoadNetwork::onEdgeRemovedFromRoutes(int edgeId)

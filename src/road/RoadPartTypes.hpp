@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "RoadEnums.hpp"
 
 // ===== 道路部品の型定義 =====
@@ -73,13 +73,27 @@ struct RoadPartDef
 struct RoadPart
 {
 	String     defId;                            ///< RoadPartDef への参照
-	float      width   = 0.0f;                  ///< この部品の幅 [m]
-	float      offset  = 0.0f;                  ///< 道路中心からの左端位置 [m]（左がマイナス）
+	/// @brief A 端（開始側）の左端オフセット [m]（道路中心から左がマイナス）
+	float      offsetA_L = 0.0f;
+	/// @brief A 端（開始側）の右端オフセット [m]
+	float      offsetA_R = 0.0f;
+	/// @brief B 端（終了側）の左端オフセット [m]
+	float      offsetB_L = 0.0f;
+	/// @brief B 端（終了側）の右端オフセット [m]
+	float      offsetB_R = 0.0f;
 	BuildState build   = BuildState::Built;      ///< 建設状態
+	RoadPartType type = RoadPartType::Roadbed;   ///< 部品種別
 
-	/// @brief 部品種別を取得するヘルパー（RoadPartRegistry 不要の簡易版）
-	/// @note defId からの逆引きが必要な場合は RoadPartRegistry を使用
-	RoadPartType type = RoadPartType::Roadbed;
+	/// @brief A 端での幅
+	[[nodiscard]] float widthA()   const { return offsetA_R - offsetA_L; }
+	/// @brief B 端での幅
+	[[nodiscard]] float widthB()   const { return offsetB_R - offsetB_L; }
+	/// @brief 代表幅（一様幅の場合に使用）
+	[[nodiscard]] float width()    const { return (widthA() + widthB()) * 0.5f; }
+	/// @brief 代表左端オフセット（平均）
+	[[nodiscard]] float offsetL()  const { return (offsetA_L + offsetB_L) * 0.5f; }
+	/// @brief 代表右端オフセット（平均）
+	[[nodiscard]] float offsetR()  const { return (offsetA_R + offsetB_R) * 0.5f; }
 };
 
 // ===== 道路オブジェクト =====

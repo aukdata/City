@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../time/GameClock.hpp"
 #include "RoadEnums.hpp"
 #include "RoadPartTypes.hpp"
@@ -383,7 +383,8 @@ struct RoadEdge
 	///   canonical は RoadRoute::edgeIds。plan/22_road_route_spec.md §1 参照。
 	Array<int>           routeIds;
 
-	EdgeState edgeState = EdgeState::Open;
+	EdgeState edgeState             = EdgeState::Open;
+	double    constructionStartTime = 0.0;  ///< UnderConstruction になった時刻 [ゲーム秒]
 	float     congestion = 0.0f;
 
 	bool      useElevation = false;  ///< true: ベジェ Y を路面高さとして使用（高架）
@@ -446,14 +447,14 @@ struct RoadEdge
 		return result;
 	}
 
-	/// @brief 道路の総幅を返す [m]（parts ベース）
+	/// @brief 道路の総幅を返す [m]（parts ベース。代表値として A/B 平均を使用）
 	float totalWidth() const
 	{
 		float minOff = 1e9f, maxOff = -1e9f;
 		for (const auto& p : parts)
 		{
-			minOff = Min(minOff, p.offset);
-			maxOff = Max(maxOff, p.offset + p.width);
+			minOff = Min(minOff, p.offsetL());
+			maxOff = Max(maxOff, p.offsetR());
 		}
 		return (minOff < maxOff) ? (maxOff - minOff) : 0.0f;
 	}

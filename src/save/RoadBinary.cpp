@@ -1,4 +1,4 @@
-﻿#include "RoadBinary.hpp"
+#include "RoadBinary.hpp"
 
 namespace
 {
@@ -127,6 +127,7 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		w.write(e.cutoffA);
 		w.write(e.cutoffB);
 		w.write(static_cast<uint8>(e.edgeState));
+		w.write(e.constructionStartTime);
 		w.write(e.borderNodeA);
 		w.write(e.borderNodeB);
 		w.write(static_cast<uint32>(e.lanes.size()));
@@ -154,8 +155,10 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		for (const auto& p : e.parts)
 		{
 			writeString(w, p.defId);
-			w.write(p.width);
-			w.write(p.offset);
+			w.write(p.offsetA_L);
+			w.write(p.offsetA_R);
+			w.write(p.offsetB_L);
+			w.write(p.offsetB_R);
 			w.write(static_cast<uint8>(p.build));
 			w.write(static_cast<uint8>(p.type));
 		}
@@ -192,13 +195,14 @@ bool RoadBinary::read(const FilePath& path,
 	uint32 magic;
 	if (!r.read(magic) || magic != kMagic) return false;
 	uint16 version;
-	if (!r.read(version) || (version != kVersion && version != 7 && version != 8 && version != 9 && version != 10))
+	if (!r.read(version) || (version != kVersion && version != 7 && version != 8 && version != 9 && version != 10 && version != 11))
 	{
-		Console << U"[RoadBinary] Unsupported save version: " << version << U" (expected " << kVersion << U" or 7/8/9/10 for migration)";
+		Console << U"[RoadBinary] Unsupported save version: " << version << U" (expected " << kVersion << U" or 7/8/9/10/11 for migration)";
 		return false;
 	}
-	const bool isV7      = (version == 7);
-	const bool hasGuides = (version == 10);  // v11 以降は別ファイル
+	const bool isV7                  = (version == 7);
+	const bool hasGuides             = (version == 10);  // v11 以降は別ファイル
+	const bool hasConstructionTime   = (version >= 12);  // v12: constructionStartTime
 	// isV9Plus: routes 配列あり（writeGlobal 側で書く）
 
 	int32  cx, cy;
@@ -284,6 +288,10 @@ bool RoadBinary::read(const FilePath& path,
 		r.read(e.cutoffA);
 		r.read(e.cutoffB);
 		r.read(es); e.edgeState = static_cast<EdgeState>(es);
+		if (hasConstructionTime)
+		{
+			r.read(e.constructionStartTime);
+		}
 		r.read(e.borderNodeA);
 		r.read(e.borderNodeB);
 		r.read(laneCnt);
@@ -325,8 +333,10 @@ bool RoadBinary::read(const FilePath& path,
 				RoadPart part;
 				uint8 bs, pt;
 				if (!readString(r, part.defId)) return false;
-				r.read(part.width);
-				r.read(part.offset);
+				r.read(part.offsetA_L);
+				r.read(part.offsetA_R);
+				r.read(part.offsetB_L);
+				r.read(part.offsetB_R);
 				r.read(bs); part.build = static_cast<BuildState>(bs);
 				r.read(pt); part.type  = static_cast<RoadPartType>(pt);
 				e.parts << part;
@@ -483,13 +493,18 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 	}
 
 	// エッジをスキップ
-	const bool isV7Skip      = (ver2 == 7);
-	const bool hasGuidesSkip = (ver2 == 10);  // v11 以降は別ファイルなので skip 不要
+	const bool isV7Skip             = (ver2 == 7);
+	const bool hasGuidesSkip        = (ver2 == 10);  // v11 以降は別ファイルなので skip 不要
+	const bool hasConstructionSkip  = (ver2 >= 12);  // v12: constructionStartTime (double)
 	for (uint32 i = 0; i < ec2; ++i)
 	{
+		// id + nodeA + nodeB + ctrlA.xyz + ctrlB.xyz + roadType + speedLimit + length + planId + cutoffA + cutoffB + edgeState
 		r.skip(sizeof(int32) * 3 + sizeof(float) * 6 + sizeof(uint8) +
 		       sizeof(float) * 3 + sizeof(float) * 2 +
-		       sizeof(uint8) + sizeof(int32) * 2);
+		       sizeof(uint8));
+		// v12: constructionStartTime
+		if (hasConstructionSkip) r.skip(sizeof(double));
+		r.skip(sizeof(int32) * 2);  // borderNodeA, borderNodeB
 		uint32 laneCnt; r.read(laneCnt);
 		r.skip(laneCnt * (sizeof(float) * 5 + sizeof(uint8) * 7));
 		r.skip(sizeof(uint8));  // useElevation
@@ -497,7 +512,8 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 		for (uint32 p = 0; p < partCnt; ++p)
 		{
 			skipString(r);
-			r.skip(sizeof(float) * 2 + sizeof(uint8) * 2);
+			// offsetA_L + offsetA_R + offsetB_L + offsetB_R + build + type
+			r.skip(sizeof(float) * 4 + sizeof(uint8) * 2);
 		}
 		// v8: signs（v7 では存在しない）
 		if (!isV7Skip)
