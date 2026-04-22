@@ -1,6 +1,7 @@
 ﻿#include "../../stdafx.h"
 #include "RoadRouteSignRenderer.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../world/Chunk.hpp"
 
 namespace
 {
@@ -11,24 +12,29 @@ namespace
 	constexpr double kSignSizeFar   =   40.0;    ///< 遠距離時の標識高さ [px]
 	constexpr double kMinHitAlpha   =    0.5;    ///< この alpha 未満の標識はヒット判定しない
 
-	/// @brief RoadRoute の代表表示位置を返す（route 全体に沿って等間隔に N 個）
-	Array<Vec3> routeAnchors(const RoadRoute& route, const RoadNetwork& network, int count)
+	/// @brief アンカーキャッシュを強制再構築する間隔 [frame]（ネットワーク規模の変化以外の編集を拾う保険）
+	constexpr int    kRebuildIntervalFrames = 30;
+
+	/// @brief 国道標識の 2D ビルボード表示位置を交差点先 50m ベースで列挙する
+	/// @details 同一ルート内で同じチャンクに複数候補があるときは最初の 1 つだけ採用する
+	Array<Vec3> routeAnchors(const RoadRoute& route, const RoadNetwork& network)
 	{
 		Array<Vec3> result;
-		if (route.edgeIds.isEmpty() || count <= 0) return result;
+		HashSet<uint64> usedChunks;
 
-		const int n = static_cast<int>(route.edgeIds.size());
-		for (int k = 0; k < count; ++k)
+		for (const auto& [edgeId, arcLen] : network.routeSignAnchors(route))
 		{
-			// 等間隔サンプル: t = (k + 0.5) / count を [0, n) に写像
-			const double tGlobal = (k + 0.5) / count;
-			const double pos     = tGlobal * n;
-			const int    idx     = Clamp(static_cast<int>(pos), 0, n - 1);
-			const float  tLocal  = static_cast<float>(pos - idx);
+			const auto bezier = network.getBezier(edgeId);
+			if (!bezier) continue;
 
-			const auto bezier = network.getBezier(route.edgeIds[idx]);
-			if (not bezier) continue;
-			result << bezier->evaluate(tLocal);
+			const Vec3 pos = bezier->positionAt(arcLen);
+			const int32 cx = static_cast<int32>(Math::Floor(pos.x / CHUNK_SIZE));
+			const int32 cz = static_cast<int32>(Math::Floor(pos.z / CHUNK_SIZE));
+			const uint64 key = (static_cast<uint64>(static_cast<uint32>(cx)) << 32)
+			                 | static_cast<uint64>(static_cast<uint32>(cz));
+			if (!usedChunks.emplace(key).second) continue;
+
+			result << pos;
 		}
 		return result;
 	}
@@ -47,46 +53,72 @@ void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera&
 	const double camDist = camera.distance();
 	if (camDist > kHideDistance) return;
 
-	for (const auto& route : network.routes())
+	// --- アンカーキャッシュの再構築判定 ---
+	// ノード/エッジ/ルート数が変わった、明示的に invalidate された、
+	// または一定フレームを経過した場合に全再計算する。
+	// ルート内 edgeIds の並び替えやベジエ形状のドラッグは「件数」では拾えないため、
+	// 保険として kRebuildIntervalFrames 周期でも再計算する。
+	const size_t nodeCount  = network.nodes().size();
+	const size_t edgeCount  = network.edges().size();
+	const size_t routeCount = network.routes().size();
+	const bool sizeChanged = (nodeCount  != m_lastNodeCount)
+	                      || (edgeCount  != m_lastEdgeCount)
+	                      || (routeCount != m_lastRouteCount);
+	const bool periodic    = (++m_framesSinceRebuild >= kRebuildIntervalFrames);
+
+	if (m_anchorsDirty || sizeChanged || periodic)
 	{
-		if (route.id < 0) continue;                                // 削除済み
-		if (route.kind != RoadRouteKind::NationalRoute) continue;
-		if (route.number <= 0) continue;
-
-		// route 全長を 2 等分し、各区間の中央に標識を配置
-		for (const Vec3& anchor : routeAnchors(route, network, 2))
+		m_anchorCache.clear();
+		for (const auto& route : network.routes())
 		{
-			const Float3 worldPos{
-				static_cast<float>(anchor.x),
-				static_cast<float>(anchor.y + kLabelOffsetY),
-				static_cast<float>(anchor.z)
-			};
+			if (route.id < 0) continue;
+			if (route.kind != RoadRouteKind::NationalRoute) continue;
+			if (route.number <= 0) continue;
 
-			// 3D → スクリーン投影
-			const Float3 sp = cam3D.worldToScreenPoint(worldPos);
-			if (sp.z <= 0.0f) continue;
-
-			// カメラとの水平距離でフェード
-			const float dist = camera.horizontalDistanceTo(worldPos);
-			if (dist > kHideDistance) continue;
-
-			const double t     = Math::Clamp(static_cast<double>(dist - kFadeDistance) / (kHideDistance - kFadeDistance), 0.0, 1.0);
-			const double alpha = 1.0 - t;
-			const double size  = Math::Lerp(kSignSizeNear, kSignSizeFar, t);
-
-			const Vec2 screenPos{ sp.x, sp.y };
-
-			// 標識本体（お握り型テクスチャ）
-			tex.resized(size).drawAt(screenPos, ColorF{ 1.0, alpha });
-
-			// クリック判定用にスクリーン矩形をキャッシュ
-			m_hits << SignHit{ RectF{ Arg::center = screenPos, size, size }, alpha, route.id };
-
-			// 号数（Arial・フチなし）を標識中央からやや上に配置
-			const double numberSize = size * 0.361;  // 0.38 * 0.95
-			const Vec2   numberPos{ screenPos.x, screenPos.y - size * 0.02 };
-			fontNum(route.number).drawAt(numberSize, numberPos, ColorF{ 1.0, 1.0, 1.0, alpha });
+			for (const Vec3& anchor : routeAnchors(route, network))
+			{
+				m_anchorCache.push_back(CachedAnchor{
+					Vec3{ anchor.x, anchor.y + kLabelOffsetY, anchor.z },
+					route.id,
+					route.number,
+				});
+			}
 		}
+		m_lastNodeCount      = nodeCount;
+		m_lastEdgeCount      = edgeCount;
+		m_lastRouteCount     = routeCount;
+		m_framesSinceRebuild = 0;
+		m_anchorsDirty       = false;
+	}
+
+	// --- 描画: カメラ依存のスクリーン投影・フェードは毎フレーム実行 ---
+	for (const auto& item : m_anchorCache)
+	{
+		const Float3 worldPos{
+			static_cast<float>(item.worldPos.x),
+			static_cast<float>(item.worldPos.y),
+			static_cast<float>(item.worldPos.z)
+		};
+
+		const Float3 sp = cam3D.worldToScreenPoint(worldPos);
+		if (sp.z <= 0.0f) continue;
+
+		const float dist = camera.horizontalDistanceTo(worldPos);
+		if (dist > kHideDistance) continue;
+
+		const double t     = Math::Clamp(static_cast<double>(dist - kFadeDistance) / (kHideDistance - kFadeDistance), 0.0, 1.0);
+		const double alpha = 1.0 - t;
+		const double size  = Math::Lerp(kSignSizeNear, kSignSizeFar, t);
+
+		const Vec2 screenPos{ sp.x, sp.y };
+
+		tex.resized(size).drawAt(screenPos, ColorF{ 1.0, alpha });
+
+		m_hits << SignHit{ RectF{ Arg::center = screenPos, size, size }, alpha, item.routeId };
+
+		const double numberSize = size * 0.361;  // 0.38 * 0.95
+		const Vec2   numberPos{ screenPos.x, screenPos.y - size * 0.02 };
+		fontNum(item.routeNumber).drawAt(numberSize, numberPos, ColorF{ 1.0, 1.0, 1.0, alpha });
 	}
 }
 

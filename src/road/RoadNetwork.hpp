@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RoadTypes.hpp"
 #include "BezierUtil.hpp"
 
