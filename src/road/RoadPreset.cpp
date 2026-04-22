@@ -1,4 +1,4 @@
-﻿#include "RoadPreset.hpp"
+#include "RoadPreset.hpp"
 #include "RoadNetwork.hpp"
 
 // =============================================================================
@@ -10,22 +10,26 @@ namespace
 	static JSON partToJson(const RoadPart& part)
 	{
 		JSON j;
-		j[U"defId"]  = part.defId;
-		j[U"width"]  = part.width;
-		j[U"offset"] = part.offset;
-		j[U"build"]  = static_cast<uint8>(part.build);
-		j[U"type"]   = static_cast<uint8>(part.type);
+		j[U"defId"]     = part.defId;
+		j[U"offsetA_L"] = part.offsetA_L;
+		j[U"offsetA_R"] = part.offsetA_R;
+		j[U"offsetB_L"] = part.offsetB_L;
+		j[U"offsetB_R"] = part.offsetB_R;
+		j[U"build"]     = static_cast<uint8>(part.build);
+		j[U"type"]      = static_cast<uint8>(part.type);
 		return j;
 	}
 
 	static RoadPart partFromJson(const JSON& j)
 	{
 		RoadPart part;
-		part.defId  = j[U"defId"].getString();
-		part.width  = j[U"width"].get<float>();
-		part.offset = j[U"offset"].get<float>();
-		part.build  = static_cast<BuildState>(j[U"build"].get<uint8>());
-		part.type   = static_cast<RoadPartType>(j[U"type"].get<uint8>());
+		part.defId     = j[U"defId"].getString();
+		part.offsetA_L = j[U"offsetA_L"].get<float>();
+		part.offsetA_R = j[U"offsetA_R"].get<float>();
+		part.offsetB_L = j[U"offsetB_L"].get<float>();
+		part.offsetB_R = j[U"offsetB_R"].get<float>();
+		part.build     = static_cast<BuildState>(j[U"build"].get<uint8>());
+		part.type      = static_cast<RoadPartType>(j[U"type"].get<uint8>());
 		return part;
 	}
 

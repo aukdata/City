@@ -1,4 +1,4 @@
-﻿#include "RoadSign.hpp"
+#include "RoadSign.hpp"
 #include "RoadNetwork.hpp"
 #include "ObjParser.hpp"
 #include "../asset/AssetRegistrar.hpp"  // Asset::StopSign 等
@@ -162,14 +162,14 @@ RoadSign::RoadbedExtents RoadSign::roadbedExtentsOf(const RoadEdge& edge)
 		if (part.type != RoadPartType::Roadbed) continue;
 		if (!found)
 		{
-			ext.left  = part.offset;
-			ext.right = part.offset + part.width;
+			ext.left  = part.offsetL();
+			ext.right = part.offsetR();
 			found = true;
 		}
 		else
 		{
-			ext.left  = Min(ext.left,  part.offset);
-			ext.right = Max(ext.right, part.offset + part.width);
+			ext.left  = Min(ext.left,  part.offsetL());
+			ext.right = Max(ext.right, part.offsetR());
 		}
 	}
 	return ext;
