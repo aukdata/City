@@ -119,8 +119,8 @@ namespace
 		float extMin = 1e9f, extMax = -1e9f;
 		for (const auto& p : edge.parts)
 		{
-			extMin = Min(extMin, p.offset);
-			extMax = Max(extMax, p.offset + p.width);
+			extMin = Min(extMin, Min(p.offsetA_L, p.offsetB_L));
+			extMax = Max(extMax, Max(p.offsetA_R, p.offsetB_R));
 		}
 		for (const auto& L : edge.lanes)
 		{
@@ -149,9 +149,39 @@ namespace
 			if (st.dragMode >= 1 && st.dragMode <= 3 && st.selectedPart >= 0)
 			{
 				auto& p = edge.parts[st.selectedPart];
-				if (st.dragMode == 1)      { p.offset += delta; st.dragAnchor = curM; dirty = true; }
-				else if (st.dragMode == 2) { p.offset += delta; p.width -= delta; if (p.width < 0.5f) { p.offset -= (0.5f - p.width); p.width = 0.5f; } st.dragAnchor = curM; dirty = true; }
-				else if (st.dragMode == 3) { p.width += delta; if (p.width < 0.5f) p.width = 0.5f; st.dragAnchor = curM; dirty = true; }
+				if (st.dragMode == 1)
+				{
+					// 4 隅一律平行移動
+					p.offsetA_L += delta; p.offsetA_R += delta;
+					p.offsetB_L += delta; p.offsetB_R += delta;
+					st.dragAnchor = curM; dirty = true;
+				}
+				else if (st.dragMode == 2)
+				{
+					// 左端ドラッグ（右端固定）: A/B 両端の左端を移動
+					const float minW = 0.5f;
+					const float dA = Min(delta, p.widthA() - minW);
+					const float dB = Min(delta, p.widthB() - minW);
+					p.offsetA_L += dA; p.offsetB_L += dB;
+					st.dragAnchor = curM; dirty = true;
+				}
+				else if (st.dragMode == 3)
+				{
+					// 右端ドラッグ（左端固定）: A/B 両端の右端を移動
+					const float minW = 0.5f;
+					const float dA = Max(delta, minW - p.widthA());
+					const float dB = Max(delta, minW - p.widthB());
+					p.offsetA_R += dA; p.offsetB_R += dB;
+					st.dragAnchor = curM; dirty = true;
+				}
+			}
+			else if (st.dragMode >= 11 && st.dragMode <= 14 && st.selectedPart >= 0)
+			{
+				auto& p = edge.parts[st.selectedPart];
+				if      (st.dragMode == 11) { p.offsetA_L += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 12) { p.offsetA_R += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 13) { p.offsetB_L += delta; st.dragAnchor = curM; dirty = true; }
+				else if (st.dragMode == 14) { p.offsetB_R += delta; st.dragAnchor = curM; dirty = true; }
 			}
 			else if (st.dragMode >= 4 && st.dragMode <= 10 && st.selectedLane >= 0)
 			{
@@ -181,8 +211,13 @@ namespace
 				if (PanelWidget::button(pFont, U"+", false, pX + 4, y, 16, kLH, U"部品を追加"))
 				{
 					RoadPart np;
-					np.type = RoadPartType::Roadbed; np.width = 3.5f;
-					np.offset = edge.totalWidth() * 0.5f; np.build = BuildState::Built;
+					np.type = RoadPartType::Roadbed;
+					const float initOffset = edge.totalWidth() * 0.5f;
+					np.offsetA_L = initOffset;
+					np.offsetA_R = initOffset + 3.5f;
+					np.offsetB_L = initOffset;
+					np.offsetB_R = initOffset + 3.5f;
+					np.build = BuildState::Built;
 					np.defId = String{ defaultDefIdForType(np.type) };
 					edge.parts << np; dirty = true;
 				}
@@ -201,27 +236,40 @@ namespace
 				for (int i = 0; i < static_cast<int>(edge.parts.size()); ++i)
 				{
 					const auto& p = edge.parts[i];
-					const double px0 = mToPixel(p.offset);
-					const double px1 = mToPixel(p.offset + p.width);
-					const double pw = Max(px1 - px0, 2.0);
+					// A 端（上辺）と B 端（下辺）のピクセル座標
+					const double pxA0 = mToPixel(p.offsetA_L);
+					const double pxA1 = mToPixel(p.offsetA_R);
+					const double pxB0 = mToPixel(p.offsetB_L);
+					const double pxB1 = mToPixel(p.offsetB_R);
+					const double yTop = static_cast<double>(barY + 2);
+					const double yBot = static_cast<double>(barY + kPartBarH - 2);
+					// ヒット判定・ドラッグ用の代表 RectF（境界ボックス）
+					const double hitX0 = Min(pxA0, pxB0);
+					const double hitX1 = Max(pxA1, pxB1);
+					const double hitW  = Max(hitX1 - hitX0, 2.0);
+					const RectF hitRect{ hitX0, yTop, hitW, yBot - yTop };
 					const bool sel = (i == st.selectedPart);
 
 					ColorF col = partTypeColor(p.type);
 					if (p.build != BuildState::Built) col = col * 0.5;
+					const ColorF drawCol = sel ? col.lerp(ColorF{1.0}, 0.25) : col;
+					const ColorF frameCol = sel ? ColorF{1.0, 1.0, 0.3} : ColorF{0.3, 0.3, 0.3};
 
-					RectF rect{ px0, static_cast<double>(barY + 2), pw, static_cast<double>(kPartBarH - 4) };
-					rect.draw(sel ? col.lerp(ColorF{1.0}, 0.25) : col);
-					rect.drawFrame(1.0, sel ? ColorF{1.0, 1.0, 0.3} : ColorF{0.3, 0.3, 0.3});
+					// A/B 端が異なるテーパー形状を Quad で描画
+					Quad{ Vec2{pxA0, yTop}, Vec2{pxA1, yTop}, Vec2{pxB1, yBot}, Vec2{pxB0, yBot} }
+						.draw(drawCol);
+					Quad{ Vec2{pxA0, yTop}, Vec2{pxA1, yTop}, Vec2{pxB1, yBot}, Vec2{pxB0, yBot} }
+						.drawFrame(1.0, frameCol);
 
-					if (pw > 20)
+					if (hitW > 20)
 						pFont(ptNames[static_cast<int>(p.type)]).draw(8.0,
-							Vec2{ px0 + 2, static_cast<double>(barY + 3) }, ColorF{1.0, 1.0, 1.0, 0.9});
+							Vec2{ hitX0 + 2, yTop + 1 }, ColorF{1.0, 1.0, 1.0, 0.9});
 
-					if (st.dragMode == 0 && rect.mouseOver())
+					if (st.dragMode == 0 && hitRect.mouseOver())
 					{
 						const double mx = Cursor::PosF().x;
-						const bool onLeftEdge  = (mx - px0 < kEdgeGrab && pw > 10);
-						const bool onRightEdge = (px1 - mx < kEdgeGrab && pw > 10);
+						const bool onLeftEdge  = (mx - hitX0 < kEdgeGrab && hitW > 10);
+						const bool onRightEdge = (hitX1 - mx < kEdgeGrab && hitW > 10);
 						Cursor::RequestStyle(onLeftEdge || onRightEdge
 							? CursorStyle::ResizeLeftRight : CursorStyle::Hand);
 						if (MouseL.down())
@@ -249,11 +297,12 @@ namespace
 				{
 					Array<RoadPart*> sorted;
 					for (auto& p : edge.parts) sorted << &p;
-					sorted.sort_by([](const RoadPart* a, const RoadPart* b) { return a->offset < b->offset; });
+					// 代表左端でソート
+					sorted.sort_by([](const RoadPart* a, const RoadPart* b) { return a->offsetL() < b->offsetL(); });
 					for (size_t i = 1; i < sorted.size(); ++i)
 					{
-						const float leftEnd  = sorted[i - 1]->offset + sorted[i - 1]->width;
-						const float rightBeg = sorted[i]->offset;
+						const float leftEnd  = sorted[i - 1]->offsetR();
+						const float rightBeg = sorted[i]->offsetL();
 						if (rightBeg - leftEnd <= 0.01f) continue;
 						const double pxL = mToPixel(leftEnd);
 						const double pxR = mToPixel(rightBeg);
@@ -263,18 +312,28 @@ namespace
 						const float gapM = rightBeg - leftEnd;
 						if (KeyControl.pressed())
 						{
-							sorted[i - 1]->width += gapM * 0.5f;
-							sorted[i]->offset    -= gapM * 0.5f;
-							sorted[i]->width     += gapM * 0.5f;
+							// 両側を広げる（A/B 同値で拡張）
+							sorted[i - 1]->offsetA_R += gapM * 0.5f;
+							sorted[i - 1]->offsetB_R += gapM * 0.5f;
+							sorted[i]->offsetA_L     -= gapM * 0.5f;
+							sorted[i]->offsetB_L     -= gapM * 0.5f;
+							sorted[i]->offsetA_R     += gapM * 0.5f;
+							sorted[i]->offsetB_R     += gapM * 0.5f;
 						}
 						else if (KeyShift.pressed())
 						{
-							sorted[i - 1]->offset += gapM;
-							sorted[i]->offset     -= gapM;
+							sorted[i - 1]->offsetA_L += gapM; sorted[i - 1]->offsetA_R += gapM;
+							sorted[i - 1]->offsetB_L += gapM; sorted[i - 1]->offsetB_R += gapM;
+							sorted[i]->offsetA_L     -= gapM; sorted[i]->offsetA_R     -= gapM;
+							sorted[i]->offsetB_L     -= gapM; sorted[i]->offsetB_R     -= gapM;
 						}
 						else
 						{
-							sorted[i]->offset = leftEnd;
+							// 右側部品を左端に詰める
+							const float shiftA = leftEnd - sorted[i]->offsetA_L;
+							const float shiftB = leftEnd - sorted[i]->offsetB_L;
+							sorted[i]->offsetA_L += shiftA; sorted[i]->offsetA_R += shiftA;
+							sorted[i]->offsetB_L += shiftB; sorted[i]->offsetB_R += shiftB;
 						}
 						dirty = true;
 						break;
@@ -308,12 +367,21 @@ namespace
 
 					if (st.selectedPart >= 0)
 					{
+						// A 端
 						bx = pX + 4;
-						PanelWidget::label(pFont, U"w", bx, y, ColorF{0.6});
-						if (PanelWidget::numberInput(pFont, sp.width, 0.25f, 0.5f, 50.0f, bx + 12, y, 44, kLH, U"{:.2f}")) dirty = true;
-						bx += 62;
-						PanelWidget::label(pFont, U"offset", bx, y, ColorF{0.6});
-						if (PanelWidget::numberInput(pFont, sp.offset, 0.25f, -50.0f, 50.0f, bx + 46, y, 48, kLH, U"{:.2f}")) dirty = true;
+						PanelWidget::label(pFont, U"A端L", bx, y, ColorF{1.0, 0.7, 0.4});
+						if (PanelWidget::numberInput(pFont, sp.offsetA_L, 0.25f, -50.0f, 50.0f, bx + 34, y, 44, kLH, U"{:.2f}")) dirty = true;
+						bx += 84;
+						PanelWidget::label(pFont, U"A端R", bx, y, ColorF{1.0, 0.7, 0.4});
+						if (PanelWidget::numberInput(pFont, sp.offsetA_R, 0.25f, -50.0f, 50.0f, bx + 34, y, 44, kLH, U"{:.2f}")) dirty = true;
+						y += kLH;
+						// B 端
+						bx = pX + 4;
+						PanelWidget::label(pFont, U"B端L", bx, y, ColorF{0.4, 0.7, 1.0});
+						if (PanelWidget::numberInput(pFont, sp.offsetB_L, 0.25f, -50.0f, 50.0f, bx + 34, y, 44, kLH, U"{:.2f}")) dirty = true;
+						bx += 84;
+						PanelWidget::label(pFont, U"B端R", bx, y, ColorF{0.4, 0.7, 1.0});
+						if (PanelWidget::numberInput(pFont, sp.offsetB_R, 0.25f, -50.0f, 50.0f, bx + 34, y, 44, kLH, U"{:.2f}")) dirty = true;
 						y += kLH;
 					}
 				}
@@ -338,7 +406,8 @@ namespace
 					for (const auto& p : edge.parts)
 					{
 						if (p.type != RoadPartType::Roadbed) continue;
-						const float x = (side > 0) ? (p.offset + p.width) : p.offset;
+						// 代表値（平均）を使用
+						const float x = (side > 0) ? p.offsetR() : p.offsetL();
 						if (!hasRoadbed || (side > 0 ? x > edgeX : x < edgeX))
 						{
 							edgeX = x;
@@ -350,23 +419,34 @@ namespace
 						edgeX = (side > 0) ? (edge.totalWidth() * 0.5f) : (-edge.totalWidth() * 0.5f);
 					}
 
-					// 外側のパーツをシフト & 末端 Roadbed を拡張
+					// 外側のパーツをシフト & 末端 Roadbed を拡張（A/B 同値で操作）
 					for (auto& p : edge.parts)
 					{
 						const bool outside = (side > 0)
-							? (p.offset >= edgeX - 1e-4f)
-							: (p.offset + p.width <= edgeX + 1e-4f);
+							? (p.offsetL() >= edgeX - 1e-4f)
+							: (p.offsetR() <= edgeX + 1e-4f);
 						const bool extendTarget = hasRoadbed && p.type == RoadPartType::Roadbed
-							&& ((side > 0 && Abs((p.offset + p.width) - edgeX) < 1e-4f)
-								|| (side < 0 && Abs(p.offset - edgeX) < 1e-4f));
+							&& ((side > 0 && Abs(p.offsetR() - edgeX) < 1e-4f)
+								|| (side < 0 && Abs(p.offsetL() - edgeX) < 1e-4f));
 						if (extendTarget)
 						{
-							p.width += laneW;
-							if (side < 0) p.offset -= laneW;
+							if (side > 0)
+							{
+								p.offsetA_R += laneW;
+								p.offsetB_R += laneW;
+							}
+							else
+							{
+								p.offsetA_L -= laneW;
+								p.offsetB_L -= laneW;
+							}
 						}
 						else if (outside)
 						{
-							p.offset += static_cast<float>(side) * laneW;
+							p.offsetA_L += static_cast<float>(side) * laneW;
+							p.offsetA_R += static_cast<float>(side) * laneW;
+							p.offsetB_L += static_cast<float>(side) * laneW;
+							p.offsetB_R += static_cast<float>(side) * laneW;
 						}
 					}
 
@@ -715,6 +795,46 @@ void GameScene::drawEdgePanel()
 	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"edge_info").x));
 	bool dirty = false;
 
+	// 道路状態（計画・建設中・供用中・閉鎖・現存）
+	{
+		StringView stateLabel;
+		ColorF stateColor;
+		switch (edge->edgeState)
+		{
+		case EdgeState::Planned:            stateLabel = U"計画";   stateColor = ColorF{ 1.0, 0.85, 0.3 }; break;
+		case EdgeState::UnderConstruction:  stateLabel = U"建設中"; stateColor = ColorF{ 1.0, 0.55, 0.2 }; break;
+		case EdgeState::Open:               stateLabel = U"供用中"; stateColor = ColorF{ 0.5, 0.9, 0.5 }; break;
+		case EdgeState::Closed:             stateLabel = U"閉鎖";   stateColor = ColorF{ 0.9, 0.4, 0.4 }; break;
+		case EdgeState::Existing:           stateLabel = U"現存";   stateColor = ColorF{ 0.7, 0.85, 1.0 }; break;
+		default:                            stateLabel = U"不明";   stateColor = ColorF{ 0.7 }; break;
+		}
+		ui.row(4, [&] {
+			ui.label(U"状態", ColorF{ 0.6 });
+			ui.label(U"●", stateColor);
+			ui.label(String{ stateLabel }, stateColor);
+
+			if (edge->edgeState == EdgeState::Planned)
+			{
+				if (ui.button(U"建設", false, 60, U"このエッジの建設を開始（60秒後に供用）"))
+				{
+					edge->edgeState = EdgeState::UnderConstruction;
+					edge->constructionStartTime = m_clock.now;
+					m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+					m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+					notifyNetworkChanged({ edge->nodeA, edge->nodeB });
+					dirty = true;
+				}
+			}
+			else if (edge->edgeState == EdgeState::UnderConstruction)
+			{
+				const double elapsed   = m_clock.now - edge->constructionStartTime;
+				const double remaining = Max(0.0, 60.0 - elapsed);
+				ui.label(U"残り {:.0f}s"_fmt(remaining), ColorF{ 0.8 });
+			}
+		});
+		ui.spacer(3);
+	}
+
 	ui.row(4, [&] {
 		ui.label(U"A:{}  B:{}  {:.0f}m"_fmt(edge->nodeA, edge->nodeB, edge->length), ColorF{1.0});
 		if (ui.button(U"A/B入替", false, 62, U"ノードA/Bを入れ替える"))
@@ -920,6 +1040,35 @@ void GameScene::drawDrawTemplatePanel()
 	constexpr int kLH  = 17;
 
 	// ==========================================================================
+	// Section 0: スタート/ゴール指定モード トグル
+	// ==========================================================================
+	int section0Height = kLH + 2;  // トグルボタン分
+	{
+		const bool toggled = PanelWidget::button(
+			pFont,
+			U"スタート/ゴール指定モード",
+			m_autoPlaceMode,
+			kPad, 0, panelW - kPad * 2, kLH,
+			U"2 点クリックで自動経路探索・敷設");
+		if (toggled)
+		{
+			m_autoPlaceMode = !m_autoPlaceMode;
+			if (!m_autoPlaceMode)
+				m_autoPlaceStart = none;
+		}
+
+		if (m_autoPlaceMode)
+		{
+			const String statusText = m_autoPlaceStart
+				? U"スタート: ({:.0f}, {:.0f}, {:.0f})"_fmt(
+				      m_autoPlaceStart->x, m_autoPlaceStart->y, m_autoPlaceStart->z)
+				: U"スタート未指定 — クリックで地点を選択";
+			PanelWidget::label(pFont, statusText, kPad, section0Height, ColorF{ 0.7, 1.0, 0.7 });
+			section0Height += kLH + 2;
+		}
+	}
+
+	// ==========================================================================
 	// Section 1: 現在の組み合わせ（常時展開）
 	// ==========================================================================
 
@@ -927,7 +1076,7 @@ void GameScene::drawDrawTemplatePanel()
 	{
 		const int btnW = 140;
 		const int btnX = panelW - kPad - btnW;
-		const int headerY = 0;
+		const int headerY = section0Height;
 
 		// ヘッダ背景
 		RectF{ 0, static_cast<double>(headerY), static_cast<double>(panelW), static_cast<double>(kLH) }
@@ -945,9 +1094,8 @@ void GameScene::drawDrawTemplatePanel()
 	PanelBuilder ui(panelW, kPad, 2);
 	bool dirty = false;
 
-	// y を 1行分オフセット（ヘッダ行を手書きで描いた分）
-	// PanelBuilder は内部 y=0 から開始するので、spacer で調整
-	ui.spacer(kLH + 2);
+	// Section 0 + Section 1 ヘッダ行の合計分をオフセット
+	ui.spacer(section0Height + kLH + 2);
 
 	// 道路種別
 	{
@@ -1055,6 +1203,95 @@ void GameScene::drawDrawTemplatePanel()
 
 	(void)dirty;
 	ui.flush();
+
+	// ==========================================================================
+	// Section 4: 所属ルート
+	// ==========================================================================
+	{
+		static bool routeCollapsed = false;
+		PanelWidget::section(pBold, U"所属ルート", routeCollapsed, 0, y, panelW, kLH,
+		                     ColorF{ 0.5, 1.0, 0.7 });
+
+		if (!routeCollapsed)
+		{
+			constexpr StringView kindNames[] = { U"高速道路", U"国道", U"都道府県道", U"市区町村道", U"名称路線" };
+
+			// 既存ルート一覧（チェックボックス）
+			for (const auto& route : m_network.routes())
+			{
+				if (route.id < 0) continue;
+				const bool selected = m_pendingRouteIds.contains(route.id);
+				const String lbl = U"[{}] {}"_fmt(kindNames[static_cast<int>(route.kind)], route.name);
+				if (PanelWidget::button(pFont, lbl, selected, kPad, y, panelW - kPad * 2, kLH,
+				                        U"このルートに含める/外す"))
+				{
+					if (selected)
+						m_pendingRouteIds.remove(route.id);
+					else
+						m_pendingRouteIds << route.id;
+				}
+				y += kLH + 2;
+			}
+
+			// 「＋新規ルート」展開ボタン
+			if (PanelWidget::button(pFont, m_newRouteState.expanded ? U"▲ 新規ルート" : U"＋ 新規ルート",
+			                        m_newRouteState.expanded, kPad, y, panelW - kPad * 2, kLH, U"新規ルートを作成"))
+			{
+				m_newRouteState.expanded = !m_newRouteState.expanded;
+			}
+			y += kLH + 2;
+
+			if (m_newRouteState.expanded)
+			{
+				// 種別 cycle
+				{
+					const int xLbl = kPad;
+					const int xCtrl = xLbl + 50;
+					PanelWidget::label(pFont, U"種別", xLbl, y, ColorF{ 0.6 });
+					if (PanelWidget::cycle(pFont, m_newRouteState.kind, kindNames, 5, xCtrl, y,
+					                       panelW - kPad - xCtrl, kLH))
+					{
+					}
+					y += kLH + 2;
+				}
+
+				// 番号
+				{
+					const int xLbl = kPad;
+					const int xCtrl = xLbl + 50;
+					PanelWidget::label(pFont, U"番号", xLbl, y, ColorF{ 0.6 });
+					PanelWidget::numberInput(pFont, m_newRouteState.number, 1, 0, 400,
+					                         xCtrl, y, 60, kLH, U"{}");
+					y += kLH + 2;
+				}
+
+				// 名前
+				{
+					const int xLbl = kPad;
+					const int xCtrl = xLbl + 50;
+					PanelWidget::label(pFont, U"名前", xLbl, y, ColorF{ 0.6 });
+					PanelWidget::textInput(pFont, m_newRouteState.nameEdit, xCtrl, y,
+					                        panelW - kPad - xCtrl, kLH, 32);
+					y += kLH + 2;
+				}
+
+				// 作成ボタン
+				if (PanelWidget::button(pFont, U"作成", false, kPad, y, 60, kLH, U"ルートを作成して選択に追加"))
+				{
+					const int newId = m_network.addRoute(
+						m_newRouteState.kind,
+						m_newRouteState.nameEdit.text,
+						{},
+						m_newRouteState.number);
+					m_pendingRouteIds << newId;
+					m_newRouteState.expanded = false;
+					m_newRouteState.nameEdit = TextEditState{};
+				}
+				y += kLH + 2;
+			}
+		}
+	}
+
 	PanelWidget::flushTooltip();
 	m_panelManager.reportContentHeight(U"draw_template", y);
 }
@@ -1557,11 +1794,11 @@ namespace
 		bool isNodeA;
 	};
 
-	/// @brief outward フレームの offset を返す
-	std::pair<float, float> outwardOffset(float off, float width, bool isNodeA)
+	/// @brief outward フレームの offset を返す（左端・右端を個別に受け取る）
+	std::pair<float, float> outwardOffset(float oL, float oR, bool isNodeA)
 	{
-		if (isNodeA) return { off, off + width };
-		return { -(off + width), -off };
+		if (isNodeA) return { oL, oR };
+		return { -oR, -oL };
 	}
 
 	/// @brief 道路全幅の outward left/right を取得
@@ -1571,7 +1808,7 @@ namespace
 		for (const auto& p : edge->parts)
 		{
 			if (p.build != BuildState::Built) continue;
-			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			const auto [l, r] = outwardOffset(p.offsetL(), p.offsetR(), isNodeA);
 			minL = Min(minL, l);
 			maxR = Max(maxR, r);
 		}
@@ -1585,7 +1822,7 @@ namespace
 		for (const auto& p : edge->parts)
 		{
 			if (p.type != RoadPartType::Roadbed) continue;
-			const auto [l, r] = outwardOffset(p.offset, p.width, isNodeA);
+			const auto [l, r] = outwardOffset(p.offsetL(), p.offsetR(), isNodeA);
 			minL = Min(minL, l);
 			maxR = Max(maxR, r);
 		}
@@ -1705,7 +1942,7 @@ namespace
 			{
 				if (part.build != BuildState::Built) continue;
 
-				const auto [oL, oR] = outwardOffset(part.offset, part.width, cap.isNodeA);
+				const auto [oL, oR] = outwardOffset(part.offsetL(), part.offsetR(), cap.isNodeA);
 				const double pLeft  = static_cast<double>(oL) * kScale;
 				const double pRight = static_cast<double>(oR) * kScale;
 
@@ -2125,6 +2362,37 @@ void GameScene::drawRoutePanel()
 				selectEdge(eid);
 				m_panelManager.show(U"edge_info",
 					U"道路エッジ #{}"_fmt(eid), panelRightPos(U"edge_info"));
+			}
+		});
+	}
+
+	ui.spacer(4);
+
+	// ── 着工ボタン ──
+	{
+		bool hasPlanned = false;
+		for (const int eid : route->edgeIds)
+		{
+			const RoadEdge* e = m_network.getEdge(eid);
+			if (e && e->edgeState == EdgeState::Planned) { hasPlanned = true; break; }
+		}
+		ui.row(4, [&] {
+			if (ui.button(U"着工", hasPlanned, 60, U"Planned エッジを UnderConstruction に遷移") && hasPlanned)
+			{
+				{
+					Array<int> dirtyNodes;
+					for (const int eid : route->edgeIds)
+					{
+						RoadEdge* e = m_network.getEdge(eid);
+						if (!e || e->edgeState != EdgeState::Planned) continue;
+						e->edgeState = EdgeState::UnderConstruction;
+						e->constructionStartTime = m_clock.now;
+						dirtyNodes << e->nodeA << e->nodeB;
+					}
+					for (const int nid : dirtyNodes)
+						m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+					notifyNetworkChanged(dirtyNodes);
+				}
 			}
 		});
 	}

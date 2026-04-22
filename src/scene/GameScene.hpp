@@ -29,6 +29,7 @@
 #include "../render/MinimapRenderer.hpp"
 #include "GuideSignEditor.hpp"
 #include "../road/RoadPreset.hpp"
+#include "../gen/RoadAutoPlace.hpp"
 
 /// @brief ゲームプレイシーン
 class GameScene : public App::Scene
@@ -122,6 +123,11 @@ private:
 	RoadEdge        m_drawTemplate;    ///< 設置する道路のテンプレート
 	RoadPresetStore m_roadPresets;     ///< 道路テンプレートのプリセット管理
 	float           m_drawElevation = 0.0f;  ///< 描画モードの高さオフセット [m]
+	Array<int>      m_pendingRouteIds;  ///< 敷設時に新規エッジへ紐付けるルート ID リスト
+
+	// スタート/ゴール指定モード（RoadDraw のサブモード）
+	bool            m_autoPlaceMode  = false;   ///< スタート/ゴール指定モードが有効か
+	Optional<Vec3>  m_autoPlaceStart;            ///< スタート地点（1 クリック目で記録）
 
 	// ゾーン塗り
 	ZoneType        m_paintZone     = ZoneType::Residential;
@@ -198,6 +204,7 @@ private:
 			None,
 			CutoffA, CutoffB,
 			PartCenter, PartLeft, PartRight,
+			PartAL, PartAR, PartBL, PartBR,
 			LaneCenter, LaneLeftSide, LaneRightSide,
 			LaneAL, LaneAR, LaneBL, LaneBR,
 		};
@@ -239,6 +246,9 @@ private:
 		double vehicle = 0, train = 0, debug = 0, ui = 0, total = 0;
 		// renderScene3D 内訳
 		double terrainOnly = 0, roadMesh = 0, signals = 0, routeSigns = 0;
+		// render2DUI 内訳
+		double uiPlaceNames = 0, uiRouteSigns = 0, uiRenderer = 0;
+		double uiMinimap = 0, uiEdgeHandles = 0, uiPanels = 0;
 	};
 	RenderTimings m_renderTimings;
 
@@ -267,6 +277,9 @@ private:
 	}
 
 	// ---- 内部メソッド ----
+	/// @brief UnderConstruction エッジの Open 遷移チェック（毎フレーム呼び出し）
+	void tickConstruction();
+
 	void initScene();
 	void initNewGame();
 	void initLoadGame();
@@ -339,6 +352,8 @@ private:
 	/// @brief 選択中エッジの 3D ハンドル（Cutoff A/B）を描画する
 	void renderEdgeHandles();
 	void handleRoadDraw();
+	/// @brief スタート/ゴール指定モードの経路探索・敷設を実行する
+	void invokeAutoPlace(Vec3 start, Vec3 goal);
 	void handleZonePaint();
 	void handleBusRouteDraw();
 	void handleTerrainEdit();
@@ -380,6 +395,16 @@ private:
 
 	/// @brief 道路路線編集パネル用の名前テキスト編集状態
 	TextEditState m_routeNameEditState;
+
+	/// @brief 敷設テンプレートパネルの「新規ルート作成」入力状態
+	struct NewRouteState
+	{
+		bool           expanded = false;
+		RoadRouteKind  kind     = RoadRouteKind::NationalRoute;
+		int            number   = 1;
+		TextEditState  nameEdit;
+	};
+	NewRouteState m_newRouteState;
 
 	/// @brief 案内標識セクションを描画（edge_info パネル内、plan/21_guide_sign_spec.md）
 	/// @return 変更があったら true（呼び出し側でキャッシュ無効化）
