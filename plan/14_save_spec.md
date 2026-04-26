@@ -1,6 +1,68 @@
 # セーブ・ロード仕様書
 
-MessagePack 形式、フォルダ構造によるチャンク分割保存。
+将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-04 時点）** は
+`JSON + 独自バイナリ` の簡易構成で保存している。
+
+---
+
+## 0. 現行実装（2026-04）
+
+### 0.1 ディレクトリ構造
+
+```text
+saves/
+└── {save_name}/
+    ├── meta.json
+    ├── global/
+    │   ├── economy.json
+    │   ├── districts.json
+    │   ├── roads.bin
+    │   └── guide_signs.json
+    └── chunks/
+        └── {cx}_{cy}/
+            └── terrain.bin
+```
+
+### 0.2 保存している内容
+
+- `meta.json`
+  - `version`, `seed`, `worldChunks`
+  - `gameNow`, `timeScale`
+  - `nextNodeId`, `nextEdgeId`
+  - `cameraFocusX/Y/Z`, `cameraDistance`, `cameraYaw`, `cameraPitch`
+- `global/economy.json`
+  - `funds`, `population`, `happiness`
+- `global/districts.json`
+  - 地区種別、中心座標、半径、スコア、地名、読み
+- `global/roads.bin`
+  - 道路ノード、道路エッジ、レーン、断面部品、道路標識
+  - 末尾追記で `RoadObject` と `RoadRoute`
+- `global/guide_signs.json`
+  - **手動編集された案内標識のみ**
+  - 自動生成案内標識はロード後に再計算
+- `chunks/{cx}_{cy}/terrain.bin`
+  - `gridSize(int32)` + `float` ハイトマップ配列
+
+### 0.3 ロード時に再構築している内容
+
+- `NamedDestination` と自動案内標識
+- 自動道路標識 (`recomputeAllAutoSigns`)
+- 建物配置
+  - `districts.json` と道路ネットワークから再生成
+- ゾーン
+  - 地区情報から `applyZonesGlobal()` で再適用
+- 鉄道
+  - `MapGenerator::setupTrain()` で再生成
+
+### 0.4 まだ永続化していない内容
+
+- 車両の現在位置・経路
+- 鉄道ネットワークの編集結果
+- チャンクごとの `zoneMap`
+- チャンクごとの `buildingGrid`
+- 各種 UI 状態
+
+以下の章は中長期の理想設計として残す。
 
 ---
 

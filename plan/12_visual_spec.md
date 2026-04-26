@@ -286,6 +286,40 @@ BuildState:
 
 建物はゾーン・種別・成長段階に応じた箱型メッシュ＋屋根で表現。
 
+### 現行実装（2026-04）
+
+現行の描画は「全建物を箱型」ではなく、**OBJ モデル建物** と **色付き Box 建物** の併用になっている。
+
+```text
+OBJ で描画:
+  Detached / LowApartment / MidApartment / HighApartment
+  Shop / Office
+
+Box で描画:
+  Factory / ParkBuilding / PublicFacility / Parking
+
+非描画:
+  Farmland
+```
+
+- 住宅系 OBJ は `assets/buildings/residential/residential_001..010`
+  - グローバルゾーンセル座標ハッシュからバリアントを選ぶ
+- 商業 OBJ は現状 `shop_001`, `office_001`
+- OBJ は対応する `.toml` の `scale` / `render_scale` を読み、遅延ロードして共有キャッシュする
+- Box 建物は `buildingHeight(type) * 5.0` を高さに使う簡易メッシュ
+- 建物の占有幅は現状すべて `50m x 50m`
+- 接道角 `angle` を持ち、OBJ / Box とも道路方向へ Y 軸回転して描画する
+- チャンク単位で建物描画バッチを再構築する
+
+### 現行 LOD の扱い
+
+- 地形や道路と異なり、**建物専用の距離別 LOD 切替は未実装**
+- Box 建物はチャンクごとにマージメッシュ化
+- OBJ 建物はインスタンス配列を走査して個別描画
+- 選択アウトラインや当たり判定は
+  - OBJ 建物: モデル外接ボックス
+  - Box 建物: 回転済み `OrientedBox`
+
 | 建物種別 | 形状 | 高さ | 屋根 |
 |---------|-----|------|------|
 | 戸建て住宅 | 小さい箱 | 1〜2階 | 切妻・寄棟 |

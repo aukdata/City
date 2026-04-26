@@ -7,6 +7,19 @@
 
 国道番号標識（118、おにぎり）は単一数値表示のため、既存の `RoadSignType::NationalRoute` のまま運用する。
 
+### 現行実装（2026-04）
+
+- `GuideSignPlacement` は `RoadEdge` 内ではなく `RoadNetwork` の独立配列で管理する
+  - `id`, `parentEdgeId`, `sourceNodeId` を持つ
+- 板面内容は `GuideSignEntry` ではなく `Array<SignElement>` で保持する
+  - `Text`, `DestName`, `DestDistance`, `Arrow`, `ArrowNoHead`, `RouteNumber`
+- `widthOverride`, `heightOverride`, `bgColor`, `showReading` を個別指定できる
+- 自動生成標識は保存せず、手動編集標識のみ `global/guide_signs.json` に保存する
+- エッジパネル上の簡易編集に加え、`guide_sign_editor` で WYSIWYG 編集できる
+- 108の2 は丁字路時に `ArrowNoHead` を使う
+- 国道番号アイコンは板面要素として重ね描きできる
+- ポールは `assets/signs/guide/guide_pole.obj` と `guide_pole.json` の組で描画する
+
 ---
 
 ## 1. データモデル
