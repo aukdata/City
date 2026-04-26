@@ -98,6 +98,17 @@ Test/App/Screenshot/
 - **「推測するな。計測せよ。」** — パフォーマンス問題やバグの原因を推測で修正しない。必ず Console 出力やタイマーで実測データを取得し、データに基づいて修正する
 - **コンパイラ警告は基本的にすべて解決すること** — 将来使用する予定のパラメータには `[[maybe_unused]]` を付与し、実際に使われるようになったら除去すること
 
+### Debug Output
+
+ゲーム本体のデバッグでは、ターミナルの `Console <<` に依存せず、原則として `DebugLog` を使うこと。
+
+- `DebugLog::print(U"...")` または `DBG_LOG(U"...")` で出力する
+- 出力はオンスクリーンログと `App/debug.log` の両方に流れる
+- `GameApp::run()` で起動時に `DebugLog::initialize(U"debug.log")`、終了時に `DebugLog::shutdown()` する
+- `App/` をワーキングディレクトリにして起動した場合、ログは `App/debug.log` に生成される
+- バグ調査では、原因を推測で直さず、`DebugLog` に状態・ID・座標・経過時間・失敗理由を出して計測する
+- 既存の `Console <<` を置き換える場合は、ユーザーが明示的に「Consoleに出して」と言っていない限り `DebugLog::print` を優先する
+
 ## Siv3D
 
 コンパイルエラーや API の使い方で迷ったら、まず `plan/SIV3D_NOTES.md` を検索すること。

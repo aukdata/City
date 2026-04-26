@@ -1,5 +1,6 @@
 ﻿#include "GameApp.hpp"
 #include "asset/AssetRegistrar.hpp"
+#include "debug/DebugLog.hpp"
 
 void GameApp::run()
 {
@@ -14,6 +15,8 @@ void GameApp::run()
 	Window::SetTitle(U"Pavecity");
 
 	RegisterAssets();
+	DebugLog::initialize(U"debug.log");
+	DebugLog::print(U"[GameApp] started");
 
 	App manager;
 	manager.add<TitleScene>(SceneState::Title);
@@ -30,6 +33,7 @@ void GameApp::run()
 			data->isNewGame = true;
 			data->saveName.clear();
 			directStart = true;
+			DebugLog::print(U"[GameApp] direct start: new game");
 			break;
 		}
 
@@ -40,6 +44,7 @@ void GameApp::run()
 			data->saveName    = args[i + 1];
 			data->sandboxMode = true;
 			directStart = true;
+			DebugLog::print(U"[GameApp] direct start: load '{}'"_fmt(data->saveName));
 			break;
 		}
 	}
@@ -52,4 +57,7 @@ void GameApp::run()
 		if (!manager.update())
 			break;
 	}
+
+	DebugLog::print(U"[GameApp] stopped");
+	DebugLog::shutdown();
 }
