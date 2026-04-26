@@ -28,6 +28,9 @@ public:
 		float          score  = 0.0f;                ///< 地形適性スコア (0.0〜1.0)
 		String         name;     ///< 地区地名（PlaceNameGenerator が設定）
 		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
+		/// @brief 城下町グリッドの軸方向（generateCastleTown が設定、他は (1,0)/(0,1)）
+		Vec2           gridAxisX{ 1.0f, 0.0f };
+		Vec2           gridAxisZ{ 0.0f, 1.0f };
 	};
 
 	/// @brief initWorld() の結果
@@ -54,9 +57,10 @@ public:
 		ProgressCallback onProgress = {});
 
 	/// @brief 各地区の内部生活道路を格子ベースで生成する（03_procedural_generation_spec.md §4）
+	/// @param settlements 集落配列（城下町の gridAxisX/Z を更新する）
 	static void generateDistrictRoads(
 		uint64 seed,
-		const Array<Settlement>& settlements,
+		Array<Settlement>& settlements,
 		const World& world,
 		RoadNetwork& network,
 		ProgressCallback onProgress = {});

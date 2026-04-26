@@ -7,6 +7,7 @@
 void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
                                const HashTable<int, TrafficLight>& lights)
 {
+	// 車線単位の探索グラフを毎回作り直し、前進・車線変更・交差点遷移を明示辺として張り直す。
 	m_laneNodes.clear();
 	m_borderNodes.clear();
 	m_entryNodeIds.clear();
@@ -160,6 +161,7 @@ void TrafficGraph::ufUnion(int a, int b)
 
 void TrafficGraph::buildUnionFind()
 {
+	// 探索前に連結成分を作っておき、到達不能なゴールは Dijkstra 前に即座に弾けるようにする。
 	m_ufParent.clear();
 	m_ufRank.clear();
 
@@ -199,6 +201,7 @@ bool TrafficGraph::sameComponent(int nodeA, int nodeB) const
 
 PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 {
+	// 車線ノード上で Dijkstra を回し、ゴールエッジへ入った最初のノードから経路を復元する。
 	PathResult result;
 
 	if (m_laneNodes.find(startLaneNodeId) == m_laneNodes.end())

@@ -6,12 +6,14 @@ TitleScene::TitleScene(const InitData& init)
 	, m_selectedSeed{ getData().seed }
 	, m_sandboxMode{ getData().sandboxMode }
 {
+	// タイトル表示前に前回値を UI 状態へ反映し、保存データ一覧もここで読み込んでおく。
 	m_seedTextState.text = Format(m_selectedSeed);
 	scanSaves();
 }
 
 void TitleScene::scanSaves() const
 {
+	// saves/ 直下の有効セーブだけを列挙し、ロードリスト用に名前一覧を作り直す。
 	m_saveNames.clear();
 	const FilePath savesDir = U"saves";
 	if (!FileSystem::Exists(savesDir)) return;
@@ -35,6 +37,7 @@ void TitleScene::scanSaves() const
 
 void TitleScene::update()
 {
+	// タイトル画面では入力結果を SceneData へ反映し、新規開始かロードかだけを切り替えて遷移する。
 	if (m_startRequested)
 	{
 		getData().seed        = m_selectedSeed;
@@ -56,6 +59,7 @@ void TitleScene::update()
 
 void TitleScene::draw() const
 {
+	// 左に新規生成、右にセーブロードを固定配置し、開始前に必要な選択肢を一画面へ収める。
 	const auto& titleFont = FontAsset(Asset::TitleBold46);
 	const auto& subFont   = FontAsset(Asset::Sub16);
 	const auto& labelFont = FontAsset(Asset::Label17);

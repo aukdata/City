@@ -2,6 +2,7 @@
 
 namespace
 {
+	// TOML 内の配列定義を描画・配置で使う固定長ベクトルへ安全に変換する。
 	Float4 parseUvRect(const TOMLValue& v)
 	{
 		if (v.isEmpty() || v.arrayCount() < 4) return { 0, 0, 0, 0 };
@@ -28,6 +29,7 @@ namespace
 
 bool SignalRegistry::load(FilePathView dirPath)
 {
+	// 信号機定義ディレクトリを走査し、各 TOML をモデル・テクスチャ込みの登録エントリへ変換する。
 	int count = 0;
 	for (const auto& entry : FileSystem::DirectoryContents(dirPath))
 	{
@@ -63,6 +65,7 @@ const SignalModel* SignalRegistry::getModel(StringView id) const
 
 Array<String> SignalRegistry::defIds() const
 {
+	// UI 選択用に、登録済み定義 ID だけをフラットな配列へ取り出す。
 	Array<String> ids;
 	ids.reserve(m_entries.size());
 	for (const auto& [key, _] : m_entries) ids << key;
@@ -71,6 +74,7 @@ Array<String> SignalRegistry::defIds() const
 
 Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath, FilePathView baseDir)
 {
+	// 1 つの TOML から表示定義とモデル資産をまとめて復元し、描画で即使える形へ組み立てる。
 	const TOMLReader toml{ tomlPath };
 	if (!toml)
 	{
@@ -151,7 +155,7 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		}
 	}
 
-	// OBJ モデルロード
+	// OBJ は読み込み後に座標系と UV を描画都合に合わせて補正し、メッシュ名で引ける形に詰める。
 	SignalModel model;
 	if (!def.modelPath.isEmpty() && FileSystem::Exists(def.modelPath))
 	{
@@ -200,7 +204,7 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		Console << U"[SignalRegistry] " << def.id << U": " << meshes.size() << U" meshes loaded";
 	}
 
-	// テクスチャロード
+	// テクスチャは存在する場合だけ後付けし、モデル未使用定義も扱えるようにする。
 	if (!def.texturePath.isEmpty() && FileSystem::Exists(def.texturePath))
 	{
 		model.texture = Texture{ def.texturePath, TextureDesc::MippedSRGB };

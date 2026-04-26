@@ -59,6 +59,7 @@ namespace
 
 void MinimapRenderer::buildTerrainTexture(const World& world)
 {
+	// ワールド全体を固定解像度へサンプリングし、標高ベースの地形テクスチャを事前生成する。
 	m_worldMinX = 0.0f;
 	m_worldMinZ = 0.0f;
 	m_worldMaxX = WORLD_SIZE;
@@ -85,6 +86,7 @@ void MinimapRenderer::buildTerrainTexture(const World& world)
 
 void MinimapRenderer::updateRoadOverlay(const RoadNetwork& network, [[maybe_unused]] const World& world)
 {
+	// 道路はベジェを短区間へ分割して別テクスチャへ焼き込み、地形の上へ重ねて表示する。
 	m_roadImage = Image{ kMapSize, kMapSize, Color{ 0, 0, 0, 0 } };
 
 	for (const auto& edge : network.edges())
@@ -111,6 +113,7 @@ void MinimapRenderer::updateRoadOverlay(const RoadNetwork& network, [[maybe_unus
 void MinimapRenderer::updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
                                                const RoadNetwork& network)
 {
+	// 局所更新では変更ノード周辺の道路だけを消して描き直し、全面再生成を避ける。
 	if (m_roadImage.isEmpty()) return;
 
 	// 変更ノードに接続するエッジを収集
@@ -172,6 +175,7 @@ void MinimapRenderer::updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
 
 void MinimapRenderer::update(PanelManager& panels)
 {
+	// 右上ミニマップのクリックを拡大パネル表示へ変換し、パネル操作中の誤反応は抑止する。
 	if (m_terrainTex.isEmpty()) return;
 
 	// 小さいミニマップをクリック → 拡大パネルを表示（パネル上のクリックは無視）
@@ -239,6 +243,7 @@ void MinimapRenderer::drawMapContent(const RectF& rect,
                                      const Array<MapGenerator::Settlement>& settlements,
                                      bool showLabels) const
 {
+	// 小マップと拡大マップはこの共通描画へ集約し、背景・道路・ラベル・視点表示を同じ手順で描く。
 	// 地形テクスチャ
 	m_terrainTex.resized(rect.size).draw(rect.pos);
 

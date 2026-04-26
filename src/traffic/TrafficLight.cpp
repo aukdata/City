@@ -10,6 +10,7 @@ TrafficLight::TrafficLight(int nodeId, Array<SignalPhase> phases)
 
 void TrafficLight::update(GameTime gameNow)
 {
+	// 現在フェーズの青時間と黄時間をまとめて 1 周期とみなし、時間超過で次フェーズへ進める。
 	if (m_phases.isEmpty())
 	{
 		return;
@@ -25,6 +26,7 @@ void TrafficLight::update(GameTime gameNow)
 
 bool TrafficLight::isGreen(int connectionId) const
 {
+	// 信号判定は現在フェーズの許可接続一覧だけを参照し、未設定信号は常時通行可として扱う。
 	if (m_phases.isEmpty())
 	{
 		return true;
@@ -67,6 +69,7 @@ float TrafficLight::currentPhaseDuration() const
 
 float TrafficLight::expectedWaitTime(int connectionId) const
 {
+	// 待ち時間は厳密予測ではなく、今が赤なら現在フェーズ残り相当を返す保守的近似に留める。
 	if (m_phases.isEmpty())
 	{
 		return 0.0f;

@@ -10,6 +10,7 @@
 class MinimapRenderer
 {
 public:
+	// 地形と道路の事前生成テクスチャを持ち、小マップ表示と拡大パネル表示の両方を担当する。
 	/// @brief 地形テクスチャを生成する（ロード完了後に1回呼ぶ）
 	void buildTerrainTexture(const World& world);
 

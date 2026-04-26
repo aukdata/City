@@ -3,7 +3,7 @@
 
 double Economy::monthlyGrant() const
 {
-	// 交付単価 [億円/人/月]（04_gameplay_detail_spec.md §2、仕様値×0.1 で初期値1.5億に合わせる）
+	// 交付金は人口帯ごとの基本単価を土台にし、幸福度で軽く増減させる。
 	double rate;
 	if      (population <  5000) rate = 0.000080;
 	else if (population < 20000) rate = 0.000100;
@@ -12,7 +12,6 @@ double Economy::monthlyGrant() const
 
 	double grant = static_cast<double>(population) * rate;
 
-	// 幸福度ボーナス・ペナルティ
 	if      (happiness >= 0.80) grant *= 1.1;
 	else if (happiness <  0.40) grant *= 0.8;
 
@@ -21,7 +20,7 @@ double Economy::monthlyGrant() const
 
 double Economy::roadMaintenanceCost(const RoadNetwork& net) const
 {
-	// 道路維持費 [億円/km/月]（04_gameplay_detail_spec.md §3）
+	// 維持費は道路種別ごとの km 単価を全エッジへ積み上げ、月次固定費として集計する。
 	double total = 0.0;
 	for (const auto& edge : net.edges())
 	{
@@ -42,6 +41,7 @@ double Economy::roadMaintenanceCost(const RoadNetwork& net) const
 
 void Economy::applyMonthly(const RoadNetwork& net)
 {
+	// 月初処理では収入と維持費をまとめて資金へ反映し、経済状態を一段進める。
 	funds += monthlyGrant();
 	funds -= roadMaintenanceCost(net);
 }

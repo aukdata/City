@@ -90,6 +90,7 @@ struct RouteWaypoint
 /// @brief 車両エージェント
 struct Vehicle
 {
+	// 車両 1 台分の状態を、経路・物理・LOD モード・停車状態まで含めて 1 つに保持する。
 	int          id          = -1;
 	VehicleType  type        = VehicleType::PassengerCar;
 

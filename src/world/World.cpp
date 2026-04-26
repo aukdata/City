@@ -3,6 +3,7 @@
 
 void World::reserveChunks()
 {
+	// 全チャンクを先に確保して座標だけ割り当て、後続処理は固定インデックスで参照できるようにする。
 	m_chunks.reserve(WORLD_CHUNKS * WORLD_CHUNKS);
 	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
 		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
@@ -11,6 +12,7 @@ void World::reserveChunks()
 
 void World::installChunkDirect(Point coord, HeightMapResult&& hmr)
 {
+	// 生成済み地形結果を指定チャンクへ直接注入し、高さ範囲と開発可否の初期状態も揃える。
 	if (!isValidCoord(coord)) return;
 
 	Chunk& chunk = m_chunks[coordToIndex(coord)];
@@ -22,6 +24,7 @@ void World::installChunkDirect(Point coord, HeightMapResult&& hmr)
 
 void World::update(Vec3 cameraWorldPos)
 {
+	// カメラ中心チャンクが変わった時だけ active 範囲を張り直し、描画・更新対象キャッシュを更新する。
 	const Point newChunk = worldToChunkCoord(cameraWorldPos);
 
 	if (newChunk == m_cameraChunk)
@@ -80,6 +83,7 @@ Chunk* World::getChunk(Point coord)
 
 void World::rebuildActiveChunkCache()
 {
+	// Active 状態のチャンク参照だけを配列化し、毎フレームの走査対象を絞る。
 	m_activeChunks.clear();
 	m_activeChunksConst.clear();
 	for (auto& chunk : m_chunks)
@@ -114,6 +118,7 @@ float World::sampleHeight(float wx, float wz) const
 
 void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 {
+	// 地形生成で参照する乱数種とマップ寸法をまとめて差し替え、Perlin も同じ種で再初期化する。
 	m_seed     = seed;
 	m_mapWidth = mapWidth;
 	m_mapDepth = mapDepth;
@@ -147,6 +152,7 @@ float World::adjustContinentalness(float rawCont, float wx, float wz) const
 
 void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
 {
+	// continentalness と mountainness の 2 軸ノイズから、連続補間で基底高と起伏量を決める。
 	// 2つの独立した低周波ノイズ (0〜1)
 	const float rawCont = static_cast<float>(
 		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
@@ -206,6 +212,7 @@ void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp
 
 BiomeType World::getBiome(float wx, float wz) const
 {
+	// 地形連続値とは別に、描画や生成ルールで使う離散バイオームを閾値ベースで分類する。
 	const float rawCont = static_cast<float>(
 		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
 	const float cont = adjustContinentalness(rawCont, wx, wz);
@@ -286,6 +293,7 @@ float World::computeHeight(float wx, float wz) const
 
 HeightMapResult World::buildHeightMap(Point chunkCoord) const
 {
+	// 1 チャンク分の格子点高さをまとめて生成し、最小・最大標高も同時に記録する。
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	Grid<float> hm(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 0.0f);
 	float lo =  1e30f;

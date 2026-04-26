@@ -2,6 +2,7 @@
 
 int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
 {
+	// ノードは連番 ID で所有し、駅や分岐点を同じ配列上で管理する。
 	TrackNode node;
 	node.id       = m_nextNodeId++;
 	node.position = pos;
@@ -13,6 +14,7 @@ int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
 
 int TrainNetwork::addEdge(int nodeA, int nodeB, Vec3 ctrlA, Vec3 ctrlB, float speedLimit)
 {
+	// エッジ追加時に曲線長と接続関係をまとめて確定し、以後の走行計算で再計算を避ける。
 	TrackEdge edge;
 	edge.id         = m_nextEdgeId++;
 	edge.nodeA      = nodeA;
@@ -39,6 +41,7 @@ int TrainNetwork::addEdge(int nodeA, int nodeB, Vec3 ctrlA, Vec3 ctrlB, float sp
 
 int TrainNetwork::addStation(Vec3 pos, const String& name)
 {
+	// 駅は通常ノード生成の薄いラッパーとして扱い、種別だけ明示して追加する。
 	return addNode(pos, TrackNodeType::Station, name);
 }
 
@@ -68,6 +71,7 @@ const TrackEdge* TrainNetwork::getEdge(int id) const
 
 Optional<CubicBezier> TrainNetwork::getBezier(int edgeId) const
 {
+	// 線路形状は edge 単体では完結しないため、両端ノード位置と制御点から都度復元する。
 	const int i = edgeIndex(edgeId);
 	if (i < 0) return none;
 	const TrackEdge& e = m_edges[i];
@@ -81,6 +85,7 @@ Optional<CubicBezier> TrainNetwork::getBezier(int edgeId) const
 
 bool TrainNetwork::tryOccupy(int edgeId, int trainId)
 {
+	// 単線区間の衝突を避けるため、占有は空き区間か自列車の再取得だけを許可する。
 	TrackEdge* e = getEdge(edgeId);
 	if (!e) return false;
 	if (e->occupiedBy >= 0 && e->occupiedBy != trainId) return false;
@@ -97,11 +102,13 @@ void TrainNetwork::releaseOccupy(int edgeId, int trainId)
 
 void TrainNetwork::addSchedule(TrainSchedule schedule)
 {
+	// 時刻表は列車生成側がそのまま参照できる配列へ順次積み増すだけに留める。
 	m_schedules << std::move(schedule);
 }
 
 int TrainNetwork::nodeIndex(int id) const
 {
+	// 現状の規模では線形探索で十分とし、実装の単純さを優先する。
 	for (int i = 0; i < static_cast<int>(m_nodes.size()); ++i)
 		if (m_nodes[i].id == id) return i;
 	return -1;
@@ -109,6 +116,7 @@ int TrainNetwork::nodeIndex(int id) const
 
 int TrainNetwork::edgeIndex(int id) const
 {
+	// エッジ数が少ない前提で、ID 解決は単純な線形探索を維持する。
 	for (int i = 0; i < static_cast<int>(m_edges.size()); ++i)
 		if (m_edges[i].id == id) return i;
 	return -1;

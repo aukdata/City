@@ -11,6 +11,7 @@ Array<int> buildPlanned(
 	const Array<int>& routeIds,
 	const RoadEdge& templateEdge)
 {
+	// 始点終点を囲う範囲だけで簡易経路探索を行い、その結果を Planned 状態の道路列へ変換する。
 	const float sx = static_cast<float>(startWorld.x);
 	const float sz = static_cast<float>(startWorld.z);
 	const float ex = static_cast<float>(goalWorld.x);
@@ -65,8 +66,7 @@ Array<int> buildPlanned(
 	Array<int> edgeIds;
 	pf.pathToRoadEdges(wps, roads, templateEdge.roadType, numLanes, startNodeId, goalNodeId, &edgeIds);
 
-	// テンプレートの parts / lanes / その他設定を反映し、Planned 状態にする
-	// （addEdge のデフォルトは Open のため、edgeState は明示的に上書きする）
+	// 生成済みエッジへテンプレート断面と状態を適用し、編集前の計画道路として揃える。
 	for (const int eid : edgeIds)
 	{
 		if (RoadEdge* edge = roads.getEdge(eid))
@@ -76,7 +76,7 @@ Array<int> buildPlanned(
 		}
 	}
 
-	// ルート紐付け
+	// 指定路線があれば新設エッジをまとめて所属させ、逆引きも更新する。
 	if (!routeIds.isEmpty() && !edgeIds.isEmpty())
 	{
 		for (const int rid : routeIds)

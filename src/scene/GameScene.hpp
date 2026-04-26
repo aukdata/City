@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <future>
 #include <atomic>
+#include <mutex>
 #include "SceneCommon.hpp"
 #include "../ui/PanelManager.hpp"
 #include "../sim/SimGraph.hpp"
@@ -46,14 +47,19 @@ public:
 private:
 	// ---- ゲームフェーズ ----
 	enum class GamePhase { Loading, Playing };
+	enum class LoadingTask { NewGame, LoadGame };
 	GamePhase m_phase = GamePhase::Loading;
+	LoadingTask m_loadingTask = LoadingTask::NewGame;
 
 	// ---- ローディング管理 ----
 	int       m_totalInitChunks  = 0;    ///< 初期チャンク総数
 	Stopwatch m_loadingTimer;            ///< 生成/ロード開始からの経過時間
+	mutable std::mutex m_loadingTextMutex;
 	String    m_loadingStatus;           ///< 現在実行中の処理内容
 	String    m_loadingTitle;            ///< ローディング画面のタイトル
 	bool      m_loadGameResult = false;  ///< loadGame() の結果（非同期完了後に参照）
+	bool      m_loadingFailed = false;
+	String    m_loadingError;
 
 	/// @brief バックグラウンド生成/ロードの非同期タスク
 	std::future<void> m_generationFuture;
@@ -291,7 +297,11 @@ private:
 	void drawLoadingScreen(float progress);
 	void startSimThread();
 	/// @brief ローディングフェーズを開始する（共通初期化 + async 起動）
-	void startLoadingPhase(StringView title, StringView status, std::function<void()> pipeline);
+	void startLoadingPhase(LoadingTask task, StringView title, StringView status, std::function<void()> pipeline);
+	void setLoadingTitleAndStatus(StringView title, StringView status);
+	void setLoadingStatus(StringView status);
+	String loadingTitleSnapshot() const;
+	String loadingStatusSnapshot() const;
 
 	// ---- バックグラウンド生成パイプライン ----
 	void generateAllTerrain();
@@ -300,6 +310,7 @@ private:
 	void generateDistrictRoads();
 	void postProcessRoads();
 	void placeInitialBuildings();
+	void refreshBuildingAnglesFromEdges();
 
 	/// @brief m_districts の各地区に対応する最寄り RoadNode を
 	///   NamedDestination として RoadNetwork に登録し、案内標識を自動生成する。

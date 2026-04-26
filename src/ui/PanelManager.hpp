@@ -5,6 +5,7 @@
 /// @brief パネルの状態
 struct PanelState
 {
+	// パネルの表示状態と入力補助情報を 1 レコードにまとめ、ID で直接引けるようにする。
 	String id;
 	String title;
 	Vec2   pos;
@@ -28,6 +29,7 @@ struct ScopedContentArea
 class PanelManager
 {
 public:
+	// 各 UI パネルの表示順・入力遮蔽・スクロールを一元管理し、個別パネル実装を薄く保つ。
 	static constexpr int kTitleBarH = 24;
 
 	/// @brief パネルを登録する（初回のみ）

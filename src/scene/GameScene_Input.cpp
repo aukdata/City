@@ -79,6 +79,7 @@ GameScene::ElevatedHitResult GameScene::raycastElevated(Vec2 screenPos) const
 
 void GameScene::handleInput()
 {
+	// ゲーム内入力の仲裁をここに集約し、UI フォーカス・一時停止・編集モードの優先順位を先に確定する。
 	// テキスト入力フォーカス中はゲーム入力を抑制（ESC のみ通す）
 	if (PanelWidget::activeTextInput != nullptr)
 	{
@@ -302,6 +303,7 @@ void GameScene::handleInput()
 	else if (m_mode == EditMode::SandboxEdit)  handleSandboxEdit();
 	else if (m_mode == EditMode::None)
 	{
+		// 通常モードでは 3D ハンドル操作を最優先し、未消費時だけ通常の選択クリックに流す。
 		// エッジ選択中は 3D ハンドルのドラッグ/ヒットテストを優先
 		const bool handleConsumed = handleEdgeHandleInput();
 		if (!handleConsumed
@@ -674,6 +676,7 @@ bool GameScene::handleEdgeHandleInput()
 
 void GameScene::handleSelectionClick()
 {
+	// ワールド上の候補を優先順位つきで走査し、対応する情報パネルと選択状態を一貫して切り替える。
 	// 車両 -> ノード -> エッジの優先順でクリック判定
 	Optional<int> hitVehicleId;
 	{
@@ -856,6 +859,7 @@ std::pair<Vec3, Vec3> GameScene::calcRoadDrawControlPoints(int startNodeId, Vec3
 
 void GameScene::handleRoadDraw()
 {
+	// 道路敷設モードでは、自動敷設・テンプレート取得・既存道路への接続を同じ入力フローで扱う。
 	// PgUp/PgDown: 高さオフセットを変更（キー操作はパネル上でも有効）
 	{
 		constexpr float kElevStep = 1.0f;
@@ -1189,6 +1193,7 @@ void GameScene::handleTrainDraw()
 void GameScene::handleSandboxEdit()
 {
 	if (!m_cursorGroundPos) return;
+	// サンドボックス編集ではノード移動と制御点移動を直接反映し、周辺キャッシュだけ局所的に失効させる。
 	// ドラッグ継続中（MouseL.pressed かつドラッグ対象が確定済み）はパネル上でも処理を続ける
 	const bool dragging = MouseL.pressed() && (m_sandboxDragNode || m_sandboxDragCtrl);
 	if (!dragging && m_panelManager.blocksMouseInput()) return;

@@ -22,6 +22,7 @@ enum class RoadArrowType : uint8
 /// @details 全ての公開関数は純粋関数（メンバ状態なし）。
 namespace RoadArrow
 {
+	// 路面標示矢印は交差点接続から純粋関数で推論し、別途キャッシュを持たない設計にする。
 	// ===== 寸法定数 =====
 
 	/// @brief 全長（進行方向）[m]

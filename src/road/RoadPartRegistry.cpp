@@ -44,6 +44,7 @@ namespace
 
 bool RoadPartRegistry::load(FilePathView dirPath)
 {
+	// 部品定義ディレクトリを走査し、TOML ごとに見た目定義とモデルを束ねて登録する。
 	int count = 0;
 
 	for (const auto& entry : FileSystem::DirectoryContents(dirPath))
@@ -89,6 +90,7 @@ Array<String> RoadPartRegistry::defIds() const
 
 Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlPath, FilePathView baseDir)
 {
+	// 1 つの道路部品定義から寸法・材質・LOD・モデルを読み取り、描画で使う完成形へ組み立てる。
 	const TOMLReader toml{ tomlPath };
 	if (!toml)
 	{
@@ -153,14 +155,14 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 		}
 	}
 
-	// テクスチャロード（同一パスのアセットは TextureAsset で共有される）
+	// テクスチャは共有アセットとして先に登録し、同一路面材の重複ロードを避ける。
 	if (!def.texturePath.isEmpty() && FileSystem::Exists(def.texturePath))
 	{
 		TextureAsset::Register(def.texturePath, def.texturePath, TextureDesc::MippedSRGB);
 		def.texture = TextureAsset(def.texturePath);
 	}
 
-	// OBJ モデルロード
+	// OBJ は inner/center/outer 構成の部品モデルへ変換し、左右対称補完もここで反映する。
 	RoadPartModel model;
 	if (!def.modelPath.isEmpty() && FileSystem::Exists(def.modelPath))
 	{

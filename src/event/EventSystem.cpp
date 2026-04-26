@@ -75,6 +75,7 @@ void EventSystem::update(GameTime gameNow, [[maybe_unused]] uint8 month, [[maybe
 
 void EventSystem::rollMonthly(GameTime gameNow, uint8 month, const RoadNetwork& network)
 {
+	// 月替わりごとに季節イベントを確定し、さらに条件に合うランダムイベントを 1 回だけ抽選する。
 	if (m_lastRollMonth == static_cast<int>(month)) return;
 	m_lastRollMonth = static_cast<int>(month);
 
@@ -95,6 +96,7 @@ float EventSystem::globalSpeedMultiplier() const
 
 Array<GameEvent> EventSystem::popNewNotifications()
 {
+	// 新着通知は UI 側で一度だけ消費できるよう、保留配列を丸ごと受け渡して空にする。
 	Array<GameEvent> out = std::move(m_pendingNotifications);
 	m_pendingNotifications.clear();
 	return out;
@@ -102,6 +104,7 @@ Array<GameEvent> EventSystem::popNewNotifications()
 
 void EventSystem::addEvent(GameEvent ev)
 {
+	// 発生イベントは通知待ちキューと有効イベント一覧の両方へ積み、同時に寿命管理対象へ載せる。
 	ev.id = m_nextId++;
 	ev.notified = false;
 	m_pendingNotifications << ev;
@@ -110,6 +113,7 @@ void EventSystem::addEvent(GameEvent ev)
 
 void EventSystem::removeExpired(GameTime now)
 {
+	// 期限を過ぎたイベントだけを落とし、速度補正などの全体効果を自動的に現在分へ絞る。
 	m_active.remove_if([now](const GameEvent& ev) { return ev.endAt < now; });
 }
 
@@ -119,6 +123,7 @@ void EventSystem::removeExpired(GameTime now)
 
 Optional<GameEvent> EventSystem::buildSeasonalEvent(uint8 month, GameTime now) const
 {
+	// 季節イベントは月テーブルから固定で 1 件選び、その場で有効期間付きイベントへ展開する。
 	for (const auto& def : kSeasonalEvents)
 	{
 		if (def.month != month) continue;
@@ -142,6 +147,7 @@ Optional<GameEvent> EventSystem::buildSeasonalEvent(uint8 month, GameTime now) c
 Optional<GameEvent> EventSystem::rollRandomEvent(uint8 month, GameTime now,
                                                   [[maybe_unused]] const RoadNetwork& network) const
 {
+	// ランダムイベントは月条件と確率を順に評価し、最初に成立した候補をその月の突発事象として採用する。
 	for (const auto& def : kRandomEvents)
 	{
 		if (!isMonthInRange(month, def.monthMin, def.monthMax)) continue;

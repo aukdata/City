@@ -1481,6 +1481,7 @@ void RoadNetwork::recomputeAutoGuideSignsForEdge(int edgeId)
 
 void RoadNetwork::recomputeAutoGuideSignsForNode(int nodeId)
 {
+	// このノード起点の自動案内標識だけを張り直し、手動配置や他ノード由来の標識は残す。
 	// sourceNodeId == nodeId の自動標識を一括削除
 	Array<int> removeIds;
 	for (const auto& g : m_guideSigns)
@@ -1724,6 +1725,7 @@ String RoadNetwork::generateAutoRouteName(RoadRouteKind kind, int* outNumber) co
 
 int RoadNetwork::addRoute(RoadRouteKind kind, String name, Array<int> edgeIds, int number)
 {
+	// 路線本体の登録と、各エッジから見た routeIds 逆引きの更新を同時に行う。
 	// 空名なら自動命名
 	if (name.isEmpty())
 	{
@@ -1800,6 +1802,7 @@ const RoadRoute* RoadNetwork::getRoute(int id) const
 
 void RoadNetwork::rebuildEdgeRouteIndex()
 {
+	// セーブ復元や一括編集後に、路線→エッジ情報からエッジ側の逆引きを再構築する。
 	// 全 edge の routeIds をクリア
 	for (auto& e : m_edges)
 	{
@@ -1870,6 +1873,7 @@ Array<std::pair<int, float>> RoadNetwork::routeSignAnchors(
 
 void RoadNetwork::onEdgeRemovedFromRoutes(int edgeId)
 {
+	// 路線の途中エッジが消えたときは、末端短縮か中間分割で経路の連続性を保ち直す。
 	// edge が所属する route の順序を保持したまま処理するため、
 	// m_routes のインデックスを走査（新 route 追加時に m_routes が拡張される点に注意）
 	// ここでは id ベースの snapshot を取ってから処理する
@@ -2539,4 +2543,3 @@ void RoadNetwork::generatePiersForEdge(int edgeId, const World& world)
 		}
 	}
 }
-

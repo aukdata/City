@@ -19,6 +19,70 @@ enum class BuildingType : uint8
 	Parking        = 11,  ///< 駐車場
 };
 
+/// @brief 建物占有幅 [m]（従来サイズ維持）
+/// @details 旧実装では base(10m) * scale(5.0) = 50m だったため、固定 50m とする。
+inline constexpr float kBuildingFootprintXZ = 50.0f;
+
+/// @brief 建物占有幅 [m]
+inline float buildingFootprintXZ()
+{
+	return kBuildingFootprintXZ;
+}
+
+/// @brief 住宅系建物かどうか
+inline bool isResidentialBuildingType(BuildingType t)
+{
+	return t == BuildingType::Detached
+	    || t == BuildingType::LowApartment
+	    || t == BuildingType::MidApartment
+	    || t == BuildingType::HighApartment;
+}
+
+/// @brief 住宅タイプ + グローバルセル座標から OBJ インデックス（0..9）を返す
+inline uint8 residentialModelIndex(BuildingType t, int gx, int gz)
+{
+	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
+	               ^ (static_cast<uint32>(gz) * 19349663u);
+	switch (t)
+	{
+	case BuildingType::Detached:      return 0;                            // 001
+	case BuildingType::LowApartment:  return static_cast<uint8>(1 + h % 2); // 002-003
+	case BuildingType::MidApartment:  return static_cast<uint8>(3 + h % 3); // 004-006
+	case BuildingType::HighApartment: return static_cast<uint8>(6 + h % 4); // 007-010
+	default:                          return 0;
+	}
+}
+
+/// @brief OBJ で描画する建物種別かどうか
+inline bool isObjBuildingType(BuildingType t)
+{
+	return isResidentialBuildingType(t)
+	    || t == BuildingType::Shop
+	    || t == BuildingType::Office;
+}
+
+/// @brief 建物タイプ + グローバルセル座標から OBJ ファイルの stem（拡張子なし）を返す
+/// @example "residential_001", "shop_001", "office_001"
+inline bool tryGetBuildingModelStem(BuildingType t, int gx, int gz, String& outStem)
+{
+	if (isResidentialBuildingType(t))
+	{
+		outStem = U"residential_{:03d}"_fmt(residentialModelIndex(t, gx, gz) + 1);
+		return true;
+	}
+	if (t == BuildingType::Shop)
+	{
+		outStem = U"shop_001";
+		return true;
+	}
+	if (t == BuildingType::Office)
+	{
+		outStem = U"office_001";
+		return true;
+	}
+	return false;
+}
+
 /// @brief 建物の収容人口を返す（住宅系のみ正値、05_zoning_spec.md §1）
 inline int buildingCapacity(BuildingType t)
 {
@@ -73,7 +137,9 @@ inline ColorF buildingColor(BuildingType type)
 /// @brief チャンク内1ゾーンセルの建物データ
 struct Building
 {
-	BuildingType type    = BuildingType::None;
-	double       builtAt = 0.0;    ///< 建設時刻 [ゲーム秒]
-	float        angle   = 0.0f;   ///< 道路方向角 [rad] (XZ平面・Y軸回転)
+	BuildingType type      = BuildingType::None;
+	double       builtAt  = 0.0;              ///< 建設時刻 [ゲーム秒]
+	float        angle    = 0.0f;             ///< 道路方向角 [rad] (XZ平面・Y軸回転)
+	int32        edgeId   = -1;               ///< 接道している RoadEdge id（未設定は -1）
+	float        edgeT    = 0.0f;             ///< 接道位置のパラメータ t (0..1)
 };

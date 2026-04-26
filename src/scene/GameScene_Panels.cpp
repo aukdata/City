@@ -105,6 +105,7 @@ namespace
 	bool drawRoadSections(RoadEdge& edge, SectionEditState& st,
 	                      const Font& pFont, const Font& pBold, int pX, int& y)
 	{
+		// 道路断面の部品列と車線列を同じスケール上で編集し、ドラッグ変更をその場で edge に反映する。
 		constexpr int kBarX = 6;
 		constexpr int kBarW = 356;
 		constexpr int kPartBarH = 36;
@@ -1740,6 +1741,22 @@ void GameScene::drawBuildingPanel()
 		ui.label(U"収容: {} 人"_fmt(cap), ColorF{1.0});
 	ui.label(U"建設時刻: {:.1f}"_fmt(b.builtAt), ColorF{0.8, 0.8, 0.8});
 	ui.label(U"向き: {:.1f}°"_fmt(Math::ToDegrees(b.angle)), ColorF{0.8, 0.8, 0.8});
+	ui.label(U"接道エッジ: {}  t={:.3f}"_fmt(b.edgeId, b.edgeT), ColorF{0.8, 0.8, 0.8});
+	if (b.edgeId >= 0)
+	{
+		if (const auto bez = m_network.getBezier(b.edgeId))
+		{
+			const float t = Clamp(b.edgeT, 0.0f, 1.0f);
+			const float arc = bez->totalLength * t;
+			Vec3 p = bez->positionAt(arc);
+			if (const RoadEdge* e = m_network.getEdge(b.edgeId))
+			{
+				if (e->useElevation) p.y += 4.0;
+				else p.y = m_world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z));
+			}
+			ui.label(U"接道位置: ({:.1f}, {:.1f}, {:.1f})"_fmt(p.x, p.y, p.z), ColorF{0.8, 0.8, 0.8});
+		}
+	}
 	ui.label(U"位置: ({:.0f}, {:.0f})"_fmt(cx, cz), ColorF{0.8, 0.8, 0.8});
 	ui.label(U"Chunk({}, {}) Cell({}, {})"_fmt(ref.chunkX, ref.chunkZ, ref.col, ref.row),
 		ColorF{0.6, 0.6, 0.6});

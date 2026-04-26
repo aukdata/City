@@ -7,6 +7,7 @@
 ///          対応行: o, v, vt, vn, f（三角面/四角面）
 namespace ObjParser
 {
+	// 道路部品用 OBJ は CPU メッシュとして読み込み、後段で断面部品モデルへ再構成する。
 	/// @brief OBJ ファイルをパースし、オブジェクト名ごとに PartModelData に分割する
 	/// @param path OBJ ファイルのパス
 	/// @return オブジェクト名付きメッシュデータの配列。失敗時は空配列

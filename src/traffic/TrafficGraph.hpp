@@ -16,6 +16,7 @@ enum class GraphEdgeType : uint8
 /// @brief 経路探索グラフの有向辺
 struct GraphEdge
 {
+	// 探索辺は遷移種別とコストだけを持つ軽量表現にし、Dijkstra 側の扱いを単純化する。
 	GraphEdgeType type      = GraphEdgeType::Forward;
 	int           toNodeId  = -1;
 	float         cost      = 0.0f;
@@ -27,6 +28,7 @@ struct GraphEdge
 /// @brief 車線ノード（あるエッジの、ある車線の、ある端点）
 struct LaneNode
 {
+	// LaneNode は「エッジ端点上の特定車線」を表し、経路探索の基本単位になる。
 	int   id        = -1;
 	int   edgeId    = -1;
 	int   laneIndex = 0;
@@ -38,6 +40,7 @@ struct LaneNode
 /// @brief 境界ノード（エッジがチャンク境界をまたぐ地点）
 struct BorderNode
 {
+	// BorderNode は将来のチャンク跨ぎ分割を見据えた拡張点で、現状も同じグラフ上で扱える形にしている。
 	int   id        = -1;
 	int   edgeId    = -1;
 	int   laneIndex = 0;
@@ -85,6 +88,7 @@ struct PathResult
 class TrafficGraph
 {
 public:
+	// TrafficGraph は SimGraph から生成される探索専用グラフで、経路探索と連結性判定を担当する。
 	/// @brief SimGraph からグラフを再構築する
 	/// @param lights 信号機マップ（nodeId → TrafficLight）。Transition コストに待ち時間を加算する
 	void rebuild(const SimGraph& graph, GameTime now,

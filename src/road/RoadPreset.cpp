@@ -7,6 +7,7 @@
 
 namespace
 {
+	// プリセット保存では parts / lanes を JSON へ個別展開し、道路テンプレートを丸ごと復元可能にする。
 	static JSON partToJson(const RoadPart& part)
 	{
 		JSON j;
@@ -88,6 +89,7 @@ namespace
 
 RoadTemplatePreset RoadTemplatePreset::fromEdge(const RoadEdge& edge, const String& name)
 {
+	// 現在のエッジ断面を、そのまま再利用できる描画プリセットへ写し取る。
 	RoadTemplatePreset preset;
 	preset.name       = name;
 	preset.roadType   = edge.roadType;
@@ -120,6 +122,7 @@ String RoadTemplatePreset::autoName(const RoadEdge& edge)
 
 void RoadPresetStore::load()
 {
+	// ユーザ保存済みプリセットを JSON から復元し、parts / lanes も含めてお気に入り一覧へ戻す。
 	constexpr StringView kPath = U"user_data/draw_presets.json";
 	if (!FileSystem::Exists(kPath))
 	{
@@ -167,6 +170,7 @@ void RoadPresetStore::load()
 
 bool RoadPresetStore::save() const
 {
+	// お気に入りプリセット全体を 1 ファイルへシリアライズし、敷設 UI から次回再利用できるようにする。
 	constexpr StringView kPath = U"user_data/draw_presets.json";
 	FileSystem::CreateDirectories(U"user_data/");
 
@@ -233,6 +237,7 @@ void RoadPresetStore::removeFavoriteAt(size_t index)
 
 Array<RoadTemplatePreset> RoadPresetStore::buildDefaults()
 {
+	// デフォルトプリセットは RoadNetwork の既定断面生成を流用し、ハードコードを最小限に保つ。
 	// ラムダで一時 RoadEdge を構築し fromEdge で変換する
 	const auto makePreset = [](RoadType rt, int numLanes, float speed)
 	{

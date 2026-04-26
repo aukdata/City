@@ -4,6 +4,7 @@
 /// @brief アセット名定数
 namespace Asset
 {
+	// 描画系はこの名前定数だけを参照し、実ファイルパスや登録方法は RegisterAssets 側へ閉じ込める。
 	// ---- テクスチャ ----
 	constexpr StringView Grass            = U"Tex_Grass";
 	constexpr StringView NationalRoadSign = U"Tex_NationalRoadSign";  ///< 案内・国道おにぎり（地）

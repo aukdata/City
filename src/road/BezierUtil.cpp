@@ -8,6 +8,7 @@ CubicBezier::CubicBezier(Vec3 p0, Vec3 p1, Vec3 p2, Vec3 p3)
 
 void CubicBezier::buildTable()
 {
+	// 弧長パラメータ化を近似するため、等間隔 t サンプルの累積距離テーブルを先に作る。
 	arcTable.resize(SAMPLES + 1);
 	arcTable[0] = 0.0f;
 
@@ -39,6 +40,7 @@ Vec3 CubicBezier::evaluate(float t) const
 
 Vec3 CubicBezier::tangent(float t) const
 {
+	// 接線は導関数を正規化して返し、退化区間では固定の右向きベクトルへフォールバックする。
 	const float u  = 1.0f - t;
 	const float u2 = u * u;
 	const float t2 = t * t;
@@ -56,6 +58,7 @@ Vec3 CubicBezier::tangent(float t) const
 
 std::pair<CubicBezier, CubicBezier> CubicBezier::split(float t) const
 {
+	// De Casteljau 分割で t 位置の左右 2 本へ分け、部分曲線をそのまま再利用できるようにする。
 	const auto lerp = [](Vec3 a, Vec3 b, float u) { return a + (b - a) * u; };
 
 	const Vec3 a = lerp(p0, p1, t);
@@ -70,6 +73,7 @@ std::pair<CubicBezier, CubicBezier> CubicBezier::split(float t) const
 
 float CubicBezier::tFromArcLength(float s) const
 {
+	// 累積距離テーブルを二分探索し、弧長 s に対応する t を区間内線形補間で近似する。
 	if (s <= 0.0f)
 		return 0.0f;
 	if (s >= totalLength)

@@ -1,0 +1,4 @@
+# Road setback distance in meters for this model
+setback_from_road_m = 2.5
+# Uniform render scale for OBJ model
+scale = 1.0

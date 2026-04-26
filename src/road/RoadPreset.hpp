@@ -5,6 +5,7 @@
 /// @brief 道路テンプレートのプリセット（敷設モードで保存・呼び出し可能な設定）
 struct RoadTemplatePreset
 {
+	// 敷設時に再利用したい道路断面一式を、部品列と車線列ごと保存する。
 	String          name;
 	RoadType        roadType   = RoadType::LocalRoad;
 	float           speedLimit = 60.0f;
@@ -25,6 +26,7 @@ struct RoadTemplatePreset
 class RoadPresetStore
 {
 public:
+	// ユーザお気に入りと組み込み既定値をまとめて持ち、UI から同じ API で参照できるようにする。
 	/// @brief "user_data/draw_presets.json" から読み込む（ファイルが存在しなければ何もしない）
 	void load();
 

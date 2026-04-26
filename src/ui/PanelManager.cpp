@@ -16,6 +16,7 @@ const PanelState* PanelManager::find(StringView id) const
 
 Array<PanelState*> PanelManager::sortedPanels()
 {
+	// 描画と入力処理で同じ順序を使えるよう、表示中パネルだけを zOrder 順へ並べ替える。
 	Array<PanelState*> result;
 	for (auto& [k, v] : m_panels)
 		if (v.visible) result << &v;
@@ -61,6 +62,7 @@ bool PanelManager::isVisible(StringView id) const
 
 bool PanelManager::handleInput()
 {
+	// 入力処理はドラッグ継続、最前面パネル判定、閉じる・前面化・スクロールの順に処理する。
 	m_consumedInput = false;
 	m_mouseOwner.clear();
 
@@ -147,6 +149,7 @@ void PanelManager::drawBackgrounds()
 
 void PanelManager::drawBackground(StringView id)
 {
+	// 背景描画ではタイトルバーとスクロールバーまでまとめて描き、コンテンツ本体は beginContent 側へ分離する。
 	const auto* p = find(id);
 	if (!p || !p->visible) return;
 
@@ -206,6 +209,7 @@ Array<String> PanelManager::sortedPanelIds() const
 
 Optional<ScopedContentArea> PanelManager::beginContent(StringView id)
 {
+	// コンテンツ描画はシザーと座標変換を RAII でまとめ、各パネル実装側をローカル座標前提にする。
 	auto* p = find(id);
 	if (!p || !p->visible) return none;
 

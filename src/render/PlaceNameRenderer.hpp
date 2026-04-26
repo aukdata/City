@@ -8,6 +8,7 @@
 class PlaceNameRenderer
 {
 public:
+	// 地区データを読み取り専用で受け取り、ワールド高さとカメラ投影を使って画面上へ配置する。
 	/// @brief 地区地名を描画する（Shader::LinearToScreen の後に呼ぶこと）
 	/// @param settlements  地区リスト（MapGenerator::settlements()）
 	/// @param camera       ゲームカメラ

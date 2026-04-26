@@ -5,6 +5,7 @@
 /// @brief 1フレーム/1tickの計測値
 struct MainFrameStats
 {
+	// 描画内訳を固定フィールドで持ち、毎フレーム同じ順序で比較・表示できるようにする。
 	double lockWait = 0;
 	double sky      = 0;
 	double terrain  = 0;
@@ -22,6 +23,7 @@ struct MainFrameStats
 
 struct SimTickStats
 {
+	// Sim 側も同様に主要処理ごとの時間を分離し、経路探索と交通更新の偏りを追いやすくする。
 	double graph      = 0;
 	double reroute    = 0;
 	double idm        = 0;
@@ -40,6 +42,7 @@ template <typename T, size_t N>
 class RingBuffer
 {
 public:
+	// 固定長の履歴を使い回し、計測履歴の収集で動的確保を増やさない。
 	void push(const T& value)
 	{
 		m_buf[m_head] = value;

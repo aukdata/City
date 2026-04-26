@@ -3,6 +3,7 @@
 
 void SimThread::start(std::shared_ptr<const SimGraph> graph)
 {
+	// スレッド開始前に最初の SimGraph から探索グラフを構築し、以後は専用スレッド内で更新する。
 	m_simGraph = std::move(graph);
 
 	// 初回グラフ構築
@@ -18,6 +19,7 @@ void SimThread::start(std::shared_ptr<const SimGraph> graph)
 
 void SimThread::stop()
 {
+	// 停止時は待機中 inbox を起こしてスレッド終了まで合流し、取り残しを防ぐ。
 	m_running = false;
 	// inbox に空メッセージを送って waitFor を起こす
 	m_inbox.push(NetworkUpdate{ nullptr });
@@ -27,6 +29,7 @@ void SimThread::stop()
 
 void SimThread::run()
 {
+	// SimThread は到着したリクエスト群をまとめて処理し、探索結果と計測値を outbox へ返す。
 	while (m_running)
 	{
 		// リクエストが届くまで待機（10ms タイムアウト）
@@ -61,6 +64,7 @@ void SimThread::run()
 
 void SimThread::handleRouteRequest(const RouteRequest& req)
 {
+	// 経路探索要求では startLane を入口ノードへ解決し、見つからなければ同一エッジ内で代替車線を探す。
 	if (!m_simGraph) return;
 
 	// 開始ノードを探す
@@ -88,7 +92,7 @@ void SimThread::handleRouteRequest(const RouteRequest& req)
 		return;
 	}
 
-	// Dijkstra 実行
+	// 探索結果は lane node 列から RouteWaypoint 列へ落とし直し、Main 側がそのまま消化できる形で返す。
 	using Clock = std::chrono::steady_clock;
 	const auto tDijk = Clock::now();
 
@@ -137,6 +141,7 @@ void SimThread::handleRouteRequest(const RouteRequest& req)
 
 void SimThread::handleNetworkUpdate(const NetworkUpdate& update)
 {
+	// ネットワーク差し替え時は SimGraph を丸ごと更新し、探索グラフもその場で再構築する。
 	if (!update.graph) return;
 	m_simGraph = update.graph;
 	HashTable<int, TrafficLight> emptyLights;

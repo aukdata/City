@@ -31,6 +31,7 @@ enum class EventType : uint8
 /// @brief アクティブなイベント
 struct GameEvent
 {
+	// 進行中イベントの影響量と UI 表示文言をひとまとめに持つ。
 	int       id       = -1;
 	EventType type;
 	GameTime  startAt  = 0.0;
@@ -46,6 +47,7 @@ struct GameEvent
 class EventSystem
 {
 public:
+	// 毎フレームの寿命管理と、月次ロールによるイベント発生をここで集約して扱う。
 	/// @brief 毎フレーム更新する
 	/// @param gameNow  現在のゲーム時刻
 	/// @param month    現在の月 (1-12)

@@ -64,6 +64,7 @@ namespace
 
 MeshData RoadSign::CreatePoleMesh(float poleHeight)
 {
+	// ポールは全標識共通の円柱メッシュとして実寸生成し、種別差分は看板側で吸収する。
 	return makeCylinder(kPoleRadius_m, static_cast<double>(poleHeight), 10);
 }
 
@@ -75,6 +76,7 @@ namespace
 
 const RoadSign::PoleMetadata& RoadSign::poleMetadata()
 {
+	// ポールと看板の相対位置は JSON から 1 回だけ読み込み、以後はキャッシュを共有する。
 	if (!g_poleMetadataLoaded)
 	{
 		const JSON j = JSON::Load(U"assets/signs/sign_pole.json");
@@ -101,6 +103,7 @@ void RoadSign::reloadPoleMetadata()
 
 const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 {
+	// 標識種別ごとのカテゴリ・形状・テクスチャ対応をここへ集約し、描画側の分岐を減らす。
 	// 各種別の (category, 形状OBJ, テクスチャ) を一元管理。
 	// 形状 OBJ は種別をまたいで共用可（例: Stop と Yield は inverted_triangle.obj）。
 	static const SignVisual kNone{
@@ -177,6 +180,7 @@ RoadSign::RoadbedExtents RoadSign::roadbedExtentsOf(const RoadEdge& edge)
 
 Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network)
 {
+	// エッジ両端の交通規制と接続関係を見て、必要な規制標識だけを自動配置候補として生成する。
 	Array<RoadSignPlacement> out;
 
 	const auto rb = roadbedExtentsOf(edge);

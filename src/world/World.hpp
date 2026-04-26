@@ -7,6 +7,7 @@
 class World
 {
 public:
+	// World は固定サイズチャンク集合と地形生成パラメータを持ち、参照と活性管理を仲介する。
 	/// @brief カメラ位置を渡してアクティブチャンクを更新する
 	void update(Vec3 cameraWorldPos);
 

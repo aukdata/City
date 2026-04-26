@@ -7,6 +7,8 @@
 RoadArrowType RoadArrow::InferType(const RoadNetwork& network,
                                    int edgeId, int laneIndex, int towardNodeId)
 {
+	// レーン接続グラフから進行可能な旋回方向を読み取り、路面矢印種別へ要約する。
+	// 対象レーンから実際に到達できる出口方向集合を集め、その組み合わせから標示矢印種別を決める。
 	const RoadEdge* edge = network.getEdge(edgeId);
 	const RoadNode* node = network.getNode(towardNodeId);
 	if (!edge || !node)

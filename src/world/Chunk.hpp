@@ -27,6 +27,7 @@ constexpr float WORLD_SIZE = static_cast<float>(WORLD_CHUNKS) * CHUNK_SIZE;
 /// @brief buildHeightMap の結果（heightMap + min/max）
 struct HeightMapResult
 {
+	// 高さグリッド本体と範囲情報をセットで返し、後段の描画・配置が同じ結果を使い回せるようにする。
 	Grid<float> heightMap;
 	float       heightMin;
 	float       heightMax;
@@ -68,6 +69,7 @@ inline int64 chunkCoordToKey(Point p)
 /// @brief チャンクデータ
 struct Chunk
 {
+	// 1 チャンクは地形・ゾーン・建物・描画状態をまとめて持つワールド最小管理単位。
 	Point             coord;                         ///< チャンク座標
 	Grid<float>       heightMap;                     ///< (HEIGHT_CELLS+1)×(HEIGHT_CELLS+1) の高さ [m]
 	Grid<uint8>       terrainType;                   ///< HEIGHT_CELLS×HEIGHT_CELLS の地表種別

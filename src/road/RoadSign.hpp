@@ -8,6 +8,7 @@ class RoadNetwork;
 /// @brief 標識メッシュ生成・自動推論
 namespace RoadSign
 {
+	// 標識の見た目生成と、自動配置推論の両方をこの名前空間へ集約する。
 	// ===== 寸法定数 =====
 
 	constexpr double kPoleRadius_m   = 0.03;   ///< ポール半径 (φ60mm)

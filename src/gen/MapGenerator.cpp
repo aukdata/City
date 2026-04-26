@@ -11,6 +11,7 @@
 MapGenerator::InitResult MapGenerator::initWorld(
 	uint64 seed, World& world)
 {
+	// ワールド生成パラメータと地名供給源だけを先に初期化し、後段フェーズの前提をそろえる。
 	world.setGenerationParams(seed,
 		WORLD_SIZE,
 		WORLD_SIZE);
@@ -29,6 +30,7 @@ MapGenerator::InitResult MapGenerator::initWorld(
 
 float MapGenerator::scoreSuitability(const RoadPathfinder& pf, int gx, int gz)
 {
+	// 集落候補セルを標高と周辺傾斜だけで粗くふるい、道路生成前の立地適性を決める。
 	const float h = pf.height(gx, gz);
 	if (h < 0.5f || h > 800.0f) return 0.0f;
 
@@ -156,6 +158,7 @@ namespace
 Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 	uint64 seed, const World& world)
 {
+	// 候補セル収集、Poisson 間引き、城下町/宿場町への格上げを順に行って地区一覧を作る。
 	const Stopwatch sw{ StartImmediately::Yes };
 	std::mt19937_64 rng(seed ^ 0xABCD1234ULL);
 
@@ -305,6 +308,7 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 Array<std::pair<int,int>> MapGenerator::computeMSTSubset(
 	const Array<Settlement>& settlements, const Array<int>& indices)
 {
+	// 地区集合の骨格接続だけを得るため、完全グラフを明示せず Prim 法で最小木を組む。
 	const int n = static_cast<int>(indices.size());
 	if (n <= 1) return {};
 
@@ -357,6 +361,7 @@ Array<std::pair<int,int>> MapGenerator::computeMSTSubset(
 Array<int> MapGenerator::findMSTDiameter(
 	const Array<std::pair<int,int>>& mst, int nodeCount)
 {
+	// 最小木の主幹線候補を得るため、2 回 BFS で最長パスを抽出する。
 	if (nodeCount <= 1) return { 0 };
 
 	// 隣接リスト
@@ -950,7 +955,7 @@ void MapGenerator::generateGlobalRoads(
 
 void MapGenerator::generateDistrictRoads(
 	uint64 seed,
-	const Array<Settlement>& settlements,
+	Array<Settlement>& settlements,
 	const World& world,
 	RoadNetwork& network,
 	ProgressCallback onProgress)
@@ -959,7 +964,7 @@ void MapGenerator::generateDistrictRoads(
 
 	for (int si = 0; si < static_cast<int>(settlements.size()); ++si)
 	{
-		const auto& s = settlements[si];
+		auto& s = settlements[si];
 		const float kaidoSearchRadius = Max(180.0f, s.radius * 1.6f);
 		const DistrictRoads::KaidoSegment kaido = DistrictRoads::extractKaido(
 			s, network, kaidoSearchRadius);

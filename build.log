@@ -1,0 +1,4 @@
+
+LINK : fatal error LNK1168: ファイル D:\Users\Takuma\Creations\codes\City\Intermediate\City\Debug\City(debug).exe を開いて書き込むことができません。 [D:\Users\Takuma\Creations\codes\City\City.vcxproj]
+  Test.vcxproj -> D:\Users\Takuma\Creations\codes\City\Intermediate\Test\Debug\Test(debug).exe
+  0 個のファイルをコピーしました

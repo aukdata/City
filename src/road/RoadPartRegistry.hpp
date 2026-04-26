@@ -8,6 +8,7 @@
 class RoadPartRegistry
 {
 public:
+	// 道路断面を構成する部品定義とメッシュを defId で引ける形に集約して管理する。
 
 	/// @brief 指定ディレクトリ内の全 TOML+OBJ を読み込む
 	/// @param dirPath アセットディレクトリパス（例: "assets/road_parts"）

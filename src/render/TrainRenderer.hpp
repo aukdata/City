@@ -6,6 +6,7 @@
 class TrainRenderer
 {
 public:
+	// 線路の静的描画と列車の動的描画を分け、線路側だけ個別キャッシュできる構成にする。
 	/// @brief 線路を描画する
 	void renderTracks(const TrainNetwork& network);
 

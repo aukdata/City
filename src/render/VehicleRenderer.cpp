@@ -60,6 +60,7 @@ Model& VehicleRenderer::ensureCarModel()
 
 void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 {
+	// 距離ベースで LOD を切り替えながら車両本体を描き、デバッグ用マーカーを重ねる。
 	for (const auto& v : vehicles)
 	{
 		const double dx = v.position.x - cameraPos.x;
@@ -74,6 +75,7 @@ void VehicleRenderer::render(const Array<Vehicle>& vehicles, Vec3 cameraPos)
 
 void VehicleRenderer::drawVehicleSilhouette(const Vehicle& v, Vec3 cameraPos, const ColorF& color)
 {
+	// シルエット描画でも通常描画と同じ LOD 判定を使い、選択アウトラインの見え方を揃える。
 	const double dx = v.position.x - cameraPos.x;
 	const double dz = v.position.z - cameraPos.z;
 	const bool isClose = (dx * dx + dz * dz) < RoadRenderer::kLodDistSq;
@@ -97,6 +99,7 @@ void VehicleRenderer::drawVehicleSilhouette(const Vehicle& v, Vec3 cameraPos, co
 
 void VehicleRenderer::drawVehicle(const Vehicle& v, bool isClose)
 {
+	// 近距離の乗用車系だけモデル描画し、それ以外や遠景は簡易ボックスで負荷を抑える。
 	if (usesCarModel(v, isClose))
 	{
 		Model& model = ensureCarModel();

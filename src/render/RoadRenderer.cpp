@@ -340,6 +340,7 @@ bool RoadRenderer::loadAssets()
 void RoadRenderer::render(const RoadNetwork& network, const World& world,
                           const ViewFrustum& frustum, Vec3 cameraPos)
 {
+	// 可視判定・地形起因のキャッシュ失効・エッジ/ノード描画を 1 フレーム内でまとめて回す。
 	m_visibleEdges.clear();
 	Profiler::EnableAssetCreationWarning(false);
 
@@ -517,6 +518,7 @@ void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& net
 void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
                              float marginA, float marginB, const World& world, bool isClose)
 {
+	// エッジ単位で路面部品・車線線・標識・橋脚までの描画責務をまとめる。
 	// Planned / UnderConstruction は実メッシュを描かない（ワイヤーフレームで代替）
 	if (edge.edgeState == EdgeState::Planned ||
 	    edge.edgeState == EdgeState::UnderConstruction)
@@ -824,6 +826,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
                                                     const World& world,
                                                     float marginA, float marginB)
 {
+	// 断面部品をテーパー付きの帯メッシュへ展開し、近景と遠景の両 LOD を同時に用意する。
 	StripRange range;
 	if (!calcStripRange(bezier.totalLength, marginA, marginB, range)) return {};
 
@@ -2549,6 +2552,7 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGr
 {
 	constexpr double kSignalDrawMaxDistSq = 500.0 * 500.0;
 
+	// 交差点ごとの進入方向サマリーと取付行列を再利用しながら、信号灯器をまとめて描画する。
 	for (const auto& node : network.nodes())
 	{
 		if (node.id < 0 || !node.signalPlacement)
@@ -2775,6 +2779,7 @@ void RoadRenderer::prepareRouteSignTextures(const RoadNetwork& network)
 		if (!isDrawableNationalRoute(route)) continue;
 		if (m_routeSignTexCache.contains(route.number)) continue;
 
+		// 路線番号ごとに 1 回だけ看板テクスチャを合成し、以後は共有キャッシュから使い回す。
 		// 透明背景に看板 + 号数を合成（透過部分は alpha=0）
 		// 3D Mesh::draw が mipmap サンプルするため HasMipMap::Yes を指定し、生成する。
 		RenderTexture rt{ kTexSize, kTexSize, ColorF{ 0.0, 0.0 },
@@ -2908,6 +2913,7 @@ void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
 		if (g.id < 0) continue;
 		if (g.elements.isEmpty()) continue;
 
+		// 板面内容のハッシュ単位でテクスチャ化し、同一内容の標識はエッジをまたいで共有する。
 		const uint64 key = guideSignTexKey(g);
 		if (m_guideSignTexCache.contains(key)) continue;
 		++missCount;
@@ -3323,4 +3329,3 @@ void RoadRenderer::drawGuideSigns(const Array<GuideSignDraw>& draws)
 		}
 	}
 }
-

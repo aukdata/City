@@ -7,6 +7,7 @@
 
 void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH, float cellSize)
 {
+	// ワールド地形を道路探索専用の高さグリッドへ写し、以後の A* 評価を軽くする。
 	m_offset   = offset;
 	m_gridW    = gridW;
 	m_gridH    = gridH;
@@ -26,6 +27,7 @@ void RoadPathfinder::setupFromHeightMap(
 	const Grid<float>& heightMap, Point chunkCoord,
 	int gridW, int gridH, float cellSize)
 {
+	// 既存チャンクの高さマップを直接参照して探索グリッドを作り、地形再サンプリングを避ける。
 	m_offset   = Vec2{ static_cast<float>(chunkCoord.x * CHUNK_SIZE),
 	                   static_cast<float>(chunkCoord.y * CHUNK_SIZE) };
 	m_gridW    = gridW;
@@ -71,6 +73,7 @@ Array<Point> RoadPathfinder::findPath(
 	const Array<Vec2>& forbiddenGoalDirs,
 	const HashSet<int>& occupiedCells) const
 {
+	// 地形勾配、既存道路、始終点の鋭角接続をコスト化した 8 近傍 A* で道路芯線を探す。
 	const int total = m_gridW * m_gridH;
 
 	struct Cell
@@ -191,6 +194,7 @@ Array<Point> RoadPathfinder::findPath(
 
 Array<Vec3> RoadPathfinder::samplePath(const Array<Point>& path, int stepCells) const
 {
+	// グリッド経路を間引いたワールド座標列へ変換し、後段の曲線生成に使える密度へ整える。
 	if (path.isEmpty()) return {};
 
 	Array<Vec3> wps;
@@ -218,6 +222,7 @@ void RoadPathfinder::pathToRoadEdges(
 	int startNodeId, int endNodeId,
 	Array<int>* outEdgeIds)
 {
+	// ウェイポイント列を中間ノード付きのベジェ道路列へ変換し、道路ネットワークへ流し込む。
 	if (wps.size() < 2) return;
 
 	Array<int> nodeIds;

@@ -42,6 +42,7 @@ namespace
 
 void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera& camera) const
 {
+	// 路線形状に依存するアンカーはキャッシュし、カメラ依存の投影とフェードだけ毎フレーム更新する。
 	m_hits.clear();
 
 	const Texture& tex = TextureAsset(Asset::NationalRoadSign);
@@ -124,6 +125,7 @@ void RoadRouteSignRenderer::render(const RoadNetwork& network, const GameCamera&
 
 Optional<int> RoadRouteSignRenderer::hitTest(Vec2 p) const
 {
+	// ヒット判定は見た目の前後関係を優先するため、描画順の逆順で最初に当たった標識を返す。
 	// 後から描画された（手前の）標識を優先するため逆順走査
 	for (int i = static_cast<int>(m_hits.size()) - 1; i >= 0; --i)
 	{

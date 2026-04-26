@@ -35,6 +35,7 @@ namespace
 
 Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez)
 {
+	// 線路 1 本をレール 2 本と枕木列へ分解し、静的メッシュとしてまとめて構築する。
 	MeshData mesh;
 	mesh.vertices.reserve((kSegments + 1) * 4 + (static_cast<int>(edge.length / 5.0f) + 2) * 4);
 
@@ -110,6 +111,7 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 
 void TrainRenderer::renderTracks(const TrainNetwork& network)
 {
+	// 線路はエッジ単位でメッシュキャッシュし、未構築分だけ初回描画時に生成する。
 	Profiler::EnableAssetCreationWarning(false);
 
 	const ColorF railColor = ColorF{ 0.55, 0.55, 0.60 }.removeSRGBCurve();
@@ -142,6 +144,7 @@ void TrainRenderer::renderTracks(const TrainNetwork& network)
 
 void TrainRenderer::renderTrains(const Array<Train>& trains)
 {
+	// 列車本体は種別ごとの色分けだけに留め、低コストな箱プリミティブで描く。
 	for (const auto& train : trains)
 	{
 		if (train.currentEdge < 0) continue;

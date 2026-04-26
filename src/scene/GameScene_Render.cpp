@@ -72,6 +72,7 @@ void GameScene::pushPerfStats()
 
 void GameScene::renderWorld()
 {
+	// 3D 本体、選択エフェクト、2D UI、性能計測を 1 フレームの決まった順序で積み上げる。
 	Stopwatch swStep{ StartImmediately::Yes };
 	const Stopwatch swTotal{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = swStep.msF(); swStep.restart(); };
@@ -197,6 +198,7 @@ void GameScene::renderWorld()
 
 void GameScene::renderScene3D()
 {
+	// 地形、道路、信号、路線標識を描画順に分け、主要サブシステムごとの時間も個別に測る。
 	Stopwatch sw{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
@@ -229,6 +231,7 @@ void GameScene::renderScene3D()
 
 void GameScene::renderSelectionHighlights()
 {
+	// 現在の選択対象に応じて、編集や確認に必要な 3D ガイドだけを追加描画する。
 	// エッジ選択時の中央線ハイライトは廃止（3D ハンドルで可視化する）
 
 	// 選択中のノードをハイライト
@@ -326,7 +329,45 @@ void GameScene::renderSelectionHighlights()
 		}
 	}
 
-	// 建物の選択表示はアウトラインシェーダ (renderSelectionOutline) で行う
+	// 建物選択時: 保持している接道位置(edgeId, edgeT)を 3D マーカーで表示
+	if (m_selectedBuilding)
+	{
+		const Chunk* chunk = m_world.getChunk(Point{ m_selectedBuilding->chunkX, m_selectedBuilding->chunkZ });
+		if (chunk)
+		{
+			const Building& b = chunk->buildingGrid[{ m_selectedBuilding->col, m_selectedBuilding->row }];
+			if (b.type != BuildingType::None && b.edgeId >= 0)
+			{
+				const RoadEdge* edge = m_network.getEdge(b.edgeId);
+				const auto bez = m_network.getBezier(b.edgeId);
+				if (edge && bez)
+				{
+					const float t = Clamp(b.edgeT, 0.0f, 1.0f);
+					const float arc = bez->totalLength * t;
+					Vec3 anchor = bez->positionAt(arc);
+					const Vec3 tan = bez->tangentAt(arc);
+
+					if (edge->useElevation)
+						anchor.y += 4.0;
+					else
+						anchor.y = m_world.sampleHeight(static_cast<float>(anchor.x), static_cast<float>(anchor.z)) + 3.0;
+
+					Vec3 dir = Vec3{ tan.x, 0.0, tan.z };
+					if (dir.lengthSq() < 1e-8) dir = Vec3{ 1.0, 0.0, 0.0 };
+					dir = dir.normalized();
+					Vec3 right = Vec3{ -dir.z, 0.0, dir.x };
+
+					const ColorF mainC = ColorF{ 1.0, 0.45, 0.15, 0.95 }.removeSRGBCurve();
+					const ColorF subC  = ColorF{ 1.0, 0.95, 0.2, 0.9 }.removeSRGBCurve();
+					Line3D{ anchor - dir * 6.0, anchor + dir * 6.0 }.draw(mainC);
+					Line3D{ anchor - right * 4.0, anchor + right * 4.0 }.draw(subC);
+					Sphere{ anchor, 1.6 }.draw(mainC);
+				}
+			}
+		}
+	}
+
+	// 建物本体の選択表示はアウトラインシェーダ (renderSelectionOutline) で行う
 }
 
 // =============================================================================
@@ -898,4 +939,3 @@ void GameScene::renderEdgeHandles()
 			m_edgeHandleDrag.kind == EdgeHandleDrag::Kind::LaneBR, Shape::Square);
 	}
 }
-

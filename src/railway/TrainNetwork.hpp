@@ -6,6 +6,7 @@
 class TrainNetwork
 {
 public:
+	// 鉄道側はノード・エッジ・ダイヤを同じ所有元へ置き、列車管理がそこを参照する構成にする。
 	/// @brief 線路ノードを追加し、id を返す
 	int addNode(Vec3 pos, TrackNodeType type = TrackNodeType::Joint,
 	            const String& name = U"");

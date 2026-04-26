@@ -16,6 +16,7 @@ enum class ZoneType : uint8
 /// @brief ゾーン種別の3D オーバーレイ用半透明カラーを返す
 inline ColorF zoneColor(ZoneType z)
 {
+	// ゾーン種別は編集オーバーレイ用の色を固定対応で返し、UI 全体で表現を揃える。
 	switch (z)
 	{
 	case ZoneType::UrbanControl:   return ColorF{ 0.50, 0.80, 0.50, 0.45 };
@@ -31,6 +32,7 @@ inline ColorF zoneColor(ZoneType z)
 /// @brief ゾーン種別の表示名を返す
 inline StringView zoneName(ZoneType z)
 {
+	// 表示名も同じ enum から返し、パネルやツールチップの文言を一元化する。
 	switch (z)
 	{
 	case ZoneType::UrbanControl:   return U"市街化調整区域";

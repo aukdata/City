@@ -31,6 +31,7 @@ int PanelBuilder::widgetW(int explicitW) const
 
 void PanelBuilder::advance(int w, int h)
 {
+	// 行内配置と縦積み配置でカーソルの進め方を切り替え、次のウィジェット位置を確定する。
 	if (m_inRow)
 	{
 		if (m_rowItemCount > 0)
@@ -53,6 +54,7 @@ void PanelBuilder::advance(int w, int h)
 
 void PanelBuilder::label(StringView text, ColorF color, bool bold)
 {
+	// ラベルも他のウィジェットと同じレイアウト規則に乗せ、描画後に占有分だけ進める。
 	const Font& f = bold ? m_boldFont : m_font;
 	const int x = widgetX();
 	f(text).draw(Vec2{ x, m_y }, color);
@@ -70,6 +72,7 @@ void PanelBuilder::label(StringView text, ColorF color, bool bold)
 
 bool PanelBuilder::button(StringView lbl, bool active, int width, StringView tooltip)
 {
+	// クリック系ウィジェットは描画とカーソル更新を一体で扱い、呼び出し側を単純に保つ。
 	const int x = widgetX();
 	const int w = widgetW(width);
 	const bool clicked = PanelWidget::button(m_font, lbl, active,
@@ -111,6 +114,7 @@ bool PanelBuilder::textInput(TextEditState& state, int width, size_t maxChars)
 
 bool PanelBuilder::section(StringView title, bool& collapsed, ColorF color)
 {
+	// セクション見出しだけは前後の余白を明示的に確保し、折りたたみの起点にする。
 	const int x = widgetX();
 	const int w = m_width - m_padding * 2;
 	if (m_y > 0)
@@ -142,6 +146,7 @@ void PanelBuilder::separator()
 
 void PanelBuilder::row(int gap, std::function<void()> content)
 {
+	// row() の間だけ横並びモードに切り替え、子要素群の最大高さで縦方向の消費量を決める。
 	if (m_y > 0)
 	{
 		m_y += m_gap;

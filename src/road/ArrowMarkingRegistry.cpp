@@ -16,6 +16,7 @@ namespace
 
 bool ArrowMarkingRegistry::load(FilePathView dirPath)
 {
+	// 矢羽根定義ディレクトリを走査し、ID から種別を確定できるものだけをメッシュ化して登録する。
 	int count = 0;
 
 	for (const auto& path : FileSystem::DirectoryContents(dirPath))
@@ -75,6 +76,7 @@ Optional<RoadArrowType> ArrowMarkingRegistry::parseType(StringView id)
 
 MeshData ArrowMarkingRegistry::buildMesh(const Polygon& poly)
 {
+	// 2D ポリゴン定義を道路面上に寝かせた 3D メッシュへ変換し、描画用頂点形式に揃える。
 	const auto& outerVerts = poly.outer();
 	const auto& triIndices = poly.indices();
 

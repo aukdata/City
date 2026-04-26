@@ -127,6 +127,7 @@ bool GuideSignEditor::drawEdgeSection(PanelBuilder& ui, RoadEdge& edge,
                                       RoadNetwork& network, PanelManager& panelManager,
                                       const RoadRenderer& renderer)
 {
+	// エッジにぶら下がる案内標識一覧をここで編集し、簡易配置変更と専用エディタ起動を受け持つ。
 	bool dirty = false;
 
 	Array<int> myIds;
@@ -212,6 +213,7 @@ bool GuideSignEditor::drawEdgeSection(PanelBuilder& ui, RoadEdge& edge,
 bool GuideSignEditor::drawEditPanel(RoadNetwork& network, PanelManager& panelManager,
                                      const RoadRenderer& renderer)
 {
+	// プロパティパネルでは、標識単位の設定変更と本格編集画面への導線だけを扱う。
 	if (m_editingSignId < 0) { panelManager.hide(U"guide_sign_edit"); return false; }
 	GuideSignPlacement* gp = network.getGuideSign(m_editingSignId);
 	if (!gp) { close(); panelManager.hide(U"guide_sign_edit"); return false; }
@@ -283,6 +285,7 @@ bool GuideSignEditor::drawEditPanel(RoadNetwork& network, PanelManager& panelMan
 
 void GuideSignEditor::regenerateDraftTextureIfDirty(const GuideSignPlacement& g)
 {
+	// WYSIWYG 編集中のドラフト要素だけを一時テクスチャへ焼き直し、確定前プレビューに使う。
 	if (!m_draftValid || !m_draftTexDirty) return;
 
 	const Font& fontJa  = FontAsset(Asset::CJK32Bold);
@@ -325,6 +328,7 @@ void GuideSignEditor::deleteSelectedElement()
 bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelManager,
                                       [[maybe_unused]] const RoadRenderer& renderer)
 {
+	// 看板エディタ本体では draft を直接編集し、保存時にだけ実データへコミットする。
 	if (m_editingSignId < 0) { panelManager.hide(U"guide_sign_editor"); return false; }
 	GuideSignPlacement* gp = network.getGuideSign(m_editingSignId);
 	if (!gp) { panelManager.hide(U"guide_sign_editor"); return false; }
@@ -717,4 +721,3 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 	}
 	return dirty;
 }
-

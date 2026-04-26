@@ -9,6 +9,7 @@ template <typename T>
 class MessageQueue
 {
 public:
+	// キュー操作は push / drain / waitFor に絞り、Main-Sim 間の受け渡しを単純なバッチ交換にする。
 	/// @brief メッセージを追加する
 	void push(T msg)
 	{

@@ -7,6 +7,7 @@
 class TrainManager
 {
 public:
+	// TrainNetwork を参照しながら、列車の生成・進行・閉塞待ちを一括で管理する。
 	/// @brief 初期化
 	void init(TrainNetwork* network);
 

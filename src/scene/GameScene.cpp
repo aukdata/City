@@ -1,9 +1,11 @@
 ﻿#include "GameScene.hpp"
 #include "../gen/RoadPathfinder.hpp"
+#include "../gen/DistrictRoads.hpp"
 #include "../save/RoadBinary.hpp"
 #include "../save/GuideSignStorage.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include <exception>
 #include <thread>
 
 // =============================================================================
@@ -39,10 +41,12 @@ GameScene::~GameScene()
 
 void GameScene::initScene()
 {
+	// シーン全体で使う UI パネルと、編集系の初期テンプレートをここでまとめて準備する。
 	m_panelManager.registerPanel(U"edge_info", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
+	m_panelManager.registerPanel(U"building_info", Vec2{320, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"draw_template", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
 	{
 		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
@@ -69,7 +73,7 @@ void GameScene::initScene()
 
 void GameScene::initLoadGame()
 {
-	startLoadingPhase(U"ロード中...", U"セーブデータを読み込み中...", [this]()
+	startLoadingPhase(LoadingTask::LoadGame, U"ロード中...", U"セーブデータを読み込み中...", [this]()
 	{
 		m_loadGameResult = loadGame();
 	});
@@ -77,6 +81,7 @@ void GameScene::initLoadGame()
 
 void GameScene::initNewGame()
 {
+	// 新規ゲーム開始時は地形から建物配置までの生成パイプラインを非同期ロード段階へ載せる。
 	const auto initResult = MapGenerator::initWorld(getData().seed, m_world);
 	m_placeNames = std::move(initResult.placeNames);
 
@@ -87,25 +92,56 @@ void GameScene::initNewGame()
 
 	m_totalInitChunks = WORLD_CHUNKS * WORLD_CHUNKS;
 
-	startLoadingPhase(U"マップ生成中...", U"地形生成中", [this]()
+	startLoadingPhase(LoadingTask::NewGame, U"マップ生成中...", U"地形生成中", [this]()
 	{
 		generateAllTerrain();
 		placeAllSettlements();
 		generateAllRoads();
 		generateDistrictRoads();
 		postProcessRoads();
+		applyZonesGlobal();
+		placeInitialBuildings();
 	});
 	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
 }
 
 // =============================================================================
-void GameScene::startLoadingPhase(StringView title, StringView status,
-                                  std::function<void()> pipeline)
+void GameScene::setLoadingTitleAndStatus(StringView title, StringView status)
 {
-	m_loadingTimer.restart();
+	std::lock_guard lock(m_loadingTextMutex);
 	m_loadingTitle  = title;
 	m_loadingStatus = status;
-	m_genProgress   = 0.0f;
+}
+
+void GameScene::setLoadingStatus(StringView status)
+{
+	std::lock_guard lock(m_loadingTextMutex);
+	m_loadingStatus = status;
+}
+
+String GameScene::loadingTitleSnapshot() const
+{
+	std::lock_guard lock(m_loadingTextMutex);
+	return m_loadingTitle;
+}
+
+String GameScene::loadingStatusSnapshot() const
+{
+	std::lock_guard lock(m_loadingTextMutex);
+	return m_loadingStatus;
+}
+
+void GameScene::startLoadingPhase(LoadingTask task, StringView title, StringView status,
+                                  std::function<void()> pipeline)
+{
+	// ローディング状態を初期化し、進捗表示用の文言と非同期処理を新しいフェーズへ切り替える。
+	m_loadingTimer.restart();
+	m_loadingTask = task;
+	m_loadingFailed = false;
+	m_loadingError.clear();
+	m_loadGameResult = false;
+	setLoadingTitleAndStatus(title, status);
+	m_genProgress.store(0.0f);
 	m_generationFuture = std::async(std::launch::async, std::move(pipeline));
 	m_phase = GamePhase::Loading;
 }
@@ -123,9 +159,10 @@ static constexpr float kProgressDone         = 0.91f;
 
 void GameScene::generateAllTerrain()
 {
-	m_loadingStatus = U"地形生成中";
+	setLoadingStatus(U"地形生成中");
 	const Stopwatch sw{ StartImmediately::Yes };
 
+	// 全チャンクの高さマップを並列生成し、完成後にワールドへ一括で反映する。
 	const int total = WORLD_CHUNKS * WORLD_CHUNKS;
 	const int nThreads = Max(1, static_cast<int>(std::thread::hardware_concurrency()));
 
@@ -167,7 +204,7 @@ void GameScene::generateAllTerrain()
 
 void GameScene::placeAllSettlements()
 {
-	m_loadingStatus = U"地区配置中";
+	setLoadingStatus(U"地区配置中");
 
 	auto settlements = MapGenerator::placeAllSettlements(getData().seed, m_world);
 
@@ -200,7 +237,7 @@ void GameScene::placeAllSettlements()
 
 void GameScene::generateAllRoads()
 {
-	m_loadingStatus = U"道路生成中";
+	setLoadingStatus(U"道路生成中");
 
 	MapGenerator::generateGlobalRoads(
 		getData().seed, m_districts, m_world, m_network,
@@ -212,7 +249,7 @@ void GameScene::generateAllRoads()
 
 void GameScene::generateDistrictRoads()
 {
-	m_loadingStatus = U"地区内道路生成中";
+	setLoadingStatus(U"地区内道路生成中");
 	m_genProgress.store(kProgressDistrict);
 
 	MapGenerator::generateDistrictRoads(
@@ -225,9 +262,10 @@ void GameScene::generateDistrictRoads()
 
 void GameScene::postProcessRoads()
 {
-	m_loadingStatus = U"道路ポスト処理中";
+	setLoadingStatus(U"道路ポスト処理中");
 	m_genProgress.store(kProgressPostProcess);
 
+	// 道路生成後の形状補正、交差点整理、標識登録までを段階的に実行して走行可能なネットワークへ整える。
 	const Stopwatch total{ StartImmediately::Yes };
 	Stopwatch step{ StartImmediately::Yes };
 
@@ -263,6 +301,11 @@ void GameScene::postProcessRoads()
 		const int n = m_network.mergeShortEdges(30.0f);
 		Logger << U"[PostProcess] mergeShortEdges: {} 結合, {:.0f}ms"_fmt(n, step.msF());
 	}
+	step.restart();
+
+	DistrictRoads::straightenCastleTownRoads(m_districts, m_world, m_network);
+	Logger << U"[PostProcess] straightenCastleTownRoads: {:.0f}ms"_fmt(step.msF());
+	step.restart();
 
 	registerGuideDestinations();
 	Logger << U"[PostProcess] registerGuideDestinations: {:.0f}ms"_fmt(step.msF());
@@ -285,6 +328,7 @@ void GameScene::postProcessRoads()
 
 void GameScene::registerGuideDestinations()
 {
+	// 地区データを道路ノード上の目的地辞書へ写し替え、自動案内標識の再生成まで一気に行う。
 	m_network.clearNamedDestinations();
 
 	const auto tierOf = [](MapGenerator::SettlementKind t) -> uint8 {
@@ -334,14 +378,48 @@ void GameScene::registerGuideDestinations()
 
 void GameScene::updateLoading()
 {
+	// バックグラウンド生成の完了待ちと、成功時の最終初期化・失敗時の画面維持をここで分岐する。
 	if (m_generationFuture.valid())
 	{
 		if (m_generationFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 		{
-			m_generationFuture.get();
-
-			if (m_loadGameResult)
+			try
 			{
+				m_generationFuture.get();
+			}
+			catch (const std::exception& e)
+			{
+				m_loadingFailed = true;
+				m_loadingError = Unicode::Widen(e.what());
+				setLoadingStatus(U"ロード/生成中に例外が発生しました");
+				Logger << U"[Loading] Exception: " << m_loadingError;
+			}
+			catch (...)
+			{
+				m_loadingFailed = true;
+				m_loadingError = U"unknown exception";
+				setLoadingStatus(U"ロード/生成中に例外が発生しました");
+				Logger << U"[Loading] Unknown exception";
+			}
+
+			if (m_loadingFailed)
+			{
+				drawLoadingScreen(Clamp(m_genProgress.load(), 0.0f, 1.0f));
+				return;
+			}
+
+			if (m_loadingTask == LoadingTask::LoadGame)
+			{
+				if (!m_loadGameResult)
+				{
+					m_loadingFailed = true;
+					m_loadingError = U"loadGame() returned false";
+					setLoadingStatus(U"ロードに失敗しました。セーブデータの整合性を確認してください");
+					Logger << U"[Load] Failed ({:.1f}秒)"_fmt(m_loadingTimer.sF());
+					drawLoadingScreen(Clamp(m_genProgress.load(), 0.0f, 1.0f));
+					return;
+				}
+
 				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
 				m_minimapRenderer.buildTerrainTexture(m_world);
 				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
@@ -350,10 +428,8 @@ void GameScene::updateLoading()
 			}
 
 			Logger << U"[Loading] 全パイプライン完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
-			m_loadingStatus = U"初期化中...";
+			setLoadingStatus(U"初期化中...");
 
-			applyZonesGlobal();
-			placeInitialBuildings();
 			m_roadRenderer.invalidateAllCaches();
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts);
 
@@ -410,6 +486,8 @@ void GameScene::drawLoadingScreen(float progress)
 	const auto& smallFont = FontAsset(Asset::Small16);
 
 	const Vec2 center = Scene::Center();
+	const String loadingTitle = loadingTitleSnapshot();
+	const String loadingStatus = loadingStatusSnapshot();
 
 	const int elapsedSec = static_cast<int>(m_loadingTimer.sF());
 	const int min = elapsedSec / 60;
@@ -417,7 +495,7 @@ void GameScene::drawLoadingScreen(float progress)
 	uiFont(U"{}:{:0>2}"_fmt(min, sec)).drawAt(
 		center.movedBy(0, -110), ColorF{ 0.7 });
 
-	titleFont(m_loadingTitle).drawAt(center.movedBy(0, -60), ColorF{ 0.9 });
+	titleFont(loadingTitle).drawAt(center.movedBy(0, -60), ColorF{ 0.9 });
 
 	const RectF barBg{ center.x - 200, center.y, 400, 24 };
 	barBg.draw(ColorF{ 0.2 });
@@ -425,8 +503,14 @@ void GameScene::drawLoadingScreen(float progress)
 
 	uiFont(U"{}%"_fmt(static_cast<int>(progress * 100))).drawAt(barBg.center(), ColorF{ 1.0 });
 
-	smallFont(m_loadingStatus).drawAt(
-		center.movedBy(0, 70), ColorF{ 0.5 });
+	const ColorF statusColor = m_loadingFailed ? ColorF{ 1.0, 0.45, 0.45 } : ColorF{ 0.5 };
+	smallFont(loadingStatus).drawAt(center.movedBy(0, 70), statusColor);
+
+	if (m_loadingFailed && !m_loadingError.isEmpty())
+	{
+		const String clipped = m_loadingError.substr(0, Min<size_t>(80, m_loadingError.size()));
+		smallFont(U"Error: {}"_fmt(clipped)).drawAt(center.movedBy(0, 94), ColorF{ 0.85, 0.35, 0.35 });
+	}
 }
 
 // =============================================================================
@@ -519,9 +603,10 @@ void GameScene::saveGame()
 
 void GameScene::loadTerrainChunks(const String& saveRoot, Stopwatch& step)
 {
+	// 地形チャンクは並列に読み戻し、欠損しているものだけ再生成してロード失敗を吸収する。
 	// 地形データ（チャンクごとに並列読み込み + バルク I/O）
 	const int totalChunks = WORLD_CHUNKS * WORLD_CHUNKS;
-	m_loadingStatus = U"地形データ読み込み中...";
+	setLoadingStatus(U"地形データ読み込み中...");
 	{
 		Array<HeightMapResult> buffer(totalChunks);
 		std::atomic<int> counter{ 0 };
@@ -550,22 +635,24 @@ void GameScene::loadTerrainChunks(const String& saveRoot, Stopwatch& step)
 						if (r)
 						{
 							int32 gridSize = 0;
-							r.read(gridSize);
-							if (gridSize == HEIGHT_CELLS + 1)
+							if (r.read(gridSize) && gridSize == HEIGHT_CELLS + 1)
 							{
 								HeightMapResult hmr;
 								hmr.heightMap = Grid<float>(gridSize, gridSize);
 								// バルク読み込み: gridSize² 個の float を1 回で取得
 								const size_t cellCount = static_cast<size_t>(gridSize) * gridSize;
-								r.read(hmr.heightMap.data(), cellCount * sizeof(float));
-								// min/max は読み込み完了後にまとめて算出
-								float mn =  1e30f, mx = -1e30f;
-								const float* p = hmr.heightMap.data();
-								for (size_t i = 0; i < cellCount; ++i) { mn = Min(mn, p[i]); mx = Max(mx, p[i]); }
-								hmr.heightMin = mn;
-								hmr.heightMax = mx;
-								buffer[idx] = std::move(hmr);
-								loaded = true;
+								const int64 expectedBytes = static_cast<int64>(cellCount * sizeof(float));
+								if (r.read(hmr.heightMap.data(), static_cast<size_t>(expectedBytes)) == expectedBytes)
+								{
+									// min/max は読み込み完了後にまとめて算出
+									float mn =  1e30f, mx = -1e30f;
+									const float* p = hmr.heightMap.data();
+									for (size_t i = 0; i < cellCount; ++i) { mn = Min(mn, p[i]); mx = Max(mx, p[i]); }
+									hmr.heightMin = mn;
+									hmr.heightMax = mx;
+									buffer[idx] = std::move(hmr);
+									loaded = true;
+								}
 							}
 						}
 					}
@@ -575,7 +662,7 @@ void GameScene::loadTerrainChunks(const String& saveRoot, Stopwatch& step)
 						buffer[idx] = m_world.buildHeightMap(Point{ cx, cy });
 					}
 					const int done = loadedAtomic.fetch_add(1) + 1;
-					m_genProgress = static_cast<float>(done) / static_cast<float>(totalChunks) * 0.7f;
+					m_genProgress.store(static_cast<float>(done) / static_cast<float>(totalChunks) * 0.7f);
 				}
 			});
 		}
@@ -603,6 +690,7 @@ bool GameScene::loadGame()
 	const Stopwatch loadTotal{ StartImmediately::Yes };
 	Stopwatch step{ StartImmediately::Yes };
 
+	// セーブ一式を読み戻し、道路・地区・建物・時計・カメラまでプレイ直前の状態に復元する。
 	const String saveRoot = U"saves/{}"_fmt(getData().saveName);
 
 	// meta.json
@@ -651,8 +739,8 @@ bool GameScene::loadGame()
 	}
 	m_network.setNextIds(nextNodeId, nextEdgeId);
 
-	m_genProgress = 0.8f;
-	m_loadingStatus = U"道路・経済データ復元完了";
+	m_genProgress.store(0.8f);
+	setLoadingStatus(U"道路・経済データ復元完了");
 	Console << U"[Load] economy+roads: {:.0f}ms"_fmt(step.msF());
 	step.restart();
 
@@ -690,8 +778,8 @@ bool GameScene::loadGame()
 		addDistricts(settlements);
 	}
 
-	m_genProgress = 0.9f;
-	m_loadingStatus = U"ゾーン・建物を復元中...";
+	m_genProgress.store(0.9f);
+	setLoadingStatus(U"ゾーン・建物を復元中...");
 
 	applyZonesGlobal();
 	placeInitialBuildings();
@@ -711,7 +799,7 @@ bool GameScene::loadGame()
 	startSimThread();
 
 	Console << U"[Load] finish: {:.0f}ms"_fmt(step.msF());
-	m_genProgress = 1.0f;
+	m_genProgress.store(1.0f);
 	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), saveRoot);
 	return true;
 }
@@ -745,6 +833,7 @@ void GameScene::applyZonesGlobal()
 	const Stopwatch sw{ StartImmediately::Yes };
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 
+	// 各地区の性格と中心距離に応じて、周辺チャンクへ住宅・商業系ゾーンを面で割り当てる。
 	for (const auto& s : m_districts)
 	{
 		const float innerDist = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 400.0f
@@ -823,180 +912,450 @@ void GameScene::applyZonesGlobal()
 
 namespace
 {
-	struct RoadSample { float x; float z; float angle; float halfWidth; };
+	constexpr float kDefaultBuildingSetbackM = 2.0f;
 
-	Array<RoadSample> collectRoadSamples(
-		float cx, float cz, float radius,
+	String buildingTomlPathFromStem(const String& stem)
+	{
+		if (stem.starts_with(U"residential_"))
+			return U"assets/buildings/residential/{}.toml"_fmt(stem);
+		return U"assets/buildings/commercial/{}.toml"_fmt(stem);
+	}
+
+	float loadSetbackFromToml(const String& stem)
+	{
+		const String tomlPath = buildingTomlPathFromStem(stem);
+		const TOMLReader toml{ tomlPath };
+		if (!toml)
+		{
+			Console << U"[BuildingSetback] TOML not found/invalid: " << tomlPath
+			        << U" (fallback=" << kDefaultBuildingSetbackM << U"m)";
+			return kDefaultBuildingSetbackM;
+		}
+
+		const double setback = toml[U"setback_from_road_m"].getOr<double>(
+			toml[U"setback_m"].getOr<double>(kDefaultBuildingSetbackM));
+		return static_cast<float>(Max(0.0, setback));
+	}
+
+	float setbackFromRoadByModel(BuildingType type, int gx, int gz)
+	{
+		String stem;
+		if (!tryGetBuildingModelStem(type, gx, gz, stem))
+			return kDefaultBuildingSetbackM;
+
+		static HashTable<String, float> s_cache;
+		if (const auto it = s_cache.find(stem); it != s_cache.end())
+			return it->second;
+
+		const float value = loadSetbackFromToml(stem);
+		s_cache[stem] = value;
+		return value;
+	}
+
+	float buildingAngleFromAttachedEdge(
+		const RoadNetwork& network, int edgeId, float edgeT, float fallbackAngle)
+	{
+		if (edgeId < 0) return fallbackAngle;
+		const auto bez = network.getBezier(edgeId);
+		if (!bez || bez->totalLength <= 1e-3f) return fallbackAngle;
+		const float t = Clamp(edgeT, 0.0f, 1.0f);
+		const Vec3 tan = bez->tangentAt(bez->totalLength * t);
+		Vec2 dir{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
+		if (dir.lengthSq() <= 1e-8f) return fallbackAngle;
+		dir.normalize();
+
+		return static_cast<float>(std::atan2(dir.y, dir.x));
+	}
+
+	struct EdgeProjection
+	{
+		float edgeT = 0.0f;
+		Vec2  position{ 0.0f, 0.0f };
+		Vec2  tangent{ 1.0f, 0.0f };
+		Vec2  right{ 0.0f, -1.0f };
+		float angle = 0.0f;
+		float distance = 0.0f;
+	};
+
+	bool projectPointToEdgeXZ(const RoadNetwork& network, int edgeId, const Vec2& point, EdgeProjection& out)
+	{
+		const auto bez = network.getBezier(edgeId);
+		if (!bez || bez->totalLength <= 1e-3f) return false;
+
+		const int sampleCount = Max(32, static_cast<int>(Ceil(bez->totalLength / 8.0f)));
+		float bestArc = 0.0f;
+		double bestDistSq = Math::Inf;
+		int bestIndex = 0;
+
+		for (int i = 0; i <= sampleCount; ++i)
+		{
+			const float arc = bez->totalLength * (static_cast<float>(i) / sampleCount);
+			const Vec3 pos = bez->positionAt(arc);
+			const double dx = pos.x - point.x;
+			const double dz = pos.z - point.y;
+			const double distSq = dx * dx + dz * dz;
+			if (distSq < bestDistSq)
+			{
+				bestDistSq = distSq;
+				bestArc = arc;
+				bestIndex = i;
+			}
+		}
+
+		float lo = bez->totalLength * (Max(bestIndex - 1, 0) / static_cast<float>(sampleCount));
+		float hi = bez->totalLength * (Min(bestIndex + 1, sampleCount) / static_cast<float>(sampleCount));
+		for (int iter = 0; iter < 24; ++iter)
+		{
+			const float m1 = lo + (hi - lo) / 3.0f;
+			const float m2 = hi - (hi - lo) / 3.0f;
+			const Vec3 p1 = bez->positionAt(m1);
+			const Vec3 p2 = bez->positionAt(m2);
+			const double d1 = (p1.x - point.x) * (p1.x - point.x) + (p1.z - point.y) * (p1.z - point.y);
+			const double d2 = (p2.x - point.x) * (p2.x - point.x) + (p2.z - point.y) * (p2.z - point.y);
+			if (d1 < d2) hi = m2;
+			else lo = m1;
+		}
+
+		bestArc = (lo + hi) * 0.5f;
+		const Vec3 pos = bez->positionAt(bestArc);
+		const Vec3 tan = bez->tangentAt(bestArc);
+		Vec2 tangent{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
+		if (tangent.lengthSq() <= 1e-8f) return false;
+		tangent.normalize();
+
+		out.edgeT = Clamp(bestArc / bez->totalLength, 0.0f, 1.0f);
+		out.position = Vec2{ static_cast<float>(pos.x), static_cast<float>(pos.z) };
+		out.tangent = tangent;
+		out.right = Vec2{ tangent.y, -tangent.x };
+		out.angle = static_cast<float>(std::atan2(tangent.y, tangent.x));
+		out.distance = static_cast<float>(Math::Sqrt(
+			(out.position.x - point.x) * (out.position.x - point.x)
+			+ (out.position.y - point.y) * (out.position.y - point.y)));
+		return true;
+	}
+
+	struct EdgeFacingSlot
+	{
+		Point chunkCoord;
+		int   col = 0;
+		int   row = 0;
+		int   edgeId = -1;
+		float edgeT = 0.0f;
+		float angle = 0.0f;
+		float halfWidth = 0.0f;
+		float roadDist = 0.0f;
+		float centerDistSq = 0.0f;
+	};
+
+	int64 zoneCellKey(Point cc, int col, int row)
+	{
+		return (chunkCoordToKey(cc) << 16) ^ (static_cast<int64>(row) << 8) ^ static_cast<uint32>(col);
+	}
+
+	bool worldToZoneCell(float wx, float wz, Point& outChunk, int& outCol, int& outRow)
+	{
+		const int chunkX = static_cast<int>(Math::Floor(wx / CHUNK_SIZE));
+		const int chunkZ = static_cast<int>(Math::Floor(wz / CHUNK_SIZE));
+		const float lx = wx - static_cast<float>(chunkX * CHUNK_SIZE);
+		const float lz = wz - static_cast<float>(chunkZ * CHUNK_SIZE);
+		outChunk = Point{ chunkX, chunkZ };
+		outCol = Clamp(static_cast<int>(lx / (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS)), 0, ZONE_CELLS - 1);
+		outRow = Clamp(static_cast<int>(lz / (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS)), 0, ZONE_CELLS - 1);
+		return true;
+	}
+
+	Vec2 cellCenterXZ(Point cc, int col, int row)
+	{
+		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		return Vec2{
+			static_cast<float>(cc.x * CHUNK_SIZE) + (col + 0.5f) * cellSize,
+			static_cast<float>(cc.y * CHUNK_SIZE) + (row + 0.5f) * cellSize
+		};
+	}
+
+	bool overlapsExistingBuilding(
+		const World& world,
+		Point cc,
+		int gx,
+		int gz,
+		float wx,
+		float wz,
+		float halfBuilding)
+	{
+		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		const int checkRange = static_cast<int>(Ceil((halfBuilding * 2.0f) / cellSize)) + 1;
+		for (int oy = -checkRange; oy <= checkRange; ++oy)
+		{
+			for (int ox = -checkRange; ox <= checkRange; ++ox)
+			{
+				int nx = gx + ox;
+				int nz = gz + oy;
+				Point ncc = cc;
+				if (nx < 0) { nx += ZONE_CELLS; --ncc.x; }
+				else if (nx >= ZONE_CELLS) { nx -= ZONE_CELLS; ++ncc.x; }
+				if (nz < 0) { nz += ZONE_CELLS; --ncc.y; }
+				else if (nz >= ZONE_CELLS) { nz -= ZONE_CELLS; ++ncc.y; }
+
+				const Chunk* nchunk = world.getChunk(ncc);
+				if (!nchunk) continue;
+				const Building& nb = nchunk->buildingGrid[{ nx, nz }];
+				if (nb.type == BuildingType::None) continue;
+
+				const Vec2 ncenter = cellCenterXZ(ncc, nx, nz);
+				const float nHalf = buildingFootprintXZ() * 0.5f;
+				if (Math::Abs(wx - ncenter.x) < (halfBuilding + nHalf)
+				 && Math::Abs(wz - ncenter.y) < (halfBuilding + nHalf))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	Array<EdgeFacingSlot> collectEdgeFacingSlots(
+		const MapGenerator::Settlement& settlement,
+		const World& world,
 		const RoadNetwork& network)
 	{
-		const float radiusSq = radius * radius;
-		Array<RoadSample> samples;
+		const float halfBuilding = buildingFootprintXZ() * 0.5f;
+		const float offsetFromEdge = halfBuilding + kDefaultBuildingSetbackM;
+		const Vec2 center{ settlement.center.x, settlement.center.y };
+		const float searchRadius = static_cast<float>(settlement.radius * 2.0);
+		const float radiusSq = searchRadius * searchRadius;
+
+		HashTable<int64, EdgeFacingSlot> bestByCell;
 
 		for (const auto& edge : network.edges())
 		{
-			if (edge.id < 0) continue;
-			const RoadNode* na = network.getNode(edge.nodeA);
-			const RoadNode* nb = network.getNode(edge.nodeB);
-			if (!na || !nb) continue;
+			if (edge.id < 0 || !edge.isRoadbedBuilt()) continue;
+			if (edge.roadType != RoadType::LocalRoad) continue;
 
-			const float exMin = static_cast<float>(Min({na->position.x, edge.ctrlA.x, edge.ctrlB.x, nb->position.x}));
-			const float exMax = static_cast<float>(Max({na->position.x, edge.ctrlA.x, edge.ctrlB.x, nb->position.x}));
-			const float ezMin = static_cast<float>(Min({na->position.z, edge.ctrlA.z, edge.ctrlB.z, nb->position.z}));
-			const float ezMax = static_cast<float>(Max({na->position.z, edge.ctrlA.z, edge.ctrlB.z, nb->position.z}));
-
-			if (exMax < cx - radius || exMin > cx + radius) continue;
-			if (ezMax < cz - radius || ezMin > cz + radius) continue;
-
+			const auto bez = network.getBezier(edge.id);
+			if (!bez || bez->totalLength <= 1.0f) continue;
 			const float edgeHalfWidth = edge.totalWidth() * 0.5f;
+			const int sampleCount = Max(4, static_cast<int>(Ceil(bez->totalLength / 24.0f)));
 
-			const float p0x = static_cast<float>(na->position.x);
-			const float p0z = static_cast<float>(na->position.z);
-			const float p1x = static_cast<float>(edge.ctrlA.x);
-			const float p1z = static_cast<float>(edge.ctrlA.z);
-			const float p2x = static_cast<float>(edge.ctrlB.x);
-			const float p2z = static_cast<float>(edge.ctrlB.z);
-			const float p3x = static_cast<float>(nb->position.x);
-			const float p3z = static_cast<float>(nb->position.z);
-
-			constexpr int kSamples = 8;
-			for (int i = 0; i <= kSamples; ++i)
+			for (int i = 0; i <= sampleCount; ++i)
 			{
-				const float t  = static_cast<float>(i) / kSamples;
-				const float t1 = 1.0f - t;
-				const float c0 = t1*t1*t1;
-				const float c1 = 3.0f*t1*t1*t;
-				const float c2 = 3.0f*t1*t*t;
-				const float c3 = t*t*t;
-				const float sx = c0*p0x + c1*p1x + c2*p2x + c3*p3x;
-				const float sz = c0*p0z + c1*p1z + c2*p2z + c3*p3z;
+				const float t = static_cast<float>(i) / sampleCount;
+				const float arc = bez->totalLength * t;
+				const Vec3 pos = bez->positionAt(arc);
+				const Vec3 tan = bez->tangentAt(arc);
+				Vec2 tangent{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
+				if (tangent.lengthSq() <= 1e-8f) continue;
+				tangent.normalize();
+				const Vec2 right{ tangent.y, -tangent.x };
 
-				const float ddx = sx - cx;
-				const float ddz = sz - cz;
-				if (ddx*ddx + ddz*ddz > radiusSq) continue;
+				const float dcx = static_cast<float>(pos.x) - static_cast<float>(center.x);
+				const float dcz = static_cast<float>(pos.z) - static_cast<float>(center.y);
 
-				const float tanx = t1*t1*(p1x-p0x) + 2.0f*t1*t*(p2x-p1x) + t*t*(p3x-p2x);
-				const float tanz = t1*t1*(p1z-p0z) + 2.0f*t1*t*(p2z-p1z) + t*t*(p3z-p2z);
-				samples.push_back({ sx, sz, std::atan2(tanz, tanx), edgeHalfWidth });
+				if (settlement.kind == MapGenerator::SettlementKind::CastleTown
+					&& settlement.gridAxisX.lengthSq() > 1e-6f)
+				{
+					// 城下町はグリッドフレーム（矩形）内のエッジのみ使用し、隣接城下町の混入を防ぐ
+					const Vec2 d{ dcx, dcz };
+					const float halfExtent = Max(1000.0f, Min(4000.0f, static_cast<float>(settlement.radius) * 0.6f));
+					const float frameSize = halfExtent + 80.0f;
+					if (Math::Abs(d.dot(settlement.gridAxisX)) > frameSize) continue;
+					if (Math::Abs(d.dot(settlement.gridAxisZ)) > frameSize) continue;
+				}
+				else
+				{
+					if (dcx * dcx + dcz * dcz > radiusSq) continue;
+				}
+
+				for (const float side : { -1.0f, 1.0f })
+				{
+					const Vec2 slotPos = Vec2{ static_cast<float>(pos.x), static_cast<float>(pos.z) }
+						+ right * side * (edgeHalfWidth + offsetFromEdge);
+
+					Point cc;
+					int gx = 0, gz = 0;
+					worldToZoneCell(static_cast<float>(slotPos.x), static_cast<float>(slotPos.y), cc, gx, gz);
+
+					const Chunk* chunk = world.getChunk(cc);
+					if (!chunk) continue;
+					const ZoneType zone = chunk->zoneMap[{ gx, gz }];
+					if (zone == ZoneType::Unzoned) continue;
+
+					const Vec2 cellCenter = cellCenterXZ(cc, gx, gz);
+					EdgeProjection projection;
+					if (!projectPointToEdgeXZ(network, edge.id, cellCenter, projection)) continue;
+
+					const Vec2 toCell = cellCenter - projection.position;
+					if (toCell.lengthSq() <= 1e-6f) continue;
+					if ((toCell.dot(projection.right) * side) <= 1e-4f) continue;
+
+					const float centerDx = static_cast<float>(cellCenter.x) - static_cast<float>(center.x);
+					const float centerDz = static_cast<float>(cellCenter.y) - static_cast<float>(center.y);
+
+					EdgeFacingSlot slot;
+					slot.chunkCoord = cc;
+					slot.col = gx;
+					slot.row = gz;
+					slot.edgeId = edge.id;
+					slot.edgeT = projection.edgeT;
+					slot.angle = projection.angle;
+					slot.halfWidth = edgeHalfWidth;
+					slot.roadDist = projection.distance;
+					slot.centerDistSq = centerDx * centerDx + centerDz * centerDz;
+
+					const int64 key = zoneCellKey(cc, gx, gz);
+					const auto it = bestByCell.find(key);
+					if (it == bestByCell.end()
+					 || slot.roadDist < it->second.roadDist
+					 || (Math::Abs(slot.roadDist - it->second.roadDist) < 1e-4f && slot.centerDistSq < it->second.centerDistSq))
+					{
+						bestByCell[key] = slot;
+					}
+				}
 			}
 		}
-		return samples;
-	}
 
-	struct NearestRoadResult { float dist; float angle; float halfWidth; };
-
-	NearestRoadResult nearestFromSamples(
-		float wx, float wz, const Array<RoadSample>& samples)
-	{
-		float bestDistSq  = 1e12f;
-		float bestAngle   = 0.0f;
-		float bestHW      = 3.5f;
-		for (const auto& s : samples)
+		Array<EdgeFacingSlot> slots;
+		slots.reserve(bestByCell.size());
+		for (const auto& [_, slot] : bestByCell) slots << slot;
+		slots.sort_by([](const EdgeFacingSlot& a, const EdgeFacingSlot& b)
 		{
-			const float dx = wx - s.x;
-			const float dz = wz - s.z;
-			const float dSq = dx*dx + dz*dz;
-			if (dSq < bestDistSq)
-			{
-				bestDistSq = dSq;
-				bestAngle  = s.angle;
-				bestHW     = s.halfWidth;
-			}
-		}
-		return { Math::Sqrt(bestDistSq), bestAngle, bestHW };
+			if (a.centerDistSq != b.centerDistSq) return a.centerDistSq < b.centerDistSq;
+			if (a.chunkCoord.x != b.chunkCoord.x) return a.chunkCoord.x < b.chunkCoord.x;
+			if (a.chunkCoord.y != b.chunkCoord.y) return a.chunkCoord.y < b.chunkCoord.y;
+			if (a.row != b.row) return a.row < b.row;
+			return a.col < b.col;
+		});
+		return slots;
 	}
 }
 
 void GameScene::placeInitialBuildings()
 {
 	const Stopwatch sw{ StartImmediately::Yes };
-	constexpr float cellSize       = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	constexpr float kNearDist      = 32.0f;
 	constexpr float kFarDist       = 64.0f;
+	const float buildingSize       = buildingFootprintXZ();
+	const float halfBuilding       = buildingSize * 0.5f;
 	int placed = 0;
 
-	for (const auto& s : m_districts)
+	// 道路沿いスロットを地区ごとに収集し、ゾーン・道路距離・重なり判定を満たす場所へ初期建物を置く。
+	for (int si = 0; si < static_cast<int>(m_districts.size()); ++si)
 	{
-		const float scx = static_cast<float>(s.center.x);
-		const float scz = static_cast<float>(s.center.y);
-		const float searchRadius = s.radius * 2.0f;
-		const float radiusSq = searchRadius * searchRadius;
+		const auto& s = m_districts[si];
 
-		const auto roadSamples = collectRoadSamples(scx, scz, searchRadius, m_network);
-		if (roadSamples.isEmpty()) continue;
-
-		const int chunkRadius = static_cast<int>(Ceil(searchRadius / CHUNK_SIZE));
-		const int ccx = static_cast<int>(Math::Floor(scx / CHUNK_SIZE));
-		const int ccz = static_cast<int>(Math::Floor(scz / CHUNK_SIZE));
-
-		for (int dcy = -chunkRadius; dcy <= chunkRadius; ++dcy)
+		// デバッグ: 城下町の gridAxisX を確認
+		if (s.kind == MapGenerator::SettlementKind::CastleTown)
 		{
-			for (int dcx = -chunkRadius; dcx <= chunkRadius; ++dcx)
+			Console << U"[Debug CastleTown si={}] gridAxisX=({:.3f},{:.3f})"_fmt(
+				si, s.gridAxisX.x, s.gridAxisX.y);
+		}
+
+		const float radiusSq = s.radius * s.radius * 4.0f;
+		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(s, m_world, m_network);
+		for (const auto& slot : slots)
+		{
+			Chunk* chunk = m_world.getChunk(slot.chunkCoord);
+			if (!chunk) continue;
+			if (chunk->buildingGrid[{ slot.col, slot.row }].type != BuildingType::None) continue;
+
+			const ZoneType zone = chunk->zoneMap[{ slot.col, slot.row }];
+			if (zone == ZoneType::Unzoned) continue;
+
+			const Vec2 centerPos = cellCenterXZ(slot.chunkCoord, slot.col, slot.row);
+			const float dx = static_cast<float>(centerPos.x - s.center.x);
+			const float dz = static_cast<float>(centerPos.y - s.center.y);
+			const float distFromCenterSq = dx * dx + dz * dz;
+			if (distFromCenterSq > radiusSq) continue;
+
+				const float h = sampleHeightMap(
+					chunk->heightMap, slot.chunkCoord,
+					static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
+				if (h < 0.0f) continue;
+				if (overlapsExistingBuilding(
+					m_world, slot.chunkCoord, slot.col, slot.row,
+					static_cast<float>(centerPos.x), static_cast<float>(centerPos.y), halfBuilding)) continue;
+
+			float roadScore;
+			if      (slot.roadDist < kNearDist) roadScore = 1.0f;
+			else if (slot.roadDist < kFarDist)  roadScore = 1.0f - (slot.roadDist - kNearDist) / (kFarDist - kNearDist);
+			else                                roadScore = 0.0f;
+
+			const float distFromCenter = Math::Sqrt(distFromCenterSq);
+			const float densityFactor = Clamp(0.25f * (1.0f - distFromCenter / (s.radius * 2.0f)), 0.0f, 0.25f);
+			const float score = roadScore * densityFactor;
+			if (score < 0.02f) continue;
+
+			const uint32 cellHash = static_cast<uint32>(
+				(slot.col * 73856093) ^ (slot.row * 19349663) ^ (slot.chunkCoord.x * 83492791) ^ (slot.chunkCoord.y * 41729581));
+			const float roll = (cellHash % 1000) / 1000.0f;
+			if (roll > score) continue;
+
+			Building b = m_zoneManager.spawnBuilding(zone, 0.0);
+			if (b.type == BuildingType::None) continue;
+
+			const int globalGX = slot.chunkCoord.x * ZONE_CELLS + slot.col;
+			const int globalGZ = slot.chunkCoord.y * ZONE_CELLS + slot.row;
+			const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
+			if (slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
+
+			b.angle = buildingAngleFromAttachedEdge(m_network, slot.edgeId, slot.edgeT, slot.angle);
+			b.edgeId = slot.edgeId;
+			b.edgeT = slot.edgeT;
+
+			// デバッグ: 城下町の最初の5棟だけ接線を確認
+			if (s.kind == MapGenerator::SettlementKind::CastleTown && placed < 5)
 			{
-				const Point cc{ ccx + dcx, ccz + dcy };
-				Chunk* chunk = m_world.getChunk(cc);
-				if (!chunk) continue;
-
-				const float chunkOriginX = static_cast<float>(cc.x * CHUNK_SIZE);
-				const float chunkOriginZ = static_cast<float>(cc.y * CHUNK_SIZE);
-
-				const int gxMin = Max(0, static_cast<int>((scx - searchRadius - chunkOriginX) / cellSize));
-				const int gxMax = Min(ZONE_CELLS - 1, static_cast<int>((scx + searchRadius - chunkOriginX) / cellSize));
-				const int gzMin = Max(0, static_cast<int>((scz - searchRadius - chunkOriginZ) / cellSize));
-				const int gzMax = Min(ZONE_CELLS - 1, static_cast<int>((scz + searchRadius - chunkOriginZ) / cellSize));
-				if (gxMin > gxMax || gzMin > gzMax) continue;
-
-				for (int gz = gzMin; gz <= gzMax; ++gz)
+				const auto bez = m_network.getBezier(slot.edgeId);
+				if (bez)
 				{
-					for (int gx = gxMin; gx <= gxMax; ++gx)
-					{
-						const ZoneType zone = chunk->zoneMap[{ gx, gz }];
-						if (zone == ZoneType::Unzoned) continue;
-						if (chunk->buildingGrid[{ gx, gz }].type != BuildingType::None) continue;
-
-						const float wx = chunkOriginX + (gx + 0.5f) * cellSize;
-						const float wz = chunkOriginZ + (gz + 0.5f) * cellSize;
-
-						const float dx = wx - scx;
-						const float dz = wz - scz;
-						const float distFromCenterSq = dx*dx + dz*dz;
-						if (distFromCenterSq > radiusSq) continue;
-
-						const float h = sampleHeightMap(chunk->heightMap, cc, wx, wz);
-						if (h < 0.0f) continue;
-
-						const auto [roadDist, angle, roadHW] = nearestFromSamples(wx, wz, roadSamples);
-						if (roadDist < roadHW * 2.0f) continue;
-
-						float roadScore;
-						if      (roadDist < kNearDist) roadScore = 1.0f;
-						else if (roadDist < kFarDist)  roadScore = 1.0f - (roadDist - kNearDist) / (kFarDist - kNearDist);
-						else                           roadScore = 0.0f;
-
-						const float distFromCenter = Math::Sqrt(distFromCenterSq);
-						const float densityFactor = Clamp(0.25f * (1.0f - distFromCenter / (s.radius * 2.0f)), 0.0f, 0.25f);
-
-						const float score = roadScore * densityFactor;
-						if (score < 0.02f) continue;
-
-						const uint32 cellHash = static_cast<uint32>(
-							(gx * 73856093) ^ (gz * 19349663) ^ (cc.x * 83492791) ^ (cc.y * 41729581));
-						const float roll = (cellHash % 1000) / 1000.0f;
-						if (roll > score) continue;
-
-						Building b = m_zoneManager.spawnBuilding(zone, 0.0);
-						if (b.type == BuildingType::None) continue;
-						b.angle = angle;
-
-						chunk->buildingGrid[{ gx, gz }] = b;
-						chunk->meshDirty = true;
-						++placed;
-					}
+					const Vec3 tan = bez->tangentAt(bez->totalLength * 0.5f);
+					Console << U"[Debug building #{}] edgeId={} tan=({:.3f},{:.3f}) angle={:.2f}deg gridAxisX=({:.3f},{:.3f})"_fmt(
+						placed,
+						slot.edgeId,
+						tan.x, tan.z,
+						Math::ToDegrees(b.angle),
+						s.gridAxisX.x, s.gridAxisX.y);
 				}
 			}
+
+			chunk->buildingGrid[{ slot.col, slot.row }] = b;
+			chunk->meshDirty = true;
+			++placed;
 		}
 	}
 
 	Logger << U"[placeInitialBuildings] {} 棟配置 ({:.0f}ms)"_fmt(placed, sw.msF());
+	refreshBuildingAnglesFromEdges();
+}
+
+void GameScene::refreshBuildingAnglesFromEdges()
+{
+	int updated = 0;
+	for (Chunk* chunk : m_world.getActiveChunks())
+	{
+		if (!chunk) continue;
+		bool chunkChanged = false;
+		for (int row = 0; row < ZONE_CELLS; ++row)
+		{
+			for (int col = 0; col < ZONE_CELLS; ++col)
+			{
+				Building& b = chunk->buildingGrid[{ col, row }];
+				if (b.type == BuildingType::None) continue;
+				if (b.edgeId < 0) continue;
+
+				const float newAngle = buildingAngleFromAttachedEdge(m_network, b.edgeId, b.edgeT, b.angle);
+				if (Math::Abs(newAngle - b.angle) <= 1e-4f) continue;
+				b.angle = newAngle;
+				chunkChanged = true;
+				++updated;
+			}
+		}
+		if (chunkChanged) chunk->meshDirty = true;
+	}
+
+	if (updated > 0)
+	{
+		Logger << U"[refreshBuildingAnglesFromEdges] {} buildings"_fmt(updated);
+	}
 }
 
 // =============================================================================
@@ -1010,6 +1369,7 @@ namespace
 
 void GameScene::tickConstruction()
 {
+	// 工事中エッジの開通タイミングを監視し、まとまって Open 化して関連キャッシュを更新する。
 	// 遷移対象の ID を先に収集し、後でまとめて変更する
 	Array<int> toOpen;
 	for (const auto& edge : m_network.edges())
@@ -1041,6 +1401,7 @@ void GameScene::tickConstruction()
 
 void GameScene::update()
 {
+	// シミュレーション応答、時間進行、入力、カメラ、描画準備を毎フレームここで順に同期させる。
 	if (m_phase == GamePhase::Loading)
 	{
 		updateLoading();

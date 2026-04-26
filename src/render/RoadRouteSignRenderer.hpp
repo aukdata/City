@@ -8,6 +8,7 @@
 class RoadRouteSignRenderer
 {
 public:
+	// 国道路線標識は 3D 空間のアンカーから 2D ビルボードとして描き、選択用ヒット矩形も保持する。
 	/// @brief 国道路線標識を描画する（Shader::LinearToScreen の後に呼ぶこと）
 	void render(const RoadNetwork& network, const GameCamera& camera) const;
 

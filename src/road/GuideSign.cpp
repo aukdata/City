@@ -49,6 +49,7 @@ namespace
 
 GuideSign::BoardSize GuideSign::computeBoardSizeFor(const GuideSignPlacement& g)
 {
+	// 標識種別ごとの要素量から板寸法を決め、最後に明示 override を反映する。
 	BoardSize boardSize;
 	if (g.kind == GuideSignKind::DirectionArrow)
 	{
@@ -407,6 +408,7 @@ namespace
 	Array<Dest> resolveDestinations(
 		const RoadNetwork& network, int edgeId, int nodeEndId, int maxCount, float initialDist_m)
 	{
+		// 指定進行方向の先を道路グラフでたどり、標識候補に使う名称付き目的地を集める。
 		Array<Dest> out;
 		if (maxCount <= 0)
 		{
@@ -490,6 +492,7 @@ namespace
 	Optional<Dest> resolveNearestDestinationVia(
 		const RoadNetwork& network, int nodeId, int viaEdgeId)
 	{
+		// 分岐先ごとの代表地名を 1 件だけ拾い、108の2 の方面ラベル生成に使う。
 		const RoadEdge* via = network.getEdge(viaEdgeId);
 		if (!via)
 		{
@@ -548,6 +551,7 @@ namespace
 	/// @brief DirectionDistance 用 elements を生成する（データ駆動: DestName + DestDistance）
 	Array<SignElement> buildDirectionDistance_Elements(const Array<Dest>& dests, int routeNumber = 0)
 	{
+		// 方面及び距離標識の板面を、行数と文字長に応じたレイアウトへ正規化して組み立てる。
 		Array<SignElement> out;
 
 		const int destCount   = static_cast<int>(dests.size());
@@ -771,6 +775,7 @@ namespace
 	/// @brief DirectionArrow 用 elements を生成する
 	Array<SignElement> buildDirectionArrow_Elements(const Array<Arm>& arms, int signRouteNumber = 0)
 	{
+		// 108の2 用に進行方向別のアームと地名を並べ替え、板面要素へ変換する。
 		const ArrowLayoutGeom geom = computeArrowLayout(arms);
 
 		Array<SignElement> out;
@@ -932,6 +937,7 @@ Array<GuideSignPlacement> GuideSign::InferAutoForEdge(const RoadEdge& edge, cons
 {
 	Array<GuideSignPlacement> out;
 
+	// 国道交差点の前後 300m をたどり、106 と 108の2 の自動案内標識を対で推論する。
 	// 国道の交差点かどうかを判定する（接続エッジのいずれかが国道に属していれば true）
 	const auto isNationalRouteIntersection = [&](const RoadNode* node) -> bool
 	{

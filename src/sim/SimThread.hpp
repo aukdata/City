@@ -13,6 +13,7 @@
 class SimThread
 {
 public:
+	// Main スレッドとはメッセージキュー越しにだけ通信し、探索グラフの可変状態はこのスレッドへ閉じ込める。
 	SimThread() = default;
 	~SimThread() { stop(); }
 

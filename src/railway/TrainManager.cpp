@@ -2,11 +2,13 @@
 
 void TrainManager::init(TrainNetwork* network)
 {
+	// 列車管理はネットワーク参照だけを受け取り、以後の運行更新で共有利用する。
 	m_network = network;
 }
 
 void TrainManager::update(double dt, GameTime gameNow)
 {
+	// 更新ではまず時刻表ベースの発車を処理し、その後に全列車を進めて完走済みを回収する。
 	if (!m_network) return;
 
 	spawnScheduledTrains(gameNow);
@@ -20,12 +22,14 @@ void TrainManager::update(double dt, GameTime gameNow)
 
 void TrainManager::addTrain(Train train)
 {
+	// 列車 ID をここで採番し、運行配列へ追加して以後の更新対象に載せる。
 	train.id = m_nextId++;
 	m_trains << std::move(train);
 }
 
 void TrainManager::updateTrain(Train& t, double dt, GameTime gameNow)
 {
+	// 列車は停車待ち・閉塞待ち・走行中の状態で分け、待機条件を満たした時だけ通常走行へ戻す。
 	// 駅停車中
 	if (t.state == TrainState::WaitingStation)
 	{
@@ -56,6 +60,7 @@ void TrainManager::updateTrain(Train& t, double dt, GameTime gameNow)
 
 void TrainManager::advanceTrain(Train& t, double dt, [[maybe_unused]] GameTime gameNow)
 {
+	// 走行中は簡易速度制御で弧長を進め、エッジ終端で閉塞占有を引き継ぎながら次区間へ渡す。
 	if (t.currentEdge < 0) return;
 
 	const TrackEdge* edge = m_network->getEdge(t.currentEdge);
@@ -142,6 +147,7 @@ void TrainManager::advanceTrain(Train& t, double dt, [[maybe_unused]] GameTime g
 
 float TrainManager::targetSpeed(const Train& t) const
 {
+	// 目標速度は線路制限速度を基準にし、次閉塞が詰まっている時だけ手前で減速させる。
 	if (t.currentEdge < 0) return 0.0f;
 	const TrackEdge* e = m_network->getEdge(t.currentEdge);
 	if (!e) return 0.0f;
@@ -168,6 +174,7 @@ float TrainManager::targetSpeed(const Train& t) const
 
 void TrainManager::spawnScheduledTrains(GameTime gameNow)
 {
+	// 時刻表は始発駅近傍から新規列車を立ち上げ、停車駅列を簡易な走行ルートへ変換して投入する。
 	for (auto& sched : m_network->schedules())
 	{
 		if (sched.stops.isEmpty()) continue;

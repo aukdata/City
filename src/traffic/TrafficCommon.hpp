@@ -7,6 +7,7 @@
 /// @brief 車両シミュレーション定数
 namespace TrafficConfig
 {
+	// VehicleManager と TrafficGraph が共有する閾値をここへ集約し、挙動調整点を 1 箇所にまとめる。
 	// ── スポーン ──
 	constexpr float kSpawnSpeed        = 5.0f;   ///< 初期速度 [m/s]
 	constexpr float kSpawnPosRatio     = 0.8f;   ///< ランダムスポーン位置（エッジ長の割合）
@@ -37,6 +38,7 @@ namespace TrafficConfig
 /// @brief 交通シミュレーション共通ユーティリティ
 namespace TrafficCommon
 {
+	// 交通シミュレーションの共通ロジックをここへ置き、車両更新・経路探索・信号処理で同じ判定を使う。
 	// ========== 定数 ==========
 
 	constexpr float kSignalStopDist = 15.0f;  ///< 信号停止検出距離 [m]

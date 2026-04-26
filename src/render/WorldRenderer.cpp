@@ -5,6 +5,7 @@
 
 void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 {
+	// アクティブチャンクを近傍優先で回し、地形本体と水面を分けて描画する。
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
 
@@ -95,6 +96,7 @@ void WorldRenderer::render(World& world, const BasicCamera3D& camera)
 
 void WorldRenderer::drawChunk(Chunk& chunk, const World& world)
 {
+	// チャンク単位で地形と建物の GPU キャッシュを更新し、そのまま描画まで完結させる。
 	const Key key = chunkCoordToKey(chunk.coord);
 
 	if (!m_meshCache.contains(key))
@@ -120,6 +122,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world)
 
 MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 {
+	// 高さマップから法線付き地形メッシュを組み立て、チャンク境界をまたいで連続する UV を与える。
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	const Vec3 worldOrigin   = chunk.worldOrigin();
 
@@ -191,28 +194,21 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk)
 
 namespace
 {
-	/// @brief 住宅建物タイプ → 使用する OBJ モデル群
-	bool isResidential(BuildingType t)
+	/// @brief 非 OBJ 建物（Box 描画）の従来高さスケール
+	constexpr float kLegacyBoxHeightScale = 5.0f;
+	/// @brief モデル TOML に scale が無い場合の既定値
+	constexpr float kDefaultModelScale = 1.0f;
+
+	String buildingAssetSubDir(BuildingType type)
 	{
-		return t == BuildingType::Detached
-		    || t == BuildingType::LowApartment
-		    || t == BuildingType::MidApartment
-		    || t == BuildingType::HighApartment;
+		return isResidentialBuildingType(type) ? U"residential" : U"commercial";
 	}
 
-	/// @brief Building タイプ + セル座標から決定論的に OBJ インデックス（0〜9）を選ぶ
-	uint8 pickResidentialModel(BuildingType t, int gx, int gz)
+	float parseModelScale(const TOMLReader& toml)
 	{
-		const uint32 h = (static_cast<uint32>(gx) * 73856093u)
-		               ^ (static_cast<uint32>(gz) * 19349663u);
-		switch (t)
-		{
-		case BuildingType::Detached:      return 0;                          // 001
-		case BuildingType::LowApartment:  return static_cast<uint8>(1 + h % 2); // 002-003
-		case BuildingType::MidApartment:  return static_cast<uint8>(3 + h % 3); // 004-006
-		case BuildingType::HighApartment: return static_cast<uint8>(6 + h % 4); // 007-010
-		default:                          return 0;
-		}
+		const double s = toml[U"scale"].getOr<double>(
+			toml[U"render_scale"].getOr<double>(kDefaultModelScale));
+		return static_cast<float>(Max(0.001, s));
 	}
 
 	/// @brief 建物 Box メッシュの頂点を中心 (cx, cz) まわりに角度 angle で Y 軸回転する
@@ -247,19 +243,56 @@ namespace
 	}
 }
 
-Model& WorldRenderer::getBuildingModel(uint8 idx)
+WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(BuildingType type, uint8 variant)
 {
-	if (m_buildingModels.isEmpty())
+	// 建物種別ごとの OBJ/TOML を遅延ロードし、以後はモデルとスケールを共有キャッシュで再利用する。
+	const uint32 key = (static_cast<uint32>(type) << 8) | static_cast<uint32>(variant);
+	auto it = m_buildingModels.find(key);
+	if (it != m_buildingModels.end())
 	{
-		m_buildingModels.resize(10);
+		return it->second;
 	}
-	if (m_buildingModels[idx].isEmpty())
+
+	String stem;
+	if (!tryGetBuildingModelStem(type, 0, 0, stem))
 	{
-		const String path = U"assets/buildings/residential/residential_{:03d}.obj"_fmt(idx + 1);
-		m_buildingModels[idx] = Model{ path };
-		Model::RegisterDiffuseTextures(m_buildingModels[idx], TextureDesc::MippedSRGB);
+		// OBJ 非対応種別は空アセットを返す
+		auto [inserted, _] = m_buildingModels.emplace(key, BuildingModelAsset{});
+		return inserted->second;
 	}
-	return m_buildingModels[idx];
+
+	if (isResidentialBuildingType(type))
+	{
+		stem = U"residential_{:03d}"_fmt(variant + 1);
+	}
+	const String subDir = buildingAssetSubDir(type);
+	const String path = U"assets/buildings/{}/{}.obj"_fmt(subDir, stem);
+	const String tomlPath = U"assets/buildings/{}/{}.toml"_fmt(subDir, stem);
+
+	BuildingModelAsset asset;
+	const TOMLReader toml{ tomlPath };
+	if (toml)
+	{
+		asset.scale = parseModelScale(toml);
+	}
+	else
+	{
+		Console << U"[WorldRenderer] building TOML load failed: " << tomlPath
+		        << U" (scale fallback=" << kDefaultModelScale << U")";
+	}
+
+	asset.model = Model{ path };
+	if (!asset.model.isEmpty())
+	{
+		Model::RegisterDiffuseTextures(asset.model, TextureDesc::MippedSRGB);
+	}
+	else
+	{
+		Console << U"[WorldRenderer] building model load failed: " << path;
+	}
+
+	auto [inserted, _] = m_buildingModels.emplace(key, std::move(asset));
+	return inserted->second;
 }
 
 Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const World& world,
@@ -270,34 +303,36 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return none;
 
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	constexpr float footprint = 10.0f;
+	const float footprint = buildingFootprintXZ();
 	const Vec3 origin = chunk.worldOrigin();
 	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
 	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
 
-	if (isResidential(b.type))
+	if (isObjBuildingType(b.type))
 	{
 		const float gy = world.sampleHeight(cx, cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
-		Model& model = getBuildingModel(pickResidentialModel(b.type, gx, gz));
-		if (model.isEmpty()) return none;
+		const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
+		if (asset.model.isEmpty()) return none;
+		const float yaw = b.angle;
 
-		const Box& lb = model.boundingBox();
+		const Box& lb = asset.model.boundingBox();
 		const Vec3 localCenter = lb.center;
-		const Vec3 size = lb.size;
+		const Vec3 size = lb.size * asset.scale;
 		// drawCachedBuildings と同じ Mat4x4::RotateY → translate 変換を再現
-		const double cosA = Math::Cos(b.angle);
-		const double sinA = Math::Sin(b.angle);
+		const double cosA = Math::Cos(yaw);
+		const double sinA = Math::Sin(yaw);
 		const Vec3 worldCenter{
-			cx + localCenter.x * cosA + localCenter.z * sinA,
-			gy + localCenter.y,
-			cz - localCenter.x * sinA + localCenter.z * cosA
+			cx + localCenter.x * asset.scale * cosA + localCenter.z * asset.scale * sinA,
+			gy + localCenter.y * asset.scale,
+			cz - localCenter.x * asset.scale * sinA + localCenter.z * asset.scale * cosA
 		};
-		return OrientedBox{ worldCenter, size, Quaternion::RotateY(b.angle) };
+		return OrientedBox{ worldCenter, size, Quaternion::RotateY(yaw) };
 	}
 
-	const float height = buildingHeight(b.type);
+	const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 	if (height <= 0.0f) return none;
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ footprint, height, footprint },
@@ -312,24 +347,29 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return;
 
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	constexpr float footprint = 10.0f;
+	const float footprint = buildingFootprintXZ();
 	const Vec3 origin = chunk.worldOrigin();
 	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
 	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
 
-	if (isResidential(b.type))
+	if (isObjBuildingType(b.type))
 	{
 		const float gy = world.sampleHeight(cx, cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
-		Model& model = getBuildingModel(pickResidentialModel(b.type, gx, gz));
-		if (model.isEmpty()) return;
+		const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
+		if (asset.model.isEmpty()) return;
+		const float yaw = b.angle;
 
-		drawModelSilhouette(model, Mat4x4::RotateY(b.angle).translated(cx, gy, cz), color);
+		drawModelSilhouette(asset.model,
+		                    (Mat4x4::Scale(asset.scale)
+		                   * Mat4x4::RotateY(yaw)).translated(cx, gy, cz),
+		                    color);
 		return;
 	}
 
-	const float height = buildingHeight(b.type);
+	const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 	if (height <= 0.0f) return;
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
@@ -344,7 +384,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
 {
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	constexpr float footprint = 10.0f;
+	const float footprint = buildingFootprintXZ();
 
 	const Vec3 origin = chunk.worldOrigin();
 
@@ -365,20 +405,24 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
 
 			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
-			if (isResidential(b.type))
+			if (isObjBuildingType(b.type))
 			{
 				const float gy = world.sampleHeight(cx, cz);
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
+				const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 				modelInstances.push_back({
-					pickResidentialModel(b.type, gx, gz),
+					b.type,
+					variant,
 					Float3{ cx, gy, cz },
-					b.angle
+					b.angle,
+					asset.scale
 				});
 				continue;
 			}
 
-			const float height = buildingHeight(b.type);
+			const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 			if (height <= 0.0f) continue;
 			const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
@@ -429,13 +473,14 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 		auto* self = const_cast<WorldRenderer*>(this);
 		for (const auto& inst : it->second)
 		{
-			Model& model = self->getBuildingModel(inst.modelIdx);
-			if (model.isEmpty()) continue;
+			BuildingModelAsset& asset = self->getBuildingModelAsset(inst.type, inst.modelVariant);
+			if (asset.model.isEmpty()) continue;
 
-			const Mat4x4 worldMat = Mat4x4::RotateY(inst.angle)
+			const Mat4x4 worldMat = (Mat4x4::Scale(inst.scale)
+			                       * Mat4x4::RotateY(inst.angle))
 				.translated(inst.pos.x, inst.pos.y, inst.pos.z);
-			const auto& materials = model.materials();
-			for (const auto& obj : model.objects())
+			const auto& materials = asset.model.materials();
+			for (const auto& obj : asset.model.objects())
 			{
 				const Transformer3D transform{ worldMat };
 				obj.draw(materials);
@@ -443,4 +488,3 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 		}
 	}
 }
-

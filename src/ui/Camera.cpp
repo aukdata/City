@@ -8,6 +8,7 @@ GameCamera::GameCamera()
 
 void GameCamera::update(double dt, const World& world)
 {
+	// カメラモードごとに入力と再構築方法を切り替え、Overview / Follow / FirstPerson を一つの状態機械で扱う。
 	if (m_mode == CameraMode::Overview)
 	{
 		handleInput(dt, world);
@@ -34,6 +35,7 @@ void GameCamera::update(double dt, const World& world)
 
 void GameCamera::handleInput(double dt, const World& world)
 {
+	// Overview では WASD 移動、ホイールドラッグ回転、Shift パン、ホイールズームをまとめて処理する。
 	// ─── WASD 移動 ─────────────────────────────────────────────────────────────
 	const Vec3   forward    = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
 	const Vec3   right      = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
@@ -180,6 +182,7 @@ void GameCamera::handleInput(double dt, const World& world)
 
 void GameCamera::rebuild(const World* world)
 {
+	// focus, yaw, pitch, distance から俯瞰カメラを再構築し、必要なら地形へ潜らない高さまで持ち上げる。
 	Vec3 eye = m_focus + Vec3{
 		Math::Sin(m_yaw)  * Math::Cos(m_pitch),
 		Math::Sin(m_pitch),
@@ -241,6 +244,7 @@ void GameCamera::setFollowTarget(Vec3 pos, float heading)
 
 void GameCamera::rebuildFollow()
 {
+	// Follow モードでは対象の後方高めから見る固定追従カメラを組み、操作を最小限に絞る。
 	// 車両の後方 25m・高さ 10m からターゲットを見る
 	const Vec3 back = Vec3{
 		-Math::Sin(m_followHeading),

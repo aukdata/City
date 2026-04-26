@@ -14,6 +14,7 @@ void PlaceNameRenderer::render(const Array<MapGenerator::Settlement>& settlement
                                const GameCamera& camera,
                                const World& world) const
 {
+	// 地名は地区中心を 2D 投影し、距離に応じた縮小・フェード付きビルボードとして重ねる。
 	const auto& m_font = FontAsset(Asset::CJK24);
 	const auto& cam3D    = camera.camera3D();
 	const double camDist = camera.distance();
@@ -51,7 +52,7 @@ void PlaceNameRenderer::render(const Array<MapGenerator::Settlement>& settlement
 		const double kanjiSize  = m_font.fontSize() * scale;
 		const double romajiSize = kanjiSize * kRomajiScale;
 
-		// テキスト領域を事前計算して背景を描画
+		// 背景付きの 2 段ラベルにするため、漢字とローマ字の領域を先にまとめて確定する。
 		const auto kanjiRegion  = m_font(s.name).regionAt(kanjiSize, screenPos);
 		const RectF romajiRegion = s.reading.isEmpty()
 			? RectF{}

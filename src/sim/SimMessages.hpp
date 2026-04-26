@@ -10,7 +10,7 @@ struct SimGraph;   // 前方宣言
 // RouteWaypoint は Vehicle.hpp で定義済み
 
 // ═══════════════════════════════════════════════════════════════════
-// Main → Sim リクエスト
+// Main から SimThread へ送る要求は、経路探索とグラフ差し替えの 2 系統に限定する。
 // ═══════════════════════════════════════════════════════════════════
 
 struct RouteRequest
@@ -29,7 +29,7 @@ struct NetworkUpdate
 using SimRequest = std::variant<RouteRequest, NetworkUpdate>;
 
 // ═══════════════════════════════════════════════════════════════════
-// Sim → Main レスポンス
+// Sim から Main へ返す応答も、探索結果と計測結果の 2 種類へ揃える。
 // ═══════════════════════════════════════════════════════════════════
 
 struct RouteResponse

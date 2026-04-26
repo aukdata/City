@@ -5,6 +5,7 @@
 
 void DebugRenderer::handleInput()
 {
+	// F3 系のデバッグ表示トグルをここで一括して受け付ける。
 	if (!KeyF3.pressed()) return;
 
 	if (KeyN.down())     m_showNetwork   = !m_showNetwork;
@@ -29,6 +30,7 @@ void DebugRenderer::render(const RoadNetwork& network,
                            const World& world,
                            const GameCamera& camera)
 {
+	// 3D オーバーレイと 2D HUD を表示順に分けて重ねる。
 	// 3D オーバーレイ（描画順: グリッド → ネットワーク → チャンク → 車両）
 	if (m_showGrid)     renderGrid(camera);
 	if (m_showBiomes)   renderBiomes(world, camera);
@@ -55,6 +57,7 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 	const Vec3 camPos = camera.camera3D().getEyePosition();
 	constexpr double kMaxDistSq = 3000.0 * 3000.0;
 
+	// ノード色・エッジ曲線・統計表示をまとめて出し、ネットワーク全体像を把握しやすくする。
 	// ノード
 	for (const auto& node : network.nodes())
 	{

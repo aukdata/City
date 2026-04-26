@@ -5,6 +5,7 @@
 class TitleScene : public App::Scene
 {
 public:
+	// タイトル画面では開始条件の一時 UI 状態を保持し、確定時だけ SceneData へ反映する。
 	explicit TitleScene(const InitData& init);
 
 	void update() override;

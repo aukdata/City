@@ -8,6 +8,7 @@
 ///   メインスレッドで RoadNetwork を編集した後、rebuild() で再構築し shared_ptr でスワップする。
 struct SimGraph
 {
+	// RoadNetwork から走行・探索に必要な最小情報だけを切り出し、SimThread で安全に共有できる形にする。
 	/// @brief エッジのシミュレーション用データ
 	struct Edge
 	{
@@ -47,6 +48,7 @@ struct SimGraph
 	/// @brief RoadNetwork から SimGraph を構築する
 	static SimGraph build(const RoadNetwork& network)
 	{
+		// 全件再構築ではエッジとノードを最初から作り直し、接線角も含めて完全なスナップショットを作る。
 		SimGraph g;
 
 		for (const auto& edge : network.edges())
@@ -92,6 +94,7 @@ struct SimGraph
 	/// @brief 指定ノード周辺のエッジ・ノードだけ差分更新する
 	void updateAround(const Array<int>& dirtyNodeIds, const RoadNetwork& network)
 	{
+		// 局所編集時は影響ノードと隣接エッジだけ更新し、全体再構築より軽く同期を取り直す。
 		// 変更ノードに接続するエッジを収集
 		HashSet<int> edgeIds;
 		HashSet<int> nodeIds;

@@ -70,6 +70,7 @@ namespace
 
 Array<PartModelData> ObjParser::parse(FilePathView path)
 {
+	// OBJ をオブジェクト単位へ分割しつつ、face ごとの頂点参照を Siv3D の MeshData 形式へ展開する。
 	TextReader reader{ path };
 	if (!reader)
 	{
@@ -188,6 +189,7 @@ Array<PartModelData> ObjParser::parse(FilePathView path)
 
 RoadPartModel ObjParser::buildModel(const Array<PartModelData>& meshes, bool symmetric)
 {
+	// 命名規約に従って inner / center / outer と LOD を振り分け、必要なら outer を鏡像生成する。
 	RoadPartModel model;
 
 	// LOD レベルごとの inner/center/outer を分類

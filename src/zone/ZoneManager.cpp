@@ -101,6 +101,7 @@ Vec3 ZoneManager::cellToWorld(Point chunkCoord, Point cellCoord)
 
 void ZoneManager::paintZone(World& world, Vec3 worldPos, ZoneType zone, int brushRadius)
 {
+	// 円形ブラシで近傍セルを書き換え、チャンク境界をまたぐ塗りも同じ手順で処理する。
 	const auto [chunkCoord, centerCell] = worldToCell(worldPos);
 
 	for (int dy = -brushRadius; dy <= brushRadius; ++dy)
@@ -129,6 +130,7 @@ void ZoneManager::paintZone(World& world, Vec3 worldPos, ZoneType zone, int brus
 
 void ZoneManager::paintZoneRect(World& world, Vec3 a, Vec3 b, ZoneType zone)
 {
+	// 矩形指定はワールド座標をセル範囲へ落とし込み、対象セルをまとめて更新する。
 	const double minX = Min(a.x, b.x);
 	const double maxX = Max(a.x, b.x);
 	const double minZ = Min(a.z, b.z);
@@ -169,6 +171,7 @@ ZoneType ZoneManager::getZone(const World& world, Vec3 worldPos) const
 float ZoneManager::calcDevelopmentScore(Point chunkCoord, int cx, int cy,
                                         const RoadNetwork& network) const
 {
+	// 発展可否は道路への近さだけを簡潔なスコアへ畳み込み、上位ロジックから使いやすくする。
 	const Vec3 center = cellToWorld(chunkCoord, { cx, cy });
 	const auto info = nearestRoadInfo(
 		static_cast<float>(center.x), static_cast<float>(center.z), network);
@@ -179,6 +182,7 @@ float ZoneManager::calcDevelopmentScore(Point chunkCoord, int cx, int cy,
 
 Building ZoneManager::spawnBuilding(ZoneType zone, double gameNow) const
 {
+	// ゾーン種別ごとの代表建物をここで決め、建築時刻だけ載せた初期 Building を返す。
 	Building b;
 	b.builtAt = gameNow;
 
@@ -191,7 +195,7 @@ Building ZoneManager::spawnBuilding(ZoneType zone, double gameNow) const
 		b.type = (Random() < 0.70) ? BuildingType::Detached : BuildingType::LowApartment;
 		break;
 	case ZoneType::Commercial:
-		b.type = BuildingType::Shop;
+		b.type = (Random() < 0.70) ? BuildingType::Shop : BuildingType::Office;
 		break;
 	case ZoneType::Industrial:
 		b.type = BuildingType::Factory;
@@ -233,6 +237,7 @@ void ZoneManager::renderOverlay(const World& world) const
 {
 	if (!showOverlay) return;
 
+	// ゾーン確認用の半透明ボックスを、表示中のアクティブチャンクだけに重ねて描く。
 	constexpr float cellSz = kCellSize;
 	constexpr float lift   = 0.20f;   // 地面から浮かせる高さ [m]
 	constexpr float height = 0.40f;   // Box の高さ [m]

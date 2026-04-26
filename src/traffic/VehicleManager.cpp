@@ -29,6 +29,7 @@ void VehicleManager::onNetworkChanged(const SimGraph& simGraph, const RoadNetwor
 
 void VehicleManager::spawnRandom(const SimGraph& simGraph, VehicleType type)
 {
+	// 交通量が自然に残るよう、走行可能エッジからランダムに初期配置する。
 	const auto candidates = collectDrivableEdges(simGraph);
 	if (candidates.isEmpty()) return;
 
@@ -53,7 +54,7 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 	const auto* edge = simGraph.getEdge(edgeId);
 	if (!edge) { Console << U"[spawnOnEdge] edge not found: " << edgeId; return; }
 
-	// 走行可能な車線を探す
+	// デバッグスポーンでも破綻しないよう、閉鎖車線を避けて走行可能車線を選ぶ。
 	int laneIdx = -1;
 	for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 	{
@@ -107,6 +108,7 @@ void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 		v.routeRequested = false;
 		if (resp.found)
 		{
+			// 経路探索成功時は経路全体を差し替え、失敗状態もここで解消する。
 			v.routeWaypoints = resp.waypoints;
 			v.routeIdx = 0;
 			v.routeFailCount = 0;
@@ -146,6 +148,8 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 	const auto t0 = Clock::now();
 
+	// フレーム冒頭で台数補充と信号キャッシュ更新を済ませ、以降の車両更新は
+	// 同じネットワーク状態を前提に進める。
 	if (static_cast<int>(m_vehicles.size()) < m_targetVehicleCount)
 		spawnRandom(simGraph);
 
@@ -163,6 +167,8 @@ void VehicleManager::update(double dt, GameTime gameNow,
 
 	for (auto& v : m_vehicles)
 	{
+		// 削除予定車両や破綻した参照を早めに整理しつつ、可視範囲の車両だけを
+		// Active として精密更新し、不可視車両は Dormant 近似へ落とす。
 		if (v.currentEdge == -1 && v.location != VehicleLocation::OnConnection) continue;
 		if (v.location == VehicleLocation::OnLane || v.location == VehicleLocation::ChangingLane)
 		{
@@ -182,12 +188,10 @@ void VehicleManager::update(double dt, GameTime gameNow,
 		if (v.mode == VehicleMode::Active)
 		{
 			const auto lcStart = Clock::now();
-			// 経路駆動車線変更を毎フレーム判定（気まぐれ変更は tryLaneChange 内で低確率ガード）
 			if (v.location == VehicleLocation::OnLane)
 				tryLaneChange(v, simGraph);
 			lcTotal += toMs(Clock::now() - lcStart);
 
-			// 車線変更ブレンド更新
 			if (v.location == VehicleLocation::ChangingLane)
 			{
 				v.laneChangeBlend += static_cast<float>(dt) * kLaneChangeBlendRate;
@@ -210,15 +214,14 @@ void VehicleManager::update(double dt, GameTime gameNow,
 			updateDormantVehicle(v, dt);
 		}
 
-		// 経路終端チェック: ウェイポイントを消化済みの車両はデスポーン
+		// 経路を走り切った車両は回収し、道路編集で経路が壊れた車両はその場で再探索へ戻す。
 		if (v.routeIdx >= static_cast<int>(v.routeWaypoints.size()))
 		{
 			if (v.routeWaypoints.isEmpty() && !v.routeRequested)
 				requestRoute(v, simGraph);  // 初回: まだ経路を持っていない
 			else if (!v.routeWaypoints.isEmpty())
-				v.currentEdge = -1;  // 経路を走りきった → デスポーン
+				v.currentEdge = -1;
 		}
-		// 次のウェイポイントのエッジが存在しない場合は経路を再探索
 		else if (v.routeIdx < static_cast<int>(v.routeWaypoints.size())
 			&& !v.routeRequested
 			&& !simGraph.getEdge(v.routeWaypoints[v.routeIdx].edgeId))
@@ -244,6 +247,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 void VehicleManager::updateActiveVehicle(Vehicle& v, double dt,
                                          const SimGraph& simGraph, const RoadNetwork& network)
 {
+	// 停車待ち状態はここで完結させ、通常走行へ戻った車両だけを区間更新へ進める。
 	if (v.state == VehicleState::WaitingBusStop)
 	{
 		v.busWaitRemaining -= static_cast<float>(dt);
@@ -280,6 +284,7 @@ void VehicleManager::advanceOnConnection(Vehicle& v, double dt,
 		if (c.id == v.connectionId) { conn = &c; break; }
 	if (!conn) { v.location = VehicleLocation::OnLane; return; }
 
+	// 交差点内部では LaneConnection の軌跡に沿って進め、終端で次エッジへ着地させる。
 	v.arcPos += v.speed * static_cast<float>(dt);
 
 	if (v.arcPos >= conn->path.totalLength)
@@ -315,6 +320,8 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 	const auto* edge = simGraph.getEdge(v.currentEdge);
 	if (!edge) return;
 
+	// 通常走行ではまず IDM で基本加速度を決め、その後で信号や停止規制を重ねて
+	// 交差点手前の減速や停止状態への遷移を制御する。
 	const bool fwdLane = isForwardLane(*edge, v.currentLane);
 	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
 	float accel = idmAcceleration(m_vehicles, v, params, fwdLane, true);
@@ -407,7 +414,7 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 	else
 		v.arcPos -= advance;
 
-	// カットオフ位置に到達したらノードへ遷移
+	// エッジ端ではなく cutoff に達した時点で、この区間の走行は終了とみなす。
 	const RoadEdge* re = network.getEdge(v.currentEdge);
 	const float exitCutoff = re
 		? (fwdLane ? re->cutoffB : re->cutoffA)
@@ -526,6 +533,8 @@ namespace
 
 bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network)
 {
+	// 経路列を前から消化し、交差点接続が定義されている時は Connection を優先し、
+	// そうでなければウェイポイント上のエッジへ直接遷移する。
 	while (v.routeIdx < static_cast<int>(v.routeWaypoints.size()))
 	{
 		const auto& wp = v.routeWaypoints[v.routeIdx++];
@@ -575,6 +584,8 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 			candidates << &conn;
 	}
 
+	// 経路が切れても、まずは既存の LaneConnection を使ってネットワーク上に留める。
+	// それも無理な簡易ノードだけ、接続エッジへの直接遷移で交通流を維持する。
 	if (!candidates.isEmpty())
 	{
 		const auto* conn = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
@@ -582,7 +593,6 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 		return true;
 	}
 
-	// Connection もない場合はランダムなエッジにフォールバック
 	const auto* exitNode = simGraph.getNode(exitNId);
 	if (!exitNode) { v.currentEdge = -1; return false; }
 
@@ -621,6 +631,8 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 
 void VehicleManager::updateDormantVehicle(Vehicle& v, double dt)
 {
+	// Dormant 中は見えない区間をエッジ単位の通過時間で近似し、タイマー満了ごとに
+	// 次ウェイポイントへ進める。
 	v.dormantTimer -= static_cast<float>(dt);
 	if (v.dormantTimer <= 0.0f)
 	{
@@ -649,7 +661,7 @@ void VehicleManager::activateVehicle(Vehicle& v, const SimGraph& simGraph)
 	const auto* edge = simGraph.getEdge(v.currentEdge);
 	if (!edge || v.dormantTotalTime <= 0.0f) return;
 
-	// Dormant 中に経過した割合から arcPos を補間する
+	// Dormant 中に進んだ割合を arcPos に反映し、可視化時の位置飛びを抑える。
 	const float fraction = Clamp(
 		(v.dormantTotalTime - v.dormantTimer) / v.dormantTotalTime, 0.0f, 1.0f);
 	const bool fwd = isForwardLane(*edge, v.currentLane);
@@ -669,6 +681,7 @@ void VehicleManager::deactivateVehicle(Vehicle& v, const SimGraph& simGraph)
 		return;
 	}
 
+	// 不可視化した時点で、詳細な追従状態を捨ててエッジ通過時間へ圧縮する。
 	const bool fwd = isForwardLane(*edge, v.currentLane);
 	const float remaining = fwd ? (edge->length - v.arcPos) : v.arcPos;
 	const float speedMs   = Max(1.0f, edge->speedLimit / kKmhToMps);
@@ -707,6 +720,8 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 	// ===== 2. 経路駆動車線変更（urgency モデル + 段階的緩和 = 強引モード） =====
 	if (routeNeeded > 0)
 	{
+		// 経路に必要な車線へ間に合わせることを最優先し、出口が近いほど
+		// 安全余裕を段階的に緩めてでも寄せに行く。
 		const float spaceNeeded = static_cast<float>(routeNeeded) * kLaneChangePerNeedDist;
 		const float urgency     = 1.0f - distToExit / spaceNeeded;
 		const int   targetLane  = v.currentLane + ((routeTargetLane > v.currentLane) ? +1 : -1);
@@ -742,7 +757,7 @@ void VehicleManager::tryLaneChange(Vehicle& v, const SimGraph& simGraph)
 	if (!RandomBool(kLaneChangeProbability)) return;
 	if (distToExit < kLaneChangeMinExitDist) return;
 
-	// 現在車線の前方ギャップ
+	// 経路制約がない時だけ、追い越しやキープレフトで交通流をばらけさせる。
 	float frontGapCurrent = 1e9f, rearGapDummy = 1e9f;
 	measureGaps(m_vehicles, v.id, v.currentEdge, v.currentLane,
 	            v.arcPos, fwdLane, true, frontGapCurrent, rearGapDummy);
@@ -774,6 +789,8 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetw
 	m_trafficLights.clear();
 	for (const auto& [nid, node] : simGraph.nodes)
 	{
+		// 信号制御対象のノードだけを拾い、phase は明示定義を最優先、
+		// 無ければ道路側の既定定義で補う。
 		Array<int> signalEdges;
 		for (const int eid : node.edgeIds)
 		{
@@ -835,6 +852,7 @@ bool VehicleManager::hasConflictingTraffic(const Vehicle& v, int nodeId,
 	const auto* node = simGraph.getNode(nodeId);
 	if (!node) return false;
 
+	// Yield 判定では、そのノードへ進入しそうな他車が近くにいるかを保守的に見る。
 	for (const auto& other : m_vehicles)
 	{
 		if (other.id == v.id) continue;
@@ -872,6 +890,7 @@ void VehicleManager::requestRoute(Vehicle& v, const SimGraph& simGraph)
 {
 	if (v.goalEdgeId == -1 || v.goalEdgeId == v.currentEdge)
 	{
+		// 目的地未設定や自己目的地は無意味なので、ランダムな到達先を引き直す。
 		const int goal = selectRandomGoalEdge(simGraph, v.currentEdge);
 		Console << U"[requestRoute] v=" << v.id << U" selectRandomGoal=" << goal;
 		if (goal == -1) return;

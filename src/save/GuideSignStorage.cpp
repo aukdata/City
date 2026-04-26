@@ -2,6 +2,7 @@
 
 namespace
 {
+	// GuideSignPlacement を JSON へ写像し、編集結果をそのまま保存できる形にまとめる。
 	JSON signToJson(const GuideSignPlacement& g)
 	{
 		JSON j;
@@ -38,6 +39,7 @@ namespace
 		return j;
 	}
 
+	// 保存済み JSON を GuideSignPlacement に戻し、道路ネットワークへ再投入できる形へ復元する。
 	GuideSignPlacement signFromJson(const JSON& j)
 	{
 		GuideSignPlacement g;
@@ -75,6 +77,7 @@ namespace
 
 bool GuideSignStorage::writeJson(const FilePath& path, const RoadNetwork& network)
 {
+	// 自動生成看板は再生成できるため除外し、手動編集された配置だけを永続化する。
 	JSON root;
 	JSON signs;
 	int savedCount = 0;
@@ -92,6 +95,7 @@ bool GuideSignStorage::writeJson(const FilePath& path, const RoadNetwork& networ
 
 bool GuideSignStorage::readJson(const FilePath& path, RoadNetwork& network)
 {
+	// 保存ファイルから看板配置を読み戻し、既存 ID を保ったままネットワークへ追記する。
 	const JSON root = JSON::Load(path);
 	if (!root) return false;
 	for (const auto& [key, val] : root[U"signs"])

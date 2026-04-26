@@ -32,9 +32,10 @@ namespace DistrictRoads
 
 	/// @brief 城下町（CastleTown）の道路を生成する
 	/// @details 街道クランク＋町人地／武家地の二層格子＋城広場＋辺間引き
+	/// @param settlement 集落データ（gridAxisX/Z に計算した軸を書き込む）
 	void generateCastleTown(
 		uint64 seed, int settlementIndex,
-		const MapGenerator::Settlement& settlement,
+		MapGenerator::Settlement& settlement,
 		const KaidoSegment& kaido,
 		const World& world,
 		RoadNetwork& network);
@@ -54,4 +55,12 @@ namespace DistrictRoads
 		const KaidoSegment& kaido,
 		const World& world,
 		RoadNetwork& network);
+
+	/// @brief 城下町の範囲にかかる全道路エッジを直線化する
+	/// @details 既存街道を含め、対象エッジの制御点を端点間 1/3・2/3 に再設定する。
+	void straightenCastleTownRoads(
+		const Array<MapGenerator::Settlement>& settlements,
+		const World& world,
+		RoadNetwork& network);
+
 }

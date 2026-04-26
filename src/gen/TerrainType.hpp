@@ -3,6 +3,7 @@
 /// @brief バイオーム種別（表示・分類用）
 enum class BiomeType : uint8
 {
+	// 地形生成の連続値から分類された結果を、描画や生成ルール側で共通利用する。
 	Ocean,         ///< 海
 	Lake,          ///< 湖
 	CoastalPlain,  ///< 海岸平野
