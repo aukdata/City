@@ -1362,30 +1362,28 @@ void GameScene::refreshBuildingAnglesFromEdges()
 // 施工中エッジの Open 遷移
 // =============================================================================
 
-namespace
-{
-	constexpr double kConstructionDurationSec = 60.0;
-}
-
 void GameScene::tickConstruction()
 {
-	// 工事中エッジの開通タイミングを監視し、まとまって Open 化して関連キャッシュを更新する。
-	// 遷移対象の ID を先に収集し、後でまとめて変更する
-	Array<int> toOpen;
-	for (const auto& edge : m_network.edges())
+	// 工事中の道路計画を監視し、工期満了時に所属エッジを同時開通する。
+	Array<int> completedPlanIds;
+	for (const auto& plan : m_network.plans())
 	{
-		if (edge.id < 0) continue;
-		if (edge.edgeState != EdgeState::UnderConstruction) continue;
-		if (m_clock.now - edge.constructionStartTime < kConstructionDurationSec) continue;
-		toOpen << edge.id;
+		if (plan.id < 0) continue;
+		if (plan.state != PlanState::UnderConstruction) continue;
+		if (!plan.completionDate || m_clock.now < *plan.completionDate) continue;
+		completedPlanIds << plan.id;
 	}
 	Array<int> dirtyNodes;
-	for (const int eid : toOpen)
+	for (const int planId : completedPlanIds)
 	{
-		RoadEdge* edge = m_network.getEdge(eid);
-		if (!edge) continue;
-		edge->edgeState = EdgeState::Open;
-		dirtyNodes << edge->nodeA << edge->nodeB;
+		const RoadPlan* plan = m_network.getPlan(planId);
+		if (!plan) continue;
+		for (const int eid : plan->edgeIds)
+		{
+			if (const RoadEdge* edge = m_network.getEdge(eid))
+				dirtyNodes << edge->nodeA << edge->nodeB;
+		}
+		m_network.completePlanConstruction(planId);
 	}
 	if (!dirtyNodes.isEmpty())
 	{

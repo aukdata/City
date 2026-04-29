@@ -175,7 +175,7 @@ TrackEdge はチャンクをまたぐため、線路ネットワーク全体を�
 
 ### global/road_plans.msgpack
 
-RoadEdge はチャンクをまたぐため、道路ネットワーク全体をグローバルで保存する。
+仕様上は `road_plans.msgpack` を想定するが、現行実装（2026-04）は `global/roads.bin` の末尾追記領域に `RoadRoute` と `RoadPlan` を保存する。
 
 ```
 {

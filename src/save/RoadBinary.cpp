@@ -441,6 +441,41 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network)
 		w.write(static_cast<float>(rt.color.g));
 		w.write(static_cast<float>(rt.color.b));
 	}
+
+	Array<RoadPlan> validPlans;
+	for (const auto& plan : network.plans())
+		if (plan.id >= 0) validPlans << plan;
+
+	w.write(static_cast<uint32>(validPlans.size()));
+	for (const auto& plan : validPlans)
+	{
+		w.write(plan.id);
+		writeString(w, plan.name);
+		writeString(w, plan.routeName);
+		w.write(static_cast<int32>(plan.routeId));
+		writeString(w, plan.originName);
+		writeString(w, plan.destName);
+		w.write(static_cast<uint8>(plan.roadType));
+		w.write(static_cast<uint8>(plan.state));
+		w.write(static_cast<uint32>(plan.edgeIds.size()));
+		for (const int eid : plan.edgeIds) w.write(static_cast<int32>(eid));
+		w.write(static_cast<uint32>(plan.viaPoints.size()));
+		for (const Vec3& point : plan.viaPoints)
+		{
+			w.write(static_cast<float>(point.x));
+			w.write(static_cast<float>(point.y));
+			w.write(static_cast<float>(point.z));
+		}
+		w.write(plan.totalCost);
+		w.write(plan.totalLength);
+		const bool hasStart = plan.constructionStart.has_value();
+		w.write(static_cast<uint8>(hasStart ? 1 : 0));
+		if (hasStart) w.write(*plan.constructionStart);
+		w.write(plan.constructionDuration);
+		const bool hasCompletion = plan.completionDate.has_value();
+		w.write(static_cast<uint8>(hasCompletion ? 1 : 0));
+		if (hasCompletion) w.write(*plan.completionDate);
+	}
 	return true;
 }
 
@@ -601,23 +636,86 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 		float cr, cg, cb;
 		if (!r.read(cr) || !r.read(cg) || !r.read(cb)) return false;
 
-		// addRoute で ID は新規発行される。永続化された id は
-		// 現状保持しない（v1 の割り切り）。
-		// ただし color・name・kind・number・edgeIds は保持する。
-		const int newId = network.addRoute(
-			static_cast<RoadRouteKind>(kind),
-			name,
-			std::move(edgeIds),
-			static_cast<int>(number));
-		if (RoadRoute* rr = network.getRoute(newId))
-		{
-			rr->color = ColorF{ cr, cg, cb };
-		}
-		(void)rid;  // v1 では保存 id を使わない
+		RoadRoute route;
+		route.id = rid;
+		route.kind = static_cast<RoadRouteKind>(kind);
+		route.name = std::move(name);
+		route.number = static_cast<int>(number);
+		route.edgeIds = std::move(edgeIds);
+		route.color = ColorF{ cr, cg, cb };
+		network.addRouteRaw(route);
 	}
 
-	// 逆引きインデックス再構築
+	uint32 planCount;
+	if (!r.read(planCount)) return false;
+	if (!validateCount(planCount, kMaxRouteCount, U"planCount")) return false;
+	for (uint32 i = 0; i < planCount; ++i)
+	{
+		RoadPlan plan;
+		int32 routeId;
+		uint8 roadType;
+		uint8 state;
+		if (!r.read(plan.id) ||
+			!readString(r, plan.name) ||
+			!readString(r, plan.routeName) ||
+			!r.read(routeId) ||
+			!readString(r, plan.originName) ||
+			!readString(r, plan.destName) ||
+			!r.read(roadType) ||
+			!r.read(state))
+		{
+			return false;
+		}
+		plan.routeId = routeId;
+		plan.roadType = static_cast<RoadType>(roadType);
+		plan.state = static_cast<PlanState>(state);
+
+		uint32 edgeCount;
+		if (!r.read(edgeCount)) return false;
+		if (!validateCount(edgeCount, kMaxRouteEdgeCount, U"plan.edgeCount")) return false;
+		plan.edgeIds.reserve(edgeCount);
+		for (uint32 j = 0; j < edgeCount; ++j)
+		{
+			int32 eid;
+			if (!r.read(eid)) return false;
+			plan.edgeIds << eid;
+		}
+
+		uint32 viaCount;
+		if (!r.read(viaCount)) return false;
+		if (!validateCount(viaCount, kMaxRouteEdgeCount, U"plan.viaCount")) return false;
+		plan.viaPoints.reserve(viaCount);
+		for (uint32 j = 0; j < viaCount; ++j)
+		{
+			float x, y, z;
+			if (!r.read(x) || !r.read(y) || !r.read(z)) return false;
+			plan.viaPoints << Vec3{ x, y, z };
+		}
+
+		if (!r.read(plan.totalCost) || !r.read(plan.totalLength)) return false;
+		uint8 hasStart;
+		if (!r.read(hasStart)) return false;
+		if (hasStart)
+		{
+			GameTime start;
+			if (!r.read(start)) return false;
+			plan.constructionStart = start;
+		}
+		if (!r.read(plan.constructionDuration)) return false;
+		uint8 hasCompletion;
+		if (!r.read(hasCompletion)) return false;
+		if (hasCompletion)
+		{
+			GameTime completion;
+			if (!r.read(completion)) return false;
+			plan.completionDate = completion;
+		}
+		network.addPlanRaw(plan);
+	}
+
 	network.rebuildEdgeRouteIndex();
+	network.rebuildPlanEdgeLinks();
+	network.rebuildAllPlanStats();
 
 	return true;
 }

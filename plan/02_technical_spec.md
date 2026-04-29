@@ -86,6 +86,8 @@ Chunk 構造の詳細は `15_chunk_data_spec.md` を参照。
   - **車線構造**: Lane の配列 → `07_road_lane_spec.md`
   - **運用変更**: TempOp / PlannedChange → `07_road_lane_spec.md` §5-6
 - **RoadPlan**: 複数エッジをまとめた計画単位
+  - `edge.planId` を canonical link とし、`RoadPlan` は `name`, `routeName`, `routeId`, `viaPoints`, `totalLength`, `totalCost`, `constructionDuration`, `constructionStart`, `completionDate` を保持する
+  - 着工・開通はエッジ単位ではなく計画単位で扱い、所属エッジを同時に `UnderConstruction` / `Open` へ遷移させる
 
 ### ベジェ曲線の弧長パラメータ化
 

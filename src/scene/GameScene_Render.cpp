@@ -737,7 +737,11 @@ void GameScene::render2DUI()
 
 		if (panelId == U"name_list")         { drawNameListPanel(); }
 		else if (panelId == U"edge_info")    { drawEdgePanel(); }
-		else if (panelId == U"draw_template"){ drawDrawTemplatePanel(); }
+		else if (panelId == U"draw_template")
+		{
+			if (m_mode == EditMode::RoadPlan) drawRoadPlanPanel();
+			else                              drawDrawTemplatePanel();
+		}
 		else if (panelId == U"node_info")    { drawNodePanel(); }
 		else if (panelId == U"signal_edit")  { drawSignalEditPanel(); }
 		else if (panelId == U"guide_sign_edit") { drawGuideSignEditPanel(); }

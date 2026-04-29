@@ -120,7 +120,7 @@ private:
 	MinimapRenderer      m_minimapRenderer;
 
 	// ---- 編集モード ----
-	enum class EditMode { None, RoadDraw, ZonePaint, BusRouteDraw, TerrainEdit, TrainDraw, SandboxEdit };
+	enum class EditMode { None, RoadPlan, RoadDraw, ZonePaint, BusRouteDraw, TerrainEdit, TrainDraw, SandboxEdit };
 	EditMode        m_mode          = EditMode::None;
 
 	// 道路描画
@@ -134,6 +134,19 @@ private:
 	// スタート/ゴール指定モード（RoadDraw のサブモード）
 	bool            m_autoPlaceMode  = false;   ///< スタート/ゴール指定モードが有効か
 	Optional<Vec3>  m_autoPlaceStart;            ///< スタート地点（1 クリック目で記録）
+
+	struct DraftRoadPlan
+	{
+		Array<Vec3> anchorPoints;
+		Array<int> edgeIds;
+		TextEditState nameEdit;
+		TextEditState routeNameEdit;
+		Optional<int> routeId;
+		bool appendToExistingRoute = false;
+		bool viaPlacementMode = false;
+	};
+	DraftRoadPlan m_draftRoadPlan;
+	Optional<int> m_selectedRoadPlanId;
 
 	// ゾーン塗り
 	ZoneType        m_paintZone     = ZoneType::Residential;
@@ -190,13 +203,15 @@ private:
 		return (m_selection.kind == SelectionKind::Node) ? Optional<int>{m_selection.id} : none;
 	}
 	Optional<int> selectedRouteId() const { return m_selectedRouteId; }
+	Optional<int> selectedRoadPlanId() const { return m_selectedRoadPlanId; }
 	void selectEdge(int id)   { m_selection = { SelectionKind::Edge, id }; }
 	void selectNode(int id)   { m_selection = { SelectionKind::Node, id }; }
 	void selectGuideSign(int id) { m_selection = { SelectionKind::GuideSign, id }; }
 	void selectSignal(int nodeId) { m_selection = { SelectionKind::Signal, nodeId }; }
 	void selectBuilding(BuildingRef ref) { m_selection = { SelectionKind::Building, 0 }; m_selectedBuilding = ref; }
 	void selectRoute(int id)  { m_selectedRouteId = id; }
-	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedBuilding = none; }
+	void selectRoadPlan(int id) { m_selectedRoadPlanId = id; }
+	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedRoadPlanId = none; m_selectedBuilding = none; }
 	void recomputeGuideSignsAroundNode(int nodeId);
 
 	// 車両選択
@@ -363,8 +378,13 @@ private:
 	/// @brief 選択中エッジの 3D ハンドル（Cutoff A/B）を描画する
 	void renderEdgeHandles();
 	void handleRoadDraw();
+	void handleRoadPlan();
 	/// @brief スタート/ゴール指定モードの経路探索・敷設を実行する
 	void invokeAutoPlace(Vec3 start, Vec3 goal);
+	bool rebuildDraftRoadPlan();
+	void clearDraftRoadPlan(bool removeEdges);
+	bool commitDraftRoadPlan();
+	Array<Vec3> draftRoadPlanViaPoints() const;
 	void handleZonePaint();
 	void handleBusRouteDraw();
 	void handleTerrainEdit();
@@ -396,6 +416,7 @@ private:
 	// ---- パネル描画 (GameScene_Panels.cpp) ----
 	void drawEdgePanel();
 	void drawDrawTemplatePanel();
+	void drawRoadPlanPanel();
 	void drawNodePanel();
 	void drawSignalEditPanel();
 	void drawVehiclePanel();

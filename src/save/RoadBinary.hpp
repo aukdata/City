@@ -7,7 +7,7 @@ class RoadBinary
 {
 public:
 	static constexpr uint32 kMagic   = 0x004E4452u;  ///< "RDN\0"（リトルエンディアン）
-	static constexpr uint16 kVersion = 12; ///< 現行フォーマット版（後方互換読み込みなし）
+	static constexpr uint16 kVersion = 13; ///< 現行フォーマット版（後方互換読み込みなし）
 
 	/// @brief roads.bin を書き出す
 	/// @param path     出力ファイルパス

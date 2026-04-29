@@ -135,6 +135,7 @@ void RoadNetwork::removeEdge(int edgeId)
 
 	// 所属 route から除去 or 分割（整合性フック）
 	onEdgeRemovedFromRoutes(edgeId);
+	onEdgeRemovedFromPlans(edgeId);
 
 	e.id = -1;
 	m_edgeIdToIdx.erase(edgeId);
@@ -1770,6 +1771,26 @@ int RoadNetwork::addRoute(RoadRouteKind kind, String name, Array<int> edgeIds, i
 	return route.id;
 }
 
+void RoadNetwork::addRouteRaw(const RoadRoute& route)
+{
+	if (route.id < 0 || m_routeIdToIdx.contains(route.id)) return;
+
+	int idx;
+	if (!m_freeRouteSlots.isEmpty())
+	{
+		idx = m_freeRouteSlots.back();
+		m_freeRouteSlots.pop_back();
+		m_routes[idx] = route;
+	}
+	else
+	{
+		idx = static_cast<int>(m_routes.size());
+		m_routes << route;
+	}
+	m_routeIdToIdx[route.id] = idx;
+	m_nextRouteId = Max(m_nextRouteId, route.id + 1);
+}
+
 void RoadNetwork::removeRoute(int routeId)
 {
 	const int idx = routeIndex(routeId);
@@ -1786,6 +1807,12 @@ void RoadNetwork::removeRoute(int routeId)
 	m_routes[idx].edgeIds.clear();
 	m_routeIdToIdx.erase(routeId);
 	m_freeRouteSlots << idx;
+
+	for (auto& plan : m_plans)
+	{
+		if (plan.id >= 0 && plan.routeId == routeId)
+			plan.routeId = -1;
+	}
 }
 
 RoadRoute* RoadNetwork::getRoute(int id)
@@ -1952,6 +1979,231 @@ void RoadNetwork::onEdgeRemovedFromRoutes(int edgeId)
 			}
 		}
 	}
+}
+
+int RoadNetwork::addPlan(RoadPlan plan)
+{
+	plan.id = m_nextPlanId++;
+	if (plan.routeId >= 0)
+	{
+		if (const RoadRoute* route = getRoute(plan.routeId))
+		{
+			plan.routeName = route->name;
+		}
+	}
+
+	int idx;
+	if (!m_freePlanSlots.isEmpty())
+	{
+		idx = m_freePlanSlots.back();
+		m_freePlanSlots.pop_back();
+		m_plans[idx] = std::move(plan);
+	}
+	else
+	{
+		idx = static_cast<int>(m_plans.size());
+		m_plans << std::move(plan);
+	}
+	m_planIdToIdx[m_plans[idx].id] = idx;
+	rebuildPlanStats(m_plans[idx].id);
+	rebuildPlanEdgeLinks();
+	return m_plans[idx].id;
+}
+
+void RoadNetwork::addPlanRaw(const RoadPlan& plan)
+{
+	if (plan.id < 0 || m_planIdToIdx.contains(plan.id)) return;
+
+	int idx;
+	if (!m_freePlanSlots.isEmpty())
+	{
+		idx = m_freePlanSlots.back();
+		m_freePlanSlots.pop_back();
+		m_plans[idx] = plan;
+	}
+	else
+	{
+		idx = static_cast<int>(m_plans.size());
+		m_plans << plan;
+	}
+	m_planIdToIdx[plan.id] = idx;
+	m_nextPlanId = Max(m_nextPlanId, plan.id + 1);
+}
+
+void RoadNetwork::removePlan(int planId)
+{
+	const int idx = planIndex(planId);
+	if (idx < 0) return;
+	for (const int eid : m_plans[idx].edgeIds)
+	{
+		if (RoadEdge* edge = getEdge(eid))
+		{
+			if (edge->planId == planId)
+				edge->planId = -1;
+		}
+	}
+	m_plans[idx].id = -1;
+	m_plans[idx].edgeIds.clear();
+	m_plans[idx].viaPoints.clear();
+	m_planIdToIdx.erase(planId);
+	m_freePlanSlots << idx;
+}
+
+RoadPlan* RoadNetwork::getPlan(int id)
+{
+	const int idx = planIndex(id);
+	return (idx >= 0) ? &m_plans[idx] : nullptr;
+}
+
+const RoadPlan* RoadNetwork::getPlan(int id) const
+{
+	const int idx = planIndex(id);
+	return (idx >= 0) ? &m_plans[idx] : nullptr;
+}
+
+void RoadNetwork::rebuildPlanEdgeLinks()
+{
+	for (auto& edge : m_edges)
+	{
+		if (edge.id >= 0 && edge.planId >= 0 && !getPlan(edge.planId))
+			edge.planId = -1;
+	}
+
+	for (auto& plan : m_plans)
+	{
+		if (plan.id < 0) continue;
+		Array<int> valid;
+		for (const int eid : plan.edgeIds)
+		{
+			if (RoadEdge* edge = getEdge(eid))
+			{
+				edge->planId = plan.id;
+				valid << eid;
+			}
+		}
+		plan.edgeIds = std::move(valid);
+	}
+}
+
+void RoadNetwork::rebuildPlanStats(int planId)
+{
+	RoadPlan* plan = getPlan(planId);
+	if (!plan) return;
+
+	double totalMeters = 0.0;
+	for (const int eid : plan->edgeIds)
+	{
+		if (const RoadEdge* edge = getEdge(eid))
+			totalMeters += edge->length;
+	}
+	plan->totalLength = static_cast<float>(totalMeters);
+	plan->totalCost = static_cast<float>(estimatePlanCost(plan->roadType, totalMeters));
+	plan->constructionDuration = estimatePlanConstructionDuration(plan->roadType, totalMeters);
+	if (plan->routeId >= 0)
+	{
+		if (const RoadRoute* route = getRoute(plan->routeId))
+			plan->routeName = route->name;
+	}
+}
+
+void RoadNetwork::rebuildAllPlanStats()
+{
+	for (const auto& plan : m_plans)
+	{
+		if (plan.id >= 0)
+			rebuildPlanStats(plan.id);
+	}
+}
+
+bool RoadNetwork::startPlanConstruction(int planId, GameTime startTime)
+{
+	RoadPlan* plan = getPlan(planId);
+	if (!plan || plan->edgeIds.isEmpty()) return false;
+
+	bool changed = false;
+	for (const int eid : plan->edgeIds)
+	{
+		RoadEdge* edge = getEdge(eid);
+		if (!edge) continue;
+		edge->planId = planId;
+		edge->edgeState = EdgeState::UnderConstruction;
+		edge->constructionStartTime = startTime;
+		changed = true;
+	}
+	if (!changed) return false;
+
+	plan->state = PlanState::UnderConstruction;
+	plan->constructionStart = startTime;
+	plan->completionDate = startTime + plan->constructionDuration;
+	return true;
+}
+
+bool RoadNetwork::completePlanConstruction(int planId)
+{
+	RoadPlan* plan = getPlan(planId);
+	if (!plan) return false;
+
+	bool changed = false;
+	for (const int eid : plan->edgeIds)
+	{
+		if (RoadEdge* edge = getEdge(eid))
+		{
+			edge->edgeState = EdgeState::Open;
+			changed = true;
+		}
+	}
+	if (!changed) return false;
+
+	plan->state = PlanState::Complete;
+	if (plan->constructionStart)
+		plan->completionDate = *plan->constructionStart + plan->constructionDuration;
+	return true;
+}
+
+double RoadNetwork::estimatePlanConstructionDuration(RoadType roadType, double totalLengthMeters) const
+{
+	const double lengthKm = totalLengthMeters / 1000.0;
+	double secondsPerKm = 90.0;
+	switch (roadType)
+	{
+	case RoadType::LocalRoad:  secondsPerKm = 90.0; break;
+	case RoadType::Arterial:   secondsPerKm = 120.0; break;
+	case RoadType::Expressway: secondsPerKm = 180.0; break;
+	case RoadType::Highway:    secondsPerKm = 210.0; break;
+	}
+	return Max(30.0, lengthKm * secondsPerKm);
+}
+
+double RoadNetwork::estimatePlanCost(RoadType roadType, double totalLengthMeters) const
+{
+	double unitCost = 25000.0;
+	switch (roadType)
+	{
+	case RoadType::LocalRoad:  unitCost = 25000.0; break;
+	case RoadType::Arterial:   unitCost = 45000.0; break;
+	case RoadType::Expressway: unitCost = 80000.0; break;
+	case RoadType::Highway:    unitCost = 95000.0; break;
+	}
+	return totalLengthMeters * unitCost;
+}
+
+void RoadNetwork::onEdgeRemovedFromPlans(int edgeId)
+{
+	Array<int> emptyPlans;
+	for (auto& plan : m_plans)
+	{
+		if (plan.id < 0) continue;
+		const bool removed = plan.edgeIds.contains(edgeId);
+		if (removed)
+			plan.edgeIds.remove(edgeId);
+		if (!removed) continue;
+		rebuildPlanStats(plan.id);
+		if (plan.edgeIds.isEmpty())
+			emptyPlans << plan.id;
+	}
+
+	for (const int planId : emptyPlans)
+		removePlan(planId);
 }
 
 // =============================================================================

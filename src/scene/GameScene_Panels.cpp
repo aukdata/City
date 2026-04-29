@@ -816,10 +816,15 @@ void GameScene::drawEdgePanel()
 
 			if (edge->edgeState == EdgeState::Planned)
 			{
-				if (ui.button(U"建設", false, 60, U"このエッジの建設を開始（60秒後に供用）"))
+				if (ui.button(U"建設", false, 60, U"このエッジの建設を開始"))
 				{
-					edge->edgeState = EdgeState::UnderConstruction;
-					edge->constructionStartTime = m_clock.now;
+					if (edge->planId >= 0)
+						m_network.startPlanConstruction(edge->planId, m_clock.now);
+					else
+					{
+						edge->edgeState = EdgeState::UnderConstruction;
+						edge->constructionStartTime = m_clock.now;
+					}
 					m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
 					m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
 					notifyNetworkChanged({ edge->nodeA, edge->nodeB });
@@ -828,8 +833,16 @@ void GameScene::drawEdgePanel()
 			}
 			else if (edge->edgeState == EdgeState::UnderConstruction)
 			{
-				const double elapsed   = m_clock.now - edge->constructionStartTime;
-				const double remaining = Max(0.0, 60.0 - elapsed);
+				double remaining = 60.0 - (m_clock.now - edge->constructionStartTime);
+				if (edge->planId >= 0)
+				{
+					if (const RoadPlan* plan = m_network.getPlan(edge->planId))
+					{
+						if (plan->completionDate)
+							remaining = *plan->completionDate - m_clock.now;
+					}
+				}
+				remaining = Max(0.0, remaining);
 				ui.label(U"残り {:.0f}s"_fmt(remaining), ColorF{ 0.8 });
 			}
 		});
@@ -915,6 +928,30 @@ void GameScene::drawEdgePanel()
 					m_panelManager.show(U"route_info",
 						U"路線 #{}"_fmt(rid), panelRightPos(U"route_info"));
 				}
+			});
+		}
+	}
+
+	if (edge->planId >= 0)
+	{
+		if (const RoadPlan* plan = m_network.getPlan(edge->planId))
+		{
+			ui.spacer(3);
+			ui.row(4, [&] {
+				ui.label(U"計画", ColorF{ 0.6 });
+				const bool active = (selectedRoadPlanId() == plan->id);
+				const String label = U"#{} {}"_fmt(plan->id, plan->name);
+				if (ui.button(label, active, 220, U"道路計画を選択"))
+				{
+					selectRoadPlan(plan->id);
+				}
+			});
+			ui.row(4, [&] {
+				ui.label(U"工期", ColorF{ 0.6 });
+				const String state = (plan->state == PlanState::Planning) ? U"未着工"
+					: (plan->state == PlanState::UnderConstruction) ? U"工事中"
+					: U"完成";
+				ui.label(U"{} / {:.0f}s"_fmt(state, plan->constructionDuration), ColorF{ 0.8 });
 			});
 		}
 	}
@@ -1023,6 +1060,169 @@ void GameScene::drawGuideSignEditorPanel()
 // =============================================================================
 // 道路設置テンプレートパネル
 // =============================================================================
+
+void GameScene::drawRoadPlanPanel()
+{
+	if (m_mode != EditMode::RoadPlan) return;
+
+	auto area = m_panelManager.beginContent(U"draw_template");
+	if (!area) return;
+
+	const auto& pFont = panelFont();
+	const auto& pBold = panelBoldFont();
+	const int panelW = static_cast<int>(m_panelManager.getSize(U"draw_template").x);
+	constexpr int kPad = 6;
+	constexpr int kLH  = 17;
+	int y = 0;
+
+	PanelWidget::label(pBold, U"仮計画", kPad, y, ColorF{ 0.95, 0.9, 0.5 });
+	y += kLH + 2;
+
+	const String pointText = m_draftRoadPlan.anchorPoints.isEmpty()
+		? U"始点未指定"
+		: U"点列: {}点 / エッジ: {}"_fmt(m_draftRoadPlan.anchorPoints.size(), m_draftRoadPlan.edgeIds.size());
+	PanelWidget::label(pFont, pointText, kPad, y, ColorF{ 0.8 });
+	y += kLH + 2;
+
+	if (PanelWidget::button(pFont, U"新規計画", false, kPad, y, 72, kLH, U"仮計画をリセット"))
+	{
+		clearDraftRoadPlan(true);
+	}
+	if (PanelWidget::button(pFont, U"経由地追加", m_draftRoadPlan.viaPlacementMode, kPad + 78, y, 72, kLH, U"次のクリックを経由地として追加"))
+	{
+		m_draftRoadPlan.viaPlacementMode = !m_draftRoadPlan.viaPlacementMode;
+	}
+	if (PanelWidget::button(pFont, U"自動再提案", false, kPad + 156, y, 72, kLH, U"現在の点列から再生成"))
+	{
+		rebuildDraftRoadPlan();
+	}
+	if (PanelWidget::buttonDanger(pFont, U"破棄", kPad + 234, y, 48, kLH, U"仮計画を破棄"))
+	{
+		clearDraftRoadPlan(true);
+	}
+	y += kLH + 4;
+
+	PanelWidget::label(pFont, U"計画名", kPad, y, ColorF{ 0.6 });
+	PanelWidget::textInput(pFont, m_draftRoadPlan.nameEdit, kPad + 48, y, panelW - (kPad + 48) - kPad, kLH, 32);
+	y += kLH + 2;
+
+	PanelWidget::label(pFont, U"路線名", kPad, y, ColorF{ 0.6 });
+	PanelWidget::textInput(pFont, m_draftRoadPlan.routeNameEdit, kPad + 48, y, panelW - (kPad + 48) - kPad, kLH, 32);
+	y += kLH + 2;
+
+	{
+		const bool append = m_draftRoadPlan.appendToExistingRoute;
+		if (PanelWidget::button(pFont, append ? U"既存路線へ追加" : U"新規路線作成", append, kPad, y, 110, kLH, U"保存先の路線モード"))
+		{
+			m_draftRoadPlan.appendToExistingRoute = !append;
+		}
+		y += kLH + 2;
+	}
+
+	if (m_draftRoadPlan.appendToExistingRoute)
+	{
+		for (const auto& route : m_network.routes())
+		{
+			if (route.id < 0) continue;
+			const bool selected = (m_draftRoadPlan.routeId && *m_draftRoadPlan.routeId == route.id);
+			if (PanelWidget::button(pFont, route.name, selected, kPad, y, panelW - kPad * 2, kLH, U"追加先路線を選択"))
+			{
+				m_draftRoadPlan.routeId = route.id;
+				m_draftRoadPlan.routeNameEdit.text = route.name;
+			}
+			y += kLH + 2;
+		}
+	}
+
+	if (PanelWidget::button(pFont, U"保存", false, kPad, y, 60, kLH, U"仮計画を保存"))
+	{
+		commitDraftRoadPlan();
+	}
+	y += kLH + 6;
+
+	static bool plansCollapsed = false;
+	PanelWidget::section(pBold, U"計画一覧", plansCollapsed, 0, y, panelW, kLH, ColorF{ 0.7, 0.85, 1.0 });
+	if (plansCollapsed)
+	{
+		PanelWidget::flushTooltip();
+		m_panelManager.reportContentHeight(U"draw_template", y);
+		return;
+	}
+	y += 2;
+	for (const auto& plan : m_network.plans())
+	{
+		if (plan.id < 0) continue;
+		const bool active = (selectedRoadPlanId() == plan.id);
+		const String state = (plan.state == PlanState::Planning) ? U"未着工"
+			: (plan.state == PlanState::UnderConstruction) ? U"工事中"
+			: U"完成";
+		if (PanelWidget::button(pFont, U"[{}] {}"_fmt(state, plan.name), active, kPad, y, panelW - kPad * 2, kLH, U"計画を選択"))
+		{
+			selectRoadPlan(plan.id);
+		}
+		y += kLH + 2;
+
+		if (active)
+		{
+			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {:.0f} / 工期 {:.0f}s"_fmt(plan.totalLength, plan.totalCost, plan.constructionDuration),
+				kPad + 8, y, ColorF{ 0.75 });
+			y += kLH + 2;
+
+			if (plan.state == PlanState::Planning)
+			{
+				if (PanelWidget::button(pFont, U"着工", false, kPad + 8, y, 50, kLH, U"計画全体を着工"))
+				{
+					if (m_network.startPlanConstruction(plan.id, m_clock.now))
+					{
+						Array<int> dirtyNodes;
+						for (const int eid : plan.edgeIds)
+						{
+							if (const RoadEdge* edge = m_network.getEdge(eid))
+							{
+								dirtyNodes << edge->nodeA << edge->nodeB;
+								m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+								m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+							}
+						}
+						notifyNetworkChanged(dirtyNodes);
+					}
+				}
+			}
+			if (PanelWidget::buttonDanger(pFont, U"削除", kPad + 64, y, 50, kLH, U"計画を削除"))
+			{
+				const int planId = plan.id;
+				const Array<int> edgeIds = plan.edgeIds;
+				Array<int> dirtyNodes;
+				if (plan.state != PlanState::Complete)
+				{
+					for (const int eid : edgeIds)
+					{
+						if (const RoadEdge* edge = m_network.getEdge(eid))
+							dirtyNodes << edge->nodeA << edge->nodeB;
+					}
+					for (const int eid : edgeIds)
+						m_network.removeEdge(eid);
+				}
+				m_network.removePlan(planId);
+				if (selectedRoadPlanId() == planId)
+					m_selectedRoadPlanId = none;
+				if (!dirtyNodes.isEmpty())
+				{
+					for (const int nid : dirtyNodes)
+						m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+					notifyNetworkChanged(dirtyNodes);
+				}
+				PanelWidget::flushTooltip();
+				m_panelManager.reportContentHeight(U"draw_template", y + kLH + 6);
+				return;
+			}
+			y += kLH + 2;
+		}
+	}
+
+	PanelWidget::flushTooltip();
+	m_panelManager.reportContentHeight(U"draw_template", y);
+}
 
 void GameScene::drawDrawTemplatePanel()
 {
@@ -1703,7 +1903,7 @@ void GameScene::drawBuildingPanel()
 		return;
 	}
 	const auto& ref = *m_selectedBuilding;
-	const Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ });
+	Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ });
 	if (!chunk)
 	{
 		m_panelManager.hide(U"building_info");
@@ -1715,6 +1915,7 @@ void GameScene::drawBuildingPanel()
 		m_panelManager.hide(U"building_info");
 		return;
 	}
+	const auto hitBox = m_worldRenderer.buildingHitBox(*chunk, m_world, ref.col, ref.row);
 
 	auto area = m_panelManager.beginContent(U"building_info");
 	if (!area) return;
@@ -1735,7 +1936,15 @@ void GameScene::drawBuildingPanel()
 	const double cz = origin.z + (ref.row + 0.5) * cellSize;
 
 	ui.label(U"種別: {}"_fmt(typeName), ColorF{1.0});
-	ui.label(U"高さ: {:.1f} m"_fmt(buildingHeight(b.type)), ColorF{1.0});
+	if (hitBox)
+	{
+		ui.label(U"描画サイズ: {:.1f} x {:.1f} x {:.1f} m"_fmt(
+			hitBox->size.x, hitBox->size.y, hitBox->size.z), ColorF{1.0});
+	}
+	else
+	{
+		ui.label(U"描画高さ: {:.1f} m"_fmt(buildingHeight(b.type)), ColorF{1.0});
+	}
 	const int cap = buildingCapacity(b.type);
 	if (cap > 0)
 		ui.label(U"収容: {} 人"_fmt(cap), ColorF{1.0});
@@ -1760,6 +1969,17 @@ void GameScene::drawBuildingPanel()
 	ui.label(U"位置: ({:.0f}, {:.0f})"_fmt(cx, cz), ColorF{0.8, 0.8, 0.8});
 	ui.label(U"Chunk({}, {}) Cell({}, {})"_fmt(ref.chunkX, ref.chunkZ, ref.col, ref.row),
 		ColorF{0.6, 0.6, 0.6});
+	ui.spacer(6);
+	if (ui.buttonDanger(U"建物を削除", 120, U"この建物を削除して空き地に戻す"))
+	{
+		chunk->buildingGrid[{ ref.col, ref.row }] = Building{};
+		chunk->meshDirty = true;
+		clearSelection();
+		m_panelManager.hide(U"building_info");
+		ui.flush();
+		m_panelManager.reportContentHeight(U"building_info", ui.height());
+		return;
+	}
 
 	ui.flush();
 	m_panelManager.reportContentHeight(U"building_info", ui.height());
@@ -2396,20 +2616,30 @@ void GameScene::drawRoutePanel()
 		ui.row(4, [&] {
 			if (ui.button(U"着工", hasPlanned, 60, U"Planned エッジを UnderConstruction に遷移") && hasPlanned)
 			{
+				Array<int> dirtyNodes;
+				HashSet<int> startedPlans;
+				for (const int eid : route->edgeIds)
 				{
-					Array<int> dirtyNodes;
-					for (const int eid : route->edgeIds)
+					RoadEdge* e = m_network.getEdge(eid);
+					if (!e || e->edgeState != EdgeState::Planned) continue;
+					if (e->planId >= 0)
 					{
-						RoadEdge* e = m_network.getEdge(eid);
-						if (!e || e->edgeState != EdgeState::Planned) continue;
+						if (!startedPlans.contains(e->planId))
+						{
+							m_network.startPlanConstruction(e->planId, m_clock.now);
+							startedPlans.insert(e->planId);
+						}
+					}
+					else
+					{
 						e->edgeState = EdgeState::UnderConstruction;
 						e->constructionStartTime = m_clock.now;
-						dirtyNodes << e->nodeA << e->nodeB;
 					}
-					for (const int nid : dirtyNodes)
-						m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
-					notifyNetworkChanged(dirtyNodes);
+					dirtyNodes << e->nodeA << e->nodeB;
 				}
+				for (const int nid : dirtyNodes)
+					m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+				notifyNetworkChanged(dirtyNodes);
 			}
 		});
 	}

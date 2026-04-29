@@ -261,6 +261,21 @@ public:
 	/// @brief 登録済み目的地一覧
 	const Array<NamedDestination>& namedDestinations() const { return m_namedDestinations; }
 
+	// ===== RoadPlan API =====
+	int addPlan(RoadPlan plan);
+	void addPlanRaw(const RoadPlan& plan);
+	void removePlan(int planId);
+	RoadPlan*       getPlan(int id);
+	const RoadPlan* getPlan(int id) const;
+	const Array<RoadPlan>& plans() const { return m_plans; }
+	void rebuildPlanEdgeLinks();
+	void rebuildPlanStats(int planId);
+	void rebuildAllPlanStats();
+	bool startPlanConstruction(int planId, GameTime startTime);
+	bool completePlanConstruction(int planId);
+	double estimatePlanConstructionDuration(RoadType roadType, double totalLengthMeters) const;
+	double estimatePlanCost(RoadType roadType, double totalLengthMeters) const;
+
 	// ===== RoadRoute API =====
 	// 詳細は plan/22_road_route_spec.md 参照
 
@@ -271,6 +286,7 @@ public:
 	/// @param number 番号（0 ならデフォルト値。kind が番号系なら auto 採番）
 	/// @return 割当路線 ID
 	int addRoute(RoadRouteKind kind, String name, Array<int> edgeIds, int number = 0);
+	void addRouteRaw(const RoadRoute& route);
 
 	/// @brief 路線を削除する（id を -1 にマーク、edge 側の逆引きからも除去）
 	void removeRoute(int routeId);
@@ -362,6 +378,19 @@ private:
 
 	/// @brief removeEdge の整合性フック: 該当 edge を含む routes から除去 or 分割する
 	void onEdgeRemovedFromRoutes(int edgeId);
+	void onEdgeRemovedFromPlans(int edgeId);
+
+	// ── RoadPlan ──
+	Array<RoadPlan>     m_plans;
+	HashTable<int, int> m_planIdToIdx;
+	Array<int>          m_freePlanSlots;
+	int                 m_nextPlanId = 0;
+
+	int planIndex(int id) const
+	{
+		const auto it = m_planIdToIdx.find(id);
+		return (it != m_planIdToIdx.end()) ? it->second : -1;
+	}
 
 	int objectIndex(int id) const
 	{

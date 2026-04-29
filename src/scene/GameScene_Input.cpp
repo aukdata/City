@@ -103,6 +103,8 @@ void GameScene::handleInput()
 		{
 			if (m_mode != EditMode::None)
 			{
+				if (m_mode == EditMode::RoadPlan)
+					clearDraftRoadPlan(true);
 				m_mode               = EditMode::None;
 				m_drawStartNode      = none;
 				m_rectStart          = none;
@@ -167,19 +169,43 @@ void GameScene::handleInput()
 	if (KeyTab.down())
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
 
-	if (KeyR.down())
+	if (m_sandboxActive && KeyControl.pressed() && KeyR.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		m_mode = (m_mode == EditMode::RoadDraw) ? EditMode::None : EditMode::RoadDraw;
 		m_drawStartNode = none;
 		m_drawElevation = 0.0f;
 		m_rectStart     = none;
 		if (m_mode == EditMode::RoadDraw)
-			m_panelManager.show(U"draw_template", U"道路テンプレート", panelRightPos(U"draw_template"));
+			m_panelManager.show(U"draw_template", U"道路敷設デバッグ", panelRightPos(U"draw_template"));
 		else
 			m_panelManager.hide(U"draw_template");
 	}
+	else if (KeyR.down())
+	{
+		const bool enable = (m_mode != EditMode::RoadPlan);
+		if (!enable)
+		{
+			clearDraftRoadPlan(true);
+			m_mode = EditMode::None;
+			m_panelManager.hide(U"draw_template");
+		}
+		else
+		{
+			m_mode = EditMode::RoadPlan;
+			m_drawStartNode = none;
+			m_drawElevation = 0.0f;
+			m_rectStart = none;
+			m_autoPlaceMode = false;
+			m_autoPlaceStart = none;
+			m_panelManager.show(U"draw_template", U"道路計画", panelRightPos(U"draw_template"));
+		}
+	}
 	if (KeyZ.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		m_mode = (m_mode == EditMode::ZonePaint) ? EditMode::None : EditMode::ZonePaint;
 		m_drawStartNode = none;
 		m_rectStart     = none;
@@ -213,6 +239,8 @@ void GameScene::handleInput()
 
 	if (KeyG.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		m_mode = (m_mode == EditMode::TerrainEdit) ? EditMode::None : EditMode::TerrainEdit;
 		m_drawStartNode = none;
 		m_rectStart     = none;
@@ -228,12 +256,16 @@ void GameScene::handleInput()
 
 	if (KeyX.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		m_mode = (m_mode == EditMode::TrainDraw) ? EditMode::None : EditMode::TrainDraw;
 		m_trainDrawStartNode = none;
 	}
 
 	if (KeyB.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		if (m_mode == EditMode::BusRouteDraw)
 		{
 			m_mode           = EditMode::None;
@@ -250,6 +282,8 @@ void GameScene::handleInput()
 
 	if (m_sandboxActive && KeyV.down())
 	{
+		if (m_mode == EditMode::RoadPlan)
+			clearDraftRoadPlan(true);
 		m_mode = (m_mode == EditMode::SandboxEdit) ? EditMode::None : EditMode::SandboxEdit;
 		m_sandboxDragNode = none;
 		m_drawStartNode   = none;
@@ -295,7 +329,8 @@ void GameScene::handleInput()
 		}
 	}
 
-	if      (m_mode == EditMode::RoadDraw)     handleRoadDraw();
+	if      (m_mode == EditMode::RoadPlan)     handleRoadPlan();
+	else if (m_mode == EditMode::RoadDraw)     handleRoadDraw();
 	else if (m_mode == EditMode::ZonePaint)    handleZonePaint();
 	else if (m_mode == EditMode::BusRouteDraw) handleBusRouteDraw();
 	else if (m_mode == EditMode::TerrainEdit)  handleTerrainEdit();
@@ -1006,6 +1041,164 @@ void GameScene::handleRoadDraw()
 		m_drawStartNode = none;
 }
 
+void GameScene::clearDraftRoadPlan(bool removeEdges)
+{
+	if (removeEdges)
+	{
+		Array<int> dirtyNodes;
+		for (const int eid : m_draftRoadPlan.edgeIds)
+		{
+			if (const RoadEdge* edge = m_network.getEdge(eid))
+				dirtyNodes << edge->nodeA << edge->nodeB;
+		}
+		for (const int eid : m_draftRoadPlan.edgeIds)
+			m_network.removeEdge(eid);
+		for (const int nid : dirtyNodes)
+			m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+		if (!dirtyNodes.isEmpty())
+			notifyNetworkChanged(dirtyNodes);
+	}
+	m_draftRoadPlan.anchorPoints.clear();
+	m_draftRoadPlan.edgeIds.clear();
+	m_draftRoadPlan.viaPlacementMode = false;
+}
+
+Array<Vec3> GameScene::draftRoadPlanViaPoints() const
+{
+	Array<Vec3> viaPoints;
+	for (size_t i = 1; i + 1 < m_draftRoadPlan.anchorPoints.size(); ++i)
+		viaPoints << m_draftRoadPlan.anchorPoints[i];
+	return viaPoints;
+}
+
+bool GameScene::rebuildDraftRoadPlan()
+{
+	const Array<Vec3> points = m_draftRoadPlan.anchorPoints;
+	clearDraftRoadPlan(true);
+	m_draftRoadPlan.anchorPoints = points;
+	if (points.size() < 2) return false;
+
+	m_draftRoadPlan.edgeIds = RoadAutoPlace::buildPreviewPlan(
+		m_network, m_world, m_draftRoadPlan.anchorPoints, m_drawTemplate);
+	if (m_draftRoadPlan.edgeIds.isEmpty())
+		return false;
+
+	Array<int> dirtyNodes;
+	for (const int eid : m_draftRoadPlan.edgeIds)
+	{
+		m_network.updateEdgeElevation(eid, m_world);
+		if (const RoadEdge* edge = m_network.getEdge(eid))
+		{
+			if (edge->useElevation)
+				m_network.generatePiersForEdge(eid, m_world);
+			dirtyNodes << edge->nodeA << edge->nodeB;
+			m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+			m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+		}
+	}
+	if (!dirtyNodes.isEmpty())
+		notifyNetworkChanged(dirtyNodes);
+	return true;
+}
+
+bool GameScene::commitDraftRoadPlan()
+{
+	if (m_draftRoadPlan.edgeIds.isEmpty()) return false;
+
+	int routeId = -1;
+	String routeName = m_draftRoadPlan.routeNameEdit.text;
+	if (m_draftRoadPlan.appendToExistingRoute && m_draftRoadPlan.routeId)
+	{
+		routeId = *m_draftRoadPlan.routeId;
+		if (RoadRoute* route = m_network.getRoute(routeId))
+		{
+			for (const int eid : m_draftRoadPlan.edgeIds)
+				route->edgeIds << eid;
+			routeName = route->name;
+		}
+	}
+	else
+	{
+		routeId = m_network.addRoute(
+			RoadRouteKind::Named,
+			routeName,
+			m_draftRoadPlan.edgeIds,
+			0);
+		if (const RoadRoute* route = m_network.getRoute(routeId))
+			routeName = route->name;
+	}
+	m_network.rebuildEdgeRouteIndex();
+
+	RoadPlan plan;
+	plan.name = m_draftRoadPlan.nameEdit.text;
+	if (plan.name.isEmpty())
+		plan.name = U"道路計画 {}"_fmt(m_network.plans().size() + 1);
+	plan.routeId = routeId;
+	plan.routeName = routeName;
+	plan.roadType = m_drawTemplate.roadType;
+	plan.edgeIds = m_draftRoadPlan.edgeIds;
+	plan.viaPoints = draftRoadPlanViaPoints();
+	plan.originName = U"始点";
+	plan.destName = U"終点";
+	plan.state = PlanState::Planning;
+
+	const int planId = m_network.addPlan(std::move(plan));
+	selectRoadPlan(planId);
+	m_draftRoadPlan.edgeIds.clear();
+	m_draftRoadPlan.anchorPoints.clear();
+	m_draftRoadPlan.viaPlacementMode = false;
+	return true;
+}
+
+void GameScene::handleRoadPlan()
+{
+	if (m_panelManager.blocksMouseInput() || !m_cursorGroundPos) return;
+
+	if (MouseR.down())
+	{
+		if (!m_draftRoadPlan.anchorPoints.isEmpty() && m_draftRoadPlan.edgeIds.isEmpty())
+			m_draftRoadPlan.anchorPoints.pop_back();
+		return;
+	}
+
+	if (!MouseL.down()) return;
+
+	const Vec3 clickPos = *m_cursorGroundPos;
+	if (m_draftRoadPlan.anchorPoints.isEmpty())
+	{
+		clearDraftRoadPlan(true);
+		m_draftRoadPlan.anchorPoints << clickPos;
+		return;
+	}
+
+	if (m_draftRoadPlan.viaPlacementMode)
+	{
+		if (m_draftRoadPlan.edgeIds.isEmpty())
+			m_draftRoadPlan.anchorPoints << clickPos;
+		else
+		{
+			Array<Vec3> updated;
+			for (size_t i = 0; i + 1 < m_draftRoadPlan.anchorPoints.size(); ++i)
+				updated << m_draftRoadPlan.anchorPoints[i];
+			updated << clickPos;
+			updated << m_draftRoadPlan.anchorPoints.back();
+			m_draftRoadPlan.anchorPoints = std::move(updated);
+			rebuildDraftRoadPlan();
+		}
+		m_draftRoadPlan.viaPlacementMode = false;
+		return;
+	}
+
+	if (m_draftRoadPlan.anchorPoints.size() == 1 || !m_draftRoadPlan.edgeIds.isEmpty())
+	{
+		if (m_draftRoadPlan.edgeIds.isEmpty())
+			m_draftRoadPlan.anchorPoints << clickPos;
+		else
+			m_draftRoadPlan.anchorPoints.back() = clickPos;
+		rebuildDraftRoadPlan();
+	}
+}
+
 void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 {
 	const Array<int> edgeIds = RoadAutoPlace::buildPlanned(m_network, m_world, start, goal, m_pendingRouteIds, m_drawTemplate);
@@ -1403,8 +1596,10 @@ String GameScene::modeString() const
 {
 	switch (m_mode)
 	{
+	case EditMode::RoadPlan:
+		return U"道路計画モード（R:切替 左クリック:始点/終点 経由地はパネルから追加）";
 	case EditMode::RoadDraw:
-		return U"道路描画モード（左クリックで配置）";
+		return U"道路敷設デバッグ（Sandbox 限定 / Ctrl+R）";
 	case EditMode::ZonePaint:
 		return U"ゾーン塗り [{}] 左:ブラシ Shift+左ドラッグ:矩形  0〜6:種別変更"_fmt(zoneName(m_paintZone));
 	case EditMode::BusRouteDraw:

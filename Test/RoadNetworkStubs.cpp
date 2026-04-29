@@ -11,3 +11,5 @@ const String* RoadNetwork::getDestinationReading(int) const { return nullptr; }
 uint8 RoadNetwork::getDestinationTier(int) const { return 0; }
 RoadRoute*       RoadNetwork::getRoute(int)       { return nullptr; }
 const RoadRoute* RoadNetwork::getRoute(int) const { return nullptr; }
+RoadPlan*       RoadNetwork::getPlan(int)       { return nullptr; }
+const RoadPlan* RoadNetwork::getPlan(int) const { return nullptr; }

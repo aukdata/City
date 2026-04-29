@@ -575,14 +575,18 @@ struct RoadPlan
 {
 	int        id = -1;
 	String     name;
+	String     routeName;
+	int        routeId = -1;
 	String     originName;
 	String     destName;
 	RoadType   roadType  = RoadType::LocalRoad;
 	Array<int> edgeIds;
+	Array<Vec3> viaPoints;
 	float      totalCost   = 0.0f;
 	float      totalLength = 0.0f;         ///< 総延長 [km]
 	PlanState  state = PlanState::Planning;
 
 	Optional<GameTime> constructionStart;
+	double     constructionDuration = 0.0;  ///< 工期 [ゲーム秒]
 	Optional<GameTime> completionDate;
 };

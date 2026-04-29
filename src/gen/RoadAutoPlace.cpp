@@ -1,6 +1,29 @@
 ﻿#include "RoadAutoPlace.hpp"
 #include "RoadPathfinder.hpp"
 
+namespace
+{
+	int resolveEndpointNode(RoadNetwork& roads, Vec3 worldPos)
+	{
+		constexpr float kEndpointSnapRadius = 20.0f;
+		constexpr float kEdgeSnapRadius = 15.0f;
+
+		if (const auto nearNode = roads.findNodeNear(worldPos, kEndpointSnapRadius))
+			return *nearNode;
+
+		if (const auto edgeHit = roads.findEdgeNearDetailed(worldPos, kEdgeSnapRadius))
+		{
+			if (const int nodeId = roads.splitEdgeAt(edgeHit->first, edgeHit->second);
+			    nodeId >= 0)
+			{
+				return nodeId;
+			}
+		}
+
+		return roads.addNode(worldPos);
+	}
+}
+
 namespace RoadAutoPlace
 {
 
@@ -53,12 +76,9 @@ Array<int> buildPlanned(
 	wps.front() = startWorld;
 	wps.back()  = goalWorld;
 
-	// スタート・ゴールのノードを決定（既存ノードがあれば流用）
-	constexpr float kEndpointSnapRadius = 20.0f;
-	const int startNodeId = roads.findNodeNear(startWorld, kEndpointSnapRadius)
-		.value_or_eval([&] { return roads.addNode(startWorld); });
-	const int goalNodeId  = roads.findNodeNear(goalWorld, kEndpointSnapRadius)
-		.value_or_eval([&] { return roads.addNode(goalWorld); });
+	// スタート・ゴールは既存ノード優先、近傍エッジがあれば分割して接続点を作る。
+	const int startNodeId = resolveEndpointNode(roads, startWorld);
+	const int goalNodeId  = resolveEndpointNode(roads, goalWorld);
 
 	const int templateLanes = static_cast<int>(templateEdge.lanes.size());
 	const int numLanes = (templateLanes > 0) ? templateLanes : 2;
@@ -95,6 +115,35 @@ Array<int> buildPlanned(
 	}
 
 	return edgeIds;
+}
+
+Array<int> buildPreviewPlan(
+	RoadNetwork& roads,
+	const World& world,
+	const Array<Vec3>& anchorPoints,
+	const RoadEdge& templateEdge)
+{
+	if (anchorPoints.size() < 2) return {};
+
+	Array<int> allEdgeIds;
+	for (size_t i = 1; i < anchorPoints.size(); ++i)
+	{
+		const Array<int> segmentEdges = buildPlanned(
+			roads,
+			world,
+			anchorPoints[i - 1],
+			anchorPoints[i],
+			{},
+			templateEdge);
+		if (segmentEdges.isEmpty())
+		{
+			for (const int eid : allEdgeIds)
+				roads.removeEdge(eid);
+			return {};
+		}
+		allEdgeIds.append(segmentEdges);
+	}
+	return allEdgeIds;
 }
 
 } // namespace RoadAutoPlace
