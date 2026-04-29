@@ -160,20 +160,20 @@ namespace DistrictRoads
 
 		Array<float> buildCastleGridCoords(float halfExtent)
 		{
-			// 城下町グリッドの分割数を、街区幅制約を守りつつ 300m 近傍になるよう選ぶ。
+			// 城下町グリッドの分割数を、街区幅制約を守りつつ 80m 近傍になるよう選ぶ。
 			Array<float> out;
 			const float fullExtent = halfExtent * 2.0f;
 
-			// セル幅制約 [200m, 500m] を満たす分割数を探索し、300m 近傍を優先する
-			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 500.0f)));
-			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 200.0f)));
+			// セル幅制約 [50m, 200m] を満たす分割数を探索し、80m 近傍を優先する
+			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 200.0f)));
+			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 50.0f)));
 
 			int bestCells = minCells;
 			float bestScore = 1e30f;
 			for (int cells = minCells; cells <= maxCells; ++cells)
 			{
 				const float cellW = fullExtent / cells;
-				const float score = Math::Abs(cellW - 300.0f);
+				const float score = Math::Abs(cellW - 80.0f);
 				if (score < bestScore)
 				{
 					bestScore = score;

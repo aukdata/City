@@ -171,7 +171,7 @@ namespace DistrictRoads {
 ## 動作確認手順
 
 - **LF/CRLF 変換**: `python3 chore/convert_line_endings.py to-lf -d src Test` / `to-crlf`
-- **ビルド**: `"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo`
+- **ビルド**: `"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo`
 - **起動**: `cd App && "./City(debug).exe"`（ユーザ明示指示がある時のみ）
 - **Test プロジェクト**: `cd Test/App && "./Test(debug).exe"` でスクリーンショット検証
 - **回帰**: Step 1 直後の既存セーブロード確認で道路表示が不変

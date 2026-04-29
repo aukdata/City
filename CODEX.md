@@ -8,12 +8,12 @@ This file provides guidance to Codex CLI when working with code in this reposito
 
 ## Build & Run
 
-**要件**: Visual Studio 2022, MSVC v143, Siv3D v0.6.16 (`$(SIV3D_0_6_16)` 環境変数が必要)
+**要件**: Visual Studio 2026, MSVC v145, Siv3D v0.6.16 (`$(SIV3D_0_6_16)` 環境変数が必要)
 
 **CLI からのビルド**（WSL/ターミナルから実行可能）:
 ```bash
 # Debug
-"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
+"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
 # Release（-p:Configuration=Release に変更するだけ）
 ```
 

@@ -23,7 +23,7 @@ Claude Code が機能の検証を自律的に行うために使用する。
    ```
 3. **ビルド**
    ```bash
-   "/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" Test/Test.vcxproj -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
+   "/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" Test/Test.vcxproj -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
    ```
 4. **実行**（自動終了する）
    ```bash
