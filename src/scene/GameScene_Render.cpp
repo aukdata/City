@@ -203,7 +203,7 @@ void GameScene::renderScene3D()
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
 	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
-	m_worldRenderer.render(m_world, m_camera.camera3D());
+	m_worldRenderer.render(m_world, m_network, m_camera.camera3D());
 	lap(m_renderTimings.terrainOnly);
 
 	m_roadRenderer.render(m_network, m_world, frustum,
@@ -506,7 +506,7 @@ void GameScene::renderVehicles()
 			if (onElevated)
 				rv.position.y += kRoadLineLift;
 			else
-				rv.position.y = m_world.computeHeight(
+				rv.position.y = m_world.sampleHeight(
 					static_cast<float>(rv.position.x),
 					static_cast<float>(rv.position.z)) + kRoadLineLift;
 		}
@@ -612,7 +612,7 @@ void GameScene::renderEditModeOverlays()
 						const double rLen = right.length();
 						right = (rLen > 1e-6) ? right / rLen : Vec3::Right();
 
-						const double yOff = m_world.computeHeight(
+						const double yOff = m_world.sampleHeight(
 							static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift;
 						const Vec3 c = Vec3{ center.x, yOff, center.z };
 						const Vec3 L = c - right * halfW;

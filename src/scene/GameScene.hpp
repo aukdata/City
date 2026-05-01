@@ -166,6 +166,7 @@ private:
 	struct CtrlDrag { int edgeId; bool isControlPointA; };
 	bool               m_sandboxActive     = false;
 	Optional<int>      m_sandboxDragNode;
+	Optional<Vec3>     m_sandboxDragNodeStartPos;
 	Optional<CtrlDrag> m_sandboxDragCtrl;
 	Vec3               m_sandboxPrevCursor;
 
@@ -350,14 +351,29 @@ private:
 	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
 	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
 	{
+		m_routeSignRenderer.invalidate();
 		if (dirtyNodeIds.isEmpty())
 		{
+			m_worldRenderer.invalidateAllTerrain();
 			// フォールバック: 全再構築
 			m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 		}
 		else
 		{
+			if (dirtyNodeIds.size() == 1
+				&& m_sandboxDragNode
+				&& m_sandboxDragNodeStartPos
+				&& (*m_sandboxDragNode == dirtyNodeIds.front()))
+			{
+				m_worldRenderer.invalidateTerrainNearMovedNode(
+					m_network, dirtyNodeIds.front(), *m_sandboxDragNodeStartPos);
+			}
+			else
+			{
+				m_worldRenderer.invalidateTerrainNearDirtyNodes(m_network, dirtyNodeIds);
+			}
+
 			// 差分更新
 			auto sg = std::make_shared<SimGraph>(*m_simGraph);
 			sg->updateAround(dirtyNodeIds, m_network);

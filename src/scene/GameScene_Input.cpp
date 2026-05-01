@@ -922,7 +922,7 @@ void GameScene::handleRoadDraw()
 			const Vec3 clickPos = *m_cursorGroundPos;
 
 			// 水域チェック
-			if (m_world.computeHeight(static_cast<float>(clickPos.x),
+			if (m_world.sampleHeight(static_cast<float>(clickPos.x),
 			                          static_cast<float>(clickPos.z)) < 0.0f)
 			{
 				Console << U"[AutoPlace] 水域の地点は選択できません";
@@ -1013,8 +1013,20 @@ void GameScene::handleRoadDraw()
 					m_network.applyEdgeTemplate(*newEdgeId, m_drawTemplate);
 					m_network.smoothCurveAt(*newEdgeId, from);
 					m_network.updateEdgeElevation(*newEdgeId, m_world);
-					if (m_network.getEdge(*newEdgeId)->useElevation)
-						m_network.generatePiersForEdge(*newEdgeId, m_world);
+					bool terrainChanged = false;
+					if (RoadEdge* newEdge = m_network.getEdge(*newEdgeId))
+					{
+						newEdge->edgeState = EdgeState::Open;
+						if (newEdge->useElevation)
+						{
+							m_network.generatePiersForEdge(*newEdgeId, m_world);
+						}
+						else
+						{
+							m_world.deformTerrainAlongRoad(m_network, *newEdgeId);
+							terrainChanged = true;
+						}
+					}
 
 					// 敷設パネルで選択中のルートに新規エッジを追加
 					if (!m_pendingRouteIds.isEmpty())
@@ -1027,6 +1039,8 @@ void GameScene::handleRoadDraw()
 						}
 						m_network.rebuildEdgeRouteIndex();
 					}
+					if (terrainChanged)
+						m_minimapRenderer.buildTerrainTexture(m_world);
 				}
 				notifyNetworkChanged({ from, nodeId });
 				m_roadRenderer.invalidateCachesAroundNode(from, m_network);
@@ -1052,7 +1066,10 @@ void GameScene::clearDraftRoadPlan(bool removeEdges)
 				dirtyNodes << edge->nodeA << edge->nodeB;
 		}
 		for (const int eid : m_draftRoadPlan.edgeIds)
+		{
+			m_worldRenderer.invalidateTerrainForEdge(eid);
 			m_network.removeEdge(eid);
+		}
 		for (const int nid : dirtyNodes)
 			m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
 		if (!dirtyNodes.isEmpty())
@@ -1392,13 +1409,35 @@ void GameScene::handleSandboxEdit()
 	if (!dragging && m_panelManager.blocksMouseInput()) return;
 
 	const Vec2 cur2D{ m_cursorGroundPos->x, m_cursorGroundPos->z };
+	auto refreshDraggedConnectivity = [&](const Array<int>& nodeIds)
+	{
+		HashSet<int> uniqueIds;
+		for (const int nodeId : nodeIds)
+		{
+			if (nodeId < 0 || uniqueIds.contains(nodeId)) continue;
+			uniqueIds.insert(nodeId);
+			m_network.updateNodeCutoffs(nodeId);
+		}
+		for (const int nodeId : uniqueIds)
+		{
+			m_network.updateLaneConnectionPaths(nodeId);
+		}
+	};
 
 	if (MouseL.down())
 	{
 		m_sandboxDragNode = none;
+		m_sandboxDragNodeStartPos = none;
 		m_sandboxDragCtrl = none;
 
 		m_sandboxDragNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+		if (m_sandboxDragNode)
+		{
+			if (const RoadNode* node = m_network.getNode(*m_sandboxDragNode))
+			{
+				m_sandboxDragNodeStartPos = node->position;
+			}
+		}
 
 		if (!m_sandboxDragNode)
 		{
@@ -1431,6 +1470,7 @@ void GameScene::handleSandboxEdit()
 			else   notifyNetworkChanged();
 		}
 		m_sandboxDragNode = none;
+		m_sandboxDragNodeStartPos = none;
 		m_sandboxDragCtrl = none;
 	}
 
@@ -1443,6 +1483,8 @@ void GameScene::handleSandboxEdit()
 			RoadNode* node = m_network.getNode(*m_sandboxDragNode);
 			if (node)
 			{
+				Array<int> dirtyNodes;
+				dirtyNodes << node->id;
 				for (const auto& att : node->attachments)
 				{
 					const int eid = att.edgeId;
@@ -1451,8 +1493,10 @@ void GameScene::handleSandboxEdit()
 					if (edge->nodeA == node->id) edge->ctrlA += delta;
 					if (edge->nodeB == node->id) edge->ctrlB += delta;
 					m_roadRenderer.invalidateEdgeCache(eid, edge->nodeA, edge->nodeB);
+					dirtyNodes << edge->nodeA << edge->nodeB;
 				}
 				node->position += delta;
+				refreshDraggedConnectivity(dirtyNodes);
 			}
 		}
 		else if (m_sandboxDragCtrl)
@@ -1463,6 +1507,7 @@ void GameScene::handleSandboxEdit()
 				if (m_sandboxDragCtrl->isControlPointA) edge->ctrlA += delta;
 				else                        edge->ctrlB += delta;
 				m_roadRenderer.invalidateEdgeCache(edge->id, edge->nodeA, edge->nodeB);
+				refreshDraggedConnectivity({ edge->nodeA, edge->nodeB });
 			}
 		}
 
@@ -1477,10 +1522,12 @@ void GameScene::handleSandboxEdit()
 			Array<int> neighborNodes;
 			if (const RoadNode* node = m_network.getNode(*nearNode))
 			{
+				m_worldRenderer.invalidateTerrainForNode(*nearNode);
 				for (const auto& att : node->attachments)
 				{
 					const int eid = att.edgeId;
 					m_roadRenderer.invalidateEdgeCache(eid);
+					m_worldRenderer.invalidateTerrainForEdge(eid);
 					if (const RoadEdge* e = m_network.getEdge(eid))
 					{
 						const int other = (e->nodeA == *nearNode) ? e->nodeB : e->nodeA;
@@ -1515,7 +1562,10 @@ void GameScene::handleSandboxEdit()
 				int nA = -1, nB = -1;
 				if (const RoadEdge* e = m_network.getEdge(bestId))
 				{ nA = e->nodeA; nB = e->nodeB; }
+				m_worldRenderer.invalidateTerrainForNode(nA);
+				m_worldRenderer.invalidateTerrainForNode(nB);
 				m_roadRenderer.invalidateEdgeCache(bestId, nA, nB);
+				m_worldRenderer.invalidateTerrainForEdge(bestId);
 				m_network.removeEdge(bestId);
 				{
 					Array<int> dirty;

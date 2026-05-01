@@ -992,6 +992,9 @@ void GameScene::drawEdgePanel()
 			const int nA = edge->nodeA;
 			const int nB = edge->nodeB;
 			const int edgeId = edge->id;
+			m_worldRenderer.invalidateTerrainForNode(nA);
+			m_worldRenderer.invalidateTerrainForNode(nB);
+			m_worldRenderer.invalidateTerrainForEdge(edgeId);
 			m_network.removeEdge(edgeId);
 
 			// 孤立ノード（接続なし）を削除
@@ -1201,7 +1204,15 @@ void GameScene::drawRoadPlanPanel()
 							dirtyNodes << edge->nodeA << edge->nodeB;
 					}
 					for (const int eid : edgeIds)
+					{
+						if (const RoadEdge* edge = m_network.getEdge(eid))
+						{
+							m_worldRenderer.invalidateTerrainForNode(edge->nodeA);
+							m_worldRenderer.invalidateTerrainForNode(edge->nodeB);
+						}
+						m_worldRenderer.invalidateTerrainForEdge(eid);
 						m_network.removeEdge(eid);
+					}
 				}
 				m_network.removePlan(planId);
 				if (selectedRoadPlanId() == planId)
