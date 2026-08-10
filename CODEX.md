@@ -46,12 +46,11 @@ Codex の実行時設定ファイルとして、リポジトリルートの `.co
 - インデント: タブ (サイズ4)
 - **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。
 - ドキュメントコメント: Doxygen形式
-- **CRLF/BOM ファイルの編集**: Edit ツールでマッチに失敗するため、**Edit する前に必ず** LF 化し、**全ての Edit 完了後に** 戻すこと:
-  ```
-  python3 chore/convert_line_endings.py to-lf -d src Test   # Edit 前
-  python3 chore/convert_line_endings.py to-crlf -d src Test # Edit 後
-  ```
-  引数なし: `src/` のみ走査。`-d dir1 dir2 ...` で対象ディレクトリを指定可能
+- **CRLF/BOM ファイルの編集**: LF 化してから編集する運用は禁止。コマンド側で UTF-8 BOM + CRLF を保持すること。
+  - PowerShell では行単位の `Get-Content` / `Set-Content` を避け、`[System.IO.File]::ReadAllText()` / `WriteAllText()` を使う。
+  - 書き込み時は `.cpp` / `.hpp` / `.h` で `New-Object System.Text.UTF8Encoding($true)` を指定し、BOM を保持する。
+  - 改行を組み立てる必要がある場合は CRLF (0x0D 0x0A) を使い、既存テキストの CRLF を維持する。
+  - `convert_line_endings.py` は、改行・BOM が壊れた場合の一括修復用に限って使う。
 
 ### 命名規則
 

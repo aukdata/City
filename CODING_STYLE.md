@@ -42,7 +42,8 @@ src/
 
 - **UTF-8 BOM + CRLF**: `.cpp` / `.hpp` / `.h` ファイル
 - 新規ファイル作成後は `python3 chore/add_bom.py` を実行
-- Edit 前に `python3 chore/convert_line_endings.py to-lf`、Edit 後に `to-crlf`
+- 編集時に LF/CRLF 一括変換を行わない。UTF-8 BOM + CRLF を保持できるコマンドオプション/API（例: PowerShell の `[System.IO.File]::ReadAllText()` / `WriteAllText()` と `UTF8Encoding($true)`）で編集する
+- `convert_line_endings.py` は、改行・BOM が壊れた場合の一括修復用に限って使う
 
 ## Include 順序
 
