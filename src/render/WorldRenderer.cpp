@@ -1221,32 +1221,7 @@ void WorldRenderer::invalidateTerrainNearMovedNode(const RoadNetwork& network, i
 			dirtyChunkKeys.insert(keys.begin(), keys.end());
 		}
 	}
-	DBG_LOG(U"[TerrainBool] invalidateMoved node={} attachments={} chunksAfterRadius={}"_fmt(
-		nodeId, dirtyEdgeIds.size(), dirtyChunkKeys.size()));
-	DBG_LOG(U"[TerrainBool] invalidateMoved radiusChunks={}"_fmt(formatChunkKeySet(dirtyChunkKeys)));
 
-	for (const auto& [cachedEdgeId, subtractor] : m_edgeSubtractorCache)
-	{
-		for (const Key key : subtractor.touchedChunkKeys)
-		{
-			if (dirtyChunkKeys.contains(key))
-			{
-				dirtyEdgeIds.insert(cachedEdgeId);
-				break;
-			}
-		}
-	}
-	for (const auto& [cachedNodeId, subtractor] : m_nodeSubtractorCache)
-	{
-		for (const Key key : subtractor.touchedChunkKeys)
-		{
-			if (dirtyChunkKeys.contains(key))
-			{
-				dirtyNodeIds.insert(cachedNodeId);
-				break;
-			}
-		}
-	}
 	Array<int> expandedEdgeIds;
 	for (const int edgeId : dirtyEdgeIds)
 		expandedEdgeIds << edgeId;
@@ -1260,8 +1235,6 @@ void WorldRenderer::invalidateTerrainNearMovedNode(const RoadNetwork& network, i
 	{
 		if (const auto it = m_edgeSubtractorCache.find(edgeId); it != m_edgeSubtractorCache.end())
 		{
-			DBG_LOG(U"[TerrainBool] invalidateMoved oldEdge edge={} touched={}"_fmt(
-				edgeId, formatChunkKeyArray(it->second.touchedChunkKeys)));
 			for (const Key key : it->second.touchedChunkKeys)
 				dirtyChunkKeys.insert(key);
 			m_edgeSubtractorCache.erase(it);
@@ -1271,37 +1244,12 @@ void WorldRenderer::invalidateTerrainNearMovedNode(const RoadNetwork& network, i
 	{
 		if (const auto it = m_nodeSubtractorCache.find(dirtyNodeId); it != m_nodeSubtractorCache.end())
 		{
-			DBG_LOG(U"[TerrainBool] invalidateMoved oldNode node={} touched={}"_fmt(
-				dirtyNodeId, formatChunkKeyArray(it->second.touchedChunkKeys)));
 			for (const Key key : it->second.touchedChunkKeys)
 				dirtyChunkKeys.insert(key);
 			m_nodeSubtractorCache.erase(it);
 		}
 	}
-	DBG_LOG(U"[TerrainBool] invalidateMoved node={} chunksAfterOldTouched={}"_fmt(
-		nodeId, dirtyChunkKeys.size()));
-	DBG_LOG(U"[TerrainBool] invalidateMoved oldMergedChunks={}"_fmt(formatChunkKeySet(dirtyChunkKeys)));
 
-	for (const int edgeId : dirtyEdgeIds)
-	{
-		if (const TerrainBooleanSubtractor* updated = getTerrainSubtractor(network, edgeId))
-		{
-			DBG_LOG(U"[TerrainBool] invalidateMoved newEdge edge={} touched={}"_fmt(
-				edgeId, formatChunkKeyArray(updated->touchedChunkKeys)));
-			for (const Key key : updated->touchedChunkKeys)
-				dirtyChunkKeys.insert(key);
-		}
-	}
-	for (const int dirtyNodeId : dirtyNodeIds)
-	{
-		if (const TerrainNodeSubtractor* updated = getTerrainNodeSubtractor(network, dirtyNodeId))
-		{
-			DBG_LOG(U"[TerrainBool] invalidateMoved newNode node={} touched={}"_fmt(
-				dirtyNodeId, formatChunkKeyArray(updated->touchedChunkKeys)));
-			for (const Key key : updated->touchedChunkKeys)
-				dirtyChunkKeys.insert(key);
-		}
-	}
 	DBG_LOG(U"[TerrainBool] invalidateMoved node={} finalDirtyChunks={}"_fmt(
 		nodeId, dirtyChunkKeys.size()));
 	DBG_LOG(U"[TerrainBool] invalidateMoved finalChunks={}"_fmt(formatChunkKeySet(dirtyChunkKeys)));

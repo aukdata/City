@@ -28,6 +28,7 @@
 #include "../render/PlaceNameRenderer.hpp"
 #include "../render/RoadRouteSignRenderer.hpp"
 #include "../render/MinimapRenderer.hpp"
+#include "../debug/DebugLog.hpp"
 #include "GuideSignEditor.hpp"
 #include "../road/RoadPreset.hpp"
 #include "../gen/RoadAutoPlace.hpp"
@@ -348,40 +349,80 @@ private:
 	Optional<BuildingRef> findBuildingAt(const Ray& ray);
 
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
-	/// @param dirtyNodeIds 変更されたノードの ID リスト（空なら全再構築）
-	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
+	void notifyNetworkChanged(const NetworkChangeContext& context)
 	{
+		Stopwatch step{ StartImmediately::Yes };
+		const bool isFastPath = (context.kind == NetworkChangeKind::MovedIntersectionNode);
+		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;
+
 		m_routeSignRenderer.invalidate();
 		if (dirtyNodeIds.isEmpty())
 		{
 			m_worldRenderer.invalidateAllTerrain();
+			const double terrainMs = step.msF();
+			step.restart();
 			// フォールバック: 全再構築
 			m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
+			const double simGraphMs = step.msF();
+			step.restart();
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
+			const double minimapMs = step.msF();
+			step.restart();
+			m_simThread.pushRequest(NetworkUpdate{ m_simGraph, context.kind, dirtyNodeIds });
+			const double simThreadMs = step.msF();
+			step.restart();
+			m_vehicleManager.onNetworkChanged(*m_simGraph, m_network, context);
+			const double vehicleMs = step.msF();
+			DBG_LOG(U"[NetworkChange] path={} terrain={:.2f}ms simGraph={:.2f}ms minimap={:.2f}ms simThread={:.2f}ms vehicle={:.2f}ms dirtyNodes={}"_fmt(
+				isFastPath ? U"fast" : U"generic",
+				terrainMs, simGraphMs, minimapMs, simThreadMs, vehicleMs,
+				dirtyNodeIds.size()));
+			return;
+		}
+
+		if (isFastPath && context.movedNodeId >= 0 && context.oldNodePos)
+		{
+			m_worldRenderer.invalidateTerrainNearMovedNode(
+				m_network, context.movedNodeId, *context.oldNodePos);
 		}
 		else
 		{
-			if (dirtyNodeIds.size() == 1
-				&& m_sandboxDragNode
-				&& m_sandboxDragNodeStartPos
-				&& (*m_sandboxDragNode == dirtyNodeIds.front()))
-			{
-				m_worldRenderer.invalidateTerrainNearMovedNode(
-					m_network, dirtyNodeIds.front(), *m_sandboxDragNodeStartPos);
-			}
-			else
-			{
-				m_worldRenderer.invalidateTerrainNearDirtyNodes(m_network, dirtyNodeIds);
-			}
-
-			// 差分更新
-			auto sg = std::make_shared<SimGraph>(*m_simGraph);
-			sg->updateAround(dirtyNodeIds, m_network);
-			m_simGraph = std::move(sg);
-			m_minimapRenderer.updateRoadOverlayAround(dirtyNodeIds, m_network);
+			m_worldRenderer.invalidateTerrainNearDirtyNodes(m_network, dirtyNodeIds);
 		}
-		m_simThread.pushRequest(NetworkUpdate{ m_simGraph });
-		m_vehicleManager.onNetworkChanged(*m_simGraph, m_network);
+		const double terrainMs = step.msF();
+		step.restart();
+
+		// 差分更新
+		auto sg = std::make_shared<SimGraph>(*m_simGraph);
+		sg->updateAround(dirtyNodeIds, m_network);
+		m_simGraph = std::move(sg);
+		const double simGraphMs = step.msF();
+		step.restart();
+
+		m_minimapRenderer.updateRoadOverlayAround(dirtyNodeIds, m_network);
+		const double minimapMs = step.msF();
+		step.restart();
+
+		m_simThread.pushRequest(NetworkUpdate{ m_simGraph, context.kind, dirtyNodeIds });
+		const double simThreadMs = step.msF();
+		step.restart();
+
+		m_vehicleManager.onNetworkChanged(*m_simGraph, m_network, context);
+		const double vehicleMs = step.msF();
+
+		DBG_LOG(U"[NetworkChange] path={} terrain={:.2f}ms simGraph={:.2f}ms minimap={:.2f}ms simThread={:.2f}ms vehicle={:.2f}ms dirtyNodes={} movedNode={}"_fmt(
+			isFastPath ? U"fast" : U"generic",
+			terrainMs, simGraphMs, minimapMs, simThreadMs, vehicleMs,
+			dirtyNodeIds.size(), context.movedNodeId));
+	}
+
+	/// @brief 既存呼び出し向けの GenericEdit 通知
+	void notifyNetworkChanged(const Array<int>& dirtyNodeIds = {})
+	{
+		NetworkChangeContext context;
+		context.kind = NetworkChangeKind::GenericEdit;
+		context.dirtyNodeIds = dirtyNodeIds;
+		notifyNetworkChanged(context);
 	}
 
 	// ---- 入力処理 (GameScene_Input.cpp) ----

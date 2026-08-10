@@ -21,9 +21,25 @@ struct RouteRequest
 	int goalEdge   = -1;
 };
 
+enum class NetworkChangeKind : uint8
+{
+	GenericEdit,
+	MovedIntersectionNode,
+};
+
+struct NetworkChangeContext
+{
+	NetworkChangeKind kind = NetworkChangeKind::GenericEdit;
+	Array<int> dirtyNodeIds;
+	int movedNodeId = -1;
+	Optional<Vec3> oldNodePos;
+};
+
 struct NetworkUpdate
 {
 	std::shared_ptr<const SimGraph> graph;
+	NetworkChangeKind kind = NetworkChangeKind::GenericEdit;
+	Array<int> dirtyNodeIds;
 };
 
 using SimRequest = std::variant<RouteRequest, NetworkUpdate>;

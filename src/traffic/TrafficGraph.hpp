@@ -94,6 +94,9 @@ public:
 	void rebuild(const SimGraph& graph, GameTime now,
 	             const HashTable<int, TrafficLight>& lights);
 
+	/// @brief 交差点ノード移動後に、接続エッジの Forward 辺だけを局所更新する
+	void updateMovedIntersectionNode(const SimGraph& graph, const Array<int>& dirtyNodeIds);
+
 	/// @brief 出発 LaneNode から目標エッジへの経路を探索する
 	PathResult dijkstra(int startLaneNodeId, int goalEdgeId) const;
 

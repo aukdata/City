@@ -144,6 +144,13 @@ void SimThread::handleNetworkUpdate(const NetworkUpdate& update)
 	// ネットワーク差し替え時は SimGraph を丸ごと更新し、探索グラフもその場で再構築する。
 	if (!update.graph) return;
 	m_simGraph = update.graph;
-	HashTable<int, TrafficLight> emptyLights;
-	m_graph.rebuild(*m_simGraph, 0.0, emptyLights);
+	if (update.kind == NetworkChangeKind::MovedIntersectionNode)
+	{
+		m_graph.updateMovedIntersectionNode(*m_simGraph, update.dirtyNodeIds);
+	}
+	else
+	{
+		HashTable<int, TrafficLight> emptyLights;
+		m_graph.rebuild(*m_simGraph, 0.0, emptyLights);
+	}
 }

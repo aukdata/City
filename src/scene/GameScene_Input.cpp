@@ -1013,18 +1013,12 @@ void GameScene::handleRoadDraw()
 					m_network.applyEdgeTemplate(*newEdgeId, m_drawTemplate);
 					m_network.smoothCurveAt(*newEdgeId, from);
 					m_network.updateEdgeElevation(*newEdgeId, m_world);
-					bool terrainChanged = false;
 					if (RoadEdge* newEdge = m_network.getEdge(*newEdgeId))
 					{
 						newEdge->edgeState = EdgeState::Open;
 						if (newEdge->useElevation)
 						{
 							m_network.generatePiersForEdge(*newEdgeId, m_world);
-						}
-						else
-						{
-							m_world.deformTerrainAlongRoad(m_network, *newEdgeId);
-							terrainChanged = true;
 						}
 					}
 
@@ -1039,8 +1033,7 @@ void GameScene::handleRoadDraw()
 						}
 						m_network.rebuildEdgeRouteIndex();
 					}
-					if (terrainChanged)
-						m_minimapRenderer.buildTerrainTexture(m_world);
+
 				}
 				notifyNetworkChanged({ from, nodeId });
 				m_roadRenderer.invalidateCachesAroundNode(from, m_network);
@@ -1461,7 +1454,12 @@ void GameScene::handleSandboxEdit()
 	{
 		if (m_sandboxDragNode)
 		{
-			notifyNetworkChanged({ *m_sandboxDragNode });
+			NetworkChangeContext context;
+			context.kind = NetworkChangeKind::MovedIntersectionNode;
+			context.dirtyNodeIds = Array<int>{ *m_sandboxDragNode };
+			context.movedNodeId = *m_sandboxDragNode;
+			context.oldNodePos = m_sandboxDragNodeStartPos;
+			notifyNetworkChanged(context);
 		}
 		else if (m_sandboxDragCtrl)
 		{

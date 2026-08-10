@@ -2,6 +2,16 @@
 #include "TrafficCommon.hpp"
 #include <queue>
 
+namespace
+{
+	float computeForwardCost(const SimGraph::Edge& edge)
+	{
+		const float speedMS  = edge.speedLimit / 3.6f;
+		const float effSpeed = speedMS * (1.0f - edge.congestion * 0.8f);
+		return (effSpeed > 0.0f) ? (edge.length / effSpeed) : 1e6f;
+	}
+}
+
 // ===== rebuild =====
 
 void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
@@ -37,9 +47,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			exitNode.laneIndex = i;
 			exitNode.arcPos    = exitArc;
 
-			const float speedMS  = edge.speedLimit / 3.6f;
-			const float effSpeed = speedMS * (1.0f - edge.congestion * 0.8f);
-			const float fwdCost  = (effSpeed > 0.0f) ? (edge.length / effSpeed) : 1e6f;
+			const float fwdCost  = computeForwardCost(edge);
 			entryNode.outgoing << GraphEdge{ GraphEdgeType::Forward, exitNode.id, fwdCost };
 
 			const int64 key = laneKey(edge.id, i);
@@ -123,6 +131,49 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 	}
 
 	buildUnionFind();
+}
+
+void TrafficGraph::updateMovedIntersectionNode(const SimGraph& graph, const Array<int>& dirtyNodeIds)
+{
+	HashSet<int> dirtyEdgeIds;
+	for (const int nodeId : dirtyNodeIds)
+	{
+		const SimGraph::Node* node = graph.getNode(nodeId);
+		if (!node) continue;
+		for (const int edgeId : node->edgeIds)
+			dirtyEdgeIds.insert(edgeId);
+	}
+
+	for (const int edgeId : dirtyEdgeIds)
+	{
+		const SimGraph::Edge* edge = graph.getEdge(edgeId);
+		if (!edge) continue;
+
+		for (int laneIndex = 0; laneIndex < static_cast<int>(edge->lanes.size()); ++laneIndex)
+		{
+			const auto entryIt = m_entryNodeIds.find(laneKey(edgeId, laneIndex));
+			const auto exitIt = m_exitNodeIds.find(laneKey(edgeId, laneIndex));
+			if (entryIt == m_entryNodeIds.end() || exitIt == m_exitNodeIds.end()) continue;
+
+			LaneNode* entryNode = nullptr;
+			LaneNode* exitNode = nullptr;
+			if (auto it = m_laneNodes.find(entryIt->second); it != m_laneNodes.end()) entryNode = &it->second;
+			if (auto it = m_laneNodes.find(exitIt->second); it != m_laneNodes.end()) exitNode = &it->second;
+			if (!entryNode || !exitNode) continue;
+
+			const Lane& lane = edge->lanes[laneIndex];
+			entryNode->arcPos = (lane.dir == LaneDir::Forward) ? 0.0f : edge->length;
+			exitNode->arcPos = (lane.dir == LaneDir::Forward) ? edge->length : 0.0f;
+
+			for (auto& outgoing : entryNode->outgoing)
+			{
+				if (outgoing.type != GraphEdgeType::Forward) continue;
+				outgoing.toNodeId = exitNode->id;
+				outgoing.cost = computeForwardCost(*edge);
+				break;
+			}
+		}
+	}
 }
 
 // ===== Union-Find =====

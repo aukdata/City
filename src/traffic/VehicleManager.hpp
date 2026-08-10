@@ -17,7 +17,8 @@ public:
 	void init(const SimGraph& simGraph, const RoadNetwork& network);
 
 	/// @brief ネットワーク変更通知
-	void onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network);
+	void onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network,
+	                      const NetworkChangeContext& context);
 
 	/// @brief 毎フレーム更新
 	void update(double dt, GameTime gameNow,
@@ -65,6 +66,7 @@ private:
 	HashTable<int, TrafficLight> m_trafficLights;
 	bool m_lightsDirty = true;
 	void buildTrafficLights(const SimGraph& simGraph, const RoadNetwork* network = nullptr);
+	void rebuildTrafficLightForNode(int nodeId, const SimGraph& simGraph, const RoadNetwork& network);
 	void updateTrafficLights(GameTime gameNow);
 
 	// 送信待ちリクエスト

@@ -2674,6 +2674,6 @@ void GameScene::drawRoutePanel()
 	if (structureDirty)
 	{
 		// 路線の kind/number 変更は ガイド標識の自動生成テキストに影響
-		notifyNetworkChanged({});
+		notifyNetworkChanged(Array<int>{});
 	}
 }

@@ -19,9 +19,18 @@ void VehicleManager::init(const SimGraph& simGraph, const RoadNetwork& network)
 	m_lightsDirty = false;
 }
 
-void VehicleManager::onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network)
+void VehicleManager::onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network,
+                                      const NetworkChangeContext& context)
 {
-	buildTrafficLights(simGraph, &network);
+	if (context.kind == NetworkChangeKind::MovedIntersectionNode)
+	{
+		for (const int nodeId : context.dirtyNodeIds)
+			rebuildTrafficLightForNode(nodeId, simGraph, network);
+	}
+	else
+	{
+		buildTrafficLights(simGraph, &network);
+	}
 	m_lightsDirty = false;
 }
 
@@ -818,6 +827,38 @@ void VehicleManager::buildTrafficLights(const SimGraph& simGraph, const RoadNetw
 		}
 		m_trafficLights.emplace(node.id, TrafficLight{ node.id, std::move(phases) });
 	}
+}
+
+void VehicleManager::rebuildTrafficLightForNode(int nodeId, const SimGraph& simGraph, const RoadNetwork& network)
+{
+	m_trafficLights.erase(nodeId);
+
+	const SimGraph::Node* node = simGraph.getNode(nodeId);
+	if (!node) return;
+
+	Array<int> signalEdges;
+	for (const int eid : node->edgeIds)
+	{
+		const auto it = node->edgeControl.find(eid);
+		if (it != node->edgeControl.end() && it->second == TrafficControl::Signal)
+		{
+			if (simGraph.getEdge(eid)) signalEdges << eid;
+		}
+	}
+	if (static_cast<int>(signalEdges.size()) < kMinEdgesForSignal) return;
+
+	Array<SignalPhase> phases;
+	const RoadNode* roadNode = network.getNode(nodeId);
+	if (roadNode && roadNode->signalPlacement && !roadNode->signalPlacement->phases.isEmpty())
+	{
+		phases = convertPhaseDefs(roadNode->signalPlacement->phases);
+	}
+	else
+	{
+		phases = convertPhaseDefs(network.buildDefaultSignalPhases(nodeId));
+	}
+
+	m_trafficLights.emplace(nodeId, TrafficLight{ nodeId, std::move(phases) });
 }
 
 void VehicleManager::updateTrafficLights(GameTime gameNow)
