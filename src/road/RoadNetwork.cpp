@@ -1236,7 +1236,8 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	edge.parts.clear();
 
 	const float laneW = (edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
-		? 3.75f : 3.5f;
+		? 3.75f
+		: (edge.roadType == RoadType::Arterial ? 3.25f : 3.0f);
 	const int nLanes = static_cast<int>(edge.lanes.size());
 	const float roadbedWidth = nLanes * laneW;
 	const float halfRoadbed = roadbedWidth * 0.5f;
@@ -1295,7 +1296,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	default: // LocalRoad
 	{
-		const float slopeW = 2.0f;
+		const float slopeW = 0.6f;
 		float x = -halfRoadbed - slopeW;
 		addPart(RoadPartType::Slope,   x, slopeW,      U"slope_grass");      x += slopeW;
 		addPart(RoadPartType::Roadbed, x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
@@ -1307,7 +1308,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
-	float laneWidth = 3.5f;
+	float laneWidth = (rt == RoadType::Arterial) ? 3.25f : 3.0f;
 	if (rt == RoadType::Expressway || rt == RoadType::Highway)
 		laneWidth = 3.75f;
 

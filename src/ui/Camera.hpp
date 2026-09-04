@@ -7,6 +7,7 @@ enum class CameraMode
 	Overview,     ///< 俯瞰（デフォルト）
 	Follow,       ///< 車両追従（後方視点）
 	FirstPerson,  ///< 一人称（車両内視点）
+	Capture,      ///< 提出用スクリーンショット撮影
 };
 
 /// @brief ゲームカメラ（BasicCamera3D ラッパー）
@@ -58,6 +59,9 @@ public:
 
 	/// @brief カメラ姿勢を一括設定する（セーブロード用）
 	void setState(Vec3 focus, float distance, float yaw, float pitch);
+
+	/// @brief 提出用スクリーンショット撮影カメラを設定する
+	void setCaptureState(Vec3 focus, float distance, float yaw, float pitch);
 
 	/// @brief スクリーン座標からグラウンド（y=0）上のワールド座標を返す
 	/// @return 地面と交差しない場合は none

@@ -168,6 +168,11 @@ private:
 	                                        const World& world,
 	                                        float marginA, float marginB) const;
 
+	/// @brief 生活感を出す道路沿い設備（車・電柱・側溝・小看板）メッシュを生成する
+	Array<LaneLineBatch> buildStreetFurnitureBatches(const RoadEdge& edge, const CubicBezier& bezier,
+	                                                const World& world,
+	                                                float marginA, float marginB) const;
+
 	Array<LaneLineBatch> buildLaneLineBatches(const RoadEdge& edge, const CubicBezier& bezier,
 	                                          const World& world,
 	                                          float marginA, float marginB) const;
@@ -195,6 +200,9 @@ private:
 
 	/// @brief ノード境界の停止線メッシュ配列を生成する（Stop / Signal 制御の Entry 側のみ）
 	Array<LaneLineBatch> buildStopLineBatches(const RoadNetwork& network, int nodeId, const World& world) const;
+
+	/// @brief 交差点付近の横断歩道メッシュを生成する
+	Array<LaneLineBatch> buildCrosswalkBatches(const RoadNetwork& network, int nodeId, const World& world) const;
 
 	/// @brief Joint (Blend) ノードの車線区画線を生成する
 	Array<LaneLineBatch> buildJointBlendLaneLines(const RoadNetwork& network, int nodeId,
@@ -331,8 +339,10 @@ private:
 	HashTable<int, Array<PartLodBatch>>       m_partLodBatchCache;  ///< エッジ ID → 遠距離用 combined LOD バッチ
 	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線
 	HashTable<int, Array<LaneLineBatch>>      m_stopLineCache;    ///< ノード ID → 停止線
+	HashTable<int, Array<LaneLineBatch>>      m_crosswalkCache;   ///< ノード ID → 横断歩道
 	HashTable<int, Array<LaneLineBatch>>      m_laneArrowCache;   ///< ノード ID → 路面標示矢印
 	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
+	HashTable<int, Array<LaneLineBatch>>      m_streetFurnitureCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>              m_nodeCapCache;        ///< ノード ID → 部品メッシュ配列（Open/Existing エッジのみ）
 	HashTable<int, Array<std::pair<Vec3, Vec3>>>      m_nodeCapWireCache;    ///< ノード ID → ワイヤーフレーム輪郭線分配列（B パス用）

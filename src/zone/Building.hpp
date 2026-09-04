@@ -19,9 +19,9 @@ enum class BuildingType : uint8
 	Parking        = 11,  ///< 駐車場
 };
 
-/// @brief 建物占有幅 [m]（従来サイズ維持）
-/// @details 旧実装では base(10m) * scale(5.0) = 50m だったため、固定 50m とする。
-inline constexpr float kBuildingFootprintXZ = 50.0f;
+/// @brief 建物占有幅 [m]（16m ゾーンセルに収まる初期生成用）
+/// @details 日本の細街区らしい接道密度を出すため、1 ゾーンセル内で庭・駐車余白が残る幅へ寄せる。
+inline constexpr float kBuildingFootprintXZ = 8.5f;
 
 /// @brief 建物占有幅 [m]
 inline float buildingFootprintXZ()
@@ -45,12 +45,23 @@ inline uint8 residentialModelIndex(BuildingType t, int gx, int gz)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
 	switch (t)
 	{
-	case BuildingType::Detached:      return 0;                            // 001
-	case BuildingType::LowApartment:  return static_cast<uint8>(1 + h % 2); // 002-003
-	case BuildingType::MidApartment:  return static_cast<uint8>(3 + h % 3); // 004-006
-	case BuildingType::HighApartment: return static_cast<uint8>(6 + h % 4); // 007-010
+	case BuildingType::Detached:      return static_cast<uint8>(h % 4);     // 001-004
+	case BuildingType::LowApartment:  return static_cast<uint8>(4 + h % 2); // 005-006
+	case BuildingType::MidApartment:  return static_cast<uint8>(6 + h % 2); // 007-008
+	case BuildingType::HighApartment: return static_cast<uint8>(8 + h % 2); // 009-010
 	default:                          return 0;
 	}
+}
+
+/// @brief 建物タイプ + グローバルセル座標から OBJ バリエーション番号を返す
+inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
+{
+	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
+	               ^ (static_cast<uint32>(gz) * 19349663u);
+	if (isResidentialBuildingType(t)) return residentialModelIndex(t, gx, gz);
+	if (t == BuildingType::Shop) return static_cast<uint8>(h % 3u);
+	if (t == BuildingType::Office) return static_cast<uint8>(h % 2u);
+	return 0;
 }
 
 /// @brief OBJ で描画する建物種別かどうか
@@ -72,12 +83,12 @@ inline bool tryGetBuildingModelStem(BuildingType t, int gx, int gz, String& outS
 	}
 	if (t == BuildingType::Shop)
 	{
-		outStem = U"shop_001";
+		outStem = U"shop_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
 		return true;
 	}
 	if (t == BuildingType::Office)
 	{
-		outStem = U"office_001";
+		outStem = U"office_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
 		return true;
 	}
 	return false;
@@ -120,17 +131,17 @@ inline ColorF buildingColor(BuildingType type)
 {
 	switch (type)
 	{
-	case BuildingType::Detached:       return ColorF{ 0.90, 0.82, 0.68 };
-	case BuildingType::LowApartment:   return ColorF{ 0.65, 0.75, 0.90 };
-	case BuildingType::MidApartment:   return ColorF{ 0.45, 0.58, 0.82 };
-	case BuildingType::HighApartment:  return ColorF{ 0.30, 0.42, 0.75 };
-	case BuildingType::Shop:           return ColorF{ 0.95, 0.78, 0.30 };
-	case BuildingType::Office:         return ColorF{ 0.70, 0.75, 0.80 };
-	case BuildingType::Factory:        return ColorF{ 0.50, 0.48, 0.46 };
-	case BuildingType::Farmland:       return ColorF{ 0.55, 0.62, 0.32 };
-	case BuildingType::ParkBuilding:   return ColorF{ 0.30, 0.70, 0.35 };
-	case BuildingType::PublicFacility: return ColorF{ 0.80, 0.60, 0.85 };
-	case BuildingType::Parking:        return ColorF{ 0.55, 0.55, 0.55 };
+	case BuildingType::Detached:       return ColorF{ 0.74, 0.68, 0.58 };
+	case BuildingType::LowApartment:   return ColorF{ 0.66, 0.67, 0.63 };
+	case BuildingType::MidApartment:   return ColorF{ 0.56, 0.59, 0.62 };
+	case BuildingType::HighApartment:  return ColorF{ 0.48, 0.53, 0.58 };
+	case BuildingType::Shop:           return ColorF{ 0.70, 0.59, 0.44 };
+	case BuildingType::Office:         return ColorF{ 0.58, 0.62, 0.64 };
+	case BuildingType::Factory:        return ColorF{ 0.48, 0.47, 0.43 };
+	case BuildingType::Farmland:       return ColorF{ 0.58, 0.63, 0.39 };
+	case BuildingType::ParkBuilding:   return ColorF{ 0.36, 0.52, 0.32 };
+	case BuildingType::PublicFacility: return ColorF{ 0.62, 0.58, 0.54 };
+	case BuildingType::Parking:        return ColorF{ 0.44, 0.45, 0.43 };
 	default:                           return ColorF{ 0.60, 0.60, 0.60 };
 	}
 }
@@ -143,4 +154,6 @@ struct Building
 	float        angle    = 0.0f;             ///< 道路方向角 [rad] (XZ平面・Y軸回転)
 	int32        edgeId   = -1;               ///< 接道している RoadEdge id（未設定は -1）
 	float        edgeT    = 0.0f;             ///< 接道位置のパラメータ t (0..1)
+	float        offsetX  = 0.0f;             ///< ゾーンセル中心からの X オフセット [m]
+	float        offsetZ  = 0.0f;             ///< ゾーンセル中心からの Z オフセット [m]
 };

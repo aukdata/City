@@ -1,4 +1,4 @@
-id = "slope_grass"
+﻿id = "slope_grass"
 name = "草のり面"
 type = "Slope"
 tiling = "CrossSection"
@@ -10,7 +10,7 @@ symmetric = true
 
 [material]
 texture = "../../terrain/grass.png"
-color = [0.45, 0.58, 0.35]
+color = [0.47, 0.53, 0.35]
 
 [lod]
 mesh_names = ["center", "center_lod1"]

@@ -767,7 +767,7 @@ void MapGenerator::generateGlobalRoads(
 		const int prevNodeCount = static_cast<int>(network.nodes().size());
 		buildRoadSegment(world, network,
 			nearId, nearNode->position, nodeIds[si], sn->position,
-			RoadType::LocalRoad, 2, globalOccupied);
+			RoadType::LocalRoad, 1, globalOccupied);
 
 		// 新規ノードだけ空間ハッシュに追加
 		const auto& nodes = network.nodes();
@@ -821,7 +821,7 @@ void MapGenerator::generateGlobalRoads(
 
 			buildRoadSegment(world, network,
 				nearId, nearNode->position, nodeIds[si], sn->position,
-				RoadType::LocalRoad, 2, globalOccupied,
+				RoadType::LocalRoad, 1, globalOccupied,
 				{}, { tangent });
 
 			// 新規ノードを空間ハッシュに追加（後続の農村が利用）
@@ -912,7 +912,7 @@ void MapGenerator::generateGlobalRoads(
 
 		buildRoadSegment(world, network,
 			nearId, nearNode->position, nodeIds[i], sn->position,
-			RoadType::LocalRoad, 2, globalOccupied);
+			RoadType::LocalRoad, 1, globalOccupied);
 
 		// BFS で新たに到達可能になったノードを reachable に追加
 		{

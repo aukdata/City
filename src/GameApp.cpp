@@ -25,8 +25,23 @@ void GameApp::run()
 	// コマンドライン指定があればタイトル画面を介さず、開始条件だけ SceneData へ直接流し込む。
 	const auto args = System::GetCommandLineArgs();
 	bool directStart = false;
+	bool captureCityRenders = false;
+	Optional<uint64> seedOverride;
 	for (size_t i = 0; i < args.size(); ++i)
 	{
+		if (args[i] == U"--seed" && i + 1 < args.size())
+		{
+			seedOverride = ParseOpt<uint64>(args[i + 1]);
+			++i;
+			continue;
+		}
+
+		if (args[i] == U"--capture-city")
+		{
+			captureCityRenders = true;
+			continue;
+		}
+
 		if (args[i] == U"--new")
 		{
 			auto data = manager.get();
@@ -47,6 +62,27 @@ void GameApp::run()
 			DebugLog::print(U"[GameApp] direct start: load '{}'"_fmt(data->saveName));
 			break;
 		}
+	}
+
+	if (captureCityRenders)
+	{
+		Window::Resize(1920, 1080);
+		auto data = manager.get();
+		data->isNewGame = true;
+		data->sandboxMode = false;
+		data->captureCityRenders = true;
+		data->saveName.clear();
+		if (seedOverride)
+		{
+			data->seed = *seedOverride;
+		}
+		directStart = true;
+		DebugLog::print(U"[GameApp] capture-city mode enabled");
+	}
+	else if (seedOverride)
+	{
+		auto data = manager.get();
+		data->seed = *seedOverride;
 	}
 
 	// 初期シーン確定後は SceneManager の更新ループだけを回し、各シーンへ処理を委譲する。

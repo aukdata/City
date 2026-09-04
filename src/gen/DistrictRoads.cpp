@@ -122,7 +122,7 @@ namespace DistrictRoads
 			const Vec3 ctrlA = na->position + dir * (1.0 / 3.0);
 			const Vec3 ctrlB = na->position + dir * (2.0 / 3.0);
 			return static_cast<bool>(network.addEdge(nodeIdA, nodeIdB, ctrlA, ctrlB,
-			                                         RoadType::LocalRoad, 2));
+			                                         RoadType::LocalRoad, 1));
 		}
 
 		int ensureNodeWithMerge(
@@ -177,20 +177,20 @@ namespace DistrictRoads
 
 		Array<float> buildCastleGridCoords(float halfExtent)
 		{
-			// 城下町グリッドの分割数を、街区幅制約を守りつつ 80m 近傍になるよう選ぶ。
+			// 城下町グリッドの分割数を、街区幅制約を守りつつ 72m 近傍になるよう選ぶ。
 			Array<float> out;
 			const float fullExtent = halfExtent * 2.0f;
 
-			// セル幅制約 [50m, 200m] を満たす分割数を探索し、80m 近傍を優先する
-			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 200.0f)));
-			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 50.0f)));
+			// セル幅制約 [48m, 160m] を満たす分割数を探索し、72m 近傍を優先する
+			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 160.0f)));
+			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 48.0f)));
 
 			int bestCells = minCells;
 			float bestScore = 1e30f;
 			for (int cells = minCells; cells <= maxCells; ++cells)
 			{
 				const float cellW = fullExtent / cells;
-				const float score = Math::Abs(cellW - 80.0f);
+				const float score = Math::Abs(cellW - 72.0f);
 				if (score < bestScore)
 				{
 					bestScore = score;
@@ -1308,7 +1308,7 @@ namespace DistrictRoads
 			{
 				const float edgeFactor = Clamp(Max(Math::Abs(midX), Math::Abs(midZ)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
 				const uint32 h = districtHash(localSeed, colA * 131 + colB * 17, rowA * 97 + rowB * 23, 3);
-				const uint32 dropPercent = static_cast<uint32>(9.0f + edgeFactor * 12.0f);
+				const uint32 dropPercent = static_cast<uint32>(8.0f + edgeFactor * 12.0f);
 				if ((h % 100u) < dropPercent) return;
 			}
 

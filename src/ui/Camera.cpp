@@ -26,10 +26,14 @@ void GameCamera::update(double dt, const World& world)
 		// Overview に戻ったとき focus を現在の追従位置にリセット
 		m_focus = m_followPos;
 	}
-	else // FirstPerson (歩行モード)
+	else if (m_mode == CameraMode::FirstPerson)
 	{
 		handleFirstPersonInput(dt, world);
 		rebuildFirstPerson();
+	}
+	else
+	{
+		rebuild(&world);
 	}
 }
 
@@ -209,6 +213,16 @@ void GameCamera::setFocus(Vec3 focus)
 
 void GameCamera::setState(Vec3 focus, float distance, float yaw, float pitch)
 {
+	m_focus    = focus;
+	m_distance = distance;
+	m_yaw      = yaw;
+	m_pitch    = pitch;
+	rebuild();
+}
+
+void GameCamera::setCaptureState(Vec3 focus, float distance, float yaw, float pitch)
+{
+	m_mode     = CameraMode::Capture;
 	m_focus    = focus;
 	m_distance = distance;
 	m_yaw      = yaw;

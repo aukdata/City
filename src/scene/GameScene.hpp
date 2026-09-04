@@ -270,6 +270,11 @@ private:
 	MainPerfHistory m_mainPerfHistory;
 	SimPerfHistory  m_simPerfHistory;
 
+	// ---- 提出用スクリーンショット ----
+	int             m_captureFrame = 0;
+	int             m_captureIndex = 0;
+	bool            m_captureCameraDirty = true;
+
 	// 描画タイミング（renderWorld サブメソッド間で共有）
 	struct RenderTimings
 	{
@@ -338,6 +343,11 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings();
 	void refreshBuildingAnglesFromEdges();
+	void updateCaptureCityRenders();
+	Vec3 captureFocusPoint() const;
+	Vec3 captureStreetCornerPoint(Vec3 fallback) const;
+	Vec3 captureRuralFringePoint(Vec3 fallback) const;
+	String captureFileName(int index) const;
 
 	/// @brief m_districts の各地区に対応する最寄り RoadNode を
 	///   NamedDestination として RoadNetwork に登録し、案内標識を自動生成する。

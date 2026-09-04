@@ -10,6 +10,7 @@ struct SceneData
 	uint64 seed        = 20260316ULL;
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
 	bool   isNewGame   = true;   ///< true: 新規生成、false: セーブロード
+	bool   captureCityRenders = false; ///< true: 提出用に実ゲームレンダを自動撮影して終了
 	String saveName;             ///< セーブ名（ロード時のみ使用）
 };
 

@@ -251,9 +251,9 @@ void GameScene::renderWorld()
 
 		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
-		const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), sky.sinTime, 0.3 }.normalized();
+		const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), Max(0.18, sky.sinTime * 0.72), 0.45 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.55 + 0.30 * sky.dayFactor + 0.10 * sky.dawnFactor });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.32 + 0.18 * sky.dayFactor + 0.08 * sky.dawnFactor });
 
 		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
 		const ColorF dawnZenith { 0.22, 0.18, 0.38 };
@@ -274,10 +274,16 @@ void GameScene::renderWorld()
 		renderScene3D();
 		lap(m_renderTimings.terrain);
 
-		renderSelectionHighlights();
+		if (!getData().captureCityRenders)
+		{
+			renderSelectionHighlights();
+		}
 		lap(m_renderTimings.road);
 
-		m_zoneManager.renderOverlay(m_world);
+		if (!getData().captureCityRenders)
+		{
+			m_zoneManager.renderOverlay(m_world);
+		}
 		lap(m_renderTimings.zone);
 
 		renderVehicles();
@@ -287,20 +293,29 @@ void GameScene::renderWorld()
 		m_trainRenderer.renderTrains(m_trainManager.trains());
 		lap(m_renderTimings.train);
 
-		renderEditModeOverlays();
-
-		m_debugRenderer.render(m_network, m_renderVehicles, m_world, m_camera);
+		if (!getData().captureCityRenders)
+		{
+			renderEditModeOverlays();
+			m_debugRenderer.render(m_network, m_renderVehicles, m_world, m_camera);
+		}
 		lap(m_renderTimings.debug);
 	}
 
 	Graphics3D::Flush();
 	Shader::LinearToScreen(m_renderTexture);
 
-	renderSelectionOutline();
-
-	render2DUI();
+	if (!getData().captureCityRenders)
+	{
+		renderSelectionOutline();
+		render2DUI();
+	}
 	lap(m_renderTimings.ui);
 	m_renderTimings.total = swTotal.msF();
+
+	if (getData().captureCityRenders)
+	{
+		return;
+	}
 
 	pushPerfStats();
 

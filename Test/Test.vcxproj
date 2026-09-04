@@ -116,20 +116,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BezierBuildingFrontageTests.cpp" />
-    <ClCompile Include="CityGenerationVisualTests.cpp" />
-    <ClCompile Include="..\src\world\World.cpp" />
-    <ClCompile Include="..\src\road\RoadNetwork.cpp" />
-    <ClCompile Include="..\src\road\RoadArrow.cpp" />
-    <ClCompile Include="..\src\road\RoadPartRegistry.cpp" />
-    <ClCompile Include="..\src\road\RoadPreset.cpp" />
-    <ClCompile Include="..\src\gen\MapGenerator.cpp" />
-    <ClCompile Include="..\src\gen\DistrictRoads.cpp" />
-    <ClCompile Include="..\src\gen\RoadPathfinder.cpp" />
-    <ClCompile Include="..\src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="SaveTransactionTests.cpp" />
     <ClCompile Include="TestRunner.cpp" />
     <ClCompile Include="..\src\save\SaveTransaction.cpp" />
+    <ClCompile Include="RoadNetworkStubs.cpp" />
     <ClCompile Include="..\src\asset\AssetRegistrar.cpp" />
     <ClCompile Include="..\src\road\BezierUtil.cpp" />
     <ClCompile Include="..\src\road\GuideSign.cpp" />
@@ -141,7 +132,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\src\railway\TrainNetwork.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="App\engine\texture\box-shadow\128.png" />

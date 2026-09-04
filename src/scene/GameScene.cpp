@@ -965,7 +965,7 @@ namespace
 		const float h = sampleHeightMap(chunk.heightMap, chunkCoord, wx, wz);
 		if (h < 0.0f) return ZoneType::Unzoned;
 		const float slope = localSlope(chunk, chunkCoord, wx, wz);
-		if (slope > 0.16f) return ZoneType::Unzoned;
+		if (slope > 0.12f) return ZoneType::Unzoned;
 
 		const Vec2 axisX = landUseAxisX(settlement, seed, settlementIndex);
 		const Vec2 axisZ{ -axisX.y, axisX.x };
@@ -977,8 +977,8 @@ namespace
 
 		if (settlement.kind == MapGenerator::SettlementKind::CastleTown)
 		{
-			const float halfX = Max(880.0f, settlement.radius * 1.15f) * (0.94f + n * 0.14f);
-			const float halfZ = Max(680.0f, settlement.radius * 0.88f) * (0.90f + n * 0.16f);
+			const float halfX = Max(1080.0f, settlement.radius * 1.32f) * (0.96f + n * 0.16f);
+			const float halfZ = Max(820.0f, settlement.radius * 1.02f) * (0.92f + n * 0.18f);
 			const float nx = Math::Abs(lx) / halfX;
 			const float nz = Math::Abs(lz) / halfZ;
 			const float roundedShape = Math::Pow(nx, 1.45f) + Math::Pow(nz, 1.45f);
@@ -991,29 +991,29 @@ namespace
 			if (!detachedPocket && !urbanCorridor)
 			{
 				const float fieldShape = Math::Pow(nx, 1.20f) + Math::Pow(nz, 1.20f);
-				return (fieldShape < 1.55f && slope < 0.060f && fine < 0.62f) ? ZoneType::Agriculture : ZoneType::Unzoned;
+				return (fieldShape < 1.88f && slope < 0.070f && fine < 0.78f) ? ZoneType::Agriculture : ((fieldShape < 1.72f && fine < 0.30f) ? ZoneType::LowResidential : ZoneType::Unzoned);
 			}
-			if (roundedShape > 0.86f && fine < 0.20f) return ZoneType::Industrial;
+			if (roundedShape > 0.96f && fine < 0.16f) return ZoneType::Industrial;
 			if (urbanCorridor || (Math::Abs(lx) < 330.0f && Math::Abs(lz) < 260.0f && fine < 0.72f)) return ZoneType::Commercial;
-			if (roundedShape < 0.68f || fine < 0.54f) return ZoneType::Residential;
+			if (roundedShape < 0.78f || fine < 0.66f) return ZoneType::Residential;
 			return ZoneType::LowResidential;
 		}
 
 		if (settlement.kind == MapGenerator::SettlementKind::PostTown)
 		{
-			const float length = Max(420.0f, settlement.radius * 1.75f) * (0.90f + n * 0.20f);
-			const float width = Max(150.0f, settlement.radius * 0.72f) * (0.88f + n * 0.20f);
+			const float length = Max(520.0f, settlement.radius * 2.05f) * (0.92f + n * 0.20f);
+			const float width = Max(210.0f, settlement.radius * 0.92f) * (0.90f + n * 0.20f);
 			const float ribbon = Math::Abs(lx) / length + Math::Abs(lz) / width;
-			if (ribbon > 1.55f) return (slope < 0.045f && fine < 0.50f) ? ZoneType::Agriculture : ZoneType::Unzoned;
+			if (ribbon > 1.70f) return (slope < 0.060f && fine < 0.70f) ? ZoneType::Agriculture : ZoneType::Unzoned;
 			if (Math::Abs(lz) < 62.0f && Math::Abs(lx) < length * 0.82f) return ZoneType::Commercial;
-			return (ribbon < 1.02f) ? ZoneType::Residential : ZoneType::LowResidential;
+			return (ribbon < 1.18f || fine < 0.58f) ? ZoneType::Residential : ZoneType::LowResidential;
 		}
 
 		const float hamlet = Math::Abs(lx) / Max(170.0f, settlement.radius * 1.25f)
 			+ Math::Abs(lz) / Max(72.0f, settlement.radius * 0.58f);
-		if (hamlet < 0.78f) return ZoneType::LowResidential;
-		if (hamlet < 1.05f && fine < 0.35f) return ZoneType::Residential;
-		const float fieldRadius = Max(360.0f, settlement.radius * 2.8f) * (0.90f + n * 0.18f);
+		if (hamlet < 0.92f) return ZoneType::LowResidential;
+		if (hamlet < 1.22f && fine < 0.52f) return ZoneType::Residential;
+		const float fieldRadius = Max(460.0f, settlement.radius * 3.35f) * (0.92f + n * 0.20f);
 		if (delta.length() < fieldRadius && slope < 0.060f) return ZoneType::Agriculture;
 		return ZoneType::Unzoned;
 	}
@@ -1031,6 +1031,46 @@ namespace
 		default: return -1;
 		}
 	}
+	int nearestSettlementIndex(const Array<MapGenerator::Settlement>& settlements, float wx, float wz)
+	{
+		int bestIndex = -1;
+		float bestScore = 1e30f;
+		for (int i = 0; i < static_cast<int>(settlements.size()); ++i)
+		{
+			const auto& s = settlements[i];
+			const float dx = wx - static_cast<float>(s.center.x);
+			const float dz = wz - static_cast<float>(s.center.y);
+			const float radius = Max(1.0f, s.radius);
+			const float score = (dx * dx + dz * dz) / (radius * radius);
+			if (score < bestScore)
+			{
+				bestScore = score;
+				bestIndex = i;
+			}
+		}
+		return bestIndex;
+	}
+
+	float infillDensity(MapGenerator::SettlementKind kind, ZoneType zone)
+	{
+		if (kind == MapGenerator::SettlementKind::CastleTown)
+		{
+			if (zone == ZoneType::Commercial) return 0.72f;
+			if (zone == ZoneType::Residential) return 0.54f;
+			if (zone == ZoneType::LowResidential) return 0.42f;
+			if (zone == ZoneType::Industrial) return 0.34f;
+		}
+		if (kind == MapGenerator::SettlementKind::PostTown)
+		{
+			if (zone == ZoneType::Commercial) return 0.58f;
+			if (zone == ZoneType::Residential) return 0.46f;
+			if (zone == ZoneType::LowResidential) return 0.36f;
+			if (zone == ZoneType::Industrial) return 0.30f;
+		}
+		if (zone == ZoneType::Residential) return 0.36f;
+		if (zone == ZoneType::LowResidential) return 0.32f;
+		return 0.0f;
+	}
 }
 // =============================================================================
 // ゾーン一括割り当て
@@ -1044,9 +1084,9 @@ void GameScene::applyZonesGlobal()
 	for (int si = 0; si < static_cast<int>(m_districts.size()); ++si)
 	{
 		const auto& settlement = m_districts[si];
-		const float outerDist = (settlement.kind == MapGenerator::SettlementKind::CastleTown) ? Max(1350.0f, settlement.radius * 1.35f)
-			: (settlement.kind == MapGenerator::SettlementKind::PostTown) ? Max(850.0f, settlement.radius * 2.30f)
-			: Max(520.0f, settlement.radius * 3.20f);
+		const float outerDist = (settlement.kind == MapGenerator::SettlementKind::CastleTown) ? Max(1650.0f, settlement.radius * 1.62f)
+			: (settlement.kind == MapGenerator::SettlementKind::PostTown) ? Max(1050.0f, settlement.radius * 2.75f)
+			: Max(680.0f, settlement.radius * 3.85f);
 
 		const float scx = static_cast<float>(settlement.center.x);
 		const float scz = static_cast<float>(settlement.center.y);
@@ -1109,23 +1149,23 @@ namespace
 			{
 				if (zone == ZoneType::Commercial) return 0.82f;
 				if (zone == ZoneType::Residential) return 0.62f;
-				if (zone == ZoneType::LowResidential) return 0.40f;
-				if (zone == ZoneType::Industrial) return 0.30f;
-				if (zone == ZoneType::Agriculture) return 0.32f;
+				if (zone == ZoneType::LowResidential) return 0.46f;
+				if (zone == ZoneType::Industrial) return 0.50f;
+				if (zone == ZoneType::Agriculture) return 0.20f;
 			}
 			else if (kind == MapGenerator::SettlementKind::PostTown)
 			{
-				if (zone == ZoneType::Commercial) return 0.68f;
+				if (zone == ZoneType::Commercial) return 0.70f;
 				if (zone == ZoneType::Residential) return 0.56f;
-				if (zone == ZoneType::LowResidential) return 0.36f;
-				if (zone == ZoneType::Industrial) return 0.34f;
-				if (zone == ZoneType::Agriculture) return 0.45f;
+				if (zone == ZoneType::LowResidential) return 0.42f;
+				if (zone == ZoneType::Industrial) return 0.50f;
+				if (zone == ZoneType::Agriculture) return 0.32f;
 			}
 			else
 			{
-				if (zone == ZoneType::Residential) return 0.30f;
-				if (zone == ZoneType::LowResidential) return 0.24f;
-				if (zone == ZoneType::Agriculture) return 0.72f;
+				if (zone == ZoneType::Residential) return 0.38f;
+				if (zone == ZoneType::LowResidential) return 0.34f;
+				if (zone == ZoneType::Agriculture) return 0.62f;
 			}
 			return 0.0f;
 		}
@@ -1134,20 +1174,30 @@ namespace
 		{
 			Building building;
 			building.builtAt = gameNow;
+			const uint32 roll = hash % 100u;
 			switch (zone)
 			{
 			case ZoneType::LowResidential:
-				building.type = ((hash % 100) < (kind == MapGenerator::SettlementKind::Village ? 92u : 78u))
+				if (roll < 5u) building.type = BuildingType::ParkBuilding;
+				else if (roll < 9u) building.type = BuildingType::Parking;
+				else building.type = (roll < (kind == MapGenerator::SettlementKind::Village ? 94u : 82u))
 					? BuildingType::Detached : BuildingType::LowApartment;
 				break;
 			case ZoneType::Residential:
-				building.type = ((hash % 100) < 76u) ? BuildingType::Detached : BuildingType::LowApartment;
+				if (roll < 5u) building.type = BuildingType::ParkBuilding;
+				else if (roll < 10u) building.type = BuildingType::PublicFacility;
+				else if (roll < 11u) building.type = BuildingType::MidApartment;
+				else building.type = (roll < 84u) ? BuildingType::Detached : BuildingType::LowApartment;
 				break;
 			case ZoneType::Commercial:
-				building.type = ((hash % 100) < 72u) ? BuildingType::Shop : BuildingType::Office;
+				if (roll < 8u) building.type = BuildingType::Parking;
+				else if (roll < 13u) building.type = BuildingType::PublicFacility;
+				else building.type = (roll < 86u) ? BuildingType::Shop : BuildingType::Office;
 				break;
 			case ZoneType::Industrial:
-				building.type = BuildingType::Factory;
+				if (roll < 12u) building.type = BuildingType::Parking;
+				else if (roll < 18u) building.type = BuildingType::PublicFacility;
+				else building.type = BuildingType::Factory;
 				break;
 			case ZoneType::Agriculture:
 				building.type = BuildingType::Farmland;
@@ -1157,6 +1207,83 @@ namespace
 				break;
 			}
 			return building;
+		}
+		void applySettlementContext(Building& building, ZoneType zone, MapGenerator::SettlementKind kind,
+		                            float distFromCenter, float settlementRadius, float roadDist, uint32 hash)
+		{
+			const float coreRadius = settlementRadius * (kind == MapGenerator::SettlementKind::CastleTown ? 0.26f : 0.18f);
+			const bool urbanCore = (kind == MapGenerator::SettlementKind::CastleTown && distFromCenter < coreRadius);
+			const bool mainStreetCore = (kind == MapGenerator::SettlementKind::PostTown && distFromCenter < coreRadius && roadDist < 46.0f);
+			const bool roadside = (roadDist < 30.0f);
+			const bool districtEdge = (distFromCenter > settlementRadius * 0.92f);
+			const uint32 roll = (hash / 17u) % 100u;
+
+			if ((zone == ZoneType::Residential || zone == ZoneType::LowResidential) && roadside && !districtEdge)
+			{
+				const uint32 roadsideRoll = (hash / 11u) % 100u;
+				if (roadsideRoll < (urbanCore ? 18u : 8u))
+				{
+					building.type = BuildingType::Shop;
+				}
+				else if (roadsideRoll < (urbanCore ? 24u : 11u))
+				{
+					building.type = BuildingType::Parking;
+				}
+			}
+
+			if (building.type == BuildingType::MidApartment && !(urbanCore || mainStreetCore))
+			{
+				building.type = (roll < 78u) ? BuildingType::Detached : BuildingType::LowApartment;
+			}
+
+			if (building.type == BuildingType::HighApartment && !urbanCore)
+			{
+				building.type = BuildingType::MidApartment;
+			}
+
+			if (building.type == BuildingType::Office)
+			{
+				const uint32 officeRoll = (hash / 29u) % 100u;
+				const bool officeAllowed = urbanCore && zone == ZoneType::Commercial && roadDist < 42.0f;
+				
+				if (!officeAllowed)
+				{
+					building.type = (officeRoll < 80u) ? BuildingType::Shop : BuildingType::Parking;
+				}
+			}
+
+			if (building.type == BuildingType::PublicFacility)
+			{
+				if (kind == MapGenerator::SettlementKind::Village && roll < 55u)
+				{
+					building.type = BuildingType::Detached;
+				}
+				else if (!roadside && roll < 35u)
+				{
+					building.type = BuildingType::ParkBuilding;
+				}
+			}
+
+			if (districtEdge && building.type == BuildingType::LowApartment && roll < 72u)
+			{
+				building.type = BuildingType::Detached;
+			}
+		}
+		BuildingType ruralFringeBuildingType(MapGenerator::SettlementKind kind, float distFromCenter, float settlementRadius, uint32 hash)
+		{
+			const float fringeStart = settlementRadius * (kind == MapGenerator::SettlementKind::Village ? 0.92f : 1.08f);
+			const float fringeEnd = settlementRadius * (kind == MapGenerator::SettlementKind::Village ? 2.80f : 2.15f);
+			if (distFromCenter < fringeStart || distFromCenter > fringeEnd)
+			{
+				return BuildingType::Farmland;
+			}
+
+			const uint32 roll = (hash / 37u) % 100u;
+			if (roll < 3u) return BuildingType::Detached;
+			if (roll < 4u) return BuildingType::Factory;
+			if (roll < 5u) return BuildingType::Parking;
+			if (roll < 6u) return BuildingType::ParkBuilding;
+			return BuildingType::Farmland;
 		}
 	}
 	constexpr float kDefaultBuildingSetbackM = 2.0f;
@@ -1199,7 +1326,14 @@ namespace
 		return value;
 	}
 
-	float buildingAngleFromAttachedEdge(
+	
+	Vec2 interiorBuildingOffset(uint32 hash, float maxOffset)
+	{
+		const float ox = (static_cast<float>(hash & 0xFFu) / 255.0f - 0.5f) * maxOffset * 2.0f;
+		const float oz = (static_cast<float>((hash >> 8) & 0xFFu) / 255.0f - 0.5f) * maxOffset * 2.0f;
+		return Vec2{ ox, oz };
+	}
+float buildingAngleFromAttachedEdge(
 		const RoadNetwork& network, int edgeId, float edgeT, float fallbackAngle)
 	{
 		if (edgeId < 0) return fallbackAngle;
@@ -1291,8 +1425,23 @@ namespace
 		float angle = 0.0f;
 		float halfWidth = 0.0f;
 		float roadDist = 0.0f;
+		Vec2  roadToCellDir{ 1.0f, 0.0f };
 		float centerDistSq = 0.0f;
 	};
+	Vec2 roadsideBuildingOffset(const EdgeFacingSlot& slot, BuildingType type, int gx, int gz)
+	{
+		if (type == BuildingType::Farmland || slot.roadDist <= 0.001f)
+		{
+			return Vec2{ 0.0f, 0.0f };
+		}
+
+		const float buildingHalf = buildingFootprintXZ() * 0.5f;
+		const float targetDist = slot.halfWidth + buildingHalf + setbackFromRoadByModel(type, gx, gz) * 0.55f;
+		const float moveTowardRoad = Clamp(slot.roadDist - targetDist, 0.0f, 5.5f);
+		return -slot.roadToCellDir * moveTowardRoad;
+	}
+
+
 
 	int64 zoneCellKey(Point cc, int col, int row)
 	{
@@ -1433,6 +1582,7 @@ namespace
 					const Vec2 toCell = cellCenter - projection.position;
 					if (toCell.lengthSq() <= 1e-6f) continue;
 					if ((toCell.dot(projection.right) * side) <= 1e-4f) continue;
+					const Vec2 roadToCellDir = toCell.normalized();
 
 					const float centerDx = static_cast<float>(cellCenter.x) - static_cast<float>(center.x);
 					const float centerDz = static_cast<float>(cellCenter.y) - static_cast<float>(center.y);
@@ -1443,9 +1593,10 @@ namespace
 					slot.row = gz;
 					slot.edgeId = edge.id;
 					slot.edgeT = projection.edgeT;
-					slot.angle = projection.angle;
+					slot.angle = static_cast<float>(std::atan2(-roadToCellDir.x, roadToCellDir.y));
 					slot.halfWidth = edgeHalfWidth;
 					slot.roadDist = projection.distance;
+					slot.roadToCellDir = roadToCellDir;
 					slot.centerDistSq = centerDx * centerDx + centerDz * centerDz;
 
 					const int64 key = zoneCellKey(cc, gx, gz);
@@ -1483,18 +1634,13 @@ void GameScene::placeInitialBuildings()
 	const float buildingSize       = buildingFootprintXZ();
 	const float halfBuilding       = buildingSize * 0.5f;
 	int placed = 0;
+	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
 
 	// 道路沿いスロットを地区ごとに収集し、ゾーン・道路距離・重なり判定を満たす場所へ初期建物を置く。
 	for (int si = 0; si < static_cast<int>(m_districts.size()); ++si)
 	{
 		const auto& s = m_districts[si];
 
-		// デバッグ: 城下町の gridAxisX を確認
-		if (s.kind == MapGenerator::SettlementKind::CastleTown)
-		{
-			Console << U"[Debug CastleTown si={}] gridAxisX=({:.3f},{:.3f})"_fmt(
-				si, s.gridAxisX.x, s.gridAxisX.y);
-		}
 
 		const float radiusSq = s.radius * s.radius * 4.0f;
 		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(s, m_world, m_network);
@@ -1506,6 +1652,13 @@ void GameScene::placeInitialBuildings()
 
 			const ZoneType zone = chunk->zoneMap[{ slot.col, slot.row }];
 			if (zone == ZoneType::Unzoned) continue;
+
+			const int64 slotKey = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
+			const auto slotIt = edgeFacingSlotsByCell.find(slotKey);
+			if (slotIt == edgeFacingSlotsByCell.end() || slot.roadDist < slotIt->second.roadDist)
+			{
+				edgeFacingSlotsByCell[slotKey] = slot;
+			}
 
 			const Vec2 centerPos = cellCenterXZ(slot.chunkCoord, slot.col, slot.row);
 			const float dx = static_cast<float>(centerPos.x - s.center.x);
@@ -1522,6 +1675,7 @@ void GameScene::placeInitialBuildings()
 			const int globalGZ = slot.chunkCoord.y * ZONE_CELLS + slot.row;
 			const uint32 cellHash = settlementCellHash(getData().seed, si, globalGX, globalGZ);
 			Building b = InitialBuilding::spawn(zone, s.kind, 0.0, cellHash);
+			InitialBuilding::applySettlementContext(b, zone, s.kind, Math::Sqrt(distFromCenterSq), s.radius, slot.roadDist, cellHash);
 			if (b.type == BuildingType::None) continue;
 
 			if (b.type != BuildingType::Farmland
@@ -1536,9 +1690,9 @@ void GameScene::placeInitialBuildings()
 
 			const float distFromCenter = Math::Sqrt(distFromCenterSq);
 			const float centerFalloff = Clamp(1.0f - distFromCenter / Max(1.0f, s.radius * 2.2f), 0.20f, 1.0f);
-			const float densityFactor = InitialBuilding::density(s.kind, zone) * (0.58f + centerFalloff * 0.42f);
+			const float densityFactor = InitialBuilding::density(s.kind, zone) * (0.78f + centerFalloff * 0.22f);
 			const float score = roadScore * densityFactor;
-			if (score < 0.08f) continue;
+			if (score < 0.03f) continue;
 
 			const float roll = (cellHash % 1000) / 1000.0f;
 			if (roll > score) continue;
@@ -1546,29 +1700,81 @@ void GameScene::placeInitialBuildings()
 			const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
 			if (b.type != BuildingType::Farmland
 				&& slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
-			b.angle = buildingAngleFromAttachedEdge(m_network, slot.edgeId, slot.edgeT, slot.angle);
+			const Vec2 roadOffset = roadsideBuildingOffset(slot, b.type, globalGX, globalGZ);
+			b.offsetX = static_cast<float>(roadOffset.x);
+			b.offsetZ = static_cast<float>(roadOffset.y);
+			b.angle = slot.angle;
 			b.edgeId = slot.edgeId;
 			b.edgeT = slot.edgeT;
 
-			// デバッグ: 城下町の最初の5棟だけ接線を確認
-			if (s.kind == MapGenerator::SettlementKind::CastleTown && placed < 5)
-			{
-				const auto bez = m_network.getBezier(slot.edgeId);
-				if (bez)
-				{
-					const Vec3 tan = bez->tangentAt(bez->totalLength * 0.5f);
-					Console << U"[Debug building #{}] edgeId={} tan=({:.3f},{:.3f}) angle={:.2f}deg gridAxisX=({:.3f},{:.3f})"_fmt(
-						placed,
-						slot.edgeId,
-						tan.x, tan.z,
-						Math::ToDegrees(b.angle),
-						s.gridAxisX.x, s.gridAxisX.y);
-				}
-			}
 
 			chunk->buildingGrid[{ slot.col, slot.row }] = b;
 			chunk->meshDirty = true;
 			++placed;
+		}
+	}
+
+	int infillPlaced = 0;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			bool changed = false;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					Building& building = chunk->buildingGrid[{ col, row }];
+					if (building.type != BuildingType::None) continue;
+
+					const ZoneType zone = chunk->zoneMap[{ col, row }];
+					if (zone != ZoneType::Commercial && zone != ZoneType::Residential
+						&& zone != ZoneType::LowResidential && zone != ZoneType::Industrial) continue;
+
+					const Vec2 centerPos = cellCenterXZ(Point{ chunkX, chunkY }, col, row);
+					const int si = nearestSettlementIndex(m_districts,
+						static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
+					if (si < 0) continue;
+
+					const auto& settlement = m_districts[si];
+					const int globalGX = chunkX * ZONE_CELLS + col;
+					const int globalGZ = chunkY * ZONE_CELLS + row;
+					const uint32 cellHash = settlementCellHash(getData().seed ^ 0xE35A11B5ULL, si, globalGX, globalGZ);
+					const float density = infillDensity(settlement.kind, zone);
+					if ((cellHash % 1000u) >= static_cast<uint32>(density * 1000.0f)) continue;
+
+					Building b = InitialBuilding::spawn(zone, settlement.kind, 0.0, cellHash);
+					const float distFromCenter = static_cast<float>((centerPos - settlement.center).length());
+					InitialBuilding::applySettlementContext(b, zone, settlement.kind, distFromCenter, settlement.radius, 48.0f, cellHash);
+					if (b.type == BuildingType::None || b.type == BuildingType::Farmland) continue;
+
+					const Vec2 axisX = landUseAxisX(settlement, getData().seed, si);
+					const int64 roadSlotKey = zoneCellKey(Point{ chunkX, chunkY }, col, row);
+					if (const auto roadSlot = edgeFacingSlotsByCell.find(roadSlotKey); roadSlot != edgeFacingSlotsByCell.end())
+					{
+						const EdgeFacingSlot& slot = roadSlot->second;
+						const Vec2 roadOffset = roadsideBuildingOffset(slot, b.type, globalGX, globalGZ);
+						b.offsetX = static_cast<float>(roadOffset.x);
+						b.offsetZ = static_cast<float>(roadOffset.y);
+						b.angle = slot.angle;
+						b.edgeId = slot.edgeId;
+						b.edgeT = slot.edgeT;
+					}
+					else
+					{
+						const Vec2 interiorOffset = interiorBuildingOffset(cellHash, 3.0f);
+						b.offsetX = static_cast<float>(interiorOffset.x);
+						b.offsetZ = static_cast<float>(interiorOffset.y);
+						b.angle = static_cast<float>(Math::Atan2(axisX.y, axisX.x)) + (static_cast<float>((cellHash >> 20) % 9u) - 4.0f) * static_cast<float>(2.5_deg);
+					}
+					building = b;
+					++infillPlaced;
+					changed = true;
+				}
+			}
+			if (changed) chunk->meshDirty = true;
 		}
 	}
 
@@ -1590,8 +1796,23 @@ void GameScene::placeInitialBuildings()
 					const int globalGX = chunkX * ZONE_CELLS + col;
 					const int globalGZ = chunkY * ZONE_CELLS + row;
 					const uint32 hash = settlementCellHash(getData().seed, 0, globalGX / 2, globalGZ / 2);
-					if ((hash % 100u) >= 86u) continue;
-					building.type = BuildingType::Farmland;
+					if ((hash % 100u) >= 92u) continue;
+					const Vec2 centerPos = cellCenterXZ(Point{ chunkX, chunkY }, col, row);
+					const int si = nearestSettlementIndex(m_districts, static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
+					BuildingType fringeType = BuildingType::Farmland;
+					if (si >= 0)
+					{
+						const auto& settlement = m_districts[si];
+						const float distFromCenter = static_cast<float>((centerPos - settlement.center).length());
+						fringeType = InitialBuilding::ruralFringeBuildingType(settlement.kind, distFromCenter, settlement.radius, hash);
+					}
+					building.type = fringeType;
+					if (fringeType != BuildingType::Farmland)
+					{
+						const Vec2 fringeOffset = interiorBuildingOffset(hash, 4.8f);
+						building.offsetX = static_cast<float>(fringeOffset.x);
+						building.offsetZ = static_cast<float>(fringeOffset.y);
+					}
 					building.builtAt = 0.0;
 					++fieldCells;
 					changed = true;
@@ -1600,7 +1821,7 @@ void GameScene::placeInitialBuildings()
 			if (changed) chunk->meshDirty = true;
 		}
 	}
-	Logger << U"[placeInitialBuildings] {} 棟配置, 農地{}セル ({:.0f}ms)"_fmt(placed, fieldCells, sw.msF());
+	Logger << U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF());
 	refreshBuildingAnglesFromEdges();
 }
 
@@ -1635,6 +1856,211 @@ void GameScene::refreshBuildingAnglesFromEdges()
 	}
 }
 
+// =============================================================================
+// 提出用スクリーンショット
+// =============================================================================
+
+Vec3 GameScene::captureFocusPoint() const
+{
+	for (const auto& s : m_districts)
+	{
+		if (s.kind == MapGenerator::SettlementKind::CastleTown)
+		{
+			const float y = m_world.computeHeight(
+				static_cast<float>(s.center.x), static_cast<float>(s.center.y));
+			return Vec3{ s.center.x, y, s.center.y };
+		}
+	}
+
+	const float worldCenter = WORLD_SIZE * 0.5f;
+	const float y = m_world.computeHeight(worldCenter, worldCenter);
+	return Vec3{ worldCenter, y, worldCenter };
+}
+
+
+Vec3 GameScene::captureRuralFringePoint(Vec3 fallback) const
+{
+	Vec3 best = fallback;
+	double bestScore = Math::Inf;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			for (int row = 1; row < ZONE_CELLS - 1; ++row)
+			{
+				for (int col = 1; col < ZONE_CELLS - 1; ++col)
+				{
+					if (chunk->zoneMap[{ col, row }] != ZoneType::Agriculture) continue;
+
+					bool touchesUrban = false;
+					for (int dz = -1; dz <= 1 && !touchesUrban; ++dz)
+					{
+						for (int dx = -1; dx <= 1; ++dx)
+						{
+							const ZoneType neighbor = chunk->zoneMap[{ col + dx, row + dz }];
+							if (neighbor == ZoneType::Commercial || neighbor == ZoneType::Residential
+								|| neighbor == ZoneType::LowResidential || neighbor == ZoneType::Industrial)
+							{
+								touchesUrban = true;
+								break;
+							}
+						}
+					}
+					if (!touchesUrban) continue;
+
+					const Vec2 center = cellCenterXZ(Point{ chunkX, chunkY }, col, row);
+					const double dx = center.x - fallback.x;
+					const double dz = center.y - fallback.z;
+					const double score = dx * dx + dz * dz;
+					if (score < bestScore)
+					{
+						bestScore = score;
+						best = Vec3{ center.x, m_world.computeHeight(static_cast<float>(center.x), static_cast<float>(center.y)), center.y };
+					}
+				}
+			}
+		}
+	}
+	return best;
+}
+Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
+{
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	const float radius = 120.0f;
+	const float radiusSq = radius * radius;
+	const int cellRadius = static_cast<int>(Ceil(radius / cellSize));
+	int bestNode = -1;
+	double bestScore = -Math::Inf;
+	for (const auto& node : m_network.nodes())
+	{
+		if (node.id < 0 || node.attachments.size() < 2) continue;
+		const double fallbackDx = node.position.x - fallback.x;
+		const double fallbackDz = node.position.z - fallback.z;
+		const double fallbackDistSq = fallbackDx * fallbackDx + fallbackDz * fallbackDz;
+		if (fallbackDistSq > 2400.0 * 2400.0) continue;
+
+		int buildingCount = 0;
+		int commercialCount = 0;
+		int parkingCount = 0;
+		for (int dz = -cellRadius; dz <= cellRadius; ++dz)
+		{
+			for (int dx = -cellRadius; dx <= cellRadius; ++dx)
+			{
+				const float wx = static_cast<float>(node.position.x) + dx * cellSize;
+				const float wz = static_cast<float>(node.position.z) + dz * cellSize;
+				Point cc;
+				int col = 0, row = 0;
+				worldToZoneCell(wx, wz, cc, col, row);
+				const Chunk* chunk = m_world.getChunk(cc);
+				if (!chunk) continue;
+				const Building& building = chunk->buildingGrid[{ col, row }];
+				if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
+				const Vec2 center = cellCenterXZ(cc, col, row) + Vec2{ building.offsetX, building.offsetZ };
+				const float bx = static_cast<float>(center.x - node.position.x);
+				const float bz = static_cast<float>(center.y - node.position.z);
+				if (bx * bx + bz * bz > radiusSq) continue;
+				++buildingCount;
+				if (building.type == BuildingType::Shop || building.type == BuildingType::Office
+					|| building.type == BuildingType::PublicFacility) ++commercialCount;
+				if (building.type == BuildingType::Parking) ++parkingCount;
+			}
+		}
+
+		const double degreeBonus = Min<double>(static_cast<double>(node.attachments.size()), 4.0) * 9000.0;
+		const double score = buildingCount * 8500.0 + commercialCount * 6500.0 + parkingCount * 3200.0
+			+ degreeBonus - fallbackDistSq * 0.035;
+		if (score > bestScore)
+		{
+			bestScore = score;
+			bestNode = node.id;
+		}
+	}
+
+	if (const RoadNode* node = m_network.getNode(bestNode))
+	{
+		const float y = m_world.computeHeight(
+			static_cast<float>(node->position.x), static_cast<float>(node->position.z));
+		return Vec3{ node->position.x, y, node->position.z };
+	}
+	return fallback;
+}
+String GameScene::captureFileName(int index) const
+{
+	switch (index)
+	{
+	case 0: return U"city_render_01_overall.png";
+	case 1: return U"city_render_02_city.png";
+	case 2: return U"city_render_03_close.png";
+	case 3: return U"city_render_04_rural_fringe.png";
+	case 4: return U"city_render_05_intersection.png";
+	case 5: return U"city_render_06_street_corner.png";
+	default: return U"city_render_done.png";
+	}
+}
+
+void GameScene::updateCaptureCityRenders()
+{
+	constexpr int kCaptureCount = 6;
+	constexpr int kWarmupFrames = 24;
+
+	m_clock.speed = TimeSpeed::Paused;
+	m_clock.hour = 13.0f;
+	m_camera.setBlockInput(true);
+
+	if (m_captureCameraDirty)
+	{
+		const Vec3 focus = captureFocusPoint();
+		const Vec3 streetFocus = captureStreetCornerPoint(focus);
+		const Vec3 fringeFocus = captureRuralFringePoint(focus);
+		switch (m_captureIndex)
+		{
+		case 0:
+			m_camera.setCaptureState(focus, 2800.0f, static_cast<float>(-35.0_deg), static_cast<float>(63.0_deg));
+			break;
+		case 1:
+			m_camera.setCaptureState(focus + Vec3{ 180.0, 0.0, -80.0 }, 1450.0f, static_cast<float>(-42.0_deg), static_cast<float>(50.0_deg));
+			break;
+		case 2:
+			m_camera.setCaptureState(streetFocus + Vec3{ 54.0, 0.0, -42.0 }, 540.0f, static_cast<float>(-48.0_deg), static_cast<float>(38.0_deg));
+			break;
+		case 3:
+			m_camera.setCaptureState(fringeFocus + Vec3{ 90.0, 0.0, -75.0 }, 960.0f, static_cast<float>(-45.0_deg), static_cast<float>(54.0_deg));
+			break;
+		case 4:
+			m_camera.setCaptureState(streetFocus + Vec3{ 12.0, 2.4, -8.0 }, 92.0f, static_cast<float>(-52.0_deg), static_cast<float>(10.0_deg));
+			break;
+		case 5:
+			m_camera.setCaptureState(streetFocus + Vec3{ 10.0, 2.0, -7.0 }, 48.0f, static_cast<float>(-52.0_deg), static_cast<float>(4.0_deg));
+			break;
+		}
+		m_captureCameraDirty = false;
+		m_captureFrame = 0;
+	}
+
+	m_world.update(m_camera.focusPoint());
+	renderWorld();
+
+	if (++m_captureFrame == kWarmupFrames)
+	{
+		FileSystem::CreateDirectories(U"Screenshot/city_generation");
+		const String fileName = U"city_generation/" + captureFileName(m_captureIndex);
+		ScreenCapture::SaveCurrentFrame(fileName);
+		DebugLog::print(U"[CaptureCity] saved Screenshot/{}"_fmt(fileName));
+	}
+	else if (m_captureFrame > kWarmupFrames + 8)
+	{
+		++m_captureIndex;
+		if (m_captureIndex >= kCaptureCount)
+		{
+			System::Exit();
+			return;
+		}
+		m_captureCameraDirty = true;
+		m_captureFrame = 0;
+	}
+}
 // =============================================================================
 // 施工中エッジの Open 遷移
 // =============================================================================
@@ -1680,6 +2106,12 @@ void GameScene::update()
 	if (m_phase == GamePhase::Loading)
 	{
 		updateLoading();
+		return;
+	}
+
+	if (getData().captureCityRenders)
+	{
+		updateCaptureCityRenders();
 		return;
 	}
 

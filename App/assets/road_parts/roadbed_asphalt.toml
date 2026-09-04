@@ -1,4 +1,4 @@
-id = "roadbed_asphalt"
+﻿id = "roadbed_asphalt"
 name = "アスファルト路盤"
 type = "Roadbed"
 tiling = "CrossSection"
@@ -10,7 +10,7 @@ symmetric = true
 
 [material]
 texture = "asphalt.png"
-color = [0.36, 0.36, 0.36]
+color = [0.50, 0.50, 0.47]
 
 [lod]
 mesh_names = ["center", "center_lod1"]

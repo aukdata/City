@@ -495,7 +495,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
-	m_meshCache[key].draw(TextureAsset(Asset::Grass), ColorF{ 1.0 }.removeSRGBCurve());
+	m_meshCache[key].draw(TextureAsset(Asset::Grass), ColorF{ 0.42, 0.47, 0.34 }.removeSRGBCurve());
 	drawCachedBuildings(key);
 }
 
@@ -1328,8 +1328,8 @@ void WorldRenderer::invalidateAllTerrain()
 
 namespace
 {
-	/// @brief 非 OBJ 建物（Box 描画）の従来高さスケール
-	constexpr float kLegacyBoxHeightScale = 5.0f;
+	/// @brief 非 OBJ 建物（Box 描画）の高さスケール。buildingHeight() はメートル基準。
+	constexpr float kLegacyBoxHeightScale = 1.0f;
 	/// @brief モデル TOML に scale が無い場合の既定値
 	constexpr float kDefaultModelScale = 1.0f;
 
@@ -1365,6 +1365,453 @@ namespace
 		}
 	}
 
+	void appendMeshData(MeshData& dst, const MeshData& src)
+	{
+		const uint32 offset = static_cast<uint32>(dst.vertices.size());
+		dst.vertices.append(src.vertices);
+		for (const auto& tri : src.indices)
+		{
+			dst.indices << TriangleIndex32{ tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
+		}
+	}
+
+	uint32 cellVisualHash(Point chunkCoord, int col, int row, uint32 salt)
+	{
+		uint32 value = static_cast<uint32>(chunkCoord.x * 73856093)
+			^ static_cast<uint32>(chunkCoord.y * 19349663)
+			^ static_cast<uint32>(col * 83492791)
+			^ static_cast<uint32>(row * 2654435761u)
+			^ salt;
+		value ^= value >> 16;
+		value *= 0x7FEB352Du;
+		value ^= value >> 15;
+		value *= 0x846CA68Bu;
+		value ^= value >> 16;
+		return value;
+	}
+
+	void appendRotatedBox(MeshData& dst, float cx, float cy, float cz, float sx, float sy, float sz, float angle)
+	{
+		MeshData box = MeshData::Box(Float3{ cx, cy, cz }, Float3{ sx, sy, sz });
+		rotateBoxVerticesY(box, cx, cz, angle);
+		appendMeshData(dst, box);
+	}
+	void appendGableRoof(MeshData& dst, float cx, float baseY, float cz,
+	                     float sx, float depth, float roofH, float angle, bool ridgeAlongX)
+	{
+		const float hx = sx * 0.5f;
+		const float hz = depth * 0.5f;
+		const float ridgeX = ridgeAlongX ? hx : 0.0f;
+		const float ridgeZ = ridgeAlongX ? 0.0f : hz;
+		Array<Float3> local;
+		if (ridgeAlongX)
+		{
+			local = {
+				Float3{ -hx, baseY, -hz }, Float3{ hx, baseY, -hz }, Float3{ hx, baseY, hz }, Float3{ -hx, baseY, hz },
+				Float3{ -ridgeX, baseY + roofH, 0.0f }, Float3{ ridgeX, baseY + roofH, 0.0f }
+			};
+		}
+		else
+		{
+			local = {
+				Float3{ -hx, baseY, -hz }, Float3{ hx, baseY, -hz }, Float3{ hx, baseY, hz }, Float3{ -hx, baseY, hz },
+				Float3{ 0.0f, baseY + roofH, -ridgeZ }, Float3{ 0.0f, baseY + roofH, ridgeZ }
+			};
+		}
+
+		MeshData md;
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		for (const Float3& p : local)
+		{
+			const float x = ridgeAlongX ? p.x : p.x;
+			const float z = p.z;
+			Vertex3D v;
+			v.pos = Float3{ cx + x * cosA - z * sinA, p.y, cz + x * sinA + z * cosA };
+			v.normal = Float3{ 0.0f, 1.0f, 0.0f };
+			v.tex = Float2{ 0.0f, 0.0f };
+			md.vertices << v;
+		}
+		md.indices << TriangleIndex32{ 0, 1, 4 };
+		md.indices << TriangleIndex32{ 1, 5, 4 };
+		md.indices << TriangleIndex32{ 1, 2, 5 };
+		md.indices << TriangleIndex32{ 2, 3, 5 };
+		md.indices << TriangleIndex32{ 3, 4, 5 };
+		md.indices << TriangleIndex32{ 3, 0, 4 };
+		appendMeshData(dst, md);
+	}
+
+	float targetBuildingModelFootprint(BuildingType type)
+	{
+		switch (type)
+		{
+		case BuildingType::Detached:      return 7.5f;
+		case BuildingType::LowApartment:  return 8.5f;
+		case BuildingType::MidApartment:  return 9.5f;
+		case BuildingType::HighApartment: return 10.5f;
+		case BuildingType::Shop:          return 8.0f;
+		case BuildingType::Office:        return 10.5f;
+		default:                          return buildingFootprintXZ() * 0.78f;
+		}
+	}
+
+	float targetBuildingModelHeight(BuildingType type)
+	{
+		return Max(1.0f, buildingHeight(type));
+	}
+
+	float normalizedObjScale(BuildingType type, const Box& localBounds, float assetScale)
+	{
+		float scale = assetScale;
+		const float localFootprint = static_cast<float>(Max(localBounds.size.x, localBounds.size.z));
+		if (localFootprint > 0.001f)
+		{
+			const float currentFootprint = localFootprint * scale;
+			const float targetFootprint = targetBuildingModelFootprint(type);
+			if (currentFootprint > targetFootprint)
+			{
+				scale *= targetFootprint / currentFootprint;
+			}
+		}
+
+		const float localHeight = static_cast<float>(localBounds.size.y);
+		if (localHeight > 0.001f)
+		{
+			const float currentHeight = localHeight * scale;
+			const float targetHeight = targetBuildingModelHeight(type);
+			if (currentHeight > targetHeight)
+			{
+				scale *= targetHeight / currentHeight;
+			}
+		}
+		return scale;
+	}
+	float boxBuildingFootprintScale(BuildingType type, int gx, int gz)
+	{
+		const uint32 hash = static_cast<uint32>(gx) * 73856093u ^ static_cast<uint32>(gz) * 19349663u;
+		const float variation = 0.86f + static_cast<float>(hash % 29u) * (0.24f / 28.0f);
+		switch (type)
+		{
+		case BuildingType::Factory:        return 1.28f * variation;
+		case BuildingType::PublicFacility: return 1.16f * variation;
+		case BuildingType::Parking:        return 1.05f * variation;
+		case BuildingType::ParkBuilding:   return 0.92f * variation;
+		default:                           return variation;
+		}
+	}
+
+	ColorF detailColorForKey(int key)
+	{
+		switch (key)
+		{
+		case 100: return ColorF{ 0.45, 0.43, 0.38 };
+		case 101: return ColorF{ 0.30, 0.38, 0.24 };
+		case 102: return ColorF{ 0.62, 0.59, 0.52 };
+		case 103: return ColorF{ 0.42, 0.39, 0.34 };
+		case 104: return ColorF{ 0.46, 0.53, 0.31 };
+		case 105: return ColorF{ 0.32, 0.24, 0.18 };
+		case 106: return ColorF{ 0.22, 0.36, 0.22 };
+		case 107: return ColorF{ 0.72, 0.74, 0.73 };
+		case 108: return ColorF{ 0.35, 0.39, 0.43 };
+		case 109: return ColorF{ 0.30, 0.30, 0.28 };
+		case 110: return ColorF{ 0.25, 0.38, 0.42 };
+		case 111: return ColorF{ 0.88, 0.86, 0.78 };
+		case 112: return ColorF{ 0.68, 0.20, 0.16 };
+		case 113: return ColorF{ 0.34, 0.47, 0.30 };
+		case 114: return ColorF{ 0.47, 0.39, 0.29 };
+		case 115: return ColorF{ 0.22, 0.21, 0.19 };
+		case 116: return ColorF{ 0.16, 0.23, 0.25 };
+		case 117: return ColorF{ 0.72, 0.70, 0.66 };
+		case 118: return ColorF{ 0.78, 0.74, 0.58 };
+		default: return ColorF{ 0.60, 0.60, 0.60 };
+		}
+	}
+
+	void appendUrbanLotDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	                           int col, int row, const Building& building, float cx, float cz,
+	                           float cellSize)
+	{
+		const uint32 hash = cellVisualHash(chunk.coord, col, row, static_cast<uint32>(building.type));
+		const float angle = building.angle;
+		const float baseY = world.sampleHeight(cx, cz);
+		const float lotSize = cellSize * (0.99f + static_cast<float>((hash >> 3) % 3u) * 0.005f);
+		const bool commercialLike = (building.type == BuildingType::Shop || building.type == BuildingType::Office
+			|| building.type == BuildingType::Factory || building.type == BuildingType::PublicFacility);
+		const int surfaceKey = (building.type == BuildingType::Parking || commercialLike) ? 100 : (((hash >> 9) % 100u < 8u) ? 101 : (((hash >> 15) & 1u) ? 114 : 100));
+		appendRotatedBox(groups[surfaceKey], cx, baseY + 0.025f, cz, lotSize, 0.05f, lotSize, angle);
+
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		auto worldOffset = [&](float lx, float lz)
+		{
+			return Vec2{ cx + lx * cosA - lz * sinA, cz + lx * sinA + lz * cosA };
+		};
+
+		if (building.type == BuildingType::Parking)
+		{
+			appendRotatedBox(groups[109], cx, baseY + 0.09f, cz, lotSize * 0.92f, 0.08f, lotSize * 0.74f, angle);
+			for (int i = -1; i <= 1; ++i)
+			{
+				const Vec2 p = worldOffset(static_cast<float>(i) * lotSize * 0.22f,
+					((hash >> (10 + i + 1)) & 1u) ? lotSize * 0.08f : -lotSize * 0.13f);
+				appendRotatedBox(groups[(i == 0) ? 108 : 107], static_cast<float>(p.x), baseY + 0.30f,
+					static_cast<float>(p.y), 1.65f, 0.42f, 3.35f, angle);
+			}
+			return;
+		}
+
+		if (building.type == BuildingType::ParkBuilding)
+		{
+			appendRotatedBox(groups[101], cx, baseY + 0.08f, cz, lotSize * 0.78f, 0.10f, lotSize * 0.78f, angle);
+			for (int i = 0; i < 3; ++i)
+			{
+				const Vec2 p = worldOffset((static_cast<float>((hash >> (i * 4)) % 9u) - 4.0f) * 0.9f,
+					(static_cast<float>((hash >> (i * 5 + 7)) % 9u) - 4.0f) * 0.9f);
+				appendRotatedBox(groups[105], static_cast<float>(p.x), baseY + 0.70f, static_cast<float>(p.y), 0.24f, 1.40f, 0.24f, angle);
+				appendRotatedBox(groups[106], static_cast<float>(p.x), baseY + 1.65f, static_cast<float>(p.y), 1.45f, 1.25f, 1.45f, angle + static_cast<float>(45.0_deg));
+			}
+			return;
+		}
+
+		const float frontageZ = -lotSize * 0.43f;
+		if (commercialLike)
+		{
+			appendRotatedBox(groups[109], cx, baseY + 0.07f, cz, lotSize * 0.76f, 0.05f, lotSize * 0.36f, angle);
+			const Vec2 sign = worldOffset(lotSize * 0.34f, frontageZ);
+			appendRotatedBox(groups[115], static_cast<float>(sign.x), baseY + 1.15f, static_cast<float>(sign.y), 0.16f, 2.30f, 0.16f, angle);
+			appendRotatedBox(groups[112], static_cast<float>(sign.x), baseY + 2.45f, static_cast<float>(sign.y), 1.20f, 0.60f, 0.12f, angle);
+		}
+		else
+		{
+			appendRotatedBox(groups[101], cx, baseY + 0.055f, cz, lotSize * 0.58f, 0.04f, lotSize * 0.18f, angle);
+			const Vec2 car = worldOffset(((hash >> 11) & 1u) ? lotSize * 0.25f : -lotSize * 0.25f, lotSize * 0.30f);
+			if (((hash >> 6) % 100u) < 52u)
+			{
+				appendRotatedBox(groups[100], static_cast<float>(car.x), baseY + 0.08f, static_cast<float>(car.y), 2.15f, 0.05f, 4.05f, angle);
+				appendRotatedBox(groups[((hash >> 14) & 1u) ? 107 : 108], static_cast<float>(car.x), baseY + 0.32f,
+					static_cast<float>(car.y), 1.55f, 0.44f, 3.10f, angle);
+			}
+			const Vec2 approach = worldOffset(0.0f, frontageZ * 0.54f);
+			appendRotatedBox(groups[100], static_cast<float>(approach.x), baseY + 0.082f, static_cast<float>(approach.y),
+				lotSize * 0.22f, 0.045f, lotSize * 0.60f, angle);
+			if (((hash >> 27) % 100u) < 34u)
+			{
+				const Vec2 bin = worldOffset(-lotSize * 0.35f, frontageZ + 0.12f);
+				appendRotatedBox(groups[117], static_cast<float>(bin.x), baseY + 0.28f, static_cast<float>(bin.y), 0.70f, 0.56f, 0.42f, angle);
+			}
+		}
+
+		if ((hash % 100u) < 92u)
+		{
+			const float side = ((hash >> 8) & 1u) ? 1.0f : -1.0f;
+			const Vec2 fence = worldOffset(side * lotSize * 0.38f,
+				(static_cast<float>((hash >> 12) % 7u) - 3.0f) * 0.65f);
+			appendRotatedBox(groups[102], static_cast<float>(fence.x), baseY + 0.42f, static_cast<float>(fence.y),
+				0.24f, 0.84f, lotSize * 0.60f, angle);
+		}
+
+		if (((hash >> 5) % 100u) < 58u)
+		{
+			const float side = ((hash >> 17) & 1u) ? 1.0f : -1.0f;
+			const Vec2 tree = worldOffset(side * lotSize * 0.36f,
+				lotSize * (0.20f + static_cast<float>((hash >> 21) % 18u) * 0.012f));
+			appendRotatedBox(groups[105], static_cast<float>(tree.x), baseY + 0.80f, static_cast<float>(tree.y), 0.28f, 1.60f, 0.28f, angle);
+			appendRotatedBox(groups[106], static_cast<float>(tree.x), baseY + 1.82f, static_cast<float>(tree.y), 1.65f, 1.45f, 1.65f, angle + static_cast<float>(45.0_deg));
+		}
+
+		if (((hash >> 20) % 100u) < 62u)
+		{
+			const float side = ((hash >> 24) & 1u) ? 1.0f : -1.0f;
+			const Vec2 pole = worldOffset(side * lotSize * 0.47f, frontageZ);
+			appendRotatedBox(groups[115], static_cast<float>(pole.x), baseY + 2.55f, static_cast<float>(pole.y), 0.18f, 5.10f, 0.18f, angle);
+			appendRotatedBox(groups[115], static_cast<float>(pole.x), baseY + 4.65f, static_cast<float>(pole.y), 2.20f, 0.10f, 0.10f, angle);
+		}
+	}
+	void appendFarmlandDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	                           int col, int row, float cx, float cz, float cellSize)
+	{
+		const uint32 hash = cellVisualHash(chunk.coord, col, row, 0xA6B4C893u);
+		const float angle = ((hash & 1u) ? 0.0f : static_cast<float>(90.0_deg))
+			+ static_cast<float>((static_cast<int>((hash >> 8) % 7u) - 3) * 0.015f);
+		const float baseY = world.sampleHeight(cx, cz);
+		const float fieldW = cellSize * (0.78f + static_cast<float>(hash % 18u) * 0.010f);
+		const float fieldD = cellSize * (0.56f + static_cast<float>((hash >> 16) % 24u) * 0.010f);
+		const int fieldKey = ((hash >> 5) % 100u < 42u) ? 113 : (((hash >> 10) & 1u) ? 104 : 114);
+		appendRotatedBox(groups[fieldKey], cx, baseY + 0.025f, cz, fieldW, 0.05f, fieldD, angle);
+
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		for (int i = -3; i <= 3; ++i)
+		{
+			const float lx = static_cast<float>(i) * fieldW * 0.135f;
+			const float px = cx + lx * cosA;
+			const float pz = cz + lx * sinA;
+			appendRotatedBox(groups[(i == 0 && ((hash >> 20) & 1u)) ? 110 : 101], px, baseY + 0.065f, pz,
+				0.18f, 0.045f, fieldD * 0.98f, angle);
+		}
+		for (int i = -1; i <= 1; ++i)
+		{
+			const float lz = static_cast<float>(i) * fieldD * 0.29f;
+			const float px = cx - lz * sinA;
+			const float pz = cz + lz * cosA;
+			appendRotatedBox(groups[114], px, baseY + 0.055f, pz, fieldW * 0.94f, 0.035f, 0.16f, angle);
+		}
+
+		if (((hash >> 24) % 100u) < 34u)
+		{
+			const float px = cx + fieldW * 0.48f * cosA;
+			const float pz = cz + fieldW * 0.48f * sinA;
+			appendRotatedBox(groups[110], px, baseY + 0.05f, pz, 0.42f, 0.04f, fieldD, angle);
+		}
+	}
+	void appendZoneSurfaceDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	                              int col, int row, ZoneType zone, float cx, float cz, float cellSize)
+	{
+		const uint32 hash = cellVisualHash(chunk.coord, col, row, static_cast<uint32>(zone) ^ 0x4D2C6A91u);
+		const float baseY = world.sampleHeight(cx, cz);
+		const float angle = static_cast<float>((static_cast<int>((hash >> 4) % 13u) - 6) * 1.5_deg);
+		if (zone == ZoneType::Agriculture)
+		{
+			appendFarmlandDetails(groups, chunk, world, col, row, cx, cz, cellSize);
+			return;
+		}
+
+		if (zone == ZoneType::Commercial || zone == ZoneType::Industrial)
+		{
+			const int key = ((hash >> 9) % 100u < 70u) ? 109 : 100;
+			appendRotatedBox(groups[key], cx, baseY + 0.018f, cz, cellSize * 0.96f, 0.035f, cellSize * 0.90f, angle);
+			appendRotatedBox(groups[111], cx, baseY + 0.055f, cz, cellSize * 0.70f, 0.022f, 0.12f, angle);
+			appendRotatedBox(groups[111], cx, baseY + 0.057f, cz, 0.12f, 0.022f, cellSize * 0.62f, angle);
+			return;
+		}
+
+		if (zone == ZoneType::Residential || zone == ZoneType::LowResidential)
+		{
+			const int key = ((hash >> 9) % 100u < 10u) ? 101 : (((hash >> 15) & 1u) ? 114 : 100);
+			appendRotatedBox(groups[key], cx, baseY + 0.016f, cz, cellSize * 1.02f, 0.032f, cellSize * 0.98f, angle);
+			appendRotatedBox(groups[((hash >> 25) & 1u) ? 100 : 114], cx, baseY + 0.050f, cz,
+				cellSize * 0.18f, 0.026f, cellSize * 0.76f, angle);
+			if (((hash >> 20) % 100u) < 52u)
+			{
+				appendRotatedBox(groups[102], cx, baseY + 0.32f, cz, cellSize * 0.76f, 0.44f, 0.16f, angle);
+			}
+		}
+	}
+	void appendBoxBuildingDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	                              int col, int row, BuildingType type, float cx, float cz,
+	                              float footprint, float height, float angle)
+	{
+		const uint32 hash = cellVisualHash(chunk.coord, col, row, static_cast<uint32>(type) ^ 0x712A4C3Du);
+		const float baseY = world.sampleHeight(cx, cz);
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		auto worldOffset = [&](float lx, float lz)
+		{
+			return Vec2{ cx + lx * cosA - lz * sinA, cz + lx * sinA + lz * cosA };
+		};
+
+		if (!isObjBuildingType(type))
+		{
+			appendRotatedBox(groups[103], cx, baseY + height + 0.08f, cz,
+			                 footprint * 0.82f, 0.16f, footprint * 0.82f, angle);
+		}
+
+		if (type == BuildingType::Parking || type == BuildingType::ParkBuilding)
+		{
+			return;
+		}
+
+		const bool residential = isResidentialBuildingType(type);
+		const bool shop = (type == BuildingType::Shop);
+		const bool officeLike = (type == BuildingType::Office || type == BuildingType::PublicFacility);
+		const int floorCount = Max(1, static_cast<int>(Floor(height / (residential ? 2.8f : 3.2f))));
+		const int visibleFloors = Min(floorCount, residential ? 4 : 7);
+		const float frontZ = -footprint * 0.515f;
+		const float backZ = footprint * 0.515f;
+		const float sideX = footprint * 0.515f;
+
+		for (int floor = 0; floor < visibleFloors; ++floor)
+		{
+			const float y = baseY + 1.15f + static_cast<float>(floor) * (residential ? 2.65f : 3.0f);
+			if (y > baseY + height - 0.55f) break;
+			const int windowKey = ((hash >> (floor + 3)) & 1u) ? 116 : 102;
+			const float rowWidth = footprint * (residential ? 0.20f : 0.16f);
+			for (int w = -1; w <= 1; ++w)
+			{
+				const float lx = static_cast<float>(w) * footprint * 0.23f;
+				const Vec2 front = worldOffset(lx, frontZ);
+				appendRotatedBox(groups[windowKey], static_cast<float>(front.x), y, static_cast<float>(front.y),
+					rowWidth, residential ? 0.56f : 0.76f, 0.10f, angle);
+			}
+			if (residential && floor > 0)
+			{
+				const Vec2 balcony = worldOffset(0.0f, frontZ - 0.18f);
+				appendRotatedBox(groups[117], static_cast<float>(balcony.x), y - 0.20f, static_cast<float>(balcony.y),
+					footprint * 0.68f, 0.12f, 0.28f, angle);
+			}
+			if (!residential)
+			{
+				const Vec2 left = worldOffset(-sideX, 0.0f);
+				appendRotatedBox(groups[windowKey], static_cast<float>(left.x), y, static_cast<float>(left.y),
+					0.10f, 0.66f, footprint * 0.44f, angle);
+				const Vec2 right = worldOffset(sideX, 0.0f);
+				appendRotatedBox(groups[windowKey], static_cast<float>(right.x), y, static_cast<float>(right.y),
+					0.10f, 0.66f, footprint * 0.44f, angle);
+			}
+		}
+
+		if (residential)
+		{
+			const bool ridgeAlongX = ((hash >> 23) & 1u) != 0u;
+			const float roofBase = baseY + Max(2.7f, height - (type == BuildingType::Detached ? 1.05f : 0.55f));
+			appendGableRoof(groups[103], cx, roofBase, cz, footprint * 0.96f, footprint * 0.86f,
+				(type == BuildingType::Detached ? 1.15f : 0.55f), angle, ridgeAlongX);
+			const Vec2 eave = worldOffset(0.0f, frontZ - 0.12f);
+			appendRotatedBox(groups[103], static_cast<float>(eave.x), baseY + Min(height, 4.8f), static_cast<float>(eave.y),
+				footprint * 0.84f, 0.12f, 0.42f, angle);
+			const Vec2 unit = worldOffset(sideX + 0.16f, footprint * 0.22f);
+			appendRotatedBox(groups[117], static_cast<float>(unit.x), baseY + 1.20f, static_cast<float>(unit.y),
+				0.42f, 0.42f, 0.22f, angle);
+
+			if (type == BuildingType::Detached)
+			{
+				const float wingSide = ((hash >> 4) & 1u) ? 1.0f : -1.0f;
+				const Vec2 wing = worldOffset(wingSide * footprint * 0.42f, footprint * 0.10f);
+				appendRotatedBox(groups[static_cast<int>(type)], static_cast<float>(wing.x), baseY + 1.15f, static_cast<float>(wing.y),
+					footprint * 0.34f, 2.30f, footprint * 0.54f, angle);
+				appendGableRoof(groups[103], static_cast<float>(wing.x), baseY + 2.30f, static_cast<float>(wing.y),
+					footprint * 0.40f, footprint * 0.62f, 0.62f, angle, !ridgeAlongX);
+				const Vec2 shed = worldOffset(-wingSide * footprint * 0.46f, footprint * 0.38f);
+				appendRotatedBox(groups[117], static_cast<float>(shed.x), baseY + 0.58f, static_cast<float>(shed.y),
+					1.25f, 1.16f, 1.70f, angle);
+				appendRotatedBox(groups[103], static_cast<float>(shed.x), baseY + 1.22f, static_cast<float>(shed.y),
+					1.45f, 0.16f, 1.95f, angle);
+			}
+		}
+
+		if (shop)
+		{
+			const Vec2 sign = worldOffset(0.0f, frontZ - 0.10f);
+			appendRotatedBox(groups[112], static_cast<float>(sign.x), baseY + Min(height * 0.74f, 3.15f), static_cast<float>(sign.y),
+				footprint * 0.72f, 0.55f, 0.12f, angle);
+			const Vec2 awning = worldOffset(0.0f, frontZ - 0.32f);
+			appendRotatedBox(groups[118], static_cast<float>(awning.x), baseY + 2.25f, static_cast<float>(awning.y),
+				footprint * 0.78f, 0.16f, 0.62f, angle);
+			for (int d = -1; d <= 1; ++d)
+			{
+				const Vec2 door = worldOffset(static_cast<float>(d) * footprint * 0.22f, frontZ - 0.07f);
+				appendRotatedBox(groups[116], static_cast<float>(door.x), baseY + 1.10f, static_cast<float>(door.y),
+					footprint * 0.16f, 1.35f, 0.10f, angle);
+			}
+		}
+
+		if (officeLike || type == BuildingType::Factory)
+		{
+			const Vec2 rear = worldOffset(0.0f, backZ + 0.10f);
+			appendRotatedBox(groups[117], static_cast<float>(rear.x), baseY + Max(1.5f, height * 0.42f), static_cast<float>(rear.y),
+				footprint * 0.36f, 0.38f, 0.24f, angle);
+		}
+	}
 	/// @brief 住宅 OBJ を全 part 単色で描画する（シルエット用）
 	void drawModelSilhouette(Model& model, const Mat4x4& worldMat, const ColorF& color)
 	{
@@ -1388,16 +1835,23 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	}
 
 	String stem;
-	if (!tryGetBuildingModelStem(type, 0, 0, stem))
+	if (isResidentialBuildingType(type))
+	{
+		stem = U"residential_{:03d}"_fmt(variant + 1);
+	}
+	else if (type == BuildingType::Shop)
+	{
+		stem = U"shop_{:03d}"_fmt(variant + 1);
+	}
+	else if (type == BuildingType::Office)
+	{
+		stem = U"office_{:03d}"_fmt(variant + 1);
+	}
+	else
 	{
 		// OBJ 非対応種別は空アセットを返す
 		auto [inserted, _] = m_buildingModels.emplace(key, BuildingModelAsset{});
 		return inserted->second;
-	}
-
-	if (isResidentialBuildingType(type))
-	{
-		stem = U"residential_{:03d}"_fmt(variant + 1);
 	}
 	const String subDir = buildingAssetSubDir(type);
 	const String path = U"assets/buildings/{}/{}.obj"_fmt(subDir, stem);
@@ -1439,37 +1893,41 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	const float footprint = buildingFootprintXZ();
 	const Vec3 origin = chunk.worldOrigin();
-	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
-	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize) + b.offsetX;
+	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize) + b.offsetZ;
 
 	if (isObjBuildingType(b.type))
 	{
 		const float gy = world.sampleHeight(cx, cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
-		const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+		const uint8 variant = buildingModelVariant(b.type, gx, gz);
 		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 		if (asset.model.isEmpty()) return none;
 		const float yaw = b.angle;
 
 		const Box& lb = asset.model.boundingBox();
 		const Vec3 localCenter = lb.center;
-		const Vec3 size = lb.size * asset.scale;
+		const float modelScale = normalizedObjScale(b.type, lb, asset.scale);
+		const Vec3 size = lb.size * modelScale;
 		// drawCachedBuildings と同じ Mat4x4::RotateY → translate 変換を再現
 		const double cosA = Math::Cos(yaw);
 		const double sinA = Math::Sin(yaw);
 		const Vec3 worldCenter{
-			cx + localCenter.x * asset.scale * cosA + localCenter.z * asset.scale * sinA,
-			gy + localCenter.y * asset.scale,
-			cz - localCenter.x * asset.scale * sinA + localCenter.z * asset.scale * cosA
+			cx + localCenter.x * modelScale * cosA + localCenter.z * modelScale * sinA,
+			gy + localCenter.y * modelScale,
+			cz - localCenter.x * modelScale * sinA + localCenter.z * modelScale * cosA
 		};
 		return OrientedBox{ worldCenter, size, Quaternion::RotateY(yaw) };
 	}
 
 	const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 	if (height <= 0.0f) return none;
+	const int gx = chunk.coord.x * ZONE_CELLS + col;
+	const int gz = chunk.coord.y * ZONE_CELLS + row;
+	const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
-	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ footprint, height, footprint },
+	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ visualFootprint, height, visualFootprint },
 	                   Quaternion::RotateY(b.angle) };
 }
 
@@ -1483,21 +1941,21 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	const float footprint = buildingFootprintXZ();
 	const Vec3 origin = chunk.worldOrigin();
-	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
-	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize) + b.offsetX;
+	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize) + b.offsetZ;
 
 	if (isObjBuildingType(b.type))
 	{
 		const float gy = world.sampleHeight(cx, cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
-		const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+		const uint8 variant = buildingModelVariant(b.type, gx, gz);
 		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 		if (asset.model.isEmpty()) return;
 		const float yaw = b.angle;
 
 		drawModelSilhouette(asset.model,
-		                    (Mat4x4::Scale(asset.scale)
+		                    (Mat4x4::Scale(normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale))
 		                   * Mat4x4::RotateY(yaw)).translated(cx, gy, cz),
 		                    color);
 		return;
@@ -1505,12 +1963,15 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 
 	const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 	if (height <= 0.0f) return;
+	const int gx = chunk.coord.x * ZONE_CELLS + col;
+	const int gz = chunk.coord.y * ZONE_CELLS + row;
+	const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
 	// rebuildBuildingMeshes と同じパイプライン（MeshData::Box + 頂点手動回転）で描画する
 	MeshData box = MeshData::Box(
 		Float3{ cx, cy, cz },
-		Float3{ footprint, height, footprint });
+		Float3{ visualFootprint, height, visualFootprint });
 	rotateBoxVerticesY(box, cx, cz, b.angle);
 	Mesh{ box }.draw(color);
 }
@@ -1532,14 +1993,25 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		for (int col = 0; col < ZONE_CELLS; ++col)
 		{
 			const Building& b = chunk.buildingGrid[{ col, row }];
+			const ZoneType zone = chunk.zoneMap[{ col, row }];
+			const float cellCenterX = static_cast<float>(origin.x + (col + 0.5) * cellSize);
+			const float cellCenterZ = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+			if (zone != ZoneType::Unzoned && b.type != BuildingType::Farmland)
+			{
+				appendZoneSurfaceDetails(groups, chunk, world, col, row, zone,
+				                         cellCenterX, cellCenterZ, cellSize);
+			}
 			if (b.type == BuildingType::None)
+			{
 				continue;
+			}
 
-			const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
-			const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
+			const float cx = cellCenterX + b.offsetX;
+			const float cz = cellCenterZ + b.offsetZ;
 
 			if (b.type == BuildingType::Farmland)
 			{
+				appendFarmlandDetails(groups, chunk, world, col, row, cx, cz, cellSize);
 				const float tile = cellSize * 0.92f;
 				const float cy = world.sampleHeight(cx, cz) + 0.03f;
 				MeshData field = MeshData::Box(
@@ -1555,31 +2027,43 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				}
 				continue;
 			}
+			appendUrbanLotDetails(groups, chunk, world, col, row, b, cx, cz, cellSize);
+
 			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
 			if (isObjBuildingType(b.type))
 			{
 				const float gy = world.sampleHeight(cx, cz);
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
-				const uint8 variant = isResidentialBuildingType(b.type) ? residentialModelIndex(b.type, gx, gz) : 0;
+				const uint8 variant = buildingModelVariant(b.type, gx, gz);
 				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
+				const float modelScale = normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale);
+				const Box& bounds = asset.model.boundingBox();
+				const float modelFootprint = Max(footprint * 0.72f,
+					static_cast<float>(Max(bounds.size.x, bounds.size.z)) * modelScale);
+				const float modelHeight = Max(1.0f, static_cast<float>(bounds.size.y) * modelScale);
+				appendBoxBuildingDetails(groups, chunk, world, col, row, b.type, cx, cz,
+				                         modelFootprint, modelHeight, b.angle);
 				modelInstances.push_back({
 					b.type,
 					variant,
 					Float3{ cx, gy, cz },
 					b.angle,
-					asset.scale
+					modelScale
 				});
 				continue;
 			}
 
 			const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 			if (height <= 0.0f) continue;
+			const int gx = chunk.coord.x * ZONE_CELLS + col;
+			const int gz = chunk.coord.y * ZONE_CELLS + row;
+			const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
 			const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
 			MeshData box = MeshData::Box(
 				Float3{ cx, cy, cz },
-				Float3{ footprint, height, footprint });
+				Float3{ visualFootprint, height, visualFootprint });
 
 			// 最近傍道路の向きに合わせてY軸回転
 			rotateBoxVerticesY(box, cx, cz, b.angle);
@@ -1592,6 +2076,8 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				dst.indices << TriangleIndex32{
 					tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
 			}
+			appendBoxBuildingDetails(groups, chunk, world, col, row, b.type, cx, cz,
+			                         visualFootprint, height, b.angle);
 		}
 	}
 
@@ -1600,8 +2086,11 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	for (auto& [typeInt, meshData] : groups)
 	{
 		if (meshData.vertices.isEmpty()) continue;
+		const ColorF color = (typeInt >= 100)
+			? detailColorForKey(typeInt)
+			: buildingColor(static_cast<BuildingType>(typeInt));
 		batches.push_back({
-			buildingColor(static_cast<BuildingType>(typeInt)).removeSRGBCurve(),
+			color.removeSRGBCurve(),
 			Mesh{ meshData }
 		});
 	}
@@ -1611,14 +2100,6 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 
 void WorldRenderer::drawCachedBuildings(Key key) const
 {
-	if (const auto it = m_buildingMeshCache.find(key); it != m_buildingMeshCache.end())
-	{
-		for (const auto& batch : it->second)
-		{
-			batch.mesh.draw(batch.color);
-		}
-	}
-
 	if (const auto it = m_buildingModelCache.find(key); it != m_buildingModelCache.end())
 	{
 		auto* self = const_cast<WorldRenderer*>(this);
@@ -1636,6 +2117,14 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 				const Transformer3D transform{ worldMat };
 				obj.draw(materials);
 			}
+		}
+	}
+
+	if (const auto it = m_buildingMeshCache.find(key); it != m_buildingMeshCache.end())
+	{
+		for (const auto& batch : it->second)
+		{
+			batch.mesh.draw(batch.color);
 		}
 	}
 }
