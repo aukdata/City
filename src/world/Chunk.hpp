@@ -66,6 +66,28 @@ inline int64 chunkCoordToKey(Point p)
 	return (static_cast<int64>(p.x) << 32) | static_cast<uint32>(p.y);
 }
 
+/// @brief 地表上に重ねる任意多角形の土地表現
+enum class LandPatchType : uint8
+{
+	ParcelAsphalt = 0,
+	ParcelGravel = 1,
+	GardenSoil = 2,
+	FarmField = 3,
+	PaddyField = 4,
+	Beach = 5,
+	Seawall = 6,
+};
+
+/// @brief 道路・海岸・農地境界から生成される土地ポリゴン
+struct LandPatch
+{
+	int id = -1;
+	LandPatchType type = LandPatchType::FarmField;
+	Array<Vec2> polygon;
+	float elevationOffset = 0.02f;
+	uint32 materialVariant = 0;
+	int64 sourceParcelKey = -1;
+};
 /// @brief チャンクデータ
 struct Chunk
 {
@@ -75,6 +97,7 @@ struct Chunk
 	Grid<uint8>       terrainType;                   ///< HEIGHT_CELLS×HEIGHT_CELLS の地表種別
 	Grid<ZoneType>    zoneMap;                       ///< ZONE_CELLS×ZONE_CELLS のゾーン
 	Grid<Building>    buildingGrid;                  ///< ZONE_CELLS×ZONE_CELLS の建物（type==None で空地）
+	Array<LandPatch>  landPatches;                   ///< 任意多角形の土地利用レイヤ
 	bool              isUrbanizationArea = false;    ///< 市街化区域か
 	ChunkState        state = ChunkState::Sleeping;
 	bool              meshDirty = false;              ///< メッシュ再生成が必要か

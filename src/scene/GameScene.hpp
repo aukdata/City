@@ -274,6 +274,8 @@ private:
 	int             m_captureFrame = 0;
 	int             m_captureIndex = 0;
 	bool            m_captureCameraDirty = true;
+	bool            m_cityConstraintValidationPassed = true;
+	String          m_cityConstraintValidationSummary;
 
 	// 描画タイミング（renderWorld サブメソッド間で共有）
 	struct RenderTimings
@@ -342,6 +344,9 @@ private:
 	void generateDistrictRoads();
 	void postProcessRoads();
 	void placeInitialBuildings();
+	void generateLandPatches(bool preserveExisting = false);
+	void migrateLegacyBuildingFrontageReferences();
+	bool validateGeneratedCityConstraints();
 	void refreshBuildingAnglesFromEdges();
 	void updateCaptureCityRenders();
 	Vec3 captureFocusPoint() const;

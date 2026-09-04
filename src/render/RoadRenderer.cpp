@@ -1,6 +1,7 @@
 ﻿#include "RoadRenderer.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/RoadSign.hpp"
+#include "../road/RoadGeometry.hpp"
 #include "../road/ObjParser.hpp"
 #include "../traffic/TrafficCommon.hpp"
 #include "../asset/AssetRegistrar.hpp"
@@ -103,7 +104,7 @@ namespace
 		float offsetA, float offsetB, float halfLW,
 		float dashLength, float gapLength,
 		float sStart, float sEnd,
-		float terrainLift = 2.05f,
+		float terrainLift = static_cast<float>(kRoadLineLift),
 		bool useElevation = false)
 	{
 		const float spanLen  = sEnd - sStart;
@@ -167,7 +168,7 @@ namespace
 		float offA_L, float offA_R, float offB_L, float offB_R,
 		float sStart, float sEnd,
 		bool  chevron,
-		float terrainLift = 2.05f,
+		float terrainLift = static_cast<float>(kRoadLineLift),
 		bool  useElevation = false)
 	{
 		const float totalLen = bez.totalLength;
@@ -470,7 +471,7 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 {
 	m_partMeshCache.erase(edgeId);
 	m_partLodBatchCache.erase(edgeId);
-	m_laneCache.erase(edgeId);
+	m_markingCacheByEdge.erase(edgeId);
 	m_streetFurnitureCache.erase(edgeId);
 	m_marginCache.erase(edgeId);
 	m_boundsCache.erase(edgeId);
@@ -483,10 +484,11 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 void RoadRenderer::eraseNodeCaches(int nodeId)
 {
 	m_nodeCapCache.erase(nodeId);
-	m_nodeCapLaneCache.erase(nodeId);
-	m_stopLineCache.erase(nodeId);
-	m_crosswalkCache.erase(nodeId);
-	m_laneArrowCache.erase(nodeId);
+	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2);
+	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2 + 1);
+	
+	
+	
 	m_signalAttachGeomCache.erase(nodeId);
 	m_nodeCapWireCache.erase(nodeId);
 }
@@ -505,9 +507,9 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 	{
 		m_nodeCapCache.clear();
 		m_nodeCapWireCache.clear();
-		m_nodeCapLaneCache.clear();
-		m_stopLineCache.clear();
-		m_laneArrowCache.clear();
+		m_markingCacheByNode.clear();
+		
+		
 	}
 }
 
@@ -515,15 +517,15 @@ void RoadRenderer::invalidateAllCaches()
 {
 	m_partMeshCache.clear();
 	m_partLodBatchCache.clear();
-	m_laneCache.clear();
+	m_markingCacheByEdge.clear();
 	m_streetFurnitureCache.clear();
 	m_marginCache.clear();
 	m_nodeCapCache.clear();
 	m_nodeCapWireCache.clear();
-	m_nodeCapLaneCache.clear();
-	m_stopLineCache.clear();
-	m_crosswalkCache.clear();
-	m_laneArrowCache.clear();
+	m_markingCacheByNode.clear();
+	
+	
+	
 	m_boundsCache.clear();
 	m_signalMeshCache.clear();
 	m_signCache.clear();
@@ -614,17 +616,17 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		}
 	}
 
-	// ---- 車線区画線（遠方では描画しない） ----
+	// ---- 道路標示（遠方では描画しない） ----
 	if (isClose)
 	{
-		if (!m_laneCache.contains(edge.id))
+		if (!m_markingCacheByEdge.contains(edge.id))
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
-			m_laneCache[edge.id] = buildLaneLineBatches(edge, *bez, world, marginA, marginB);
+			m_markingCacheByEdge[edge.id] = buildEdgeRoadMarkingBatches(network, edge, *bez, world, marginA, marginB);
 		}
 
-		for (const auto& b : m_laneCache[edge.id])
+		for (const auto& b : m_markingCacheByEdge[edge.id])
 			b.mesh.draw(b.color);
 	}
 
@@ -726,46 +728,15 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 			mesh.draw(entry.color.removeSRGBCurve());
 	}
 
-	// 車線区画線（近距離のみ）
-	if (isClose)
+	// 道路標示（停止線・横断歩道・矢印・ノード内区画線）
+	const int64 nodeMarkingCacheKey = static_cast<int64>(nodeId) * 2 + (isClose ? 1 : 0);
+	if (!m_markingCacheByNode.contains(nodeMarkingCacheKey))
 	{
-		if (!m_nodeCapLaneCache.contains(nodeId))
-			m_nodeCapLaneCache[nodeId] = buildNodeCapLaneLines(network, nodeId, world);
-
-		for (const auto& b : m_nodeCapLaneCache[nodeId])
-			b.mesh.draw(b.color);
+		m_markingCacheByNode[nodeMarkingCacheKey] = buildNodeRoadMarkingBatches(network, nodeId, world, isClose);
 	}
-
-	// 停止線（Stop / Signal の Entry 側のみ）
-	if (!m_stopLineCache.contains(nodeId))
-		m_stopLineCache[nodeId] = buildStopLineBatches(network, nodeId, world);
-
-	for (const auto& b : m_stopLineCache[nodeId])
+	for (const auto& b : m_markingCacheByNode[nodeMarkingCacheKey])
+	{
 		b.mesh.draw(b.color);
-
-	// 横断歩道（近距離のみ）
-	if (isClose)
-	{
-		if (!m_crosswalkCache.contains(nodeId))
-		{
-			m_crosswalkCache[nodeId] = buildCrosswalkBatches(network, nodeId, world);
-		}
-		for (const auto& b : m_crosswalkCache[nodeId])
-		{
-			b.mesh.draw(b.color);
-		}
-	}
-	// 路面標示矢印（近距離のみ）
-	if (isClose)
-	{
-		if (!m_laneArrowCache.contains(nodeId))
-		{
-			m_laneArrowCache[nodeId] = buildLaneArrowMeshes(network, nodeId, world);
-		}
-		for (const auto& b : m_laneArrowCache[nodeId])
-		{
-			b.mesh.draw(b.color);
-		}
 	}
 }
 
@@ -898,7 +869,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 
 	for (const auto& part : edge.parts)
 	{
-		if (part.build != BuildState::Built) continue;
+		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
 
 		const auto [color, heightOff, tex] = getPartVisual(part);
 
@@ -943,7 +914,7 @@ Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadEdge& edge, cons
 
 	for (const auto& part : edge.parts)
 	{
-		if (part.build != BuildState::Built) continue;
+		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
 
 		const auto [color, heightOff, tex] = getPartVisual(part);
 
@@ -1015,7 +986,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  bezier, world,
 			                  lane.offsetA_R, lane.offsetB_R, lineStyle.lineWidth * 0.5f,
 			                  lineStyle.dashLen, lineStyle.gapLen,
-			                  sStart, sEnd, 2.05f, edge.useElevation);
+			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.useElevation);
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ lineStyle.color.removeSRGBCurve(), Mesh{ md } };
@@ -1032,7 +1003,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  bezier, world,
 			                  lane.offsetA_L, lane.offsetB_L, lineStyle.lineWidth * 0.5f,
 			                  lineStyle.dashLen, lineStyle.gapLen,
-			                  sStart, sEnd, 2.05f, edge.useElevation);
+			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.useElevation);
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ lineStyle.color.removeSRGBCurve(), Mesh{ md } };
@@ -1049,7 +1020,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  lane.offsetB_L, lane.offsetB_R,
 			                  sStart, sEnd,
 			                  lane.type == LaneType::TrafficIsland,
-			                  2.05f, edge.useElevation);
+			                  static_cast<float>(kRoadLineLift), edge.useElevation);
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ ColorF{ 1, 1, 1 }.removeSRGBCurve(), Mesh{ md } };
@@ -1060,6 +1031,234 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 	return batches;
 }
 
+
+namespace
+{
+	bool markingTargetsEdge(const RoadMarkingPlacement& marking, int edgeId)
+	{
+		return marking.scope == RoadMarkingScope::Edge && marking.edgeId == edgeId;
+	}
+
+	bool markingTargetsNode(const RoadMarkingPlacement& marking, int nodeId)
+	{
+		return marking.scope == RoadMarkingScope::Node && marking.nodeId == nodeId;
+	}
+
+	void appendManualMarkings(Array<RoadMarkingPlacement>& placements,
+	                         const Array<RoadMarkingPlacement>& manualMarkings,
+	                         RoadMarkingScope scope, int targetId)
+	{
+		for (const RoadMarkingPlacement& marking : manualMarkings)
+		{
+			const bool matches = (scope == RoadMarkingScope::Edge)
+				? markingTargetsEdge(marking, targetId)
+				: markingTargetsNode(marking, targetId);
+			if (!matches) continue;
+
+			if (marking.overrideMode == RoadMarkingOverrideMode::Suppress
+				|| marking.overrideMode == RoadMarkingOverrideMode::Replace)
+			{
+				placements.remove_if([&](const RoadMarkingPlacement& existing)
+				{
+					return existing.autoGenerated && existing.kind == marking.kind;
+				});
+			}
+			if (marking.overrideMode != RoadMarkingOverrideMode::Suppress)
+			{
+				placements << marking;
+			}
+		}
+	}
+
+	struct RoadMarkingRenderPlan
+	{
+		Array<RoadMarkingPlacement> laneLines;
+		Array<RoadMarkingPlacement> stopLines;
+		Array<RoadMarkingPlacement> crosswalks;
+		Array<RoadMarkingPlacement> directionArrows;
+		Array<RoadMarkingPlacement> keepOuts;
+		Array<RoadMarkingPlacement> zebraZones;
+	};
+
+	RoadMarkingRenderPlan makeRoadMarkingRenderPlan(const Array<RoadMarkingPlacement>& placements)
+	{
+		RoadMarkingRenderPlan plan;
+		for (const RoadMarkingPlacement& marking : placements)
+		{
+			if (marking.overrideMode == RoadMarkingOverrideMode::Suppress) continue;
+			switch (marking.kind)
+			{
+			case RoadMarkingKind::LaneLine:
+				plan.laneLines << marking;
+				break;
+			case RoadMarkingKind::StopLine:
+				plan.stopLines << marking;
+				break;
+			case RoadMarkingKind::Crosswalk:
+				plan.crosswalks << marking;
+				break;
+			case RoadMarkingKind::DirectionArrow:
+				plan.directionArrows << marking;
+				break;
+			case RoadMarkingKind::KeepOut:
+				plan.keepOuts << marking;
+				break;
+			case RoadMarkingKind::ZebraZone:
+				plan.zebraZones << marking;
+				break;
+			}
+		}
+		return plan;
+	}
+}
+
+Array<RoadRenderer::LaneLineBatch> buildCrosswalkBatchesFromPlacements(
+	const RoadNetwork& network, const Array<RoadMarkingPlacement>& placements, const World& world);
+
+Array<RoadMarkingPlacement> RoadRenderer::collectEdgeRoadMarkings(const RoadNetwork& network, const RoadEdge& edge) const
+{
+	Array<RoadMarkingPlacement> placements;
+	if (!edge.lanes.empty() && edge.isRoadbedBuilt())
+	{
+		RoadMarkingPlacement marking;
+		marking.kind = RoadMarkingKind::LaneLine;
+		marking.scope = RoadMarkingScope::Edge;
+		marking.edgeId = edge.id;
+		marking.autoGenerated = true;
+		placements << marking;
+	}
+	appendManualMarkings(placements, network.manualMarkings(), RoadMarkingScope::Edge, edge.id);
+	return placements;
+}
+
+Array<RoadMarkingPlacement> RoadRenderer::collectNodeRoadMarkings(const RoadNetwork& network, int nodeId, bool isClose) const
+{
+	Array<RoadMarkingPlacement> placements;
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node) return placements;
+
+	if (isClose && node->attachments.size() >= 2)
+	{
+		RoadMarkingPlacement laneLine;
+		laneLine.kind = RoadMarkingKind::LaneLine;
+		laneLine.scope = RoadMarkingScope::Node;
+		laneLine.nodeId = nodeId;
+		placements << laneLine;
+	}
+
+	bool hasStopControl = false;
+	for (const EdgeAttachment& attachment : node->attachments)
+	{
+		if (attachment.control == TrafficControl::Stop || attachment.control == TrafficControl::Signal)
+		{
+			hasStopControl = true;
+			break;
+		}
+	}
+	if (hasStopControl)
+	{
+		RoadMarkingPlacement stopLine;
+		stopLine.kind = RoadMarkingKind::StopLine;
+		stopLine.scope = RoadMarkingScope::Node;
+		stopLine.nodeId = nodeId;
+		placements << stopLine;
+	}
+
+	if (isClose && node->attachments.size() >= 2)
+	{
+		for (const EdgeAttachment& attachment : node->attachments)
+		{
+			const RoadEdge* edge = network.getEdge(attachment.edgeId);
+			if (!edge || !edge->isRoadbedBuilt()) continue;
+			if (edge->roadType != RoadType::LocalRoad && edge->roadType != RoadType::Arterial) continue;
+			const auto bezier = network.getBezier(edge->id);
+			if (!bezier || bezier->totalLength <= 1.0f) continue;
+			const bool isNodeA = (edge->nodeA == nodeId);
+			const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
+			const float arc = isNodeA
+				? Clamp(cutoff + 4.0f, 0.0f, bezier->totalLength)
+				: Clamp(bezier->totalLength - cutoff - 4.0f, 0.0f, bezier->totalLength);
+			const RoadGeometry::LateralRange roadbedRange = RoadGeometry::roadbedRangeAt(*edge, arc / Max(1.0f, bezier->totalLength));
+			if (!roadbedRange.valid || roadbedRange.width() <= 1.2f) continue;
+
+			RoadMarkingPlacement crosswalk;
+			crosswalk.kind = RoadMarkingKind::Crosswalk;
+			crosswalk.scope = RoadMarkingScope::Node;
+			crosswalk.nodeId = nodeId;
+			crosswalk.edgeId = edge->id;
+			crosswalk.arcOffset = arc;
+			crosswalk.lateralCenter = (roadbedRange.left + roadbedRange.right) * 0.5f;
+			crosswalk.width = Max(0.6f, roadbedRange.width() - 0.70f);
+			crosswalk.length = 3.60f;
+			crosswalk.angleOffset = isNodeA ? 0.0f : static_cast<float>(Math::Pi);
+			placements << crosswalk;
+		}
+
+		RoadMarkingPlacement arrow;
+		arrow.kind = RoadMarkingKind::DirectionArrow;
+		arrow.scope = RoadMarkingScope::Node;
+		arrow.nodeId = nodeId;
+		placements << arrow;
+	}
+	appendManualMarkings(placements, network.manualMarkings(), RoadMarkingScope::Node, nodeId);
+	return placements;
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildEdgeRoadMarkingsFromPlacements(
+	const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
+	const World& world, float marginA, float marginB,
+	const Array<RoadMarkingPlacement>& placements) const
+{
+	(void)network;
+	const RoadMarkingRenderPlan plan = makeRoadMarkingRenderPlan(placements);
+	Array<LaneLineBatch> batches;
+	if (!plan.laneLines.isEmpty() || !plan.keepOuts.isEmpty() || !plan.zebraZones.isEmpty())
+	{
+		batches.append(buildLaneLineBatches(edge, bezier, world, marginA, marginB));
+	}
+	return batches;
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeRoadMarkingsFromPlacements(
+	const RoadNetwork& network, int nodeId, const World& world,
+	const Array<RoadMarkingPlacement>& placements) const
+{
+	const RoadMarkingRenderPlan plan = makeRoadMarkingRenderPlan(placements);
+	Array<LaneLineBatch> batches;
+	if (!plan.laneLines.isEmpty())
+	{
+		batches.append(buildNodeCapLaneLines(network, nodeId, world));
+	}
+	if (!plan.stopLines.isEmpty())
+	{
+		batches.append(buildStopLineBatches(network, nodeId, world));
+	}
+	if (!plan.crosswalks.isEmpty())
+	{
+		batches.append(buildCrosswalkBatchesFromPlacements(network, plan.crosswalks, world));
+	}
+	if (!plan.directionArrows.isEmpty())
+	{
+		batches.append(buildLaneArrowMeshes(network, nodeId, world));
+	}
+	return batches;
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildEdgeRoadMarkingBatches(
+	const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
+	const World& world, float marginA, float marginB) const
+{
+	const Array<RoadMarkingPlacement> placements = collectEdgeRoadMarkings(network, edge);
+	return buildEdgeRoadMarkingsFromPlacements(network, edge, bezier, world, marginA, marginB, placements);
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeRoadMarkingBatches(
+	const RoadNetwork& network, int nodeId, const World& world, bool isClose) const
+{
+	const Array<RoadMarkingPlacement> placements = collectNodeRoadMarkings(network, nodeId, isClose);
+	return buildNodeRoadMarkingsFromPlacements(network, nodeId, world, placements);
+}
+
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 	const RoadEdge& edge, const CubicBezier& bezier,
 	const World& world,
@@ -1067,31 +1266,43 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 {
 	StripRange range;
 	if (!calcStripRange(bezier.totalLength, marginA, marginB, range)) return {};
-	if (edge.roadType != RoadType::LocalRoad && edge.roadType != RoadType::Arterial
-		&& edge.roadType != RoadType::Highway) return {};
 
-	MeshData gutterMd;
 	MeshData poleMd;
-	MeshData signMd;
-	MeshData carLightMd;
-	MeshData carDarkMd;
-	MeshData curbMd;
-	MeshData mirrorMd;
-	MeshData vendingMd;
+	MeshData cableMd;
+	MeshData roadsideMd;
 	MeshData markerMd;
-	const float totalWidth = edge.totalWidth();
-	const float roadEdgeOffset = totalWidth * 0.5f + 0.34f;
-	const float poleOffset = totalWidth * 0.5f + ((edge.roadType == RoadType::LocalRoad) ? 1.15f : 1.85f);
-	const float carOffset = totalWidth * 0.5f + ((edge.roadType == RoadType::LocalRoad) ? 2.15f : 2.65f);
-	const float spacing = (edge.roadType == RoadType::LocalRoad) ? 18.0f : 30.0f;
-	const uint32 edgeHash = static_cast<uint32>(edge.id * 2654435761u) ^ static_cast<uint32>(edge.nodeA * 83492791u);
-	const int sampleCount = Max(1, static_cast<int>((range.sEnd - range.sStart) / spacing));
 
-	for (const float side : { -1.0f, 1.0f })
+	for (size_t partIndex = 0; partIndex < edge.parts.size(); ++partIndex)
 	{
+		const RoadPart& part = edge.parts[partIndex];
+		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::RepeatAlongEdge)
+		{
+			continue;
+		}
+
+		const float offset = (part.offsetL() + part.offsetR()) * 0.5f;
+		float spacing = part.repeatSpacing;
+		float jitter = part.repeatJitter;
+		if (!part.defId.isEmpty())
+		{
+			const RoadPartDef& def = m_partRegistry.get(part.defId);
+			if (part.useDefinitionRepeatSpacing) spacing = def.repeatSpacing;
+			if (part.useDefinitionRepeatJitter) jitter = def.repeatJitter;
+		}
+		spacing = Max(spacing, 4.0f);
+		jitter = Max(jitter, 0.0f);
+		const float objectHalfDepth = (part.type == RoadPartType::UtilityPole) ? 0.12f : 0.35f;
+		const float sStart = range.sStart + spacing * 0.5f;
+		const float sEnd = range.sEnd - spacing * 0.25f;
+		if (sEnd <= sStart) continue;
+
+		const int sampleCount = Max(1, static_cast<int>((sEnd - sStart) / spacing));
 		for (int i = 0; i <= sampleCount; ++i)
 		{
-			const float s = Clamp(range.sStart + (i + 0.32f) * spacing, range.sStart, range.sEnd);
+			const float jitterOffset = (jitter > 0.0f)
+				? (static_cast<float>(((edge.id * 73856093) ^ (static_cast<int>(partIndex) * 19349663) ^ (i * 83492791)) & 1023) / 1023.0f - 0.5f) * jitter
+				: 0.0f;
+			const float s = Clamp(sStart + static_cast<float>(i) * spacing + jitterOffset, range.sStart, range.sEnd);
 			const Vec3 pos = bezier.positionAt(s);
 			const Vec3 tan3 = bezier.tangentAt(s);
 			Vec2 tangent{ static_cast<float>(tan3.x), static_cast<float>(tan3.z) };
@@ -1099,65 +1310,67 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 			tangent.normalize();
 			const Vec2 right{ tangent.y, -tangent.x };
 			const float yaw = static_cast<float>(std::atan2(tangent.y, tangent.x));
-			const float groundY = edge.useElevation
-				? static_cast<float>(pos.y + kRoadSurfaceLift)
-				: world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + static_cast<float>(kRoadSurfaceLift);
-			const uint32 hash = edgeHash ^ static_cast<uint32>((i + 17) * 1103515245u) ^ (side > 0.0f ? 0x51ED270Bu : 0xA24BAED3u);
-			const Vec3 gutterCenter{ pos.x + right.x * side * roadEdgeOffset, groundY + 0.035f, pos.z + right.y * side * roadEdgeOffset };
-			appendOrientedBox(gutterMd, gutterCenter, Float3{ 0.34f, 0.07f, Min(15.0f, spacing * 0.68f) }, yaw);
-			const Vec3 curbCenter{ pos.x + right.x * side * (roadEdgeOffset - 0.34f), groundY + 0.105f, pos.z + right.y * side * (roadEdgeOffset - 0.34f) };
-			appendOrientedBox(curbMd, curbCenter, Float3{ 0.16f, 0.16f, Min(12.0f, spacing * 0.54f) }, yaw);
+			const double anchorX = pos.x + right.x * static_cast<double>(offset);
+			const double anchorZ = pos.z + right.y * static_cast<double>(offset);
+			const double terrainY = edge.useElevation
+				? pos.y
+				: world.computeHeight(static_cast<float>(anchorX), static_cast<float>(anchorZ));
+			const float groundY = static_cast<float>(RoadGeometry::furnitureBaseY(edge, pos, terrainY));
 
-			if ((hash % 100u) < 92u)
+			if (part.type == RoadPartType::UtilityPole)
 			{
-				const Vec3 poleCenter{ pos.x + right.x * side * poleOffset, groundY + 2.45f, pos.z + right.y * side * poleOffset };
-				appendOrientedBox(poleMd, poleCenter, Float3{ 0.16f, 4.9f, 0.16f }, yaw);
-				appendOrientedBox(poleMd, poleCenter + Vec3{ tangent.x * 0.65, 2.05, tangent.y * 0.65 }, Float3{ 1.30f, 0.09f, 0.09f }, yaw);
-			}
-
-			if ((hash / 7u) % 100u < ((edge.roadType == RoadType::Arterial) ? 62u : 42u))
+				const Vec3 poleCenter{ anchorX, groundY + 2.55f, anchorZ };
+				const float armYaw = yaw + static_cast<float>(Math::HalfPi);
+				appendOrientedBox(poleMd, poleCenter, Float3{ 0.16f, 5.10f, 0.16f }, yaw);
+				appendOrientedBox(poleMd,
+				                  poleCenter + Vec3{ 0.0, 2.12, 0.0 },
+				                  Float3{ 1.44f, 0.09f, 0.09f }, armYaw);
+				appendOrientedBox(poleMd,
+				                  poleCenter + Vec3{ 0.0, 1.66, 0.0 },
+				                  Float3{ 1.04f, 0.07f, 0.07f }, armYaw);
+				appendOrientedBox(markerMd,
+				                  poleCenter + Vec3{ 0.0, -1.95, 0.0 },
+				                  Float3{ 0.20f, 0.36f, 0.18f }, yaw);
+				appendOrientedBox(markerMd,
+				                  poleCenter + Vec3{ -right.x * 0.16, 0.65, -right.y * 0.16 },
+				                  Float3{ 0.22f, 0.44f, 0.16f }, yaw);
+				for (const float armSide : { -0.58f, 0.0f, 0.58f })
+				{
+					appendOrientedBox(markerMd,
+					                  poleCenter + Vec3{ right.x * armSide, 2.20, right.y * armSide },
+					                  Float3{ 0.10f, 0.13f, 0.10f }, yaw);
+					appendOrientedBox(markerMd,
+					                  poleCenter + Vec3{ right.x * armSide, 1.74, right.y * armSide },
+					                  Float3{ 0.08f, 0.10f, 0.08f }, yaw);
+				}
+				const float nextS = Min(s + spacing * 0.82f, range.sEnd);
+				const float cableLength = nextS - s;
+				if (cableLength > 2.0f)
+				{
+					const Vec3 cableCenter = poleCenter + Vec3{ tangent.x * cableLength * 0.5f, 2.18, tangent.y * cableLength * 0.5f };
+					for (const float cableSide : { -0.58f, 0.0f, 0.58f })
+					{
+						appendOrientedBox(cableMd,
+						                  cableCenter + Vec3{ right.x * cableSide, 0.0, right.y * cableSide },
+						                  Float3{ cableLength, 0.025f, 0.025f }, yaw);
+					}
+				}
+			}			else if (part.type == RoadPartType::RoadsideObject)
 			{
-				const Vec3 signCenter{ pos.x + right.x * side * (poleOffset + 0.10f), groundY + 1.75f, pos.z + right.y * side * (poleOffset + 0.10f) };
-				appendOrientedBox(signMd, signCenter, Float3{ 0.92f, 0.52f, 0.10f }, yaw + static_cast<float>(90.0_deg));
-			}
-
-			if ((hash / 19u) % 100u < ((edge.roadType == RoadType::LocalRoad) ? 34u : 18u))
-			{
-				const Vec3 mirrorPole{ pos.x + right.x * side * (poleOffset + 0.24f), groundY + 1.35f, pos.z + right.y * side * (poleOffset + 0.24f) };
-				appendOrientedBox(mirrorMd, mirrorPole, Float3{ 0.10f, 2.30f, 0.10f }, yaw);
-				appendOrientedBox(mirrorMd, mirrorPole + Vec3{ 0.0, 1.24, 0.0 }, Float3{ 0.72f, 0.72f, 0.08f }, yaw + static_cast<float>(90.0_deg));
-			}
-
-			if ((hash / 23u) % 100u < ((edge.roadType == RoadType::LocalRoad) ? 22u : 12u))
-			{
-				const Vec3 vendingCenter{ pos.x + right.x * side * (poleOffset + 0.58f), groundY + 0.92f, pos.z + right.y * side * (poleOffset + 0.58f) };
-				appendOrientedBox(vendingMd, vendingCenter, Float3{ 0.82f, 1.84f, 0.42f }, yaw + static_cast<float>(90.0_deg));
-				appendOrientedBox(markerMd, vendingCenter + Vec3{ 0.0, 0.34, 0.0 }, Float3{ 0.64f, 0.42f, 0.05f }, yaw + static_cast<float>(90.0_deg));
-			}
-
-			if ((hash / 13u) % 100u < ((edge.roadType == RoadType::LocalRoad) ? 68u : 40u))
-			{
-				const float carShift = (static_cast<float>((hash >> 9) % 11u) - 5.0f) * 0.26f;
-				const Vec3 carCenter{ pos.x + tangent.x * carShift + right.x * side * carOffset,
-					groundY + 0.30f,
-					pos.z + tangent.y * carShift + right.y * side * carOffset };
-				appendOrientedBox(((hash >> 19) & 1u) ? carDarkMd : carLightMd, carCenter, Float3{ 1.55f, 0.46f, 3.25f }, yaw);
+				const Vec3 center{ anchorX, groundY + 0.85f, anchorZ };
+				appendOrientedBox(roadsideMd, center, Float3{ 0.45f, 1.70f, objectHalfDepth * 2.0f }, yaw);
 			}
 		}
 	}
 
 	Array<LaneLineBatch> batches;
-	if (!gutterMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.28, 0.28, 0.26 }.removeSRGBCurve(), Mesh{ gutterMd } };
-	if (!curbMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.58, 0.56, 0.50 }.removeSRGBCurve(), Mesh{ curbMd } };
-	if (!poleMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.18, 0.17, 0.15 }.removeSRGBCurve(), Mesh{ poleMd } };
-	if (!signMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.64, 0.18, 0.14 }.removeSRGBCurve(), Mesh{ signMd } };
-	if (!mirrorMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.82, 0.72, 0.38 }.removeSRGBCurve(), Mesh{ mirrorMd } };
-	if (!vendingMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.68, 0.18, 0.16 }.removeSRGBCurve(), Mesh{ vendingMd } };
-	if (!markerMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.92, 0.92, 0.84 }.removeSRGBCurve(), Mesh{ markerMd } };
-	if (!carLightMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.64, 0.65, 0.62 }.removeSRGBCurve(), Mesh{ carLightMd } };
-	if (!carDarkMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.16, 0.18, 0.20 }.removeSRGBCurve(), Mesh{ carDarkMd } };
+	if (!poleMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.30, 0.29, 0.26 }.removeSRGBCurve(), Mesh{ poleMd } };
+	if (!cableMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.05, 0.05, 0.045 }.removeSRGBCurve(), Mesh{ cableMd } };
+	if (!markerMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), Mesh{ markerMd } };
+	if (!roadsideMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.46, 0.18, 0.14 }.removeSRGBCurve(), Mesh{ roadsideMd } };
 	return batches;
 }
+
 Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network, int nodeId,
                                                      const World& world, int div,
                                                      bool onlyOpenEdges)
@@ -1289,7 +1502,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 		Array<PartStrip> strips;
 		for (const auto& part : info.edge->parts)
 		{
-			if (part.build != BuildState::Built) continue;
+			if (!RoadGeometry::isRenderableStrip(part)) continue;
 			if (part.type == RoadPartType::Roadbed) continue;
 
 			// ノード端（A/B）での実際のオフセットを使い、outward フレームに変換する
@@ -1616,6 +1829,48 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStopLineBatches(
 	return batches;
 }
 
+Array<RoadRenderer::LaneLineBatch> buildCrosswalkBatchesFromPlacements(
+	const RoadNetwork& network, const Array<RoadMarkingPlacement>& placements, const World& world)
+{
+	Array<RoadRenderer::LaneLineBatch> batches;
+	for (const RoadMarkingPlacement& marking : placements)
+	{
+		if (marking.kind != RoadMarkingKind::Crosswalk || marking.edgeId < 0) continue;
+		const RoadEdge* edge = network.getEdge(marking.edgeId);
+		if (!edge || !edge->isRoadbedBuilt()) continue;
+		const auto bezier = network.getBezier(marking.edgeId);
+		if (!bezier || bezier->totalLength <= 1.0f) continue;
+		const float arc = Clamp(marking.arcOffset, 0.0f, bezier->totalLength);
+		const Vec3 pos = bezier->positionAt(arc);
+		Vec3 tan = bezier->tangentAt(arc);
+		Vec2 tangent{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
+		if (marking.angleOffset != 0.0f)
+		{
+			const float cosA = Math::Cos(marking.angleOffset);
+			const float sinA = Math::Sin(marking.angleOffset);
+			tangent = Vec2{ tangent.x * cosA - tangent.y * sinA, tangent.x * sinA + tangent.y * cosA };
+		}
+		if (tangent.lengthSq() <= 1e-8f) continue;
+		tangent.normalize();
+		const Vec2 right{ tangent.y, -tangent.x };
+		const float halfWidth = Max(0.3f, marking.width * 0.5f);
+		const float stripePitch = 0.72f;
+		const int stripeMin = -Max(1, static_cast<int>(Math::Floor(marking.length / (stripePitch * 2.0f))));
+		const int stripeMax = Max(1, static_cast<int>(Math::Ceil(marking.length / (stripePitch * 2.0f))));
+		const double y = edge->useElevation ? pos.y + kRoadLineLift : world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
+		MeshData md;
+		for (int stripe = stripeMin; stripe <= stripeMax; ++stripe)
+		{
+			const float forward = static_cast<float>(stripe) * stripePitch;
+			const Vec3 center{ pos.x + tangent.x * forward + right.x * marking.lateralCenter, y, pos.z + tangent.y * forward + right.y * marking.lateralCenter };
+			const Vec3 p0{ center.x - right.x * halfWidth, center.y, center.z - right.y * halfWidth };
+			const Vec3 p1{ center.x + right.x * halfWidth, center.y, center.z + right.y * halfWidth };
+			appendBar(md.vertices, md.indices, p0, p1, 0.18f);
+		}
+		if (!md.vertices.isEmpty()) batches << RoadRenderer::LaneLineBatch{ ColorF{ 0.92, 0.92, 0.86 }.removeSRGBCurve(), Mesh{ md } };
+	}
+	return batches;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildCrosswalkBatches(
 	const RoadNetwork& network, int nodeId, const World& world) const

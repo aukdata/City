@@ -8,6 +8,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $shotDir = Join-Path $root 'App\Screenshot\city_generation'
 if (Test-Path $shotDir) {
     Get-ChildItem $shotDir -Filter 'city_render_*.png' | Remove-Item -Force
+    $constraintMarker = Join-Path $shotDir 'constraint_validation_failed.txt'
+    if (Test-Path $constraintMarker) { Remove-Item $constraintMarker -Force }
 }
 $msbuild = 'C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe'
 $seed = $Seed
@@ -29,6 +31,8 @@ try {
     $captured = @(Get-ChildItem -Force (Join-Path $root 'App\Screenshot\city_generation') -Filter 'city_render_*.png')
     if ($game.ExitCode -ne 0 -and $captured.Count -lt 6) { exit $game.ExitCode }
     if ($captured.Count -lt 6) { throw "Expected 6 city_render screenshots, got $($captured.Count)" }
+    $constraintFailure = Join-Path $root 'App\Screenshot\city_generation\constraint_validation_failed.txt'
+    if (Test-Path $constraintFailure) { throw "City constraint validation failed; see $constraintFailure" }
 
     Get-ChildItem -Force (Join-Path $root 'App\Screenshot\city_generation') |
         Select-Object Name, Length, LastWriteTime |

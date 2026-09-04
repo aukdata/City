@@ -1242,7 +1242,11 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	const float roadbedWidth = nLanes * laneW;
 	const float halfRoadbed = roadbedWidth * 0.5f;
 
-	auto addPart = [&](RoadPartType type, float offset, float width, StringView defId = U"")
+	auto addPart = [&](RoadPartType type, float offset, float width, StringView defId = U"",
+	                RoadPartPlacement placement = RoadPartPlacement::Strip,
+	                RoadPartEnvelopeRole envelopeRole = RoadPartEnvelopeRole::Structural,
+	                float repeatSpacing = 20.0f,
+	                float repeatJitter = 0.0f)
 	{
 		RoadPart p;
 		p.type      = type;
@@ -1252,6 +1256,12 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 		p.offsetB_L = offset;
 		p.offsetB_R = offset + width;
 		p.build     = BuildState::Built;
+		p.placement = placement;
+		p.envelopeRole = envelopeRole;
+		p.repeatSpacing = repeatSpacing;
+		p.repeatJitter = repeatJitter;
+		p.useDefinitionRepeatSpacing = false;
+		p.useDefinitionRepeatJitter = false;
 		edge.parts << p;
 	};
 
@@ -1280,27 +1290,39 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	case RoadType::Arterial:
 	{
-		const float sidewalkW = 2.5f;
-		const float curbW = 0.2f;
-		const float slopeW = 2.0f;
+		const float sidewalkW = 2.2f;
+		const float curbW = 0.22f;
+		const float gutterW = 0.42f;
 
-		float x = -halfRoadbed - curbW - sidewalkW - slopeW;
-		addPart(RoadPartType::Slope,    x, slopeW,      U"slope_grass");     x += slopeW;
-		addPart(RoadPartType::Sidewalk, x, sidewalkW,   U"sidewalk_tile");   x += sidewalkW;
-		addPart(RoadPartType::Curb,     x, curbW,       U"curb_concrete");   x += curbW;
-		addPart(RoadPartType::Roadbed,  x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
-		addPart(RoadPartType::Curb,     x, curbW,       U"curb_concrete");   x += curbW;
-		addPart(RoadPartType::Sidewalk, x, sidewalkW,   U"sidewalk_tile");   x += sidewalkW;
-		addPart(RoadPartType::Slope,    x, slopeW,      U"slope_grass");
+		float x = -halfRoadbed - curbW - gutterW - sidewalkW;
+		addPart(RoadPartType::Sidewalk, x, sidewalkW, U"sidewalk_tile"); x += sidewalkW;
+		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
+		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
+		addPart(RoadPartType::Roadbed, x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
+		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
+		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
+		addPart(RoadPartType::Sidewalk, x, sidewalkW, U"sidewalk_tile");
+		addPart(RoadPartType::UtilityPole, -halfRoadbed - curbW - gutterW - 0.65f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 28.0f, 2.5f);
+		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.65f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 28.0f, 2.5f);
 		break;
 	}
 	default: // LocalRoad
 	{
-		const float slopeW = 0.6f;
-		float x = -halfRoadbed - slopeW;
-		addPart(RoadPartType::Slope,   x, slopeW,      U"slope_grass");      x += slopeW;
+		const float curbW = 0.15f;
+		const float gutterW = 0.35f;
+
+		float x = -halfRoadbed - curbW - gutterW;
+		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
+		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
 		addPart(RoadPartType::Roadbed, x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
-		addPart(RoadPartType::Slope,   x, slopeW,      U"slope_grass");
+		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
+		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete");
+		addPart(RoadPartType::UtilityPole, -halfRoadbed - curbW - gutterW - 0.45f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 22.0f, 1.8f);
+		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.45f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 22.0f, 1.8f);
 		break;
 	}
 	}

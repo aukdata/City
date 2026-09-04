@@ -177,6 +177,28 @@ private:
 	                                          const World& world,
 	                                          float marginA, float marginB) const;
 
+	/// @brief エッジ単位の道路標示を canonical 配置へ正規化する
+	Array<RoadMarkingPlacement> collectEdgeRoadMarkings(const RoadNetwork& network, const RoadEdge& edge) const;
+
+	/// @brief ノード単位の道路標示を canonical 配置へ正規化する
+	Array<RoadMarkingPlacement> collectNodeRoadMarkings(const RoadNetwork& network, int nodeId, bool isClose) const;
+
+	/// @brief canonical 配置配列からエッジ道路標示を描画バッチへ変換する
+	Array<LaneLineBatch> buildEdgeRoadMarkingsFromPlacements(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
+	                                                         const World& world, float marginA, float marginB,
+	                                                         const Array<RoadMarkingPlacement>& placements) const;
+
+	/// @brief canonical 配置配列からノード道路標示を描画バッチへ変換する
+	Array<LaneLineBatch> buildNodeRoadMarkingsFromPlacements(const RoadNetwork& network, int nodeId, const World& world,
+	                                                         const Array<RoadMarkingPlacement>& placements) const;
+
+	/// @brief エッジ単位の道路標示を統合生成する
+	Array<LaneLineBatch> buildEdgeRoadMarkingBatches(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
+	                                                    const World& world, float marginA, float marginB) const;
+
+	/// @brief ノード単位の道路標示を統合生成する
+	Array<LaneLineBatch> buildNodeRoadMarkingBatches(const RoadNetwork& network, int nodeId, const World& world, bool isClose) const;
+
 	/// @brief 1部品幅でのフィレット曲線 MeshData を生成する
 	/// @param onlyOpenEdges true なら Open/Existing のエッジのみを使う
 	MeshData buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,
@@ -337,11 +359,8 @@ private:
 	RoadPartRegistry                          m_partRegistry;
 	HashTable<int, Array<PartMeshEntry>>      m_partMeshCache;      ///< エッジ ID → 部品メッシュ配列（詳細 + LOD）
 	HashTable<int, Array<PartLodBatch>>       m_partLodBatchCache;  ///< エッジ ID → 遠距離用 combined LOD バッチ
-	HashTable<int, Array<LaneLineBatch>>      m_nodeCapLaneCache; ///< ノード ID → ノードキャップ車線区画線
-	HashTable<int, Array<LaneLineBatch>>      m_stopLineCache;    ///< ノード ID → 停止線
-	HashTable<int, Array<LaneLineBatch>>      m_crosswalkCache;   ///< ノード ID → 横断歩道
-	HashTable<int, Array<LaneLineBatch>>      m_laneArrowCache;   ///< ノード ID → 路面標示矢印
-	HashTable<int, Array<LaneLineBatch>>      m_laneCache;
+	HashTable<int64, Array<LaneLineBatch>>    m_markingCacheByNode; ///< (node ID, LOD) → 統合道路標示
+	HashTable<int, Array<LaneLineBatch>>      m_markingCacheByEdge; ///< エッジ ID → 統合道路標示
 	HashTable<int, Array<LaneLineBatch>>      m_streetFurnitureCache;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>              m_nodeCapCache;        ///< ノード ID → 部品メッシュ配列（Open/Existing エッジのみ）

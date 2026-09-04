@@ -649,6 +649,27 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 					writer.write(chunk->heightMap[{ col, row }]);
 				}
 			}
+			BinaryWriter landWriter{ chunkDirectory + U"/land_patches.bin" };
+			if (!landWriter)
+			{
+				return SaveResult::failed(SaveError::WriteFailed,
+					U"land_patches.bin を作成できません", chunkDirectory);
+			}
+			landWriter.write(static_cast<uint32>(chunk->landPatches.size()));
+			for (const LandPatch& patch : chunk->landPatches)
+			{
+				landWriter.write(static_cast<int32>(patch.id));
+				landWriter.write(static_cast<uint8>(patch.type));
+				landWriter.write(patch.elevationOffset);
+				landWriter.write(patch.materialVariant);
+				landWriter.write(static_cast<int64>(patch.sourceParcelKey));
+				landWriter.write(static_cast<uint32>(patch.polygon.size()));
+				for (const Vec2& point : patch.polygon)
+				{
+					landWriter.write(static_cast<float>(point.x));
+					landWriter.write(static_cast<float>(point.y));
+				}
+			}
 		}
 	}
 	return SaveResult::succeeded(saveRoot);
@@ -760,6 +781,47 @@ void GameScene::loadTerrainChunks(const String& saveRoot, Stopwatch& step)
 			const int cx = idx % WORLD_CHUNKS;
 			const int cy = idx / WORLD_CHUNKS;
 			m_world.installChunkDirect(Point{ cx, cy }, std::move(buffer[idx]));
+			Chunk* chunk = m_world.getChunk(Point{ cx, cy });
+			if (!chunk) continue;
+			const String landPath = U"{}/chunks/{}_{}/land_patches.bin"_fmt(saveRoot, cx, cy);
+			if (!FileSystem::Exists(landPath)) continue;
+			BinaryReader landReader{ landPath };
+			if (!landReader) continue;
+			uint32 patchCount = 0;
+			if (!landReader.read(patchCount) || patchCount > 4096) continue;
+			chunk->landPatches.clear();
+			for (uint32 p = 0; p < patchCount; ++p)
+			{
+				LandPatch patch;
+				int32 id = -1;
+				uint8 type = 0;
+				int64 sourceParcelKey = -1;
+				uint32 pointCount = 0;
+				if (!landReader.read(id) || !landReader.read(type) || !landReader.read(patch.elevationOffset)
+					|| !landReader.read(patch.materialVariant) || !landReader.read(sourceParcelKey)
+					|| !landReader.read(pointCount) || pointCount > 64)
+				{
+					chunk->landPatches.clear();
+					break;
+				}
+				patch.id = static_cast<int>(id);
+				patch.type = static_cast<LandPatchType>(type);
+				patch.sourceParcelKey = sourceParcelKey;
+				for (uint32 pointIndex = 0; pointIndex < pointCount; ++pointIndex)
+				{
+					float px = 0.0f, py = 0.0f;
+					if (!landReader.read(px) || !landReader.read(py))
+					{
+						patch.polygon.clear();
+						break;
+					}
+					patch.polygon << Vec2{ px, py };
+				}
+				if (patch.polygon.size() >= 3)
+				{
+					chunk->landPatches << patch;
+				}
+			}
 		}
 	}
 
@@ -886,6 +948,10 @@ bool GameScene::loadGame()
 
 	Console << U"[Load] finish: {:.0f}ms"_fmt(step.msF());
 	m_genProgress.store(1.0f);
+	generateLandPatches(true);
+	migrateLegacyBuildingFrontageReferences();
+	refreshBuildingAnglesFromEdges();
+	m_cityConstraintValidationPassed = validateGeneratedCityConstraints();
 	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), saveRoot);
 	return true;
 }
@@ -966,6 +1032,7 @@ namespace
 		if (h < 0.0f) return ZoneType::Unzoned;
 		const float slope = localSlope(chunk, chunkCoord, wx, wz);
 		if (slope > 0.12f) return ZoneType::Unzoned;
+		if (h < 2.6f) return ZoneType::Unzoned;
 
 		const Vec2 axisX = landUseAxisX(settlement, seed, settlementIndex);
 		const Vec2 axisZ{ -axisX.y, axisX.x };
@@ -1051,6 +1118,41 @@ namespace
 		return bestIndex;
 	}
 
+	Array<Vec2> makeCellPatchPolygon(Point chunk, int minX, int minY, int width, int height, uint64 salt)
+	{
+		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		const float x0 = static_cast<float>(chunk.x * ZONE_CELLS + minX) * cellSize;
+		const float z0 = static_cast<float>(chunk.y * ZONE_CELLS + minY) * cellSize;
+		const float x1 = static_cast<float>(chunk.x * ZONE_CELLS + minX + width) * cellSize;
+		const float z1 = static_cast<float>(chunk.y * ZONE_CELLS + minY + height) * cellSize;
+		const float jitter = cellSize * 0.16f;
+		const float a = (static_cast<float>((salt >> 0) & 255u) / 255.0f - 0.5f) * jitter;
+		const float b = (static_cast<float>((salt >> 8) & 255u) / 255.0f - 0.5f) * jitter;
+		const float c = (static_cast<float>((salt >> 16) & 255u) / 255.0f - 0.5f) * jitter;
+		const float d = (static_cast<float>((salt >> 24) & 255u) / 255.0f - 0.5f) * jitter;
+		return Array<Vec2>{
+			Vec2{ x0 + a, z0 + b },
+			Vec2{ x1 + c, z0 - a },
+			Vec2{ x1 - b, z1 + d },
+			Vec2{ x0 - c, z1 - d }
+		};
+	}
+
+	bool hasWaterNeighbor(const Chunk& chunk, int x, int y)
+	{
+		for (int dy = -1; dy <= 1; ++dy)
+		{
+			for (int dx = -1; dx <= 1; ++dx)
+			{
+				if (dx == 0 && dy == 0) continue;
+				const int nx = x + dx;
+				const int ny = y + dy;
+				if (nx < 0 || ny < 0 || nx >= ZONE_CELLS || ny >= ZONE_CELLS) continue;
+				if (chunk.heightMap[ny][nx] < -0.35f) return true;
+			}
+		}
+		return false;
+	}
 	float infillDensity(MapGenerator::SettlementKind kind, ZoneType zone)
 	{
 		if (kind == MapGenerator::SettlementKind::CastleTown)
@@ -1436,7 +1538,7 @@ float buildingAngleFromAttachedEdge(
 		}
 
 		const float buildingHalf = buildingFootprintXZ() * 0.5f;
-		const float targetDist = slot.halfWidth + buildingHalf + setbackFromRoadByModel(type, gx, gz) * 0.55f;
+		const float targetDist = slot.halfWidth + buildingHalf + setbackFromRoadByModel(type, gx, gz) + 1.5f;
 		const float moveTowardRoad = Clamp(slot.roadDist - targetDist, 0.0f, 5.5f);
 		return -slot.roadToCellDir * moveTowardRoad;
 	}
@@ -1669,7 +1771,7 @@ void GameScene::placeInitialBuildings()
 			const float h = sampleHeightMap(
 				chunk->heightMap, slot.chunkCoord,
 				static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
-			if (h < 0.0f) continue;
+			if (h < 2.6f) continue;
 
 			const int globalGX = slot.chunkCoord.x * ZONE_CELLS + slot.col;
 			const int globalGZ = slot.chunkCoord.y * ZONE_CELLS + slot.row;
@@ -1745,16 +1847,19 @@ void GameScene::placeInitialBuildings()
 					const float density = infillDensity(settlement.kind, zone);
 					if ((cellHash % 1000u) >= static_cast<uint32>(density * 1000.0f)) continue;
 
+					const float centerHeight = sampleHeightMap(chunk->heightMap, Point{ chunkX, chunkY }, static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
+					if (centerHeight < 2.6f) continue;
 					Building b = InitialBuilding::spawn(zone, settlement.kind, 0.0, cellHash);
 					const float distFromCenter = static_cast<float>((centerPos - settlement.center).length());
 					InitialBuilding::applySettlementContext(b, zone, settlement.kind, distFromCenter, settlement.radius, 48.0f, cellHash);
 					if (b.type == BuildingType::None || b.type == BuildingType::Farmland) continue;
 
-					const Vec2 axisX = landUseAxisX(settlement, getData().seed, si);
 					const int64 roadSlotKey = zoneCellKey(Point{ chunkX, chunkY }, col, row);
 					if (const auto roadSlot = edgeFacingSlotsByCell.find(roadSlotKey); roadSlot != edgeFacingSlotsByCell.end())
 					{
 						const EdgeFacingSlot& slot = roadSlot->second;
+						const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
+						if (slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
 						const Vec2 roadOffset = roadsideBuildingOffset(slot, b.type, globalGX, globalGZ);
 						b.offsetX = static_cast<float>(roadOffset.x);
 						b.offsetZ = static_cast<float>(roadOffset.y);
@@ -1764,12 +1869,8 @@ void GameScene::placeInitialBuildings()
 					}
 					else
 					{
-						const Vec2 interiorOffset = interiorBuildingOffset(cellHash, 3.0f);
-						b.offsetX = static_cast<float>(interiorOffset.x);
-						b.offsetZ = static_cast<float>(interiorOffset.y);
-						b.angle = static_cast<float>(Math::Atan2(axisX.y, axisX.x)) + (static_cast<float>((cellHash >> 20) % 9u) - 4.0f) * static_cast<float>(2.5_deg);
-					}
-					building = b;
+						continue;
+					}					building = b;
 					++infillPlaced;
 					changed = true;
 				}
@@ -1797,34 +1898,340 @@ void GameScene::placeInitialBuildings()
 					const int globalGZ = chunkY * ZONE_CELLS + row;
 					const uint32 hash = settlementCellHash(getData().seed, 0, globalGX / 2, globalGZ / 2);
 					if ((hash % 100u) >= 92u) continue;
-					const Vec2 centerPos = cellCenterXZ(Point{ chunkX, chunkY }, col, row);
-					const int si = nearestSettlementIndex(m_districts, static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
-					BuildingType fringeType = BuildingType::Farmland;
-					if (si >= 0)
-					{
-						const auto& settlement = m_districts[si];
-						const float distFromCenter = static_cast<float>((centerPos - settlement.center).length());
-						fringeType = InitialBuilding::ruralFringeBuildingType(settlement.kind, distFromCenter, settlement.radius, hash);
-					}
-					building.type = fringeType;
-					if (fringeType != BuildingType::Farmland)
-					{
-						const Vec2 fringeOffset = interiorBuildingOffset(hash, 4.8f);
-						building.offsetX = static_cast<float>(fringeOffset.x);
-						building.offsetZ = static_cast<float>(fringeOffset.y);
-					}
-					building.builtAt = 0.0;
 					++fieldCells;
-					changed = true;
 				}
 			}
 			if (changed) chunk->meshDirty = true;
 		}
 	}
+	generateLandPatches();
 	Logger << U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF());
 	refreshBuildingAnglesFromEdges();
+	m_cityConstraintValidationPassed = validateGeneratedCityConstraints();
 }
 
+void GameScene::generateLandPatches(bool preserveExisting)
+{
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			Chunk* chunkPtr = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunkPtr) continue;
+			Chunk& chunk = *chunkPtr;
+			if (preserveExisting && !chunk.landPatches.isEmpty()) continue;
+			chunk.landPatches.clear();
+			const Point coord{ chunkX, chunkY };
+			uint32 patchIndex = 0;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					const Building& building = chunk.buildingGrid[{ col, row }];
+					if (building.type == BuildingType::None || building.type == BuildingType::Farmland || building.edgeId < 0) continue;
+					const Vec2 center = cellCenterXZ(coord, col, row) + Vec2{ building.offsetX, building.offsetZ };
+					EdgeProjection projection;
+					if (!projectPointToEdgeXZ(m_network, building.edgeId, center, projection)) continue;
+					const RoadEdge* edge = m_network.getEdge(building.edgeId);
+					if (!edge || !edge->isRoadbedBuilt()) continue;
+
+					const Vec2 toCell = center - projection.position;
+					if (toCell.lengthSq() <= 1e-6f) continue;
+					const Vec2 frontageDir = toCell.normalized();
+					const int globalGX = chunkX * ZONE_CELLS + col;
+					const int globalGZ = chunkY * ZONE_CELLS + row;
+					const float buildingHalf = buildingFootprintXZ() * 0.5f;
+					const float edgeHalfWidth = edge->totalWidth() * 0.5f;
+					const float frontageDepth = Max(10.0f, projection.distance + buildingHalf + 2.5f - edgeHalfWidth);
+					const float frontOffset = edgeHalfWidth + 0.35f;
+					const float backOffset = edgeHalfWidth + frontageDepth;
+					const float halfAlong = buildingHalf + 2.4f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.55f;
+					const Vec2 along = projection.tangent;
+					const uint32 salt = settlementCellHash(getData().seed ^ 0xA24BAED5u, 211, globalGX, globalGZ);
+
+					LandPatch patch;
+					patch.id = static_cast<int>(patchIndex++);
+					patch.sourceParcelKey = zoneCellKey(coord, col, row);
+					patch.type = (building.type == BuildingType::Parking) ? LandPatchType::ParcelAsphalt
+						: (((salt >> 4) & 1u) ? LandPatchType::GardenSoil : LandPatchType::ParcelGravel);
+					patch.elevationOffset = 0.045f;
+					patch.materialVariant = salt;
+					patch.polygon = Array<Vec2>{
+						projection.position - along * halfAlong + frontageDir * frontOffset,
+						projection.position + along * halfAlong + frontageDir * frontOffset,
+						projection.position + along * halfAlong * 0.92f + frontageDir * backOffset,
+						projection.position - along * halfAlong * 0.88f + frontageDir * backOffset
+					};
+					chunk.landPatches << patch;
+				}
+			}
+
+			for (int y = 0; y < ZONE_CELLS - 1; y += 2)
+			{
+				for (int x = 0; x < ZONE_CELLS - 1; x += 2)
+				{
+					float averageHeight = 0.0f;
+					bool touchesWater = false;
+					for (int dy = 0; dy < 2; ++dy)
+					{
+						for (int dx = 0; dx < 2; ++dx)
+						{
+							averageHeight += chunk.heightMap[y + dy][x + dx];
+							touchesWater = touchesWater || hasWaterNeighbor(chunk, x + dx, y + dy);
+						}
+					}
+					averageHeight *= 0.25f;
+					if (!touchesWater) continue;
+
+					const uint32 salt = settlementCellHash(getData().seed, 97, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
+					if (averageHeight >= -0.15f && averageHeight < 1.55f)
+					{
+						LandPatch patch;
+						patch.id = static_cast<int>(patchIndex++);
+						patch.type = LandPatchType::Beach;
+						patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt);
+						patch.elevationOffset = Max(0.02f, 0.08f - averageHeight);
+						patch.materialVariant = salt;
+						chunk.landPatches << patch;
+					}
+					else if (averageHeight >= 1.55f && averageHeight < 2.9f)
+					{
+						LandPatch patch;
+						patch.id = static_cast<int>(patchIndex++);
+						patch.type = LandPatchType::Seawall;
+						patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt ^ 0x9E3779B9u);
+						patch.elevationOffset = 0.10f;
+						patch.materialVariant = salt;
+						chunk.landPatches << patch;
+					}
+				}
+			}
+
+			for (int y = 0; y < ZONE_CELLS - 1; y += 2)
+			{
+				for (int x = 0; x < ZONE_CELLS - 1; x += 2)
+				{
+					bool allAgriculture = true;
+					float averageHeight = 0.0f;
+					for (int dy = 0; dy < 2; ++dy)
+					{
+						for (int dx = 0; dx < 2; ++dx)
+						{
+							allAgriculture = allAgriculture && (chunk.zoneMap[{ x + dx, y + dy }] == ZoneType::Agriculture);
+							averageHeight += chunk.heightMap[y + dy][x + dx];
+						}
+					}
+					if (!allAgriculture) continue;
+					averageHeight *= 0.25f;
+					if (averageHeight < 2.8f) continue;
+
+					const uint32 salt = settlementCellHash(getData().seed ^ 0xD1B54A32u, 131, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
+					LandPatch patch;
+					patch.id = static_cast<int>(patchIndex++);
+					patch.type = ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
+					patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt);
+					patch.elevationOffset = 0.035f;
+					patch.materialVariant = salt;
+					chunk.landPatches << patch;
+				}
+			}
+		}
+	}
+}
+void GameScene::migrateLegacyBuildingFrontageReferences()
+{
+	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
+	for (const auto& settlement : m_districts)
+	{
+		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(settlement, m_world, m_network);
+		for (const EdgeFacingSlot& slot : slots)
+		{
+			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
+			const auto it = edgeFacingSlotsByCell.find(key);
+			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
+			{
+				edgeFacingSlotsByCell[key] = slot;
+			}
+		}
+	}
+
+	int assigned = 0;
+	int unresolved = 0;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			bool changed = false;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					Building& building = chunk->buildingGrid[{ col, row }];
+					if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
+					if (building.edgeId >= 0) continue;
+
+					const int64 key = zoneCellKey(Point{ chunkX, chunkY }, col, row);
+					const auto slotIt = edgeFacingSlotsByCell.find(key);
+					if (slotIt == edgeFacingSlotsByCell.end())
+					{
+						++unresolved;
+						continue;
+					}
+
+					const EdgeFacingSlot& slot = slotIt->second;
+					const int globalGX = chunkX * ZONE_CELLS + col;
+					const int globalGZ = chunkY * ZONE_CELLS + row;
+					const Vec2 roadOffset = roadsideBuildingOffset(slot, building.type, globalGX, globalGZ);
+					building.offsetX = static_cast<float>(roadOffset.x);
+					building.offsetZ = static_cast<float>(roadOffset.y);
+					building.angle = slot.angle;
+					building.edgeId = slot.edgeId;
+					building.edgeT = slot.edgeT;
+					changed = true;
+					++assigned;
+				}
+			}
+			if (changed) chunk->meshDirty = true;
+		}
+	}
+
+	if (assigned > 0 || unresolved > 0)
+	{
+		Logger << U"[migrateLegacyBuildingFrontageReferences] assigned={} unresolved={}"_fmt(assigned, unresolved);
+	}
+}
+bool GameScene::validateGeneratedCityConstraints()
+{
+	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
+	for (const auto& settlement : m_districts)
+	{
+		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(settlement, m_world, m_network);
+		for (const EdgeFacingSlot& slot : slots)
+		{
+			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
+			const auto it = edgeFacingSlotsByCell.find(key);
+			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
+			{
+				edgeFacingSlotsByCell[key] = slot;
+			}
+		}
+	}
+
+	HashSet<int64> generatedParcelKeys;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			for (const LandPatch& patch : chunk->landPatches)
+			{
+				if ((patch.type == LandPatchType::ParcelAsphalt || patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil)
+					&& patch.sourceParcelKey >= 0)
+				{
+					generatedParcelKeys.insert(patch.sourceParcelKey);
+				}
+			}
+		}
+	}
+
+	int buildingCount = 0;
+	int noFrontageCount = 0;
+	int missingEdgeCount = 0;
+	int roadOverlapCount = 0;
+	int frontageDistanceCount = 0;
+	int coastalBuildingCount = 0;
+	int missingParcelCount = 0;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			const Point chunkCoord{ chunkX, chunkY };
+			const Chunk* chunk = m_world.getChunk(chunkCoord);
+			if (!chunk) continue;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					const Building& building = chunk->buildingGrid[{ col, row }];
+					if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
+					++buildingCount;
+
+					const int64 cellKey = zoneCellKey(chunkCoord, col, row);
+					if (!generatedParcelKeys.contains(cellKey))
+					{
+						++missingParcelCount;
+					}
+					if (!edgeFacingSlotsByCell.contains(cellKey) || building.edgeId < 0)
+					{
+						++noFrontageCount;
+					}
+
+					const Vec2 center = cellCenterXZ(chunkCoord, col, row) + Vec2{ building.offsetX, building.offsetZ };
+					const float h = sampleHeightMap(chunk->heightMap, chunkCoord, static_cast<float>(center.x), static_cast<float>(center.y));
+					if (h < 1.55f)
+					{
+						++coastalBuildingCount;
+					}
+
+					const RoadEdge* edge = m_network.getEdge(building.edgeId);
+					if (!edge || !edge->isRoadbedBuilt())
+					{
+						++missingEdgeCount;
+						continue;
+					}
+
+					EdgeProjection projection;
+					if (!projectPointToEdgeXZ(m_network, building.edgeId, center, projection))
+					{
+						++missingEdgeCount;
+						continue;
+					}
+
+					const int globalGX = chunkX * ZONE_CELLS + col;
+					const int globalGZ = chunkY * ZONE_CELLS + row;
+					const float edgeHalfWidth = edge->totalWidth() * 0.5f;
+					const float buildingHalf = buildingFootprintXZ() * 0.5f;
+					const float minimumClearance = edgeHalfWidth + buildingHalf * 0.45f;
+					const float maximumFrontageDistance = edgeHalfWidth + buildingHalf + setbackFromRoadByModel(building.type, globalGX, globalGZ) + 8.0f;
+					if (projection.distance < minimumClearance)
+					{
+						++roadOverlapCount;
+					}
+					const float cosA = Math::Cos(building.angle);
+					const float sinA = Math::Sin(building.angle);
+					int footprintInsideRoadCorners = 0;
+					for (const Vec2 localCorner : { Vec2{ -buildingHalf, -buildingHalf }, Vec2{ buildingHalf, -buildingHalf }, Vec2{ buildingHalf, buildingHalf }, Vec2{ -buildingHalf, buildingHalf } })
+					{
+						const Vec2 corner{ center.x + localCorner.x * cosA - localCorner.y * sinA, center.y + localCorner.x * sinA + localCorner.y * cosA };
+						EdgeProjection cornerProjection;
+						if (projectPointToEdgeXZ(m_network, building.edgeId, corner, cornerProjection)
+							&& cornerProjection.distance < edgeHalfWidth + 0.20f)
+						{
+							++footprintInsideRoadCorners;
+						}
+					}
+					if (footprintInsideRoadCorners >= 2)
+					{
+						++roadOverlapCount;
+					}
+					if (projection.distance > maximumFrontageDistance)
+					{
+						++frontageDistanceCount;
+					}
+				}
+			}
+		}
+	}
+	const bool passed = (noFrontageCount == 0 && missingEdgeCount == 0 && missingParcelCount == 0 && roadOverlapCount == 0
+		&& frontageDistanceCount == 0 && coastalBuildingCount == 0);
+	m_cityConstraintValidationSummary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
+		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
+	Logger << U"[CityConstraintValidation] " + m_cityConstraintValidationSummary;
+	return passed;
+}
 void GameScene::refreshBuildingAnglesFromEdges()
 {
 	int updated = 0;
@@ -2054,6 +2461,11 @@ void GameScene::updateCaptureCityRenders()
 		++m_captureIndex;
 		if (m_captureIndex >= kCaptureCount)
 		{
+			if (!m_cityConstraintValidationPassed)
+			{
+				TextWriter writer{ U"Screenshot/city_generation/constraint_validation_failed.txt" };
+				if (writer) writer << U"City constraint validation failed: " + m_cityConstraintValidationSummary;
+			}
 			System::Exit();
 			return;
 		}

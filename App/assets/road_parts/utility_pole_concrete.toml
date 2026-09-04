@@ -1,0 +1,19 @@
+id = "utility_pole_concrete"
+name = "Concrete Utility Pole"
+type = "UtilityPole"
+tiling = "Longitudinal"
+placement = "RepeatAlongEdge"
+envelope_role = "RoadOwnedObject"
+model_unit_width = 0.16
+model_unit_len = 1.0
+repeat_spacing_m = 22.0
+repeat_jitter_m = 1.8
+height_offset = 0.0
+symmetric = false
+
+[material]
+color = [0.30, 0.29, 0.26]
+
+[lod]
+mesh_names = []
+distances = []

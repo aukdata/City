@@ -228,6 +228,15 @@ public:
 	/// @brief 全案内標識（tombstone 含む）
 	const Array<GuideSignPlacement>& guideSigns() const { return m_guideSigns; }
 
+	/// @brief 手動配置・手動上書きされた道路標示
+	const Array<RoadMarkingPlacement>& manualMarkings() const { return m_manualMarkings; }
+
+	/// @brief 手動道路標示を追加する
+	void addManualMarking(const RoadMarkingPlacement& marking) { m_manualMarkings << marking; }
+
+	/// @brief 手動道路標示を破棄する（ロード前のリセット用）
+	void clearManualMarkings() { m_manualMarkings.clear(); }
+
 	/// @brief 全案内標識を破棄する（ロード前のリセット用）
 	void clearGuideSigns();
 
@@ -351,6 +360,9 @@ private:
 	// ── NamedDestination ──
 	Array<NamedDestination> m_namedDestinations;
 	HashTable<int, int>     m_destByNode;  ///< nodeId → m_namedDestinations index
+
+	// ── RoadMarking（手動標示/上書き）──
+	Array<RoadMarkingPlacement> m_manualMarkings;
 
 	// ── GuideSign（集中管理）──
 	Array<GuideSignPlacement> m_guideSigns;

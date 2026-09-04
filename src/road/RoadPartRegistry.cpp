@@ -28,6 +28,9 @@ namespace
 			{ U"Curb",      RoadPartType::Curb      },
 			{ U"Slope",     RoadPartType::Slope     },
 			{ U"BikeLane",  RoadPartType::BikeLane  },
+			{ U"UtilityPole", RoadPartType::UtilityPole },
+			{ U"RoadsideGutter", RoadPartType::RoadsideGutter },
+			{ U"RoadsideObject", RoadPartType::RoadsideObject },
 		};
 		if (auto it = map.find(s); it != map.end())
 			return it->second;
@@ -39,6 +42,20 @@ namespace
 	{
 		if (s == U"Longitudinal") return TilingMode::Longitudinal;
 		return TilingMode::CrossSection;
+	}
+
+	/// @brief 文字列から RoadPartPlacement を逆引き
+	RoadPartPlacement parsePlacement(const String& s)
+	{
+		if (s == U"RepeatAlongEdge") return RoadPartPlacement::RepeatAlongEdge;
+		return RoadPartPlacement::Strip;
+	}
+
+	/// @brief 文字列から RoadPartEnvelopeRole を逆引き
+	RoadPartEnvelopeRole parseEnvelopeRole(const String& s)
+	{
+		if (s == U"RoadOwnedObject") return RoadPartEnvelopeRole::RoadOwnedObject;
+		return RoadPartEnvelopeRole::Structural;
 	}
 }
 
@@ -114,12 +131,16 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 	if (auto t = parsePartType(toml[U"type"].getOr<String>(U"Roadbed")))
 		def.type = *t;
 
-	// タイリングモード
+	// タイリング・配置モード
 	def.tiling = parseTilingMode(toml[U"tiling"].getOr<String>(U"CrossSection"));
+	def.placement = parsePlacement(toml[U"placement"].getOr<String>(U"Strip"));
+	def.envelopeRole = parseEnvelopeRole(toml[U"envelope_role"].getOr<String>(U"Structural"));
 
 	// 寸法
 	def.modelUnitWidth = static_cast<float>(toml[U"model_unit_width"].getOr<double>(0.5));
 	def.modelUnitLen   = static_cast<float>(toml[U"model_unit_len"].getOr<double>(1.0));
+	def.repeatSpacing  = static_cast<float>(toml[U"repeat_spacing_m"].getOr<double>(def.repeatSpacing));
+	def.repeatJitter   = static_cast<float>(toml[U"repeat_jitter_m"].getOr<double>(def.repeatJitter));
 	def.heightOffset   = static_cast<float>(toml[U"height_offset"].getOr<double>(0.0));
 	def.symmetric      = toml[U"symmetric"].getOr<bool>(false);
 

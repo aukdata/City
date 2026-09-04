@@ -1,6 +1,7 @@
 ﻿#include "WorldRenderer.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
+#include "../road/RoadGeometry.hpp"
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
 #include <algorithm>
@@ -8,7 +9,7 @@
 namespace
 {
 	constexpr float kTerrainCellSize      = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
-	constexpr float kRoadTerrainQuadStep  = 4.0f;
+	constexpr float kRoadTerrainQuadStep  = 24.0f;
 	constexpr float kRoadBedThickness     = 0.5f;
 	constexpr float kTerrainClipEpsilon   = 1e-4f;
 	constexpr float kChunkSizeF           = static_cast<float>(CHUNK_SIZE);
@@ -34,6 +35,11 @@ namespace
 		bool found = false;
 		for (const auto& part : edge.parts)
 		{
+			if (!RoadGeometry::isStructuralStrip(part))
+			{
+				continue;
+			}
+
 			const float left  = roadEdgeOffsetAt(part, ft, true);
 			const float right = roadEdgeOffsetAt(part, ft, false);
 			if (!found)
@@ -503,8 +509,10 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 {
 	const Vec3 worldOrigin = chunk.worldOrigin();
 	const Array<TerrainSubtractionQuad>& quads = getChunkSubtractionQuads(network, chunk.coord);
-	DBG_LOG(U"[TerrainBool] buildTerrainMeshData chunk=({}, {}) quads={}"_fmt(
-		chunk.coord.x, chunk.coord.y, quads.size()));
+	constexpr size_t kMaxDetailedSubtractionQuads = 512;
+	const bool useDetailedSubtraction = (quads.size() <= kMaxDetailedSubtractionQuads);
+	DBG_LOG(U"[TerrainBool] buildTerrainMeshData chunk=({}, {}) quads={} detailed={}"_fmt(
+		chunk.coord.x, chunk.coord.y, quads.size(), useDetailedSubtraction));
 
 	Array<Vertex3D> vertices;
 	Array<TriangleIndex32> indices;
@@ -526,7 +534,7 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 		Array<Array<TerrainClipVertex>> pieces;
 		pieces << Array<TerrainClipVertex>{ a, b, c };
 
-		if (!quads.isEmpty())
+		if (useDetailedSubtraction && !quads.isEmpty())
 		{
 			RectF triBounds = boundsOfPolygon({
 				Vec2{ static_cast<float>(a.pos.x), static_cast<float>(a.pos.z) },
@@ -1396,6 +1404,66 @@ namespace
 		rotateBoxVerticesY(box, cx, cz, angle);
 		appendMeshData(dst, box);
 	}
+
+	int landPatchMaterialKey(LandPatchType type, uint64 seed)
+	{
+		switch (type)
+		{
+		case LandPatchType::ParcelAsphalt: return 117;
+		case LandPatchType::ParcelGravel:  return 118;
+		case LandPatchType::GardenSoil:    return ((seed >> 4) & 1u) ? 112 : 101;
+		case LandPatchType::Beach:        return 119;
+		case LandPatchType::PaddyField:   return ((seed >> 5) & 1u) ? 110 : 114;
+		case LandPatchType::FarmField:    return ((seed >> 6) & 1u) ? 101 : 114;
+		case LandPatchType::Seawall:      return 117;
+		default:                    return 100;
+		}
+	}
+
+	void appendLandPatchSurface(MeshData& dst, const World& world, const LandPatch& patch)
+	{
+		if (patch.polygon.size() < 3) return;
+		Array<TerrainClipVertex> polygon;
+		polygon.reserve(patch.polygon.size());
+		for (const Vec2& p : patch.polygon)
+		{
+			const float y = static_cast<float>(world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.y))) + patch.elevationOffset;
+			const Vec3 pos{ p.x, y, p.y };
+			polygon << TerrainClipVertex{ pos, terrainUvAt(pos) };
+		}
+		if (signedAreaXZ(patch.polygon) < 0.0f)
+		{
+			polygon.reverse();
+		}
+		appendPolygonAsTriangles(polygon, dst.vertices, dst.indices);
+	}
+
+	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const World& world, const LandPatch& patch)
+	{
+		MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
+		appendLandPatchSurface(surface, world, patch);
+		const RectF bounds = boundsOfPolygon(patch.polygon);
+		const float cx = static_cast<float>(bounds.x + bounds.w * 0.5);
+		const float cz = static_cast<float>(bounds.y + bounds.h * 0.5);
+		const float baseY = static_cast<float>(world.sampleHeight(cx, cz)) + patch.elevationOffset;
+
+		if (patch.type == LandPatchType::Seawall)
+		{
+			appendRotatedBox(groups[117], cx, baseY + 0.28f, cz,
+				static_cast<float>(Max(1.4, bounds.w * 0.92)), 0.56f,
+				static_cast<float>(Max(0.8, bounds.h * 0.22)), 0.0f);
+		}
+		else if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
+		{
+			const int ridgeKey = (patch.type == LandPatchType::PaddyField) ? 110 : 101;
+			for (int i = -1; i <= 1; ++i)
+			{
+				const float z = cz + static_cast<float>(i) * static_cast<float>(bounds.h) * 0.22f;
+				appendRotatedBox(groups[ridgeKey], cx, baseY + 0.045f, z,
+					static_cast<float>(Max(1.0, bounds.w * 0.88)), 0.035f, 0.12f, 0.0f);
+			}
+		}
+	}
 	void appendGableRoof(MeshData& dst, float cx, float baseY, float cz,
 	                     float sx, float depth, float roofH, float angle, bool ridgeAlongX)
 	{
@@ -1988,6 +2056,11 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	// 住宅 OBJ インスタンス
 	Array<BuildingModelInstance> modelInstances;
 
+	for (const LandPatch& patch : chunk.landPatches)
+	{
+		appendLandPatchMesh(groups, world, patch);
+	}
+
 	for (int row = 0; row < ZONE_CELLS; ++row)
 	{
 		for (int col = 0; col < ZONE_CELLS; ++col)
@@ -2012,19 +2085,6 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			if (b.type == BuildingType::Farmland)
 			{
 				appendFarmlandDetails(groups, chunk, world, col, row, cx, cz, cellSize);
-				const float tile = cellSize * 0.92f;
-				const float cy = world.sampleHeight(cx, cz) + 0.03f;
-				MeshData field = MeshData::Box(
-					Float3{ cx, cy, cz },
-					Float3{ tile, 0.06f, tile });
-				auto& dst = groups[static_cast<int>(b.type)];
-				const uint32 offset = static_cast<uint32>(dst.vertices.size());
-				dst.vertices.append(field.vertices);
-				for (const auto& tri : field.indices)
-				{
-					dst.indices << TriangleIndex32{
-						tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
-				}
 				continue;
 			}
 			appendUrbanLotDetails(groups, chunk, world, col, row, b, cx, cz, cellSize);

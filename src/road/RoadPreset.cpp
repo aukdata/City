@@ -11,29 +11,60 @@ namespace
 	static JSON partToJson(const RoadPart& part)
 	{
 		JSON j;
-		j[U"defId"]     = part.defId;
+		j[U"defId"] = part.defId;
 		j[U"offsetA_L"] = part.offsetA_L;
 		j[U"offsetA_R"] = part.offsetA_R;
 		j[U"offsetB_L"] = part.offsetB_L;
 		j[U"offsetB_R"] = part.offsetB_R;
-		j[U"build"]     = static_cast<uint8>(part.build);
-		j[U"type"]      = static_cast<uint8>(part.type);
+		j[U"build"] = static_cast<uint8>(part.build);
+		j[U"type"] = static_cast<uint8>(part.type);
+		j[U"placement"] = static_cast<uint8>(part.placement);
+		j[U"envelopeRole"] = static_cast<uint8>(part.envelopeRole);
+		j[U"repeatSpacing"] = part.repeatSpacing;
+		j[U"repeatJitter"] = part.repeatJitter;
+		j[U"useDefinitionRepeatSpacing"] = part.useDefinitionRepeatSpacing;
+		j[U"useDefinitionRepeatJitter"] = part.useDefinitionRepeatJitter;
 		return j;
 	}
 
 	static RoadPart partFromJson(const JSON& j)
 	{
 		RoadPart part;
-		part.defId     = j[U"defId"].getString();
+		part.defId = j[U"defId"].getString();
 		part.offsetA_L = j[U"offsetA_L"].get<float>();
 		part.offsetA_R = j[U"offsetA_R"].get<float>();
 		part.offsetB_L = j[U"offsetB_L"].get<float>();
 		part.offsetB_R = j[U"offsetB_R"].get<float>();
-		part.build     = static_cast<BuildState>(j[U"build"].get<uint8>());
-		part.type      = static_cast<RoadPartType>(j[U"type"].get<uint8>());
+		part.build = static_cast<BuildState>(j[U"build"].get<uint8>());
+		part.type = static_cast<RoadPartType>(j[U"type"].get<uint8>());
+		if (j.hasElement(U"placement"))
+		{
+			part.placement = static_cast<RoadPartPlacement>(j[U"placement"].get<uint8>());
+		}
+		if (j.hasElement(U"envelopeRole"))
+		{
+			part.envelopeRole = static_cast<RoadPartEnvelopeRole>(j[U"envelopeRole"].get<uint8>());
+		}
+		if (j.hasElement(U"repeatSpacing"))
+		{
+			part.repeatSpacing = j[U"repeatSpacing"].get<float>();
+			part.useDefinitionRepeatSpacing = false;
+		}
+		if (j.hasElement(U"repeatJitter"))
+		{
+			part.repeatJitter = j[U"repeatJitter"].get<float>();
+			part.useDefinitionRepeatJitter = false;
+		}
+		if (j.hasElement(U"useDefinitionRepeatSpacing"))
+		{
+			part.useDefinitionRepeatSpacing = j[U"useDefinitionRepeatSpacing"].get<bool>();
+		}
+		if (j.hasElement(U"useDefinitionRepeatJitter"))
+		{
+			part.useDefinitionRepeatJitter = j[U"useDefinitionRepeatJitter"].get<bool>();
+		}
 		return part;
 	}
-
 	static JSON laneToJson(const Lane& lane)
 	{
 		JSON j;

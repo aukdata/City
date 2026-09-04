@@ -1,4 +1,4 @@
-﻿id = "roadbed_asphalt"
+id = "roadbed_asphalt"
 name = "アスファルト路盤"
 type = "Roadbed"
 tiling = "CrossSection"
@@ -9,8 +9,8 @@ height_offset = 0.0
 symmetric = true
 
 [material]
-texture = "asphalt.png"
-color = [0.50, 0.50, 0.47]
+texture = "../third_party/polyhaven/asphalt_floor/asphalt_floor_diff_1k.jpg"
+color = [0.62, 0.58, 0.52]
 
 [lod]
 mesh_names = ["center", "center_lod1"]
