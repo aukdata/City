@@ -1532,12 +1532,29 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		for (int col = 0; col < ZONE_CELLS; ++col)
 		{
 			const Building& b = chunk.buildingGrid[{ col, row }];
-			if (b.type == BuildingType::None || b.type == BuildingType::Farmland)
+			if (b.type == BuildingType::None)
 				continue;
 
 			const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize);
 			const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize);
 
+			if (b.type == BuildingType::Farmland)
+			{
+				const float tile = cellSize * 0.92f;
+				const float cy = world.sampleHeight(cx, cz) + 0.03f;
+				MeshData field = MeshData::Box(
+					Float3{ cx, cy, cz },
+					Float3{ tile, 0.06f, tile });
+				auto& dst = groups[static_cast<int>(b.type)];
+				const uint32 offset = static_cast<uint32>(dst.vertices.size());
+				dst.vertices.append(field.vertices);
+				for (const auto& tri : field.indices)
+				{
+					dst.indices << TriangleIndex32{
+						tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
+				}
+				continue;
+			}
 			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
 			if (isObjBuildingType(b.type))
 			{

@@ -911,6 +911,128 @@ void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts
 }
 
 // =============================================================================
+// 初期土地利用の形状補助
+// =============================================================================
+
+namespace
+{
+	uint32 settlementCellHash(uint64 seed, int settlementIndex, int gx, int gz)
+	{
+		uint64 value = seed ^ (static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL);
+		value ^= static_cast<uint64>(gx) * 0xBF58476D1CE4E5B9ULL;
+		value ^= static_cast<uint64>(gz) * 0x94D049BB133111EBULL;
+		value ^= value >> 30;
+		value *= 0xBF58476D1CE4E5B9ULL;
+		value ^= value >> 27;
+		value *= 0x94D049BB133111EBULL;
+		value ^= value >> 31;
+		return static_cast<uint32>(value);
+	}
+
+	float hash01(uint64 seed, int settlementIndex, int gx, int gz)
+	{
+		return static_cast<float>(settlementCellHash(seed, settlementIndex, gx, gz) & 0xFFFFu) / 65535.0f;
+	}
+
+	Vec2 landUseAxisX(const MapGenerator::Settlement& settlement, uint64 seed, int settlementIndex)
+	{
+		if (settlement.gridAxisX.lengthSq() > 1e-6f)
+		{
+			Vec2 axis = settlement.gridAxisX;
+			axis.normalize();
+			return axis;
+		}
+		const float angle = static_cast<float>((seed + settlementIndex * 97) % 6283) * 0.001f;
+		return Vec2{ Math::Cos(angle), Math::Sin(angle) };
+	}
+
+	float localSlope(const Chunk& chunk, Point chunkCoord, float wx, float wz)
+	{
+		constexpr float sample = 16.0f;
+		const float hx0 = sampleHeightMap(chunk.heightMap, chunkCoord, wx - sample, wz);
+		const float hx1 = sampleHeightMap(chunk.heightMap, chunkCoord, wx + sample, wz);
+		const float hz0 = sampleHeightMap(chunk.heightMap, chunkCoord, wx, wz - sample);
+		const float hz1 = sampleHeightMap(chunk.heightMap, chunkCoord, wx, wz + sample);
+		const float dx = (hx1 - hx0) / (sample * 2.0f);
+		const float dz = (hz1 - hz0) / (sample * 2.0f);
+		return Math::Sqrt(dx * dx + dz * dz);
+	}
+
+	ZoneType pickInitialZone(uint64 seed, int settlementIndex,
+		const MapGenerator::Settlement& settlement, const Chunk& chunk, Point chunkCoord,
+		int globalGX, int globalGZ, float wx, float wz)
+	{
+		const float h = sampleHeightMap(chunk.heightMap, chunkCoord, wx, wz);
+		if (h < 0.0f) return ZoneType::Unzoned;
+		const float slope = localSlope(chunk, chunkCoord, wx, wz);
+		if (slope > 0.16f) return ZoneType::Unzoned;
+
+		const Vec2 axisX = landUseAxisX(settlement, seed, settlementIndex);
+		const Vec2 axisZ{ -axisX.y, axisX.x };
+		const Vec2 delta{ wx - static_cast<float>(settlement.center.x), wz - static_cast<float>(settlement.center.y) };
+		const float lx = static_cast<float>(delta.dot(axisX));
+		const float lz = static_cast<float>(delta.dot(axisZ));
+		const float n = hash01(seed, settlementIndex, globalGX / 2, globalGZ / 2);
+		const float fine = hash01(seed ^ 0xA53A9E11ULL, settlementIndex, globalGX, globalGZ);
+
+		if (settlement.kind == MapGenerator::SettlementKind::CastleTown)
+		{
+			const float halfX = Max(880.0f, settlement.radius * 1.15f) * (0.94f + n * 0.14f);
+			const float halfZ = Max(680.0f, settlement.radius * 0.88f) * (0.90f + n * 0.16f);
+			const float nx = Math::Abs(lx) / halfX;
+			const float nz = Math::Abs(lz) / halfZ;
+			const float roundedShape = Math::Pow(nx, 1.45f) + Math::Pow(nz, 1.45f);
+			const float cornerBite = (nx > 0.62f && nz > 0.62f) ? 0.20f + fine * 0.14f : 0.0f;
+			const float boundaryNoise = (n - 0.5f) * 0.30f + Math::Sin((lx + lz) * 0.003f) * 0.06f;
+			const float corridor = Min(Math::Abs(lz) / 135.0f + Math::Abs(lx) / (halfX * 1.38f),
+				Math::Abs(lx) / 125.0f + Math::Abs(lz) / (halfZ * 1.30f));
+			const bool urbanCorridor = corridor < 1.0f;
+			const bool detachedPocket = roundedShape < (1.18f + boundaryNoise - cornerBite);
+			if (!detachedPocket && !urbanCorridor)
+			{
+				const float fieldShape = Math::Pow(nx, 1.20f) + Math::Pow(nz, 1.20f);
+				return (fieldShape < 1.55f && slope < 0.060f && fine < 0.62f) ? ZoneType::Agriculture : ZoneType::Unzoned;
+			}
+			if (roundedShape > 0.86f && fine < 0.20f) return ZoneType::Industrial;
+			if (urbanCorridor || (Math::Abs(lx) < 330.0f && Math::Abs(lz) < 260.0f && fine < 0.72f)) return ZoneType::Commercial;
+			if (roundedShape < 0.68f || fine < 0.54f) return ZoneType::Residential;
+			return ZoneType::LowResidential;
+		}
+
+		if (settlement.kind == MapGenerator::SettlementKind::PostTown)
+		{
+			const float length = Max(420.0f, settlement.radius * 1.75f) * (0.90f + n * 0.20f);
+			const float width = Max(150.0f, settlement.radius * 0.72f) * (0.88f + n * 0.20f);
+			const float ribbon = Math::Abs(lx) / length + Math::Abs(lz) / width;
+			if (ribbon > 1.55f) return (slope < 0.045f && fine < 0.50f) ? ZoneType::Agriculture : ZoneType::Unzoned;
+			if (Math::Abs(lz) < 62.0f && Math::Abs(lx) < length * 0.82f) return ZoneType::Commercial;
+			return (ribbon < 1.02f) ? ZoneType::Residential : ZoneType::LowResidential;
+		}
+
+		const float hamlet = Math::Abs(lx) / Max(170.0f, settlement.radius * 1.25f)
+			+ Math::Abs(lz) / Max(72.0f, settlement.radius * 0.58f);
+		if (hamlet < 0.78f) return ZoneType::LowResidential;
+		if (hamlet < 1.05f && fine < 0.35f) return ZoneType::Residential;
+		const float fieldRadius = Max(360.0f, settlement.radius * 2.8f) * (0.90f + n * 0.18f);
+		if (delta.length() < fieldRadius && slope < 0.060f) return ZoneType::Agriculture;
+		return ZoneType::Unzoned;
+	}
+
+	int zonePriority(ZoneType zone)
+	{
+		switch (zone)
+		{
+		case ZoneType::Commercial: return 5;
+		case ZoneType::Residential: return 4;
+		case ZoneType::LowResidential: return 3;
+		case ZoneType::Industrial: return 2;
+		case ZoneType::Agriculture: return 1;
+		case ZoneType::UrbanControl: return 0;
+		default: return -1;
+		}
+	}
+}
+// =============================================================================
 // ゾーン一括割り当て
 // =============================================================================
 
@@ -919,24 +1041,16 @@ void GameScene::applyZonesGlobal()
 	const Stopwatch sw{ StartImmediately::Yes };
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 
-	// 各地区の性格と中心距離に応じて、周辺チャンクへ住宅・商業系ゾーンを面で割り当てる。
-	for (const auto& s : m_districts)
+	for (int si = 0; si < static_cast<int>(m_districts.size()); ++si)
 	{
-		const float innerDist = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 400.0f
-		                      : (s.kind == MapGenerator::SettlementKind::PostTown)  ? 200.0f : 100.0f;
-		const float midDist   = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 800.0f
-		                      : (s.kind == MapGenerator::SettlementKind::PostTown)  ? 600.0f : 300.0f;
-		const float outerDist = (s.kind == MapGenerator::SettlementKind::CastleTown)    ? 1200.0f
-		                      : midDist;
+		const auto& settlement = m_districts[si];
+		const float outerDist = (settlement.kind == MapGenerator::SettlementKind::CastleTown) ? Max(1350.0f, settlement.radius * 1.35f)
+			: (settlement.kind == MapGenerator::SettlementKind::PostTown) ? Max(850.0f, settlement.radius * 2.30f)
+			: Max(520.0f, settlement.radius * 3.20f);
 
-		const float innerSq = innerDist * innerDist;
-		const float midSq   = midDist   * midDist;
-		const float outerSq = outerDist * outerDist;
-
-		const float scx = static_cast<float>(s.center.x);
-		const float scz = static_cast<float>(s.center.y);
-
-		const int chunkRadius = static_cast<int>(Ceil(outerDist / CHUNK_SIZE));
+		const float scx = static_cast<float>(settlement.center.x);
+		const float scz = static_cast<float>(settlement.center.y);
+		const int chunkRadius = static_cast<int>(Ceil(outerDist / CHUNK_SIZE)) + 1;
 		const int ccx = static_cast<int>(Math::Floor(scx / CHUNK_SIZE));
 		const int ccz = static_cast<int>(Math::Floor(scz / CHUNK_SIZE));
 
@@ -950,12 +1064,10 @@ void GameScene::applyZonesGlobal()
 
 				const float chunkOriginX = static_cast<float>(cc.x * CHUNK_SIZE);
 				const float chunkOriginZ = static_cast<float>(cc.y * CHUNK_SIZE);
-
 				const int gxMin = Max(0, static_cast<int>((scx - outerDist - chunkOriginX) / cellSize));
 				const int gxMax = Min(ZONE_CELLS - 1, static_cast<int>((scx + outerDist - chunkOriginX) / cellSize));
 				const int gzMin = Max(0, static_cast<int>((scz - outerDist - chunkOriginZ) / cellSize));
 				const int gzMax = Min(ZONE_CELLS - 1, static_cast<int>((scz + outerDist - chunkOriginZ) / cellSize));
-
 				if (gxMin > gxMax || gzMin > gzMax) continue;
 
 				for (int gz = gzMin; gz <= gzMax; ++gz)
@@ -964,40 +1076,89 @@ void GameScene::applyZonesGlobal()
 					{
 						const float wx = chunkOriginX + (gx + 0.5f) * cellSize;
 						const float wz = chunkOriginZ + (gz + 0.5f) * cellSize;
-						const float dx = wx - scx;
-						const float dz = wz - scz;
-						const float dSq = dx * dx + dz * dz;
+						const int globalGX = cc.x * ZONE_CELLS + gx;
+						const int globalGZ = cc.y * ZONE_CELLS + gz;
+						const ZoneType candidate = pickInitialZone(getData().seed, si, settlement,
+							*chunk, cc, globalGX, globalGZ, wx, wz);
+						if (candidate == ZoneType::Unzoned) continue;
 
-						if (dSq > outerSq) continue;
-
-						const float h = sampleHeightMap(chunk->heightMap, cc, wx, wz);
-						if (h < 0.0f) continue;
-
-						ZoneType zt;
-						if (dSq <= innerSq)
-							zt = (s.kind == MapGenerator::SettlementKind::CastleTown)
-								? ZoneType::Commercial : ZoneType::Residential;
-						else if (dSq <= midSq)
-							zt = ZoneType::Residential;
-						else
-							zt = ZoneType::LowResidential;
-
-						chunk->zoneMap[{ gx, gz }] = zt;
+						ZoneType& current = chunk->zoneMap[{ gx, gz }];
+						if (zonePriority(candidate) >= zonePriority(current))
+						{
+							current = candidate;
+						}
 					}
 				}
 			}
 		}
 	}
 
-	Logger << U"[applyZonesGlobal] {:.0f}ms"_fmt(sw.msF());
+	Logger << U"[applyZonesGlobal] realistic land-use {:.0f}ms"_fmt(sw.msF());
 }
-
 // =============================================================================
 // 初期建物配置
 // =============================================================================
 
 namespace
 {
+	namespace InitialBuilding
+	{
+		float density(MapGenerator::SettlementKind kind, ZoneType zone)
+		{
+			if (kind == MapGenerator::SettlementKind::CastleTown)
+			{
+				if (zone == ZoneType::Commercial) return 0.82f;
+				if (zone == ZoneType::Residential) return 0.62f;
+				if (zone == ZoneType::LowResidential) return 0.40f;
+				if (zone == ZoneType::Industrial) return 0.30f;
+				if (zone == ZoneType::Agriculture) return 0.32f;
+			}
+			else if (kind == MapGenerator::SettlementKind::PostTown)
+			{
+				if (zone == ZoneType::Commercial) return 0.68f;
+				if (zone == ZoneType::Residential) return 0.56f;
+				if (zone == ZoneType::LowResidential) return 0.36f;
+				if (zone == ZoneType::Industrial) return 0.34f;
+				if (zone == ZoneType::Agriculture) return 0.45f;
+			}
+			else
+			{
+				if (zone == ZoneType::Residential) return 0.30f;
+				if (zone == ZoneType::LowResidential) return 0.24f;
+				if (zone == ZoneType::Agriculture) return 0.72f;
+			}
+			return 0.0f;
+		}
+
+		Building spawn(ZoneType zone, MapGenerator::SettlementKind kind, GameTime gameNow, uint32 hash)
+		{
+			Building building;
+			building.builtAt = gameNow;
+			switch (zone)
+			{
+			case ZoneType::LowResidential:
+				building.type = ((hash % 100) < (kind == MapGenerator::SettlementKind::Village ? 92u : 78u))
+					? BuildingType::Detached : BuildingType::LowApartment;
+				break;
+			case ZoneType::Residential:
+				building.type = ((hash % 100) < 76u) ? BuildingType::Detached : BuildingType::LowApartment;
+				break;
+			case ZoneType::Commercial:
+				building.type = ((hash % 100) < 72u) ? BuildingType::Shop : BuildingType::Office;
+				break;
+			case ZoneType::Industrial:
+				building.type = BuildingType::Factory;
+				break;
+			case ZoneType::Agriculture:
+				building.type = BuildingType::Farmland;
+				break;
+			default:
+				building.type = BuildingType::None;
+				break;
+			}
+			return building;
+		}
+	}
 	constexpr float kDefaultBuildingSetbackM = 2.0f;
 
 	String buildingTomlPathFromStem(const String& stem)
@@ -1215,7 +1376,7 @@ namespace
 		for (const auto& edge : network.edges())
 		{
 			if (edge.id < 0 || !edge.isRoadbedBuilt()) continue;
-			if (edge.roadType != RoadType::LocalRoad) continue;
+			if (edge.roadType != RoadType::LocalRoad && edge.roadType != RoadType::Arterial) continue;
 
 			const auto bez = network.getBezier(edge.id);
 			if (!bez || bez->totalLength <= 1.0f) continue;
@@ -1352,11 +1513,19 @@ void GameScene::placeInitialBuildings()
 			const float distFromCenterSq = dx * dx + dz * dz;
 			if (distFromCenterSq > radiusSq) continue;
 
-				const float h = sampleHeightMap(
-					chunk->heightMap, slot.chunkCoord,
-					static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
-				if (h < 0.0f) continue;
-				if (overlapsExistingBuilding(
+			const float h = sampleHeightMap(
+				chunk->heightMap, slot.chunkCoord,
+				static_cast<float>(centerPos.x), static_cast<float>(centerPos.y));
+			if (h < 0.0f) continue;
+
+			const int globalGX = slot.chunkCoord.x * ZONE_CELLS + slot.col;
+			const int globalGZ = slot.chunkCoord.y * ZONE_CELLS + slot.row;
+			const uint32 cellHash = settlementCellHash(getData().seed, si, globalGX, globalGZ);
+			Building b = InitialBuilding::spawn(zone, s.kind, 0.0, cellHash);
+			if (b.type == BuildingType::None) continue;
+
+			if (b.type != BuildingType::Farmland
+				&& overlapsExistingBuilding(
 					m_world, slot.chunkCoord, slot.col, slot.row,
 					static_cast<float>(centerPos.x), static_cast<float>(centerPos.y), halfBuilding)) continue;
 
@@ -1366,23 +1535,17 @@ void GameScene::placeInitialBuildings()
 			else                                roadScore = 0.0f;
 
 			const float distFromCenter = Math::Sqrt(distFromCenterSq);
-			const float densityFactor = Clamp(0.25f * (1.0f - distFromCenter / (s.radius * 2.0f)), 0.0f, 0.25f);
+			const float centerFalloff = Clamp(1.0f - distFromCenter / Max(1.0f, s.radius * 2.2f), 0.20f, 1.0f);
+			const float densityFactor = InitialBuilding::density(s.kind, zone) * (0.58f + centerFalloff * 0.42f);
 			const float score = roadScore * densityFactor;
-			if (score < 0.02f) continue;
+			if (score < 0.08f) continue;
 
-			const uint32 cellHash = static_cast<uint32>(
-				(slot.col * 73856093) ^ (slot.row * 19349663) ^ (slot.chunkCoord.x * 83492791) ^ (slot.chunkCoord.y * 41729581));
 			const float roll = (cellHash % 1000) / 1000.0f;
 			if (roll > score) continue;
 
-			Building b = m_zoneManager.spawnBuilding(zone, 0.0);
-			if (b.type == BuildingType::None) continue;
-
-			const int globalGX = slot.chunkCoord.x * ZONE_CELLS + slot.col;
-			const int globalGZ = slot.chunkCoord.y * ZONE_CELLS + slot.row;
 			const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
-			if (slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
-
+			if (b.type != BuildingType::Farmland
+				&& slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
 			b.angle = buildingAngleFromAttachedEdge(m_network, slot.edgeId, slot.edgeT, slot.angle);
 			b.edgeId = slot.edgeId;
 			b.edgeT = slot.edgeT;
@@ -1409,7 +1572,35 @@ void GameScene::placeInitialBuildings()
 		}
 	}
 
-	Logger << U"[placeInitialBuildings] {} 棟配置 ({:.0f}ms)"_fmt(placed, sw.msF());
+	int fieldCells = 0;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			bool changed = false;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					if (chunk->zoneMap[{ col, row }] != ZoneType::Agriculture) continue;
+					Building& building = chunk->buildingGrid[{ col, row }];
+					if (building.type != BuildingType::None) continue;
+					const int globalGX = chunkX * ZONE_CELLS + col;
+					const int globalGZ = chunkY * ZONE_CELLS + row;
+					const uint32 hash = settlementCellHash(getData().seed, 0, globalGX / 2, globalGZ / 2);
+					if ((hash % 100u) >= 86u) continue;
+					building.type = BuildingType::Farmland;
+					building.builtAt = 0.0;
+					++fieldCells;
+					changed = true;
+				}
+			}
+			if (changed) chunk->meshDirty = true;
+		}
+	}
+	Logger << U"[placeInitialBuildings] {} 棟配置, 農地{}セル ({:.0f}ms)"_fmt(placed, fieldCells, sw.msF());
 	refreshBuildingAnglesFromEdges();
 }
 

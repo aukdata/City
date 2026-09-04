@@ -8,6 +8,7 @@ void Main()
 	TestRunner runner;
 	registerBezierBuildingFrontageTests(runner);
 	registerSaveTransactionTests(runner);
+	registerCityGenerationVisualTests(runner);
 	const int exitCode = runner.run();
 	::_exit(exitCode);
 }

@@ -127,6 +127,7 @@ inline ColorF buildingColor(BuildingType type)
 	case BuildingType::Shop:           return ColorF{ 0.95, 0.78, 0.30 };
 	case BuildingType::Office:         return ColorF{ 0.70, 0.75, 0.80 };
 	case BuildingType::Factory:        return ColorF{ 0.50, 0.48, 0.46 };
+	case BuildingType::Farmland:       return ColorF{ 0.55, 0.62, 0.32 };
 	case BuildingType::ParkBuilding:   return ColorF{ 0.30, 0.70, 0.35 };
 	case BuildingType::PublicFacility: return ColorF{ 0.80, 0.60, 0.85 };
 	case BuildingType::Parking:        return ColorF{ 0.55, 0.55, 0.55 };

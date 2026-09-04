@@ -77,6 +77,23 @@ namespace DistrictRoads
 			return v;
 		}
 
+		uint32 districtHash(uint64 seed, int a, int b, int c = 0)
+		{
+			uint64 value = seed ^ (static_cast<uint64>(a) * 0x9E3779B97F4A7C15ULL);
+			value ^= static_cast<uint64>(b) * 0xBF58476D1CE4E5B9ULL;
+			value ^= static_cast<uint64>(c) * 0x94D049BB133111EBULL;
+			value ^= value >> 30;
+			value *= 0xBF58476D1CE4E5B9ULL;
+			value ^= value >> 27;
+			value *= 0x94D049BB133111EBULL;
+			value ^= value >> 31;
+			return static_cast<uint32>(value);
+		}
+
+		float districtHashSigned(uint64 seed, int a, int b, int c = 0)
+		{
+			return (static_cast<float>(districtHash(seed, a, b, c) & 0xFFFFu) / 32767.5f) - 1.0f;
+		}
 		/// @brief Arterial / LocalRoad のみを街道候補エッジとみなす
 		bool isKaidoEdge(const RoadNetwork& network, int edgeId)
 		{
@@ -1173,7 +1190,7 @@ namespace DistrictRoads
 			const World& world,
 			RoadNetwork& network)
 		{
-			[[maybe_unused]] const uint64 localSeed = seed ^ (0xCA57A11ULL + static_cast<uint64>(settlementIndex) * 2654435761ULL);
+			const uint64 localSeed = seed ^ (0xCA57A11ULL + static_cast<uint64>(settlementIndex) * 2654435761ULL);
 
 			const float halfExtent = castleHalfExtent(settlement);
 			const float arterialRadius = halfExtent;
@@ -1232,7 +1249,17 @@ namespace DistrictRoads
 
 		auto localToWorld = [&](float lx, float lz) -> Vec3
 		{
-			const Vec2 xz = settlement.center + axisX * lx + axisZ * lz;
+			const float edgeFactor = Clamp(Max(Math::Abs(lx), Math::Abs(lz)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
+			const bool mainStreet = (Math::Abs(lx) < 120.0f || Math::Abs(lz) < 120.0f);
+			const bool outerFrame = (Math::Abs(lx) > halfExtent * 0.94f || Math::Abs(lz) > halfExtent * 0.94f);
+			const float strength = (mainStreet ? 12.0f : 34.0f + edgeFactor * 18.0f) * (outerFrame ? 0.30f : 1.0f);
+			const int ix = static_cast<int>(Round(lx / 40.0f));
+			const int iz = static_cast<int>(Round(lz / 40.0f));
+			const float oldRoadBendX = Math::Sin((lz + settlementIndex * 37.0f) * 0.0041f) * 12.0f;
+			const float oldRoadBendZ = Math::Sin((lx - settlementIndex * 29.0f) * 0.0037f) * 10.0f;
+			const float warpedX = lx + districtHashSigned(localSeed, ix, iz, 1) * strength + oldRoadBendX;
+			const float warpedZ = lz + districtHashSigned(localSeed, ix, iz, 2) * strength + oldRoadBendZ;
+			const Vec2 xz = settlement.center + axisX * warpedX + axisZ * warpedZ;
 			const float y = world.computeHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
 			return Vec3{ xz.x, y, xz.y };
 		};
@@ -1271,6 +1298,19 @@ namespace DistrictRoads
 		auto tryAddGridEdge = [&](int colA, int rowA, int colB, int rowB)
 		{
 			if (insideCastleBlock(coords[colA], coords[rowA], coords[colB], coords[rowB])) return;
+
+			const float midX = 0.5f * (coords[colA] + coords[colB]);
+			const float midZ = 0.5f * (coords[rowA] + coords[rowB]);
+			const bool mainStreet = (Math::Abs(midX) < 140.0f || Math::Abs(midZ) < 140.0f);
+			const bool outerFrame = (colA == 0 || colB == 0 || rowA == 0 || rowB == 0
+				|| colA == n - 1 || colB == n - 1 || rowA == n - 1 || rowB == n - 1);
+			if (!mainStreet && !outerFrame)
+			{
+				const float edgeFactor = Clamp(Max(Math::Abs(midX), Math::Abs(midZ)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
+				const uint32 h = districtHash(localSeed, colA * 131 + colB * 17, rowA * 97 + rowB * 23, 3);
+				const uint32 dropPercent = static_cast<uint32>(9.0f + edgeFactor * 12.0f);
+				if ((h % 100u) < dropPercent) return;
+			}
 
 			const int nodeA = nodeIds[{ colA, rowA }];
 			const int nodeB = nodeIds[{ colB, rowB }];
