@@ -45,3 +45,30 @@ void Economy::applyMonthly(const RoadNetwork& net)
 	funds += monthlyGrant();
 	funds -= roadMaintenanceCost(net);
 }
+
+MonthlyEconomyResult Economy::previewMonthly(const RoadNetwork& net,
+	const CitySnapshot& snapshot, int activeBusRouteCount) const
+{
+	MonthlyEconomyResult result;
+	const MonthlyCityOutcome cityOutcome = calculateMonthlyCityOutcome(
+		population, happiness, snapshot);
+	Economy projected = *this;
+	projected.happiness = cityOutcome.happiness;
+	result.grant = projected.monthlyGrant();
+	result.roadMaintenance = roadMaintenanceCost(net);
+	result.busOperation = Max(0, activeBusRouteCount) * 0.10;
+	result.balance = result.grant - result.roadMaintenance - result.busOperation;
+	result.populationDelta = cityOutcome.populationDelta;
+	result.happiness = cityOutcome.happiness;
+	return result;
+}
+
+MonthlyEconomyResult Economy::applyMonthly(const RoadNetwork& net,
+	const CitySnapshot& snapshot, int activeBusRouteCount)
+{
+	const MonthlyEconomyResult result = previewMonthly(net, snapshot, activeBusRouteCount);
+	happiness = result.happiness;
+	population = Max(0, population + result.populationDelta);
+	funds += result.balance;
+	return result;
+}

@@ -5,6 +5,35 @@
 
 namespace
 {
+	constexpr double kConstructionUnitsPerDay = GameClock::kSecondsPerGameDay;
+	constexpr double kConstructionUnitsPerMonth = GameClock::kSecondsPerGameMonth;
+
+	/// @brief 道路種別ごとの概算建設費 [億円/km]
+	double constructionCostPerKm(RoadType roadType)
+	{
+		switch (roadType)
+		{
+		case RoadType::LocalRoad:  return 0.5;   // 生活道路
+		case RoadType::Arterial:   return 1.5;   // 県道級の幹線
+		case RoadType::Expressway: return 8.0;   // バイパス・自動車専用道級
+		case RoadType::Highway:    return 20.0;  // 高速道路級
+		}
+		return 0.5;
+	}
+
+	/// @brief 道路種別ごとの建設期間 [ゲーム月/km]
+	double constructionMonthsPerKm(RoadType roadType)
+	{
+		switch (roadType)
+		{
+		case RoadType::LocalRoad:  return 1.0;
+		case RoadType::Arterial:   return 2.0;
+		case RoadType::Expressway: return 6.0;
+		case RoadType::Highway:    return 12.0;
+		}
+		return 1.0;
+	}
+
 	/// @brief XZ 平面での 2D 線分交差判定
 	/// @param a1,a2  線分1の端点 (x = world-X, y = world-Z)
 	/// @param b1,b2  線分2の端点
@@ -2163,28 +2192,14 @@ bool RoadNetwork::completePlanConstruction(int planId)
 double RoadNetwork::estimatePlanConstructionDuration(RoadType roadType, double totalLengthMeters) const
 {
 	const double lengthKm = totalLengthMeters / 1000.0;
-	double secondsPerKm = 90.0;
-	switch (roadType)
-	{
-	case RoadType::LocalRoad:  secondsPerKm = 90.0; break;
-	case RoadType::Arterial:   secondsPerKm = 120.0; break;
-	case RoadType::Expressway: secondsPerKm = 180.0; break;
-	case RoadType::Highway:    secondsPerKm = 210.0; break;
-	}
-	return Max(30.0, lengthKm * secondsPerKm);
+	const double duration = lengthKm * constructionMonthsPerKm(roadType) * kConstructionUnitsPerMonth;
+	return Max(kConstructionUnitsPerDay, duration);
 }
 
 double RoadNetwork::estimatePlanCost(RoadType roadType, double totalLengthMeters) const
 {
-	double unitCost = 25000.0;
-	switch (roadType)
-	{
-	case RoadType::LocalRoad:  unitCost = 25000.0; break;
-	case RoadType::Arterial:   unitCost = 45000.0; break;
-	case RoadType::Expressway: unitCost = 80000.0; break;
-	case RoadType::Highway:    unitCost = 95000.0; break;
-	}
-	return totalLengthMeters * unitCost;
+	const double lengthKm = totalLengthMeters / 1000.0;
+	return lengthKm * constructionCostPerKm(roadType);
 }
 
 void RoadNetwork::onEdgeRemovedFromPlans(int edgeId)

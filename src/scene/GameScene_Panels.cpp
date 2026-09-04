@@ -17,6 +17,96 @@ namespace
 		return FontAsset(Asset::PanelBold14);
 	}
 
+	constexpr double kConstructionUnitsPerDay = GameClock::kSecondsPerGameDay;
+	constexpr double kConstructionCostEpsilon = 1e-6;
+
+	String formatConstructionCost(double costOku)
+	{
+		if (costOku < 1.0)
+		{
+			return U"{:.2f}億円"_fmt(costOku);
+		}
+		if (costOku < 10.0)
+		{
+			return U"{:.1f}億円"_fmt(costOku);
+		}
+		if (costOku < 100.0)
+		{
+			return U"{:.1f}億円"_fmt(costOku);
+		}
+		return U"{:.0f}億円"_fmt(costOku);
+	}
+
+	String formatConstructionDuration(double constructionDuration)
+	{
+		const int totalDays = static_cast<int>(Ceil(Max(0.0, constructionDuration) / kConstructionUnitsPerDay));
+		if (totalDays <= 0)
+		{
+			return U"0日";
+		}
+		const int months = totalDays / 30;
+		const int days = totalDays % 30;
+		if (months > 0 && days > 0)
+		{
+			return U"{}か月{}日"_fmt(months, days);
+		}
+		if (months > 0)
+		{
+			return U"{}か月"_fmt(months);
+		}
+		return U"{}日"_fmt(days);
+	}
+
+	bool canAffordConstruction(double funds, double costOku)
+	{
+		return funds + kConstructionCostEpsilon >= costOku;
+	}
+
+	double constructionStartCostForEdge(const RoadNetwork& network, const RoadEdge& edge)
+	{
+		if (edge.planId >= 0)
+		{
+			if (const RoadPlan* plan = network.getPlan(edge.planId))
+			{
+				return (plan->state == PlanState::Planning) ? static_cast<double>(plan->totalCost) : 0.0;
+			}
+		}
+		return network.estimatePlanCost(edge.roadType, edge.length);
+	}
+
+	double plannedConstructionCostForRoute(const RoadNetwork& network, const RoadRoute& route)
+	{
+		HashSet<int> countedPlanIds;
+		double totalCost = 0.0;
+		for (const int eid : route.edgeIds)
+		{
+			const RoadEdge* edge = network.getEdge(eid);
+			if (!edge || edge->edgeState != EdgeState::Planned)
+			{
+				continue;
+			}
+			if (edge->planId >= 0)
+			{
+				if (countedPlanIds.contains(edge->planId))
+				{
+					continue;
+				}
+				if (const RoadPlan* plan = network.getPlan(edge->planId))
+				{
+					if (plan->state == PlanState::Planning)
+					{
+						totalCost += static_cast<double>(plan->totalCost);
+						countedPlanIds.insert(edge->planId);
+					}
+				}
+			}
+			else
+			{
+				totalCost += network.estimatePlanCost(edge->roadType, edge->length);
+			}
+		}
+		return totalCost;
+	}
 
 	/// @brief RoadPartType に対するデフォルト defId を返す
 	StringView defaultDefIdForType(RoadPartType type)
@@ -816,19 +906,39 @@ void GameScene::drawEdgePanel()
 
 			if (edge->edgeState == EdgeState::Planned)
 			{
-				if (ui.button(U"建設", false, 60, U"このエッジの建設を開始"))
+				const double startCost = constructionStartCostForEdge(m_network, *edge);
+				const bool hasFunds = canAffordConstruction(m_economy.funds, startCost);
+				if (ui.button(U"建設", false, 60, U"{}を支出して建設を開始"_fmt(formatConstructionCost(startCost))) && hasFunds)
 				{
+					bool started = false;
+					double chargedCost = 0.0;
 					if (edge->planId >= 0)
-						m_network.startPlanConstruction(edge->planId, m_clock.now);
+					{
+						if (const RoadPlan* plan = m_network.getPlan(edge->planId))
+						{
+							chargedCost = static_cast<double>(plan->totalCost);
+							started = m_network.startPlanConstruction(edge->planId, m_clock.now);
+						}
+					}
 					else
 					{
+						chargedCost = m_network.estimatePlanCost(edge->roadType, edge->length);
 						edge->edgeState = EdgeState::UnderConstruction;
 						edge->constructionStartTime = m_clock.now;
+						started = true;
 					}
-					m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
-					m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
-					notifyNetworkChanged({ edge->nodeA, edge->nodeB });
-					dirty = true;
+					if (started)
+					{
+						m_economy.funds = Max(0.0, m_economy.funds - chargedCost);
+						m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
+						m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
+						notifyNetworkChanged({ edge->nodeA, edge->nodeB });
+						dirty = true;
+					}
+				}
+				if (!hasFunds)
+				{
+					ui.label(U"資金不足", ColorF{ 1.0, 0.4, 0.35 });
 				}
 			}
 			else if (edge->edgeState == EdgeState::UnderConstruction)
@@ -843,7 +953,7 @@ void GameScene::drawEdgePanel()
 					}
 				}
 				remaining = Max(0.0, remaining);
-				ui.label(U"残り {:.0f}s"_fmt(remaining), ColorF{ 0.8 });
+				ui.label(U"残り {}"_fmt(formatConstructionDuration(remaining)), ColorF{ 0.8 });
 			}
 		});
 		ui.spacer(3);
@@ -951,7 +1061,7 @@ void GameScene::drawEdgePanel()
 				const String state = (plan->state == PlanState::Planning) ? U"未着工"
 					: (plan->state == PlanState::UnderConstruction) ? U"工事中"
 					: U"完成";
-				ui.label(U"{} / {:.0f}s"_fmt(state, plan->constructionDuration), ColorF{ 0.8 });
+				ui.label(U"{} / {}"_fmt(state, formatConstructionDuration(plan->constructionDuration)), ColorF{ 0.8 });
 			});
 		}
 	}
@@ -1167,16 +1277,24 @@ void GameScene::drawRoadPlanPanel()
 
 		if (active)
 		{
-			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {:.0f} / 工期 {:.0f}s"_fmt(plan.totalLength, plan.totalCost, plan.constructionDuration),
+			const double planCost = static_cast<double>(plan.totalCost);
+			const bool hasFunds = canAffordConstruction(m_economy.funds, planCost);
+			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {} / 工期 {}"_fmt(
+				plan.totalLength, formatConstructionCost(planCost), formatConstructionDuration(plan.constructionDuration)),
 				kPad + 8, y, ColorF{ 0.75 });
 			y += kLH + 2;
 
 			if (plan.state == PlanState::Planning)
 			{
-				if (PanelWidget::button(pFont, U"着工", false, kPad + 8, y, 50, kLH, U"計画全体を着工"))
+				PanelWidget::label(pFont, U"必要 {} / 資金 {:.1f}億円"_fmt(formatConstructionCost(planCost), m_economy.funds),
+					 kPad + 8, y, hasFunds ? ColorF{ 0.65, 0.9, 0.65 } : ColorF{ 1.0, 0.4, 0.35 });
+				y += kLH + 2;
+
+				if (PanelWidget::button(pFont, U"着工", false, kPad + 8, y, 50, kLH, U"概算費用を支出して計画全体を着工") && hasFunds)
 				{
 					if (m_network.startPlanConstruction(plan.id, m_clock.now))
 					{
+						m_economy.funds = Max(0.0, m_economy.funds - planCost);
 						Array<int> dirtyNodes;
 						for (const int eid : plan.edgeIds)
 						{
@@ -2622,35 +2740,82 @@ void GameScene::drawRoutePanel()
 		for (const int eid : route->edgeIds)
 		{
 			const RoadEdge* e = m_network.getEdge(eid);
-			if (e && e->edgeState == EdgeState::Planned) { hasPlanned = true; break; }
+			if (e && e->edgeState == EdgeState::Planned)
+			{
+				hasPlanned = true;
+				break;
+			}
+		}
+		const double routeConstructionCost = plannedConstructionCostForRoute(m_network, *route);
+		const bool hasFunds = canAffordConstruction(m_economy.funds, routeConstructionCost);
+		if (hasPlanned)
+		{
+			ui.label(U"未着工 {} / 資金 {:.1f}億円"_fmt(formatConstructionCost(routeConstructionCost), m_economy.funds),
+				hasFunds ? ColorF{ 0.65, 0.9, 0.65 } : ColorF{ 1.0, 0.4, 0.35 });
 		}
 		ui.row(4, [&] {
-			if (ui.button(U"着工", hasPlanned, 60, U"Planned エッジを UnderConstruction に遷移") && hasPlanned)
+			if (ui.button(U"着工", hasPlanned && hasFunds, 60, U"概算費用を支出して Planned エッジを着工") && hasPlanned && hasFunds)
 			{
 				Array<int> dirtyNodes;
 				HashSet<int> startedPlans;
+				double chargedCost = 0.0;
 				for (const int eid : route->edgeIds)
 				{
 					RoadEdge* e = m_network.getEdge(eid);
-					if (!e || e->edgeState != EdgeState::Planned) continue;
+					if (!e || e->edgeState != EdgeState::Planned)
+					{
+						continue;
+					}
 					if (e->planId >= 0)
 					{
-						if (!startedPlans.contains(e->planId))
+						if (startedPlans.contains(e->planId))
 						{
-							m_network.startPlanConstruction(e->planId, m_clock.now);
+							continue;
+						}
+						const RoadPlan* plan = m_network.getPlan(e->planId);
+						if (!plan || plan->state != PlanState::Planning)
+						{
+							continue;
+						}
+						const double planCost = static_cast<double>(plan->totalCost);
+						const Array<int> planEdgeIds = plan->edgeIds;
+						if (m_network.startPlanConstruction(e->planId, m_clock.now))
+						{
+							chargedCost += planCost;
 							startedPlans.insert(e->planId);
+							for (const int planEid : planEdgeIds)
+							{
+								if (const RoadEdge* edge = m_network.getEdge(planEid))
+								{
+									dirtyNodes << edge->nodeA << edge->nodeB;
+								}
+							}
 						}
 					}
 					else
 					{
+						chargedCost += m_network.estimatePlanCost(e->roadType, e->length);
 						e->edgeState = EdgeState::UnderConstruction;
 						e->constructionStartTime = m_clock.now;
+						dirtyNodes << e->nodeA << e->nodeB;
 					}
-					dirtyNodes << e->nodeA << e->nodeB;
 				}
-				for (const int nid : dirtyNodes)
-					m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
-				notifyNetworkChanged(dirtyNodes);
+				if (chargedCost > 0.0)
+				{
+					m_economy.funds = Max(0.0, m_economy.funds - chargedCost);
+				}
+				if (!dirtyNodes.isEmpty())
+				{
+					for (const int nid : dirtyNodes)
+					{
+						m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
+					}
+					notifyNetworkChanged(dirtyNodes);
+				}
+			}
+			else if (hasPlanned && !hasFunds)
+			{
+				ui.label(U"資金不足", ColorF{ 1.0, 0.4, 0.35 });
 			}
 		});
 	}

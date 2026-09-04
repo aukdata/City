@@ -6,6 +6,7 @@
 #include "../sim/SimGraph.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../debug/PerfStats.hpp"
+#include "../gameplay/CitySimulation.hpp"
 
 /// @brief メインスレッド側の車両管理クラス
 /// @details 車両の所有・IDM 更新・Active/Dormant 管理・経路リクエスト生成を行う。
@@ -46,6 +47,28 @@ public:
 	const Array<Vehicle>& vehicles() const { return m_vehicles; }
 	int vehicleCount() const { return static_cast<int>(m_vehicles.size()); }
 
+	/// @brief 人口・用途から算出済みの交通需要を反映する
+	void setTrafficDemand(const TrafficDemand& demand) { m_trafficDemand = demand; m_trafficDemandConfigured = true; }
+
+	/// @brief イベント等による全車速度係数を設定する
+	void setGlobalSpeedMultiplier(double multiplier)
+	{
+		m_globalSpeedMultiplier = Clamp(multiplier, 0.05, 2.0);
+	}
+
+	/// @brief イベントによる速度・交通量補正をまとめて反映する
+	void applyTrafficEventEffect(const TrafficEventEffect& effect)
+	{
+		setGlobalSpeedMultiplier(effect.speedMultiplier);
+		m_eventDemandMultiplier = Clamp(effect.demandMultiplier, 0.0, 4.0);
+	}
+
+	/// @brief 直近200件の完了トリップ時間 [分]
+	const Array<double>& completedTripMinutes() const { return m_completedTripMinutes; }
+
+	/// @brief 停留所エッジ列を循環するバスを生成し、生成IDを返す
+	int spawnBus(const Array<int>& stopEdgeIds, int routeId, const SimGraph& simGraph);
+
 	const SimTickStats& lastStats() const { return m_stats; }
 
 	/// @brief 信号機の再構築を要求する（TrafficControl 変更時に呼ぶ）
@@ -61,6 +84,12 @@ private:
 	Array<Vehicle> m_vehicles;
 	int            m_nextId = 0;
 	int            m_targetVehicleCount = 20;  ///< 自動スポーンの目標台数
+	TrafficDemand  m_trafficDemand;
+	bool           m_trafficDemandConfigured = false;
+	double         m_globalSpeedMultiplier = 1.0;
+	double         m_eventDemandMultiplier = 1.0;
+	GameTime       m_lastGameNow = 0.0;
+	Array<double>  m_completedTripMinutes;
 
 	// 信号機（Main 所有）
 	HashTable<int, TrafficLight> m_trafficLights;
@@ -97,4 +126,6 @@ private:
 
 	// --- 経路リクエスト ---
 	void requestRoute(Vehicle& v, const SimGraph& simGraph);
+	VehicleType selectDemandVehicleType() const;
+	void recordCompletedTrip(const Vehicle& vehicle, GameTime gameNow);
 };

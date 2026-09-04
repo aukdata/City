@@ -49,19 +49,23 @@ class EventSystem
 public:
 	// 毎フレームの寿命管理と、月次ロールによるイベント発生をここで集約して扱う。
 	/// @brief 毎フレーム更新する
-	/// @param gameNow  現在のゲーム時刻
-	/// @param month    現在の月 (1-12)
-	/// @param dt       リアル経過秒
-	void update(GameTime gameNow, uint8 month, double dt);
+	/// @param gameNow 現在のゲーム時刻
+	void update(GameTime gameNow);
 
 	/// @brief 月初めに季節・ランダムイベントを判定する
-	void rollMonthly(GameTime gameNow, uint8 month, const RoadNetwork& network);
+	/// @param gameNow           月初めのゲーム時刻
+	/// @param month             現在の月 (1-12)
+	/// @param elapsedMonthIndex ゲーム開始からの経過月インデックス
+	void rollMonthly(GameTime gameNow, uint8 month, int64 elapsedMonthIndex, const RoadNetwork& network);
 
 	/// @brief アクティブなイベント一覧を返す（UI 表示用）
 	const Array<GameEvent>& activeEvents() const { return m_active; }
 
 	/// @brief 現在の車速グローバル係数を返す（全イベントの最小値）
 	float globalSpeedMultiplier() const;
+
+	/// @brief 現在のイベントによる交通需要係数を返す
+	double globalDemandMultiplier() const;
 
 	/// @brief 新しい通知を取り出す（呼んだら削除される）
 	Array<GameEvent> popNewNotifications();
@@ -70,7 +74,7 @@ private:
 	Array<GameEvent> m_active;
 	Array<GameEvent> m_pendingNotifications;
 	int              m_nextId = 0;
-	int              m_lastRollMonth = -1;
+	int64            m_lastRollMonthIndex = -1;
 
 	void addEvent(GameEvent ev);
 	void removeExpired(GameTime now);

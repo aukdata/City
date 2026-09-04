@@ -133,8 +133,13 @@ struct Vehicle
 	// 一時停止
 	float        stopSignWait    = 0.0f;  ///< 一時停止の残り待機時間 [game sec]
 
+	// トリップ計測
+	GameTime departedAt = 0.0;
+	bool tripCompleted = false;  ///< 目的地エッジ終端へ到達し、履歴記録待ち
+
 	// バス専用フィールド
 	int    busRouteId       = -1;
 	int    busNextStopIdx   = 0;
 	float  busWaitRemaining = 0.0f;
+	Array<int> busStopEdgeIds;   ///< 路線の停留所エッジ列（循環運行）
 };

@@ -3,6 +3,7 @@
 #include "../gen/DistrictRoads.hpp"
 #include "../save/RoadBinary.hpp"
 #include "../save/GuideSignStorage.hpp"
+#include "../save/SaveTransaction.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include <exception>
@@ -520,83 +521,168 @@ void GameScene::drawLoadingScreen(float progress)
 void GameScene::saveGame()
 {
 	if (getData().saveName.isEmpty())
+	{
 		getData().saveName = U"default";
-
-	const String saveRoot = U"saves/{}"_fmt(getData().saveName);
-	FileSystem::CreateDirectories(U"{}/global"_fmt(saveRoot));
-
-	// meta.json
-	JSON meta;
-	meta[U"version"]      = 3;
-	meta[U"seed"]         = getData().seed;
-	meta[U"worldChunks"]  = WORLD_CHUNKS;
-	meta[U"gameNow"]      = m_clock.now;
-	meta[U"timeScale"]    = static_cast<int>(m_clock.speed);
-	meta[U"nextNodeId"]   = m_network.nextNodeId();
-	meta[U"nextEdgeId"]   = m_network.nextEdgeId();
-	meta[U"cameraFocusX"]  = m_camera.focusPoint().x;
-	meta[U"cameraFocusY"]  = m_camera.focusPoint().y;
-	meta[U"cameraFocusZ"]  = m_camera.focusPoint().z;
-	meta[U"cameraDistance"] = m_camera.distance();
-	meta[U"cameraYaw"]     = m_camera.yaw();
-	meta[U"cameraPitch"]   = m_camera.pitch();
-	meta.save(U"{}/meta.json"_fmt(saveRoot));
-
-	// economy.json
-	JSON eco;
-	eco[U"funds"]      = m_economy.funds;
-	eco[U"population"] = m_economy.population;
-	eco[U"happiness"]  = m_economy.happiness;
-	eco.save(U"{}/global/economy.json"_fmt(saveRoot));
-
-	// roads.bin
-	RoadBinary::writeGlobal(U"{}/global/roads.bin"_fmt(saveRoot), m_network);
-
-	// 案内標識（独立 JSON、テクスチャはランタイム再生成）
-	GuideSignStorage::writeJson(U"{}/global/guide_signs.json"_fmt(saveRoot), m_network);
-
-	// districts.json
-	JSON dist;
-	dist[U"count"] = static_cast<int>(m_districts.size());
-	for (int i = 0; i < static_cast<int>(m_districts.size()); ++i)
-	{
-		const auto& s = m_districts[i];
-		dist[U"type_{}"_fmt(i)]    = static_cast<int>(s.kind);
-		dist[U"cx_{}"_fmt(i)]      = s.center.x;
-		dist[U"cy_{}"_fmt(i)]      = s.center.y;
-		dist[U"radius_{}"_fmt(i)]  = s.radius;
-		dist[U"score_{}"_fmt(i)]   = s.score;
-		dist[U"name_{}"_fmt(i)]    = s.name;
-		dist[U"reading_{}"_fmt(i)] = s.reading;
 	}
-	dist.save(U"{}/global/districts.json"_fmt(saveRoot));
-
-	// 地形データ（チャンクごと）
-	const String chunksDir = U"{}/chunks"_fmt(saveRoot);
-	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
+	if (getData().saveName.contains(U'/') || getData().saveName.contains(U'\\')
+		|| getData().saveName == U"." || getData().saveName == U"..")
 	{
-		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+		DebugLog::print(U"[Save] Invalid save name: {}"_fmt(getData().saveName));
+		return;
+	}
+
+	const FilePath saveRoot = U"saves/{}"_fmt(getData().saveName);
+	const SaveResult result = SaveTransaction::commit(saveRoot,
+		[this](const FilePath& temporaryDirectory)
 		{
-			const Chunk* chunk = m_world.getChunk(Point{ cx, cy });
-			if (!chunk || chunk->heightMap.isEmpty()) continue;
+			return writeGameSnapshot(temporaryDirectory);
+		},
+		[this](const FilePath& temporaryDirectory)
+		{
+			return verifyGameSnapshot(temporaryDirectory);
+		});
 
-			const String dir = U"{}/{}_{}"_fmt(chunksDir, cx, cy);
-			FileSystem::CreateDirectories(dir);
-
-			BinaryWriter w{ U"{}/terrain.bin"_fmt(dir) };
-			if (!w) continue;
-
-			const int gridSize = HEIGHT_CELLS + 1;
-			w.write(static_cast<int32>(gridSize));
-			for (int r = 0; r < gridSize; ++r)
-				for (int c = 0; c < gridSize; ++c)
-					w.write(chunk->heightMap[{ c, r }]);
-		}
+	if (result)
+	{
+		DebugLog::print(U"[Save] Saved atomically to {}"_fmt(result.path));
 	}
-
-	Console << U"[Save] Saved to " << saveRoot;
+	else
+	{
+		DebugLog::print(U"[Save] Failed: {} ({})"_fmt(result.message, result.path));
+	}
 }
 
+SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
+{
+	constexpr int kSaveVersion = 3;
+	const FilePath globalDirectory = saveRoot + U"/global";
+	if (!FileSystem::CreateDirectories(globalDirectory))
+	{
+		return SaveResult::failed(SaveError::WriteFailed,
+			U"global ディレクトリを作成できません", globalDirectory);
+	}
+
+	JSON meta;
+	meta[U"version"] = kSaveVersion;
+	meta[U"seed"] = getData().seed;
+	meta[U"worldChunks"] = WORLD_CHUNKS;
+	meta[U"gameNow"] = m_clock.now;
+	meta[U"timeScale"] = static_cast<int>(m_clock.speed);
+	meta[U"nextNodeId"] = m_network.nextNodeId();
+	meta[U"nextEdgeId"] = m_network.nextEdgeId();
+	meta[U"cameraFocusX"] = m_camera.focusPoint().x;
+	meta[U"cameraFocusY"] = m_camera.focusPoint().y;
+	meta[U"cameraFocusZ"] = m_camera.focusPoint().z;
+	meta[U"cameraDistance"] = m_camera.distance();
+	meta[U"cameraYaw"] = m_camera.yaw();
+	meta[U"cameraPitch"] = m_camera.pitch();
+	if (!meta.save(saveRoot + U"/meta.json"))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"meta.json を保存できません", saveRoot);
+	}
+
+	JSON economy;
+	economy[U"funds"] = m_economy.funds;
+	economy[U"population"] = m_economy.population;
+	economy[U"happiness"] = m_economy.happiness;
+	if (!economy.save(globalDirectory + U"/economy.json"))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"economy.json を保存できません", saveRoot);
+	}
+	if (!RoadBinary::writeGlobal(globalDirectory + U"/roads.bin", m_network))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"roads.bin を保存できません", saveRoot);
+	}
+	if (!GuideSignStorage::writeJson(globalDirectory + U"/guide_signs.json", m_network))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"guide_signs.json を保存できません", saveRoot);
+	}
+
+	JSON districts;
+	districts[U"count"] = static_cast<int>(m_districts.size());
+	for (int index = 0; index < static_cast<int>(m_districts.size()); ++index)
+	{
+		const auto& settlement = m_districts[index];
+		districts[U"type_{}"_fmt(index)] = static_cast<int>(settlement.kind);
+		districts[U"cx_{}"_fmt(index)] = settlement.center.x;
+		districts[U"cy_{}"_fmt(index)] = settlement.center.y;
+		districts[U"radius_{}"_fmt(index)] = settlement.radius;
+		districts[U"score_{}"_fmt(index)] = settlement.score;
+		districts[U"name_{}"_fmt(index)] = settlement.name;
+		districts[U"reading_{}"_fmt(index)] = settlement.reading;
+	}
+	if (!districts.save(globalDirectory + U"/districts.json"))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"districts.json を保存できません", saveRoot);
+	}
+
+	const FilePath chunksDirectory = saveRoot + U"/chunks";
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk || chunk->heightMap.isEmpty())
+			{
+				continue;
+			}
+
+			const FilePath chunkDirectory = U"{}/{}_{}"_fmt(chunksDirectory, chunkX, chunkY);
+			if (!FileSystem::CreateDirectories(chunkDirectory))
+			{
+				return SaveResult::failed(SaveError::WriteFailed,
+					U"チャンクディレクトリを作成できません", chunkDirectory);
+			}
+			BinaryWriter writer{ chunkDirectory + U"/terrain.bin" };
+			if (!writer)
+			{
+				return SaveResult::failed(SaveError::WriteFailed,
+					U"terrain.bin を作成できません", chunkDirectory);
+			}
+
+			const int gridSize = HEIGHT_CELLS + 1;
+			writer.write(static_cast<int32>(gridSize));
+			for (int row = 0; row < gridSize; ++row)
+			{
+				for (int col = 0; col < gridSize; ++col)
+				{
+					writer.write(chunk->heightMap[{ col, row }]);
+				}
+			}
+		}
+	}
+	return SaveResult::succeeded(saveRoot);
+}
+
+SaveResult GameScene::verifyGameSnapshot(const FilePath& saveRoot) const
+{
+	constexpr int kSaveVersion = 3;
+	const FilePath metaPath = saveRoot + U"/meta.json";
+	const FilePath economyPath = saveRoot + U"/global/economy.json";
+	const FilePath roadsPath = saveRoot + U"/global/roads.bin";
+	const JSON meta = JSON::Load(metaPath);
+	if (!meta)
+	{
+		return SaveResult::failed(SaveError::MissingData, U"meta.json がありません", metaPath);
+	}
+	const int version = meta[U"version"].getOr<int>(0);
+	if (version <= 0 || version > kSaveVersion)
+	{
+		return SaveResult::failed(SaveError::UnsupportedVersion,
+			U"未対応のセーブバージョンです: {}"_fmt(version), metaPath);
+	}
+	if (!JSON::Load(economyPath))
+	{
+		return SaveResult::failed(SaveError::CorruptData,
+			U"economy.json が欠損または破損しています", economyPath);
+	}
+	if (!FileSystem::IsFile(roadsPath) || FileSystem::FileSize(roadsPath) <= 0)
+	{
+		return SaveResult::failed(SaveError::MissingData,
+			U"roads.bin が欠損しています", roadsPath);
+	}
+	return SaveResult::succeeded(saveRoot);
+}
 // =============================================================================
 // 地形チャンク並列ロード（loadGame のサブルーチン）
 // =============================================================================
@@ -1425,16 +1511,42 @@ void GameScene::update()
 	// ゲーム時計を進める
 	if (m_clock.speed != TimeSpeed::Paused)
 	{
+		const int64 monthIndexBefore = m_clock.monthIndex();
 		const double gameDt = dt * m_clock.speedMultiplier() * 60.0; // 物理用: 実時間1秒=ゲーム内60秒相当の移動
 		const double vehicleDt = gameDt / 60.0;
 		m_clock.advance(dt);
+		const int64 monthIndexAfter = m_clock.monthIndex();
+
+		if (monthIndexAfter > monthIndexBefore)
+		{
+			for (int64 monthIndex = monthIndexBefore + 1; monthIndex <= monthIndexAfter; ++monthIndex)
+			{
+				const GameTime monthStartTime = GameClock::TimeFromMonthIndex(monthIndex);
+				const uint8 month = GameClock::MonthFromMonthIndex(monthIndex);
+				m_eventSystem.rollMonthly(monthStartTime, month, monthIndex, m_network);
+				m_citySnapshot = collectCitySnapshot(m_world, m_network,
+					m_vehicleManager.vehicles(), m_vehicleManager.completedTripMinutes());
+				m_lastMonthlyEconomy = m_economy.applyMonthly(m_network, m_citySnapshot,
+					m_busSystem.activeRouteCount());
+			}
+		}
 
 		if (m_simGraph)
+		{
 			m_vehicleManager.update(vehicleDt, m_clock.now, *m_simGraph,
 			                        m_network, m_roadRenderer.visibleEdges());
+		}
 
 		m_trainManager.update(gameDt, m_clock.now);
-		m_eventSystem.update(m_clock.now, m_clock.month, dt);
+		m_eventSystem.update(m_clock.now);
+		for (auto& event : m_eventSystem.popNewNotifications())
+		{
+			m_notifications << std::move(event);
+		}
+		while (m_notifications.size() > 5)
+		{
+			m_notifications.erase(m_notifications.begin());
+		}
 		tickConstruction();
 	}
 

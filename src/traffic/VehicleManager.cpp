@@ -52,6 +52,7 @@ void VehicleManager::spawnRandom(const SimGraph& simGraph, VehicleType type)
 	v.speed       = kSpawnSpeed;
 	v.type        = type;
 	v.mode        = VehicleMode::Active;
+	v.departedAt  = m_lastGameNow;
 	if (edge)
 		v.arcPos = static_cast<float>(Random(0.0, static_cast<double>(edge->length) * kSpawnPosRatio));
 
@@ -83,6 +84,7 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 	v.type        = type;
 	v.mode        = VehicleMode::Active;
 	v.goalEdgeId  = goalEdgeId;
+	v.departedAt  = m_lastGameNow;
 	v.arcPos      = static_cast<float>(Random(0.0, static_cast<double>(edge->length) * kSpawnPosRatioGoal));
 
 	Console << U"[spawnOnEdge] id=" << v.id << U" edge=" << edgeId
@@ -91,6 +93,51 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 		<< U" speed=" << v.speed << U" goal=" << goalEdgeId;
 
 	m_vehicles << std::move(v);
+}
+
+int VehicleManager::spawnBus(const Array<int>& stopEdgeIds, int routeId,
+	const SimGraph& simGraph)
+{
+	if (stopEdgeIds.size() < 2) return -1;
+	const int originEdgeId = stopEdgeIds.front();
+	const int destinationEdgeId = stopEdgeIds[1];
+	const int expectedId = m_nextId;
+	spawnOnEdge(originEdgeId, simGraph, VehicleType::Bus, destinationEdgeId);
+	if (m_nextId == expectedId) return -1;
+	Vehicle& bus = m_vehicles.back();
+	bus.busRouteId = routeId;
+	bus.busNextStopIdx = 1;
+	bus.busStopEdgeIds = stopEdgeIds;
+	return bus.id;
+}
+
+VehicleType VehicleManager::selectDemandVehicleType() const
+{
+	if (!m_trafficDemandConfigured) return VehicleType::PassengerCar;
+	const double roll = Random(0.0, 1.0);
+	if (roll < m_trafficDemand.largeTruckShare) return VehicleType::LargeTruck;
+	if (roll < m_trafficDemand.largeTruckShare + m_trafficDemand.smallTruckShare)
+		return VehicleType::SmallTruck;
+	return (Random(0, 1) == 0) ? VehicleType::PassengerCar : VehicleType::KeiCar;
+}
+
+void VehicleManager::recordCompletedTrip(const Vehicle& vehicle, GameTime gameNow)
+{
+	if (vehicle.type == VehicleType::Bus
+		|| vehicle.type == VehicleType::SmallTruck
+		|| vehicle.type == VehicleType::LargeTruck
+		|| vehicle.type == VehicleType::Emergency)
+	{
+		return;
+	}
+	const double elapsed = Max(0.0, gameNow - vehicle.departedAt);
+	const double calendarMinutes = elapsed * GameClock::kCalendarMinutesPerSecond;
+	if (calendarMinutes <= 0.0) return;
+	m_completedTripMinutes << calendarMinutes;
+	while (m_completedTripMinutes.size() > 200)
+	{
+		m_completedTripMinutes.erase(m_completedTripMinutes.begin());
+	}
 }
 
 void VehicleManager::setGoalAndReroute(int vehicleId, int goalEdgeId, const SimGraph& simGraph)
@@ -154,13 +201,23 @@ void VehicleManager::update(double dt, GameTime gameNow,
 	using Clock = std::chrono::steady_clock;
 	auto toMs = [](auto d) { return std::chrono::duration<double, std::milli>(d).count(); };
 	m_stats = {};
+	m_lastGameNow = gameNow;
+	if (m_trafficDemandConfigured)
+	{
+		m_targetVehicleCount = Clamp(static_cast<int>(Math::Round(
+			m_trafficDemand.targetVehicleCount * m_eventDemandMultiplier)), 0, 600);
+	}
 
 	const auto t0 = Clock::now();
 
 	// フレーム冒頭で台数補充と信号キャッシュ更新を済ませ、以降の車両更新は
 	// 同じネットワーク状態を前提に進める。
-	if (static_cast<int>(m_vehicles.size()) < m_targetVehicleCount)
-		spawnRandom(simGraph);
+	const int demandVehicleCount = static_cast<int>(m_vehicles.count_if([](const Vehicle& vehicle)
+	{
+		return vehicle.type != VehicleType::Bus && vehicle.type != VehicleType::Emergency;
+	}));
+	if (demandVehicleCount < m_targetVehicleCount)
+		spawnRandom(simGraph, selectDemandVehicleType());
 
 	if (m_lightsDirty)
 	{
@@ -220,16 +277,19 @@ void VehicleManager::update(double dt, GameTime gameNow,
 		}
 		else
 		{
-			updateDormantVehicle(v, dt);
+			updateDormantVehicle(v, dt * m_globalSpeedMultiplier);
 		}
 
-		// 経路を走り切った車両は回収し、道路編集で経路が壊れた車両はその場で再探索へ戻す。
-		if (v.routeIdx >= static_cast<int>(v.routeWaypoints.size()))
+		// 目的地エッジを実際に走り切った車両だけを完了履歴へ記録する。
+		if (v.tripCompleted)
 		{
-			if (v.routeWaypoints.isEmpty() && !v.routeRequested)
-				requestRoute(v, simGraph);  // 初回: まだ経路を持っていない
-			else if (!v.routeWaypoints.isEmpty())
-				v.currentEdge = -1;
+			recordCompletedTrip(v, gameNow);
+			v.currentEdge = -1;
+		}
+		else if (v.routeWaypoints.isEmpty() && !v.routeRequested
+			&& v.state == VehicleState::Moving)
+		{
+			requestRoute(v, simGraph);
 		}
 		else if (v.routeIdx < static_cast<int>(v.routeWaypoints.size())
 			&& !v.routeRequested
@@ -332,7 +392,8 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 	// 通常走行ではまず IDM で基本加速度を決め、その後で信号や停止規制を重ねて
 	// 交差点手前の減速や停止状態への遷移を制御する。
 	const bool fwdLane = isForwardLane(*edge, v.currentLane);
-	const IDMParams params = getDefaultIDMParams(v.type, edge->speedLimit);
+	const IDMParams params = getDefaultIDMParams(v.type,
+		static_cast<float>(edge->speedLimit * m_globalSpeedMultiplier));
 	float accel = idmAcceleration(m_vehicles, v, params, fwdLane, true);
 
 	// 出口ノードの交通規制チェック
@@ -572,6 +633,26 @@ bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph,
 		return true;
 	}
 
+	if (!v.routeWaypoints.isEmpty())
+	{
+		if (v.type == VehicleType::Bus && v.busStopEdgeIds.size() >= 2)
+		{
+			v.busNextStopIdx = (v.busNextStopIdx + 1)
+				% static_cast<int>(v.busStopEdgeIds.size());
+			v.goalEdgeId = v.busStopEdgeIds[v.busNextStopIdx];
+			v.routeWaypoints.clear();
+			v.routeIdx = 0;
+			v.routeRequested = false;
+			v.state = VehicleState::WaitingBusStop;
+			v.busWaitRemaining = 15.0f;
+			v.speed = 0.0f;
+			return false;
+		}
+
+		v.tripCompleted = true;
+		return false;
+	}
+
 	return fallbackRandomTransit(v, simGraph, network);
 }
 
@@ -657,6 +738,24 @@ void VehicleManager::updateDormantVehicle(Vehicle& v, double dt)
 		else
 		{
 			v.dormantTimer = 0.0f;
+			if (!v.routeWaypoints.isEmpty())
+			{
+				if (v.type == VehicleType::Bus && v.busStopEdgeIds.size() >= 2)
+				{
+					v.busNextStopIdx = (v.busNextStopIdx + 1)
+						% static_cast<int>(v.busStopEdgeIds.size());
+					v.goalEdgeId = v.busStopEdgeIds[v.busNextStopIdx];
+					v.routeWaypoints.clear();
+					v.routeIdx = 0;
+					v.routeRequested = false;
+					v.state = VehicleState::WaitingBusStop;
+					v.busWaitRemaining = 15.0f;
+				}
+				else
+				{
+					v.tripCompleted = true;
+				}
+			}
 		}
 	}
 }

@@ -153,6 +153,7 @@
     <ClCompile Include="src\debug\DebugRenderer.cpp" />
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
+    <ClCompile Include="src\gameplay\CitySimulation.cpp" />
     <ClCompile Include="src\event\EventSystem.cpp" />
     <ClCompile Include="src\railway\TrainNetwork.cpp" />
     <ClCompile Include="src\railway\TrainManager.cpp" />
@@ -165,6 +166,9 @@
     <ClCompile Include="src\gen\RoadAutoPlace.cpp" />
     <ClCompile Include="src\gen\DistrictRoads.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
+    <ClCompile Include="src\save\SaveTransaction.cpp" />
+    <ClCompile Include="src\scenario\ScenarioSystem.cpp" />
+    <ClCompile Include="src\traffic\BusSystem.cpp" />
     <ClCompile Include="src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="src\asset\AssetRegistrar.cpp" />
   </ItemGroup>
@@ -414,7 +418,12 @@
     <ClInclude Include="src\zone\Building.hpp" />
     <ClInclude Include="src\zone\ZoneManager.hpp" />
     <ClInclude Include="src\economy\Economy.hpp" />
+    <ClInclude Include="src\gameplay\CitySimulation.hpp" />
     <ClInclude Include="src\event\EventSystem.hpp" />
+    <ClInclude Include="src\save\SaveResult.hpp" />
+    <ClInclude Include="src\save\SaveTransaction.hpp" />
+    <ClInclude Include="src\scenario\ScenarioSystem.hpp" />
+    <ClInclude Include="src\traffic\BusSystem.hpp" />
     <ClInclude Include="src\railway\TrackTypes.hpp" />
     <ClInclude Include="src\railway\TrainNetwork.hpp" />
     <ClInclude Include="src\railway\Train.hpp" />

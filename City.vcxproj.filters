@@ -145,6 +145,9 @@
     <Filter Include="Source Files\event">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000003}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\gameplay">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000011}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\gen">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000004}</UniqueIdentifier>
     </Filter>
@@ -162,6 +165,9 @@
     </Filter>
     <Filter Include="Source Files\save">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000008}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\scenario">
+      <UniqueIdentifier>{a0000001-0000-0000-0000-000000000012}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\scene">
       <UniqueIdentifier>{a0000001-0000-0000-0000-000000000009}</UniqueIdentifier>
@@ -200,6 +206,9 @@
     </ClCompile>
     <ClCompile Include="src\economy\Economy.cpp">
       <Filter>Source Files\economy</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gameplay\CitySimulation.cpp">
+      <Filter>Source Files\gameplay</Filter>
     </ClCompile>
     <ClCompile Include="src\event\EventSystem.cpp">
       <Filter>Source Files\event</Filter>
@@ -266,6 +275,15 @@
     </ClCompile>
     <ClCompile Include="src\save\RoadBinary.cpp">
       <Filter>Source Files\save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\save\SaveTransaction.cpp">
+      <Filter>Source Files\save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scenario\ScenarioSystem.cpp">
+      <Filter>Source Files\scenario</Filter>
+    </ClCompile>
+    <ClCompile Include="src\traffic\BusSystem.cpp">
+      <Filter>Source Files\traffic</Filter>
     </ClCompile>
     <ClCompile Include="src\scene\TitleScene.cpp">
       <Filter>Source Files\scene</Filter>
@@ -986,6 +1004,9 @@
     <ClInclude Include="src\economy\Economy.hpp">
       <Filter>Source Files\economy</Filter>
     </ClInclude>
+    <ClInclude Include="src\gameplay\CitySimulation.hpp">
+      <Filter>Source Files\gameplay</Filter>
+    </ClInclude>
     <ClInclude Include="src\event\EventSystem.hpp">
       <Filter>Source Files\event</Filter>
     </ClInclude>
@@ -1093,6 +1114,18 @@
     </ClInclude>
     <ClInclude Include="src\save\RoadBinary.hpp">
       <Filter>Source Files\save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\save\SaveResult.hpp">
+      <Filter>Source Files\save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\save\SaveTransaction.hpp">
+      <Filter>Source Files\save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scenario\ScenarioSystem.hpp">
+      <Filter>Source Files\scenario</Filter>
+    </ClInclude>
+    <ClInclude Include="src\traffic\BusSystem.hpp">
+      <Filter>Source Files\traffic</Filter>
     </ClInclude>
     <ClInclude Include="src\traffic\Vehicle.hpp">
       <Filter>Source Files\traffic</Filter>

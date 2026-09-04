@@ -12,10 +12,12 @@
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../traffic/VehicleManager.hpp"
-#include "../traffic/BusRoute.hpp"
+#include "../traffic/BusSystem.hpp"
 #include "../zone/ZoneManager.hpp"
 #include "../economy/Economy.hpp"
 #include "../event/EventSystem.hpp"
+#include "../scenario/ScenarioSystem.hpp"
+#include "../save/SaveResult.hpp"
 #include "../ui/Camera.hpp"
 #include "../render/WorldRenderer.hpp"
 #include "../render/RoadRenderer.hpp"
@@ -80,9 +82,12 @@ private:
 	GameCamera       m_camera;
 	ZoneManager      m_zoneManager;
 	Economy          m_economy;
+	CitySnapshot     m_citySnapshot;
+	MonthlyEconomyResult m_lastMonthlyEconomy;
 
 	// ---- 車両・経路サービス ----
 	VehicleManager   m_vehicleManager;
+	BusSystem        m_busSystem;
 	SimThread        m_simThread;           ///< 経路計算サービス（メッセージ駆動）
 	std::shared_ptr<const SimGraph> m_simGraph;  ///< Main 所有の SimGraph
 
@@ -92,6 +97,7 @@ private:
 
 	// ---- イベント ----
 	EventSystem      m_eventSystem;
+	ScenarioSystem   m_scenarioSystem;
 	Array<GameEvent> m_notifications;  ///< 直近の通知（最大5件）
 
 	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
@@ -114,6 +120,8 @@ private:
 	RoadRenderer     m_roadRenderer;
 	VehicleRenderer  m_vehicleRenderer;
 	UIRenderer       m_uiRenderer;
+	CityHudStats     m_hudStats;
+	int              m_hudStatsRefreshCountdown = 0;
 	DebugRenderer    m_debugRenderer;
 	TrainRenderer        m_trainRenderer;
 	PlaceNameRenderer    m_placeNameRenderer;
@@ -307,6 +315,8 @@ private:
 	void initNewGame();
 	void initLoadGame();
 	void saveGame();
+	SaveResult writeGameSnapshot(const FilePath& saveRoot) const;
+	SaveResult verifyGameSnapshot(const FilePath& saveRoot) const;
 	bool loadGame();
 	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);
 	void applyZonesGlobal();

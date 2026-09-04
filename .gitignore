@@ -30,6 +30,8 @@ App/saves/
 
 # 実行ログ
 App/*.log
+Test/App/TestArtifacts/
+Test/App/TestResults/
 
 # ドキュメント（外部参照用）
 manual/

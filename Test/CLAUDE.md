@@ -1,4 +1,4 @@
-# Test Project
+﻿# Test Project
 
 ## 概要
 
@@ -16,21 +16,17 @@ Claude Code が機能の検証を自律的に行うために使用する。
 
 ## ワークフロー
 
-1. **テストコードの記述** — `Main.cpp` に検証したい処理を記述する
-2. **CRLF+BOM 復元** — ビルド前に必ず実行する（LF のままだと C4819/C2447 エラー）
-   ```bash
-   python3 chore/convert_line_endings.py to-crlf -d src Test
-   ```
-3. **ビルド**
+1. **テストコードの記述** — 常設テストケースを追加し、`TestRunner` に登録する
+2. **ビルド**
    ```bash
    "/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" Test/Test.vcxproj -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
    ```
-4. **実行**（自動終了する）
+3. **実行**（自動終了する）
    ```bash
    cd /mnt/d/Users/Takuma/Creations/codes/City/Test/App && "./Test(debug).exe"
    ```
-5. **結果の検証** — スクリーンショット・ログを Claude Code が Read して確認する
-6. **反映** — テスト結果に基づき本体コードを修正する
+4. **結果の検証** — `Test/App/TestResults/results.json` と `results.xml`、必要に応じてスクリーンショット・ログを確認する
+5. **反映** — テスト結果に基づき本体コードを修正する
 
 ## 本体コードの参照
 
@@ -104,7 +100,8 @@ void Main()
 
 ## 方針
 
-- テストは使い捨て。`Main.cpp` を書き換えて都度ビルド・実行する
+- テストは常設し、`Main.cpp` を都度書き換えない
+- `.cpp` / `.hpp` / `.h` は編集時に UTF-8 BOM + CRLF を保持する。`convert_line_endings.py` は破損修復時のみ使用する
 - 本体の `src/` コードを可能な限り `#include` して再利用する。テスト専用にロジックを再実装しない
 - テストは自動終了する。ユーザー操作を待たず、描画・保存・ログ出力が完了したら即座に終了する
 - スクリーンショットは `Test/App/Screenshot/` に保存される

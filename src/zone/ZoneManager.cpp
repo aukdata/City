@@ -11,12 +11,20 @@ namespace
 	constexpr float kDecayThreshold = 0.10f;  ///< 衰退・撤去が起きるスコア上限
 	constexpr float kRoadClearance  = 10.0f;  ///< 道路と建物の最低クリアランス [m]
 
-	struct RoadInfo { float dist; float angle; };
+	struct RoadInfo
+	{
+		float dist;
+		float angle;
+		int edgeId;
+		float edgeT;
+	};
 
 	RoadInfo nearestRoadInfo(float centX, float centZ, const RoadNetwork& network)
 	{
 		float minDistSq = 1e12f;
 		float bestAngle = 0.0f;
+		int bestEdgeId = -1;
+		float bestEdgeT = 0.0f;
 
 		for (const auto& edge : network.edges())
 		{
@@ -55,11 +63,13 @@ namespace
 					const float tanx = t1*t1*(p1x-p0x) + 2.0f*t1*t*(p2x-p1x) + t*t*(p3x-p2x);
 					const float tanz = t1*t1*(p1z-p0z) + 2.0f*t1*t*(p2z-p1z) + t*t*(p3z-p2z);
 					bestAngle = std::atan2(tanz, tanx);
+					bestEdgeId = edge.id;
+					bestEdgeT = t;
 				}
 			}
 		}
 
-		return { Math::Sqrt(minDistSq), bestAngle };
+		return { Math::Sqrt(minDistSq), bestAngle, bestEdgeId, bestEdgeT };
 	}
 
 	inline float scoreFromDist(float dist)
@@ -70,6 +80,21 @@ namespace
 		else if (dist < kFarDist)  return 1.0f - (dist - kNearDist) / (kFarDist - kNearDist);
 		else                       return 0.0f;
 	}
+}
+
+ZoneDevelopmentDemand calculateZoneDevelopmentDemand(int population, const CitySnapshot& snapshot)
+{
+	ZoneDevelopmentDemand demand;
+	const double housingRatio = (population > 0)
+		? static_cast<double>(snapshot.housingCapacity) / population : 1.0;
+	demand.residential = Clamp(1.25 - housingRatio, 0.10, 1.0);
+	const double desiredCommercial = Max(1.0, population / 500.0);
+	demand.commercial = Clamp((desiredCommercial - snapshot.commercialBuildings) / desiredCommercial,
+		0.10, 1.0);
+	const double desiredIndustrial = Max(1.0, population / 1200.0);
+	demand.industrial = Clamp((desiredIndustrial - snapshot.industrialBuildings) / desiredIndustrial,
+		0.10, 1.0);
+	return demand;
 }
 
 // ===== 座標変換 =====
@@ -211,24 +236,142 @@ Building ZoneManager::spawnBuilding(ZoneType zone, double gameNow) const
 	return b;
 }
 
+Building ZoneManager::spawnBuildingDeterministic(ZoneType zone, GameTime gameNow, uint32 roll) const
+{
+	Building building;
+	building.builtAt = gameNow;
+	switch (zone)
+	{
+	case ZoneType::LowResidential:
+		building.type = BuildingType::Detached;
+		break;
+	case ZoneType::Residential:
+		building.type = ((roll % 100) < 70) ? BuildingType::Detached : BuildingType::LowApartment;
+		break;
+	case ZoneType::Commercial:
+		building.type = ((roll % 100) < 65) ? BuildingType::Shop : BuildingType::Office;
+		break;
+	case ZoneType::Industrial:
+		building.type = BuildingType::Factory;
+		break;
+	case ZoneType::Agriculture:
+	case ZoneType::UrbanControl:
+		building.type = BuildingType::Farmland;
+		break;
+	default:
+		building.type = BuildingType::None;
+		break;
+	}
+	return building;
+}
+
 // ===== 統計 =====
 
 int ZoneManager::totalHousingCapacity(const World& world) const
 {
 	int total = 0;
-	for (const Chunk* chunk : world.getActiveChunks())
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
-		if (!chunk) continue;
-		for (int cy = 0; cy < ZONE_CELLS; ++cy)
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
 		{
-			for (int cx = 0; cx < ZONE_CELLS; ++cx)
+			const Chunk* chunk = world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			for (int row = 0; row < ZONE_CELLS; ++row)
 			{
-				const Building& b = chunk->buildingGrid[{ cx, cy }];
-				total += buildingCapacity(b.type);
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					total += buildingCapacity(chunk->buildingGrid[{ col, row }].type);
+				}
 			}
 		}
 	}
 	return total;
+}
+
+ZoneMonthlyUpdateResult ZoneManager::updateMonthly(World& world, const RoadNetwork& network,
+	const ZoneDevelopmentDemand& demand, GameTime gameNow, int64 monthIndex) const
+{
+	ZoneMonthlyUpdateResult result;
+	constexpr int kMaximumSpawnsPerMonth = 64;
+	constexpr int kMaximumUpgradesPerMonth = 24;
+
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			Chunk* chunk = world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			bool changed = false;
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					const ZoneType zone = chunk->zoneMap[{ col, row }];
+					if (zone == ZoneType::Unzoned) continue;
+					const int globalCol = chunkX * ZONE_CELLS + col;
+					const int globalRow = chunkY * ZONE_CELLS + row;
+					if ((globalCol & 3) != 0 || (globalRow & 3) != 0) continue;
+					const uint32 hash = static_cast<uint32>(globalCol) * 73856093u
+						^ static_cast<uint32>(globalRow) * 19349663u
+						^ static_cast<uint32>(monthIndex) * 83492791u;
+
+					double zoneDemand = 0.0;
+					if (zone == ZoneType::LowResidential || zone == ZoneType::Residential)
+						zoneDemand = demand.residential;
+					else if (zone == ZoneType::Commercial)
+						zoneDemand = demand.commercial;
+					else if (zone == ZoneType::Industrial)
+						zoneDemand = demand.industrial;
+					else if (zone == ZoneType::Agriculture || zone == ZoneType::UrbanControl)
+						zoneDemand = 0.35;
+					if (zoneDemand <= 0.0) continue;
+
+					Building& building = chunk->buildingGrid[{ col, row }];
+					const float developmentScore = calcDevelopmentScore(
+						Point{ chunkX, chunkY }, col, row, network);
+					const double score = developmentScore * Clamp(zoneDemand, 0.0, 1.0);
+					const double roll = static_cast<double>(hash % 10000u) / 10000.0;
+
+					if (building.type == BuildingType::None
+						&& result.spawnedBuildings < kMaximumSpawnsPerMonth
+						&& score >= kSpawnThreshold && roll < score * 0.10)
+					{
+						building = spawnBuildingDeterministic(zone, gameNow, hash);
+						const Vec3 center = cellToWorld(Point{ chunkX, chunkY }, Point{ col, row });
+						const RoadInfo road = nearestRoadInfo(
+							static_cast<float>(center.x), static_cast<float>(center.z), network);
+						building.angle = road.angle;
+						building.edgeId = road.edgeId;
+						building.edgeT = road.edgeT;
+						++result.spawnedBuildings;
+						changed = true;
+					}
+					else if (result.upgradedBuildings < kMaximumUpgradesPerMonth
+						&& score >= 0.85 && roll < score * 0.04)
+					{
+						BuildingType upgraded = building.type;
+						if (zone == ZoneType::Residential && building.type == BuildingType::Detached)
+							upgraded = BuildingType::LowApartment;
+						else if (zone == ZoneType::Residential && building.type == BuildingType::LowApartment)
+							upgraded = BuildingType::MidApartment;
+						else if (zone == ZoneType::Commercial && building.type == BuildingType::Detached)
+							upgraded = BuildingType::MidApartment;
+						else if (zone == ZoneType::Commercial && building.type == BuildingType::MidApartment)
+							upgraded = BuildingType::HighApartment;
+						if (upgraded != building.type)
+						{
+							building.type = upgraded;
+							building.builtAt = gameNow;
+							++result.upgradedBuildings;
+							changed = true;
+						}
+					}
+				}
+			}
+			if (changed) chunk->meshDirty = true;
+		}
+	}
+	return result;
 }
 
 // ===== オーバーレイ描画 =====

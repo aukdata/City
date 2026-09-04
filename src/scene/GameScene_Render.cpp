@@ -30,6 +30,161 @@ namespace
 		}
 		return pos;
 	}
+
+	constexpr int    kHudStatsRefreshFrames      = 60;
+	constexpr double kTrafficVehicleHeadwayMeters = 25.0;
+	constexpr double kCongestedEdgeThreshold      = 0.65;
+
+	void collectHousingStats(const World& world, int population, CityHudStats& stats)
+	{
+		int64 capacity = 0;
+		for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
+		{
+			for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
+			{
+				const Chunk* chunk = world.getChunk(Point{ cx, cy });
+				if (!chunk)
+				{
+					continue;
+				}
+				for (int row = 0; row < ZONE_CELLS; ++row)
+				{
+					for (int col = 0; col < ZONE_CELLS; ++col)
+					{
+						const Building& building = chunk->buildingGrid[{ col, row }];
+						const int buildingPeople = buildingCapacity(building.type);
+						if (buildingPeople <= 0)
+						{
+							continue;
+						}
+						capacity += buildingPeople;
+					}
+				}
+			}
+		}
+
+		stats.housingCapacity = capacity;
+		stats.housingFulfillment = (population > 0)
+			? static_cast<double>(capacity) / static_cast<double>(population)
+			: 0.0;
+	}
+
+	void collectTrafficStats(const RoadNetwork& network, const Array<Vehicle>& vehicles,
+	                         CityHudStats& stats)
+	{
+		HashTable<int, int> vehiclesByEdge;
+		double speedKmhTotal = 0.0;
+		double speedRatioTotal = 0.0;
+
+		for (const auto& vehicle : vehicles)
+		{
+			if (vehicle.currentEdge >= 0)
+			{
+				++vehiclesByEdge[vehicle.currentEdge];
+			}
+
+			if (vehicle.mode != VehicleMode::Active)
+			{
+				continue;
+			}
+			const RoadEdge* edge = network.getEdge(vehicle.currentEdge);
+			if (!edge || edge->speedLimit <= 1.0f)
+			{
+				continue;
+			}
+
+			const double speedKmh = Max(0.0, static_cast<double>(vehicle.speed) * 3.6);
+			const double speedRatio = Clamp(speedKmh / static_cast<double>(edge->speedLimit), 0.0, 1.5);
+			speedKmhTotal += speedKmh;
+			speedRatioTotal += speedRatio;
+			++stats.observedVehicleCount;
+			if (speedRatio < 0.35)
+			{
+				++stats.slowVehicleCount;
+			}
+		}
+
+		if (stats.observedVehicleCount > 0)
+		{
+			stats.averageSpeedKmh = speedKmhTotal / stats.observedVehicleCount;
+			stats.averageSpeedRatio = speedRatioTotal / stats.observedVehicleCount;
+		}
+
+		double congestionTotal = 0.0;
+		for (const auto& edge : network.edges())
+		{
+			if (edge.id < 0 || !edge.isRoadbedBuilt())
+			{
+				continue;
+			}
+
+			const int laneCount = Max(1, static_cast<int>(edge.lanes.size()));
+			const double capacityVehicles = Max(1.0,
+				static_cast<double>(laneCount) * Max(1.0, static_cast<double>(edge.length))
+				/ kTrafficVehicleHeadwayMeters);
+			const int vehicleCountOnEdge = vehiclesByEdge.contains(edge.id) ? vehiclesByEdge[edge.id] : 0;
+			const double densityCongestion = Clamp(
+				static_cast<double>(vehicleCountOnEdge) / capacityVehicles, 0.0, 1.0);
+			const double storedCongestion = Clamp(static_cast<double>(edge.congestion), 0.0, 1.0);
+			const double congestion = Max(densityCongestion, storedCongestion);
+
+			congestionTotal += congestion;
+			stats.maxCongestion = Max(stats.maxCongestion, congestion);
+			if (congestion >= kCongestedEdgeThreshold)
+			{
+				++stats.congestedEdgeCount;
+			}
+			++stats.roadEdgeCount;
+		}
+
+		if (stats.roadEdgeCount > 0)
+		{
+			stats.averageCongestion = congestionTotal / stats.roadEdgeCount;
+		}
+	}
+
+	void collectEventStats(const EventSystem& eventSystem, const Array<GameEvent>& notifications,
+	                       CityHudStats& stats)
+	{
+		for (const auto& event : eventSystem.activeEvents())
+		{
+			stats.activeEventSummaries << U"{} (速度 {:.0f}%)"_fmt(
+				event.title, static_cast<double>(event.speedMultiplier) * 100.0);
+			if (stats.activeEventSummaries.size() >= 3)
+			{
+				break;
+			}
+		}
+
+		for (int i = static_cast<int>(notifications.size()) - 1;
+		     i >= 0 && stats.notificationSummaries.size() < 2; --i)
+		{
+			const auto& notification = notifications[i];
+			if (notification.description.isEmpty())
+			{
+				stats.notificationSummaries << notification.title;
+			}
+			else
+			{
+				stats.notificationSummaries << U"{} - {}"_fmt(notification.title, notification.description);
+			}
+		}
+	}
+
+	CityHudStats buildCityHudStats(const Economy& economy, const RoadNetwork& network,
+	                               const World& world, const VehicleManager& vehicleManager,
+	                               const EventSystem& eventSystem,
+	                               const Array<GameEvent>& notifications)
+	{
+		CityHudStats stats;
+		stats.monthlyIncome = economy.monthlyGrant();
+		stats.monthlyExpense = economy.roadMaintenanceCost(network);
+		stats.monthlyBalance = stats.monthlyIncome - stats.monthlyExpense;
+		collectHousingStats(world, economy.population, stats);
+		collectTrafficStats(network, vehicleManager.vehicles(), stats);
+		collectEventStats(eventSystem, notifications, stats);
+		return stats;
+	}
 }
 
 // =============================================================================
@@ -718,7 +873,15 @@ void GameScene::render2DUI()
 	m_routeSignRenderer.render(m_network, m_camera);
 	lap(m_renderTimings.uiRouteSigns);
 
-	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy);
+	if (m_hudStatsRefreshCountdown <= 0)
+	{
+		m_hudStats = buildCityHudStats(m_economy, m_network, m_world, m_vehicleManager,
+		                               m_eventSystem, m_notifications);
+		m_hudStatsRefreshCountdown = kHudStatsRefreshFrames;
+	}
+	--m_hudStatsRefreshCountdown;
+
+	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy, m_hudStats);
 	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる

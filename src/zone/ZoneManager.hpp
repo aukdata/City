@@ -3,6 +3,27 @@
 #include "Building.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
+#include "../time/GameClock.hpp"
+#include "../gameplay/CitySimulation.hpp"
+
+/// @brief 月次の用途別開発需要
+struct ZoneDevelopmentDemand
+{
+	double residential = 0.0;
+	double commercial = 0.0;
+	double industrial = 0.0;
+};
+
+/// @brief 都市統計から用途別の月次開発需要を計算する
+ZoneDevelopmentDemand calculateZoneDevelopmentDemand(int population, const CitySnapshot& snapshot);
+
+/// @brief 月次ゾーン更新の変更件数
+struct ZoneMonthlyUpdateResult
+{
+	int spawnedBuildings = 0;
+	int upgradedBuildings = 0;
+	int removedBuildings = 0;
+};
 
 /// @brief ゾーン塗り・建物自動生成・月次評価を担うクラス（05_zoning_spec.md §5）
 class ZoneManager
@@ -23,8 +44,12 @@ public:
 
 	// ----- 統計 -----
 
-	/// @brief 全アクティブチャンクの住宅収容人口合計を返す
+	/// @brief 全ワールドの住宅収容人口合計を返す
 	int totalHousingCapacity(const World& world) const;
+
+	/// @brief 全ワールドのゾーンを決定論的に月次評価する
+	ZoneMonthlyUpdateResult updateMonthly(World& world, const RoadNetwork& network,
+		const ZoneDevelopmentDemand& demand, GameTime gameNow, int64 monthIndex) const;
 
 	// ----- オーバーレイ描画 -----
 
@@ -53,4 +78,7 @@ private:
 	/// @details 道路アクセス係数をメインに算出（Phase 3: 簡易版）
 	float calcDevelopmentScore(Point chunkCoord, int cx, int cy,
 	                           const RoadNetwork& network) const;
+
+	/// @brief 乱数状態に依存しない月次生成用の建物選択
+	Building spawnBuildingDeterministic(ZoneType zone, GameTime gameNow, uint32 roll) const;
 };

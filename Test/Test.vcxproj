@@ -115,7 +115,11 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BezierBuildingFrontageTests.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="SaveTransactionTests.cpp" />
+    <ClCompile Include="TestRunner.cpp" />
+    <ClCompile Include="..\src\save\SaveTransaction.cpp" />
     <ClCompile Include="RoadNetworkStubs.cpp" />
     <ClCompile Include="..\src\asset\AssetRegistrar.cpp" />
     <ClCompile Include="..\src\road\BezierUtil.cpp" />
@@ -333,6 +337,10 @@
     <Xml Include="App\example\xml\test.xml" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="TestCases.hpp" />
+    <ClInclude Include="TestRunner.hpp" />
+    <ClInclude Include="..\src\save\SaveResult.hpp" />
+    <ClInclude Include="..\src\save\SaveTransaction.hpp" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
