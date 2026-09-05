@@ -991,7 +991,12 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 	{
 		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
 
-		const auto [color, heightOff, tex] = getPartVisual(part);
+		auto [color, heightOff, tex] = getPartVisual(part);
+		if (part.type == RoadPartType::Roadbed)
+		{
+			if (edge.roadType == RoadType::Arterial) color = ColorF{ 0.40, 0.39, 0.36 };
+			else if (edge.roadType == RoadType::LocalRoad) color = ColorF{ 0.54, 0.51, 0.46 };
+		}
 
 		const RoadPartDef& def = m_partRegistry.get(part.defId);
 		const RoadPartModel& model = m_partRegistry.getModel(part.defId);
@@ -1053,7 +1058,12 @@ Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadEdge& edge, cons
 	{
 		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
 
-		const auto [color, heightOff, tex] = getPartVisual(part);
+		auto [color, heightOff, tex] = getPartVisual(part);
+		if (part.type == RoadPartType::Roadbed)
+		{
+			if (edge.roadType == RoadType::Arterial) color = ColorF{ 0.40, 0.39, 0.36 };
+			else if (edge.roadType == RoadType::LocalRoad) color = ColorF{ 0.54, 0.51, 0.46 };
+		}
 
 		const RoadPartDef& def = m_partRegistry.get(part.defId);
 		const RoadPartModel& model = m_partRegistry.getModel(part.defId);

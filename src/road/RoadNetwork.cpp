@@ -1237,7 +1237,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 	const float laneW = (edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
 		? 3.75f
-		: (edge.roadType == RoadType::Arterial ? 3.55f : 2.05f);
+		: (edge.roadType == RoadType::Arterial ? 3.75f : 2.00f);
 	const int nLanes = static_cast<int>(edge.lanes.size());
 	const float roadbedWidth = nLanes * laneW;
 	const float halfRoadbed = roadbedWidth * 0.5f;
@@ -1290,7 +1290,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	case RoadType::Arterial:
 	{
-		const float sidewalkW = 3.0f;
+		const float sidewalkW = 3.4f;
 		const float curbW = 0.22f;
 		const float gutterW = 0.42f;
 
@@ -1330,9 +1330,9 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
-	float laneWidth = 2.05f;
+	float laneWidth = 2.00f;
 	if (rt == RoadType::Arterial)
-		laneWidth = 3.55f;
+		laneWidth = 3.75f;
 	if (rt == RoadType::Expressway || rt == RoadType::Highway)
 		laneWidth = 3.75f;
 

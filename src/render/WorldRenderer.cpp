@@ -1414,7 +1414,7 @@ namespace
 		case LandPatchType::GardenSoil:    return ((seed >> 4) & 1u) ? 112 : 101;
 		case LandPatchType::Beach:        return 111;
 		case LandPatchType::PaddyField:   return 110;
-		case LandPatchType::FarmField:    return 113;
+		case LandPatchType::FarmField:    return ((seed >> 6) & 1u) ? 113 : 101;
 		case LandPatchType::Seawall:      return 117;
 		default:                    return 100;
 		}
@@ -1505,6 +1505,7 @@ namespace
 		else if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
 		{
 			const int ridgeKey = (patch.type == LandPatchType::PaddyField) ? 110 : 101;
+			const int borderKey = (patch.type == LandPatchType::PaddyField) ? 114 : 113;
 			Vec2 along{ 1.0f, 0.0f };
 			if (patch.polygon.size() >= 2)
 			{
@@ -1515,14 +1516,40 @@ namespace
 			const Vec2 lateral{ -along.y, along.x };
 			const float angle = static_cast<float>(std::atan2(along.y, along.x));
 			const uint32 hash = static_cast<uint32>(patch.materialVariant);
-			const int ridgeCount = (patch.type == LandPatchType::PaddyField) ? 5 : 7;
+			const Vec2 frontMid = (patch.polygon[0] + patch.polygon[1]) * 0.5;
+			const Vec2 backMid = (patch.polygon[3] + patch.polygon[4]) * 0.5;
+			const Vec2 fieldMid = (frontMid + backMid) * 0.5;
+			const float fieldLength = static_cast<float>(Max(3.0, bounds.w * 0.84));
+			const float fieldDepth = static_cast<float>(Max(3.0, bounds.h * 0.76));
+			appendRotatedBox(groups[borderKey], static_cast<float>(frontMid.x), baseY + 0.052f, static_cast<float>(frontMid.y),
+				fieldLength, 0.070f, 0.26f, angle);
+			appendRotatedBox(groups[borderKey], static_cast<float>(backMid.x), baseY + 0.050f, static_cast<float>(backMid.y),
+				fieldLength * 0.92f, 0.065f, 0.23f, angle);
+			for (const float side : { -1.0f, 1.0f })
+			{
+				const Vec2 sideMid = fieldMid + along * side * fieldLength * 0.46f;
+				appendRotatedBox(groups[borderKey], static_cast<float>(sideMid.x), baseY + 0.048f, static_cast<float>(sideMid.y),
+					fieldDepth, 0.060f, 0.22f, angle + static_cast<float>(90.0_deg));
+			}
+			appendRotatedBox(groups[borderKey], static_cast<float>(fieldMid.x), baseY + 0.046f, static_cast<float>(fieldMid.y),
+				fieldLength * 0.78f, 0.055f, 0.18f, angle);
+			const int ridgeCount = (patch.type == LandPatchType::PaddyField) ? 8 : 10;
 			for (int i = 0; i < ridgeCount; ++i)
 			{
-				const float offset = (static_cast<float>(i) - (ridgeCount - 1) * 0.5f) * static_cast<float>(bounds.h) * 0.095f
-					+ (static_cast<float>((hash >> (i * 5)) & 15u) / 15.0f - 0.5f) * static_cast<float>(bounds.h) * 0.045f;
-				const Vec2 p = Vec2{ cx, cz } + lateral * offset;
-				appendRotatedBox(groups[ridgeKey], static_cast<float>(p.x), baseY + 0.045f, static_cast<float>(p.y),
-					static_cast<float>(Max(2.0, bounds.w * 0.72)), 0.035f, 0.08f, angle);
+				const float offset = (static_cast<float>(i) - (ridgeCount - 1) * 0.5f) * fieldDepth / Max(1.0f, static_cast<float>(ridgeCount - 1)) * 0.86f
+					+ (static_cast<float>((hash >> (i * 5)) & 15u) / 15.0f - 0.5f) * fieldDepth * 0.018f;
+				const Vec2 p = fieldMid + lateral * offset;
+				appendRotatedBox(groups[ridgeKey], static_cast<float>(p.x), baseY + 0.055f, static_cast<float>(p.y),
+					fieldLength * 0.82f, 0.060f, 0.12f, angle);
+			}
+			if (patch.type == LandPatchType::PaddyField)
+			{
+				for (const float side : { -0.33f, 0.33f })
+				{
+					const Vec2 channel = fieldMid + along * side * fieldLength;
+					appendRotatedBox(groups[110], static_cast<float>(channel.x), baseY + 0.060f, static_cast<float>(channel.y),
+						fieldDepth * 0.78f, 0.060f, 0.24f, angle + static_cast<float>(90.0_deg));
+				}
 			}
 		}
 	}
@@ -1635,7 +1662,7 @@ namespace
 		switch (key)
 		{
 		case 100: return ColorF{ 0.45, 0.43, 0.38 };
-		case 101: return ColorF{ 0.30, 0.38, 0.24 };
+		case 101: return ColorF{ 0.34, 0.50, 0.24 };
 		case 102: return ColorF{ 0.62, 0.59, 0.52 };
 		case 103: return ColorF{ 0.42, 0.39, 0.34 };
 		case 104: return ColorF{ 0.46, 0.53, 0.31 };
@@ -1644,11 +1671,11 @@ namespace
 		case 107: return ColorF{ 0.72, 0.74, 0.73 };
 		case 108: return ColorF{ 0.35, 0.39, 0.43 };
 		case 109: return ColorF{ 0.30, 0.30, 0.28 };
-		case 110: return ColorF{ 0.25, 0.38, 0.42 };
+		case 110: return ColorF{ 0.22, 0.48, 0.54 };
 		case 111: return ColorF{ 0.58, 0.53, 0.39 };
 		case 112: return ColorF{ 0.68, 0.20, 0.16 };
-		case 113: return ColorF{ 0.26, 0.42, 0.23 };
-		case 114: return ColorF{ 0.38, 0.34, 0.25 };
+		case 113: return ColorF{ 0.30, 0.56, 0.24 };
+		case 114: return ColorF{ 0.62, 0.55, 0.34 };
 		case 115: return ColorF{ 0.22, 0.21, 0.19 };
 		case 116: return ColorF{ 0.16, 0.23, 0.25 };
 		case 117: return ColorF{ 0.36, 0.36, 0.34 };

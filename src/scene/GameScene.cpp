@@ -1824,7 +1824,8 @@ void GameScene::placeInitialBuildings()
 
 			const float distFromCenter = Math::Sqrt(distFromCenterSq);
 			const float centerFalloff = Clamp(1.0f - distFromCenter / Max(1.0f, s.radius * 2.2f), 0.20f, 1.0f);
-			const float densityFactor = InitialBuilding::density(s.kind, zone) * (0.78f + centerFalloff * 0.22f);
+			const float densityBoost = (zone == ZoneType::Commercial || zone == ZoneType::Residential) ? 1.18f : 1.08f;
+			const float densityFactor = Min(0.96f, InitialBuilding::density(s.kind, zone) * densityBoost * (0.82f + centerFalloff * 0.18f));
 			const float score = roadScore * densityFactor;
 			if (score < 0.03f) continue;
 
@@ -1967,6 +1968,10 @@ void GameScene::generateLandPatches(bool preserveExisting)
 
 	auto parcelTypeFor = [](ZoneType zone, BuildingType buildingType, uint32 salt)
 	{
+		if (zone == ZoneType::Agriculture)
+		{
+			return ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
+		}
 		if (buildingType == BuildingType::Parking || zone == ZoneType::Commercial || zone == ZoneType::Industrial)
 		{
 			return ((salt >> 5) & 1u) ? LandPatchType::ParcelAsphalt : LandPatchType::ParcelGravel;
@@ -1990,10 +1995,11 @@ void GameScene::generateLandPatches(bool preserveExisting)
 				for (int col = 0; col < ZONE_CELLS; ++col)
 				{
 					const ZoneType zone = chunk.zoneMap[{ col, row }];
-					if (!isUrbanLandZone(zone)) continue;
+					const bool agricultureZone = (zone == ZoneType::Agriculture);
+					if (!isUrbanLandZone(zone) && !agricultureZone) continue;
 
 					const Building& building = chunk.buildingGrid[{ col, row }];
-					if (building.type == BuildingType::Farmland) continue;
+					if (!agricultureZone && building.type == BuildingType::Farmland) continue;
 
 					const int64 cellKey = zoneCellKey(coord, col, row);
 					const int globalGX = chunkX * ZONE_CELLS + col;
@@ -2002,7 +2008,7 @@ void GameScene::generateLandPatches(bool preserveExisting)
 
 					int edgeId = -1;
 					Vec2 sampleCenter = cellCenterXZ(coord, col, row);
-					if (building.type != BuildingType::None && building.edgeId >= 0)
+					if (!agricultureZone && building.type != BuildingType::None && building.edgeId >= 0)
 					{
 						edgeId = building.edgeId;
 						sampleCenter += Vec2{ building.offsetX, building.offsetZ };
@@ -2030,14 +2036,18 @@ void GameScene::generateLandPatches(bool preserveExisting)
 					const Vec2 frontageDir = rightSide ? projection.right : -projection.right;
 					const float structuralOuter = rightSide ? Max(0.0f, range.right) : Max(0.0f, -range.left);
 					const float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-					const float buildingHalf = (building.type == BuildingType::None) ? cellSize * 0.30f : buildingFootprintXZ() * 0.5f;
-					const float frontageDepth = (building.type == BuildingType::None)
-						? Clamp(projection.distance - structuralOuter + cellSize * 0.60f, cellSize * 0.64f, cellSize * 1.25f)
-						: Max(cellSize * 0.70f, projection.distance + buildingHalf + 3.0f - structuralOuter);
+					const float buildingHalf = agricultureZone ? cellSize * 0.34f : ((building.type == BuildingType::None) ? cellSize * 0.30f : buildingFootprintXZ() * 0.5f);
+					const float frontageDepth = agricultureZone
+						? cellSize * (1.55f + static_cast<float>((salt >> 19) & 7u) * 0.11f)
+						: ((building.type == BuildingType::None)
+							? Clamp(projection.distance - structuralOuter + cellSize * 0.60f, cellSize * 0.64f, cellSize * 1.25f)
+							: Max(cellSize * 0.70f, projection.distance + buildingHalf + 3.0f - structuralOuter));
 					const float frontOffset = structuralOuter + 0.03f;
 					const float backOffset = structuralOuter + frontageDepth;
-					const float halfAlong = Min(cellSize * 0.62f,
-						buildingHalf + 2.8f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.45f);
+					const float halfAlong = agricultureZone
+						? cellSize * (0.66f + static_cast<float>((salt >> 27) & 7u) * 0.055f)
+						: Min(cellSize * 0.62f,
+							buildingHalf + 2.8f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.45f);
 
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);
@@ -2105,41 +2115,6 @@ void GameScene::generateLandPatches(bool preserveExisting)
 				}
 			}
 
-			for (int y = 0; y < ZONE_CELLS - 3; y += 4)
-			{
-				for (int x = 0; x < ZONE_CELLS - 3; x += 4)
-				{
-					int agricultureCount = 0;
-					int urbanCount = 0;
-					float averageHeight = 0.0f;
-					for (int dy = 0; dy < 4; ++dy)
-					{
-						for (int dx = 0; dx < 4; ++dx)
-						{
-							const ZoneType cellZone = chunk.zoneMap[{ x + dx, y + dy }];
-							if (cellZone == ZoneType::Agriculture) ++agricultureCount;
-							else if (isUrbanLandZone(cellZone)) ++urbanCount;
-							averageHeight += chunk.heightMap[y + dy][x + dx];
-						}
-					}
-					if (agricultureCount < 8 || urbanCount > 2) continue;
-					averageHeight *= 1.0f / 16.0f;
-					if (averageHeight < 7.0f) continue;
-
-					const uint32 salt = settlementCellHash(getData().seed ^ 0xD1B54A32u, 131, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
-					LandPatch patch;
-					patch.id = static_cast<int>(patchIndex++);
-					patch.type = ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
-					const Vec2 farmCenter = cellCenterXZ(coord, x + 2, y + 2);
-					const float farmAngle = static_cast<float>(((salt >> 9) % 360u) * Math::Pi / 180.0);
-					const float farmWidth = (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS) * (2.8f + static_cast<float>((salt >> 17) % 9u) * 0.12f);
-					const float farmDepth = (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS) * (2.0f + static_cast<float>((salt >> 25) % 11u) * 0.12f);
-					patch.polygon = makeOrientedPatchPolygon(farmCenter, farmWidth, farmDepth, farmAngle, salt);
-					patch.elevationOffset = 0.035f;
-					patch.materialVariant = salt;
-					chunk.landPatches << patch;
-				}
-			}
 		}
 	}
 }
