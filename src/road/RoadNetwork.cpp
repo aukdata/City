@@ -1237,7 +1237,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 	const float laneW = (edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
 		? 3.75f
-		: (edge.roadType == RoadType::Arterial ? 3.25f : 3.0f);
+		: (edge.roadType == RoadType::Arterial ? 3.55f : 2.05f);
 	const int nLanes = static_cast<int>(edge.lanes.size());
 	const float roadbedWidth = nLanes * laneW;
 	const float halfRoadbed = roadbedWidth * 0.5f;
@@ -1290,7 +1290,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	case RoadType::Arterial:
 	{
-		const float sidewalkW = 2.2f;
+		const float sidewalkW = 3.0f;
 		const float curbW = 0.22f;
 		const float gutterW = 0.42f;
 
@@ -1310,8 +1310,8 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	default: // LocalRoad
 	{
-		const float curbW = 0.15f;
-		const float gutterW = 0.35f;
+		const float curbW = 0.28f;
+		const float gutterW = 0.72f;
 
 		float x = -halfRoadbed - curbW - gutterW;
 		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
@@ -1320,9 +1320,9 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
 		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete");
 		addPart(RoadPartType::UtilityPole, -halfRoadbed - curbW - gutterW - 0.45f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 22.0f, 1.8f);
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 17.0f, 1.2f);
 		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.45f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 22.0f, 1.8f);
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 17.0f, 1.2f);
 		break;
 	}
 	}
@@ -1330,7 +1330,9 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
-	float laneWidth = (rt == RoadType::Arterial) ? 3.25f : 3.0f;
+	float laneWidth = 2.05f;
+	if (rt == RoadType::Arterial)
+		laneWidth = 3.55f;
 	if (rt == RoadType::Expressway || rt == RoadType::Highway)
 		laneWidth = 3.75f;
 

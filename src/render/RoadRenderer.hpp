@@ -156,6 +156,7 @@ private:
 	                               float offsetB_L, float offsetB_R,
 	                               float heightOffset,
 	                               float sStart, float sEnd, float lodFactor,
+	                               float sideSkirtDrop = 0.0f,
 	                               bool useElevation = false) const;
 
 	/// @brief 全部品のメッシュ配列を生成する

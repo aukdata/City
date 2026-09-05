@@ -10,10 +10,10 @@ namespace
 {
 	constexpr float kTerrainCellSize      = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	constexpr float kRoadTerrainQuadStep  = 24.0f;
-	constexpr float kRoadBedThickness     = 0.5f;
+	constexpr float kRoadTerrainRelief    = 0.06f;
 	constexpr float kTerrainClipEpsilon   = 1e-4f;
 	constexpr float kChunkSizeF           = static_cast<float>(CHUNK_SIZE);
-	constexpr float kTerrainTileSize      = static_cast<float>(CHUNK_SIZE) / (16.0f * 5.0f);
+	constexpr float kTerrainTileSize      = 96.0f;
 	constexpr float kTerrainUvCosA        = 0.97237f;
 	constexpr float kTerrainUvSinA        = 0.23345f;
 
@@ -501,7 +501,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
-	m_meshCache[key].draw(TextureAsset(Asset::Grass), ColorF{ 0.42, 0.47, 0.34 }.removeSRGBCurve());
+	m_meshCache[key].draw(TextureAsset(Asset::Ground), ColorF{ 0.58, 0.58, 0.50 }.removeSRGBCurve());
 	drawCachedBuildings(key);
 }
 
@@ -667,7 +667,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 			static_cast<float>(center.x + rightVec.x * rightOffset),
 			static_cast<float>(center.z + rightVec.y * rightOffset)
 		};
-		sample.bedBottomY = static_cast<float>(center.y + kRoadSurfaceLift - kRoadBedThickness);
+		sample.bedBottomY = static_cast<float>(center.y + kRoadSurfaceLift - kRoadTerrainRelief);
 		samples << sample;
 	}
 
@@ -739,7 +739,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 			Vec2{ static_cast<float>(rightCorner.x), static_cast<float>(rightCorner.z) },
 		};
 		const float bedBottomY = static_cast<float>(
-			Max(Max(leftCorner.y, rightCorner.y), nodeCenter.y) + kRoadSurfaceLift - kRoadBedThickness);
+			Max(Max(leftCorner.y, rightCorner.y), nodeCenter.y) + kRoadSurfaceLift - kRoadTerrainRelief);
 		registerSubtractionFootprint(std::move(footprint), bedBottomY);
 	};
 
@@ -858,7 +858,7 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 			capPos.y,
 			capPos.z + right.z * static_cast<double>(roadbedRight)
 		};
-		info.bedBottomY = static_cast<float>(capPos.y + kRoadSurfaceLift - kRoadBedThickness);
+		info.bedBottomY = static_cast<float>(capPos.y + kRoadSurfaceLift - kRoadTerrainRelief);
 		info.angle = Math::Atan2(capTan.z, capTan.x);
 		infos << info;
 	}
@@ -920,7 +920,7 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 			Vec2{ static_cast<float>(c.x), static_cast<float>(c.z) },
 		};
 		const float bedBottomY = static_cast<float>(
-			Max(Max(a.y, b.y), c.y) + kRoadSurfaceLift - kRoadBedThickness);
+			Max(Max(a.y, b.y), c.y) + kRoadSurfaceLift - kRoadTerrainRelief);
 		registerSubtractionFootprint(std::move(tri), bedBottomY);
 	};
 
@@ -1412,9 +1412,9 @@ namespace
 		case LandPatchType::ParcelAsphalt: return 117;
 		case LandPatchType::ParcelGravel:  return 118;
 		case LandPatchType::GardenSoil:    return ((seed >> 4) & 1u) ? 112 : 101;
-		case LandPatchType::Beach:        return 119;
-		case LandPatchType::PaddyField:   return ((seed >> 5) & 1u) ? 110 : 114;
-		case LandPatchType::FarmField:    return ((seed >> 6) & 1u) ? 101 : 114;
+		case LandPatchType::Beach:        return 111;
+		case LandPatchType::PaddyField:   return 110;
+		case LandPatchType::FarmField:    return 113;
 		case LandPatchType::Seawall:      return 117;
 		default:                    return 100;
 		}
@@ -1440,27 +1440,89 @@ namespace
 
 	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const World& world, const LandPatch& patch)
 	{
-		MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
-		appendLandPatchSurface(surface, world, patch);
+		const bool drawSurface = (patch.type != LandPatchType::ParcelAsphalt
+			&& patch.type != LandPatchType::ParcelGravel
+			&& patch.type != LandPatchType::GardenSoil
+			&& patch.type != LandPatchType::Seawall);
+		if (drawSurface)
+		{
+			MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
+			appendLandPatchSurface(surface, world, patch);
+		}
 		const RectF bounds = boundsOfPolygon(patch.polygon);
 		const float cx = static_cast<float>(bounds.x + bounds.w * 0.5);
 		const float cz = static_cast<float>(bounds.y + bounds.h * 0.5);
 		const float baseY = static_cast<float>(world.sampleHeight(cx, cz)) + patch.elevationOffset;
 
+		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 4
+			&& (patch.type == LandPatchType::ParcelAsphalt || patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil))
+		{
+			const Vec2 a = patch.polygon[0];
+			const Vec2 b = patch.polygon[1];
+			const Vec2 c = patch.polygon[2];
+			const Vec2 d = patch.polygon[3];
+			const Vec2 frontMid = (a + b) * 0.5;
+			const Vec2 backMid = (c + d) * 0.5;
+			Vec2 along = b - a;
+			const float frontageLen = static_cast<float>(along.length());
+			if (frontageLen > 0.6f)
+			{
+				along /= frontageLen;
+				Vec2 inward = backMid - frontMid;
+				if (inward.lengthSq() > 1e-6f) inward.normalize();
+				const float apronW = Min(frontageLen * 0.92f, 10.5f);
+				const float apronD = 2.20f;
+				const Vec2 apronCenter = frontMid + inward * (apronD * 0.55f);
+				const float angle = static_cast<float>(std::atan2(along.y, along.x));
+				appendRotatedBox(groups[(patch.type == LandPatchType::GardenSoil) ? 114 : 100],
+					static_cast<float>(apronCenter.x), baseY + 0.060f, static_cast<float>(apronCenter.y),
+					apronW, 0.035f, apronD, angle);
+				const uint32 hash = static_cast<uint32>(patch.materialVariant);
+				const float openingW = 2.2f + static_cast<float>((hash >> 5) % 5u) * 0.22f;
+				const float fenceSpan = Max(0.0f, frontageLen - openingW);
+				if (fenceSpan > 1.2f)
+				{
+					const Vec2 left = frontMid - along * (openingW * 0.5f + fenceSpan * 0.25f) + inward * 0.18f;
+					const Vec2 right = frontMid + along * (openingW * 0.5f + fenceSpan * 0.25f) + inward * 0.18f;
+					appendRotatedBox(groups[102], static_cast<float>(left.x), baseY + 0.25f, static_cast<float>(left.y),
+						fenceSpan * 0.45f, 0.50f, 0.16f, angle);
+					appendRotatedBox(groups[102], static_cast<float>(right.x), baseY + 0.25f, static_cast<float>(right.y),
+						fenceSpan * 0.45f, 0.50f, 0.16f, angle);
+					appendRotatedBox(groups[117], static_cast<float>(frontMid.x - along.x * openingW * 0.48f), baseY + 0.32f,
+						static_cast<float>(frontMid.y - along.y * openingW * 0.48f), 0.22f, 0.64f, 0.22f, angle);
+					appendRotatedBox(groups[117], static_cast<float>(frontMid.x + along.x * openingW * 0.48f), baseY + 0.32f,
+						static_cast<float>(frontMid.y + along.y * openingW * 0.48f), 0.22f, 0.64f, 0.22f, angle);
+				}
+			}
+		}
+
 		if (patch.type == LandPatchType::Seawall)
 		{
-			appendRotatedBox(groups[117], cx, baseY + 0.28f, cz,
-				static_cast<float>(Max(1.4, bounds.w * 0.92)), 0.56f,
-				static_cast<float>(Max(0.8, bounds.h * 0.22)), 0.0f);
+			appendRotatedBox(groups[117], cx, baseY + 0.70f, cz,
+				static_cast<float>(Max(2.4, bounds.w * 1.02)), 1.40f,
+				static_cast<float>(Max(1.8, bounds.h * 0.52)), 0.0f);
 		}
 		else if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
 		{
 			const int ridgeKey = (patch.type == LandPatchType::PaddyField) ? 110 : 101;
-			for (int i = -1; i <= 1; ++i)
+			Vec2 along{ 1.0f, 0.0f };
+			if (patch.polygon.size() >= 2)
 			{
-				const float z = cz + static_cast<float>(i) * static_cast<float>(bounds.h) * 0.22f;
-				appendRotatedBox(groups[ridgeKey], cx, baseY + 0.045f, z,
-					static_cast<float>(Max(1.0, bounds.w * 0.88)), 0.035f, 0.12f, 0.0f);
+				along = patch.polygon[1] - patch.polygon[0];
+				if (along.lengthSq() <= 1e-6f) along = Vec2{ 1.0f, 0.0f };
+				else along.normalize();
+			}
+			const Vec2 lateral{ -along.y, along.x };
+			const float angle = static_cast<float>(std::atan2(along.y, along.x));
+			const uint32 hash = static_cast<uint32>(patch.materialVariant);
+			const int ridgeCount = (patch.type == LandPatchType::PaddyField) ? 5 : 7;
+			for (int i = 0; i < ridgeCount; ++i)
+			{
+				const float offset = (static_cast<float>(i) - (ridgeCount - 1) * 0.5f) * static_cast<float>(bounds.h) * 0.095f
+					+ (static_cast<float>((hash >> (i * 5)) & 15u) / 15.0f - 0.5f) * static_cast<float>(bounds.h) * 0.045f;
+				const Vec2 p = Vec2{ cx, cz } + lateral * offset;
+				appendRotatedBox(groups[ridgeKey], static_cast<float>(p.x), baseY + 0.045f, static_cast<float>(p.y),
+					static_cast<float>(Max(2.0, bounds.w * 0.72)), 0.035f, 0.08f, angle);
 			}
 		}
 	}
@@ -1583,14 +1645,14 @@ namespace
 		case 108: return ColorF{ 0.35, 0.39, 0.43 };
 		case 109: return ColorF{ 0.30, 0.30, 0.28 };
 		case 110: return ColorF{ 0.25, 0.38, 0.42 };
-		case 111: return ColorF{ 0.88, 0.86, 0.78 };
+		case 111: return ColorF{ 0.58, 0.53, 0.39 };
 		case 112: return ColorF{ 0.68, 0.20, 0.16 };
-		case 113: return ColorF{ 0.34, 0.47, 0.30 };
-		case 114: return ColorF{ 0.47, 0.39, 0.29 };
+		case 113: return ColorF{ 0.26, 0.42, 0.23 };
+		case 114: return ColorF{ 0.38, 0.34, 0.25 };
 		case 115: return ColorF{ 0.22, 0.21, 0.19 };
 		case 116: return ColorF{ 0.16, 0.23, 0.25 };
-		case 117: return ColorF{ 0.72, 0.70, 0.66 };
-		case 118: return ColorF{ 0.78, 0.74, 0.58 };
+		case 117: return ColorF{ 0.36, 0.36, 0.34 };
+		case 118: return ColorF{ 0.49, 0.47, 0.39 };
 		default: return ColorF{ 0.60, 0.60, 0.60 };
 		}
 	}
@@ -1606,7 +1668,8 @@ namespace
 		const bool commercialLike = (building.type == BuildingType::Shop || building.type == BuildingType::Office
 			|| building.type == BuildingType::Factory || building.type == BuildingType::PublicFacility);
 		const int surfaceKey = (building.type == BuildingType::Parking || commercialLike) ? 100 : (((hash >> 9) % 100u < 8u) ? 101 : (((hash >> 15) & 1u) ? 114 : 100));
-		appendRotatedBox(groups[surfaceKey], cx, baseY + 0.025f, cz, lotSize, 0.05f, lotSize, angle);
+		const float surfaceSize = (building.type == BuildingType::Parking) ? lotSize : (commercialLike ? lotSize * 0.52f : lotSize * 0.34f);
+		appendRotatedBox(groups[surfaceKey], cx, baseY + 0.020f, cz, surfaceSize, 0.035f, surfaceSize * (commercialLike ? 0.62f : 0.46f), angle);
 
 		const float cosA = Math::Cos(angle);
 		const float sinA = Math::Sin(angle);
@@ -1644,14 +1707,14 @@ namespace
 		const float frontageZ = -lotSize * 0.43f;
 		if (commercialLike)
 		{
-			appendRotatedBox(groups[109], cx, baseY + 0.07f, cz, lotSize * 0.76f, 0.05f, lotSize * 0.36f, angle);
+			appendRotatedBox(groups[109], cx, baseY + 0.055f, cz, lotSize * 0.54f, 0.035f, lotSize * 0.24f, angle);
 			const Vec2 sign = worldOffset(lotSize * 0.34f, frontageZ);
 			appendRotatedBox(groups[115], static_cast<float>(sign.x), baseY + 1.15f, static_cast<float>(sign.y), 0.16f, 2.30f, 0.16f, angle);
 			appendRotatedBox(groups[112], static_cast<float>(sign.x), baseY + 2.45f, static_cast<float>(sign.y), 1.20f, 0.60f, 0.12f, angle);
 		}
 		else
 		{
-			appendRotatedBox(groups[101], cx, baseY + 0.055f, cz, lotSize * 0.58f, 0.04f, lotSize * 0.18f, angle);
+			appendRotatedBox(groups[101], cx, baseY + 0.045f, cz, lotSize * 0.36f, 0.030f, lotSize * 0.15f, angle);
 			const Vec2 car = worldOffset(((hash >> 11) & 1u) ? lotSize * 0.25f : -lotSize * 0.25f, lotSize * 0.30f);
 			if (((hash >> 6) % 100u) < 52u)
 			{
@@ -1730,39 +1793,6 @@ namespace
 			const float px = cx + fieldW * 0.48f * cosA;
 			const float pz = cz + fieldW * 0.48f * sinA;
 			appendRotatedBox(groups[110], px, baseY + 0.05f, pz, 0.42f, 0.04f, fieldD, angle);
-		}
-	}
-	void appendZoneSurfaceDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
-	                              int col, int row, ZoneType zone, float cx, float cz, float cellSize)
-	{
-		const uint32 hash = cellVisualHash(chunk.coord, col, row, static_cast<uint32>(zone) ^ 0x4D2C6A91u);
-		const float baseY = world.sampleHeight(cx, cz);
-		const float angle = static_cast<float>((static_cast<int>((hash >> 4) % 13u) - 6) * 1.5_deg);
-		if (zone == ZoneType::Agriculture)
-		{
-			appendFarmlandDetails(groups, chunk, world, col, row, cx, cz, cellSize);
-			return;
-		}
-
-		if (zone == ZoneType::Commercial || zone == ZoneType::Industrial)
-		{
-			const int key = ((hash >> 9) % 100u < 70u) ? 109 : 100;
-			appendRotatedBox(groups[key], cx, baseY + 0.018f, cz, cellSize * 0.96f, 0.035f, cellSize * 0.90f, angle);
-			appendRotatedBox(groups[111], cx, baseY + 0.055f, cz, cellSize * 0.70f, 0.022f, 0.12f, angle);
-			appendRotatedBox(groups[111], cx, baseY + 0.057f, cz, 0.12f, 0.022f, cellSize * 0.62f, angle);
-			return;
-		}
-
-		if (zone == ZoneType::Residential || zone == ZoneType::LowResidential)
-		{
-			const int key = ((hash >> 9) % 100u < 10u) ? 101 : (((hash >> 15) & 1u) ? 114 : 100);
-			appendRotatedBox(groups[key], cx, baseY + 0.016f, cz, cellSize * 1.02f, 0.032f, cellSize * 0.98f, angle);
-			appendRotatedBox(groups[((hash >> 25) & 1u) ? 100 : 114], cx, baseY + 0.050f, cz,
-				cellSize * 0.18f, 0.026f, cellSize * 0.76f, angle);
-			if (((hash >> 20) % 100u) < 52u)
-			{
-				appendRotatedBox(groups[102], cx, baseY + 0.32f, cz, cellSize * 0.76f, 0.44f, 0.16f, angle);
-			}
 		}
 	}
 	void appendBoxBuildingDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
@@ -2066,14 +2096,8 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		for (int col = 0; col < ZONE_CELLS; ++col)
 		{
 			const Building& b = chunk.buildingGrid[{ col, row }];
-			const ZoneType zone = chunk.zoneMap[{ col, row }];
 			const float cellCenterX = static_cast<float>(origin.x + (col + 0.5) * cellSize);
 			const float cellCenterZ = static_cast<float>(origin.z + (row + 0.5) * cellSize);
-			if (zone != ZoneType::Unzoned && b.type != BuildingType::Farmland)
-			{
-				appendZoneSurfaceDetails(groups, chunk, world, col, row, zone,
-				                         cellCenterX, cellCenterZ, cellSize);
-			}
 			if (b.type == BuildingType::None)
 			{
 				continue;
@@ -2084,7 +2108,6 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 
 			if (b.type == BuildingType::Farmland)
 			{
-				appendFarmlandDetails(groups, chunk, world, col, row, cx, cz, cellSize);
 				continue;
 			}
 			appendUrbanLotDetails(groups, chunk, world, col, row, b, cx, cz, cellSize);

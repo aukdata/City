@@ -6,6 +6,7 @@
 #include "../save/SaveTransaction.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../road/RoadGeometry.hpp"
 #include <exception>
 #include <thread>
 
@@ -1032,7 +1033,7 @@ namespace
 		if (h < 0.0f) return ZoneType::Unzoned;
 		const float slope = localSlope(chunk, chunkCoord, wx, wz);
 		if (slope > 0.12f) return ZoneType::Unzoned;
-		if (h < 2.6f) return ZoneType::Unzoned;
+		if (h < 7.0f) return ZoneType::Unzoned;
 
 		const Vec2 axisX = landUseAxisX(settlement, seed, settlementIndex);
 		const Vec2 axisZ{ -axisX.y, axisX.x };
@@ -1125,19 +1126,50 @@ namespace
 		const float z0 = static_cast<float>(chunk.y * ZONE_CELLS + minY) * cellSize;
 		const float x1 = static_cast<float>(chunk.x * ZONE_CELLS + minX + width) * cellSize;
 		const float z1 = static_cast<float>(chunk.y * ZONE_CELLS + minY + height) * cellSize;
-		const float jitter = cellSize * 0.16f;
-		const float a = (static_cast<float>((salt >> 0) & 255u) / 255.0f - 0.5f) * jitter;
-		const float b = (static_cast<float>((salt >> 8) & 255u) / 255.0f - 0.5f) * jitter;
-		const float c = (static_cast<float>((salt >> 16) & 255u) / 255.0f - 0.5f) * jitter;
-		const float d = (static_cast<float>((salt >> 24) & 255u) / 255.0f - 0.5f) * jitter;
+		const float w = x1 - x0;
+		const float h = z1 - z0;
+		const float cornerInset = Min(w, h) * 0.11f;
+		const float edgeInset = Min(w, h) * 0.05f;
+		auto noise = [&](int shift, float scale)
+		{
+			return (static_cast<float>((salt >> shift) & 255u) / 255.0f - 0.5f) * scale;
+		};
 		return Array<Vec2>{
-			Vec2{ x0 + a, z0 + b },
-			Vec2{ x1 + c, z0 - a },
-			Vec2{ x1 - b, z1 + d },
-			Vec2{ x0 - c, z1 - d }
+			Vec2{ x0 + cornerInset + noise(0, edgeInset), z0 + noise(8, edgeInset) },
+			Vec2{ x0 + w * (0.48f + noise(16, 0.05f)), z0 + edgeInset + noise(24, edgeInset) },
+			Vec2{ x1 - cornerInset + noise(32, edgeInset), z0 + noise(40, edgeInset) },
+			Vec2{ x1 - edgeInset + noise(6, edgeInset), z0 + h * (0.48f + noise(14, 0.05f)) },
+			Vec2{ x1 - cornerInset + noise(22, edgeInset), z1 + noise(30, edgeInset) },
+			Vec2{ x0 + w * (0.52f + noise(38, 0.05f)), z1 - edgeInset + noise(46, edgeInset) },
+			Vec2{ x0 + cornerInset + noise(4, edgeInset), z1 + noise(12, edgeInset) },
+			Vec2{ x0 + edgeInset + noise(20, edgeInset), z0 + h * (0.52f + noise(28, 0.05f)) }
 		};
 	}
-
+	Array<Vec2> makeOrientedPatchPolygon(Vec2 center, float width, float depth, float angle, uint64 salt)
+	{
+		const float hx = width * 0.5f;
+		const float hz = depth * 0.5f;
+		const float cosA = Math::Cos(angle);
+		const float sinA = Math::Sin(angle);
+		auto noise = [&](int shift, float scale)
+		{
+			return (static_cast<float>((salt >> shift) & 255u) / 255.0f - 0.5f) * scale;
+		};
+		auto transform = [&](float x, float z)
+		{
+			return Vec2{ center.x + x * cosA - z * sinA, center.y + x * sinA + z * cosA };
+		};
+		return Array<Vec2>{
+			transform(-hx * 0.86f + noise(0, hx * 0.10f), -hz * 0.98f + noise(8, hz * 0.08f)),
+			transform(noise(16, hx * 0.12f), -hz * 0.90f + noise(24, hz * 0.06f)),
+			transform(hx * 0.92f + noise(32, hx * 0.08f), -hz * 0.72f + noise(40, hz * 0.10f)),
+			transform(hx * 0.98f + noise(6, hx * 0.06f), noise(14, hz * 0.12f)),
+			transform(hx * 0.76f + noise(22, hx * 0.12f), hz * 0.94f + noise(30, hz * 0.08f)),
+			transform(noise(38, hx * 0.14f), hz * 0.86f + noise(46, hz * 0.08f)),
+			transform(-hx * 0.94f + noise(4, hx * 0.08f), hz * 0.68f + noise(12, hz * 0.12f)),
+			transform(-hx * 0.98f + noise(20, hx * 0.06f), noise(28, hz * 0.10f))
+		};
+	}
 	bool hasWaterNeighbor(const Chunk& chunk, int x, int y)
 	{
 		for (int dy = -1; dy <= 1; ++dy)
@@ -1912,6 +1944,36 @@ void GameScene::placeInitialBuildings()
 
 void GameScene::generateLandPatches(bool preserveExisting)
 {
+	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
+	for (const auto& settlement : m_districts)
+	{
+		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(settlement, m_world, m_network);
+		for (const EdgeFacingSlot& slot : slots)
+		{
+			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
+			const auto it = edgeFacingSlotsByCell.find(key);
+			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
+			{
+				edgeFacingSlotsByCell[key] = slot;
+			}
+		}
+	}
+
+	auto isUrbanLandZone = [](ZoneType zone)
+	{
+		return zone == ZoneType::LowResidential || zone == ZoneType::Residential
+			|| zone == ZoneType::Commercial || zone == ZoneType::Industrial;
+	};
+
+	auto parcelTypeFor = [](ZoneType zone, BuildingType buildingType, uint32 salt)
+	{
+		if (buildingType == BuildingType::Parking || zone == ZoneType::Commercial || zone == ZoneType::Industrial)
+		{
+			return ((salt >> 5) & 1u) ? LandPatchType::ParcelAsphalt : LandPatchType::ParcelGravel;
+		}
+		return ((salt >> 4) & 1u) ? LandPatchType::GardenSoil : LandPatchType::ParcelGravel;
+	};
+
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
 		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
@@ -1927,109 +1989,152 @@ void GameScene::generateLandPatches(bool preserveExisting)
 			{
 				for (int col = 0; col < ZONE_CELLS; ++col)
 				{
-					const Building& building = chunk.buildingGrid[{ col, row }];
-					if (building.type == BuildingType::None || building.type == BuildingType::Farmland || building.edgeId < 0) continue;
-					const Vec2 center = cellCenterXZ(coord, col, row) + Vec2{ building.offsetX, building.offsetZ };
-					EdgeProjection projection;
-					if (!projectPointToEdgeXZ(m_network, building.edgeId, center, projection)) continue;
-					const RoadEdge* edge = m_network.getEdge(building.edgeId);
-					if (!edge || !edge->isRoadbedBuilt()) continue;
+					const ZoneType zone = chunk.zoneMap[{ col, row }];
+					if (!isUrbanLandZone(zone)) continue;
 
-					const Vec2 toCell = center - projection.position;
-					if (toCell.lengthSq() <= 1e-6f) continue;
-					const Vec2 frontageDir = toCell.normalized();
+					const Building& building = chunk.buildingGrid[{ col, row }];
+					if (building.type == BuildingType::Farmland) continue;
+
+					const int64 cellKey = zoneCellKey(coord, col, row);
 					const int globalGX = chunkX * ZONE_CELLS + col;
 					const int globalGZ = chunkY * ZONE_CELLS + row;
-					const float buildingHalf = buildingFootprintXZ() * 0.5f;
-					const float edgeHalfWidth = edge->totalWidth() * 0.5f;
-					const float frontageDepth = Max(10.0f, projection.distance + buildingHalf + 2.5f - edgeHalfWidth);
-					const float frontOffset = edgeHalfWidth + 0.35f;
-					const float backOffset = edgeHalfWidth + frontageDepth;
-					const float halfAlong = buildingHalf + 2.4f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.55f;
-					const Vec2 along = projection.tangent;
 					const uint32 salt = settlementCellHash(getData().seed ^ 0xA24BAED5u, 211, globalGX, globalGZ);
+
+					int edgeId = -1;
+					Vec2 sampleCenter = cellCenterXZ(coord, col, row);
+					if (building.type != BuildingType::None && building.edgeId >= 0)
+					{
+						edgeId = building.edgeId;
+						sampleCenter += Vec2{ building.offsetX, building.offsetZ };
+					}
+					else if (const auto slotIt = edgeFacingSlotsByCell.find(cellKey); slotIt != edgeFacingSlotsByCell.end())
+					{
+						edgeId = slotIt->second.edgeId;
+					}
+					else
+					{
+						continue;
+					}
+
+					EdgeProjection projection;
+					if (!projectPointToEdgeXZ(m_network, edgeId, sampleCenter, projection)) continue;
+					const RoadEdge* edge = m_network.getEdge(edgeId);
+					if (!edge || !edge->isRoadbedBuilt()) continue;
+
+					const RoadGeometry::LateralRange range = RoadGeometry::structuralRangeAt(*edge, projection.edgeT);
+					if (!range.valid) continue;
+
+					const Vec2 toCell = sampleCenter - projection.position;
+					const float signedLateral = static_cast<float>(toCell.dot(projection.right));
+					const bool rightSide = (signedLateral >= 0.0f);
+					const Vec2 frontageDir = rightSide ? projection.right : -projection.right;
+					const float structuralOuter = rightSide ? Max(0.0f, range.right) : Max(0.0f, -range.left);
+					const float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+					const float buildingHalf = (building.type == BuildingType::None) ? cellSize * 0.30f : buildingFootprintXZ() * 0.5f;
+					const float frontageDepth = (building.type == BuildingType::None)
+						? Clamp(projection.distance - structuralOuter + cellSize * 0.60f, cellSize * 0.64f, cellSize * 1.25f)
+						: Max(cellSize * 0.70f, projection.distance + buildingHalf + 3.0f - structuralOuter);
+					const float frontOffset = structuralOuter + 0.03f;
+					const float backOffset = structuralOuter + frontageDepth;
+					const float halfAlong = Min(cellSize * 0.62f,
+						buildingHalf + 2.8f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.45f);
 
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);
-					patch.sourceParcelKey = zoneCellKey(coord, col, row);
-					patch.type = (building.type == BuildingType::Parking) ? LandPatchType::ParcelAsphalt
-						: (((salt >> 4) & 1u) ? LandPatchType::GardenSoil : LandPatchType::ParcelGravel);
-					patch.elevationOffset = 0.045f;
+					patch.sourceParcelKey = cellKey;
+					patch.type = parcelTypeFor(zone, building.type, salt);
+					patch.elevationOffset = 0.055f;
 					patch.materialVariant = salt;
+					const Vec2 along = projection.tangent;
+					const float frontShift = (static_cast<float>((salt >> 11) & 15u) / 15.0f - 0.5f) * halfAlong * 0.16f;
+					const float backShift = (static_cast<float>((salt >> 17) & 15u) / 15.0f - 0.5f) * halfAlong * 0.20f;
+					const float sideBias = (static_cast<float>((salt >> 23) & 15u) / 15.0f - 0.5f) * 0.36f;
 					patch.polygon = Array<Vec2>{
-						projection.position - along * halfAlong + frontageDir * frontOffset,
-						projection.position + along * halfAlong + frontageDir * frontOffset,
-						projection.position + along * halfAlong * 0.92f + frontageDir * backOffset,
-						projection.position - along * halfAlong * 0.88f + frontageDir * backOffset
+						projection.position - along * halfAlong + along * frontShift + frontageDir * frontOffset,
+						projection.position + along * (halfAlong * 0.18f + frontShift * 0.35f) + frontageDir * (frontOffset + (backOffset - frontOffset) * 0.08f),
+						projection.position + along * halfAlong * (0.88f + sideBias * 0.10f) + frontageDir * (frontOffset + (backOffset - frontOffset) * 0.18f),
+						projection.position + along * halfAlong * (0.96f - sideBias * 0.12f) + frontageDir * backOffset,
+						projection.position + along * backShift + frontageDir * (backOffset + (backOffset - frontOffset) * 0.04f),
+						projection.position - along * halfAlong * (0.92f + sideBias * 0.10f) + frontageDir * backOffset
 					};
 					chunk.landPatches << patch;
 				}
 			}
 
-			for (int y = 0; y < ZONE_CELLS - 1; y += 2)
+			for (int y = 0; y < ZONE_CELLS; ++y)
 			{
-				for (int x = 0; x < ZONE_CELLS - 1; x += 2)
+				int x = 0;
+				while (x < ZONE_CELLS)
 				{
 					float averageHeight = 0.0f;
-					bool touchesWater = false;
-					for (int dy = 0; dy < 2; ++dy)
+					int runLength = 0;
+					while (x + runLength < ZONE_CELLS && hasWaterNeighbor(chunk, x + runLength, y))
 					{
-						for (int dx = 0; dx < 2; ++dx)
-						{
-							averageHeight += chunk.heightMap[y + dy][x + dx];
-							touchesWater = touchesWater || hasWaterNeighbor(chunk, x + dx, y + dy);
-						}
+						averageHeight += chunk.heightMap[y][x + runLength];
+						++runLength;
 					}
-					averageHeight *= 0.25f;
-					if (!touchesWater) continue;
-
+					if (runLength <= 0)
+					{
+						++x;
+						continue;
+					}
+					averageHeight /= static_cast<float>(runLength);
+					const int stripWidth = Min(4, Max(1, runLength));
 					const uint32 salt = settlementCellHash(getData().seed, 97, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
-					if (averageHeight >= -0.15f && averageHeight < 1.55f)
+					if (averageHeight >= -0.18f && averageHeight < 3.20f)
 					{
 						LandPatch patch;
 						patch.id = static_cast<int>(patchIndex++);
 						patch.type = LandPatchType::Beach;
-						patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt);
-						patch.elevationOffset = Max(0.02f, 0.08f - averageHeight);
+						patch.polygon = makeCellPatchPolygon(coord, x, y, stripWidth, 1, salt);
+						patch.elevationOffset = Max(0.015f, 0.055f - averageHeight * 0.35f);
 						patch.materialVariant = salt;
 						chunk.landPatches << patch;
 					}
-					else if (averageHeight >= 1.55f && averageHeight < 2.9f)
+					else if (averageHeight >= 3.20f && averageHeight < 7.4f)
 					{
 						LandPatch patch;
 						patch.id = static_cast<int>(patchIndex++);
 						patch.type = LandPatchType::Seawall;
-						patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt ^ 0x9E3779B9u);
-						patch.elevationOffset = 0.10f;
+						patch.polygon = makeCellPatchPolygon(coord, x, y, stripWidth, 1, salt ^ 0x9E3779B9u);
+						patch.elevationOffset = 0.08f;
 						patch.materialVariant = salt;
 						chunk.landPatches << patch;
 					}
+					x += stripWidth;
 				}
 			}
 
-			for (int y = 0; y < ZONE_CELLS - 1; y += 2)
+			for (int y = 0; y < ZONE_CELLS - 3; y += 4)
 			{
-				for (int x = 0; x < ZONE_CELLS - 1; x += 2)
+				for (int x = 0; x < ZONE_CELLS - 3; x += 4)
 				{
-					bool allAgriculture = true;
+					int agricultureCount = 0;
+					int urbanCount = 0;
 					float averageHeight = 0.0f;
-					for (int dy = 0; dy < 2; ++dy)
+					for (int dy = 0; dy < 4; ++dy)
 					{
-						for (int dx = 0; dx < 2; ++dx)
+						for (int dx = 0; dx < 4; ++dx)
 						{
-							allAgriculture = allAgriculture && (chunk.zoneMap[{ x + dx, y + dy }] == ZoneType::Agriculture);
+							const ZoneType cellZone = chunk.zoneMap[{ x + dx, y + dy }];
+							if (cellZone == ZoneType::Agriculture) ++agricultureCount;
+							else if (isUrbanLandZone(cellZone)) ++urbanCount;
 							averageHeight += chunk.heightMap[y + dy][x + dx];
 						}
 					}
-					if (!allAgriculture) continue;
-					averageHeight *= 0.25f;
-					if (averageHeight < 2.8f) continue;
+					if (agricultureCount < 8 || urbanCount > 2) continue;
+					averageHeight *= 1.0f / 16.0f;
+					if (averageHeight < 7.0f) continue;
 
 					const uint32 salt = settlementCellHash(getData().seed ^ 0xD1B54A32u, 131, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);
 					patch.type = ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
-					patch.polygon = makeCellPatchPolygon(coord, x, y, 2, 2, salt);
+					const Vec2 farmCenter = cellCenterXZ(coord, x + 2, y + 2);
+					const float farmAngle = static_cast<float>(((salt >> 9) % 360u) * Math::Pi / 180.0);
+					const float farmWidth = (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS) * (2.8f + static_cast<float>((salt >> 17) % 9u) * 0.12f);
+					const float farmDepth = (static_cast<float>(CHUNK_SIZE) / ZONE_CELLS) * (2.0f + static_cast<float>((salt >> 25) % 11u) * 0.12f);
+					patch.polygon = makeOrientedPatchPolygon(farmCenter, farmWidth, farmDepth, farmAngle, salt);
 					patch.elevationOffset = 0.035f;
 					patch.materialVariant = salt;
 					chunk.landPatches << patch;
@@ -2351,6 +2456,12 @@ Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
 		int buildingCount = 0;
 		int commercialCount = 0;
 		int parkingCount = 0;
+		int arterialCount = 0;
+		for (const EdgeAttachment& attachment : node.attachments)
+		{
+			const RoadEdge* edge = m_network.getEdge(attachment.edgeId);
+			if (edge && edge->roadType == RoadType::Arterial) ++arterialCount;
+		}
 		for (int dz = -cellRadius; dz <= cellRadius; ++dz)
 		{
 			for (int dx = -cellRadius; dx <= cellRadius; ++dx)
@@ -2377,7 +2488,7 @@ Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
 
 		const double degreeBonus = Min<double>(static_cast<double>(node.attachments.size()), 4.0) * 9000.0;
 		const double score = buildingCount * 8500.0 + commercialCount * 6500.0 + parkingCount * 3200.0
-			+ degreeBonus - fallbackDistSq * 0.035;
+			+ arterialCount * 32000.0 + degreeBonus - fallbackDistSq * 0.035;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -2436,10 +2547,10 @@ void GameScene::updateCaptureCityRenders()
 			m_camera.setCaptureState(fringeFocus + Vec3{ 90.0, 0.0, -75.0 }, 960.0f, static_cast<float>(-45.0_deg), static_cast<float>(54.0_deg));
 			break;
 		case 4:
-			m_camera.setCaptureState(streetFocus + Vec3{ 12.0, 2.4, -8.0 }, 92.0f, static_cast<float>(-52.0_deg), static_cast<float>(10.0_deg));
+			m_camera.setCaptureState(streetFocus, 260.0f, static_cast<float>(-50.0_deg), static_cast<float>(55.0_deg));
 			break;
 		case 5:
-			m_camera.setCaptureState(streetFocus + Vec3{ 10.0, 2.0, -7.0 }, 48.0f, static_cast<float>(-52.0_deg), static_cast<float>(4.0_deg));
+			m_camera.setCaptureState(streetFocus + Vec3{ 8.0, 0.0, -6.0 }, 150.0f, static_cast<float>(-58.0_deg), static_cast<float>(34.0_deg));
 			break;
 		}
 		m_captureCameraDirty = false;

@@ -40,8 +40,9 @@ namespace
 		return vt;
 	}
 
-	/// @brief 世界空間タイリング係数 [1/m]。道路・交差点の大きさに依らず一定スケールで繰り返す。
-	constexpr float kWorldUV = 1.0f;
+
+	/// @brief 世界空間 UV 係数 [1/m]。路面素材の短周期反復を抑える。
+	constexpr float kWorldUV = 0.085f;
 
 	/// @brief ワールド XZ 座標から世界空間 UV を生成
 	Vertex3D makeVertWorldUV(const Vec3& pos)
@@ -49,6 +50,12 @@ namespace
 		return makeVert(pos,
 			static_cast<float>(pos.x) * kWorldUV,
 			static_cast<float>(pos.z) * kWorldUV);
+	}
+	Vertex3D makeVertWorldUVWithNormal(const Vec3& pos, const Float3& normal)
+	{
+		Vertex3D vt = makeVertWorldUV(pos);
+		vt.normal = normal;
+		return vt;
 	}
 
 	/// @brief 四角形を頂点・インデックス配列に追記する（CW ワインディング）
@@ -246,6 +253,86 @@ namespace
 		}
 	}
 
+	float roadPartSideSkirtDrop(RoadPartType type, float heightOffset)
+	{
+		switch (type)
+		{
+		case RoadPartType::Curb:
+			return Max(0.12f, heightOffset + 0.03f);
+		case RoadPartType::RoadsideGutter:
+		case RoadPartType::Gutter:
+			return Max(0.08f, heightOffset + 0.04f);
+		case RoadPartType::Sidewalk:
+			return Max(0.10f, heightOffset + 0.025f);
+		case RoadPartType::Shoulder:
+		case RoadPartType::Median:
+			return Max(0.06f, heightOffset + 0.02f);
+		default:
+			return 0.0f;
+		}
+	}
+	MeshData buildRoadPartModelStrip(const CubicBezier& bezier, const World& world,
+	                                 const RoadPartDef& def, const PartModelData& model,
+	                                 float offsetA_L, float offsetA_R,
+	                                 float offsetB_L, float offsetB_R,
+	                                 float sStart, float sEnd, float lodFactor,
+	                                 bool useElevation)
+	{
+		if (model.vertices.isEmpty() || model.indices.isEmpty()) return MeshData{};
+		const float spanLen = sEnd - sStart;
+		if (spanLen <= 0.1f) return MeshData{};
+		const float totalLength = bezier.totalLength;
+		const float unitLen = Max(0.1f, def.modelUnitLen);
+		const float unitWidth = Max(0.001f, def.modelUnitWidth);
+		const int segmentCount = Clamp(static_cast<int>(spanLen / unitLen * lodFactor) + 1,
+			3, static_cast<int>(120 * lodFactor));
+
+		MeshData md;
+		md.vertices.reserve(model.vertices.size() * segmentCount);
+		md.indices.reserve(model.indices.size() * segmentCount);
+
+		for (int segment = 0; segment < segmentCount; ++segment)
+		{
+			const float segT0 = segment / static_cast<float>(segmentCount);
+			const float segT1 = (segment + 1) / static_cast<float>(segmentCount);
+			const float segS0 = Math::Lerp(sStart, sEnd, segT0);
+			const float segS1 = Math::Lerp(sStart, sEnd, segT1);
+			const uint32 indexBase = static_cast<uint32>(md.vertices.size());
+
+			for (const Vertex3D& src : model.vertices)
+			{
+				const float localAcross = Clamp(src.pos.x / unitWidth, 0.0f, 1.0f);
+				const float localAlong = Clamp(src.pos.z / unitLen, 0.0f, 1.0f);
+				const float s = Math::Lerp(segS0, segS1, localAlong);
+				const float roadT = (totalLength > 0.0f) ? Clamp(s / totalLength, 0.0f, 1.0f) : 0.0f;
+				const float offsetL = Math::Lerp(offsetA_L, offsetB_L, roadT);
+				const float offsetR = Math::Lerp(offsetA_R, offsetB_R, roadT);
+				const float lateral = Math::Lerp(offsetL, offsetR, localAcross);
+				const auto sl = makeSlice(bezier, world, s, kRoadSurfaceLift, useElevation);
+				Vec3 tangent = bezier.tangentAt(s);
+				if (tangent.lengthSq() <= 1e-8) tangent = Vec3{ 1.0, 0.0, 0.0 };
+				tangent.normalize();
+
+				Vertex3D dst = src;
+				const Vec3 pos = sl.center + sl.right * static_cast<double>(lateral) + Vec3{ 0.0, src.pos.y, 0.0 };
+				dst.pos = Float3{ static_cast<float>(pos.x), static_cast<float>(pos.y), static_cast<float>(pos.z) };
+				dst.normal = Float3{
+					static_cast<float>(sl.right.x) * src.normal.x + src.normal.y * 0.0f + static_cast<float>(tangent.x) * src.normal.z,
+					src.normal.y,
+					static_cast<float>(sl.right.z) * src.normal.x + src.normal.y * 0.0f + static_cast<float>(tangent.z) * src.normal.z
+				};
+				dst.tex = Float2{ src.tex.x + static_cast<float>(segment), src.tex.y };
+				md.vertices << dst;
+			}
+
+			for (const TriangleIndex32& tri : model.indices)
+			{
+				md.indices << TriangleIndex32{ tri.i0 + indexBase, tri.i1 + indexBase, tri.i2 + indexBase };
+			}
+		}
+
+		return md;
+	}
 	/// @brief LineType → 色・線幅
 	struct LineStyle { ColorF color; float lineWidth; float dashLen; float gapLen; };
 	LineStyle lineStyleFor(LineType lt)
@@ -791,7 +878,7 @@ MeshData RoadRenderer::buildStripMesh(const CubicBezier& bezier, const World& wo
 	for (int i = 0; i <= N; ++i)
 	{
 		const float s  = sStart + (i / static_cast<float>(N)) * spanLen;
-		const auto  sl = makeSlice(bezier, world, s, 2.0 + static_cast<double>(heightOffset), useElevation);
+		const auto  sl = makeSlice(bezier, world, s, kRoadSurfaceLift + static_cast<double>(heightOffset), useElevation);
 		const Vec3  pL = sl.center + sl.right * static_cast<double>(offsetL);
 		const Vec3  pR = sl.center + sl.right * static_cast<double>(offsetR);
 		vertices << makeVertWorldUV(pL);
@@ -817,6 +904,7 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
                                               float offsetB_L, float offsetB_R,
                                               float heightOffset,
                                               float sStart, float sEnd, float lodFactor,
+                                              float sideSkirtDrop,
                                               bool useElevation) const
 {
 	const float spanLen = sEnd - sStart;
@@ -826,9 +914,10 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 
 	const int N = Clamp(static_cast<int>(spanLen / 2.0f * lodFactor) + 1,
 	                    3, static_cast<int>(100 * lodFactor));
+	const bool addSideSkirts = (sideSkirtDrop > 0.001f);
 
 	Array<Vertex3D> vertices;
-	vertices.reserve((N + 1) * 2);
+	vertices.reserve((N + 1) * (addSideSkirts ? 6 : 2));
 
 	for (int i = 0; i <= N; ++i)
 	{
@@ -836,7 +925,7 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 		const float t  = (totalLength > 0.0f) ? Clamp(s / totalLength, 0.0f, 1.0f) : 0.0f;
 		const float oL = Math::Lerp(offsetA_L, offsetB_L, t);
 		const float oR = Math::Lerp(offsetA_R, offsetB_R, t);
-		const auto  sl = makeSlice(bezier, world, s, 2.0 + static_cast<double>(heightOffset), useElevation);
+		const auto  sl = makeSlice(bezier, world, s, kRoadSurfaceLift + static_cast<double>(heightOffset), useElevation);
 		const Vec3  pL = sl.center + sl.right * static_cast<double>(oL);
 		const Vec3  pR = sl.center + sl.right * static_cast<double>(oR);
 		vertices << makeVertWorldUV(pL);
@@ -844,7 +933,7 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 	}
 
 	Array<TriangleIndex32> indices;
-	indices.reserve(N * 2);
+	indices.reserve(N * (addSideSkirts ? 6 : 2));
 	for (int i = 0; i < N; ++i)
 	{
 		appendQuad(indices,
@@ -854,9 +943,40 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 		           static_cast<uint32>(i * 2 + 3));
 	}
 
+	if (addSideSkirts)
+	{
+		const uint32 sideBase = static_cast<uint32>(vertices.size());
+		for (int i = 0; i <= N; ++i)
+		{
+			const float s  = sStart + (i / static_cast<float>(N)) * spanLen;
+			const float t  = (totalLength > 0.0f) ? Clamp(s / totalLength, 0.0f, 1.0f) : 0.0f;
+			const float oL = Math::Lerp(offsetA_L, offsetB_L, t);
+			const float oR = Math::Lerp(offsetA_R, offsetB_R, t);
+			const auto  sl = makeSlice(bezier, world, s, kRoadSurfaceLift + static_cast<double>(heightOffset), useElevation);
+			const Vec3  pL = sl.center + sl.right * static_cast<double>(oL);
+			const Vec3  pR = sl.center + sl.right * static_cast<double>(oR);
+			const Vec3  bL{ pL.x, pL.y - static_cast<double>(sideSkirtDrop), pL.z };
+			const Vec3  bR{ pR.x, pR.y - static_cast<double>(sideSkirtDrop), pR.z };
+			const Float3 leftNormal{ static_cast<float>(-sl.right.x), 0.0f, static_cast<float>(-sl.right.z) };
+			const Float3 rightNormal{ static_cast<float>(sl.right.x), 0.0f, static_cast<float>(sl.right.z) };
+			vertices << makeVertWorldUVWithNormal(pL, leftNormal);
+			vertices << makeVertWorldUVWithNormal(bL, leftNormal);
+			vertices << makeVertWorldUVWithNormal(pR, rightNormal);
+			vertices << makeVertWorldUVWithNormal(bR, rightNormal);
+		}
+		for (int i = 0; i < N; ++i)
+		{
+			const uint32 a = sideBase + static_cast<uint32>(i * 4);
+			const uint32 b = sideBase + static_cast<uint32>((i + 1) * 4);
+			indices << TriangleIndex32{ a, b + 1, a + 1 };
+			indices << TriangleIndex32{ a, b, b + 1 };
+			indices << TriangleIndex32{ a + 2, a + 3, b + 3 };
+			indices << TriangleIndex32{ a + 2, b + 3, b + 2 };
+		}
+	}
+
 	return MeshData{ vertices, indices };
 }
-
 Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
                                                     const World& world,
                                                     float marginA, float marginB)
@@ -873,17 +993,34 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadEdge& edge, const C
 
 		const auto [color, heightOff, tex] = getPartVisual(part);
 
-		const MeshData mdDetail = buildStripMeshTapered(bezier, world,
-		                                                 part.offsetA_L, part.offsetA_R,
-		                                                 part.offsetB_L, part.offsetB_R,
-		                                                 heightOff,
-		                                                 range.sStart, range.sEnd, 1.0f, edge.useElevation);
+		const RoadPartDef& def = m_partRegistry.get(part.defId);
+		const RoadPartModel& model = m_partRegistry.getModel(part.defId);
+		MeshData mdDetail;
+		MeshData mdLod;
+		if (part.type != RoadPartType::Roadbed && !model.center.isEmpty())
+		{
+			mdDetail = buildRoadPartModelStrip(bezier, world, def, model.center,
+				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
+				range.sStart, range.sEnd, 1.0f, edge.useElevation);
+			const PartModelData& lodModel = (!model.lods.isEmpty() && !model.lods[0].center.isEmpty()) ? model.lods[0].center : model.center;
+			mdLod = buildRoadPartModelStrip(bezier, world, def, lodModel,
+				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
+				range.sStart, range.sEnd, 0.25f, edge.useElevation);
+		}
+		else
+		{
+			mdDetail = buildStripMeshTapered(bezier, world,
+				part.offsetA_L, part.offsetA_R,
+				part.offsetB_L, part.offsetB_R,
+				heightOff,
+				range.sStart, range.sEnd, 1.0f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
+			mdLod = buildStripMeshTapered(bezier, world,
+				part.offsetA_L, part.offsetA_R,
+				part.offsetB_L, part.offsetB_R,
+				heightOff,
+				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
+		}
 		if (mdDetail.vertices.isEmpty()) continue;
-		const MeshData mdLod = buildStripMeshTapered(bezier, world,
-		                                              part.offsetA_L, part.offsetA_R,
-		                                              part.offsetB_L, part.offsetB_R,
-		                                              heightOff,
-		                                              range.sStart, range.sEnd, 0.25f, edge.useElevation);
 
 		PartMeshEntry entry;
 		entry.meshPair.detail = Mesh{ mdDetail };
@@ -918,11 +1055,24 @@ Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadEdge& edge, cons
 
 		const auto [color, heightOff, tex] = getPartVisual(part);
 
-		const MeshData md = buildStripMeshTapered(bezier, world,
-		                                           part.offsetA_L, part.offsetA_R,
-		                                           part.offsetB_L, part.offsetB_R,
-		                                           heightOff,
-		                                           range.sStart, range.sEnd, 0.25f, edge.useElevation);
+		const RoadPartDef& def = m_partRegistry.get(part.defId);
+		const RoadPartModel& model = m_partRegistry.getModel(part.defId);
+		MeshData md;
+		if (part.type != RoadPartType::Roadbed && !model.center.isEmpty())
+		{
+			const PartModelData& lodModel = (!model.lods.isEmpty() && !model.lods[0].center.isEmpty()) ? model.lods[0].center : model.center;
+			md = buildRoadPartModelStrip(bezier, world, def, lodModel,
+				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
+				range.sStart, range.sEnd, 0.25f, edge.useElevation);
+		}
+		else
+		{
+			md = buildStripMeshTapered(bezier, world,
+				part.offsetA_L, part.offsetA_R,
+				part.offsetB_L, part.offsetB_R,
+				heightOff,
+				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
+		}
 		if (md.vertices.isEmpty()) continue;
 
 		// 既存グループを検索（部品数は通常 ≤10 なので線形探索で十分）
@@ -1170,7 +1320,7 @@ Array<RoadMarkingPlacement> RoadRenderer::collectNodeRoadMarkings(const RoadNetw
 		{
 			const RoadEdge* edge = network.getEdge(attachment.edgeId);
 			if (!edge || !edge->isRoadbedBuilt()) continue;
-			if (edge->roadType != RoadType::LocalRoad && edge->roadType != RoadType::Arterial) continue;
+			if (edge->roadType != RoadType::Arterial && !(hasStopControl && edge->roadType == RoadType::LocalRoad)) continue;
 			const auto bezier = network.getBezier(edge->id);
 			if (!bezier || bezier->totalLength <= 1.0f) continue;
 			const bool isNodeA = (edge->nodeA == nodeId);
@@ -1188,8 +1338,8 @@ Array<RoadMarkingPlacement> RoadRenderer::collectNodeRoadMarkings(const RoadNetw
 			crosswalk.edgeId = edge->id;
 			crosswalk.arcOffset = arc;
 			crosswalk.lateralCenter = (roadbedRange.left + roadbedRange.right) * 0.5f;
-			crosswalk.width = Max(0.6f, roadbedRange.width() - 0.70f);
-			crosswalk.length = 3.60f;
+			crosswalk.width = (edge->roadType == RoadType::Arterial) ? Max(2.0f, roadbedRange.width() - 1.45f) : Max(1.4f, roadbedRange.width() - 0.85f);
+			crosswalk.length = (edge->roadType == RoadType::Arterial) ? 1.65f : 1.20f;
 			crosswalk.angleOffset = isNodeA ? 0.0f : static_cast<float>(Math::Pi);
 			placements << crosswalk;
 		}
@@ -1854,7 +2004,7 @@ Array<RoadRenderer::LaneLineBatch> buildCrosswalkBatchesFromPlacements(
 		tangent.normalize();
 		const Vec2 right{ tangent.y, -tangent.x };
 		const float halfWidth = Max(0.3f, marking.width * 0.5f);
-		const float stripePitch = 0.72f;
+		const float stripePitch = 0.58f;
 		const int stripeMin = -Max(1, static_cast<int>(Math::Floor(marking.length / (stripePitch * 2.0f))));
 		const int stripeMax = Max(1, static_cast<int>(Math::Ceil(marking.length / (stripePitch * 2.0f))));
 		const double y = edge->useElevation ? pos.y + kRoadLineLift : world.computeHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
@@ -1865,9 +2015,9 @@ Array<RoadRenderer::LaneLineBatch> buildCrosswalkBatchesFromPlacements(
 			const Vec3 center{ pos.x + tangent.x * forward + right.x * marking.lateralCenter, y, pos.z + tangent.y * forward + right.y * marking.lateralCenter };
 			const Vec3 p0{ center.x - right.x * halfWidth, center.y, center.z - right.y * halfWidth };
 			const Vec3 p1{ center.x + right.x * halfWidth, center.y, center.z + right.y * halfWidth };
-			appendBar(md.vertices, md.indices, p0, p1, 0.18f);
+			appendBar(md.vertices, md.indices, p0, p1, 0.24f);
 		}
-		if (!md.vertices.isEmpty()) batches << RoadRenderer::LaneLineBatch{ ColorF{ 0.92, 0.92, 0.86 }.removeSRGBCurve(), Mesh{ md } };
+		if (!md.vertices.isEmpty()) batches << RoadRenderer::LaneLineBatch{ ColorF{ 1.0, 1.0, 1.0 }.removeSRGBCurve(), Mesh{ md } };
 	}
 	return batches;
 }
@@ -1883,7 +2033,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildCrosswalkBatches(
 	{
 		const RoadEdge* edge = network.getEdge(att.edgeId);
 		if (!edge || !edge->isRoadbedBuilt()) continue;
-		if (edge->roadType != RoadType::LocalRoad && edge->roadType != RoadType::Arterial) continue;
+		if (edge->roadType != RoadType::Arterial) continue;
 		const auto bez = network.getBezier(att.edgeId);
 		if (!bez || bez->totalLength <= 1.0f) continue;
 
@@ -1911,11 +2061,11 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildCrosswalkBatches(
 			const Vec3 center{ pos.x + tangent.x * forward, y, pos.z + tangent.y * forward };
 			const Vec3 p0{ center.x - right.x * halfWidth, center.y, center.z - right.y * halfWidth };
 			const Vec3 p1{ center.x + right.x * halfWidth, center.y, center.z + right.y * halfWidth };
-			appendBar(md.vertices, md.indices, p0, p1, 0.18f);
+			appendBar(md.vertices, md.indices, p0, p1, 0.24f);
 		}
 		if (!md.vertices.isEmpty())
 		{
-			batches << LaneLineBatch{ ColorF{ 0.92, 0.92, 0.86 }.removeSRGBCurve(), Mesh{ md } };
+			batches << LaneLineBatch{ ColorF{ 1.0, 1.0, 1.0 }.removeSRGBCurve(), Mesh{ md } };
 		}
 	}
 	return batches;
