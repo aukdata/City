@@ -127,7 +127,7 @@ Array<Point> RoadPathfinder::findPath(
 			else if (slope < 0.30f) gradPenalty = 5.0f;
 			else                    gradPenalty = 20.0f;
 
-			if (m_railwayRouting) { gradPenalty=1+Square(slope/.035f); }
+			if (m_railwayRouting) { gradPenalty=m_constructionCost ? 1+Min(2.0f,Square(slope)*2) : 1+Square(slope/.035f); }
 
 			// Water is expensive; railway crossings may use a viaduct.
 			float terrainPenalty = 1.0f;
@@ -140,6 +140,7 @@ Array<Point> RoadPathfinder::findPath(
 			}
 
 			float move = m_cellSize * kDc[d] * gradPenalty * terrainPenalty;
+			if (m_constructionCost) { move*=static_cast<float>(Max(1.0,m_constructionCost(gridToWorld(nx,nz),height(nx,nz)))); }
 
 			// 重複道路ペナルティ
 			if (occupiedCells.count(ni) > 0)

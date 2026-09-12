@@ -68,7 +68,7 @@ public:
 		ProgressCallback onProgress = {});
 
 	/// @brief 鉄道の初期路線を構築する
-	static void setupTrain(TrainNetwork& trainNet, const World& world,
+	static void setupTrain(TrainNetwork& trainNet, World& world,
 	                        const Array<Settlement>& districts, const RoadNetwork* roads=nullptr);
 
 private:

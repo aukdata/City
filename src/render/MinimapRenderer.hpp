@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "../gen/DistrictHierarchy.hpp"
 #include "../gen/MapGenerator.hpp"
 #include "../ui/Camera.hpp"
 #include "../ui/WorldMapView.hpp"
@@ -16,6 +17,7 @@ public:
 	// 地形と道路の事前生成テクスチャを持ち、小マップ表示と拡大パネル表示の両方を担当する。
 	/// @brief 地形テクスチャを生成する（ロード完了後に1回呼ぶ）
 	void buildTerrainTexture(const World& world);
+	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world; m_districts=&districts; m_mapDirty=true; }
 
 	/// @brief 道路オーバーレイテクスチャを全道路から再構築する
 	void updateRoadOverlay(const RoadNetwork& network, const World& world);
@@ -44,6 +46,8 @@ public:
 
 private:
 	WorldMapView m_map;
+	const World* m_world=nullptr;
+	const DistrictHierarchy* m_districts=nullptr;
 	bool m_mapDirty = true;
 	bool m_consumedInput = false;
 	static constexpr int kMapSize     = 256;  ///< テクスチャ解像度 [px]

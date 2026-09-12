@@ -444,6 +444,15 @@
     <ClInclude Include="src\railway\TrainManager.hpp" />
     <ClInclude Include="src\render\TrainRenderer.hpp" />
     <ClInclude Include="src\gen\TerrainType.hpp" />
+    <ClInclude Include="src\gen\RiverNetwork.hpp" />
+    <ClInclude Include="src\gen\RailCostProfile.hpp" />
+    <ClInclude Include="src\gen\RoadTerrainFit.hpp" />
+    <ClInclude Include="src\gen\DistrictHierarchy.hpp" />
+    <ClInclude Include="src\gen\RoadVerticalAlignment.hpp" />
+    <ClInclude Include="src\render\RiverRenderer.hpp" />
+    <ClInclude Include="src\render\RailStructure.hpp" />
+    <ClInclude Include="src\render\TunnelRenderer.hpp" />
+    <ClInclude Include="src\render\TunnelGeometry.hpp" />
     <ClInclude Include="src\gen\MapGenerator.hpp" />
     <ClInclude Include="src\road\SignArtwork.hpp" />
     <ClInclude Include="src\ui\WorldMapView.hpp" />

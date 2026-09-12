@@ -297,7 +297,7 @@ void GameCamera::walk(Vec2 input,double distance,const World& world)
 	const Vec3 right=Vec3{0,1,0}.cross(forward);
 	if (input.lengthSq()>1) { input.normalize(); }
 	m_focus+=(right*input.x+forward*input.y)*distance;
-	m_focus.y=world.sampleHeight(static_cast<float>(m_focus.x),static_cast<float>(m_focus.z));
+	m_focus.y=m_walkSurface ? m_walkSurface(m_focus) : world.sampleHeight(static_cast<float>(m_focus.x),static_cast<float>(m_focus.z));
 	rebuildFirstPerson();
 }
 

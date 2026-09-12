@@ -275,3 +275,16 @@ float4 Foliage_PS(s3d::PSInput input) : SV_TARGET
 	input.normal=normal;
 	return shadeCity(input,float4(color,1));
 }
+
+
+float4 River_PS(s3d::PSInput input) : SV_TARGET
+{
+    float2 p = input.worldPosition.xz;
+    float detail = 1 - smoothstep(.15, 1.6, length(fwidth(p)));
+    float ripple = sin(p.x * 1.9 + sin(p.y * .37)) * cos(p.y * 2.4);
+    input.normal = normalize(input.normal + float3(ripple, 0, cos(p.x * .83 + p.y * 2.2)) * .065 * detail);
+    float fresnel = pow(1 - saturate(dot(normalize(g_eyePosition - input.worldPosition), input.normal)), 4);
+    float3 water = lerp(float3(.028,.115,.13), float3(.28,.42,.49), fresnel * .75);
+    water += ripple * .007 * detail;
+    return shadeCity(input, float4(water, 1));
+}

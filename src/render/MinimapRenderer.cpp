@@ -220,7 +220,19 @@ void MinimapRenderer::openFullScreen(const GameCamera& camera,const RoadNetwork&
 		{
 			if (node.type==TrackNodeType::Station) { m_map.labels << WorldMapView::Label{{node.position.x,node.position.z},node.name+U"駅",true}; }
 		}
-		for (const auto& town : settlements) { m_map.labels << WorldMapView::Label{town.center,town.name,false}; }
+		m_map.rivers.clear(); m_map.boundaries.clear();
+		if (m_world) for (const auto& reach : m_world->rivers().reaches) { m_map.rivers << WorldMapView::Stroke{{{reach.start.x,reach.start.z},{reach.end.x,reach.end.z}},reach.bounds,reach.halfWidth*2,0}; }
+		if (m_districts)
+		{
+			for (const auto& area : m_districts->areas)
+			{
+				const String label=area.level==2 && area.urban ? m_districts->areas[area.parent].name+area.name : area.name;
+				m_map.labels << WorldMapView::Label{area.center,label,false,area.level==0 ? 1.0 : area.level==1 ? 8.0 : 36.0};
+			}
+			for (const auto& border : m_districts->boundaries) { m_map.boundaries << WorldMapView::Border{border.a,border.b,border.level}; }
+			m_map.addressAt=[this](Vec2 p) { return m_districts->address(p); };
+		}
+		else { for (const auto& town : settlements) { m_map.labels << WorldMapView::Label{town.center,town.name,false}; } }
 		m_mapDirty=false;
 	}
 	const Vec3 focus=camera.focusPoint();

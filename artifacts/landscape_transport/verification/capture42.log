@@ -1,0 +1,25 @@
+[0.0916727s] [RiverNetwork] reaches=2551 lengthKm=774.4 confluences=114 maximumIncision=100.7
+[4.67697s] [RoadEarthworks] groundedEdges=2283 adjustedVertices=24566 maximumCutFill=2m
+[4.79676s] [RoadVerticalAlignment] tunnelSections=350
+[5.17012s] [RoadGroundAudit] elevated=3246 belowTwoMeters=647 buried=602
+[5.83651s] [RailHeight] samples=58561 median=0.7260017536548489 p95=11.982033162164107 maximum=30.586340389535906
+[5.83651s] [RailwayAudit] maxGrade=0.017679617815836872 roadConflicts=0 underWater=0 failedConnections=0
+[5.83651s] [RailwayAlignment] stations=13 lines=12 sections=4941 rejectedCorridors=1
+[6.00972s] [DistrictHierarchy] areas=2108 boundaries=51742 uncoveredCells=0
+[13.3272s] [BlockCoverage] blocks=3888 emptyBefore=13 infill=13 emptyAfter=0
+[20.7782s] [CityConstraintValidation] buildings=41750 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[20.8315s] [RiverRenderer] batches=888 shader=true
+[20.8315s] [TunnelRenderer] roadSections=512 railSections=1421 mouthOpenings=4660
+[23.7237s] [TransportReview] rendered=0 map=false cpuDrawMs=9.39
+[25.233s] [TransportReview] rendered=1 map=false cpuDrawMs=6.09
+[26.7374s] [TransportReview] rendered=2 map=false cpuDrawMs=6.90
+[28.2371s] [TransportReview] rendered=3 map=false cpuDrawMs=4.27
+[29.7416s] [TransportReview] rendered=4 map=true cpuDrawMs=2.05
+[31.1675s] [TransportReview] rendered=5 map=true cpuDrawMs=2.29
+[32.6159s] [TransportReview] rendered=6 map=false cpuDrawMs=3.25
+[34.9239s] [TransportReview] rendered=7 map=false cpuDrawMs=7.77
+[36.9126s] [TransportReview] rendered=8 map=false cpuDrawMs=6.42
+[39.7323s] [TransportReview] rendered=9 map=false cpuDrawMs=4.22
+[39.9277s] [MapKeyboardReview] movedPixels=42.00 rivers=2551 boundaries=51742
+[41.1674s] [TransportReview] rendered=10 map=true cpuDrawMs=2.60
+[41.3508s] [TransportReview] mapJumpPassed=true streets=26052 labels=2121

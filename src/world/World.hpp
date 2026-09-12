@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "Chunk.hpp"
 #include "../gen/TerrainType.hpp"
+#include "../gen/RiverNetwork.hpp"
 
 /// @brief チャンク管理クラス
 /// @details 64×64 固定サイズワールド。カメラ周辺 5×5 チャンクをアクティブに保つ。
@@ -16,6 +17,13 @@ public:
 
 	/// @brief 64×64 チャンク分の配列を事前確保する
 	void reserveChunks();
+	/// @brief 基本地形から流域を生成する。高さマップ生成前、または保存地形の復帰前に呼ぶ。
+	void generateRivers();
+	const RiverNetwork& rivers() const { return m_rivers; }
+	double waterSurfaceHeight(double x,double z) const { return m_rivers.waterLevel({x,z}); }
+	/// @brief 共有格子点を隣接チャンクにも反映する（地形整形用）。
+	void setGridHeight(int x,int z,float height);
+
 
 	/// @brief 事前計算済みの HeightMapResult をチャンクにインストールする
 	void installChunkDirect(Point coord, HeightMapResult&& hmr);
@@ -67,6 +75,8 @@ private:
 
 	void rebuildActiveChunkCache();
 
+	RiverNetwork m_rivers;
+	float computeBaseHeight(float wx,float wz) const;
 	Array<Chunk>          m_chunks;
 	Point                 m_cameraChunk{ 0x7FFFFFFF, 0x7FFFFFFF };
 	Array<Chunk*>         m_activeChunks;

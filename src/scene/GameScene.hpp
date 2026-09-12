@@ -1,4 +1,7 @@
 ﻿#pragma once
+#include "../render/TunnelRenderer.hpp"
+#include "../gen/DistrictHierarchy.hpp"
+#include "../render/RiverRenderer.hpp"
 #include <future>
 #include <atomic>
 #include <mutex>
@@ -121,6 +124,9 @@ private:
 	// ---- レンダラ ----
 	Sky              m_sky;
 	WorldRenderer    m_worldRenderer;
+	RiverRenderer m_riverRenderer;
+	TunnelRenderer m_tunnelRenderer;
+	DistrictHierarchy m_districtHierarchy;
 	CityLighting     m_cityLighting;
 	GpuFrameTimer    m_gpuTimer;
 	RoadRenderer     m_roadRenderer;
@@ -412,6 +418,7 @@ private:
 
 		m_routeSignRenderer.invalidate();
 		m_trainRenderer.invalidateRoadClearance();
+		m_tunnelRenderer.dirty=true;
 		if (dirtyNodeIds.isEmpty())
 		{
 			m_worldRenderer.invalidateAllTerrain();

@@ -23,6 +23,7 @@ public:
 	void update(double dt, const World& world);
 	/// @brief Move in the walking camera frame: positive X is screen right, Y is forward.
 	void walk(Vec2 input, double distance, const World& world);
+	void setWalkSurface(std::function<double(Vec3)> resolver) { m_walkSurface=std::move(resolver); }
 
 
 	/// @brief 車両追従・一人称モード用のターゲットを設定する
@@ -88,6 +89,7 @@ public:
 	}
 
 private:
+	std::function<double(Vec3)> m_walkSurface;
 	BasicCamera3D m_camera;
 	CameraMode    m_mode     = CameraMode::Overview;
 

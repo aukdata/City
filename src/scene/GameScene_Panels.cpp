@@ -1009,7 +1009,7 @@ void GameScene::drawEdgePanel()
 		});
 
 		// 高架トグル
-		if (ui.toggle(U"高架ON", U"高架", edge->useElevation, 80))
+		if (ui.toggle(U"設計高ON", U"地表追従", edge->useElevation, 100))
 		{
 			if (edge->useElevation)
 			{
@@ -1206,9 +1206,10 @@ void GameScene::drawRoadPlanPanel()
 	toolbarState.snapping = m_draftRoadPlan.snapping;
 	toolbarState.replaceEnd = m_draftRoadPlan.replaceEnd;
 	toolbarState.width = m_drawTemplate.totalWidth();
+	toolbarState.elevation=m_drawElevation;
 	toolbarState.length = m_draftRoadPlan.editor.length();
-	toolbarState.cost = m_network.estimatePlanCost(m_drawTemplate.roadType,toolbarState.length);
-	toolbarState.days = static_cast<int>(Ceil(m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,toolbarState.length)/GameClock::kSecondsPerGameDay));
+	toolbarState.cost = m_network.estimatePlanCost(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength());
+	toolbarState.days = static_cast<int>(Ceil(m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength())/GameClock::kSecondsPerGameDay));
 	toolbarState.funds = m_economy.funds;
 	toolbarState.message = m_draftRoadPlan.message;
 	toolbarState.error = m_draftRoadPlan.error;

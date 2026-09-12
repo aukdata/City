@@ -13,7 +13,7 @@ namespace RoadConstruction
 		Stage stage = Stage::Clearance;
 		double total = 0.0;
 		double fraction = 0.0;
-		bool elevated = false;
+		bool elevated = false,tunnel=false;
 		[[nodiscard]] String name() const;
 	};
 	[[nodiscard]] Progress progress(double elapsed, double duration, bool elevated);

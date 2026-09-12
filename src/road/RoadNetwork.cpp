@@ -2513,15 +2513,15 @@ void RoadNetwork::rebuildPlanStats(int planId)
 	RoadPlan* plan = getPlan(planId);
 	if (!plan) return;
 
-	double totalMeters = 0.0;
+	double totalMeters = 0.0,weightedMeters=0;
 	for (const int eid : plan->edgeIds)
 	{
 		if (const RoadEdge* edge = getEdge(eid))
-			totalMeters += edge->length;
+			{ totalMeters += edge->length; weightedMeters += edge->length*(edge->tunnel ? 6 : edge->useElevation ? 3 : 1); }
 	}
 	plan->totalLength = static_cast<float>(totalMeters);
-	plan->totalCost = static_cast<float>(estimatePlanCost(plan->roadType, totalMeters));
-	plan->constructionDuration = estimatePlanConstructionDuration(plan->roadType, totalMeters);
+	plan->totalCost = static_cast<float>(estimatePlanCost(plan->roadType, weightedMeters));
+	plan->constructionDuration = estimatePlanConstructionDuration(plan->roadType, weightedMeters);
 	if (plan->routeId >= 0)
 	{
 		if (const RoadRoute* route = getRoute(plan->routeId))
@@ -3165,6 +3165,13 @@ void RoadNetwork::updateEdgeElevation(int edgeId, const World& world)
 	edge->useElevation =
 		std::abs(nA->position.y - gyA) > kElevationThreshold ||
 		std::abs(nB->position.y - gyB) > kElevationThreshold;
+	edge->tunnel=false;
+	if (const auto curve=getBezier(edgeId)) for (float arc=0;arc<=curve->totalLength;arc+=8)
+	{
+		const Vec3 p=curve->positionAt(arc); const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
+		edge->tunnel|=ground-p.y>4;
+	}
+	edge->useElevation|=edge->tunnel;
 }
 
 void RoadNetwork::generatePiersForEdge(int edgeId, const World& world)

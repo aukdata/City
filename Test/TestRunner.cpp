@@ -82,6 +82,8 @@ int TestRunner::run(FilePathView outputDirectory)
 	int testFailedCount = 0;
 	for (const TestCase& test : m_tests)
 	{
+		FileSystem::CreateDirectories(outputDirectory);
+		{ TextWriter progress{FilePath{outputDirectory}+U"/running.txt"}; progress << test.name; }
 		TestContext context;
 		const auto startedAt = std::chrono::steady_clock::now();
 		try

@@ -74,3 +74,4 @@ __pycache__/
 /artifacts/**/*.h
 /artifacts/**/*.html
 /artifacts/urban_revision/run_review.ps1
+!/artifacts/landscape_transport/verification/*.png

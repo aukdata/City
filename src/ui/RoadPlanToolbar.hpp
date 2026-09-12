@@ -11,6 +11,7 @@ namespace RoadPlanToolbar
 		size_t points = 0;
 		bool valid = false, canUndo = false, canRedo = false;
 		bool followTerrain = false, snapping = true, replaceEnd = false;
+		double elevation=0;
 		double width = 7.14, length = 0, cost = 0, funds = 0;
 		int days = 0;
 		String message;

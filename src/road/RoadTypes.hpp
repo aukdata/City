@@ -432,7 +432,8 @@ struct RoadEdge
 	double    constructionStartTime = 0.0;  ///< UnderConstruction になった時刻 [ゲーム秒]
 	float     congestion = 0.0f;
 
-	bool      useElevation = false;  ///< true: ベジェ Y を路面高さとして使用（高架）
+	bool      tunnel = false; ///< 地中区間を含む設計縦断
+	bool      useElevation = false;  ///< true: ベジェ Y を路面高さとして使用（高架・トンネル）
 
 	// 経路探索サポート（Phase 2 で使用）
 	int borderNodeA = -1;

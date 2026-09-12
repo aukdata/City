@@ -114,6 +114,7 @@ Array<int> buildPlanned(
 		{
 			roads.applyEdgeTemplate(eid, templateEdge);
 			edge->edgeState = EdgeState::Planned;
+			roads.updateEdgeElevation(eid,world);
 		}
 	}
 

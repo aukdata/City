@@ -1,4 +1,14 @@
 ﻿#include "TestCases.hpp"
+#include "src/gen/RailCostProfile.hpp"
+#include "src/gen/RiverNetwork.hpp"
+#include "src/gen/RoadTerrainFit.hpp"
+#include "src/gen/DistrictHierarchy.hpp"
+#include "src/render/RailStructure.hpp"
+#include "src/render/TunnelGeometry.hpp"
+#include "src/ui/WorldMapView.hpp"
+#include "src/gen/RoadAutoPlace.hpp"
+#include "src/road/RoadConstruction.hpp"
+#include "src/save/RoadBinary.hpp"
 #include "TestRunner.hpp"
 #include "src/gen/DistrictRoads.hpp"
 #include "src/gen/SettlementPlan.hpp"
@@ -350,6 +360,127 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			FileSystem::ChangeCurrentDirectory(directory);
 			context.expect(!board.vertices.isEmpty(),U"Each sign has a physical board mesh");
 		}
+	});
+
+	runner.add(U"Map.KeyboardAndAllStreetScales",[](TestContext& context)
+	{
+		WorldMapView map; const Size size{960,640}; map.open({32768,32768}); map.zoom=1;
+		const Vec2 before=map.center; map.panKeyboard({1,0},.1,size);
+		context.expectNear((map.center-before).x*map.scale(size),42,.001,U"D pans east at 420 screen pixels per second");
+		map.panKeyboard({-1,0},.1,size); context.expectNear(map.center.distanceFrom(before),0,.001,U"A reverses east movement");
+		map.panKeyboard({0,-1},.1,size); context.expect(map.center.y<before.y,U"W pans north"); map.panKeyboard({0,1},.1,size);
+		map.panKeyboard({1,1},.1,size); context.expectNear(map.center.distanceFrom(before)*map.scale(size),42,.001,U"Diagonal keys do not move faster");
+		const Font font{14}; const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm};
+		for (const double zoom : {1.0,4.0,16.0,128.0})
+		{
+			map.center=before;map.zoom=zoom; map.streets.clear();map.labels.clear();
+			map.streets << WorldMapView::Stroke{{before-Vec2{16000,0},before+Vec2{16000,0}},RectF{before-Vec2{16000,20},32000,40},4,0};
+			{ const ScopedRenderTarget2D scope{target.clear(ColorF{0})};map.draw(size,Texture{},font,{0,0}); } Graphics2D::Flush();
+			Image image;target.readAsImage(image);const Point p=map.toScreen(before+Vec2{100/ map.scale(size),0},size).asPoint();
+			context.expect(image[p.y][p.x].r>245,U"Local streets remain visible on the GPU at every tested zoom");
+			image.save(U"Screenshot/map_scale_{}.png"_fmt(static_cast<int>(zoom)));
+		}
+	});
+	runner.add(U"Rivers.DrainageAndWaterLevel",[](TestContext& context)
+	{
+		const auto terrain=[](double x,double z) { const double branch=Max(0.0,z-8192)*.55;return z*.004+Min(Abs(x-8192-branch),Abs(x-8192+branch))*.025-8; };
+		RiverNetwork river;river.generate(16384,16384,terrain);
+		context.expect(!river.reaches.isEmpty(),U"A convergent valley develops a river");
+		int confluences=0;
+		for (const auto& reach : river.reaches)
+		{
+			context.expect(reach.start.y>=reach.end.y,U"Every reach drains downhill toward its parent");
+			const Vec3 p=(reach.start+reach.end)*.5;
+			context.expect(river.carveHeight({p.x,p.z},terrain(p.x,p.z))<river.waterLevel({p.x,p.z}),U"Carved channel bed lies below its local water surface");
+			for (const auto& next : river.reaches) { confluences+=reach.end.distanceFrom(next.end)<.01 && reach.start.distanceFrom(next.start)>1; }
+		}
+		context.expect(confluences>0,U"Tributaries merge into shared downstream reaches");
+		RiverNetwork same;same.generate(16384,16384,terrain);context.expectEqual(same.reaches.size(),river.reaches.size(),U"Drainage is deterministic");
+	});
+	runner.add(U"Transport.RaisedRiverCrossing",[](TestContext& context)
+	{
+		RoadNetwork roads;const int a=roads.addNode({0,23,0}),b=roads.addNode({300,23,0});
+		roads.addEdge(a,b,{100,23,0},{200,23,0},RoadType::Arterial,2);
+		const auto ground=[](double x,double) { return Abs(x-150)<20 ? 18.0 : 23.0; };
+		const auto water=[](double x,double) { return Abs(x-150)<20 ? 20.0 : 0.0; };
+		const auto result=WaterCrossings::repair(roads,ground,water);context.expect(result.elevatedEdges>0,U"An inland river requires a bridge above its own water level");
+		for (const auto& edge : roads.edges()) if (edge.id>=0)
+		{
+			const auto curve=roads.getBezier(edge.id);for (float arc=0;arc<curve->totalLength;arc+=2)
+			{ const Vec3 p=curve->positionAt(arc); if (Abs(p.x-150)<20) context.expect(edge.useElevation && p.y>=25.9,U"River crossing clears the 20 m water surface"); }
+		}
+	});
+	runner.add(U"Terrain.SmallRoadEarthworks",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		for (int x=0;x<2;++x) { world.installChunkDirect({x,0},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20),20,20}); }
+		RoadNetwork roads;const int a=roads.addNode({900,21,512}),b=roads.addNode({1150,21,512});
+		const int edge=*roads.addEdge(a,b,{980,21,512},{1070,21,512},RoadType::LocalRoad,2);roads.getEdge(edge)->useElevation=true;
+		context.expectEqual(RoadTerrainFit::apply(roads,world),1,U"One metre of fill does not require a viaduct");
+		context.expect(!roads.getEdge(edge)->useElevation,U"Grid road becomes a terrain-following road");
+		context.expect(world.sampleHeight(1024,512)>20.1,U"The actual shared terrain is graded toward the road");
+		context.expectNear(world.getChunk({0,0})->heightMap[{HEIGHT_CELLS,32}],world.getChunk({1,0})->heightMap[{0,32}],.0001,U"Earthworks cannot split a chunk boundary");
+	});
+	runner.add(U"Rail.CostProfileAndClearance",[](TestContext& context)
+	{
+		Array<RailCostProfile::Sample> samples;
+		for (int i=0;i<=60;++i) { const double ground=20+60*std::exp(-Square((i-30)/8.0));samples << RailCostProfile::Sample{{i*50.0,0},ground,-30,ground+25}; }
+		const auto profile=RailCostProfile::solve(samples,20.3,20.7);
+		context.expect(profile.feasible,U"A hill can be crossed using an affordable tunnel instead of a towering viaduct");
+		if (profile.feasible)
+		{
+			context.expectNear(profile.heights.front(),20.3,.0001,U"Non-quantized endpoint elevation is preserved");context.expectNear(profile.heights.back(),20.7,.0001,U"Destination elevation is preserved");
+			context.expect(samples[30].ground-profile.heights[30]>20,U"The optimizer chooses a mountain tunnel");
+			for (size_t i=1;i<samples.size();++i) { context.expect(Abs(profile.heights[i]-profile.heights[i-1])<=.9+.00001,U"Vertical grade remains within 18 per mille"); }
+		}
+		context.expect(RailCostProfile::unitCost(60)>RailCostProfile::unitCost(10)*5,U"Very tall viaducts have a strong cost penalty");
+	});
+	runner.add(U"Tunnels.RoadPlanAndPersistence",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		Grid<float> heights(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20);
+		for (int z=0;z<=HEIGHT_CELLS;++z) for (int x=0;x<=HEIGHT_CELLS;++x) { heights[{x,z}]=static_cast<float>(20+30*std::exp(-Square((x*16.0-512)/130))); }
+		world.installChunkDirect({0,0},HeightMapResult{heights,20,50});
+		RoadNetwork roads;RoadEdge roadTemplate;roadTemplate.roadType=RoadType::Arterial;
+		const auto ids=RoadAutoPlace::buildPlanned(roads,world,{100,20,512},{900,20,512},{},roadTemplate,false,.5f);
+		context.expect(!ids.isEmpty(),U"A fixed vertical alignment through a hill can be planned");
+		for (const int id : ids) { context.expect(roads.getEdge(id)->tunnel && roads.getEdge(id)->useElevation,U"Road interior depth selects tunnel rendering"); }
+		context.expect(RoadBinary::writeGlobal(U"TestResults/tunnel_roundtrip.bin",roads),U"Tunnel flags save");
+		RoadNetwork restored;context.expect(RoadBinary::readGlobal(U"TestResults/tunnel_roundtrip.bin",restored),U"Tunnel flags reload");
+		for (const int id : ids) { context.expect(restored.getEdge(id)->tunnel,U"The tunnel structure survives serialization"); }
+		RoadConstruction::Progress progress;progress.tunnel=true;progress.stage=RoadConstruction::Stage::BaseCourse;
+		context.expect(progress.name().includes(U"覆工"),U"Tunnel construction uses lining terminology");
+	});
+	runner.add(U"Structures.UndersideAndTunnelReadback",[](TestContext& context)
+	{
+		const Size size{640,400}; const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
+		const MeshData deck=RailStructure::deck({0,8,-15},{0,8,15},{1,0,0},{1,0,0});
+		int downward=0;for (const auto& v : deck.vertices) { downward+=v.normal.y<-.9; }context.expect(downward>=20,U"All slab and girder undersides have downward-facing surfaces");
+		for (int variant=0;variant<2;++variant)
+		{
+			const Mesh mesh{variant==0 ? deck : TunnelGeometry::lining({0,0,-15},{0,0,15},{1,0,0},{1,0,0},4.2,6,true)};
+			const BasicCamera3D camera{size,50_deg,variant==0 ? Vec3{0,1,-8} : Vec3{0,1.5,-18},variant==0 ? Vec3{0,8,4} : Vec3{0,3,8}};
+			{ const ScopedRenderTarget3D rt{target.clear(ColorF{.02,.08,.2})};const ScopedRenderStates3D states{DepthStencilState::DepthTestWrite,RasterizerState::SolidCullBack};
+				Graphics3D::SetCameraTransform(camera);Graphics3D::SetSunDirection(Vec3{0,-1,0});Graphics3D::SetGlobalAmbientColor(ColorF{.8});mesh.draw(ColorF{.7}); }
+			Graphics3D::Flush();Image image;target.readAsImage(image);image.save(U"Screenshot/structure_interior_{}.png"_fmt(variant));
+			int concrete=0;for (int y=60;y<330;++y) for (int x=100;x<540;++x) { const auto color=image[y][x];concrete+=color.r>70 && Abs(static_cast<int>(color.r)-color.b)<30; }
+			context.expect(concrete>3000,U"Concrete surfaces are visible with backface culling from underneath and inside");
+		}
+		const PixelShader water=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"River_PS"};context.expect(static_cast<bool>(water),U"River material compiles on the production graphics API");
+	});
+	runner.add(U"Districts.HierarchyCoverage",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		Array<MapGenerator::Settlement> towns;
+		for (int i=0;i<5;++i) { MapGenerator::Settlement town;town.center={30000+i*600.0,32768};town.name=U"町{}"_fmt(i);town.kind=i==0 ? MapGenerator::SettlementKind::RegionalCity : MapGenerator::SettlementKind::RuralSettlement;town.radius=500;towns << town; }
+		DistrictHierarchy hierarchy;hierarchy.generate(world,towns);context.expect(!hierarchy.boundaries.isEmpty(),U"Districts have explicit shared boundaries");
+		for (int z=64;z<WORLD_SIZE;z+=512) for (int x=64;x<WORLD_SIZE;x+=512)
+		{
+			const Vec2 point{static_cast<double>(x),static_cast<double>(z)};const int city=hierarchy.at(point,0),area=hierarchy.at(point,1),leaf=hierarchy.at(point,2);
+			context.expect(city>=0 && area>=0 && leaf>=0,U"Every map point has a complete address hierarchy");
+			if (area>=0 && leaf>=0) { context.expect(hierarchy.areas[area].parent==city && hierarchy.areas[leaf].parent==area,U"No child boundary crosses its parent district"); }
+		}
+		context.expect(hierarchy.address(towns[2].center).includes(U"大字"),U"Rural settlement names use an oaza parent");
 	});
 
 }

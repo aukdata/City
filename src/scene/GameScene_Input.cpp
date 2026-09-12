@@ -915,7 +915,7 @@ void GameScene::handleRoadDraw()
 	{
 		constexpr float kElevStep = 1.0f;
 		if (KeyPageUp.pressed())   m_drawElevation += kElevStep;
-		if (KeyPageDown.pressed()) m_drawElevation = Max(m_drawElevation - kElevStep, 0.0f);
+		if (KeyPageDown.pressed()) m_drawElevation = Max(m_drawElevation - kElevStep, -100.0f);
 	}
 
 	// パネル上にカーソルがあるときはマウス操作をすべて吸収
@@ -1177,6 +1177,8 @@ bool GameScene::commitDraftRoadPlan()
 
 void GameScene::handleRoadPlan()
 {
+	if (KeyPageUp.down()) { m_drawElevation=Min(100.0f,m_drawElevation+1); }
+	if (KeyPageDown.down()) { m_drawElevation=Max(-100.0f,m_drawElevation-1); }
 	if (!m_panelManager.isVisible(U"draw_template")) { m_roadPlanCursor = none; return; }
 	if (KeyEnter.down()) { commitDraftRoadPlan(); return; }
 	const bool redo = KeyControl.pressed() && (KeyY.down() || (KeyShift.pressed() && KeyZ.down()));
@@ -1201,7 +1203,8 @@ void GameScene::handleRoadPlan()
 		point = RoadPlanDraft::constrainAngle(origin,point);
 		point.y = m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
 	}
-	m_roadPlanCursor = m_draftRoadPlan.snapping && !KeyAlt.pressed()
+	point.y+=m_drawElevation;
+	m_roadPlanCursor = m_draftRoadPlan.snapping && !KeyAlt.pressed() && Abs(m_drawElevation)<.1f
 		? m_roadPlanSnapIndex.find(m_network,point) : RoadPlanSnapIndex::Hit{point};
 	if (!MouseL.down()) { return; }
 	if (m_draftRoadPlan.editor.place(m_roadPlanCursor->position,m_draftRoadPlan.replaceEnd))

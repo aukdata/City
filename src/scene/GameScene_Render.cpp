@@ -289,6 +289,8 @@ void GameScene::renderWorld()
 		renderVehicles();
 		lap(m_renderTimings.vehicle);
 
+		m_riverRenderer.draw(m_camera.eyePosition());
+		m_tunnelRenderer.draw(m_camera.eyePosition());
 		m_trainRenderer.renderTracks(m_trainNetwork,m_world,m_camera.eyePosition(),m_network);
 		m_trainRenderer.renderTrains(m_trainManager.trains());
 		lap(m_renderTimings.train);
@@ -378,6 +380,11 @@ void GameScene::renderScene3D()
 
 	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
 	m_roadRenderer.synchronizeTerrainChanges(m_world, m_network);
+	if (m_tunnelRenderer.dirty)
+	{
+		m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
+		m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
+	}
 	m_worldRenderer.render(m_world, m_network, m_camera.camera3D());
 	lap(m_renderTimings.terrainOnly);
 

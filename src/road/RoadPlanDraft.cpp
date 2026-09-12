@@ -76,6 +76,13 @@ double RoadPlanDraft::length() const
 	return result;
 }
 
+double RoadPlanDraft::constructionEquivalentLength() const
+{
+	double result=0;
+	for (const int id : m_previewEdges) { if (const auto* edge=m_preview.getEdge(id)) { result+=edge->length*(edge->tunnel ? 6 : edge->useElevation ? 3 : 1); } }
+	return result;
+}
+
 Vec3 RoadPlanDraft::constrainAngle(Vec3 origin, Vec3 cursor)
 {
 	const Vec2 delta{ cursor.x - origin.x, cursor.z - origin.z };

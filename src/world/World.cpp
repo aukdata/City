@@ -67,7 +67,7 @@ void World::update(Vec3 cameraWorldPos)
 
 const Chunk* World::getChunk(Point coord) const
 {
-	if (!isValidCoord(coord)) return nullptr;
+	if (!isValidCoord(coord) || static_cast<size_t>(coordToIndex(coord))>=m_chunks.size()) return nullptr;
 	const Chunk& chunk = m_chunks[coordToIndex(coord)];
 	if (chunk.heightMap.isEmpty()) return nullptr;
 	return &chunk;
@@ -75,7 +75,7 @@ const Chunk* World::getChunk(Point coord) const
 
 Chunk* World::getChunk(Point coord)
 {
-	if (!isValidCoord(coord)) return nullptr;
+	if (!isValidCoord(coord) || static_cast<size_t>(coordToIndex(coord))>=m_chunks.size()) return nullptr;
 	Chunk& chunk = m_chunks[coordToIndex(coord)];
 	if (chunk.heightMap.isEmpty()) return nullptr;
 	return &chunk;
@@ -123,6 +123,7 @@ void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 	m_mapWidth = mapWidth;
 	m_mapDepth = mapDepth;
 	m_perlin   = PerlinNoise{ seed };
+	m_rivers=RiverNetwork{};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ BiomeType World::getBiome(float wx, float wz) const
 	return BiomeType::MountainRange;
 }
 
-float World::computeHeight(float wx, float wz) const
+float World::computeBaseHeight(float wx, float wz) const
 {
 	// 1. バイオームパラメータ（連続補間）
 	float baseHeight, amplitude;
@@ -311,4 +312,23 @@ HeightMapResult World::buildHeightMap(Point chunkCoord) const
 		}
 	}
 	return { std::move(hm), lo, hi };
+}
+
+void World::generateRivers()
+{
+	m_rivers.generate(m_mapWidth,m_mapDepth,[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); });
+}
+
+float World::computeHeight(float wx,float wz) const
+{
+	return static_cast<float>(m_rivers.carveHeight({wx,wz},computeBaseHeight(wx,wz)));
+}
+
+void World::setGridHeight(int x,int z,float height)
+{
+	for (int cz=Max(0,(z-1)/HEIGHT_CELLS);cz<=Min(WORLD_CHUNKS-1,z/HEIGHT_CELLS);++cz)
+		for (int cx=Max(0,(x-1)/HEIGHT_CELLS);cx<=Min(WORLD_CHUNKS-1,x/HEIGHT_CELLS);++cx)
+		{
+			if (auto* chunk=getChunk({cx,cz})) { chunk->heightMap[{x-cx*HEIGHT_CELLS,z-cz*HEIGHT_CELLS}]=height; chunk->meshDirty=true; }
+		}
 }

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "TunnelGeometry.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
 #include <Siv3D/ViewFrustum.hpp>
@@ -47,6 +48,7 @@ public:
 
 	/// @brief 地形 subtraction / 地形メッシュの全キャッシュを無効化する
 	void invalidateAllTerrain();
+	void setTunnelOpenings(const Array<TunnelGeometry::Opening>& openings) { m_tunnelOpenings=openings; invalidateAllTerrain(); }
 
 	/// @brief 選択アウトライン用: 指定建物 1 棟のシルエットを描画する
 	/// @details OBJ 建物はモデル形状、それ以外は Box 形状で描画する。
@@ -60,6 +62,7 @@ public:
 
 private:
 	using Key = int64;
+	Array<TunnelGeometry::Opening> m_tunnelOpenings;
 
 	/// @brief 建物種別ごとの描画バッチ（色 + マージ済みメッシュ）
 	struct BuildingBatch

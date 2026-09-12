@@ -1072,6 +1072,9 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 	if (node->type != NodeType::Intersection && node->type != NodeType::Diverge && node->type != NodeType::Joint)
 		return nullptr;
 
+	bool underground=true;
+	for (const auto& attachment : node->attachments) { const auto* edge=network.getEdge(attachment.edgeId); underground &= edge && edge->tunnel; }
+	if (underground) { return nullptr; }
 	TerrainNodeSubtractor subtractor;
 	subtractor.nodeId = nodeId;
 	std::unordered_set<Key> touchedChunkSet;
@@ -1191,6 +1194,7 @@ const Array<WorldRenderer::TerrainSubtractionQuad>& WorldRenderer::getChunkSubtr
 	}
 
 	Array<TerrainSubtractionQuad> assembled;
+	for (const auto& opening : m_tunnelOpenings) { if (opening.bounds.intersects(chunkBounds)) { assembled << TerrainSubtractionQuad{opening.footprint,opening.bounds,opening.floor}; } }
 	Array<int> edgeContributors;
 	for (const auto& entry : m_edgeSubtractorCache)
 	{
@@ -1288,6 +1292,12 @@ void WorldRenderer::primeAllChunkSubtractorCaches(const RoadNetwork& network)
 		}
 	}
 
+	for (const auto& opening : m_tunnelOpenings)
+	{
+		for (int z=Max(0,static_cast<int>(opening.bounds.y/CHUNK_SIZE));z<=Min(WORLD_CHUNKS-1,static_cast<int>(opening.bounds.br().y/CHUNK_SIZE));++z)
+			for (int x=Max(0,static_cast<int>(opening.bounds.x/CHUNK_SIZE));x<=Min(WORLD_CHUNKS-1,static_cast<int>(opening.bounds.br().x/CHUNK_SIZE));++x)
+				m_chunkSubtractorCache[chunkCoordToKey({x,z})] << TerrainSubtractionQuad{opening.footprint,opening.bounds,opening.floor};
+	}
 	m_chunkSubtractorPrimed = true;
 }
 

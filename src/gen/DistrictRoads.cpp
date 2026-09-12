@@ -1231,12 +1231,12 @@ namespace DistrictRoads
 			const double distance=Vec2{a.x,a.z}.distanceFrom(Vec2{b.x,b.z});
 			const int samples=Max(2,static_cast<int>(Ceil(distance/16.0)));
 			double previous=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
-			if (previous<minimumHeight) { return false; }
+			if (previous<world.waterSurfaceHeight(a.x,a.z)+minimumHeight) { return false; }
 			for (int sample=1;sample<=samples;++sample)
 			{
 				const Vec3 p=a+(b-a)*(static_cast<double>(sample)/samples);
 				const double height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
-				if (height<minimumHeight || Abs(height-previous)>distance/samples*kMaxSlope) { return false; }
+				if (height<world.waterSurfaceHeight(p.x,p.z)+minimumHeight || Abs(height-previous)>distance/samples*kMaxSlope) { return false; }
 				previous=height;
 			}
 			return true;
@@ -1275,7 +1275,7 @@ namespace DistrictRoads
 					for (double localX=-settlement.plan.halfExtent.x+12;localX<settlement.plan.halfExtent.x && fits;localX+=24)
 					{
 						const Vec3 point=position(static_cast<float>(localX),static_cast<float>(localZ));
-						fits=point.y>=3.2;
+						fits=point.y>=world.waterSurfaceHeight(point.x,point.z)+3.2;
 					}
 				}
 				if (fits)

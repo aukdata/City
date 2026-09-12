@@ -6,8 +6,8 @@
 namespace WaterCrossings
 {
 	struct Result { int wetEdges=0; int elevatedEdges=0; };
-	template<class HeightSampler>
-	Result repair(RoadNetwork& network, const HeightSampler& height)
+	template<class HeightSampler,class WaterSampler>
+	Result repair(RoadNetwork& network, const HeightSampler& height,const WaterSampler& water)
 	{
 		Result result;
 		// Short approach spans follow the real bank instead of lifting an entire kilometre-long road.
@@ -24,7 +24,7 @@ namespace WaterCrossings
 				for (const int side : {-1,0,1})
 				{
 					const Vec3 sample=point+right*(edge.totalWidth()*.5*side);
-					wet|=height(sample.x,sample.z)<1;
+					wet|=height(sample.x,sample.z)<water(sample.x,sample.z)+1;
 				}
 			}
 			if (!wet) { continue; }
@@ -73,25 +73,28 @@ namespace WaterCrossings
 			const auto curve=network.getBezier(edge.id);
 			if (!curve) { continue; }
 			const int count=Max(2,static_cast<int>(std::ceil(curve->totalLength/6)));
-			bool wet=false;
+			bool wet=false; double bridgeLevel=6;
 			for (int index=0;index<=count;++index)
 			{
 				const float t=static_cast<float>(index)/count;
 				const Vec3 point=curve->evaluate(t), right=tangentToRight(curve->tangent(t));
-				double low=1e9, high=-1e9;
+				double low=1e9, high=-1e9,surface=0;
 				for (const int side : {-1,0,1})
 				{
 					const Vec3 sample=point+right*(edge.totalWidth()*.5*side);
 					const double ground=height(sample.x,sample.z);
+					surface=Max(surface,water(sample.x,sample.z));
 					low=Min(low,ground); high=Max(high,ground);
 				}
 				samples[edge.id] << std::pair<float,double>{t,high};
-				wet|=low<1 && (!edge.useElevation || point.y<5.5);
+				surface=Max(surface,water(point.x,point.z));
+				wet|=low<surface+1 && (!edge.useElevation || point.y<surface+5.5);
+				if (low<surface+1) { bridgeLevel=Max(bridgeLevel,surface+6); }
 			}
 			if (wet)
 			{
 				++result.wetEdges; affected.insert(edge.id);
-				raise(edge.nodeA,6); raise(edge.nodeB,6);
+				raise(edge.nodeA,bridgeLevel); raise(edge.nodeB,bridgeLevel);
 			}
 		}
 		// Height raises spread along incident edges, so a bridge never ends in a vertical step.
@@ -108,6 +111,7 @@ namespace WaterCrossings
 					const int other=edge->nodeA==id ? edge->nodeB : edge->nodeA;
 					const Vec3 delta=network.getNode(id)->position-network.getNode(other)->position;
 					const double run=Max(1.0,Vec2{delta.x,delta.z}.length());
+					if (edge->tunnel) { continue; }
 					affected.insert(edge->id);
 					const double grade=Max(.055,Abs(original[id]-original[other])/run);
 					raise(other,value-run*grade);
@@ -141,4 +145,10 @@ namespace WaterCrossings
 		}
 		return result;
 	}
+	template<class HeightSampler>
+	Result repair(RoadNetwork& network,const HeightSampler& height)
+	{
+		return repair(network,height,[](double,double) { return 0.0; });
+	}
+
 }

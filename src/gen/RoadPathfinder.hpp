@@ -8,6 +8,7 @@ class RoadPathfinder
 {
 public:
 	void setRailwayRouting(bool enabled) { m_railwayRouting=enabled; }
+	void setConstructionCost(std::function<double(Vec2,double)> cost) { m_constructionCost=std::move(cost); }
 	static constexpr float kDefaultCellSize = 40.0f;
 
 	/// @brief 高さグリッドを構築する
@@ -62,6 +63,7 @@ public:
 	                     Array<int>* outEdgeIds = nullptr);
 
 private:
+	std::function<double(Vec2,double)> m_constructionCost;
 	bool m_railwayRouting=false;
 	int          m_gridW    = 0;
 	int          m_gridH    = 0;

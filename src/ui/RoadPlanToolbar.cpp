@@ -33,7 +33,7 @@ namespace RoadPlanToolbar
 		button(U"戻す",{kPad+half+8,230,quarter,28},Action::Undo,state.canUndo);
 		button(U"やり直す",{kPad+half+8+quarter+6,230,quarter,28},Action::Redo,state.canRedo);
 		font(U"右クリック / Ctrl+Z: 戻す   Ctrl+Y: やり直す").draw(kPad,264,ColorF{0.67});
-		font(U"Shift: 45°に揃える   Alt: 接続を一時解除").draw(kPad,283,ColorF{0.67});
+		font(U"PgUp / PgDn: 高さ {:+.0f} m（地下も可）"_fmt(state.elevation)).draw(kPad,283,ColorF{0.67});
 		bold(U"3  確認して計画を保存").draw(kPad,308,ColorF{0.68,0.86,0.96});
 		font(state.valid ? U"延長 {:.0f}m   概算 {:.2f}億円   工期 {}日"_fmt(state.length,state.cost,state.days) : U"始点と終点を指定すると見積りを表示").draw(kPad,334,ColorF{0.88});
 		String status = state.message;

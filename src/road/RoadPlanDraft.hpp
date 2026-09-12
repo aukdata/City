@@ -19,6 +19,7 @@ public:
 	bool canRedo() const { return !m_redo.isEmpty(); }
 	bool valid() const { return !m_previewEdges.isEmpty(); }
 	double length() const;
+	double constructionEquivalentLength() const;
 	static Vec3 constrainAngle(Vec3 origin, Vec3 cursor);
 	static RoadEdge makeRoadTemplate(int preset);
 private:

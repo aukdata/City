@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "TunnelGeometry.hpp"
 #include "BridgeStructure.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../debug/DebugLog.hpp"
@@ -135,7 +136,7 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 			}
 		}
 		SiteModel site{{},Vec3{0,0,0},Vec3{1,0,0},Vec3{0,0,1}};
-		if(edge.useElevation)
+		if(edge.useElevation && !edge.tunnel)
 		{
 			for(const auto& object:network.objects())
 			{
@@ -203,6 +204,18 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 				cache.surfaces << PartMeshEntry{{girders,girders},ColorF{.24,.29,.31}.removeSRGBCurve(),nullptr};
 			}
 		}
+		if (edge.tunnel && phase>=1)
+		{
+			const double length=curve->totalLength*(phase==1 ? fraction : 1);
+			MeshData lining;
+			for (double arc=0;arc<length;arc+=6)
+			{
+				const float a=static_cast<float>(arc),b=static_cast<float>(Min(arc+6,length));
+				BridgeStructure::append(lining,TunnelGeometry::lining(curve->positionAt(a),curve->positionAt(b),tangentToRight(curve->tangentAt(a)),tangentToRight(curve->tangentAt(b)),edge.totalWidth()*.5+.7,5.8,arc<12));
+			}
+			if (!lining.indices.isEmpty()) { Mesh mesh{lining}; cache.surfaces << PartMeshEntry{{mesh,mesh},phase==1 ? ColorF{.4,.36,.3} : ColorF{.66},&m_constructionConcrete}; }
+			if (phase>=2) { strip(0,curve->totalLength*(phase==2 ? fraction : 1),-.1,&m_constructionGravel,ColorF{.65},true); }
+		}
 		if(phase>=3)
 		{
 			const float end=curve->totalLength*static_cast<float>(phase==3 ? fraction : 1);
@@ -227,7 +240,7 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 		const float machineArc=Clamp(curve->totalLength*static_cast<float>(fraction),Min(8.0f,curve->totalLength*.2f),Max(8.0f,curve->totalLength-8));
 		Vec3 p=curve->positionAt(Min(machineArc,curve->totalLength));
 		site.right=tangentToRight(curve->tangentAt(Min(machineArc,curve->totalLength)));site.forward=Vec3{-site.right.z,0,site.right.x};
-		const bool crane=edge.useElevation && (phase==1 || phase==2);
+		const bool crane=edge.useElevation && !edge.tunnel && (phase==1 || phase==2);
 		if(crane) p+=site.right*(edge.totalWidth()*.5+5);
 		p.y=edge.useElevation && phase>=3 ? p.y+.1 : world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))+.1;
 		site.origin=p;

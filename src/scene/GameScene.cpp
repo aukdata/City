@@ -1,5 +1,7 @@
 ﻿#include "GameScene.hpp"
 #include "../gen/WaterCrossings.hpp"
+#include "../gen/RoadTerrainFit.hpp"
+#include "../gen/RoadVerticalAlignment.hpp"
 #include "../gen/StreetBlocks.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../road/JunctionGeometry.hpp"
@@ -25,6 +27,20 @@ GameScene::GameScene(const InitData& init)
 	: IScene{ init }
 {
 	m_worldRenderer.setAsyncTerrain(!getData().syncTerrain);
+	m_camera.setWalkSurface([this](Vec3 point)
+	{
+		const double ground=m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+		if (const auto hit=m_network.findEdgeNearDetailed(point,12))
+		{
+			const auto* edge=m_network.getEdge(hit->first); const auto curve=m_network.getBezier(hit->first);
+			if (edge && edge->tunnel && curve)
+			{
+				const Vec3 pavement=curve->positionAt(hit->second);
+				if (Abs(point.y-pavement.y)<4 && Vec2{point.x-pavement.x,point.z-pavement.z}.length()<edge->totalWidth()*.5) { return pavement.y+.035; }
+			}
+		}
+		return ground;
+	});
 	m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
 	m_outlineMask   = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm,      HasDepth::Yes };
 	m_outlinePS     = HLSL{ U"shaders/hlsl/selection_outline.hlsl", U"PS" };
@@ -102,12 +118,14 @@ void GameScene::initNewGame()
 
 	startLoadingPhase(LoadingTask::NewGame, U"マップ生成中...", U"地形生成中", [this]()
 	{
+		m_world.generateRivers();
 		generateAllTerrain();
 		placeAllSettlements();
 		generateAllRoads();
 		generateDistrictRoads();
 		postProcessRoads();
 		MapGenerator::setupTrain(m_trainNetwork,m_world,m_districts,&m_network);
+		m_districtHierarchy.generate(m_world,m_districts);
 		applyZonesGlobal();
 		placeInitialBuildings();
 	});
@@ -334,12 +352,47 @@ void GameScene::postProcessRoads()
 	}
 	step.restart();
 
-	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); });
+	RoadTerrainFit::apply(m_network,m_world);
+	RoadVerticalAlignment::apply(m_network,m_world);
+	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); },[&](double x,double z) { return m_world.waterSurfaceHeight(x,z); });
 	for (const auto& edge : m_network.edges())
 	{
 		if (edge.id>=0 && edge.useElevation) { m_network.generatePiersForEdge(edge.id,m_world); }
 	}
 	DBG_LOG(U"[WaterCrossings] wetBefore={} elevatedEdges={}"_fmt(water.wetEdges,water.elevatedEdges));
+	if (getData().auditRoadIntegrity)
+	{
+		int wetRoads=0;
+		for (const auto& edge : m_network.edges())
+		{
+			if (edge.id<0) { continue; } const auto curve=m_network.getBezier(edge.id);bool wet=false;
+			for (float arc=0;arc<=curve->totalLength;arc+=4)
+			{
+				const Vec3 point=curve->positionAt(arc),right=tangentToRight(curve->tangentAt(arc));
+				for (const int side : {-1,0,1})
+				{
+					const Vec3 p=point+right*(edge.totalWidth()*.5*side);const double ground=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),surface=m_world.waterSurfaceHeight(p.x,p.z);
+					const double pavement=edge.useElevation ? point.y : ground;
+					wet|=ground<surface && pavement<surface-.03 && !(edge.tunnel && pavement<ground-6);
+				}
+			}
+			wetRoads+=wet;
+		}
+		DBG_LOG(U"[RoadWaterAudit] submergedRoads={}"_fmt(wetRoads));
+	}
+
+	{
+		int elevated=0,low=0,buried=0;
+		for (const auto& edge : m_network.edges())
+		{
+			if (edge.id<0 || !edge.useElevation) { continue; }
+			++elevated; double maximum=-1e9,minimum=1e9;
+			const auto curve=m_network.getBezier(edge.id);
+			for (int i=0;i<=20;++i) { const auto point=curve->evaluate(i/20.0f); const double gap=point.y-m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)); maximum=Max(maximum,gap); minimum=Min(minimum,gap); }
+			low+=maximum<2; buried+=minimum<-.05;
+		}
+		DBG_LOG(U"[RoadGroundAudit] elevated={} belowTwoMeters={} buried={}"_fmt(elevated,low,buried));
+	}
 	registerGuideDestinations();
 	Logger << U"[PostProcess] registerGuideDestinations: {:.0f}ms"_fmt(step.msF());
 	step.restart();
@@ -456,7 +509,11 @@ void GameScene::updateLoading()
 				}
 
 				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
-				m_minimapRenderer.buildTerrainTexture(m_world);
+				m_riverRenderer.build(m_world);
+			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
+			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
+			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);
+			m_minimapRenderer.buildTerrainTexture(m_world);
 				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 				m_worldRenderer.preloadBuildingModels();
 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
@@ -483,6 +540,10 @@ void GameScene::updateLoading()
 
 			startSimThread();
 
+			m_riverRenderer.build(m_world);
+			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
+			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
+			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);
 			m_minimapRenderer.buildTerrainTexture(m_world);
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
@@ -935,6 +996,7 @@ bool GameScene::loadGame()
 	m_world.setGenerationParams(getData().seed,
 		WORLD_SIZE,
 		WORLD_SIZE);
+	m_world.generateRivers();
 	m_world.reserveChunks();
 	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
 	step.restart();
@@ -1033,6 +1095,7 @@ bool GameScene::loadGame()
 	setLoadingStatus(U"ゾーン・建物を復元中...");
 
 	MapGenerator::setupTrain(m_trainNetwork,m_world,m_districts,&m_network);
+	m_districtHierarchy.generate(m_world,m_districts);
 	applyZonesGlobal();
 	placeInitialBuildings();
 	const FilePath clearancePath = saveRoot + U"/global/construction_clearance.json";
@@ -1833,7 +1896,7 @@ void GameScene::placeInitialBuildings()
 	int rejectedRoad = 0;
 	int rejectedSlope = 0;
 	int rejectedDensity = 0, rejectedClearance = 0, rejectedNeighbor = 0, candidateSlots = 0;
-	ParcelRoadIndex roadIndex{ m_network };
+	ParcelRoadIndex roadIndex{ m_network,true };
 	roadIndex.addRailway(m_trainNetwork);
 	auto isBuildableFootprint = [&](const Building& building, Vec2 center, float maximumRelief=1.2f)
 	{
@@ -1847,6 +1910,7 @@ void GameScene::placeInitialBuildings()
 		for (const Vec2& corner : footprint)
 		{
 			const float height = m_world.sampleHeight(static_cast<float>(corner.x), static_cast<float>(corner.y));
+			if (height<m_world.waterSurfaceHeight(corner.x,corner.y)+2.6) { ++rejectedSlope; return false; }
 			minHeight = Min(minHeight, height);
 			maxHeight = Max(maxHeight, height);
 		}
@@ -2219,6 +2283,13 @@ void GameScene::generateLandPatches(bool preserveExisting)
 						const float diagonalHeight = m_world.sampleHeight(static_cast<float>(corner.x+sizeX),static_cast<float>(corner.y+sizeZ));
 						if (!civicZone && Abs(cornerHeight-diagonalHeight) < .8f && field.materialVariant%4u != 0u) { field.type = LandPatchType::PaddyField; }
 
+						bool dry=true;
+						for (double dz=0;dz<=sizeZ;dz+=8) for (double dx=0;dx<=sizeX;dx+=8)
+						{
+							const Vec2 point=corner+Vec2{dx,dz};
+							dry &= m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))>m_world.waterSurfaceHeight(point.x,point.y)+1;
+						}
+						if (!dry) { continue; }
 						field.polygon = { corner, corner + Vec2{ sizeX, 0 }, corner + Vec2{ sizeX, sizeZ }, corner + Vec2{ 0, sizeZ } };
 						chunk.landPatches << field;
 						for (int y = 0; y < height; ++y)
@@ -2392,7 +2463,7 @@ void GameScene::migrateLegacyBuildingFrontageReferences()
 }
 bool GameScene::validateGeneratedCityConstraints()
 {
-	ParcelRoadIndex roadIndex{ m_network };
+	ParcelRoadIndex roadIndex{ m_network,true };
 	roadIndex.addRailway(m_trainNetwork);
 	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
 	for (const auto& settlement : m_districts)
@@ -2468,7 +2539,7 @@ bool GameScene::validateGeneratedCityConstraints()
 					const Vec2 center = cellCenterXZ(chunkCoord, col, row) + Vec2{ building.offsetX, building.offsetZ };
 					if (roadIndex.overlaps(ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * 0.5, building.angle)))
 					{
-						++roadOverlapCount;
+						++roadOverlapCount; DBG_LOG(U"[BuildingOverlap] coord=({}, {}) cell=({}, {}) type={} edge={} center=({}, {}) line={}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),building.edgeId,center.x,center.y,__LINE__));
 					}
 					const float h = sampleHeightMap(chunk->heightMap, chunkCoord, static_cast<float>(center.x), static_cast<float>(center.y));
 					if (h < 1.55f)
@@ -2502,7 +2573,7 @@ bool GameScene::validateGeneratedCityConstraints()
 					const float maximumFrontageDistance = roadOuter + buildingHalf + setbackFromRoadByModel(building.type, globalGX, globalGZ) + 8.0f;
 					if (projection.distance < minimumClearance)
 					{
-						++roadOverlapCount;
+						++roadOverlapCount; DBG_LOG(U"[BuildingOverlap] coord=({}, {}) cell=({}, {}) type={} edge={} center=({}, {}) line={}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),building.edgeId,center.x,center.y,__LINE__));
 					}
 					const float cosA = Math::Cos(building.angle);
 					const float sinA = Math::Sin(building.angle);
@@ -2519,7 +2590,7 @@ bool GameScene::validateGeneratedCityConstraints()
 					}
 					if (footprintInsideRoadCorners >= 2)
 					{
-						++roadOverlapCount;
+						++roadOverlapCount; DBG_LOG(U"[BuildingOverlap] coord=({}, {}) cell=({}, {}) type={} edge={} center=({}, {}) line={}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),building.edgeId,center.x,center.y,__LINE__));
 					}
 					if (projection.distance > maximumFrontageDistance)
 					{
@@ -3587,19 +3658,58 @@ void GameScene::updateTransportReview()
 			view.zoomAt(view.body(Scene::Size()).center(),32,Scene::Size());
 			view.showContext(view.body(Scene::Size()).center()+Vec2{80,60},Scene::Size());
 		}
+		if (m_captureIndex==6)
+		{
+			m_minimapRenderer.mapView().close();
+			for (const auto& reach : m_world.rivers().reaches)
+			{
+				if (reach.start.y>2 && reach.start.y<45 && reach.halfWidth>30)
+				{ m_camera.setCaptureState((reach.start+reach.end)*.5,280,static_cast<float>(-40_deg),static_cast<float>(35_deg)); break; }
+			}
+		}
+		if (m_captureIndex==7)
+		{
+			for (const auto& edge : m_trainNetwork.edges())
+			{
+				const Vec3 p=m_trainNetwork.getBezier(edge.id)->evaluate(.5f);const double gap=p.y-m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
+				if (gap>8 && gap<14) { m_camera.setCaptureState(p,18,static_cast<float>(-30_deg),static_cast<float>(-18_deg)); break; }
+			}
+		}
+		if (m_captureIndex==8 || m_captureIndex==9)
+		{
+			const auto visit=[&](const CubicBezier& curve)
+			{
+				for (float arc=0;arc<curve.totalLength;arc+=4)
+				{
+					const Vec3 p=curve.positionAt(arc),tangent=curve.tangentAt(arc);const double depth=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))-p.y;
+					if (depth>2 && depth<5) { m_camera.setCaptureState(p+Vec3{0,2.4,0},18,static_cast<float>(Atan2(-tangent.x,-tangent.z)),0);return true; }
+				}
+				return false;
+			};
+			if (m_captureIndex==8) { for (const auto& edge : m_network.edges()) { if (edge.id>=0 && edge.tunnel && visit(*m_network.getBezier(edge.id))) { break; } } }
+			else { for (const auto& edge : m_trainNetwork.edges()) { if (edge.id>=0 && visit(*m_trainNetwork.getBezier(edge.id))) { break; } } }
+		}
+		if (m_captureIndex==10)
+		{
+			m_minimapRenderer.openFullScreen(m_camera,m_network,m_trainNetwork,m_districts);auto& view=m_minimapRenderer.mapView();view.zoom=2;
+			const Vec2 before=view.center;view.panKeyboard({1,-1},.1,Scene::Size());
+			DBG_LOG(U"[MapKeyboardReview] movedPixels={:.2f} rivers={} boundaries={}"_fmt(view.center.distanceFrom(before)*view.scale(Scene::Size()),view.rivers.size(),view.boundaries.size()));
+		}
 		m_captureCameraDirty=false; m_captureFrame=0;
 	}
-	m_world.update(m_camera.focusPoint()); renderWorld();
+	m_world.update(m_camera.focusPoint()); const Stopwatch frameTimer{StartImmediately::Yes}; renderWorld();
+	if (m_captureFrame==70 && m_worldRenderer.pendingTerrainJobs()>0 && !m_minimapRenderer.fullScreen()) { return; }
 	if (++m_captureFrame==75)
 	{
 		ScreenCapture::SaveCurrentFrame(U"transport_{:02}.png"_fmt(m_captureIndex));
-		DBG_LOG(U"[TransportReview] rendered={} map={}"_fmt(m_captureIndex,m_minimapRenderer.fullScreen()));
+		DBG_LOG(U"[TransportReview] rendered={} map={} cpuDrawMs={:.2f}"_fmt(m_captureIndex,m_minimapRenderer.fullScreen(),frameTimer.msF()));
 	}
 	if (m_captureFrame>82)
 	{
-		if (++m_captureIndex==6)
+		if (++m_captureIndex==11)
 		{
 			auto& view=m_minimapRenderer.mapView();
+			view.showContext(view.body(Scene::Size()).center(),Scene::Size());
 			const auto target=view.jumpFromMenu(view.menuBounds().center());
 			if (target) { jumpToMapPosition(*target); }
 			const Vec3 focus=m_camera.focusPoint();

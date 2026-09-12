@@ -22,9 +22,11 @@ public:
 			}
 		}
 	}
-	double minimumRailHeight(Vec2 point,double margin=0) const
+	double minimumRailHeight(Vec2 point,double margin=0) const { return interval(point,margin).second; }
+	double maximumUnderpassHeight(Vec2 point,double margin=0) const { return interval(point,margin).first; }
+	std::pair<double,double> interval(Vec2 point,double margin=0) const
 	{
-		double result=-1e9;
+		double result=-1e9,under=1e9;
 		const int x=static_cast<int>(point.x/32),z=static_cast<int>(point.y/32);
 		for (int dz=-2;dz<=2;++dz)
 		{
@@ -33,11 +35,11 @@ public:
 				const auto found=m_samples.find(key(x+dx,z+dz)); if (found==m_samples.end()) { continue; }
 				for (const auto& sample : found->second)
 				{
-					if (point.distanceFromSq(sample.position)<Square(sample.radius+margin)) { result=Max(result,sample.height+8); }
+					if (point.distanceFromSq(sample.position)<Square(sample.radius+margin)) { result=Max(result,sample.height+7.0); under=Min(under,sample.height-10.0); }
 				}
 			}
 		}
-		return result;
+		return {under,result};
 	}
 private:
 	struct Sample { Vec2 position; double height; double radius; };

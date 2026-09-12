@@ -1,0 +1,6 @@
+[5.33929s] [RoadGroundAudit] elevated=4002 belowTwoMeters=3075 buried=1747
+[5.49918s] [RailwayAudit] maxGrade=0.023879522786630917 minimumGroundClearance=0.45844980403416 roadConflicts=0 underWater=0
+[5.49918s] [RailHeight] samples=41205 median=15.72244225959438 p95=71.82593764832009 maximum=104.19266658375864
+[5.49918s] [RailwayAlignment] stations=18 lines=17 sections=933
+[13.3903s] [BlockCoverage] blocks=5384 emptyBefore=11 infill=11 emptyAfter=0
+[21.6271s] [CityConstraintValidation] buildings=59251 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true

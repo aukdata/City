@@ -178,7 +178,7 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		}
 
 		// v2: useElevation
-		w.write(static_cast<uint8>(e.useElevation ? 1 : 0));
+		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0)));
 
 		// v3: parts（道路部品配列）
 		w.write(static_cast<uint32>(e.parts.size()));
@@ -349,7 +349,8 @@ bool RoadBinary::read(const FilePath& path,
 		{
 			uint8 elev;
 			if (!r.read(elev)) return false;
-			e.useElevation = (elev != 0);
+			e.useElevation = (elev & 1) != 0;
+			e.tunnel = (elev & 2) != 0;
 		}
 
 		// parts

@@ -1,0 +1,13 @@
+[0.0556052s] [RiverNetwork] reaches=2551 lengthKm=774.4 confluences=114 maximumIncision=100.7
+[5.40746s] [RoadEarthworks] groundedEdges=2283 adjustedVertices=24566 maximumCutFill=2m
+[5.52731s] [RoadVerticalAlignment] tunnelSections=350
+[5.99393s] [RoadWaterAudit] submergedRoads=0
+[5.99393s] [RoadGroundAudit] elevated=3246 belowTwoMeters=647 buried=602
+[6.6603s] [RailHeight] samples=58561 median=0.7260017536548489 p95=11.982033162164107 maximum=30.586340389535906
+[6.6603s] [RailwayAudit] maxGrade=0.017679617815836872 roadConflicts=0 underWater=0 failedConnections=0
+[6.6603s] [RailwayAlignment] stations=13 lines=12 sections=4941 rejectedCorridors=1
+[6.86017s] [DistrictHierarchy] areas=2108 boundaries=51742 uncoveredCells=0
+[14.3909s] [BlockCoverage] blocks=3888 emptyBefore=13 infill=13 emptyAfter=0
+[22.015s] [CityConstraintValidation] buildings=41750 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[22.0551s] [RiverRenderer] batches=888 shader=true
+[22.0551s] [TunnelRenderer] roadSections=512 railSections=1421 mouthOpenings=4660

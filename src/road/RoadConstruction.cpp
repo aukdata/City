@@ -5,6 +5,13 @@ namespace RoadConstruction
 {
 	String Progress::name() const
 	{
+		if (tunnel)
+		{
+			if (stage==Stage::Clearance) { return U"坑口工・準備工"; }
+			if (stage==Stage::Earthwork) { return U"掘削・支保工"; }
+			if (stage==Stage::BaseCourse) { return U"防水・覆工・インバート工"; }
+			if (stage==Stage::Paving) { return U"路盤・舗装工"; }
+		}
 		switch (stage)
 		{
 		case Stage::Clearance: return U"既設物撤去工";
@@ -47,7 +54,7 @@ namespace RoadConstruction
 			start = *plan->constructionStart;
 			duration = plan->completionDate ? *plan->completionDate - start : plan->constructionDuration;
 		}
-		return progress(now - start, duration, edge.useElevation);
+		auto result=progress(now - start, duration, edge.useElevation); result.tunnel=edge.tunnel; return result;
 	}
 
 	namespace

@@ -1,5 +1,6 @@
 ﻿#include "TrainRenderer.hpp"
 #include "BridgeStructure.hpp"
+#include "RailStructure.hpp"
 #include <Siv3D/Profiler.hpp>
 
 namespace
@@ -144,19 +145,15 @@ void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,
 				const Vec3 rightA=tangentToRight(bez->tangentAt(arc)),rightB=tangentToRight(bez->tangentAt(Min(arc+5,bez->totalLength)));
 				const double ground=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
 				const bool viaduct=a.y-ground>3;
-				const Vec3 left=a-rightA*2.4,right=a+rightA*2.4,leftEnd=b-rightB*2.4,rightEnd=b+rightB*2.4;
-				BridgeStructure::quad(bed,left,leftEnd,rightEnd,right);
-				const double bottomA=viaduct ? a.y-.8 : ground-.2;
-				const double bottomB=viaduct ? b.y-.8 : world.sampleHeight(static_cast<float>(b.x),static_cast<float>(b.z))-.2;
-				for (const int side : {-1,1})
+				if (viaduct) { BridgeStructure::append(bed,RailStructure::deck(a,b,rightA,rightB)); }
+				else
 				{
-					const Vec3 top=a+rightA*(2.4*side),end=b+rightB*(2.4*side);
-					BridgeStructure::quad(bed,top,Vec3{top.x,bottomA,top.z},Vec3{end.x,bottomB,end.z},end);
-					if (viaduct) { BridgeStructure::quad(bed,top,top+Vec3{0,.65,0},end+Vec3{0,.65,0},end); }
+					RailStructure::prism(bed,a,b,rightA,rightB,0,2.4,0,Min(-.5,ground-a.y-.25));
 				}
+
 				if (viaduct && static_cast<int>(arc)%30==0 && !m_roadClearance->overlaps(ParcelGeometry::footprint({a.x,a.z},3,0)))
 				{
-					BridgeStructure::append(bed,BridgeStructure::pier(a,rightA,ground,a.y-.8,4.8));
+					BridgeStructure::append(bed,BridgeStructure::pier(a,rightA,ground,a.y-1.5,4.8));
 				}
 			}
 			m_bedMeshCache.emplace(edge.id,Mesh{bed});

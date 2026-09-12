@@ -1,0 +1,79 @@
+[
+  {
+    "file": "transport_00.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "7471a276ff429f51aabdb124123de73a925f71c9a272393c77f0519cfac23be2",
+    "centralPixelStandardDeviation": 27.785
+  },
+  {
+    "file": "transport_01.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "1f354c9f9df25d716bb1842bd23161fbb29cda461a5c7d502f718b74704dd728",
+    "centralPixelStandardDeviation": 36.133
+  },
+  {
+    "file": "transport_02.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "13c492f82dfa900f2aabb8f9ab7b881b214ac561b8ee3e32024cce624a2c123b",
+    "centralPixelStandardDeviation": 39.519
+  },
+  {
+    "file": "transport_03.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "1347ae15861200de40fccffc81a090ba2afdcbb12d5fb057a74a240acf339968",
+    "centralPixelStandardDeviation": 32.799
+  },
+  {
+    "file": "transport_04.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "d02602ee4a9f4df01f3aee32241a77a01e722761050630fafa6708ae9997f471",
+    "centralPixelStandardDeviation": 27.826
+  },
+  {
+    "file": "transport_05.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "ca66c1fe939645ee872d2105c367faed59c6491c652547f30cff45eed61ef8f8",
+    "centralPixelStandardDeviation": 43.826
+  },
+  {
+    "file": "transport_06.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "c0a8603fc41707e6af3898c7cfcfc147e5e61dbd578d7380fb98673987aa262c",
+    "centralPixelStandardDeviation": 30.268
+  },
+  {
+    "file": "transport_07.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "0fc78f32c5246cb525579fb2823e88d6145ae3723079c3a58a3002ae68ab3976",
+    "centralPixelStandardDeviation": 36.044
+  },
+  {
+    "file": "transport_08.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "994618f5fda459a9fb885d52ad99bc827185a2058f3a8b80c53320bdbc9c2cfa",
+    "centralPixelStandardDeviation": 40.923
+  },
+  {
+    "file": "transport_09.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "1fa0b32a46113709bb65f3fcb2dca2a7f9a6bf050fc4b82f5a392c11080e3ecc",
+    "centralPixelStandardDeviation": 37.149
+  },
+  {
+    "file": "transport_10.png",
+    "width": 1280,
+    "height": 768,
+    "sha256": "ec59cd2f96e202e232baaa7b46632e774dc88cad1342dad8e5b97abbaf45e3ac",
+    "centralPixelStandardDeviation": 35.322
+  }
+]
