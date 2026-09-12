@@ -330,7 +330,7 @@ void registerCityGenerationTests(TestRunner& runner)
 			MapGenerator::Settlement settlement;
 			settlement.center = Vec2{ 32768, 32768 };
 			settlement.radius = 700.0f;
-			settlement.kind = MapGenerator::SettlementKind::CastleTown;
+			settlement.kind = MapGenerator::SettlementKind::RegionalCity;
 			DistrictRoads::generateCastleTown(seed, 0, settlement, DistrictRoads::KaidoSegment{}, world, network);
 			for (const auto& generatedEdge : network.edges())
 			{
@@ -339,6 +339,16 @@ void registerCityGenerationTests(TestRunner& runner)
 					edge->edgeState = EdgeState::Open;
 				}
 			}
+			double maxAxisError = 0.0;
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id < 0) { continue; }
+				const Vec3 direction = network.getNode(edge.nodeB)->position - network.getNode(edge.nodeA)->position;
+				const Vec2 horizontal{ direction.x, direction.z };
+				maxAxisError = Max(maxAxisError, Min(Abs(horizontal.dot(settlement.gridAxisX)), Abs(horizontal.dot(settlement.gridAxisZ))));
+			}
+			report << U"seed={} maxCrossStreetDriftM={}"_fmt(seed, maxAxisError);
+			context.expect(maxAxisError < 0.01, U"Planned town streets share corridor axes without per-intersection jitter");
 			HashSet<int> visited;
 			int components = 0;
 			int endpoints = 0;

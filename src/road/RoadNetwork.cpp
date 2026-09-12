@@ -1,5 +1,7 @@
 ﻿#include "RoadNetwork.hpp"
 #include "RoadSign.hpp"
+#include "RoadGeometry.hpp"
+#include "../debug/DebugLog.hpp"
 #include "GuideSign.hpp"
 #include "../world/World.hpp"
 
@@ -39,7 +41,7 @@ namespace
 	/// @param b1,b2  線分2の端点
 	/// @param s      出力: 線分1上の交差パラメータ [0,1]
 	/// @param t      出力: 線分2上の交差パラメータ [0,1]
-	/// @return 内点で交差する場合 true（端点付近 < EPS は false）
+	/// @return Sample chords intersect, including shared sample endpoints.
 	bool segIntersect2D(Vec2 a1, Vec2 a2, Vec2 b1, Vec2 b2, float& s, float& t)
 	{
 		const double dxr = a2.x - a1.x, dyr = a2.y - a1.y;
@@ -50,7 +52,7 @@ namespace
 		s = static_cast<float>((qx * dys - qy * dxs) / denom);
 		t = static_cast<float>((qx * dyr - qy * dxr) / denom);
 		constexpr float EPS = 1e-4f;
-		return s > EPS && s < 1.0f - EPS && t > EPS && t < 1.0f - EPS;
+		return s >= -EPS && s <= 1.0f + EPS && t >= -EPS && t <= 1.0f + EPS;
 	}
 
 } // namespace
@@ -341,16 +343,29 @@ void RoadNetwork::applyEdgeTemplate(int edgeId, const RoadEdge& tmpl)
 
 int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 {
-	RoadEdge* edge = getEdge(edgeId);
-	if (!edge) return -1;
+	const auto bezier = getBezier(edgeId);
+	return bezier ? splitEdgeAtParameter(edgeId,bezier->tFromArcLength(arcLength)) : -1;
+}
 
-	const RoadNode* nA = getNode(edge->nodeA);
-	const RoadNode* nB = getNode(edge->nodeB);
-	if (!nA || !nB) return -1;
-
-	CubicBezier bez{ nA->position, edge->ctrlA, edge->ctrlB, nB->position };
-	const float t = bez.tFromArcLength(arcLength);
-	if (t <= 0.01f || t >= 0.99f) return -1;
+int RoadNetwork::splitEdgeAtParameter(int edgeId, float t, int existingNodeId)
+{
+	const RoadEdge* edge = getEdge(edgeId);
+	const auto curve = getBezier(edgeId);
+	if (!edge || !curve || t <= 0.00001f || t >= 0.99999f) { return -1; }
+	const CubicBezier bez = *curve;
+	int reuseA=-1,reuseB=-1;
+	if (existingNodeId>=0)
+	{
+		const auto* existing=getNode(existingNodeId);
+		if (!existing || existingNodeId==edge->nodeA || existingNodeId==edge->nodeB) return -1;
+		for (const int id : existing->edgeIds())
+		{
+			const auto* candidate=getEdge(id);if (!candidate) continue;
+			if (candidate->nodeA==edge->nodeA || candidate->nodeB==edge->nodeA) reuseA=id;
+			if (candidate->nodeA==edge->nodeB || candidate->nodeB==edge->nodeB) reuseB=id;
+		}
+		if (existing->attachments.size()+(reuseA<0?1:0)+(reuseB<0?1:0)>6) return -1;
+	}
 
 	const auto [bezA, bezB] = bez.split(t);
 	const Vec3 splitPos = bez.evaluate(t);
@@ -390,14 +405,25 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 		plan.edgeIds.remove(edgeId);
 	}
 
+	// Inserting a node must not demolish attached piers or manually placed signs.
+	Array<int> retainedObjects,retainedGuides;
+	for (auto& object : m_objects) if (object.id>=0 && object.parentEdgeId==edgeId)
+	{
+		retainedObjects << object.id;object.parentEdgeId=-1;
+	}
+	for (auto& sign : m_guideSigns) if (sign.id>=0 && sign.parentEdgeId==edgeId)
+	{
+		retainedGuides << sign.id;sign.parentEdgeId=-1;
+	}
 	removeEdge(edgeId);
 
-	const int midNodeId = addNode(splitPos, NodeType::Joint);
+	const int midNodeId = existingNodeId >= 0 ? existingNodeId : addNode(splitPos, NodeType::Joint);
+	const Vec3 shift = getNode(midNodeId)->position - splitPos;
 
 	int newEidA = -1, newEidB = -1;
-	if (auto eidA = addEdge(origNodeA, midNodeId, bezA.p1, bezA.p2, rt, numLanes))
+	if (auto eidA = reuseA>=0 ? Optional<int>{reuseA} : addEdge(origNodeA, midNodeId, bezA.p1, bezA.p2 + shift, rt, numLanes))
 	{
-		applyEdgeTemplate(*eidA, tmpl);
+		if (reuseA<0 || getEdge(*eidA)->totalWidth()<tmpl.totalWidth()) applyEdgeTemplate(*eidA, tmpl);
 		if (RoadEdge* ea = getEdge(*eidA))
 		{
 			ea->edgeState             = tmpl.edgeState;
@@ -407,9 +433,9 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 		newEidA = *eidA;
 	}
 
-	if (auto eidB = addEdge(midNodeId, origNodeB, bezB.p1, bezB.p2, rt, numLanes))
+	if (auto eidB = reuseB>=0 ? Optional<int>{reuseB} : addEdge(midNodeId, origNodeB, bezB.p1 + shift, bezB.p2, rt, numLanes))
 	{
-		applyEdgeTemplate(*eidB, tmpl);
+		if (reuseB<0 || getEdge(*eidB)->totalWidth()<tmpl.totalWidth()) applyEdgeTemplate(*eidB, tmpl);
 		if (RoadEdge* eb = getEdge(*eidB))
 		{
 			eb->edgeState             = tmpl.edgeState;
@@ -417,6 +443,58 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 			eb->useElevation          = tmpl.useElevation;
 		}
 		newEidB = *eidB;
+	}
+
+	const float scaled=t*CubicBezier::SAMPLES;
+	const int sample=Min(static_cast<int>(scaled),CubicBezier::SAMPLES-1);
+	const float splitArc=Math::Lerp(bez.arcTable[sample],bez.arcTable[sample+1],scaled-sample);
+	const float fraction=splitArc/Max(.001f,bez.totalLength);
+	const auto splitOffsets=[&](auto& child,const auto& original,bool before)
+	{
+		const float left=Math::Lerp(original.offsetA_L,original.offsetB_L,fraction);
+		const float right=Math::Lerp(original.offsetA_R,original.offsetB_R,fraction);
+		if (before) { child.offsetB_L=left;child.offsetB_R=right; }
+		else { child.offsetA_L=left;child.offsetA_R=right; }
+	};
+	for (const bool before : {true,false})
+	{
+		if ((before?reuseA:reuseB)>=0) continue;
+		auto* child=getEdge(before?newEidA:newEidB);if (!child) continue;
+		for (size_t i=0;i<child->parts.size();++i) splitOffsets(child->parts[i],tmpl.parts[i],before);
+		for (size_t i=0;i<child->lanes.size();++i) splitOffsets(child->lanes[i],tmpl.lanes[i],before);
+		rebuildNodeConnectivity(child->nodeA,child->nodeB);
+	}
+
+	for (const int id : retainedObjects)
+	{
+		auto* object=getObject(id);if (!object) continue;
+		const bool before=object->arcPos<=splitArc;
+		const auto* child=getEdge(before?newEidA:newEidB);if (!child) continue;
+		object->parentEdgeId=child->id;
+		object->arcPos-=before?0.0f:splitArc;
+		if (child->nodeA!=(before?origNodeA:midNodeId))
+		{
+			object->arcPos=child->length-object->arcPos;
+			object->lateralOffset=-object->lateralOffset;
+			object->yawOffset+=static_cast<float>(Math::Pi);
+		}
+	}
+	for (const int id : retainedGuides)
+	{
+		auto* sign=getGuideSign(id);if (!sign) continue;
+		sign->parentEdgeId=sign->nodeEndId==origNodeB?newEidB:newEidA;
+	}
+	for (const auto& sign : tmpl.signs)
+	{
+		if (sign.autoGenerated) continue;
+		if (auto* child=getEdge(sign.nodeEndId==origNodeB?newEidB:newEidA)) child->signs << sign;
+	}
+	for (auto& marking : m_manualMarkings)
+	{
+		if (marking.edgeId!=edgeId) continue;
+		const bool before=marking.arcOffset<=splitArc;
+		marking.edgeId=before?newEidA:newEidB;
+		if (!before) marking.arcOffset-=splitArc;
 	}
 
 	const auto replaceMember = [&](const Membership& membership)
@@ -559,6 +637,21 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 			// Blend: 幅差に応じた遷移ゾーン
 			const float widthDiff = maxWidth - minWidth;
 			cutoff = Max(widthDiff * 2.0f, 10.0f) * 0.5f;
+			const auto* a = getEdge(node->attachments[0].edgeId);
+			const auto* b = getEdge(node->attachments[1].edgeId);
+			if (a && b)
+			{
+				Vec3 da = (a->nodeA==nodeId ? a->ctrlA : a->ctrlB)-node->position;
+				Vec3 db = (b->nodeA==nodeId ? b->ctrlA : b->ctrlB)-node->position;
+				da.y=0; db.y=0;
+				if (da.lengthSq()>1e-8 && db.lengthSq()>1e-8)
+				{
+					const double cosine = Clamp(da.normalized().dot(db.normalized()),-1.0,0.98);
+					constexpr double kInnerTurnRadius = 6.0;
+					const double radius = Max(RoadGeometry::structuralWidth(*a),RoadGeometry::structuralWidth(*b))*0.5+kInnerTurnRadius;
+					cutoff = Max(cutoff,static_cast<float>(radius*Sqrt((1.0+cosine)/(1.0-cosine))));
+				}
+			}
 		}
 		else
 		{
@@ -570,6 +663,39 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 	case NodeType::Diverge:
 		cutoff = Max(6.0f, maxWidth * 0.5f + 3.0f);
 		break;
+	}
+
+	// At an acute fork, a width-only cutoff leaves two full road strips on top of
+	// each other outside the junction. Start the strips where their envelopes separate.
+	if (validCount>=3)
+	{
+		for (size_t i=0;i<node->attachments.size();++i) for (size_t j=i+1;j<node->attachments.size();++j)
+		{
+			const auto* a=getEdge(node->attachments[i].edgeId);
+			const auto* b=getEdge(node->attachments[j].edgeId);
+			if (!a || !b) continue;
+			Vec3 da=(a->nodeA==nodeId?a->ctrlA:a->ctrlB)-node->position;
+			Vec3 db=(b->nodeA==nodeId?b->ctrlA:b->ctrlB)-node->position;
+			da.y=0;db.y=0;
+			if (da.lengthSq()<1e-8 || db.lengthSq()<1e-8) continue;
+			const double cosine=Clamp(da.normalized().dot(db.normalized()),-1.0,1.0);
+			if (cosine<=0) continue;
+			const double sineHalf=Sqrt(Max(.0025,(1-cosine)*.5));
+			const double envelope=(RoadGeometry::structuralWidth(*a)+RoadGeometry::structuralWidth(*b))*.5;
+			const auto first=getBezier(a->id),second=getBezier(b->id);
+			if (!first || !second) continue;
+			const float limit=Min(160.0f,Min(a->length,b->length)*.4f);
+			float separation=Min(limit,static_cast<float>(envelope/(2*sineHalf)+2.0));
+			// Curved arms can keep nearly the same tangent well past the node.
+			// Verify their actual mouth positions instead of trusting that tangent alone.
+			for (;separation<limit;separation+=2.0f)
+			{
+				const Vec3 pa=first->positionAt(a->nodeA==nodeId?separation:first->totalLength-separation);
+				const Vec3 pb=second->positionAt(b->nodeA==nodeId?separation:second->totalLength-separation);
+				if (Vec2{pa.x-pb.x,pa.z-pb.z}.length()>=envelope+1.0) break;
+			}
+			cutoff=Max(cutoff,Min(separation,limit));
+		}
 	}
 
 	// このノード端のカットオフ値を全接続エッジに書き込む
@@ -895,6 +1021,63 @@ bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 			toRemove = (h & 1) ? e1->id : e.id;
 		}
 
+		const int survivor = toRemove == e1->id ? e.id : e1->id;
+		if (getEdge(toRemove)->planId>=0 || getEdge(survivor)->planId>=0) continue;
+		const auto firstCurve = getBezier(toRemove), secondCurve = getBezier(survivor);
+		bool sameCorridor = firstCurve && secondCurve;
+		if (sameCorridor)
+		{
+			// Curves with different control-handle lengths do not reach the same
+			// physical place at the same parameter. Compare nearest corridor points.
+			const double tolerance=Min(8.0,Min(w1,w2)*0.5-0.15);
+			const auto followsCorridor=[&](const CubicBezier& source,const CubicBezier& target)
+			{
+				for (int sample=0;sample<=12;++sample)
+				{
+					const Vec3 point=source.evaluate(sample/12.0f);
+					double nearest=Math::Inf,heightDifference=Math::Inf;
+					Vec3 a=target.evaluate(0);
+					for (int segment=1;segment<=32;++segment)
+					{
+						const Vec3 b=target.evaluate(segment/32.0f),delta=b-a;
+						const Vec2 horizontal{delta.x,delta.z},relative{point.x-a.x,point.z-a.z};
+						const double along=Clamp(relative.dot(horizontal)/Max(1e-9,horizontal.lengthSq()),0.0,1.0);
+						const Vec3 projected=a+delta*along;
+						const double distance=Vec2{point.x-projected.x,point.z-projected.z}.length();
+						if (distance<nearest) { nearest=distance; heightDifference=Abs(point.y-projected.y); }
+						a=b;
+					}
+					if (nearest>tolerance || heightDifference>1.0) { return false; }
+				}
+				return true;
+			};
+			sameCorridor=followsCorridor(*firstCurve,*secondCurve) && followsCorridor(*secondCurve,*firstCurve);
+		}
+		if (!sameCorridor) continue;
+		for (auto& route : m_routes)
+		{
+			if (route.id<0 || !route.edgeIds.contains(toRemove)) continue;
+			Array<int> replaced;
+			for (const int id : route.edgeIds)
+			{
+				const int replacement=id==toRemove?survivor:id;
+				if (replaced.isEmpty() || replaced.back()!=replacement) replaced << replacement;
+			}
+			route.edgeIds=std::move(replaced);
+			if (!getEdge(survivor)->routeIds.contains(route.id)) getEdge(survivor)->routeIds << route.id;
+		}
+		// Planned roads are not consolidated with existing corridors.
+		if (getEdge(toRemove)->planId>=0 || getEdge(survivor)->planId>=0) continue;
+		const auto* removedEdge=getEdge(toRemove);const auto* keptEdge=getEdge(survivor);
+		const bool reverse=removedEdge->nodeA!=keptEdge->nodeA;
+		for (auto& object : m_objects) if (object.id>=0 && object.parentEdgeId==toRemove)
+		{
+			object.parentEdgeId=survivor;
+			object.arcPos=object.arcPos/Max(.001f,removedEdge->length)*keptEdge->length;
+			if (reverse) { object.arcPos=keptEdge->length-object.arcPos;object.lateralOffset=-object.lateralOffset;object.yawOffset+=static_cast<float>(Math::Pi); }
+		}
+		for (auto& sign : m_guideSigns) if (sign.id>=0 && sign.parentEdgeId==toRemove) sign.parentEdgeId=survivor;
+		for (auto& marking : m_manualMarkings) if (marking.edgeId==toRemove) marking.edgeId=survivor;
 		removeEdge(toRemove);
 		removed = true;
 
@@ -905,16 +1088,203 @@ bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 	return removed;
 }
 
+int RoadNetwork::consolidateOverlappingRoads()
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	int joined = 0;
+	const auto horizontal=[](Vec3 p) { return Vec2{p.x,p.z}; };
+	const auto nearestParameter=[&](const CubicBezier& curve,Vec3 position)
+	{
+		const int samples=Clamp(static_cast<int>(Ceil(curve.totalLength/8)),8,512);
+		float best=0;double distance=Math::Inf;
+		for (int i=0;i<=samples;++i)
+		{
+			const float t=i/static_cast<float>(samples);
+			const double current=horizontal(curve.evaluate(t)-position).lengthSq();
+			if (current<distance) { distance=current;best=t; }
+		}
+		float low=Max(0.0f,best-1.0f/samples),high=Min(1.0f,best+1.0f/samples);
+		for (int i=0;i<18;++i)
+		{
+			const float a=(2*low+high)/3,b=(low+2*high)/3;
+			if (horizontal(curve.evaluate(a)-position).lengthSq()<horizontal(curve.evaluate(b)-position).lengthSq()) high=b;else low=a;
+		}
+		return (low+high)*.5f;
+	};
+	const auto eligible=[](const RoadEdge& edge) { return edge.id>=0 && edge.planId<0 && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing); };
+	const auto joinNodeInto=[&](int nodeId,int endpoint)
+	{
+		const Vec3 shift=getNode(endpoint)->position-getNode(nodeId)->position;
+		const auto attachments=getNode(nodeId)->attachments;
+		for (const auto& attachment : attachments)
+		{
+			auto* neighbor=getEdge(attachment.edgeId);if (!neighbor) continue;
+			if (neighbor->nodeA==nodeId) { neighbor->nodeA=endpoint;neighbor->ctrlA+=shift; }
+			if (neighbor->nodeB==nodeId) { neighbor->nodeB=endpoint;neighbor->ctrlB+=shift; }
+			if (neighbor->nodeA==neighbor->nodeB) { removeEdge(neighbor->id);continue; }
+			getNode(endpoint)->attachments << attachment;
+			neighbor->length=getBezier(neighbor->id)->totalLength;
+		}
+		for (auto& sign : m_guideSigns)
+		{
+			if (sign.nodeEndId==nodeId) sign.nodeEndId=endpoint;
+			if (sign.sourceNodeId==nodeId) sign.sourceNodeId=endpoint;
+		}
+		removeNode(nodeId);
+		rebuildNodeConnectivity(endpoint,endpoint);
+	};
+	for (int pass=0;pass<32;++pass)
+	{
+		HashTable<Point,Array<int>> grid;
+		for (const auto& edge : m_edges)
+		{
+			if (!eligible(edge)) continue;
+			const auto curve=getBezier(edge.id);if (!curve) continue;
+			const int x0=static_cast<int>(Floor((Min({curve->p0.x,curve->p1.x,curve->p2.x,curve->p3.x})-10)/128));
+			const int x1=static_cast<int>(Floor((Max({curve->p0.x,curve->p1.x,curve->p2.x,curve->p3.x})+10)/128));
+			const int z0=static_cast<int>(Floor((Min({curve->p0.z,curve->p1.z,curve->p2.z,curve->p3.z})-10)/128));
+			const int z1=static_cast<int>(Floor((Max({curve->p0.z,curve->p1.z,curve->p2.z,curve->p3.z})+10)/128));
+			for (int z=z0;z<=z1;++z) for (int x=x0;x<=x1;++x) grid[{x,z}] << edge.id;
+		}
+		Array<int> nodes;
+		for (const auto& node : m_nodes) if (node.id>=0 && !node.attachments.isEmpty()) nodes << node.id;
+		nodes.sort();
+		int changed=0;
+		HashSet<int> touched;
+		for (const int nodeId : nodes)
+		{
+			const auto* node=getNode(nodeId);if (!node) continue;
+			const Vec3 position=node->position;
+			bool editable=true;
+			for (const int id : node->edgeIds()) { const auto* attached=getEdge(id);if (attached && !eligible(*attached)) editable=false; }
+			if (!editable) continue;
+			const auto bucket=grid.find({static_cast<int>(Floor(position.x/128)),static_cast<int>(Floor(position.z/128))});
+			if (bucket==grid.end()) continue;
+			int bestEdge=-1;float bestT=0;double bestDistance=Math::Inf;
+			for (const int edgeId : bucket->second)
+			{
+				const auto* edge=getEdge(edgeId);
+				if (!edge || !eligible(*edge) || touched.contains(edgeId) || edge->nodeA==nodeId || edge->nodeB==nodeId) continue;
+				const auto curve=getBezier(edgeId);if (!curve) continue;
+				const float t=nearestParameter(*curve,position);
+				const Vec3 target=curve->evaluate(t);
+				const double distance=horizontal(target-position).length();
+				if (distance>=bestDistance || distance>8) continue;
+				bool parallelOverlap=(horizontal(position-curve->p0).length()<1.0 || horizontal(position-curve->p3).length()<1.0)
+					&& Abs(target.y-position.y)<1.0;
+				for (const int attachedId : node->edgeIds())
+				{
+					const auto* attached=getEdge(attachedId);
+					if (!attached || !eligible(*attached) || touched.contains(attachedId)) continue;
+					if ((edge->useElevation || attached->useElevation) && Abs(target.y-position.y)>1.0) continue;
+					const auto arm=getBezier(attachedId);if (!arm || arm->totalLength<12) continue;
+					const double width=Min(8.0,(RoadGeometry::structuralWidth(*attached)+RoadGeometry::structuralWidth(*edge))*.5-1.0);
+					if (distance>=width) continue;
+					const bool reversed=attached->nodeB==nodeId;
+					const Vec2 direction=horizontal(arm->tangent(reversed?1.0f:0.0f)).normalized();
+					if (Abs(direction.dot(horizontal(curve->tangent(t)).normalized()))<.90) continue;
+					const double pavement=(RoadGeometry::roadbedRangeAt(*attached,.5f).width()+RoadGeometry::roadbedRangeAt(*edge,t).width())*.5;
+					if (distance<Min(2.5,pavement-.5)) { parallelOverlap=true;break; }
+					bool follows=true;
+					for (const float fraction : {.2f,.5f,.8f})
+					{
+						const float length=Min(12.0f,arm->totalLength)*fraction;
+						const Vec3 sample=arm->positionAt(reversed?arm->totalLength-length:length);
+						const float nearest=nearestParameter(*curve,sample);
+						if (horizontal(curve->evaluate(nearest)-sample).length()>=width) { follows=false;break; }
+					}
+					if (follows) { parallelOverlap=true;break; }
+				}
+				if (!parallelOverlap) continue;
+				bestEdge=edgeId;bestT=t;bestDistance=distance;
+			}
+			if (bestEdge<0) continue;
+			const auto curve=*getBezier(bestEdge);
+			const auto edge=*getEdge(bestEdge);
+			int endpoint=-1;
+			if (horizontal(position-curve.p0).length()<8 && bestT*curve.totalLength<2) endpoint=edge.nodeA;
+			if (horizontal(position-curve.p3).length()<8 && (1-bestT)*curve.totalLength<2) endpoint=edge.nodeB;
+			if (endpoint>=0)
+			{
+				joinNodeInto(nodeId,endpoint);
+			}
+			else
+			{
+				if (bestT*curve.totalLength<.5f || (1-bestT)*curve.totalLength<.5f) continue;
+				if (splitEdgeAtParameter(bestEdge,bestT,nodeId)<0) continue;
+				for (const int attached : getNode(nodeId)->edgeIds()) touched.insert(attached);
+			}
+			++changed;
+		}
+		// Roads from one junction may share hundreds of metres before diverging.
+		// Move the fork to the end of that common corridor instead of drawing two decks.
+		for (const int nodeId : nodes)
+		{
+			const auto* node=getNode(nodeId);if (!node) continue;
+			const auto arms=node->edgeIds();bool merged=false;
+			for (size_t i=0;i<arms.size() && !merged;++i) for (size_t j=i+1;j<arms.size() && !merged;++j)
+			{
+				const auto* firstEdge=getEdge(arms[i]);const auto* secondEdge=getEdge(arms[j]);
+				if (!firstEdge || !secondEdge || !eligible(*firstEdge) || !eligible(*secondEdge)) continue;
+				if (firstEdge->useElevation!=secondEdge->useElevation) continue;
+				const auto first=*getBezier(arms[i]),second=*getBezier(arms[j]);
+				const bool firstReverse=firstEdge->nodeB==nodeId,secondReverse=secondEdge->nodeB==nodeId;
+				const float firstSample=Min(12.0f,first.totalLength*.5f);
+				const Vec2 firstDirection=horizontal(first.positionAt(firstReverse?first.totalLength-firstSample:firstSample)-node->position);
+				const float secondSample=Min(12.0f,second.totalLength*.5f);
+				const Vec2 secondDirection=horizontal(second.positionAt(secondReverse?second.totalLength-secondSample:secondSample)-node->position);
+				if (firstDirection.normalized().dot(secondDirection.normalized())<.90) continue;
+				const float span=Min(first.totalLength,second.totalLength);
+				const double width=Min(16.0,(RoadGeometry::structuralWidth(*firstEdge)+RoadGeometry::structuralWidth(*secondEdge))*.5);
+				float common=0;
+				for (float distance=2;distance<=span+2;distance+=2)
+				{
+					const float arc=Min(distance,span);
+					const Vec3 a=first.positionAt(firstReverse?first.totalLength-arc:arc);
+					const Vec3 b=second.positionAt(secondReverse?second.totalLength-arc:arc);
+					if (horizontal(a-b).length()>width || (firstEdge->useElevation && Abs(a.y-b.y)>1.0)) break;
+					common=arc;
+					if (arc==span) break;
+				}
+				if (common<Max(12.0,width*1.1)) continue;
+				int joint=-1;
+				const bool firstEnd=first.totalLength-common<2,secondEnd=second.totalLength-common<2;
+				if (firstEnd) joint=firstReverse?firstEdge->nodeA:firstEdge->nodeB;
+				else if (secondEnd) joint=secondReverse?secondEdge->nodeA:secondEdge->nodeB;
+				if (firstEnd && secondEnd)
+				{
+					const int firstNode=firstReverse?firstEdge->nodeA:firstEdge->nodeB;
+					const int secondNode=secondReverse?secondEdge->nodeA:secondEdge->nodeB;
+					if (firstNode==secondNode) continue;
+					bool editable=true;
+					for (const int id : getNode(secondNode)->edgeIds()) if (!eligible(*getEdge(id))) editable=false;
+					if (!editable) continue;
+					joinNodeInto(secondNode,firstNode);
+					++changed;merged=true;continue;
+				}
+				if (joint>=0 && getNode(joint)->attachments.size()>=6) continue;
+				const float firstT=first.tFromArcLength(firstReverse?first.totalLength-common:common);
+				const float secondT=second.tFromArcLength(secondReverse?second.totalLength-common:common);
+				if (joint<0)
+				{
+					joint=splitEdgeAtParameter(arms[i],firstT);
+					if (joint<0) continue;
+					if (splitEdgeAtParameter(arms[j],secondT,joint)<0) continue;
+				}
+				else if (splitEdgeAtParameter(firstEnd?arms[j]:arms[i],firstEnd?secondT:firstT,joint)<0) continue;
+				++changed;merged=true;
+			}
+		}
+		removeDuplicateEdges(0);
+		joined+=changed;
+		if (!changed) break;
+	}
+	DBG_LOG(U"[RoadIntegrity] consolidatedNodes={} elapsedMs={:.2f}"_fmt(joined,timer.msF()));
+	return joined;
+}
+
 bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 {
-	// Case 1: NodeA→NodeB の直線同士が交わる → 交点で両エッジを分割
-	// Case 2: Case 1 が外れ、かつ折れ線（端点→制御点1→制御点2→端点）の線分が交わる
-	//         → 4 端点の平均位置にノードを生成し、両エッジを t=0.5 で分割
-	// ノードマージ: 生成ノードが既存ノードと 40 m 以内ならマージ
-
-	constexpr float MERGE_DIST = 22.0f;
-	constexpr float SKIP_EPS   = 0.02f;
-
 	// ---- 空間グリッド（AABB オーバーラップを高速化）----
 	constexpr float CELL_SIZE = 256.0f;
 	constexpr float INV_CELL  = 1.0f / CELL_SIZE;
@@ -952,6 +1322,7 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 	{
 		// ダーティリストからバッチ取得（処理中に変わるためコピー）
 		Array<int> dirtyBatch(dirtyEdges.begin(), dirtyEdges.end());
+		dirtyBatch.sort();
 		dirtyEdges.clear();
 
 		// 空間グリッドを構築（全有効エッジの AABB をセルに登録）
@@ -1001,7 +1372,9 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 							if (eid != dirtyId) candidates.insert(eid);
 				}
 
-			for (const int otherId : candidates)
+			Array<int> sortedCandidates(candidates.begin(),candidates.end());
+			sortedCandidates.sort();
+			for (const int otherId : sortedCandidates)
 			{
 				if (!allEdgeSet.contains(otherId)) continue;
 
@@ -1023,96 +1396,52 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 				const RoadNode* na2 = getNode(e2->nodeA); const RoadNode* nb2 = getNode(e2->nodeB);
 				if (!na1 || !nb1 || !na2 || !nb2) continue;
 
-				// データを全てコピー（以降のポインタ失効に備える）
-				const Vec3 posA1 = na1->position, posB1 = nb1->position;
-				const Vec3 posA2 = na2->position, posB2 = nb2->position;
-				const Vec3 cA1 = e1->ctrlA, cB1 = e1->ctrlB;
-				const Vec3 cA2 = e2->ctrlA, cB2 = e2->ctrlB;
-				const RoadType rt1 = e1->roadType, rt2 = e2->roadType;
-				const int lanes1 = static_cast<int>(e1->lanes.size());
-				const int lanes2 = static_cast<int>(e2->lanes.size());
-				const int nA1 = e1->nodeA, nB1 = e1->nodeB;
-				const int nA2 = e2->nodeA, nB2 = e2->nodeB;
-
-				float bt1, bt2;
-				Vec3 intPos;
-
-				float s, t;
-				if (segIntersect2D(
-					{ posA1.x, posA1.z }, { posB1.x, posB1.z },
-					{ posA2.x, posA2.z }, { posB2.x, posB2.z }, s, t))
+				const CubicBezier first{na1->position,e1->ctrlA,e1->ctrlB,nb1->position};
+				const CubicBezier second{na2->position,e2->ctrlA,e2->ctrlB,nb2->position};
+				float firstT = 0, secondT = 0;
+				bool hit = false;
+				// Adaptive sampling bounds each chord to about 4m, followed by Newton refinement.
+				const int firstSteps = Clamp(static_cast<int>(Ceil(first.totalLength/4)),8,512);
+				const int secondSteps = Clamp(static_cast<int>(Ceil(second.totalLength/4)),8,512);
+				for (int i=0;i<firstSteps && !hit;++i)
 				{
-					bt1 = s; bt2 = t;
-					if (bt1 < SKIP_EPS || bt1 > 1.0f - SKIP_EPS) continue;
-					if (bt2 < SKIP_EPS || bt2 > 1.0f - SKIP_EPS) continue;
-					intPos = posA1 + (posB1 - posA1) * bt1;
-				}
-				else
-				{
-					float ds, dt;
-					const Vec2 p1[4] = {
-						{ posA1.x, posA1.z }, { cA1.x, cA1.z },
-						{ cB1.x, cB1.z }, { posB1.x, posB1.z }
-					};
-					const Vec2 p2[4] = {
-						{ posA2.x, posA2.z }, { cA2.x, cA2.z },
-						{ cB2.x, cB2.z }, { posB2.x, posB2.z }
-					};
-					bool cpHit = false;
-					for (int si = 0; si < 3 && !cpHit; ++si)
-						for (int sj = 0; sj < 3 && !cpHit; ++sj)
-							cpHit = segIntersect2D(p1[si], p1[si + 1], p2[sj], p2[sj + 1], ds, dt);
-					if (!cpHit) continue;
-
-					bt1 = bt2 = 0.5f;
-					intPos = Vec3{
-						(posA1.x + posB1.x + posA2.x + posB2.x) * 0.25f,
-						(posA1.y + posB1.y + posA2.y + posB2.y) * 0.25f,
-						(posA1.z + posB1.z + posA2.z + posB2.z) * 0.25f
-					};
-				}
-
-				// 既存ノードへのマージ判定（近傍セルのノードのみ検索）
-				int splitNodeId = -1;
-				{
-					float minDist = MERGE_DIST;
-					for (const RoadNode& n : m_nodes)
+					const Vec3 a=first.evaluate(i/static_cast<float>(firstSteps));
+					const Vec3 b=first.evaluate((i+1)/static_cast<float>(firstSteps));
+					for (int j=0;j<secondSteps && !hit;++j)
 					{
-						if (n.id < 0) continue;
-						if (n.id == nA1 || n.id == nB1 || n.id == nA2 || n.id == nB2) continue;
-						const float d = static_cast<float>(intPos.distanceFrom(n.position));
-						if (d < minDist) { minDist = d; splitNodeId = n.id; }
+						const Vec3 c=second.evaluate(j/static_cast<float>(secondSteps));
+						const Vec3 d=second.evaluate((j+1)/static_cast<float>(secondSteps));
+						if (Max(a.x,b.x)<Min(c.x,d.x) || Max(c.x,d.x)<Min(a.x,b.x)
+							|| Max(a.z,b.z)<Min(c.z,d.z) || Max(c.z,d.z)<Min(a.z,b.z)) continue;
+						float alongFirst,alongSecond;
+						if (!segIntersect2D({a.x,a.z},{b.x,b.z},{c.x,c.z},{d.x,d.z},alongFirst,alongSecond)) continue;
+						firstT=(i+alongFirst)/firstSteps; secondT=(j+alongSecond)/secondSteps;
+						const auto derivative=[](const CubicBezier& curve,float t)
+						{
+							return (curve.p1-curve.p0)*(3*(1-t)*(1-t))+(curve.p2-curve.p1)*(6*t*(1-t))+(curve.p3-curve.p2)*(3*t*t);
+						};
+						for (int iteration=0;iteration<8;++iteration)
+						{
+							const Vec3 delta=second.evaluate(secondT)-first.evaluate(firstT);
+							const Vec3 u=derivative(first,firstT),v=derivative(second,secondT);
+							const double determinant=u.z*v.x-u.x*v.z;
+							if (Abs(determinant)<1e-8) break;
+							firstT=Clamp(firstT+static_cast<float>((v.x*delta.z-v.z*delta.x)/determinant),0.0f,1.0f);
+							secondT=Clamp(secondT+static_cast<float>((u.x*delta.z-u.z*delta.x)/determinant),0.0f,1.0f);
+						}
+						const Vec3 p=first.evaluate(firstT),q=second.evaluate(secondT);
+						hit=firstT*first.totalLength>0.5f && (1-firstT)*first.totalLength>0.5f
+							&& secondT*second.totalLength>0.5f && (1-secondT)*second.totalLength>0.5f
+							&& Vec2{p.x-q.x,p.z-q.z}.length()<.02
+							&& (!(e1->useElevation || e2->useElevation) || Abs(p.y-q.y)<1.0);
 					}
 				}
-
-				if (splitNodeId < 0)
-					splitNodeId = addNode(intPos, NodeType::Intersection);
-
-				const Vec3 splitPos = getNode(splitNodeId)->position;
-
-				// E1 を分割
-				removeEdge(dirtyId);
-				const auto newE1a = addEdge(nA1, splitNodeId,
-					posA1 + (splitPos - posA1) * (1.0 / 3.0),
-					posA1 + (splitPos - posA1) * (2.0 / 3.0), rt1, lanes1);
-				const auto newE1b = addEdge(splitNodeId, nB1,
-					splitPos + (posB1 - splitPos) * (1.0 / 3.0),
-					splitPos + (posB1 - splitPos) * (2.0 / 3.0), rt1, lanes1);
-
-				// E2 を分割
-				removeEdge(otherId);
-				const auto newE2a = addEdge(nA2, splitNodeId,
-					posA2 + (splitPos - posA2) * (1.0 / 3.0),
-					posA2 + (splitPos - posA2) * (2.0 / 3.0), rt2, lanes2);
-				const auto newE2b = addEdge(splitNodeId, nB2,
-					splitPos + (posB2 - splitPos) * (1.0 / 3.0),
-					splitPos + (posB2 - splitPos) * (2.0 / 3.0), rt2, lanes2);
-
-				// 新しいエッジをダーティに登録
-				if (newE1a) dirtyEdges.insert(*newE1a);
-				if (newE1b) dirtyEdges.insert(*newE1b);
-				if (newE2a) dirtyEdges.insert(*newE2a);
-				if (newE2b) dirtyEdges.insert(*newE2b);
+				if (!hit) continue;
+				const int splitNodeId=splitEdgeAtParameter(dirtyId,firstT);
+				if (splitNodeId<0) continue;
+				if (splitEdgeAtParameter(otherId,secondT,splitNodeId)<0) continue;
+				getNode(splitNodeId)->type=NodeType::Intersection;
+				for (const int id : getNode(splitNodeId)->edgeIds()) dirtyEdges.insert(id);
 
 				// 削除済みエッジをセットから除去
 				allEdgeSet.erase(dirtyId);
@@ -1561,7 +1890,7 @@ void RoadNetwork::recomputeAutoGuideSignsForEdge(int edgeId)
 	recomputeAutoGuideSignsForNode(edge->nodeB);
 }
 
-void RoadNetwork::recomputeAutoGuideSignsForNode(int nodeId)
+void RoadNetwork::recomputeAutoGuideSignsForNode(int nodeId, const GuideSign::AutoPlacementClearance* clearance)
 {
 	// このノード起点の自動案内標識だけを張り直し、手動配置や他ノード由来の標識は残す。
 	// sourceNodeId == nodeId の自動標識を一括削除
@@ -1591,7 +1920,7 @@ void RoadNetwork::recomputeAutoGuideSignsForNode(int nodeId)
 		{
 			continue;
 		}
-		auto autos = GuideSign::InferAutoForEdge(*edge, *this);
+		auto autos = GuideSign::InferAutoForEdge(*edge, *this, clearance);
 		for (auto& g : autos)
 		{
 			if (g.sourceNodeId != nodeId)
@@ -1609,11 +1938,24 @@ void RoadNetwork::recomputeAutoGuideSignsForNode(int nodeId)
 
 void RoadNetwork::recomputeAllAutoGuideSigns()
 {
+	const GuideSign::AutoPlacementClearance clearance{ *this };
 	for (auto& n : m_nodes)
 	{
 		if (n.id < 0) continue;
-		recomputeAutoGuideSignsForNode(n.id);
+		recomputeAutoGuideSignsForNode(n.id, &clearance);
 	}
+	int generated=0, violations=0;
+	for (const auto& sign : m_guideSigns)
+	{
+		if (sign.id<0 || !sign.autoGenerated) { continue; }
+		const auto* edge=getEdge(sign.parentEdgeId);
+		const auto curve=getBezier(sign.parentEdgeId);
+		if (!edge || !curve) { continue; }
+		++generated;
+		const float arc=sign.nodeEndId==edge->nodeA?sign.arcOffset:curve->totalLength-sign.arcOffset;
+		if (!clearance.allows(curve->positionAt(arc),edge->totalWidth()*0.5+4.0)) { ++violations; }
+	}
+	DBG_LOG(U"[GuideSignClearance] generated={} exclusionViolations={} clearanceM=30"_fmt(generated,violations));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2199,7 +2541,7 @@ void RoadNetwork::rebuildAllPlanStats()
 bool RoadNetwork::startPlanConstruction(int planId, GameTime startTime)
 {
 	RoadPlan* plan = getPlan(planId);
-	if (!plan || plan->edgeIds.isEmpty()) return false;
+	if (!plan || plan->state != PlanState::Planning || plan->edgeIds.isEmpty()) return false;
 
 	bool changed = false;
 	for (const int eid : plan->edgeIds)
@@ -2816,9 +3158,9 @@ void RoadNetwork::updateEdgeElevation(int edgeId, const World& world)
 	const RoadNode* nA = getNode(edge->nodeA);
 	const RoadNode* nB = getNode(edge->nodeB);
 	if (!nA || !nB) return;
-	const double gyA = world.computeHeight(
+	const double gyA = world.sampleHeight(
 		static_cast<float>(nA->position.x), static_cast<float>(nA->position.z));
-	const double gyB = world.computeHeight(
+	const double gyB = world.sampleHeight(
 		static_cast<float>(nB->position.x), static_cast<float>(nB->position.z));
 	edge->useElevation =
 		std::abs(nA->position.y - gyA) > kElevationThreshold ||
@@ -2848,7 +3190,7 @@ void RoadNetwork::generatePiersForEdge(int edgeId, const World& world)
 		if (s >= totalLen) break;
 
 		const Vec3 pos = bez->positionAt(s);
-		const float terrainY = world.computeHeight(
+		const float terrainY = world.sampleHeight(
 			static_cast<float>(pos.x), static_cast<float>(pos.z));
 		const float gap = static_cast<float>(pos.y) - terrainY;
 

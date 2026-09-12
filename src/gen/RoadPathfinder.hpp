@@ -7,6 +7,7 @@
 class RoadPathfinder
 {
 public:
+	void setRailwayRouting(bool enabled) { m_railwayRouting=enabled; }
 	static constexpr float kDefaultCellSize = 40.0f;
 
 	/// @brief 高さグリッドを構築する
@@ -61,6 +62,7 @@ public:
 	                     Array<int>* outEdgeIds = nullptr);
 
 private:
+	bool m_railwayRouting=false;
 	int          m_gridW    = 0;
 	int          m_gridH    = 0;
 	float        m_cellSize = kDefaultCellSize;

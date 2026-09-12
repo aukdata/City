@@ -1,214 +1,130 @@
 ﻿#include "TrainManager.hpp"
 
-void TrainManager::init(TrainNetwork* network)
+void TrainManager::init(TrainNetwork* network) { m_network=network; }
+void TrainManager::addTrain(Train train) { train.id=m_nextId++; m_trains << std::move(train); }
+
+void TrainManager::update(double dt,GameTime now)
 {
-	// 列車管理はネットワーク参照だけを受け取り、以後の運行更新で共有利用する。
-	m_network = network;
+	if (!m_network) { return; }
+	spawnScheduledTrains(now);
+	for (auto& train : m_trains) { updateTrain(train,dt,now); }
+	m_trains.remove_if([](const Train& train) { return train.currentEdge<0; });
 }
 
-void TrainManager::update(double dt, GameTime gameNow)
+void TrainManager::updateTrain(Train& train,double dt,GameTime now)
 {
-	// 更新ではまず時刻表ベースの発車を処理し、その後に全列車を進めて完走済みを回収する。
-	if (!m_network) return;
-
-	spawnScheduledTrains(gameNow);
-
-	for (auto& t : m_trains)
-		updateTrain(t, dt, gameNow);
-
-	// 完走（currentEdge == -1）した列車を削除する
-	m_trains.remove_if([](const Train& t) { return t.currentEdge == -1; });
+	if (train.state==TrainState::WaitingStation)
+	{
+		train.waitRemaining-=static_cast<float>(dt);
+		if (train.waitRemaining>0) { return; }
+		train.waitRemaining=0; ++train.nextStopIdx; train.state=TrainState::Running;
+	}
+	if (train.state==TrainState::WaitingSignal)
+	{
+		if (train.routeProgress+1>=static_cast<int>(train.routeEdges.size())) { return; }
+		const auto* next=m_network->getEdge(train.routeEdges[train.routeProgress+1]);
+		if (next && next->occupiedBy>=0 && next->occupiedBy!=train.id) { return; }
+		train.state=TrainState::Running;
+	}
+	advanceTrain(train,dt,now);
 }
 
-void TrainManager::addTrain(Train train)
+void TrainManager::advanceTrain(Train& train,double dt,[[maybe_unused]] GameTime now)
 {
-	// 列車 ID をここで採番し、運行配列へ追加して以後の更新対象に載せる。
-	train.id = m_nextId++;
-	m_trains << std::move(train);
-}
-
-void TrainManager::updateTrain(Train& t, double dt, GameTime gameNow)
-{
-	// 列車は停車待ち・閉塞待ち・走行中の状態で分け、待機条件を満たした時だけ通常走行へ戻す。
-	// 駅停車中
-	if (t.state == TrainState::WaitingStation)
+	const auto* edge=m_network->getEdge(train.currentEdge);
+	if (!edge) { train.currentEdge=-1; return; }
+	const float target=targetSpeed(train),step=static_cast<float>(dt);
+	train.speed=target>train.speed ? Min(target,train.speed+kMaxAccel*step) : Max(target,train.speed-kMaxDecel*step);
+	float travel=Max(0.0f,train.speed*step);
+	for (;;)
 	{
-		t.waitRemaining -= static_cast<float>(dt);
-		if (t.waitRemaining <= 0.0f)
+		edge=m_network->getEdge(train.currentEdge);
+		const int end=train.forward ? edge->nodeB : edge->nodeA;
+		const float remaining=Max(0.0f,edge->length-train.arcPos);
+		const float move=Min(remaining,travel); train.arcPos+=move; travel-=move;
+		if (train.arcPos<edge->length-.05f) { break; }
+		train.arcPos=edge->length;
+		bool stopping=false;
+		for (const auto& schedule : m_network->schedules())
 		{
-			t.waitRemaining = 0.0f;
-			t.state = TrainState::Running;
-			++t.nextStopIdx;
-		}
-		return;
-	}
-
-	// 信号待ち: 占有解除されるまで待機
-	if (t.state == TrainState::WaitingSignal)
-	{
-		if (t.routeProgress < static_cast<int>(t.routeEdges.size()))
-		{
-			const int nextEdge = t.routeEdges[t.routeProgress];
-			if (m_network->tryOccupy(nextEdge, t.id))
-				t.state = TrainState::Running;
-		}
-		return;
-	}
-
-	advanceTrain(t, dt, gameNow);
-}
-
-void TrainManager::advanceTrain(Train& t, double dt, [[maybe_unused]] GameTime gameNow)
-{
-	// 走行中は簡易速度制御で弧長を進め、エッジ終端で閉塞占有を引き継ぎながら次区間へ渡す。
-	if (t.currentEdge < 0) return;
-
-	const TrackEdge* edge = m_network->getEdge(t.currentEdge);
-	if (!edge) { t.currentEdge = -1; return; }
-
-	// 速度制御（簡易 IDM: 目標速度に向かって加速/減速）
-	const float vTarget = targetSpeed(t);
-	const float dv = vTarget - t.speed;
-	if (dv > 0)
-		t.speed = Min(t.speed + kMaxAccel * static_cast<float>(dt), vTarget);
-	else
-		t.speed = Max(t.speed + (-kMaxDecel) * static_cast<float>(dt), vTarget);
-
-	t.speed = Max(t.speed, 0.0f);
-
-	// 弧長を進める
-	t.arcPos += t.speed * static_cast<float>(dt);
-
-	// エッジ終端に達したら次のエッジへ
-	if (t.arcPos >= edge->length)
-	{
-		t.arcPos -= edge->length;
-
-		// 現在エッジの占有を解放する
-		m_network->releaseOccupy(t.currentEdge, t.id);
-		++t.routeProgress;
-
-		if (t.routeProgress >= static_cast<int>(t.routeEdges.size()))
-		{
-			// 路線の終端に到達
-			t.currentEdge = -1;
-			return;
-		}
-
-		const int nextEdge = t.routeEdges[t.routeProgress];
-		if (!m_network->tryOccupy(nextEdge, t.id))
-		{
-			// 閉塞待ち
-			t.state = TrainState::WaitingSignal;
-			--t.routeProgress;
-			t.arcPos = edge->length - 0.1f;
-			t.speed = 0.0f;
-			return;
-		}
-		t.currentEdge = nextEdge;
-	}
-
-	// ワールド座標を更新する
-	if (const auto bez = m_network->getBezier(t.currentEdge))
-	{
-		const TrackEdge* e = m_network->getEdge(t.currentEdge);
-		const float tParam = (e && e->length > 0) ? (t.arcPos / e->length) : 0.0f;
-		const Vec3 pos     = bez->evaluate(Clamp(tParam, 0.0f, 1.0f));
-		const Vec3 tangent = bez->tangent(Clamp(tParam, 0.0f, 1.0f)).normalized();
-
-		t.position = pos;
-		t.heading  = static_cast<float>(Math::Atan2(tangent.x, tangent.z));
-	}
-
-	// 駅停車チェック（スケジュールがある場合）
-	if (t.scheduleId >= 0)
-	{
-		for (const auto& sched : m_network->schedules())
-		{
-			if (sched.id != t.scheduleId) continue;
-			if (t.nextStopIdx >= static_cast<int>(sched.stops.size())) break;
-
-			const StopEntry& stop = sched.stops[t.nextStopIdx];
-			const TrackNode* stNode = m_network->getNode(stop.stationNodeId);
-			if (!stNode) break;
-
-			// 駅ノードの近くにいるか確認（エッジ端点付近）
-			const float dist = static_cast<float>(t.position.distanceFrom(stNode->position));
-			if (dist < 15.0f && t.speed < 3.0f)
+			if (schedule.id==train.scheduleId && train.nextStopIdx<static_cast<int>(schedule.stops.size()) && schedule.stops[train.nextStopIdx].stationNodeId==end)
 			{
-				t.state        = TrainState::WaitingStation;
-				t.speed        = 0.0f;
-				t.waitRemaining = stop.dwellSec;
+				train.state=TrainState::WaitingStation; train.speed=0;
+				train.waitRemaining=schedule.stops[train.nextStopIdx].dwellSec; stopping=true; break;
 			}
-			break;
 		}
+		if (stopping) { break; }
+		if (train.routeProgress+1>=static_cast<int>(train.routeEdges.size()))
+		{
+			m_network->releaseOccupy(train.currentEdge,train.id); train.currentEdge=-1; return;
+		}
+		const int nextId=train.routeEdges[train.routeProgress+1];
+		const auto* next=m_network->getEdge(nextId);
+		if (!next || (next->nodeA!=end && next->nodeB!=end))
+		{
+			m_network->releaseOccupy(train.currentEdge,train.id); train.currentEdge=-1; return;
+		}
+		if (!m_network->tryOccupy(nextId,train.id)) { train.state=TrainState::WaitingSignal; train.speed=0; break; }
+		m_network->releaseOccupy(train.currentEdge,train.id);
+		train.currentEdge=nextId; ++train.routeProgress; train.forward=next->nodeA==end; train.arcPos=0;
+		if (travel<=0) { break; }
+	}
+	if (const auto curve=m_network->getBezier(train.currentEdge))
+	{
+		const float arc=train.forward ? train.arcPos : curve->totalLength-train.arcPos;
+		train.position=curve->positionAt(arc);
+		const Vec3 tangent=curve->tangentAt(arc)*(train.forward ? 1 : -1);
+		train.heading=static_cast<float>(Math::Atan2(tangent.x,tangent.z));
 	}
 }
 
-float TrainManager::targetSpeed(const Train& t) const
+float TrainManager::targetSpeed(const Train& train) const
 {
-	// 目標速度は線路制限速度を基準にし、次閉塞が詰まっている時だけ手前で減速させる。
-	if (t.currentEdge < 0) return 0.0f;
-	const TrackEdge* e = m_network->getEdge(t.currentEdge);
-	if (!e) return 0.0f;
-
-	// 残り距離が短くなったら減速する
-	const float remaining = e->length - t.arcPos;
-	float vLimit = e->speedLimit / 3.6f;
-
-	// 次の閉塞が占有中なら停止する
-	if (t.routeProgress + 1 < static_cast<int>(t.routeEdges.size()))
+	const auto* current=m_network->getEdge(train.currentEdge);
+	if (!current) { return 0; }
+	float speed=current->speedLimit/3.6f;
+	int targetStation=-1;
+	for (const auto& schedule : m_network->schedules())
 	{
-		const int nextEdge = t.routeEdges[t.routeProgress + 1];
-		const TrackEdge* next = m_network->getEdge(nextEdge);
-		if (next && next->occupiedBy >= 0 && next->occupiedBy != t.id)
-		{
-			// kBrakeZone 以内なら減速開始
-			if (remaining < kBrakeZone)
-				vLimit = Min(vLimit, (remaining / kBrakeZone) * vLimit);
-		}
+		if (schedule.id==train.scheduleId && train.nextStopIdx<static_cast<int>(schedule.stops.size())) { targetStation=schedule.stops[train.nextStopIdx].stationNodeId; break; }
 	}
-
-	return Min(t.speed + kMaxAccel * 0.016f, vLimit);  // 1フレーム先読み
+	float distance=-train.arcPos;
+	int start=train.forward ? current->nodeA : current->nodeB;
+	for (int index=train.routeProgress;index<static_cast<int>(train.routeEdges.size());++index)
+	{
+		const auto* edge=m_network->getEdge(train.routeEdges[index]);
+		if (!edge) { break; }
+		if (index>train.routeProgress && edge->occupiedBy>=0 && edge->occupiedBy!=train.id)
+		{
+			speed=Min(speed,Math::Sqrt(Max(.01f,2*kMaxDecel*distance))); break;
+		}
+		distance+=edge->length; start=edge->nodeA==start ? edge->nodeB : edge->nodeA;
+		if (start==targetStation)
+		{
+			speed=Min(speed,Math::Sqrt(Max(.01f,2*kMaxDecel*distance))); break;
+		}
+		if (distance>1000) { break; }
+	}
+	return speed;
 }
 
-void TrainManager::spawnScheduledTrains(GameTime gameNow)
+void TrainManager::spawnScheduledTrains(GameTime now)
 {
-	// 時刻表は始発駅近傍から新規列車を立ち上げ、停車駅列を簡易な走行ルートへ変換して投入する。
-	for (auto& sched : m_network->schedules())
+	for (auto& schedule : m_network->schedules())
 	{
-		if (sched.stops.isEmpty()) continue;
-		if (gameNow - sched.lastSpawnAt < sched.headwaySec) continue;
-
-		// 先頭駅のノードに最も近いエッジを探して始発列車を生成する
-		const int firstStationId = sched.stops[0].stationNodeId;
-		const TrackNode* firstStation = m_network->getNode(firstStationId);
-		if (!firstStation || firstStation->edgeIds.isEmpty()) continue;
-
-		const int startEdge = firstStation->edgeIds[0];
-		if (!m_network->tryOccupy(startEdge, m_nextId)) continue;
-
-		Train train;
-		train.type        = TrainType::Local;
-		train.currentEdge = startEdge;
-		train.arcPos      = 0.0f;
-		train.speed       = 0.0f;
-		train.state       = TrainState::Running;
-		train.scheduleId  = sched.id;
-		train.nextStopIdx = 0;
-		train.departedAt  = gameNow;
-
-		// ルートはスケジュールの駅間エッジ列（簡易: 登録順のエッジを使う）
-		for (const auto& stop : sched.stops)
+		if (schedule.stops.size()<2 || now-schedule.lastSpawnAt<schedule.headwaySec) { continue; }
+		Array<int> route; bool valid=true;
+		for (size_t i=1;i<schedule.stops.size();++i)
 		{
-			const TrackNode* n = m_network->getNode(stop.stationNodeId);
-			if (n)
-				for (int eid : n->edgeIds)
-					train.routeEdges << eid;
+			const auto leg=m_network->findRoute(schedule.stops[i-1].stationNodeId,schedule.stops[i].stationNodeId);
+			if (leg.isEmpty()) { valid=false; break; }
+			route.append(leg);
 		}
-		train.routeEdges.stable_unique();
-
-		addTrain(std::move(train));
-		sched.lastSpawnAt = gameNow;
+		if (!valid || route.isEmpty() || !m_network->tryOccupy(route.front(),m_nextId)) { continue; }
+		Train train; train.currentEdge=route.front(); train.routeEdges=std::move(route);
+		train.forward=m_network->getEdge(train.currentEdge)->nodeA==schedule.stops.front().stationNodeId;
+		train.position=m_network->getNode(schedule.stops.front().stationNodeId)->position;
+		train.nextStopIdx=1; train.scheduleId=schedule.id; train.departedAt=now;
+		addTrain(std::move(train)); schedule.lastSpawnAt=now;
 	}
 }

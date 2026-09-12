@@ -32,13 +32,28 @@ public:
 		return placements;
 	}
 
+	/// @brief A seam may only continue markings that actually reach both edge mouths.
+	static bool hasLaneLinesAtNode(const RoadNetwork& network,const RoadEdge& edge,int nodeId,const Options& options=Options{})
+	{
+		const auto curve=network.getBezier(edge.id);
+		if (!curve || !edge.isRoadbedBuilt()) { return false; }
+		const float mouth=edge.nodeA==nodeId ? edge.cutoffA : curve->totalLength-edge.cutoffB;
+		for (const auto& line : collectEdge(network,edge,options))
+		{
+			if (line.kind==RoadMarkingKind::LaneLine && mouth>=line.arcOffset-.2f && mouth<=line.arcOffset+line.length+.2f) { return true; }
+		}
+		return false;
+	}
+
 	static Array<RoadMarkingPlacement> collectNode(const RoadNetwork& network, int nodeId, bool isClose, const Options& options = Options{})
 	{
 		Array<RoadMarkingPlacement> placements;
 		const RoadNode* node = network.getNode(nodeId);
 		if (!node) return placements;
 
-		if (node->attachments.size() == 2)
+		const RoadEdge* first=node->attachments.size()==2 ? network.getEdge(node->attachments[0].edgeId) : nullptr;
+		const RoadEdge* second=node->attachments.size()==2 ? network.getEdge(node->attachments[1].edgeId) : nullptr;
+		if (first && second && hasLaneLinesAtNode(network,*first,nodeId,options) && hasLaneLinesAtNode(network,*second,nodeId,options))
 		{
 			RoadMarkingPlacement seam;
 			seam.kind = RoadMarkingKind::LaneLine;

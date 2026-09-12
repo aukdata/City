@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <functional>
+#include "SettlementPlan.hpp"
 #include "TerrainType.hpp"
 #include "PlaceNameGenerator.hpp"
 #include "RoadPathfinder.hpp"
@@ -11,26 +12,27 @@
 class MapGenerator
 {
 public:
-	/// @brief 地区種別（日本の歴史的集落類型に対応）
+	/// @brief 集落の規模。歴史的起源は Settlement::plan.origin が保持する
 	enum class SettlementKind : uint8
 	{
-		CastleTown = 0,  ///< 城下町（旧 Urban、格子＋街道クランク＋城）
-		PostTown   = 1,  ///< 宿場町（旧 Suburbs、はしご状）
-		Village    = 2,  ///< 農村（旧 Rural、櫛状）
+		RegionalCity = 0,  ///< 地域中心都市
+		LocalTown = 1,  ///< 地方町
+		RuralSettlement = 2,  ///< 農村集落
 	};
 
 	/// @brief 地区データ
 	struct Settlement
 	{
 		Vec2           center;                       ///< ワールド XZ 座標 [m]
-		SettlementKind kind   = SettlementKind::Village;
+		SettlementKind kind   = SettlementKind::RuralSettlement;
 		float          radius = 0.0f;                ///< 影響半径 [m]
 		float          score  = 0.0f;                ///< 地形適性スコア (0.0〜1.0)
 		String         name;     ///< 地区地名（PlaceNameGenerator が設定）
 		String         reading;  ///< ローマ字読み（PlaceNameGenerator が設定）
-		/// @brief 城下町グリッドの軸方向（generateCastleTown が設定、他は (1,0)/(0,1)）
+		/// @brief 街路・地割の共有軸方向（地形・街道に基づいて生成時に設定）
 		Vec2           gridAxisX{ 1.0f, 0.0f };
 		Vec2           gridAxisZ{ 0.0f, 1.0f };
+		UrbanMorphology::Plan plan; ///< 成立史・駅・公共用地・街区を共有する計画
 	};
 
 	/// @brief initWorld() の結果
@@ -67,7 +69,7 @@ public:
 
 	/// @brief 鉄道の初期路線を構築する
 	static void setupTrain(TrainNetwork& trainNet, const World& world,
-	                        const Array<Settlement>& districts);
+	                        const Array<Settlement>& districts, const RoadNetwork* roads=nullptr);
 
 private:
 	static constexpr float kCellSize = 40.0f;

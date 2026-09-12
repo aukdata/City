@@ -1,5 +1,6 @@
 ﻿#include "JunctionGeometry.hpp"
 #include "RoadGeometry.hpp"
+#include "../world/World.hpp"
 #include "../debug/DebugLog.hpp"
 
 namespace JunctionGeometry
@@ -49,7 +50,7 @@ namespace JunctionGeometry
 		return section.position + section.outward * Math::Lerp(near, far, across);
 	}
 
-	Layout build(const RoadNetwork& network, int nodeId, bool onlyOpenEdges)
+	Layout build(const RoadNetwork& network, int nodeId, bool onlyOpenEdges, const World* world)
 	{
 		Layout layout;
 		const auto* node = network.getNode(nodeId);
@@ -69,6 +70,7 @@ namespace JunctionGeometry
 			const auto range = RoadGeometry::roadbedRangeAt(*edge, approach.fraction);
 			if (!range.valid) { continue; }
 			approach.center = bezier->positionAt(arc);
+			if (world && !edge->useElevation) { approach.center.y = world->sampleHeight(static_cast<float>(approach.center.x),static_cast<float>(approach.center.z)); }
 			approach.center.y += kRoadSurfaceLift;
 			Vec3 direction = bezier->tangentAt(arc) * (approach.reversed ? -1.0 : 1.0);
 			direction.y = 0.0;
@@ -80,6 +82,7 @@ namespace JunctionGeometry
 			approach.angle = Math::Atan2(direction.z, direction.x);
 			approaches << approach;
 			layout.elevated = layout.elevated || edge->useElevation;
+			layout.groundConnected = layout.groundConnected || !edge->useElevation;
 		}
 		if (approaches.size() < 2) { return layout; }
 		approaches.sort_by([](const Approach& a, const Approach& b) { return a.angle < b.angle; });
@@ -126,8 +129,10 @@ namespace JunctionGeometry
 					band.nearStart = band.farStart = anchor;
 				}
 			}
-			const Vec3 start = a.center + a.right * a.left;
-			const Vec3 end = b.center + b.right * b.rightOffset;
+			Vec3 start = a.center + a.right * a.left;
+			Vec3 end = b.center + b.right * b.rightOffset;
+			if (world && !a.edge->useElevation) { start.y = world->sampleHeight(static_cast<float>(start.x),static_cast<float>(start.z))+kRoadSurfaceLift; }
+			if (world && !b.edge->useElevation) { end.y = world->sampleHeight(static_cast<float>(end.x),static_cast<float>(end.z))+kRoadSurfaceLift; }
 			const Vec2 p0{ start.x, start.z }, p3{ end.x, end.z };
 			const Vec2 da{ a.direction.x, a.direction.z }, db{ b.direction.x, b.direction.z };
 			Array<Vec2> points;

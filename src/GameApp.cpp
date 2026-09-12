@@ -69,6 +69,9 @@ void GameApp::run()
 			continue;
 		}
 
+		if (args[i] == U"--audit-road-integrity") { manager.get()->auditRoadIntegrity = true; continue; }
+		if (args[i] == U"--capture-transport") { manager.get()->captureTransport=true; continue; }
+		if (args[i] == U"--capture-construction") { manager.get()->captureConstruction = true; continue; }
 		if (args[i] == U"--capture-road-ux") { manager.get()->captureRoadPlanUx = true; continue; }
 		if (args[i] == U"--benchmark-streaming") { manager.get()->benchmarkStreaming = true; continue; }
 		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }

@@ -2,17 +2,18 @@
 #include "ParcelGeometry.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../road/RoadGeometry.hpp"
+#include "../railway/TrainNetwork.hpp"
 
 /// @brief Spatial index of ground-level road ribbons used to protect every side of a lot.
 class ParcelRoadIndex
 {
 public:
-	explicit ParcelRoadIndex(const RoadNetwork& network)
+	explicit ParcelRoadIndex(const RoadNetwork& network,bool includeElevated=false)
 	{
 		constexpr float kSampleLength = 4.0f;
 		for (const RoadEdge& edge : network.edges())
 		{
-			if (edge.id < 0 || !edge.isRoadbedBuilt() || edge.useElevation)
+			if (edge.id < 0 || !edge.isRoadbedBuilt() || (edge.useElevation && !includeElevated))
 			{
 				continue;
 			}
@@ -49,6 +50,29 @@ public:
 				previousLeft = leftPoint;
 				previousRight = rightPoint;
 				hasPrevious = true;
+			}
+		}
+	}
+
+	void addRailway(const TrainNetwork& network)
+	{
+		for (const auto& edge : network.edges())
+		{
+			const auto curve=network.getBezier(edge.id);
+			if (!curve) { continue; }
+			Vec2 previousLeft,previousRight;
+			const int count=Max(1,static_cast<int>(std::ceil(curve->totalLength/8)));
+			for (int i=0;i<=count;++i)
+			{
+				const float arc=curve->totalLength*i/count;
+				const Vec3 point=curve->positionAt(arc),right=tangentToRight(curve->tangentAt(arc));
+				const Vec2 left{point.x-right.x*5,point.z-right.z*5},other{point.x+right.x*5,point.z+right.z*5};
+				if (i>0)
+				{
+					const ParcelGeometry::Quad quad{previousLeft,left,other,previousRight};
+					visitBuckets(quad,[&](int64 key) { m_buckets[key] << quad; });
+				}
+				previousLeft=left; previousRight=other;
 			}
 		}
 	}

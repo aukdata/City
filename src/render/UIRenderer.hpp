@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "../ui/CollapsibleHudPanel.hpp"
 #include <Siv3D.hpp>
 #include "../time/GameClock.hpp"
 #include "../economy/Economy.hpp"
@@ -26,7 +27,17 @@ struct CityHudStats
 /// @brief 2D HUD の描画クラス
 class UIRenderer
 {
+	CollapsibleHudPanel m_left,m_right;
 public:
+	void updateLayout(const CityHudStats& stats);
+	void handleInput();
+	[[nodiscard]] bool isMouseOnHud() const { return m_left.bounds().mouseOver() || m_right.bounds().mouseOver(); }
+	[[nodiscard]] Optional<RectF> minimapBounds() const
+	{
+		if (m_right.collapsed) { return none; }
+		return RectF{m_right.expanded.x+m_right.expanded.w-210,m_right.expanded.y+m_right.expanded.h-210,200,200};
+	}
+
 	/// @brief HUD を描画する（毎フレーム呼ぶ）
 	/// @param clock        ゲーム時計
 	/// @param vehicleCount 現在の車両数

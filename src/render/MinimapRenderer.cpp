@@ -86,6 +86,7 @@ void MinimapRenderer::buildTerrainTexture(const World& world)
 
 void MinimapRenderer::updateRoadOverlay(const RoadNetwork& network, [[maybe_unused]] const World& world)
 {
+	m_mapDirty = true;
 	// 道路はベジェを短区間へ分割して別テクスチャへ焼き込み、地形の上へ重ねて表示する。
 	m_roadImage = Image{ kMapSize, kMapSize, Color{ 0, 0, 0, 0 } };
 
@@ -113,6 +114,7 @@ void MinimapRenderer::updateRoadOverlay(const RoadNetwork& network, [[maybe_unus
 void MinimapRenderer::updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
                                                const RoadNetwork& network)
 {
+	m_mapDirty = true;
 	// 局所更新では変更ノード周辺の道路だけを消して描き直し、全面再生成を避ける。
 	if (m_roadImage.isEmpty()) return;
 
@@ -173,32 +175,68 @@ void MinimapRenderer::updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
 // 入力処理
 // =============================================================================
 
-void MinimapRenderer::update(PanelManager& panels)
+Optional<Vec2> MinimapRenderer::update(const GameCamera& camera, const RoadNetwork& roads,
+	const TrainNetwork& railway, const Array<MapGenerator::Settlement>& settlements)
 {
-	// 右上ミニマップのクリックを拡大パネル表示へ変換し、パネル操作中の誤反応は抑止する。
-	if (m_terrainTex.isEmpty()) return;
-
-	// 小さいミニマップをクリック → 拡大パネルを表示（パネル上のクリックは無視）
-	if (!panels.isVisible(kPanelId) && !panels.isMouseOnAnyPanel()
-		&& !panels.consumedInput() && smallRect().leftClicked())
-	{
-		const double side = Min(Scene::Width(), Scene::Height()) - 80.0;
-		const Vec2 pos{
-			(Scene::Width() - side) * 0.5,
-			(Scene::Height() - side) * 0.5
-		};
-		panels.show(kPanelId, U"全体マップ", pos);
-	}
+	m_consumedInput = m_map.visible;
+	if (m_map.visible) { return m_map.update(Scene::Size()); }
+	if (!KeyM.down() && !(m_smallVisible && smallRect().leftClicked())) { return none; }
+	m_consumedInput=true;
+	openFullScreen(camera,roads,railway,settlements); return none;
 }
 
-// =============================================================================
-// 右上の小さいミニマップ描画
-// =============================================================================
+void MinimapRenderer::openFullScreen(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements)
+{
+	m_consumedInput = true;
+	if (m_mapDirty)
+	{
+		m_map.streets.clear(); m_map.labels.clear();
+		const auto append = [&](const CubicBezier& curve, double width, int category)
+		{
+			WorldMapView::Stroke stroke; stroke.width=width; stroke.category=category;
+			Vec2 lower{1e9,1e9}, upper{-1e9,-1e9};
+			const int count=Max(2, static_cast<int>(curve.totalLength/30)+1);
+			for (int index=0;index<=count;++index)
+			{
+				const Vec3 point=curve.positionAt(curve.totalLength*index/count);
+				stroke.points << Vec2{point.x,point.z};
+				lower.x=Min(lower.x,point.x); lower.y=Min(lower.y,point.z);
+				upper.x=Max(upper.x,point.x); upper.y=Max(upper.y,point.z);
+			}
+			stroke.bounds=RectF{lower,upper-lower}.stretched(30);
+			m_map.streets << std::move(stroke);
+		};
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id<0 || edge.edgeState==EdgeState::Planned) { continue; }
+			if (const auto curve=roads.getBezier(edge.id)) { append(*curve,edge.totalWidth(),edge.roadType==RoadType::LocalRoad ? 0 : 1); }
+		}
+		for (const auto& edge : railway.edges())
+		{
+			if (edge.id<0) { continue; }
+			if (const auto curve=railway.getBezier(edge.id)) { append(*curve,4,2); }
+		}
+		for (const auto& node : railway.nodes())
+		{
+			if (node.type==TrackNodeType::Station) { m_map.labels << WorldMapView::Label{{node.position.x,node.position.z},node.name+U"駅",true}; }
+		}
+		for (const auto& town : settlements) { m_map.labels << WorldMapView::Label{town.center,town.name,false}; }
+		m_mapDirty=false;
+	}
+	const Vec3 focus=camera.focusPoint();
+	m_map.open({focus.x,focus.z});
+}
+
+void MinimapRenderer::drawFullScreen(const GameCamera& camera) const
+{
+	const Vec3 focus=camera.focusPoint();
+	m_map.draw(Scene::Size(),m_terrainTex,m_font,{focus.x,focus.z});
+}
 
 void MinimapRenderer::render(const GameCamera& camera,
                              const Array<MapGenerator::Settlement>& settlements) const
 {
-	if (m_terrainTex.isEmpty()) return;
+	if (m_terrainTex.isEmpty() || !m_smallVisible) return;
 
 	const RectF rect = smallRect();
 
@@ -260,13 +298,13 @@ void MinimapRenderer::drawMapContent(const RectF& rect,
 		for (const auto& s : settlements)
 		{
 			if (s.name.isEmpty()) continue;
-			if (s.kind == MapGenerator::SettlementKind::Village) continue;
+			if (s.kind == MapGenerator::SettlementKind::RuralSettlement) continue;
 
 			const Vec2 sp = worldToScreen(static_cast<float>(s.center.x),
 			                              static_cast<float>(s.center.y), rect);
 			if (!rect.contains(sp)) continue;
 
-			const double fontSize = (s.kind == MapGenerator::SettlementKind::CastleTown)
+			const double fontSize = (s.kind == MapGenerator::SettlementKind::RegionalCity)
 				? 10.0 * scale : 8.0 * scale;
 			m_font(s.name).drawAt(TextStyle::Outline(0.3, ColorF{ 0.0, 0.8 }),
 			                      fontSize, sp, ColorF{ 1.0, 1.0, 0.9, 0.9 });
@@ -323,6 +361,7 @@ Point MinimapRenderer::worldToPixel(float wx, float wz) const
 
 RectF MinimapRenderer::smallRect() const
 {
+	if (m_smallBounds) { return *m_smallBounds; }
 	return RectF{
 		Scene::Width() - kDisplaySize - kMargin,
 		kMargin,

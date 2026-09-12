@@ -33,6 +33,9 @@ public:
 	/// @brief ベジェ曲線を取得する
 	Optional<CubicBezier> getBezier(int edgeId) const;
 
+	/// @brief 接続された中間区間を含む最短経路。逆方向のエッジも通行できる。
+	Array<int> findRoute(int from,int to) const;
+
 	/// @brief 閉塞区間を占有する（失敗なら false）
 	bool tryOccupy(int edgeId, int trainId);
 

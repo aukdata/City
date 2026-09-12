@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -119,7 +119,18 @@
     <ClCompile Include="BuildingAssetTests.cpp" />
     <ClCompile Include="CityGenerationTests.cpp" />
     <ClCompile Include="RoadPlanUxTests.cpp" />
+    <ClCompile Include="RoadConstructionTests.cpp" />
+    <ClCompile Include="RoadIntegrityTests.cpp" />
+    <ClCompile Include="UrbanUsabilityTests.cpp" />
+    <ClCompile Include="UrbanMorphologyTests.cpp" />
+    <ClCompile Include="..\src\railway\TrainNetwork.cpp" />
+    <ClCompile Include="..\src\railway\TrainManager.cpp" />
+    <ClCompile Include="..\src\render\UIRenderer.cpp" />
+    <ClCompile Include="..\src\ui\Camera.cpp" />
+    <ClCompile Include="..\src\save\RoadBinary.cpp" />
     <ClCompile Include="..\src\road\RoadPlanDraft.cpp" />
+    <ClCompile Include="..\src\road\RoadConstruction.cpp" />
+    <ClCompile Include="..\src\render\RoadRenderer_Construction.cpp" />
     <ClCompile Include="..\src\gen\RoadAutoPlace.cpp" />
     <ClCompile Include="..\src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="..\src\gameplay\CitySimulation.cpp" />

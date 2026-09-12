@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -151,6 +151,7 @@
     <ClCompile Include="src\scene\GameScene.cpp" />
     <ClCompile Include="src\scene\GameScene_Input.cpp" />
     <ClCompile Include="src\scene\GameScene_RoadReview.cpp" />
+    <ClCompile Include="src\scene\GameScene_ConstructionReview.cpp" />
     <ClCompile Include="src\scene\GameScene_Render.cpp" />
     <ClCompile Include="src\scene\GameScene_Panels.cpp" />
     <ClCompile Include="src\scene\GuideSignEditor.cpp" />
@@ -169,6 +170,8 @@
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
     <ClCompile Include="src\gen\RoadAutoPlace.cpp" />
     <ClCompile Include="src\road\RoadPlanDraft.cpp" />
+    <ClCompile Include="src\road\RoadConstruction.cpp" />
+    <ClCompile Include="src\render\RoadRenderer_Construction.cpp" />
     <ClCompile Include="src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="src\gen\DistrictRoads.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
@@ -409,6 +412,10 @@
     <ClInclude Include="src\sim\SimMessages.hpp" />
     <ClInclude Include="src\traffic\VehicleManager.hpp" />
     <ClInclude Include="src\ui\Camera.hpp" />
+    <ClInclude Include="src\ui\CollapsibleHudPanel.hpp" />
+    <ClInclude Include="src\ui\LandParcelPanel.hpp" />
+    <ClInclude Include="src\world\LandPlot.hpp" />
+    <ClInclude Include="src\render\TreeGeometry.hpp" />
     <ClInclude Include="src\render\WorldRenderer.hpp" />
     <ClInclude Include="src\render\RoadRenderer.hpp" />
     <ClInclude Include="src\render\VehicleRenderer.hpp" />
@@ -438,8 +445,19 @@
     <ClInclude Include="src\render\TrainRenderer.hpp" />
     <ClInclude Include="src\gen\TerrainType.hpp" />
     <ClInclude Include="src\gen\MapGenerator.hpp" />
+    <ClInclude Include="src\road\SignArtwork.hpp" />
+    <ClInclude Include="src\ui\WorldMapView.hpp" />
+    <ClInclude Include="src\gen\TransportClearance.hpp" />
+    <ClInclude Include="src\gen\RailwayAlignment.hpp" />
+    <ClInclude Include="src\gen\StreetBlocks.hpp" />
+    <ClInclude Include="src\gen\WaterCrossings.hpp" />
+    <ClInclude Include="src\gen\SettlementPlan.hpp" />
+    <ClInclude Include="src\gen\StreetProfile.hpp" />
     <ClInclude Include="src\gen\RoadAutoPlace.hpp" />
     <ClInclude Include="src\road\RoadPlanDraft.hpp" />
+    <ClInclude Include="src\road\RoadConstruction.hpp" />
+    <ClInclude Include="src\render\BridgeStructure.hpp" />
+    <ClInclude Include="src\ui\ConstructionStatus.hpp" />
     <ClInclude Include="src\ui\RoadPlanToolbar.hpp" />
     <ClInclude Include="src\gen\DistrictRoads.hpp" />
     <ClInclude Include="src\asset\AssetRegistrar.hpp" />

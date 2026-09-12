@@ -1,6 +1,8 @@
 ﻿#include "DistrictRoads.hpp"
+#include "StreetProfile.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
+#include "../debug/DebugLog.hpp"
 #include <algorithm>
 #include <cmath>
 #include <queue>
@@ -193,7 +195,7 @@ namespace DistrictRoads
 			return (Math::Abs(midX) <= kCivicSquareHalfSize && Math::Abs(midZ) <= kCivicSquareHalfSize);
 		}
 
-		Array<float> buildCastleGridCoords(float halfExtent)
+		Array<float> buildCastleGridCoords(float halfExtent, uint64 seed, int axis)
 		{
 			// 城下町グリッドの分割数を、街区幅制約を守りつつ 64m 近傍になるよう選ぶ。
 			Array<float> out;
@@ -217,12 +219,21 @@ namespace DistrictRoads
 				}
 			}
 
-			const float cellW = fullExtent / bestCells;
-			out.reserve(bestCells + 1);
-			for (int i = 0; i <= bestCells; ++i)
+			// Vary entire street intervals, never individual intersection positions.
+			// Merchant frontage has shallow blocks; former residential quarters are deeper.
+			Array<float> widths;
+			float total = 0.0f;
+			for (int i = 0; i < bestCells; ++i)
 			{
-				out << (-halfExtent + cellW * i);
+				const bool merchantQuarter = Abs(i - bestCells / 2) <= bestCells / 5;
+				const float districtScale = merchantQuarter ? (axis == 0 ? 0.91f : 0.96f) : (axis == 0 ? 1.06f : 1.10f);
+				const float width = districtScale * (1.0f + districtHashSigned(seed, i, axis, 11) * 0.045f);
+				widths << width;
+				total += width;
 			}
+			out << -halfExtent;
+			for (const float width : widths) { out << out.back() + fullExtent * width / total; }
+			out.back() = halfExtent;
 			return out;
 		}
 
@@ -300,28 +311,129 @@ namespace DistrictRoads
 			return out;
 		}
 
-		void removeInnerArterials(const Vec2& center, float radius, RoadNetwork& network)
+		/// @brief Clip the old regional network to the actual rotated town boundary.
+		Array<int> cutCastleApproaches(const Vec2& center, const Vec2& axisX, const Vec2& axisZ,
+			Vec2 halfExtent, RoadNetwork& network)
 		{
-			Array<int> removeIds;
+			constexpr double kApproachMargin = 100.0;
+			const Vec2 boundary = halfExtent + Vec2{kApproachMargin,kApproachMargin};
+			const auto signedDistance = [&](const Vec3& p)
+			{
+				const Vec2 local{ p.x - center.x, p.z - center.y };
+				return Max(Abs(local.dot(axisX))-boundary.x, Abs(local.dot(axisZ))-boundary.y);
+			};
+			Array<int> originalEdges;
 			for (const auto& edge : network.edges())
 			{
-				if (edge.id < 0 || edge.roadType != RoadType::Arterial) continue;
-				const RoadNode* nodeA = network.getNode(edge.nodeA);
-				const RoadNode* nodeB = network.getNode(edge.nodeB);
-				if (!nodeA || !nodeB) continue;
-
-				const double da = distanceXZ(nodeA, center);
-				const double db = distanceXZ(nodeB, center);
-				if (da < radius && db < radius)
+				if (edge.id >= 0 && (edge.roadType == RoadType::Arterial || edge.roadType == RoadType::LocalRoad)) { originalEdges << edge.id; }
+			}
+			HashSet<int> entrances;
+			int removed = 0;
+			for (const int id : originalEdges)
+			{
+				const auto original = network.getBezier(id);
+				if (!original) { continue; }
+				// A regional node may lie exactly on the clipping boundary. Splitting
+				// at t=0/1 is intentionally rejected, so retain that existing gateway.
+				const auto* source = network.getEdge(id);
+				for (const int nodeId : {source->nodeA, source->nodeB})
 				{
-					removeIds << edge.id;
+					if (Abs(signedDistance(network.getNode(nodeId)->position)) <= 0.05)
+					{
+						entrances.insert(nodeId);
+					}
+				}
+				Array<float> cuts;
+				const int steps = Max(8, static_cast<int>(Ceil(original->totalLength / 16.0f)));
+				for (int step = 1; step <= steps; ++step)
+				{
+					float low = (step - 1.0f) / steps, high = step / static_cast<float>(steps);
+					const bool inside = signedDistance(original->evaluate(low)) < 0.0;
+					if (inside == (signedDistance(original->evaluate(high)) < 0.0)) { continue; }
+					for (int iteration = 0; iteration < 20; ++iteration)
+					{
+						const float mid = (low + high) * 0.5f;
+						if ((signedDistance(original->evaluate(mid)) < 0.0) == inside) { low = mid; }
+						else { high = mid; }
+					}
+					cuts << (low + high) * 0.5f;
+				}
+				Array<int> pieces{ id };
+				// Split from the end so earlier parameters remain exact on the prefix.
+				int prefix = id;
+				float previous = 1.0f;
+				for (auto cut = cuts.rbegin(); cut != cuts.rend(); ++cut)
+				{
+					const auto* edge = network.getEdge(prefix);
+					if (!edge) { break; }
+					const int start = edge->nodeA;
+					const int split = network.splitEdgeAtParameter(prefix, *cut / previous);
+					if (split < 0) { continue; }
+					entrances.insert(split);
+					for (const int child : network.getNode(split)->edgeIds())
+					{
+						pieces << child;
+						if (network.getEdge(child)->nodeA == start) { prefix = child; }
+					}
+					previous = *cut;
+				}
+				for (const int piece : pieces)
+				{
+					const auto curve = network.getBezier(piece);
+					if (curve && signedDistance(curve->evaluate(0.5f)) < -0.01)
+					{
+						network.removeEdge(piece);
+						++removed;
+					}
 				}
 			}
-
-			for (const int edgeId : removeIds)
+			Array<int> result;
+			for (const int id : entrances)
 			{
-				network.removeEdge(edgeId);
+				const auto* node = network.getNode(id);
+				if (node && !node->attachments.isEmpty()) { result << id; }
 			}
+			result.sort();
+			// Closely spaced parallel regional approaches share one gateway. Giving
+			// each a separate city mouth made their curved connectors cross.
+			int mergedGateways=0;
+			for (size_t first=0;first<result.size();++first)
+			{
+				RoadNode* kept=network.getNode(result[first]);
+				if (!kept) { continue; }
+				for (size_t second=first+1;second<result.size();++second)
+				{
+					const RoadNode* mergedNode=network.getNode(result[second]);
+					if (!mergedNode || kept->position.distanceFrom(mergedNode->position)>kNodeMergeRadius
+						|| Abs(kept->position.y-mergedNode->position.y)>1) { continue; }
+					const auto side=[&](Vec3 position)
+					{
+						const Vec2 delta{position.x-center.x,position.z-center.y};
+						const double x=delta.dot(axisX)/boundary.x,z=delta.dot(axisZ)/boundary.y;
+						return Abs(x)>Abs(z) ? (x>0 ? 0 : 1) : (z>0 ? 2 : 3);
+					};
+					if (side(kept->position)!=side(mergedNode->position)) { continue; }
+					const Vec3 shift=kept->position-mergedNode->position;
+					const auto attachments=mergedNode->attachments;
+					for (const auto& attachment : attachments)
+					{
+						auto* edge=network.getEdge(attachment.edgeId);
+						if (!edge) { continue; }
+						if (edge->nodeA==mergedNode->id) { edge->nodeA=kept->id; edge->ctrlA+=shift; }
+						if (edge->nodeB==mergedNode->id) { edge->nodeB=kept->id; edge->ctrlB+=shift; }
+						if (edge->nodeA==edge->nodeB) { network.removeEdge(edge->id); continue; }
+						kept->attachments << attachment;
+						edge->length=network.getBezier(edge->id)->totalLength;
+					}
+					network.removeNode(result[second]);
+					network.rebuildNodeConnectivity(kept->id,kept->id);
+					++mergedGateways;
+				}
+			}
+			result.remove_if([&](int id) { return !network.getNode(id); });
+			DBG_LOG(U"[SettlementPlan] mergedGateways={}"_fmt(mergedGateways));
+			DBG_LOG(U"[SettlementPlan] clippedInteriorRoads={} boundaryEntrances={}"_fmt(removed, result.size()));
+			return result;
 		}
 
 		Optional<std::pair<int, int>> pickMostOppositeNodes(const Array<int>& nodeIds, const Vec2& center, const RoadNetwork& network)
@@ -513,64 +625,7 @@ namespace DistrictRoads
 			outAxisZ = axisZ;
 		}
 
-		bool addArterialWithPathfinder(
-			const World& world,
-			RoadNetwork& network,
-			int startNodeId,
-			int endNodeId,
-			Array<int>* outEdgeIds = nullptr)
-		{
-			if (startNodeId < 0 || endNodeId < 0 || startNodeId == endNodeId) return false;
-			const RoadNode* startNode = network.getNode(startNodeId);
-			const RoadNode* endNode   = network.getNode(endNodeId);
-			if (!startNode || !endNode) return false;
 
-			const float sx = static_cast<float>(startNode->position.x);
-			const float sz = static_cast<float>(startNode->position.z);
-			const float ex = static_cast<float>(endNode->position.x);
-			const float ez = static_cast<float>(endNode->position.z);
-
-			const float dist = std::sqrt((ex - sx) * (ex - sx) + (ez - sz) * (ez - sz));
-			const float cellSize = (dist > 5000.0f) ? 120.0f
-			                     : (dist > 2000.0f) ? 80.0f
-			                     : RoadPathfinder::kDefaultCellSize;
-			const float margin = 300.0f;
-			const float minX = Min(sx, ex) - margin;
-			const float minZ = Min(sz, ez) - margin;
-			const float maxX = Max(sx, ex) + margin;
-			const float maxZ = Max(sz, ez) + margin;
-
-			const int pfW = Max(2, static_cast<int>(Ceil((maxX - minX) / cellSize)));
-			const int pfH = Max(2, static_cast<int>(Ceil((maxZ - minZ) / cellSize)));
-
-			RoadPathfinder pf;
-			pf.setup(world, Vec2{ minX, minZ }, pfW, pfH, cellSize);
-
-			const Point gs = pf.worldToGrid(sx, sz);
-			const Point ge = pf.worldToGrid(ex, ez);
-			const Array<Point> path = pf.findPath(gs, ge);
-
-			if (path.isEmpty() || path.size() < 2)
-			{
-				if (auto eid = network.addEdge(startNodeId, endNodeId,
-				                               startNode->position + (endNode->position - startNode->position) * (1.0 / 3.0),
-				                               startNode->position + (endNode->position - startNode->position) * (2.0 / 3.0),
-				                               RoadType::Arterial, 4))
-				{
-					if (outEdgeIds) *outEdgeIds << *eid;
-					return true;
-				}
-				return false;
-			}
-
-			const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
-			Array<Vec3> wps = pf.samplePath(path, sampleStep);
-			wps.front() = startNode->position;
-			wps.back()  = endNode->position;
-			const int before = static_cast<int>(network.edges().size());
-			pf.pathToRoadEdges(wps, network, RoadType::Arterial, 4, startNodeId, endNodeId, outEdgeIds);
-			return static_cast<int>(network.edges().size()) > before;
-		}
 
 		void reattachRoutesFromNeighbors(RoadNetwork& network, int edgeId)
 		{
@@ -1027,7 +1082,7 @@ namespace DistrictRoads
 			Vec2  center;
 			Vec2  axisX;
 			Vec2  axisZ;
-			float halfExtent = 0.0f;
+			Vec2 halfExtent{0,0};
 			float margin     = 0.0f;
 		};
 
@@ -1040,9 +1095,9 @@ namespace DistrictRoads
 
 			for (const auto& settlement : settlements)
 			{
-				if (settlement.kind != MapGenerator::SettlementKind::CastleTown) continue;
+				if (!settlement.plan.ready || settlement.plan.frontageRoads) { continue; }
 
-				const float halfExtent = castleHalfExtent(settlement);
+				const Vec2 halfExtent = settlement.plan.halfExtent;
 				const Vec2 axisX = safeNormalized(settlement.gridAxisX, Vec2{ 1.0f, 0.0f });
 				const Vec2 axisZ = safeNormalized(settlement.gridAxisZ, Vec2{ 0.0f, 1.0f });
 				frames << CastleTownFrame{
@@ -1063,39 +1118,7 @@ namespace DistrictRoads
 			return Vec2{ d.dot(frame.axisX), d.dot(frame.axisZ) };
 		}
 
-		bool segmentIntersectsFrame(const Vec2& aWorld, const Vec2& bWorld, const CastleTownFrame& frame)
-		{
-			const Vec2 a = toFrameLocal(aWorld, frame);
-			const Vec2 b = toFrameLocal(bWorld, frame);
-			const Vec2 d = b - a;
 
-			const float e = frame.halfExtent + frame.margin;
-			const double minX = -e, maxX = e;
-			const double minY = -e, maxY = e;
-
-			double t0 = 0.0, t1 = 1.0;
-			auto clip = [&](double p, double q) -> bool
-			{
-				if (Math::Abs(p) < 1e-9) return (q >= 0.0);
-				const double r = q / p;
-				if (p < 0.0)
-				{
-					if (r > t1) return false;
-					if (r > t0) t0 = r;
-				}
-				else
-				{
-					if (r < t0) return false;
-					if (r < t1) t1 = r;
-				}
-				return true;
-			};
-
-			return clip(-d.x, a.x - minX)
-			    && clip( d.x, maxX - a.x)
-			    && clip(-d.y, a.y - minY)
-			    && clip( d.y, maxY - a.y);
-		}
 	} // namespace
 
 	KaidoSegment extractKaido(
@@ -1201,7 +1224,157 @@ namespace DistrictRoads
 		return out;
 	}
 
-		void generateCastleTown(
+	namespace
+	{
+		bool segmentFitsTerrain(const World& world, Vec3 a, Vec3 b,double minimumHeight=.5)
+		{
+			const double distance=Vec2{a.x,a.z}.distanceFrom(Vec2{b.x,b.z});
+			const int samples=Max(2,static_cast<int>(Ceil(distance/16.0)));
+			double previous=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
+			if (previous<minimumHeight) { return false; }
+			for (int sample=1;sample<=samples;++sample)
+			{
+				const Vec3 p=a+(b-a)*(static_cast<double>(sample)/samples);
+				const double height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
+				if (height<minimumHeight || Abs(height-previous)>distance/samples*kMaxSlope) { return false; }
+				previous=height;
+			}
+			return true;
+		}
+
+		/// @brief Plan before removing any regional road; reject submerged and steep streets.
+		bool fitTownToTerrain(MapGenerator::Settlement& settlement, const World& world)
+		{
+			for (int attempt=0;attempt<12;++attempt)
+			{
+				const auto x=UrbanMorphology::streetCoordinates(settlement.plan,false);
+				const auto z=UrbanMorphology::streetCoordinates(settlement.plan,true);
+				const auto position=[&](float localX,float localZ)
+				{
+					const Vec2 p=settlement.center+settlement.gridAxisX*localX+settlement.gridAxisZ*localZ;
+					return Vec3{p.x,world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y)),p.y};
+				};
+				bool fits=true;
+				for (size_t row=0;row<z.size() && fits;++row)
+				{
+					for (size_t col=0;col<x.size() && fits;++col)
+					{
+						if (col+1<x.size() && UrbanMorphology::allowStreet(settlement.plan,{x[col],z[row]},{x[col+1],z[row]}))
+						{
+							fits=segmentFitsTerrain(world,position(x[col],z[row]),position(x[col+1],z[row]),3.2);
+						}
+						if (fits && row+1<z.size() && UrbanMorphology::allowStreet(settlement.plan,{x[col],z[row]},{x[col],z[row+1]}))
+						{
+							fits=segmentFitsTerrain(world,position(x[col],z[row]),position(x[col],z[row+1]),3.2);
+						}
+					}
+				}
+				// Street surfaces alone do not establish buildable plots: sample the full block interiors.
+				for (double localZ=-settlement.plan.halfExtent.y+12;localZ<settlement.plan.halfExtent.y && fits;localZ+=24)
+				{
+					for (double localX=-settlement.plan.halfExtent.x+12;localX<settlement.plan.halfExtent.x && fits;localX+=24)
+					{
+						const Vec3 point=position(static_cast<float>(localX),static_cast<float>(localZ));
+						fits=point.y>=3.2;
+					}
+				}
+				if (fits)
+				{
+					if (settlement.plan.station)
+					{
+						const auto center=[](const Array<float>& coordinates,double value)
+						{
+							for (size_t i=1;i<coordinates.size();++i) { if (value<=coordinates[i]) { return (coordinates[i-1]+coordinates[i])*.5; } }
+							return value;
+						};
+						settlement.plan.station=Vec2{center(x,settlement.plan.station->x),center(z,settlement.plan.station->y)};
+					}
+					return true;
+				}
+				if (Min(settlement.plan.halfExtent.x,settlement.plan.halfExtent.y)*.85<85) { return false; }
+				UrbanMorphology::rescale(settlement.plan,.85);
+			}
+			return false;
+		}
+
+		/// @brief 集村は裏道の輪、散村は農地への取付道、谷筋は短い枝道。街道自体は保存する。
+		void generateRuralFrontage(MapGenerator::Settlement& settlement,const World& world,RoadNetwork& network)
+		{
+			settlement.plan.frontageRoads=true;
+			Array<int> originalRoads;
+			const Vec2 plannedExtent=settlement.plan.halfExtent;
+			const double searchRadius=plannedExtent.length()+220;
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id<0 || (edge.roadType!=RoadType::Arterial && edge.roadType!=RoadType::LocalRoad)) { continue; }
+				const Vec3 a=network.getNode(edge.nodeA)->position,b=network.getNode(edge.nodeB)->position;
+				const double minX=Min(Min(a.x,b.x),Min(edge.ctrlA.x,edge.ctrlB.x)), maxX=Max(Max(a.x,b.x),Max(edge.ctrlA.x,edge.ctrlB.x));
+				const double minZ=Min(Min(a.z,b.z),Min(edge.ctrlA.z,edge.ctrlB.z)), maxZ=Max(Max(a.z,b.z),Max(edge.ctrlA.z,edge.ctrlB.z));
+				if (settlement.center.x<minX-searchRadius || settlement.center.x>maxX+searchRadius
+					|| settlement.center.y<minZ-searchRadius || settlement.center.y>maxZ+searchRadius) { continue; }
+				originalRoads << edge.id;
+			}
+			Array<int> backNodes;
+			int added=0;
+			const bool clustered=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Clustered;
+			const bool dispersed=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Dispersed;
+			for (int index=-2;index<=2;++index)
+			{
+				const Vec2 desired=settlement.center+settlement.gridAxisX*(index*plannedExtent.x*.30);
+				Optional<int> bestEdge;
+				float bestArc=0;
+				double bestDistance=Square(180.0);
+				for (const int id : originalRoads)
+				{
+					const auto curve=network.getBezier(id);
+					if (!curve || curve->totalLength<100) { continue; }
+					for (int sample=1;sample<32;++sample)
+					{
+						const float arc=Clamp(curve->totalLength*sample/32.0f,45.0f,curve->totalLength-45.0f);
+						const Vec3 p=curve->positionAt(arc);
+						const double distance=desired.distanceFromSq(Vec2{p.x,p.z});
+						if (distance<bestDistance) { bestDistance=distance; bestEdge=id; bestArc=arc; }
+					}
+				}
+				if (!bestEdge) { continue; }
+				const auto curve=network.getBezier(*bestEdge);
+				const Vec3 anchorPosition=curve->positionAt(bestArc),tangent=curve->tangentAt(bestArc);
+				Vec2 normal{-tangent.z,tangent.x};
+				if (normal.lengthSq()<.001) { continue; }
+				normal.normalize();
+				const double length=dispersed ? 175.0 : (clustered ? 105.0 : 70.0);
+				const double side=dispersed ? (index%2==0 ? 1.0 : -1.0) : (settlement.plan.salt%2==0 ? 1.0 : -1.0);
+				const Vec2 end=Vec2{anchorPosition.x,anchorPosition.z}+normal*(length*side);
+				const Vec3 endPosition{end.x,world.sampleHeight(static_cast<float>(end.x),static_cast<float>(end.y)),end.y};
+				if (!segmentFitsTerrain(world,anchorPosition,endPosition)) { continue; }
+				const int anchor=network.splitEdgeAt(*bestEdge,bestArc);
+				if (anchor<0) { continue; }
+				for (const auto& attachment : network.getNode(anchor)->attachments) { originalRoads << attachment.edgeId; }
+				const int endNode=network.addNode(endPosition,NodeType::Endpoint);
+				if (!tryAddLocalRoadEdge(network,anchor,endNode)) { network.removeNode(endNode); continue; }
+				GeneratedStreet::apply(*network.getEdge(findEdgeBetweenNodes(network,anchor,endNode)),GeneratedStreet::describe(dispersed ? GeneratedStreet::Role::FarmAccess : GeneratedStreet::Role::Village));
+				if (clustered && !backNodes.isEmpty())
+				{
+					const Vec3 previous=network.getNode(backNodes.back())->position;
+					if (previous.distanceFrom(endPosition)>45 && segmentFitsTerrain(world,previous,endPosition)
+						&& tryAddLocalRoadEdge(network,backNodes.back(),endNode))
+					{
+						GeneratedStreet::apply(*network.getEdge(findEdgeBetweenNodes(network,backNodes.back(),endNode)),GeneratedStreet::describe(GeneratedStreet::Role::Village));
+					}
+				}
+				backNodes << endNode;
+				const Vec2 delta=end-settlement.center;
+				const Vec2 local{delta.dot(settlement.gridAxisX),delta.dot(settlement.gridAxisZ)};
+				settlement.plan.ruralHomes << local;
+				settlement.plan.halfExtent.x=Max(settlement.plan.halfExtent.x,Abs(local.x)+48);
+				settlement.plan.halfExtent.y=Max(settlement.plan.halfExtent.y,Abs(local.y)+48);
+				++added;
+			}
+			DBG_LOG(U"[RuralFrontage] form={} accesses={} regionalRoadsPreserved=true"_fmt(static_cast<int>(settlement.plan.ruralForm),added));
+		}
+	}
+
+		void generateSettlement(
 			uint64 seed,
 			int settlementIndex,
 			MapGenerator::Settlement& settlement,
@@ -1209,78 +1382,90 @@ namespace DistrictRoads
 			const World& world,
 			RoadNetwork& network)
 		{
-			const uint64 localSeed = seed ^ (0xCA57A11ULL + static_cast<uint64>(settlementIndex) * 2654435761ULL);
+			if (!settlement.plan.ready)
+			{
+				const auto origin=settlement.kind==MapGenerator::SettlementKind::RegionalCity ? UrbanMorphology::Origin::Castle
+					: (settlement.kind==MapGenerator::SettlementKind::LocalTown ? UrbanMorphology::Origin::Post : UrbanMorphology::Origin::Rural);
+				settlement.plan=UrbanMorphology::makePlan(origin,static_cast<uint8>(settlement.kind),UrbanMorphology::Site{},seed+settlementIndex,false);
+			}
+			const auto& plan=settlement.plan;
 
-			const float halfExtent = castleHalfExtent(settlement);
-			const float arterialRadius = halfExtent;
-			const float ringTolerance = Max(150.0f, halfExtent * 0.15f);
+			Vec2 halfExtent=plan.halfExtent;
+			const float arterialRadius = static_cast<float>(halfExtent.length());
+			const float ringTolerance = Max(150.0f, arterialRadius * 0.15f);
 
 			// 1) 城下町サイズに合わせた半径で幹線ノード抽出
 			Array<int> arterialNodes = collectArterialNodesAroundRadius(
 				settlement.center, arterialRadius, ringTolerance, network);
 
-			// 2) 半径内の幹線を削除
-			removeInnerArterials(settlement.center, arterialRadius, network);
+			// 2) 既存街道から町割の軸を決める
+			// Select the historical street axis before clipping the regional roads.
 
 			// 3) グリッド軸：街道が通過する場合はその方向を優先し、settlement に保存（buildCastleTownFrames と共有）
 			Vec2 axisX, axisZ;
-			if (kaido.passesThrough && kaido.dirAtCenter.lengthSq() > 1e-6f)
+			if (plan.origin==UrbanMorphology::Origin::Port || (plan.origin==UrbanMorphology::Origin::Rural && plan.ruralForm==UrbanMorphology::RuralForm::Valley))
+			{
+				axisX=settlement.gridAxisX; axisZ=settlement.gridAxisZ;
+			}
+			else if (kaido.passesThrough && kaido.dirAtCenter.lengthSq() > 1e-6f)
 			{
 				axisX = safeNormalized(kaido.dirAtCenter, Vec2{ 1.0f, 0.0f });
 				axisZ = Vec2{ -axisX.y, axisX.x };
 			}
 			else
 			{
-				computeCastleGridAxes(settlement.center, halfExtent, arterialNodes, network, axisX, axisZ);
+				computeCastleGridAxes(settlement.center, arterialRadius, arterialNodes, network, axisX, axisZ);
 				axisX = safeNormalized(axisX, Vec2{ 1.0f, 0.0f });
 				axisZ = safeNormalized(axisZ, Vec2{ 0.0f, 1.0f });
 			}
 			settlement.gridAxisX = axisX;
 			settlement.gridAxisZ = axisZ;
 
-			// Reuse the original nodes: coincident work nodes create zero-length connectors.
-			const Array<int> arterialWorkNodes = arterialNodes;
+			if (plan.origin==UrbanMorphology::Origin::Rural)
+			{
+				generateRuralFrontage(settlement,world,network); return;
+			}
+			if (!fitTownToTerrain(settlement,world))
+			{
+				DBG_LOG(U"[SettlementPlan] index={} terrainConstrained=true preserveRegionalRoads=true"_fmt(settlementIndex));
+				generateRuralFrontage(settlement,world,network); return;
+			}
+			halfExtent=plan.halfExtent;
 
-			// 4) 格子構築（外郭 + 内郭、テンプレは従来）
-			const float extentWithMargin = halfExtent + 40.0f;
-			const Array<float> coords = buildCastleGridCoords(halfExtent);
-			const int n = static_cast<int>(coords.size());
+			// Regional roads stop outside the complete rotated grid, including its corners.
+			const Array<int> arterialWorkNodes = cutCastleApproaches(settlement.center, axisX, axisZ, halfExtent, network);
 
-		Grid<int> nodeIds(n, n, -1);
+			// 4) 街路ごとの間隔で町人地・住宅地の街区を構築
+			const Array<float> coordsX=UrbanMorphology::streetCoordinates(plan,false);
+			const Array<float> coordsZ=UrbanMorphology::streetCoordinates(plan,true);
+			const int n = static_cast<int>(coordsX.size());
+			const int rows=static_cast<int>(coordsZ.size());
+
+		Grid<int> nodeIds(n, rows, -1);
 		HashSet<int> outerGridPointSet;
 		HashTable<int, Array<GridAdjEdge>> gridGraph;
 
 		auto localToWorld = [&](float lx, float lz) -> Vec3
 		{
-			const float edgeFactor = Clamp(Max(Math::Abs(lx), Math::Abs(lz)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
-			const bool mainStreet = (Math::Abs(lx) < 150.0f || Math::Abs(lz) < 150.0f);
-			const bool outerFrame = (Math::Abs(lx) > halfExtent * 0.94f || Math::Abs(lz) > halfExtent * 0.94f);
-			const float strength = (mainStreet ? 3.5f : 9.0f + edgeFactor * 5.0f) * (outerFrame ? 0.25f : 1.0f);
-			const int ix = static_cast<int>(Round(lx / 40.0f));
-			const int iz = static_cast<int>(Round(lz / 40.0f));
-			const float oldRoadBendX = Math::Sin((lz + settlementIndex * 37.0f) * 0.0041f) * (mainStreet ? 1.5f : 3.0f);
-			const float oldRoadBendZ = Math::Sin((lx - settlementIndex * 29.0f) * 0.0037f) * (mainStreet ? 1.2f : 2.5f);
-			const float warpedX = lx + districtHashSigned(localSeed, ix, iz, 1) * strength + oldRoadBendX;
-			const float warpedZ = lz + districtHashSigned(localSeed, ix, iz, 2) * strength + oldRoadBendZ;
-			const Vec2 xz = settlement.center + axisX * warpedX + axisZ * warpedZ;
+			const Vec2 xz = settlement.center + axisX * lx + axisZ * lz;
 			const float y = world.sampleHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
 			return Vec3{ xz.x, y, xz.y };
 		};
 
-		for (int row = 0; row < n; ++row)
+		for (int row = 0; row < rows; ++row)
 		{
 			for (int col = 0; col < n; ++col)
 			{
-				const float lx = coords[col];
-				const float lz = coords[row];
-				if (Math::Abs(lx) > extentWithMargin || Math::Abs(lz) > extentWithMargin) continue;
+				const float lx = coordsX[col];
+				const float lz = coordsZ[row];
+
 				const Vec3 pos = localToWorld(lx, lz);
 				if (pos.y < 0.5f) continue;
 
 				const int nid = network.addNode(pos, NodeType::Intersection);
 				nodeIds[{ col, row }] = nid;
 
-				if (row == 0 || row == n - 1 || col == 0 || col == n - 1)
+				if (row == 0 || row == rows - 1 || col == 0 || col == n - 1)
 				{
 					outerGridPointSet.insert(nid);
 				}
@@ -1300,27 +1485,25 @@ namespace DistrictRoads
 
 		auto tryAddGridEdge = [&](int colA, int rowA, int colB, int rowB)
 		{
-			if (insideCastleBlock(coords[colA], coords[rowA], coords[colB], coords[rowB])) return;
+			if (!UrbanMorphology::allowStreet(plan,{coordsX[colA],coordsZ[rowA]},{coordsX[colB],coordsZ[rowB]})) { return; }
 
-			const float midX = 0.5f * (coords[colA] + coords[colB]);
-			const float midZ = 0.5f * (coords[rowA] + coords[rowB]);
-			const bool mainStreet = (Math::Abs(midX) < 170.0f || Math::Abs(midZ) < 170.0f);
-			const bool outerFrame = (colA == 0 || colB == 0 || rowA == 0 || rowB == 0
-				|| colA == n - 1 || colB == n - 1 || rowA == n - 1 || rowB == n - 1);
-			if (!mainStreet && !outerFrame && rowA == rowB && (rowA % 3) == 1)
-			{
-				constexpr uint32 kTransverseOmissionPercent = 18;
-				const uint32 hash = districtHash(localSeed, colA, rowA, 3);
-				if ((hash % 100u) < kTransverseOmissionPercent)
-				{
-					return;
-				}
-			}
+			const bool outerFrame = (colA == colB && (colA == 0 || colA == n - 1))
+				|| (rowA == rowB && (rowA == 0 || rowA == rows - 1));
 
 			const int nodeA = nodeIds[{ colA, rowA }];
 			const int nodeB = nodeIds[{ colB, rowB }];
 			if (nodeA < 0 || nodeB < 0 || nodeA == nodeB) return;
 
+			const Vec3 start=network.getNode(nodeA)->position, end=network.getNode(nodeB)->position;
+			const int samples=Max(2,static_cast<int>(Ceil(start.distanceFrom(end)/16.0)));
+			double previous=start.y;
+			for (int sample=1;sample<=samples;++sample)
+			{
+				const Vec3 point=start+(end-start)*(static_cast<double>(sample)/samples);
+				const double height=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+				if (height<0.5 || Abs(height-previous)>start.distanceFrom(end)/samples*0.14) { return; }
+				previous=height;
+			}
 			int edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			if (edgeId < 0)
 			{
@@ -1330,17 +1513,41 @@ namespace DistrictRoads
 			if (RoadEdge* edge = network.getEdge(edgeId))
 			{
 				const int corridor = rowA == rowB ? rowA : colA;
-				const int centreCorridor = n / 2;
+				const int centreCorridor = rowA == rowB ? rows / 2 : n / 2;
 				const int offset = Abs(corridor - centreCorridor);
-				const bool boulevard = (offset % 6 == 0);
-				const bool collector = !boulevard && (offset % 3 == 0 || outerFrame);
-				const bool oneWay = !boulevard && !collector && rowA != rowB && offset < 8;
-				applyStreetProfile(*edge, boulevard ? 4 : (oneWay ? 1 : 2), boulevard || collector, (corridor % 2) != 0);
+				const bool largeCity=plan.scale==0 && Max(halfExtent.x,halfExtent.y)>650;
+				const bool boulevard = largeCity && !outerFrame && offset==0;
+				const auto& coordinates=rowA==rowB ? coordsZ : coordsX;
+				int stationCorridor=-1;
+				if (plan.station)
+				{
+					const double desired=rowA==rowB ? plan.station->y : plan.station->x;
+					for (int index=0;index<static_cast<int>(coordinates.size());++index)
+					{
+						if (coordinates[index]>=desired) { stationCorridor=index; break; }
+					}
+				}
+				const bool collector = plan.scale!=2 && !boulevard && (offset % 3 == 0 || outerFrame || corridor==stationCorridor);
+				const bool oneWay = plan.scale!=2 && plan.origin!=UrbanMorphology::Origin::Planned && !boulevard && !collector && rowA != rowB && offset < 3;
+				using Role=GeneratedStreet::Role;
+				const Role role=plan.scale==2 ? (offset==0 ? Role::Village : Role::FarmAccess)
+					: (boulevard ? Role::MainArterial : (collector ? Role::Collector : (oneWay ? Role::OneWay
+					: (plan.origin==UrbanMorphology::Origin::Planned ? Role::ResidentialWalkways : Role::Local))));
+				GeneratedStreet::Profile profile=GeneratedStreet::describe(role);
+				if (corridor==stationCorridor) { profile.walkwayLeft=profile.walkwayRight=3.0f; }
+				if (outerFrame && plan.scale!=2)
+				{
+					// Only the developed side of the urban edge needs a raised walkway.
+					const bool developedOnLeft=rowA==rowB ? rowA==0 : colA==n-1;
+					if (developedOnLeft) { profile.walkwayRight=0; }
+					else { profile.walkwayLeft=0; }
+				}
+				GeneratedStreet::apply(*edge,profile,(corridor%2)!=0);
 			}
 			registerGridEdge(edgeId, nodeA, nodeB);
 		};
 
-		for (int row = 0; row < n; ++row)
+		for (int row = 0; row < rows; ++row)
 		{
 			for (int col = 0; col + 1 < n; ++col)
 			{
@@ -1349,18 +1556,40 @@ namespace DistrictRoads
 		}
 		for (int col = 0; col < n; ++col)
 		{
-			for (int row = 0; row + 1 < n; ++row)
+			for (int row = 0; row + 1 < rows; ++row)
 			{
 				tryAddGridEdge(col, row, col, row + 1);
 			}
 		}
+
+		// Removing civic/terrain blocks must not leave interior road stubs.
+		// Preserve boundary vertices because they may be regional gateways.
+		int prunedStubs=0;
+		bool pruned=true;
+		while (pruned)
+		{
+			pruned=false;
+			for (int& id : nodeIds)
+			{
+				const auto* node=network.getNode(id);
+				if (!node || outerGridPointSet.contains(id) || node->attachments.size()!=1) { continue; }
+				const int edgeId=node->attachments.front().edgeId;
+				const auto* edge=network.getEdge(edgeId);
+				const int other=edge->nodeA==id ? edge->nodeB : edge->nodeA;
+				gridGraph[other].remove_if([&](const GridAdjEdge& adjacency) { return adjacency.edgeId==edgeId; });
+				gridGraph.erase(id);
+				network.removeEdge(edgeId); network.removeNode(id); id=-1;
+				++prunedStubs; pruned=true;
+			}
+		}
+		DBG_LOG(U"[SettlementPlan] prunedInteriorStubs={}"_fmt(prunedStubs));
 
 		Array<int> outerGridPoints;
 		outerGridPoints.reserve(outerGridPointSet.size());
 		for (const int nid : outerGridPointSet) outerGridPoints << nid;
 		if (outerGridPoints.isEmpty()) return;
 
-			// 5) 抽出幹線ノード -> 最寄り最外周格子点へ接続（A* / 失敗時直線）
+			// 5) 矩形外側の街道端を、同じ辺の城下口へ接続
 			// 6) 接続した格子点リストを保持
 			Array<int> connectedOuterGridPoints;
 			HashSet<int> connectedOuterSet;
@@ -1371,45 +1600,42 @@ namespace DistrictRoads
 				if (!src) continue;
 
 			int bestOuterNode = -1;
-			double bestDistSq = 1e300;
-			for (const int outerNodeId : outerGridPoints)
+			const Vec2 sourceLocal{src->position.x-settlement.center.x,src->position.z-settlement.center.y};
+			const double sx=sourceLocal.dot(axisX),sz=sourceLocal.dot(axisZ);
+			const bool onXSide=Abs(sx)/(halfExtent.x+100)>Abs(sz)/(halfExtent.y+100);
+			// Prefer an interior gateway. A compact temple town may only have a corner
+			// gateway on the shrine side; connect there through the exterior buffer.
+			for (int pass=0;pass<2 && bestOuterNode<0;++pass)
 			{
-				const RoadNode* dst = network.getNode(outerNodeId);
-				if (!dst) continue;
-				const double dx = src->position.x - dst->position.x;
-				const double dz = src->position.z - dst->position.z;
-				const double dSq = dx * dx + dz * dz;
-				if (dSq < bestDistSq)
+				double bestDistSq=1e300;
+				for (const int outerNodeId : outerGridPoints)
 				{
-					bestDistSq = dSq;
-					bestOuterNode = outerNodeId;
+					const RoadNode* dst=network.getNode(outerNodeId);
+					if (!dst || dst->attachments.isEmpty() || connectedOuterSet.contains(outerNodeId)) { continue; }
+					const Vec2 local{dst->position.x-settlement.center.x,dst->position.z-settlement.center.y};
+					const double tx=local.dot(axisX),tz=local.dot(axisZ);
+					if (onXSide ? (Abs(tx)<halfExtent.x-.1 || tx*sx<=0)
+						: (Abs(tz)<halfExtent.y-.1 || tz*sz<=0)) { continue; }
+					if (pass==0 && (onXSide ? Abs(tz)>halfExtent.y-45 : Abs(tx)>halfExtent.x-45)) { continue; }
+					const double distance=src->position.distanceFromSq(dst->position);
+					if (distance<bestDistSq) { bestDistSq=distance; bestOuterNode=outerNodeId; }
 				}
 			}
 			if (bestOuterNode < 0) continue;
 
-			Array<int> connectorEdges;
 			bool connected = false;
-			if (addArterialWithPathfinder(world, network, arterialNodeId, bestOuterNode, &connectorEdges))
+			const Vec3 start = src->position;
+			const Vec3 end = network.getNode(bestOuterNode)->position;
+			const Vec2 inward=onXSide ? axisX*(sx>0 ? -1.0 : 1.0) : axisZ*(sz>0 ? -1.0 : 1.0);
+			const Vec3 tangent{ inward.x, 0, inward.y };
+			const double handle = Min(60.0, start.distanceFrom(end) / 3.0);
+			if (const auto id = network.addEdge(arterialNodeId, bestOuterNode,
+				start + (end-start)/3.0, end-tangent*handle, plan.scale==2 ? RoadType::LocalRoad : RoadType::Arterial, plan.scale==0 ? 4 : 2))
 			{
-				for (const int eid : connectorEdges) newlyAddedArterials << eid;
+				GeneratedStreet::apply(*network.getEdge(*id),GeneratedStreet::describe(plan.scale==0 && Max(halfExtent.x,halfExtent.y)>650 ? GeneratedStreet::Role::MainArterial
+					: (plan.scale==2 ? GeneratedStreet::Role::Regional : GeneratedStreet::Role::Collector)));
+				newlyAddedArterials << *id;
 				connected = true;
-			}
-			else
-			{
-				const RoadNode* dst = network.getNode(bestOuterNode);
-				if (dst)
-				{
-					const Vec3 dir = dst->position - src->position;
-					if (auto eid = network.addEdge(
-						arterialNodeId, bestOuterNode,
-						src->position + dir * (1.0 / 3.0),
-						src->position + dir * (2.0 / 3.0),
-						RoadType::Arterial, 4))
-					{
-						newlyAddedArterials << *eid;
-						connected = true;
-					}
-				}
 			}
 
 			if (connected && !connectedOuterSet.contains(bestOuterNode))
@@ -1422,7 +1648,7 @@ namespace DistrictRoads
 		// 7) 接続格子点ペアを格子内探索（曲がりペナルティ）して経路を幹線化
 		constexpr float kTurnPenalty = 180.0f;
 		HashSet<int> arterialGridEdges;
-		for (size_t i = 0; i < connectedOuterGridPoints.size(); ++i)
+		for (size_t i = 0; i < Min(size_t{1},connectedOuterGridPoints.size()); ++i)
 		{
 			for (size_t j = i + 1; j < connectedOuterGridPoints.size(); ++j)
 			{
@@ -1437,12 +1663,31 @@ namespace DistrictRoads
 			}
 		}
 
-		for (const int edgeId : arterialGridEdges)
+		HashSet<int> widenedRows, widenedColumns;
+		for (int row=0;row<rows;++row)
 		{
-			if (RoadEdge* edge = network.getEdge(edgeId))
+			for (int col=0;col<n;++col)
 			{
-				applyStreetProfile(*edge, 4, true);
-				newlyAddedArterials << edgeId;
+				if (col+1<n && arterialGridEdges.contains(findEdgeBetweenNodes(network,nodeIds[{col,row}],nodeIds[{col+1,row}]))) { widenedRows.insert(row); }
+				if (row+1<rows && arterialGridEdges.contains(findEdgeBetweenNodes(network,nodeIds[{col,row}],nodeIds[{col,row+1}]))) { widenedColumns.insert(col); }
+			}
+		}
+		for (int row=0;row<rows;++row)
+		{
+			for (int col=0;col<n;++col)
+			{
+				const auto widen = [&](int a,int b,bool perimeter)
+				{
+					const int edgeId=findEdgeBetweenNodes(network,a,b);
+					if (auto* edge=network.getEdge(edgeId))
+					{
+						if (!perimeter) { GeneratedStreet::apply(*edge,GeneratedStreet::describe(plan.scale==2 ? GeneratedStreet::Role::Regional
+						: (plan.scale!=0 || Max(halfExtent.x,halfExtent.y)<=650 ? GeneratedStreet::Role::Collector : GeneratedStreet::Role::MainArterial))); }
+						newlyAddedArterials << edgeId;
+					}
+				};
+				if (col+1<n && widenedRows.contains(row)) { widen(nodeIds[{col,row}],nodeIds[{col+1,row}],row==0 || row==rows-1); }
+				if (row+1<rows && widenedColumns.contains(col)) { widen(nodeIds[{col,row}],nodeIds[{col,row+1}],col==0 || col==n-1); }
 			}
 		}
 
@@ -1454,232 +1699,49 @@ namespace DistrictRoads
 			reattachRoutesFromNeighbors(network, eid);
 		}
 
-		Logger << U"[DistrictRoads] CastleTown si={}: arterialNodes={}, connectors={}, arterialGridEdges={}"_fmt(
-			settlementIndex, arterialNodes.size(), connectedOuterGridPoints.size(), arterialGridEdges.size());
-	}
-
-		void generatePostTown(
-			uint64 seed,
-			int settlementIndex,
-			const MapGenerator::Settlement& settlement,
-			const KaidoSegment& kaido,
-			const World& world,
-			RoadNetwork& network)
+		// Split deep blocks with a 4.4 m access lane. Shared midpoints preserve topology.
+		HashTable<int64,int> midpoints;
+		const auto midpointKey = [](int a,int b) { return static_cast<int64>(Min(a,b))*0x100000000LL+Max(a,b); };
+		const auto hasSide = [&](int a,int b) { return a>=0 && b>=0 && (midpoints.contains(midpointKey(a,b)) || findEdgeBetweenNodes(network,a,b)>=0); };
+		const auto midpoint = [&](int a,int b)
 		{
-			(void)seed;
-			(void)settlementIndex;
-			(void)settlement;
-			(void)world;
-			(void)network;
-			if (!kaido.passesThrough || kaido.nodeIds.size() < 3)
+			const int64 key=midpointKey(a,b);
+			if (midpoints.contains(key)) { return midpoints[key]; }
+			const int id=network.splitEdgeAtParameter(findEdgeBetweenNodes(network,a,b),.5f);
+			midpoints[key]=id; return id;
+		};
+		int alleyCount=0;
+		for (int row=0;row+1<rows;++row)
+		{
+			for (int col=0;col+1<n;++col)
 			{
-				return;
-			}
-
-		RoadNodeSpatialHash nodeHash;
-		for (const auto& node : network.nodes())
-		{
-			if (node.id < 0) continue;
-			nodeHash.insert(node.position, node.id);
-		}
-
-		std::mt19937_64 rng(seed ^ (0xB057A11ULL + static_cast<uint64>(settlementIndex) * 6364136223846793005ULL));
-		std::uniform_int_distribution<int> rungCountDist(3, 5);
-		std::uniform_int_distribution<int> sideCountDist(1, 2);
-		std::uniform_real_distribution<float> offsetDist(40.0f, 60.0f);
-		std::uniform_real_distribution<float> alongDist(-10.0f, 10.0f);
-
-		Vec2 kaidoDir = safeNormalized(kaido.dirAtCenter, Vec2{ 1.0, 0.0 });
-		Vec2 normal{ -kaidoDir.y, kaidoDir.x };
-		normal = safeNormalized(normal, Vec2{ 0.0, 1.0 });
-
-		const int desiredRungs = rungCountDist(rng);
-		Array<std::pair<double, int>> rungAnchors;
-
-		const int usableInternal = Max(0, static_cast<int>(kaido.nodeIds.size()) - 2);
-		const int fromNodes = Min(desiredRungs, usableInternal);
-		for (int i = 1; i <= fromNodes; ++i)
-		{
-			const int idx = (i * (static_cast<int>(kaido.nodeIds.size()) - 1)) / (fromNodes + 1);
-			rungAnchors << std::make_pair(static_cast<double>(idx), kaido.nodeIds[idx]);
-		}
-
-		if (rungAnchors.size() < 3)
-		{
-			for (int i = 0; i < static_cast<int>(kaido.edgeIds.size()) && rungAnchors.size() < 3; ++i)
-			{
-				const auto bez = network.getBezier(kaido.edgeIds[i]);
-				if (!bez || bez->totalLength < 30.0f) continue;
-				const int nid = network.splitEdgeAt(kaido.edgeIds[i], 0.5f * bez->totalLength);
-				if (nid >= 0) rungAnchors << std::make_pair(i + 0.5, nid);
-			}
-		}
-			if (rungAnchors.size() < 2)
-			{
-				return;
-			}
-
-		rungAnchors.sort_by([](const auto& a, const auto& b) { return a.first < b.first; });
-
-		Array<int> sides;
-		if (sideCountDist(rng) == 1)
-		{
-			sides << ((rng() & 1ULL) ? +1 : -1);
-		}
-		else
-		{
-			sides << -1;
-			sides << +1;
-		}
-
-		const int kaidoStartId = kaido.nodeIds.front();
-		const int kaidoEndId = kaido.nodeIds.back();
-
-		for (const int side : sides)
-		{
-			Array<int> backNodes;
-			backNodes.reserve(rungAnchors.size());
-
-			for (const auto& anchor : rungAnchors)
-			{
-				const int anchorId = anchor.second;
-				const RoadNode* anchorNode = network.getNode(anchorId);
-				if (!anchorNode)
+				const float width=coordsX[col+1]-coordsX[col],depth=coordsZ[row+1]-coordsZ[row];
+				if (Max(width,depth)<88 || Min(width,depth)<56) { continue; }
+				const int a=nodeIds[{col,row}],b=nodeIds[{col+1,row}],c=nodeIds[{col+1,row+1}],d=nodeIds[{col,row+1}];
+				if (!hasSide(a,b) || !hasSide(b,c) || !hasSide(c,d) || !hasSide(d,a)) { continue; }
+				const bool alongZ=width>=depth;
+				const Vec2 start=alongZ ? Vec2{(coordsX[col]+coordsX[col+1])*.5,coordsZ[row]} : Vec2{coordsX[col],(coordsZ[row]+coordsZ[row+1])*.5};
+				const Vec2 end=alongZ ? Vec2{start.x,coordsZ[row+1]} : Vec2{coordsX[col+1],start.y};
+				if (!UrbanMorphology::allowStreet(plan,start,end)) { continue; }
+				const int startId=alongZ ? midpoint(a,b) : midpoint(a,d),endId=alongZ ? midpoint(d,c) : midpoint(b,c);
+				if (startId<0 || endId<0) { continue; }
+				const Vec3 from=network.getNode(startId)->position,to=network.getNode(endId)->position;
+				if (const auto id=network.addEdge(startId,endId,from+(to-from)/3,to-(to-from)/3,RoadType::LocalRoad,2))
 				{
-					backNodes << -1;
-					continue;
-				}
-
-				const float offset = offsetDist(rng) * static_cast<float>(side);
-				const float along = alongDist(rng);
-				const Vec2 xz{
-					static_cast<float>(anchorNode->position.x) + normal.x * offset + kaidoDir.x * along,
-					static_cast<float>(anchorNode->position.z) + normal.y * offset + kaidoDir.y * along
-				};
-
-				const int backNodeId = ensureNodeWithMerge(nodeHash, world, network, xz, NodeType::Joint);
-				backNodes << backNodeId;
-				if (backNodeId >= 0)
-				{
-					tryAddLocalRoadEdge(network, anchorId, backNodeId);
+					auto profile=GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess); profile.laneWidth=2.2f; profile.shoulder=.15f;
+					GeneratedStreet::apply(*network.getEdge(*id),profile);
+					++alleyCount;
 				}
 			}
-
-			for (int i = 0; i + 1 < static_cast<int>(backNodes.size()); ++i)
-			{
-				if (backNodes[i] < 0 || backNodes[i + 1] < 0) continue;
-				tryAddLocalRoadEdge(network, backNodes[i], backNodes[i + 1]);
-			}
-
-			int first = -1;
-			int last = -1;
-			for (const int nodeId : backNodes)
-			{
-				if (nodeId < 0) continue;
-				if (first < 0) first = nodeId;
-				last = nodeId;
-			}
-
-			if (first >= 0 && last >= 0)
-			{
-				tryAddLocalRoadEdge(network, kaidoStartId, first);
-				tryAddLocalRoadEdge(network, last, kaidoEndId);
-			}
 		}
+		DBG_LOG(U"[BlockAlleys] town={} alleys={}"_fmt(settlementIndex,alleyCount));
+		DBG_LOG(U"[SettlementPlan] index={} origin={} scale={} extent=({}, {}) nodes={} entrances={} connected={} station={}"_fmt(
+			settlementIndex,UrbanMorphology::originName(plan.origin),plan.scale,halfExtent.x,halfExtent.y,n*rows,arterialWorkNodes.size(),connectedOuterGridPoints.size(),plan.station.has_value()));
 	}
 
-		void generateVillage(
-			uint64 seed,
-			int settlementIndex,
-			const MapGenerator::Settlement& settlement,
-			const KaidoSegment& kaido,
-			const World& world,
-			RoadNetwork& network)
-		{
-			(void)settlement;
-			if (!kaido.passesThrough || kaido.edgeIds.isEmpty())
-			{
-				return;
-			}
-
-		std::mt19937_64 rng(seed ^ (0x9E3779B97F4A7C15ULL + static_cast<uint64>(settlementIndex)));
-		std::uniform_int_distribution<int> branchCountDist(1, 2);
-		std::uniform_real_distribution<float> branchLenDist(60.0f, 120.0f);
-		std::uniform_real_distribution<float> jitterDist(-0.35f, 0.35f);
-		std::uniform_int_distribution<int> sideDist(0, 1);
-
-		Array<int> candidates;
-		const int center = static_cast<int>(kaido.edgeIds.size()) / 2;
-		for (int d = 0; d <= 2; ++d)
-		{
-			const int i1 = center - d;
-			const int i2 = center + d;
-			if (0 <= i1 && i1 < static_cast<int>(kaido.edgeIds.size())) candidates << i1;
-			if (d != 0 && 0 <= i2 && i2 < static_cast<int>(kaido.edgeIds.size())) candidates << i2;
-		}
-		if (candidates.isEmpty()) return;
-
-		std::shuffle(candidates.begin(), candidates.end(), rng);
-		const int targetBranches = Min(branchCountDist(rng), static_cast<int>(candidates.size()));
-
-		Vec2 kaidoDir = kaido.dirAtCenter;
-		if (kaidoDir.lengthSq() < 1e-6) kaidoDir = Vec2{ 1.0f, 0.0f };
-		else kaidoDir.normalize();
-
-		int added = 0;
-		for (int pick = 0; pick < targetBranches; ++pick)
-		{
-			const int edgeId = kaido.edgeIds[candidates[pick]];
-			const RoadEdge* edge = network.getEdge(edgeId);
-			if (!edge || edge->id < 0) continue;
-
-			const auto bezOpt = network.getBezier(edgeId);
-			if (!bezOpt || bezOpt->totalLength < 20.0f) continue;
-
-			const float splitArc = bezOpt->totalLength * 0.5f;
-			const int branchNodeId = network.splitEdgeAt(edgeId, splitArc);
-			if (branchNodeId < 0) continue;
-
-			const RoadNode* branchNode = network.getNode(branchNodeId);
-			if (!branchNode) continue;
-
-			const float sign = (sideDist(rng) == 0) ? -1.0f : 1.0f;
-			const float angle = jitterDist(rng);
-			Vec2 baseNormal{ -kaidoDir.y, kaidoDir.x };
-			if (baseNormal.lengthSq() < 1e-6) continue;
-			baseNormal.normalize();
-			Vec2 branchDir{
-				baseNormal.x * Math::Cos(angle) - baseNormal.y * Math::Sin(angle),
-				baseNormal.x * Math::Sin(angle) + baseNormal.y * Math::Cos(angle)
-			};
-			branchDir *= sign;
-			branchDir.normalize();
-
-			const float branchLen = branchLenDist(rng);
-			const float ex = static_cast<float>(branchNode->position.x)
-			               + static_cast<float>(branchDir.x) * branchLen;
-			const float ez = static_cast<float>(branchNode->position.z)
-			               + static_cast<float>(branchDir.y) * branchLen;
-			const float ey = world.sampleHeight(ex, ez);
-			if (ey < 0.5f) continue;
-
-			const float startY = static_cast<float>(branchNode->position.y);
-			const float slope = Math::Abs(ey - startY) / Max(1.0f, branchLen);
-			if (slope > kMaxSlope) continue;
-
-			const int endNodeId = network.addNode(Vec3{ ex, ey, ez }, NodeType::Endpoint);
-			if (!tryAddLocalRoadEdge(network, branchNodeId, endNodeId))
-			{
-				network.removeNode(endNodeId);
-				continue;
-			}
-			++added;
-		}
-
-		if (added == 0)
-		{
-			return;
-		}
+	void generateCastleTown(uint64 seed,int index,MapGenerator::Settlement& settlement,const KaidoSegment& kaido,const World& world,RoadNetwork& network)
+	{
+		generateSettlement(seed,index,settlement,kaido,world,network);
 	}
 
 	void straightenCastleTownRoads(
@@ -1704,7 +1766,11 @@ namespace DistrictRoads
 			const Vec2 b{ nodeB->position.x, nodeB->position.z };
 			for (const auto& frame : frames)
 			{
-				if (segmentIntersectsFrame(a, b, frame))
+				const Vec2 delta = b - a;
+				const Vec2 localA = a-frame.center, localB = b-frame.center;
+				const bool inside = Abs(localA.dot(frame.axisX))<=frame.halfExtent.x+0.1 && Abs(localA.dot(frame.axisZ))<=frame.halfExtent.y+0.1
+					&& Abs(localB.dot(frame.axisX))<=frame.halfExtent.x+0.1 && Abs(localB.dot(frame.axisZ))<=frame.halfExtent.y+0.1;
+				if (inside && Min(Abs(delta.dot(frame.axisX)),Abs(delta.dot(frame.axisZ))) < 0.01)
 				{
 					targetEdgeIds << edge.id;
 					break;
@@ -1719,9 +1785,9 @@ namespace DistrictRoads
 				const RoadEdge* e = network.getEdge(eid);
 				if (e && e->roadType == RoadType::LocalRoad) ++localCount;
 			}
-			Console << U"[straighten] target={} (LocalRoad={})"_fmt(targetEdgeIds.size(), localCount);
+			DebugLog::print(U"[straighten] target={} (LocalRoad={})"_fmt(targetEdgeIds.size(), localCount));
 			if (!frames.isEmpty())
-				Console << U"[straighten] frame axisX=({:.3f},{:.3f})"_fmt(frames[0].axisX.x, frames[0].axisX.y);
+				DebugLog::print(U"[straighten] frame axisX=({:.3f},{:.3f})"_fmt(frames[0].axisX.x, frames[0].axisX.y));
 		}
 
 		for (const int edgeId : targetEdgeIds)
@@ -1745,30 +1811,7 @@ namespace DistrictRoads
 			network.rebuildNodeConnectivity(edge->nodeA, edge->nodeB);
 		}
 
-		// 修正後LocalRoadの接線が frame axisX/Z と一致しているか先頭5件を確認
-		if (!frames.isEmpty())
-		{
-			const CastleTownFrame& f0 = frames[0];
-			int checked = 0;
-			for (const int eid : targetEdgeIds)
-			{
-				if (checked >= 5) break;
-				const RoadEdge* e = network.getEdge(eid);
-				if (!e || e->roadType != RoadType::LocalRoad) continue;
-				const RoadNode* na = network.getNode(e->nodeA);
-				const RoadNode* nb = network.getNode(e->nodeB);
-				if (!na || !nb) continue;
-				const Vec3 d = nb->position - na->position;
-				const double len = d.length();
-				if (len < 1.0) continue;
-				const Vec2 dir2D{ d.x / len, d.z / len };
-				const double dotX = dir2D.dot(f0.axisX);
-				const double dotZ = dir2D.dot(f0.axisZ);
-				Console << U"[straighten edge {}] dir=({:.3f},{:.3f}) dotX={:.3f} dotZ={:.3f}"_fmt(
-					eid, dir2D.x, dir2D.y, dotX, dotZ);
-				++checked;
-			}
-		}
+
 	}
 
 }

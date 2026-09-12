@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "../gen/MapGenerator.hpp"
 #include "../ui/Camera.hpp"
+#include "../ui/WorldMapView.hpp"
+#include "../railway/TrainNetwork.hpp"
 #include "../ui/PanelManager.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
@@ -10,6 +12,7 @@
 class MinimapRenderer
 {
 public:
+	void setSmallBounds(Optional<RectF> bounds) { m_smallBounds=bounds; m_smallVisible=bounds.has_value(); }
 	// 地形と道路の事前生成テクスチャを持ち、小マップ表示と拡大パネル表示の両方を担当する。
 	/// @brief 地形テクスチャを生成する（ロード完了後に1回呼ぶ）
 	void buildTerrainTexture(const World& world);
@@ -22,7 +25,13 @@ public:
 	                              const RoadNetwork& network);
 
 	/// @brief 入力処理（クリックで拡大パネル表示）。毎フレーム render の前に呼ぶ
-	void update(PanelManager& panels);
+	Optional<Vec2> update(const GameCamera& camera, const RoadNetwork& roads, const TrainNetwork& railway,
+		const Array<MapGenerator::Settlement>& settlements);
+	void openFullScreen(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
+	WorldMapView& mapView() { return m_map; }
+	bool fullScreen() const { return m_map.visible; }
+	bool consumedInput() const { return m_consumedInput; }
+	void drawFullScreen(const GameCamera& camera) const;
 
 	/// @brief 右上の小さいミニマップを描画する（毎フレーム）
 	void render(const GameCamera& camera,
@@ -34,6 +43,9 @@ public:
 	                       const Array<MapGenerator::Settlement>& settlements) const;
 
 private:
+	WorldMapView m_map;
+	bool m_mapDirty = true;
+	bool m_consumedInput = false;
 	static constexpr int kMapSize     = 256;  ///< テクスチャ解像度 [px]
 	static constexpr int kDisplaySize = 200;  ///< 縮小時の表示サイズ [px]
 	static constexpr int kMargin      = 12;   ///< 画面端からのマージン [px]
@@ -55,6 +67,8 @@ private:
 
 	/// @brief 右上の小さいミニマップの描画領域を返す
 	RectF smallRect() const;
+	Optional<RectF> m_smallBounds;
+	bool m_smallVisible=true;
 
 	/// @brief マップ＋オーバーレイ＋地名＋カメラを描画する共通処理
 	void drawMapContent(const RectF& rect,

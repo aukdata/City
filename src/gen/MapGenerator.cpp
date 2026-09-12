@@ -1,4 +1,7 @@
 ﻿#include "MapGenerator.hpp"
+#include "RailwayAlignment.hpp"
+#include "StreetProfile.hpp"
+#include "../debug/DebugLog.hpp"
 #include "PlaceNameGenerator.hpp"
 #include "DistrictRoads.hpp"
 #include <random>
@@ -232,7 +235,7 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 
 		Settlement s;
 		s.center = wp;
-		s.kind   = SettlementKind::Village;
+		s.kind   = SettlementKind::RuralSettlement;
 		s.radius = 150.0f;
 		s.score  = sc;
 
@@ -246,7 +249,6 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 
 	// 種別割当て
 	constexpr float kCastleTownExclusionSq = 20000.0f * 20000.0f;  // 20km 排他
-	constexpr float kPostTownRadiusSq      =  6000.0f *  6000.0f;  // 6km 以内が宿場町
 	constexpr float kCastleTownMinScore    = 0.6f;
 
 	// Pass 1: スコア上位の候補を城下町化（排他距離内に他の城下町を置かない）
@@ -258,7 +260,7 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 		for (const auto& other : settlements)
 		{
 			if (&other == &s) continue;
-			if (other.kind == SettlementKind::CastleTown &&
+			if (other.kind == SettlementKind::RegionalCity &&
 			    static_cast<float>(s.center.distanceFromSq(other.center)) < kCastleTownExclusionSq)
 			{
 				canBeCastleTown = false;
@@ -267,36 +269,67 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 		}
 		if (canBeCastleTown)
 		{
-			s.kind   = SettlementKind::CastleTown;
+			s.kind   = SettlementKind::RegionalCity;
 			s.radius = 700.0f;
 		}
 	}
 
-	// Pass 2: 宿場町判定（城下町の近隣は宿場町とする）
-	for (auto& s : settlements)
+	// Secondary centres reflect a rural market catchment as well as proximity to a city.
+	// Their size does not determine whether they originated as a post town.
+	for (size_t index=0;index<settlements.size();++index)
 	{
-		if (s.kind == SettlementKind::CastleTown) continue;
+		auto& settlement=settlements[index];
+		if (settlement.kind==SettlementKind::RegionalCity) { continue; }
+		int neighbours=0;
+		bool nearRegional=false;
 		for (const auto& other : settlements)
 		{
-			if (other.kind == SettlementKind::CastleTown &&
-			    static_cast<float>(s.center.distanceFromSq(other.center)) < kPostTownRadiusSq)
-			{
-				s.kind   = SettlementKind::PostTown;
-				s.radius = 300.0f;
-				break;
-			}
+			const double distance=settlement.center.distanceFrom(other.center);
+			if (distance>1 && distance<7500) { ++neighbours; }
+			if (other.kind==SettlementKind::RegionalCity && distance<6000) { nearRegional=true; }
+		}
+		const uint64 salt=UrbanMorphology::mix(seed ^ (index*0x9e3779b97f4a7c15ULL));
+		if (nearRegional || (neighbours>=4 && salt%5==0))
+		{
+			settlement.kind=SettlementKind::LocalTown;
+			settlement.radius=360;
 		}
 	}
-
-	int nCastleTown = 0, nPostTown = 0, nVillage = 0;
-	for (const auto& s : settlements)
+	Array<int> counts(8,0);
+	for (size_t index=0;index<settlements.size();++index)
 	{
-		if (s.kind == SettlementKind::CastleTown)    ++nCastleTown;
-		else if (s.kind == SettlementKind::PostTown) ++nPostTown;
-		else ++nVillage;
+		auto& settlement=settlements[index];
+		const auto site=UrbanMorphology::inspectSite(settlement.center,[&](const Vec2& p)
+		{
+			return world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+		});
+		bool nearRegional=false;
+		for (const auto& other : settlements)
+		{
+			if (&other!=&settlement && other.kind==SettlementKind::RegionalCity
+				&& settlement.center.distanceFrom(other.center)<8000) { nearRegional=true; break; }
+		}
+		const uint64 salt=UrbanMorphology::mix(seed ^ (index*0x9e3779b97f4a7c15ULL));
+		const auto origin=UrbanMorphology::chooseOrigin(static_cast<uint8>(settlement.kind),site,salt,nearRegional);
+		const bool railway=settlement.kind==SettlementKind::RegionalCity || origin==UrbanMorphology::Origin::Planned;
+		settlement.plan=UrbanMorphology::makePlan(origin,static_cast<uint8>(settlement.kind),site,salt,railway);
+		if (origin==UrbanMorphology::Origin::Port)
+		{
+			settlement.gridAxisZ=site.shoreDirection;
+			settlement.gridAxisX={site.shoreDirection.y,-site.shoreDirection.x};
+		}
+		else if (settlement.plan.ruralForm==UrbanMorphology::RuralForm::Valley)
+		{
+			settlement.gridAxisX=site.contourAxis;
+			settlement.gridAxisZ={-site.contourAxis.y,site.contourAxis.x};
+		}
+		++counts[static_cast<size_t>(origin)];
 	}
-	Logger << U"[placeAllSettlements] 城下町={}, 宿場町={}, 農村={}, total={} ({:.0f}ms)"_fmt(
-		nCastleTown, nPostTown, nVillage, settlements.size(), sw.msF());
+	for (size_t origin=0;origin<counts.size();++origin)
+	{
+		DBG_LOG(U"[SettlementOrigins] origin={} count={}"_fmt(UrbanMorphology::originName(static_cast<UrbanMorphology::Origin>(origin)),counts[origin]));
+	}
+	DBG_LOG(U"[SettlementOrigins] total={} elapsedMs={:.1f}"_fmt(settlements.size(),sw.msF()));
 
 	return settlements;
 }
@@ -535,9 +568,9 @@ void MapGenerator::generateGlobalRoads(
 	{
 		switch (settlements[i].kind)
 		{
-		case SettlementKind::CastleTown:   castleTownIdx << i; break;
-		case SettlementKind::PostTown: postTownIdx << i; break;
-		case SettlementKind::Village:   villageIdx << i; break;
+		case SettlementKind::RegionalCity:   castleTownIdx << i; break;
+		case SettlementKind::LocalTown: postTownIdx << i; break;
+		case SettlementKind::RuralSettlement:   villageIdx << i; break;
 		}
 	}
 
@@ -961,6 +994,19 @@ void MapGenerator::generateDistrictRoads(
 	ProgressCallback onProgress)
 {
 	const Stopwatch swTotal{ StartImmediately::Yes };
+	// Regional roads outside the eventual town footprint are two-way roads with shoulders.
+	// Expressways retain their own grade-separated cross section.
+	for (const auto& source : network.edges())
+	{
+		if (source.id<0) { continue; }
+		if (source.roadType!=RoadType::Arterial && source.roadType!=RoadType::LocalRoad) { continue; }
+		if (auto* edge=network.getEdge(source.id))
+		{
+			GeneratedStreet::apply(*edge,GeneratedStreet::describe(source.roadType==RoadType::Arterial
+				? GeneratedStreet::Role::Regional : GeneratedStreet::Role::Village));
+		}
+	}
+
 
 	for (int si = 0; si < static_cast<int>(settlements.size()); ++si)
 	{
@@ -969,23 +1015,18 @@ void MapGenerator::generateDistrictRoads(
 		const DistrictRoads::KaidoSegment kaido = DistrictRoads::extractKaido(
 			s, network, kaidoSearchRadius);
 
-		switch (s.kind)
-		{
-		case SettlementKind::CastleTown:
-			DistrictRoads::generateCastleTown(seed, si, s, kaido, world, network);
-			break;
-		case SettlementKind::PostTown:
-			DistrictRoads::generatePostTown(seed, si, s, kaido, world, network);
-			break;
-		case SettlementKind::Village:
-		default:
-			DistrictRoads::generateVillage(seed, si, s, kaido, world, network);
-			break;
-		}
+		DistrictRoads::generateSettlement(seed, si, s, kaido, world, network);
 
 		if (onProgress)
 			onProgress(static_cast<float>(si + 1) / settlements.size());
 	}
+
+	Array<int> emptyNodes;
+	for (const auto& node : network.nodes())
+	{
+		if (node.id>=0 && node.attachments.isEmpty()) { emptyNodes << node.id; }
+	}
+	for (const int id : emptyNodes) { network.removeNode(id); }
 
 	Logger << U"[DistrictRoads] 完了: districts={} ({:.0f}ms)"_fmt(
 		settlements.size(), swTotal.msF());
@@ -996,49 +1037,7 @@ void MapGenerator::generateDistrictRoads(
 // ─────────────────────────────────────────────────────────────────────────────
 
 void MapGenerator::setupTrain(TrainNetwork& trainNet, const World& world,
-                              const Array<Settlement>& districts)
+                              const Array<Settlement>& districts, const RoadNetwork* roads)
 {
-	Array<int> stationIds;
-
-	for (const auto& s : districts)
-	{
-		if (s.kind == SettlementKind::Village) continue;
-		if (stationIds.size() >= 4) break;
-
-		const float y  = world.computeHeight(
-			static_cast<float>(s.center.x),
-			static_cast<float>(s.center.y));
-		const String name = (stationIds.isEmpty()) ? U"中央駅"
-		                  : (stationIds.size() == 1) ? U"北駅"
-		                  : (stationIds.size() == 2) ? U"南駅"
-		                  : U"東駅";
-		stationIds << trainNet.addStation(
-			Vec3{ s.center.x, y, s.center.y }, name);
-	}
-
-	if (stationIds.size() < 2) return;
-
-	for (int i = 0; i + 1 < static_cast<int>(stationIds.size()); ++i)
-	{
-		const Vec3* na = trainNet.getNode(stationIds[i])     ? &trainNet.getNode(stationIds[i])->position     : nullptr;
-		const Vec3* nb = trainNet.getNode(stationIds[i + 1]) ? &trainNet.getNode(stationIds[i + 1])->position : nullptr;
-		if (!na || !nb) continue;
-		trainNet.addEdge(stationIds[i], stationIds[i + 1],
-		                 *na + (*nb - *na) * (1.0 / 3.0),
-		                 *na + (*nb - *na) * (2.0 / 3.0),
-		                 80.0f);
-	}
-
-	TrainSchedule sched;
-	sched.id         = 0;
-	sched.headwaySec = 600.0f;
-	sched.loop       = true;
-	for (int nodeId : stationIds)
-	{
-		StopEntry stop;
-		stop.stationNodeId = nodeId;
-		stop.dwellSec      = 30.0f;
-		sched.stops << stop;
-	}
-	trainNet.addSchedule(sched);
+	RailwayAlignment::generate(trainNet,world,districts,roads);
 }

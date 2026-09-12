@@ -21,6 +21,9 @@ public:
 	/// @param dt    リアル経過秒
 	/// @param world 地形クエリに使用（地形床クランプ・軌道ピボット計算）
 	void update(double dt, const World& world);
+	/// @brief Move in the walking camera frame: positive X is screen right, Y is forward.
+	void walk(Vec2 input, double distance, const World& world);
+
 
 	/// @brief 車両追従・一人称モード用のターゲットを設定する
 	/// @param pos     車両ワールド座標
@@ -38,11 +41,7 @@ public:
 	/// @brief カメラの視点位置を返す
 	Vec3 eyePosition() const
 	{
-		return m_focus + Vec3{
-			Math::Sin(m_yaw)  * Math::Cos(m_pitch),
-			Math::Sin(m_pitch),
-			Math::Cos(m_yaw)  * Math::Cos(m_pitch)
-		} * m_distance;
+		return m_camera.getEyePosition();
 	}
 
 	/// @brief ワールド座標とカメラ視点との水平距離 (XZ 平面) を返す

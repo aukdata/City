@@ -1,9 +1,10 @@
 ﻿#include "TrainRenderer.hpp"
+#include "BridgeStructure.hpp"
 #include <Siv3D/Profiler.hpp>
 
 namespace
 {
-	constexpr float kTrackWidth    = 1.435f;   // 軌間 [m]（標準軌）
+	constexpr float kTrackWidth    = 1.067f;   // 軌間 [m]（狭軌）
 	constexpr float kRailHalfW     = 0.07f;    // レール断面の半幅 [m]
 	constexpr float kRailTopY      = 0.17f;    // レール天面の高さ [m]（地盤からの offset）
 	constexpr float kSleeperY      = 0.10f;    // 枕木天面の高さ [m]
@@ -37,7 +38,7 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 {
 	// 線路 1 本をレール 2 本と枕木列へ分解し、静的メッシュとしてまとめて構築する。
 	MeshData mesh;
-	mesh.vertices.reserve((kSegments + 1) * 4 + (static_cast<int>(edge.length / 5.0f) + 2) * 4);
+	mesh.vertices.reserve((kSegments + 1) * 4 + (static_cast<int>(edge.length / .65f) + 2) * 4);
 
 	// ---- レール（左右 2本のリボン） ----
 	for (int side = 0; side < 2; ++side)
@@ -77,8 +78,8 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 		}
 	}
 
-	// ---- 枕木（5m ごと） ----
-	const int numSleepers = Max(1, static_cast<int>(edge.length / 5.0f));
+	// ---- 枕木（約0.65m ごと） ----
+	const int numSleepers = Max(1, static_cast<int>(edge.length / .65f));
 
 	for (int si = 0; si <= numSleepers; ++si)
 	{
@@ -109,8 +110,12 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-void TrainRenderer::renderTracks(const TrainNetwork& network)
+void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,const RoadNetwork& roads)
 {
+	if (!m_roadClearance || m_roadEdgeCount!=roads.edges().size())
+	{
+		m_roadClearance=std::make_unique<ParcelRoadIndex>(roads,true); m_roadEdgeCount=roads.edges().size(); m_bedMeshCache.clear();
+	}
 	// 線路はエッジ単位でメッシュキャッシュし、未構築分だけ初回描画時に生成する。
 	Profiler::EnableAssetCreationWarning(false);
 
@@ -119,6 +124,8 @@ void TrainRenderer::renderTracks(const TrainNetwork& network)
 	for (const auto& edge : network.edges())
 	{
 		if (!edge.isValid()) continue;
+		const Vec3 center=(network.getNode(edge.nodeA)->position+network.getNode(edge.nodeB)->position)*.5;
+		if (Vec2{center.x-eye.x,center.z-eye.z}.length()>5000+edge.length*.5) { continue; }
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) continue;
 
@@ -128,13 +135,40 @@ void TrainRenderer::renderTracks(const TrainNetwork& network)
 			m_trackMeshCache.emplace(edge.id, buildTrackMesh(edge, *bez));
 		}
 
+		if (!m_bedMeshCache.contains(edge.id))
+		{
+			MeshData bed;
+			for (float arc=0;arc<bez->totalLength;arc+=5)
+			{
+				const Vec3 a=bez->positionAt(arc),b=bez->positionAt(Min(arc+5,bez->totalLength));
+				const Vec3 rightA=tangentToRight(bez->tangentAt(arc)),rightB=tangentToRight(bez->tangentAt(Min(arc+5,bez->totalLength)));
+				const double ground=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
+				const bool viaduct=a.y-ground>3;
+				const Vec3 left=a-rightA*2.4,right=a+rightA*2.4,leftEnd=b-rightB*2.4,rightEnd=b+rightB*2.4;
+				BridgeStructure::quad(bed,left,leftEnd,rightEnd,right);
+				const double bottomA=viaduct ? a.y-.8 : ground-.2;
+				const double bottomB=viaduct ? b.y-.8 : world.sampleHeight(static_cast<float>(b.x),static_cast<float>(b.z))-.2;
+				for (const int side : {-1,1})
+				{
+					const Vec3 top=a+rightA*(2.4*side),end=b+rightB*(2.4*side);
+					BridgeStructure::quad(bed,top,Vec3{top.x,bottomA,top.z},Vec3{end.x,bottomB,end.z},end);
+					if (viaduct) { BridgeStructure::quad(bed,top,top+Vec3{0,.65,0},end+Vec3{0,.65,0},end); }
+				}
+				if (viaduct && static_cast<int>(arc)%30==0 && !m_roadClearance->overlaps(ParcelGeometry::footprint({a.x,a.z},3,0)))
+				{
+					BridgeStructure::append(bed,BridgeStructure::pier(a,rightA,ground,a.y-.8,4.8));
+				}
+			}
+			m_bedMeshCache.emplace(edge.id,Mesh{bed});
+		}
+		m_bedMeshCache[edge.id].draw(ColorF{.38,.39,.37}.removeSRGBCurve());
 		m_trackMeshCache[edge.id].draw(railColor);
 	}
 
 	// 接続線路の接線にホームの長手方向を合わせる。
 	for (const auto& node : network.nodes())
 	{
-		if (!node.isValid() || node.type != TrackNodeType::Station)
+		if (!node.isValid() || node.type != TrackNodeType::Station || node.position.distanceFromSq(eye)>Square(5000.0))
 		{
 			continue;
 		}
@@ -204,6 +238,7 @@ void TrainRenderer::renderTrains(const Array<Train>& trains)
 void TrainRenderer::invalidateTrackCache(int edgeId)
 {
 	m_trackMeshCache.erase(edgeId);
+	m_bedMeshCache.erase(edgeId);
 }
 
 Model& TrainRenderer::ensureModel(const String& stem)

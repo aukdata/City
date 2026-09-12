@@ -26,9 +26,10 @@ namespace JunctionGeometry
 		MeshData asphalt;
 		Array<Corner> corners;
 		bool elevated = false;
+		bool groundConnected = false;
 		bool repaired = false;
 	};
-	[[nodiscard]] Layout build(const RoadNetwork& network, int nodeId, bool onlyOpenEdges = true);
+	[[nodiscard]] Layout build(const RoadNetwork& network, int nodeId, bool onlyOpenEdges = true, const World* world = nullptr);
 	[[nodiscard]] Vec3 bandPosition(const Section& section, const Band& band, double across);
 	/// @brief Exact asphalt and roadside footprint; Y is the road's design elevation.
 	[[nodiscard]] MeshData terrainFootprint(const Layout& layout);

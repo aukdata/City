@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "EdgeSectionState.hpp"
+#include "../world/LandPlot.hpp"
 #include "../ui/PanelWidget.hpp"
 
 // =============================================================================
@@ -337,6 +338,8 @@ void GameScene::handleInput()
 			}
 		}
 	}
+
+	if (m_uiRenderer.isMouseOnHud()) { return; }
 
 	if      (m_mode == EditMode::RoadPlan)     handleRoadPlan();
 	else if (m_mode == EditMode::RoadDraw)     handleRoadDraw();
@@ -826,12 +829,16 @@ void GameScene::handleSelectionClick()
 	if (!hitNode)
 		hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
 
+	bool hitElevated=false;
 	// 高架面とのレイ交差で追加検索
 	{
 		const auto elev = raycastElevated(Vec2{ Cursor::Pos() });
-		if (elev.nodeId) { hitNode = elev.nodeId; hitEdge = none; }
-		else if (!hitNode && elev.edgeId) { hitEdge = elev.edgeId; }
+		if (elev.nodeId) { hitNode = elev.nodeId; hitEdge = none; hitElevated=true; }
+		else if (elev.edgeId) { hitNode=none; hitEdge = elev.edgeId; hitElevated=true; }
 	}
+
+	// The elevated road is in front of the ground parcel. Ground roads are excluded by the plot mesh.
+	if (!hitElevated && selectLandParcelAt(Vec2{m_cursorGroundPos->x,m_cursorGroundPos->z})) { return; }
 
 	if (hitNode)
 	{
@@ -1794,4 +1801,25 @@ Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
 		}
 	}
 	return best;
+}
+
+bool GameScene::selectLandParcelAt(Vec2 position)
+{
+	for (const Chunk* chunk : m_world.getActiveChunks())
+	{
+		if (!chunk) { continue; }
+		const LandPatch* patch=LandPlot::find(*chunk,position);
+		if (!patch) { continue; }
+		MeshData surface=m_worldRenderer.landPatchSurface(m_world,m_network,chunk->coord,*patch);
+		if (!LandPlot::containsSurface(surface,position)) { continue; }
+		clearSelection();
+		m_selection={SelectionKind::LandParcel,patch->id};
+		m_selectedLandParcel=LandParcelRef{chunk->coord,patch->id};
+		m_landParcelOutline=Mesh{surface};
+		m_landParcelRevision=m_worldRenderer.geometryRevision();
+		for (const StringView id : {U"building_info",U"edge_info",U"node_info",U"signal_edit",U"guide_sign_edit",U"route_info"}) { m_panelManager.hide(id); }
+		m_panelManager.show(U"land_info",U"敷地・農地",panelRightPos(U"land_info"));
+		return true;
+	}
+	return false;
 }

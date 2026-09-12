@@ -13,6 +13,9 @@ public:
 	void bind() const;
 	[[nodiscard]] const PixelShader& shader() const { return m_forwardShader; }
 	[[nodiscard]] const PixelShader& terrainShader() const { return m_terrainShader; }
+	[[nodiscard]] const PixelShader& fieldShader() const { return m_fieldShader; }
+	[[nodiscard]] const PixelShader& paddyShader() const { return m_paddyShader; }
+	[[nodiscard]] const PixelShader& foliageShader() const { return m_foliageShader; }
 	[[nodiscard]] double shadowMilliseconds() const { return m_shadowMilliseconds; }
 	[[nodiscard]] bool ready() const { return static_cast<bool>(m_forwardShader); }
 
@@ -24,7 +27,7 @@ private:
 		Float4 fogColorDensity{ 0, 0, 0, 0 };
 		Float4 dynamicShadow{ 0, 0, 0, 0 };
 	};
-	PixelShader m_depthShader, m_forwardShader, m_terrainShader;
+	PixelShader m_depthShader, m_forwardShader, m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
 	RenderTexture m_shadowMap, m_dynamicShadowMap;
 	ConstantBuffer<Parameters> m_parameters;
 	Vec3 m_previousFocus{ Math::Inf, 0, 0 };

@@ -1,4 +1,6 @@
 ﻿#include "RoadRenderer.hpp"
+#include "../road/SignArtwork.hpp"
+#include "BridgeStructure.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/RoadSign.hpp"
@@ -468,13 +470,13 @@ namespace
 		const Vec3 cp1{ from.x + tanFrom.x * ctrlLen, 0.0, from.z + tanFrom.z * ctrlLen };
 		const Vec3 cp2{ to.x   + tanTo.x   * ctrlLen, 0.0, to.z   + tanTo.z   * ctrlLen };
 
-		constexpr int kDiv = 8;
+		const int divisions = Clamp(static_cast<int>(Ceil(dist / 1.5)),12,64);
 		const double hw = static_cast<double>(lineWidth * 0.5f);
 		MeshData md;
 
-		for (int k = 0; k <= kDiv; ++k)
+		for (int k = 0; k <= divisions; ++k)
 		{
-			const double t = k / static_cast<double>(kDiv);
+			const double t = k / static_cast<double>(divisions);
 			const double u = 1.0 - t;
 			// cubic bezier: B(t) = (1-t)^3*P0 + 3(1-t)^2*t*P1 + 3(1-t)*t^2*P2 + t^3*P3
 			const Vec3 pos = from * (u * u * u) + cp1 * (3 * u * u * t)
@@ -534,6 +536,21 @@ namespace
 
 bool RoadRenderer::loadAssets()
 {
+	m_constructionEarthPS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Earth_PS");
+	m_constructionAggregatePS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Aggregate_PS");
+	m_constructionSoilNormal=Texture{U"assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg",TextureDesc::Mipped};
+	m_constructionGravelNormal=Texture{U"assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg",TextureDesc::Mipped};
+	if(!m_constructionEarthPS || !m_constructionAggregatePS || !m_constructionSoilNormal || !m_constructionGravelNormal) return false;
+	m_constructionSoil = Texture{U"assets/third_party/polyhaven/brown_mud/brown_mud_diff_1k.jpg",TextureDesc::MippedSRGB};
+	m_constructionGravel = Texture{U"assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg",TextureDesc::MippedSRGB};
+	m_constructionConcrete = Texture{U"assets/third_party/polyhaven/concrete_wall_001/concrete_wall_001_diff_1k.jpg",TextureDesc::MippedSRGB};
+	const std::array<String,4> models{U"excavator",U"road_roller",U"asphalt_paver",U"mobile_crane"};
+	for(size_t i=0;i<models.size();++i)
+	{
+		m_constructionModels[i]=Model{U"assets/construction/{}.obj"_fmt(models[i])};
+		if(m_constructionModels[i].isEmpty()) return false;
+		Model::RegisterDiffuseTextures(m_constructionModels[i],TextureDesc::MippedSRGB);
+	}
 	m_arrowMarkingRegistry.load(U"assets/road_markings");
 	m_cableVS = VertexShader::HLSL(U"shaders/hlsl/city_cable.hlsl", U"Cable_VS");
 	m_cablePS = PixelShader::HLSL(U"shaders/hlsl/city_cable.hlsl", U"Cable_PS");
@@ -654,6 +671,15 @@ void RoadRenderer::synchronizeTerrainChanges(const World& world, const RoadNetwo
 
 void RoadRenderer::renderShadowCasters(Vec3 focus, double radius)
 {
+	for (const auto& [id,cache] : m_constructionCache)
+	{
+		const auto bounds = m_boundsCache.find(id);
+		if (bounds == m_boundsCache.end()) continue;
+		if (Vec3{bounds->second.center}.distanceFrom(focus) > radius + Sqrt(bounds->second.radiusSq)) continue;
+		for (const auto& surface : cache.surfaces) surface.meshPair.detail.draw(ColorF{1});
+		for (const auto& detail : cache.details) detail.mesh.draw(ColorF{1});
+		for (const auto& [index,transform] : cache.machines) m_constructionModels[index].draw(transform);
+	}
 	for (const auto& [edgeId, entries] : m_partLodBatchCache)
 	{
 		const auto bounds = m_boundsCache.find(edgeId);
@@ -689,6 +715,7 @@ void RoadRenderer::renderShadowCasters(Vec3 focus, double radius)
 
 void RoadRenderer::eraseEdgeCaches(int edgeId)
 {
+	m_constructionCache.erase(edgeId);
 	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
 		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
 	{
@@ -741,6 +768,7 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 
 void RoadRenderer::invalidateAllCaches()
 {
+	m_constructionCache.clear();
 	++m_geometryRevision;
 	m_dirtyTerrainObserved.clear();
 	m_partMeshCache.clear();
@@ -787,10 +815,12 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
                              float marginA, float marginB, const World& world, bool isClose)
 {
 	// エッジ単位で路面部品・車線線・標識・橋脚までの描画責務をまとめる。
-	// Planned / UnderConstruction は実メッシュを描かない（ワイヤーフレームで代替）
-	if (edge.edgeState == EdgeState::Planned ||
-	    edge.edgeState == EdgeState::UnderConstruction)
+	if (edge.edgeState == EdgeState::Planned) return;
+	if (edge.edgeState == EdgeState::UnderConstruction)
+	{
+		drawConstruction(edge, network, world, isClose);
 		return;
+	}
 
 	// マージンが変わった場合はキャッシュを破棄して再構築する
 	if (auto it = m_marginCache.find(edge.id); it != m_marginCache.end())
@@ -924,22 +954,19 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 					const float height = topY - terrainY;
 					if (height < 1.0f) continue;
 
-					// 直方体メッシュ: 幅 2m × 奥行 1.5m × 高さ
-					constexpr float kPierW = 2.0f;
-					constexpr float kPierD = 1.5f;
-
-					const Float3 center{ static_cast<float>(pos.x),
-				                     terrainY + height * 0.5f,
-				                     static_cast<float>(pos.z) };
-					piers << Mesh{ MeshData::Box(center, Float3{ kPierW, height, kPierD }) };
+					piers << Mesh{BridgeStructure::pier(pos,tangentToRight(tan),terrainY,topY-.65,edge.totalWidth())};
 				}
+				piers << Mesh{BridgeStructure::girders(*bez,edge.totalWidth(),bez->totalLength)};
 				m_pierMeshCache[edge.id] = std::move(piers);
 			}
 		}
 
-		const ColorF pierColor = ColorF{ 0.55, 0.53, 0.50 }.removeSRGBCurve();
-		for (const auto& m : m_pierMeshCache[edge.id])
-			m.draw(pierColor);
+		const auto& meshes=m_pierMeshCache[edge.id];
+		for(size_t i=0;i<meshes.size();++i)
+		{
+			if(i+1==meshes.size()) meshes[i].draw(ColorF{.24,.29,.31}.removeSRGBCurve());
+			else meshes[i].draw(m_constructionConcrete,ColorF{1});
+		}
 	}
 }
 
@@ -1702,7 +1729,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
                                                      const World& world, [[maybe_unused]] int div,
                                                      bool onlyOpenEdges)
 {
-	const auto layout = JunctionGeometry::build(network, nodeId, onlyOpenEdges);
+	const auto layout = JunctionGeometry::build(network, nodeId, onlyOpenEdges, &world);
 	Array<PartMeshEntry> entries;
 	if (layout.asphalt.vertices.isEmpty()) { return entries; }
 	auto addEntry = [&](MeshData mesh, ColorF color, const Texture* texture)
@@ -1984,7 +2011,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 	const RoadEdge* edgeB = network.getEdge(node.attachments[1].edgeId);
 	if (!edgeA || !edgeB) return {};
 
-	const auto layout = JunctionGeometry::build(network,nodeId);
+	const auto layout = JunctionGeometry::build(network,nodeId,true,&world);
 	MeshData surface = layout.asphalt;
 	for (auto& vertex : surface.vertices)
 	{
@@ -2004,12 +2031,9 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 		int      groupId;
 	};
 
-	// 参照フレーム: edgeA の切断点を原点とし、右ベクトルと前進方向を幾何的に取得
-	const auto refZero  = calcEdgeLine(*edgeA, 0.0f);
-	const auto refUnit  = calcEdgeLine(*edgeA, 1.0f);
-	const Vec3 refRight = (refUnit.pos - refZero.pos).normalized();
-	const Vec3 refForward = Vec3{ refZero.tangent.x, 0.0, refZero.tangent.z }.normalized();
-	const Vec3 refOrigin  = node.position;
+	// Transport the cross section through the bend using edge orientation.
+	// Projecting onto one world-space right vector collapses the other arm at 90 degrees.
+	const bool referenceStartsAtNode = edgeA->nodeA == nodeId;
 
 	auto buildInfos = [&](const RoadEdge& edge, bool isNodeAEdge) -> Array<LaneAtNode>
 	{
@@ -2021,10 +2045,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 			const float oR = isNodeAEdge ? L.offsetA_R : L.offsetB_R;
 			const auto  infoL = calcEdgeLine(edge, oL);
 			const auto  infoR = calcEdgeLine(edge, oR);
-			const Vec3  laneCenter = (infoL.pos + infoR.pos) * 0.5;
-
-			const double lProj = (infoL.pos - laneCenter).dot(refRight);
-			const bool   swap  = (lProj > 0.0);
+			const bool swap = edge.id != edgeA->id && isNodeAEdge == referenceStartsAtNode;
 
 			LaneAtNode info;
 			if (swap)
@@ -2041,11 +2062,10 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 				info.lineLeft = L.lineLeft;
 				info.lineRight = L.lineRight;
 			}
-			info.centerCommon = static_cast<float>((laneCenter - refOrigin).dot(refRight));
+			info.centerCommon = (oL+oR)*0.5f*(swap ? -1.0f : 1.0f);
 
 			const bool outgoing = (L.dir == LaneDir::Forward) == isNodeAEdge;
-			const Vec3 travelDir = outgoing ? -infoL.tangent : infoL.tangent;
-			info.rawFlow = (travelDir.dot(refForward) > 0.0) ? 0 : 1;
+			info.rawFlow = (edge.id == edgeA->id ? outgoing : !outgoing) ? 0 : 1;
 			info.groupId = -1;
 
 			out << info;
@@ -2145,8 +2165,8 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 			if (pairIdx[k] < 0) continue;
 			const auto& lA = infosA[idsA[k]];
 			const auto& lB = infosB[idsB[pairIdx[k]]];
-			const LineType lineL = (lA.lineLeft  != LineType::None) ? lA.lineLeft  : lB.lineLeft;
-			const LineType lineR = (lA.lineRight != LineType::None) ? lA.lineRight : lB.lineRight;
+			const LineType lineL = (lA.lineLeft != LineType::None && lB.lineLeft != LineType::None) ? lA.lineLeft : LineType::None;
+			const LineType lineR = (lA.lineRight != LineType::None && lB.lineRight != LineType::None) ? lA.lineRight : LineType::None;
 			if (lineL != LineType::None)
 			{
 				const auto lineStyle = lineStyleFor(lineL);
@@ -2209,27 +2229,19 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 		const LaneAtNode& Y  = infosFrom[innerIdx];
 		const LaneAtNode& pY = infosTo[pairedIdx];
 		const bool outerIsRight = (Y.centerCommon >= 0.0f);
+		if ((outerIsRight ? pY.lineRight : pY.lineLeft)==LineType::None) { return none; }
 		return std::make_pair(
 			outerIsRight ? pY.rightPos : pY.leftPos,
 			outerIsRight ? pY.rightTan : pY.leftTan);
 	};
 
-	const auto fallbackFromA = calcEdgeLine(*edgeB, 0.0f);
-	const auto fallbackFromB = calcEdgeLine(*edgeA, 0.0f);
-
 	for (int xIdx : unpairedA)
 	{
-		const auto tgt = computeTaperTarget(xIdx, true);
-		const Vec3 tPos = tgt ? tgt->first  : fallbackFromA.pos;
-		const Vec3 tTan = tgt ? tgt->second : fallbackFromA.tangent;
-		drawTaper(infosA[xIdx], tPos, tTan);
+		if (const auto target=computeTaperTarget(xIdx,true)) { drawTaper(infosA[xIdx],target->first,target->second); }
 	}
 	for (int xIdx : unpairedB)
 	{
-		const auto tgt = computeTaperTarget(xIdx, false);
-		const Vec3 tPos = tgt ? tgt->first  : fallbackFromB.pos;
-		const Vec3 tTan = tgt ? tgt->second : fallbackFromB.tangent;
-		drawTaper(infosB[xIdx], tPos, tTan);
+		if (const auto target=computeTaperTarget(xIdx,false)) { drawTaper(infosB[xIdx],target->first,target->second); }
 	}
 
 	return batches;
@@ -2311,7 +2323,8 @@ Array<RoadRenderer::SignDraw> RoadRenderer::buildEdgeSignMeshes(
 
 		// 看板は driver に向ける: nodeA 側 → driver は B→A → 看板正面は +tan
 		//                          nodeB 側 → driver は A→B → 看板正面は -tan
-		const bool boardFacesTan = atA;
+		const bool entering=sp.type==RoadSignType::NoEntry || sp.type==RoadSignType::OneWay;
+		const bool boardFacesTan = entering ? !atA : atA;
 
 		Mat4x4 poleMat, boardMat;
 		Vec3   poleTop;
@@ -2326,6 +2339,7 @@ Array<RoadRenderer::SignDraw> RoadRenderer::buildEdgeSignMeshes(
 		signDraw.boardMat = boardMat;
 		signDraw.poleTop  = poleTop;
 		signDraw.type     = sp.type;
+		signDraw.auxNumber = sp.auxValue;
 		batches << signDraw;
 	}
 
@@ -2439,6 +2453,10 @@ void RoadRenderer::drawSigns(const Array<SignDraw>& draws)
 			{
 				boardMesh->draw(signDraw.boardMat, TextureAsset(vis.textureAssetName));
 				continue;
+			}
+			if (SignArtwork::dynamic(signDraw.type))
+			{
+				if (auto found=m_regulatorySignTexCache.find(SignArtwork::key(signDraw.type,signDraw.auxNumber));found!=m_regulatorySignTexCache.end()) { boardMesh->draw(signDraw.boardMat,found->second); }
 			}
 			if (signDraw.type == RoadSignType::NationalRoute)
 			{
@@ -2937,6 +2955,23 @@ namespace
 
 void RoadRenderer::prepareRouteSignTextures(const RoadNetwork& network)
 {
+	// A fixed small shared palette avoids traversing every road each frame.
+	for (const auto type : {RoadSignType::SpeedLimit,RoadSignType::OneWay,RoadSignType::CurveWarning})
+	{
+		const int start=type==RoadSignType::SpeedLimit ? 20 : 0,end=type==RoadSignType::SpeedLimit ? 100 : 2,step=type==RoadSignType::SpeedLimit ? 10 : 1;
+		for (int value=start;value<=end;value+=step)
+		{
+			const int key=SignArtwork::key(type,value);
+			if (m_regulatorySignTexCache.contains(key)) { continue; }
+			RenderTexture texture{256,256,ColorF{0,0},TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::No,HasMipMap::Yes};
+			{
+				const ScopedRenderTarget2D target{texture};
+				const ScopedRenderStates2D blend{BlendState::Opaque};
+				SignArtwork::draw(type,value,FontAsset(Asset::Arial24)); Graphics2D::Flush();
+			}
+			texture.generateMips(); m_regulatorySignTexCache.emplace(key,std::move(texture));
+		}
+	}
 	const Texture& baseTex = TextureAsset(Asset::NationalRoadSign);
 	if (not baseTex) return;
 
@@ -3381,8 +3416,7 @@ void RoadRenderer::drawNodeCapWireframe(const RoadNetwork& network, int nodeId, 
 	{
 		const RoadEdge* edge = network.getEdge(att.edgeId);
 		if (!edge) { continue; }
-		if (edge->edgeState == EdgeState::Planned ||
-		    edge->edgeState == EdgeState::UnderConstruction)
+		if (edge->edgeState == EdgeState::Planned)
 		{
 			hasWireEdge = true;
 			break;
@@ -3415,9 +3449,7 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 	for (const RoadEdge& edge : network.edges())
 	{
 		if (edge.id < 0) continue;
-		if (edge.edgeState != EdgeState::Planned &&
-		    edge.edgeState != EdgeState::UnderConstruction)
-			continue;
+		if (edge.edgeState != EdgeState::Planned) continue;
 
 		// 距離チェック
 		auto boundsIt = m_boundsCache.find(edge.id);

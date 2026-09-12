@@ -19,6 +19,7 @@ struct SimGraph
 		float    speedLimit = 60.0f;   ///< 制限速度 [km/h]
 		float    congestion = 0.0f;    ///< 渋滞度 [0,1]
 		RoadType roadType = RoadType::LocalRoad;
+		EdgeState edgeState = EdgeState::Open;
 		Array<RoadPart> parts;         ///< 道路部品（走行可否判定に使用）
 		Array<Lane> lanes;             ///< 車線構造（走行可否・方向判定に使用）
 		float    tangentAngleA = 0.0f; ///< nodeA 端のベジェ接線角 [rad] (atan2(tz,tx))
@@ -27,6 +28,7 @@ struct SimGraph
 		/// @brief 路盤パーツが建設済みかどうか
 		[[nodiscard]] bool isRoadbedBuilt() const
 		{
+			if (edgeState != EdgeState::Open && edgeState != EdgeState::Existing) return false;
 			for (const auto& p : parts)
 				if (p.type == RoadPartType::Roadbed && p.build == BuildState::Built) return true;
 			return false;
@@ -62,6 +64,7 @@ struct SimGraph
 			se.speedLimit = edge.speedLimit;
 			se.congestion = edge.congestion;
 			se.roadType   = edge.roadType;
+			se.edgeState  = edge.edgeState;
 			se.parts      = edge.parts;
 			se.lanes      = edge.lanes;
 
@@ -144,6 +147,7 @@ struct SimGraph
 			se.speedLimit = re->speedLimit;
 			se.congestion = re->congestion;
 			se.roadType   = re->roadType;
+			se.edgeState  = re->edgeState;
 			se.parts      = re->parts;
 			se.lanes      = re->lanes;
 			if (const auto bez = network.getBezier(re->id))

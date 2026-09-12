@@ -29,7 +29,6 @@ void GameCamera::update(double dt, const World& world)
 	else if (m_mode == CameraMode::FirstPerson)
 	{
 		handleFirstPersonInput(dt, world);
-		rebuildFirstPerson();
 	}
 	else
 	{
@@ -273,7 +272,8 @@ void GameCamera::rebuildFollow()
 void GameCamera::handleFirstPersonInput(double dt, const World& world)
 {
 	// マウスで視点回転
-	if (MouseR.pressed())
+	if (MouseR.down() || MouseM.down()) { m_dragAnchor=Cursor::Pos(); }
+	if (!m_blockInput && (MouseR.pressed() || MouseM.pressed()))
 	{
 		const Vec2 delta = Cursor::DeltaF();
 		m_fpYaw   += static_cast<float>(delta.x) * 0.003f;
@@ -281,34 +281,29 @@ void GameCamera::handleFirstPersonInput(double dt, const World& world)
 		m_fpPitch  = Clamp(m_fpPitch,
 			static_cast<float>(Math::ToRadians(-80.0)),
 			static_cast<float>(Math::ToRadians(80.0)));
+		Cursor::SetPos(m_dragAnchor);
 		Cursor::RequestStyle(CursorStyle::Hidden);
 	}
 
-	// WASD で水平移動
-	const Vec3 forward = Vec3{
-		Math::Sin(m_fpYaw), 0.0, Math::Cos(m_fpYaw)
-	};
-	const Vec3 right = Vec3{
-		Math::Cos(m_fpYaw), 0.0, -Math::Sin(m_fpYaw)
-	};
-	constexpr float kWalkSpeed = 30.0f;   // m/s
-	const float speed = kWalkSpeed * static_cast<float>(dt)
-	                  * (KeyShift.pressed() ? 3.0f : 1.0f);
+	const Vec2 input{static_cast<double>(KeyD.pressed())-KeyA.pressed(),
+		static_cast<double>(KeyW.pressed())-KeyS.pressed()};
+	walk(input,30.0*dt*(KeyShift.pressed() ? 3.0 : 1.0),world);
+}
 
-	if (KeyW.pressed()) m_focus += forward * speed;
-	if (KeyS.pressed()) m_focus -= forward * speed;
-	if (KeyA.pressed()) m_focus += right   * speed;
-	if (KeyD.pressed()) m_focus -= right   * speed;
-
-	// 地面に張り付く（目線高 5m）
-	const float groundY = world.sampleHeight(
-		static_cast<float>(m_focus.x), static_cast<float>(m_focus.z));
-	m_focus.y = groundY;
+void GameCamera::walk(Vec2 input,double distance,const World& world)
+{
+	const Vec3 forward{Sin(m_fpYaw),0,Cos(m_fpYaw)};
+	// Siv3D uses a left-handed view: up cross forward is screen right.
+	const Vec3 right=Vec3{0,1,0}.cross(forward);
+	if (input.lengthSq()>1) { input.normalize(); }
+	m_focus+=(right*input.x+forward*input.y)*distance;
+	m_focus.y=world.sampleHeight(static_cast<float>(m_focus.x),static_cast<float>(m_focus.z));
+	rebuildFirstPerson();
 }
 
 void GameCamera::rebuildFirstPerson()
 {
-	constexpr double kEyeHeight = 5.0;
+	constexpr double kEyeHeight = 1.5;
 	const Vec3 eye = m_focus + Vec3{ 0, kEyeHeight, 0 };
 	const Vec3 fwd = Vec3{
 		Math::Sin(m_fpYaw) * Math::Cos(m_fpPitch),

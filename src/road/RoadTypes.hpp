@@ -142,11 +142,12 @@ enum class RoadSignType : uint8
 	None,
 	Stop,           ///< 一時停止（規制・逆三角・330）
 	Yield,          ///< 徐行（規制・逆三角・329）
-	SpeedLimit,               ///< 最高速度（規制・赤円・323）(将来)
+	SpeedLimit,               ///< 最高速度（規制・赤円・323）
 	NoEntry,                  ///< 車両進入禁止（規制・赤円・303）
-	OneWay,                   ///< 一方通行（指示・青矩形・326）(将来)
+	OneWay,                   ///< 一方通行（規制・青矩形・326）
 	NationalRoute,            ///< 一般国道標識（案内・おにぎり・118）— route 由来の動的生成
 	DirectionalRestriction,   ///< 指定方向外進行禁止（規制・青円・311）
+	CurveWarning,              ///< 左右の屈曲あり（警戒・黄菱形・202）
 };
 
 /// @brief 道路標示の種類
@@ -482,6 +483,7 @@ struct RoadEdge
 	Array<int> openLanes(LaneDir dir, GameTime now) const
 	{
 		Array<int> result;
+		if (edgeState != EdgeState::Open && edgeState != EdgeState::Existing) return result;
 		for (int i = 0; i < static_cast<int>(lanes.size()); ++i)
 		{
 			const Lane L = effectiveLane(i, now);
@@ -527,7 +529,7 @@ inline bool isPassable(const RoadEdge& edge, int laneIndex)
 	if (laneIndex < 0 || laneIndex >= static_cast<int>(edge.lanes.size()))
 		return false;
 	const auto& lane = edge.lanes[laneIndex];
-	return edge.isRoadbedBuilt()
+	return (edge.edgeState == EdgeState::Open || edge.edgeState == EdgeState::Existing) && edge.isRoadbedBuilt()
 		&& (lane.op == OpState::Open || lane.op == OpState::Provisional);
 }
 

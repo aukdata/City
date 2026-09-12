@@ -195,7 +195,7 @@ private:
 	int             m_followVehicleIdx = 0;
 
 	// 選択状態（道路・付帯設備を統合）
-	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building };
+	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel };
 	struct Selection {
 		SelectionKind kind = SelectionKind::None;
 		int id = -1;
@@ -212,6 +212,13 @@ private:
 		int row    = 0;
 	};
 	Optional<BuildingRef> m_selectedBuilding;
+	struct LandParcelRef { Point chunkCoord; int id=-1; };
+	Optional<LandParcelRef> m_selectedLandParcel;
+	Mesh m_landParcelOutline;
+	uint64 m_landParcelRevision=0;
+	void drawLandParcelPanel();
+	bool selectLandParcelAt(Vec2 position);
+
 
 	/// @brief 道路路線選択（Edge/Node 選択と独立に保持）
 	Optional<int> m_selectedRouteId;
@@ -227,14 +234,14 @@ private:
 	}
 	Optional<int> selectedRouteId() const { return m_selectedRouteId; }
 	Optional<int> selectedRoadPlanId() const { return m_selectedRoadPlanId; }
-	void selectEdge(int id)   { m_selection = { SelectionKind::Edge, id }; }
-	void selectNode(int id)   { m_selection = { SelectionKind::Node, id }; }
-	void selectGuideSign(int id) { m_selection = { SelectionKind::GuideSign, id }; }
-	void selectSignal(int nodeId) { m_selection = { SelectionKind::Signal, nodeId }; }
-	void selectBuilding(BuildingRef ref) { m_selection = { SelectionKind::Building, 0 }; m_selectedBuilding = ref; }
+	void selectEdge(int id)   { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::Edge, id }; }
+	void selectNode(int id)   { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::Node, id }; }
+	void selectGuideSign(int id) { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::GuideSign, id }; }
+	void selectSignal(int nodeId) { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::Signal, nodeId }; }
+	void selectBuilding(BuildingRef ref) { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::Building, 0 }; m_selectedBuilding = ref; }
 	void selectRoute(int id)  { m_selectedRouteId = id; }
 	void selectRoadPlan(int id) { m_selectedRoadPlanId = id; }
-	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedRoadPlanId = none; m_selectedBuilding = none; }
+	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedRoadPlanId = none; m_selectedBuilding = none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); }
 	void recomputeGuideSignsAroundNode(int nodeId);
 
 	// 車両選択
@@ -333,6 +340,10 @@ private:
 	// ---- 内部メソッド ----
 	/// @brief UnderConstruction エッジの Open 遷移チェック（毎フレーム呼び出し）
 	void tickConstruction();
+	bool startRoadPlanConstruction(int planId);
+	void prepareConstructionSite(const Array<int>& edgeIds);
+	RoadConstruction::ClearanceLedger m_clearanceLedger;
+	bool m_restoreConstructionSites = false;
 
 	void initScene();
 	void initNewGame();
@@ -400,6 +411,7 @@ private:
 		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;
 
 		m_routeSignRenderer.invalidate();
+		m_trainRenderer.invalidateRoadClearance();
 		if (dirtyNodeIds.isEmpty())
 		{
 			m_worldRenderer.invalidateAllTerrain();
@@ -481,6 +493,9 @@ private:
 	void handleRoadDraw();
 	void handleRoadPlan();
 	void updateRoadPlanReview();
+	void updateTransportReview();
+	void jumpToMapPosition(Vec2 target);
+	void updateConstructionReview();
 	/// @brief スタート/ゴール指定モードの経路探索・敷設を実行する
 	void invokeAutoPlace(Vec3 start, Vec3 goal);
 	bool rebuildDraftRoadPlan();

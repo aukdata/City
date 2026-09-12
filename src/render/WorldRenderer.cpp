@@ -1,4 +1,5 @@
 ﻿#include "WorldRenderer.hpp"
+#include "TreeGeometry.hpp"
 #include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
@@ -10,6 +11,22 @@
 
 namespace
 {
+	float buildingBaseHeight(const World& world,const Building& building,float x,float z)
+	{
+		float height=world.sampleHeight(x,z);
+		if (building.type==BuildingType::Parking) { return height; }
+		const float half=buildingFootprintXZ(building.type)*.5f;
+		const Vec2 along{Cos(building.angle)*half,Sin(building.angle)*half},across{-along.y,along.x};
+		for (const int side : {-1,1})
+		{
+			for (const int end : {-1,1})
+			{
+				const Vec2 point=Vec2{x,z}+along*side+across*end;
+				height=Max(height,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)));
+			}
+		}
+		return height+.04f;
+	}
 	constexpr float kTerrainCellSize      = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	constexpr float kRoadTerrainQuadStep  = 24.0f;
 	constexpr float kRoadTerrainRelief    = 0.012f;
@@ -489,32 +506,63 @@ void WorldRenderer::preloadBuildingModels()
 
 void WorldRenderer::render(World& world, const RoadNetwork& network, const BasicCamera3D& camera)
 {
-	// Publish at most one completed snapshot per frame. GPU objects stay on this thread.
-	for (size_t index = 0; index < m_terrainJobs.size(); ++index)
+	m_buildingEye=camera.getEyePosition();
+	Array<Key> distantTrees;
+	for (const Key key : m_detailedTreeChunks)
 	{
-		auto& job = m_terrainJobs[index];
-		if (job.future.wait_for(std::chrono::seconds{0}) != std::future_status::ready) { continue; }
-		auto result = job.future.get();
-		if (job.epoch == m_terrainEpoch && job.revision == m_terrainRevisions[job.key])
+		const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
+		if (TreeGeometry::nearChunk(coord,m_buildingEye)) { continue; }
+		if (auto cache=m_landscapeMeshCache.find(key);cache!=m_landscapeMeshCache.end())
 		{
-			const Stopwatch upload{ StartImmediately::Yes };
-			Array<TerrainMeshBatch> batches;
-			for (auto& data : result.batches)
-			{
-				if (!data.meshData.indices.isEmpty()) { batches << TerrainMeshBatch{ data.materialKey, DynamicMesh{data.meshData} }; }
-			}
-			m_meshCache[job.key] = std::move(batches);
-			Array<BuildingBatch> landscape;
-			for (auto& data : result.landscape)
-			{
-				if (!data.meshData.indices.isEmpty()) { landscape << BuildingBatch{data.materialKey,detailColorForKey(data.materialKey),Mesh{data.meshData}}; }
-			}
-			m_landscapeMeshCache[job.key] = std::move(landscape);
+			cache->second.remove_if([](const BuildingBatch& batch){ return batch.materialKey>=1000; });
+		}
+		distantTrees << key;
+	}
+	for (const Key key : distantTrees) { m_detailedTreeChunks.erase(key);++m_geometryRevision; }
+	// Upload a bounded portion of a completed worker snapshot per frame. Keep the
+	// previous complete chunk visible until both terrain and landscape are ready.
+	for (size_t index=0;index<m_terrainJobs.size();++index)
+	{
+		auto& job=m_terrainJobs[index];
+		if (!job.result)
+		{
+			if (job.future.wait_for(std::chrono::seconds{0})!=std::future_status::ready) { continue; }
+			job.result=job.future.get();
+		}
+		if (job.epoch!=m_terrainEpoch || job.revision!=m_terrainRevisions[job.key])
+		{
+			m_terrainJobs.erase(m_terrainJobs.begin()+index);
+			break;
+		}
+		auto& result=*job.result;
+		const Stopwatch upload{StartImmediately::Yes};
+		constexpr double kUploadBudgetMilliseconds=2.0;
+		while (job.terrainIndex<result.batches.size() && upload.msF()<kUploadBudgetMilliseconds)
+		{
+			auto& data=result.batches[job.terrainIndex++];
+			if (!data.meshData.indices.isEmpty()) { job.uploadedTerrain << TerrainMeshBatch{data.materialKey,DynamicMesh{data.meshData}}; }
+			data.meshData=MeshData{};
+		}
+		while (job.terrainIndex==result.batches.size() && job.landscapeIndex<result.landscape.size() && upload.msF()<kUploadBudgetMilliseconds)
+		{
+			auto& data=result.landscape[job.landscapeIndex++];
+			if (!data.meshData.indices.isEmpty()) { job.uploadedLandscape << BuildingBatch{data.materialKey,detailColorForKey(data.materialKey),Mesh{data.meshData}}; }
+			data.meshData=MeshData{};
+		}
+		const double elapsed=upload.msF();
+		job.uploadTotalMilliseconds+=elapsed;job.maxUploadMilliseconds=Max(job.maxUploadMilliseconds,elapsed);++job.uploadFrames;
+		if (job.terrainIndex==result.batches.size() && job.landscapeIndex==result.landscape.size())
+		{
+			m_meshCache[job.key]=std::move(job.uploadedTerrain);
+			m_landscapeMeshCache[job.key]=std::move(job.uploadedLandscape);
+			if (job.detailedTrees) { m_detailedTreeChunks.insert(job.key); }
+			else { m_detailedTreeChunks.erase(job.key); }
 			m_pendingTerrainRebuildKeys.erase(job.key);
 			++m_geometryRevision;
-			DBG_LOG(U"[Streaming] terrain workerMs={:.2f} uploadMs={:.2f}"_fmt(result.milliseconds,upload.msF()));
+			DBG_LOG(U"[Streaming] terrain workerMs={:.2f} uploadTotalMs={:.2f} maxFrameUploadMs={:.2f} uploadFrames={} detailedTrees={}"_fmt(
+				result.milliseconds,job.uploadTotalMilliseconds,job.maxUploadMilliseconds,job.uploadFrames,job.detailedTrees));
+			m_terrainJobs.erase(m_terrainJobs.begin()+index);
 		}
-		m_terrainJobs.erase(m_terrainJobs.begin()+index);
 		break;
 	}
 	// アクティブチャンクを近傍優先で回し、地形本体と水面を分けて描画する。
@@ -642,7 +690,8 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 		Clamp(m_buildingEye.z, chunk.coord.y * static_cast<double>(CHUNK_SIZE), (chunk.coord.y + 1) * static_cast<double>(CHUNK_SIZE)) });
 	if (nearestDistance > 600) { m_distantDetailChunks.insert(key); }
 	else { m_distantDetailChunks.erase(key); }
-	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key);
+	const bool needsTreeDetails=m_asyncTerrain && TreeGeometry::nearChunk(chunk.coord,m_buildingEye) && !m_detailedTreeChunks.contains(key);
+	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key) || needsTreeDetails;
 
 	auto rebuildTerrainBatches = [&]
 	{
@@ -706,12 +755,13 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 				}
 				auto quads = getChunkSubtractionQuads(network, chunk.coord);
 				TerrainJob job{ key, m_terrainEpoch, m_terrainRevisions[key], {} };
-				job.future = std::async(std::launch::async, [snapshot = std::move(snapshot), quads = std::move(quads), heightSnapshots = std::move(heightSnapshots)]()
+				job.detailedTrees=TreeGeometry::nearChunk(chunk.coord,m_buildingEye);
+				job.future = std::async(std::launch::async, [snapshot = std::move(snapshot), quads = std::move(quads), heightSnapshots = std::move(heightSnapshots),detailedTrees=job.detailedTrees]()
 				{
 					const Stopwatch timer{ StartImmediately::Yes };
 					TerrainJobResult result;
 					result.batches = buildTerrainMeshData(snapshot, quads);
-					result.landscape = buildLandscapeMeshData(snapshot,quads,heightSnapshots);
+					result.landscape = buildLandscapeMeshData(snapshot,quads,heightSnapshots,detailedTrees);
 					result.milliseconds = timer.msF();
 					return result;
 				});
@@ -883,7 +933,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 		return &it->second;
 
 	const RoadEdge* edge = network.getEdge(edgeId);
-	if (!edge || (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing) || edge->useElevation || edge->parts.isEmpty())
+	if (!edge || (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing && edge->edgeState != EdgeState::UnderConstruction) || edge->parts.isEmpty())
 		return nullptr;
 
 	const auto bezOpt = network.getBezier(edgeId);
@@ -918,9 +968,31 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 				touchedChunkSet.insert(chunkCoordToKey(Point{ cx, cz }));
 	};
 
+	if(edge->useElevation)
+	{
+		for(const auto& object:network.objects())
+		{
+			if(object.id<0 || object.parentEdgeId!=edgeId || object.type!=RoadObjectType::Pier) continue;
+			const Vec3 position=bezOpt->positionAt(object.arcPos);
+			const Vec3 right=tangentToRight(bezOpt->tangentAt(object.arcPos)),along{-right.z,0,right.x};
+			const double halfWidth=edge->edgeState==EdgeState::UnderConstruction ? 3.0 : 2.4;
+			Array<Vec2> footprint;
+			for(const Vec2 corner:{Vec2{-1,-1},Vec2{1,-1},Vec2{1,1},Vec2{-1,1}})
+			{
+				const Vec3 p=position+right*corner.x*halfWidth+along*corner.y*halfWidth;
+				footprint << Vec2{p.x,p.z};
+			}
+			// Shallow foundation bed; the simulation heightfield remains unchanged.
+			registerSubtractionFootprint(std::move(footprint),static_cast<float>(position.y)+100.0f);
+		}
+		if(subtractor.quads.isEmpty()) return nullptr;
+		for(const Key key:touchedChunkSet) subtractor.touchedChunkKeys << key;
+		return &m_edgeSubtractorCache.emplace(edgeId,std::move(subtractor)).first->second;
+	}
+
 	const CubicBezier& bez = *bezOpt;
-	const float startArc = Max(0.0f, edge->cutoffA - 0.1f);
-	const float endArc = Min(bez.totalLength, bez.totalLength - edge->cutoffB + 0.1f);
+	const float startArc = edge->edgeState == EdgeState::UnderConstruction ? 0.0f : Max(0.0f, edge->cutoffA - 0.1f);
+	const float endArc = edge->edgeState == EdgeState::UnderConstruction ? bez.totalLength : Min(bez.totalLength, bez.totalLength - edge->cutoffB + 0.1f);
 	const float visibleLength = Max(0.0f, endArc - startArc);
 	const int sampleCount = Max(2, static_cast<int>(Math::Ceil(visibleLength / kRoadTerrainQuadStep)) + 1);
 
@@ -957,7 +1029,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 			static_cast<float>(center.x + rightVec.x * rightOffset),
 			static_cast<float>(center.z + rightVec.y * rightOffset)
 		};
-		sample.bedBottomY = static_cast<float>(center.y + kRoadSurfaceLift - kRoadTerrainRelief);
+		sample.bedBottomY = static_cast<float>(center.y + kRoadSurfaceLift - (edge->edgeState==EdgeState::UnderConstruction ? .25 : kRoadTerrainRelief));
 		samples << sample;
 	}
 
@@ -1029,7 +1101,7 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 	};
 
 	const auto layout = JunctionGeometry::build(network, nodeId);
-	if (layout.elevated) { return nullptr; }
+	if (layout.elevated && !layout.groundConnected) { return nullptr; }
 	const MeshData footprint = JunctionGeometry::terrainFootprint(layout);
 	// Merge only adjacent triangles whose union remains convex. This preserves the
 	// concave kerb exactly while avoiding hundreds of repeated cuts in one terrain cell.
@@ -1462,6 +1534,7 @@ void WorldRenderer::invalidateTerrainForNode(int nodeId)
 void WorldRenderer::invalidateAllTerrain()
 {
 	++m_terrainEpoch;
+	m_detailedTreeChunks.clear();
 	m_meshCache.clear();
 	m_chunkSubtractorCache.clear();
 	m_edgeSubtractorCache.clear();
@@ -1541,7 +1614,7 @@ namespace
 		appendMeshData(dst, box);
 	}
 
-	int landPatchMaterialKey(LandPatchType type, uint64 seed)
+	int landPatchMaterialKey(LandPatchType type, [[maybe_unused]] uint64 seed)
 	{
 		switch (type)
 		{
@@ -1549,8 +1622,8 @@ namespace
 		case LandPatchType::ParcelGravel:  return 120;
 		case LandPatchType::GardenSoil:    return 122;
 		case LandPatchType::Beach:        return 111;
-		case LandPatchType::PaddyField:   return 110;
-		case LandPatchType::FarmField:    return ((seed >> 6) % 3u) == 0u ? 114 : (((seed >> 6) % 3u) == 1u ? 113 : 101);
+		case LandPatchType::PaddyField:   return 131;
+		case LandPatchType::FarmField:    return 130;
 		case LandPatchType::Seawall:      return 117;
 		default:                    return 100;
 		}
@@ -1564,7 +1637,7 @@ namespace
 	};
 	template<class HeightSource>
 	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks);
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks,bool detailedTrees);
 	template<class HeightSource>
 	void appendLandPatchSurface(MeshData& dst, const HeightSource& world, const LandPatch& patch,
 		const Array<LandRoadMask>& roadMasks)
@@ -1583,6 +1656,14 @@ namespace
 			}
 		}
 		const int materialKey = landPatchMaterialKey(patch.type, patch.materialVariant);
+		// Align cultivation rows with the longest plot edge, not with world axes.
+		Vec2 rowDirection{1,0};double longest=0;
+		for (size_t i=0;i<patch.polygon.size();++i)
+		{
+			const Vec2 edge=patch.polygon[(i+1)%patch.polygon.size()]-patch.polygon[i];
+			if (edge.lengthSq()>longest) { longest=edge.lengthSq();rowDirection=edge.normalized(); }
+		}
+		const Vec2 rowNormal{-rowDirection.y,rowDirection.x};
 		Array<Vec2> outline = patch.polygon;
 		UrbanParcel::normalize(outline);
 		const Polygon shape{ outline };
@@ -1619,6 +1700,11 @@ namespace
 						{
 							vertex.pos.y = world.sampleHeight(static_cast<float>(vertex.pos.x), static_cast<float>(vertex.pos.z)) + patch.elevationOffset;
 							vertex.tex = terrainUvAt(vertex.pos, materialKey);
+							if (materialKey==130 || materialKey==131)
+							{
+								const Vec2 local=Vec2{vertex.pos.x,vertex.pos.z}-patch.polygon.front();
+								vertex.tex=Float2{static_cast<float>(local.dot(rowNormal)),static_cast<float>(local.dot(rowDirection))};
+							}
 						}
 						Array<Array<TerrainClipVertex>> pieces{ piece };
 						const RectF cellBounds{ a.x, a.y, kTerrainCellSize, kTerrainCellSize };
@@ -1650,7 +1736,7 @@ namespace
 
 	template<class HeightSource>
 	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const HeightSource& world, const Chunk& chunk, const LandPatch& patch,
-		const Array<LandRoadMask>& roadMasks)
+		const Array<LandRoadMask>& roadMasks,bool detailedTrees=true)
 	{
 		const bool drawSurface = (patch.type == LandPatchType::FarmField
 			|| patch.type == LandPatchType::PaddyField
@@ -1668,7 +1754,7 @@ namespace
 
 		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3)
 		{
-			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
+			appendParcelLandscape(groups, world, chunk, patch, roadMasks,detailedTrees);
 		}
 
 		if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
@@ -1685,8 +1771,16 @@ namespace
 					const bool touchesRoad = std::any_of(roadMasks.begin(),roadMasks.end(),[&](const LandRoadMask& road)
 					{ return road.bounds.stretched(5).contains(point) && Circle{point,length/pieces*.5+.4}.intersects(road.shape); });
 					if (touchesRoad) { continue; }
-					appendRotatedBox(groups[127],static_cast<float>(point.x),world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+.08f,
-						static_cast<float>(point.y),static_cast<float>(length/pieces),.16f,.45f,static_cast<float>(Atan2(b.y-a.y,b.x-a.x)));
+					const Vec2 start=a.lerp(b,static_cast<double>(piece)/pieces),end=a.lerp(b,static_cast<double>(piece+1)/pieces);
+					const Vec2 normal=Vec2{-(b-a).y,(b-a).x}.normalized();
+					MeshData bank;
+					for (const Vec2 p : {start,end}) for (const auto cross : {Vec2{-.48,.01},Vec2{-.20,.20},Vec2{.20,.20},Vec2{.48,.01}})
+					{
+						const Vec2 at=p+normal*cross.x;
+						bank.vertices << Vertex3D{Float3{static_cast<float>(at.x),world.sampleHeight(static_cast<float>(at.x),static_cast<float>(at.y))+static_cast<float>(cross.y),static_cast<float>(at.y)},Float3{0,1,0},Float2{at*.5}};
+					}
+					for (uint32 face=0;face<3;++face) { bank.indices << TriangleIndex32{face,face+1,face+4} << TriangleIndex32{face+1,face+5,face+4}; }
+					bank.computeNormals();appendMeshData(groups[127],bank);
 				}
 			}
 		}
@@ -1814,6 +1908,7 @@ namespace
 
 	ColorF detailColorForKey(int key)
 	{
+		key%=1000;
 		switch (key)
 		{
 		case 100: return ColorF{ 0.44, 0.44, 0.40 };
@@ -1824,7 +1919,10 @@ namespace
 		case 105: return ColorF{ 0.32, 0.24, 0.18 };
 		case 125: return ColorF{ 0.33, 0.44, 0.23 }.removeSRGBCurve();
 		case 126: return ColorF{ 0.43, 0.54, 0.29 }.removeSRGBCurve();
-		case 127: return ColorF{ 0.43, 0.46, 0.25 };
+		case 127: return ColorF{ .24,.20,.105 };
+		case 130: case 131: return ColorF{1};
+		case 128: return ColorF{.33,.44,.23}.removeSRGBCurve();
+		case 129: return ColorF{.43,.54,.29}.removeSRGBCurve();
 		case 124:
 		case 106: return ColorF{ 0.18, 0.23, 0.11 };
 		case 107: return ColorF{ 0.72, 0.74, 0.73 };
@@ -1848,33 +1946,35 @@ namespace
 		}
 	}
 
-	/// @brief Uneven overlapping crowns vary tree silhouette and height within the reserved footprint.
-	void appendParkTree(HashTable<int, MeshData>& groups, Vec2 position, float groundY, uint32 variation, double heightScale = 1.0)
+	void appendLandscapeTree(HashTable<int,MeshData>& groups,Vec2 position,float ground,uint32 variation,double width,double height,bool cedar,bool detailedTrees)
 	{
-		const double scale = 0.78 + (variation % 11) * 0.028;
-		MeshData trunk = MeshData::Cylinder(0.10 * scale, 2.4 * scale * heightScale, 7);
-		trunk.translate(Float3{ static_cast<float>(position.x), groundY + static_cast<float>(1.2 * scale * heightScale), static_cast<float>(position.y) });
-		appendMeshData(groups[105], trunk);
-		MeshData distantFoliage = MeshData::Sphere(1.45 * scale, 3);
-		distantFoliage.scale(1.0, 1.05 * heightScale, 1.0).computeNormals();
-		distantFoliage.translate(Float3{ static_cast<float>(position.x), groundY + static_cast<float>(3.0 * scale * heightScale), static_cast<float>(position.y) });
-		appendMeshData(groups[124], distantFoliage);
-		for (int crown = 0; crown < 7; ++crown)
+		static const std::array<TreeGeometry::Geometry,8> trees=[]
 		{
-			const double angle = crown * 2.39996 + (variation % 31) * 0.20;
-			const double spread = crown < 4 ? 0.90 : 0.42;
-			const double radius = (0.68 + ((variation >> (crown * 3)) & 3u) * 0.08) * scale;
-			MeshData foliage = MeshData::Sphere(radius, 5);
-			foliage.scale(1.0, (1.15 + (crown % 3) * 0.10) * heightScale, 1.0).computeNormals();
-			foliage.translate(Float3{ static_cast<float>(position.x + Cos(angle) * spread * scale),
-				groundY + static_cast<float>((2.7 + (crown / 4) * 0.8) * scale * heightScale),
-				static_cast<float>(position.y + Sin(angle) * spread * scale) });
-			appendMeshData(groups[106], foliage);
+			std::array<TreeGeometry::Geometry,8> result;
+			for (uint32 i=0;i<result.size();++i) { result[i]=TreeGeometry::build(i*31,i>=4); }
+			return result;
+		}();
+		const auto& tree=trees[(variation%4)+(cedar ? 4 : 0)];
+		const int leafKey=(variation&1u) ? 126 : 125;
+		for (const auto& entry : {std::pair<int,const MeshData*>{105,&tree.wood},{leafKey,&tree.leaves},{leafKey+3,&tree.distant}})
+		{
+			if (!detailedTrees && entry.first!=128 && entry.first!=129) { continue; }
+			MeshData mesh=*entry.second;
+			mesh.scale(width,height,width).rotate(Quaternion::RotateY((variation%97)*.065));
+			mesh.translate(Float3{static_cast<float>(position.x),ground,static_cast<float>(position.y)});
+			if (detailedTrees) { appendMeshData(groups[TreeGeometry::materialKey(entry.first,position)],mesh); }
+			// Fully distant chunks submit one merged crown batch per palette, not one per tile.
+			if (entry.first==128 || entry.first==129) { appendMeshData(groups[entry.first],mesh); }
 		}
+	}
+	void appendParkTree(HashTable<int, MeshData>& groups, Vec2 position, float groundY, uint32 variation, double heightScale = 1.0,bool detailedTrees=true)
+	{
+		const double scale=.78+(variation%11)*.028;
+		appendLandscapeTree(groups,position,groundY,variation,4.8*scale,4.8*heightScale*scale,false,detailedTrees);
 	}
 	/// @brief Deterministic woodland batches follow undeveloped slopes, excluding roads and plots.
 	void appendWoodland(HashTable<int, MeshData>& groups, const Chunk& chunk,
-		const Array<LandRoadMask>& roadMasks)
+		const Array<LandRoadMask>& roadMasks,bool detailedTrees=true)
 	{
 		if (chunk.zoneMap.isEmpty() || chunk.heightMap.isEmpty()) { return; }
 		Grid<bool> blocked(ZONE_CELLS,ZONE_CELLS,false);
@@ -1911,29 +2011,12 @@ namespace
 			if (ground < 12 || ground > 850 || slope > 1.4f || (ground < 28 && slope < .07f) || hash%100u > 95u) { continue; }
 			const float scale = .8f+static_cast<float>((hash>>3)%43u)*.01f;
 			const bool cedar = Sin(x*.0043)+Cos(z*.0051)+Sin((x-z)*.0027) > .65;
-			if (cedar)
-			{
-				for (int crown = 0; crown < 3; ++crown)
-				{
-					MeshData foliage = MeshData::Cone(Float3{x,ground+(2.0f+crown*3.5f)*scale,z},(6.3-crown*1.05)*scale,(11.5-crown)*scale,7);
-					appendMeshData(groups[125],foliage);
-				}
-			}
-			else
-			{
-				for (int crown = 0; crown < 3; ++crown)
-				{
-					MeshData foliage = MeshData::Sphere((7.3-crown*.85)*scale,3);
-					foliage.scale(1,.90,1).computeNormals();
-					foliage.translate(Float3{x+static_cast<float>(Cos(crown*2.4+hash%7u)*2.8),ground+(6.5f+crown*1.5f)*scale,z+static_cast<float>(Sin(crown*2.4+hash%7u)*2.8)});
-					appendMeshData(groups[(hash&1u) ? 126 : 125],foliage);
-				}
-			}
+			appendLandscapeTree(groups,Vec2{x,z},ground,hash,22.0*scale,20.0*scale,cedar,detailedTrees);
 		}
 	}
 	template<class HeightSource>
 	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks)
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks,bool detailedTrees)
 	{
 		const int col = static_cast<int>(patch.sourceParcelKey & 255);
 		const int row = static_cast<int>((patch.sourceParcelKey >> 8) & 255);
@@ -1999,7 +2082,7 @@ namespace
 					+ along * ((index % 2 == 0 ? -1 : 1) * (2.8 + (patch.materialVariant % 7) * 0.12));
 				if (fits(position, 2.1) && ((patch.materialVariant >> index) & 3u) != 0)
 				{
-					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, chunk.isUrbanizationArea ? 1.0 : 2.0);
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, chunk.isUrbanizationArea ? 1.0 : 2.0,detailedTrees);
 				}
 			}
 		}
@@ -2376,7 +2459,7 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 
 	if (isObjBuildingType(b.type))
 	{
-		const float gy = world.sampleHeight(cx, cz);
+		const float gy = buildingBaseHeight(world,b,cx,cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
 		const uint8 variant = buildingModelVariant(b.type, gx, gz);
@@ -2429,7 +2512,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 
 	if (isObjBuildingType(b.type))
 	{
-		const float gy = world.sampleHeight(cx, cz);
+		const float gy = buildingBaseHeight(world,b,cx,cz);
 		const int gx = chunk.coord.x * ZONE_CELLS + col;
 		const int gz = chunk.coord.y * ZONE_CELLS + row;
 		const uint8 variant = buildingModelVariant(b.type, gx, gz);
@@ -2465,7 +2548,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 }
 
 Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(
-	const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots)
+	const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees)
 {
 	struct HeightSnapshot
 	{
@@ -2488,11 +2571,24 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(
 		masks << LandRoadMask{quad.bounds,quad.footprint,Polygon{outline}};
 	}
 	HashTable<int,MeshData> groups;
-	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks); }
-	appendWoodland(groups,chunk,masks);
+	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks,detailedTrees); }
+	appendWoodland(groups,chunk,masks,detailedTrees);
 	Array<TerrainMeshData> result;
 	for (auto& [key,mesh] : groups) { result << TerrainMeshData{key,std::move(mesh)}; }
 	return result;
+}
+
+MeshData WorldRenderer::landPatchSurface(const World& world,const RoadNetwork& network,Point coord,const LandPatch& patch)
+{
+	Array<LandRoadMask> masks;
+	for (const auto& quad : getChunkSubtractionQuads(network,coord))
+	{
+		Array<Vec2> outline=quad.footprint;UrbanParcel::normalize(outline);
+		masks << LandRoadMask{quad.bounds,quad.footprint,Polygon{outline}};
+	}
+	MeshData surface;
+	appendLandPatchSurface(surface,world,patch,masks);
+	return surface;
 }
 
 void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
@@ -2546,7 +2642,13 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
 			if (isObjBuildingType(b.type))
 			{
-				const float gy = world.sampleHeight(cx, cz);
+				const float gy = buildingBaseHeight(world,b,cx,cz);
+				const float ground=world.sampleHeight(cx,cz);
+				if (gy-ground>.07f && b.type!=BuildingType::Parking)
+				{
+					const float width=buildingFootprintXZ(b.type)+.12f,height=(gy-ground)*2+.12f;
+					appendRotatedBox(groups[126],cx,gy-height*.5f,cz,width,height,width,b.angle);
+				}
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
 				const uint8 variant = buildingModelVariant(b.type, gx, gz);
@@ -2613,6 +2715,18 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	m_buildingModelCache[key] = std::move(modelInstances);
 }
 
+bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
+{
+	const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
+	const bool closeChunk=TreeGeometry::nearChunk(coord,m_buildingEye) && (!m_asyncTerrain || m_detailedTreeChunks.contains(key));
+	if (materialKey==128 || materialKey==129) { return !closeChunk; }
+	if (materialKey<1000) { return materialKey!=124; }
+	if (!closeChunk) { return false; }
+	const bool near=TreeGeometry::nearTile(materialKey,coord,m_buildingEye);
+	const int material=materialKey%1000;
+	return (material==128 || material==129) ? !near : near;
+}
+
 void WorldRenderer::drawCachedBuildings(Key key) const
 {
 	if (const auto it = m_buildingModelCache.find(key); it != m_buildingModelCache.end())
@@ -2652,38 +2766,51 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 		if (it == cache->end()) { continue; }
 		for (const auto& batch : it->second)
 		{
-			const bool distant = m_distantDetailChunks.contains(key);
-			if (batch.materialKey == 124 && !distant) { continue; }
-			if (distant && (batch.materialKey == 105 || batch.materialKey == 106 || batch.materialKey == 123)) { continue; }
-			if (batch.materialKey == 100)
+			if (!drawLandscapeBatch(batch.materialKey,key)) { continue; }
+			const int material=batch.materialKey%1000;
+			const bool distant=m_distantDetailChunks.contains(key);
+			if (distant && material==123) { continue; }
+			if ((material==130 && m_fieldShader) || (material==131 && m_paddyShader))
+			{
+				const ScopedCustomShader3D shader{material==131 ? m_paddyShader : m_fieldShader};
+				batch.mesh.draw(TextureAsset(Asset::Sand),ColorF{1});
+				continue;
+			}
+			if ((material==125 || material==126) && m_foliageShader)
+			{
+				const ScopedCustomShader3D shader{m_foliageShader};
+				batch.mesh.draw(batch.color);
+				continue;
+			}
+			if (material == 100)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
 			}
-			else if (batch.materialKey == 119)
+			else if (material == 119)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Asphalt), batch.color);
 			}
-			else if (batch.materialKey == 120)
+			else if (material == 120)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
 			}
-			else if (batch.materialKey == 101 || batch.materialKey == 113)
+			else if (material == 101 || material == 113)
 			{
 				batch.mesh.draw(TextureAsset(Asset::SparseGrass), batch.color);
 			}
-			else if (batch.materialKey == 106 || batch.materialKey == 110 || batch.materialKey == 122 || batch.materialKey == 124 || batch.materialKey == 125 || batch.materialKey == 126)
+			else if (material == 127 || material == 106 || material == 110 || material == 122 || material == 124 || material == 125 || material == 126)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Grass), batch.color);
 			}
-			else if (batch.materialKey == 111)
+			else if (material == 111)
 			{
 				batch.mesh.draw(TextureAsset(Asset::CoastSand), batch.color);
 			}
-			else if (batch.materialKey == 114)
+			else if (material == 114)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Sand), batch.color);
 			}
-			else if (batch.materialKey == 117)
+			else if (material == 117)
 			{
 				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
 			}
@@ -2724,7 +2851,7 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 			const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
 			if (Vec2{(coord.x+.5)*CHUNK_SIZE,(coord.y+.5)*CHUNK_SIZE}.distanceFrom(Vec2{focus.x,focus.z}) < radius+CHUNK_SIZE)
 			{
-				for (const auto& batch : landscape->second) { if (batch.materialKey != 124) { batch.mesh.draw(ColorF{1.0}); } }
+				for (const auto& batch : landscape->second) { if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{1.0}); } }
 			}
 		}
 		const auto batches = m_buildingMeshCache.find(key);
@@ -2740,7 +2867,7 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 		}
 		for (const auto& batch : batches->second)
 		{
-			if (batch.materialKey != 124) { batch.mesh.draw(ColorF{ 1.0 }); }
+			if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
 	}
 }

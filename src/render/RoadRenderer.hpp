@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "../road/RoadNetwork.hpp"
+#include "../road/RoadConstruction.hpp"
 #include "../road/GuideSign.hpp"
 #include "../road/ArrowMarkingRegistry.hpp"
 #include "../road/RoadPartRegistry.hpp"
@@ -39,6 +40,8 @@ public:
 
 	/// @brief 道路部品アセットをロードする
 	bool loadAssets();
+	/// @brief Construction uses the paused/resumed game clock, never wall time.
+	void setConstructionTime(GameTime now) { m_constructionNow = now; }
 
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
@@ -349,6 +352,22 @@ private:
 	/// @brief 信号定義のメッシュを取得（キャッシュ付き）
 	const Mesh* getSignalMesh(const String& defId, const String& meshName);
 
+	// ---- Construction meshes are rebuilt only at 5% stage boundaries. ----
+	struct ConstructionCache
+	{
+		int key = -1;
+		Array<PartMeshEntry> surfaces;
+		Array<LaneLineBatch> details;
+		Array<std::pair<int,Mat4x4>> machines;
+	};
+	GameTime m_constructionNow = 0;
+	HashTable<int, ConstructionCache> m_constructionCache;
+	PixelShader m_constructionEarthPS, m_constructionAggregatePS;
+	Texture m_constructionSoilNormal, m_constructionGravelNormal;
+	Texture m_constructionSoil, m_constructionGravel, m_constructionConcrete;
+	std::array<Model,4> m_constructionModels;
+	void drawConstruction(const RoadEdge& edge, const RoadNetwork& network, const World& world, bool close);
+
 	// ---- メンバ ----
 
 	ArrowMarkingRegistry                      m_arrowMarkingRegistry;
@@ -372,6 +391,7 @@ private:
 	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
 	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
 	HashSet<int>                              m_visibleEdges;     ///< 直近 render() の可視エッジ集合
+	HashTable<int, RenderTexture> m_regulatorySignTexCache;
 	HashTable<int, RenderTexture>             m_routeSignTexCache; ///< 国道号数 → 合成テクスチャ
 	HashTable<int, Array<SignDraw>>           m_routeSignCache;    ///< route ID → 国道標識描画情報
 	HashTable<uint64, RenderTexture>          m_guideSignTexCache;    ///< パネル内容ハッシュ → 合成テクスチャ（ランタイムのみ、セッション毎に再生成）

@@ -21,7 +21,11 @@ public:
 	/// @brief Build terrain booleans from immutable snapshots off the render thread.
 	void setAsyncTerrain(bool enabled) { m_asyncTerrain = enabled; }
 	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size(); }
+	/// @brief The same terrain-following, road-clipped geometry is used for parcel selection.
+	MeshData landPatchSurface(const World& world,const RoadNetwork& network,Point coord,const LandPatch& patch);
 	void setTerrainShader(const PixelShader& shader) { m_terrainShader = shader; }
+	void setLandscapeShaders(const PixelShader& field,const PixelShader& paddy,const PixelShader& foliage)
+	{ m_fieldShader=field;m_paddyShader=paddy;m_foliageShader=foliage; }
 
 	/// @brief 指定エッジ群に関係する地形 subtraction キャッシュを無効化する
 	void invalidateTerrainForEdges(const RoadNetwork& network, const Array<int>& edgeIds);
@@ -116,7 +120,7 @@ private:
 	};
 
 	/// @brief チャンクの地形メッシュデータを生成する
-	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots);
+	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
@@ -158,6 +162,13 @@ private:
 		uint64 epoch;
 		uint64 revision;
 		std::future<TerrainJobResult> future;
+		Optional<TerrainJobResult> result;
+		Array<TerrainMeshBatch> uploadedTerrain;
+		Array<BuildingBatch> uploadedLandscape;
+		size_t terrainIndex=0,landscapeIndex=0;
+		double uploadTotalMilliseconds=0,maxUploadMilliseconds=0;
+		int uploadFrames=0;
+		bool detailedTrees=false;
 	};
 	Array<TerrainJob> m_terrainJobs;
 	HashTable<Key, uint64> m_terrainRevisions;
@@ -179,9 +190,11 @@ private:
 	bool                                 m_chunkSubtractorPrimed = false;
 	int                                  m_terrainRebuildBudget = 0;
 	uint64 m_geometryRevision = 0;
-	PixelShader m_terrainShader;
+	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
+	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;
 	HashSet<Key> m_distantDetailChunks;
+	HashSet<Key> m_detailedTreeChunks;
 	Vec3 m_buildingEye{ 0, 0, 0 };
 	mutable size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
 };

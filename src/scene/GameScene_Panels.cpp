@@ -1,4 +1,6 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/LandParcelPanel.hpp"
+#include "../ui/ConstructionStatus.hpp"
 #include "EdgeSectionState.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../ui/PanelLayout.hpp"
@@ -834,9 +836,9 @@ void GameScene::drawNameListPanel()
 		ColorF typeColor;
 		switch (s.kind)
 		{
-		case MapGenerator::SettlementKind::CastleTown:
+		case MapGenerator::SettlementKind::RegionalCity:
 			typeStr = U"[城]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
-		case MapGenerator::SettlementKind::PostTown:
+		case MapGenerator::SettlementKind::LocalTown:
 			typeStr = U"[宿]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
 		default:
 			typeStr = U"[村]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
@@ -917,7 +919,7 @@ void GameScene::drawEdgePanel()
 						if (const RoadPlan* plan = m_network.getPlan(edge->planId))
 						{
 							chargedCost = static_cast<double>(plan->totalCost);
-							started = m_network.startPlanConstruction(edge->planId, m_clock.now);
+							started = startRoadPlanConstruction(edge->planId);
 						}
 					}
 					else
@@ -925,6 +927,7 @@ void GameScene::drawEdgePanel()
 						chargedCost = m_network.estimatePlanCost(edge->roadType, edge->length);
 						edge->edgeState = EdgeState::UnderConstruction;
 						edge->constructionStartTime = m_clock.now;
+						prepareConstructionSite({edge->id});
 						started = true;
 					}
 					if (started)
@@ -956,6 +959,11 @@ void GameScene::drawEdgePanel()
 				ui.label(U"残り {}"_fmt(formatConstructionDuration(remaining)), ColorF{ 0.8 });
 			}
 		});
+		if (edge->edgeState == EdgeState::UnderConstruction)
+		{
+			const auto progress = RoadConstruction::progress(m_network,*edge,m_clock.now);
+			ui.label(U"{}  {:.0f}%"_fmt(progress.name(),progress.total*100),ColorF{1,.77,.45});
+		}
 		ui.spacer(3);
 	}
 
@@ -1290,10 +1298,12 @@ void GameScene::drawRoadPlanPanel()
 				PanelWidget::label(pFont, U"必要 {} / 資金 {:.1f}億円"_fmt(formatConstructionCost(planCost), m_economy.funds),
 					 kPad + 8, y, hasFunds ? ColorF{ 0.65, 0.9, 0.65 } : ColorF{ 1.0, 0.4, 0.35 });
 				y += kLH + 2;
+				PanelWidget::label(pFont,U"着工時に用地内の建物・敷地を自動撤去",kPad+8,y,ColorF{1,.77,.45});
+				y += kLH + 2;
 
 				if (PanelWidget::button(pFont, U"着工", false, kPad + 8, y, 50, kLH, U"概算費用を支出して計画全体を着工") && hasFunds)
 				{
-					if (m_network.startPlanConstruction(plan.id, m_clock.now))
+					if (startRoadPlanConstruction(plan.id))
 					{
 						m_economy.funds = Max(0.0, m_economy.funds - planCost);
 						Array<int> dirtyNodes;
@@ -1347,6 +1357,14 @@ void GameScene::drawRoadPlanPanel()
 				return;
 			}
 			y += kLH + 2;
+			if (plan.state == PlanState::UnderConstruction && !plan.edgeIds.isEmpty())
+			{
+				if (const auto* edge = m_network.getEdge(plan.edgeIds.front()))
+				{
+					ConstructionStatus::draw(pFont,RectF{kPad+8,y,panelW-32,70},RoadConstruction::progress(m_network,*edge,m_clock.now));
+					y += 76;
+				}
+			}
 		}
 	}
 
@@ -2780,7 +2798,7 @@ void GameScene::drawRoutePanel()
 						}
 						const double planCost = static_cast<double>(plan->totalCost);
 						const Array<int> planEdgeIds = plan->edgeIds;
-						if (m_network.startPlanConstruction(e->planId, m_clock.now))
+						if (startRoadPlanConstruction(e->planId))
 						{
 							chargedCost += planCost;
 							startedPlans.insert(e->planId);
@@ -2798,6 +2816,7 @@ void GameScene::drawRoutePanel()
 						chargedCost += m_network.estimatePlanCost(e->roadType, e->length);
 						e->edgeState = EdgeState::UnderConstruction;
 						e->constructionStartTime = m_clock.now;
+						prepareConstructionSite({e->id});
 						dirtyNodes << e->nodeA << e->nodeB;
 					}
 				}
@@ -2842,4 +2861,25 @@ void GameScene::drawRoutePanel()
 		// 路線の kind/number 変更は ガイド標識の自動生成テキストに影響
 		notifyNetworkChanged(Array<int>{});
 	}
+}
+
+void GameScene::drawLandParcelPanel()
+{
+	if (!m_selectedLandParcel || m_selection.kind!=SelectionKind::LandParcel) { m_panelManager.hide(U"land_info"); return; }
+	if (!m_panelManager.isVisible(U"land_info")) { clearSelection(); return; }
+	const Chunk* chunk=m_world.getChunk(m_selectedLandParcel->chunkCoord);
+	if (!chunk) { clearSelection(); return; }
+	const LandPatch* patch=nullptr;
+	for (const auto& candidate : chunk->landPatches) { if (candidate.id==m_selectedLandParcel->id) { patch=&candidate; break; } }
+	if (!patch) { clearSelection(); return; }
+	if (m_landParcelRevision!=m_worldRenderer.geometryRevision())
+	{
+		const MeshData surface=m_worldRenderer.landPatchSurface(m_world,m_network,chunk->coord,*patch);
+		m_landParcelOutline=surface.indices.isEmpty() ? Mesh{} : Mesh{surface};
+		m_landParcelRevision=m_worldRenderer.geometryRevision();
+	}
+	const auto area=m_panelManager.beginContent(U"land_info");
+	if (!area) { return; }
+	LandParcelPanel::draw(FontAsset(Asset::Panel14),*patch,{8,10});
+	m_panelManager.reportContentHeight(U"land_info",120);
 }

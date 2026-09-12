@@ -140,11 +140,11 @@ void registerSaveTransactionTests(TestRunner& runner)
 			{
 				return writeFixture(temporaryDirectory, expected);
 			}, verifyFixture);
-		context.expect(static_cast<bool>(result), U"正常な一時セーブはコミットできます");
+		context.expect(static_cast<bool>(result), U"正常な一時セーブはコミットできます: error={} {} path={}"_fmt(static_cast<int>(result.error),result.message,result.path));
 
 		std::string actual;
 		const SaveResult loadResult = readFixture(slot, actual);
-		context.expect(static_cast<bool>(loadResult), U"コミット後のセーブを読み戻せます");
+		context.expect(static_cast<bool>(loadResult), U"コミット後のセーブを読み戻せます: {}"_fmt(loadResult.message));
 		context.expect(actual == expected, U"読み戻したペイロードが一致します");
 	});
 

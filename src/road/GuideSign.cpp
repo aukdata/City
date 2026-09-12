@@ -933,9 +933,56 @@ namespace
 	}
 }
 
-Array<GuideSignPlacement> GuideSign::InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network)
+GuideSign::AutoPlacementClearance::AutoPlacementClearance(const RoadNetwork& network)
+{
+	for (const auto& node : network.nodes())
+	{
+		if (node.id < 0) { continue; }
+		int approaches = 0;
+		double extent = 0.0;
+		for (const auto& attachment : node.attachments)
+		{
+			const auto* edge = network.getEdge(attachment.edgeId);
+			if (!edge) { continue; }
+			++approaches;
+			const double cutoff = edge->nodeA == node.id ? edge->cutoffA : edge->cutoffB;
+			extent = Max(extent, cutoff + edge->totalWidth() * 0.5);
+		}
+		if (approaches < 3) { continue; }
+		const Circle exclusion{ Vec2{node.position.x,node.position.z}, extent+kJunctionClearance };
+		constexpr double kFurnitureSearchMargin = 32.0;
+		const double radius = exclusion.r+kFurnitureSearchMargin;
+		for (int z=static_cast<int>(Floor((exclusion.center.y-radius)/kCellSize)); z<=static_cast<int>(Floor((exclusion.center.y+radius)/kCellSize)); ++z)
+		{
+			for (int x=static_cast<int>(Floor((exclusion.center.x-radius)/kCellSize)); x<=static_cast<int>(Floor((exclusion.center.x+radius)/kCellSize)); ++x)
+			{
+				m_cells[Point{x,z}] << exclusion;
+			}
+		}
+	}
+}
+
+bool GuideSign::AutoPlacementClearance::allows(const Vec3& position, double furnitureRadius) const
+{
+	const Vec2 point{position.x,position.z};
+	const auto found=m_cells.find(Point{static_cast<int>(Floor(point.x/kCellSize)),static_cast<int>(Floor(point.y/kCellSize))});
+	if (found==m_cells.end()) { return true; }
+	for (const auto& zone : found->second)
+	{
+		if (point.distanceFromSq(zone.center)<=Math::Square(zone.r+furnitureRadius)) { return false; }
+	}
+	return true;
+}
+
+Array<GuideSignPlacement> GuideSign::InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network, const AutoPlacementClearance* clearance)
 {
 	Array<GuideSignPlacement> out;
+	Optional<AutoPlacementClearance> localClearance;
+	if (!clearance)
+	{
+		localClearance.emplace(network);
+		clearance = &*localClearance;
+	}
 
 	// 国道交差点の前後 300m をたどり、106 と 108の2 の自動案内標識を対で推論する。
 	// 国道の交差点かどうかを判定する（接続エッジのいずれかが国道に属していれば true）
@@ -1007,8 +1054,31 @@ Array<GuideSignPlacement> GuideSign::InferAutoForEdge(const RoadEdge& edge, cons
 		// 106 は outbound 向き（nodeEndId = locus.nodeEndId）、
 		// 108の2 は inbound 向き（nodeEndId を反転して逆側から計測）。
 		constexpr int kMaxHops = 2;
-		const auto locus = locateArcAlongChain(network, edge.id, nodeId, kArrowPlaceArcOffset_m, kMaxHops);
+		auto locus = locateArcAlongChain(network, edge.id, nodeId, kArrowPlaceArcOffset_m, kMaxHops);
 		const RoadEdge* locusEdge = network.getEdge(locus.edgeId);
+		if (!locusEdge) { return; }
+		const auto curve = network.getBezier(locus.edgeId);
+		if (!curve) { return; }
+		const float minimum = locusEdge->cutoffA + 5.0f;
+		const float maximum = curve->totalLength - locusEdge->cutoffB - 5.0f;
+		if (minimum > maximum) { return; }
+		const float requested = locus.nodeEndId == locusEdge->nodeA ? locus.arcOffset : curve->totalLength-locus.arcOffset;
+		const double footprint = locusEdge->totalWidth()*0.5 + 4.0;
+		Optional<float> safeArc;
+		constexpr float kSearchStep = 5.0f;
+		constexpr int kSearchSteps = 60;
+		for (int step=0; step<=kSearchSteps && !safeArc; ++step)
+		{
+			for (const float direction : {-1.0f,1.0f})
+			{
+				const float arc = Clamp(requested+direction*step*kSearchStep,minimum,maximum);
+				if (clearance->allows(curve->positionAt(arc),footprint)) { safeArc=arc; break; }
+			}
+		}
+		// Dense short blocks may have no safe site: omit the sign instead of placing it in a junction.
+		if (!safeArc) { return; }
+		locus.arcOffset = locus.nodeEndId == locusEdge->nodeA ? *safeArc : curve->totalLength-*safeArc;
+
 
 		// 108の2 用に nodeEndId と arcOffset を反転（同位置・逆向き）
 		const int   nodeEndFor108 = locusEdge

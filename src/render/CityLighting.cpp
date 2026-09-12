@@ -10,7 +10,10 @@ bool CityLighting::initialize(FilePathView shaderPath)
 	m_depthShader = PixelShader::HLSL(shaderPath, U"Depth_PS");
 	m_forwardShader = PixelShader::HLSL(shaderPath, U"Shading_PS");
 	m_terrainShader = PixelShader::HLSL(shaderPath, U"Terrain_PS");
-	if (!m_depthShader || !m_forwardShader || !m_terrainShader)
+	m_fieldShader=PixelShader::HLSL(shaderPath,U"Field_PS");
+	m_paddyShader=PixelShader::HLSL(shaderPath,U"Paddy_PS");
+	m_foliageShader=PixelShader::HLSL(shaderPath,U"Foliage_PS");
+	if (!m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
 	{
 		Logger << U"[CityLighting] Failed to compile " << shaderPath;
 		m_forwardShader = PixelShader{};
@@ -44,7 +47,7 @@ void CityLighting::update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirec
 	const float day = static_cast<float>(Clamp(daylight, 0.0, 1.0));
 	m_parameters->shadowParameters.w = day;
 	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
-	constexpr float kFogDensity = 0.00012f;
+	constexpr float kFogDensity = 0.00004f;
 	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), kFogDensity };
 	if (changed)
 	{

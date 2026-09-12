@@ -18,7 +18,7 @@ void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH
 		for (int gx = 0; gx < gridW; ++gx)
 		{
 			const Vec2 wp = gridToWorld(gx, gz);
-			m_heightGrid[gz * gridW + gx] = world.computeHeight(
+			m_heightGrid[gz * gridW + gx] = world.sampleHeight(
 				static_cast<float>(wp.x), static_cast<float>(wp.y));
 		}
 }
@@ -127,10 +127,12 @@ Array<Point> RoadPathfinder::findPath(
 			else if (slope < 0.30f) gradPenalty = 5.0f;
 			else                    gradPenalty = 20.0f;
 
-			// 水域・マップ範囲外は通行不可
+			if (m_railwayRouting) { gradPenalty=1+Square(slope/.035f); }
+
+			// Water is expensive; railway crossings may use a viaduct.
 			float terrainPenalty = 1.0f;
 			if (height(nx, nz) < 0.0f)
-				terrainPenalty = 1e6f;
+				terrainPenalty = m_railwayRouting ? 12.0f : 1e6f;
 			{
 				const Vec2 wp = gridToWorld(nx, nz);
 				if (wp.x < 0.0f || wp.x > WORLD_SIZE || wp.y < 0.0f || wp.y > WORLD_SIZE)

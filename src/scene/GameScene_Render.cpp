@@ -195,6 +195,7 @@ void GameScene::pushPerfStats()
 
 void GameScene::renderWorld()
 {
+	if (m_minimapRenderer.fullScreen()) { m_minimapRenderer.drawFullScreen(m_camera); return; }
 	// 3D 本体、選択エフェクト、2D UI、性能計測を 1 フレームの決まった順序で積み上げる。
 	Stopwatch swStep{ StartImmediately::Yes };
 	const Stopwatch swTotal{ StartImmediately::Yes };
@@ -236,6 +237,7 @@ void GameScene::renderWorld()
 					m_vehicleManager.trafficLights(), m_clock.now, focus);
 			}, dynamicCasters);
 		m_worldRenderer.setTerrainShader(m_cityLighting.terrainShader());
+		m_worldRenderer.setLandscapeShaders(m_cityLighting.fieldShader(),m_cityLighting.paddyShader(),m_cityLighting.foliageShader());
 	}
 	// 3D シーン描画
 	{
@@ -287,7 +289,7 @@ void GameScene::renderWorld()
 		renderVehicles();
 		lap(m_renderTimings.vehicle);
 
-		m_trainRenderer.renderTracks(m_trainNetwork);
+		m_trainRenderer.renderTracks(m_trainNetwork,m_world,m_camera.eyePosition(),m_network);
 		m_trainRenderer.renderTrains(m_trainManager.trains());
 		lap(m_renderTimings.train);
 
@@ -379,6 +381,7 @@ void GameScene::renderScene3D()
 	m_worldRenderer.render(m_world, m_network, m_camera.camera3D());
 	lap(m_renderTimings.terrainOnly);
 
+	m_roadRenderer.setConstructionTime(m_clock.now);
 	m_roadRenderer.render(m_network, m_world, frustum,
 	                     m_camera.camera3D().getEyePosition());
 
@@ -576,6 +579,8 @@ void GameScene::renderSelectionOutline()
 				m_worldRenderer.drawBuildingSilhouette(*chunk, m_world,
 					m_selectedBuilding->col, m_selectedBuilding->row, maskColor);
 		}
+
+		if (m_selection.kind==SelectionKind::LandParcel && m_landParcelOutline) { m_landParcelOutline.draw(maskColor); }
 
 		// 車両
 		if (m_selectedVehicleId)
@@ -970,7 +975,8 @@ void GameScene::render2DUI()
 	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる
-	m_minimapRenderer.update(m_panelManager);
+
+	m_minimapRenderer.setSmallBounds(m_uiRenderer.minimapBounds());
 	m_minimapRenderer.render(m_camera, m_districts);
 	lap(m_renderTimings.uiMinimap);
 
@@ -1014,6 +1020,7 @@ void GameScene::render2DUI()
 		else if (panelId == U"guide_sign_editor") { drawGuideSignEditorPanel(); }
 		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
 		else if (panelId == U"building_info"){ drawBuildingPanel(); }
+		else if (panelId == U"land_info") { drawLandParcelPanel(); }
 		else if (panelId == U"route_info")   { drawRoutePanel(); }
 		else if (panelId == U"minimap_expanded")
 		{

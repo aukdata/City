@@ -124,6 +124,18 @@ namespace GuideSign
 	void renderContents(const GuideSignPlacement& g, const Size& texSize,
 	                    const Font& fontJa, const Font& fontNum);
 
+	/// @brief Spatial exclusion zones around nodes with at least three live approaches.
+	class AutoPlacementClearance
+	{
+	public:
+		static constexpr double kJunctionClearance = 30.0;
+		explicit AutoPlacementClearance(const RoadNetwork& network);
+		[[nodiscard]] bool allows(const Vec3& position, double furnitureRadius = 0.0) const;
+	private:
+		static constexpr double kCellSize = 128.0;
+		HashTable<Point, Array<Circle>> m_cells;
+	};
+
 	/// @brief 1エッジ分の自動生成 DirectionDistance 標識を作る
-	Array<GuideSignPlacement> InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network);
+	Array<GuideSignPlacement> InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network, const AutoPlacementClearance* clearance = nullptr);
 }

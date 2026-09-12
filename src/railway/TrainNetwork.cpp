@@ -1,4 +1,5 @@
 ﻿#include "TrainNetwork.hpp"
+#include <queue>
 
 int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
 {
@@ -108,16 +109,41 @@ void TrainNetwork::addSchedule(TrainSchedule schedule)
 
 int TrainNetwork::nodeIndex(int id) const
 {
-	// 現状の規模では線形探索で十分とし、実装の単純さを優先する。
-	for (int i = 0; i < static_cast<int>(m_nodes.size()); ++i)
-		if (m_nodes[i].id == id) return i;
-	return -1;
+	return id>=0 && id<static_cast<int>(m_nodes.size()) && m_nodes[id].id==id ? id : -1;
 }
 
 int TrainNetwork::edgeIndex(int id) const
 {
-	// エッジ数が少ない前提で、ID 解決は単純な線形探索を維持する。
-	for (int i = 0; i < static_cast<int>(m_edges.size()); ++i)
-		if (m_edges[i].id == id) return i;
-	return -1;
+	return id>=0 && id<static_cast<int>(m_edges.size()) && m_edges[id].id==id ? id : -1;
+}
+
+Array<int> TrainNetwork::findRoute(int from,int to) const
+{
+	if (!getNode(from) || !getNode(to)) { return {}; }
+	HashTable<int,double> distance; HashTable<int,int> parent;
+	std::priority_queue<std::pair<double,int>,std::vector<std::pair<double,int>>,std::greater<>> pending;
+	distance[from]=0; pending.emplace(0,from);
+	while (!pending.empty())
+	{
+		const auto [cost,node]=pending.top(); pending.pop();
+		if (node==to) { break; }
+		if (cost>distance[node]) { continue; }
+		for (const int id : getNode(node)->edgeIds)
+		{
+			const auto* edge=getEdge(id); const int next=edge->nodeA==node ? edge->nodeB : edge->nodeA;
+			const double candidate=cost+edge->length;
+			if (!distance.contains(next) || candidate<distance[next])
+			{
+				distance[next]=candidate; parent[next]=id; pending.emplace(candidate,next);
+			}
+		}
+	}
+	if (!distance.contains(to)) { return {}; }
+	Array<int> route;
+	for (int node=to;node!=from;)
+	{
+		const int id=parent[node]; route << id;
+		const auto* edge=getEdge(id); node=edge->nodeA==node ? edge->nodeB : edge->nodeA;
+	}
+	route.reverse(); return route;
 }

@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "../railway/TrainManager.hpp"
 #include "../railway/TrainNetwork.hpp"
+#include "../world/World.hpp"
+#include "../gen/ParcelRoadIndex.hpp"
 
 /// @brief 鉄道（線路・列車）の描画クラス
 class TrainRenderer
@@ -8,7 +10,7 @@ class TrainRenderer
 public:
 	// 線路の静的描画と列車の動的描画を分け、線路側だけ個別キャッシュできる構成にする。
 	/// @brief 線路を描画する
-	void renderTracks(const TrainNetwork& network);
+	void renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,const RoadNetwork& roads);
 
 	/// @brief 列車を描画する
 	void renderTrains(const Array<Train>& trains);
@@ -16,11 +18,17 @@ public:
 	/// @brief エッジの線路メッシュキャッシュを無効化する（線路変更時に呼ぶ）
 	void invalidateTrackCache(int edgeId);
 
+	/// @brief 道路形状の変更時に橋脚の干渉判定と床版キャッシュを更新する。
+	void invalidateRoadClearance() { m_roadClearance.reset(); m_bedMeshCache.clear(); }
+
 private:
 	/// @brief エッジの線路メッシュを構築する
 	static Mesh buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez);
 
 	Model& ensureModel(const String& stem);
 	HashTable<String, Model> m_models;
+	std::unique_ptr<ParcelRoadIndex> m_roadClearance;
+	size_t m_roadEdgeCount=0;
+	HashTable<int, Mesh> m_bedMeshCache;
 	HashTable<int, Mesh> m_trackMeshCache;  ///< エッジ ID → 線路メッシュ
 };
