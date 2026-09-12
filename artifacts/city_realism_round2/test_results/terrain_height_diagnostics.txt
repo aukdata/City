@@ -1,0 +1,6 @@
+﻿seed=20260316 samples=12288 analyticMaxDifferenceM=0.91495 analyticMeanDifferenceM=0.11143 analyticBuriedSamples=5662
+renderedTriangleMaxErrorM=0.0000610
+seed=42 samples=12288 analyticMaxDifferenceM=0.33127 analyticMeanDifferenceM=0.04066 analyticBuriedSamples=5520
+renderedTriangleMaxErrorM=0.0000153
+seed=20260912 samples=12288 analyticMaxDifferenceM=0.56818 analyticMeanDifferenceM=0.06960 analyticBuriedSamples=5661
+renderedTriangleMaxErrorM=0.0000305

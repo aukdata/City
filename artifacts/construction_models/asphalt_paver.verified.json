@@ -1,0 +1,18 @@
+{
+  "stem": "asphalt_paver",
+  "title": "Wheeled asphalt finisher with telescopic screed",
+  "asset_dir": "construction",
+  "kind": "construction",
+  "source_triangles": 11464,
+  "triangles": 75076,
+  "vertices": 38858,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    4.744999885559082,
+    7.010000228881836,
+    3.6135778427124023
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/construction/asphalt_paver.obj"
+}

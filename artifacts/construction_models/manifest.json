@@ -1,0 +1,74 @@
+[
+  {
+    "stem": "excavator",
+    "title": "20 tonne hydraulic excavator",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 6154,
+    "triangles": 38228,
+    "vertices": 19771,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      3.2249999046325684,
+      8.191829681396484,
+      5.611649990081787
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/construction/excavator.obj"
+  },
+  {
+    "stem": "road_roller",
+    "title": "Tandem vibratory asphalt roller",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 2056,
+    "triangles": 11088,
+    "vertices": 5664,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      1.8799999952316284,
+      3.621500015258789,
+      2.299999952316284
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/construction/road_roller.obj"
+  },
+  {
+    "stem": "asphalt_paver",
+    "title": "Wheeled asphalt finisher with telescopic screed",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 11464,
+    "triangles": 75076,
+    "vertices": 38858,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      4.744999885559082,
+      7.010000228881836,
+      3.6135778427124023
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/construction/asphalt_paver.obj"
+  },
+  {
+    "stem": "mobile_crane",
+    "title": "Rough terrain crane with four outriggers and telescopic boom",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 8074,
+    "triangles": 52727,
+    "vertices": 27282,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      7.599999904632568,
+      9.812150955200195,
+      14.953386306762695
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/construction/mobile_crane.obj"
+  }
+]

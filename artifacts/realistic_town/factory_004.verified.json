@@ -1,0 +1,17 @@
+{
+  "stem": "factory_004",
+  "title": "Service garage and utility tanks",
+  "folder": "commercial",
+  "source_triangles": 1020,
+  "triangles": 2872,
+  "vertices": 1514,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.5,
+    4.699999809265137
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/factory_004.obj"
+}

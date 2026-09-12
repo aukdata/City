@@ -1,0 +1,19 @@
+{
+  "stem": "public_005",
+  "title": "District police station",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "civic",
+  "source_triangles": 3362,
+  "triangles": 12085,
+  "vertices": 6556,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.100000381469727,
+    9.324999809265137,
+    10.600000381469727
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_005.obj"
+}

@@ -1,0 +1,17 @@
+{
+  "stem": "residential_012",
+  "title": "Modern two-storey home",
+  "folder": "residential",
+  "source_triangles": 3736,
+  "triangles": 11971,
+  "vertices": 6456,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.25,
+    7.25,
+    6.489999771118164
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_012.obj"
+}

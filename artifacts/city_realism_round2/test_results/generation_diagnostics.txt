@@ -1,0 +1,4 @@
+﻿seed=20260316 edges=1957 connectedComponents=1 endpoints=0 minEdgeLengthM=38.64109802246094
+seed=42 edges=1957 connectedComponents=1 endpoints=0 minEdgeLengthM=38.676963806152344
+visibleRoadSamples=66 roadMaterialVisible=66
+seed=20260912 edges=1950 connectedComponents=1 endpoints=0 minEdgeLengthM=40.337684631347656

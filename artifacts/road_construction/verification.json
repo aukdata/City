@@ -1,0 +1,94 @@
+{
+  "bothPlansOpen": true,
+  "clearedCells": 27,
+  "fixtureBuildings": 10,
+  "clearance_measurements": [
+    "[18.5867s] [Construction] 既設物撤去工: edges=1 buildings=8 reservedCells=14 ms=1.906",
+    "[18.5867s] [Construction] 既設物撤去工: edges=1 buildings=2 reservedCells=13 ms=0.923"
+  ],
+  "mesh_measurements_over_3ms": [
+    "[18.5867s] [ConstructionMesh] edge=22576 stage=既設物撤去工 step=8 ms=4.48",
+    "[19.8192s] [ConstructionMesh] edge=22576 stage=土工・路床工 step=11 ms=3.39",
+    "[21.0252s] [ConstructionMesh] edge=22576 stage=路盤工 step=11 ms=5.48",
+    "[22.194s] [ConstructionMesh] edge=22577 stage=橋面舗装工 step=7 ms=3.31",
+    "[22.194s] [ConstructionMesh] edge=22576 stage=舗装工（基層・表層） step=13 ms=8.10",
+    "[23.3066s] [ConstructionMesh] edge=22577 stage=区画線工 step=9 ms=5.48",
+    "[23.3066s] [ConstructionMesh] edge=22576 stage=区画線工 step=11 ms=8.93"
+  ],
+  "build_sha256": "de0669d3bd1904b1b4a382121f301f1c2de3828ef39b40f3f42cf56b885a2224",
+  "material_shader_sha256": "4e0207ba83c12e4c6df5ec58f2c7c475f20bac5db98195fbc82920b416adc63b",
+  "models": [
+    {
+      "stem": "excavator",
+      "title": "20 tonne hydraulic excavator",
+      "asset_dir": "construction",
+      "kind": "construction",
+      "source_triangles": 6154,
+      "triangles": 38228,
+      "vertices": 19771,
+      "materials": 1,
+      "texture_resolution": 2048,
+      "dimensions": [
+        3.2249999046325684,
+        8.191829681396484,
+        5.611649990081787
+      ],
+      "ground": 0.0,
+      "obj": "App/assets/construction/excavator.obj"
+    },
+    {
+      "stem": "road_roller",
+      "title": "Tandem vibratory asphalt roller",
+      "asset_dir": "construction",
+      "kind": "construction",
+      "source_triangles": 2056,
+      "triangles": 11088,
+      "vertices": 5664,
+      "materials": 1,
+      "texture_resolution": 2048,
+      "dimensions": [
+        1.8799999952316284,
+        3.621500015258789,
+        2.299999952316284
+      ],
+      "ground": 0.0,
+      "obj": "App/assets/construction/road_roller.obj"
+    },
+    {
+      "stem": "asphalt_paver",
+      "title": "Wheeled asphalt finisher with telescopic screed",
+      "asset_dir": "construction",
+      "kind": "construction",
+      "source_triangles": 11464,
+      "triangles": 75076,
+      "vertices": 38858,
+      "materials": 1,
+      "texture_resolution": 2048,
+      "dimensions": [
+        4.744999885559082,
+        7.010000228881836,
+        3.6135778427124023
+      ],
+      "ground": 0.0,
+      "obj": "App/assets/construction/asphalt_paver.obj"
+    },
+    {
+      "stem": "mobile_crane",
+      "title": "Rough terrain crane with four outriggers and telescopic boom",
+      "asset_dir": "construction",
+      "kind": "construction",
+      "source_triangles": 8074,
+      "triangles": 52727,
+      "vertices": 27282,
+      "materials": 1,
+      "texture_resolution": 2048,
+      "dimensions": [
+        7.599999904632568,
+        9.812150955200195,
+        14.953386306762695
+      ],
+      "ground": 0.0,
+      "obj": "App/assets/construction/mobile_crane.obj"
+    }
+  ]
+}

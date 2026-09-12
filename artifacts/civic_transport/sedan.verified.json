@@ -1,0 +1,19 @@
+{
+  "stem": "sedan",
+  "title": "Japanese family sedan",
+  "folder": "commercial",
+  "asset_dir": "vehicles",
+  "kind": "vehicle",
+  "source_triangles": 1176,
+  "triangles": 3461,
+  "vertices": 1806,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    4.621999740600586,
+    2.1500000953674316,
+    1.4653747081756592
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/vehicles/sedan.obj"
+}

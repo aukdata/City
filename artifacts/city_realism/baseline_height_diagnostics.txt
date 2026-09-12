@@ -1,0 +1,3 @@
+﻿seed=20260316 samples=12288 maxDifferenceM=0.77972 meanDifferenceM=0.10222 roadBelowTerrain=5609
+seed=42 samples=12288 maxDifferenceM=0.26721 meanDifferenceM=0.03760 roadBelowTerrain=5482
+seed=20260912 samples=12288 maxDifferenceM=0.51559 meanDifferenceM=0.06488 roadBelowTerrain=5635

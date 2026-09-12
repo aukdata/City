@@ -1,0 +1,19 @@
+{
+  "stem": "public_006",
+  "title": "Neighbourhood koban",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "civic",
+  "source_triangles": 2110,
+  "triangles": 7425,
+  "vertices": 4012,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.400000095367432,
+    6.724999904632568,
+    7.099999904632568
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_006.obj"
+}

@@ -1,0 +1,17 @@
+{
+  "stem": "shop_001",
+  "title": "Neighborhood convenience store",
+  "folder": "commercial",
+  "source_triangles": 1090,
+  "triangles": 3812,
+  "vertices": 2044,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.800000190734863,
+    6.800000190734863,
+    3.9000000953674316
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_001.obj"
+}

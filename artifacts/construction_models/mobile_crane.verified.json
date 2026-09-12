@@ -1,0 +1,18 @@
+{
+  "stem": "mobile_crane",
+  "title": "Rough terrain crane with four outriggers and telescopic boom",
+  "asset_dir": "construction",
+  "kind": "construction",
+  "source_triangles": 8074,
+  "triangles": 52727,
+  "vertices": 27282,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    7.599999904632568,
+    9.812150955200195,
+    14.953386306762695
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/construction/mobile_crane.obj"
+}

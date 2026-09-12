@@ -1,0 +1,17 @@
+{
+  "stem": "factory_001",
+  "title": "Small metalworking factory",
+  "folder": "commercial",
+  "source_triangles": 768,
+  "triangles": 2595,
+  "vertices": 1388,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.430815696716309,
+    6.467144966125488,
+    5.71999979019165
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/factory_001.obj"
+}

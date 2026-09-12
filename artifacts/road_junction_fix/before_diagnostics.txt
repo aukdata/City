@@ -1,0 +1,9 @@
+﻿arms=3 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=0.1682
+arms=3 edge=1 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=-0.1118
+arms=3 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-0.1680
+arms=3 crosswalkWhiteSamples=1062 totalSamples=2109 coverage=0.5036
+arms=4 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=0.1682
+arms=4 edge=1 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=-0.1118
+arms=4 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-0.1680
+arms=4 edge=3 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=0.1121
+arms=4 crosswalkWhiteSamples=1398 totalSamples=2812 coverage=0.4972

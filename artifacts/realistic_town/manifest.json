@@ -1,0 +1,410 @@
+[
+  {
+    "stem": "shop_001",
+    "title": "Neighborhood convenience store",
+    "folder": "commercial",
+    "source_triangles": 1090,
+    "triangles": 3812,
+    "vertices": 2044,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.800000190734863,
+      6.800000190734863,
+      3.9000000953674316
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_001.obj"
+  },
+  {
+    "stem": "shop_002",
+    "title": "Traditional rice shop",
+    "folder": "commercial",
+    "source_triangles": 1592,
+    "triangles": 5477,
+    "vertices": 2922,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.900000095367432,
+      7.5,
+      3.896897315979004
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_002.obj"
+  },
+  {
+    "stem": "shop_003",
+    "title": "Corner kissaten cafe",
+    "folder": "commercial",
+    "source_triangles": 882,
+    "triangles": 2846,
+    "vertices": 1462,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.5,
+      6.800000190734863,
+      3.7699999809265137
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_003.obj"
+  },
+  {
+    "stem": "factory_001",
+    "title": "Small metalworking factory",
+    "folder": "commercial",
+    "source_triangles": 768,
+    "triangles": 2595,
+    "vertices": 1388,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.430815696716309,
+      6.467144966125488,
+      5.71999979019165
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/factory_001.obj"
+  },
+  {
+    "stem": "factory_002",
+    "title": "Local distribution depot",
+    "folder": "commercial",
+    "source_triangles": 818,
+    "triangles": 2884,
+    "vertices": 1540,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.505000114440918,
+      4.920000076293945
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/factory_002.obj"
+  },
+  {
+    "stem": "public_001",
+    "title": "Neighborhood clinic",
+    "folder": "commercial",
+    "source_triangles": 986,
+    "triangles": 3452,
+    "vertices": 1852,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.539999961853027,
+      6.849999904632568
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/public_001.obj"
+  },
+  {
+    "stem": "public_002",
+    "title": "Volunteer fire station",
+    "folder": "commercial",
+    "source_triangles": 990,
+    "triangles": 3433,
+    "vertices": 1804,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.5,
+      9.0
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/public_002.obj"
+  },
+  {
+    "stem": "residential_011",
+    "title": "Showa tiled-roof house",
+    "folder": "residential",
+    "source_triangles": 6998,
+    "triangles": 18483,
+    "vertices": 7960,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.25,
+      7.25,
+      7.556960582733154
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_011.obj"
+  },
+  {
+    "stem": "residential_012",
+    "title": "Modern two-storey home",
+    "folder": "residential",
+    "source_triangles": 3736,
+    "triangles": 11971,
+    "vertices": 6456,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.25,
+      7.25,
+      6.489999771118164
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_012.obj"
+  },
+  {
+    "stem": "residential_013",
+    "title": "Timber bungalow",
+    "folder": "residential",
+    "source_triangles": 6398,
+    "triangles": 16293,
+    "vertices": 6760,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.25,
+      7.25,
+      4.556960582733154
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_013.obj"
+  },
+  {
+    "stem": "residential_014",
+    "title": "Urban compact house",
+    "folder": "residential",
+    "source_triangles": 3484,
+    "triangles": 11057,
+    "vertices": 5952,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.25,
+      7.25,
+      6.489999771118164
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_014.obj"
+  },
+  {
+    "stem": "residential_015",
+    "title": "Exterior-corridor apartment",
+    "folder": "residential",
+    "source_triangles": 4592,
+    "triangles": 15934,
+    "vertices": 8440,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.335895538330078,
+      7.199999809265137,
+      6.909999847412109
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_015.obj"
+  },
+  {
+    "stem": "residential_016",
+    "title": "Brick apartment",
+    "folder": "residential",
+    "source_triangles": 6868,
+    "triangles": 23920,
+    "vertices": 12672,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.335895538330078,
+      7.199999809265137,
+      9.859999656677246
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_016.obj"
+  },
+  {
+    "stem": "residential_017",
+    "title": "Balcony condominium",
+    "folder": "residential",
+    "source_triangles": 15356,
+    "triangles": 15356,
+    "vertices": 9412,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      8.800000190734863,
+      8.800000190734863,
+      19.65999984741211
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_017.obj"
+  },
+  {
+    "stem": "residential_018",
+    "title": "Residential tower",
+    "folder": "residential",
+    "source_triangles": 30476,
+    "triangles": 30476,
+    "vertices": 18700,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      8.800000190734863,
+      8.800000190734863,
+      37.36000061035156
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/residential/residential_018.obj"
+  },
+  {
+    "stem": "office_003",
+    "title": "Brick business building",
+    "folder": "commercial",
+    "source_triangles": 6570,
+    "triangles": 23910,
+    "vertices": 13012,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      9.100000381469727,
+      8.899999618530273,
+      15.5
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/office_003.obj"
+  },
+  {
+    "stem": "office_004",
+    "title": "Curtain-wall office",
+    "folder": "commercial",
+    "source_triangles": 6570,
+    "triangles": 23910,
+    "vertices": 13012,
+    "materials": 1,
+    "texture_resolution": 2048,
+    "dimensions": [
+      9.100000381469727,
+      8.899999618530273,
+      15.5
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/office_004.obj"
+  },
+  {
+    "stem": "shop_004",
+    "title": "Ramen restaurant",
+    "folder": "commercial",
+    "source_triangles": 1034,
+    "triangles": 3405,
+    "vertices": 1812,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.75,
+      7.099999904632568,
+      3.880000114440918
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_004.obj"
+  },
+  {
+    "stem": "shop_005",
+    "title": "Bakery and deli",
+    "folder": "commercial",
+    "source_triangles": 1058,
+    "triangles": 3637,
+    "vertices": 1932,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.75,
+      7.099999904632568,
+      3.880000114440918
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_005.obj"
+  },
+  {
+    "stem": "shop_006",
+    "title": "Neighbourhood supermarket",
+    "folder": "commercial",
+    "source_triangles": 982,
+    "triangles": 3399,
+    "vertices": 1812,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      7.75,
+      7.099999904632568,
+      3.880000114440918
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/shop_006.obj"
+  },
+  {
+    "stem": "factory_003",
+    "title": "Sawtooth-roof workshop",
+    "folder": "commercial",
+    "source_triangles": 850,
+    "triangles": 2994,
+    "vertices": 1642,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.525000095367432,
+      4.938623905181885
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/factory_003.obj"
+  },
+  {
+    "stem": "factory_004",
+    "title": "Service garage and utility tanks",
+    "folder": "commercial",
+    "source_triangles": 1020,
+    "triangles": 2872,
+    "vertices": 1514,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.5,
+      4.699999809265137
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/factory_004.obj"
+  },
+  {
+    "stem": "public_003",
+    "title": "Neighbourhood police box",
+    "folder": "commercial",
+    "source_triangles": 1806,
+    "triangles": 6450,
+    "vertices": 3484,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.505000114440918,
+      8.0
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/public_003.obj"
+  },
+  {
+    "stem": "public_004",
+    "title": "Community reading room",
+    "folder": "commercial",
+    "source_triangles": 1746,
+    "triangles": 6309,
+    "vertices": 3412,
+    "materials": 1,
+    "texture_resolution": 1024,
+    "dimensions": [
+      6.5,
+      6.510000228881836,
+      7.019999980926514
+    ],
+    "ground": 0.0,
+    "obj": "App/assets/buildings/commercial/public_004.obj"
+  }
+]

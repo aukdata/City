@@ -1,0 +1,17 @@
+{
+  "stem": "residential_013",
+  "title": "Timber bungalow",
+  "folder": "residential",
+  "source_triangles": 6398,
+  "triangles": 16293,
+  "vertices": 6760,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.25,
+    7.25,
+    4.556960582733154
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_013.obj"
+}

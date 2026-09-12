@@ -1,0 +1,8 @@
+﻿role=0 logicalPaths=2 asphaltM=4.4 sidewalks=0 markings=0 speed=20
+role=1 logicalPaths=2 asphaltM=5 sidewalks=0 markings=0 speed=30
+role=2 logicalPaths=2 asphaltM=5.5 sidewalks=0 markings=0 speed=30
+role=3 logicalPaths=1 asphaltM=3.25 sidewalks=0 markings=2 speed=30
+role=4 logicalPaths=2 asphaltM=5.5 sidewalks=2 markings=0 speed=30
+role=5 logicalPaths=2 asphaltM=6 sidewalks=2 markings=2 speed=40
+role=6 logicalPaths=4 asphaltM=13 sidewalks=2 markings=6 speed=50
+role=7 logicalPaths=2 asphaltM=6 sidewalks=0 markings=4 speed=50

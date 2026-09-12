@@ -1,0 +1,19 @@
+{
+  "stem": "city_bus",
+  "title": "Low-floor city bus",
+  "folder": "commercial",
+  "asset_dir": "vehicles",
+  "kind": "vehicle",
+  "source_triangles": 1280,
+  "triangles": 3955,
+  "vertices": 2072,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.621999740600586,
+    2.6666131019592285,
+    3.2799999713897705
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/vehicles/city_bus.obj"
+}

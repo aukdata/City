@@ -1,0 +1,92 @@
+[
+  {
+    "name": "transport_00.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      65.31,
+      66.91,
+      53.85
+    ],
+    "std": 31.47,
+    "distinctColors": 55599,
+    "headerMean": 58.82
+  },
+  {
+    "name": "transport_01.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      68.7,
+      75.12,
+      53.72
+    ],
+    "std": 36.09,
+    "distinctColors": 68804,
+    "headerMean": 71.12
+  },
+  {
+    "name": "transport_02.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      67.08,
+      66.61,
+      51.86
+    ],
+    "std": 36.81,
+    "distinctColors": 55414,
+    "headerMean": 58.35
+  },
+  {
+    "name": "transport_03.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      87.53,
+      116.66,
+      132.59
+    ],
+    "std": 40.04,
+    "distinctColors": 26354,
+    "headerMean": 81.16
+  },
+  {
+    "name": "transport_04.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      209.66,
+      213.91,
+      192.18
+    ],
+    "std": 36.54,
+    "distinctColors": 5170,
+    "headerMean": 250.61
+  },
+  {
+    "name": "transport_05.png",
+    "size": [
+      1280,
+      768
+    ],
+    "meanRGB": [
+      184.25,
+      203.47,
+      156.56
+    ],
+    "std": 43.85,
+    "distinctColors": 756,
+    "headerMean": 250.61
+  }
+]

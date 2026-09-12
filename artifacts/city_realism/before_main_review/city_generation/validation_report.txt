@@ -1,0 +1,4 @@
+﻿passed=true
+
+
+buildings=13212 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true

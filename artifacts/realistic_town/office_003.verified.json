@@ -1,0 +1,17 @@
+{
+  "stem": "office_003",
+  "title": "Brick business building",
+  "folder": "commercial",
+  "source_triangles": 6570,
+  "triangles": 23910,
+  "vertices": 13012,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    9.100000381469727,
+    8.899999618530273,
+    15.5
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/office_003.obj"
+}

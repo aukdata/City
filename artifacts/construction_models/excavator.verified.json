@@ -1,0 +1,18 @@
+{
+  "stem": "excavator",
+  "title": "20 tonne hydraulic excavator",
+  "asset_dir": "construction",
+  "kind": "construction",
+  "source_triangles": 6154,
+  "triangles": 38228,
+  "vertices": 19771,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    3.2249999046325684,
+    8.191829681396484,
+    5.611649990081787
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/construction/excavator.obj"
+}

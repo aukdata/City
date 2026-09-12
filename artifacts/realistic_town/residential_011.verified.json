@@ -1,0 +1,17 @@
+{
+  "stem": "residential_011",
+  "title": "Showa tiled-roof house",
+  "folder": "residential",
+  "source_triangles": 6998,
+  "triangles": 18483,
+  "vertices": 7960,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.25,
+    7.25,
+    7.556960582733154
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_011.obj"
+}

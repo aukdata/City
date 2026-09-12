@@ -1,0 +1,51 @@
+[
+  {
+    "stem": "shop_001",
+    "triangles": 1090,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "shop_002",
+    "triangles": 1592,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "shop_003",
+    "triangles": 882,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "factory_001",
+    "triangles": 768,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "factory_002",
+    "triangles": 818,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "public_001",
+    "triangles": 986,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  },
+  {
+    "stem": "public_002",
+    "triangles": 990,
+    "uv": true,
+    "diffuse_texture_loaded": true,
+    "materials": 1
+  }
+]

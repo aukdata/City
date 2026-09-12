@@ -1,0 +1,17 @@
+{
+  "stem": "public_001",
+  "title": "Neighborhood clinic",
+  "folder": "commercial",
+  "source_triangles": 986,
+  "triangles": 3452,
+  "vertices": 1852,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.539999961853027,
+    6.849999904632568
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_001.obj"
+}

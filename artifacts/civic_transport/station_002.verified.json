@@ -1,0 +1,19 @@
+{
+  "stem": "station_002",
+  "title": "Suburban station and footbridge",
+  "folder": "commercial",
+  "asset_dir": "railway",
+  "kind": "station",
+  "source_triangles": 1986,
+  "triangles": 7073,
+  "vertices": 3772,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    17.799999237060547,
+    26.0,
+    6.650000095367432
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/railway/station_002.obj"
+}

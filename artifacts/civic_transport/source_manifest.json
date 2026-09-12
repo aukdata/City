@@ -1,0 +1,122 @@
+[
+  {
+    "stem": "parking_001",
+    "title": "Coin-operated parking",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "parking",
+    "source_triangles": 1466
+  },
+  {
+    "stem": "parking_002",
+    "title": "Solar-canopy parking",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "parking",
+    "source_triangles": 1814
+  },
+  {
+    "stem": "public_005",
+    "title": "District police station",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "civic",
+    "source_triangles": 3362
+  },
+  {
+    "stem": "public_006",
+    "title": "Neighbourhood koban",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "civic",
+    "source_triangles": 2110
+  },
+  {
+    "stem": "public_007",
+    "title": "Municipal fire station",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "civic",
+    "source_triangles": 2606
+  },
+  {
+    "stem": "public_008",
+    "title": "City hall",
+    "folder": "commercial",
+    "asset_dir": "buildings/commercial",
+    "kind": "civic",
+    "source_triangles": 4290
+  },
+  {
+    "stem": "station_001",
+    "title": "Rural station with platform",
+    "folder": "commercial",
+    "asset_dir": "railway",
+    "kind": "station",
+    "source_triangles": 884
+  },
+  {
+    "stem": "station_002",
+    "title": "Suburban station and footbridge",
+    "folder": "commercial",
+    "asset_dir": "railway",
+    "kind": "station",
+    "source_triangles": 1986
+  },
+  {
+    "stem": "sedan",
+    "title": "Japanese family sedan",
+    "folder": "commercial",
+    "asset_dir": "vehicles",
+    "kind": "vehicle",
+    "source_triangles": 1176
+  },
+  {
+    "stem": "kei_wagon",
+    "title": "Kei tall wagon",
+    "folder": "commercial",
+    "asset_dir": "vehicles",
+    "kind": "vehicle",
+    "source_triangles": 1176
+  },
+  {
+    "stem": "patrol_car",
+    "title": "Police patrol sedan",
+    "folder": "commercial",
+    "asset_dir": "vehicles",
+    "kind": "vehicle",
+    "source_triangles": 1300
+  },
+  {
+    "stem": "fire_engine",
+    "title": "Urban fire engine",
+    "folder": "commercial",
+    "asset_dir": "vehicles",
+    "kind": "vehicle",
+    "source_triangles": 2116
+  },
+  {
+    "stem": "city_bus",
+    "title": "Low-floor city bus",
+    "folder": "commercial",
+    "asset_dir": "vehicles",
+    "kind": "vehicle",
+    "source_triangles": 1280
+  },
+  {
+    "stem": "commuter_001",
+    "title": "Stainless commuter EMU",
+    "folder": "commercial",
+    "asset_dir": "railway",
+    "kind": "train",
+    "source_triangles": 2716
+  },
+  {
+    "stem": "commuter_002",
+    "title": "Regional electric railcar",
+    "folder": "commercial",
+    "asset_dir": "railway",
+    "kind": "train",
+    "source_triangles": 2716
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "stem": "patrol_car",
+  "title": "Police patrol sedan",
+  "folder": "commercial",
+  "asset_dir": "vehicles",
+  "kind": "vehicle",
+  "source_triangles": 1300,
+  "triangles": 3779,
+  "vertices": 1974,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    4.621999740600586,
+    2.1500000953674316,
+    1.6799999475479126
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/vehicles/patrol_car.obj"
+}

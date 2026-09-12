@@ -1,0 +1,18 @@
+id = "roadside_gutter_concrete"
+name = "Roadside Concrete Gutter"
+type = "RoadsideGutter"
+tiling = "CrossSection"
+placement = "Strip"
+envelope_role = "Structural"
+model = "curb_concrete.obj"
+model_unit_width = 0.35
+model_unit_len = 1.0
+height_offset = 0.00
+symmetric = true
+
+[material]
+color = [0.24, 0.24, 0.22]
+
+[lod]
+mesh_names = []
+distances = []

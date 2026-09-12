@@ -295,3 +295,11 @@
 | 6. API 設計 | PanelManager クラス（registerPanel/show/hide/handleInput/drawBackgrounds） |
 | 7. 実装上の注意 | 2D コンテキスト・入力→描画順序・スクロール非対応 |
 | 8. 他仕様書との関係 | UI/ノード/車線/地名仕様との連携 |
+
+## 23_road_construction_spec.md
+
+道路の自動撤去、工事工程、重機と橋脚、未舗装の土・砕石材質、通行制御、撤去履歴の保存。
+
+## 24_japanese_urban_morphology.md
+
+日本の街の成り立ちの類型と一次資料、地形・旧市街・駅・産業・農村を共有する生成計画、歩道と車線数の役割別断面、実装範囲と制約。

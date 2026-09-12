@@ -1,0 +1,19 @@
+{
+  "stem": "kei_wagon",
+  "title": "Kei tall wagon",
+  "folder": "commercial",
+  "asset_dir": "vehicles",
+  "kind": "vehicle",
+  "source_triangles": 1176,
+  "triangles": 3481,
+  "vertices": 1816,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    3.51200008392334,
+    1.850000023841858,
+    1.7234200239181519
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/vehicles/kei_wagon.obj"
+}

@@ -1,0 +1,98 @@
+[
+  {
+    "stem": "office_005",
+    "title": "Japanese mixed-use building with tenant signs and service equipment",
+    "triangles": 7674,
+    "materials": 1,
+    "bounds_min": [
+      -4.285,
+      0.0,
+      -4.909999999999999
+    ],
+    "bounds_max": [
+      4.285000000000001,
+      23.049999999999997,
+      4.489999999999999
+    ]
+  },
+  {
+    "stem": "office_006",
+    "title": "Japanese mixed-use building with tenant signs and service equipment",
+    "triangles": 12054,
+    "materials": 1,
+    "bounds_min": [
+      -4.835,
+      0.0,
+      -4.81
+    ],
+    "bounds_max": [
+      4.835000000000001,
+      38.3,
+      4.39
+    ]
+  },
+  {
+    "stem": "shop_007",
+    "title": "Japanese mixed-use building with tenant signs and service equipment",
+    "triangles": 5922,
+    "materials": 1,
+    "bounds_min": [
+      -4.285,
+      0.0,
+      -4.909999999999999
+    ],
+    "bounds_max": [
+      4.285000000000001,
+      16.95,
+      4.489999999999999
+    ]
+  },
+  {
+    "stem": "shop_008",
+    "title": "Japanese mixed-use building with tenant signs and service equipment",
+    "triangles": 7674,
+    "materials": 1,
+    "bounds_min": [
+      -4.835,
+      0.0,
+      -4.81
+    ],
+    "bounds_max": [
+      4.835000000000001,
+      23.049999999999997,
+      4.39
+    ]
+  },
+  {
+    "stem": "shop_009",
+    "title": "Two narrow local shopfronts with residences above",
+    "triangles": 2282,
+    "materials": 1,
+    "bounds_min": [
+      -4.9799999999999995,
+      0.0,
+      -4.845
+    ],
+    "bounds_max": [
+      4.98,
+      9.04,
+      4.39
+    ]
+  },
+  {
+    "stem": "shop_010",
+    "title": "Two narrow local shopfronts with residences above",
+    "triangles": 2282,
+    "materials": 1,
+    "bounds_min": [
+      -4.9799999999999995,
+      0.0,
+      -4.845
+    ],
+    "bounds_max": [
+      4.98,
+      9.04,
+      4.39
+    ]
+  }
+]

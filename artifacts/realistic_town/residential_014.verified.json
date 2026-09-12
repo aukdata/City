@@ -1,0 +1,17 @@
+{
+  "stem": "residential_014",
+  "title": "Urban compact house",
+  "folder": "residential",
+  "source_triangles": 3484,
+  "triangles": 11057,
+  "vertices": 5952,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.25,
+    7.25,
+    6.489999771118164
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_014.obj"
+}

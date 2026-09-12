@@ -1,0 +1,65 @@
+[
+  {
+    "asset": "concrete_wall_001",
+    "kind": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_001/concrete_wall_001_diff_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\concrete_wall_001\\concrete_wall_001_diff_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "brown_mud",
+    "kind": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_mud/brown_mud_diff_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\brown_mud\\brown_mud_diff_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "gravel_road",
+    "kind": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_diff_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\gravel_road\\gravel_road_diff_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "brown_mud",
+    "kind": "nor_dx",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_mud/brown_mud_nor_dx_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\brown_mud\\brown_mud_nor_dx_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "brown_mud",
+    "kind": "Displacement",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_mud/brown_mud_disp_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\brown_mud\\brown_mud_disp_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "gravel_road",
+    "kind": "nor_dx",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_nor_dx_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\gravel_road\\gravel_road_nor_dx_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "concrete_wall_001",
+    "kind": "nor_dx",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_001/concrete_wall_001_nor_dx_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\concrete_wall_001\\concrete_wall_001_nor_dx_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "gravel_road",
+    "kind": "Displacement",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_disp_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\gravel_road\\gravel_road_disp_1k.jpg",
+    "license": "CC0"
+  },
+  {
+    "asset": "concrete_wall_001",
+    "kind": "Displacement",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_001/concrete_wall_001_disp_1k.jpg",
+    "file": "App\\assets\\third_party\\polyhaven\\concrete_wall_001\\concrete_wall_001_disp_1k.jpg",
+    "license": "CC0"
+  }
+]

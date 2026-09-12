@@ -1,0 +1,7 @@
+[23.0059s] [TransportReview] rendered=0 map=false
+[24.5189s] [TransportReview] rendered=1 map=false
+[26.0115s] [TransportReview] rendered=2 map=false
+[27.5017s] [TransportReview] rendered=3 map=false
+[28.993s] [TransportReview] rendered=4 map=true
+[30.4057s] [TransportReview] rendered=5 map=true
+[30.539s] [TransportReview] mapJumpPassed=true streets=22929 labels=398

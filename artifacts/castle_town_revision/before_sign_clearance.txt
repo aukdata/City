@@ -1,0 +1,1 @@
+﻿signs=12 nearestJunctionM=19.999982913335185

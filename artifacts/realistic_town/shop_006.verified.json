@@ -1,0 +1,17 @@
+{
+  "stem": "shop_006",
+  "title": "Neighbourhood supermarket",
+  "folder": "commercial",
+  "source_triangles": 982,
+  "triangles": 3399,
+  "vertices": 1812,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.75,
+    7.099999904632568,
+    3.880000114440918
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_006.obj"
+}

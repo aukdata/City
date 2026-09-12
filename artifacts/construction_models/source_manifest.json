@@ -1,0 +1,30 @@
+[
+  {
+    "stem": "excavator",
+    "title": "20 tonne hydraulic excavator",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 6154
+  },
+  {
+    "stem": "road_roller",
+    "title": "Tandem vibratory asphalt roller",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 2056
+  },
+  {
+    "stem": "asphalt_paver",
+    "title": "Wheeled asphalt finisher with telescopic screed",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 11464
+  },
+  {
+    "stem": "mobile_crane",
+    "title": "Rough terrain crane with four outriggers and telescopic boom",
+    "asset_dir": "construction",
+    "kind": "construction",
+    "source_triangles": 8074
+  }
+]

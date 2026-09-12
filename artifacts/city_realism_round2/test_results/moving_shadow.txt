@@ -1,0 +1,1 @@
+﻿staticBuilds=1 oldShadowPixels=1958 restoredPixels=1958 newShadowPixels=1591

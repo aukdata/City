@@ -1,0 +1,66 @@
+[
+  {
+    "stem": "office_005",
+    "title": "Narrow mixed-use city building",
+    "triangles": 8332,
+    "materials": 1,
+    "bounds_min": [
+      -4.41,
+      0.0,
+      -4.7749999999999995
+    ],
+    "bounds_max": [
+      4.285000000000001,
+      24.5,
+      4.51
+    ]
+  },
+  {
+    "stem": "office_006",
+    "title": "Narrow mixed-use city building",
+    "triangles": 13632,
+    "materials": 1,
+    "bounds_min": [
+      -4.96,
+      0.0,
+      -4.675
+    ],
+    "bounds_max": [
+      4.835000000000001,
+      40.50000000000001,
+      4.41
+    ]
+  },
+  {
+    "stem": "shop_007",
+    "title": "Narrow mixed-use city building",
+    "triangles": 6214,
+    "materials": 1,
+    "bounds_min": [
+      -4.41,
+      0.0,
+      -4.7749999999999995
+    ],
+    "bounds_max": [
+      4.285000000000001,
+      18.099999999999998,
+      4.51
+    ]
+  },
+  {
+    "stem": "shop_008",
+    "title": "Narrow mixed-use city building",
+    "triangles": 8332,
+    "materials": 1,
+    "bounds_min": [
+      -4.96,
+      0.0,
+      -4.675
+    ],
+    "bounds_max": [
+      4.835000000000001,
+      24.5,
+      4.41
+    ]
+  }
+]

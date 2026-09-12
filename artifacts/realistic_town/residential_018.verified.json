@@ -1,0 +1,17 @@
+{
+  "stem": "residential_018",
+  "title": "Residential tower",
+  "folder": "residential",
+  "source_triangles": 30476,
+  "triangles": 30476,
+  "vertices": 18700,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    8.800000190734863,
+    8.800000190734863,
+    37.36000061035156
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_018.obj"
+}

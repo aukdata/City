@@ -1,0 +1,37 @@
+{
+  "seeds": {
+    "42": {
+      "coverage": {
+        "blocks": 5384,
+        "emptyBefore": 11,
+        "infill": 11,
+        "emptyAfter": 0
+      },
+      "roads": 21996,
+      "submergedRoads": 0,
+      "railRoadConflicts": 0,
+      "maxRailGradePermille": 23.87952278663092,
+      "buildings": 59251,
+      "buildingConstraintsPassed": true
+    },
+    "20260316": {
+      "coverage": {
+        "blocks": 5864,
+        "emptyBefore": 5,
+        "infill": 5,
+        "emptyAfter": 0
+      },
+      "roads": 23021,
+      "submergedRoads": 0,
+      "railRoadConflicts": 0,
+      "maxRailGradePermille": 22.423851468850067,
+      "buildings": 64162,
+      "buildingConstraintsPassed": true
+    }
+  },
+  "tests": {
+    "total": 67,
+    "passed": 67
+  },
+  "mapJumpPassed": true
+}

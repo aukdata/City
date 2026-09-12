@@ -1,0 +1,19 @@
+{
+  "stem": "parking_002",
+  "title": "Solar-canopy parking",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "parking",
+  "source_triangles": 1814,
+  "triangles": 5786,
+  "vertices": 3068,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.600000381469727,
+    10.800000190734863,
+    3.25
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/parking_002.obj"
+}

@@ -1,0 +1,17 @@
+{
+  "stem": "public_003",
+  "title": "Neighbourhood police box",
+  "folder": "commercial",
+  "source_triangles": 1806,
+  "triangles": 6450,
+  "vertices": 3484,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.505000114440918,
+    8.0
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_003.obj"
+}

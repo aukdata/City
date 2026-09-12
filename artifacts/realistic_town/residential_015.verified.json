@@ -1,0 +1,17 @@
+{
+  "stem": "residential_015",
+  "title": "Exterior-corridor apartment",
+  "folder": "residential",
+  "source_triangles": 4592,
+  "triangles": 15934,
+  "vertices": 8440,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.335895538330078,
+    7.199999809265137,
+    6.909999847412109
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_015.obj"
+}

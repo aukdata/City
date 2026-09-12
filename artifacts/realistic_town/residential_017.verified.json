@@ -1,0 +1,17 @@
+{
+  "stem": "residential_017",
+  "title": "Balcony condominium",
+  "folder": "residential",
+  "source_triangles": 15356,
+  "triangles": 15356,
+  "vertices": 9412,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    8.800000190734863,
+    8.800000190734863,
+    19.65999984741211
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/residential/residential_017.obj"
+}

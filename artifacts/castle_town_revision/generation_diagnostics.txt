@@ -1,0 +1,7 @@
+﻿seed=20260316 maxCrossStreetDriftM=0
+seed=20260316 edges=1237 connectedComponents=1 endpoints=0 minEdgeLengthM=70.6880111694336
+seed=42 maxCrossStreetDriftM=0
+seed=42 edges=1236 connectedComponents=1 endpoints=0 minEdgeLengthM=70.20708465576172
+visibleRoadSamples=48 roadMaterialVisible=48
+seed=20260912 maxCrossStreetDriftM=0
+seed=20260912 edges=1236 connectedComponents=1 endpoints=0 minEdgeLengthM=70.35504150390625

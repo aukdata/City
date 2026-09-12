@@ -1,0 +1,9 @@
+{
+  "seed": 42,
+  "startedAt": "2026-09-13T01:15:56.0460384+09:00",
+  "pid": 2396,
+  "executable": "App/City.exe",
+  "sha256": "E21B5EAF7A7EFB712259CA1F95C92CA1020857550707AD2D39F4EE524A7D3C1F",
+  "responding": true,
+  "inspectedAt": "2026-09-13T01:19:38.7140932+09:00"
+}

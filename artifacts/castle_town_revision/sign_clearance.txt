@@ -1,0 +1,2 @@
+﻿spacing=80 signs=0 nearestJunctionM=10000
+spacing=500 signs=12 nearestJunctionM=99.99965069194654

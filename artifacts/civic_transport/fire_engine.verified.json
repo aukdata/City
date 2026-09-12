@@ -1,0 +1,19 @@
+{
+  "stem": "fire_engine",
+  "title": "Urban fire engine",
+  "folder": "commercial",
+  "asset_dir": "vehicles",
+  "kind": "vehicle",
+  "source_triangles": 2116,
+  "triangles": 6823,
+  "vertices": 3608,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.621999740600586,
+    2.311501979827881,
+    3.0199999809265137
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/vehicles/fire_engine.obj"
+}

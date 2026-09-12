@@ -1,0 +1,1 @@
+﻿City constraint validation failed: buildings=22834 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=2 frontageDistance=0 coastal=0 passed=false

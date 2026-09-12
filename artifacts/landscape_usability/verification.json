@@ -1,0 +1,70 @@
+{
+  "tests": {
+    "total": 53,
+    "passed": 53,
+    "failed": 0
+  },
+  "performance": {
+    "cpuMs": {
+      "p50": 8.033,
+      "p95": 28.276,
+      "max": 49.938,
+      "over40": 6,
+      "over100": 0
+    },
+    "frameMs": {
+      "p50": 24.02,
+      "p95": 44.236,
+      "max": 65.991,
+      "over40": 84,
+      "over100": 0
+    },
+    "uploads": {
+      "maxFrame": 18.36,
+      "nearJobs": 9,
+      "farJobs": 55
+    }
+  },
+  "formatCheckedFiles": [
+    "Test/CityGenerationTests.cpp",
+    "Test/Main.cpp",
+    "Test/SaveTransactionTests.cpp",
+    "Test/TestCases.hpp",
+    "Test/UrbanUsabilityTests.cpp",
+    "src/GameApp.cpp",
+    "src/gen/DistrictRoads.cpp",
+    "src/gen/DistrictRoads.hpp",
+    "src/render/CityLighting.cpp",
+    "src/render/CityLighting.hpp",
+    "src/render/MinimapRenderer.cpp",
+    "src/render/MinimapRenderer.hpp",
+    "src/render/RoadRenderer.cpp",
+    "src/render/RoadRenderer.hpp",
+    "src/render/TreeGeometry.hpp",
+    "src/render/UIRenderer.cpp",
+    "src/render/UIRenderer.hpp",
+    "src/render/WorldRenderer.cpp",
+    "src/render/WorldRenderer.hpp",
+    "src/road/GuideSign.cpp",
+    "src/road/GuideSign.hpp",
+    "src/road/JunctionGeometry.cpp",
+    "src/road/JunctionGeometry.hpp",
+    "src/road/RoadMarkingGenerator.hpp",
+    "src/road/RoadNetwork.cpp",
+    "src/road/RoadNetwork.hpp",
+    "src/road/RoadTypes.hpp",
+    "src/scene/GameScene.cpp",
+    "src/scene/GameScene.hpp",
+    "src/scene/GameScene_Input.cpp",
+    "src/scene/GameScene_Panels.cpp",
+    "src/scene/GameScene_Render.cpp",
+    "src/scene/SceneCommon.hpp",
+    "src/sim/SimGraph.hpp",
+    "src/ui/Camera.cpp",
+    "src/ui/Camera.hpp",
+    "src/ui/CollapsibleHudPanel.hpp",
+    "src/ui/LandParcelPanel.hpp",
+    "src/world/LandPlot.hpp"
+  ],
+  "releaseSha256": "e94f7b1dec833e728decf9ea1e0567bb3ef10860a5a104984ec9b0d0828be7fc"
+}

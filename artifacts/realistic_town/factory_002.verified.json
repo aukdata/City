@@ -1,0 +1,17 @@
+{
+  "stem": "factory_002",
+  "title": "Local distribution depot",
+  "folder": "commercial",
+  "source_triangles": 818,
+  "triangles": 2884,
+  "vertices": 1540,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.505000114440918,
+    4.920000076293945
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/factory_002.obj"
+}

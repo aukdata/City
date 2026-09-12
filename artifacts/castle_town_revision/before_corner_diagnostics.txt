@@ -1,0 +1,1 @@
+﻿cutA=7.699999 cutB=7.699999 repaired=false

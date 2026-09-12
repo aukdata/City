@@ -1,0 +1,17 @@
+{
+  "stem": "shop_003",
+  "title": "Corner kissaten cafe",
+  "folder": "commercial",
+  "source_triangles": 882,
+  "triangles": 2846,
+  "vertices": 1462,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.5,
+    6.800000190734863,
+    3.7699999809265137
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_003.obj"
+}

@@ -1,0 +1,128 @@
+[
+  {
+    "file": "Test/Main.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "Test/TestCases.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/GameApp.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/render/RoadRenderer.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/render/RoadRenderer.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/render/WorldRenderer.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/road/RoadNetwork.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/road/RoadTypes.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/GameScene.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/GameScene.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/GameScene_Panels.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/GameScene_Render.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/SceneCommon.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/sim/SimGraph.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/road/RoadConstruction.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/road/RoadConstruction.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/render/BridgeStructure.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/render/RoadRenderer_Construction.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/ui/ConstructionStatus.hpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "src/scene/GameScene_ConstructionReview.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  },
+  {
+    "file": "Test/RoadConstructionTests.cpp",
+    "bom": true,
+    "lf_only": 0,
+    "double_cr": 0
+  }
+]

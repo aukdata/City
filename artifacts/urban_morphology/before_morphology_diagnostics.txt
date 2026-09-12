@@ -1,0 +1,16 @@
+﻿origin=0 seed=42 edges=874 components=1 deadEnds=4 civicStreets=0
+origin=0 seed=20260316 edges=874 components=1 deadEnds=4 civicStreets=0
+origin=1 seed=42 edges=392 components=1 deadEnds=0 civicStreets=0
+origin=1 seed=20260316 edges=392 components=1 deadEnds=0 civicStreets=0
+origin=2 seed=42 edges=460 components=2 deadEnds=8 civicStreets=0
+origin=2 seed=20260316 edges=460 components=2 deadEnds=8 civicStreets=0
+origin=3 seed=42 edges=360 components=1 deadEnds=0 civicStreets=0
+origin=3 seed=20260316 edges=360 components=1 deadEnds=0 civicStreets=0
+origin=4 seed=42 edges=688 components=1 deadEnds=0 civicStreets=0
+origin=4 seed=20260316 edges=688 components=1 deadEnds=0 civicStreets=0
+origin=5 seed=42 edges=342 components=1 deadEnds=0 civicStreets=0
+origin=5 seed=20260316 edges=342 components=1 deadEnds=0 civicStreets=0
+origin=6 seed=42 edges=308 components=1 deadEnds=2 civicStreets=0
+origin=6 seed=20260316 edges=308 components=1 deadEnds=2 civicStreets=0
+origin=7 seed=42 edges=26 components=1 deadEnds=0 civicStreets=0
+origin=7 seed=20260316 edges=62 components=1 deadEnds=0 civicStreets=0

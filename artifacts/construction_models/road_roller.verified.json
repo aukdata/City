@@ -1,0 +1,18 @@
+{
+  "stem": "road_roller",
+  "title": "Tandem vibratory asphalt roller",
+  "asset_dir": "construction",
+  "kind": "construction",
+  "source_triangles": 2056,
+  "triangles": 11088,
+  "vertices": 5664,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    1.8799999952316284,
+    3.621500015258789,
+    2.299999952316284
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/construction/road_roller.obj"
+}

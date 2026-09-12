@@ -1,0 +1,7 @@
+[6.78489s] [WaterCrossings] wetBefore=435 elevatedEdges=644
+[6.8383s] [GuideSignClearance] generated=730 exclusionViolations=0 clearanceM=30
+[6.98488s] [RailwayAudit] maxGrade=0.022423851468850068 minimumGroundClearance=0.45000641525149376 roadConflicts=0 underWater=0
+[6.98488s] [RailwayAlignment] stations=20 lines=19 sections=1017
+[15.7019s] [BlockCoverage] blocks=5864 emptyBefore=5 infill=5 emptyAfter=0
+[24.5656s] [CityConstraintValidation] buildings=64162 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[24.7191s] [RoadIntegrityAudit] snapshot success=true path=road_integrity_snapshot

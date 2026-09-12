@@ -1,0 +1,36 @@
+﻿arms=3 edge=0 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=0.1680
+arms=3 edge=1 cutoffA=11.29 cutoffB=0 crosswalkCornerHeightErrorM=-0.1120
+arms=3 edge=2 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=-0.1680
+arms=3 crosswalkWhiteSamples=750 totalSamples=2109 coverage=0.3556
+scenario=3 visibleBarCenters=90 expectedBarCenters=90
+arms=4 edge=0 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=0.1680
+arms=4 edge=1 cutoffA=11.29 cutoffB=0 crosswalkCornerHeightErrorM=-0.1120
+arms=4 edge=2 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=-0.1680
+arms=4 edge=3 cutoffA=11.29 cutoffB=0 crosswalkCornerHeightErrorM=0.1119
+arms=4 crosswalkWhiteSamples=1035 totalSamples=2812 coverage=0.3681
+scenario=4 visibleBarCenters=120 expectedBarCenters=120
+arms=3 edge=0 cutoffA=0 cutoffB=15.139999 crosswalkCornerHeightErrorM=0.1679
+arms=3 edge=2 cutoffA=0 cutoffB=15.139999 crosswalkCornerHeightErrorM=-0.3149
+arms=3 crosswalkWhiteSamples=1007 totalSamples=2014 coverage=0.5000
+scenario=5 visibleBarCenters=90 expectedBarCenters=90
+arms=3 crosswalkWhiteSamples=0 totalSamples=0 coverage=0.0000
+scenario=6 visibleBarCenters=0 expectedBarCenters=0
+arms=3 edge=0 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=-7.8320
+arms=3 edge=1 cutoffA=11.29 cutoffB=0 crosswalkCornerHeightErrorM=-8.1120
+arms=3 edge=2 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=-8.1680
+arms=3 crosswalkWhiteSamples=749 totalSamples=2109 coverage=0.3551
+scenario=7 visibleBarCenters=90 expectedBarCenters=90
+arms=3 crosswalkWhiteSamples=0 totalSamples=0 coverage=0.0000
+scenario=8 visibleBarCenters=0 expectedBarCenters=0
+arms=3 edge=0 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=0.1680
+arms=3 edge=2 cutoffA=0 cutoffB=11.29 crosswalkCornerHeightErrorM=-0.1680
+arms=3 crosswalkWhiteSamples=522 totalSamples=1406 coverage=0.3713
+scenario=9 visibleBarCenters=60 expectedBarCenters=60
+arms=2 crosswalkWhiteSamples=0 totalSamples=0 coverage=0.0000
+scenario=10 visibleBarCenters=0 expectedBarCenters=0
+seamVisible=63 seamSamples=63
+asyncTerrainDifferentPixels=0 totalPixels=1152000
+arms=6 edge=0 cutoffA=0 cutoffB=60.65164 crosswalkCornerHeightErrorM=-0.1120
+arms=6 edge=2 cutoffA=0 cutoffB=60.65164 crosswalkCornerHeightErrorM=0.1795
+arms=6 crosswalkWhiteSamples=361 totalSamples=703 coverage=0.5135
+scenario=11 visibleBarCenters=30 expectedBarCenters=30

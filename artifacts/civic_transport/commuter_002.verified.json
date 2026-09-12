@@ -1,0 +1,19 @@
+{
+  "stem": "commuter_002",
+  "title": "Regional electric railcar",
+  "folder": "commercial",
+  "asset_dir": "railway",
+  "kind": "train",
+  "source_triangles": 2716,
+  "triangles": 8444,
+  "vertices": 4396,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    2.944000005722046,
+    20.350000381469727,
+    4.5756754875183105
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/railway/commuter_002.obj"
+}

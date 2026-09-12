@@ -1,0 +1,17 @@
+{
+  "stem": "public_002",
+  "title": "Volunteer fire station",
+  "folder": "commercial",
+  "source_triangles": 990,
+  "triangles": 3433,
+  "vertices": 1804,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.5,
+    9.0
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_002.obj"
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "stem": "shop_001",
+    "title": "Neighborhood convenience store",
+    "folder": "commercial",
+    "source_triangles": 1090
+  },
+  {
+    "stem": "shop_002",
+    "title": "Traditional rice shop",
+    "folder": "commercial",
+    "source_triangles": 1592
+  },
+  {
+    "stem": "shop_003",
+    "title": "Corner kissaten cafe",
+    "folder": "commercial",
+    "source_triangles": 882
+  },
+  {
+    "stem": "factory_001",
+    "title": "Small metalworking factory",
+    "folder": "commercial",
+    "source_triangles": 768
+  },
+  {
+    "stem": "factory_002",
+    "title": "Local distribution depot",
+    "folder": "commercial",
+    "source_triangles": 818
+  },
+  {
+    "stem": "public_001",
+    "title": "Neighborhood clinic",
+    "folder": "commercial",
+    "source_triangles": 986
+  },
+  {
+    "stem": "public_002",
+    "title": "Volunteer fire station",
+    "folder": "commercial",
+    "source_triangles": 990
+  },
+  {
+    "stem": "residential_011",
+    "title": "Showa tiled-roof house",
+    "folder": "residential",
+    "source_triangles": 6998
+  },
+  {
+    "stem": "residential_012",
+    "title": "Modern two-storey home",
+    "folder": "residential",
+    "source_triangles": 3736
+  },
+  {
+    "stem": "residential_013",
+    "title": "Timber bungalow",
+    "folder": "residential",
+    "source_triangles": 6398
+  },
+  {
+    "stem": "residential_014",
+    "title": "Urban compact house",
+    "folder": "residential",
+    "source_triangles": 3484
+  },
+  {
+    "stem": "residential_015",
+    "title": "Exterior-corridor apartment",
+    "folder": "residential",
+    "source_triangles": 4592
+  },
+  {
+    "stem": "residential_016",
+    "title": "Brick apartment",
+    "folder": "residential",
+    "source_triangles": 6868
+  },
+  {
+    "stem": "residential_017",
+    "title": "Balcony condominium",
+    "folder": "residential",
+    "source_triangles": 15356
+  },
+  {
+    "stem": "residential_018",
+    "title": "Residential tower",
+    "folder": "residential",
+    "source_triangles": 30476
+  },
+  {
+    "stem": "office_003",
+    "title": "Brick business building",
+    "folder": "commercial",
+    "source_triangles": 6570
+  },
+  {
+    "stem": "office_004",
+    "title": "Curtain-wall office",
+    "folder": "commercial",
+    "source_triangles": 6570
+  },
+  {
+    "stem": "shop_004",
+    "title": "Ramen restaurant",
+    "folder": "commercial",
+    "source_triangles": 1034
+  },
+  {
+    "stem": "shop_005",
+    "title": "Bakery and deli",
+    "folder": "commercial",
+    "source_triangles": 1058
+  },
+  {
+    "stem": "shop_006",
+    "title": "Neighbourhood supermarket",
+    "folder": "commercial",
+    "source_triangles": 982
+  },
+  {
+    "stem": "factory_003",
+    "title": "Sawtooth-roof workshop",
+    "folder": "commercial",
+    "source_triangles": 850
+  },
+  {
+    "stem": "factory_004",
+    "title": "Service garage and utility tanks",
+    "folder": "commercial",
+    "source_triangles": 1020
+  },
+  {
+    "stem": "public_003",
+    "title": "Neighbourhood police box",
+    "folder": "commercial",
+    "source_triangles": 1806
+  },
+  {
+    "stem": "public_004",
+    "title": "Community reading room",
+    "folder": "commercial",
+    "source_triangles": 1746
+  }
+]

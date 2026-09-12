@@ -1,0 +1,242 @@
+[
+  {
+    "stem": "parking_001",
+    "title": "Coin-operated parking",
+    "folder": "commercial",
+    "triangles": 4507,
+    "vertices": 2372,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.6,
+      3.25,
+      10.8
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/parking_001.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "parking_002",
+    "title": "Solar-canopy parking",
+    "folder": "commercial",
+    "triangles": 5786,
+    "vertices": 3068,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.6,
+      3.25,
+      10.8
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/parking_002.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "public_005",
+    "title": "District police station",
+    "folder": "commercial",
+    "triangles": 12085,
+    "vertices": 6556,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.1,
+      10.6,
+      9.325
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/public_005.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "public_006",
+    "title": "Neighbourhood koban",
+    "folder": "commercial",
+    "triangles": 7425,
+    "vertices": 4012,
+    "materials": 1,
+    "dimensions_xyz": [
+      6.4,
+      7.1,
+      6.725
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/public_006.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "public_007",
+    "title": "Municipal fire station",
+    "folder": "commercial",
+    "triangles": 9312,
+    "vertices": 5044,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.1,
+      8.3,
+      9.08
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/public_007.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "public_008",
+    "title": "City hall",
+    "folder": "commercial",
+    "triangles": 15480,
+    "vertices": 8404,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.1,
+      13.46,
+      9.325
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/buildings/commercial/public_008.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "station_001",
+    "title": "Rural station with platform",
+    "folder": "commercial",
+    "triangles": 3130,
+    "vertices": 1652,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.488244,
+      4.485899,
+      26.0
+    ],
+    "texture_resolution": 2048,
+    "obj": "App/assets/railway/station_001.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "station_002",
+    "title": "Suburban station and footbridge",
+    "folder": "commercial",
+    "triangles": 7073,
+    "vertices": 3772,
+    "materials": 1,
+    "dimensions_xyz": [
+      17.8,
+      6.65,
+      26.0
+    ],
+    "texture_resolution": 2048,
+    "obj": "App/assets/railway/station_002.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "sedan",
+    "title": "Japanese family sedan",
+    "folder": "commercial",
+    "triangles": 3461,
+    "vertices": 1806,
+    "materials": 1,
+    "dimensions_xyz": [
+      4.622,
+      1.465375,
+      2.15
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/vehicles/sedan.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "kei_wagon",
+    "title": "Kei tall wagon",
+    "folder": "commercial",
+    "triangles": 3481,
+    "vertices": 1816,
+    "materials": 1,
+    "dimensions_xyz": [
+      3.512,
+      1.72342,
+      1.85
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/vehicles/kei_wagon.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "patrol_car",
+    "title": "Police patrol sedan",
+    "folder": "commercial",
+    "triangles": 3779,
+    "vertices": 1974,
+    "materials": 1,
+    "dimensions_xyz": [
+      4.622,
+      1.68,
+      2.15
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/vehicles/patrol_car.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "fire_engine",
+    "title": "Urban fire engine",
+    "folder": "commercial",
+    "triangles": 6823,
+    "vertices": 3608,
+    "materials": 1,
+    "dimensions_xyz": [
+      6.622,
+      3.02,
+      2.311502
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/vehicles/fire_engine.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "city_bus",
+    "title": "Low-floor city bus",
+    "folder": "commercial",
+    "triangles": 3955,
+    "vertices": 2072,
+    "materials": 1,
+    "dimensions_xyz": [
+      10.622,
+      3.28,
+      2.666613
+    ],
+    "texture_resolution": 1024,
+    "obj": "App/assets/vehicles/city_bus.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "commuter_001",
+    "title": "Stainless commuter EMU",
+    "folder": "commercial",
+    "triangles": 8444,
+    "vertices": 4396,
+    "materials": 1,
+    "dimensions_xyz": [
+      2.944,
+      4.575675,
+      20.35
+    ],
+    "texture_resolution": 2048,
+    "obj": "App/assets/railway/commuter_001.obj",
+    "degenerate_triangles": 0
+  },
+  {
+    "stem": "commuter_002",
+    "title": "Regional electric railcar",
+    "folder": "commercial",
+    "triangles": 8444,
+    "vertices": 4396,
+    "materials": 1,
+    "dimensions_xyz": [
+      2.944,
+      4.575675,
+      20.35
+    ],
+    "texture_resolution": 2048,
+    "obj": "App/assets/railway/commuter_002.obj",
+    "degenerate_triangles": 0
+  }
+]

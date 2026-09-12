@@ -1,0 +1,1 @@
+﻿cutA=18.14 cutB=18.14 repaired=false

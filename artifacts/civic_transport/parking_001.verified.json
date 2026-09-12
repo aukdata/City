@@ -1,0 +1,19 @@
+{
+  "stem": "parking_001",
+  "title": "Coin-operated parking",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "parking",
+  "source_triangles": 1466,
+  "triangles": 4507,
+  "vertices": 2372,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.600000381469727,
+    10.800000190734863,
+    3.25
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/parking_001.obj"
+}

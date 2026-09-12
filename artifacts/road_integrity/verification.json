@@ -1,0 +1,20 @@
+{
+  "tests": {
+    "total": 43,
+    "passed": 43,
+    "failed": 0
+  },
+  "seed": 42,
+  "roadProximityCandidatesBefore": 129,
+  "roadProximityCandidatesAfter": 1,
+  "broadOverlapRunBeforeM": 5289.466846056608,
+  "broadOverlapRunAfterM": 11.270494804744413,
+  "remainingCandidateAsphaltAreaM2": 0,
+  "mixedGroundBridgeNodesBefore": 87,
+  "mixedGroundBridgeNodesAfter": 0,
+  "deployedSha256": "8D8A7E42213CFB5C30E79AC9AC43CFCAC18D882E1119CBBCF78CCEC3C0E3B125",
+  "builtSha256": "8D8A7E42213CFB5C30E79AC9AC43CFCAC18D882E1119CBBCF78CCEC3C0E3B125",
+  "originalSaveSha256": "FA23C9CB095FA6158D1DFD1ED987426F8ADB3C59E1F5B1A4320DA8E3C3A70327",
+  "visibleJunctionSamples": 91,
+  "expectedJunctionSamples": 91
+}

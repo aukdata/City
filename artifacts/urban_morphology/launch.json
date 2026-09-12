@@ -1,0 +1,7 @@
+{
+  "sha256": "BD72E1A6AAC34AEB395A6D00614EDA58CBDDCF8C5E2451FC51778299CB5467E7",
+  "pid": 27400,
+  "started": "2026-09-12T23:56:08.5843944+09:00",
+  "backup": "D:\\Users\\Takuma\\Creations\\codes\\City\\App\\City.before-boundary-fix-20260912-235608.exe",
+  "arguments": "--seed 42 --new"
+}

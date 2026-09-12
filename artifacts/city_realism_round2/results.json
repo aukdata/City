@@ -1,0 +1,908 @@
+{
+  "conditions": "Release x64, 1920x1080, 13:00, VSync on; 22 paused views and 2 moving-traffic views. 60 measured frames per view.",
+  "gpuScope": "Only forward 3D flush and MSAA resolve; excludes shadow passes and presentation.",
+  "profileBaseline": {
+    "views": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 24.0,
+        "frameP95": 25.55,
+        "cpuP50": 6.69,
+        "gpuP50": 8.65,
+        "gpuP95": 9.5
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 21.99,
+        "frameP95": 24.04,
+        "cpuP50": 5.25,
+        "gpuP50": 8.53,
+        "gpuP95": 8.81
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 21.1,
+        "frameP95": 21.98,
+        "cpuP50": 4.52,
+        "gpuP50": 7.88,
+        "gpuP95": 8.07
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 21.02,
+        "frameP95": 22.04,
+        "cpuP50": 4.45,
+        "gpuP50": 7.6,
+        "gpuP95": 7.82
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 20.38,
+        "frameP95": 21.36,
+        "cpuP50": 4.01,
+        "gpuP50": 7.28,
+        "gpuP95": 7.42
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 20.18,
+        "frameP95": 21.17,
+        "cpuP50": 4.01,
+        "gpuP50": 7.17,
+        "gpuP95": 7.35
+      },
+      {
+        "view": 6.0,
+        "samples": 60.0,
+        "frameP50": 20.1,
+        "frameP95": 21.11,
+        "cpuP50": 3.92,
+        "gpuP50": 7.2,
+        "gpuP95": 7.37
+      },
+      {
+        "view": 7.0,
+        "samples": 60.0,
+        "frameP50": 20.46,
+        "frameP95": 21.16,
+        "cpuP50": 4.54,
+        "gpuP50": 7.2,
+        "gpuP95": 7.4
+      },
+      {
+        "view": 8.0,
+        "samples": 60.0,
+        "frameP50": 20.2,
+        "frameP95": 21.57,
+        "cpuP50": 4.08,
+        "gpuP50": 7.22,
+        "gpuP95": 7.47
+      },
+      {
+        "view": 9.0,
+        "samples": 60.0,
+        "frameP50": 20.14,
+        "frameP95": 21.13,
+        "cpuP50": 3.98,
+        "gpuP50": 7.21,
+        "gpuP95": 7.39
+      },
+      {
+        "view": 10.0,
+        "samples": 60.0,
+        "frameP50": 20.05,
+        "frameP95": 20.96,
+        "cpuP50": 3.92,
+        "gpuP50": 7.19,
+        "gpuP95": 7.37
+      },
+      {
+        "view": 11.0,
+        "samples": 60.0,
+        "frameP50": 20.23,
+        "frameP95": 21.16,
+        "cpuP50": 3.98,
+        "gpuP50": 7.21,
+        "gpuP95": 7.38
+      },
+      {
+        "view": 12.0,
+        "samples": 60.0,
+        "frameP50": 20.31,
+        "frameP95": 21.2,
+        "cpuP50": 4.1,
+        "gpuP50": 7.25,
+        "gpuP95": 7.38
+      },
+      {
+        "view": 13.0,
+        "samples": 60.0,
+        "frameP50": 20.32,
+        "frameP95": 21.58,
+        "cpuP50": 4.11,
+        "gpuP50": 7.48,
+        "gpuP95": 7.65
+      },
+      {
+        "view": 14.0,
+        "samples": 60.0,
+        "frameP50": 20.26,
+        "frameP95": 21.3,
+        "cpuP50": 3.91,
+        "gpuP50": 7.27,
+        "gpuP95": 7.45
+      },
+      {
+        "view": 15.0,
+        "samples": 60.0,
+        "frameP50": 20.14,
+        "frameP95": 21.23,
+        "cpuP50": 4.05,
+        "gpuP50": 7.5,
+        "gpuP95": 7.69
+      },
+      {
+        "view": 16.0,
+        "samples": 60.0,
+        "frameP50": 20.1,
+        "frameP95": 20.72,
+        "cpuP50": 3.91,
+        "gpuP50": 7.12,
+        "gpuP95": 7.32
+      },
+      {
+        "view": 17.0,
+        "samples": 60.0,
+        "frameP50": 20.15,
+        "frameP95": 21.01,
+        "cpuP50": 3.88,
+        "gpuP50": 7.12,
+        "gpuP95": 7.28
+      },
+      {
+        "view": 18.0,
+        "samples": 60.0,
+        "frameP50": 20.07,
+        "frameP95": 21.25,
+        "cpuP50": 3.82,
+        "gpuP50": 7.14,
+        "gpuP95": 7.33
+      },
+      {
+        "view": 19.0,
+        "samples": 60.0,
+        "frameP50": 20.1,
+        "frameP95": 21.23,
+        "cpuP50": 3.96,
+        "gpuP50": 7.16,
+        "gpuP95": 7.34
+      },
+      {
+        "view": 20.0,
+        "samples": 60.0,
+        "frameP50": 19.06,
+        "frameP95": 20.89,
+        "cpuP50": 2.79,
+        "gpuP50": 4.97,
+        "gpuP95": 6.09
+      },
+      {
+        "view": 21.0,
+        "samples": 60.0,
+        "frameP50": 21.14,
+        "frameP95": 23.03,
+        "cpuP50": 4.67,
+        "gpuP50": 8.07,
+        "gpuP95": 8.26
+      }
+    ],
+    "frameMedianOfViewMedians": 20.215,
+    "cpuMedianOfViewMedians": 4.01,
+    "highestViewFrameP95": 25.55,
+    "constraint": "buildings=43718 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "parcelValidation": [],
+    "traffic": []
+  },
+  "beforeLod": {
+    "views": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 23.48,
+        "frameP95": 26.09,
+        "cpuP50": 6.36,
+        "gpuForwardP50": 11.75,
+        "gpuForwardP95": 12.04
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 20.92,
+        "frameP95": 28.96,
+        "cpuP50": 4.13,
+        "gpuForwardP50": 8.63,
+        "gpuForwardP95": 8.96
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 18.22,
+        "frameP95": 19.65,
+        "cpuP50": 1.73,
+        "gpuForwardP50": 3.99,
+        "gpuForwardP95": 4.16
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 18.23,
+        "frameP95": 26.68,
+        "cpuP50": 1.93,
+        "gpuForwardP50": 4.19,
+        "gpuForwardP95": 4.5
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 17.77,
+        "frameP95": 21.63,
+        "cpuP50": 1.69,
+        "gpuForwardP50": 2.68,
+        "gpuForwardP95": 3.01
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 17.23,
+        "frameP95": 18.07,
+        "cpuP50": 1.1,
+        "gpuForwardP50": 2.16,
+        "gpuForwardP95": 2.53
+      },
+      {
+        "view": 6.0,
+        "samples": 60.0,
+        "frameP50": 17.13,
+        "frameP95": 18.14,
+        "cpuP50": 1.09,
+        "gpuForwardP50": 2.13,
+        "gpuForwardP95": 2.56
+      },
+      {
+        "view": 7.0,
+        "samples": 60.0,
+        "frameP50": 17.24,
+        "frameP95": 29.1,
+        "cpuP50": 1.08,
+        "gpuForwardP50": 2.2,
+        "gpuForwardP95": 2.8
+      },
+      {
+        "view": 8.0,
+        "samples": 60.0,
+        "frameP50": 17.28,
+        "frameP95": 18.55,
+        "cpuP50": 1.16,
+        "gpuForwardP50": 2.13,
+        "gpuForwardP95": 2.54
+      },
+      {
+        "view": 9.0,
+        "samples": 60.0,
+        "frameP50": 17.07,
+        "frameP95": 17.88,
+        "cpuP50": 0.97,
+        "gpuForwardP50": 2.18,
+        "gpuForwardP95": 2.45
+      },
+      {
+        "view": 10.0,
+        "samples": 60.0,
+        "frameP50": 17.09,
+        "frameP95": 17.97,
+        "cpuP50": 1.07,
+        "gpuForwardP50": 2.09,
+        "gpuForwardP95": 2.42
+      },
+      {
+        "view": 11.0,
+        "samples": 60.0,
+        "frameP50": 17.07,
+        "frameP95": 18.56,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.08,
+        "gpuForwardP95": 2.5
+      },
+      {
+        "view": 12.0,
+        "samples": 60.0,
+        "frameP50": 17.29,
+        "frameP95": 20.79,
+        "cpuP50": 1.23,
+        "gpuForwardP50": 2.11,
+        "gpuForwardP95": 2.57
+      },
+      {
+        "view": 13.0,
+        "samples": 60.0,
+        "frameP50": 17.24,
+        "frameP95": 18.67,
+        "cpuP50": 1.22,
+        "gpuForwardP50": 2.21,
+        "gpuForwardP95": 2.63
+      },
+      {
+        "view": 14.0,
+        "samples": 60.0,
+        "frameP50": 17.02,
+        "frameP95": 18.07,
+        "cpuP50": 0.96,
+        "gpuForwardP50": 2.08,
+        "gpuForwardP95": 2.56
+      },
+      {
+        "view": 15.0,
+        "samples": 60.0,
+        "frameP50": 17.09,
+        "frameP95": 18.11,
+        "cpuP50": 0.98,
+        "gpuForwardP50": 2.16,
+        "gpuForwardP95": 2.56
+      },
+      {
+        "view": 16.0,
+        "samples": 60.0,
+        "frameP50": 16.97,
+        "frameP95": 18.06,
+        "cpuP50": 1.07,
+        "gpuForwardP50": 1.98,
+        "gpuForwardP95": 2.21
+      },
+      {
+        "view": 17.0,
+        "samples": 60.0,
+        "frameP50": 17.07,
+        "frameP95": 18.16,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.01,
+        "gpuForwardP95": 2.41
+      },
+      {
+        "view": 18.0,
+        "samples": 60.0,
+        "frameP50": 16.94,
+        "frameP95": 17.47,
+        "cpuP50": 0.99,
+        "gpuForwardP50": 1.91,
+        "gpuForwardP95": 2.3
+      },
+      {
+        "view": 19.0,
+        "samples": 60.0,
+        "frameP50": 16.99,
+        "frameP95": 17.9,
+        "cpuP50": 0.95,
+        "gpuForwardP50": 2.03,
+        "gpuForwardP95": 2.3
+      },
+      {
+        "view": 20.0,
+        "samples": 60.0,
+        "frameP50": 17.1,
+        "frameP95": 17.94,
+        "cpuP50": 0.95,
+        "gpuForwardP50": 1.77,
+        "gpuForwardP95": 1.94
+      },
+      {
+        "view": 21.0,
+        "samples": 60.0,
+        "frameP50": 18.63,
+        "frameP95": 21.46,
+        "cpuP50": 2.12,
+        "gpuForwardP50": 5.72,
+        "gpuForwardP95": 7.12
+      },
+      {
+        "view": 22.0,
+        "samples": 60.0,
+        "frameP50": 18.4,
+        "frameP95": 19.37,
+        "cpuP50": 2.26,
+        "gpuForwardP50": 4.07,
+        "gpuForwardP95": 4.87
+      },
+      {
+        "view": 23.0,
+        "samples": 60.0,
+        "frameP50": 17.02,
+        "frameP95": 18.68,
+        "cpuP50": 0.9,
+        "gpuForwardP50": 2.11,
+        "gpuForwardP95": 2.55
+      }
+    ],
+    "frameMedianOfViewMedians": 17.18,
+    "cpuMedianOfViewMedians": 1.085,
+    "highestViewFrameP95": 29.1,
+    "constraint": "buildings=43718 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "parcelValidation": [
+      "failure=0 count=43718"
+    ],
+    "traffic": [
+      "spawned=200 candidates=246",
+      "total=73 active=57 moved=54 meanDistanceM=50.74",
+      "total=73 active=10 moved=10 meanDistanceM=72.37"
+    ]
+  },
+  "seed20260316": {
+    "views": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 23.46,
+        "frameP95": 26.32,
+        "cpuP50": 6.44,
+        "gpuForwardP50": 4.91,
+        "gpuForwardP95": 5.94
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 20.2,
+        "frameP95": 21.75,
+        "cpuP50": 3.76,
+        "gpuForwardP50": 4.1,
+        "gpuForwardP95": 4.9
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 18.32,
+        "frameP95": 20.34,
+        "cpuP50": 1.79,
+        "gpuForwardP50": 3.89,
+        "gpuForwardP95": 4.24
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 18.25,
+        "frameP95": 19.69,
+        "cpuP50": 1.83,
+        "gpuForwardP50": 3.1,
+        "gpuForwardP95": 3.74
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 17.51,
+        "frameP95": 18.53,
+        "cpuP50": 1.38,
+        "gpuForwardP50": 2.53,
+        "gpuForwardP95": 3.04
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 17.0,
+        "frameP95": 18.17,
+        "cpuP50": 1.0,
+        "gpuForwardP50": 2.16,
+        "gpuForwardP95": 2.55
+      },
+      {
+        "view": 6.0,
+        "samples": 60.0,
+        "frameP50": 17.36,
+        "frameP95": 19.56,
+        "cpuP50": 1.2,
+        "gpuForwardP50": 2.13,
+        "gpuForwardP95": 2.59
+      },
+      {
+        "view": 7.0,
+        "samples": 60.0,
+        "frameP50": 17.31,
+        "frameP95": 22.27,
+        "cpuP50": 1.23,
+        "gpuForwardP50": 2.05,
+        "gpuForwardP95": 2.61
+      },
+      {
+        "view": 8.0,
+        "samples": 60.0,
+        "frameP50": 17.17,
+        "frameP95": 18.19,
+        "cpuP50": 1.22,
+        "gpuForwardP50": 1.98,
+        "gpuForwardP95": 2.29
+      },
+      {
+        "view": 9.0,
+        "samples": 60.0,
+        "frameP50": 17.02,
+        "frameP95": 17.93,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.17,
+        "gpuForwardP95": 2.59
+      },
+      {
+        "view": 10.0,
+        "samples": 60.0,
+        "frameP50": 17.05,
+        "frameP95": 17.98,
+        "cpuP50": 1.07,
+        "gpuForwardP50": 2.09,
+        "gpuForwardP95": 2.35
+      },
+      {
+        "view": 11.0,
+        "samples": 60.0,
+        "frameP50": 17.17,
+        "frameP95": 18.63,
+        "cpuP50": 1.01,
+        "gpuForwardP50": 2.08,
+        "gpuForwardP95": 2.47
+      },
+      {
+        "view": 12.0,
+        "samples": 60.0,
+        "frameP50": 17.14,
+        "frameP95": 18.0,
+        "cpuP50": 1.07,
+        "gpuForwardP50": 1.92,
+        "gpuForwardP95": 2.16
+      },
+      {
+        "view": 13.0,
+        "samples": 60.0,
+        "frameP50": 17.23,
+        "frameP95": 19.73,
+        "cpuP50": 1.1,
+        "gpuForwardP50": 2.19,
+        "gpuForwardP95": 2.77
+      },
+      {
+        "view": 14.0,
+        "samples": 60.0,
+        "frameP50": 17.12,
+        "frameP95": 17.88,
+        "cpuP50": 1.13,
+        "gpuForwardP50": 2.07,
+        "gpuForwardP95": 2.49
+      },
+      {
+        "view": 15.0,
+        "samples": 60.0,
+        "frameP50": 17.7,
+        "frameP95": 20.54,
+        "cpuP50": 1.59,
+        "gpuForwardP50": 2.0,
+        "gpuForwardP95": 2.54
+      },
+      {
+        "view": 16.0,
+        "samples": 60.0,
+        "frameP50": 17.07,
+        "frameP95": 17.85,
+        "cpuP50": 1.11,
+        "gpuForwardP50": 1.98,
+        "gpuForwardP95": 2.21
+      },
+      {
+        "view": 17.0,
+        "samples": 60.0,
+        "frameP50": 16.85,
+        "frameP95": 17.72,
+        "cpuP50": 0.98,
+        "gpuForwardP50": 1.87,
+        "gpuForwardP95": 2.24
+      },
+      {
+        "view": 18.0,
+        "samples": 60.0,
+        "frameP50": 16.93,
+        "frameP95": 17.73,
+        "cpuP50": 0.86,
+        "gpuForwardP50": 1.91,
+        "gpuForwardP95": 2.28
+      },
+      {
+        "view": 19.0,
+        "samples": 60.0,
+        "frameP50": 16.97,
+        "frameP95": 18.54,
+        "cpuP50": 0.85,
+        "gpuForwardP50": 2.03,
+        "gpuForwardP95": 2.44
+      },
+      {
+        "view": 20.0,
+        "samples": 60.0,
+        "frameP50": 17.05,
+        "frameP95": 18.0,
+        "cpuP50": 0.94,
+        "gpuForwardP50": 1.76,
+        "gpuForwardP95": 2.1
+      },
+      {
+        "view": 21.0,
+        "samples": 60.0,
+        "frameP50": 18.57,
+        "frameP95": 19.77,
+        "cpuP50": 2.21,
+        "gpuForwardP50": 4.29,
+        "gpuForwardP95": 4.43
+      },
+      {
+        "view": 22.0,
+        "samples": 60.0,
+        "frameP50": 17.9,
+        "frameP95": 19.23,
+        "cpuP50": 1.64,
+        "gpuForwardP50": 4.03,
+        "gpuForwardP95": 4.54
+      },
+      {
+        "view": 23.0,
+        "samples": 60.0,
+        "frameP50": 17.04,
+        "frameP95": 17.82,
+        "cpuP50": 1.0,
+        "gpuForwardP50": 2.11,
+        "gpuForwardP95": 2.55
+      }
+    ],
+    "frameMedianOfViewMedians": 17.17,
+    "cpuMedianOfViewMedians": 1.12,
+    "highestViewFrameP95": 26.32,
+    "constraint": "buildings=43718 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "parcelValidation": [
+      "failure=0 count=43718"
+    ],
+    "traffic": [
+      "spawned=200 candidates=246",
+      "total=73 active=57 moved=53 meanDistanceM=50.69",
+      "total=73 active=10 moved=10 meanDistanceM=72.37"
+    ]
+  },
+  "seed42": {
+    "views": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 24.61,
+        "frameP95": 27.83,
+        "cpuP50": 7.48,
+        "gpuForwardP50": 5.62,
+        "gpuForwardP95": 6.77
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 21.08,
+        "frameP95": 23.03,
+        "cpuP50": 4.33,
+        "gpuForwardP50": 4.96,
+        "gpuForwardP95": 6.0
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 18.26,
+        "frameP95": 20.05,
+        "cpuP50": 1.72,
+        "gpuForwardP50": 4.01,
+        "gpuForwardP95": 4.22
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 18.9,
+        "frameP95": 20.57,
+        "cpuP50": 2.51,
+        "gpuForwardP50": 3.79,
+        "gpuForwardP95": 4.62
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 17.7,
+        "frameP95": 19.25,
+        "cpuP50": 1.48,
+        "gpuForwardP50": 3.05,
+        "gpuForwardP95": 3.45
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 17.22,
+        "frameP95": 18.71,
+        "cpuP50": 1.18,
+        "gpuForwardP50": 2.57,
+        "gpuForwardP95": 2.88
+      },
+      {
+        "view": 6.0,
+        "samples": 60.0,
+        "frameP50": 17.25,
+        "frameP95": 18.84,
+        "cpuP50": 1.22,
+        "gpuForwardP50": 2.6,
+        "gpuForwardP95": 2.81
+      },
+      {
+        "view": 7.0,
+        "samples": 60.0,
+        "frameP50": 17.34,
+        "frameP95": 18.08,
+        "cpuP50": 1.16,
+        "gpuForwardP50": 2.76,
+        "gpuForwardP95": 3.11
+      },
+      {
+        "view": 8.0,
+        "samples": 60.0,
+        "frameP50": 17.36,
+        "frameP95": 18.56,
+        "cpuP50": 1.22,
+        "gpuForwardP50": 2.42,
+        "gpuForwardP95": 2.85
+      },
+      {
+        "view": 9.0,
+        "samples": 60.0,
+        "frameP50": 17.23,
+        "frameP95": 19.12,
+        "cpuP50": 1.19,
+        "gpuForwardP50": 2.4,
+        "gpuForwardP95": 3.01
+      },
+      {
+        "view": 10.0,
+        "samples": 60.0,
+        "frameP50": 17.38,
+        "frameP95": 18.84,
+        "cpuP50": 1.24,
+        "gpuForwardP50": 2.49,
+        "gpuForwardP95": 2.94
+      },
+      {
+        "view": 11.0,
+        "samples": 60.0,
+        "frameP50": 17.3,
+        "frameP95": 18.07,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.33,
+        "gpuForwardP95": 2.8
+      },
+      {
+        "view": 12.0,
+        "samples": 60.0,
+        "frameP50": 17.5,
+        "frameP95": 18.36,
+        "cpuP50": 1.52,
+        "gpuForwardP50": 2.12,
+        "gpuForwardP95": 2.5
+      },
+      {
+        "view": 13.0,
+        "samples": 60.0,
+        "frameP50": 17.42,
+        "frameP95": 18.1,
+        "cpuP50": 1.24,
+        "gpuForwardP50": 2.72,
+        "gpuForwardP95": 3.03
+      },
+      {
+        "view": 14.0,
+        "samples": 60.0,
+        "frameP50": 17.42,
+        "frameP95": 18.78,
+        "cpuP50": 1.25,
+        "gpuForwardP50": 2.48,
+        "gpuForwardP95": 2.77
+      },
+      {
+        "view": 15.0,
+        "samples": 60.0,
+        "frameP50": 17.37,
+        "frameP95": 18.25,
+        "cpuP50": 1.05,
+        "gpuForwardP50": 2.47,
+        "gpuForwardP95": 2.88
+      },
+      {
+        "view": 16.0,
+        "samples": 60.0,
+        "frameP50": 17.14,
+        "frameP95": 18.03,
+        "cpuP50": 1.1,
+        "gpuForwardP50": 2.18,
+        "gpuForwardP95": 2.6
+      },
+      {
+        "view": 17.0,
+        "samples": 60.0,
+        "frameP50": 17.15,
+        "frameP95": 18.1,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.24,
+        "gpuForwardP95": 2.54
+      },
+      {
+        "view": 18.0,
+        "samples": 60.0,
+        "frameP50": 16.92,
+        "frameP95": 17.89,
+        "cpuP50": 1.04,
+        "gpuForwardP50": 2.09,
+        "gpuForwardP95": 2.49
+      },
+      {
+        "view": 19.0,
+        "samples": 60.0,
+        "frameP50": 17.0,
+        "frameP95": 17.99,
+        "cpuP50": 0.9,
+        "gpuForwardP50": 2.12,
+        "gpuForwardP95": 2.33
+      },
+      {
+        "view": 20.0,
+        "samples": 60.0,
+        "frameP50": 16.72,
+        "frameP95": 17.55,
+        "cpuP50": 0.7,
+        "gpuForwardP50": 0.49,
+        "gpuForwardP95": 1.7
+      },
+      {
+        "view": 21.0,
+        "samples": 60.0,
+        "frameP50": 18.36,
+        "frameP95": 19.42,
+        "cpuP50": 2.08,
+        "gpuForwardP50": 3.77,
+        "gpuForwardP95": 4.42
+      },
+      {
+        "view": 22.0,
+        "samples": 60.0,
+        "frameP50": 17.9,
+        "frameP95": 18.87,
+        "cpuP50": 1.5,
+        "gpuForwardP50": 4.03,
+        "gpuForwardP95": 4.16
+      },
+      {
+        "view": 23.0,
+        "samples": 60.0,
+        "frameP50": 17.08,
+        "frameP95": 18.0,
+        "cpuP50": 0.96,
+        "gpuForwardP50": 2.07,
+        "gpuForwardP95": 2.39
+      }
+    ],
+    "frameMedianOfViewMedians": 17.365000000000002,
+    "cpuMedianOfViewMedians": 1.22,
+    "highestViewFrameP95": 27.83,
+    "constraint": "buildings=46899 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "parcelValidation": [
+      "failure=0 count=46899"
+    ],
+    "traffic": [
+      "spawned=200 candidates=214",
+      "total=52 active=22 moved=20 meanDistanceM=49.31",
+      "total=52 active=7 moved=7 meanDistanceM=73.43"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "stem": "shop_002",
+  "title": "Traditional rice shop",
+  "folder": "commercial",
+  "source_triangles": 1592,
+  "triangles": 5477,
+  "vertices": 2922,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.900000095367432,
+    7.5,
+    3.896897315979004
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_002.obj"
+}

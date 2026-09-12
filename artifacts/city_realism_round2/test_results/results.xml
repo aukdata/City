@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="16" failures="0">
+  <testcase name="Bezier.BuildingFrontageUsesClosestPoint" time="0.000006">
+  </testcase>
+  <testcase name="SaveTransaction.RoundTrip" time="0.004158">
+  </testcase>
+  <testcase name="SaveTransaction.UnsupportedVersionRejected" time="0.005965">
+  </testcase>
+  <testcase name="SaveTransaction.CorruptionRejected" time="0.002280">
+  </testcase>
+  <testcase name="SaveTransaction.WriterFailurePreservesExistingSave" time="0.003621">
+  </testcase>
+  <testcase name="SaveTransaction.VerificationFailurePreservesExistingSave" time="0.003358">
+  </testcase>
+  <testcase name="Buildings.RealisticAssetsLoad" time="0.647418">
+  </testcase>
+  <testcase name="Buildings.AllVariantsReachable" time="0.550869">
+  </testcase>
+  <testcase name="Assets.CivicTransportLoad" time="0.443977">
+  </testcase>
+  <testcase name="Generation.CastleTownConnectivityAndTerrain" time="7.112935">
+  </testcase>
+  <testcase name="CityLighting.ShadowsAndMaterialReadback" time="0.184963">
+  </testcase>
+  <testcase name="Parcels.BothRoadSidesAndSharedBoundary" time="0.243284">
+  </testcase>
+  <testcase name="CityLighting.MovingVehicleShadowClearsWithoutStaticRebuild" time="0.124196">
+  </testcase>
+  <testcase name="Parcels.RotatedAndOffsetFootprints" time="0.000002">
+  </testcase>
+  <testcase name="Terrain.HeightMatchesRenderedTriangles" time="0.000009">
+  </testcase>
+  <testcase name="Terrain.GenerationHeightDiagnostics" time="0.022342">
+  </testcase>
+</testsuite>

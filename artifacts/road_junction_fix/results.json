@@ -1,0 +1,28 @@
+{
+  "tests": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0
+  },
+  "generated_maps": [
+    {
+      "seed": 20260316,
+      "checked": 16286,
+      "repaired": 185,
+      "missing": 0,
+      "captures": 6
+    },
+    {
+      "seed": 42,
+      "checked": 16726,
+      "repaired": 223,
+      "missing": 0,
+      "captures": 6
+    }
+  ],
+  "cpp_encoding": "UTF-8 BOM + CRLF",
+  "scope": "Intersection asphalt, roadside RoadParts, ground clipping and sloped road markings",
+  "known_limitations": [
+    "Seed 20260316, node 2044: generated coastal road passes below sea level; generation issue remains."
+  ]
+}

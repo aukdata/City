@@ -1,0 +1,22 @@
+[
+  {
+    "seed": 20260316,
+    "validation": "buildings=43718 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "buildings": 43718,
+    "captures": 22,
+    "frameMedianMs": 20.89,
+    "frameMaxMs": 24.15,
+    "cpuMedianMs": 4.75,
+    "cpuMaxMs": 6.34
+  },
+  {
+    "seed": 42,
+    "validation": "buildings=46899 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true",
+    "buildings": 46899,
+    "captures": 22,
+    "frameMedianMs": 21.45,
+    "frameMaxMs": 25.02,
+    "cpuMedianMs": 5.29,
+    "cpuMaxMs": 7.4
+  }
+]

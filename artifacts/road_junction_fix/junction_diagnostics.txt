@@ -1,0 +1,28 @@
+﻿arms=3 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=0.1682
+arms=3 edge=1 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=-0.1118
+arms=3 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-0.1680
+arms=3 crosswalkWhiteSamples=802 totalSamples=2109 coverage=0.3803
+scenario=3 visibleBarCenters=90 expectedBarCenters=90
+arms=4 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=0.1682
+arms=4 edge=1 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=-0.1118
+arms=4 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-0.1680
+arms=4 edge=3 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=0.1121
+arms=4 crosswalkWhiteSamples=1125 totalSamples=2812 coverage=0.4001
+scenario=4 visibleBarCenters=120 expectedBarCenters=120
+arms=3 edge=0 cutoffA=0 cutoffB=36.42 crosswalkCornerHeightErrorM=0.1680
+arms=3 edge=2 cutoffA=0 cutoffB=36.42 crosswalkCornerHeightErrorM=-0.3150
+arms=3 crosswalkWhiteSamples=1007 totalSamples=2014 coverage=0.5000
+scenario=5 visibleBarCenters=90 expectedBarCenters=90
+arms=3 crosswalkWhiteSamples=0 totalSamples=0 coverage=0.0000
+scenario=6 visibleBarCenters=0 expectedBarCenters=0
+arms=3 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-7.8318
+arms=3 edge=1 cutoffA=24.869999 cutoffB=0 crosswalkCornerHeightErrorM=-8.1118
+arms=3 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-8.1680
+arms=3 crosswalkWhiteSamples=798 totalSamples=2109 coverage=0.3784
+scenario=7 visibleBarCenters=90 expectedBarCenters=90
+arms=3 crosswalkWhiteSamples=0 totalSamples=0 coverage=0.0000
+scenario=8 visibleBarCenters=0 expectedBarCenters=0
+arms=3 edge=0 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=0.1682
+arms=3 edge=2 cutoffA=0 cutoffB=24.869999 crosswalkCornerHeightErrorM=-0.1680
+arms=3 crosswalkWhiteSamples=536 totalSamples=1406 coverage=0.3812
+scenario=9 visibleBarCenters=60 expectedBarCenters=60

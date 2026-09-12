@@ -1,0 +1,19 @@
+{
+  "stem": "station_001",
+  "title": "Rural station with platform",
+  "folder": "commercial",
+  "asset_dir": "railway",
+  "kind": "station",
+  "source_triangles": 884,
+  "triangles": 3130,
+  "vertices": 1652,
+  "materials": 1,
+  "texture_resolution": 2048,
+  "dimensions": [
+    10.48824405670166,
+    26.0,
+    4.485899448394775
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/railway/station_001.obj"
+}

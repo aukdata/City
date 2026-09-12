@@ -1,0 +1,17 @@
+{
+  "stem": "shop_004",
+  "title": "Ramen restaurant",
+  "folder": "commercial",
+  "source_triangles": 1034,
+  "triangles": 3405,
+  "vertices": 1812,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.75,
+    7.099999904632568,
+    3.880000114440918
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_004.obj"
+}

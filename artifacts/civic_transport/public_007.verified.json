@@ -1,0 +1,19 @@
+{
+  "stem": "public_007",
+  "title": "Municipal fire station",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "civic",
+  "source_triangles": 2606,
+  "triangles": 9312,
+  "vertices": 5044,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.100000381469727,
+    9.079999923706055,
+    8.300000190734863
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_007.obj"
+}

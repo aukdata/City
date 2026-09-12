@@ -1,0 +1,1 @@
+Test screenshot: 1000 x 600; opaque header, map body. UI.FullScreenMap passed: cursor-anchored zoom, pan, context menu, jump and close.

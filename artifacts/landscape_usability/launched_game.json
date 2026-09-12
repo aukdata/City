@@ -1,0 +1,11 @@
+{
+  "Pid": 26640,
+  "StartTime": "2026-09-12T22:26:12.8387995+09:00",
+  "Executable": "D:\\Users\\Takuma\\Creations\\codes\\City\\App\\City.exe",
+  "Sha256": "E94F7B1DEC833E728DECF9EA1E0567BB3EF10860A5A104984EC9B0D0828BE7FC",
+  "windowTitle": "Pavecity",
+  "windowHandle": 3410544,
+  "responding": true,
+  "commandLine": "City.exe --seed 42 --new",
+  "verifiedAsUser": true
+}

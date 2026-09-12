@@ -1,0 +1,17 @@
+{
+  "stem": "factory_003",
+  "title": "Sawtooth-roof workshop",
+  "folder": "commercial",
+  "source_triangles": 850,
+  "triangles": 2994,
+  "vertices": 1642,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    6.5,
+    6.525000095367432,
+    4.938623905181885
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/factory_003.obj"
+}

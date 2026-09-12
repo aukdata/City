@@ -1,0 +1,17 @@
+{
+  "stem": "shop_005",
+  "title": "Bakery and deli",
+  "folder": "commercial",
+  "source_triangles": 1058,
+  "triangles": 3637,
+  "vertices": 1932,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    7.75,
+    7.099999904632568,
+    3.880000114440918
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/shop_005.obj"
+}

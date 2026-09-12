@@ -1,0 +1,19 @@
+{
+  "stem": "public_008",
+  "title": "City hall",
+  "folder": "commercial",
+  "asset_dir": "buildings/commercial",
+  "kind": "civic",
+  "source_triangles": 4290,
+  "triangles": 15480,
+  "vertices": 8404,
+  "materials": 1,
+  "texture_resolution": 1024,
+  "dimensions": [
+    10.100000381469727,
+    9.324999809265137,
+    13.460000038146973
+  ],
+  "ground": 0.0,
+  "obj": "App/assets/buildings/commercial/public_008.obj"
+}

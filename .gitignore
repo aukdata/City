@@ -39,3 +39,38 @@ manual/
 # その他
 *.DS_Store
 Thumbs.db
+
+# 再生成できるローカル検証出力
+__pycache__/
+*.pyc
+/App/Screenshot/
+/Test/App/Screenshot/
+/artifacts/local_runs/
+
+# 過去の生成画像・モデル中間データはローカル保管。最終確認と出典画像のみ追跡する。
+/artifacts/**/*.png
+/artifacts/**/*.jpg
+/artifacts/**/*.jpeg
+/artifacts/**/*.webp
+/artifacts/**/*.svg
+/artifacts/**/*.source.json
+/artifacts/**/materials/
+!/artifacts/**/gallery.png
+!/artifacts/**/references/**
+!/artifacts/**/photo_references/**
+!/artifacts/city_expansion/verification/*.png
+/artifacts/city_expansion/cleanup_manifest.json
+/artifacts/city_expansion/cleanup_runs.ps1
+/build-final-verification.log
+# 採用しなかった試用テクスチャはローカル保管
+/App/assets/third_party/polyhaven/gravel_floor/
+/App/assets/third_party/polyhaven/gravel_road/
+/App/assets/third_party/polyhaven/**/*_disp_1k.jpg
+/App/assets/third_party/polyhaven/concrete_wall_001/*_nor_dx_1k.jpg
+
+# 古いソースの比較コピーと取得ページは参照用のローカルデータ
+/artifacts/**/*.cpp
+/artifacts/**/*.hpp
+/artifacts/**/*.h
+/artifacts/**/*.html
+/artifacts/urban_revision/run_review.ps1
