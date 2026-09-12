@@ -1,0 +1,21 @@
+{
+  "asset": "gravel_ground_01",
+  "license": "CC0",
+  "files": {
+    "Diffuse": {
+      "size": 954257,
+      "md5": "ee99ef89fb50cfeb198db369bb7151f0",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_diff_1k.jpg"
+    },
+    "nor_dx": {
+      "size": 1334307,
+      "md5": "1a09c0f26c98a4b3222c376f6839546f",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg"
+    },
+    "Displacement": {
+      "size": 294856,
+      "md5": "33b49f9c965cf97b9933d2a86ff1cbcc",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_disp_1k.jpg"
+    }
+  }
+}
