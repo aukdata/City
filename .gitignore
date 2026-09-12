@@ -47,7 +47,7 @@ __pycache__/
 /Test/App/Screenshot/
 /artifacts/local_runs/
 
-# 過去の生成画像・モデル中間データはローカル保管。最終確認と出典画像のみ追跡する。
+# 再生成可能な検証画像・モデル中間データを除外。最終確認と出典画像のみ追跡する。
 /artifacts/**/*.png
 /artifacts/**/*.jpg
 /artifacts/**/*.jpeg
@@ -62,7 +62,7 @@ __pycache__/
 /artifacts/city_expansion/cleanup_manifest.json
 /artifacts/city_expansion/cleanup_runs.ps1
 /build-final-verification.log
-# 採用しなかった試用テクスチャはローカル保管
+# 未採用の試用テクスチャは再取得しても追跡しない
 /App/assets/third_party/polyhaven/gravel_floor/
 /App/assets/third_party/polyhaven/gravel_road/
 /App/assets/third_party/polyhaven/**/*_disp_1k.jpg
