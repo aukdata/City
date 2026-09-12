@@ -1,7 +1,9 @@
 ﻿#include "WorldRenderer.hpp"
+#include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../road/RoadGeometry.hpp"
+#include "../road/JunctionGeometry.hpp"
 #include <Siv3D/Profiler.hpp>
 #include <Siv3D/ViewFrustum.hpp>
 #include <algorithm>
@@ -10,10 +12,10 @@ namespace
 {
 	constexpr float kTerrainCellSize      = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	constexpr float kRoadTerrainQuadStep  = 24.0f;
-	constexpr float kRoadTerrainRelief    = 0.06f;
+	constexpr float kRoadTerrainRelief    = 0.012f;
 	constexpr float kTerrainClipEpsilon   = 1e-4f;
 	constexpr float kChunkSizeF           = static_cast<float>(CHUNK_SIZE);
-	constexpr float kTerrainTileSize      = 96.0f;
+	constexpr float kTerrainTileSize      = 8.0f;
 	constexpr float kTerrainUvCosA        = 0.97237f;
 	constexpr float kTerrainUvSinA        = 0.23345f;
 
@@ -57,43 +59,98 @@ namespace
 		return found;
 	}
 
-	bool calcRoadbedRangeAtNode(const RoadEdge& edge, bool isNodeA, float& outLeft, float& outRight)
-	{
-		bool found = false;
-		for (const auto& part : edge.parts)
-		{
-			if (part.type != RoadPartType::Roadbed || part.build != BuildState::Built)
-				continue;
 
-			const float left = isNodeA ? part.offsetA_L : -part.offsetB_R;
-			const float right = isNodeA ? part.offsetA_R : -part.offsetB_L;
-			if (!found)
-			{
-				outLeft = Min(left, right);
-				outRight = Max(left, right);
-				found = true;
-			}
-			else
-			{
-				outLeft = Min(outLeft, Min(left, right));
-				outRight = Max(outRight, Max(left, right));
-			}
+
+	float terrainTextureTileSize(int materialKey)
+	{
+		switch (materialKey)
+		{
+		case 100: return 18.0f;
+		case 101: return 30.0f;
+		case 110: return 22.0f;
+		case 111: return 28.0f;
+		case 113: return 34.0f;
+		case 114: return 24.0f;
+		case 117: return 10.0f;
+		case 118: return 12.0f;
+		case 119: return 10.0f;
+		case 120: return 11.0f;
+		case 4: return 10.0f;
+		case 5: return 10.0f;
+		default: return kTerrainTileSize;
 		}
-		return found;
 	}
 
-	Float2 terrainUvAt(const Vec3& pos)
+	Float2 terrainUvAt(const Vec3& pos, int materialKey = 0)
 	{
-		const float u = static_cast<float>(pos.x) / kTerrainTileSize;
-		const float v = static_cast<float>(pos.z) / kTerrainTileSize;
+		const float tileSize = Max(1.0f, terrainTextureTileSize(materialKey));
+		const float u = static_cast<float>(pos.x) / tileSize;
+		const float v = static_cast<float>(pos.z) / tileSize;
 		return Float2{ kTerrainUvCosA * u - kTerrainUvSinA * v, kTerrainUvSinA * u + kTerrainUvCosA * v };
 	}
 
-	TerrainClipVertex lerpClipVertex(const TerrainClipVertex& a, const TerrainClipVertex& b, float t)
+	TerrainClipVertex withMaterialUv(const TerrainClipVertex& src, int materialKey)
+	{
+		TerrainClipVertex out = src;
+		out.tex = terrainUvAt(src.pos, materialKey);
+		return out;
+	}
+
+	int terrainMaterialKeyForCell(const Chunk& chunk, int col, int row)
+	{
+		const int x = Clamp(col, 0, ZONE_CELLS - 1);
+		const int z = Clamp(row, 0, ZONE_CELLS - 1);
+		const float h = (chunk.heightMap[{ x, z }] + chunk.heightMap[{ x + 1, z }]
+			+ chunk.heightMap[{ x, z + 1 }] + chunk.heightMap[{ x + 1, z + 1 }]) * 0.25f;
+		if (h > 28.0f) return 1;
+		return 0;
+	}
+
+	ColorF terrainMaterialColor(int materialKey)
+	{
+		switch (materialKey)
+		{
+		case 1: return ColorF{ 0.50, 0.62, 0.38 };
+		case 2: return ColorF{ 0.38, 0.54, 0.30 };
+		case 3: return ColorF{ 0.50, 0.45, 0.30 };
+		case 4: return ColorF{ 0.76, 0.70, 0.52 };
+		case 5: return ColorF{ 0.48, 0.58, 0.56 };
+		default: return ColorF{ 0.42, 0.57, 0.32 };
+		}
+	}
+
+	StringView terrainMaterialTexture(int materialKey)
+	{
+		switch (materialKey)
+		{
+		case 1:
+		case 2:
+			return Asset::SparseGrass;
+		case 4:
+			return Asset::Sand;
+		case 5:
+			return Asset::CoastSand;
+		case 100:
+		case 117:
+		case 119:
+		case 120:
+			return Asset::Concrete;
+		case 110:
+		case 111:
+		case 114:
+			return Asset::Sand;
+		case 101:
+		case 113:
+			return Asset::SparseGrass;
+		default:
+			return Asset::SparseGrass;
+		}
+	}
+	TerrainClipVertex lerpClipVertex(const TerrainClipVertex& a, const TerrainClipVertex& b, double t)
 	{
 		TerrainClipVertex out;
 		out.pos = a.pos + (b.pos - a.pos) * t;
-		out.tex = a.tex + (b.tex - a.tex) * t;
+		out.tex = a.tex + (b.tex - a.tex) * static_cast<float>(t);
 		return out;
 	}
 
@@ -132,6 +189,30 @@ namespace
 		    && (b.x < (a.x + a.w))
 		    && (a.y < (b.y + b.h))
 		    && (b.y < (a.y + a.h));
+	}
+
+	/// @brief Drop zero-area fragments at shared clipping edges before they can multiply.
+	void removeDegenerateClip(Array<TerrainClipVertex>& polygon)
+	{
+		if (polygon.size() < 3) { polygon.clear(); return; }
+		Array<TerrainClipVertex> unique;
+		for (const auto& vertex : polygon)
+		{
+			if (unique.isEmpty() || unique.back().pos.distanceFromSq(vertex.pos) > 1e-12) { unique << vertex; }
+		}
+		if (unique.size() > 1 && unique.front().pos.distanceFromSq(unique.back().pos) <= 1e-12) { unique.pop_back(); }
+		double area = 0.0;
+		if (unique.size() >= 3)
+		{
+			const Vec3 origin = unique.front().pos;
+			for (size_t i = 1; i + 1 < unique.size(); ++i)
+			{
+				const Vec3 a = unique[i].pos - origin, b = unique[i+1].pos - origin;
+				area += a.x*b.z - a.z*b.x;
+			}
+		}
+		if (Abs(area) < 1e-8) { polygon.clear(); }
+		else { polygon = std::move(unique); }
 	}
 
 	Array<TerrainClipVertex> clipPolygonByHeight(const Array<TerrainClipVertex>& polygon,
@@ -183,6 +264,7 @@ namespace
 			}
 		}
 
+		removeDegenerateClip(out);
 		return out;
 	}
 
@@ -196,10 +278,10 @@ namespace
 		const Vec2 edge = edgeB - edgeA;
 		auto signedDistance = [&](const TerrainClipVertex& v)
 		{
-			const Vec2 p{ static_cast<float>(v.pos.x), static_cast<float>(v.pos.z) };
-			return static_cast<float>(edge.x * (p.y - edgeA.y) - edge.y * (p.x - edgeA.x));
+			const Vec2 p{ v.pos.x, v.pos.z };
+			return edge.x * (p.y - edgeA.y) - edge.y * (p.x - edgeA.x);
 		};
-		auto isInside = [&](float d)
+		auto isInside = [&](double d)
 		{
 			return keepInside ? (d >= -kTerrainClipEpsilon) : (d <= kTerrainClipEpsilon);
 		};
@@ -208,8 +290,8 @@ namespace
 		{
 			const TerrainClipVertex& curr = polygon[i];
 			const TerrainClipVertex& next = polygon[(i + 1) % polygon.size()];
-			const float d0 = signedDistance(curr);
-			const float d1 = signedDistance(next);
+			const double d0 = signedDistance(curr);
+			const double d1 = signedDistance(next);
 			const bool currInside = isInside(d0);
 			const bool nextInside = isInside(d1);
 
@@ -219,7 +301,7 @@ namespace
 				continue;
 			}
 
-			const float denom = d0 - d1;
+			const double denom = d0 - d1;
 			if (Abs(denom) <= kTerrainClipEpsilon)
 			{
 				if (currInside && !nextInside)
@@ -227,7 +309,7 @@ namespace
 				continue;
 			}
 
-			const float t = Clamp(d0 / denom, 0.0f, 1.0f);
+			const double t = Clamp(d0 / denom, 0.0, 1.0);
 			const TerrainClipVertex hit = lerpClipVertex(curr, next, t);
 
 			if (currInside && !nextInside)
@@ -242,11 +324,12 @@ namespace
 			}
 		}
 
+		removeDegenerateClip(out);
 		return out;
 	}
 
 	Array<Array<TerrainClipVertex>> subtractConvexPolygonXZ(const Array<TerrainClipVertex>& subject,
-	                                                        const Array<Vec2>& clipPolygon)
+	                                                        const Array<Vec2>& clipPolygon, Optional<float> roadbedY = none)
 	{
 		Array<Array<TerrainClipVertex>> pending, kept;
 		if (subject.size() < 3 || clipPolygon.size() < 3)
@@ -274,6 +357,18 @@ namespace
 			if (pending.isEmpty()) break;
 		}
 
+		if (roadbedY)
+		{
+			// Keep earth beneath the pavement so road shoulders never expose water or the void.
+			for (auto& polygon : pending)
+			{
+				for (auto& vertex : polygon)
+				{
+					vertex.pos.y = *roadbedY - 0.001f;
+				}
+				kept << std::move(polygon);
+			}
+		}
 		return kept;
 	}
 
@@ -284,7 +379,7 @@ namespace
 		const Vec3 b = polygon[2].pos - polygon[0].pos;
 		const Vec3 n = a.cross(b);
 		if (n.lengthSq() <= 1e-10) return Float3{ 0.0f, 1.0f, 0.0f };
-		const Vec3 normalized = n.normalized();
+		const Vec3 normalized = (n.y < 0.0 ? -n : n).normalized();
 		return Float3{ static_cast<float>(normalized.x), static_cast<float>(normalized.y), static_cast<float>(normalized.z) };
 	}
 
@@ -372,14 +467,65 @@ namespace
 
 }
 
+namespace { ColorF detailColorForKey(int key); }
+
+void WorldRenderer::preloadBuildingModels()
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	HashSet<uint32> loaded;
+	for (int value = static_cast<int>(BuildingType::Detached); value <= static_cast<int>(BuildingType::Parking); ++value)
+	{
+		const auto type = static_cast<BuildingType>(value);
+		if (!isObjBuildingType(type)) { continue; }
+		for (int sample = 0; sample < 256; ++sample)
+		{
+			const uint8 variant = buildingModelVariant(type,sample,0);
+			const uint32 key = (static_cast<uint32>(type)<<8)|variant;
+			if (loaded.insert(key).second) { getBuildingModelAsset(type,variant); }
+		}
+	}
+	DBG_LOG(U"[BuildingPreload] assets={} ms={:.2f}"_fmt(loaded.size(),timer.msF()));
+}
+
 void WorldRenderer::render(World& world, const RoadNetwork& network, const BasicCamera3D& camera)
 {
+	// Publish at most one completed snapshot per frame. GPU objects stay on this thread.
+	for (size_t index = 0; index < m_terrainJobs.size(); ++index)
+	{
+		auto& job = m_terrainJobs[index];
+		if (job.future.wait_for(std::chrono::seconds{0}) != std::future_status::ready) { continue; }
+		auto result = job.future.get();
+		if (job.epoch == m_terrainEpoch && job.revision == m_terrainRevisions[job.key])
+		{
+			const Stopwatch upload{ StartImmediately::Yes };
+			Array<TerrainMeshBatch> batches;
+			for (auto& data : result.batches)
+			{
+				if (!data.meshData.indices.isEmpty()) { batches << TerrainMeshBatch{ data.materialKey, DynamicMesh{data.meshData} }; }
+			}
+			m_meshCache[job.key] = std::move(batches);
+			Array<BuildingBatch> landscape;
+			for (auto& data : result.landscape)
+			{
+				if (!data.meshData.indices.isEmpty()) { landscape << BuildingBatch{data.materialKey,detailColorForKey(data.materialKey),Mesh{data.meshData}}; }
+			}
+			m_landscapeMeshCache[job.key] = std::move(landscape);
+			m_pendingTerrainRebuildKeys.erase(job.key);
+			++m_geometryRevision;
+			DBG_LOG(U"[Streaming] terrain workerMs={:.2f} uploadMs={:.2f}"_fmt(result.milliseconds,upload.msF()));
+		}
+		m_terrainJobs.erase(m_terrainJobs.begin()+index);
+		break;
+	}
 	// アクティブチャンクを近傍優先で回し、地形本体と水面を分けて描画する。
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
 	m_terrainRebuildBudget = Clamp(static_cast<int>(m_pendingTerrainRebuildKeys.size()), 1, 16);
 
+	m_buildingFrustum = ViewFrustum{ camera, 9000.0 };
+	m_buildingsConsidered = m_buildingsSubmitted = 0;
 	const Vec3 eye = camera.getEyePosition();
+	m_buildingEye = eye;
 	const int camCx = static_cast<int>(Math::Floor(eye.x / CHUNK_SIZE));
 	const int camCz = static_cast<int>(Math::Floor(eye.z / CHUNK_SIZE));
 	const Point camChunk{ camCx, camCz };
@@ -448,20 +594,40 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 	// ---- 水面（y=0 の半透明平面）----
 	{
 		const ScopedRenderStates3D blend{ BlendState::Default2D };
-		const ColorF waterColor = ColorF{ 0.15, 0.35, 0.55, 0.7 }.removeSRGBCurve();
+		const ColorF waterColor = ColorF{ 0.34, 0.56, 0.68, 0.72 }.removeSRGBCurve();
 		constexpr double cs = static_cast<double>(CHUNK_SIZE);
+		bool hasWater = false;
+		int minChunkX = 0;
+		int maxChunkX = 0;
+		int minChunkZ = 0;
+		int maxChunkZ = 0;
 
 		for (const Chunk* chunk : m_sortedChunks)
 		{
-			if (!chunk) continue;
-			// 水面下の地形がないチャンクはスキップ
-			if (chunk->heightMin > 0.0f) continue;
+			if (!chunk || chunk->heightMin > 0.0f) continue;
+			if (!hasWater)
+			{
+				minChunkX = maxChunkX = chunk->coord.x;
+				minChunkZ = maxChunkZ = chunk->coord.y;
+				hasWater = true;
+			}
+			else
+			{
+				minChunkX = Min(minChunkX, chunk->coord.x);
+				maxChunkX = Max(maxChunkX, chunk->coord.x);
+				minChunkZ = Min(minChunkZ, chunk->coord.y);
+				maxChunkZ = Max(maxChunkZ, chunk->coord.y);
+			}
+		}
 
-			const double ox = static_cast<double>(chunk->coord.x) * cs;
-			const double oz = static_cast<double>(chunk->coord.y) * cs;
-			const double cx = ox + cs * 0.5;
-			const double cz = oz + cs * 0.5;
-			Box{ cx, -0.5, cz, cs, 1.0, cs }.draw(waterColor);
+		if (hasWater)
+		{
+			const double minX = static_cast<double>(minChunkX) * cs;
+			const double maxX = static_cast<double>(maxChunkX + 1) * cs;
+			const double minZ = static_cast<double>(minChunkZ) * cs;
+			const double maxZ = static_cast<double>(maxChunkZ + 1) * cs;
+			Box{ (minX + maxX) * 0.5, -0.08, (minZ + maxZ) * 0.5,
+				maxX - minX, 0.04, maxZ - minZ }.draw(waterColor);
 		}
 	}
 }
@@ -470,54 +636,153 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 {
 	// チャンク単位で地形と建物の GPU キャッシュを更新し、そのまま描画まで完結させる。
 	const Key key = chunkCoordToKey(chunk.coord);
+	const double nearestDistance = m_buildingEye.distanceFrom(Vec3{
+		Clamp(m_buildingEye.x, chunk.coord.x * static_cast<double>(CHUNK_SIZE), (chunk.coord.x + 1) * static_cast<double>(CHUNK_SIZE)),
+		Clamp(m_buildingEye.y, static_cast<double>(chunk.heightMin), static_cast<double>(chunk.heightMax) + 8),
+		Clamp(m_buildingEye.z, chunk.coord.y * static_cast<double>(CHUNK_SIZE), (chunk.coord.y + 1) * static_cast<double>(CHUNK_SIZE)) });
+	if (nearestDistance > 600) { m_distantDetailChunks.insert(key); }
+	else { m_distantDetailChunks.erase(key); }
 	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key);
 
-	if (!m_meshCache.contains(key))
+	auto rebuildTerrainBatches = [&]
 	{
-		DBG_LOG(U"[TerrainBool] drawChunk build chunk=({}, {}) dirty={} pending={}"_fmt(
-			chunk.coord.x, chunk.coord.y, chunk.meshDirty ? 1 : 0,
-			m_pendingTerrainRebuildKeys.contains(key) ? 1 : 0));
-		// 初回: DynamicMesh を生成して GPU バッファを確保する
-		m_meshCache[key] = DynamicMesh{ buildTerrainMeshData(chunk, network) };
-		m_pendingTerrainRebuildKeys.erase(key);
-		chunk.meshDirty = false;
-		rebuildBuildingMeshes(key, chunk, world);
+		Array<TerrainMeshBatch> batches;
+		for (auto& data : buildTerrainMeshData(chunk, getChunkSubtractionQuads(network, chunk.coord)))
+		{
+			if (data.meshData.vertices.isEmpty()) continue;
+			TerrainMeshBatch batch;
+			batch.materialKey = data.materialKey;
+			batch.mesh = DynamicMesh{ data.meshData };
+			batches << std::move(batch);
+		}
+		m_meshCache[key] = std::move(batches);
+		++m_geometryRevision;
+	};
+
+	if (m_asyncTerrain)
+	{
+		const bool absent = !m_meshCache.contains(key);
+		if (absent || terrainDirty)
+		{
+			// A cheap uncut terrain remains visible until the exact road cut is ready.
+			if (absent)
+			{
+				Array<TerrainMeshBatch> batches;
+				for (auto& data : buildTerrainMeshData(chunk, {}))
+				{
+					batches << TerrainMeshBatch{data.materialKey, DynamicMesh{data.meshData}};
+				}
+				m_meshCache[key] = std::move(batches);
+				m_pendingTerrainRebuildKeys.insert(key);
+			}
+			if (chunk.meshDirty || !m_buildingMeshCache.contains(key))
+			{
+				const Stopwatch timer{ StartImmediately::Yes };
+				rebuildBuildingMeshes(key, chunk, world);
+				DBG_LOG(U"[Streaming] buildings chunk=({}, {}) ms={:.2f}"_fmt(chunk.coord.x,chunk.coord.y,timer.msF()));
+				++m_terrainRevisions[key];
+				chunk.meshDirty = false;
+			}
+			const bool running = std::any_of(m_terrainJobs.begin(), m_terrainJobs.end(), [key](const TerrainJob& job) { return job.key == key; });
+			if (!running && m_terrainJobs.size() < 2)
+			{
+				Chunk snapshot;
+				snapshot.coord = chunk.coord;
+				snapshot.heightMap = chunk.heightMap;
+				snapshot.buildingGrid = chunk.buildingGrid;
+				snapshot.zoneMap = chunk.zoneMap;
+				snapshot.isUrbanizationArea = chunk.isUrbanizationArea;
+				snapshot.landPatches = chunk.landPatches;
+				Array<Chunk> heightSnapshots;
+				for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+				{
+					if (const auto* neighbor = world.getChunk(chunk.coord+Point{dx,dz}))
+					{
+						Chunk heights;
+						heights.coord = neighbor->coord;
+						heights.heightMap = neighbor->heightMap;
+						heightSnapshots << std::move(heights);
+					}
+				}
+				auto quads = getChunkSubtractionQuads(network, chunk.coord);
+				TerrainJob job{ key, m_terrainEpoch, m_terrainRevisions[key], {} };
+				job.future = std::async(std::launch::async, [snapshot = std::move(snapshot), quads = std::move(quads), heightSnapshots = std::move(heightSnapshots)]()
+				{
+					const Stopwatch timer{ StartImmediately::Yes };
+					TerrainJobResult result;
+					result.batches = buildTerrainMeshData(snapshot, quads);
+					result.landscape = buildLandscapeMeshData(snapshot,quads,heightSnapshots);
+					result.milliseconds = timer.msF();
+					return result;
+				});
+				m_terrainJobs << std::move(job);
+			}
+		}
 	}
-	else if (terrainDirty && m_terrainRebuildBudget > 0)
+	else
 	{
-		DBG_LOG(U"[TerrainBool] drawChunk refill chunk=({}, {}) dirty={} pending={} budget={}"_fmt(
-			chunk.coord.x, chunk.coord.y, chunk.meshDirty ? 1 : 0,
-			m_pendingTerrainRebuildKeys.contains(key) ? 1 : 0, m_terrainRebuildBudget));
-		// boolean subtraction でトポロジが変わるため、fill() では古い地形が残ることがある。
-		// terrain 更新時は DynamicMesh を作り直して確実に反映する。
-		const bool buildingDirty = chunk.meshDirty;
-		m_meshCache[key] = DynamicMesh{ buildTerrainMeshData(chunk, network) };
-		m_pendingTerrainRebuildKeys.erase(key);
-		chunk.meshDirty = false;
-		--m_terrainRebuildBudget;
-		if (buildingDirty)
+		if (!m_meshCache.contains(key))
+		{
+			DBG_LOG(U"[TerrainBool] drawChunk build chunk=({}, {}) dirty={} pending={}"_fmt(
+				chunk.coord.x, chunk.coord.y, chunk.meshDirty ? 1 : 0,
+				m_pendingTerrainRebuildKeys.contains(key) ? 1 : 0));
+			rebuildTerrainBatches();
+			m_pendingTerrainRebuildKeys.erase(key);
+			chunk.meshDirty = false;
 			rebuildBuildingMeshes(key, chunk, world);
+		}
+		else if (terrainDirty && m_terrainRebuildBudget > 0)
+		{
+			DBG_LOG(U"[TerrainBool] drawChunk refill chunk=({}, {}) dirty={} pending={} budget={}"_fmt(
+				chunk.coord.x, chunk.coord.y, chunk.meshDirty ? 1 : 0,
+				m_pendingTerrainRebuildKeys.contains(key) ? 1 : 0, m_terrainRebuildBudget));
+			rebuildTerrainBatches();
+			m_pendingTerrainRebuildKeys.erase(key);
+			chunk.meshDirty = false;
+			--m_terrainRebuildBudget;
+			rebuildBuildingMeshes(key, chunk, world);
+		}
+	
 	}
 
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
-	m_meshCache[key].draw(TextureAsset(Asset::Ground), ColorF{ 0.58, 0.58, 0.50 }.removeSRGBCurve());
+	if (const auto it = m_meshCache.find(key); it != m_meshCache.end())
+	{
+		const ScopedCustomShader3D shader{ m_terrainShader };
+		Graphics3D::SetPSTexture(2, TextureAsset(Asset::CoastSand));
+		for (const TerrainMeshBatch& batch : it->second)
+		{
+			batch.mesh.draw(TextureAsset(terrainMaterialTexture(batch.materialKey)), terrainMaterialColor(batch.materialKey));
+		}
+	}
 	drawCachedBuildings(key);
 }
 
-MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwork& network)
+Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads)
 {
 	const Vec3 worldOrigin = chunk.worldOrigin();
-	const Array<TerrainSubtractionQuad>& quads = getChunkSubtractionQuads(network, chunk.coord);
-	constexpr size_t kMaxDetailedSubtractionQuads = 512;
-	const bool useDetailedSubtraction = (quads.size() <= kMaxDetailedSubtractionQuads);
-	DBG_LOG(U"[TerrainBool] buildTerrainMeshData chunk=({}, {}) quads={} detailed={}"_fmt(
-		chunk.coord.x, chunk.coord.y, quads.size(), useDetailedSubtraction));
+	const Stopwatch buildTimer{ StartImmediately::Yes };
+	// Bucket road footprints per terrain cell. Dense towns keep the same geometry as villages.
+	Grid<Array<size_t>> cellQuads(HEIGHT_CELLS, HEIGHT_CELLS);
+	size_t candidateTests = 0;
+	for (size_t index = 0; index < quads.size(); ++index)
+	{
+		const RectF& bounds = quads[index].bounds;
+		const int minCol = Clamp(static_cast<int>(Floor((bounds.x - worldOrigin.x) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+		const int maxCol = Clamp(static_cast<int>(Floor((bounds.x + bounds.w - worldOrigin.x) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+		const int minRow = Clamp(static_cast<int>(Floor((bounds.y - worldOrigin.z) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+		const int maxRow = Clamp(static_cast<int>(Floor((bounds.y + bounds.h - worldOrigin.z) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+		for (int row = minRow; row <= maxRow; ++row)
+		{
+			for (int col = minCol; col <= maxCol; ++col)
+			{
+				cellQuads[{ col, row }] << index;
+			}
+		}
+	}
 
-	Array<Vertex3D> vertices;
-	Array<TriangleIndex32> indices;
-	vertices.reserve(HEIGHT_CELLS * HEIGHT_CELLS * 6);
-	indices.reserve(HEIGHT_CELLS * HEIGHT_CELLS * 2);
+	HashTable<int, MeshData> groups;
 
 	auto makeGridVertex = [&](int col, int row)
 	{
@@ -529,12 +794,12 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 		return TerrainClipVertex{ pos, terrainUvAt(pos) };
 	};
 
-	auto processTriangle = [&](const TerrainClipVertex& a, const TerrainClipVertex& b, const TerrainClipVertex& c)
+	auto processTriangle = [&](int materialKey, const Array<size_t>& candidates, const TerrainClipVertex& a, const TerrainClipVertex& b, const TerrainClipVertex& c)
 	{
 		Array<Array<TerrainClipVertex>> pieces;
 		pieces << Array<TerrainClipVertex>{ a, b, c };
 
-		if (useDetailedSubtraction && !quads.isEmpty())
+		if (!candidates.isEmpty())
 		{
 			RectF triBounds = boundsOfPolygon({
 				Vec2{ static_cast<float>(a.pos.x), static_cast<float>(a.pos.z) },
@@ -542,20 +807,26 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 				Vec2{ static_cast<float>(c.pos.x), static_cast<float>(c.pos.z) },
 			});
 
-			for (const auto& quad : quads)
+			for (const size_t index : candidates)
 			{
+				++candidateTests;
+				const auto& quad = quads[index];
 				if (!rectIntersects(triBounds, quad.bounds)) continue;
+				// The replacement soil must also remain below the actual sampled terrain,
+				// since node Bezier heights and the rendered terrain can differ.
+				const float floorY = Min(quad.bedBottomY,
+					static_cast<float>(Min(Min(a.pos.y, b.pos.y), c.pos.y)) - 0.04f);
 
 				Array<Array<TerrainClipVertex>> nextPieces;
 				for (const auto& piece : pieces)
 				{
-					Array<TerrainClipVertex> below = clipPolygonByHeight(piece, quad.bedBottomY, true);
+					Array<TerrainClipVertex> below = clipPolygonByHeight(piece, floorY, true);
 					if (below.size() >= 3) nextPieces << std::move(below);
 
-					Array<TerrainClipVertex> above = clipPolygonByHeight(piece, quad.bedBottomY, false);
+					Array<TerrainClipVertex> above = clipPolygonByHeight(piece, floorY, false);
 					if (above.size() >= 3)
 					{
-						Array<Array<TerrainClipVertex>> kept = subtractConvexPolygonXZ(above, quad.footprint);
+						Array<Array<TerrainClipVertex>> kept = subtractConvexPolygonXZ(above, quad.footprint, floorY);
 						for (auto& poly : kept)
 						{
 							if (poly.size() >= 3) nextPieces << std::move(poly);
@@ -568,8 +839,14 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 			}
 		}
 
+		MeshData& group = groups[materialKey];
 		for (const auto& poly : pieces)
-			appendPolygonAsTriangles(poly, vertices, indices);
+		{
+			Array<TerrainClipVertex> materialPoly;
+			materialPoly.reserve(poly.size());
+			for (const TerrainClipVertex& v : poly) materialPoly << withMaterialUv(v, materialKey);
+			appendPolygonAsTriangles(materialPoly, group.vertices, group.indices);
+		}
 	};
 
 	for (int row = 0; row < HEIGHT_CELLS; ++row)
@@ -581,12 +858,22 @@ MeshData WorldRenderer::buildTerrainMeshData(const Chunk& chunk, const RoadNetwo
 			const TerrainClipVertex v01 = makeGridVertex(col, row + 1);
 			const TerrainClipVertex v11 = makeGridVertex(col + 1, row + 1);
 
-			processTriangle(v00, v01, v10);
-			processTriangle(v10, v01, v11);
+			const int materialKey = terrainMaterialKeyForCell(chunk, col, row);
+			processTriangle(materialKey, cellQuads[{ col, row }], v00, v01, v10);
+			processTriangle(materialKey, cellQuads[{ col, row }], v10, v01, v11);
 		}
 	}
 
-	return MeshData{ vertices, indices };
+	(void)candidateTests;
+	(void)buildTimer;
+	Array<TerrainMeshData> result;
+	result.reserve(groups.size());
+	for (auto& [materialKey, meshData] : groups)
+	{
+		if (meshData.vertices.isEmpty()) continue;
+		result << TerrainMeshData{ materialKey, std::move(meshData) };
+	}
+	return result;
 }
 
 const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtractor(
@@ -596,7 +883,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 		return &it->second;
 
 	const RoadEdge* edge = network.getEdge(edgeId);
-	if (!edge || edge->edgeState != EdgeState::Open || edge->useElevation || edge->parts.isEmpty())
+	if (!edge || (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing) || edge->useElevation || edge->parts.isEmpty())
 		return nullptr;
 
 	const auto bezOpt = network.getBezier(edgeId);
@@ -632,7 +919,10 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 	};
 
 	const CubicBezier& bez = *bezOpt;
-	const int sampleCount = Max(2, static_cast<int>(Math::Ceil(bez.totalLength / kRoadTerrainQuadStep)) + 1);
+	const float startArc = Max(0.0f, edge->cutoffA - 0.1f);
+	const float endArc = Min(bez.totalLength, bez.totalLength - edge->cutoffB + 0.1f);
+	const float visibleLength = Max(0.0f, endArc - startArc);
+	const int sampleCount = Max(2, static_cast<int>(Math::Ceil(visibleLength / kRoadTerrainQuadStep)) + 1);
 
 	struct EdgeSample
 	{
@@ -648,11 +938,11 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 	for (int i = 0; i < sampleCount; ++i)
 	{
 		const float ft = (sampleCount <= 1) ? 0.0f : (i / static_cast<float>(sampleCount - 1));
-		const float s = bez.totalLength * ft;
+		const float s = Math::Lerp(startArc, endArc, ft);
 		const Vec3 center = bez.positionAt(s);
 		float leftOffset = 0.0f;
 		float rightOffset = 0.0f;
-		if (!calcRoadCrossSectionRange(*edge, ft, leftOffset, rightOffset))
+		if (!calcRoadCrossSectionRange(*edge, s / bez.totalLength, leftOffset, rightOffset))
 			continue;
 
 		const Vec3 rightVec3 = tangentToRight(bez.tangentAt(s));
@@ -686,65 +976,7 @@ const WorldRenderer::TerrainBooleanSubtractor* WorldRenderer::getTerrainSubtract
 			(samples[i].bedBottomY + samples[i + 1].bedBottomY) * 0.5f);
 	}
 
-	auto appendNodeCapFootprint = [&](bool isNodeA)
-	{
-		const int nodeId = isNodeA ? edge->nodeA : edge->nodeB;
-		const RoadNode* node = network.getNode(nodeId);
-		if (!node) return;
 
-		float roadbedLeft = 0.0f;
-		float roadbedRight = 0.0f;
-		if (!calcRoadbedRangeAtNode(*edge, isNodeA, roadbedLeft, roadbedRight))
-			return;
-
-		const float capRad = isNodeA ? edge->cutoffA : edge->cutoffB;
-		constexpr float kOverlap = 0.1f;
-		Vec3 capPos, capTan;
-		if (isNodeA)
-		{
-			const float s = Clamp(capRad - kOverlap, 0.0f, bez.totalLength * 0.45f);
-			capPos = bez.positionAt(s);
-			capTan = bez.tangentAt(s);
-		}
-		else
-		{
-			const float s = Clamp(bez.totalLength - capRad + kOverlap,
-				bez.totalLength * 0.55f, bez.totalLength);
-			capPos = bez.positionAt(s);
-			capTan = -bez.tangentAt(s);
-		}
-
-		const Vec2 tanXZ{ capTan.x, capTan.z };
-		const double tanLen = tanXZ.length();
-		if (tanLen < 1e-6) return;
-		const Vec2 tanNorm = tanXZ / tanLen;
-		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
-		const Vec3 right = tangentToRight(capTan);
-
-		const Vec3 leftCorner = Vec3{
-			capPos.x + right.x * static_cast<double>(roadbedLeft),
-			capPos.y,
-			capPos.z + right.z * static_cast<double>(roadbedLeft)
-		};
-		const Vec3 rightCorner = Vec3{
-			capPos.x + right.x * static_cast<double>(roadbedRight),
-			capPos.y,
-			capPos.z + right.z * static_cast<double>(roadbedRight)
-		};
-		const Vec3 nodeCenter = node->position;
-
-		Array<Vec2> footprint = {
-			Vec2{ static_cast<float>(leftCorner.x), static_cast<float>(leftCorner.z) },
-			Vec2{ static_cast<float>(nodeCenter.x), static_cast<float>(nodeCenter.z) },
-			Vec2{ static_cast<float>(rightCorner.x), static_cast<float>(rightCorner.z) },
-		};
-		const float bedBottomY = static_cast<float>(
-			Max(Max(leftCorner.y, rightCorner.y), nodeCenter.y) + kRoadSurfaceLift - kRoadTerrainRelief);
-		registerSubtractionFootprint(std::move(footprint), bedBottomY);
-	};
-
-	appendNodeCapFootprint(true);
-	appendNodeCapFootprint(false);
 
 	if (subtractor.quads.isEmpty())
 		return nullptr;
@@ -762,10 +994,10 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 		return &it->second;
 
 	const RoadNode* node = network.getNode(nodeId);
-	if (!node || node->attachments.size() < 3)
+	if (!node || node->attachments.size() < 2)
 		return nullptr;
 
-	if (node->type != NodeType::Intersection && node->type != NodeType::Diverge)
+	if (node->type != NodeType::Intersection && node->type != NodeType::Diverge && node->type != NodeType::Joint)
 		return nullptr;
 
 	TerrainNodeSubtractor subtractor;
@@ -796,162 +1028,64 @@ const WorldRenderer::TerrainNodeSubtractor* WorldRenderer::getTerrainNodeSubtrac
 				touchedChunkSet.insert(chunkCoordToKey(Point{ cx, cz }));
 	};
 
-	struct NodeEdgeInfo
+	const auto layout = JunctionGeometry::build(network, nodeId);
+	if (layout.elevated) { return nullptr; }
+	const MeshData footprint = JunctionGeometry::terrainFootprint(layout);
+	// Merge only adjacent triangles whose union remains convex. This preserves the
+	// concave kerb exactly while avoiding hundreds of repeated cuts in one terrain cell.
+	Array<Array<uint32>> pieces;
+	for (const auto& triangle : footprint.indices) { pieces << Array<uint32>{ triangle.i0, triangle.i1, triangle.i2 }; }
+	for (size_t i = 0; i < pieces.size(); ++i)
 	{
-		Vec3  capTan;
-		Vec3  leftCorner;
-		Vec3  rightCorner;
-		float bedBottomY = 0.0f;
-		double angle = 0.0;
-	};
-
-	Array<NodeEdgeInfo> infos;
-	for (const auto& att : node->attachments)
-	{
-		const RoadEdge* edge = network.getEdge(att.edgeId);
-		if (!edge || edge->useElevation || edge->parts.isEmpty()) continue;
-		if (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing) continue;
-
-		const auto bezOpt = network.getBezier(edge->id);
-		if (!bezOpt || bezOpt->totalLength <= 0.0f) continue;
-		const CubicBezier& bez = *bezOpt;
-
-		const bool isNodeA = (edge->nodeA == nodeId);
-		float roadbedLeft = 0.0f;
-		float roadbedRight = 0.0f;
-		if (!calcRoadbedRangeAtNode(*edge, isNodeA, roadbedLeft, roadbedRight))
-			continue;
-
-		const float capRad = isNodeA ? edge->cutoffA : edge->cutoffB;
-		constexpr float kOverlap = 0.1f;
-		Vec3 capPos, capTan;
-		if (isNodeA)
+		bool merged = true;
+		while (merged)
 		{
-			const float s = Clamp(capRad - kOverlap, 0.0f, bez.totalLength * 0.45f);
-			capPos = bez.positionAt(s);
-			capTan = bez.tangentAt(s);
-		}
-		else
-		{
-			const float s = Clamp(bez.totalLength - capRad + kOverlap,
-				bez.totalLength * 0.55f, bez.totalLength);
-			capPos = bez.positionAt(s);
-			capTan = -bez.tangentAt(s);
-		}
-
-		const Vec2 tanXZ{ capTan.x, capTan.z };
-		const double tanLen = tanXZ.length();
-		if (tanLen < 1e-6) continue;
-		const Vec2 tanNorm = tanXZ / tanLen;
-		capTan = Vec3{ tanNorm.x, 0.0, tanNorm.y };
-		const Vec3 right = tangentToRight(capTan);
-
-		NodeEdgeInfo info;
-		info.capTan = capTan;
-		info.leftCorner = Vec3{
-			capPos.x + right.x * static_cast<double>(roadbedLeft),
-			capPos.y,
-			capPos.z + right.z * static_cast<double>(roadbedLeft)
-		};
-		info.rightCorner = Vec3{
-			capPos.x + right.x * static_cast<double>(roadbedRight),
-			capPos.y,
-			capPos.z + right.z * static_cast<double>(roadbedRight)
-		};
-		info.bedBottomY = static_cast<float>(capPos.y + kRoadSurfaceLift - kRoadTerrainRelief);
-		info.angle = Math::Atan2(capTan.z, capTan.x);
-		infos << info;
-	}
-
-	if (infos.size() < 2)
-		return nullptr;
-
-	infos.sort_by([](const NodeEdgeInfo& a, const NodeEdgeInfo& b) { return a.angle < b.angle; });
-
-	const int div = 8;
-	const int half = div / 2;
-	Array<Array<Vec3>> fillets(static_cast<size_t>(infos.size()));
-
-	for (int i = 0; i < static_cast<int>(infos.size()); ++i)
-	{
-		const int next = (i + 1) % static_cast<int>(infos.size());
-		const NodeEdgeInfo& ei = infos[i];
-		const NodeEdgeInfo& en = infos[next];
-
-		const Vec2 p0xz{ ei.leftCorner.x, ei.leftCorner.z };
-		const Vec2 p3xz{ en.rightCorner.x, en.rightCorner.z };
-		const double dist = (p3xz - p0xz).length();
-		const double scale = Max(dist / 3.0, 0.5);
-		const Vec2 p1xz = p0xz + Vec2{ -ei.capTan.x, -ei.capTan.z } * scale;
-		const Vec2 p2xz = p3xz + Vec2{ -en.capTan.x, -en.capTan.z } * scale;
-
-		Array<Vec3> pts;
-		pts.reserve(div + 1);
-		for (int k = 0; k <= div; ++k)
-		{
-			if (k == 0)
+			merged = false;
+			for (size_t j = i + 1; j < pieces.size() && !merged; ++j)
 			{
-				pts << ei.leftCorner;
-				continue;
+				const auto& a = pieces[i];
+				const auto& b = pieces[j];
+				if (a.size() + b.size() > 18) { continue; }
+				for (size_t ia = 0; ia < a.size() && !merged; ++ia)
+				{
+					for (size_t ib = 0; ib < b.size() && !merged; ++ib)
+					{
+						if (a[ia] != b[(ib+1)%b.size()] || a[(ia+1)%a.size()] != b[ib]) { continue; }
+						Array<uint32> joined;
+						for (size_t offset = 1; offset <= a.size(); ++offset) { joined << a[(ia+offset)%a.size()]; }
+						for (size_t offset = 2; offset < b.size(); ++offset) { joined << b[(ib+offset)%b.size()]; }
+						double sign = 0.0;
+						bool convex = true;
+						for (size_t k = 0; k < joined.size(); ++k)
+						{
+							const auto p = footprint.vertices[joined[k]].pos;
+							const auto q = footprint.vertices[joined[(k+1)%joined.size()]].pos;
+							const auto r = footprint.vertices[joined[(k+2)%joined.size()]].pos;
+							const double turn = (q.x-p.x)*(r.z-q.z) - (q.z-p.z)*(r.x-q.x);
+							if (Abs(turn) < 1e-6) { continue; }
+							if (sign * turn < 0.0) { convex = false; break; }
+							sign = turn;
+						}
+						if (!convex) { continue; }
+						pieces[i] = std::move(joined);
+						pieces.erase(pieces.begin() + j);
+						merged = true;
+					}
+				}
 			}
-			if (k == div)
-			{
-				pts << en.rightCorner;
-				continue;
-			}
-
-			const double t = k / static_cast<double>(div);
-			const double mt = 1.0 - t;
-			const Vec2 ptXZ = p0xz * (mt * mt * mt)
-			                + p1xz * (3.0 * mt * mt * t)
-			                + p2xz * (3.0 * mt * t * t)
-			                + p3xz * (t * t * t);
-			const double y = ei.leftCorner.y + (en.rightCorner.y - ei.leftCorner.y) * k / div;
-			pts << Vec3{ ptXZ.x, y, ptXZ.y };
-		}
-		fillets[static_cast<size_t>(i)] = std::move(pts);
-	}
-
-	auto registerTriangle = [&](const Vec3& a, const Vec3& b, const Vec3& c)
-	{
-		Array<Vec2> tri = {
-			Vec2{ static_cast<float>(a.x), static_cast<float>(a.z) },
-			Vec2{ static_cast<float>(b.x), static_cast<float>(b.z) },
-			Vec2{ static_cast<float>(c.x), static_cast<float>(c.z) },
-		};
-		const float bedBottomY = static_cast<float>(
-			Max(Max(a.y, b.y), c.y) + kRoadSurfaceLift - kRoadTerrainRelief);
-		registerSubtractionFootprint(std::move(tri), bedBottomY);
-	};
-
-	for (int i = 0; i < static_cast<int>(infos.size()); ++i)
-	{
-		const int next = (i + 1) % static_cast<int>(infos.size());
-		const Array<Vec3>& fa = fillets[static_cast<size_t>(i)];
-		const Array<Vec3>& fb = fillets[static_cast<size_t>(next)];
-
-		for (int k = 0; k < half; ++k)
-		{
-			const Vec3& p0 = fa[div - k];
-			const Vec3& p1 = fa[div - k - 1];
-			const Vec3& p2 = fb[k];
-			const Vec3& p3 = fb[k + 1];
-			registerTriangle(p0, p1, p2);
-			registerTriangle(p1, p3, p2);
 		}
 	}
-
-	if (infos.size() >= 3)
+	for (const auto& piece : pieces)
 	{
-		Array<Vec3> mids;
-		for (int i = 0; i < static_cast<int>(infos.size()); ++i)
-			mids << fillets[static_cast<size_t>(i)][half];
-
-		while (mids.size() >= 3)
+		Array<Vec2> polygon;
+		float floor = Math::InfF;
+		for (const uint32 index : piece)
 		{
-			registerTriangle(mids[0], mids[1], mids[2]);
-			mids.erase(mids.begin() + 1);
+			const auto& position = footprint.vertices[index].pos;
+			polygon << Vec2{ position.x, position.z };
+			floor = Min(floor, position.y);
 		}
+		registerSubtractionFootprint(std::move(polygon), floor - kRoadTerrainRelief);
 	}
 
 	if (subtractor.quads.isEmpty())
@@ -1091,6 +1225,7 @@ void WorldRenderer::invalidateTerrainChunkKeys(const std::unordered_set<Key>& ch
 
 	for (const Key key : chunkKeys)
 	{
+		++m_terrainRevisions[key];
 		m_chunkSubtractorCache.erase(key);
 		if (rebuildImmediately)
 		{
@@ -1326,6 +1461,7 @@ void WorldRenderer::invalidateTerrainForNode(int nodeId)
 
 void WorldRenderer::invalidateAllTerrain()
 {
+	++m_terrainEpoch;
 	m_meshCache.clear();
 	m_chunkSubtractorCache.clear();
 	m_edgeSubtractorCache.clear();
@@ -1409,150 +1545,159 @@ namespace
 	{
 		switch (type)
 		{
-		case LandPatchType::ParcelAsphalt: return 117;
-		case LandPatchType::ParcelGravel:  return 118;
-		case LandPatchType::GardenSoil:    return ((seed >> 4) & 1u) ? 112 : 101;
+		case LandPatchType::ParcelAsphalt: return 119;
+		case LandPatchType::ParcelGravel:  return 120;
+		case LandPatchType::GardenSoil:    return 122;
 		case LandPatchType::Beach:        return 111;
 		case LandPatchType::PaddyField:   return 110;
-		case LandPatchType::FarmField:    return ((seed >> 6) & 1u) ? 113 : 101;
+		case LandPatchType::FarmField:    return ((seed >> 6) % 3u) == 0u ? 114 : (((seed >> 6) % 3u) == 1u ? 113 : 101);
 		case LandPatchType::Seawall:      return 117;
 		default:                    return 100;
 		}
 	}
 
-	void appendLandPatchSurface(MeshData& dst, const World& world, const LandPatch& patch)
+	struct LandRoadMask
 	{
-		if (patch.polygon.size() < 3) return;
-		Array<TerrainClipVertex> polygon;
-		polygon.reserve(patch.polygon.size());
-		for (const Vec2& p : patch.polygon)
+		RectF bounds;
+		Array<Vec2> footprint;
+		Polygon shape;
+	};
+	template<class HeightSource>
+	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks);
+	template<class HeightSource>
+	void appendLandPatchSurface(MeshData& dst, const HeightSource& world, const LandPatch& patch,
+		const Array<LandRoadMask>& roadMasks)
+	{
+		if (patch.polygon.size() < 3)
 		{
-			const float y = static_cast<float>(world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.y))) + patch.elevationOffset;
-			const Vec3 pos{ p.x, y, p.y };
-			polygon << TerrainClipVertex{ pos, terrainUvAt(pos) };
+			return;
 		}
-		if (signedAreaXZ(patch.polygon) < 0.0f)
+		const RectF bounds = boundsOfPolygon(patch.polygon);
+		Array<const LandRoadMask*> nearbyRoads;
+		for (const auto& mask : roadMasks)
 		{
-			polygon.reverse();
+			if (rectIntersects(bounds, mask.bounds))
+			{
+				nearbyRoads << &mask;
+			}
 		}
-		appendPolygonAsTriangles(polygon, dst.vertices, dst.indices);
+		const int materialKey = landPatchMaterialKey(patch.type, patch.materialVariant);
+		Array<Vec2> outline = patch.polygon;
+		UrbanParcel::normalize(outline);
+		const Polygon shape{ outline };
+		const int minCol = static_cast<int>(Floor(bounds.x / kTerrainCellSize));
+		const int maxCol = static_cast<int>(Floor((bounds.x + bounds.w) / kTerrainCellSize));
+		const int minRow = static_cast<int>(Floor(bounds.y / kTerrainCellSize));
+		const int maxRow = static_cast<int>(Floor((bounds.y + bounds.h) / kTerrainCellSize));
+		// Triangulate the parcel first so concave parcel outlines remain valid when clipped.
+		for (const auto& triangle : shape.indices())
+		{
+			const auto& vertices = shape.vertices();
+			Array<TerrainClipVertex> source;
+			for (const auto index : { triangle.i0, triangle.i1, triangle.i2 })
+			{
+				const auto& vertex = vertices[index];
+				source << TerrainClipVertex{ Vec3{ vertex.x, 0.0, vertex.y }, Float2{ 0, 0 } };
+			}
+			for (int row = minRow; row <= maxRow; ++row)
+			{
+				for (int col = minCol; col <= maxCol; ++col)
+				{
+					const Vec2 a{ col * kTerrainCellSize, row * kTerrainCellSize };
+					const Vec2 b = a + Vec2{ kTerrainCellSize, 0 };
+					const Vec2 c = a + Vec2{ 0, kTerrainCellSize };
+					const Vec2 d = a + Vec2{ kTerrainCellSize, kTerrainCellSize };
+					for (const Array<Vec2>& clip : { Array<Vec2>{ a, b, c }, Array<Vec2>{ b, d, c } })
+					{
+						auto piece = source;
+						for (size_t side = 0; side < clip.size() && piece.size() >= 3; ++side)
+						{
+							piece = clipPolygonByHalfPlaneXZ(piece, clip[side], clip[(side + 1) % clip.size()], true);
+						}
+						for (auto& vertex : piece)
+						{
+							vertex.pos.y = world.sampleHeight(static_cast<float>(vertex.pos.x), static_cast<float>(vertex.pos.z)) + patch.elevationOffset;
+							vertex.tex = terrainUvAt(vertex.pos, materialKey);
+						}
+						Array<Array<TerrainClipVertex>> pieces{ piece };
+						const RectF cellBounds{ a.x, a.y, kTerrainCellSize, kTerrainCellSize };
+						for (const auto* road : nearbyRoads)
+						{
+							if (!rectIntersects(cellBounds, road->bounds))
+							{
+								continue;
+							}
+							Array<Array<TerrainClipVertex>> remainder;
+							for (const auto& candidate : pieces)
+							{
+								for (auto& fragment : subtractConvexPolygonXZ(candidate, road->footprint))
+								{
+									remainder << std::move(fragment);
+								}
+							}
+							pieces = std::move(remainder);
+						}
+						for (const auto& fragment : pieces)
+						{
+							appendPolygonAsTriangles(fragment, dst.vertices, dst.indices);
+						}
+					}
+				}
+			}
+		}
 	}
 
-	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const World& world, const LandPatch& patch)
+	template<class HeightSource>
+	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const HeightSource& world, const Chunk& chunk, const LandPatch& patch,
+		const Array<LandRoadMask>& roadMasks)
 	{
-		const bool drawSurface = (patch.type != LandPatchType::ParcelAsphalt
-			&& patch.type != LandPatchType::ParcelGravel
-			&& patch.type != LandPatchType::GardenSoil
-			&& patch.type != LandPatchType::Seawall);
+		const bool drawSurface = (patch.type == LandPatchType::FarmField
+			|| patch.type == LandPatchType::PaddyField
+			|| patch.type == LandPatchType::Seawall || patch.type == LandPatchType::ParcelAsphalt
+			|| patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil);
 		if (drawSurface)
 		{
 			MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
-			appendLandPatchSurface(surface, world, patch);
+			appendLandPatchSurface(surface, world, patch, roadMasks);
 		}
 		const RectF bounds = boundsOfPolygon(patch.polygon);
 		const float cx = static_cast<float>(bounds.x + bounds.w * 0.5);
 		const float cz = static_cast<float>(bounds.y + bounds.h * 0.5);
 		const float baseY = static_cast<float>(world.sampleHeight(cx, cz)) + patch.elevationOffset;
 
-		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 4
-			&& (patch.type == LandPatchType::ParcelAsphalt || patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil))
+		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3)
 		{
-			const Vec2 a = patch.polygon[0];
-			const Vec2 b = patch.polygon[1];
-			const Vec2 c = patch.polygon[2];
-			const Vec2 d = patch.polygon[3];
-			const Vec2 frontMid = (a + b) * 0.5;
-			const Vec2 backMid = (c + d) * 0.5;
-			Vec2 along = b - a;
-			const float frontageLen = static_cast<float>(along.length());
-			if (frontageLen > 0.6f)
+			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
+		}
+
+		if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
+		{
+			// Earth bunds follow the field perimeter; sample at 8 m to follow terrain.
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
 			{
-				along /= frontageLen;
-				Vec2 inward = backMid - frontMid;
-				if (inward.lengthSq() > 1e-6f) inward.normalize();
-				const float apronW = Min(frontageLen * 0.92f, 10.5f);
-				const float apronD = 2.20f;
-				const Vec2 apronCenter = frontMid + inward * (apronD * 0.55f);
-				const float angle = static_cast<float>(std::atan2(along.y, along.x));
-				appendRotatedBox(groups[(patch.type == LandPatchType::GardenSoil) ? 114 : 100],
-					static_cast<float>(apronCenter.x), baseY + 0.060f, static_cast<float>(apronCenter.y),
-					apronW, 0.035f, apronD, angle);
-				const uint32 hash = static_cast<uint32>(patch.materialVariant);
-				const float openingW = 2.2f + static_cast<float>((hash >> 5) % 5u) * 0.22f;
-				const float fenceSpan = Max(0.0f, frontageLen - openingW);
-				if (fenceSpan > 1.2f)
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side+1)%patch.polygon.size()];
+				const double length = a.distanceFrom(b);
+				const int pieces = Max(1,static_cast<int>(Ceil(length/8)));
+				for (int piece = 0; piece < pieces; ++piece)
 				{
-					const Vec2 left = frontMid - along * (openingW * 0.5f + fenceSpan * 0.25f) + inward * 0.18f;
-					const Vec2 right = frontMid + along * (openingW * 0.5f + fenceSpan * 0.25f) + inward * 0.18f;
-					appendRotatedBox(groups[102], static_cast<float>(left.x), baseY + 0.25f, static_cast<float>(left.y),
-						fenceSpan * 0.45f, 0.50f, 0.16f, angle);
-					appendRotatedBox(groups[102], static_cast<float>(right.x), baseY + 0.25f, static_cast<float>(right.y),
-						fenceSpan * 0.45f, 0.50f, 0.16f, angle);
-					appendRotatedBox(groups[117], static_cast<float>(frontMid.x - along.x * openingW * 0.48f), baseY + 0.32f,
-						static_cast<float>(frontMid.y - along.y * openingW * 0.48f), 0.22f, 0.64f, 0.22f, angle);
-					appendRotatedBox(groups[117], static_cast<float>(frontMid.x + along.x * openingW * 0.48f), baseY + 0.32f,
-						static_cast<float>(frontMid.y + along.y * openingW * 0.48f), 0.22f, 0.64f, 0.22f, angle);
+					const Vec2 point = a.lerp(b,(piece+.5)/pieces);
+					const bool touchesRoad = std::any_of(roadMasks.begin(),roadMasks.end(),[&](const LandRoadMask& road)
+					{ return road.bounds.stretched(5).contains(point) && Circle{point,length/pieces*.5+.4}.intersects(road.shape); });
+					if (touchesRoad) { continue; }
+					appendRotatedBox(groups[127],static_cast<float>(point.x),world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+.08f,
+						static_cast<float>(point.y),static_cast<float>(length/pieces),.16f,.45f,static_cast<float>(Atan2(b.y-a.y,b.x-a.x)));
 				}
 			}
 		}
-
 		if (patch.type == LandPatchType::Seawall)
 		{
 			appendRotatedBox(groups[117], cx, baseY + 0.70f, cz,
 				static_cast<float>(Max(2.4, bounds.w * 1.02)), 1.40f,
 				static_cast<float>(Max(1.8, bounds.h * 0.52)), 0.0f);
 		}
-		else if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
-		{
-			const int ridgeKey = (patch.type == LandPatchType::PaddyField) ? 110 : 101;
-			const int borderKey = (patch.type == LandPatchType::PaddyField) ? 114 : 113;
-			Vec2 along{ 1.0f, 0.0f };
-			if (patch.polygon.size() >= 2)
-			{
-				along = patch.polygon[1] - patch.polygon[0];
-				if (along.lengthSq() <= 1e-6f) along = Vec2{ 1.0f, 0.0f };
-				else along.normalize();
-			}
-			const Vec2 lateral{ -along.y, along.x };
-			const float angle = static_cast<float>(std::atan2(along.y, along.x));
-			const uint32 hash = static_cast<uint32>(patch.materialVariant);
-			const Vec2 frontMid = (patch.polygon[0] + patch.polygon[1]) * 0.5;
-			const Vec2 backMid = (patch.polygon[3] + patch.polygon[4]) * 0.5;
-			const Vec2 fieldMid = (frontMid + backMid) * 0.5;
-			const float fieldLength = static_cast<float>(Max(3.0, bounds.w * 0.84));
-			const float fieldDepth = static_cast<float>(Max(3.0, bounds.h * 0.76));
-			appendRotatedBox(groups[borderKey], static_cast<float>(frontMid.x), baseY + 0.052f, static_cast<float>(frontMid.y),
-				fieldLength, 0.070f, 0.26f, angle);
-			appendRotatedBox(groups[borderKey], static_cast<float>(backMid.x), baseY + 0.050f, static_cast<float>(backMid.y),
-				fieldLength * 0.92f, 0.065f, 0.23f, angle);
-			for (const float side : { -1.0f, 1.0f })
-			{
-				const Vec2 sideMid = fieldMid + along * side * fieldLength * 0.46f;
-				appendRotatedBox(groups[borderKey], static_cast<float>(sideMid.x), baseY + 0.048f, static_cast<float>(sideMid.y),
-					fieldDepth, 0.060f, 0.22f, angle + static_cast<float>(90.0_deg));
-			}
-			appendRotatedBox(groups[borderKey], static_cast<float>(fieldMid.x), baseY + 0.046f, static_cast<float>(fieldMid.y),
-				fieldLength * 0.78f, 0.055f, 0.18f, angle);
-			const int ridgeCount = (patch.type == LandPatchType::PaddyField) ? 8 : 10;
-			for (int i = 0; i < ridgeCount; ++i)
-			{
-				const float offset = (static_cast<float>(i) - (ridgeCount - 1) * 0.5f) * fieldDepth / Max(1.0f, static_cast<float>(ridgeCount - 1)) * 0.86f
-					+ (static_cast<float>((hash >> (i * 5)) & 15u) / 15.0f - 0.5f) * fieldDepth * 0.018f;
-				const Vec2 p = fieldMid + lateral * offset;
-				appendRotatedBox(groups[ridgeKey], static_cast<float>(p.x), baseY + 0.055f, static_cast<float>(p.y),
-					fieldLength * 0.82f, 0.060f, 0.12f, angle);
-			}
-			if (patch.type == LandPatchType::PaddyField)
-			{
-				for (const float side : { -0.33f, 0.33f })
-				{
-					const Vec2 channel = fieldMid + along * side * fieldLength;
-					appendRotatedBox(groups[110], static_cast<float>(channel.x), baseY + 0.060f, static_cast<float>(channel.y),
-						fieldDepth * 0.78f, 0.060f, 0.24f, angle + static_cast<float>(90.0_deg));
-				}
-			}
-		}
 	}
+
 	void appendGableRoof(MeshData& dst, float cx, float baseY, float cz,
 	                     float sx, float depth, float roofH, float angle, bool ridgeAlongX)
 	{
@@ -1600,20 +1745,29 @@ namespace
 
 	float targetBuildingModelFootprint(BuildingType type)
 	{
-		switch (type)
-		{
-		case BuildingType::Detached:      return 7.5f;
-		case BuildingType::LowApartment:  return 8.5f;
-		case BuildingType::MidApartment:  return 9.5f;
-		case BuildingType::HighApartment: return 10.5f;
-		case BuildingType::Shop:          return 8.0f;
-		case BuildingType::Office:        return 10.5f;
-		default:                          return buildingFootprintXZ() * 0.78f;
-		}
+		return buildingFootprintXZ(type);
 	}
 
 	float targetBuildingModelHeight(BuildingType type)
 	{
+		// 2階建て住宅の階高と屋根を保つ。シミュレーション上の収容人数は変更しない。
+		constexpr float kDetachedModelHeightLimit = 8.5f;
+		if (type == BuildingType::Detached)
+		{
+			return kDetachedModelHeightLimit;
+		}
+		if (type == BuildingType::PublicFacility)
+		{
+			constexpr float kCivicModelHeightLimit = 15.0f;
+			return kCivicModelHeightLimit;
+		}
+		if (type == BuildingType::Parking)
+		{
+			constexpr float kParkingModelHeightLimit = 4.5f;
+			return kParkingModelHeightLimit;
+		}
+		if (type == BuildingType::Office) { return 64.0f; }
+		if (type == BuildingType::Shop) { return 36.0f; }
 		return Max(1.0f, buildingHeight(type));
 	}
 
@@ -1625,7 +1779,8 @@ namespace
 		{
 			const float currentFootprint = localFootprint * scale;
 			const float targetFootprint = targetBuildingModelFootprint(type);
-			if (currentFootprint > targetFootprint)
+			if (currentFootprint > targetFootprint || type == BuildingType::Office || type == BuildingType::Shop
+				|| type == BuildingType::MidApartment || type == BuildingType::HighApartment)
 			{
 				scale *= targetFootprint / currentFootprint;
 			}
@@ -1661,42 +1816,229 @@ namespace
 	{
 		switch (key)
 		{
-		case 100: return ColorF{ 0.45, 0.43, 0.38 };
-		case 101: return ColorF{ 0.34, 0.50, 0.24 };
-		case 102: return ColorF{ 0.62, 0.59, 0.52 };
+		case 100: return ColorF{ 0.44, 0.44, 0.40 };
+		case 101: return ColorF{ 0.38, 0.46, 0.29 };
+		case 102: return ColorF{ 0.62, 0.60, 0.54 };
 		case 103: return ColorF{ 0.42, 0.39, 0.34 };
-		case 104: return ColorF{ 0.46, 0.53, 0.31 };
+		case 104: return ColorF{ 0.56, 0.63, 0.42 };
 		case 105: return ColorF{ 0.32, 0.24, 0.18 };
-		case 106: return ColorF{ 0.22, 0.36, 0.22 };
+		case 125: return ColorF{ 0.33, 0.44, 0.23 }.removeSRGBCurve();
+		case 126: return ColorF{ 0.43, 0.54, 0.29 }.removeSRGBCurve();
+		case 127: return ColorF{ 0.43, 0.46, 0.25 };
+		case 124:
+		case 106: return ColorF{ 0.18, 0.23, 0.11 };
 		case 107: return ColorF{ 0.72, 0.74, 0.73 };
 		case 108: return ColorF{ 0.35, 0.39, 0.43 };
-		case 109: return ColorF{ 0.30, 0.30, 0.28 };
-		case 110: return ColorF{ 0.22, 0.48, 0.54 };
-		case 111: return ColorF{ 0.58, 0.53, 0.39 };
+		case 109: return ColorF{ 0.23, 0.24, 0.23 };
+		case 110: return ColorF{ 0.31, 0.39, 0.31 };
+		case 111: return ColorF{ 0.76, 0.70, 0.52 };
 		case 112: return ColorF{ 0.68, 0.20, 0.16 };
-		case 113: return ColorF{ 0.30, 0.56, 0.24 };
-		case 114: return ColorF{ 0.62, 0.55, 0.34 };
+		case 113: return ColorF{ 0.47, 0.44, 0.28 };
+		case 114: return ColorF{ 0.66, 0.58, 0.36 };
 		case 115: return ColorF{ 0.22, 0.21, 0.19 };
 		case 116: return ColorF{ 0.16, 0.23, 0.25 };
-		case 117: return ColorF{ 0.36, 0.36, 0.34 };
-		case 118: return ColorF{ 0.49, 0.47, 0.39 };
+		case 117: return ColorF{ 0.54, 0.54, 0.50 };
+		case 118: return ColorF{ 0.32, 0.30, 0.23 };
+		case 119: return ColorF{ 0.38, 0.42, 0.44 };
+		case 120: return ColorF{ 0.25, 0.24, 0.20 };
+		case 121: return ColorF{ 0.34, 0.31, 0.22 };
+		case 122: return ColorF{ 0.26, 0.30, 0.18 };
+		case 123: return ColorF{ 0.28, 0.29, 0.26 };
 		default: return ColorF{ 0.60, 0.60, 0.60 };
 		}
 	}
 
+	/// @brief Uneven overlapping crowns vary tree silhouette and height within the reserved footprint.
+	void appendParkTree(HashTable<int, MeshData>& groups, Vec2 position, float groundY, uint32 variation, double heightScale = 1.0)
+	{
+		const double scale = 0.78 + (variation % 11) * 0.028;
+		MeshData trunk = MeshData::Cylinder(0.10 * scale, 2.4 * scale * heightScale, 7);
+		trunk.translate(Float3{ static_cast<float>(position.x), groundY + static_cast<float>(1.2 * scale * heightScale), static_cast<float>(position.y) });
+		appendMeshData(groups[105], trunk);
+		MeshData distantFoliage = MeshData::Sphere(1.45 * scale, 3);
+		distantFoliage.scale(1.0, 1.05 * heightScale, 1.0).computeNormals();
+		distantFoliage.translate(Float3{ static_cast<float>(position.x), groundY + static_cast<float>(3.0 * scale * heightScale), static_cast<float>(position.y) });
+		appendMeshData(groups[124], distantFoliage);
+		for (int crown = 0; crown < 7; ++crown)
+		{
+			const double angle = crown * 2.39996 + (variation % 31) * 0.20;
+			const double spread = crown < 4 ? 0.90 : 0.42;
+			const double radius = (0.68 + ((variation >> (crown * 3)) & 3u) * 0.08) * scale;
+			MeshData foliage = MeshData::Sphere(radius, 5);
+			foliage.scale(1.0, (1.15 + (crown % 3) * 0.10) * heightScale, 1.0).computeNormals();
+			foliage.translate(Float3{ static_cast<float>(position.x + Cos(angle) * spread * scale),
+				groundY + static_cast<float>((2.7 + (crown / 4) * 0.8) * scale * heightScale),
+				static_cast<float>(position.y + Sin(angle) * spread * scale) });
+			appendMeshData(groups[106], foliage);
+		}
+	}
+	/// @brief Deterministic woodland batches follow undeveloped slopes, excluding roads and plots.
+	void appendWoodland(HashTable<int, MeshData>& groups, const Chunk& chunk,
+		const Array<LandRoadMask>& roadMasks)
+	{
+		if (chunk.zoneMap.isEmpty() || chunk.heightMap.isEmpty()) { return; }
+		Grid<bool> blocked(ZONE_CELLS,ZONE_CELLS,false);
+		for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
+		{
+			if (chunk.zoneMap[{col,row}] == ZoneType::Unzoned && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
+			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+			{
+				if (InRange(col+dx,0,ZONE_CELLS-1) && InRange(row+dz,0,ZONE_CELLS-1)) { blocked[{col+dx,row+dz}] = true; }
+			}
+		}
+		// Index clearance by 16 m cell once; the forest loop never scans all road polygons.
+		for (const auto& road : roadMasks)
+		{
+			const RectF bounds = road.bounds.stretched(9);
+			const int left = Clamp(static_cast<int>(Floor((bounds.x-chunk.coord.x*CHUNK_SIZE)/16)),0,ZONE_CELLS-1);
+			const int right = Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunk.coord.x*CHUNK_SIZE)/16)),0,ZONE_CELLS-1);
+			const int top = Clamp(static_cast<int>(Floor((bounds.y-chunk.coord.y*CHUNK_SIZE)/16)),0,ZONE_CELLS-1);
+			const int bottom = Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunk.coord.y*CHUNK_SIZE)/16)),0,ZONE_CELLS-1);
+			for (int row = top; row <= bottom; ++row) for (int col = left; col <= right; ++col)
+			{
+				const Vec2 center{chunk.coord.x*CHUNK_SIZE+(col+.5)*16,chunk.coord.y*CHUNK_SIZE+(row+.5)*16};
+				if (Circle{center,18}.intersects(road.shape)) { blocked[{col,row}] = true; }
+			}
+		}
+		for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
+		{
+			if (blocked[{col,row}]) { continue; }
+			const uint32 hash = cellVisualHash(chunk.coord,col,row,179u);
+			const float x = chunk.coord.x*CHUNK_SIZE+(col+.5f)*16+static_cast<float>((hash>>8)%141u)*.1f-7.0f;
+			const float z = chunk.coord.y*CHUNK_SIZE+(row+.5f)*16+static_cast<float>((hash>>16)%141u)*.1f-7.0f;
+			const float ground = chunk.getHeight(x,z);
+			const float slope = Max(Abs(chunk.getHeight(x+8,z)-chunk.getHeight(x-8,z)),Abs(chunk.getHeight(x,z+8)-chunk.getHeight(x,z-8)))/16;
+			if (ground < 12 || ground > 850 || slope > 1.4f || (ground < 28 && slope < .07f) || hash%100u > 95u) { continue; }
+			const float scale = .8f+static_cast<float>((hash>>3)%43u)*.01f;
+			const bool cedar = Sin(x*.0043)+Cos(z*.0051)+Sin((x-z)*.0027) > .65;
+			if (cedar)
+			{
+				for (int crown = 0; crown < 3; ++crown)
+				{
+					MeshData foliage = MeshData::Cone(Float3{x,ground+(2.0f+crown*3.5f)*scale,z},(6.3-crown*1.05)*scale,(11.5-crown)*scale,7);
+					appendMeshData(groups[125],foliage);
+				}
+			}
+			else
+			{
+				for (int crown = 0; crown < 3; ++crown)
+				{
+					MeshData foliage = MeshData::Sphere((7.3-crown*.85)*scale,3);
+					foliage.scale(1,.90,1).computeNormals();
+					foliage.translate(Float3{x+static_cast<float>(Cos(crown*2.4+hash%7u)*2.8),ground+(6.5f+crown*1.5f)*scale,z+static_cast<float>(Sin(crown*2.4+hash%7u)*2.8)});
+					appendMeshData(groups[(hash&1u) ? 126 : 125],foliage);
+				}
+			}
+		}
+	}
+	template<class HeightSource>
+	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks)
+	{
+		const int col = static_cast<int>(patch.sourceParcelKey & 255);
+		const int row = static_cast<int>((patch.sourceParcelKey >> 8) & 255);
+		if (col >= ZONE_CELLS || row >= ZONE_CELLS) { return; }
+		const Building& building = chunk.buildingGrid[{ col, row }];
+		const Vec2 center{ chunk.coord.x * CHUNK_SIZE + (col + 0.5) * 16 + building.offsetX,
+			chunk.coord.y * CHUNK_SIZE + (row + 0.5) * 16 + building.offsetZ };
+		const Vec2 inward{ -Sin(building.angle), Cos(building.angle) };
+		const Vec2 along{ inward.y, -inward.x };
+		const double half = buildingFootprintXZ(building.type) * 0.5;
+		Array<Vec2> outline = patch.polygon;
+		UrbanParcel::normalize(outline);
+		const Polygon shape{ outline };
+		Array<const LandRoadMask*> adjacentRoads;
+		const RectF parcelBounds = boundsOfPolygon(outline);
+		for (const auto& road : roadMasks)
+		{
+			if (rectIntersects(parcelBounds.stretched(3), road.bounds)) { adjacentRoads << &road; }
+		}
+		auto clearOfRoad = [&](Vec2 position, double radius)
+		{
+			for (const auto* road : adjacentRoads)
+			{
+				if (Circle{ position, radius }.intersects(road->shape)) { return false; }
+			}
+			return true;
+		};
+		auto fits = [&](Vec2 position, double radius)
+		{
+			if (!shape.contains(position) || !clearOfRoad(position, radius)) { return false; }
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 delta = b - a;
+				const double fraction = Clamp((position - a).dot(delta) / Max(0.001, delta.lengthSq()), 0.0, 1.0);
+				if (position.distanceFrom(a + delta * fraction) < radius) { return false; }
+			}
+			return true;
+		};
+		if (patch.type == LandPatchType::GardenSoil)
+		{
+			// Side and rear boundaries leave the original model's street entrance unobstructed.
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 midpoint = (a + b) * 0.5;
+				if ((midpoint - center).dot(inward) < -half + 0.4) { continue; }
+				const double length = a.distanceFrom(b);
+				const int pieces = Max(1, static_cast<int>(Ceil(length / 3.0)));
+				for (int segment = 0; segment < pieces; ++segment)
+				{
+					const Vec2 position = a.lerp(b, (segment + 0.5) / pieces);
+					if (!clearOfRoad(position, length / pieces * 0.5 + 0.18)) { continue; }
+					appendRotatedBox(groups[123], static_cast<float>(position.x),
+						world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + 0.30f,
+						static_cast<float>(position.y), static_cast<float>(length / pieces), 0.60f, 0.12f,
+						static_cast<float>(Atan2(b.y - a.y, b.x - a.x)));
+				}
+			}
+			for (int index = 0; index < 4; ++index)
+			{
+				const Vec2 position = center + inward * (half + 4.0 + (index / 2) * 5.0)
+					+ along * ((index % 2 == 0 ? -1 : 1) * (2.8 + (patch.materialVariant % 7) * 0.12));
+				if (fits(position, 2.1) && ((patch.materialVariant >> index) & 3u) != 0)
+				{
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, chunk.isUrbanizationArea ? 1.0 : 2.0);
+				}
+			}
+		}
+		else if (building.type == BuildingType::Parking || building.type == BuildingType::Factory
+			|| (building.type == BuildingType::Shop && (patch.materialVariant % 5) == 0))
+		{
+			// Real-size rear parking stalls occupy the commercial service yard.
+			for (int index = -2; index <= 2; ++index)
+			{
+				const Vec2 position = center + inward * (half + 4.2) + along * (index * 2.5);
+				if (!fits(position, 2.7)) { continue; }
+				appendRotatedBox(groups[102], static_cast<float>(position.x),
+					world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + 0.035f,
+					static_cast<float>(position.y), 4.8f, 0.012f, 0.08f,
+					static_cast<float>(Atan2(inward.y, inward.x)));
+			}
+		}
+	}
 	void appendUrbanLotDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
 	                           int col, int row, const Building& building, float cx, float cz,
 	                           float cellSize)
 	{
+		// 駐車枠・精算機・駐車車両は専用OBJに含まれる。
+		if (building.type == BuildingType::Parking)
+		{
+			return;
+		}
 		const uint32 hash = cellVisualHash(chunk.coord, col, row, static_cast<uint32>(building.type));
 		const float angle = building.angle;
 		const float baseY = world.sampleHeight(cx, cz);
-		const float lotSize = cellSize * (0.99f + static_cast<float>((hash >> 3) % 3u) * 0.005f);
+		const float lotSize = cellSize * (0.74f + static_cast<float>((hash >> 3) % 3u) * 0.010f);
 		const bool commercialLike = (building.type == BuildingType::Shop || building.type == BuildingType::Office
 			|| building.type == BuildingType::Factory || building.type == BuildingType::PublicFacility);
-		const int surfaceKey = (building.type == BuildingType::Parking || commercialLike) ? 100 : (((hash >> 9) % 100u < 8u) ? 101 : (((hash >> 15) & 1u) ? 114 : 100));
-		const float surfaceSize = (building.type == BuildingType::Parking) ? lotSize : (commercialLike ? lotSize * 0.52f : lotSize * 0.34f);
-		appendRotatedBox(groups[surfaceKey], cx, baseY + 0.020f, cz, surfaceSize, 0.035f, surfaceSize * (commercialLike ? 0.62f : 0.46f), angle);
+		const int surfaceKey = (building.type == BuildingType::Parking) ? 119 : (commercialLike ? 120 : (((hash >> 9) % 100u < 8u) ? 121 : 120));
+		const float surfaceSize = (building.type == BuildingType::Parking) ? lotSize : (commercialLike ? lotSize * 0.36f : lotSize * 0.22f);
+		if (building.type == BuildingType::Parking || commercialLike)
+		{
+			appendRotatedBox(groups[surfaceKey], cx, baseY + 0.020f, cz, surfaceSize, 0.035f, surfaceSize * (commercialLike ? 0.42f : 0.30f), angle);
+		}
 
 		const float cosA = Math::Cos(angle);
 		const float sinA = Math::Sin(angle);
@@ -1725,8 +2067,7 @@ namespace
 			{
 				const Vec2 p = worldOffset((static_cast<float>((hash >> (i * 4)) % 9u) - 4.0f) * 0.9f,
 					(static_cast<float>((hash >> (i * 5 + 7)) % 9u) - 4.0f) * 0.9f);
-				appendRotatedBox(groups[105], static_cast<float>(p.x), baseY + 0.70f, static_cast<float>(p.y), 0.24f, 1.40f, 0.24f, angle);
-				appendRotatedBox(groups[106], static_cast<float>(p.x), baseY + 1.65f, static_cast<float>(p.y), 1.45f, 1.25f, 1.45f, angle + static_cast<float>(45.0_deg));
+				appendParkTree(groups, p, world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.y)), hash + i);
 			}
 			return;
 		}
@@ -1734,14 +2075,14 @@ namespace
 		const float frontageZ = -lotSize * 0.43f;
 		if (commercialLike)
 		{
-			appendRotatedBox(groups[109], cx, baseY + 0.055f, cz, lotSize * 0.54f, 0.035f, lotSize * 0.24f, angle);
+			appendRotatedBox(groups[119], cx, baseY + 0.040f, cz, lotSize * 0.52f, 0.025f, lotSize * 0.28f, angle);
 			const Vec2 sign = worldOffset(lotSize * 0.34f, frontageZ);
 			appendRotatedBox(groups[115], static_cast<float>(sign.x), baseY + 1.15f, static_cast<float>(sign.y), 0.16f, 2.30f, 0.16f, angle);
 			appendRotatedBox(groups[112], static_cast<float>(sign.x), baseY + 2.45f, static_cast<float>(sign.y), 1.20f, 0.60f, 0.12f, angle);
 		}
 		else
 		{
-			appendRotatedBox(groups[101], cx, baseY + 0.045f, cz, lotSize * 0.36f, 0.030f, lotSize * 0.15f, angle);
+			if (((hash >> 9) % 100u) < 52u) appendRotatedBox(groups[101], cx, baseY + 0.030f, cz, lotSize * 0.34f, 0.018f, lotSize * 0.22f, angle);
 			const Vec2 car = worldOffset(((hash >> 11) & 1u) ? lotSize * 0.25f : -lotSize * 0.25f, lotSize * 0.30f);
 			if (((hash >> 6) % 100u) < 52u)
 			{
@@ -1750,8 +2091,8 @@ namespace
 					static_cast<float>(car.y), 1.55f, 0.44f, 3.10f, angle);
 			}
 			const Vec2 approach = worldOffset(0.0f, frontageZ * 0.54f);
-			appendRotatedBox(groups[100], static_cast<float>(approach.x), baseY + 0.082f, static_cast<float>(approach.y),
-				lotSize * 0.22f, 0.045f, lotSize * 0.60f, angle);
+			appendRotatedBox(groups[120], static_cast<float>(approach.x), baseY + 0.036f, static_cast<float>(approach.y),
+				lotSize * 0.16f, 0.020f, lotSize * 0.70f, angle);
 			if (((hash >> 27) % 100u) < 34u)
 			{
 				const Vec2 bin = worldOffset(-lotSize * 0.35f, frontageZ + 0.12f);
@@ -1764,8 +2105,8 @@ namespace
 			const float side = ((hash >> 8) & 1u) ? 1.0f : -1.0f;
 			const Vec2 fence = worldOffset(side * lotSize * 0.38f,
 				(static_cast<float>((hash >> 12) % 7u) - 3.0f) * 0.65f);
-			appendRotatedBox(groups[102], static_cast<float>(fence.x), baseY + 0.42f, static_cast<float>(fence.y),
-				0.24f, 0.84f, lotSize * 0.60f, angle);
+			appendRotatedBox(groups[102], static_cast<float>(fence.x), baseY + 0.34f, static_cast<float>(fence.y),
+				0.18f, 0.68f, lotSize * 0.46f, angle);
 		}
 
 		if (((hash >> 5) % 100u) < 58u)
@@ -1777,13 +2118,7 @@ namespace
 			appendRotatedBox(groups[106], static_cast<float>(tree.x), baseY + 1.82f, static_cast<float>(tree.y), 1.65f, 1.45f, 1.65f, angle + static_cast<float>(45.0_deg));
 		}
 
-		if (((hash >> 20) % 100u) < 62u)
-		{
-			const float side = ((hash >> 24) & 1u) ? 1.0f : -1.0f;
-			const Vec2 pole = worldOffset(side * lotSize * 0.47f, frontageZ);
-			appendRotatedBox(groups[115], static_cast<float>(pole.x), baseY + 2.55f, static_cast<float>(pole.y), 0.18f, 5.10f, 0.18f, angle);
-			appendRotatedBox(groups[115], static_cast<float>(pole.x), baseY + 4.65f, static_cast<float>(pole.y), 2.20f, 0.10f, 0.10f, angle);
-		}
+
 	}
 	void appendFarmlandDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
 	                           int col, int row, float cx, float cz, float cellSize)
@@ -1968,6 +2303,18 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	{
 		stem = U"shop_{:03d}"_fmt(variant + 1);
 	}
+	else if (type == BuildingType::Factory)
+	{
+		stem = U"factory_{:03d}"_fmt(variant + 1);
+	}
+	else if (type == BuildingType::PublicFacility)
+	{
+		stem = U"public_{:03d}"_fmt(variant + 1);
+	}
+	else if (type == BuildingType::Parking)
+	{
+		stem = U"parking_{:03d}"_fmt(variant + 1);
+	}
 	else if (type == BuildingType::Office)
 	{
 		stem = U"office_{:03d}"_fmt(variant + 1);
@@ -1994,6 +2341,12 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 		        << U" (scale fallback=" << kDefaultModelScale << U")";
 	}
 
+	const String distantPath = U"assets/buildings/lod/{}.obj"_fmt(stem);
+	if (FileSystem::IsFile(distantPath))
+	{
+		asset.distantModel = Model{ distantPath };
+		Model::RegisterDiffuseTextures(asset.distantModel, TextureDesc::MippedSRGB);
+	}
 	asset.model = Model{ path };
 	if (!asset.model.isEmpty())
 	{
@@ -2029,7 +2382,7 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 		const uint8 variant = buildingModelVariant(b.type, gx, gz);
 		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 		if (asset.model.isEmpty()) return none;
-		const float yaw = b.angle;
+		const float yaw = -b.angle;
 
 		const Box& lb = asset.model.boundingBox();
 		const Vec3 localCenter = lb.center;
@@ -2046,6 +2399,11 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 		return OrientedBox{ worldCenter, size, Quaternion::RotateY(yaw) };
 	}
 
+	if (b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding)
+	{
+		return none;
+	}
+
 	const float height = buildingHeight(b.type) * kLegacyBoxHeightScale;
 	if (height <= 0.0f) return none;
 	const int gx = chunk.coord.x * ZONE_CELLS + col;
@@ -2053,7 +2411,7 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ visualFootprint, height, visualFootprint },
-	                   Quaternion::RotateY(b.angle) };
+	                   Quaternion::RotateY(-b.angle) };
 }
 
 void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& world,
@@ -2077,12 +2435,17 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 		const uint8 variant = buildingModelVariant(b.type, gx, gz);
 		BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 		if (asset.model.isEmpty()) return;
-		const float yaw = b.angle;
+		const float yaw = -b.angle;
 
 		drawModelSilhouette(asset.model,
 		                    (Mat4x4::Scale(normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale))
 		                   * Mat4x4::RotateY(yaw)).translated(cx, gy, cz),
 		                    color);
+		return;
+	}
+
+	if (b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding)
+	{
 		return;
 	}
 
@@ -2101,6 +2464,37 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	Mesh{ box }.draw(color);
 }
 
+Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(
+	const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots)
+{
+	struct HeightSnapshot
+	{
+		const Array<Chunk>& chunks;
+		float sampleHeight(float x, float z) const
+		{
+			const Point coord{static_cast<int>(Floor(x/CHUNK_SIZE)),static_cast<int>(Floor(z/CHUNK_SIZE))};
+			for (const auto& snapshot : chunks)
+			{
+				if (snapshot.coord == coord) { return snapshot.getHeight(x,z); }
+			}
+			return 0.0f;
+		}
+	} heights{heightSnapshots};
+	Array<LandRoadMask> masks;
+	for (const auto& quad : quads)
+	{
+		Array<Vec2> outline = quad.footprint;
+		UrbanParcel::normalize(outline);
+		masks << LandRoadMask{quad.bounds,quad.footprint,Polygon{outline}};
+	}
+	HashTable<int,MeshData> groups;
+	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks); }
+	appendWoodland(groups,chunk,masks);
+	Array<TerrainMeshData> result;
+	for (auto& [key,mesh] : groups) { result << TerrainMeshData{key,std::move(mesh)}; }
+	return result;
+}
+
 void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
 {
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
@@ -2113,9 +2507,20 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	// 住宅 OBJ インスタンス
 	Array<BuildingModelInstance> modelInstances;
 
-	for (const LandPatch& patch : chunk.landPatches)
+	Array<LandRoadMask> roadMasks;
+	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end())
 	{
-		appendLandPatchMesh(groups, world, patch);
+		for (const auto& mask : masks->second)
+		{
+			Array<Vec2> outline = mask.footprint;
+			UrbanParcel::normalize(outline);
+			roadMasks << LandRoadMask{ mask.bounds, mask.footprint, Polygon{ outline } };
+		}
+	}
+	if (!m_asyncTerrain)
+	{
+		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
+		appendWoodland(groups,chunk,roadMasks);
 	}
 
 	for (int row = 0; row < ZONE_CELLS; ++row)
@@ -2137,7 +2542,6 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			{
 				continue;
 			}
-			appendUrbanLotDetails(groups, chunk, world, col, row, b, cx, cz, cellSize);
 
 			// 住宅系は OBJ で描画する（地表位置に Y 軸回転のみ適用）
 			if (isObjBuildingType(b.type))
@@ -2148,12 +2552,6 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				const uint8 variant = buildingModelVariant(b.type, gx, gz);
 				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 				const float modelScale = normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale);
-				const Box& bounds = asset.model.boundingBox();
-				const float modelFootprint = Max(footprint * 0.72f,
-					static_cast<float>(Max(bounds.size.x, bounds.size.z)) * modelScale);
-				const float modelHeight = Max(1.0f, static_cast<float>(bounds.size.y) * modelScale);
-				appendBoxBuildingDetails(groups, chunk, world, col, row, b.type, cx, cz,
-				                         modelFootprint, modelHeight, b.angle);
 				modelInstances.push_back({
 					b.type,
 					variant,
@@ -2161,6 +2559,12 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 					b.angle,
 					modelScale
 				});
+				continue;
+			}
+
+			appendUrbanLotDetails(groups, chunk, world, col, row, b, cx, cz, cellSize);
+			if (b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding)
+			{
 				continue;
 			}
 
@@ -2200,7 +2604,8 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			? detailColorForKey(typeInt)
 			: buildingColor(static_cast<BuildingType>(typeInt));
 		batches.push_back({
-			color.removeSRGBCurve(),
+			typeInt,
+			color,
 			Mesh{ meshData }
 		});
 	}
@@ -2215,14 +2620,25 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 		auto* self = const_cast<WorldRenderer*>(this);
 		for (const auto& inst : it->second)
 		{
+			++m_buildingsConsidered;
 			BuildingModelAsset& asset = self->getBuildingModelAsset(inst.type, inst.modelVariant);
+			const double modelHeight = asset.model.boundingBox().size.y * inst.scale;
+			const Vec3 center = Vec3{ inst.pos } + Vec3{ 0, modelHeight * 0.5, 0 };
+			const double radius = Max(12.0, modelHeight * 0.55);
+			if (m_buildingFrustum && !m_buildingFrustum->intersects(Sphere{ center, radius }))
+			{
+				continue;
+			}
+			++m_buildingsSubmitted;
 			if (asset.model.isEmpty()) continue;
 
 			const Mat4x4 worldMat = (Mat4x4::Scale(inst.scale)
-			                       * Mat4x4::RotateY(inst.angle))
+			                       * Mat4x4::RotateY(-inst.angle))
 				.translated(inst.pos.x, inst.pos.y, inst.pos.z);
-			const auto& materials = asset.model.materials();
-			for (const auto& obj : asset.model.objects())
+			const Model& model = (m_buildingEye.distanceFrom(Vec3{ inst.pos }) > 600 && !asset.distantModel.isEmpty())
+				? asset.distantModel : asset.model;
+			const auto& materials = model.materials();
+			for (const auto& obj : model.objects())
 			{
 				const Transformer3D transform{ worldMat };
 				obj.draw(materials);
@@ -2230,11 +2646,101 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 		}
 	}
 
-	if (const auto it = m_buildingMeshCache.find(key); it != m_buildingMeshCache.end())
+	for (const auto* cache : { &m_buildingMeshCache, &m_landscapeMeshCache })
 	{
+		const auto it = cache->find(key);
+		if (it == cache->end()) { continue; }
 		for (const auto& batch : it->second)
 		{
-			batch.mesh.draw(batch.color);
+			const bool distant = m_distantDetailChunks.contains(key);
+			if (batch.materialKey == 124 && !distant) { continue; }
+			if (distant && (batch.materialKey == 105 || batch.materialKey == 106 || batch.materialKey == 123)) { continue; }
+			if (batch.materialKey == 100)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
+			}
+			else if (batch.materialKey == 119)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Asphalt), batch.color);
+			}
+			else if (batch.materialKey == 120)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
+			}
+			else if (batch.materialKey == 101 || batch.materialKey == 113)
+			{
+				batch.mesh.draw(TextureAsset(Asset::SparseGrass), batch.color);
+			}
+			else if (batch.materialKey == 106 || batch.materialKey == 110 || batch.materialKey == 122 || batch.materialKey == 124 || batch.materialKey == 125 || batch.materialKey == 126)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Grass), batch.color);
+			}
+			else if (batch.materialKey == 111)
+			{
+				batch.mesh.draw(TextureAsset(Asset::CoastSand), batch.color);
+			}
+			else if (batch.materialKey == 114)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Sand), batch.color);
+			}
+			else if (batch.materialKey == 117)
+			{
+				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
+			}
+			else
+			{
+				batch.mesh.draw(batch.color);
+			}
+		}
+	}
+}
+
+void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
+{
+	const double radiusSq = radius * radius;
+	for (const auto& [key, instances] : m_buildingModelCache)
+	{
+		for (const auto& instance : instances)
+		{
+			const double dx = instance.pos.x - focus.x;
+			const double dz = instance.pos.z - focus.z;
+			if (dx * dx + dz * dz > radiusSq)
+			{
+				continue;
+			}
+			const uint32 assetKey = (static_cast<uint32>(instance.type) << 8) | instance.modelVariant;
+			const auto asset = m_buildingModels.find(assetKey);
+			if (asset == m_buildingModels.end())
+			{
+				continue;
+			}
+			const Mat4x4 transform = (Mat4x4::Scale(instance.scale) * Mat4x4::RotateY(-instance.angle))
+				.translated(instance.pos.x, instance.pos.y, instance.pos.z);
+			const Transformer3D worldTransform{ transform };
+			asset->second.model.draw();
+		}
+		if (const auto landscape = m_landscapeMeshCache.find(key); landscape != m_landscapeMeshCache.end())
+		{
+			const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
+			if (Vec2{(coord.x+.5)*CHUNK_SIZE,(coord.y+.5)*CHUNK_SIZE}.distanceFrom(Vec2{focus.x,focus.z}) < radius+CHUNK_SIZE)
+			{
+				for (const auto& batch : landscape->second) { if (batch.materialKey != 124) { batch.mesh.draw(ColorF{1.0}); } }
+			}
+		}
+		const auto batches = m_buildingMeshCache.find(key);
+		if (batches == m_buildingMeshCache.end())
+		{
+			continue;
+		}
+		const Point coord{ static_cast<int>(key >> 32), static_cast<int>(static_cast<uint32>(key)) };
+		const Vec2 chunkCenter{ (coord.x + 0.5) * CHUNK_SIZE, (coord.y + 0.5) * CHUNK_SIZE };
+		if (chunkCenter.distanceFrom(Vec2{ focus.x, focus.z }) > radius + CHUNK_SIZE)
+		{
+			continue;
+		}
+		for (const auto& batch : batches->second)
+		{
+			if (batch.materialKey != 124) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
 	}
 }

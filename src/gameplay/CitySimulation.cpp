@@ -168,3 +168,20 @@ MonthlyCityOutcome calculateMonthlyCityOutcome(int population, double currentHap
 	outcome.populationDelta = static_cast<int>(Math::Round(delta));
 	return outcome;
 }
+
+void HousingCapacityCache::update(const World& world, int chunkBudget)
+{
+	for (int index = 0; index < Min(chunkBudget,WORLD_CHUNKS*WORLD_CHUNKS); ++index)
+	{
+		const Point coord{m_cursor%WORLD_CHUNKS,m_cursor/WORLD_CHUNKS};
+		int64 count = 0;
+		if (const auto* chunk = world.getChunk(coord))
+		{
+			for (const auto& building : chunk->buildingGrid) { count += buildingCapacity(building.type); }
+		}
+		m_capacity += count-m_chunks[m_cursor];
+		m_chunks[m_cursor] = count;
+		m_cursor = (m_cursor+1)%(WORLD_CHUNKS*WORLD_CHUNKS);
+		if (m_cursor == 0) { m_initialized = true; }
+	}
+}

@@ -1,0 +1,138 @@
+{
+  "sync": {
+    "frames": 720,
+    "cpuMedian": 5.038,
+    "cpuP95": 23.4117,
+    "cpuP99": 132.49042999999975,
+    "cpuMax": 197.926,
+    "cpuOver40": 17,
+    "cpuOver100": 13,
+    "frameMedian": 21.073999999999998,
+    "frameP95": 39.44239999999999,
+    "slowFrames": [
+      {
+        "frame": 0,
+        "cpuMs": 135.011
+      },
+      {
+        "frame": 48,
+        "cpuMs": 98.693
+      },
+      {
+        "frame": 60,
+        "cpuMs": 150.357
+      },
+      {
+        "frame": 84,
+        "cpuMs": 197.926
+      },
+      {
+        "frame": 120,
+        "cpuMs": 138.324
+      },
+      {
+        "frame": 137,
+        "cpuMs": 40.677
+      },
+      {
+        "frame": 145,
+        "cpuMs": 51.969
+      },
+      {
+        "frame": 180,
+        "cpuMs": 127.014
+      },
+      {
+        "frame": 240,
+        "cpuMs": 144.861
+      },
+      {
+        "frame": 300,
+        "cpuMs": 133.327
+      },
+      {
+        "frame": 360,
+        "cpuMs": 121.531
+      },
+      {
+        "frame": 420,
+        "cpuMs": 148.247
+      },
+      {
+        "frame": 480,
+        "cpuMs": 135.163
+      },
+      {
+        "frame": 540,
+        "cpuMs": 119.604
+      },
+      {
+        "frame": 600,
+        "cpuMs": 121.941
+      },
+      {
+        "frame": 621,
+        "cpuMs": 52.836
+      },
+      {
+        "frame": 660,
+        "cpuMs": 128.924
+      }
+    ]
+  },
+  "async_final": {
+    "frames": 720,
+    "cpuMedian": 5.643,
+    "cpuP95": 22.3877,
+    "cpuP99": 28.53587999999998,
+    "cpuMax": 195.314,
+    "cpuOver40": 2,
+    "cpuOver100": 1,
+    "frameMedian": 21.773,
+    "frameP95": 38.33415,
+    "slowFrames": [
+      {
+        "frame": 84,
+        "cpuMs": 195.314
+      },
+      {
+        "frame": 145,
+        "cpuMs": 52.827
+      }
+    ]
+  },
+  "final_flight": {
+    "frames": 720,
+    "cpuMedian": 5.7325,
+    "cpuP95": 23.366799999999998,
+    "cpuP99": 30.50059,
+    "cpuMax": 40.386,
+    "cpuOver40": 1,
+    "cpuOver100": 0,
+    "frameMedian": 13.462,
+    "frameP95": 26.751150000000003,
+    "slowFrames": [
+      {
+        "frame": 84,
+        "cpuMs": 40.386
+      }
+    ]
+  },
+  "release_flight": {
+    "frames": 720,
+    "cpuMedian": 5.907,
+    "cpuP95": 22.4344,
+    "cpuP99": 28.364019999999986,
+    "cpuMax": 41.676,
+    "cpuOver40": 1,
+    "cpuOver100": 0,
+    "frameMedian": 13.4555,
+    "frameP95": 26.75305,
+    "slowFrames": [
+      {
+        "frame": 84,
+        "cpuMs": 41.676
+      }
+    ]
+  }
+}

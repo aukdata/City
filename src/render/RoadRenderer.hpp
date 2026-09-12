@@ -43,6 +43,12 @@ public:
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
 
+	/// @brief Reuse cached road structure, poles and signs in the static sun-depth pass.
+	void renderShadowCasters(Vec3 focus, double radius);
+	/// @brief Observe terrain edits before WorldRenderer consumes the dirty flags.
+	void synchronizeTerrainChanges(const World& world, const RoadNetwork& network);
+	[[nodiscard]] uint64 geometryRevision() const { return m_geometryRevision; }
+
 	/// @brief 信号機を描画する
 	/// @param simGraph 旋回分類用に precomputed なエッジ接線角を取得する
 	void drawSignals(const RoadNetwork& network, const SimGraph& simGraph,
@@ -101,7 +107,7 @@ public:
 	void renderWireframes(const RoadNetwork& network, const World& world,
 	                      const ViewFrustum& frustum, Vec3 cameraPos);
 
-	struct LaneLineBatch { ColorF color; Mesh mesh; };
+	struct LaneLineBatch { ColorF color; Mesh mesh; bool cable = false; };
 
 	/// @brief ポール＋看板 1基分の描画情報
 	/// @details 種別ごとに OBJ メッシュ + テクスチャで描画。テクスチャは type + auxNumber から
@@ -160,12 +166,12 @@ private:
 	                               bool useElevation = false) const;
 
 	/// @brief 全部品のメッシュ配列を生成する
-	Array<PartMeshEntry> buildPartMeshes(const RoadEdge& edge, const CubicBezier& bezier,
+	Array<PartMeshEntry> buildPartMeshes(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
 	                                     const World& world,
 	                                     float marginA, float marginB);
 
 	/// @brief 同マテリアルの LOD パーツを結合した遠距離描画バッチを構築する
-	Array<PartLodBatch> buildPartLodBatches(const RoadEdge& edge, const CubicBezier& bezier,
+	Array<PartLodBatch> buildPartLodBatches(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
 	                                        const World& world,
 	                                        float marginA, float marginB) const;
 
@@ -200,13 +206,6 @@ private:
 	/// @brief ノード単位の道路標示を統合生成する
 	Array<LaneLineBatch> buildNodeRoadMarkingBatches(const RoadNetwork& network, int nodeId, const World& world, bool isClose) const;
 
-	/// @brief 1部品幅でのフィレット曲線 MeshData を生成する
-	/// @param onlyOpenEdges true なら Open/Existing のエッジのみを使う
-	MeshData buildNodeCapMeshForRange(const RoadNetwork& network, int nodeId,
-	                                  const World& world, int div,
-	                                  float partOffsetL, float partOffsetR, float heightOffset,
-	                                  bool onlyOpenEdges = true) const;
-
 	/// @brief ノードキャップの輪郭線分を生成する（全エッジ対象、ワイヤーフレーム B パス用）
 	/// @return 線分の始点・終点ペア配列（Y は cap 面より 0.015 上げて Z ファイト回避）
 	Array<std::pair<Vec3, Vec3>> buildNodeCapWireLines(const RoadNetwork& network, int nodeId,
@@ -223,9 +222,6 @@ private:
 
 	/// @brief ノード境界の停止線メッシュ配列を生成する（Stop / Signal 制御の Entry 側のみ）
 	Array<LaneLineBatch> buildStopLineBatches(const RoadNetwork& network, int nodeId, const World& world) const;
-
-	/// @brief 交差点付近の横断歩道メッシュを生成する
-	Array<LaneLineBatch> buildCrosswalkBatches(const RoadNetwork& network, int nodeId, const World& world) const;
 
 	/// @brief Joint (Blend) ノードの車線区画線を生成する
 	Array<LaneLineBatch> buildJointBlendLaneLines(const RoadNetwork& network, int nodeId,
@@ -363,6 +359,12 @@ private:
 	HashTable<int64, Array<LaneLineBatch>>    m_markingCacheByNode; ///< (node ID, LOD) → 統合道路標示
 	HashTable<int, Array<LaneLineBatch>>      m_markingCacheByEdge; ///< エッジ ID → 統合道路標示
 	HashTable<int, Array<LaneLineBatch>>      m_streetFurnitureCache;
+	uint64 m_geometryRevision = 0;
+	HashSet<int64> m_dirtyTerrainObserved;
+	VertexShader m_cableVS;
+	PixelShader m_cablePS;
+	struct CableView { Float4 viewport{ 1, 1, 1, 1 }; };
+	ConstantBuffer<CableView> m_cableView;
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>              m_nodeCapCache;        ///< ノード ID → 部品メッシュ配列（Open/Existing エッジのみ）
 	HashTable<int, Array<std::pair<Vec3, Vec3>>>      m_nodeCapWireCache;    ///< ノード ID → ワイヤーフレーム輪郭線分配列（B パス用）

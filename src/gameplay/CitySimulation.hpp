@@ -67,3 +67,17 @@ TrafficDemand calculateTrafficDemand(int population, const CitySnapshot& snapsho
 MonthlyCityOutcome calculateMonthlyCityOutcome(int population, double currentHappiness,
 	const CitySnapshot& snapshot);
 
+
+/// @brief Recounts a bounded number of chunks per frame, keeping HUD reads constant-time.
+class HousingCapacityCache
+{
+public:
+	void update(const World& world, int chunkBudget = 32);
+	[[nodiscard]] int64 capacity() const { return m_capacity; }
+	[[nodiscard]] bool initialized() const { return m_initialized; }
+private:
+	std::array<int64,WORLD_CHUNKS*WORLD_CHUNKS> m_chunks{};
+	int m_cursor = 0;
+	int64 m_capacity = 0;
+	bool m_initialized = false;
+};

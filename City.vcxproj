@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -128,6 +128,7 @@
     <ClCompile Include="src\save\GuideSignStorage.cpp" />
     <ClCompile Include="src\road\RoadNetwork.cpp" />
       <ClCompile Include="src\road\RoadGeometry.cpp" />
+    <ClCompile Include="src\road\JunctionGeometry.cpp" />
     <ClCompile Include="src\road\RoadPreset.cpp" />
     <ClCompile Include="src\road\ArrowMarkingRegistry.cpp" />
     <ClCompile Include="src\road\ObjParser.cpp" />
@@ -141,6 +142,7 @@
     <ClCompile Include="src\traffic\SignalRegistry.cpp" />
     <ClCompile Include="src\ui\Camera.cpp" />
     <ClCompile Include="src\render\WorldRenderer.cpp" />
+    <ClCompile Include="src\render\CityLighting.cpp" />
     <ClCompile Include="src\render\RoadRenderer.cpp" />
     <ClCompile Include="src\render\VehicleRenderer.cpp" />
     <ClCompile Include="src\render\UIRenderer.cpp" />

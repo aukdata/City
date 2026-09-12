@@ -1,4 +1,4 @@
-id = "median_concrete"
+﻿id = "median_concrete"
 name = "コンクリート中央分離帯"
 type = "Median"
 tiling = "CrossSection"
@@ -9,7 +9,7 @@ height_offset = 0.0
 symmetric = true
 
 [material]
-color = [0.75, 0.73, 0.70]
+color = [0.52, 0.51, 0.48]
 
 [lod]
 mesh_names = ["center", "center_lod1"]

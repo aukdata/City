@@ -35,39 +35,6 @@ namespace
 	constexpr double kTrafficVehicleHeadwayMeters = 25.0;
 	constexpr double kCongestedEdgeThreshold      = 0.65;
 
-	void collectHousingStats(const World& world, int population, CityHudStats& stats)
-	{
-		int64 capacity = 0;
-		for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
-		{
-			for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
-			{
-				const Chunk* chunk = world.getChunk(Point{ cx, cy });
-				if (!chunk)
-				{
-					continue;
-				}
-				for (int row = 0; row < ZONE_CELLS; ++row)
-				{
-					for (int col = 0; col < ZONE_CELLS; ++col)
-					{
-						const Building& building = chunk->buildingGrid[{ col, row }];
-						const int buildingPeople = buildingCapacity(building.type);
-						if (buildingPeople <= 0)
-						{
-							continue;
-						}
-						capacity += buildingPeople;
-					}
-				}
-			}
-		}
-
-		stats.housingCapacity = capacity;
-		stats.housingFulfillment = (population > 0)
-			? static_cast<double>(capacity) / static_cast<double>(population)
-			: 0.0;
-	}
 
 	void collectTrafficStats(const RoadNetwork& network, const Array<Vehicle>& vehicles,
 	                         CityHudStats& stats)
@@ -172,7 +139,7 @@ namespace
 	}
 
 	CityHudStats buildCityHudStats(const Economy& economy, const RoadNetwork& network,
-	                               const World& world, const VehicleManager& vehicleManager,
+	                               int64 housingCapacity, const VehicleManager& vehicleManager,
 	                               const EventSystem& eventSystem,
 	                               const Array<GameEvent>& notifications)
 	{
@@ -180,7 +147,8 @@ namespace
 		stats.monthlyIncome = economy.monthlyGrant();
 		stats.monthlyExpense = economy.roadMaintenanceCost(network);
 		stats.monthlyBalance = stats.monthlyIncome - stats.monthlyExpense;
-		collectHousingStats(world, economy.population, stats);
+		stats.housingCapacity = housingCapacity;
+		stats.housingFulfillment = economy.population > 0 ? static_cast<double>(housingCapacity)/economy.population : 0.0;
 		collectTrafficStats(network, vehicleManager.vehicles(), stats);
 		collectEventStats(eventSystem, notifications, stats);
 		return stats;
@@ -243,6 +211,32 @@ void GameScene::renderWorld()
 	m_roadRenderer.prepareGuideSignTextures(m_network);
 	lap(dbgGuideSign);
 
+	prepareVehicleRenderData();
+	const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), Max(0.18, sky.sinTime * 0.72), 0.45 }.normalized();
+	if (m_cityLighting.initialize())
+	{
+		std::function<void(Vec3, double)> dynamicCasters;
+		if (!m_renderVehicles.isEmpty())
+		{
+			dynamicCasters = [this](Vec3 focus, double radius)
+			{
+				m_vehicleRenderer.renderShadowCasters(m_renderVehicles, focus, radius);
+			};
+		}
+		if (getData().captureCityRenders && Scene::FrameCount() % 60 == 0)
+		{
+			DebugLog::print(U"[GeometryRevision] world={} roads={}"_fmt(m_worldRenderer.geometryRevision(), m_roadRenderer.geometryRevision()));
+		}
+		m_cityLighting.update(m_camera.camera3D(), m_camera.focusPoint(), sunDir, sky.dayFactor,
+			m_worldRenderer.geometryRevision() + m_roadRenderer.geometryRevision(), [this](Vec3 focus, double radius)
+			{
+				m_worldRenderer.renderShadowCasters(focus, radius);
+				m_roadRenderer.renderShadowCasters(focus, radius);
+				m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
+					m_vehicleManager.trafficLights(), m_clock.now, focus);
+			}, dynamicCasters);
+		m_worldRenderer.setTerrainShader(m_cityLighting.terrainShader());
+	}
 	// 3D シーン描画
 	{
 		const ScopedRenderTarget3D target{ m_renderTexture.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
@@ -251,16 +245,16 @@ void GameScene::renderWorld()
 
 		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
-		const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), Max(0.18, sky.sinTime * 0.72), 0.45 }.normalized();
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.32 + 0.18 * sky.dayFactor + 0.08 * sky.dawnFactor });
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.08 + 0.24 * sky.dayFactor + 0.08 * sky.dawnFactor });
+		Graphics3D::SetSunColor(ColorF{ 0.12 + 0.78 * sky.dayFactor });
 
-		const ColorF dayZenith  { 0.10, 0.35, 0.80 };
+		const ColorF dayZenith  { 0.28, 0.52, 0.88 };
 		const ColorF dawnZenith { 0.22, 0.18, 0.38 };
 		const ColorF nightZenith{ 0.01, 0.02, 0.07 };
 		m_sky.zenithColor = nightZenith.lerp(dawnZenith, sky.dawnFactor).lerp(dayZenith, sky.dayFactor);
 
-		const ColorF dayHorizon  { 0.60, 0.78, 0.95 };
+		const ColorF dayHorizon  { 0.72, 0.86, 0.98 };
 		const ColorF dawnHorizon { 0.85, 0.42, 0.15 };
 		const ColorF nightHorizon{ 0.02, 0.03, 0.10 };
 		m_sky.horizonColor = nightHorizon.lerp(dawnHorizon, sky.dawnFactor).lerp(dayHorizon, sky.dayFactor);
@@ -271,6 +265,10 @@ void GameScene::renderWorld()
 		m_sky.draw(sky.exposure);
 		lap(m_renderTimings.sky);
 
+		m_cityLighting.bind();
+		const ScopedRenderStates3D shadowSampler{ ScopedRenderStates3D::SamplerStateInfo{
+			ShaderStage::Pixel, 1, SamplerState::ClampNearest } };
+		const ScopedCustomShader3D cityShader{ m_cityLighting.shader() };
 		renderScene3D();
 		lap(m_renderTimings.terrain);
 
@@ -301,7 +299,10 @@ void GameScene::renderWorld()
 		lap(m_renderTimings.debug);
 	}
 
+	m_gpuTimer.begin(m_renderTexture);
 	Graphics3D::Flush();
+	m_renderTexture.resolve();
+	m_gpuTimer.end();
 	Shader::LinearToScreen(m_renderTexture);
 
 	if (!getData().captureCityRenders)
@@ -334,10 +335,11 @@ void GameScene::renderWorld()
 	if (++s_perfFrameCount >= kPerfLogIntervalFrames)
 	{
 		s_perfFrameCount = 0;
-		const double fps = 1000.0 / Max(m_renderTimings.total, 0.001);
+		const double fps = 1.0 / Max(Scene::DeltaTime(), 0.000001);
 		s_perfLog
-			<< "[PERF] FPS=" << fps << " total=" << m_renderTimings.total << "ms\n"
-			<< "  sky="      << m_renderTimings.sky
+			<< "[PERF] FPS=" << fps << " cpuRenderMs=" << m_renderTimings.total << " gpuForwardMs=" << m_gpuTimer.milliseconds() << "\n"
+			<< "  shadow="   << m_cityLighting.shadowMilliseconds()
+			<< " sky="       << m_renderTimings.sky
 			<< " terrain="   << m_renderTimings.terrain
 			<< " road="      << m_renderTimings.road
 			<< " zone="      << m_renderTimings.zone
@@ -373,6 +375,7 @@ void GameScene::renderScene3D()
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
 	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
+	m_roadRenderer.synchronizeTerrainChanges(m_world, m_network);
 	m_worldRenderer.render(m_world, m_network, m_camera.camera3D());
 	lap(m_renderTimings.terrainOnly);
 
@@ -380,8 +383,11 @@ void GameScene::renderScene3D()
 	                     m_camera.camera3D().getEyePosition());
 
 	// Planned / UnderConstruction エッジのワイヤーフレーム
-	m_roadRenderer.renderWireframes(m_network, m_world, frustum,
-	                                m_camera.camera3D().getEyePosition());
+	if (!getData().captureCityRenders)
+	{
+		m_roadRenderer.renderWireframes(m_network, m_world, frustum,
+		                                m_camera.camera3D().getEyePosition());
+	}
 	lap(m_renderTimings.roadMesh);
 
 	m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
@@ -623,7 +629,7 @@ void GameScene::renderSelectionOutline()
 // 車両ワールド座標計算 + 描画
 // =============================================================================
 
-void GameScene::renderVehicles()
+void GameScene::prepareVehicleRenderData()
 {
 	m_renderVehicles.clear();
 
@@ -696,6 +702,10 @@ void GameScene::renderVehicles()
 		rv.pitch   = static_cast<float>(Math::Atan2(fy, Math::Sqrt(fx * fx + fz * fz)));
 		m_renderVehicles << rv;
 	}
+}
+
+void GameScene::renderVehicles()
+{
 	m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
 }
 
@@ -888,10 +898,13 @@ void GameScene::render2DUI()
 	m_routeSignRenderer.render(m_network, m_camera);
 	lap(m_renderTimings.uiRouteSigns);
 
+	const Stopwatch housingTimer{StartImmediately::Yes};
+	m_housingCapacity.update(m_world, m_housingCapacity.initialized() ? 32 : WORLD_CHUNKS*WORLD_CHUNKS);
 	if (m_hudStatsRefreshCountdown <= 0)
 	{
-		m_hudStats = buildCityHudStats(m_economy, m_network, m_world, m_vehicleManager,
+		m_hudStats = buildCityHudStats(m_economy, m_network, m_housingCapacity.capacity(), m_vehicleManager,
 		                               m_eventSystem, m_notifications);
+		DBG_LOG(U"[HudStats] updateMs={:.2f} housing={}"_fmt(housingTimer.msF(),m_housingCapacity.capacity()));
 		m_hudStatsRefreshCountdown = kHudStatsRefreshFrames;
 	}
 	--m_hudStatsRefreshCountdown;

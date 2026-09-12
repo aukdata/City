@@ -131,23 +131,59 @@ void TrainRenderer::renderTracks(const TrainNetwork& network)
 		m_trackMeshCache[edge.id].draw(railColor);
 	}
 
-	// 駅マーカー（キャッシュ対象外・低頻度）
+	// 接続線路の接線にホームの長手方向を合わせる。
 	for (const auto& node : network.nodes())
 	{
-		if (node.type == TrackNodeType::Station && !node.name.isEmpty())
+		if (!node.isValid() || node.type != TrackNodeType::Station)
 		{
-			Cylinder{ node.position, node.position + Vec3{ 0, 8, 0 }, 3.0 }
-				.draw(ColorF{ 0.9, 0.85, 0.2 }.removeSRGBCurve());
+			continue;
+		}
+		float heading = 0.0f;
+		for (const int edgeId : node.edgeIds)
+		{
+			const auto* edge = network.getEdge(edgeId);
+			const auto bez = network.getBezier(edgeId);
+			if (!edge || !bez)
+			{
+				continue;
+			}
+			Vec3 tangent = bez->tangent(edge->nodeA == node.id ? 0.0f : 1.0f);
+			if (edge->nodeB == node.id)
+			{
+				tangent = -tangent;
+			}
+			heading = static_cast<float>(Math::Atan2(tangent.x, tangent.z));
+			break;
+		}
+		Model& model = ensureModel((node.id & 1) == 0 ? U"station_001" : U"station_002");
+		const Transformer3D transform{ Mat4x4::RotateY(heading).translated(node.position) };
+		for (const auto& object : model.objects())
+		{
+			object.draw(model.materials());
 		}
 	}
 }
 
 void TrainRenderer::renderTrains(const Array<Train>& trains)
 {
-	// 列車本体は種別ごとの色分けだけに留め、低コストな箱プリミティブで描く。
+	// 普通・急行は専用モデルを使用し、それ以外は従来の簡易表示を維持する。
 	for (const auto& train : trains)
 	{
 		if (train.currentEdge < 0) continue;
+		if (train.type == TrainType::Local || train.type == TrainType::Express)
+		{
+			Model& model = ensureModel(train.type == TrainType::Local ? U"commuter_001" : U"commuter_002");
+			if (!model.isEmpty())
+			{
+				const Transformer3D transform{ Mat4x4::RotateY(train.heading)
+					.translated(train.position + Vec3{ 0, kRailTopY, 0 }) };
+				for (const auto& object : model.objects())
+				{
+					object.draw(model.materials());
+				}
+				continue;
+			}
+		}
 
 		const ColorF bodyColor = ((train.type == TrainType::Shinkansen)
 			? ColorF{ 0.9, 0.95, 1.0 }
@@ -168,4 +204,15 @@ void TrainRenderer::renderTrains(const Array<Train>& trains)
 void TrainRenderer::invalidateTrackCache(int edgeId)
 {
 	m_trackMeshCache.erase(edgeId);
+}
+
+Model& TrainRenderer::ensureModel(const String& stem)
+{
+	auto [it, inserted] = m_models.try_emplace(stem);
+	if (inserted)
+	{
+		it->second = Model{ U"assets/railway/{}.obj"_fmt(stem) };
+		Model::RegisterDiffuseTextures(it->second, TextureDesc::MippedSRGB);
+	}
+	return it->second;
 }

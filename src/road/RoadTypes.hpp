@@ -7,9 +7,9 @@
 // ===== 高架関連定数 =====
 
 /// @brief 路面リフト（地形高さから路面までのオフセット）[m]
-constexpr double kRoadSurfaceLift     = 0.04;
+constexpr double kRoadSurfaceLift     = 0.006;
 /// @brief 路面ライン描画用リフト（路面よりわずかに上）[m]
-constexpr double kRoadLineLift        = 0.052;
+constexpr double kRoadLineLift        = 0.026;
 /// @brief 高架自動判定の閾値（ノードYと地形高の差）[m]
 constexpr double kElevationThreshold  = 0.5;
 

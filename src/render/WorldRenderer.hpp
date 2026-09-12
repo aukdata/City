@@ -3,13 +3,25 @@
 #include "../road/RoadNetwork.hpp"
 #include <Siv3D/ViewFrustum.hpp>
 #include <unordered_set>
+#include <future>
 
 /// @brief 地形メッシュの描画クラス
 class WorldRenderer
 {
 public:
 	/// @brief アクティブチャンクをカリングして描画する
+	/// @brief Load building GPU assets during the loading phase, before camera travel.
+	void preloadBuildingModels();
 	void render(World& world, const RoadNetwork& network, const BasicCamera3D& camera);
+	/// @brief Draw cached opaque city geometry into the sun's depth target.
+	void renderShadowCasters(Vec3 focus, double radius) const;
+	[[nodiscard]] uint64 geometryRevision() const { return m_geometryRevision; }
+	[[nodiscard]] size_t buildingsConsidered() const { return m_buildingsConsidered; }
+	[[nodiscard]] size_t buildingsSubmitted() const { return m_buildingsSubmitted; }
+	/// @brief Build terrain booleans from immutable snapshots off the render thread.
+	void setAsyncTerrain(bool enabled) { m_asyncTerrain = enabled; }
+	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size(); }
+	void setTerrainShader(const PixelShader& shader) { m_terrainShader = shader; }
 
 	/// @brief 指定エッジ群に関係する地形 subtraction キャッシュを無効化する
 	void invalidateTerrainForEdges(const RoadNetwork& network, const Array<int>& edgeIds);
@@ -48,6 +60,7 @@ private:
 	/// @brief 建物種別ごとの描画バッチ（色 + マージ済みメッシュ）
 	struct BuildingBatch
 	{
+		int    materialKey = 0;
 		ColorF color;
 		Mesh   mesh;
 	};
@@ -65,6 +78,7 @@ private:
 	struct BuildingModelAsset
 	{
 		Model model;
+		Model distantModel;
 		float scale = 1.0f;
 	};
 
@@ -73,6 +87,18 @@ private:
 		Array<Vec2> footprint;
 		RectF       bounds;
 		float       bedBottomY = 0.0f;
+	};
+
+	struct TerrainMeshData
+	{
+		int      materialKey = 0;
+		MeshData meshData;
+	};
+
+	struct TerrainMeshBatch
+	{
+		int         materialKey = 0;
+		DynamicMesh mesh;
 	};
 
 	struct TerrainBooleanSubtractor
@@ -90,7 +116,8 @@ private:
 	};
 
 	/// @brief チャンクの地形メッシュデータを生成する
-	MeshData buildTerrainMeshData(const Chunk& chunk, const RoadNetwork& network);
+	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots);
+	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
 	void drawChunk(Chunk& chunk, const World& world, const RoadNetwork& network);
@@ -119,12 +146,31 @@ private:
 	/// @brief 建物 OBJ（種別+バリアント）を必要時にロードして返す
 	BuildingModelAsset& getBuildingModelAsset(BuildingType type, uint8 variant);
 
-	HashTable<Key, DynamicMesh>                   m_meshCache;
+	struct TerrainJobResult
+	{
+		Array<TerrainMeshData> batches;
+		Array<TerrainMeshData> landscape;
+		double milliseconds = 0.0;
+	};
+	struct TerrainJob
+	{
+		Key key;
+		uint64 epoch;
+		uint64 revision;
+		std::future<TerrainJobResult> future;
+	};
+	Array<TerrainJob> m_terrainJobs;
+	HashTable<Key, uint64> m_terrainRevisions;
+	bool m_asyncTerrain = false;
+	uint64 m_terrainEpoch = 0;
+
+	HashTable<Key, Array<TerrainMeshBatch>>       m_meshCache;
 	HashTable<Key, Array<TerrainSubtractionQuad>> m_chunkSubtractorCache;
 	HashTable<int, TerrainBooleanSubtractor>      m_edgeSubtractorCache;
 	HashTable<int, TerrainNodeSubtractor>         m_nodeSubtractorCache;
 	std::unordered_set<Key>                       m_pendingTerrainRebuildKeys;
 	HashTable<Key, Array<BuildingBatch>>          m_buildingMeshCache;
+	HashTable<Key, Array<BuildingBatch>>          m_landscapeMeshCache;
 	HashTable<Key, Array<BuildingModelInstance>>  m_buildingModelCache;
 	HashTable<uint32, BuildingModelAsset>         m_buildingModels; ///< 建物 OBJ+TOML（遅延ロード）
 	Array<Chunk*>                        m_sortedChunks;      ///< ソート済みチャンク（カメラ移動時のみ再ソート）
@@ -132,4 +178,10 @@ private:
 	size_t                               m_lastActiveCount = 0;
 	bool                                 m_chunkSubtractorPrimed = false;
 	int                                  m_terrainRebuildBudget = 0;
+	uint64 m_geometryRevision = 0;
+	PixelShader m_terrainShader;
+	Optional<ViewFrustum> m_buildingFrustum;
+	HashSet<Key> m_distantDetailChunks;
+	Vec3 m_buildingEye{ 0, 0, 0 };
+	mutable size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
 };

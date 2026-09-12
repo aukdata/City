@@ -33,7 +33,7 @@ struct HeightMapResult
 	float       heightMax;
 };
 
-/// @brief heightMap からワールド座標の高さをバイリニア補間で取得する
+/// @brief heightMap からワールド座標の高さを描画三角形と一致する区分線形補間で取得する
 /// @param heightMap  (HEIGHT_CELLS+1)x(HEIGHT_CELLS+1) のグリッド
 /// @param chunkCoord チャンク座標
 inline float sampleHeightMap(const Grid<float>& heightMap, Point chunkCoord,
@@ -42,8 +42,8 @@ inline float sampleHeightMap(const Grid<float>& heightMap, Point chunkCoord,
 	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / HEIGHT_CELLS;
 	const float lx = wx - static_cast<float>(chunkCoord.x * CHUNK_SIZE);
 	const float lz = wz - static_cast<float>(chunkCoord.y * CHUNK_SIZE);
-	const float fx = lx / cellSize;
-	const float fz = lz / cellSize;
+	const float fx = Clamp(lx / cellSize, 0.0f, static_cast<float>(HEIGHT_CELLS));
+	const float fz = Clamp(lz / cellSize, 0.0f, static_cast<float>(HEIGHT_CELLS));
 	const int ix = Clamp(static_cast<int>(fx), 0, HEIGHT_CELLS - 1);
 	const int iz = Clamp(static_cast<int>(fz), 0, HEIGHT_CELLS - 1);
 	const float tx = fx - ix;
@@ -54,10 +54,12 @@ inline float sampleHeightMap(const Grid<float>& heightMap, Point chunkCoord,
 	const float h10 = heightMap[{ ix1, iz  }];
 	const float h01 = heightMap[{ ix,  iz1 }];
 	const float h11 = heightMap[{ ix1, iz1 }];
-	return h00 * (1.0f - tx) * (1.0f - tz)
-	     + h10 * tx           * (1.0f - tz)
-	     + h01 * (1.0f - tx) * tz
-	     + h11 * tx           * tz;
+	// WorldRenderer uses the diagonal (1,0)-(0,1). Match its two planes exactly.
+	if (tx + tz <= 1.0f)
+	{
+		return h00 + (h10 - h00) * tx + (h01 - h00) * tz;
+	}
+	return h11 + (h01 - h11) * (1.0f - tx) + (h10 - h11) * (1.0f - tz);
 }
 
 /// @brief チャンク座標をハッシュキー (int64) に変換する
@@ -141,7 +143,7 @@ struct Chunk
 			static_cast<double>(coord.y) * CHUNK_SIZE);
 	}
 
-	/// @brief ワールド座標から高さをバイリニア補間で取得する
+	/// @brief ワールド座標から高さを描画三角形と一致する区分線形補間で取得する
 	float getHeight(float wx, float wz) const
 	{
 		return sampleHeightMap(heightMap, coord, wx, wz);

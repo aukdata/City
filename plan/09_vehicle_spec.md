@@ -375,3 +375,7 @@ distancePenalty = exp(-dist / 3000.0f)  // 遠いほど低確率
 駐車場エッジに到達した場合:
   → 消滅（駐車場の congestion を +1 して周辺道路の congestion 計算に影響）
 ```
+
+## 詳細車両モデル（2026-09-11）
+
+近距離ではPassengerCarにsedan、KeiCarにkei_wagon、Busにcity_bus、EmergencyにID偶奇でpatrol_car/fire_engineを割り当てる。assets/vehicles/からモデルと拡散色を初回読み込みしてキャッシュする。+X前方・Y上・メートル単位とし、既存のpitch/yaw変換を共用。シルエットも同じモデルを使用。遠景とその他の車種は従来の簡易表示。交通挙動・衝突寸法・出動ロジックは変更しない。

@@ -1,4 +1,4 @@
-id = "wall_concrete"
+﻿id = "wall_concrete"
 name = "コンクリート壁（高架）"
 type = "Wall"
 tiling = "Longitudinal"
@@ -9,7 +9,7 @@ height_offset = 0.0
 symmetric = false
 
 [material]
-color = [0.78, 0.78, 0.76]
+color = [0.58, 0.58, 0.54]
 
 [lod]
 mesh_names = ["center", "center_lod1"]

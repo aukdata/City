@@ -4,8 +4,13 @@ void RegisterAssets()
 {
 	// 起動時に共有アセットを一括登録し、各描画系が名前参照だけで再利用できる状態にする。
 	// ---- テクスチャ ----
-	TextureAsset::Register(Asset::Grass,  U"assets/terrain/grass.png",  TextureDesc::MippedSRGB);
-	TextureAsset::Register(Asset::Ground, U"assets/terrain/ground.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Grass,       U"assets/terrain/grass.png",  TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Ground,      U"assets/terrain/ground.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::SparseGrass, U"assets/third_party/polyhaven/sparse_grass/sparse_grass_diff_1k.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Sand,        U"assets/third_party/polyhaven/sand_01/sand_01_diff_1k.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::CoastSand,   U"assets/third_party/polyhaven/coast_sand_01/coast_sand_01_diff_1k.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Asphalt, U"assets/third_party/polyhaven/asphalt_floor/asphalt_floor_diff_1k.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Concrete,    U"assets/third_party/polyhaven/concrete/concrete_diff_1k.jpg", TextureDesc::MippedSRGB);
 	// NationalRoadSign は SRGB RenderTexture 上で案内標識の背景（Rect::draw でクリア色塗り）と
 	// 合成される。PNG 物理バイト (21,87,161) を linear として扱う Mipped（非 SRGB）にすることで、
 	// 背景（Rect.draw）と PNG が同じ明るめの青で 3D 表示されるようにする

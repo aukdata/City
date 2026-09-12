@@ -9,7 +9,7 @@ height_offset = 0.0
 symmetric = false
 
 [material]
-color = [0.82, 0.82, 0.82]
+color = [0.58, 0.58, 0.55]
 
 [lod]
 mesh_names = ["center", "center_lod1"]

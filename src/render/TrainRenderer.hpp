@@ -20,5 +20,7 @@ private:
 	/// @brief エッジの線路メッシュを構築する
 	static Mesh buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez);
 
+	Model& ensureModel(const String& stem);
+	HashTable<String, Model> m_models;
 	HashTable<int, Mesh> m_trackMeshCache;  ///< エッジ ID → 線路メッシュ
 };

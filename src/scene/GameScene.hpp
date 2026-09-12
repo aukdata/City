@@ -31,6 +31,8 @@
 #include "../render/RoadRouteSignRenderer.hpp"
 #include "../render/MinimapRenderer.hpp"
 #include "../debug/DebugLog.hpp"
+#include "../render/CityLighting.hpp"
+#include "../render/GpuFrameTimer.hpp"
 #include "GuideSignEditor.hpp"
 #include "../road/RoadPreset.hpp"
 #include "../gen/RoadAutoPlace.hpp"
@@ -101,7 +103,7 @@ private:
 	Array<GameEvent> m_notifications;  ///< 直近の通知（最大5件）
 
 	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
-	RenderTexture    m_renderTexture;
+	MSRenderTexture  m_renderTexture;
 
 	// ---- 選択オブジェクトのアウトライン描画 ----
 	RenderTexture    m_outlineMask;        ///< 選択対象をソリッド白で描画するマスク
@@ -117,11 +119,14 @@ private:
 	// ---- レンダラ ----
 	Sky              m_sky;
 	WorldRenderer    m_worldRenderer;
+	CityLighting     m_cityLighting;
+	GpuFrameTimer    m_gpuTimer;
 	RoadRenderer     m_roadRenderer;
 	VehicleRenderer  m_vehicleRenderer;
 	UIRenderer       m_uiRenderer;
 	CityHudStats     m_hudStats;
 	int              m_hudStatsRefreshCountdown = 0;
+	HousingCapacityCache m_housingCapacity;
 	DebugRenderer    m_debugRenderer;
 	TrainRenderer        m_trainRenderer;
 	PlaceNameRenderer    m_placeNameRenderer;
@@ -271,8 +276,11 @@ private:
 	SimPerfHistory  m_simPerfHistory;
 
 	// ---- 提出用スクリーンショット ----
+	Optional<Vec3>  m_benchmarkOrigin;
+	Array<double>   m_captureFrameTimes, m_captureCpuTimes, m_captureGpuTimes;
 	int             m_captureFrame = 0;
 	int             m_captureIndex = 0;
+	HashTable<int, Vec3> m_captureVehicleStartPositions;
 	bool            m_captureCameraDirty = true;
 	bool            m_cityConstraintValidationPassed = true;
 	String          m_cityConstraintValidationSummary;
@@ -349,8 +357,11 @@ private:
 	bool validateGeneratedCityConstraints();
 	void refreshBuildingAnglesFromEdges();
 	void updateCaptureCityRenders();
+	void updateStreamingBenchmark();
 	Vec3 captureFocusPoint() const;
 	Vec3 captureStreetCornerPoint(Vec3 fallback) const;
+	Vec3 captureIntersectionPoint(Vec3 fallback, int variant) const;
+	Vec3 captureCoastalBufferPoint(Vec3 fallback) const;
 	Vec3 captureRuralFringePoint(Vec3 fallback) const;
 	String captureFileName(int index) const;
 
@@ -484,6 +495,7 @@ private:
 	// ---- 描画 (GameScene_Render.cpp) ----
 	void renderWorld();
 	void renderScene3D();
+	void prepareVehicleRenderData();
 	void renderVehicles();
 	void renderSelectionHighlights();
 	/// @brief 選択オブジェクトを別レイヤに白塗りで描画 → 2D で外縁のみ合成する

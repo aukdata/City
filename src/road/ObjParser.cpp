@@ -105,7 +105,8 @@ Array<PartModelData> ObjParser::parse(FilePathView path)
 		if (line.isEmpty() || line[0] == U'#')
 			continue;
 
-		const auto tokens = line.split(U' ');
+		auto tokens = line.replace(U'\t', U' ').split(U' ');
+		tokens.remove_if([](const String& token) { return token.isEmpty(); });
 		if (tokens.isEmpty())
 			continue;
 

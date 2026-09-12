@@ -556,7 +556,7 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 		break;
 	case NodeType::Intersection:
 	case NodeType::Diverge:
-		cutoff = maxWidth * 1.5f;
+		cutoff = Max(6.0f, maxWidth * 0.5f + 3.0f);
 		break;
 	}
 
@@ -900,7 +900,7 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId)
 	//         → 4 端点の平均位置にノードを生成し、両エッジを t=0.5 で分割
 	// ノードマージ: 生成ノードが既存ノードと 40 m 以内ならマージ
 
-	constexpr float MERGE_DIST = 40.0f;
+	constexpr float MERGE_DIST = 22.0f;
 	constexpr float SKIP_EPS   = 0.02f;
 
 	// ---- 空間グリッド（AABB オーバーラップを高速化）----
@@ -1237,7 +1237,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 	const float laneW = (edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
 		? 3.75f
-		: (edge.roadType == RoadType::Arterial ? 3.75f : 2.00f);
+		: (edge.roadType == RoadType::Arterial ? 3.85f : 3.15f);
 	const int nLanes = static_cast<int>(edge.lanes.size());
 	const float roadbedWidth = nLanes * laneW;
 	const float halfRoadbed = roadbedWidth * 0.5f;
@@ -1290,7 +1290,7 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 	}
 	case RoadType::Arterial:
 	{
-		const float sidewalkW = 3.4f;
+		const float sidewalkW = 3.8f;
 		const float curbW = 0.22f;
 		const float gutterW = 0.42f;
 
@@ -1302,27 +1302,20 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
 		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
 		addPart(RoadPartType::Sidewalk, x, sidewalkW, U"sidewalk_tile");
-		addPart(RoadPartType::UtilityPole, -halfRoadbed - curbW - gutterW - 0.65f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 28.0f, 2.5f);
-		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.65f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 28.0f, 2.5f);
+		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.72f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 36.0f, 4.0f);
 		break;
 	}
 	default: // LocalRoad
 	{
-		const float curbW = 0.28f;
-		const float gutterW = 0.72f;
+		const float gutterW = 0.42f;
 
-		float x = -halfRoadbed - curbW - gutterW;
+		float x = -halfRoadbed - gutterW;
 		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete"); x += gutterW;
-		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
 		addPart(RoadPartType::Roadbed, x, roadbedWidth, U"roadbed_asphalt"); x += roadbedWidth;
-		addPart(RoadPartType::Curb, x, curbW, U"curb_concrete"); x += curbW;
 		addPart(RoadPartType::RoadsideGutter, x, gutterW, U"roadside_gutter_concrete");
-		addPart(RoadPartType::UtilityPole, -halfRoadbed - curbW - gutterW - 0.45f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 17.0f, 1.2f);
-		addPart(RoadPartType::UtilityPole, halfRoadbed + curbW + gutterW + 0.45f, 0.0f, U"utility_pole_concrete",
-		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 17.0f, 1.2f);
+		addPart(RoadPartType::UtilityPole, halfRoadbed + gutterW + 0.48f, 0.0f, U"utility_pole_concrete",
+		        RoadPartPlacement::RepeatAlongEdge, RoadPartEnvelopeRole::RoadOwnedObject, 31.0f, 3.0f);
 		break;
 	}
 	}
@@ -1330,11 +1323,11 @@ void RoadNetwork::buildDefaultParts(RoadEdge& edge)
 
 Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 {
-	float laneWidth = 2.00f;
+	float laneWidth = 3.15f;
 	if (rt == RoadType::Arterial)
-		laneWidth = 3.75f;
+		laneWidth = 3.85f;
 	if (rt == RoadType::Expressway || rt == RoadType::Highway)
-		laneWidth = 3.75f;
+		laneWidth = 3.85f;
 
 	// 分離帯のある道路（Expressway/Highway）は中央に medianW の隙間を空けて配置し、
 	// buildDefaultParts の Median Part と車線が重ならないようにする
@@ -1364,6 +1357,7 @@ Array<Lane> RoadNetwork::buildDefaultLanes(int numLanes, RoadType rt)
 			left = -halfForward - medianW * 0.5f + i * laneWidth;
 		else
 			left = medianW * 0.5f + (i - forwardCount) * laneWidth;
+		if (!hasMedian) { left += (forwardCount - numLanes * 0.5f) * laneWidth; }
 		const float right = left + laneWidth;
 		lane.offsetA_L = left;
 		lane.offsetA_R = right;
@@ -1436,7 +1430,20 @@ int RoadNetwork::mergeShortEdges(float minLength)
 			RoadNode* rmNode   = getNode(rmId);
 			if (!keepNode || !rmNode) continue;
 			if (keepId == rmId) continue;
+			if (keepNode->attachments.size() >= 3 && rmNode->attachments.size() >= 3 && edge.length > 2.0f) { continue; }
 
+
+			const Vec3 mergedPosition = (keepNode->position+rmNode->position)*0.5;
+			const Vec3 keepShift = mergedPosition-keepNode->position;
+			const Vec3 removedShift = mergedPosition-rmNode->position;
+			for (const int attached : keepNode->edgeIds())
+			{
+				if (auto* neighbor = getEdge(attached))
+				{
+					if (neighbor->nodeA == keepId) { neighbor->ctrlA += keepShift; }
+					if (neighbor->nodeB == keepId) { neighbor->ctrlB += keepShift; }
+				}
+			}
 			// rmNode の接続エッジを keepNode に移し替える
 			for (const int eid : rmNode->edgeIds())
 			{
@@ -1444,8 +1451,8 @@ int RoadNetwork::mergeShortEdges(float minLength)
 				RoadEdge* e = getEdge(eid);
 				if (!e) continue;
 
-				if (e->nodeA == rmId) e->nodeA = keepId;
-				if (e->nodeB == rmId) e->nodeB = keepId;
+				if (e->nodeA == rmId) { e->nodeA = keepId; e->ctrlA += removedShift; }
+				if (e->nodeB == rmId) { e->nodeB = keepId; e->ctrlB += removedShift; }
 
 				if (e->nodeA == keepId && e->nodeB == keepId)
 				{
@@ -1457,10 +1464,18 @@ int RoadNetwork::mergeShortEdges(float minLength)
 					keepNode->addEdge(eid);
 			}
 
-			keepNode->position = (keepNode->position + rmNode->position) * 0.5;
+			keepNode->position = mergedPosition;
 
 			removeEdge(edge.id);
 			removeNode(rmId);
+			for (const int attached : keepNode->edgeIds())
+			{
+				if (auto* neighbor = getEdge(attached))
+				{
+					if (const auto curve = getBezier(attached)) { neighbor->length = curve->totalLength; }
+					rebuildNodeConnectivity(neighbor->nodeA,neighbor->nodeB);
+				}
+			}
 
 			++merged;
 			changed = true;

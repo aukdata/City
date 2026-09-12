@@ -2,6 +2,37 @@
 #include "asset/AssetRegistrar.hpp"
 #include "debug/DebugLog.hpp"
 
+namespace
+{
+	/// @brief Split framework presentation from input/update work for frame pacing diagnostics.
+	class FramePipelineProbe final : public IAddon
+	{
+	public:
+		void draw() const override { m_timer.restart(); }
+		void postPresent() override
+		{
+			m_present << m_timer.msF();
+			m_timer.restart();
+		}
+		bool update() override
+		{
+			if (!m_present.isEmpty()) { m_input << m_timer.msF(); }
+			if (m_input.size() >= 120)
+			{
+				m_present.sort();
+				m_input.sort();
+				DebugLog::print(U"[FramePipeline] presentP50={:.2f} inputP50={:.2f}"_fmt(m_present[m_present.size() / 2], m_input[60]));
+				m_present.clear();
+				m_input.clear();
+			}
+			return true;
+		}
+	private:
+		mutable Stopwatch m_timer;
+		Array<double> m_present, m_input;
+	};
+}
+
 void GameApp::run()
 {
 	// 起動時にウィンドウ・描画設定・共有アセットを初期化し、その後 SceneManager へ制御を渡す。
@@ -11,7 +42,7 @@ void GameApp::run()
 	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
 	Window::Resize(kWindowWidth, kWindowHeight);
 	Scene::SetBackground(ColorF{ 0.2, 0.3, 0.4 });
-	Graphics::SetVSyncEnabled(false);
+	Graphics::SetVSyncEnabled(true);
 	Window::SetTitle(U"Pavecity");
 
 	RegisterAssets();
@@ -26,6 +57,8 @@ void GameApp::run()
 	const auto args = System::GetCommandLineArgs();
 	bool directStart = false;
 	bool captureCityRenders = false;
+	bool captureRoadRenders = false;
+	bool uncapped = false;
 	Optional<uint64> seedOverride;
 	for (size_t i = 0; i < args.size(); ++i)
 	{
@@ -36,9 +69,33 @@ void GameApp::run()
 			continue;
 		}
 
+		if (args[i] == U"--benchmark-streaming") { manager.get()->benchmarkStreaming = true; continue; }
+		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
+
+		if (args[i] == U"--uncapped") { uncapped = true; continue; }
+
+		if (args[i] == U"--capture-roads")
+		{
+			captureRoadRenders = captureCityRenders = true;
+			continue;
+		}
+
+		if (args[i] == U"--capture-node" && i+1 < args.size())
+		{
+			manager.get()->captureNode = ParseOpt<int>(args[++i]).value_or(-1);
+			captureRoadRenders = captureCityRenders = true;
+			continue;
+		}
+
 		if (args[i] == U"--capture-city")
 		{
 			captureCityRenders = true;
+			continue;
+		}
+
+		if (args[i] == U"--inspect-node" && i + 1 < args.size())
+		{
+			manager.get()->inspectNode = ParseOpt<int>(args[++i]).value_or(-1);
 			continue;
 		}
 
@@ -66,12 +123,13 @@ void GameApp::run()
 
 	if (captureCityRenders)
 	{
+		Addon::Register<FramePipelineProbe>(U"FramePipelineProbe");
 		Window::Resize(1920, 1080);
 		auto data = manager.get();
-		data->isNewGame = true;
+		if (data->saveName.isEmpty()) { data->isNewGame = true; }
 		data->sandboxMode = false;
 		data->captureCityRenders = true;
-		data->saveName.clear();
+		data->captureRoadRenders = captureRoadRenders;
 		if (seedOverride)
 		{
 			data->seed = *seedOverride;
@@ -85,13 +143,26 @@ void GameApp::run()
 		data->seed = *seedOverride;
 	}
 
+	Graphics::SetVSyncEnabled(!uncapped);
+
 	// 初期シーン確定後は SceneManager の更新ループだけを回し、各シーンへ処理を委譲する。
 	manager.init(directStart ? SceneState::Game : SceneState::Title, 0s);
 
-	while (System::Update())
+	Array<double> systemTimes;
+	while (true)
 	{
-		if (!manager.update())
-			break;
+		const Stopwatch systemTimer{ StartImmediately::Yes };
+		if (!System::Update()) { break; }
+		if (captureCityRenders) { systemTimes << systemTimer.msF(); }
+		if (!manager.update()) { break; }
+		if (systemTimes.size() >= 120)
+		{
+			systemTimes.sort();
+			const auto& state = Window::GetState();
+			DebugLog::print(U"[PresentTiming] systemP50={:.2f} systemP95={:.2f} focused={} minimized={} vsync={}"_fmt(
+				systemTimes[60], systemTimes[114], state.focused, state.minimized, Graphics::IsVSyncEnabled()));
+			systemTimes.clear();
+		}
 	}
 
 	DebugLog::print(U"[GameApp] stopped");

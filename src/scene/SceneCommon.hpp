@@ -11,6 +11,11 @@ struct SceneData
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
 	bool   isNewGame   = true;   ///< true: 新規生成、false: セーブロード
 	bool   captureCityRenders = false; ///< true: 提出用に実ゲームレンダを自動撮影して終了
+	bool   captureRoadRenders = false; ///< true: 幹線交差点を近景・上空から自動検証
+	bool   benchmarkStreaming = false; ///< Deterministic camera flight with per-frame CPU measurements.
+	bool   syncTerrain = false; ///< Reference path for terrain streaming A/B measurements.
+	int    captureNode = -1; ///< Optional exact junction for render regression on saved maps.
+	int    inspectNode = -1; ///< 起動後に指定した交差点へカメラを移動
 	String saveName;             ///< セーブ名（ロード時のみ使用）
 };
 

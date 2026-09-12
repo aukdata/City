@@ -8,6 +8,11 @@ namespace Asset
 	// ---- テクスチャ ----
 	constexpr StringView Grass            = U"Tex_Grass";
 	constexpr StringView Ground           = U"Tex_Ground";
+	constexpr StringView SparseGrass      = U"Tex_SparseGrass";
+	constexpr StringView Sand             = U"Tex_Sand";
+	constexpr StringView CoastSand        = U"Tex_CoastSand";
+	constexpr StringView Asphalt          = U"Tex_Asphalt";
+	constexpr StringView Concrete         = U"Tex_Concrete";
 	constexpr StringView NationalRoadSign = U"Tex_NationalRoadSign";  ///< 案内・国道おにぎり（地）
 	constexpr StringView StopSign         = U"Tex_StopSign";           ///< 規制・一時停止「止まれ」
 	constexpr StringView YieldSign        = U"Tex_YieldSign";          ///< 規制・徐行

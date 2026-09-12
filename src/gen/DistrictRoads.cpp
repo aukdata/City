@@ -103,6 +103,23 @@ namespace DistrictRoads
 				|| e->roadType == RoadType::LocalRoad;
 		}
 
+		/// @brief Change generation profiles together: geometry, lane directions and speed.
+		void applyStreetProfile(RoadEdge& edge, int laneCount, bool arterial, bool reverse = false)
+		{
+			edge.roadType = arterial ? RoadType::Arterial : RoadType::LocalRoad;
+			edge.lanes = RoadNetwork::buildDefaultLanes(laneCount, edge.roadType);
+			edge.speedLimit = arterial ? (laneCount >= 4 ? 50.0f : 40.0f) : 25.0f;
+			if (!arterial)
+			{
+				for (auto& lane : edge.lanes)
+				{
+					lane.lineLeft = lane.lineRight = LineType::None;
+					if (laneCount == 1) { lane.dir = reverse ? LaneDir::Backward : LaneDir::Forward; }
+				}
+			}
+			RoadNetwork::buildDefaultParts(edge);
+		}
+
 		bool tryAddLocalRoadEdge(RoadNetwork& network, int nodeIdA, int nodeIdB)
 		{
 			// 地区内道路として成立する勾配だけを通し、直線ベースの生活道路エッジを追加する。
@@ -122,7 +139,7 @@ namespace DistrictRoads
 			const Vec3 ctrlA = na->position + dir * (1.0 / 3.0);
 			const Vec3 ctrlB = na->position + dir * (2.0 / 3.0);
 			return static_cast<bool>(network.addEdge(nodeIdA, nodeIdB, ctrlA, ctrlB,
-			                                         RoadType::LocalRoad, 1));
+			                                         RoadType::LocalRoad, 2));
 		}
 
 		int ensureNodeWithMerge(
@@ -133,7 +150,7 @@ namespace DistrictRoads
 			NodeType type = NodeType::Intersection)
 		{
 			// 新規候補点は既存近傍ノードへ吸着し、十分離れているときだけ新設する。
-			const float y = world.computeHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
+			const float y = world.sampleHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
 			if (y < 0.5f) return -1;
 			const Vec3 pos{ xz.x, y, xz.y };
 
@@ -171,26 +188,28 @@ namespace DistrictRoads
 		{
 			const float midX = 0.5f * (lxA + lxB);
 			const float midZ = 0.5f * (lzA + lzB);
-			// 中央城郭は最低 500m 四方を確保（中心 ±250m）
-			return (Math::Abs(midX) <= 250.0f && Math::Abs(midZ) <= 250.0f);
+			// A small civic square leaves the town centre walkable and connected.
+			constexpr float kCivicSquareHalfSize = 30.0f;
+			return (Math::Abs(midX) <= kCivicSquareHalfSize && Math::Abs(midZ) <= kCivicSquareHalfSize);
 		}
 
 		Array<float> buildCastleGridCoords(float halfExtent)
 		{
-			// 城下町グリッドの分割数を、街区幅制約を守りつつ 72m 近傍になるよう選ぶ。
+			// 城下町グリッドの分割数を、街区幅制約を守りつつ 64m 近傍になるよう選ぶ。
 			Array<float> out;
 			const float fullExtent = halfExtent * 2.0f;
 
-			// セル幅制約 [48m, 160m] を満たす分割数を探索し、72m 近傍を優先する
-			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 160.0f)));
-			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 48.0f)));
+			// セル幅制約 [64m, 190m] を満たす分割数を探索し、64m 近傍を優先する
+			const int minCells = Max(1, static_cast<int>(Ceil(fullExtent / 190.0f)));
+			const int maxCells = Max(minCells, static_cast<int>(Floor(fullExtent / 64.0f)));
 
 			int bestCells = minCells;
 			float bestScore = 1e30f;
 			for (int cells = minCells; cells <= maxCells; ++cells)
 			{
 				const float cellW = fullExtent / cells;
-				const float score = Math::Abs(cellW - 72.0f);
+				constexpr float kPreferredBlockWidth = 80.0f;
+				const float score = Math::Abs(cellW - kPreferredBlockWidth);
 				if (score < bestScore)
 				{
 					bestScore = score;
@@ -871,7 +890,7 @@ namespace DistrictRoads
 				               + static_cast<float>(normal.x) * offset * sign;
 				const float nz = static_cast<float>(node->position.z)
 				               + static_cast<float>(normal.y) * offset * sign;
-				const float ny = world.computeHeight(nx, nz);
+				const float ny = world.sampleHeight(nx, nz);
 				if (ny < 0.5f) return;
 
 				node->position.x = nx;
@@ -1219,24 +1238,8 @@ namespace DistrictRoads
 			settlement.gridAxisX = axisX;
 			settlement.gridAxisZ = axisZ;
 
-			// 幹線ノードは作業用に新規 ID を発行し直す
-			Array<int> arterialWorkNodes;
-			arterialWorkNodes.reserve(arterialNodes.size());
-			for (const int nodeId : arterialNodes)
-			{
-				const RoadNode* src = network.getNode(nodeId);
-				if (!src) continue;
-				const int newNodeId = network.addNode(src->position, NodeType::Joint);
-				arterialWorkNodes << newNodeId;
-				if (auto eid = network.addEdge(
-					nodeId, newNodeId,
-					src->position,
-					src->position,
-					RoadType::Arterial, 4))
-				{
-					rebuildStraightGeometry(*eid, world, network);
-				}
-			}
+			// Reuse the original nodes: coincident work nodes create zero-length connectors.
+			const Array<int> arterialWorkNodes = arterialNodes;
 
 			// 4) 格子構築（外郭 + 内郭、テンプレは従来）
 			const float extentWithMargin = halfExtent + 40.0f;
@@ -1250,17 +1253,17 @@ namespace DistrictRoads
 		auto localToWorld = [&](float lx, float lz) -> Vec3
 		{
 			const float edgeFactor = Clamp(Max(Math::Abs(lx), Math::Abs(lz)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
-			const bool mainStreet = (Math::Abs(lx) < 120.0f || Math::Abs(lz) < 120.0f);
+			const bool mainStreet = (Math::Abs(lx) < 150.0f || Math::Abs(lz) < 150.0f);
 			const bool outerFrame = (Math::Abs(lx) > halfExtent * 0.94f || Math::Abs(lz) > halfExtent * 0.94f);
-			const float strength = (mainStreet ? 12.0f : 34.0f + edgeFactor * 18.0f) * (outerFrame ? 0.30f : 1.0f);
+			const float strength = (mainStreet ? 3.5f : 9.0f + edgeFactor * 5.0f) * (outerFrame ? 0.25f : 1.0f);
 			const int ix = static_cast<int>(Round(lx / 40.0f));
 			const int iz = static_cast<int>(Round(lz / 40.0f));
-			const float oldRoadBendX = Math::Sin((lz + settlementIndex * 37.0f) * 0.0041f) * 12.0f;
-			const float oldRoadBendZ = Math::Sin((lx - settlementIndex * 29.0f) * 0.0037f) * 10.0f;
+			const float oldRoadBendX = Math::Sin((lz + settlementIndex * 37.0f) * 0.0041f) * (mainStreet ? 1.5f : 3.0f);
+			const float oldRoadBendZ = Math::Sin((lx - settlementIndex * 29.0f) * 0.0037f) * (mainStreet ? 1.2f : 2.5f);
 			const float warpedX = lx + districtHashSigned(localSeed, ix, iz, 1) * strength + oldRoadBendX;
 			const float warpedZ = lz + districtHashSigned(localSeed, ix, iz, 2) * strength + oldRoadBendZ;
 			const Vec2 xz = settlement.center + axisX * warpedX + axisZ * warpedZ;
-			const float y = world.computeHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
+			const float y = world.sampleHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
 			return Vec3{ xz.x, y, xz.y };
 		};
 
@@ -1301,15 +1304,17 @@ namespace DistrictRoads
 
 			const float midX = 0.5f * (coords[colA] + coords[colB]);
 			const float midZ = 0.5f * (coords[rowA] + coords[rowB]);
-			const bool mainStreet = (Math::Abs(midX) < 140.0f || Math::Abs(midZ) < 140.0f);
+			const bool mainStreet = (Math::Abs(midX) < 170.0f || Math::Abs(midZ) < 170.0f);
 			const bool outerFrame = (colA == 0 || colB == 0 || rowA == 0 || rowB == 0
 				|| colA == n - 1 || colB == n - 1 || rowA == n - 1 || rowB == n - 1);
-			if (!mainStreet && !outerFrame)
+			if (!mainStreet && !outerFrame && rowA == rowB && (rowA % 3) == 1)
 			{
-				const float edgeFactor = Clamp(Max(Math::Abs(midX), Math::Abs(midZ)) / Max(1.0f, halfExtent), 0.0f, 1.0f);
-				const uint32 h = districtHash(localSeed, colA * 131 + colB * 17, rowA * 97 + rowB * 23, 3);
-				const uint32 dropPercent = static_cast<uint32>(8.0f + edgeFactor * 12.0f);
-				if ((h % 100u) < dropPercent) return;
+				constexpr uint32 kTransverseOmissionPercent = 18;
+				const uint32 hash = districtHash(localSeed, colA, rowA, 3);
+				if ((hash % 100u) < kTransverseOmissionPercent)
+				{
+					return;
+				}
 			}
 
 			const int nodeA = nodeIds[{ colA, rowA }];
@@ -1321,6 +1326,16 @@ namespace DistrictRoads
 			{
 				if (!tryAddLocalRoadEdge(network, nodeA, nodeB)) return;
 				edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
+			}
+			if (RoadEdge* edge = network.getEdge(edgeId))
+			{
+				const int corridor = rowA == rowB ? rowA : colA;
+				const int centreCorridor = n / 2;
+				const int offset = Abs(corridor - centreCorridor);
+				const bool boulevard = (offset % 6 == 0);
+				const bool collector = !boulevard && (offset % 3 == 0 || outerFrame);
+				const bool oneWay = !boulevard && !collector && rowA != rowB && offset < 8;
+				applyStreetProfile(*edge, boulevard ? 4 : (oneWay ? 1 : 2), boulevard || collector, (corridor % 2) != 0);
 			}
 			registerGridEdge(edgeId, nodeA, nodeB);
 		};
@@ -1426,7 +1441,7 @@ namespace DistrictRoads
 		{
 			if (RoadEdge* edge = network.getEdge(edgeId))
 			{
-				edge->roadType = RoadType::Arterial;
+				applyStreetProfile(*edge, 4, true);
 				newlyAddedArterials << edgeId;
 			}
 		}
@@ -1645,7 +1660,7 @@ namespace DistrictRoads
 			               + static_cast<float>(branchDir.x) * branchLen;
 			const float ez = static_cast<float>(branchNode->position.z)
 			               + static_cast<float>(branchDir.y) * branchLen;
-			const float ey = world.computeHeight(ex, ez);
+			const float ey = world.sampleHeight(ex, ez);
 			if (ey < 0.5f) continue;
 
 			const float startY = static_cast<float>(branchNode->position.y);

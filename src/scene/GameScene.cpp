@@ -1,4 +1,8 @@
 ﻿#include "GameScene.hpp"
+#include "../road/JunctionGeometry.hpp"
+#include "../gen/ParcelGeometry.hpp"
+#include "../gen/UrbanParcel.hpp"
+#include "../gen/ParcelRoadIndex.hpp"
 #include "../gen/RoadPathfinder.hpp"
 #include "../gen/DistrictRoads.hpp"
 #include "../save/RoadBinary.hpp"
@@ -17,7 +21,8 @@
 GameScene::GameScene(const InitData& init)
 	: IScene{ init }
 {
-	m_renderTexture = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+	m_worldRenderer.setAsyncTerrain(!getData().syncTerrain);
+	m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
 	m_outlineMask   = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm,      HasDepth::Yes };
 	m_outlinePS     = HLSL{ U"shaders/hlsl/selection_outline.hlsl", U"PS" };
 	if (not m_outlinePS)
@@ -425,7 +430,9 @@ void GameScene::updateLoading()
 				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
 				m_minimapRenderer.buildTerrainTexture(m_world);
 				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
-				m_phase = GamePhase::Playing;
+				m_worldRenderer.preloadBuildingModels();
+			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
+			m_phase = GamePhase::Playing;
 				return;
 			}
 
@@ -456,6 +463,8 @@ void GameScene::updateLoading()
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
 			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
+			m_worldRenderer.preloadBuildingModels();
+			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
 			m_phase = GamePhase::Playing;
 			return;
 		}
@@ -1045,6 +1054,15 @@ namespace
 
 		if (settlement.kind == MapGenerator::SettlementKind::CastleTown)
 		{
+			// The road grid and zoning use the same rectangular footprint. A radial
+			// land-use mask previously left complete grid corners without buildings.
+			const float gridHalf = Clamp(settlement.radius * 0.6f, 1000.0f, 4000.0f);
+			if (Abs(lx) < gridHalf + 45.0f && Abs(lz) < gridHalf + 45.0f)
+			{
+				const float urbanDistance = Max(Abs(lx), Abs(lz)) / gridHalf;
+				if (urbanDistance < 0.58f) { return ZoneType::Commercial; }
+				return urbanDistance < 0.88f ? ZoneType::Residential : ZoneType::LowResidential;
+			}
 			const float halfX = Max(1080.0f, settlement.radius * 1.32f) * (0.96f + n * 0.16f);
 			const float halfZ = Max(820.0f, settlement.radius * 1.02f) * (0.92f + n * 0.18f);
 			const float nx = Math::Abs(lx) / halfX;
@@ -1170,6 +1188,26 @@ namespace
 			transform(-hx * 0.98f + noise(20, hx * 0.06f), noise(28, hz * 0.10f))
 		};
 	}
+	Array<Vec2> makeCoastalBandPolygon(Point chunk, int minX, int shoreY, int width, int depth, int landwardSign, uint64 salt)
+	{
+		const int clampedDepth = Max(1, depth);
+		const int minY = (landwardSign >= 0) ? shoreY : Max(0, shoreY - clampedDepth + 1);
+		const int maxY = (landwardSign >= 0) ? Min(ZONE_CELLS, shoreY + clampedDepth) : Min(ZONE_CELLS, shoreY + 1);
+		const Array<Vec2> base = makeCellPatchPolygon(chunk, minX, minY, width, Max(1, maxY - minY), salt);
+		if (base.size() < 8) return base;
+		const float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		const float wave = cellSize * (0.20f + static_cast<float>((salt >> 11) & 7u) * 0.018f);
+		auto jitter = [&](int shift)
+		{
+			return (static_cast<float>((salt >> shift) & 255u) / 255.0f - 0.5f) * wave;
+		};
+		Array<Vec2> result = base;
+		const float shoreZ = static_cast<float>(chunk.y * ZONE_CELLS + shoreY + ((landwardSign >= 0) ? 0 : 1)) * cellSize;
+		result[0].y = shoreZ + jitter(3);
+		result[1].y = shoreZ + jitter(17);
+		result[2].y = shoreZ + jitter(29);
+		return result;
+	}
 	bool hasWaterNeighbor(const Chunk& chunk, int x, int y)
 	{
 		for (int dy = -1; dy <= 1; ++dy)
@@ -1189,20 +1227,20 @@ namespace
 	{
 		if (kind == MapGenerator::SettlementKind::CastleTown)
 		{
-			if (zone == ZoneType::Commercial) return 0.72f;
-			if (zone == ZoneType::Residential) return 0.54f;
-			if (zone == ZoneType::LowResidential) return 0.42f;
-			if (zone == ZoneType::Industrial) return 0.34f;
+			if (zone == ZoneType::Commercial) return 0.48f;
+			if (zone == ZoneType::Residential) return 0.24f;
+			if (zone == ZoneType::LowResidential) return 0.34f;
+			if (zone == ZoneType::Industrial) return 0.24f;
 		}
 		if (kind == MapGenerator::SettlementKind::PostTown)
 		{
-			if (zone == ZoneType::Commercial) return 0.58f;
-			if (zone == ZoneType::Residential) return 0.46f;
-			if (zone == ZoneType::LowResidential) return 0.36f;
-			if (zone == ZoneType::Industrial) return 0.30f;
+			if (zone == ZoneType::Commercial) return 0.38f;
+			if (zone == ZoneType::Residential) return 0.30f;
+			if (zone == ZoneType::LowResidential) return 0.24f;
+			if (zone == ZoneType::Industrial) return 0.20f;
 		}
-		if (zone == ZoneType::Residential) return 0.36f;
-		if (zone == ZoneType::LowResidential) return 0.32f;
+		if (zone == ZoneType::Residential) return 0.24f;
+		if (zone == ZoneType::LowResidential) return 0.22f;
 		return 0.0f;
 	}
 }
@@ -1281,24 +1319,24 @@ namespace
 		{
 			if (kind == MapGenerator::SettlementKind::CastleTown)
 			{
-				if (zone == ZoneType::Commercial) return 0.82f;
-				if (zone == ZoneType::Residential) return 0.62f;
-				if (zone == ZoneType::LowResidential) return 0.46f;
-				if (zone == ZoneType::Industrial) return 0.50f;
+				if (zone == ZoneType::Commercial) return 0.94f;
+				if (zone == ZoneType::Residential) return 0.96f;
+				if (zone == ZoneType::LowResidential) return 0.88f;
+				if (zone == ZoneType::Industrial) return 0.72f;
 				if (zone == ZoneType::Agriculture) return 0.20f;
 			}
 			else if (kind == MapGenerator::SettlementKind::PostTown)
 			{
-				if (zone == ZoneType::Commercial) return 0.70f;
-				if (zone == ZoneType::Residential) return 0.56f;
-				if (zone == ZoneType::LowResidential) return 0.42f;
-				if (zone == ZoneType::Industrial) return 0.50f;
+				if (zone == ZoneType::Commercial) return 0.86f;
+				if (zone == ZoneType::Residential) return 0.76f;
+				if (zone == ZoneType::LowResidential) return 0.34f;
+				if (zone == ZoneType::Industrial) return 0.72f;
 				if (zone == ZoneType::Agriculture) return 0.32f;
 			}
 			else
 			{
-				if (zone == ZoneType::Residential) return 0.38f;
-				if (zone == ZoneType::LowResidential) return 0.34f;
+				if (zone == ZoneType::Residential) return 0.86f;
+				if (zone == ZoneType::LowResidential) return 0.56f;
 				if (zone == ZoneType::Agriculture) return 0.62f;
 			}
 			return 0.0f;
@@ -1345,8 +1383,18 @@ namespace
 		void applySettlementContext(Building& building, ZoneType zone, MapGenerator::SettlementKind kind,
 		                            float distFromCenter, float settlementRadius, float roadDist, uint32 hash)
 		{
-			const float coreRadius = settlementRadius * (kind == MapGenerator::SettlementKind::CastleTown ? 0.26f : 0.18f);
+			const float coreRadius = kind == MapGenerator::SettlementKind::CastleTown
+				? Clamp(settlementRadius * 0.6f, 1000.0f, 4000.0f) * 0.68f : settlementRadius * 0.18f;
 			const bool urbanCore = (kind == MapGenerator::SettlementKind::CastleTown && distFromCenter < coreRadius);
+			if (urbanCore && zone != ZoneType::Industrial && zone != ZoneType::Agriculture)
+			{
+				const uint32 urbanRoll = (hash / 17u) % 100u;
+				building.type = urbanRoll < 23u ? BuildingType::Office
+					: urbanRoll < 55u ? BuildingType::MidApartment
+					: urbanRoll < 62u ? BuildingType::HighApartment
+					: urbanRoll < 98u ? BuildingType::Shop : BuildingType::PublicFacility;
+				return;
+			}
 			const bool mainStreetCore = (kind == MapGenerator::SettlementKind::PostTown && distFromCenter < coreRadius && roadDist < 46.0f);
 			const bool roadside = (roadDist < 30.0f);
 			const bool districtEdge = (distFromCenter > settlementRadius * 0.92f);
@@ -1379,7 +1427,7 @@ namespace
 			{
 				const uint32 officeRoll = (hash / 29u) % 100u;
 				const bool officeAllowed = urbanCore && zone == ZoneType::Commercial && roadDist < 42.0f;
-				
+
 				if (!officeAllowed)
 				{
 					building.type = (officeRoll < 80u) ? BuildingType::Shop : BuildingType::Parking;
@@ -1460,28 +1508,13 @@ namespace
 		return value;
 	}
 
-	
+
 	Vec2 interiorBuildingOffset(uint32 hash, float maxOffset)
 	{
 		const float ox = (static_cast<float>(hash & 0xFFu) / 255.0f - 0.5f) * maxOffset * 2.0f;
 		const float oz = (static_cast<float>((hash >> 8) & 0xFFu) / 255.0f - 0.5f) * maxOffset * 2.0f;
 		return Vec2{ ox, oz };
 	}
-float buildingAngleFromAttachedEdge(
-		const RoadNetwork& network, int edgeId, float edgeT, float fallbackAngle)
-	{
-		if (edgeId < 0) return fallbackAngle;
-		const auto bez = network.getBezier(edgeId);
-		if (!bez || bez->totalLength <= 1e-3f) return fallbackAngle;
-		const float t = Clamp(edgeT, 0.0f, 1.0f);
-		const Vec3 tan = bez->tangentAt(bez->totalLength * t);
-		Vec2 dir{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
-		if (dir.lengthSq() <= 1e-8f) return fallbackAngle;
-		dir.normalize();
-
-		return static_cast<float>(std::atan2(dir.y, dir.x));
-	}
-
 	struct EdgeProjection
 	{
 		float edgeT = 0.0f;
@@ -1561,20 +1594,18 @@ float buildingAngleFromAttachedEdge(
 		float roadDist = 0.0f;
 		Vec2  roadToCellDir{ 1.0f, 0.0f };
 		float centerDistSq = 0.0f;
+		Vec2 roadPosition{ 0, 0 };
 	};
 	Vec2 roadsideBuildingOffset(const EdgeFacingSlot& slot, BuildingType type, int gx, int gz)
 	{
-		if (type == BuildingType::Farmland || slot.roadDist <= 0.001f)
-		{
-			return Vec2{ 0.0f, 0.0f };
-		}
-
-		const float buildingHalf = buildingFootprintXZ() * 0.5f;
-		const float targetDist = slot.halfWidth + buildingHalf + setbackFromRoadByModel(type, gx, gz) + 1.5f;
-		const float moveTowardRoad = Clamp(slot.roadDist - targetDist, 0.0f, 5.5f);
-		return -slot.roadToCellDir * moveTowardRoad;
+		constexpr float kCellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		const Vec2 cellCenter{
+			slot.chunkCoord.x * CHUNK_SIZE + (slot.col + 0.5f) * kCellSize,
+			slot.chunkCoord.y * CHUNK_SIZE + (slot.row + 0.5f) * kCellSize };
+		const float targetDistance = slot.halfWidth + buildingFootprintXZ(type) * 0.5f
+			+ Max(1.2f, setbackFromRoadByModel(type, gx, gz));
+		return slot.roadPosition + slot.roadToCellDir * targetDistance - cellCenter;
 	}
-
 
 
 	int64 zoneCellKey(Point cc, int col, int row)
@@ -1603,6 +1634,33 @@ float buildingAngleFromAttachedEdge(
 		};
 	}
 
+	bool hasRoadClearance(
+		const RoadNetwork& network,
+		int edgeId,
+		const Vec2& position,
+		float halfBuilding,
+		float minimumSetback)
+	{
+		EdgeProjection projection;
+		if (!projectPointToEdgeXZ(network, edgeId, position, projection))
+		{
+			return false;
+		}
+		const RoadEdge* edge = network.getEdge(edgeId);
+		if (!edge || !edge->isRoadbedBuilt())
+		{
+			return false;
+		}
+		const RoadGeometry::LateralRange range = RoadGeometry::structuralRangeAt(*edge, projection.edgeT);
+		if (!range.valid)
+		{
+			return false;
+		}
+		const Vec2 toPosition = position - projection.position;
+		const float signedLateral = static_cast<float>(toPosition.dot(projection.right));
+		const float roadOuter = (signedLateral >= 0.0f) ? Max(0.0f, range.right) : Max(0.0f, -range.left);
+		return Math::Abs(signedLateral) >= roadOuter + halfBuilding + minimumSetback;
+	}
 	bool overlapsExistingBuilding(
 		const World& world,
 		Point cc,
@@ -1610,7 +1668,8 @@ float buildingAngleFromAttachedEdge(
 		int gz,
 		float wx,
 		float wz,
-		float halfBuilding)
+		float halfBuilding,
+		float angle)
 	{
 		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 		const int checkRange = static_cast<int>(Ceil((halfBuilding * 2.0f) / cellSize)) + 1;
@@ -1631,10 +1690,10 @@ float buildingAngleFromAttachedEdge(
 				const Building& nb = nchunk->buildingGrid[{ nx, nz }];
 				if (nb.type == BuildingType::None) continue;
 
-				const Vec2 ncenter = cellCenterXZ(ncc, nx, nz);
-				const float nHalf = buildingFootprintXZ() * 0.5f;
-				if (Math::Abs(wx - ncenter.x) < (halfBuilding + nHalf)
-				 && Math::Abs(wz - ncenter.y) < (halfBuilding + nHalf))
+				const Vec2 ncenter = cellCenterXZ(ncc, nx, nz) + Vec2{ nb.offsetX, nb.offsetZ };
+				const float nHalf = buildingFootprintXZ(nb.type) * 0.5f + 0.25f;
+				if (ParcelGeometry::overlaps(ParcelGeometry::footprint(Vec2{ wx, wz }, halfBuilding + 0.25f, angle),
+					ParcelGeometry::footprint(ncenter, nHalf, nb.angle)))
 				{
 					return true;
 				}
@@ -1664,12 +1723,17 @@ float buildingAngleFromAttachedEdge(
 			const auto bez = network.getBezier(edge.id);
 			if (!bez || bez->totalLength <= 1.0f) continue;
 			const float edgeHalfWidth = edge.totalWidth() * 0.5f;
-			const int sampleCount = Max(4, static_cast<int>(Ceil(bez->totalLength / 24.0f)));
+			const float kFrontagePitch = settlement.kind == MapGenerator::SettlementKind::CastleTown ? 14.5f : 16.0f;
+			constexpr float kCornerSetback = 6.5f;
+			const float startArc = edge.cutoffA + kCornerSetback;
+			const float endArc = bez->totalLength - edge.cutoffB - kCornerSetback;
+			if (endArc < startArc) { continue; }
+			const int sampleCount = Max(1, static_cast<int>(Floor((endArc - startArc) / kFrontagePitch)) + 1);
 
-			for (int i = 0; i <= sampleCount; ++i)
+			for (int i = 0; i < sampleCount; ++i)
 			{
-				const float t = static_cast<float>(i) / sampleCount;
-				const float arc = bez->totalLength * t;
+				const float t = sampleCount == 1 ? 0.5f : static_cast<float>(i) / (sampleCount - 1);
+				const float arc = Math::Lerp(startArc, endArc, t);
 				const Vec3 pos = bez->positionAt(arc);
 				const Vec3 tan = bez->tangentAt(arc);
 				Vec2 tangent{ static_cast<float>(tan.x), static_cast<float>(tan.z) };
@@ -1711,9 +1775,9 @@ float buildingAngleFromAttachedEdge(
 
 					const Vec2 cellCenter = cellCenterXZ(cc, gx, gz);
 					EdgeProjection projection;
-					if (!projectPointToEdgeXZ(network, edge.id, cellCenter, projection)) continue;
+					if (!projectPointToEdgeXZ(network, edge.id, slotPos, projection)) continue;
 
-					const Vec2 toCell = cellCenter - projection.position;
+					const Vec2 toCell = slotPos - projection.position;
 					if (toCell.lengthSq() <= 1e-6f) continue;
 					if ((toCell.dot(projection.right) * side) <= 1e-4f) continue;
 					const Vec2 roadToCellDir = toCell.normalized();
@@ -1732,6 +1796,7 @@ float buildingAngleFromAttachedEdge(
 					slot.roadDist = projection.distance;
 					slot.roadToCellDir = roadToCellDir;
 					slot.centerDistSq = centerDx * centerDx + centerDz * centerDz;
+					slot.roadPosition = projection.position;
 
 					const int64 key = zoneCellKey(cc, gx, gz);
 					const auto it = bestByCell.find(key);
@@ -1765,9 +1830,35 @@ void GameScene::placeInitialBuildings()
 	const Stopwatch sw{ StartImmediately::Yes };
 	constexpr float kNearDist      = 32.0f;
 	constexpr float kFarDist       = 64.0f;
-	const float buildingSize       = buildingFootprintXZ();
-	const float halfBuilding       = buildingSize * 0.5f;
 	int placed = 0;
+	int rejectedRoad = 0;
+	int rejectedSlope = 0;
+	int rejectedDensity = 0, rejectedClearance = 0, rejectedNeighbor = 0, candidateSlots = 0;
+	const ParcelRoadIndex roadIndex{ m_network };
+	auto isBuildableFootprint = [&](const Building& building, Vec2 center)
+	{
+		const auto footprint = ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * 0.5 + 0.35, building.angle);
+		if (roadIndex.overlaps(footprint))
+		{
+			++rejectedRoad;
+			return false;
+		}
+		float minHeight = Math::Inf, maxHeight = -Math::Inf;
+		for (const Vec2& corner : footprint)
+		{
+			const float height = m_world.sampleHeight(static_cast<float>(corner.x), static_cast<float>(corner.y));
+			minHeight = Min(minHeight, height);
+			maxHeight = Max(maxHeight, height);
+		}
+		constexpr float kMaxFoundationRelief = 1.2f;
+		constexpr float kCoastalBuildHeight = 2.6f;
+		if (minHeight < kCoastalBuildHeight || maxHeight - minHeight > kMaxFoundationRelief)
+		{
+			++rejectedSlope;
+			return false;
+		}
+		return true;
+	};
 	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
 
 	// 道路沿いスロットを地区ごとに収集し、ゾーン・道路距離・重なり判定を満たす場所へ初期建物を置く。
@@ -1776,8 +1867,10 @@ void GameScene::placeInitialBuildings()
 		const auto& s = m_districts[si];
 
 
-		const float radiusSq = s.radius * s.radius * 4.0f;
+		const float radiusSq = s.kind == MapGenerator::SettlementKind::CastleTown
+			? Square(Clamp(s.radius * 0.6f, 1000.0f, 4000.0f)) * 2.5f : s.radius * s.radius * 4.0f;
 		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(s, m_world, m_network);
+		candidateSlots += static_cast<int>(slots.size());
 		for (const auto& slot : slots)
 		{
 			Chunk* chunk = m_world.getChunk(slot.chunkCoord);
@@ -1810,12 +1903,13 @@ void GameScene::placeInitialBuildings()
 			const uint32 cellHash = settlementCellHash(getData().seed, si, globalGX, globalGZ);
 			Building b = InitialBuilding::spawn(zone, s.kind, 0.0, cellHash);
 			InitialBuilding::applySettlementContext(b, zone, s.kind, Math::Sqrt(distFromCenterSq), s.radius, slot.roadDist, cellHash);
-			if (b.type == BuildingType::None) continue;
+			if (s.kind == MapGenerator::SettlementKind::CastleTown && zone == ZoneType::Commercial)
+			{
+				const uint32 blockHash = settlementCellHash(getData().seed,si,globalGX/10,globalGZ/10);
+				if (blockHash%4u == 0u && cellHash%100u < 75u) { b.type = BuildingType::Shop; }
+			}
 
-			if (b.type != BuildingType::Farmland
-				&& overlapsExistingBuilding(
-					m_world, slot.chunkCoord, slot.col, slot.row,
-					static_cast<float>(centerPos.x), static_cast<float>(centerPos.y), halfBuilding)) continue;
+			if (b.type == BuildingType::None) continue;
 
 			float roadScore;
 			if      (slot.roadDist < kNearDist) roadScore = 1.0f;
@@ -1824,17 +1918,14 @@ void GameScene::placeInitialBuildings()
 
 			const float distFromCenter = Math::Sqrt(distFromCenterSq);
 			const float centerFalloff = Clamp(1.0f - distFromCenter / Max(1.0f, s.radius * 2.2f), 0.20f, 1.0f);
-			const float densityBoost = (zone == ZoneType::Commercial || zone == ZoneType::Residential) ? 1.18f : 1.08f;
-			const float densityFactor = Min(0.96f, InitialBuilding::density(s.kind, zone) * densityBoost * (0.82f + centerFalloff * 0.18f));
+			const float densityFactor = s.kind == MapGenerator::SettlementKind::CastleTown ? 1.0f
+				: InitialBuilding::density(s.kind, zone) * (0.88f + centerFalloff * 0.12f);
 			const float score = roadScore * densityFactor;
 			if (score < 0.03f) continue;
 
 			const float roll = (cellHash % 1000) / 1000.0f;
-			if (roll > score) continue;
+			if (roll > score) { ++rejectedDensity; continue; }
 
-			const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
-			if (b.type != BuildingType::Farmland
-				&& slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
 			const Vec2 roadOffset = roadsideBuildingOffset(slot, b.type, globalGX, globalGZ);
 			b.offsetX = static_cast<float>(roadOffset.x);
 			b.offsetZ = static_cast<float>(roadOffset.y);
@@ -1842,6 +1933,19 @@ void GameScene::placeInitialBuildings()
 			b.edgeId = slot.edgeId;
 			b.edgeT = slot.edgeT;
 
+			const Vec2 finalPos = centerPos + roadOffset;
+			if (b.type != BuildingType::Farmland)
+			{
+				if (!isBuildableFootprint(b, finalPos))
+				{
+					continue;
+				}
+				const float minimumSetback = Max(1.05f, setbackFromRoadByModel(b.type, globalGX, globalGZ) * 0.30f);
+				if (!hasRoadClearance(m_network, slot.edgeId, finalPos, buildingFootprintXZ(b.type) * 0.5f, minimumSetback)) { ++rejectedClearance; continue; }
+				if (overlapsExistingBuilding(
+					m_world, slot.chunkCoord, slot.col, slot.row,
+					static_cast<float>(finalPos.x), static_cast<float>(finalPos.y), buildingFootprintXZ(b.type) * 0.5f, b.angle)) { ++rejectedNeighbor; continue; }
+			}
 
 			chunk->buildingGrid[{ slot.col, slot.row }] = b;
 			chunk->meshDirty = true;
@@ -1849,6 +1953,25 @@ void GameScene::placeInitialBuildings()
 		}
 	}
 
+	int midrise = 0, towers = 0, offices = 0, detached = 0;
+	for (int z = 0; z < WORLD_CHUNKS; ++z)
+	{
+		for (int x = 0; x < WORLD_CHUNKS; ++x)
+		{
+			if (const Chunk* chunk = m_world.getChunk(Point{x,z}))
+			{
+				for (const auto& building : chunk->buildingGrid)
+				{
+					midrise += building.type == BuildingType::MidApartment;
+					towers += building.type == BuildingType::HighApartment;
+					offices += building.type == BuildingType::Office;
+					detached += building.type == BuildingType::Detached;
+				}
+			}
+		}
+	}
+	DebugLog::print(U"[UrbanMix] midrise={} towers={} offices={} detached={}"_fmt(midrise,towers,offices,detached));
+	DebugLog::print(U"[PlacementReview] slots={} placed={} density={} clearance={} neighbor={}"_fmt(candidateSlots, placed, rejectedDensity, rejectedClearance, rejectedNeighbor));
 	int infillPlaced = 0;
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
@@ -1892,18 +2015,29 @@ void GameScene::placeInitialBuildings()
 					{
 						const EdgeFacingSlot& slot = roadSlot->second;
 						const float setbackM = setbackFromRoadByModel(b.type, globalGX, globalGZ);
-						if (slot.roadDist < (slot.halfWidth + halfBuilding + setbackM)) continue;
 						const Vec2 roadOffset = roadsideBuildingOffset(slot, b.type, globalGX, globalGZ);
 						b.offsetX = static_cast<float>(roadOffset.x);
 						b.offsetZ = static_cast<float>(roadOffset.y);
 						b.angle = slot.angle;
 						b.edgeId = slot.edgeId;
 						b.edgeT = slot.edgeT;
+
+						const Vec2 finalPos = centerPos + roadOffset;
+						if (!isBuildableFootprint(b, finalPos))
+						{
+							continue;
+						}
+						const float minimumSetback = Max(1.05f, setbackM * 0.30f);
+						if (!hasRoadClearance(m_network, slot.edgeId, finalPos, buildingFootprintXZ(b.type) * 0.5f, minimumSetback)) { ++rejectedClearance; continue; }
+						if (overlapsExistingBuilding(
+							m_world, Point{ chunkX, chunkY }, col, row,
+							static_cast<float>(finalPos.x), static_cast<float>(finalPos.y), buildingFootprintXZ(b.type) * 0.5f, b.angle)) { ++rejectedNeighbor; continue; }
 					}
 					else
 					{
 						continue;
-					}					building = b;
+					}
+					building = b;
 					++infillPlaced;
 					changed = true;
 				}
@@ -1939,27 +2073,13 @@ void GameScene::placeInitialBuildings()
 	}
 	generateLandPatches();
 	Logger << U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF());
+	DebugLog::print(U"[placeInitialBuildings] placed={} infill={} fields={} rejectedRoad={} rejectedSlope={} elapsedMs={:.1f}"_fmt(placed, infillPlaced, fieldCells, rejectedRoad, rejectedSlope, sw.msF()));
 	refreshBuildingAnglesFromEdges();
 	m_cityConstraintValidationPassed = validateGeneratedCityConstraints();
 }
 
 void GameScene::generateLandPatches(bool preserveExisting)
 {
-	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
-	for (const auto& settlement : m_districts)
-	{
-		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(settlement, m_world, m_network);
-		for (const EdgeFacingSlot& slot : slots)
-		{
-			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
-			const auto it = edgeFacingSlotsByCell.find(key);
-			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
-			{
-				edgeFacingSlotsByCell[key] = slot;
-			}
-		}
-	}
-
 	auto isUrbanLandZone = [](ZoneType zone)
 	{
 		return zone == ZoneType::LowResidential || zone == ZoneType::Residential
@@ -1972,11 +2092,12 @@ void GameScene::generateLandPatches(bool preserveExisting)
 		{
 			return ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
 		}
+		if (buildingType == BuildingType::Office || buildingType == BuildingType::MidApartment || buildingType == BuildingType::HighApartment) { return LandPatchType::ParcelAsphalt; }
 		if (buildingType == BuildingType::Parking || zone == ZoneType::Commercial || zone == ZoneType::Industrial)
 		{
 			return ((salt >> 5) & 1u) ? LandPatchType::ParcelAsphalt : LandPatchType::ParcelGravel;
 		}
-		return ((salt >> 4) & 1u) ? LandPatchType::GardenSoil : LandPatchType::ParcelGravel;
+		return LandPatchType::GardenSoil;
 	};
 
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
@@ -1986,10 +2107,15 @@ void GameScene::generateLandPatches(bool preserveExisting)
 			Chunk* chunkPtr = m_world.getChunk(Point{ chunkX, chunkY });
 			if (!chunkPtr) continue;
 			Chunk& chunk = *chunkPtr;
-			if (preserveExisting && !chunk.landPatches.isEmpty()) continue;
+			if (preserveExisting && !chunk.landPatches.isEmpty())
+			{
+				for (LandPatch& patch : chunk.landPatches) { UrbanParcel::normalize(patch.polygon); }
+				continue;
+			}
 			chunk.landPatches.clear();
 			const Point coord{ chunkX, chunkY };
 			uint32 patchIndex = 0;
+			Grid<bool> agriculturePatchCovered(ZONE_CELLS, ZONE_CELLS, false);
 			for (int row = 0; row < ZONE_CELLS; ++row)
 			{
 				for (int col = 0; col < ZONE_CELLS; ++col)
@@ -1997,77 +2123,83 @@ void GameScene::generateLandPatches(bool preserveExisting)
 					const ZoneType zone = chunk.zoneMap[{ col, row }];
 					const bool agricultureZone = (zone == ZoneType::Agriculture);
 					if (!isUrbanLandZone(zone) && !agricultureZone) continue;
+					if (agricultureZone && agriculturePatchCovered[{ col, row }]) continue;
 
-					const Building& building = chunk.buildingGrid[{ col, row }];
-					if (!agricultureZone && building.type == BuildingType::Farmland) continue;
+					if (agricultureZone)
+					{
+						constexpr int kFieldColumns = 6, kFieldRows = 4;
+						int width = 0;
+						while (width < kFieldColumns && col + width < ZONE_CELLS
+							&& chunk.zoneMap[{ col + width, row }] == ZoneType::Agriculture
+							&& !agriculturePatchCovered[{ col + width, row }]) { ++width; }
+						int height = 1;
+						for (; height < kFieldRows && row + height < ZONE_CELLS; ++height)
+						{
+							bool available = true;
+							for (int x = 0; x < width; ++x)
+							{
+								available &= chunk.zoneMap[{ col + x, row + height }] == ZoneType::Agriculture
+									&& !agriculturePatchCovered[{ col + x, row + height }];
+							}
+							if (!available) { break; }
+						}
+						constexpr float kCellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+						const Vec2 corner{ (chunkX * ZONE_CELLS + col) * kCellSize + 0.7f,
+							(chunkY * ZONE_CELLS + row) * kCellSize + 0.7f };
+						const double sizeX = width * kCellSize - 1.4, sizeZ = height * kCellSize - 1.4;
+						LandPatch field;
+						field.id = static_cast<int>(patchIndex++);
+						field.sourceParcelKey = -1;
+						field.type = LandPatchType::FarmField;
+						field.elevationOffset = 0.022f;
+						field.materialVariant = settlementCellHash(getData().seed, 211, chunkX * ZONE_CELLS + col, chunkY * ZONE_CELLS + row);
+						const float cornerHeight = m_world.sampleHeight(static_cast<float>(corner.x),static_cast<float>(corner.y));
+						const float diagonalHeight = m_world.sampleHeight(static_cast<float>(corner.x+sizeX),static_cast<float>(corner.y+sizeZ));
+						if (Abs(cornerHeight-diagonalHeight) < .8f && field.materialVariant%4u != 0u) { field.type = LandPatchType::PaddyField; }
 
-					const int64 cellKey = zoneCellKey(coord, col, row);
-					const int globalGX = chunkX * ZONE_CELLS + col;
-					const int globalGZ = chunkY * ZONE_CELLS + row;
-					const uint32 salt = settlementCellHash(getData().seed ^ 0xA24BAED5u, 211, globalGX, globalGZ);
-
-					int edgeId = -1;
-					Vec2 sampleCenter = cellCenterXZ(coord, col, row);
-					if (!agricultureZone && building.type != BuildingType::None && building.edgeId >= 0)
-					{
-						edgeId = building.edgeId;
-						sampleCenter += Vec2{ building.offsetX, building.offsetZ };
-					}
-					else if (const auto slotIt = edgeFacingSlotsByCell.find(cellKey); slotIt != edgeFacingSlotsByCell.end())
-					{
-						edgeId = slotIt->second.edgeId;
-					}
-					else
-					{
+						field.polygon = { corner, corner + Vec2{ sizeX, 0 }, corner + Vec2{ sizeX, sizeZ }, corner + Vec2{ 0, sizeZ } };
+						chunk.landPatches << field;
+						for (int y = 0; y < height; ++y)
+						{
+							for (int x = 0; x < width; ++x) { agriculturePatchCovered[{ col + x, row + y }] = true; }
+						}
 						continue;
 					}
-
+					const Building& building = chunk.buildingGrid[{ col, row }];
+					if (building.type == BuildingType::None || building.type == BuildingType::Farmland) { continue; }
+					const int64 cellKey = zoneCellKey(coord, col, row);
+					const uint32 salt = settlementCellHash(getData().seed ^ 0xA24BAED5u, 211,
+						chunkX * ZONE_CELLS + col, chunkY * ZONE_CELLS + row);
+					const Vec2 sampleCenter = cellCenterXZ(coord, col, row) + Vec2{ building.offsetX, building.offsetZ };
 					EdgeProjection projection;
-					if (!projectPointToEdgeXZ(m_network, edgeId, sampleCenter, projection)) continue;
-					const RoadEdge* edge = m_network.getEdge(edgeId);
-					if (!edge || !edge->isRoadbedBuilt()) continue;
-
+					if (!projectPointToEdgeXZ(m_network, building.edgeId, sampleCenter, projection)) { continue; }
+					const RoadEdge* edge = m_network.getEdge(building.edgeId);
+					if (!edge || !edge->isRoadbedBuilt()) { continue; }
 					const RoadGeometry::LateralRange range = RoadGeometry::structuralRangeAt(*edge, projection.edgeT);
-					if (!range.valid) continue;
-
-					const Vec2 toCell = sampleCenter - projection.position;
-					const float signedLateral = static_cast<float>(toCell.dot(projection.right));
-					const bool rightSide = (signedLateral >= 0.0f);
+					if (!range.valid) { continue; }
+					const bool rightSide = (sampleCenter - projection.position).dot(projection.right) >= 0.0;
 					const Vec2 frontageDir = rightSide ? projection.right : -projection.right;
 					const float structuralOuter = rightSide ? Max(0.0f, range.right) : Max(0.0f, -range.left);
-					const float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-					const float buildingHalf = agricultureZone ? cellSize * 0.34f : ((building.type == BuildingType::None) ? cellSize * 0.30f : buildingFootprintXZ() * 0.5f);
-					const float frontageDepth = agricultureZone
-						? cellSize * (1.55f + static_cast<float>((salt >> 19) & 7u) * 0.11f)
-						: ((building.type == BuildingType::None)
-							? Clamp(projection.distance - structuralOuter + cellSize * 0.60f, cellSize * 0.64f, cellSize * 1.25f)
-							: Max(cellSize * 0.70f, projection.distance + buildingHalf + 3.0f - structuralOuter));
+					constexpr float kCellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+					const float buildingHalf = buildingFootprintXZ(building.type) * 0.5f;
 					const float frontOffset = structuralOuter + 0.03f;
-					const float backOffset = structuralOuter + frontageDepth;
-					const float halfAlong = agricultureZone
-						? cellSize * (0.66f + static_cast<float>((salt >> 27) & 7u) * 0.055f)
-						: Min(cellSize * 0.62f,
-							buildingHalf + 2.8f + static_cast<float>(((globalGX * 13 + globalGZ * 7) & 3)) * 0.45f);
-
+					const float backOffset = Max(structuralOuter + 29.0f, projection.distance + buildingHalf + 5.0f);
+					const float halfAlong = kCellSize * 0.49f;
+					const Vec2 along = projection.tangent;
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);
 					patch.sourceParcelKey = cellKey;
 					patch.type = parcelTypeFor(zone, building.type, salt);
-					patch.elevationOffset = 0.055f;
+					patch.elevationOffset = 0.010f;
 					patch.materialVariant = salt;
-					const Vec2 along = projection.tangent;
-					const float frontShift = (static_cast<float>((salt >> 11) & 15u) / 15.0f - 0.5f) * halfAlong * 0.16f;
-					const float backShift = (static_cast<float>((salt >> 17) & 15u) / 15.0f - 0.5f) * halfAlong * 0.20f;
-					const float sideBias = (static_cast<float>((salt >> 23) & 15u) / 15.0f - 0.5f) * 0.36f;
-					patch.polygon = Array<Vec2>{
-						projection.position - along * halfAlong + along * frontShift + frontageDir * frontOffset,
-						projection.position + along * (halfAlong * 0.18f + frontShift * 0.35f) + frontageDir * (frontOffset + (backOffset - frontOffset) * 0.08f),
-						projection.position + along * halfAlong * (0.88f + sideBias * 0.10f) + frontageDir * (frontOffset + (backOffset - frontOffset) * 0.18f),
-						projection.position + along * halfAlong * (0.96f - sideBias * 0.12f) + frontageDir * backOffset,
-						projection.position + along * backShift + frontageDir * (backOffset + (backOffset - frontOffset) * 0.04f),
-						projection.position - along * halfAlong * (0.92f + sideBias * 0.10f) + frontageDir * backOffset
+					patch.polygon = {
+						projection.position - along * halfAlong + frontageDir * frontOffset,
+						projection.position + along * halfAlong + frontageDir * frontOffset,
+						projection.position + along * halfAlong + frontageDir * backOffset,
+						projection.position - along * halfAlong + frontageDir * backOffset
 					};
-					chunk.landPatches << patch;
+					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon));
+					if (patch.polygon.size() >= 3) { chunk.landPatches << patch; }
 				}
 			}
 
@@ -2089,15 +2221,24 @@ void GameScene::generateLandPatches(bool preserveExisting)
 						continue;
 					}
 					averageHeight /= static_cast<float>(runLength);
-					const int stripWidth = Min(4, Max(1, runLength));
+					const int stripWidth = Min(18, Max(6, runLength));
+					int waterAbove = 0;
+					int waterBelow = 0;
+					for (int sx = x; sx < Min(ZONE_CELLS, x + stripWidth); ++sx)
+					{
+						if (y > 0 && chunk.heightMap[y - 1][sx] < -0.35f) ++waterAbove;
+						if (y + 1 < ZONE_CELLS && chunk.heightMap[y + 1][sx] < -0.35f) ++waterBelow;
+					}
+					const int landwardSign = (waterAbove >= waterBelow) ? 1 : -1;
 					const uint32 salt = settlementCellHash(getData().seed, 97, coord.x * ZONE_CELLS + x, coord.y * ZONE_CELLS + y);
 					if (averageHeight >= -0.18f && averageHeight < 3.20f)
 					{
 						LandPatch patch;
 						patch.id = static_cast<int>(patchIndex++);
 						patch.type = LandPatchType::Beach;
-						patch.polygon = makeCellPatchPolygon(coord, x, y, stripWidth, 1, salt);
-						patch.elevationOffset = Max(0.015f, 0.055f - averageHeight * 0.35f);
+						const int beachDepth = 3 + static_cast<int>((salt >> 6) & 3u);
+						patch.polygon = makeCoastalBandPolygon(coord, x, y, stripWidth, beachDepth, landwardSign, salt);
+						patch.elevationOffset = Max(0.010f, 0.035f - averageHeight * 0.24f);
 						patch.materialVariant = salt;
 						chunk.landPatches << patch;
 					}
@@ -2106,8 +2247,9 @@ void GameScene::generateLandPatches(bool preserveExisting)
 						LandPatch patch;
 						patch.id = static_cast<int>(patchIndex++);
 						patch.type = LandPatchType::Seawall;
-						patch.polygon = makeCellPatchPolygon(coord, x, y, stripWidth, 1, salt ^ 0x9E3779B9u);
-						patch.elevationOffset = 0.08f;
+						const int seawallDepth = 2 + static_cast<int>((salt >> 9) & 1u);
+						patch.polygon = makeCoastalBandPolygon(coord, x, y, stripWidth, seawallDepth, landwardSign, salt ^ 0x9E3779B9u);
+						patch.elevationOffset = 0.035f;
 						patch.materialVariant = salt;
 						chunk.landPatches << patch;
 					}
@@ -2184,6 +2326,7 @@ void GameScene::migrateLegacyBuildingFrontageReferences()
 }
 bool GameScene::validateGeneratedCityConstraints()
 {
+	const ParcelRoadIndex roadIndex{ m_network };
 	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
 	for (const auto& settlement : m_districts)
 	{
@@ -2200,6 +2343,7 @@ bool GameScene::validateGeneratedCityConstraints()
 	}
 
 	HashSet<int64> generatedParcelKeys;
+	HashTable<int, int> parcelFailures;
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
 		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
@@ -2212,11 +2356,16 @@ bool GameScene::validateGeneratedCityConstraints()
 					&& patch.sourceParcelKey >= 0)
 				{
 					generatedParcelKeys.insert(patch.sourceParcelKey);
+					++parcelFailures[static_cast<int>(Polygon::Validate(patch.polygon))];
 				}
 			}
 		}
 	}
 
+	for (const auto& [failure, count] : parcelFailures)
+	{
+		DebugLog::print(U"[ParcelValidation] failure={} count={}"_fmt(failure, count));
+	}
 	int buildingCount = 0;
 	int noFrontageCount = 0;
 	int missingEdgeCount = 0;
@@ -2250,6 +2399,10 @@ bool GameScene::validateGeneratedCityConstraints()
 					}
 
 					const Vec2 center = cellCenterXZ(chunkCoord, col, row) + Vec2{ building.offsetX, building.offsetZ };
+					if (roadIndex.overlaps(ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * 0.5, building.angle)))
+					{
+						++roadOverlapCount;
+					}
 					const float h = sampleHeightMap(chunk->heightMap, chunkCoord, static_cast<float>(center.x), static_cast<float>(center.y));
 					if (h < 1.55f)
 					{
@@ -2272,10 +2425,14 @@ bool GameScene::validateGeneratedCityConstraints()
 
 					const int globalGX = chunkX * ZONE_CELLS + col;
 					const int globalGZ = chunkY * ZONE_CELLS + row;
-					const float edgeHalfWidth = edge->totalWidth() * 0.5f;
-					const float buildingHalf = buildingFootprintXZ() * 0.5f;
-					const float minimumClearance = edgeHalfWidth + buildingHalf * 0.45f;
-					const float maximumFrontageDistance = edgeHalfWidth + buildingHalf + setbackFromRoadByModel(building.type, globalGX, globalGZ) + 8.0f;
+					const RoadGeometry::LateralRange structuralRange = RoadGeometry::structuralRangeAt(*edge, projection.edgeT);
+					const float signedLateral = static_cast<float>((center - projection.position).dot(projection.right));
+					const float roadOuter = structuralRange.valid
+						? ((signedLateral >= 0.0f) ? Max(0.0f, structuralRange.right) : Max(0.0f, -structuralRange.left))
+						: edge->totalWidth() * 0.5f;
+					const float buildingHalf = buildingFootprintXZ(building.type) * 0.5f;
+					const float minimumClearance = roadOuter + buildingHalf * 0.45f;
+					const float maximumFrontageDistance = roadOuter + buildingHalf + setbackFromRoadByModel(building.type, globalGX, globalGZ) + 8.0f;
 					if (projection.distance < minimumClearance)
 					{
 						++roadOverlapCount;
@@ -2288,7 +2445,7 @@ bool GameScene::validateGeneratedCityConstraints()
 						const Vec2 corner{ center.x + localCorner.x * cosA - localCorner.y * sinA, center.y + localCorner.x * sinA + localCorner.y * cosA };
 						EdgeProjection cornerProjection;
 						if (projectPointToEdgeXZ(m_network, building.edgeId, corner, cornerProjection)
-							&& cornerProjection.distance < edgeHalfWidth + 0.20f)
+							&& cornerProjection.distance < roadOuter + 0.20f)
 						{
 							++footprintInsideRoadCorners;
 						}
@@ -2305,11 +2462,13 @@ bool GameScene::validateGeneratedCityConstraints()
 			}
 		}
 	}
-	const bool passed = (noFrontageCount == 0 && missingEdgeCount == 0 && missingParcelCount == 0 && roadOverlapCount == 0
+	const bool parcelsValid = parcelFailures.size() == 1 && parcelFailures.contains(static_cast<int>(PolygonFailureType::OK));
+	const bool passed = (parcelsValid && noFrontageCount == 0 && missingEdgeCount == 0 && missingParcelCount == 0 && roadOverlapCount == 0
 		&& frontageDistanceCount == 0 && coastalBuildingCount == 0);
 	m_cityConstraintValidationSummary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
 		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
 	Logger << U"[CityConstraintValidation] " + m_cityConstraintValidationSummary;
+	DebugLog::print(U"[CityConstraintValidation] " + m_cityConstraintValidationSummary);
 	return passed;
 }
 void GameScene::refreshBuildingAnglesFromEdges()
@@ -2327,7 +2486,15 @@ void GameScene::refreshBuildingAnglesFromEdges()
 				if (b.type == BuildingType::None) continue;
 				if (b.edgeId < 0) continue;
 
-				const float newAngle = buildingAngleFromAttachedEdge(m_network, b.edgeId, b.edgeT, b.angle);
+				const Vec2 center = cellCenterXZ(chunk->coord, col, row) + Vec2{ b.offsetX, b.offsetZ };
+				EdgeProjection projection;
+				if (!projectPointToEdgeXZ(m_network, b.edgeId, center, projection))
+				{
+					continue;
+				}
+				const Vec2 inward = ((center - projection.position).dot(projection.right) >= 0.0)
+					? projection.right : -projection.right;
+				const float newAngle = static_cast<float>(Atan2(-inward.x, inward.y));
 				if (Math::Abs(newAngle - b.angle) <= 1e-4f) continue;
 				b.angle = newAngle;
 				chunkChanged = true;
@@ -2349,19 +2516,74 @@ void GameScene::refreshBuildingAnglesFromEdges()
 
 Vec3 GameScene::captureFocusPoint() const
 {
-	for (const auto& s : m_districts)
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	const int cellRadius = static_cast<int>(Ceil(360.0f / cellSize));
+	Vec2 bestCenter{ WORLD_SIZE * 0.5f, WORLD_SIZE * 0.5f };
+	double bestScore = -Math::Inf;
+
+	for (const auto& settlement : m_districts)
 	{
-		if (s.kind == MapGenerator::SettlementKind::CastleTown)
+		int buildingCount = 0;
+		int commercialCount = 0;
+		int arterialNodeCount = 0;
+		Point centerChunk;
+		int centerCol = 0;
+		int centerRow = 0;
+		worldToZoneCell(static_cast<float>(settlement.center.x), static_cast<float>(settlement.center.y), centerChunk, centerCol, centerRow);
+
+		for (int dz = -cellRadius; dz <= cellRadius; ++dz)
 		{
-			const float y = m_world.computeHeight(
-				static_cast<float>(s.center.x), static_cast<float>(s.center.y));
-			return Vec3{ s.center.x, y, s.center.y };
+			for (int dx = -cellRadius; dx <= cellRadius; ++dx)
+			{
+				int col = centerCol + dx;
+				int row = centerRow + dz;
+				Point chunkCoord = centerChunk;
+				while (col < 0) { col += ZONE_CELLS; --chunkCoord.x; }
+				while (col >= ZONE_CELLS) { col -= ZONE_CELLS; ++chunkCoord.x; }
+				while (row < 0) { row += ZONE_CELLS; --chunkCoord.y; }
+				while (row >= ZONE_CELLS) { row -= ZONE_CELLS; ++chunkCoord.y; }
+				const Chunk* chunk = m_world.getChunk(chunkCoord);
+				if (!chunk) continue;
+				const Building& building = chunk->buildingGrid[{ col, row }];
+				if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
+				++buildingCount;
+				if (building.type == BuildingType::Shop || building.type == BuildingType::Office || building.type == BuildingType::PublicFacility)
+				{
+					++commercialCount;
+				}
+			}
+		}
+
+		const double radiusSq = 720.0 * 720.0;
+		for (const auto& node : m_network.nodes())
+		{
+			if (node.id < 0) continue;
+			const double dx = node.position.x - settlement.center.x;
+			const double dz = node.position.z - settlement.center.y;
+			if (dx * dx + dz * dz > radiusSq) continue;
+			for (const EdgeAttachment& attachment : node.attachments)
+			{
+				const RoadEdge* edge = m_network.getEdge(attachment.edgeId);
+				if (edge && edge->roadType == RoadType::Arterial)
+				{
+					++arterialNodeCount;
+					break;
+				}
+			}
+		}
+
+		const double kindBonus = (settlement.kind == MapGenerator::SettlementKind::CastleTown) ? 50000.0
+			: (settlement.kind == MapGenerator::SettlementKind::PostTown) ? 28000.0 : 0.0;
+		const double score = buildingCount * 1200.0 + commercialCount * 2200.0 + arterialNodeCount * 800.0 + kindBonus;
+		if (score > bestScore)
+		{
+			bestScore = score;
+			bestCenter = settlement.center;
 		}
 	}
 
-	const float worldCenter = WORLD_SIZE * 0.5f;
-	const float y = m_world.computeHeight(worldCenter, worldCenter);
-	return Vec3{ worldCenter, y, worldCenter };
+	const float y = m_world.computeHeight(static_cast<float>(bestCenter.x), static_cast<float>(bestCenter.y));
+	return Vec3{ bestCenter.x, y, bestCenter.y };
 }
 
 
@@ -2422,7 +2644,7 @@ Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
 	double bestScore = -Math::Inf;
 	for (const auto& node : m_network.nodes())
 	{
-		if (node.id < 0 || node.attachments.size() < 2) continue;
+		if (node.id < 0 || node.attachments.size() < 3) continue;
 		const double fallbackDx = node.position.x - fallback.x;
 		const double fallbackDz = node.position.z - fallback.z;
 		const double fallbackDistSq = fallbackDx * fallbackDx + fallbackDz * fallbackDz;
@@ -2462,8 +2684,8 @@ Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
 		}
 
 		const double degreeBonus = Min<double>(static_cast<double>(node.attachments.size()), 4.0) * 9000.0;
-		const double score = buildingCount * 8500.0 + commercialCount * 6500.0 + parkingCount * 3200.0
-			+ arterialCount * 32000.0 + degreeBonus - fallbackDistSq * 0.035;
+		const double score = (buildingCount - commercialCount - parkingCount) * 14500.0 + commercialCount * 1200.0 + parkingCount * 800.0
+			+ arterialCount * 3000.0 + degreeBonus - fallbackDistSq * 0.035;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -2479,6 +2701,172 @@ Vec3 GameScene::captureStreetCornerPoint(Vec3 fallback) const
 	}
 	return fallback;
 }
+Vec3 GameScene::captureIntersectionPoint(Vec3 fallback, int variant) const
+{
+	if (getData().captureNode >= 0)
+	{
+		if (const auto* node = m_network.getNode(getData().captureNode)) { return node->position; }
+	}
+	if (getData().captureRoadRenders)
+	{
+		Array<std::pair<double, int>> candidates;
+		for (const auto& node : m_network.nodes())
+		{
+			if (node.id < 0 || node.attachments.size() < 3) { continue; }
+			int arterial = 0;
+			for (const auto& attachment : node.attachments)
+			{
+				const auto* edge = m_network.getEdge(attachment.edgeId);
+				if (edge && edge->length > 100.0f)
+				{
+					for (const auto& part : edge->parts)
+					{
+						if (part.type == RoadPartType::Sidewalk && part.build == BuildState::Built) { ++arterial; break; }
+					}
+				}
+			}
+			if (arterial < 2) { continue; }
+			const double score = node.position.distanceFromSq(fallback) + (node.attachments.size() == 3 ? 0.0 : 1e10);
+			candidates << std::pair<double, int>{ score, node.id };
+		}
+		candidates.sort_by([](const auto& a, const auto& b) { return a.first < b.first; });
+		if (!candidates.isEmpty())
+		{
+			const auto* node = m_network.getNode(candidates[Min(static_cast<size_t>(variant), candidates.size()-1)].second);
+			const double y = m_world.computeHeight(static_cast<float>(node->position.x), static_cast<float>(node->position.z));
+			if (variant == m_captureIndex / 2)
+			{
+				DebugLog::print(U"[RoadCapture] view={} node={} attachments={} position=({:.2f},{:.2f},{:.2f})"_fmt(m_captureIndex, node->id, node->attachments.size(), node->position.x, y, node->position.z));
+			}
+			return Vec3{ node->position.x, y, node->position.z };
+		}
+	}
+
+	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+	const float radius = 130.0f;
+	const float radiusSq = radius * radius;
+	const int cellRadius = static_cast<int>(Ceil(radius / cellSize));
+	struct CaptureIntersectionCandidate
+	{
+		int nodeId = -1;
+		double score = 0.0;
+	};
+	Array<CaptureIntersectionCandidate> candidates;
+	for (const auto& node : m_network.nodes())
+	{
+		if (node.id < 0 || node.attachments.size() < 3) continue;
+		const double fallbackDx = node.position.x - fallback.x;
+		const double fallbackDz = node.position.z - fallback.z;
+		const double fallbackDistSq = fallbackDx * fallbackDx + fallbackDz * fallbackDz;
+		if (fallbackDistSq > 2600.0 * 2600.0) continue;
+
+		int arterialCount = 0;
+		int localCount = 0;
+		for (const EdgeAttachment& attachment : node.attachments)
+		{
+			const RoadEdge* edge = m_network.getEdge(attachment.edgeId);
+			if (!edge) continue;
+			if (edge->roadType == RoadType::Arterial) ++arterialCount;
+			else if (edge->roadType == RoadType::LocalRoad) ++localCount;
+		}
+
+		int buildingCount = 0;
+		int commercialCount = 0;
+		for (int dz = -cellRadius; dz <= cellRadius; ++dz)
+		{
+			for (int dx = -cellRadius; dx <= cellRadius; ++dx)
+			{
+				const float wx = static_cast<float>(node.position.x) + dx * cellSize;
+				const float wz = static_cast<float>(node.position.z) + dz * cellSize;
+				Point cc;
+				int col = 0, row = 0;
+				worldToZoneCell(wx, wz, cc, col, row);
+				const Chunk* chunk = m_world.getChunk(cc);
+				if (!chunk) continue;
+				const Building& building = chunk->buildingGrid[{ col, row }];
+				if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
+				const Vec2 center = cellCenterXZ(cc, col, row) + Vec2{ building.offsetX, building.offsetZ };
+				const float bx = static_cast<float>(center.x - node.position.x);
+				const float bz = static_cast<float>(center.y - node.position.z);
+				if (bx * bx + bz * bz > radiusSq) continue;
+				++buildingCount;
+				if (building.type == BuildingType::Shop || building.type == BuildingType::Office
+					|| building.type == BuildingType::PublicFacility) ++commercialCount;
+			}
+		}
+
+		if (arterialCount <= 0) continue;
+		const double hierarchyBonus = (arterialCount > 0 && localCount > 0) ? 140000.0 : (arterialCount > 1 ? 90000.0 : 0.0);
+		const double degreeBonus = Min<double>(static_cast<double>(node.attachments.size()), 4.0) * 12000.0;
+		const double score = hierarchyBonus + arterialCount * 26000.0 + localCount * 9000.0
+			+ buildingCount * 6200.0 + commercialCount * 4200.0 + degreeBonus - fallbackDistSq * 0.020;
+		candidates << CaptureIntersectionCandidate{ node.id, score };
+	}
+	candidates.sort_by([](const CaptureIntersectionCandidate& a, const CaptureIntersectionCandidate& b)
+	{
+		return a.score > b.score;
+	});
+
+	Array<Vec2> accepted;
+	int acceptedIndex = 0;
+	for (const CaptureIntersectionCandidate& candidate : candidates)
+	{
+		const RoadNode* node = m_network.getNode(candidate.nodeId);
+		if (!node) continue;
+		const Vec2 pos{ node->position.x, node->position.z };
+		bool tooClose = false;
+		for (const Vec2& other : accepted)
+		{
+			if ((pos - other).lengthSq() < 150.0 * 150.0)
+			{
+				tooClose = true;
+				break;
+			}
+		}
+		if (tooClose) continue;
+		accepted << pos;
+		if (acceptedIndex == variant)
+		{
+			const float y = m_world.computeHeight(static_cast<float>(node->position.x), static_cast<float>(node->position.z));
+			return Vec3{ node->position.x, y, node->position.z };
+		}
+		++acceptedIndex;
+	}
+	return captureStreetCornerPoint(fallback);
+}
+
+Vec3 GameScene::captureCoastalBufferPoint(Vec3 fallback) const
+{
+	Vec3 best = fallback;
+	double bestScore = Math::Inf;
+	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+	{
+		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+		{
+			const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+			if (!chunk) continue;
+			for (const LandPatch& patch : chunk->landPatches)
+			{
+				if (patch.type != LandPatchType::Beach && patch.type != LandPatchType::Seawall) continue;
+				if (patch.polygon.isEmpty()) continue;
+				Vec2 center{ 0.0, 0.0 };
+				for (const Vec2& p : patch.polygon) center += p;
+				center /= static_cast<double>(patch.polygon.size());
+				const double dx = center.x - fallback.x;
+				const double dz = center.y - fallback.z;
+				const double distSq = dx * dx + dz * dz;
+				const double typeBonus = (patch.type == LandPatchType::Seawall) ? -220000.0 : 0.0;
+				const double score = distSq + typeBonus;
+				if (score < bestScore)
+				{
+					bestScore = score;
+					best = Vec3{ center.x, m_world.computeHeight(static_cast<float>(center.x), static_cast<float>(center.y)), center.y };
+				}
+			}
+		}
+	}
+	return best;
+}
 String GameScene::captureFileName(int index) const
 {
 	switch (index)
@@ -2487,16 +2875,74 @@ String GameScene::captureFileName(int index) const
 	case 1: return U"city_render_02_city.png";
 	case 2: return U"city_render_03_close.png";
 	case 3: return U"city_render_04_rural_fringe.png";
-	case 4: return U"city_render_05_intersection.png";
-	case 5: return U"city_render_06_street_corner.png";
+	case 4: return U"city_render_05_intersection_overview.png";
+	case 5: return U"city_render_06_intersection_zoom_a.png";
+	case 6: return U"city_render_07_intersection_zoom_b.png";
+	case 7: return U"city_render_08_intersection_zoom_c.png";
+	case 8: return U"city_render_09_intersection_zoom_d.png";
+	case 9: return U"city_render_10_intersection_topdown_a.png";
+	case 10: return U"city_render_11_intersection_topdown_b.png";
+	case 11: return U"city_render_12_intersection_zoom_e.png";
+	case 12: return U"city_render_13_intersection_zoom_f.png";
+	case 13: return U"city_render_14_intersection_marking_low_a.png";
+	case 14: return U"city_render_15_intersection_marking_low_b.png";
+	case 15: return U"city_render_16_intersection_marking_low_c.png";
+	case 16: return U"city_render_17_intersection_topdown_c.png";
+	case 17: return U"city_render_18_intersection_topdown_d.png";
+	case 18: return U"city_render_19_intersection_topdown_e.png";
+	case 19: return U"city_render_20_street_corner.png";
+	case 20: return U"city_render_21_coastal_buffer.png";
+	case 21: return U"city_render_22_rural_landuse.png";
+	case 22: return U"city_render_23_traffic.png";
+	case 23: return U"city_render_24_traffic_close.png";
+	case 24: return U"city_render_25_satoyama.png";
+	case 25: return U"city_render_26_provincial_town.png";
 	default: return U"city_render_done.png";
+	}
+}
+void GameScene::updateStreamingBenchmark()
+{
+	m_clock.speed = TimeSpeed::Paused;
+	m_clock.hour = 13.0f;
+	m_camera.setBlockInput(true);
+	if (!m_benchmarkOrigin) { m_benchmarkOrigin = captureFocusPoint(); }
+	const Vec3 origin = *m_benchmarkOrigin;
+	const int flightFrame = Max(0, m_captureFrame - 120);
+	Vec3 focus = origin + Vec3{flightFrame * 5.0, 0, Sin(flightFrame * 0.005) * 500.0};
+	focus.y = m_world.computeHeight(static_cast<float>(focus.x), static_cast<float>(focus.z));
+	m_camera.setCaptureState(focus, 650.0f, static_cast<float>(-45.0_deg), static_cast<float>(48.0_deg));
+	const Stopwatch timer{StartImmediately::Yes};
+	m_world.update(focus);
+	renderWorld();
+	if (m_captureFrame == 60 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
+	if (m_captureFrame >= 120)
+	{
+		const double cpuMs = timer.msF();
+		m_captureCpuTimes << cpuMs;
+		m_captureFrameTimes << Scene::DeltaTime() * 1000.0;
+		if (cpuMs > 40.0)
+		{
+			DebugLog::print(U"[FlightSpike] frame={} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f} hudMs={:.2f}"_fmt(
+				flightFrame, cpuMs, m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds(),m_renderTimings.uiRenderer));
+		}
+	}
+	if (++m_captureFrame >= 840)
+	{
+		TextWriter csv{U"streaming_frames.csv"};
+		csv.writeln(U"frame,cpuMs,frameMs");
+		for (size_t i = 0; i < m_captureCpuTimes.size(); ++i)
+		{
+			csv.writeln(U"{},{:.3f},{:.3f}"_fmt(i,m_captureCpuTimes[i],m_captureFrameTimes[i]));
+		}
+		DebugLog::print(U"[StreamingBenchmark] complete sync={} frames={}"_fmt(getData().syncTerrain,m_captureCpuTimes.size()));
+		System::Exit();
 	}
 }
 
 void GameScene::updateCaptureCityRenders()
 {
-	constexpr int kCaptureCount = 6;
-	constexpr int kWarmupFrames = 24;
+	const int kCaptureCount = getData().captureRoadRenders ? 6 : 26;
+	const int warmupFrames = m_captureIndex == 22 ? 240 : 80;
 
 	m_clock.speed = TimeSpeed::Paused;
 	m_clock.hour = 13.0f;
@@ -2504,49 +2950,272 @@ void GameScene::updateCaptureCityRenders()
 
 	if (m_captureCameraDirty)
 	{
+		if (getData().captureRoadRenders && m_captureIndex == 0)
+		{
+			int checked = 0, repaired = 0, missing = 0;
+			for (const auto& node : m_network.nodes())
+			{
+				if (node.id < 0 || node.attachments.size() < 2) { continue; }
+				bool needsCap = false;
+				int builtApproaches = 0;
+				for (const auto& attachment : node.attachments)
+				{
+					const auto* edge = m_network.getEdge(attachment.edgeId);
+					if (!edge || !edge->isRoadbedBuilt() || (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing)) { continue; }
+					++builtApproaches;
+					needsCap = needsCap || ((edge->nodeA == node.id ? edge->cutoffA : edge->cutoffB) > 0.15f);
+				}
+				if (builtApproaches < 2 || !needsCap) { continue; }
+				++checked;
+				const auto layout = JunctionGeometry::build(m_network,node.id);
+				repaired += layout.repaired;
+				if (layout.asphalt.indices.isEmpty()) { ++missing; DebugLog::print(U"[JunctionAudit] missing node={}"_fmt(node.id)); }
+			}
+			DebugLog::print(U"[JunctionAudit] checked={} repaired={} missing={}"_fmt(checked,repaired,missing));
+		}
 		const Vec3 focus = captureFocusPoint();
 		const Vec3 streetFocus = captureStreetCornerPoint(focus);
+		const Vec3 intersectionA = captureIntersectionPoint(focus, 0);
+		const Vec3 intersectionB = captureIntersectionPoint(focus, 1);
+		const Vec3 intersectionC = captureIntersectionPoint(focus, 2);
+		const Vec3 intersectionD = captureIntersectionPoint(focus, 3);
+		const Vec3 intersectionE = captureIntersectionPoint(focus, 4);
+		const Vec3 intersectionF = captureIntersectionPoint(focus, 5);
 		const Vec3 fringeFocus = captureRuralFringePoint(focus);
+		const Vec3 coastalFocus = captureCoastalBufferPoint(focus);
+		if (getData().captureRoadRenders)
+		{
+			const Vec3 roadFocus = captureIntersectionPoint(focus, m_captureIndex / 2);
+			const bool overhead = (m_captureIndex % 2) != 0;
+			m_camera.setCaptureState(roadFocus, overhead ? 165.0f : 125.0f,
+				static_cast<float>(-40.0_deg), overhead ? static_cast<float>(86.0_deg) : static_cast<float>(43.0_deg));
+		}
+		else
 		switch (m_captureIndex)
 		{
 		case 0:
-			m_camera.setCaptureState(focus, 2800.0f, static_cast<float>(-35.0_deg), static_cast<float>(63.0_deg));
+			m_camera.setCaptureState(focus, 1800.0f, static_cast<float>(-39.0_deg), static_cast<float>(58.0_deg));
 			break;
 		case 1:
-			m_camera.setCaptureState(focus + Vec3{ 180.0, 0.0, -80.0 }, 1450.0f, static_cast<float>(-42.0_deg), static_cast<float>(50.0_deg));
+			m_camera.setCaptureState(focus + Vec3{ 120.0, 0.0, -60.0 }, 820.0f, static_cast<float>(-45.0_deg), static_cast<float>(43.0_deg));
 			break;
 		case 2:
-			m_camera.setCaptureState(streetFocus + Vec3{ 54.0, 0.0, -42.0 }, 540.0f, static_cast<float>(-48.0_deg), static_cast<float>(38.0_deg));
+			m_camera.setCaptureState(streetFocus + Vec3{ 34.0, 0.0, -24.0 }, 230.0f, static_cast<float>(-50.0_deg), static_cast<float>(30.0_deg));
 			break;
 		case 3:
-			m_camera.setCaptureState(fringeFocus + Vec3{ 90.0, 0.0, -75.0 }, 960.0f, static_cast<float>(-45.0_deg), static_cast<float>(54.0_deg));
+			m_camera.setCaptureState(fringeFocus + Vec3{ 70.0, 0.0, -58.0 }, 680.0f, static_cast<float>(-45.0_deg), static_cast<float>(48.0_deg));
 			break;
 		case 4:
-			m_camera.setCaptureState(streetFocus, 260.0f, static_cast<float>(-50.0_deg), static_cast<float>(55.0_deg));
+			m_camera.setCaptureState(intersectionA + Vec3{ 24.0, 0.0, -18.0 }, 260.0f, static_cast<float>(-45.0_deg), static_cast<float>(48.0_deg));
 			break;
 		case 5:
-			m_camera.setCaptureState(streetFocus + Vec3{ 8.0, 0.0, -6.0 }, 150.0f, static_cast<float>(-58.0_deg), static_cast<float>(34.0_deg));
+			m_camera.setCaptureState(intersectionA + Vec3{ 18.0, 0.0, -14.0 }, 150.0f, static_cast<float>(-44.0_deg), static_cast<float>(42.0_deg));
+			break;
+		case 6:
+			m_camera.setCaptureState(intersectionB + Vec3{ -28.0, 0.0, 22.0 }, 170.0f, static_cast<float>(-32.0_deg), static_cast<float>(44.0_deg));
+			break;
+		case 7:
+			m_camera.setCaptureState(intersectionC + Vec3{ 28.0, 0.0, 18.0 }, 180.0f, static_cast<float>(-58.0_deg), static_cast<float>(42.0_deg));
+			break;
+		case 8:
+			m_camera.setCaptureState(intersectionD + Vec3{ -18.0, 0.0, -26.0 }, 135.0f, static_cast<float>(34.0_deg), static_cast<float>(40.0_deg));
+			break;
+		case 9:
+			m_camera.setCaptureState(intersectionA, 210.0f, static_cast<float>(0.0_deg), static_cast<float>(86.0_deg));
+			break;
+		case 10:
+			m_camera.setCaptureState(intersectionB, 230.0f, static_cast<float>(90.0_deg), static_cast<float>(84.0_deg));
+			break;
+		case 11:
+			m_camera.setCaptureState(intersectionE + Vec3{ 20.0, 0.0, 24.0 }, 140.0f, static_cast<float>(68.0_deg), static_cast<float>(43.0_deg));
+			break;
+		case 12:
+			m_camera.setCaptureState(intersectionF + Vec3{ -22.0, 0.0, -18.0 }, 125.0f, static_cast<float>(-118.0_deg), static_cast<float>(41.0_deg));
+			break;
+		case 13:
+			m_camera.setCaptureState(intersectionA + Vec3{ 9.0, 0.0, -7.0 }, 78.0f, static_cast<float>(-42.0_deg), static_cast<float>(31.0_deg));
+			break;
+		case 14:
+			m_camera.setCaptureState(intersectionB + Vec3{ -9.0, 0.0, 9.0 }, 82.0f, static_cast<float>(132.0_deg), static_cast<float>(32.0_deg));
+			break;
+		case 15:
+			m_camera.setCaptureState(intersectionC + Vec3{ 11.0, 0.0, 8.0 }, 86.0f, static_cast<float>(38.0_deg), static_cast<float>(33.0_deg));
+			break;
+		case 16:
+			m_camera.setCaptureState(intersectionC, 190.0f, static_cast<float>(180.0_deg), static_cast<float>(86.0_deg));
+			break;
+		case 17:
+			m_camera.setCaptureState(intersectionD, 185.0f, static_cast<float>(270.0_deg), static_cast<float>(86.0_deg));
+			break;
+		case 18:
+			m_camera.setCaptureState(intersectionE, 170.0f, static_cast<float>(45.0_deg), static_cast<float>(86.0_deg));
+			break;
+		case 19:
+			m_camera.setCaptureState(streetFocus + Vec3{ 26.0, 0.0, -20.0 }, 115.0f, static_cast<float>(27.0_deg), static_cast<float>(54.0_deg));
+			break;
+		case 20:
+			m_camera.setCaptureState(coastalFocus + Vec3{ 62.0, 0.0, -42.0 }, 260.0f, static_cast<float>(38.0_deg), static_cast<float>(43.0_deg));
+			break;
+		case 22:
+		{
+			m_camera.setCaptureState(streetFocus, 300.0f, static_cast<float>(-50.0_deg), static_cast<float>(40.0_deg));
+			Array<std::pair<double, int>> candidates;
+			for (const auto& edge : m_network.edges())
+			{
+				if (!edge.isRoadbedBuilt() || edge.length < 25 || !m_simGraph->getEdge(edge.id)) { continue; }
+				const auto bezier = m_network.getBezier(edge.id);
+				if (!bezier) { continue; }
+				const double distance = bezier->positionAt(bezier->totalLength * 0.5f).distanceFrom(streetFocus);
+				if (distance < 400) { candidates.emplace_back(distance, edge.id); }
+			}
+			candidates.sort();
+			Reseed(getData().seed);
+			for (size_t index = 0; index < Min(size_t{ 200 }, candidates.size()); ++index)
+			{
+				const VehicleType type = index % 3 == 0 ? VehicleType::KeiCar : VehicleType::PassengerCar;
+				m_vehicleManager.spawnOnEdge(candidates[index].second, *m_simGraph, type,
+					candidates[(index + candidates.size() / 2) % candidates.size()].second);
+			}
+			DebugLog::print(U"[TrafficCapture] spawned={} candidates={}"_fmt(m_vehicleManager.vehicles().size(), candidates.size()));
+			break;
+		}
+		case 23:
+		{
+			Vec3 trafficFocus = streetFocus;
+			double nearest = Math::Inf;
+			for (const Vehicle& vehicle : m_renderVehicles)
+			{
+				const double distance = vehicle.position.distanceFrom(streetFocus);
+				if (vehicle.speed > 1.0f && distance < nearest) { trafficFocus = vehicle.position; nearest = distance; }
+			}
+			m_camera.setCaptureState(trafficFocus, 70.0f, static_cast<float>(-38.0_deg), static_cast<float>(45.0_deg));
+			break;
+		}
+		case 24:
+		{
+			Vec3 woodland = fringeFocus;
+			double best = Math::Inf;
+			for (int z = 1; z < WORLD_CHUNKS; ++z) for (int x = 1; x < WORLD_CHUNKS; ++x)
+			{
+				const Chunk* chunk = m_world.getChunk(Point{x,z});
+				if (!chunk) { continue; }
+				for (int row = 8; row < ZONE_CELLS; row += 8) for (int col = 8; col < ZONE_CELLS; col += 8)
+				{
+					if (chunk->zoneMap[{col,row}] != ZoneType::Unzoned) { continue; }
+					const Vec3 point{x*CHUNK_SIZE+col*16.0,chunk->heightMap[{col,row}],z*CHUNK_SIZE+row*16.0};
+					if (point.y < 45 || point.y > 180) { continue; }
+					const double score = point.distanceFromSq(fringeFocus);
+					if (score < best) { woodland = point; best = score; }
+				}
+			}
+			m_camera.setCaptureState(woodland,1000.0f,static_cast<float>(-55.0_deg),static_cast<float>(36.0_deg));
+			DebugLog::print(U"[PhotoReferenceCapture] satoyama=({:.1f},{:.1f},{:.1f})"_fmt(woodland.x,woodland.y,woodland.z));
+			break;
+		}
+		case 25:
+		{
+			Vec3 provincial = fringeFocus;
+			for (const auto& settlement : m_districts)
+			{
+				if (settlement.kind != MapGenerator::SettlementKind::PostTown) { continue; }
+				provincial = Vec3{settlement.center.x,m_world.computeHeight(static_cast<float>(settlement.center.x),static_cast<float>(settlement.center.y)),settlement.center.y};
+				break;
+			}
+			m_camera.setCaptureState(provincial,300.0f,static_cast<float>(-40.0_deg),static_cast<float>(35.0_deg));
+			break;
+		}
+		case 21:
+			m_camera.setCaptureState(fringeFocus + Vec3{ -80.0, 0.0, 70.0 }, 520.0f, static_cast<float>(128.0_deg), static_cast<float>(50.0_deg));
 			break;
 		}
 		m_captureCameraDirty = false;
+		m_captureFrameTimes.clear();
+		m_captureCpuTimes.clear();
+		m_captureGpuTimes.clear();
 		m_captureFrame = 0;
 	}
 
 	m_world.update(m_camera.focusPoint());
+	if (m_captureIndex >= 22)
+	{
+		for (auto& response : m_simThread.drainResponses())
+		{
+			if (const auto* route = std::get_if<RouteResponse>(&response)) { m_vehicleManager.applyRouteResponse(*route); }
+		}
+		constexpr double kCaptureTimeStep = 1.0 / 60.0;
+		m_clock.now += kCaptureTimeStep;
+		m_vehicleManager.update(kCaptureTimeStep, m_clock.now, *m_simGraph, m_network, m_roadRenderer.visibleEdges());
+		for (auto& request : m_vehicleManager.collectRequests()) { m_simThread.pushRequest(std::move(request)); }
+	}
 	renderWorld();
+	if (m_captureIndex == 22 && m_captureFrame == 20)
+	{
+		for (const Vehicle& vehicle : m_renderVehicles) { m_captureVehicleStartPositions[vehicle.id] = vehicle.position; }
+	}
 
-	if (++m_captureFrame == kWarmupFrames)
+	if (m_captureFrame >= warmupFrames - 60 && m_captureFrame < warmupFrames)
+	{
+		m_captureFrameTimes << Scene::DeltaTime() * 1000.0;
+		m_captureCpuTimes << m_renderTimings.total;
+		if (m_gpuTimer.milliseconds() >= 0.0)
+		{
+			m_captureGpuTimes << m_gpuTimer.milliseconds();
+		}
+	}
+	// Only sample settled geometry; async terrain must finish before the final 60 frames.
+	if (m_captureFrame == warmupFrames - 61 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
+	if (++m_captureFrame == warmupFrames)
 	{
 		FileSystem::CreateDirectories(U"Screenshot/city_generation");
 		const String fileName = U"city_generation/" + captureFileName(m_captureIndex);
 		ScreenCapture::SaveCurrentFrame(fileName);
+		DebugLog::print(U"[CapturePerf] view={} frameMs={:.2f} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f}"_fmt(
+			m_captureIndex, Scene::DeltaTime() * 1000.0, m_renderTimings.total,
+			m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds()));
+		auto percentile = [](Array<double> values, double fraction)
+		{
+			if (values.isEmpty()) { return -1.0; }
+			values.sort();
+			return values[Min(values.size() - 1, static_cast<size_t>(fraction * (values.size() - 1)))];
+		};
+		DebugLog::print(U"[CaptureDistribution] view={} samples={} frameP50={:.2f} frameP95={:.2f} cpuP50={:.2f} gpuForwardP50={:.2f} gpuForwardP95={:.2f}"_fmt(
+			m_captureIndex, m_captureFrameTimes.size(), percentile(m_captureFrameTimes, 0.5),
+			percentile(m_captureFrameTimes, 0.95), percentile(m_captureCpuTimes, 0.5),
+			percentile(m_captureGpuTimes, 0.5), percentile(m_captureGpuTimes, 0.95)));
+		DebugLog::print(U"[BuildingVisibility] submitted={} considered={}"_fmt(
+			m_worldRenderer.buildingsSubmitted(), m_worldRenderer.buildingsConsidered()));
+		if (m_captureIndex >= 22)
+		{
+			int moving = 0;
+			double totalDistance = 0;
+			for (const Vehicle& vehicle : m_renderVehicles)
+			{
+				const auto start = m_captureVehicleStartPositions.find(vehicle.id);
+				if (start != m_captureVehicleStartPositions.end())
+				{
+					const double distance = vehicle.position.distanceFrom(start->second);
+					if (distance > 1) { ++moving; totalDistance += distance; }
+				}
+			}
+			DebugLog::print(U"[TrafficCapture] total={} active={} moved={} meanDistanceM={:.2f}"_fmt(
+				m_vehicleManager.vehicles().size(), m_renderVehicles.size(), moving, totalDistance / Max(1, moving)));
+		}
 		DebugLog::print(U"[CaptureCity] saved Screenshot/{}"_fmt(fileName));
 	}
-	else if (m_captureFrame > kWarmupFrames + 8)
+	else if (m_captureFrame > warmupFrames + 8)
 	{
 		++m_captureIndex;
 		if (m_captureIndex >= kCaptureCount)
 		{
+			{
+				TextWriter writer{ U"Screenshot/city_generation/validation_report.txt" };
+				if (writer)
+				{
+					writer << U"passed=" + String{ m_cityConstraintValidationPassed ? U"true" : U"false" };
+					writer << U"\n";
+					writer << m_cityConstraintValidationSummary;
+				}
+			}
 			if (!m_cityConstraintValidationPassed)
 			{
 				TextWriter writer{ U"Screenshot/city_generation/constraint_validation_failed.txt" };
@@ -2607,6 +3276,25 @@ void GameScene::update()
 		return;
 	}
 
+	if (getData().inspectNode >= 0)
+	{
+		if (const auto* node = m_network.getNode(getData().inspectNode))
+		{
+			Vec3 focus = node->position;
+			focus.y = m_world.computeHeight(static_cast<float>(focus.x),static_cast<float>(focus.z));
+			m_camera.setCaptureState(focus,125.0f,static_cast<float>(-40.0_deg),static_cast<float>(43.0_deg));
+			m_clock.speed = TimeSpeed::Paused;
+			m_clock.hour = 13.0f;
+			m_world.update(focus);
+		}
+		getData().inspectNode = -1;
+	}
+
+	if (getData().benchmarkStreaming)
+	{
+		updateStreamingBenchmark();
+		return;
+	}
 	if (getData().captureCityRenders)
 	{
 		updateCaptureCityRenders();

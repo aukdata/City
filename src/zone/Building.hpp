@@ -19,14 +19,23 @@ enum class BuildingType : uint8
 	Parking        = 11,  ///< 駐車場
 };
 
-/// @brief 建物占有幅 [m]（16m ゾーンセルに収まる初期生成用）
-/// @details 日本の細街区らしい接道密度を出すため、1 ゾーンセル内で庭・駐車余白が残る幅へ寄せる。
-inline constexpr float kBuildingFootprintXZ = 8.5f;
-
 /// @brief 建物占有幅 [m]
-inline float buildingFootprintXZ()
+inline float buildingFootprintXZ(BuildingType type = BuildingType::Detached)
 {
-	return kBuildingFootprintXZ;
+	switch (type)
+	{
+	case BuildingType::Detached: return 9.0f;
+	case BuildingType::LowApartment: return 10.5f;
+	case BuildingType::MidApartment:
+	case BuildingType::HighApartment:
+	case BuildingType::Office:
+	return 13.5f;
+	case BuildingType::Shop: return 12.0f;
+	case BuildingType::Factory: return 11.0f;
+	case BuildingType::PublicFacility: return 12.0f;
+	case BuildingType::Parking: return 14.0f;
+	default: return 10.0f;
+	}
 }
 
 /// @brief 住宅系建物かどうか
@@ -38,17 +47,21 @@ inline bool isResidentialBuildingType(BuildingType t)
 	    || t == BuildingType::HighApartment;
 }
 
-/// @brief 住宅タイプ + グローバルセル座標から OBJ インデックス（0..9）を返す
+/// @brief 住宅タイプ + グローバルセル座標から OBJ インデックス（0..17）を返す
 inline uint8 residentialModelIndex(BuildingType t, int gx, int gz)
 {
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
+	static constexpr uint8 kDetachedVariants[] = { 0, 1, 2, 3, 10, 11, 12, 13 };
+	static constexpr uint8 kLowApartmentVariants[] = { 4, 5, 14, 15 };
+	static constexpr uint8 kMidApartmentVariants[] = { 6, 7, 16 };
+	static constexpr uint8 kHighApartmentVariants[] = { 8, 9, 17 };
 	switch (t)
 	{
-	case BuildingType::Detached:      return static_cast<uint8>(h % 4);     // 001-004
-	case BuildingType::LowApartment:  return static_cast<uint8>(4 + h % 2); // 005-006
-	case BuildingType::MidApartment:  return static_cast<uint8>(6 + h % 2); // 007-008
-	case BuildingType::HighApartment: return static_cast<uint8>(8 + h % 2); // 009-010
+	case BuildingType::Detached:      return kDetachedVariants[h % std::size(kDetachedVariants)];
+	case BuildingType::LowApartment:  return kLowApartmentVariants[h % std::size(kLowApartmentVariants)];
+	case BuildingType::MidApartment:  return kMidApartmentVariants[h % std::size(kMidApartmentVariants)];
+	case BuildingType::HighApartment: return kHighApartmentVariants[h % std::size(kHighApartmentVariants)];
 	default:                          return 0;
 	}
 }
@@ -59,8 +72,27 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
 	if (isResidentialBuildingType(t)) return residentialModelIndex(t, gx, gz);
-	if (t == BuildingType::Shop) return static_cast<uint8>(h % 3u);
-	if (t == BuildingType::Office) return static_cast<uint8>(h % 2u);
+	constexpr uint32 kShopVariantCount = 10;
+	constexpr uint32 kFacilityVariantCount = 4;
+	if (t == BuildingType::Shop)
+	{
+		return static_cast<uint8>(h % kShopVariantCount);
+	}
+	if (t == BuildingType::PublicFacility)
+	{
+		constexpr uint32 kPublicVariantCount = 8;
+		return static_cast<uint8>(h % kPublicVariantCount);
+	}
+	if (t == BuildingType::Parking)
+	{
+		constexpr uint32 kParkingVariantCount = 2;
+		return static_cast<uint8>(h % kParkingVariantCount);
+	}
+	if (t == BuildingType::Office) { return static_cast<uint8>(h % 6u); }
+	if (t == BuildingType::Factory)
+	{
+		return static_cast<uint8>(h % kFacilityVariantCount);
+	}
 	return 0;
 }
 
@@ -69,7 +101,10 @@ inline bool isObjBuildingType(BuildingType t)
 {
 	return isResidentialBuildingType(t)
 	    || t == BuildingType::Shop
-	    || t == BuildingType::Office;
+	    || t == BuildingType::Office
+	    || t == BuildingType::PublicFacility
+	    || t == BuildingType::Factory
+	    || t == BuildingType::Parking;
 }
 
 /// @brief 建物タイプ + グローバルセル座標から OBJ ファイルの stem（拡張子なし）を返す
@@ -84,6 +119,21 @@ inline bool tryGetBuildingModelStem(BuildingType t, int gx, int gz, String& outS
 	if (t == BuildingType::Shop)
 	{
 		outStem = U"shop_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
+		return true;
+	}
+	if (t == BuildingType::Factory)
+	{
+		outStem = U"factory_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
+		return true;
+	}
+	if (t == BuildingType::PublicFacility)
+	{
+		outStem = U"public_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
+		return true;
+	}
+	if (t == BuildingType::Parking)
+	{
+		outStem = U"parking_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
 		return true;
 	}
 	if (t == BuildingType::Office)
