@@ -1,0 +1,15 @@
+{
+  "asset": "grey_plaster_02",
+  "authors": {
+    "Rob Tuytel": "All"
+  },
+  "source": "https://polyhaven.com/a/grey_plaster_02",
+  "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_plaster_02/grey_plaster_02_diff_1k.jpg",
+  "license": "CC0 1.0",
+  "license_url": "https://polyhaven.com/license",
+  "legal_text": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+  "retrieved": "2026-09-11",
+  "sha256": "c455b6513a37908480eedd59f697719649aca97d3c76525718a77d7d600e2d22",
+  "file": "App/assets/third_party/polyhaven/grey_plaster_02/grey_plaster_02_diff_1k.jpg",
+  "processing": "Original JPG unchanged; albedo tiled at metre scale and baked with geometry AO into per-building diffuse maps."
+}

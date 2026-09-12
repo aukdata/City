@@ -1,0 +1,114 @@
+[
+  {
+    "stem": "shop_001",
+    "title": "Neighborhood convenience store",
+    "triangles": 1090,
+    "materials": 1,
+    "bounds_min": [
+      -3.9,
+      0.0,
+      -3.4
+    ],
+    "bounds_max": [
+      3.9,
+      3.9,
+      3.4
+    ]
+  },
+  {
+    "stem": "shop_002",
+    "title": "Traditional rice shop",
+    "triangles": 1592,
+    "materials": 1,
+    "bounds_min": [
+      -3.45,
+      0.0,
+      -3.75
+    ],
+    "bounds_max": [
+      3.45,
+      3.8999999999999995,
+      3.75
+    ]
+  },
+  {
+    "stem": "shop_003",
+    "title": "Corner kissaten cafe",
+    "triangles": 882,
+    "materials": 1,
+    "bounds_min": [
+      -3.75,
+      0.0,
+      -3.4
+    ],
+    "bounds_max": [
+      3.75,
+      3.77,
+      3.4
+    ]
+  },
+  {
+    "stem": "factory_001",
+    "title": "Small metalworking factory",
+    "triangles": 768,
+    "materials": 1,
+    "bounds_min": [
+      -3.2199999999999998,
+      0.0,
+      -3.2350000000000003
+    ],
+    "bounds_max": [
+      3.2199999999999998,
+      5.72,
+      3.225
+    ]
+  },
+  {
+    "stem": "factory_002",
+    "title": "Local distribution depot",
+    "triangles": 818,
+    "materials": 1,
+    "bounds_min": [
+      -3.25,
+      0.0,
+      -3.2550000000000003
+    ],
+    "bounds_max": [
+      3.25,
+      4.92,
+      3.25
+    ]
+  },
+  {
+    "stem": "public_001",
+    "title": "Neighborhood clinic",
+    "triangles": 986,
+    "materials": 1,
+    "bounds_min": [
+      -3.25,
+      0.0,
+      -3.29
+    ],
+    "bounds_max": [
+      3.25,
+      6.8500000000000005,
+      3.25
+    ]
+  },
+  {
+    "stem": "public_002",
+    "title": "Volunteer fire station",
+    "triangles": 990,
+    "materials": 1,
+    "bounds_min": [
+      -3.25,
+      0.0,
+      -3.25
+    ],
+    "bounds_max": [
+      3.25,
+      9.0,
+      3.25
+    ]
+  }
+]

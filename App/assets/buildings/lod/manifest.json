@@ -1,0 +1,254 @@
+[
+  {
+    "model": "residential_001",
+    "sourceFaces": 18483,
+    "lodFaces": 8247,
+    "ratio": 0.4462
+  },
+  {
+    "model": "residential_002",
+    "sourceFaces": 11971,
+    "lodFaces": 2153,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_003",
+    "sourceFaces": 16293,
+    "lodFaces": 8155,
+    "ratio": 0.5005
+  },
+  {
+    "model": "residential_004",
+    "sourceFaces": 11057,
+    "lodFaces": 1989,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_005",
+    "sourceFaces": 15934,
+    "lodFaces": 2868,
+    "ratio": 0.18
+  },
+  {
+    "model": "residential_006",
+    "sourceFaces": 23920,
+    "lodFaces": 4304,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_007",
+    "sourceFaces": 15356,
+    "lodFaces": 2764,
+    "ratio": 0.18
+  },
+  {
+    "model": "residential_008",
+    "sourceFaces": 15356,
+    "lodFaces": 2764,
+    "ratio": 0.18
+  },
+  {
+    "model": "residential_009",
+    "sourceFaces": 30476,
+    "lodFaces": 5484,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_010",
+    "sourceFaces": 30476,
+    "lodFaces": 5484,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_011",
+    "sourceFaces": 18483,
+    "lodFaces": 8265,
+    "ratio": 0.4472
+  },
+  {
+    "model": "residential_012",
+    "sourceFaces": 11971,
+    "lodFaces": 2153,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_013",
+    "sourceFaces": 16293,
+    "lodFaces": 8173,
+    "ratio": 0.5016
+  },
+  {
+    "model": "residential_014",
+    "sourceFaces": 11057,
+    "lodFaces": 1989,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_015",
+    "sourceFaces": 15934,
+    "lodFaces": 2868,
+    "ratio": 0.18
+  },
+  {
+    "model": "residential_016",
+    "sourceFaces": 23920,
+    "lodFaces": 4304,
+    "ratio": 0.1799
+  },
+  {
+    "model": "residential_017",
+    "sourceFaces": 15356,
+    "lodFaces": 2764,
+    "ratio": 0.18
+  },
+  {
+    "model": "residential_018",
+    "sourceFaces": 30476,
+    "lodFaces": 5484,
+    "ratio": 0.1799
+  },
+  {
+    "model": "shop_001",
+    "sourceFaces": 3812,
+    "lodFaces": 686,
+    "ratio": 0.18
+  },
+  {
+    "model": "shop_002",
+    "sourceFaces": 5477,
+    "lodFaces": 985,
+    "ratio": 0.1798
+  },
+  {
+    "model": "shop_003",
+    "sourceFaces": 2846,
+    "lodFaces": 524,
+    "ratio": 0.1841
+  },
+  {
+    "model": "shop_004",
+    "sourceFaces": 3405,
+    "lodFaces": 611,
+    "ratio": 0.1794
+  },
+  {
+    "model": "shop_005",
+    "sourceFaces": 3637,
+    "lodFaces": 653,
+    "ratio": 0.1795
+  },
+  {
+    "model": "shop_006",
+    "sourceFaces": 3399,
+    "lodFaces": 611,
+    "ratio": 0.1798
+  },
+  {
+    "model": "office_001",
+    "sourceFaces": 23910,
+    "lodFaces": 4302,
+    "ratio": 0.1799
+  },
+  {
+    "model": "office_002",
+    "sourceFaces": 23910,
+    "lodFaces": 4302,
+    "ratio": 0.1799
+  },
+  {
+    "model": "office_003",
+    "sourceFaces": 23910,
+    "lodFaces": 4302,
+    "ratio": 0.1799
+  },
+  {
+    "model": "office_004",
+    "sourceFaces": 23910,
+    "lodFaces": 4302,
+    "ratio": 0.1799
+  },
+  {
+    "model": "factory_001",
+    "sourceFaces": 2595,
+    "lodFaces": 467,
+    "ratio": 0.18
+  },
+  {
+    "model": "factory_002",
+    "sourceFaces": 2884,
+    "lodFaces": 518,
+    "ratio": 0.1796
+  },
+  {
+    "model": "factory_003",
+    "sourceFaces": 2994,
+    "lodFaces": 538,
+    "ratio": 0.1797
+  },
+  {
+    "model": "factory_004",
+    "sourceFaces": 2872,
+    "lodFaces": 516,
+    "ratio": 0.1797
+  },
+  {
+    "model": "public_001",
+    "sourceFaces": 3452,
+    "lodFaces": 620,
+    "ratio": 0.1796
+  },
+  {
+    "model": "public_002",
+    "sourceFaces": 3433,
+    "lodFaces": 617,
+    "ratio": 0.1797
+  },
+  {
+    "model": "public_003",
+    "sourceFaces": 6450,
+    "lodFaces": 1160,
+    "ratio": 0.1798
+  },
+  {
+    "model": "public_004",
+    "sourceFaces": 6309,
+    "lodFaces": 1135,
+    "ratio": 0.1799
+  },
+  {
+    "model": "public_005",
+    "sourceFaces": 12085,
+    "lodFaces": 2175,
+    "ratio": 0.18
+  },
+  {
+    "model": "public_006",
+    "sourceFaces": 7425,
+    "lodFaces": 1335,
+    "ratio": 0.1798
+  },
+  {
+    "model": "public_007",
+    "sourceFaces": 9312,
+    "lodFaces": 1676,
+    "ratio": 0.18
+  },
+  {
+    "model": "public_008",
+    "sourceFaces": 15480,
+    "lodFaces": 2786,
+    "ratio": 0.18
+  },
+  {
+    "model": "parking_001",
+    "sourceFaces": 4507,
+    "lodFaces": 811,
+    "ratio": 0.1799
+  },
+  {
+    "model": "parking_002",
+    "sourceFaces": 5786,
+    "lodFaces": 1040,
+    "ratio": 0.1797
+  }
+]

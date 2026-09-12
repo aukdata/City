@@ -1,89 +1,12 @@
-newmtl Awning
-Ka 0.14 0.14 0.14
-Kd 0.36 0.14 0.12
-Ks 0.04 0.04 0.04
-Ns 12
+# Blender 4.5.0 MTL File: 'None'
+# www.blender.org
 
-newmtl CarDark
-Ka 0.14 0.14 0.14
-Kd 0.18 0.2 0.23
-Ks 0.16 0.16 0.16
-Ns 32
-
-newmtl CarLight
-Ka 0.14 0.14 0.14
-Kd 0.66 0.67 0.65
-Ks 0.16 0.16 0.16
-Ns 32
-
-newmtl Concrete
-Ka 0.14 0.14 0.14
-Kd 0.5 0.49 0.46
-Ks 0.05 0.05 0.05
-Ns 14
-
-newmtl Glass
-Ka 0.14 0.14 0.14
-Kd 0.18 0.25 0.28
-Ks 0.18 0.18 0.18
-Ns 36
-
-newmtl Green
-Ka 0.14 0.14 0.14
-Kd 0.22 0.34 0.2
-Ks 0.03 0.03 0.03
-Ns 8
-
-newmtl RoofBlue
-Ka 0.14 0.14 0.14
-Kd 0.19 0.27 0.32
-Ks 0.06 0.06 0.06
-Ns 18
-
-newmtl RoofDark
-Ka 0.14 0.14 0.14
-Kd 0.16 0.17 0.18
-Ks 0.06 0.06 0.06
-Ns 18
-
-newmtl RoofMetal
-Ka 0.14 0.14 0.14
-Kd 0.48 0.49 0.46
-Ks 0.1 0.1 0.1
-Ns 24
-
-newmtl RoofTile
-Ka 0.14 0.14 0.14
-Kd 0.36 0.18 0.14
-Ks 0.05 0.05 0.05
-Ns 14
-
-newmtl Soil
-Ka 0.14 0.14 0.14
-Kd 0.42 0.34 0.24
-Ks 0.02 0.02 0.02
-Ns 8
-
-newmtl WallA
-Ka 0.14 0.14 0.14
-Kd 0.7 0.68 0.61
-Ks 0.04 0.04 0.04
-Ns 14
-
-newmtl WallB
-Ka 0.14 0.14 0.14
-Kd 0.6 0.63 0.62
-Ks 0.04 0.04 0.04
-Ns 14
-
-newmtl WallC
-Ka 0.14 0.14 0.14
-Kd 0.5 0.45 0.39
-Ks 0.04 0.04 0.04
-Ns 14
-
-newmtl WallD
-Ka 0.14 0.14 0.14
-Kd 0.76 0.75 0.7
-Ks 0.04 0.04 0.04
-Ns 14
+newmtl residential_017_baked
+Ns 108.899986
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd residential_017_diffuse.png

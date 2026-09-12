@@ -1,0 +1,3 @@
+# Metres. Front = -Z. See MODEL_CATALOG.md
+setback_from_road_m = 1.8
+scale = 1.0

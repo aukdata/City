@@ -1,0 +1,15 @@
+{
+  "asset": "wood_planks_grey",
+  "authors": {
+    "Rob Tuytel": "All"
+  },
+  "source": "https://polyhaven.com/a/wood_planks_grey",
+  "download": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_diff_1k.jpg",
+  "license": "CC0 1.0",
+  "license_url": "https://polyhaven.com/license",
+  "legal_text": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+  "retrieved": "2026-09-11",
+  "sha256": "d758be23e8fe7bfbd73bc4ab257cfd59406e1835f6557c12a67cd4fdb15de0d8",
+  "file": "App/assets/third_party/polyhaven/wood_planks_grey/wood_planks_grey_diff_1k.jpg",
+  "processing": "Original JPG unchanged; albedo tiled at metre scale and baked with geometry AO into per-building diffuse maps."
+}
