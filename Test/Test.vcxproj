@@ -118,6 +118,10 @@
     <ClCompile Include="BezierBuildingFrontageTests.cpp" />
     <ClCompile Include="BuildingAssetTests.cpp" />
     <ClCompile Include="CityGenerationTests.cpp" />
+    <ClCompile Include="RoadPlanUxTests.cpp" />
+    <ClCompile Include="..\src\road\RoadPlanDraft.cpp" />
+    <ClCompile Include="..\src\gen\RoadAutoPlace.cpp" />
+    <ClCompile Include="..\src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="..\src\gameplay\CitySimulation.cpp" />
     <ClCompile Include="..\src\render\CityLighting.cpp" />
     <ClCompile Include="..\src\render\VehicleRenderer.cpp" />

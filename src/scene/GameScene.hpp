@@ -36,6 +36,8 @@
 #include "GuideSignEditor.hpp"
 #include "../road/RoadPreset.hpp"
 #include "../gen/RoadAutoPlace.hpp"
+#include "../road/RoadPlanDraft.hpp"
+#include "../ui/RoadPlanToolbar.hpp"
 
 /// @brief ゲームプレイシーン
 class GameScene : public App::Scene
@@ -151,15 +153,21 @@ private:
 
 	struct DraftRoadPlan
 	{
-		Array<Vec3> anchorPoints;
-		Array<int> edgeIds;
+		RoadPlanDraft editor;
 		TextEditState nameEdit;
 		TextEditState routeNameEdit;
 		Optional<int> routeId;
 		bool appendToExistingRoute = false;
-		bool viaPlacementMode = false;
+		bool replaceEnd = false;
+		bool followTerrain = false;
+		bool snapping = true;
+		int preset = 0;
+		String message;
+		bool error = false;
 	};
 	DraftRoadPlan m_draftRoadPlan;
+	RoadPlanSnapIndex m_roadPlanSnapIndex;
+	Optional<RoadPlanSnapIndex::Hit> m_roadPlanCursor;
 	Optional<int> m_selectedRoadPlanId;
 
 	// ゾーン塗り
@@ -472,10 +480,11 @@ private:
 	void renderEdgeHandles();
 	void handleRoadDraw();
 	void handleRoadPlan();
+	void updateRoadPlanReview();
 	/// @brief スタート/ゴール指定モードの経路探索・敷設を実行する
 	void invokeAutoPlace(Vec3 start, Vec3 goal);
 	bool rebuildDraftRoadPlan();
-	void clearDraftRoadPlan(bool removeEdges);
+	void clearDraftRoadPlan();
 	bool commitDraftRoadPlan();
 	Array<Vec3> draftRoadPlanViaPoints() const;
 	void handleZonePaint();

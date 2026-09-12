@@ -1,0 +1,192 @@
+﻿{
+  "total": 26,
+  "passed": 25,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Bezier.BuildingFrontageUsesClosestPoint",
+      "status": "passed",
+      "durationMs": 0.010,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.RoundTrip",
+      "status": "passed",
+      "durationMs": 4.562,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.UnsupportedVersionRejected",
+      "status": "passed",
+      "durationMs": 3.591,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.CorruptionRejected",
+      "status": "passed",
+      "durationMs": 3.146,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.WriterFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 3.883,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.VerificationFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 3.535,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadAssets.CurbFacesSurviveWhitespace",
+      "status": "passed",
+      "durationMs": 0.295,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Buildings.RealisticAssetsLoad",
+      "status": "passed",
+      "durationMs": 686.661,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Buildings.AllVariantsReachable",
+      "status": "passed",
+      "durationMs": 719.290,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Assets.CivicTransportLoad",
+      "status": "passed",
+      "durationMs": 483.148,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadNetwork.ShortConnectorPreservesTangents",
+      "status": "passed",
+      "durationMs": 0.078,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Hud.HousingCapacityIncrementalUpdates",
+      "status": "passed",
+      "durationMs": 337.827,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadRendering.SlopedArterialJunctions",
+      "status": "passed",
+      "durationMs": 12626.674,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Generation.CastleTownConnectivityAndTerrain",
+      "status": "passed",
+      "durationMs": 6750.105,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.ShadowsAndMaterialReadback",
+      "status": "passed",
+      "durationMs": 205.669,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Parcels.BothRoadSidesAndSharedBoundary",
+      "status": "passed",
+      "durationMs": 262.411,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.MovingVehicleShadowClearsWithoutStaticRebuild",
+      "status": "passed",
+      "durationMs": 92.612,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Parcels.RotatedAndOffsetFootprints",
+      "status": "passed",
+      "durationMs": 0.003,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.HeightMatchesRenderedTriangles",
+      "status": "passed",
+      "durationMs": 0.004,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.GenerationHeightDiagnostics",
+      "status": "passed",
+      "durationMs": 22.545,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ContinuousPlacementUndoRedo",
+      "status": "passed",
+      "durationMs": 0.018,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ShortRoadAndTransactionalFailure",
+      "status": "passed",
+      "durationMs": 0.029,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.SnapLongEdgeAndHeight",
+      "status": "passed",
+      "durationMs": 1.362,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.JoinPreservesExistingRouteAndPlan",
+      "status": "failed",
+      "durationMs": 0.085,
+      "failures": [
+        "Connecting a branch preserves the original route and ordered split segments",
+        "Connecting a branch preserves the existing construction plan",
+        "Connection does not shorten the original plan (actual=200, expected=300, tolerance=0.1)"
+      ]
+    },
+    {
+      "name": "RoadPlan.HierarchyPresets",
+      "status": "passed",
+      "durationMs": 0.004,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ToolbarVisualReview",
+      "status": "passed",
+      "durationMs": 156.105,
+      "failures": [
+      ]
+    }
+  ]
+}

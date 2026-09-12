@@ -20,12 +20,14 @@ namespace RoadAutoPlace
 		const World& world,
 		Vec3 startWorld, Vec3 goalWorld,
 		const Array<int>& routeIds,
-		const RoadEdge& templateEdge);
+		const RoadEdge& templateEdge,
+		bool followTerrain = true, float connectionRadius = 20.0f);
 
 	/// @brief 複数のアンカーポイントを順に結ぶ仮計画エッジを生成する。
 	Array<int> buildPreviewPlan(
 		RoadNetwork& roads,
 		const World& world,
 		const Array<Vec3>& anchorPoints,
-		const RoadEdge& templateEdge);
+		const RoadEdge& templateEdge,
+		bool followTerrain = true, float connectionRadius = 20.0f);
 }

@@ -65,10 +65,7 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"route_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 
 	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
-	m_drawTemplate.roadType   = RoadType::LocalRoad;
-	m_drawTemplate.speedLimit = 60.0f;
-	m_drawTemplate.lanes      = RoadNetwork::buildDefaultLanes(2, RoadType::LocalRoad);
-	RoadNetwork::buildDefaultParts(m_drawTemplate);
+	m_drawTemplate = RoadPlanDraft::makeRoadTemplate(0);
 
 	m_roadPresets.load();
 
@@ -3290,6 +3287,12 @@ void GameScene::update()
 		getData().inspectNode = -1;
 	}
 
+	if (getData().captureRoadPlanUx)
+	{
+		updateRoadPlanReview();
+		return;
+	}
+
 	if (getData().benchmarkStreaming)
 	{
 		updateStreamingBenchmark();
@@ -3398,8 +3401,8 @@ void GameScene::update()
 		m_trackingVehicle = false;
 	}
 
-	handleInput();
 	updateCursor();
+	handleInput();
 	m_debugRenderer.handleInput();
 
 	renderWorld();

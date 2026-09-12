@@ -715,6 +715,63 @@ void GameScene::renderVehicles()
 
 void GameScene::renderEditModeOverlays()
 {
+	if (m_mode == EditMode::RoadPlan && m_panelManager.isVisible(U"draw_template"))
+	{
+		const auto& draft = m_draftRoadPlan.editor;
+		const ColorF cyan = ColorF{0.22,0.85,1.0}.removeSRGBCurve();
+		const auto raised = [&](Vec3 p)
+		{
+			p.y = Max(p.y,static_cast<double>(m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))))+kRoadSurfaceLift+0.35;
+			return p;
+		};
+		const double halfWidth = m_drawTemplate.totalWidth()*0.5;
+		for (const auto& edge : draft.preview().edges())
+		{
+			if (edge.id < 0) { continue; }
+			const auto curve = draft.preview().getBezier(edge.id);
+			if (!curve) { continue; }
+			const int samples = Clamp(static_cast<int>(Ceil(curve->totalLength/8.0)),2,256);
+			Vec3 left, right, center;
+			for (int i=0;i<=samples;++i)
+			{
+				const float arc=curve->totalLength*i/samples;
+				const Vec3 p=raised(curve->positionAt(arc));
+				const Vec3 side=tangentToRight(curve->tangentAt(arc))*halfWidth;
+				if (i>0)
+				{
+					Line3D{left,p-side}.draw(cyan);
+					Line3D{right,p+side}.draw(cyan);
+					if (i%2) { Line3D{center,p}.draw(cyan); }
+				}
+				left=p-side; right=p+side; center=p;
+			}
+		}
+		for (size_t i=0;i<draft.points().size();++i)
+		{
+			Sphere{raised(draft.points()[i]),1.5}.draw(i == 0 ? ColorF{0.25,1.0,0.55}.removeSRGBCurve() : cyan);
+		}
+		if (m_roadPlanCursor)
+		{
+			const Vec3 to=raised(m_roadPlanCursor->position);
+			const ColorF guideColor = m_roadPlanCursor->connected ? ColorF{0.3,1.0,0.5}.removeSRGBCurve() : ColorF{0.95}.removeSRGBCurve();
+			Sphere{to,1.7}.draw(guideColor);
+			if (!draft.points().isEmpty())
+			{
+				const auto& points=draft.points();
+				const Vec3 from=raised(points[m_draftRoadPlan.replaceEnd && points.size()>=2 ? points.size()-2 : points.size()-1]);
+				const Vec3 side=tangentToRight(to-from)*halfWidth;
+				const int samples=Clamp(static_cast<int>(Ceil(from.distanceFrom(to)/8.0)),2,128);
+				for (int i=0;i<samples;i+=2)
+				{
+					const Vec3 a=raised(from+(to-from)*(static_cast<double>(i)/samples));
+					const Vec3 b=raised(from+(to-from)*(static_cast<double>(i+1)/samples));
+					Line3D{a-side,b-side}.draw(guideColor);
+					Line3D{a+side,b+side}.draw(guideColor);
+				}
+			}
+		}
+	}
+
 	if (m_mode == EditMode::TrainDraw && m_cursorGroundPos)
 		Sphere{ *m_cursorGroundPos, 6.0f }.draw(ColorF{ 0.9, 0.85, 0.2, 0.8 }.removeSRGBCurve());
 
@@ -920,6 +977,24 @@ void GameScene::render2DUI()
 	// 選択中エッジの 3D 編集ハンドル（パネルより後ろに描画）
 	renderEdgeHandles();
 	lap(m_renderTimings.uiEdgeHandles);
+
+	if (m_mode == EditMode::RoadPlan && m_roadPlanCursor && m_panelManager.isVisible(U"draw_template"))
+	{
+		const Font font=FontAsset(Asset::Panel14);
+		String label=m_roadPlanCursor->connected ? (m_roadPlanCursor->node ? U"交差点・端点に接続" : U"道路の途中に接続") : U"クリックで配置";
+		const auto& points=m_draftRoadPlan.editor.points();
+		if (!points.isEmpty())
+		{
+			const Vec3 from=points[m_draftRoadPlan.replaceEnd && points.size()>=2 ? points.size()-2 : points.size()-1];
+			label += U"  {:.0f}m"_fmt(from.distanceFrom(m_roadPlanCursor->position));
+		}
+		const String detail=m_draftRoadPlan.followTerrain ? U"直線距離のガイド / 経路はクリック後に計算" : U"白い点線: 次の区間 / 水色: 現在の計画";
+		const double width=Max(font(label).region().w,font(detail).region().w)+16;
+		const Vec2 position{Clamp(Cursor::PosF().x+20,8.0,Max(8.0,Scene::Width()-width-8)),Clamp(Cursor::PosF().y+22,8.0,Max(8.0,Scene::Height()-60.0))};
+		RectF{position,width,48}.draw(ColorF{0.06,0.09,0.12,0.95});
+		font(label).draw(position+Vec2{8,4},m_roadPlanCursor->connected ? ColorF{0.5,1.0,0.65} : ColorF{0.95});
+		font(detail).draw(position+Vec2{8,25},ColorF{0.7});
+	}
 
 	// パネル（ミニマップより上）— zOrder 昇順で背景+コンテンツを描画
 	for (const auto& panelId : m_panelManager.sortedPanelIds())

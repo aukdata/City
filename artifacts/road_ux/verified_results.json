@@ -1,0 +1,180 @@
+{
+  "tests": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "tests": [
+      {
+        "name": "Bezier.BuildingFrontageUsesClosestPoint",
+        "status": "passed",
+        "durationMs": 0.01,
+        "failures": []
+      },
+      {
+        "name": "SaveTransaction.RoundTrip",
+        "status": "passed",
+        "durationMs": 4.67,
+        "failures": []
+      },
+      {
+        "name": "SaveTransaction.UnsupportedVersionRejected",
+        "status": "passed",
+        "durationMs": 3.03,
+        "failures": []
+      },
+      {
+        "name": "SaveTransaction.CorruptionRejected",
+        "status": "passed",
+        "durationMs": 2.281,
+        "failures": []
+      },
+      {
+        "name": "SaveTransaction.WriterFailurePreservesExistingSave",
+        "status": "passed",
+        "durationMs": 3.513,
+        "failures": []
+      },
+      {
+        "name": "SaveTransaction.VerificationFailurePreservesExistingSave",
+        "status": "passed",
+        "durationMs": 3.673,
+        "failures": []
+      },
+      {
+        "name": "RoadAssets.CurbFacesSurviveWhitespace",
+        "status": "passed",
+        "durationMs": 0.3,
+        "failures": []
+      },
+      {
+        "name": "Buildings.RealisticAssetsLoad",
+        "status": "passed",
+        "durationMs": 702.359,
+        "failures": []
+      },
+      {
+        "name": "Buildings.AllVariantsReachable",
+        "status": "passed",
+        "durationMs": 1009.167,
+        "failures": []
+      },
+      {
+        "name": "Assets.CivicTransportLoad",
+        "status": "passed",
+        "durationMs": 481.497,
+        "failures": []
+      },
+      {
+        "name": "RoadNetwork.ShortConnectorPreservesTangents",
+        "status": "passed",
+        "durationMs": 0.09,
+        "failures": []
+      },
+      {
+        "name": "Hud.HousingCapacityIncrementalUpdates",
+        "status": "passed",
+        "durationMs": 417.381,
+        "failures": []
+      },
+      {
+        "name": "RoadRendering.SlopedArterialJunctions",
+        "status": "passed",
+        "durationMs": 12785.55,
+        "failures": []
+      },
+      {
+        "name": "Generation.CastleTownConnectivityAndTerrain",
+        "status": "passed",
+        "durationMs": 6998.258,
+        "failures": []
+      },
+      {
+        "name": "CityLighting.ShadowsAndMaterialReadback",
+        "status": "passed",
+        "durationMs": 222.018,
+        "failures": []
+      },
+      {
+        "name": "Parcels.BothRoadSidesAndSharedBoundary",
+        "status": "passed",
+        "durationMs": 294.687,
+        "failures": []
+      },
+      {
+        "name": "CityLighting.MovingVehicleShadowClearsWithoutStaticRebuild",
+        "status": "passed",
+        "durationMs": 92.5,
+        "failures": []
+      },
+      {
+        "name": "Parcels.RotatedAndOffsetFootprints",
+        "status": "passed",
+        "durationMs": 0.004,
+        "failures": []
+      },
+      {
+        "name": "Terrain.HeightMatchesRenderedTriangles",
+        "status": "passed",
+        "durationMs": 0.007,
+        "failures": []
+      },
+      {
+        "name": "Terrain.GenerationHeightDiagnostics",
+        "status": "passed",
+        "durationMs": 26.881,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.ContinuousPlacementUndoRedo",
+        "status": "passed",
+        "durationMs": 0.265,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.ShortRoadAndTransactionalFailure",
+        "status": "passed",
+        "durationMs": 0.142,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.SnapLongEdgeAndHeight",
+        "status": "passed",
+        "durationMs": 1.43,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.JoinPreservesExistingRouteAndPlan",
+        "status": "passed",
+        "durationMs": 0.117,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.HierarchyPresets",
+        "status": "passed",
+        "durationMs": 0.004,
+        "failures": []
+      },
+      {
+        "name": "RoadPlan.ToolbarVisualReview",
+        "status": "passed",
+        "durationMs": 171.331,
+        "failures": []
+      }
+    ]
+  },
+  "game": {
+    "lengthMatches": true,
+    "previewLength": 104.9996337890625,
+    "saved": true,
+    "savedLength": 104.9996337890625
+  },
+  "timings": [
+    "[18.8481s] [RoadPlan] preview points=2 valid=true length=45.0 elapsedMs=0.027",
+    "[19.737s] [RoadPlan] preview points=3 valid=true length=105.0 elapsedMs=0.127",
+    "[20.4896s] [RoadPlan] preview points=2 valid=true length=45.0 elapsedMs=0.036",
+    "[21.2191s] [RoadPlan] preview points=3 valid=true length=105.0 elapsedMs=0.046",
+    "[21.9279s] [NetworkChange] path=generic terrain=0.69ms simGraph=62.36ms minimap=3.95ms simThread=0.00ms vehicle=5.35ms dirtyNodes=8 movedNode=-1",
+    "[21.9279s] [RoadPlan] saved plan=0 edges=2 elapsedMs=164.115",
+    "[21.9279s] [RoadPlanReview] saved=true lengthMatches=true expected=105.000 actual=105.000"
+  ]
+}

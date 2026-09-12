@@ -3,16 +3,20 @@
 
 namespace
 {
-	int resolveEndpointNode(RoadNetwork& roads, Vec3 worldPos)
+	int resolveEndpointNode(RoadNetwork& roads, Vec3 worldPos, float radius)
 	{
-		constexpr float kEndpointSnapRadius = 20.0f;
-		constexpr float kEdgeSnapRadius = 15.0f;
+		const float endpointSnapRadius = radius;
+		const float edgeSnapRadius = Min(radius, 15.0f);
 
-		if (const auto nearNode = roads.findNodeNear(worldPos, kEndpointSnapRadius))
-			return *nearNode;
-
-		if (const auto edgeHit = roads.findEdgeNearDetailed(worldPos, kEdgeSnapRadius))
+		if (const auto nearNode = roads.findNodeNear(worldPos, endpointSnapRadius))
 		{
+			if (Abs(roads.getNode(*nearNode)->position.y-worldPos.y) <= 6.0) { return *nearNode; }
+		}
+
+		if (const auto edgeHit = roads.findEdgeNearDetailed(worldPos, edgeSnapRadius))
+		{
+			const auto curve = roads.getBezier(edgeHit->first);
+			if (curve && Abs(curve->positionAt(edgeHit->second).y-worldPos.y) > 6.0) { return roads.addNode(worldPos); }
 			if (const int nodeId = roads.splitEdgeAt(edgeHit->first, edgeHit->second);
 			    nodeId >= 0)
 			{
@@ -32,7 +36,7 @@ Array<int> buildPlanned(
 	const World& world,
 	Vec3 startWorld, Vec3 goalWorld,
 	const Array<int>& routeIds,
-	const RoadEdge& templateEdge)
+	const RoadEdge& templateEdge, bool followTerrain, float connectionRadius)
 {
 	// 始点終点を囲う範囲だけで簡易経路探索を行い、その結果を Planned 状態の道路列へ変換する。
 	const float sx = static_cast<float>(startWorld.x);
@@ -58,33 +62,50 @@ Array<int> buildPlanned(
 	const int pfH = Max(2, static_cast<int>(Ceil((maxZ - minZ) / cellSize)));
 
 	RoadPathfinder pf;
-	pf.setup(world, Vec2{ minX, minZ }, pfW, pfH, cellSize);
-
-	const Point gs = pf.worldToGrid(sx, sz);
-	const Point ge = pf.worldToGrid(ex, ez);
-
-	const Array<Point> path = pf.findPath(gs, ge);
-
-	if (path.isEmpty() || path.size() < 2)
+	Array<Vec3> wps;
+	if (!followTerrain || dist < RoadPathfinder::kDefaultCellSize)
 	{
-		Console << U"[AutoPlace] 経路探索失敗: 到達不能な地点が選択されました";
-		return {};
+		if (dist < 2.0f) { return {}; }
+		wps = { startWorld, goalWorld };
 	}
+	else
+	{
+		pf.setup(world, Vec2{ minX, minZ }, pfW, pfH, cellSize);
 
-	const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
-	Array<Vec3> wps = pf.samplePath(path, sampleStep);
+		const Point gs = pf.worldToGrid(sx, sz);
+		const Point ge = pf.worldToGrid(ex, ez);
+
+		const Array<Point> path = pf.findPath(gs, ge);
+
+		if (path.isEmpty() || path.size() < 2)
+		{
+			Console << U"[AutoPlace] 経路探索失敗: 到達不能な地点が選択されました";
+			return {};
+		}
+
+		const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
+		wps = pf.samplePath(path, sampleStep);
+	}
 	wps.front() = startWorld;
 	wps.back()  = goalWorld;
 
 	// スタート・ゴールは既存ノード優先、近傍エッジがあれば分割して接続点を作る。
-	const int startNodeId = resolveEndpointNode(roads, startWorld);
-	const int goalNodeId  = resolveEndpointNode(roads, goalWorld);
+	const int startNodeId = resolveEndpointNode(roads, startWorld, Min(connectionRadius, dist * 0.25f));
+	const int goalNodeId  = resolveEndpointNode(roads, goalWorld, Min(connectionRadius, dist * 0.25f));
+	wps.front() = roads.getNode(startNodeId)->position;
+	wps.back() = roads.getNode(goalNodeId)->position;
 
 	const int templateLanes = static_cast<int>(templateEdge.lanes.size());
 	const int numLanes = (templateLanes > 0) ? templateLanes : 2;
 
 	Array<int> edgeIds;
 	pf.pathToRoadEdges(wps, roads, templateEdge.roadType, numLanes, startNodeId, goalNodeId, &edgeIds);
+
+	if (edgeIds.size() + 1 != wps.size())
+	{
+		for (const int id : edgeIds) { roads.removeEdge(id); }
+		return {};
+	}
 
 	// 生成済みエッジへテンプレート断面と状態を適用し、編集前の計画道路として揃える。
 	for (const int eid : edgeIds)
@@ -121,7 +142,7 @@ Array<int> buildPreviewPlan(
 	RoadNetwork& roads,
 	const World& world,
 	const Array<Vec3>& anchorPoints,
-	const RoadEdge& templateEdge)
+	const RoadEdge& templateEdge, bool followTerrain, float connectionRadius)
 {
 	if (anchorPoints.size() < 2) return {};
 
@@ -134,7 +155,7 @@ Array<int> buildPreviewPlan(
 			anchorPoints[i - 1],
 			anchorPoints[i],
 			{},
-			templateEdge);
+			templateEdge, followTerrain, connectionRadius);
 		if (segmentEdges.isEmpty())
 		{
 			for (const int eid : allEdgeIds)

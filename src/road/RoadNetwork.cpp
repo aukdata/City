@@ -283,49 +283,47 @@ Optional<int> RoadNetwork::findNodeNear(Vec3 pos, float radius) const
 Optional<std::pair<int, float>> RoadNetwork::findEdgeNearDetailed(Vec3 pos, float maxDist) const
 {
 	Optional<std::pair<int, float>> best;
-	float bestDist = maxDist;
-
+	double bestDistance = static_cast<double>(maxDist) * maxDist;
 	for (const auto& edge : m_edges)
 	{
-		if (edge.id < 0) continue;
-		const auto bez = getBezier(edge.id);
-		if (!bez) continue;
-
-		// 20 分割でサンプリング
-		constexpr int N = 20;
-		int bestIdx = -1;
-		for (int i = 0; i <= N; ++i)
+		if (edge.id < 0) { continue; }
+		const auto* a = getNode(edge.nodeA);
+		const auto* b = getNode(edge.nodeB);
+		if (!a || !b) { continue; }
+		double minX=a->position.x, maxX=minX, minZ=a->position.z, maxZ=minZ;
+		for (const Vec3 p : {b->position,edge.ctrlA,edge.ctrlB})
 		{
-			const float s = bez->totalLength * (static_cast<float>(i) / N);
-			const Vec3 p = bez->positionAt(s);
-			const float dx = static_cast<float>(p.x - pos.x);
-			const float dz = static_cast<float>(p.z - pos.z);
-			const float dist = std::sqrt(dx * dx + dz * dz);
-			if (dist < bestDist)
-			{
-				bestDist = dist;
-				bestIdx = i;
-				best = std::pair<int, float>{ edge.id, s };
-			}
+			minX=Min(minX,p.x); maxX=Max(maxX,p.x);
+			minZ=Min(minZ,p.z); maxZ=Max(maxZ,p.z);
 		}
-
-		// 隣接区間内で二分探索精緻化
-		if (bestIdx >= 0 && best && best->first == edge.id)
+		if (pos.x < minX-maxDist || pos.x > maxX+maxDist || pos.z < minZ-maxDist || pos.z > maxZ+maxDist) { continue; }
+		const auto curve = getBezier(edge.id);
+		if (!curve) { continue; }
+		const auto distanceAt = [&](float arc)
 		{
-			const float sLo = bez->totalLength * (Max(bestIdx - 1, 0) / static_cast<float>(N));
-			const float sHi = bez->totalLength * (Min(bestIdx + 1, N) / static_cast<float>(N));
-			float lo = sLo, hi = sHi;
-			for (int iter = 0; iter < 8; ++iter)
-			{
-				const float m1 = lo + (hi - lo) / 3.0f;
-				const float m2 = hi - (hi - lo) / 3.0f;
-				const Vec3 p1 = bez->positionAt(m1);
-				const Vec3 p2 = bez->positionAt(m2);
-				const float d1 = static_cast<float>((p1.x - pos.x) * (p1.x - pos.x) + (p1.z - pos.z) * (p1.z - pos.z));
-				const float d2 = static_cast<float>((p2.x - pos.x) * (p2.x - pos.x) + (p2.z - pos.z) * (p2.z - pos.z));
-				if (d1 < d2) hi = m2; else lo = m1;
-			}
-			best->second = (lo + hi) * 0.5f;
+			const Vec3 p = curve->positionAt(arc);
+			return Vec2{p.x-pos.x,p.z-pos.z}.lengthSq();
+		};
+		constexpr int kSamples = 32;
+		int bestIndex = 0;
+		double nearest = distanceAt(0);
+		for (int i=1;i<=kSamples;++i)
+		{
+			const double distance = distanceAt(curve->totalLength*i/kSamples);
+			if (distance < nearest) { nearest=distance; bestIndex=i; }
+		}
+		float low=curve->totalLength*Max(bestIndex-1,0)/kSamples;
+		float high=curve->totalLength*Min(bestIndex+1,kSamples)/kSamples;
+		for (int i=0;i<18;++i)
+		{
+			const float first=low+(high-low)/3, second=high-(high-low)/3;
+			if (distanceAt(first) < distanceAt(second)) { high=second; } else { low=first; }
+		}
+		const float arc=(low+high)*0.5f;
+		if (const double distance=distanceAt(arc); distance < bestDistance)
+		{
+			bestDistance=distance;
+			best=std::pair<int,float>{edge.id,arc};
 		}
 	}
 	return best;
@@ -364,16 +362,32 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 	const int numLanes   = static_cast<int>(edge->lanes.size());
 	const RoadEdge tmpl  = *edge;  // テンプレートとして属性を丸ごとコピー
 
-	// Route 所属のスナップショット: (routeId, position) を保存
-	// removeEdge で route から除去される前に記録、後で新 edge で再挿入する
-	struct RouteMember { int routeId; int pos; };
-	Array<RouteMember> routeSnap;
-	for (const auto& r : m_routes)
+	// 接続点を挿入する操作は道路撤去ではない。撤去コールバックに路線・計画を分断させない。
+	struct Membership { int id; Array<int> edgeIds; bool reverse = false; };
+	Array<Membership> routeMemberships, planMemberships;
+	for (auto& route : m_routes)
 	{
-		if (r.id < 0) continue;
-		auto it = std::find(r.edgeIds.begin(), r.edgeIds.end(), edgeId);
-		if (it != r.edgeIds.end())
-			routeSnap << RouteMember{ r.id, static_cast<int>(it - r.edgeIds.begin()) };
+		if (route.id < 0 || !route.edgeIds.contains(edgeId)) { continue; }
+		bool reverse = false;
+		const auto position = std::find(route.edgeIds.begin(),route.edgeIds.end(),edgeId);
+		if (position != route.edgeIds.begin())
+		{
+			const auto* previous = getEdge(*(position-1));
+			reverse = previous && (previous->nodeA == origNodeB || previous->nodeB == origNodeB);
+		}
+		else if (position+1 != route.edgeIds.end())
+		{
+			const auto* next = getEdge(*(position+1));
+			reverse = next && (next->nodeA == origNodeA || next->nodeB == origNodeA);
+		}
+		routeMemberships << Membership{route.id,route.edgeIds,reverse};
+		route.edgeIds.remove(edgeId);
+	}
+	for (auto& plan : m_plans)
+	{
+		if (plan.id < 0 || !plan.edgeIds.contains(edgeId)) { continue; }
+		planMemberships << Membership{plan.id,plan.edgeIds};
+		plan.edgeIds.remove(edgeId);
 	}
 
 	removeEdge(edgeId);
@@ -405,38 +419,36 @@ int RoadNetwork::splitEdgeAt(int edgeId, float arcLength)
 		newEidB = *eidB;
 	}
 
-	// Route 所属を再挿入（A→B 順で挿入。route の traversal 方向が B→A の場合は
-	// 手動修正が必要な場合あり。plan/22_road_route_spec.md §4 参照）
+	const auto replaceMember = [&](const Membership& membership)
+	{
+		Array<int> result;
+		for (const int id : membership.edgeIds)
+		{
+			if (id != edgeId) { result << id; }
+			else if (membership.reverse) { result << newEidB << newEidA; }
+			else { result << newEidA << newEidB; }
+		}
+		return result;
+	};
 	if (newEidA >= 0 && newEidB >= 0)
 	{
-		for (const auto& rm : routeSnap)
+		for (const auto& membership : routeMemberships)
 		{
-			// 注: removeEdge → onEdgeRemovedFromRoutes によって元 route は既に
-			// 端削除 or 中間分割されている可能性がある。
-			// ここではシンプルに「元 route id が残っていて、かつ新 edge を含まない」場合に
-			// 新 edge をペアで追記する実装とする。
-			// 中間分割された場合: 元 route は前半のみ、後半は別 route として分離済み。
-			//   前半の末尾に newEidA を追加、後半の先頭に newEidB を追加
-			//   → ただし分離情報が無いので、複雑。v1 では割愛。
-			//   端削除の場合: route から元 edge が消えているので、先頭/末尾に挿入
-			RoadRoute* r = getRoute(rm.routeId);
-			if (!r) continue;
-			if (r->edgeIds.contains(newEidA) || r->edgeIds.contains(newEidB)) continue;
-
-			// 元 pos が端だった → 同じ端に再挿入、中間だった場合は挿入スキップ（分割済み）
-			if (rm.pos == 0)
+			if (auto* route = getRoute(membership.id))
 			{
-				r->edgeIds.insert(r->edgeIds.begin(), { newEidA, newEidB });
-				if (RoadEdge* ea = getEdge(newEidA)) if (!ea->routeIds.contains(r->id)) ea->routeIds << r->id;
-				if (RoadEdge* eb = getEdge(newEidB)) if (!eb->routeIds.contains(r->id)) eb->routeIds << r->id;
+				route->edgeIds = replaceMember(membership);
+				getEdge(newEidA)->routeIds << route->id;
+				getEdge(newEidB)->routeIds << route->id;
 			}
-			else
+		}
+		for (const auto& membership : planMemberships)
+		{
+			if (auto* plan = getPlan(membership.id))
 			{
-				// 末尾または中間（分割済み）: 末尾なら push_back、中間は skip
-				r->edgeIds << newEidA;
-				r->edgeIds << newEidB;
-				if (RoadEdge* ea = getEdge(newEidA)) if (!ea->routeIds.contains(r->id)) ea->routeIds << r->id;
-				if (RoadEdge* eb = getEdge(newEidB)) if (!eb->routeIds.contains(r->id)) eb->routeIds << r->id;
+				plan->edgeIds = replaceMember(membership);
+				getEdge(newEidA)->planId = plan->id;
+				getEdge(newEidB)->planId = plan->id;
+				rebuildPlanStats(plan->id);
 			}
 		}
 	}

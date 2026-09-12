@@ -1188,32 +1188,38 @@ void GameScene::drawRoadPlanPanel()
 	constexpr int kLH  = 17;
 	int y = 0;
 
-	PanelWidget::label(pBold, U"仮計画", kPad, y, ColorF{ 0.95, 0.9, 0.5 });
-	y += kLH + 2;
-
-	const String pointText = m_draftRoadPlan.anchorPoints.isEmpty()
-		? U"始点未指定"
-		: U"点列: {}点 / エッジ: {}"_fmt(m_draftRoadPlan.anchorPoints.size(), m_draftRoadPlan.edgeIds.size());
-	PanelWidget::label(pFont, pointText, kPad, y, ColorF{ 0.8 });
-	y += kLH + 2;
-
-	if (PanelWidget::button(pFont, U"新規計画", false, kPad, y, 72, kLH, U"仮計画をリセット"))
+	RoadPlanToolbar::State toolbarState;
+	toolbarState.preset = m_draftRoadPlan.preset;
+	toolbarState.points = m_draftRoadPlan.editor.points().size();
+	toolbarState.valid = m_draftRoadPlan.editor.valid();
+	toolbarState.canUndo = m_draftRoadPlan.editor.canUndo();
+	toolbarState.canRedo = m_draftRoadPlan.editor.canRedo();
+	toolbarState.followTerrain = m_draftRoadPlan.followTerrain;
+	toolbarState.snapping = m_draftRoadPlan.snapping;
+	toolbarState.replaceEnd = m_draftRoadPlan.replaceEnd;
+	toolbarState.width = m_drawTemplate.totalWidth();
+	toolbarState.length = m_draftRoadPlan.editor.length();
+	toolbarState.cost = m_network.estimatePlanCost(m_drawTemplate.roadType,toolbarState.length);
+	toolbarState.days = static_cast<int>(Ceil(m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,toolbarState.length)/GameClock::kSecondsPerGameDay));
+	toolbarState.funds = m_economy.funds;
+	toolbarState.message = m_draftRoadPlan.message;
+	toolbarState.error = m_draftRoadPlan.error;
+	const auto action = RoadPlanToolbar::draw(pFont,pBold,panelW-10,toolbarState);
+	using Action = RoadPlanToolbar::Action;
+	if (action >= Action::Local && action <= Action::OneWay)
 	{
-		clearDraftRoadPlan(true);
-	}
-	if (PanelWidget::button(pFont, U"経由地追加", m_draftRoadPlan.viaPlacementMode, kPad + 78, y, 72, kLH, U"次のクリックを経由地として追加"))
-	{
-		m_draftRoadPlan.viaPlacementMode = !m_draftRoadPlan.viaPlacementMode;
-	}
-	if (PanelWidget::button(pFont, U"自動再提案", false, kPad + 156, y, 72, kLH, U"現在の点列から再生成"))
-	{
+		m_draftRoadPlan.preset = static_cast<int>(action)-static_cast<int>(Action::Local);
+		m_drawTemplate = RoadPlanDraft::makeRoadTemplate(m_draftRoadPlan.preset);
 		rebuildDraftRoadPlan();
 	}
-	if (PanelWidget::buttonDanger(pFont, U"破棄", kPad + 234, y, 48, kLH, U"仮計画を破棄"))
-	{
-		clearDraftRoadPlan(true);
-	}
-	y += kLH + 4;
+	else if (action == Action::Routing) { m_draftRoadPlan.followTerrain = !m_draftRoadPlan.followTerrain; rebuildDraftRoadPlan(); }
+	else if (action == Action::Snap) { m_draftRoadPlan.snapping = !m_draftRoadPlan.snapping; }
+	else if (action == Action::ReplaceEnd) { m_draftRoadPlan.replaceEnd = !m_draftRoadPlan.replaceEnd; }
+	else if (action == Action::Undo && m_draftRoadPlan.editor.undo()) { rebuildDraftRoadPlan(); }
+	else if (action == Action::Redo && m_draftRoadPlan.editor.redo()) { rebuildDraftRoadPlan(); }
+	else if (action == Action::Clear) { clearDraftRoadPlan(); }
+	else if (action == Action::Save) { commitDraftRoadPlan(); }
+	y = RoadPlanToolbar::kHeight+10;
 
 	PanelWidget::label(pFont, U"計画名", kPad, y, ColorF{ 0.6 });
 	PanelWidget::textInput(pFont, m_draftRoadPlan.nameEdit, kPad + 48, y, panelW - (kPad + 48) - kPad, kLH, 32);
@@ -1247,12 +1253,6 @@ void GameScene::drawRoadPlanPanel()
 		}
 	}
 
-	if (PanelWidget::button(pFont, U"保存", false, kPad, y, 60, kLH, U"仮計画を保存"))
-	{
-		commitDraftRoadPlan();
-	}
-	y += kLH + 6;
-
 	static bool plansCollapsed = false;
 	PanelWidget::section(pBold, U"計画一覧", plansCollapsed, 0, y, panelW, kLH, ColorF{ 0.7, 0.85, 1.0 });
 	if (plansCollapsed)
@@ -1279,9 +1279,10 @@ void GameScene::drawRoadPlanPanel()
 		{
 			const double planCost = static_cast<double>(plan.totalCost);
 			const bool hasFunds = canAffordConstruction(m_economy.funds, planCost);
-			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {} / 工期 {}"_fmt(
-				plan.totalLength, formatConstructionCost(planCost), formatConstructionDuration(plan.constructionDuration)),
+			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {}"_fmt(plan.totalLength, formatConstructionCost(planCost)),
 				kPad + 8, y, ColorF{ 0.75 });
+			y += kLH + 2;
+			PanelWidget::label(pFont, U"工期 {}"_fmt(formatConstructionDuration(plan.constructionDuration)),kPad + 8,y,ColorF{0.75});
 			y += kLH + 2;
 
 			if (plan.state == PlanState::Planning)

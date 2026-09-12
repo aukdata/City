@@ -69,6 +69,7 @@ void GameApp::run()
 			continue;
 		}
 
+		if (args[i] == U"--capture-road-ux") { manager.get()->captureRoadPlanUx = true; continue; }
 		if (args[i] == U"--benchmark-streaming") { manager.get()->benchmarkStreaming = true; continue; }
 		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
 

@@ -150,6 +150,7 @@
     <ClCompile Include="src\scene\TitleScene.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
     <ClCompile Include="src\scene\GameScene_Input.cpp" />
+    <ClCompile Include="src\scene\GameScene_RoadReview.cpp" />
     <ClCompile Include="src\scene\GameScene_Render.cpp" />
     <ClCompile Include="src\scene\GameScene_Panels.cpp" />
     <ClCompile Include="src\scene\GuideSignEditor.cpp" />
@@ -167,6 +168,8 @@
     <ClCompile Include="src\gen\MapGenerator.cpp" />
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
     <ClCompile Include="src\gen\RoadAutoPlace.cpp" />
+    <ClCompile Include="src\road\RoadPlanDraft.cpp" />
+    <ClCompile Include="src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="src\gen\DistrictRoads.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
     <ClCompile Include="src\save\SaveTransaction.cpp" />
@@ -436,6 +439,8 @@
     <ClInclude Include="src\gen\TerrainType.hpp" />
     <ClInclude Include="src\gen\MapGenerator.hpp" />
     <ClInclude Include="src\gen\RoadAutoPlace.hpp" />
+    <ClInclude Include="src\road\RoadPlanDraft.hpp" />
+    <ClInclude Include="src\ui\RoadPlanToolbar.hpp" />
     <ClInclude Include="src\gen\DistrictRoads.hpp" />
     <ClInclude Include="src\asset\AssetRegistrar.hpp" />
   </ItemGroup>

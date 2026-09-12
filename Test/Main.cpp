@@ -10,6 +10,7 @@ void Main()
 	registerSaveTransactionTests(runner);
 	registerBuildingAssetTests(runner);
 	registerCityGenerationTests(runner);
+	registerRoadPlanUxTests(runner);
 	const int exitCode = runner.run();
 	::_exit(exitCode);
 }
