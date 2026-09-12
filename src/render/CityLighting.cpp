@@ -9,11 +9,12 @@ bool CityLighting::initialize(FilePathView shaderPath)
 	m_attempted = true;
 	m_depthShader = PixelShader::HLSL(shaderPath, U"Depth_PS");
 	m_forwardShader = PixelShader::HLSL(shaderPath, U"Shading_PS");
+	m_buildingShader = PixelShader::HLSL(shaderPath, U"Building_PS");
 	m_terrainShader = PixelShader::HLSL(shaderPath, U"Terrain_PS");
 	m_fieldShader=PixelShader::HLSL(shaderPath,U"Field_PS");
 	m_paddyShader=PixelShader::HLSL(shaderPath,U"Paddy_PS");
 	m_foliageShader=PixelShader::HLSL(shaderPath,U"Foliage_PS");
-	if (!m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
+	if (!m_buildingShader || !m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
 	{
 		Logger << U"[CityLighting] Failed to compile " << shaderPath;
 		m_forwardShader = PixelShader{};

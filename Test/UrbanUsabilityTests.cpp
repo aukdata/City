@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/ui/Camera.hpp"
+#include "src/render/FrontageGeometry.hpp"
 #include "src/ui/WorldMapView.hpp"
 #include "src/ui/CollapsibleHudPanel.hpp"
 #include "src/ui/LandParcelPanel.hpp"
@@ -81,6 +82,9 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 		world.installChunkDirect({0,0},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,23.0f),23,23});
 		for (const float yaw : {0.0f,1.2f,3.1f,4.8f})
 		{
+			GameCamera captureCamera;captureCamera.setWalkingState({512,23,512},yaw);
+			context.expect(captureCamera.mode()==CameraMode::FirstPerson,U"Review captures use the actual walking camera");
+			context.expectNear(captureCamera.eyePosition().y,24.5,.0001,U"Capture position uses exactly the normal 1.5 m eye height");
 			GameCamera camera;camera.setState({512,23,512},100,yaw,.5f);camera.cycleMode();camera.walk({0,0},0,world);
 			context.expectNear(camera.eyePosition().y,24.5,.0001,U"Eye remains exactly 1.5 m above terrain");
 			const Vec3 eye=camera.eyePosition(),forward=camera.camera3D().getLookAtVector();
@@ -193,6 +197,75 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 		{ const ScopedRenderTarget2D rt{target.clear(ColorF{.24,.32,.2})};hud.render(clock,20,U"",economy,stats);if(map) map->draw(ColorF{.25,.4,.3}); }
 		Graphics2D::Flush();Image capture;target.readAsImage(capture);capture.save(U"Screenshot/hud_integrated.png");
 		context.expect(capture.size()==Scene::Size(),U"Actual production HUD renders in the Test application");
+	});
+
+	runner.add(U"StreetDetail.FacadeAttachments",[](TestContext& context)
+	{
+		for (const bool commercial : {false,true})
+		{
+			for (const uint32 seed : {0u,1u,17u})
+			{
+				const auto parts=FrontageGeometry::build(8,-3,commercial,seed);
+				int signs=0;
+				for (const auto& part : parts)
+				{
+					signs+=part.material==134;
+					for (const auto& vertex : part.mesh.vertices)
+					{
+						context.expect(std::isfinite(vertex.pos.x) && std::isfinite(vertex.pos.y) && std::isfinite(vertex.pos.z),U"Frontage vertices are finite");
+						context.expect(vertex.pos.y>=-.001 && vertex.pos.y<3,U"Entry height material={} y={} (expected 0..3 m)"_fmt(part.material,vertex.pos.y));
+						context.expect(vertex.pos.z>=-3.76 && vertex.pos.z<=-2.89 && Abs(vertex.pos.x)<4,U"Details stay within the facade's 75 cm entrance/service strip");
+					}
+					for (const auto triangle : part.mesh.indices)
+					{
+						context.expect(triangle.i0<part.mesh.vertices.size() && triangle.i1<part.mesh.vertices.size() && triangle.i2<part.mesh.vertices.size(),U"Batched details use valid triangle indices");
+					}
+				}
+				context.expectEqual(signs,commercial ? 1 : 0,U"Only commercial entrances get a shop fascia");
+			}
+		}
+		const auto metadata=TOMLReader{U"../../App/assets/buildings/residential/residential_001.toml"};
+		context.expectNear(metadata[U"front_wall_z_m"].get<double>(),-2.80,.02,U"A projecting roof does not move the entry away from the ground-floor wall");
+	});
+	runner.add(U"StreetDetail.MaterialGpuReadback",[](TestContext& context)
+	{
+		CityLighting lighting;
+		context.expect(lighting.initialize(U"../../App/shaders/hlsl/city_forward.hlsl"),U"All production city shaders including building glass compile");
+		const PixelShader asphalt=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"Asphalt_PS"};
+		const PixelShader pavement=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"Pavement_PS"};
+		context.expect(static_cast<bool>(asphalt) && static_cast<bool>(pavement),U"Asphalt and pavement shaders compile on Direct3D");
+		if (!lighting.ready() || !asphalt || !pavement) { return; }
+		const Size size{640,400};
+		const BasicCamera3D camera{size,50_deg,{0,5,-7},{0,0,0}};
+		const Vec3 sun=Vec3{1,2,-1}.normalized();
+		MeshData surface;
+		surface.vertices={Vertex3D{{-6,0,-6},{0,1,0},{0,0}},Vertex3D{{-6,0,6},{0,1,0},{0,12}},Vertex3D{{6,0,-6},{0,1,0},{12,0}},Vertex3D{{6,0,6},{0,1,0},{12,12}}};
+		surface.indices={{0,1,2},{2,1,3}};
+		const Mesh ground{surface};
+		const Texture normal{U"../../App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg",TextureDesc::Mipped};
+		const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
+		lighting.update(camera,{0,0,0},sun,1,1,[](Vec3,double){});
+		Array<Image> captures;
+		for (int variant=0;variant<3;++variant)
+		{
+			{
+				const ScopedRenderTarget3D rt{target.clear(ColorF{.15,.20,.27})};
+				const ScopedRenderStates3D states{DepthStencilState::DepthTestWrite,RasterizerState::SolidCullBack};
+				Graphics3D::SetCameraTransform(camera);Graphics3D::SetSunDirection(sun);Graphics3D::SetSunColor(ColorF{.9});Graphics3D::SetGlobalAmbientColor(ColorF{.32});
+				lighting.bind();Graphics3D::SetPSTexture(4,normal);
+				const ScopedCustomShader3D shader{variant==0 ? lighting.shader() : variant==1 ? pavement : asphalt};
+				ground.draw(ColorF{.36,.31,.26});
+			}
+			Graphics3D::Flush();Image capture;target.readAsImage(capture);capture.save(U"Screenshot/street_material_{}.png"_fmt(variant));captures << std::move(capture);
+		}
+		int joints=0,coolAsphalt=0;
+		for (int y=160;y<350;++y) for (int x=100;x<540;++x)
+		{
+			joints+=static_cast<int>(captures[0][y][x].r)-captures[1][y][x].r>15;
+			coolAsphalt+=(static_cast<int>(captures[0][y][x].r)-captures[0][y][x].b)>(static_cast<int>(captures[2][y][x].r)-captures[2][y][x].b)+10;
+		}
+		context.expect(joints>1000,U"Pavement has visible joints rather than an untextured strip");
+		context.expect(coolAsphalt>1000,U"Asphalt loses its previous brown cast");
 	});
 
 }

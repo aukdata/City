@@ -33,24 +33,31 @@ namespace TreeGeometry
 	{
 		Geometry result;
 		branch(result.wood,{0,0,0},{.035,cedar ? .94 : .69,.025},.045);
-		result.distant=cedar ? MeshData::Cone(Float3{0,.15f,0},.31,.85,5) : MeshData::Sphere(.34,2);
+		result.distant=cedar ? MeshData::Cone(Float3{0,.15f,0},.31,.85,9) : MeshData::Sphere(.34,5);
 		if (!cedar) { result.distant.scale(1,.94,1).translate(0,.64,0); }
-		const int clusters=cedar ? 24 : 30;
+		for (auto& vertex : result.distant.vertices)
+		{
+			const float variation = static_cast<float>(1.0 + .09 * Sin(vertex.pos.y * 29 + vertex.pos.x * 17 + seed));
+			vertex.pos.x *= variation;
+			vertex.pos.z *= variation;
+		}
+		result.distant.computeNormals();
+		const int clusters=cedar ? 60 : 84;
 		for (int i=0;i<clusters;++i)
 		{
 			const double angle=i*2.399963+(seed%97)*.064;
-			const double level=static_cast<double>(i)/clusters;
-			const double spread=cedar ? .28*(1-level)+.035 : .10+.19*Sqrt(1-Pow(level*2-1,2));
+			const double level=cedar ? static_cast<double>(i)/clusters : Fmod(i*.754877+seed*.136,1.0);
+			const double spread=cedar ? .28*(1-level)+.035 : (.12+.18*Sqrt(1-Pow(level*2-1,2)))*Sqrt(.20+.80*Fmod(i*.5698+seed*.042,1.0));
 			const double y=cedar ? .25+level*.69 : .40+level*.49;
 			const Vec3 end{Cos(angle)*spread,y,Sin(angle)*spread};
-			if (i%3==0) { branch(result.wood,{0,y*.7,0},end,.015*(1-level*.65)); }
-			MeshData cluster=MeshData::Sphere(1,2);
+			if (i%6==0) { branch(result.wood,{0,y*.7,0},end,.015*(1-level*.65)); }
+			MeshData cluster=MeshData::Sphere(1,3);
 			for (auto& vertex : cluster.vertices)
 			{
 				const double irregular=.88+.17*Sin(vertex.pos.x*9+vertex.pos.y*13+i+seed%13);
 				vertex.pos*=static_cast<float>(irregular);
 			}
-			cluster.scale(cedar ? .16 : .13,cedar ? .065 : .16,cedar ? .10 : .115);
+			cluster.scale(cedar ? .10 : .095,cedar ? .04 : .095,cedar ? .07 : .085);
 			cluster.translate(Float3{end});cluster.computeNormals();
 			append(result.leaves,cluster);
 		}

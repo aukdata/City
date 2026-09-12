@@ -12,6 +12,7 @@ public:
 		const std::function<void(Vec3, double)>& drawDynamicCasters = {});
 	void bind() const;
 	[[nodiscard]] const PixelShader& shader() const { return m_forwardShader; }
+	[[nodiscard]] const PixelShader& buildingShader() const { return m_buildingShader; }
 	[[nodiscard]] const PixelShader& terrainShader() const { return m_terrainShader; }
 	[[nodiscard]] const PixelShader& fieldShader() const { return m_fieldShader; }
 	[[nodiscard]] const PixelShader& paddyShader() const { return m_paddyShader; }
@@ -27,6 +28,7 @@ private:
 		Float4 fogColorDensity{ 0, 0, 0, 0 };
 		Float4 dynamicShadow{ 0, 0, 0, 0 };
 	};
+	PixelShader m_buildingShader;
 	PixelShader m_depthShader, m_forwardShader, m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
 	RenderTexture m_shadowMap, m_dynamicShadowMap;
 	ConstantBuffer<Parameters> m_parameters;

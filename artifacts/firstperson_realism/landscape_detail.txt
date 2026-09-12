@@ -1,0 +1,3 @@
+﻿cedar=false nearTriangles=2196 farTriangles=80 reduction=96.4%
+cedar=true nearTriangles=1572 farTriangles=18 reduction=98.9%
+fieldPaddyDifferentPixels=78095 cropPixels=10651

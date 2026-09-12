@@ -70,6 +70,7 @@ void GameApp::run()
 		}
 
 		if (args[i] == U"--audit-road-integrity") { manager.get()->auditRoadIntegrity = true; continue; }
+		if (args[i] == U"--capture-first-person") { manager.get()->captureFirstPerson = true; captureCityRenders = true; continue; }
 		if (args[i] == U"--capture-transport") { manager.get()->captureTransport=true; continue; }
 		if (args[i] == U"--capture-construction") { manager.get()->captureConstruction = true; continue; }
 		if (args[i] == U"--capture-road-ux") { manager.get()->captureRoadPlanUx = true; continue; }

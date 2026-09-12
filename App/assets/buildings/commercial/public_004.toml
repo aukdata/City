@@ -1,3 +1,4 @@
 # Realistic pack; metres; front -Z
 setback_from_road_m = 1.8
 scale = 1.0
+front_wall_z_m = -3.0400

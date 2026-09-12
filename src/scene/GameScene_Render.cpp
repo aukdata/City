@@ -236,6 +236,7 @@ void GameScene::renderWorld()
 				m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
 					m_vehicleManager.trafficLights(), m_clock.now, focus);
 			}, dynamicCasters);
+		m_worldRenderer.setBuildingShader(m_cityLighting.buildingShader());
 		m_worldRenderer.setTerrainShader(m_cityLighting.terrainShader());
 		m_worldRenderer.setLandscapeShaders(m_cityLighting.fieldShader(),m_cityLighting.paddyShader(),m_cityLighting.foliageShader());
 	}

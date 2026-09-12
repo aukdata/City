@@ -19,6 +19,7 @@ struct PartMeshEntry
 	LodMeshPair    meshPair;
 	ColorF         color{ 0.35 };
 	const Texture* texture = nullptr;  ///< null なら単色
+	RoadPartType materialType = RoadPartType::Shoulder;
 };
 
 /// @brief 同マテリアルの LOD パーツを結合した描画バッチ（遠距離用）
@@ -363,6 +364,9 @@ private:
 	GameTime m_constructionNow = 0;
 	HashTable<int, ConstructionCache> m_constructionCache;
 	PixelShader m_constructionEarthPS, m_constructionAggregatePS;
+	PixelShader m_asphaltPS, m_pavementPS;
+	Texture m_asphaltNormal;
+	void drawSurface(const PartMeshEntry& entry, const Mesh& mesh) const;
 	Texture m_constructionSoilNormal, m_constructionGravelNormal;
 	Texture m_constructionSoil, m_constructionGravel, m_constructionConcrete;
 	std::array<Model,4> m_constructionModels;

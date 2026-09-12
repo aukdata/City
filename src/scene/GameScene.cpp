@@ -3485,6 +3485,7 @@ void GameScene::update()
 		System::Exit();
 		return;
 	}
+	if (getData().captureFirstPerson) { updateStreetReview(); return; }
 	if (getData().captureTransport) { updateTransportReview(); return; }
 	if (getData().captureConstruction)
 	{
@@ -3718,5 +3719,93 @@ void GameScene::updateTransportReview()
 			System::Exit(); return;
 		}
 		m_captureCameraDirty=true;
+	}
+}
+
+void GameScene::updateStreetReview()
+{
+	constexpr int kViewCount = 6;
+	constexpr int kWarmupFrames = 140;
+	constexpr int kSampleFrames = 60;
+	m_clock.speed = TimeSpeed::Paused;
+	m_clock.hour = 13;
+	if (m_streetReviewEdges.isEmpty())
+	{
+		HashTable<int, std::array<int, 3>> counts;
+		for (int z = 0; z < WORLD_CHUNKS; ++z)
+		{
+			for (int x = 0; x < WORLD_CHUNKS; ++x)
+			{
+				const auto* chunk = m_world.getChunk({x, z});
+				if (!chunk) { continue; }
+				for (const auto& building : chunk->buildingGrid)
+				{
+					if (building.edgeId < 0) { continue; }
+					auto& count = counts[building.edgeId];
+					if (building.type == BuildingType::Shop || building.type == BuildingType::Office) { ++count[0]; }
+					else if (building.type == BuildingType::Detached || building.type == BuildingType::LowApartment) { ++count[1]; }
+				}
+			}
+		}
+		for (int category = 0; category < 3; ++category)
+		{
+			double bestScore = -1;
+			Optional<int> best;
+			for (const auto& edge : m_network.edges())
+			{
+				if (edge.id < 0 || edge.useElevation || edge.length < 85 || edge.length > 600 || edge.totalWidth() > 18) { continue; }
+				const auto iterator = counts.find(edge.id);
+				if (iterator == counts.end()) { continue; }
+				const Vec3 point = m_network.getBezier(edge.id)->evaluate(.5f);
+				double villageDistance = Math::Inf;
+				for (const auto& settlement : m_districts)
+				{
+					if (settlement.kind == MapGenerator::SettlementKind::RuralSettlement)
+					{ villageDistance = Min(villageDistance, Vec2{point.x, point.z}.distanceFrom(settlement.center)); }
+				}
+				const auto& count = iterator->second;
+				double score = category == 0 ? count[0] * 4.0 - count[1] : count[1] * 3.0 - count[0];
+				if (category == 1 && villageDistance < 1600) { continue; }
+				if (category == 2) { score = villageDistance < 500 ? count[1] * 2.0 + edge.length * .02 - villageDistance * .01 : -1; }
+				if (score > bestScore) { bestScore = score; best = edge.id; }
+			}
+			if (!best) { DBG_LOG(U"[StreetReview] no candidate category={}"_fmt(category)); System::Exit(); return; }
+			m_streetReviewEdges << *best;
+		}
+	}
+	if (m_captureCameraDirty)
+	{
+		const auto* edge = m_network.getEdge(m_streetReviewEdges[m_captureIndex % 3]);
+		const auto curve = m_network.getBezier(edge->id);
+		const float arc = curve->totalLength * (m_captureIndex < 3 ? .25f : .75f);
+		Vec3 point = curve->positionAt(arc);
+		Vec3 direction = curve->tangentAt(arc) * (m_captureIndex < 3 ? 1 : -1);
+		point += tangentToRight(direction) * (edge->totalWidth() * .30);
+		point.y = m_world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.z));
+		m_camera.setWalkingState(point, static_cast<float>(Atan2(direction.x, direction.z)));
+		DBG_LOG(U"[StreetReviewCamera] view={} edge={} ground={} eye={} yaw={}"_fmt(m_captureIndex, edge->id, point, m_camera.eyePosition(), Atan2(direction.x, direction.z)));
+		m_captureCameraDirty = false;
+		m_captureFrame = 0;
+		m_captureFrameTimes.clear();
+		m_captureCpuTimes.clear();
+	}
+	m_world.update(m_camera.focusPoint());
+	renderWorld();
+	if (m_captureFrame == kWarmupFrames - kSampleFrames - 1 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
+	if (m_captureFrame >= kWarmupFrames - kSampleFrames && m_captureFrame < kWarmupFrames)
+	{
+		m_captureFrameTimes << Scene::DeltaTime() * 1000;
+		m_captureCpuTimes << m_renderTimings.total;
+	}
+	if (++m_captureFrame == kWarmupFrames)
+	{
+		ScreenCapture::SaveCurrentFrame(U"street_{:02}.png"_fmt(m_captureIndex));
+		m_captureFrameTimes.sort(); m_captureCpuTimes.sort();
+		DBG_LOG(U"[StreetReview] view={} frames={} frameP50={:.2f} frameP95={:.2f} cpuP50={:.2f} buildings={}"_fmt(m_captureIndex, m_captureFrameTimes.size(), m_captureFrameTimes[30], m_captureFrameTimes[56], m_captureCpuTimes[30], m_worldRenderer.buildingsSubmitted()));
+	}
+	if (m_captureFrame > kWarmupFrames + 8)
+	{
+		if (++m_captureIndex == kViewCount) { System::Exit(); return; }
+		m_captureCameraDirty = true;
 	}
 }

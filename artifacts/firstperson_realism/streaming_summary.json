@@ -1,0 +1,38 @@
+{
+  "baseline_benchmark": {
+    "cpuMs": {
+      "samples": 720,
+      "p50": 5.005,
+      "p95": 17.84,
+      "max": 38.056,
+      "over40": 0,
+      "over100": 0
+    },
+    "frameMs": {
+      "samples": 720,
+      "p50": 13.399,
+      "p95": 27.16,
+      "max": 38.395,
+      "over40": 0,
+      "over100": 0
+    }
+  },
+  "final_benchmark": {
+    "cpuMs": {
+      "samples": 720,
+      "p50": 5.067,
+      "p95": 18.286,
+      "max": 40.111,
+      "over40": 1,
+      "over100": 0
+    },
+    "frameMs": {
+      "samples": 720,
+      "p50": 13.401,
+      "p95": 27.152,
+      "max": 40.479,
+      "over40": 1,
+      "over100": 0
+    }
+  }
+}

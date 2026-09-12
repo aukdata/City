@@ -1,5 +1,6 @@
 ﻿#include "WorldRenderer.hpp"
 #include "TreeGeometry.hpp"
+#include "FrontageGeometry.hpp"
 #include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
@@ -1927,12 +1928,15 @@ namespace
 		case 103: return ColorF{ 0.42, 0.39, 0.34 };
 		case 104: return ColorF{ 0.56, 0.63, 0.42 };
 		case 105: return ColorF{ 0.32, 0.24, 0.18 };
-		case 125: return ColorF{ 0.33, 0.44, 0.23 }.removeSRGBCurve();
-		case 126: return ColorF{ 0.43, 0.54, 0.29 }.removeSRGBCurve();
+		case 125: return ColorF{ 0.30, 0.40, 0.22 }.removeSRGBCurve();
+		case 126: return ColorF{ 0.34, 0.44, 0.24 }.removeSRGBCurve();
 		case 127: return ColorF{ .24,.20,.105 };
-		case 130: case 131: return ColorF{1};
-		case 128: return ColorF{.33,.44,.23}.removeSRGBCurve();
-		case 129: return ColorF{.43,.54,.29}.removeSRGBCurve();
+		case 130: case 131: case 134: return ColorF{1};
+		case 132: return ColorF{.22,.34,.31}.removeSRGBCurve();
+		case 133: return ColorF{.39,.23,.17}.removeSRGBCurve();
+		case 135: return ColorF{.13,.21,.24}.removeSRGBCurve();
+		case 128: return ColorF{.30,.40,.22}.removeSRGBCurve();
+		case 129: return ColorF{.34,.44,.24}.removeSRGBCurve();
 		case 124:
 		case 106: return ColorF{ 0.18, 0.23, 0.11 };
 		case 107: return ColorF{ 0.72, 0.74, 0.73 };
@@ -2427,6 +2431,7 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	if (toml)
 	{
 		asset.scale = parseModelScale(toml);
+		asset.frontWall = toml[U"front_wall_z_m"].getOpt<float>();
 	}
 	else
 	{
@@ -2444,6 +2449,25 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	if (!asset.model.isEmpty())
 	{
 		Model::RegisterDiffuseTextures(asset.model, TextureDesc::MippedSRGB);
+		if (type != BuildingType::Parking && type != BuildingType::Factory)
+		{
+			const auto& bounds = asset.model.boundingBox();
+			const float modelScale = normalizedObjScale(type,bounds,asset.scale);
+			const double width = bounds.size.x * modelScale;
+			const double front = asset.frontWall.value_or(static_cast<float>(bounds.center.z-bounds.size.z*.5)) * modelScale;
+			for (uint32 variation=0;variation<asset.frontages.size();++variation)
+			{
+				HashTable<int,MeshData> materials;
+				for (const auto& part : FrontageGeometry::build(width,front,type==BuildingType::Shop || type==BuildingType::Office,variation))
+				{
+					appendMeshData(materials[part.material],part.mesh);
+				}
+				for (const auto& [material,mesh] : materials)
+				{
+					asset.frontages[variation] << BuildingBatch{material,detailColorForKey(material),Mesh{mesh}};
+				}
+			}
+		}
 	}
 	else
 	{
@@ -2657,7 +2681,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				if (gy-ground>.07f && b.type!=BuildingType::Parking)
 				{
 					const float width=buildingFootprintXZ(b.type)+.12f,height=(gy-ground)*2+.12f;
-					appendRotatedBox(groups[126],cx,gy-height*.5f,cz,width,height,width,b.angle);
+					appendRotatedBox(groups[117],cx,gy-height*.5f,cz,width,height,width,b.angle);
 				}
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
@@ -2669,7 +2693,8 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 					variant,
 					Float3{ cx, gy, cz },
 					b.angle,
-					modelScale
+					modelScale,
+					static_cast<uint8>(cellVisualHash(chunk.coord,col,row,7231)%6)
 				});
 				continue;
 			}
@@ -2741,6 +2766,7 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 {
 	if (const auto it = m_buildingModelCache.find(key); it != m_buildingModelCache.end())
 	{
+		const ScopedCustomShader3D buildingShader{m_buildingShader};
 		auto* self = const_cast<WorldRenderer*>(this);
 		for (const auto& inst : it->second)
 		{
@@ -2767,6 +2793,7 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 				const Transformer3D transform{ worldMat };
 				obj.draw(materials);
 			}
+			drawFrontage(asset,inst,false);
 		}
 	}
 
@@ -2786,7 +2813,7 @@ void WorldRenderer::drawCachedBuildings(Key key) const
 				batch.mesh.draw(TextureAsset(Asset::Sand),ColorF{1});
 				continue;
 			}
-			if ((material==125 || material==126) && m_foliageShader)
+			if ((material==125 || material==126 || material==128 || material==129) && m_foliageShader)
 			{
 				const ScopedCustomShader3D shader{m_foliageShader};
 				batch.mesh.draw(batch.color);
@@ -2853,8 +2880,11 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 			}
 			const Mat4x4 transform = (Mat4x4::Scale(instance.scale) * Mat4x4::RotateY(-instance.angle))
 				.translated(instance.pos.x, instance.pos.y, instance.pos.z);
-			const Transformer3D worldTransform{ transform };
-			asset->second.model.draw();
+			{
+				const Transformer3D worldTransform{ transform };
+				asset->second.model.draw();
+			}
+			drawFrontage(asset->second,instance,true);
 		}
 		if (const auto landscape = m_landscapeMeshCache.find(key); landscape != m_landscapeMeshCache.end())
 		{
@@ -2879,5 +2909,29 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 		{
 			if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
+	}
+}
+
+void WorldRenderer::drawFrontage(const BuildingModelAsset& asset, const BuildingModelInstance& instance, bool shadowPass) const
+{
+	// Reuse uploaded model-local meshes. Creating a complete town's props inside
+	// rebuildBuildingMeshes caused measured 100+ ms streaming stalls.
+	constexpr double kFrontageDistance = 110.0;
+	if (m_buildingEye.distanceFromSq(Vec3{instance.pos}) > Square(kFrontageDistance)) { return; }
+	const Mat4x4 transform=Mat4x4::RotateY(-instance.angle).translated(instance.pos.x,instance.pos.y,instance.pos.z);
+	const Transformer3D worldTransform{transform};
+	for (const auto& part : asset.frontages[instance.frontageVariant])
+	{
+		if (shadowPass) { part.mesh.draw(ColorF{1}); }
+		else if (part.materialKey==134)
+		{
+			static const Texture signs{U"assets/buildings/commercial/japan_street_atlas.png",TextureDesc::MippedSRGB};
+			part.mesh.draw(signs,ColorF{1});
+		}
+		else if (part.materialKey==125 && m_foliageShader)
+		{
+			const ScopedCustomShader3D foliage{m_foliageShader};part.mesh.draw(part.color);
+		}
+		else { part.mesh.draw(part.color); }
 	}
 }

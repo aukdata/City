@@ -1,0 +1,1 @@
+[21.218s] [Streaming] buildings chunk=(40, 30) ms=90.35

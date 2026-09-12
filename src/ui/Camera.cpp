@@ -301,6 +301,15 @@ void GameCamera::walk(Vec2 input,double distance,const World& world)
 	rebuildFirstPerson();
 }
 
+void GameCamera::setWalkingState(Vec3 ground, float yaw, float pitch)
+{
+	m_mode = CameraMode::FirstPerson;
+	m_focus = ground;
+	m_fpYaw = yaw;
+	m_fpPitch = pitch;
+	rebuildFirstPerson();
+}
+
 void GameCamera::rebuildFirstPerson()
 {
 	constexpr double kEyeHeight = 1.5;

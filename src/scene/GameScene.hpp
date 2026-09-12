@@ -500,6 +500,8 @@ private:
 	void handleRoadDraw();
 	void handleRoadPlan();
 	void updateRoadPlanReview();
+	Array<int> m_streetReviewEdges;
+	void updateStreetReview();
 	void updateTransportReview();
 	void jumpToMapPosition(Vec2 target);
 	void updateConstructionReview();

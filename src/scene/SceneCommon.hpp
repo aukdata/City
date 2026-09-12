@@ -10,6 +10,7 @@ struct SceneData
 	uint64 seed        = 20260316ULL;
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
 	bool   isNewGame   = true;   ///< true: 新規生成、false: セーブロード
+	bool   captureFirstPerson = false; ///< 同じ街角を歩行目線で比較撮影する。
 	bool   captureTransport = false; ///< Streets, railway, bridges and full-screen map render review.
 	bool   auditRoadIntegrity = false; ///< 道路生成の段階データを出力して終了（画像なし）
 	bool   captureConstruction = false; ///< 工事の実画面と自動撤去を検証

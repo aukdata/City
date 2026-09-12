@@ -1,0 +1,32 @@
+[
+  {
+    "view": 0,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 1.9773341503267974,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.030970588235294118
+  },
+  {
+    "view": 1,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 1.6756919934640524,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.01758578431372549
+  },
+  {
+    "view": 2,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 0.0,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.0
+  },
+  {
+    "view": 3,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 1.9466928104575163,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.021791666666666668
+  },
+  {
+    "view": 4,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 0.0,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.0
+  },
+  {
+    "view": 5,
+    "nearRightFacadeMeanAbsoluteRgbDifference": 0.0,
+    "nearRightFacadePixelsWithAnyChannelOver25": 0.0
+  }
+]

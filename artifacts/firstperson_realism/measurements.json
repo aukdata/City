@@ -1,0 +1,137 @@
+{
+  "conditions": {
+    "seed": 42,
+    "size": [
+      1920,
+      1080
+    ],
+    "eyeHeightM": 1.5,
+    "hour": 13,
+    "views": 6,
+    "samplesPerView": 60,
+    "vsync": true,
+    "captureBackgroundLoadChanged": true,
+    "streamingBenchmarksRunAlone": true
+  },
+  "views": {
+    "before": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 13.38,
+        "frameP95": 26.82,
+        "cpuP50": 4.14,
+        "buildings": 184.0
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 13.36,
+        "frameP95": 26.8,
+        "cpuP50": 3.16,
+        "buildings": 56.0
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 13.4,
+        "frameP95": 26.77,
+        "cpuP50": 3.07,
+        "buildings": 79.0
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 13.34,
+        "frameP95": 26.78,
+        "cpuP50": 6.32,
+        "buildings": 783.0
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 13.37,
+        "frameP95": 26.82,
+        "cpuP50": 8.08,
+        "buildings": 1626.0
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 13.38,
+        "frameP95": 26.76,
+        "cpuP50": 6.2,
+        "buildings": 642.0
+      }
+    ],
+    "after": [
+      {
+        "view": 0.0,
+        "samples": 60.0,
+        "frameP50": 13.37,
+        "frameP95": 26.94,
+        "cpuP50": 2.81,
+        "buildings": 184.0
+      },
+      {
+        "view": 1.0,
+        "samples": 60.0,
+        "frameP50": 13.37,
+        "frameP95": 26.88,
+        "cpuP50": 2.06,
+        "buildings": 56.0
+      },
+      {
+        "view": 2.0,
+        "samples": 60.0,
+        "frameP50": 13.33,
+        "frameP95": 27.92,
+        "cpuP50": 1.81,
+        "buildings": 79.0
+      },
+      {
+        "view": 3.0,
+        "samples": 60.0,
+        "frameP50": 13.38,
+        "frameP95": 26.83,
+        "cpuP50": 4.64,
+        "buildings": 783.0
+      },
+      {
+        "view": 4.0,
+        "samples": 60.0,
+        "frameP50": 13.37,
+        "frameP95": 27.23,
+        "cpuP50": 6.27,
+        "buildings": 1626.0
+      },
+      {
+        "view": 5.0,
+        "samples": 60.0,
+        "frameP50": 13.38,
+        "frameP95": 26.91,
+        "cpuP50": 4.29,
+        "buildings": 642.0
+      }
+    ]
+  },
+  "exeSha256": "77b94ba4fbc95bfa1fb8b88aab76dbf68d4c3bad824ee9d0a78eed5b5b9cbdb9",
+  "streaming": {
+    "baseline_benchmark": {
+      "rows": 720,
+      "columns": [
+        "frame",
+        "cpuMs",
+        "frameMs"
+      ]
+    },
+    "final_benchmark": {
+      "rows": 720,
+      "columns": [
+        "frame",
+        "cpuMs",
+        "frameMs"
+      ]
+    }
+  }
+}

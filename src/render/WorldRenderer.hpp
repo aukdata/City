@@ -24,6 +24,7 @@ public:
 	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size(); }
 	/// @brief The same terrain-following, road-clipped geometry is used for parcel selection.
 	MeshData landPatchSurface(const World& world,const RoadNetwork& network,Point coord,const LandPatch& patch);
+	void setBuildingShader(const PixelShader& shader) { m_buildingShader = shader; }
 	void setTerrainShader(const PixelShader& shader) { m_terrainShader = shader; }
 	void setLandscapeShaders(const PixelShader& field,const PixelShader& paddy,const PixelShader& foliage)
 	{ m_fieldShader=field;m_paddyShader=paddy;m_foliageShader=foliage; }
@@ -80,6 +81,7 @@ private:
 		Float3 pos;       ///< 設置位置（Y は地表高さ）
 		float  angle;     ///< Y 軸回転 [rad]
 		float  scale;     ///< TOML 指定スケール
+		uint8 frontageVariant = 0;
 	};
 
 	struct BuildingModelAsset
@@ -87,6 +89,8 @@ private:
 		Model model;
 		Model distantModel;
 		float scale = 1.0f;
+		Optional<float> frontWall; ///< 庇・バルコニーを除いた接道側の壁面 Z [モデル m]
+		std::array<Array<BuildingBatch>,6> frontages; ///< ロード時に生成・材質別に結合する入口設備
 	};
 
 	struct TerrainSubtractionQuad
@@ -152,6 +156,7 @@ private:
 
 	/// @brief 建物 OBJ（種別+バリアント）を必要時にロードして返す
 	BuildingModelAsset& getBuildingModelAsset(BuildingType type, uint8 variant);
+	void drawFrontage(const BuildingModelAsset& asset, const BuildingModelInstance& instance, bool shadowPass) const;
 
 	struct TerrainJobResult
 	{
@@ -193,6 +198,7 @@ private:
 	bool                                 m_chunkSubtractorPrimed = false;
 	int                                  m_terrainRebuildBudget = 0;
 	uint64 m_geometryRevision = 0;
+	PixelShader m_buildingShader;
 	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
 	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;

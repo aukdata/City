@@ -1,0 +1,546 @@
+﻿{
+  "total": 77,
+  "passed": 77,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Bezier.BuildingFrontageUsesClosestPoint",
+      "status": "passed",
+      "durationMs": 0.014,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.RoundTrip",
+      "status": "passed",
+      "durationMs": 3.724,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.UnsupportedVersionRejected",
+      "status": "passed",
+      "durationMs": 2.840,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.CorruptionRejected",
+      "status": "passed",
+      "durationMs": 2.384,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.WriterFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 5.455,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.VerificationFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 3.428,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadAssets.CurbFacesSurviveWhitespace",
+      "status": "passed",
+      "durationMs": 0.297,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Buildings.RealisticAssetsLoad",
+      "status": "passed",
+      "durationMs": 663.704,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Buildings.AllVariantsReachable",
+      "status": "passed",
+      "durationMs": 738.368,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Assets.CivicTransportLoad",
+      "status": "passed",
+      "durationMs": 466.568,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadNetwork.ShortConnectorPreservesTangents",
+      "status": "passed",
+      "durationMs": 0.092,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Hud.HousingCapacityIncrementalUpdates",
+      "status": "passed",
+      "durationMs": 309.867,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadRendering.SlopedArterialJunctions",
+      "status": "passed",
+      "durationMs": 31106.548,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Generation.CastleTownConnectivityAndTerrain",
+      "status": "passed",
+      "durationMs": 9364.517,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.ShadowsAndMaterialReadback",
+      "status": "passed",
+      "durationMs": 287.184,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Parcels.BothRoadSidesAndSharedBoundary",
+      "status": "passed",
+      "durationMs": 238.252,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.MovingVehicleShadowClearsWithoutStaticRebuild",
+      "status": "passed",
+      "durationMs": 224.899,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Parcels.RotatedAndOffsetFootprints",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.HeightMatchesRenderedTriangles",
+      "status": "passed",
+      "durationMs": 0.009,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.GenerationHeightDiagnostics",
+      "status": "passed",
+      "durationMs": 22.903,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ContinuousPlacementUndoRedo",
+      "status": "passed",
+      "durationMs": 0.015,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ShortRoadAndTransactionalFailure",
+      "status": "passed",
+      "durationMs": 0.066,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.SnapLongEdgeAndHeight",
+      "status": "passed",
+      "durationMs": 1.633,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.JoinPreservesExistingRouteAndPlan",
+      "status": "passed",
+      "durationMs": 0.158,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.HierarchyPresets",
+      "status": "passed",
+      "durationMs": 0.006,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ToolbarVisualReview",
+      "status": "passed",
+      "durationMs": 131.830,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.TrafficAdmission",
+      "status": "passed",
+      "durationMs": 0.026,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.StageClockAndResume",
+      "status": "passed",
+      "durationMs": 1.431,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ClearanceAndPersistentTombstones",
+      "status": "passed",
+      "durationMs": 231.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ElevatedClearance",
+      "status": "passed",
+      "durationMs": 227.010,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ParcelKeysAcrossChunks",
+      "status": "passed",
+      "durationMs": 205.344,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.BridgeSurfaceNormals",
+      "status": "passed",
+      "durationMs": 0.124,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.StagesVisualReview",
+      "status": "passed",
+      "durationMs": 2129.311,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Generation.CastleTownClipsRegionalRoads",
+      "status": "passed",
+      "durationMs": 294.942,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.RightAngleWidthTransition",
+      "status": "passed",
+      "durationMs": 0.348,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.GuideSignsAvoidJunctions",
+      "status": "passed",
+      "durationMs": 0.724,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.CurveControlPolygonIsNotPavement",
+      "status": "passed",
+      "durationMs": 0.040,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.GradeSeparatedCrossing",
+      "status": "passed",
+      "durationMs": 0.052,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.CrossingPreservesCurveAndProfile",
+      "status": "passed",
+      "durationMs": 0.221,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.OverlappingCorridorsRetainBranchesAndRoutes",
+      "status": "passed",
+      "durationMs": 0.381,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.PlannedAndSeparateParallelRoadsStaySeparate",
+      "status": "passed",
+      "durationMs": 0.025,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.SplitTaperKeepsSharedCrossSection",
+      "status": "passed",
+      "durationMs": 0.039,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.AcuteForkMouthsHaveSeparateEnvelopes",
+      "status": "passed",
+      "durationMs": 0.038,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.SplitRetainsRoadObjects",
+      "status": "passed",
+      "durationMs": 0.043,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.ShortOverlappingEndpoints",
+      "status": "passed",
+      "durationMs": 0.108,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.MixedGradeJunctionVisibility",
+      "status": "passed",
+      "durationMs": 2243.444,
+      "failures": [
+      ]
+    },
+    {
+      "name": "UI.FullScreenMap",
+      "status": "passed",
+      "durationMs": 74.426,
+      "failures": [
+      ]
+    },
+    {
+      "name": "UI.CollapsibleHudAndParcelPreview",
+      "status": "passed",
+      "durationMs": 20.957,
+      "failures": [
+      ]
+    },
+    {
+      "name": "LandPlot.ConcaveSelection",
+      "status": "passed",
+      "durationMs": 0.036,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Camera.WalkingHeightAndWasd",
+      "status": "passed",
+      "durationMs": 221.077,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadMarkings.SeamRequiresBothApproaches",
+      "status": "passed",
+      "durationMs": 0.035,
+      "failures": [
+      ]
+    },
+    {
+      "name": "LandPlot.VisibleSurfaceAndRoadCutouts",
+      "status": "passed",
+      "durationMs": 201.628,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Landscape.TreeLodAndMaterialReadback",
+      "status": "passed",
+      "durationMs": 231.793,
+      "failures": [
+      ]
+    },
+    {
+      "name": "UI.IntegratedHudLayout",
+      "status": "passed",
+      "durationMs": 139.482,
+      "failures": [
+      ]
+    },
+    {
+      "name": "StreetDetail.FacadeAttachments",
+      "status": "passed",
+      "durationMs": 1.989,
+      "failures": [
+      ]
+    },
+    {
+      "name": "StreetDetail.MaterialGpuReadback",
+      "status": "passed",
+      "durationMs": 271.657,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.StreetCrossSections",
+      "status": "passed",
+      "durationMs": 0.211,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.TerrainConstrainedTown",
+      "status": "passed",
+      "durationMs": 199.640,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.TerrainAndOrigin",
+      "status": "passed",
+      "durationMs": 0.008,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.NucleiAndLandUse",
+      "status": "passed",
+      "durationMs": 0.013,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.RuralForms",
+      "status": "passed",
+      "durationMs": 0.006,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.DuplicateCurveParameterization",
+      "status": "passed",
+      "durationMs": 0.047,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.ExistingBoundaryGateway",
+      "status": "passed",
+      "durationMs": 291.491,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.CompactTempleGateway",
+      "status": "passed",
+      "durationMs": 222.230,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.AllOriginsConnected",
+      "status": "passed",
+      "durationMs": 852.351,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Transport.WaterCrossing",
+      "status": "passed",
+      "durationMs": 0.615,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Transport.ConnectedTrainRoute",
+      "status": "passed",
+      "durationMs": 0.154,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Morphology.ActualStreetBlocks",
+      "status": "passed",
+      "durationMs": 0.109,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Transport.ReferenceSigns",
+      "status": "passed",
+      "durationMs": 13.326,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Map.KeyboardAndAllStreetScales",
+      "status": "passed",
+      "durationMs": 57.517,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.DrainageAndWaterLevel",
+      "status": "passed",
+      "durationMs": 0.909,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Transport.RaisedRiverCrossing",
+      "status": "passed",
+      "durationMs": 0.270,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.SmallRoadEarthworks",
+      "status": "passed",
+      "durationMs": 183.874,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rail.CostProfileAndClearance",
+      "status": "passed",
+      "durationMs": 0.123,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Tunnels.RoadPlanAndPersistence",
+      "status": "passed",
+      "durationMs": 203.306,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Structures.UndersideAndTunnelReadback",
+      "status": "passed",
+      "durationMs": 40.724,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Districts.HierarchyCoverage",
+      "status": "passed",
+      "durationMs": 285.733,
+      "failures": [
+      ]
+    }
+  ]
+}

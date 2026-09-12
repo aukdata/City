@@ -400,7 +400,8 @@ namespace
 					src.normal.y,
 					static_cast<float>(sl.right.z) * src.normal.x + src.normal.y * 0.0f + static_cast<float>(tangent.z) * src.normal.z
 				};
-				dst.tex = Float2{ src.tex.x + static_cast<float>(segment), src.tex.y };
+				dst.tex = def.type == RoadPartType::Sidewalk || def.type == RoadPartType::Curb
+					? Float2{lateral, s} : Float2{src.tex.x + static_cast<float>(segment), src.tex.y};
 				md.vertices << dst;
 			}
 
@@ -536,6 +537,10 @@ namespace
 
 bool RoadRenderer::loadAssets()
 {
+	m_asphaltPS = PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl", U"Asphalt_PS");
+	m_pavementPS = PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl", U"Pavement_PS");
+	m_asphaltNormal = Texture{U"assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg", TextureDesc::Mipped};
+	DBG_LOG(U"[StreetMaterials] asphalt={} pavement={}"_fmt(static_cast<bool>(m_asphaltPS), static_cast<bool>(m_pavementPS)));
 	m_constructionEarthPS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Earth_PS");
 	m_constructionAggregatePS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Aggregate_PS");
 	m_constructionSoilNormal=Texture{U"assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg",TextureDesc::Mipped};
@@ -857,10 +862,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	{
 		for (const auto& entry : meshIt->second)
 		{
-			if (entry.texture)
-				entry.meshPair.detail.draw(*entry.texture, entry.color);
-			else
-				entry.meshPair.detail.draw(entry.color);
+			drawSurface(entry, entry.meshPair.detail);
 		}
 	}
 	else
@@ -989,10 +991,7 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 	for (const auto& entry : m_nodeCapCache[nodeId])
 	{
 		const Mesh& mesh = isClose ? entry.meshPair.detail : entry.meshPair.lod;
-		if (entry.texture)
-			mesh.draw(*entry.texture, entry.color);
-		else
-			mesh.draw(entry.color);
+		drawSurface(entry, mesh);
 	}
 
 	// 道路標示（停止線・横断歩道・矢印・ノード内区画線）
@@ -1014,6 +1013,27 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 float RoadRenderer::edgeMargin(const RoadEdge& edge, int nodeId)
 {
 	return (nodeId == edge.nodeA) ? edge.cutoffA : edge.cutoffB;
+}
+
+void RoadRenderer::drawSurface(const PartMeshEntry& entry, const Mesh& mesh) const
+{
+	const auto draw = [&]()
+	{
+		if (entry.texture) { mesh.draw(*entry.texture, entry.color); }
+		else { mesh.draw(entry.color); }
+	};
+	if (entry.materialType == RoadPartType::Roadbed && m_asphaltPS)
+	{
+		Graphics3D::SetPSTexture(4, m_asphaltNormal);
+		const ScopedCustomShader3D shader{m_asphaltPS};
+		draw();
+	}
+	else if ((entry.materialType == RoadPartType::Sidewalk || entry.materialType == RoadPartType::Curb) && m_pavementPS)
+	{
+		const ScopedCustomShader3D shader{m_pavementPS};
+		draw();
+	}
+	else { draw(); }
 }
 
 RoadRenderer::PartVisual RoadRenderer::getPartVisual(const RoadPart& part) const
@@ -1232,6 +1252,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		entry.meshPair.lod    = mdLod.vertices.isEmpty() ? Mesh{ mdDetail } : Mesh{ mdLod };
 		entry.color   = color;
 		entry.texture = tex;
+		entry.materialType = part.type;
 		entries << std::move(entry);
 	}
 
@@ -1590,6 +1611,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 	MeshData cableMd;
 	MeshData roadsideMd;
 	MeshData markerMd;
+	MeshData ironMd;
 
 	for (size_t partIndex = 0; partIndex < edge.parts.size(); ++partIndex)
 	{
@@ -1717,10 +1739,48 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 		}
 	}
 
+	// 排水桝と点検蓋は交差点の切り詰め範囲を避け、道路の地表面に沿わせる。
+	if (!edge.useElevation)
+	{
+		constexpr float kDrainSpacing = 18.0f;
+		for (const auto& part : edge.parts)
+		{
+			if (part.type != RoadPartType::Sidewalk || part.build != BuildState::Built) { continue; }
+			const float inner = Abs(part.offsetL()) < Abs(part.offsetR()) ? part.offsetL() : part.offsetR();
+			const float offset = inner + (inner < 0 ? -.22f : .22f);
+			for (float arc = range.sStart + 8; arc < range.sEnd - 8; arc += kDrainSpacing)
+			{
+				const Vec3 tangent = bezier.tangentAt(arc);
+				const Vec3 right = tangentToRight(tangent);
+				Vec3 center = bezier.positionAt(arc) + right * offset;
+				center.y = world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift + .155;
+				const float yaw = static_cast<float>(Atan2(tangent.z, tangent.x));
+				appendOrientedBox(roadsideMd, center, Float3{.70f,.018f,.35f}, yaw);
+				for (int bar = -4; bar <= 4; ++bar)
+				{
+					appendOrientedBox(ironMd, center + tangent * (bar * .072) + Vec3{0,.012,0}, Float3{.022f,.016f,.32f}, yaw);
+				}
+			}
+		}
+		constexpr float kCoverSpacing = 47.0f;
+		for (float arc = range.sStart + 15; arc < range.sEnd - 12; arc += kCoverSpacing)
+		{
+			const Vec3 tangent = bezier.tangentAt(arc);
+			const Vec3 right = tangentToRight(tangent);
+			Vec3 center = bezier.positionAt(arc) + right * .6;
+			center.y = world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift + .012;
+			appendCylinder(roadsideMd, center, .32, .012, 24);
+			for (int rib = -2; rib <= 2; ++rib)
+			{
+				appendOrientedBox(ironMd, center + right * (rib * .09) + Vec3{0,.01,0}, Float3{.018f,.006f,.43f}, static_cast<float>(Atan2(right.z,right.x)));
+			}
+		}
+	}
 	Array<LaneLineBatch> batches;
 	if (!poleMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.57, 0.57, 0.53 }.removeSRGBCurve(), Mesh{ poleMd } };
 	if (!cableMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.05, 0.05, 0.045 }.removeSRGBCurve(), Mesh{ cableMd }, true };
 	if (!markerMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), Mesh{ markerMd } };
+	if (!ironMd.vertices.isEmpty()) { batches << LaneLineBatch{ColorF{.43,.44,.43}.removeSRGBCurve(),Mesh{ironMd}}; }
 	if (!roadsideMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.30, 0.33, 0.33 }.removeSRGBCurve(), Mesh{ roadsideMd } };
 	return batches;
 }
@@ -1732,7 +1792,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 	const auto layout = JunctionGeometry::build(network, nodeId, onlyOpenEdges, &world);
 	Array<PartMeshEntry> entries;
 	if (layout.asphalt.vertices.isEmpty()) { return entries; }
-	auto addEntry = [&](MeshData mesh, ColorF color, const Texture* texture)
+	auto addEntry = [&](MeshData mesh, ColorF color, const Texture* texture, RoadPartType type = RoadPartType::Roadbed)
 	{
 		if (mesh.vertices.isEmpty() || mesh.indices.isEmpty()) { return; }
 		orientRoadFaces(mesh);
@@ -1742,6 +1802,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 		entry.meshPair.lod = entry.meshPair.detail;
 		entry.color = color;
 		entry.texture = texture;
+		entry.materialType = type;
 		entries << std::move(entry);
 	};
 	MeshData asphalt = layout.asphalt;
@@ -1815,7 +1876,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 				}
 			}
 			mesh = RoadGeometry::excludeSurface(mesh,connectedPavement);
-			addEntry(std::move(mesh), color, texture);
+			addEntry(std::move(mesh), color, texture, band.part.type);
 		}
 	}
 	return entries;

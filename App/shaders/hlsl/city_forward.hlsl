@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------
+//-----------------------------------------------
 //
 //	This file is part of the Siv3D Engine.
 //
@@ -270,7 +270,8 @@ float4 Foliage_PS(s3d::PSInput input) : SV_TARGET
 	float3 position=input.worldPosition*18;
 	float detail=1-smoothstep(.6,2.0,length(fwidth(position)));
 	float leaf=fieldNoise(floor(position.xz+position.y*.43));
-	float3 color=g_diffuseColor.rgb*lerp(1,.68+leaf*.72,detail);
+	float broad=sin(input.worldPosition.x*.73+sin(input.worldPosition.z*.91))*cos(input.worldPosition.y*1.37);
+	float3 color=g_diffuseColor.rgb*lerp(.80,1.10,saturate(.45+broad*.3))*lerp(1,.58+leaf*.84,detail);
 	float3 normal=normalize(input.normal+float3(sin(position.x),0,cos(position.z))*.18*detail);
 	input.normal=normal;
 	return shadeCity(input,float4(color,1));
@@ -287,4 +288,57 @@ float4 River_PS(s3d::PSInput input) : SV_TARGET
     float3 water = lerp(float3(.028,.115,.13), float3(.28,.42,.49), fresnel * .75);
     water += ripple * .007 * detail;
     return shadeCity(input, float4(water, 1));
+}
+
+
+// Sidewalk coordinates are lateral distance and curve arc length in metres.
+float4 Pavement_PS(s3d::PSInput input) : SV_TARGET
+{
+	float2 p = input.uv / float2(.40,.60);
+	p.y += fmod(floor(p.x),2) * .5;
+	float2 edge = min(frac(p),1-frac(p));
+	float2 footprint = max(fwidth(p),.0001);
+	float2 seams = 1 - smoothstep(.008,.008+footprint,edge);
+	float seam = max(seams.x,seams.y);
+	float resolved = 1-smoothstep(.2,1.0,max(footprint.x,footprint.y));
+	float tile = fieldNoise(floor(p));
+	float3 albedo = g_diffuseColor.rgb * lerp(.88,1.12,tile);
+	albedo *= 1-seam*.36*resolved;
+	float grain = fieldNoise(floor(input.worldPosition.xz*160));
+	albedo *= lerp(1,.93+grain*.14,1-smoothstep(.08,.4,length(fwidth(input.worldPosition.xz))));
+	return shadeCity(input,float4(albedo,1));
+}
+
+float4 Asphalt_PS(s3d::PSInput input) : SV_TARGET
+{
+	float4 albedo = GetDiffuseColor(input.uv);
+	float grey = dot(albedo.rgb,float3(.2126,.7152,.0722));
+	albedo.rgb = lerp(albedo.rgb,grey*float3(.99,1.0,1.035),.88);
+	float2 p = input.worldPosition.xz;
+	float variation = sin(p.x*.18+sin(p.y*.27))*sin(p.y*.13+p.x*.037);
+	albedo.rgb *= 1+variation*.085;
+	float2 cell = floor(p/19);
+	float2 within = frac(p/19);
+	float patch = step(.83,fieldNoise(cell)) * step(.23,within.x)*step(within.x,.39)*step(.2,within.y)*step(within.y,.66);
+	albedo.rgb *= 1-patch*.15;
+	float3 detail = g_earthNormal.Sample(g_sampler0,input.uv).xyz*2-1;
+	float strength = .10*(1-smoothstep(.15,1.0,length(fwidth(p))));
+	input.normal = normalize(input.normal+float3(detail.x,0,detail.y)*strength);
+	return shadeCity(input,albedo);
+}
+
+
+// Baked building atlases use blue-grey texels for glass. Approximate sky reflection
+// with Fresnel; preserve the photographed recesses and diffuse facade shading.
+float4 Building_PS(s3d::PSInput input) : SV_TARGET
+{
+	float4 albedo = GetDiffuseColor(input.uv);
+	float glass = g_hasTexture * smoothstep(.008,.035,albedo.b-albedo.r) * (1-smoothstep(.10,.25,albedo.r)) * (1-smoothstep(.1,.4,abs(input.normal.y)));
+	float3 view = normalize(g_eyePosition-input.worldPosition);
+	float3 reflected = reflect(-view,normalize(input.normal));
+	float fresnel = .04+.38*pow(1-saturate(abs(dot(view,normalize(input.normal)))),5);
+	float3 sky = lerp(float3(.13,.16,.18),float3(.34,.47,.59),smoothstep(-.18,.6,reflected.y));
+	float shade = .88+.12*sin(reflected.x*23+reflected.z*11);
+	albedo.rgb = lerp(albedo.rgb,sky*shade,glass*fresnel);
+	return shadeCity(input,albedo);
 }

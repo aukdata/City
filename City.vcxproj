@@ -416,6 +416,7 @@
     <ClInclude Include="src\ui\LandParcelPanel.hpp" />
     <ClInclude Include="src\world\LandPlot.hpp" />
     <ClInclude Include="src\render\TreeGeometry.hpp" />
+    <ClInclude Include="src\render\FrontageGeometry.hpp" />
     <ClInclude Include="src\render\WorldRenderer.hpp" />
     <ClInclude Include="src\render\RoadRenderer.hpp" />
     <ClInclude Include="src\render\VehicleRenderer.hpp" />
