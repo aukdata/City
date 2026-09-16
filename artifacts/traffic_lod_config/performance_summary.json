@@ -1,0 +1,52 @@
+{
+  "beforePaused": {
+    "samples": 800,
+    "frame": 7415.5,
+    "mode": 3.0,
+    "map": 0.0,
+    "frameMs": 13.396,
+    "renderMs": 6.766,
+    "logicMs": 0.004,
+    "terrainMs": 2.096,
+    "roadMs": 0.9724999999999999,
+    "shadowMs": 0.086
+  },
+  "afterPaused": {
+    "samples": 800,
+    "frame": 2510.5,
+    "mode": 3.0,
+    "map": 0.0,
+    "frameMs": 13.3655,
+    "renderMs": 4.0009999999999994,
+    "logicMs": 0.004,
+    "terrainMs": 1.1284999999999998,
+    "roadMs": 0.8755,
+    "shadowMs": 0.0,
+    "cars": 64.0,
+    "carUpdateMs": 2.908,
+    "carDrawMs": 0.001,
+    "carDrawCalls": 0.0,
+    "visibleCars": 0.0,
+    "buildingDrawCalls": 125.0,
+    "gpuMs": 3.331
+  },
+  "afterBusy": {
+    "samples": 2654,
+    "frame": 7933.5,
+    "mode": 3.0,
+    "map": 0.0,
+    "frameMs": 15.439499999999999,
+    "renderMs": 6.411,
+    "logicMs": 0.008,
+    "terrainMs": 1.467,
+    "roadMs": 1.151,
+    "shadowMs": 0.331,
+    "cars": 9623.0,
+    "carUpdateMs": 7.867,
+    "carDrawMs": 0.079,
+    "carDrawCalls": 18.0,
+    "visibleCars": 697.0,
+    "buildingDrawCalls": 125.0,
+    "gpuMs": 3.59
+  }
+}

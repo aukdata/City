@@ -1,0 +1,14 @@
+﻿{
+  "assets/buildings/residential/residential_012.obj": {
+    "meanChannelDifference": 0.0,
+    "visiblePixels": 109376
+  },
+  "assets/railway/urban_cab.obj": {
+    "meanChannelDifference": 0.0,
+    "visiblePixels": 34925
+  },
+  "assets/vehicles/sedan.obj": {
+    "meanChannelDifference": 0.0,
+    "visiblePixels": 53748
+  }
+}

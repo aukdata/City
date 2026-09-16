@@ -1,0 +1,17 @@
+﻿{
+  "12000": {
+    "checksum": 30336000.0,
+    "exhaustiveMs": 46.674,
+    "indexedMs": 0.3163333333333333
+  },
+  "600": {
+    "checksum": 1516800.0,
+    "exhaustiveMs": 0.142,
+    "indexedMs": 0.014833333333333332
+  },
+  "6000": {
+    "checksum": 15168000.0,
+    "exhaustiveMs": 11.972,
+    "indexedMs": 0.147
+  }
+}
