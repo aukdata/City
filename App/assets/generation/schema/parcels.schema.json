@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: parcels",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "roadMargin",
+    "minimumBlockArea",
+    "narrowBlockArea",
+    "minimumBuildingHalfWidth",
+    "roadWidthPreservationWeight",
+    "neighborGapRatio",
+    "minimumBuildingGap"
+  ],
+  "properties": {
+    "roadMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "minimumBlockArea": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "narrowBlockArea": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "minimumBuildingHalfWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 30.0
+    },
+    "roadWidthPreservationWeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "neighborGapRatio": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.5
+    },
+    "minimumBuildingGap": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    }
+  }
+}

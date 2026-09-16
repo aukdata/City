@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: roads",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "surfaceCost",
+    "earthworkCost",
+    "viaductCostPerMetre",
+    "tunnelCost",
+    "surfaceTolerance",
+    "maximumFill",
+    "maximumCut",
+    "localMaximumGrade",
+    "localMinimumRadius",
+    "highwayMaximumGrade",
+    "highwayMinimumRadius",
+    "arterialMaximumGrade",
+    "arterialMinimumRadius",
+    "endpointElevationThreshold",
+    "interiorElevationThreshold"
+  ],
+  "properties": {
+    "surfaceCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "earthworkCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "viaductCostPerMetre": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10000.0
+    },
+    "tunnelCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "surfaceTolerance": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10000.0
+    },
+    "maximumFill": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10000.0
+    },
+    "maximumCut": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10000.0
+    },
+    "localMaximumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "localMinimumRadius": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 2000.0
+    },
+    "highwayMaximumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "highwayMinimumRadius": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 2000.0
+    },
+    "arterialMaximumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "arterialMinimumRadius": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 2000.0
+    },
+    "endpointElevationThreshold": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 10.0
+    },
+    "interiorElevationThreshold": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 20.0
+    }
+  }
+}

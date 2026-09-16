@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: rivers",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "catchmentGrid",
+    "minimumCatchmentCells",
+    "initialWaterDepth",
+    "smoothingMinimumAltitude",
+    "valleyWaterDepth",
+    "minimumWaterGrade",
+    "mouthAltitude",
+    "widthBase",
+    "widthFlowScale",
+    "minimumHalfWidth",
+    "maximumHalfWidth",
+    "segmentLength",
+    "vegetationBankMargin",
+    "vegetationMinimumAltitude",
+    "waterEdgeMargin",
+    "carveExtent",
+    "bedDepth",
+    "bankSlope",
+    "bankBlendStart",
+    "bankBlendWidth"
+  ],
+  "properties": {
+    "catchmentGrid": {
+      "type": "number",
+      "minimum": 64.0,
+      "maximum": 1024.0
+    },
+    "minimumCatchmentCells": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "initialWaterDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "smoothingMinimumAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "valleyWaterDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "minimumWaterGrade": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.1
+    },
+    "mouthAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "widthBase": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "widthFlowScale": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "minimumHalfWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 500.0
+    },
+    "maximumHalfWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 500.0
+    },
+    "segmentLength": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "vegetationBankMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "vegetationMinimumAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "waterEdgeMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "carveExtent": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 80.0
+    },
+    "bedDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "bankSlope": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "bankBlendStart": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 80.0
+    },
+    "bankBlendWidth": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 80.0
+    }
+  }
+}

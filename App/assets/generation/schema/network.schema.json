@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: network",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "localRoutingCell",
+    "longRouteThreshold",
+    "longRoutingCell",
+    "mediumRouteThreshold",
+    "mediumRoutingCell",
+    "occupiedCell",
+    "routingMargin",
+    "denseSampleThreshold",
+    "steepRerouteDistance",
+    "borderInset",
+    "cityJoinRadius",
+    "townJoinRadius",
+    "villageJoinRadius",
+    "fallbackJoinRadius",
+    "villageDirectJoinDistance",
+    "mountainRoadSideSample",
+    "mountainRoadRelief",
+    "minimumKaidoSearchRadius",
+    "kaidoSearchRadiusScale"
+  ],
+  "properties": {
+    "localRoutingCell": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 200.0
+    },
+    "longRouteThreshold": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "longRoutingCell": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 400.0
+    },
+    "mediumRouteThreshold": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "mediumRoutingCell": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 400.0
+    },
+    "occupiedCell": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 500.0
+    },
+    "routingMargin": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 5000.0
+    },
+    "denseSampleThreshold": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "steepRerouteDistance": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "borderInset": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "cityJoinRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "townJoinRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "villageJoinRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "fallbackJoinRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "villageDirectJoinDistance": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "mountainRoadSideSample": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "mountainRoadRelief": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "minimumKaidoSearchRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 100000.0
+    },
+    "kaidoSearchRadiusScale": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 10.0
+    }
+  }
+}

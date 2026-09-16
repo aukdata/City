@@ -1,0 +1,13 @@
+{
+  "waterClearance": 6,
+  "waterBankMargin": 1,
+  "waterSampleStep": 6,
+  "approachSegmentLength": 48,
+  "bankSearchDistance": 300,
+  "bankApproachGrade": 0.02,
+  "railRoadLateralClearance": 7,
+  "railOverRoadClearance": 7,
+  "railUnderRoadClearance": 10,
+  "earthworkWaterMargin": 1.2,
+  "earthworkSlope": 0.6666666666666666
+}

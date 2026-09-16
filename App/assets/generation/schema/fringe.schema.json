@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: fringe",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "terrainStep",
+    "roadClearance",
+    "waterFreeboard",
+    "maximumGrade",
+    "sharedNodeRadius",
+    "cityRibbonDepth",
+    "townRibbonDepth",
+    "ribbonSampleStep",
+    "coreMargin",
+    "cornerMargin",
+    "depthVariation",
+    "tierDepthIncrement",
+    "townDepthScale",
+    "secondLegDepthIncrement",
+    "baseDepth",
+    "skewSteps",
+    "skewOffset",
+    "anchorStride",
+    "cityShallowPeriod",
+    "cityDeepPeriod",
+    "cityMaximumTiers",
+    "townShallowPeriod",
+    "normalTiers"
+  ],
+  "properties": {
+    "terrainStep": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 10000.0
+    },
+    "roadClearance": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 10000.0
+    },
+    "waterFreeboard": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "maximumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.3
+    },
+    "sharedNodeRadius": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 200.0
+    },
+    "cityRibbonDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 5000.0
+    },
+    "townRibbonDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 5000.0
+    },
+    "ribbonSampleStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 200.0
+    },
+    "coreMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 200.0
+    },
+    "cornerMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 500.0
+    },
+    "depthVariation": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 300.0
+    },
+    "tierDepthIncrement": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 300.0
+    },
+    "townDepthScale": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "secondLegDepthIncrement": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "baseDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "skewSteps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 200.0
+    },
+    "skewOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "anchorStride": {
+      "type": "integer",
+      "minimum": 3.0,
+      "maximum": 20.0
+    },
+    "cityShallowPeriod": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "cityDeepPeriod": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "cityMaximumTiers": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 5.0
+    },
+    "townShallowPeriod": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "normalTiers": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 5.0
+    }
+  }
+}

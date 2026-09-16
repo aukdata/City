@@ -1,0 +1,22 @@
+{
+  "catchmentGrid": 256,
+  "minimumCatchmentCells": 100,
+  "initialWaterDepth": 0.8,
+  "smoothingMinimumAltitude": 2,
+  "valleyWaterDepth": 0.7,
+  "minimumWaterGrade": 0.0003,
+  "mouthAltitude": 0.1,
+  "widthBase": 8,
+  "widthFlowScale": 1.15,
+  "minimumHalfWidth": 18,
+  "maximumHalfWidth": 150,
+  "segmentLength": 12,
+  "vegetationBankMargin": 6,
+  "vegetationMinimumAltitude": 0.5,
+  "waterEdgeMargin": 2,
+  "carveExtent": 65,
+  "bedDepth": 1.4,
+  "bankSlope": 0.18,
+  "bankBlendStart": 24,
+  "bankBlendWidth": 41
+}

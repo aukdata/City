@@ -1,0 +1,22 @@
+{
+  "plotLength": 128,
+  "plotWidth": 32,
+  "trackWidth": 4.4,
+  "paddyRelief": 0.8,
+  "sampleStep": 8,
+  "maximumTrackGrade": 0.06,
+  "minimumFreeboard": 1,
+  "maximumFieldRelief": 1.8,
+  "crossTrackEveryRows": 4,
+  "dryFieldDivisor": 4,
+  "surfaceLift": 0.035,
+  "headlandWidth": 3,
+  "bundWidth": 0.6,
+  "fieldSideInset": 4.8,
+  "fieldCombinedInset": 9.6,
+  "drainSideInset": 4,
+  "drainWidth": 1,
+  "entranceHalfDepth": 2,
+  "entranceWidth": 3.4,
+  "entranceDepth": 4
+}

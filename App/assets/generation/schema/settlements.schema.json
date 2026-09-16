@@ -1,0 +1,766 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: settlements",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultExtentX",
+    "defaultExtentZ",
+    "castleExtentX",
+    "castleExtentZ",
+    "postExtentX",
+    "postExtentZ",
+    "templeExtentX",
+    "templeExtentZ",
+    "marketExtentX",
+    "marketExtentZ",
+    "industrialExtentX",
+    "industrialExtentZ",
+    "plannedExtentX",
+    "plannedExtentZ",
+    "valleyExtentX",
+    "valleyExtentZ",
+    "dispersedExtentX",
+    "dispersedExtentZ",
+    "clusterExtentX",
+    "clusterExtentZ",
+    "countrysideFrontage",
+    "siteSampleDirections",
+    "siteSampleStep",
+    "siteSampleSteps",
+    "siteReliefRadius",
+    "siteWaterHeight",
+    "portMaximumHeight",
+    "portMinimumShoreDistance",
+    "portMaximumShoreDistance",
+    "templeRelief",
+    "templeChoiceThreshold",
+    "industrialMaximumRelief",
+    "industrialChoiceThreshold",
+    "plannedChoiceThreshold",
+    "castleChoiceThreshold",
+    "postChoiceThreshold",
+    "marketChoiceThreshold",
+    "townScale",
+    "portExtentX",
+    "portShoreSetback",
+    "portMinimumDepth",
+    "portMaximumDepth",
+    "valleyRelief",
+    "dispersedChoiceDivisor",
+    "oldCoreOffset",
+    "stationOffsetX",
+    "stationOffsetZ",
+    "coverageMargin",
+    "fringeWidth",
+    "coreMargin",
+    "fringeOccupancy",
+    "cityFringeDecayDistance",
+    "townFringeDecayDistance",
+    "ruralHomeRadius",
+    "dispersedHomeSpacingX",
+    "dispersedHomeSpacingZ",
+    "dispersedHomeHalfX",
+    "dispersedHomeHalfZ",
+    "valleyHomeHalfWidth",
+    "clusterHousingHalfX",
+    "clusterHousingHalfZ",
+    "cityStationRadius",
+    "townStationRadius",
+    "stationStreetRadius",
+    "commercialAxisWidth",
+    "commercialAxisLengthRatio",
+    "marketCrossWidth",
+    "edgeDensityReduction",
+    "edgeDensityStart",
+    "edgeDensityRange",
+    "plannedHousingStartX",
+    "plannedHousingStartZ",
+    "historicGridLinearWeight",
+    "historicGridCubicWeight",
+    "industrialStreetOmissionDepth",
+    "contourSampleRadius",
+    "castleCivicX",
+    "castleCivicZ",
+    "castleCivicWidth",
+    "castleCivicDepth",
+    "templeCivicX",
+    "templeCivicZ",
+    "templeCivicWidth",
+    "plannedCivicX",
+    "plannedCivicZ",
+    "plannedCivicWidth",
+    "plannedCivicDepth",
+    "industrialZoneX",
+    "industrialZoneZ",
+    "industrialZoneWidth",
+    "industrialZoneDepth",
+    "portIndustryX",
+    "portIndustryZ",
+    "portIndustryWidth",
+    "portIndustryDepth",
+    "fringeFrontage",
+    "civicFrontage",
+    "civicOccupancy",
+    "industryFrontage",
+    "industryOccupancy",
+    "dispersedRoadHomeFrontage",
+    "dispersedRoadHomeOccupancy",
+    "dispersedHomeFrontage",
+    "dispersedHomeOccupancy",
+    "villageHomeFrontage",
+    "villageHomeOccupancy",
+    "stationFrontage",
+    "stationOccupancy",
+    "stationStreetFrontage",
+    "stationStreetOccupancy",
+    "merchantStreetFrontage",
+    "merchantStreetOccupancy",
+    "plannedHomeFrontage",
+    "plannedHomeOccupancy",
+    "historicHomeFrontage",
+    "historicHomeOccupancy",
+    "historicSpacingCross",
+    "historicSpacingAlong",
+    "linearTownSpacingCross",
+    "linearTownSpacingAlong",
+    "modernSpacingCross",
+    "modernSpacingAlong",
+    "dispersedSpacingCross",
+    "dispersedSpacingAlong",
+    "villageSpacingCross",
+    "villageSpacingAlong"
+  ],
+  "properties": {
+    "defaultExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "defaultExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "postExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "postExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "marketExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "marketExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "valleyExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "valleyExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "clusterExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "clusterExtentZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "countrysideFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "siteSampleDirections": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "siteSampleStep": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "siteSampleSteps": {
+      "type": "integer",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "siteReliefRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "siteWaterHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portMaximumHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portMinimumShoreDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portMaximumShoreDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialMaximumRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "postChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "marketChoiceThreshold": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "townScale": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "portExtentX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portShoreSetback": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portMinimumDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portMaximumDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "valleyRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedChoiceDivisor": {
+      "type": "integer",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "oldCoreOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "stationOffsetX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "stationOffsetZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "coverageMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "fringeWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "coreMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "fringeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "cityFringeDecayDistance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "townFringeDecayDistance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "ruralHomeRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedHomeSpacingX": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "dispersedHomeSpacingZ": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "dispersedHomeHalfX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedHomeHalfZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "valleyHomeHalfWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "clusterHousingHalfX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "clusterHousingHalfZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "cityStationRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "townStationRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "stationStreetRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "commercialAxisWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "commercialAxisLengthRatio": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "marketCrossWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "edgeDensityReduction": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "edgeDensityStart": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "edgeDensityRange": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "plannedHousingStartX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedHousingStartZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "historicGridLinearWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "historicGridCubicWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialStreetOmissionDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "contourSampleRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleCivicX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleCivicZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleCivicWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "castleCivicDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeCivicX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeCivicZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "templeCivicWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedCivicX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedCivicZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedCivicWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedCivicDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialZoneX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialZoneZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialZoneWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industrialZoneDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portIndustryX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portIndustryZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portIndustryWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "portIndustryDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "fringeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "civicFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "civicOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "industryFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "industryOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "dispersedRoadHomeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedRoadHomeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "dispersedHomeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "dispersedHomeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "villageHomeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageHomeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "stationFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "stationOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "stationStreetFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "stationStreetOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "merchantStreetFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "merchantStreetOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "plannedHomeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "plannedHomeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "historicHomeFrontage": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "historicHomeOccupancy": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "historicSpacingCross": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "historicSpacingAlong": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "linearTownSpacingCross": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "linearTownSpacingAlong": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "modernSpacingCross": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "modernSpacingAlong": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "dispersedSpacingCross": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "dispersedSpacingAlong": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "villageSpacingCross": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "villageSpacingAlong": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    }
+  }
+}

@@ -1,0 +1,694 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: development",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "infill_city_Commercial",
+    "infill_city_Residential",
+    "infill_city_LowResidential",
+    "infill_city_Industrial",
+    "infill_town_Commercial",
+    "infill_town_Residential",
+    "infill_town_LowResidential",
+    "infill_town_Industrial",
+    "infill_village_Residential",
+    "infill_village_LowResidential",
+    "initial_city_Commercial",
+    "initial_city_Residential",
+    "initial_city_LowResidential",
+    "initial_city_Industrial",
+    "initial_city_Agriculture",
+    "initial_town_Commercial",
+    "initial_town_Residential",
+    "initial_town_LowResidential",
+    "initial_town_Industrial",
+    "initial_town_Agriculture",
+    "initial_village_Residential",
+    "initial_village_LowResidential",
+    "initial_village_Agriculture",
+    "choice_LowResidential_5",
+    "choice_LowResidential_9",
+    "choice_LowResidential_82",
+    "choice_LowResidential_94",
+    "choice_Residential_5",
+    "choice_Residential_10",
+    "choice_Residential_11",
+    "choice_Residential_84",
+    "choice_Commercial_8",
+    "choice_Commercial_13",
+    "choice_Commercial_86",
+    "choice_Industrial_12",
+    "choice_Industrial_18",
+    "context_Industry_92",
+    "context_Station_66",
+    "context_Station_38",
+    "context_Station_78",
+    "context_OldTown_91",
+    "context_OldTown_78",
+    "context_PlannedHousing_82",
+    "context_PlannedHousing_62",
+    "context_PlannedHousing_96",
+    "context_Housing_92",
+    "context_Housing_58",
+    "context_Housing_82",
+    "context_Housing_94",
+    "context_Housing_84",
+    "context_Housing_70",
+    "defaultBuildingSetbackM",
+    "cornerSetback",
+    "nearDist",
+    "farDist",
+    "coastalBuildHeight",
+    "slopeSampleRadius",
+    "minimumZonedHeight",
+    "maximumZonedSlope",
+    "maximumFarmSlope",
+    "agriculturalBeltWidth",
+    "zoneCoverageMargin",
+    "stationKeepoutX",
+    "stationKeepoutZ",
+    "ruralHouseCoreMargin",
+    "villageFringeStart",
+    "townFringeStart",
+    "villageFringeEnd",
+    "townFringeEnd",
+    "urbanFrontagePitch",
+    "ruralFrontagePitch",
+    "frontageCoverageMargin",
+    "maximumBuildingRelief",
+    "footprintMargin",
+    "buildingFreeboard",
+    "serviceCoverageMargin",
+    "minimumServiceRoadWidth",
+    "fuelStationSpacing",
+    "convenienceStoreSpacing",
+    "maximumServiceRelief",
+    "minimumBuildingHeight",
+    "minimumBuildingScore",
+    "minimumRoadSetback",
+    "modelSetbackFraction",
+    "suburbanSetback",
+    "maximumSuburbanRelief",
+    "farmOccupancyPercent",
+    "fieldCellInset",
+    "fieldCellCombinedInset",
+    "fieldSurfaceLift",
+    "paddyMaximumRelief",
+    "parcelRoadGap",
+    "industrialPlotDepth",
+    "merchantPlotDepth",
+    "residentialPlotDepth",
+    "parcelBackMargin",
+    "parcelSideMargin",
+    "parcelCellHalfRatio",
+    "parcelFrontageHalfRatio",
+    "parcelSurfaceLift",
+    "coastalWaterThreshold",
+    "beachMinimumHeight",
+    "beachMaximumHeight",
+    "coastalGrassMaximumHeight",
+    "validationMinimumHeight",
+    "validationClearanceFraction",
+    "validationFrontageMargin",
+    "validationCornerMargin",
+    "ruralFringe_detached",
+    "ruralFringe_factory",
+    "ruralFringe_parking",
+    "ruralFringe_park",
+    "fieldColumns",
+    "fieldRows"
+  ],
+  "properties": {
+    "infill_city_Commercial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_city_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_city_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_city_Industrial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_town_Commercial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_town_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_town_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_town_Industrial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_village_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "infill_village_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_city_Commercial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_city_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_city_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_city_Industrial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_city_Agriculture": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_town_Commercial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_town_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_town_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_town_Industrial": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_town_Agriculture": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_village_Residential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_village_LowResidential": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "initial_village_Agriculture": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "choice_LowResidential_5": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_LowResidential_9": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_LowResidential_82": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_LowResidential_94": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Residential_5": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Residential_10": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Residential_11": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Residential_84": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Commercial_8": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Commercial_13": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Commercial_86": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Industrial_12": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "choice_Industrial_18": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Industry_92": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Station_66": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Station_38": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Station_78": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_OldTown_91": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_OldTown_78": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_PlannedHousing_82": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_PlannedHousing_62": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_PlannedHousing_96": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_92": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_58": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_82": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_94": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_84": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "context_Housing_70": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "defaultBuildingSetbackM": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000.0
+    },
+    "cornerSetback": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000.0
+    },
+    "nearDist": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000.0
+    },
+    "farDist": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000.0
+    },
+    "coastalBuildHeight": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1000.0
+    },
+    "slopeSampleRadius": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "minimumZonedHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "maximumZonedSlope": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.3
+    },
+    "maximumFarmSlope": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.3
+    },
+    "agriculturalBeltWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "zoneCoverageMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "stationKeepoutX": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 300.0
+    },
+    "stationKeepoutZ": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 300.0
+    },
+    "ruralHouseCoreMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "villageFringeStart": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "townFringeStart": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "villageFringeEnd": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "townFringeEnd": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "urbanFrontagePitch": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "ruralFrontagePitch": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "frontageCoverageMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 500.0
+    },
+    "maximumBuildingRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "footprintMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "buildingFreeboard": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "serviceCoverageMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "minimumServiceRoadWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 30.0
+    },
+    "fuelStationSpacing": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 5000.0
+    },
+    "convenienceStoreSpacing": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 5000.0
+    },
+    "maximumServiceRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "minimumBuildingHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "minimumBuildingScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "minimumRoadSetback": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "modelSetbackFraction": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "suburbanSetback": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "maximumSuburbanRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "farmOccupancyPercent": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "fieldCellInset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 4.0
+    },
+    "fieldCellCombinedInset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 8.0
+    },
+    "fieldSurfaceLift": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "paddyMaximumRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "parcelRoadGap": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "industrialPlotDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 300.0
+    },
+    "merchantPlotDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 300.0
+    },
+    "residentialPlotDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 300.0
+    },
+    "parcelBackMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "parcelSideMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "parcelCellHalfRatio": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "parcelFrontageHalfRatio": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "parcelSurfaceLift": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "coastalWaterThreshold": {
+      "type": "number",
+      "minimum": -10.0,
+      "maximum": 10.0
+    },
+    "beachMinimumHeight": {
+      "type": "number",
+      "minimum": -10.0,
+      "maximum": 10.0
+    },
+    "beachMaximumHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 30.0
+    },
+    "coastalGrassMaximumHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 30.0
+    },
+    "validationMinimumHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 30.0
+    },
+    "validationClearanceFraction": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "validationFrontageMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "validationCornerMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "ruralFringe_detached": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "ruralFringe_factory": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "ruralFringe_parking": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "ruralFringe_park": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "fieldColumns": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 32.0
+    },
+    "fieldRows": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 32.0
+    }
+  }
+}

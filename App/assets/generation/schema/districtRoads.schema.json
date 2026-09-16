@@ -1,0 +1,346 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: districtRoads",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nodeMergeRadius",
+    "maxSlope",
+    "castleHalfMin",
+    "castleHalfMax",
+    "civicSquareHalfSize",
+    "preferredBlockWidth",
+    "approachMargin",
+    "turnPenalty",
+    "mainStreetSpeed",
+    "collectorSpeed",
+    "localSpeed",
+    "minimumDryHeight",
+    "maximumBlockWidth",
+    "minimumBlockWidth",
+    "merchantWidthRatio",
+    "merchantDepthRatio",
+    "housingWidthRatio",
+    "housingDepthRatio",
+    "castleExtentRatio",
+    "gridPruneMinimum",
+    "gridPruneMaximum",
+    "crankMinimumLength",
+    "crankFirstSplit",
+    "crankSecondMinimumLength",
+    "crankSecondSplit",
+    "crankOffsetMinimum",
+    "crankOffsetMaximum",
+    "minimumKaidoAlignment",
+    "minimumTerrainHeight",
+    "terrainSampleStep",
+    "townFreeboard",
+    "buildableSampleInset",
+    "buildableSampleStep",
+    "townShrinkRatio",
+    "minimumTownHalfExtent",
+    "ruralRoadSearchMargin",
+    "ruralAnchorRatio",
+    "ruralAnchorSearchRadius",
+    "ruralJunctionSetback",
+    "dispersedBranchLength",
+    "clusterBranchLength",
+    "valleyBranchLength",
+    "minimumRuralBranchLength",
+    "ruralPlanMargin",
+    "ringToleranceMinimum",
+    "ringToleranceRatio",
+    "minimumConnectorHeight",
+    "maximumConnectorSlope",
+    "mainArterialTownSize",
+    "stationWalkwayWidth",
+    "gatewayCornerSetback",
+    "gatewayMaximumHandle",
+    "alleyMinimumBlockLength",
+    "alleyMinimumBlockDepth",
+    "alleyLaneWidth",
+    "alleyShoulderWidth"
+  ],
+  "properties": {
+    "nodeMergeRadius": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "maxSlope": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "castleHalfMin": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "castleHalfMax": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "civicSquareHalfSize": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "preferredBlockWidth": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "approachMargin": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "turnPenalty": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 10000.0
+    },
+    "mainStreetSpeed": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "collectorSpeed": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "localSpeed": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumDryHeight": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "maximumBlockWidth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumBlockWidth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "merchantWidthRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "merchantDepthRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "housingWidthRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "housingDepthRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "castleExtentRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "gridPruneMinimum": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "gridPruneMaximum": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankMinimumLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankFirstSplit": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankSecondMinimumLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankSecondSplit": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankOffsetMinimum": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "crankOffsetMaximum": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumKaidoAlignment": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumTerrainHeight": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "terrainSampleStep": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "townFreeboard": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "buildableSampleInset": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "buildableSampleStep": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "townShrinkRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumTownHalfExtent": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ruralRoadSearchMargin": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ruralAnchorRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ruralAnchorSearchRadius": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ruralJunctionSetback": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "dispersedBranchLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "clusterBranchLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "valleyBranchLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumRuralBranchLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ruralPlanMargin": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ringToleranceMinimum": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "ringToleranceRatio": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "minimumConnectorHeight": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "maximumConnectorSlope": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "mainArterialTownSize": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "stationWalkwayWidth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "gatewayCornerSetback": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "gatewayMaximumHandle": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "alleyMinimumBlockLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "alleyMinimumBlockDepth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "alleyLaneWidth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "alleyShoulderWidth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    }
+  }
+}

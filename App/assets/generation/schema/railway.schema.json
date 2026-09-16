@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: railway",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "maximumCut",
+    "tunnelCost",
+    "tunnelDepthCost",
+    "cutCostSquared",
+    "maximumFill",
+    "fillCostSquared",
+    "viaductBaseCost",
+    "viaductHeightCost",
+    "viaductHeightSquaredCost",
+    "maximumGrade",
+    "profileHeightStep",
+    "gradeCost",
+    "stationBaseElevation",
+    "stationRoadMargin",
+    "stationRoadClearance",
+    "stationSurveyRadius0",
+    "stationSurveyRadius1",
+    "stationSurveyRadius2",
+    "stationSurveyRoadMargin",
+    "stationApproachGrade",
+    "stationMaximumElevation",
+    "stationStraightLead",
+    "corridorMargin",
+    "wideCorridorMargin",
+    "corridorCostWeight0",
+    "corridorCostWeight1",
+    "corridorCostWeight2",
+    "corridorCostWeight3",
+    "waterCorridorCost",
+    "routingCell",
+    "profileSampleLength",
+    "minimumAltitude",
+    "maximumTunnelDepth",
+    "maximumViaductHeight",
+    "crossingSideSample",
+    "crossingMargin",
+    "crossingExtraClearance",
+    "waterClearance",
+    "waterTunnelCover",
+    "platformLevelMargin"
+  ],
+  "properties": {
+    "maximumCut": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 1000.0
+    },
+    "tunnelCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "tunnelDepthCost": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "cutCostSquared": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "maximumFill": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 1000.0
+    },
+    "fillCostSquared": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "viaductBaseCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "viaductHeightCost": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "viaductHeightSquaredCost": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "maximumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.1
+    },
+    "profileHeightStep": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "gradeCost": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "stationBaseElevation": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "stationRoadMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "stationRoadClearance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "stationSurveyRadius0": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "stationSurveyRadius1": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "stationSurveyRadius2": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "stationSurveyRoadMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "stationApproachGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.1
+    },
+    "stationMaximumElevation": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "stationStraightLead": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 1000.0
+    },
+    "corridorMargin": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 10000.0
+    },
+    "wideCorridorMargin": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 10000.0
+    },
+    "corridorCostWeight0": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "corridorCostWeight1": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "corridorCostWeight2": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "corridorCostWeight3": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "waterCorridorCost": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "routingCell": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 500.0
+    },
+    "profileSampleLength": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 200.0
+    },
+    "minimumAltitude": {
+      "type": "number",
+      "minimum": -500.0,
+      "maximum": 0.0
+    },
+    "maximumTunnelDepth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "maximumViaductHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 200.0
+    },
+    "crossingSideSample": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "crossingMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "crossingExtraClearance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "waterClearance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "waterTunnelCover": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "platformLevelMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    }
+  }
+}

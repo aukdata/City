@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: crossings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "waterClearance",
+    "waterBankMargin",
+    "waterSampleStep",
+    "approachSegmentLength",
+    "bankSearchDistance",
+    "bankApproachGrade",
+    "railRoadLateralClearance",
+    "railOverRoadClearance",
+    "railUnderRoadClearance",
+    "earthworkWaterMargin",
+    "earthworkSlope"
+  ],
+  "properties": {
+    "waterClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 50.0
+    },
+    "waterBankMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "waterSampleStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 12.0
+    },
+    "approachSegmentLength": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 200.0
+    },
+    "bankSearchDistance": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 1000.0
+    },
+    "bankApproachGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.1
+    },
+    "railRoadLateralClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 50.0
+    },
+    "railOverRoadClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 50.0
+    },
+    "railUnderRoadClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 50.0
+    },
+    "earthworkWaterMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "earthworkSlope": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 2.0
+    }
+  }
+}

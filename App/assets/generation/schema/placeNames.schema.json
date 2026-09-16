@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: placeNames",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "default_river",
+    "default_mountain",
+    "default_plain",
+    "default_coast",
+    "default_general",
+    "MountainRange_river",
+    "MountainRange_mountain",
+    "MountainRange_plain",
+    "MountainRange_coast",
+    "MountainRange_general",
+    "Mountain_river",
+    "Mountain_mountain",
+    "Mountain_plain",
+    "Mountain_coast",
+    "Mountain_general",
+    "Plateau_river",
+    "Plateau_mountain",
+    "Plateau_plain",
+    "Plateau_coast",
+    "Plateau_general",
+    "Foothill_river",
+    "Foothill_mountain",
+    "Foothill_plain",
+    "Foothill_coast",
+    "Foothill_general",
+    "Hill_river",
+    "Hill_mountain",
+    "Hill_plain",
+    "Hill_coast",
+    "Hill_general",
+    "Basin_river",
+    "Basin_mountain",
+    "Basin_plain",
+    "Basin_coast",
+    "Basin_general",
+    "Plain_river",
+    "Plain_mountain",
+    "Plain_plain",
+    "Plain_coast",
+    "Plain_general",
+    "CoastalHill_river",
+    "CoastalHill_mountain",
+    "CoastalHill_plain",
+    "CoastalHill_coast",
+    "CoastalHill_general",
+    "CoastalPlain_river",
+    "CoastalPlain_mountain",
+    "CoastalPlain_plain",
+    "CoastalPlain_coast",
+    "CoastalPlain_general",
+    "Lake_river",
+    "Lake_mountain",
+    "Lake_plain",
+    "Lake_coast",
+    "Lake_general",
+    "Ocean_river",
+    "Ocean_mountain",
+    "Ocean_plain",
+    "Ocean_coast",
+    "Ocean_general",
+    "threeCharacterPeriod"
+  ],
+  "properties": {
+    "default_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "default_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "default_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "default_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "default_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "MountainRange_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "MountainRange_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "MountainRange_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "MountainRange_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "MountainRange_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Mountain_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Mountain_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Mountain_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Mountain_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Mountain_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plateau_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plateau_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plateau_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plateau_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plateau_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Foothill_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Foothill_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Foothill_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Foothill_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Foothill_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Hill_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Hill_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Hill_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Hill_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Hill_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Basin_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Basin_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Basin_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Basin_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Basin_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plain_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plain_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plain_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plain_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Plain_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalHill_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalHill_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalHill_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalHill_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalHill_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalPlain_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalPlain_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalPlain_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalPlain_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "CoastalPlain_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Lake_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Lake_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Lake_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Lake_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Lake_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Ocean_river": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Ocean_mountain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Ocean_plain": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Ocean_coast": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "Ocean_general": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "threeCharacterPeriod": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    }
+  }
+}

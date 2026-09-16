@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: agriculture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plotLength",
+    "plotWidth",
+    "trackWidth",
+    "paddyRelief",
+    "sampleStep",
+    "maximumTrackGrade",
+    "minimumFreeboard",
+    "maximumFieldRelief",
+    "crossTrackEveryRows",
+    "dryFieldDivisor",
+    "surfaceLift",
+    "headlandWidth",
+    "bundWidth",
+    "fieldSideInset",
+    "fieldCombinedInset",
+    "drainSideInset",
+    "drainWidth",
+    "entranceHalfDepth",
+    "entranceWidth",
+    "entranceDepth"
+  ],
+  "properties": {
+    "plotLength": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "plotWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "trackWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "paddyRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "sampleStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 64.0
+    },
+    "maximumTrackGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "minimumFreeboard": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "maximumFieldRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "crossTrackEveryRows": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 16.0
+    },
+    "dryFieldDivisor": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "surfaceLift": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "headlandWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "bundWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "fieldSideInset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "fieldCombinedInset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 40.0
+    },
+    "drainSideInset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "drainWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "entranceHalfDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "entranceWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "entranceDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    }
+  }
+}

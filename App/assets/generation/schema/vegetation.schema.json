@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: vegetation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "minimumForestAltitude",
+    "maximumForestAltitude",
+    "maximumForestSlope",
+    "flatClearingAltitude",
+    "flatClearingSlope",
+    "forestDensityPercent",
+    "interiorCandidates",
+    "roadsideCandidates",
+    "treeScaleMinimum",
+    "cedarWidth",
+    "broadleafWidth",
+    "cedarHeight",
+    "broadleafHeight",
+    "speciesFrequencyX",
+    "speciesFrequencyZ",
+    "speciesFrequencyDiagonal",
+    "speciesThreshold",
+    "parkScaleMinimum",
+    "parkScaleVariationStep"
+  ],
+  "properties": {
+    "minimumForestAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "maximumForestAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "maximumForestSlope": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "flatClearingAltitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "flatClearingSlope": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "forestDensityPercent": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "interiorCandidates": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 5.0
+    },
+    "roadsideCandidates": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 5.0
+    },
+    "treeScaleMinimum": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "cedarWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "broadleafWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "cedarHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 60.0
+    },
+    "broadleafHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 60.0
+    },
+    "speciesFrequencyX": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 0.1
+    },
+    "speciesFrequencyZ": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 0.1
+    },
+    "speciesFrequencyDiagonal": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 0.1
+    },
+    "speciesThreshold": {
+      "type": "number",
+      "minimum": -3.0,
+      "maximum": 3.0
+    },
+    "parkScaleMinimum": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "parkScaleVariationStep": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.1
+    }
+  }
+}

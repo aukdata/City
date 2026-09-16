@@ -1,0 +1,514 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: terrain",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "centralMountainThreshold",
+    "centralLakeThreshold",
+    "centralBayThreshold",
+    "featureInlandOffset",
+    "featureInlandSpread",
+    "featureLateralSpread",
+    "rangeOffsetMin",
+    "rangeOffsetSpread",
+    "rangeWidthMin",
+    "rangeWidthSpread",
+    "shoreIrregularity",
+    "shoreNoiseScale",
+    "shoreBlendWidth",
+    "fullReliefMapSize",
+    "largeWarpScale",
+    "largeWarpAmplitude",
+    "smallWarpScale",
+    "smallWarpAmplitude",
+    "smallWarpNoiseOffset",
+    "mainBayWidth",
+    "secondaryBayOffset",
+    "secondaryBayWidth",
+    "secondaryBayDepth",
+    "capeScale",
+    "capeAmplitude",
+    "inletScale",
+    "inletAmplitude",
+    "inletNoiseOffset",
+    "shoreDetailScale",
+    "shoreDetailAmplitude",
+    "shoreDetailNoiseOffset",
+    "seaDepth",
+    "seaShelfWidth",
+    "coastBlendWidth",
+    "firstRangeWander",
+    "firstRangeWavelength",
+    "sideRangeOffset",
+    "sideRangeWander",
+    "sideRangeWavelength",
+    "sideRangePhase",
+    "valleyOffset",
+    "valleyWander",
+    "valleyWavelength",
+    "valleyWidth",
+    "passOffset",
+    "passWidth",
+    "valleyReduction",
+    "passReduction",
+    "ridgeFloor",
+    "ridgeVariation",
+    "ridgeNoiseScale",
+    "ridgeNoiseOffset",
+    "firstRangeHeight",
+    "sideRangeHeight",
+    "sideRangeWidth",
+    "rangeOverlap",
+    "centralMountainHeight",
+    "centralMountainWidth",
+    "centralMountainLength",
+    "broadPlainScale",
+    "localPlainScale",
+    "localPlainNoiseOffset",
+    "plainFloor",
+    "inlandGradient",
+    "lakeBed",
+    "mountainDetail",
+    "coastOffset",
+    "usualBayDepth",
+    "centralBayDepth",
+    "broadPlainRelief",
+    "localPlainRelief",
+    "plainDetail",
+    "lakeRadiusX",
+    "lakeRadiusZ",
+    "bayLateralSpread",
+    "mountainRangeBiomeHeight",
+    "mountainBiomeHeight",
+    "foothillBiomeRelief",
+    "hillBiomeRelief",
+    "coastalHillHeight",
+    "coastalPlainHeight",
+    "detailFrequency",
+    "detailOctaves",
+    "detailPersistence"
+  ],
+  "properties": {
+    "centralMountainThreshold": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "centralLakeThreshold": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "centralBayThreshold": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "featureInlandOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "featureInlandSpread": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "featureLateralSpread": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.4000000000000001
+    },
+    "rangeOffsetMin": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 3.8
+    },
+    "rangeOffsetSpread": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "rangeWidthMin": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.6
+    },
+    "rangeWidthSpread": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "shoreIrregularity": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.2
+    },
+    "shoreNoiseScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "shoreBlendWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 3.2
+    },
+    "fullReliefMapSize": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 327680.0
+    },
+    "largeWarpScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "largeWarpAmplitude": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "smallWarpScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "smallWarpAmplitude": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "smallWarpNoiseOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 6000.0
+    },
+    "mainBayWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.05
+    },
+    "secondaryBayOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 2.9
+    },
+    "secondaryBayWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "secondaryBayDepth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.05
+    },
+    "capeScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "capeAmplitude": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "inletScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "inletAmplitude": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "inletNoiseOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 31000.0
+    },
+    "shoreDetailScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "shoreDetailAmplitude": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "shoreDetailNoiseOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 37000.0
+    },
+    "seaDepth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 2500.0
+    },
+    "seaShelfWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "coastBlendWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "firstRangeWander": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "firstRangeWavelength": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.7999999999999998
+    },
+    "sideRangeOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 4.5
+    },
+    "sideRangeWander": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "sideRangeWavelength": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.6
+    },
+    "sideRangePhase": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 16.0
+    },
+    "valleyOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.7999999999999998
+    },
+    "valleyWander": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "valleyWavelength": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.3
+    },
+    "valleyWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "passOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 2.9
+    },
+    "passWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "valleyReduction": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 8.0
+    },
+    "passReduction": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 6.5
+    },
+    "ridgeFloor": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 8.0
+    },
+    "ridgeVariation": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 2.0
+    },
+    "ridgeNoiseScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "ridgeNoiseOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 42000.0
+    },
+    "firstRangeHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 18500.0
+    },
+    "sideRangeHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 15000.0
+    },
+    "sideRangeWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.75
+    },
+    "rangeOverlap": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.7999999999999998
+    },
+    "centralMountainHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 16500.0
+    },
+    "centralMountainWidth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.1
+    },
+    "centralMountainLength": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.05
+    },
+    "broadPlainScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "localPlainScale": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "localPlainNoiseOffset": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 8100.0
+    },
+    "plainFloor": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 60.0
+    },
+    "inlandGradient": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "lakeBed": {
+      "type": "number",
+      "minimum": -10000.0,
+      "maximum": 0.0
+    },
+    "mountainDetail": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.7999999999999998
+    },
+    "coastOffset": {
+      "type": "number",
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    "usualBayDepth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.9
+    },
+    "centralBayDepth": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 5.4
+    },
+    "broadPlainRelief": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 320.0
+    },
+    "localPlainRelief": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 180.0
+    },
+    "plainDetail": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 100.0
+    },
+    "lakeRadiusX": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "lakeRadiusZ": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "bayLateralSpread": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 4.5
+    },
+    "mountainRangeBiomeHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 10000.0
+    },
+    "mountainBiomeHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 6000.0
+    },
+    "foothillBiomeRelief": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 550.0
+    },
+    "hillBiomeRelief": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 180.0
+    },
+    "coastalHillHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1000.0
+    },
+    "coastalPlainHeight": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 350.0
+    },
+    "detailFrequency": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 1.0
+    },
+    "detailOctaves": {
+      "type": "integer",
+      "minimum": 1e-06,
+      "maximum": 12.0
+    },
+    "detailPersistence": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 5.0
+    }
+  }
+}

@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: placement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidateSpacing",
+    "regionalSpacing",
+    "townSpacing",
+    "cityFarmSeparation",
+    "townFarmSeparation",
+    "catchmentReach",
+    "travelCell",
+    "dryHeight",
+    "homeFreeboard",
+    "comfortableSlope",
+    "sampleRadius",
+    "directions",
+    "steps",
+    "directionSteps",
+    "marketRadius",
+    "farmlandGrade",
+    "waterTravelPenalty",
+    "maximumSlopePenalty",
+    "slopePenaltyWeight",
+    "siteBaseWeight",
+    "farmlandWeight",
+    "cityRadius",
+    "townRadius",
+    "nearRegionalDistance",
+    "minimumCityScore",
+    "minimumCityFarmland",
+    "minimumNeighbourFarmland",
+    "minimumTownScore",
+    "minimumTownFarmland",
+    "townSelectionDivisor",
+    "minimumTownNeighbours",
+    "villageSiteWeight",
+    "villageFarmlandWeight",
+    "villageAccessWeight",
+    "villageVariationWeight",
+    "minimumVillageFarmland",
+    "villageMinimumSpacing",
+    "villageRemotenessExponent",
+    "villageRemoteSpacing",
+    "villageRadius",
+    "accessDirectionWeight",
+    "minimumSiteHeight",
+    "maximumSiteHeight",
+    "lowlandHeight",
+    "uplandHeight",
+    "mountainHeight",
+    "uplandScore",
+    "mountainScore",
+    "highMountainScore",
+    "flatGrade",
+    "gentleGrade",
+    "maximumSiteGrade",
+    "gentleGradeScore",
+    "slopingSiteScore",
+    "candidateCellSize",
+    "candidateMarginCells",
+    "candidateStrideCells"
+  ],
+  "properties": {
+    "candidateSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "regionalSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "townSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "cityFarmSeparation": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "townFarmSeparation": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "catchmentReach": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "travelCell": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "dryHeight": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "homeFreeboard": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "comfortableSlope": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "sampleRadius": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "directions": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "steps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "directionSteps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "marketRadius": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 100000.0
+    },
+    "farmlandGrade": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "waterTravelPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "maximumSlopePenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "slopePenaltyWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "siteBaseWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "farmlandWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "cityRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "townRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "nearRegionalDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumCityScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumCityFarmland": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumNeighbourFarmland": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumTownScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumTownFarmland": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "townSelectionDivisor": {
+      "type": "integer",
+      "minimum": 1e-05,
+      "maximum": 100000.0
+    },
+    "minimumTownNeighbours": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageSiteWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageFarmlandWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageAccessWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageVariationWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumVillageFarmland": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageMinimumSpacing": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageRemotenessExponent": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageRemoteSpacing": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "villageRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "accessDirectionWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumSiteHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "maximumSiteHeight": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 3000.0
+    },
+    "lowlandHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "uplandHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "mountainHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 2000.0
+    },
+    "uplandScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "mountainScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "highMountainScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "flatGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "gentleGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.2
+    },
+    "maximumSiteGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.3
+    },
+    "gentleGradeScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "slopingSiteScore": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "candidateCellSize": {
+      "type": "number",
+      "minimum": 16.0,
+      "maximum": 128.0
+    },
+    "candidateMarginCells": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 3.0
+    },
+    "candidateStrideCells": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 8.0
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "localRoutingCell": 40,
+  "longRouteThreshold": 5000,
+  "longRoutingCell": 120,
+  "mediumRouteThreshold": 2000,
+  "mediumRoutingCell": 80,
+  "occupiedCell": 120,
+  "routingMargin": 300,
+  "denseSampleThreshold": 60,
+  "steepRerouteDistance": 3000,
+  "borderInset": 10,
+  "cityJoinRadius": 5000,
+  "townJoinRadius": 15000,
+  "villageJoinRadius": 10000,
+  "fallbackJoinRadius": 50000,
+  "villageDirectJoinDistance": 300,
+  "mountainRoadSideSample": 25,
+  "mountainRoadRelief": 12,
+  "minimumKaidoSearchRadius": 180,
+  "kaidoSearchRadiusScale": 1.6
+}

@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: buildings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "footprint_Detached",
+    "footprint_LowApartment",
+    "footprint_Office",
+    "footprint_Shop",
+    "footprint_Factory",
+    "footprint_PublicFacility",
+    "footprint_Parking",
+    "footprint_UrbanConvenience",
+    "footprint_RoadsideConvenience",
+    "footprint_UrbanFuelStation",
+    "footprint_RoadsideFuelStation",
+    "footprint_RuralHouse",
+    "footprint_default",
+    "capacity_RuralHouse",
+    "capacity_Detached",
+    "capacity_LowApartment",
+    "capacity_MidApartment",
+    "capacity_HighApartment",
+    "height_Detached",
+    "height_LowApartment",
+    "height_MidApartment",
+    "height_HighApartment",
+    "height_Shop",
+    "height_Office",
+    "height_Factory",
+    "height_ParkBuilding",
+    "height_PublicFacility",
+    "height_Parking",
+    "height_UrbanConvenience",
+    "height_RoadsideConvenience",
+    "height_RoadsideFuelStation",
+    "height_RuralHouse",
+    "shopVariants",
+    "factoryVariants",
+    "publicVariants",
+    "parkingVariants",
+    "ruralHouseVariants",
+    "officeVariants"
+  ],
+  "properties": {
+    "footprint_Detached": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_LowApartment": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_Office": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_Shop": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_Factory": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_PublicFacility": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_Parking": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_UrbanConvenience": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_RoadsideConvenience": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_UrbanFuelStation": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_RoadsideFuelStation": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_RuralHouse": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "footprint_default": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "capacity_RuralHouse": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "capacity_Detached": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "capacity_LowApartment": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "capacity_MidApartment": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "capacity_HighApartment": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "height_Detached": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_LowApartment": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_MidApartment": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_HighApartment": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_Shop": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_Office": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_Factory": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_ParkBuilding": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_PublicFacility": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_Parking": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_UrbanConvenience": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_RoadsideConvenience": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_RoadsideFuelStation": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "height_RuralHouse": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 500.0
+    },
+    "shopVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "factoryVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 4.0
+    },
+    "publicVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "parkingVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 2.0
+    },
+    "ruralHouseVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 3.0
+    },
+    "officeVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    }
+  }
+}

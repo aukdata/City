@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: streetProfiles",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "farmAccess_lanes",
+    "farmAccess_laneWidth",
+    "farmAccess_speed",
+    "farmAccess_walkway",
+    "farmAccess_shoulder",
+    "farmAccess_center",
+    "farmAccess_edgeLines",
+    "farmAccess_arterial",
+    "village_lanes",
+    "village_laneWidth",
+    "village_speed",
+    "village_walkway",
+    "village_shoulder",
+    "village_center",
+    "village_edgeLines",
+    "village_arterial",
+    "local_lanes",
+    "local_laneWidth",
+    "local_speed",
+    "local_walkway",
+    "local_shoulder",
+    "local_center",
+    "local_edgeLines",
+    "local_arterial",
+    "oneWay_lanes",
+    "oneWay_laneWidth",
+    "oneWay_speed",
+    "oneWay_walkway",
+    "oneWay_shoulder",
+    "oneWay_center",
+    "oneWay_edgeLines",
+    "oneWay_arterial",
+    "residentialWalkways_lanes",
+    "residentialWalkways_laneWidth",
+    "residentialWalkways_speed",
+    "residentialWalkways_walkway",
+    "residentialWalkways_shoulder",
+    "residentialWalkways_center",
+    "residentialWalkways_edgeLines",
+    "residentialWalkways_arterial",
+    "collector_lanes",
+    "collector_laneWidth",
+    "collector_speed",
+    "collector_walkway",
+    "collector_shoulder",
+    "collector_center",
+    "collector_edgeLines",
+    "collector_arterial",
+    "mainArterial_lanes",
+    "mainArterial_laneWidth",
+    "mainArterial_speed",
+    "mainArterial_walkway",
+    "mainArterial_shoulder",
+    "mainArterial_center",
+    "mainArterial_edgeLines",
+    "mainArterial_arterial",
+    "regional_lanes",
+    "regional_laneWidth",
+    "regional_speed",
+    "regional_walkway",
+    "regional_shoulder",
+    "regional_center",
+    "regional_edgeLines",
+    "regional_arterial",
+    "mountain_lanes",
+    "mountain_laneWidth",
+    "mountain_speed",
+    "mountain_walkway",
+    "mountain_shoulder",
+    "mountain_center",
+    "mountain_edgeLines",
+    "mountain_arterial",
+    "gutterWidth",
+    "curbWidth",
+    "walkwayPoleOffset",
+    "shoulderPoleOffset",
+    "arterialPoleSpacing",
+    "localPoleSpacing",
+    "poleJitter"
+  ],
+  "properties": {
+    "farmAccess_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "farmAccess_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "farmAccess_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "farmAccess_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "farmAccess_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "farmAccess_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "farmAccess_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "farmAccess_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "village_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "village_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "village_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "village_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "village_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "village_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "village_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "village_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "local_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "local_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "local_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "local_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "local_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "local_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "local_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "local_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "oneWay_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "oneWay_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "oneWay_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "oneWay_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "oneWay_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "oneWay_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "oneWay_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "oneWay_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "residentialWalkways_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "residentialWalkways_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "residentialWalkways_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "residentialWalkways_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "residentialWalkways_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "residentialWalkways_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "residentialWalkways_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "residentialWalkways_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "collector_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "collector_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "collector_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "collector_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "collector_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "collector_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "collector_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "collector_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "mainArterial_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "mainArterial_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "mainArterial_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "mainArterial_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "mainArterial_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "mainArterial_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "mainArterial_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "mainArterial_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "regional_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "regional_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "regional_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "regional_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "regional_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "regional_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "regional_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "regional_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "mountain_lanes": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 6.0
+    },
+    "mountain_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "mountain_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "mountain_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "mountain_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "mountain_center": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "mountain_edgeLines": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "mountain_arterial": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "gutterWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "curbWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "walkwayPoleOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "shoulderPoleOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "arterialPoleSpacing": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "localPoleSpacing": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "poleJitter": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "minimumForestAltitude": 12,
+  "maximumForestAltitude": 850,
+  "maximumForestSlope": 1.4,
+  "flatClearingAltitude": 28,
+  "flatClearingSlope": 0.07,
+  "forestDensityPercent": 95,
+  "interiorCandidates": 1,
+  "roadsideCandidates": 3,
+  "treeScaleMinimum": 0.86,
+  "cedarWidth": 10,
+  "broadleafWidth": 15,
+  "cedarHeight": 25,
+  "broadleafHeight": 19,
+  "speciesFrequencyX": 0.0043,
+  "speciesFrequencyZ": 0.0051,
+  "speciesFrequencyDiagonal": 0.0027,
+  "speciesThreshold": -0.15,
+  "parkScaleMinimum": 0.78,
+  "parkScaleVariationStep": 0.028
+}

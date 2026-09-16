@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: routing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "gradeReserve",
+    "occupiedPenalty",
+    "junctionInfluenceCells",
+    "junctionSharpCosine",
+    "junctionSharpPenalty",
+    "railCoarseGrade",
+    "railWaterCost",
+    "railAlongRiverPenalty",
+    "heightStep",
+    "sampleSpacing",
+    "minimumStep",
+    "radiusStepRatio",
+    "maximumStep",
+    "distanceStepDivisor",
+    "minimumSearchMargin",
+    "radiusMarginRatio",
+    "distanceMarginRatio",
+    "riseMarginRatio",
+    "coarseMinimumStep",
+    "coarseRadiusRatio",
+    "stateCellRatio",
+    "initialSearchWeight",
+    "finalGradeReserve"
+  ],
+  "properties": {
+    "gradeReserve": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1.0
+    },
+    "occupiedPenalty": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "junctionInfluenceCells": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "junctionSharpCosine": {
+      "type": "number",
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    "junctionSharpPenalty": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "railCoarseGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.1
+    },
+    "railWaterCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "railAlongRiverPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "heightStep": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "sampleSpacing": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 16.0
+    },
+    "minimumStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 200.0
+    },
+    "radiusStepRatio": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2.0
+    },
+    "maximumStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 500.0
+    },
+    "distanceStepDivisor": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 1000.0
+    },
+    "minimumSearchMargin": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "radiusMarginRatio": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "distanceMarginRatio": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 2.0
+    },
+    "riseMarginRatio": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 2.0
+    },
+    "coarseMinimumStep": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 500.0
+    },
+    "coarseRadiusRatio": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 10.0
+    },
+    "stateCellRatio": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 1.0
+    },
+    "initialSearchWeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 32.0
+    },
+    "finalGradeReserve": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1.0
+    }
+  }
+}

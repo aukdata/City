@@ -1,0 +1,9 @@
+{
+  "roadMargin": 0.35,
+  "minimumBlockArea": 100,
+  "narrowBlockArea": 1800,
+  "minimumBuildingHalfWidth": 6,
+  "roadWidthPreservationWeight": 1000,
+  "neighborGapRatio": 0.12,
+  "minimumBuildingGap": 0.24
+}

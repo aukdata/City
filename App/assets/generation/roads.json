@@ -1,0 +1,17 @@
+{
+  "surfaceCost": 1,
+  "earthworkCost": 8,
+  "viaductCostPerMetre": 16,
+  "tunnelCost": 64,
+  "surfaceTolerance": 1,
+  "maximumFill": 6,
+  "maximumCut": 8,
+  "localMaximumGrade": 0.09,
+  "localMinimumRadius": 15,
+  "highwayMaximumGrade": 0.03,
+  "highwayMinimumRadius": 460,
+  "arterialMaximumGrade": 0.06,
+  "arterialMinimumRadius": 100,
+  "endpointElevationThreshold": 0.5,
+  "interiorElevationThreshold": 2
+}

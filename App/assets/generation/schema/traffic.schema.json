@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: traffic",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "burst",
+    "spawnRate",
+    "refreshSeconds",
+    "maximumVehicles",
+    "attemptsPerUpdate",
+    "localMaximum",
+    "minimumTripSteps",
+    "maximumTripSteps",
+    "tripSearchSteps",
+    "focusRadius",
+    "localCarsPerBuilding",
+    "peoplePerCar",
+    "commercialCars",
+    "industrialCars",
+    "morningMultiplier",
+    "dayMultiplier",
+    "eveningMultiplier",
+    "lateMultiplier",
+    "nightMultiplier",
+    "industrialFreightWeight",
+    "residentFreightWeight",
+    "minimumFreightShare",
+    "maximumFreightShare",
+    "largeTruckFreightShare",
+    "smallTruckFreightShare"
+  ],
+  "properties": {
+    "burst": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "spawnRate": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 5000.0
+    },
+    "refreshSeconds": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 30.0
+    },
+    "maximumVehicles": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "attemptsPerUpdate": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 5000.0
+    },
+    "localMaximum": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "minimumTripSteps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "maximumTripSteps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "tripSearchSteps": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "focusRadius": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 10000.0
+    },
+    "localCarsPerBuilding": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "peoplePerCar": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10000.0
+    },
+    "commercialCars": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "industrialCars": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "morningMultiplier": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "dayMultiplier": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "eveningMultiplier": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "lateMultiplier": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "nightMultiplier": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "industrialFreightWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "residentFreightWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "minimumFreightShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "maximumFreightShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "largeTruckFreightShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "smallTruckFreightShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    }
+  }
+}
