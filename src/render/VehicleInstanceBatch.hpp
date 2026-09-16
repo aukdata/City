@@ -5,8 +5,8 @@
 class VehicleInstanceBatch
 {
 public:
-	void clear() { m_transforms.clear(); }
-	void append(const ModelMeshSource& source, const Mat4x4& transform)
+	void clear() { m_transforms.clear(); m_colors.clear(); m_hasPaint=false; }
+	void append(const ModelMeshSource& source, const Mat4x4& transform, Float4 paint = {1,1,1,1})
 	{
 		if (m_mesh.isEmpty())
 		{
@@ -23,7 +23,8 @@ public:
 			}
 			m_mesh = Mesh{packed}; m_triangles = static_cast<uint32>(source.geometry.indices.size()); m_material = source.material;
 		}
-		m_transforms << transform;
+		m_transforms << transform; m_colors << paint;
+		m_hasPaint |= paint!=Float4{1,1,1,1};
 	}
 	uint32 draw()
 	{
@@ -31,12 +32,15 @@ public:
 		static const VertexShader shader = VertexShader::HLSL(U"shaders/hlsl/vehicle_instances.hlsl", U"VS");
 		if (shader.isEmpty()) { throw Error{U"車両LODの頂点シェーダーを読み込めません"}; }
 		const ScopedCustomShader3D scope{shader};
+		static const PixelShader paintShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"VehicleInstance_PS"}};
+		Optional<ScopedCustomShader3D> paintScope;
+		if (m_hasPaint) { paintScope.emplace(paintShader); }
 		uint32 calls = 0;
 		for (size_t start = 0; start < m_transforms.size(); start += kCapacity)
 		{
 			const uint32 count = static_cast<uint32>(Min<size_t>(kCapacity, m_transforms.size() - start));
-			for (uint32 i = 0; i < count; ++i) { m_matrices->at(i) = m_transforms[start + i]; }
-			Graphics3D::SetVSConstantBuffer(4, m_matrices);
+			for (uint32 i = 0; i < count; ++i) { m_instances->matrices[i] = m_transforms[start + i]; m_instances->colors[i]=m_colors[start+i]; }
+			Graphics3D::SetVSConstantBuffer(4, m_instances);
 			m_mesh.drawSubset(0, count * m_triangles, PhongMaterial{m_material, HasDiffuseTexture::No}); ++calls;
 		}
 		return calls;
@@ -48,5 +52,8 @@ private:
 	Material m_material;
 	uint32 m_triangles = 0;
 	Array<Mat4x4> m_transforms;
-	ConstantBuffer<std::array<Mat4x4, kCapacity>> m_matrices;
+	struct Instances { std::array<Mat4x4,kCapacity> matrices; std::array<Float4,kCapacity> colors; };
+	ConstantBuffer<Instances> m_instances;
+	Array<Float4> m_colors;
+	bool m_hasPaint=false;
 };

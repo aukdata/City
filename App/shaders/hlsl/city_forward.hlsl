@@ -237,7 +237,9 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 	float resolved=1-smoothstep(.2,1.2,footprint);
 	float ridge=cos(phase*6.2831853);
 	float crop=smoothstep(.45,.9,ridge);
-	float variation=fieldNoise(floor(uv/(paddy ? .3 : .18)));
+	float2 detailUv=uv/(paddy ? .3 : .18);
+	float detailWeight=1-smoothstep(.3,1.0,max(fwidth(detailUv.x),fwidth(detailUv.y)));
+	float variation=lerp(.5,fieldNoise(floor(detailUv)),detailWeight);
 	float3 soil=g_hasTexture ? g_texture0.Sample(g_sampler0,uv*.21).rgb : float3(.35,.3,.2);
 	soil=lerp(float3(.10,.059,.031),float3(.21,.125,.060),saturate(dot(soil,float3(.3,.5,.2))*2));
 	soil*=lerp(1, .75+.32*(ridge*.5+.5),resolved);
@@ -341,4 +343,28 @@ float4 Building_PS(s3d::PSInput input) : SV_TARGET
 	float shade = .88+.12*sin(reflected.x*23+reflected.z*11);
 	albedo.rgb = lerp(albedo.rgb,sky*shade,glass*fresnel);
 	return shadeCity(input,albedo);
+}
+
+// Color is instance data, so thousands of differently painted cars share a draw.
+struct VehiclePSInput
+{
+    float4 position : SV_POSITION; float3 worldPosition : TEXCOORD0;
+    float2 uv : TEXCOORD1; float3 normal : TEXCOORD2; float4 paint : TEXCOORD3;
+};
+float4 VehicleInstance_PS(VehiclePSInput input) : SV_TARGET
+{
+    s3d::PSInput surface;
+    surface.position=input.position;surface.worldPosition=input.worldPosition;
+    surface.uv=input.uv;surface.normal=input.normal;
+    return shadeCity(surface,GetDiffuseColor(input.uv)*input.paint);
+}
+cbuffer VehiclePaint : register(b5) { float4 g_vehiclePaint; }
+float4 VehiclePaint_PS(s3d::PSInput input) : SV_TARGET
+{
+    float4 albedo=GetDiffuseColor(input.uv);
+    // Source coachwork is neutral .78/.80/.79. Glass, rubber, lamps and alloy remain unchanged.
+    float paintMask=smoothstep(.64,.76,min(albedo.r,min(albedo.g,albedo.b)));
+    paintMask*=1-smoothstep(.04,.12,max(albedo.r,max(albedo.g,albedo.b))-min(albedo.r,min(albedo.g,albedo.b)));
+    albedo.rgb*=lerp(float3(1,1,1),g_vehiclePaint.rgb/float3(.78,.80,.79),paintMask);
+    return shadeCity(input,albedo);
 }
