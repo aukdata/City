@@ -20,6 +20,7 @@
 #include "src/render/VegetationProfile.hpp"
 #include "src/render/CityLighting.hpp"
 #include "src/render/RegionalTerrain.hpp"
+#include "src/render/WorldRenderer.hpp"
 #include "src/render/MinimapRenderer.hpp"
 #include "src/asset/AssetRegistrar.hpp"
 
@@ -246,13 +247,25 @@ void registerComprehensiveTests(TestRunner& runner)
 
 	runner.add(U"Comprehensive.OverviewLocationTooltip",[](TestContext& context)
 	{
-		const Size size{800,600};const Font font{16};const Texture shield{U"../../App/assets/signs/guide/national_route.png"};const LocationTooltip::Content content{U"山里村",U"Yamazato-mura",U"木曽街道",19};const RenderTexture target{size};
-		for(const Vec2 pointer:{Vec2{0,0},Vec2{790,0},Vec2{0,590},Vec2{790,590}})
+		const Font font{FontMethod::MSDF,32};const Texture shield{U"../../App/assets/signs/guide/national_route.png"};
+		const LocationTooltip::Content content{U"山里村",U"Yamazato-mura",U"木曽街道",19};
+		for(const Size size:{Size{800,600},Size{1280,800},Size{320,480}})
 		{
-			const RectF box=LocationTooltip::bounds(size,pointer,content);context.expect(box.x>=0 && box.y>=0 && box.rightX()<=size.x && box.bottomY()<=size.y,U"Place tooltip fits all screen corners");
-			{const ScopedRenderTarget2D scope{target.clear(ColorF{.2})};LocationTooltip::draw(size,pointer,content,font,shield);}Graphics2D::Flush();Image pixels;target.readAsImage(pixels);int blue=0,reading=0;
-			for(int y=static_cast<int>(box.y);y<box.bottomY();++y) { for(int x=static_cast<int>(box.x);x<box.rightX();++x) { const auto c=pixels[y][x];blue+=c.b>c.r+50 && c.b>c.g+25;if(y>box.y+29 && y<box.y+45) { reading+=c.r>120; } } }
-			context.expect(blue>100 && reading>30,U"National route shield and romanization are both visible");
+			const RenderTexture target{size};
+			for(const double bottomInset:{12.0,192.0})
+			{
+				const RectF box=LocationTooltip::bounds(size,content,bottomInset);
+				context.expect(box.x==12 && box.h<=48 && box.bottomY()==size.y-bottomInset && box.rightX()<=size.x-12,U"Compact address stays at bottom left and above an open FPS graph");
+				{const ScopedRenderTarget2D scope{target.clear(Color{51,51,51})};LocationTooltip::draw(size,content,font,shield,bottomInset);}Graphics2D::Flush();Image pixels;target.readAsImage(pixels);int blue=0,text=0,untouched=0,outside=0;
+				for(int y=0;y<size.y;++y) { for(int x=0;x<size.x;++x)
+				{
+					const auto c=pixels[y][x];const bool changed=c.r!=51 || c.g!=51 || c.b!=51;
+					if(!box.stretched(2).contains(Vec2{x,y})) { outside+=changed;continue; }
+					blue+=c.b>c.r+50 && c.b>c.g+25;text+=c.r>160;untouched+=!changed;
+				} }
+				context.expect(blue>40 && text>70 && untouched>box.area()*.55 && outside==0,U"Route shield and text render without a panel or stray pixels");
+				pixels.save(U"Screenshot/compact_location_{}_{}.png"_fmt(size.x,static_cast<int>(bottomInset)));
+			}
 		}
 		RoadNetwork roads;const int id=*roads.addEdge(roads.addNode({33000,50,33000}),roads.addNode({33500,50,33000}),{33166,50,33000},{33333,50,33000});RoadPlanSnapIndex index;index.rebuild(roads);
 		const auto hover=index.find(roads,{33200,30,33003},12,Math::Inf,false);context.expect(hover.edgeId==id,U"Overview lookup finds the road above the pointed terrain");
@@ -280,6 +293,100 @@ void registerComprehensiveTests(TestRunner& runner)
 		const auto stats=AgriculturalLayout::prepare(world,roads,42);context.expect(stats.connections>0,U"Farm tracks join a nearby parallel public road instead of stopping short");
 		JSON report;report[U"tracks"]=stats.tracks;report[U"connections"]=stats.connections;report.save(U"TestResults/farm_connections.json");
 		for(const auto& node:roads.nodes()) { if(node.id<0 || node.attachments.size()<3) { continue; }bool farm=false;for(int id:node.edgeIds()) { farm|=roads.getEdge(id)->farmAccess; }if(farm) { context.expect(!node.laneConnections.isEmpty(),U"Joined farm junctions include vehicle connections"); } }
+	});
+
+	runner.add(U"Comprehensive.PlainMapLabels",[](TestContext& context)
+	{
+		const Font font{FontMethod::MSDF,16};const Size size{800,600};const Texture terrain{Image{16,16,Color{85,120,95}}};const RenderTexture target{size};
+		for(bool local:{false,true})
+		{
+			WorldMapView map;map.visible=true;map.center={32768,32768};map.zoom=16;LocalMapView minimap;minimap.center=map.center;
+			const RectF rect{0,0,800,600};const Vec2 place{32768,32600};Array<Image> frames;
+			for(bool labels:{false,true})
+			{
+				if(labels) { map.labels << WorldMapView::Label{place,U"山里村",false,1,U"Yamazato-mura"}; }
+				{const ScopedRenderTarget2D scope{target.clear(Palette::Black)};if(local) { minimap.draw(rect,terrain,font,map); } else { map.draw(size,terrain,font,map.center); }}
+				Graphics2D::Flush();Image image;target.readAsImage(image);frames << image;
+			}
+			const Vec2 anchor=local ? minimap.toScreen(place,rect) : map.toScreen(place,size);
+			const RectF box{anchor+Vec2{6,local ? -8 : -10},Max(font(U"山里村").region().w,font(U"Yamazato-mura").region(local ? 10 : 11).w)+(local ? 6 : 12),local ? 35 : 40};
+			int changed=0,emptyCorners=0,reading=0;
+			for(int y=static_cast<int>(box.y);y<box.bottomY();++y) { for(int x=static_cast<int>(box.x);x<box.rightX();++x)
+			{
+				const bool different=frames[0][y][x]!=frames[1][y][x];changed+=different;
+				if(x<box.x+2 || x>box.rightX()-2) { emptyCorners+=different; }
+				if(y>box.y+24) { reading+=different; }
+			} }
+			context.expect(changed>70 && changed<box.area()*.55 && emptyCorners==0 && reading>20,U"Map labels retain Japanese and romanized text with transparent surroundings");
+			frames[1].save(U"Screenshot/plain_{}_labels.png"_fmt(local ? U"local" : U"full"));
+		}
+	});
+	runner.add(U"Comprehensive.MinorRoadSignals",[](TestContext& context)
+	{
+		for(const int scenario:{0,1,2,3})
+		{
+			RoadNetwork roads;const Vec3 center{500,30,500};const int node=roads.addNode(center);
+			for(int arm=0;arm<4;++arm)
+			{
+				const double angle=arm*Math::HalfPi;const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+				const RoadType type=scenario==2 && arm%2==0 ? RoadType::Arterial : RoadType::LocalRoad;
+				const int lanes=scenario==3 && arm%2==0 ? 4 : 2;
+				const int edge=*roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),type,lanes);
+				if(scenario==1 && arm%2==0) { roads.getEdge(edge)->farmAccess=true; }
+			}
+			roads.rebuildNodeConnectivity(node,node);const auto* crossing=roads.getNode(node);
+			context.expect(crossing->laneConnections.size()>8,U"Signal policy is exercised on a connected four-way junction");
+			context.expect(crossing->signalPlacement.has_value()==(scenario>=2),U"Only major or wide approaches trigger automatic signals");
+			if(scenario<2) { for(const auto& attachment:crossing->attachments) { context.expect(attachment.control!=TrafficControl::Signal,U"Unsignalized small streets also retain unsignalized traffic controls"); } }
+			if(scenario==0)
+			{
+				roads.getNode(node)->signalPlacement=SignalPlacement{U"signal_3lamp"};roads.rebuildNodeConnectivity(node,node);
+				context.expect(roads.getNode(node)->signalPlacement.has_value(),U"An explicitly placed player signal is preserved");
+			}
+		}
+	});
+
+	runner.add(U"Comprehensive.ZoomTerrainShading",[](TestContext& context)
+	{
+		const FilePath directory=FileSystem::CurrentDirectory();
+		struct Restore {FilePath path;~Restore(){FileSystem::ChangeCurrentDirectory(path);}} restore{directory};
+		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");RegisterAssets();
+		CityLighting lighting;context.expect(lighting.initialize(),U"Production terrain shader loads");
+		const Size size{320,240};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
+		JSON report;report[U"cases"]=Array<JSON>{};
+		for(const float height:{10.0f,60.0f,1500.0f,2300.0f,500.0f})
+		{
+			World world;flatWorld(world,height);RoadNetwork roads;WorldRenderer renderer;renderer.setAsyncTerrain(false);renderer.setTerrainShader(lighting.terrainShader());
+			const Vec3 focus{33280,height,33280};
+			if(height==500)
+			{
+				for(int z=31;z<=33;++z) { for(int x=31;x<=33;++x)
+				{
+					auto* chunk=world.getChunk({x,z});
+					for(int row=0;row<=HEIGHT_CELLS;++row) { for(int col=0;col<=HEIGHT_CELLS;++col)
+					{
+						const double px=x*CHUNK_SIZE+col*(static_cast<double>(CHUNK_SIZE)/HEIGHT_CELLS),pz=z*CHUNK_SIZE+row*(static_cast<double>(CHUNK_SIZE)/HEIGHT_CELLS);
+						chunk->heightMap[row][col]=static_cast<float>(height+(px-focus.x)*.25+(pz-focus.z)*.10);
+					} }
+					chunk->heightMin=chunk->heightMap[0][0];chunk->heightMax=chunk->heightMap[HEIGHT_CELLS][HEIGHT_CELLS];
+				} }
+			}
+			world.update(focus);Array<double> means;Array<Image> frames;
+			for(const double clearance:{4499.0,4501.0})
+			{
+				const BasicCamera3D camera{size,8_deg,focus+Vec3{0,clearance,-1},focus};
+				lighting.update(camera,focus,Vec3{-.4,1,-.3}.normalized(),1,1,[](Vec3,double){});
+				{const ScopedRenderTarget3D scope{target.clear(Palette::Black)};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};Graphics3D::SetCameraTransform(camera);Graphics3D::SetGlobalAmbientColor(ColorF{.5});Graphics3D::SetSunColor(ColorF{.8});Graphics3D::SetSunDirection(Vec3{-.4,1,-.3}.normalized());lighting.bind();renderer.render(world,roads,camera);}
+				Graphics3D::Flush();Image pixels;target.readAsImage(pixels);double sum=0;
+				for(int y=60;y<180;++y) { for(int x=80;x<240;++x) {const auto c=pixels[y][x];sum+=(c.r+c.g+c.b)/3.0;} }
+				means << sum/19200;frames << pixels;
+				pixels.save(directory+U"Screenshot/zoom_terrain_{}_{}.png"_fmt(static_cast<int>(height),static_cast<int>(clearance)));
+			}
+			double difference=0;for(int y=60;y<180;++y) { for(int x=80;x<240;++x) {const auto a=frames[0][y][x],b=frames[1][y][x];difference+=(Abs(int(a.r)-int(b.r))+Abs(int(a.g)-int(b.g))+Abs(int(a.b)-int(b.b)))/3.0;} }
+			difference/=19200;JSON row;row[U"height"]=height;row[U"meanBrightness"]=means;row[U"meanChannelDifference"]=difference;report[U"cases"].push_back(row);
+			context.expect(difference<3,U"Zooming past the regional terrain threshold preserves ground shading at altitude {} (difference {:.2f})"_fmt(height,difference));
+		}
+		report.save(directory+U"TestResults/zoom_terrain_shading.json");Graphics3D::SetSunColor(ColorF{1});
 	});
 
 	runner.add(U"Comprehensive.RegionalTerrain",[](TestContext& context)

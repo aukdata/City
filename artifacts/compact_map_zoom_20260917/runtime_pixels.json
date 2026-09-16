@@ -1,0 +1,170 @@
+[
+  {
+    "id": 9007,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 49,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00026652018229166664
+  },
+  {
+    "id": 9009,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": true,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 0,
+    "whiteTextPixelsBottomInset192": 49,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00028279622395833336
+  },
+  {
+    "id": 9012,
+    "size": [
+      1280,
+      768
+    ],
+    "map": true,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 3158,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.08477681477864583
+  },
+  {
+    "id": 9015,
+    "size": [
+      1280,
+      768
+    ],
+    "map": true,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 3237,
+    "whiteTextPixelsBottomInset192": 206,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.10651041666666666
+  },
+  {
+    "id": 9018,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00035196940104166666
+  },
+  {
+    "id": 9020,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.0003509521484375
+  },
+  {
+    "id": 9022,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.0003448486328125
+  },
+  {
+    "id": 9024,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.000360107421875
+  },
+  {
+    "id": 9026,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00034383138020833336
+  },
+  {
+    "id": 9028,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.0003489176432291667
+  },
+  {
+    "id": 9030,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 17,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00052490234375
+  },
+  {
+    "id": 9032,
+    "size": [
+      1280,
+      768
+    ],
+    "map": false,
+    "fpsGraph": false,
+    "cameraMode": 0,
+    "whiteTextPixelsBottomInset12": 49,
+    "whiteTextPixelsBottomInset192": 0,
+    "nearBlackFraction": 0.0,
+    "nearWhiteFraction": 0.00026652018229166664
+  }
+]

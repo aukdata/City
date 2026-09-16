@@ -1,0 +1,203 @@
+﻿{
+  "total": 28,
+  "passed": 28,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Comprehensive.RepeatedRoadGeneration",
+      "status": "passed",
+      "durationMs": 222.714,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.GeneratedFarmRoadsOpen",
+      "status": "passed",
+      "durationMs": 470.966,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewTerrainHeight",
+      "status": "passed",
+      "durationMs": 456.987,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.AfterConstructionTerrain",
+      "status": "passed",
+      "durationMs": 850.993,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewZoom",
+      "status": "passed",
+      "durationMs": 0.016,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SandboxConstruction",
+      "status": "passed",
+      "durationMs": 223.843,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ShortViaductPiers",
+      "status": "passed",
+      "durationMs": 230.627,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ExpandedMapLocations",
+      "status": "passed",
+      "durationMs": 73.449,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.MapTunnelAndReading",
+      "status": "passed",
+      "durationMs": 27.957,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.BlueGuideApproach",
+      "status": "passed",
+      "durationMs": 661.233,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.CommandParserAndPalette",
+      "status": "passed",
+      "durationMs": 16.081,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.CommandExecution",
+      "status": "passed",
+      "durationMs": 237.958,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SettlementNames",
+      "status": "passed",
+      "durationMs": 0.018,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.VegetationTransitions",
+      "status": "passed",
+      "durationMs": 0.087,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.AltitudeTerrainPixels",
+      "status": "passed",
+      "durationMs": 165.022,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewLocationTooltip",
+      "status": "passed",
+      "durationMs": 105.836,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.NextRoadAllowedGrade",
+      "status": "passed",
+      "durationMs": 888.988,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.FarmRoadConnections",
+      "status": "passed",
+      "durationMs": 434.146,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.PlainMapLabels",
+      "status": "passed",
+      "durationMs": 63.292,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.MinorRoadSignals",
+      "status": "passed",
+      "durationMs": 0.497,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ZoomTerrainShading",
+      "status": "passed",
+      "durationMs": 2191.460,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.RegionalTerrain",
+      "status": "passed",
+      "durationMs": 230.901,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SettlementQuarterAndMargin",
+      "status": "passed",
+      "durationMs": 12.101,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.LocalMapTunnel",
+      "status": "passed",
+      "durationMs": 3.451,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.PaletteOwnsBufferedInput",
+      "status": "passed",
+      "durationMs": 0.027,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.PartialTunnelCartography",
+      "status": "passed",
+      "durationMs": 217.894,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ViaductPiersRendered",
+      "status": "passed",
+      "durationMs": 566.081,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.PreloadedRoadShadows",
+      "status": "passed",
+      "durationMs": 587.518,
+      "failures": [
+      ]
+    }
+  ]
+}

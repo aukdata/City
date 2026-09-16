@@ -1,0 +1,44 @@
+﻿{
+  "cases": [
+    {
+      "height": 10.0,
+      "meanBrightness": [
+        79.34755208333327,
+        79.35512152777797
+      ],
+      "meanChannelDifference": 0.01107638888888897
+    },
+    {
+      "height": 60.0,
+      "meanBrightness": [
+        80.56480902777663,
+        80.57217013888781
+      ],
+      "meanChannelDifference": 0.012013888888889
+    },
+    {
+      "height": 1500.0,
+      "meanBrightness": [
+        138.44329861111592,
+        138.44701388889362
+      ],
+      "meanChannelDifference": 0.004270833333333329
+    },
+    {
+      "height": 2300.0,
+      "meanBrightness": [
+        247.6873090277995,
+        247.68401041668807
+      ],
+      "meanChannelDifference": 0.00329861111111112
+    },
+    {
+      "height": 500.0,
+      "meanBrightness": [
+        81.1065972222221,
+        81.11810763888893
+      ],
+      "meanChannelDifference": 0.017170138888888818
+    }
+  ]
+}

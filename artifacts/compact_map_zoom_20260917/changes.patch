@@ -1,0 +1,657 @@
+--- a/src/ui/LocationTooltip.hpp
++++ b/src/ui/LocationTooltip.hpp
+@@ -1,36 +1,32 @@
+ #pragma once
+ #include <Siv3D.hpp>
+-#include "NavigationHeader.hpp"
++#include "PlainLabel.hpp"
+ 
+-/// @brief 俯瞰で指した場所の地名・読み・道路を、ポインタの横にまとめる。
++/// @brief 俯瞰で指した場所の地名・読み・道路を左下に小さく表示する。
+ namespace LocationTooltip
+ {
+ 	struct Content { String place,reading,road; int nationalNumber=0; };
+-	inline RectF bounds(Size viewport,Vec2 pointer,const Content& content)
++	inline RectF bounds(Size viewport,const Content& content,double bottomInset=12)
+ 	{
+-		constexpr double kMargin=8,kWidth=280,kPlaceHeight=52,kRoadHeight=42;
+-		const double width=Min(kWidth,viewport.x-kMargin*2),height=kPlaceHeight+(content.road.isEmpty() ? 0 : kRoadHeight);
+-		double x=pointer.x+18,y=pointer.y+20;
+-		if(x+width>viewport.x-kMargin) { x=pointer.x-width-18; }
+-		if(y+height>viewport.y-kMargin) { y=pointer.y-height-16; }
+-		return {Clamp(x,kMargin,Max(kMargin,viewport.x-width-kMargin)),Clamp(y,kMargin,Max(kMargin,viewport.y-height-kMargin)),width,height};
++		constexpr double kMargin=12,kWidth=360;
++		const double height=20+(content.road.isEmpty() ? 0 : 28);
++		return {kMargin,Max(kMargin,viewport.y-bottomInset-height),Max(0.0,Min(kWidth,viewport.x-kMargin*2)),height};
+ 	}
+-	inline void draw(Size viewport,Vec2 pointer,const Content& content,const Font& font,const Texture& shield)
++	inline void draw(Size viewport,const Content& content,const Font& font,const Texture& shield,double bottomInset=12)
+ 	{
+ 		if(content.place.isEmpty() && content.road.isEmpty()) { return; }
+-		const RectF box=bounds(viewport,pointer,content);
+-		box.rounded(5).draw(ColorF{.055,.1,.14,.95}).drawFrame(1,ColorF{.45,.65,.72});
+-		NavigationHeader::fitted(font,content.place,{box.x+10,box.y+5,box.w-20,23},18,Palette::White);
+-		NavigationHeader::fitted(font,content.reading,{box.x+10,box.y+29,box.w-20,16},12,ColorF{.72,.85,.91});
++		const RectF box=bounds(viewport,content,bottomInset);
++		const String place=content.place+(content.reading.isEmpty() ? U"" : U"  "+content.reading);
++		PlainLabel::fitted(font,place,13,{box.pos,box.w,20},Palette::White,ColorF{.05,.08,.10});
+ 		if(!content.road.isEmpty())
+ 		{
+-			double inset=10;
++			double inset=0;
+ 			if(content.nationalNumber>0)
+ 			{
+-				shield.resized(40,36).draw(box.x+10,box.y+54);
+-				font(content.nationalNumber).drawAt(13,box.x+30,box.y+72,Palette::White);inset=58;
++				shield.resized(30,27).draw(box.x,box.y+20);
++				font(content.nationalNumber).drawAt(10,box.x+15,box.y+33,Palette::White);inset=36;
+ 			}
+-			NavigationHeader::fitted(font,content.road,{box.x+inset,box.y+57,box.w-inset-10,30},15,Palette::White);
++			PlainLabel::fitted(font,content.road,13,{box.x+inset,box.y+23,box.w-inset,22},Palette::White,ColorF{.05,.08,.10});
+ 		}
+ 	}
+ }
+--- a/src/ui/WorldMapView.hpp
++++ b/src/ui/WorldMapView.hpp
+@@ -1,4 +1,5 @@
+ #pragma once
++#include "PlainLabel.hpp"
+ #include "KeyboardActions.hpp"
+ #include "MapStroke.hpp"
+ #include <Siv3D.hpp>
+@@ -133,7 +134,7 @@
+ 		{
+ 			const String address=addressAt(toWorld(Cursor::PosF(),size));
+ 			const auto text=font(address); const double width=text.region().w+24;
+-			RectF{size.x-width-16,size.y-48,width,36}.draw(ColorF{1,.94}); text.draw(size.x-width-4,size.y-42,ColorF{.25});
++			PlainLabel::draw(font,address,font.fontSize(),{size.x-width-4,size.y-42},ColorF{.25},ColorF{1,.85});
+ 		}
+ 		if (contextWorld)
+ 		{
+@@ -223,9 +224,8 @@
+ 				if (overlaps) { continue; }
+ 				occupied << bounds;
+ 				if (label.station) { RectF{point-Vec2{4,4},8,8}.draw(ColorF{.18,.36,.55}); }
+-				bounds.draw(ColorF{1,.85});
+-				font(label.text).draw(bounds.pos+Vec2{6,2},ColorF{.17,.24,.29});
+-				if (!label.reading.isEmpty()) { font(label.reading).draw(11,bounds.pos+Vec2{6,24},ColorF{.3,.38,.41}); }
++				PlainLabel::draw(font,label.text,font.fontSize(),bounds.pos+Vec2{6,2},ColorF{.17,.24,.29},ColorF{1,.85});
++				if (!label.reading.isEmpty()) { PlainLabel::draw(font,label.reading,11,bounds.pos+Vec2{6,24},ColorF{.3,.38,.41},ColorF{1,.85}); }
+ 			}
+ 		}
+ 		Graphics2D::SetScissorRect(previous);
+--- a/src/ui/LocalMapView.hpp
++++ b/src/ui/LocalMapView.hpp
+@@ -1,4 +1,5 @@
+ #pragma once
++#include "PlainLabel.hpp"
+ #include "WorldMapView.hpp"
+ 
+ /// @brief 視点に追従する周辺地図。全画面地図と道路・鉄道データを共用する。
+@@ -89,8 +90,9 @@
+ 				bool overlap=!area.contains(bounds.br());
+ 				for (const auto& other : used) { overlap|=other.intersects(bounds); }
+ 				if (overlap || used.size()>=4) { continue; }
+-				used<<bounds; bounds.draw(ColorF{1,.88}); font(label.text).draw(bounds.pos+Vec2{3,0},ColorF{.12,.22,.3});
+-				if (!label.reading.isEmpty()) { font(label.reading).draw(10,bounds.pos+Vec2{3,21},ColorF{.3,.38,.41}); }
++				used<<bounds;
++				PlainLabel::draw(font,label.text,font.fontSize(),bounds.pos+Vec2{3,0},ColorF{.12,.22,.3},ColorF{1,.85});
++				if (!label.reading.isEmpty()) { PlainLabel::draw(font,label.reading,10,bounds.pos+Vec2{3,21},ColorF{.3,.38,.41},ColorF{1,.85}); }
+ 			}
+ 			const Vec2 position=area.center(),tip=toScreen(center+forward*(7/scale),rect),right{-(tip-position).y,(tip-position).x};
+ 			Triangle{tip,position-(tip-position)*.6+right*.6,position-(tip-position)*.6-right*.6}.draw(ColorF{.95,.25,.12}).drawFrame(1,Palette::White);
+--- a/src/ui/TownBillboards.hpp
++++ b/src/ui/TownBillboards.hpp
+@@ -1,4 +1,5 @@
+ #pragma once
++#include "PlainLabel.hpp"
+ #include "Camera.hpp"
+ #include "NavigationHeader.hpp"
+ 
+@@ -50,9 +51,8 @@
+ 		{
+ 			Line{Vec2{label.anchor.x, label.bounds.bottomY()}, label.anchor}.draw(1.5, ColorF{.85, .94, .95, .8});
+ 			Circle{label.anchor, 2.5}.draw(ColorF{.85, .94, .95});
+-			label.bounds.rounded(5).draw(ColorF{.06, .12, .16, .88});
+-			NavigationHeader::fitted(font,label.name,{label.bounds.pos+Vec2{8,2},label.bounds.w-16,25},label.fontSize,Palette::White);
+-			if (!label.reading.isEmpty()) { NavigationHeader::fitted(font,label.reading,{label.bounds.pos+Vec2{8,27},label.bounds.w-16,14},12,ColorF{.72,.84,.9}); }
++			PlainLabel::fitted(font,label.name,label.fontSize,{label.bounds.pos+Vec2{8,2},label.bounds.w-16,25},Palette::White,ColorF{.05},true);
++			if (!label.reading.isEmpty()) { PlainLabel::fitted(font,label.reading,12,{label.bounds.pos+Vec2{8,27},label.bounds.w-16,14},ColorF{.82,.90,.94},ColorF{.05},true); }
+ 		}
+ 	}
+ }
+--- a/src/scene/GameScene_Render.cpp
++++ b/src/scene/GameScene_Render.cpp
+@@ -932,7 +932,8 @@
+ 			}
+ 			if(content.road.isEmpty()) { content.road=edge->farmAccess ? U"農道" : edge->roadType==RoadType::Arterial ? U"幹線道路" : U"生活道路"; }
+ 		}
+-		LocationTooltip::draw(Scene::Size(),Cursor::PosF(),content,FontAsset(Asset::CJK14),TextureAsset(Asset::NationalRoadSign));
++		const double bottomInset=m_frameRateGraph.visible ? Scene::Height()-m_frameRateGraph.bounds(Scene::Size()).y+12 : 12;
++		LocationTooltip::draw(Scene::Size(),content,FontAsset(Asset::CJK14),TextureAsset(Asset::NationalRoadSign),bottomInset);
+ 		if(getData().playtest && m_playtestFrame%60==0) { DBG_LOG(U"[LocationHover] world={} place={} road={}"_fmt(point,content.place,content.road)); }
+ 	}
+ 
+--- a/src/render/RegionalTerrain.hpp
++++ b/src/render/RegionalTerrain.hpp
+@@ -1,6 +1,8 @@
+ #pragma once
+ #include <Siv3D.hpp>
+ #include "../world/World.hpp"
++#include "TerrainSurfaceGeometry.hpp"
++#include "TerrainMaterials.hpp"
+ 
+ /// @brief 地域全体を見渡す高度で使う地形。近傍チャンクの外側も海岸線・山脈を保つ。
+ namespace RegionalTerrain
+@@ -11,7 +13,31 @@
+ 	{
+ 		const float extent=static_cast<float>(WORLD_SIZE);
+ 		auto data=MeshData::Grid(Float3{extent*.5f,0,extent*.5f},Float2{extent,extent},kCells,kCells,Float2{extent/32,extent/32});
+-		for(auto& vertex:data.vertices) { vertex.pos.y=world.sampleHeight(Clamp(vertex.pos.x,0.0f,extent-.01f),Clamp(vertex.pos.z,0.0f,extent-.01f)); }
++		for(auto& vertex:data.vertices)
++		{
++			vertex.pos.y=world.sampleHeight(Clamp(vertex.pos.x,0.0f,extent-.01f),Clamp(vertex.pos.z,0.0f,extent-.01f));
++			vertex.tex=TerrainSurfaceGeometry::terrainUvAt(Vec3{vertex.pos});
++		}
+ 		data.computeNormals();return data;
+ 	}
++	struct Batch {int materialKey=0;MeshData data;};
++	/// @brief 詳細地形と同じ標高分類で三角形をまとめる。頂点は各材質内で再利用する。
++	inline Array<Batch> batches(const MeshData& source)
++	{
++		Array<Batch> result{{0,{}},{1,{}}};
++		std::array<HashTable<uint32,uint32>,2> remap;
++		for(const auto& triangle:source.indices)
++		{
++			const float height=(source.vertices[triangle.i0].pos.y+source.vertices[triangle.i1].pos.y+source.vertices[triangle.i2].pos.y)/3;
++			const int key=TerrainMaterials::keyForHeight(height);auto& target=result[key].data;
++			const auto index=[&](uint32 old)
++			{
++				if(const auto found=remap[key].find(old);found!=remap[key].end()) { return found->second; }
++				const auto next=static_cast<uint32>(target.vertices.size());target.vertices<<source.vertices[old];remap[key][old]=next;return next;
++			};
++			target.indices << TriangleIndex32{index(triangle.i0),index(triangle.i1),index(triangle.i2)};
++		}
++		return result;
++	}
++
+ }
+--- a/src/render/WorldRenderer.cpp
++++ b/src/render/WorldRenderer.cpp
+@@ -1,6 +1,7 @@
+ #include "WorldRenderer.hpp"
+ #include "TreeGeometry.hpp"
+ #include "RegionalTerrain.hpp"
++#include "TerrainMaterials.hpp"
+ #include "../asset/AssetRegistrar.hpp"
+ #include "../debug/DebugLog.hpp"
+ #include <Siv3D/Profiler.hpp>
+@@ -20,8 +21,20 @@
+ 	if(regionalEye.y-world.sampleHeight(static_cast<float>(regionalEye.x),static_cast<float>(regionalEye.z))>RegionalTerrain::kMinimumClearance)
+ 	{
+ 		m_buildingsConsidered=m_buildingsSubmitted=m_buildingDrawCalls=m_buildingTriangles=0;
+-		if(!m_regionalTerrain) { const Stopwatch timer{StartImmediately::Yes};m_regionalTerrain=Mesh{RegionalTerrain::build(world)};DBG_LOG(U"[RegionalTerrain] buildMs={:.2f}"_fmt(timer.msF())); }
+-		{const ScopedCustomShader3D shader{m_terrainShader};const ScopedRenderStates3D state{RasterizerState::SolidCullNone};Graphics3D::SetPSTexture(2,TextureAsset(Asset::CoastSand));m_regionalTerrain.draw(TextureAsset(Asset::Grass));}
++		if(m_regionalTerrain.isEmpty())
++		{
++			const Stopwatch timer{StartImmediately::Yes};
++			for(const auto& batch:RegionalTerrain::batches(RegionalTerrain::build(world)))
++			{
++				if(!batch.data.indices.isEmpty()) { m_regionalTerrain<<TerrainMeshBatch{batch.materialKey,DynamicMesh{batch.data}}; }
++			}
++			DBG_LOG(U"[RegionalTerrain] buildMs={:.2f}"_fmt(timer.msF()));
++		}
++		{
++			const ScopedCustomShader3D shader{m_terrainShader};const ScopedRenderStates3D state{RasterizerState::SolidCullNone};
++			Graphics3D::SetPSTexture(2,TextureAsset(Asset::CoastSand));
++			for(const auto& batch:m_regionalTerrain) { batch.mesh.draw(TextureAsset(TerrainMaterials::texture(batch.materialKey)),TerrainMaterials::color(batch.materialKey)); }
++		}
+ 		{const ScopedCustomShader3D shader{m_waterShader};Box{Vec3{WORLD_SIZE*.5,0,WORLD_SIZE*.5},Vec3{WORLD_SIZE,.04,WORLD_SIZE}}.draw(ColorF{1});}
+ 		// すでに用意済みの建物は地域LODでも残す。地形全域を同期で詳細化しない。
+ 		m_buildingFrustum=ViewFrustum{camera,160000};
+--- a/src/render/WorldRenderer_Streaming.cpp
++++ b/src/render/WorldRenderer_Streaming.cpp
+@@ -1,55 +1,12 @@
+ #include "WorldRenderer.hpp"
+ #include "LandscapeMaterials.hpp"
++#include "TerrainMaterials.hpp"
+ #include "TreeGeometry.hpp"
+ #include "../asset/AssetRegistrar.hpp"
+ #include "../debug/DebugLog.hpp"
+ #include <algorithm>
+ 
+ using LandscapeMaterials::detailColorForKey;
+-
+-namespace
+-{
+-	ColorF terrainMaterialColor(int materialKey)
+-	{
+-		switch (materialKey)
+-		{
+-		case 1: return ColorF{ 0.50, 0.62, 0.38 };
+-		case 2: return ColorF{ 0.38, 0.54, 0.30 };
+-		case 3: return ColorF{ 0.50, 0.45, 0.30 };
+-		case 4: return ColorF{ 0.76, 0.70, 0.52 };
+-		case 5: return ColorF{ 0.48, 0.58, 0.56 };
+-		default: return ColorF{ 0.42, 0.57, 0.32 };
+-		}
+-	}
+-
+-	StringView terrainMaterialTexture(int materialKey)
+-	{
+-		switch (materialKey)
+-		{
+-		case 1:
+-		case 2:
+-			return Asset::SparseGrass;
+-		case 4:
+-			return Asset::Sand;
+-		case 5:
+-			return Asset::CoastSand;
+-		case 100:
+-		case 117:
+-		case 119:
+-		case 120:
+-			return Asset::Concrete;
+-		case 110:
+-		case 111:
+-		case 114:
+-			return Asset::Sand;
+-		case 101:
+-		case 113:
+-			return Asset::SparseGrass;
+-		default:
+-			return Asset::SparseGrass;
+-		}
+-	}
+-}
+ 
+ void WorldRenderer::trimDistantTreeDetails()
+ {
+@@ -248,7 +205,7 @@
+ 		Graphics3D::SetPSTexture(2, TextureAsset(Asset::CoastSand));
+ 		for (const TerrainMeshBatch& batch : it->second)
+ 		{
+-			batch.mesh.draw(TextureAsset(terrainMaterialTexture(batch.materialKey)), terrainMaterialColor(batch.materialKey));
++			batch.mesh.draw(TextureAsset(TerrainMaterials::texture(batch.materialKey)), TerrainMaterials::color(batch.materialKey));
+ 		}
+ 	}
+ 	drawCachedBuildings(key);
+--- a/src/render/WorldRenderer.hpp
++++ b/src/render/WorldRenderer.hpp
+@@ -197,7 +197,7 @@
+ 	bool m_asyncTerrain = false;
+ 	uint64 m_terrainEpoch = 0;
+ 
+-	Mesh m_regionalTerrain;
++	Array<TerrainMeshBatch> m_regionalTerrain;
+ 	HashTable<Key, Array<TerrainMeshBatch>>       m_meshCache;
+ 	HashTable<Key, Array<TerrainSubtractionQuad>> m_chunkSubtractorCache;
+ 	HashTable<int, TerrainBooleanSubtractor>      m_edgeSubtractorCache;
+--- a/src/road/RoadNetwork_Connections.cpp
++++ b/src/road/RoadNetwork_Connections.cpp
+@@ -419,7 +419,16 @@
+ 
+ 	// ── 自動信号設置 ──
+ 	constexpr int kAutoSignalThreshold = 8;
+-	if (static_cast<int>(node->laneConnections.size()) > kAutoSignalThreshold)
++	bool hasMajorApproach=false;
++	for(const auto& attachment:node->attachments)
++	{
++		const RoadEdge* edge=getEdge(attachment.edgeId);
++		if(!edge || edge->farmAccess) { continue; }
++		hasMajorApproach |= edge->roadType==RoadType::Arterial || edge->roadType==RoadType::Highway
++			|| (edge->roadType==RoadType::LocalRoad && edge->lanes.size()>2);
++	}
++	// 細い生活道路・畦道だけなら、接続数の多い四差路でも無信号とする。
++	if (hasMajorApproach && static_cast<int>(node->laneConnections.size()) > kAutoSignalThreshold)
+ 	{
+ 		if (!node->signalPlacement)
+ 		{
+--- a/Test/ComprehensiveTests.cpp
++++ b/Test/ComprehensiveTests.cpp
+@@ -20,6 +20,7 @@
+ #include "src/render/VegetationProfile.hpp"
+ #include "src/render/CityLighting.hpp"
+ #include "src/render/RegionalTerrain.hpp"
++#include "src/render/WorldRenderer.hpp"
+ #include "src/render/MinimapRenderer.hpp"
+ #include "src/asset/AssetRegistrar.hpp"
+ 
+@@ -246,13 +247,25 @@
+ 
+ 	runner.add(U"Comprehensive.OverviewLocationTooltip",[](TestContext& context)
+ 	{
+-		const Size size{800,600};const Font font{16};const Texture shield{U"../../App/assets/signs/guide/national_route.png"};const LocationTooltip::Content content{U"山里村",U"Yamazato-mura",U"木曽街道",19};const RenderTexture target{size};
+-		for(const Vec2 pointer:{Vec2{0,0},Vec2{790,0},Vec2{0,590},Vec2{790,590}})
+-		{
+-			const RectF box=LocationTooltip::bounds(size,pointer,content);context.expect(box.x>=0 && box.y>=0 && box.rightX()<=size.x && box.bottomY()<=size.y,U"Place tooltip fits all screen corners");
+-			{const ScopedRenderTarget2D scope{target.clear(ColorF{.2})};LocationTooltip::draw(size,pointer,content,font,shield);}Graphics2D::Flush();Image pixels;target.readAsImage(pixels);int blue=0,reading=0;
+-			for(int y=static_cast<int>(box.y);y<box.bottomY();++y) { for(int x=static_cast<int>(box.x);x<box.rightX();++x) { const auto c=pixels[y][x];blue+=c.b>c.r+50 && c.b>c.g+25;if(y>box.y+29 && y<box.y+45) { reading+=c.r>120; } } }
+-			context.expect(blue>100 && reading>30,U"National route shield and romanization are both visible");
++		const Font font{FontMethod::MSDF,32};const Texture shield{U"../../App/assets/signs/guide/national_route.png"};
++		const LocationTooltip::Content content{U"山里村",U"Yamazato-mura",U"木曽街道",19};
++		for(const Size size:{Size{800,600},Size{1280,800},Size{320,480}})
++		{
++			const RenderTexture target{size};
++			for(const double bottomInset:{12.0,192.0})
++			{
++				const RectF box=LocationTooltip::bounds(size,content,bottomInset);
++				context.expect(box.x==12 && box.h<=48 && box.bottomY()==size.y-bottomInset && box.rightX()<=size.x-12,U"Compact address stays at bottom left and above an open FPS graph");
++				{const ScopedRenderTarget2D scope{target.clear(Color{51,51,51})};LocationTooltip::draw(size,content,font,shield,bottomInset);}Graphics2D::Flush();Image pixels;target.readAsImage(pixels);int blue=0,text=0,untouched=0,outside=0;
++				for(int y=0;y<size.y;++y) { for(int x=0;x<size.x;++x)
++				{
++					const auto c=pixels[y][x];const bool changed=c.r!=51 || c.g!=51 || c.b!=51;
++					if(!box.stretched(2).contains(Vec2{x,y})) { outside+=changed;continue; }
++					blue+=c.b>c.r+50 && c.b>c.g+25;text+=c.r>160;untouched+=!changed;
++				} }
++				context.expect(blue>40 && text>70 && untouched>box.area()*.55 && outside==0,U"Route shield and text render without a panel or stray pixels");
++				pixels.save(U"Screenshot/compact_location_{}_{}.png"_fmt(size.x,static_cast<int>(bottomInset)));
++			}
+ 		}
+ 		RoadNetwork roads;const int id=*roads.addEdge(roads.addNode({33000,50,33000}),roads.addNode({33500,50,33000}),{33166,50,33000},{33333,50,33000});RoadPlanSnapIndex index;index.rebuild(roads);
+ 		const auto hover=index.find(roads,{33200,30,33003},12,Math::Inf,false);context.expect(hover.edgeId==id,U"Overview lookup finds the road above the pointed terrain");
+@@ -280,6 +293,100 @@
+ 		const auto stats=AgriculturalLayout::prepare(world,roads,42);context.expect(stats.connections>0,U"Farm tracks join a nearby parallel public road instead of stopping short");
+ 		JSON report;report[U"tracks"]=stats.tracks;report[U"connections"]=stats.connections;report.save(U"TestResults/farm_connections.json");
+ 		for(const auto& node:roads.nodes()) { if(node.id<0 || node.attachments.size()<3) { continue; }bool farm=false;for(int id:node.edgeIds()) { farm|=roads.getEdge(id)->farmAccess; }if(farm) { context.expect(!node.laneConnections.isEmpty(),U"Joined farm junctions include vehicle connections"); } }
++	});
++
++	runner.add(U"Comprehensive.PlainMapLabels",[](TestContext& context)
++	{
++		const Font font{FontMethod::MSDF,16};const Size size{800,600};const Texture terrain{Image{16,16,Color{85,120,95}}};const RenderTexture target{size};
++		for(bool local:{false,true})
++		{
++			WorldMapView map;map.visible=true;map.center={32768,32768};map.zoom=16;LocalMapView minimap;minimap.center=map.center;
++			const RectF rect{0,0,800,600};const Vec2 place{32768,32600};Array<Image> frames;
++			for(bool labels:{false,true})
++			{
++				if(labels) { map.labels << WorldMapView::Label{place,U"山里村",false,1,U"Yamazato-mura"}; }
++				{const ScopedRenderTarget2D scope{target.clear(Palette::Black)};if(local) { minimap.draw(rect,terrain,font,map); } else { map.draw(size,terrain,font,map.center); }}
++				Graphics2D::Flush();Image image;target.readAsImage(image);frames << image;
++			}
++			const Vec2 anchor=local ? minimap.toScreen(place,rect) : map.toScreen(place,size);
++			const RectF box{anchor+Vec2{6,local ? -8 : -10},Max(font(U"山里村").region().w,font(U"Yamazato-mura").region(local ? 10 : 11).w)+(local ? 6 : 12),local ? 35 : 40};
++			int changed=0,emptyCorners=0,reading=0;
++			for(int y=static_cast<int>(box.y);y<box.bottomY();++y) { for(int x=static_cast<int>(box.x);x<box.rightX();++x)
++			{
++				const bool different=frames[0][y][x]!=frames[1][y][x];changed+=different;
++				if(x<box.x+2 || x>box.rightX()-2) { emptyCorners+=different; }
++				if(y>box.y+24) { reading+=different; }
++			} }
++			context.expect(changed>70 && changed<box.area()*.55 && emptyCorners==0 && reading>20,U"Map labels retain Japanese and romanized text with transparent surroundings");
++			frames[1].save(U"Screenshot/plain_{}_labels.png"_fmt(local ? U"local" : U"full"));
++		}
++	});
++	runner.add(U"Comprehensive.MinorRoadSignals",[](TestContext& context)
++	{
++		for(const int scenario:{0,1,2,3})
++		{
++			RoadNetwork roads;const Vec3 center{500,30,500};const int node=roads.addNode(center);
++			for(int arm=0;arm<4;++arm)
++			{
++				const double angle=arm*Math::HalfPi;const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
++				const RoadType type=scenario==2 && arm%2==0 ? RoadType::Arterial : RoadType::LocalRoad;
++				const int lanes=scenario==3 && arm%2==0 ? 4 : 2;
++				const int edge=*roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),type,lanes);
++				if(scenario==1 && arm%2==0) { roads.getEdge(edge)->farmAccess=true; }
++			}
++			roads.rebuildNodeConnectivity(node,node);const auto* crossing=roads.getNode(node);
++			context.expect(crossing->laneConnections.size()>8,U"Signal policy is exercised on a connected four-way junction");
++			context.expect(crossing->signalPlacement.has_value()==(scenario>=2),U"Only major or wide approaches trigger automatic signals");
++			if(scenario<2) { for(const auto& attachment:crossing->attachments) { context.expect(attachment.control!=TrafficControl::Signal,U"Unsignalized small streets also retain unsignalized traffic controls"); } }
++			if(scenario==0)
++			{
++				roads.getNode(node)->signalPlacement=SignalPlacement{U"signal_3lamp"};roads.rebuildNodeConnectivity(node,node);
++				context.expect(roads.getNode(node)->signalPlacement.has_value(),U"An explicitly placed player signal is preserved");
++			}
++		}
++	});
++
++	runner.add(U"Comprehensive.ZoomTerrainShading",[](TestContext& context)
++	{
++		const FilePath directory=FileSystem::CurrentDirectory();
++		struct Restore {FilePath path;~Restore(){FileSystem::ChangeCurrentDirectory(path);}} restore{directory};
++		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");RegisterAssets();
++		CityLighting lighting;context.expect(lighting.initialize(),U"Production terrain shader loads");
++		const Size size{320,240};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
++		JSON report;report[U"cases"]=Array<JSON>{};
++		for(const float height:{10.0f,60.0f,1500.0f,2300.0f,500.0f})
++		{
++			World world;flatWorld(world,height);RoadNetwork roads;WorldRenderer renderer;renderer.setAsyncTerrain(false);renderer.setTerrainShader(lighting.terrainShader());
++			const Vec3 focus{33280,height,33280};
++			if(height==500)
++			{
++				for(int z=31;z<=33;++z) { for(int x=31;x<=33;++x)
++				{
++					auto* chunk=world.getChunk({x,z});
++					for(int row=0;row<=HEIGHT_CELLS;++row) { for(int col=0;col<=HEIGHT_CELLS;++col)
++					{
++						const double px=x*CHUNK_SIZE+col*(static_cast<double>(CHUNK_SIZE)/HEIGHT_CELLS),pz=z*CHUNK_SIZE+row*(static_cast<double>(CHUNK_SIZE)/HEIGHT_CELLS);
++						chunk->heightMap[row][col]=static_cast<float>(height+(px-focus.x)*.25+(pz-focus.z)*.10);
++					} }
++					chunk->heightMin=chunk->heightMap[0][0];chunk->heightMax=chunk->heightMap[HEIGHT_CELLS][HEIGHT_CELLS];
++				} }
++			}
++			world.update(focus);Array<double> means;Array<Image> frames;
++			for(const double clearance:{4499.0,4501.0})
++			{
++				const BasicCamera3D camera{size,8_deg,focus+Vec3{0,clearance,-1},focus};
++				lighting.update(camera,focus,Vec3{-.4,1,-.3}.normalized(),1,1,[](Vec3,double){});
++				{const ScopedRenderTarget3D scope{target.clear(Palette::Black)};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};Graphics3D::SetCameraTransform(camera);Graphics3D::SetGlobalAmbientColor(ColorF{.5});Graphics3D::SetSunColor(ColorF{.8});Graphics3D::SetSunDirection(Vec3{-.4,1,-.3}.normalized());lighting.bind();renderer.render(world,roads,camera);}
++				Graphics3D::Flush();Image pixels;target.readAsImage(pixels);double sum=0;
++				for(int y=60;y<180;++y) { for(int x=80;x<240;++x) {const auto c=pixels[y][x];sum+=(c.r+c.g+c.b)/3.0;} }
++				means << sum/19200;frames << pixels;
++				pixels.save(directory+U"Screenshot/zoom_terrain_{}_{}.png"_fmt(static_cast<int>(height),static_cast<int>(clearance)));
++			}
++			double difference=0;for(int y=60;y<180;++y) { for(int x=80;x<240;++x) {const auto a=frames[0][y][x],b=frames[1][y][x];difference+=(Abs(int(a.r)-int(b.r))+Abs(int(a.g)-int(b.g))+Abs(int(a.b)-int(b.b)))/3.0;} }
++			difference/=19200;JSON row;row[U"height"]=height;row[U"meanBrightness"]=means;row[U"meanChannelDifference"]=difference;report[U"cases"].push_back(row);
++			context.expect(difference<3,U"Zooming past the regional terrain threshold preserves ground shading at altitude {} (difference {:.2f})"_fmt(height,difference));
++		}
++		report.save(directory+U"TestResults/zoom_terrain_shading.json");Graphics3D::SetSunColor(ColorF{1});
+ 	});
+ 
+ 	runner.add(U"Comprehensive.RegionalTerrain",[](TestContext& context)
+--- a/plan/06_ui_spec.md
++++ b/plan/06_ui_spec.md
+@@ -70,7 +70,7 @@
+ 
+ 俯瞰・撮影視点では街の中心上空へ地名ビルボードを投影する。都市・町・村の順で優先し、同じ規模では注視点に近いものを優先する。重なる名前、画面外・視点背後、実際の開閉状態のHUDと重なる名前は描かない。距離上限は都市120km・町45km・村15km、最大24件。文字は画面に正対し、日本語の下にローマ字を併記する。市・町・村の接尾辞は集落種別に対応する。
+ 
+-俯瞰ではポインタが指す地表の地名・ローマ字と近傍道路名を、ポインタ横の案内へ表示する。国道ならおにぎり型の国道マークと番号を併記する。画面端では位置を内側へ調整し、HUD・編集パネル・コマンド入力上では表示しない。道路の検索には空間索引を使い、画面移動ごとに全道路を走査しない。
++俯瞰ではポインタが指す地表の地名・ローマ字と近傍道路名を、画面左下へ背景なしで表示する。国道ならおにぎり型の国道マークと番号を併記する。HUD・編集パネル・コマンド入力上では表示しない。道路の検索には空間索引を使い、画面移動ごとに全道路を走査しない。配置・寸法は本書末尾の「住所・地名の軽量表示」を参照。
+ 
+ 徒歩・運転・追従視点では、注視点に最も近い地区名と読みを上部中央へ1件だけ固定する。国道は80m以内で最も近い開通道路が属する路線を上部に1件表示し、クリックで路線情報を開く。徒歩・運転の前方には地名ビルボードを重ねない。地図内の地名と道路に立つ実物の標識はそれぞれ継続する。
+ 
+@@ -137,3 +137,9 @@
+ 俯瞰距離は5〜60000m。地面からの高さを距離×sin(俯角)で決め、高標高でも地面直上へ押し込まない。ホイールは距離×1.12^ノッチ数として、同じ入力の分割・合算で変位を変えず、逆方向の同数入力で元の距離へ戻る（上下限に達した場合を除く）。地域全体を見渡す高度では、64km全域の128m格子LOD地形を表示する。
+ 
+ `/` で左下のコマンドパレットを開く。入力中はゲームのキー操作を遮断し、Tab補完・上下キーの履歴・Enter実行・Esc終了を提供する。FPSグラフは入力中の描画だけを隠して重なりを避ける。[全コマンドと例](28_commands.md)。
++
++## 住所・地名の軽量表示（2026-09-17）
++
++俯瞰でポインタが指している地名・ローマ字読み・道路名は、左下12pxの余白に高さ最大48px、最大幅360pxの2行で表示する。国道番号のおにぎりは30×27px。長い地名は省略し、F3のFPSグラフ表示中はその上へ移す。パレット・メニュー・パネル操作中の入力制御は維持する。徒歩・運転視点の上部表示は変えない。
++
++住所表示、拡大地図・右上地図の地名、俯瞰の街名には塗りつぶし背景を置かない。日本語とローマ字は残し、文字自体の細い縁取りで読みやすさを保つ。地図操作ボタン・縮尺・メニューの背景は操作部として維持する。
+--- a/plan/12_visual_spec.md
++++ b/plan/12_visual_spec.md
+@@ -134,3 +134,7 @@
+ 初期読み込み中に道路の簡略路面・交差点を準備する。詳細形状と標識の準備はフレームの時間予算を共有する。未表示の先行準備メッシュは影へ送らず、一度表示に使った簡略路面だけを影の対象とする。地形変更時には該当キャッシュを破棄するが、初回のmeshDirtyだけでは地形の高さが同じ簡略路面を捨てない。地域チャンクの並べ替えは距離順の出力ではなく前回の入力順と比較する。
+ 
+ 実測の改善は移動中の大きな停止の軽減であり、全地点の平均60fpsを達成したとは扱わない。初回の建物・地形準備の負荷はISSUEへ残す。
++
++### 遠景へ切り替える際の材質統一（2026-09-17）
++
++詳細地形と地域LODは `TerrainMaterials` の標高分類・SparseGrassテクスチャ・色を共用する。UVも `TerrainSurfaceGeometry::terrainUvAt` の8mスケールと回転を共用し、海岸・高山・雪のシェーダーは同一。地域LODは2種類以下の材質バッチとし、遠景へ引いた瞬間に別の草模様や明るさへ変わる現象を防ぐ。全域512×512セルの上限と地形編集時の無効化は維持する。
+--- a/plan/20_road_object_spec.md
++++ b/plan/20_road_object_spec.md
+@@ -302,3 +302,7 @@
+ ## 高架の橋脚配置
+ 
+ 長さ8m以上、地盤から路盤下まで3m以上の高架区間へ、最大30m間隔で橋脚を配置する。短い区間にも中央の1基を用意し、区間長が間隔の倍数に近くても配置が0基にならない。道路に属する橋脚だけを再生成し、他の設備を削除しない。閾値は `assets/generation/roads.json`。
++
++## 細い道路の自動信号（2026-09-17）
++
++生活道路（合計2車線以下）と農道・畦道だけの交差点には、自動で信号を設置しない。四差路で車線接続数が8を超えても無信号とする。幹線・有料道路、または合計3車線以上の一般道が接続する場合に限り、従来の接続数による自動設置を行う。プレイヤーが明示的に置いた信号は保持する。
+--- a/plan/00_current_implementation.md
++++ b/plan/00_current_implementation.md
+@@ -104,3 +104,9 @@
+ 俯瞰は最大60km、ポインタの地名・道路名・国道マークと、市町村名のローマ字を表示する。全画面地図と周辺地図はトンネル部分を破線にする。町村は採用率1/4、全集落中心は端から1km以上。農道は完成状態で生成し、近傍道路への接続を優先する。自然植生は森林限界・高山植生・雪と500mの境界遷移を持つ。経路比較費は地上1・掘割8・高架64＋高さ罰則・トンネル128＋長さ罰則。
+ 
+ `/` で [コマンドパレット](28_commands.md) を開く。通常経路生成とプレビュー・建設は同じ線形を維持し、サンドボックスでは資金による着工制限を省く。検証項目は [全項目チェックリスト](../artifacts/comprehensive_20260917/CHECKLIST.md)。
++
++### 2026-09-17 表示・細道交差点の調整
++
++- ポインタ位置の住所・道路名は左下の小さな背景なし表示。地図と俯瞰の地名も背景なしで読みを併記。
++- 地域LODの地形材質・UVを詳細地形と統一し、ズーム境界での明るさの段差を解消。
++- 畦道・2車線以下の生活道路だけの交差点は自動信号の対象外。
+--- a/ISSUE.md
++++ b/ISSUE.md
+@@ -47,3 +47,7 @@
+ - 拡大地図: 巨大な画面外座標を地形・線分へ渡さないクリップを追加。GPU20条件と本体の位置・倍率操作で白黒ブロックを認めなかったが、報告された欠落そのものの発生地点・倍率は未特定。以前の文字アトラス混入と同じ原因とも断定しない。
+ 
+ 詳細: [20項目の検証](artifacts/comprehensive_20260917/REVIEW.md)。未再現の異常終了は従来どおり再現待ちとする。
++
++## 信号付き交差点へ後から流入路を追加する場合
++
++2026-09-17の交差点テストで、4車線の幹線に3本目の道路を加えた段階で信号が作られ、その後4本目を追加すると、新しい接続方向の `TrafficControl` が `Signal` にならないケースを確認。既存信号のフェーズ更新と併せて検証が必要。今回の細道同士の自動信号抑制は成立しており、生成済み街の2,140か所の細道交差点に信号は0だった。この追加流入路の問題とは区別する。
+--- a/src/render/WorldRenderer_Terrain.cpp
++++ b/src/render/WorldRenderer_Terrain.cpp
+@@ -1,5 +1,6 @@
+ #include "WorldRenderer.hpp"
+ #include "TerrainSurfaceGeometry.hpp"
++#include "TerrainMaterials.hpp"
+ #include "../debug/DebugLog.hpp"
+ #include "../road/RoadGeometry.hpp"
+ #include "../road/JunctionGeometry.hpp"
+@@ -51,8 +52,7 @@
+ 		const int z = Clamp(row, 0, ZONE_CELLS - 1);
+ 		const float h = (chunk.heightMap[{ x, z }] + chunk.heightMap[{ x + 1, z }]
+ 			+ chunk.heightMap[{ x, z + 1 }] + chunk.heightMap[{ x + 1, z + 1 }]) * 0.25f;
+-		if (h > 28.0f) return 1;
+-		return 0;
++		return TerrainMaterials::keyForHeight(h);
+ 	}
+ 
+ 	std::unordered_set<int64> chunkKeysAroundPoint(const Vec3& pos, float radius)
+@@ -624,7 +624,7 @@
+ 
+ void WorldRenderer::invalidateTerrainChunkKeys(const std::unordered_set<Key>& chunkKeys, bool rebuildImmediately)
+ {
+-	m_regionalTerrain=Mesh{};
++	m_regionalTerrain.clear();
+ 	m_transportSitesDirty=true;
+ 	if (chunkKeys.empty()) return;
+ 
+@@ -866,7 +866,7 @@
+ 
+ void WorldRenderer::invalidateAllTerrain()
+ {
+-	m_regionalTerrain=Mesh{};
++	m_regionalTerrain.clear();
+ 	m_transportSitesDirty=true;
+ 	++m_terrainEpoch;
+ 	m_detailedTreeChunks.clear();
+--- a/src/scene/GameScene_Playtest.cpp
++++ b/src/scene/GameScene_Playtest.cpp
+@@ -321,6 +321,23 @@
+ 	else if (action==U"map_close") { m_minimapRenderer.mapView().close(); }
+ 	else if (action==U"local_map") { auto& view=m_minimapRenderer.localView();view.changeZoom(static_cast<int>(number(U"zoom")));if (number(U"toggle")!=0) { view.headingUp=!view.headingUp; } }
+ 	else if (action==U"pointer") { Cursor::SetPos(Point{static_cast<int>(number(U"x")),static_cast<int>(number(U"y"))}); }
++	else if (action==U"audit_signals")
++	{
++		JSON report;int minor=0,major=0,signals=0;report[U"minorSignalNodes"]=Array<int>{};
++		for(const auto& node:m_network.nodes())
++		{
++			if(node.id<0 || node.attachments.size()<3) { continue; }
++			bool narrow=true;
++			for(const auto& attachment:node.attachments)
++			{
++				const auto* edge=m_network.getEdge(attachment.edgeId);if(!edge) { continue; }
++				narrow &= edge->farmAccess || (edge->roadType==RoadType::LocalRoad && edge->lanes.size()<=2);
++			}
++			(narrow ? minor : major)++;signals+=node.signalPlacement.has_value();
++			if(narrow && node.signalPlacement) { report[U"minorSignalNodes"].push_back(node.id); }
++		}
++		report[U"minorJunctions"]=minor;report[U"majorJunctions"]=major;report[U"signalJunctions"]=signals;report.save(U"playtest_signals.json");
++	}
+ 	else if (action==U"snapshot") { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
+ 	else if (action==U"exit") { System::Exit(); }
+ 	if (number(U"capture")!=0) { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
+--- /dev/null
++++ b/src/ui/PlainLabel.hpp
+@@ -0,0 +1,21 @@
++#pragma once
++#include <Siv3D.hpp>
++
++/// @brief 地図と俯瞰HUDの背景なしラベル。文字の細い縁取りだけで読みやすさを保つ。
++namespace PlainLabel
++{
++	inline void draw(const Font& font,StringView text,double size,Vec2 position,ColorF color,ColorF outline)
++	{
++		font(text).draw(TextStyle::Outline(0.0,.10,outline),size,position,color);
++	}
++	inline void fitted(const Font& font,StringView text,double size,RectF bounds,ColorF color,ColorF outline,bool centered=false)
++	{
++		String label{text};
++		while(label.size()>1 && font(label).region(size).w>bounds.w) { label.pop_back(); }
++		if(label.size()<text.size() && label.size()>1) { label.back()=U'…'; }
++		if(label.isEmpty() || font(label).region(size).w>bounds.w) { return; }
++		const auto style=TextStyle::Outline(0.0,.10,outline);
++		if(centered) { font(label).drawAt(style,size,bounds.center(),color); }
++		else { font(label).draw(style,size,bounds.pos,color); }
++	}
++}
+--- /dev/null
++++ b/src/render/TerrainMaterials.hpp
+@@ -0,0 +1,50 @@
++#pragma once
++#include <Siv3D.hpp>
++#include "../asset/AssetRegistrar.hpp"
++
++/// @brief 詳細地形と遠景地形で共用する材質。LODによって色やテクスチャを変えない。
++namespace TerrainMaterials
++{
++	/// @brief 全LODで同じ標高を同じ草地材質へ分類する。
++	inline int keyForHeight(float height) { return height>28.0f ? 1 : 0; }
++	inline ColorF color(int materialKey)
++	{
++		switch (materialKey)
++		{
++		case 1: return ColorF{ 0.50, 0.62, 0.38 };
++		case 2: return ColorF{ 0.38, 0.54, 0.30 };
++		case 3: return ColorF{ 0.50, 0.45, 0.30 };
++		case 4: return ColorF{ 0.76, 0.70, 0.52 };
++		case 5: return ColorF{ 0.48, 0.58, 0.56 };
++		default: return ColorF{ 0.42, 0.57, 0.32 };
++		}
++	}
++
++	inline StringView texture(int materialKey)
++	{
++		switch (materialKey)
++		{
++		case 1:
++		case 2:
++			return Asset::SparseGrass;
++		case 4:
++			return Asset::Sand;
++		case 5:
++			return Asset::CoastSand;
++		case 100:
++		case 117:
++		case 119:
++		case 120:
++			return Asset::Concrete;
++		case 110:
++		case 111:
++		case 114:
++			return Asset::Sand;
++		case 101:
++		case 113:
++			return Asset::SparseGrass;
++		default:
++			return Asset::SparseGrass;
++		}
++	}
++}
