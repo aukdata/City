@@ -13,5 +13,9 @@
   "arterialMaximumGrade": 0.06,
   "arterialMinimumRadius": 100,
   "endpointElevationThreshold": 0.5,
-  "interiorElevationThreshold": 2
+  "interiorElevationThreshold": 2,
+  "tunnelLengthScale": 400,
+  "tunnelLengthPenalty": 32,
+  "viaductHeightScale": 12,
+  "viaductHeightPenalty": 16
 }

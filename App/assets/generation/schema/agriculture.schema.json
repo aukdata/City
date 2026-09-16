@@ -12,18 +12,29 @@
     "maximumTrackGrade",
     "minimumFreeboard",
     "maximumFieldRelief",
-    "crossTrackEveryRows",
     "dryFieldDivisor",
     "surfaceLift",
-    "headlandWidth",
     "bundWidth",
-    "fieldSideInset",
-    "fieldCombinedInset",
-    "drainSideInset",
     "drainWidth",
-    "entranceHalfDepth",
-    "entranceWidth",
-    "entranceDepth"
+    "accessSpacing",
+    "trackStep",
+    "trackReach",
+    "densityRadius",
+    "maximumRadius",
+    "homeSpacing",
+    "homeMaximumDistance",
+    "minimumFieldArea",
+    "fieldShapeVariation",
+    "trackTurnPenalty",
+    "trackDirectionPenalty",
+    "trackHeadingStep",
+    "maximumTrackCutFill",
+    "densityFalloff",
+    "minimumDensity",
+    "rootSpacingRatio",
+    "minimumReachRatio",
+    "homeSetback",
+    "homeFootprintMargin"
   ],
   "properties": {
     "plotLength": {
@@ -66,11 +77,6 @@
       "minimum": 0.0,
       "maximum": 10.0
     },
-    "crossTrackEveryRows": {
-      "type": "integer",
-      "minimum": 1.0,
-      "maximum": 16.0
-    },
     "dryFieldDivisor": {
       "type": "integer",
       "minimum": 1.0,
@@ -81,50 +87,110 @@
       "minimum": 0.0,
       "maximum": 1.0
     },
-    "headlandWidth": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 20.0
-    },
     "bundWidth": {
       "type": "number",
       "minimum": 0.0,
       "maximum": 5.0
-    },
-    "fieldSideInset": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 20.0
-    },
-    "fieldCombinedInset": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 40.0
-    },
-    "drainSideInset": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 20.0
     },
     "drainWidth": {
       "type": "number",
       "minimum": 0.0,
       "maximum": 5.0
     },
-    "entranceHalfDepth": {
+    "accessSpacing": {
+      "type": "number",
+      "minimum": 64.0,
+      "maximum": 1000.0
+    },
+    "trackStep": {
+      "type": "number",
+      "minimum": 24.0,
+      "maximum": 160.0
+    },
+    "trackReach": {
+      "type": "number",
+      "minimum": 72.0,
+      "maximum": 2000.0
+    },
+    "densityRadius": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 5000.0
+    },
+    "maximumRadius": {
+      "type": "number",
+      "minimum": 300.0,
+      "maximum": 10000.0
+    },
+    "homeSpacing": {
+      "type": "number",
+      "minimum": 80.0,
+      "maximum": 400.0
+    },
+    "homeMaximumDistance": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 500.0
+    },
+    "minimumFieldArea": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 3000.0
+    },
+    "fieldShapeVariation": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 0.5
+    },
+    "trackTurnPenalty": {
       "type": "number",
       "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "trackDirectionPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "trackHeadingStep": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.5
+    },
+    "maximumTrackCutFill": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 5.0
+    },
+    "densityFalloff": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 3.0
+    },
+    "minimumDensity": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.5
+    },
+    "rootSpacingRatio": {
+      "type": "number",
+      "minimum": 0.25,
+      "maximum": 1.0
+    },
+    "minimumReachRatio": {
+      "type": "number",
+      "minimum": 0.2,
+      "maximum": 1.0
+    },
+    "homeSetback": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "homeFootprintMargin": {
+      "type": "number",
+      "minimum": 0.1,
       "maximum": 10.0
-    },
-    "entranceWidth": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 20.0
-    },
-    "entranceDepth": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 20.0
     }
   }
 }

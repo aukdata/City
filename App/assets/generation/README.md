@@ -33,3 +33,7 @@
 建物モデルのファイル、個々のセットバック、信号・道路パーツなどは、それぞれの既存 `assets` 内の OBJ / TOML / JSON を参照します。ハッシュ、配列のインデックス、ベジェ曲線の係数、ワールドのチャンク容量、数値誤差の許容値、メッシュの頂点設計は生成調整値と区別し、コードに残します。
 
 許容型と範囲は `schema/*.schema.json` で確認できます。スキーマは `src/gen/GenerationSettings.def` から生成します。開発時は `python scripts/generation_schema.py --check` と `GenerationSettings` テストで設定の整合性を確認してください。
+
+`roads.json` の `tunnelLengthScale` / `tunnelLengthPenalty` は連続トンネル長の指数罰則、`viaductHeightScale` / `viaductHeightPenalty` は高架高さの指数罰則です。尺度はm、罰則0で追加費用を無効にできます。
+
+`agriculture.json` は農道の分岐間隔・延伸・曲がりと地形変化の費用、不整形区画の大きさ、集落からの密度減衰、田舎の家の間隔を管理します。`homeMaximumDistance` は500mを超えられません。農道断面の幅・側溝は `streetProfiles.json` を参照します。

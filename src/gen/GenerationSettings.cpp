@@ -53,9 +53,9 @@ namespace GenerationSettings
 		require(result.rivers_bankBlendStart + result.rivers_bankBlendWidth <= result.rivers_carveExtent, U"rivers bank blend inside carve extent");
 		require(result.routing_minimumStep <= result.routing_maximumStep, U"routing step size");
 		require(result.network_mediumRouteThreshold <= result.network_longRouteThreshold, U"network route thresholds");
-		require(result.agriculture_plotLength > result.agriculture_fieldCombinedInset
-			&& result.agriculture_plotWidth > 2 * Max(result.agriculture_headlandWidth, result.agriculture_bundWidth), U"agriculture usable plot area");
-		require(Abs(result.agriculture_fieldCombinedInset - 2 * result.agriculture_fieldSideInset) < .001, U"agriculture combined inset = 2 * side inset");
+		require(result.agriculture_plotWidth>2*result.agriculture_bundWidth+result.agriculture_drainWidth, U"agriculture usable field depth");
+		require(result.agriculture_trackStep<=result.agriculture_trackReach, U"agriculture track step <= reach");
+		require(result.agriculture_homeSpacing<result.agriculture_homeMaximumDistance, U"agriculture houses within field service radius");
 		require(result.vegetation_minimumForestAltitude <= result.vegetation_maximumForestAltitude, U"vegetation altitude range");
 		for (const auto item : files.at(U"streetProfiles"))
 		{

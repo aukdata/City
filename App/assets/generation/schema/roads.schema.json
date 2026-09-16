@@ -18,7 +18,11 @@
     "arterialMaximumGrade",
     "arterialMinimumRadius",
     "endpointElevationThreshold",
-    "interiorElevationThreshold"
+    "interiorElevationThreshold",
+    "tunnelLengthScale",
+    "tunnelLengthPenalty",
+    "viaductHeightScale",
+    "viaductHeightPenalty"
   ],
   "properties": {
     "surfaceCost": {
@@ -95,6 +99,26 @@
       "type": "number",
       "minimum": 0.01,
       "maximum": 20.0
+    },
+    "tunnelLengthScale": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 10000.0
+    },
+    "tunnelLengthPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
+    },
+    "viaductHeightScale": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 1000.0
+    },
+    "viaductHeightPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10000.0
     }
   }
 }
