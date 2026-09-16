@@ -1,0 +1,151 @@
+{
+  "before": {
+    "frames": 2206,
+    "range": [
+      4290,
+      6495
+    ],
+    "renderMs": {
+      "median": 15.263,
+      "p95": 36.39575,
+      "p99": 42.363099999999974,
+      "maximum": 472.421,
+      "over50": 9,
+      "over100": 2
+    },
+    "roadMs": {
+      "median": 4.675,
+      "p95": 10.277249999999999,
+      "p99": 11.898799999999998,
+      "maximum": 172.83,
+      "over50": 2,
+      "over100": 1
+    },
+    "frameMs": {
+      "median": 23.5335,
+      "p95": 37.9715,
+      "p99": 46.19769999999993,
+      "maximum": 100.0,
+      "over50": 14,
+      "over100": 0
+    },
+    "largestLoggedFallbackMs": 122.32
+  },
+  "after": {
+    "frames": 2026,
+    "range": [
+      4080,
+      6105
+    ],
+    "renderMs": {
+      "median": 22.3705,
+      "p95": 37.20625,
+      "p99": 41.678000000000004,
+      "maximum": 480.426,
+      "over50": 7,
+      "over100": 1
+    },
+    "roadMs": {
+      "median": 7.398,
+      "p95": 10.70875,
+      "p99": 12.262,
+      "maximum": 168.997,
+      "over50": 1,
+      "over100": 1
+    },
+    "frameMs": {
+      "median": 26.505000000000003,
+      "p95": 38.6275,
+      "p99": 44.59775,
+      "maximum": 100.0,
+      "over50": 11,
+      "over100": 0
+    },
+    "largestLoggedFallbackMs": 121.51
+  },
+  "roadGenerations": [
+    {
+      "id": 106,
+      "valid": true,
+      "length": null
+    },
+    {
+      "id": 109,
+      "valid": true,
+      "length": null
+    },
+    {
+      "id": 112,
+      "valid": true,
+      "length": null
+    },
+    {
+      "id": 115,
+      "valid": true,
+      "length": null
+    },
+    {
+      "id": 118,
+      "valid": true,
+      "length": null
+    },
+    {
+      "id": 121,
+      "valid": true,
+      "length": null
+    }
+  ],
+  "paletteCompleted": true,
+  "maps": [
+    {
+      "id": 143,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 144,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 145,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 146,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 147,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 148,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 149,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 150,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 151,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    },
+    {
+      "id": 152,
+      "whiteBlocks64": 0,
+      "blackBlocks64": 0
+    }
+  ]
+}

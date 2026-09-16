@@ -1,0 +1,356 @@
+{
+  "before": {
+    "poses": [
+      {
+        "x": 44500,
+        "start": 4290,
+        "transitionRender": 472.421,
+        "renderMs": 20.638333333333332,
+        "roadMs": 7.587416666666667,
+        "shadowMs": 6.30815,
+        "terrainMs": 9.667566666666666
+      },
+      {
+        "x": 44650,
+        "start": 4425,
+        "transitionRender": 52.061,
+        "renderMs": 25.410316666666667,
+        "roadMs": 8.12495,
+        "shadowMs": 8.170216666666667,
+        "terrainMs": 11.684883333333334
+      },
+      {
+        "x": 44800,
+        "start": 4545,
+        "transitionRender": 53.074,
+        "renderMs": 27.94345,
+        "roadMs": 8.40855,
+        "shadowMs": 9.603216666666667,
+        "terrainMs": 12.361733333333333
+      },
+      {
+        "x": 44950,
+        "start": 4650,
+        "transitionRender": 45.989,
+        "renderMs": 30.646316666666667,
+        "roadMs": 8.859483333333333,
+        "shadowMs": 11.60055,
+        "terrainMs": 11.972683333333334
+      },
+      {
+        "x": 45100,
+        "start": 4740,
+        "transitionRender": 46.165,
+        "renderMs": 29.5891,
+        "roadMs": 8.452033333333333,
+        "shadowMs": 11.697666666666667,
+        "terrainMs": 11.233816666666666
+      },
+      {
+        "x": 45250,
+        "start": 4830,
+        "transitionRender": 41.082,
+        "renderMs": 30.895516666666666,
+        "roadMs": 8.483483333333334,
+        "shadowMs": 11.769316666666667,
+        "terrainMs": 11.009583333333333
+      },
+      {
+        "x": 45400,
+        "start": 4950,
+        "transitionRender": 109.472,
+        "renderMs": 33.8621,
+        "roadMs": 9.425766666666666,
+        "shadowMs": 14.6537,
+        "terrainMs": 11.471083333333333
+      },
+      {
+        "x": 45550,
+        "start": 5040,
+        "transitionRender": 75.519,
+        "renderMs": 34.03828333333333,
+        "roadMs": 9.473700000000001,
+        "shadowMs": 15.23625,
+        "terrainMs": 11.116633333333333
+      },
+      {
+        "x": 45700,
+        "start": 5130,
+        "transitionRender": 48.62,
+        "renderMs": 30.8796,
+        "roadMs": 8.5142,
+        "shadowMs": 13.04205,
+        "terrainMs": 10.159433333333334
+      },
+      {
+        "x": 45850,
+        "start": 5235,
+        "transitionRender": 48.133,
+        "renderMs": 29.372516666666666,
+        "roadMs": 8.245183333333333,
+        "shadowMs": 11.719333333333333,
+        "terrainMs": 9.860316666666666
+      },
+      {
+        "x": 46000,
+        "start": 5355,
+        "transitionRender": 44.217,
+        "renderMs": 30.84176666666667,
+        "roadMs": 8.231916666666667,
+        "shadowMs": 11.9034,
+        "terrainMs": 11.25665
+      },
+      {
+        "x": 46150,
+        "start": 5460,
+        "transitionRender": 90.049,
+        "renderMs": 33.18405,
+        "roadMs": 9.101216666666666,
+        "shadowMs": 11.522450000000001,
+        "terrainMs": 13.098283333333333
+      },
+      {
+        "x": 46300,
+        "start": 5565,
+        "transitionRender": 52.943,
+        "renderMs": 30.617933333333333,
+        "roadMs": 8.419216666666667,
+        "shadowMs": 14.082966666666668,
+        "terrainMs": 10.308866666666667
+      },
+      {
+        "x": 46450,
+        "start": 5685,
+        "transitionRender": 28.285,
+        "renderMs": 12.335816666666666,
+        "roadMs": 3.6715833333333334,
+        "shadowMs": 2.3437333333333332,
+        "terrainMs": 4.710066666666667
+      },
+      {
+        "x": 46600,
+        "start": 5850,
+        "transitionRender": 33.956,
+        "renderMs": 14.926583333333333,
+        "roadMs": 4.110566666666666,
+        "shadowMs": 3.1121666666666665,
+        "terrainMs": 6.422233333333334
+      },
+      {
+        "x": 46750,
+        "start": 6015,
+        "transitionRender": 23.026,
+        "renderMs": 8.7767,
+        "roadMs": 2.5693166666666665,
+        "shadowMs": 0.6104833333333334,
+        "terrainMs": 3.50815
+      },
+      {
+        "x": 46900,
+        "start": 6180,
+        "transitionRender": 22.073,
+        "renderMs": 9.733433333333334,
+        "roadMs": 2.7992,
+        "shadowMs": 1.3656,
+        "terrainMs": 4.122233333333333
+      },
+      {
+        "x": 47050,
+        "start": 6345,
+        "transitionRender": 20.427,
+        "renderMs": 7.2218,
+        "roadMs": 2.1304833333333333,
+        "shadowMs": 0.38071666666666665,
+        "terrainMs": 2.85795
+      }
+    ],
+    "equal60FramesMean": {
+      "renderMs": 24.495200925925925,
+      "roadMs": 7.033792592592593,
+      "shadowMs": 8.84010925925926,
+      "terrainMs": 9.267898148148149
+    },
+    "subsequentMovementMaximum": {
+      "renderMs": 109.472,
+      "roadMs": 73.836,
+      "shadowMs": 28.32
+    }
+  },
+  "after": {
+    "poses": [
+      {
+        "x": 44500,
+        "start": 4080,
+        "transitionRender": 480.426,
+        "renderMs": 22.26781666666667,
+        "roadMs": 8.43095,
+        "shadowMs": 6.6295,
+        "terrainMs": 10.599183333333333
+      },
+      {
+        "x": 44650,
+        "start": 4200,
+        "transitionRender": 51.741,
+        "renderMs": 23.983883333333335,
+        "roadMs": 8.42195,
+        "shadowMs": 8.212433333333333,
+        "terrainMs": 10.018633333333334
+      },
+      {
+        "x": 44800,
+        "start": 4305,
+        "transitionRender": 45.884,
+        "renderMs": 26.0386,
+        "roadMs": 8.45435,
+        "shadowMs": 9.460733333333334,
+        "terrainMs": 10.62925
+      },
+      {
+        "x": 44950,
+        "start": 4410,
+        "transitionRender": 49.134,
+        "renderMs": 26.7791,
+        "roadMs": 8.71805,
+        "shadowMs": 10.49835,
+        "terrainMs": 9.76915
+      },
+      {
+        "x": 45100,
+        "start": 4515,
+        "transitionRender": 48.142,
+        "renderMs": 31.521266666666666,
+        "roadMs": 9.206416666666666,
+        "shadowMs": 12.542483333333333,
+        "terrainMs": 11.645483333333333
+      },
+      {
+        "x": 45250,
+        "start": 4605,
+        "transitionRender": 38.649,
+        "renderMs": 34.0875,
+        "roadMs": 9.76545,
+        "shadowMs": 13.50825,
+        "terrainMs": 12.49325
+      },
+      {
+        "x": 45400,
+        "start": 4680,
+        "transitionRender": 72.918,
+        "renderMs": 34.15368333333333,
+        "roadMs": 9.6741,
+        "shadowMs": 13.992016666666666,
+        "terrainMs": 12.586783333333333
+      },
+      {
+        "x": 45550,
+        "start": 4755,
+        "transitionRender": 59.537,
+        "renderMs": 35.59498333333333,
+        "roadMs": 10.21105,
+        "shadowMs": 15.297633333333334,
+        "terrainMs": 11.880233333333333
+      },
+      {
+        "x": 45700,
+        "start": 4830,
+        "transitionRender": 40.838,
+        "renderMs": 34.195883333333335,
+        "roadMs": 9.749533333333334,
+        "shadowMs": 15.048983333333334,
+        "terrainMs": 11.403483333333334
+      },
+      {
+        "x": 45850,
+        "start": 4905,
+        "transitionRender": 40.238,
+        "renderMs": 34.79115,
+        "roadMs": 9.881383333333334,
+        "shadowMs": 15.372316666666666,
+        "terrainMs": 11.5029
+      },
+      {
+        "x": 46000,
+        "start": 4995,
+        "transitionRender": 34.584,
+        "renderMs": 31.708783333333333,
+        "roadMs": 8.791233333333333,
+        "shadowMs": 12.276516666666666,
+        "terrainMs": 11.85465
+      },
+      {
+        "x": 46150,
+        "start": 5100,
+        "transitionRender": 87.893,
+        "renderMs": 34.695616666666666,
+        "roadMs": 9.819266666666667,
+        "shadowMs": 12.499766666666666,
+        "terrainMs": 13.559033333333334
+      },
+      {
+        "x": 46300,
+        "start": 5190,
+        "transitionRender": 43.382,
+        "renderMs": 30.899533333333334,
+        "roadMs": 8.791066666666667,
+        "shadowMs": 13.89315,
+        "terrainMs": 10.691733333333334
+      },
+      {
+        "x": 46450,
+        "start": 5295,
+        "transitionRender": 29.054,
+        "renderMs": 12.490166666666667,
+        "roadMs": 3.77945,
+        "shadowMs": 2.45085,
+        "terrainMs": 4.816783333333333
+      },
+      {
+        "x": 46600,
+        "start": 5460,
+        "transitionRender": 30.046,
+        "renderMs": 12.673783333333333,
+        "roadMs": 3.6752333333333334,
+        "shadowMs": 2.1109,
+        "terrainMs": 5.8475166666666665
+      },
+      {
+        "x": 46750,
+        "start": 5625,
+        "transitionRender": 27.045,
+        "renderMs": 8.24305,
+        "roadMs": 2.4760666666666666,
+        "shadowMs": 0.5401166666666667,
+        "terrainMs": 3.3987166666666666
+      },
+      {
+        "x": 46900,
+        "start": 5790,
+        "transitionRender": 23.43,
+        "renderMs": 9.5928,
+        "roadMs": 2.7571333333333334,
+        "shadowMs": 1.2547333333333333,
+        "terrainMs": 4.08365
+      },
+      {
+        "x": 47050,
+        "start": 5955,
+        "transitionRender": 18.69,
+        "renderMs": 7.134733333333333,
+        "roadMs": 2.158516666666667,
+        "shadowMs": 0.3489333333333333,
+        "terrainMs": 2.884133333333333
+      }
+    ],
+    "equal60FramesMean": {
+      "renderMs": 25.04735185185185,
+      "roadMs": 7.4867333333333335,
+      "shadowMs": 9.21875925925926,
+      "terrainMs": 9.425809259259259
+    },
+    "subsequentMovementMaximum": {
+      "renderMs": 87.893,
+      "roadMs": 43.916,
+      "shadowMs": 17.72
+    }
+  }
+}

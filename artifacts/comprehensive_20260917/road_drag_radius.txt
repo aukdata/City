@@ -1,0 +1,5 @@
+﻿anchors=68 limit=15
+shift=1 radius=18.756532712872133
+shift=3 radius=8
+shift=10 radius=2.4
+shift=35 radius=0.6857142857142857

@@ -1,0 +1,2607 @@
+--- a/App/assets/generation/agriculture.json
++++ b/App/assets/generation/agriculture.json
+@@ -29,5 +29,6 @@
+   "rootSpacingRatio": 0.65,
+   "minimumReachRatio": 0.65,
+   "homeSetback": 4,
+-  "homeFootprintMargin": 2
++  "homeFootprintMargin": 2,
++  "connectionRadius": 45
+ }
+--- a/App/assets/generation/placement.json
++++ b/App/assets/generation/placement.json
+@@ -55,5 +55,7 @@
+   "slopingSiteScore": 0.5,
+   "candidateCellSize": 40,
+   "candidateMarginCells": 2,
+-  "candidateStrideCells": 3
++  "candidateStrideCells": 3,
++  "settlementEdgeMargin": 1000,
++  "ruralRetentionRate": 0.25
+ }
+--- a/App/assets/generation/roads.json
++++ b/App/assets/generation/roads.json
+@@ -2,7 +2,7 @@
+   "surfaceCost": 1,
+   "earthworkCost": 8,
+   "viaductCostPerMetre": 16,
+-  "tunnelCost": 64,
++  "tunnelCost": 128,
+   "surfaceTolerance": 1,
+   "maximumFill": 6,
+   "maximumCut": 8,
+@@ -17,5 +17,9 @@
+   "tunnelLengthScale": 400,
+   "tunnelLengthPenalty": 32,
+   "viaductHeightScale": 12,
+-  "viaductHeightPenalty": 16
++  "viaductHeightPenalty": 16,
++  "viaductBaseCost": 64,
++  "pierInterval": 30,
++  "pierMinimumSpan": 8,
++  "pierMinimumClearance": 3
+ }
+--- a/App/assets/generation/schema/agriculture.schema.json
++++ b/App/assets/generation/schema/agriculture.schema.json
+@@ -34,7 +34,8 @@
+     "rootSpacingRatio",
+     "minimumReachRatio",
+     "homeSetback",
+-    "homeFootprintMargin"
++    "homeFootprintMargin",
++    "connectionRadius"
+   ],
+   "properties": {
+     "plotLength": {
+@@ -191,6 +192,11 @@
+       "type": "number",
+       "minimum": 0.1,
+       "maximum": 10.0
++    },
++    "connectionRadius": {
++      "type": "number",
++      "minimum": 2.0,
++      "maximum": 100.0
+     }
+   }
+ }
+--- a/App/assets/generation/schema/placement.schema.json
++++ b/App/assets/generation/schema/placement.schema.json
+@@ -60,7 +60,9 @@
+     "slopingSiteScore",
+     "candidateCellSize",
+     "candidateMarginCells",
+-    "candidateStrideCells"
++    "candidateStrideCells",
++    "settlementEdgeMargin",
++    "ruralRetentionRate"
+   ],
+   "properties": {
+     "candidateSpacing": {
+@@ -347,6 +349,16 @@
+       "type": "integer",
+       "minimum": 1.0,
+       "maximum": 8.0
++    },
++    "settlementEdgeMargin": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 20000.0
++    },
++    "ruralRetentionRate": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 1.0
+     }
+   }
+ }
+--- a/App/assets/generation/schema/roads.schema.json
++++ b/App/assets/generation/schema/roads.schema.json
+@@ -22,7 +22,11 @@
+     "tunnelLengthScale",
+     "tunnelLengthPenalty",
+     "viaductHeightScale",
+-    "viaductHeightPenalty"
++    "viaductHeightPenalty",
++    "viaductBaseCost",
++    "pierInterval",
++    "pierMinimumSpan",
++    "pierMinimumClearance"
+   ],
+   "properties": {
+     "surfaceCost": {
+@@ -119,6 +123,26 @@
+       "type": "number",
+       "minimum": 0.0,
+       "maximum": 10000.0
++    },
++    "viaductBaseCost": {
++      "type": "number",
++      "minimum": 1.0,
++      "maximum": 100000.0
++    },
++    "pierInterval": {
++      "type": "number",
++      "minimum": 5.0,
++      "maximum": 200.0
++    },
++    "pierMinimumSpan": {
++      "type": "number",
++      "minimum": 2.0,
++      "maximum": 40.0
++    },
++    "pierMinimumClearance": {
++      "type": "number",
++      "minimum": 1.0,
++      "maximum": 20.0
+     }
+   }
+ }
+--- a/App/assets/generation/schema/vegetation.schema.json
++++ b/App/assets/generation/schema/vegetation.schema.json
+@@ -22,7 +22,16 @@
+     "speciesFrequencyDiagonal",
+     "speciesThreshold",
+     "parkScaleMinimum",
+-    "parkScaleVariationStep"
++    "parkScaleVariationStep",
++    "treeLine",
++    "snowStart",
++    "snowFull",
++    "boundaryFadeDistance",
++    "boundarySampleSpacing",
++    "alpineDensity",
++    "alpineWidth",
++    "alpineHeight",
++    "snowVariation"
+   ],
+   "properties": {
+     "minimumForestAltitude": {
+@@ -119,6 +128,51 @@
+       "type": "number",
+       "minimum": 0.0,
+       "maximum": 0.1
++    },
++    "treeLine": {
++      "type": "number",
++      "minimum": 900.0,
++      "maximum": 4000.0
++    },
++    "snowStart": {
++      "type": "number",
++      "minimum": 900.0,
++      "maximum": 5000.0
++    },
++    "snowFull": {
++      "type": "number",
++      "minimum": 1000.0,
++      "maximum": 6000.0
++    },
++    "boundaryFadeDistance": {
++      "type": "number",
++      "minimum": 64.0,
++      "maximum": 2000.0
++    },
++    "boundarySampleSpacing": {
++      "type": "number",
++      "minimum": 16.0,
++      "maximum": 128.0
++    },
++    "alpineDensity": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 1.0
++    },
++    "alpineWidth": {
++      "type": "number",
++      "minimum": 1.0,
++      "maximum": 10.0
++    },
++    "alpineHeight": {
++      "type": "number",
++      "minimum": 0.1,
++      "maximum": 5.0
++    },
++    "snowVariation": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 200.0
+     }
+   }
+ }
+--- a/App/assets/generation/vegetation.json
++++ b/App/assets/generation/vegetation.json
+@@ -17,5 +17,14 @@
+   "speciesFrequencyDiagonal": 0.0027,
+   "speciesThreshold": -0.15,
+   "parkScaleMinimum": 0.78,
+-  "parkScaleVariationStep": 0.028
++  "parkScaleVariationStep": 0.028,
++  "treeLine": 1700,
++  "snowStart": 1900,
++  "snowFull": 2200,
++  "boundaryFadeDistance": 500,
++  "boundarySampleSpacing": 64,
++  "alpineDensity": 0.22,
++  "alpineWidth": 3.5,
++  "alpineHeight": 1.6,
++  "snowVariation": 35
+ }
+--- a/App/shaders/hlsl/city_forward.hlsl
++++ b/App/shaders/hlsl/city_forward.hlsl
+@@ -130,6 +130,8 @@
+ 	float4 g_shadowParameters;
+ 	float4 g_fogColorDensity;
+ 	float4 g_dynamicShadow;
++	float4 g_altitudeBands;
++	float4 g_terrainVariation;
+ }
+ 
+ float Depth_PS(s3d::PSInput input) : SV_TARGET
+@@ -193,6 +195,17 @@
+ 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
+ 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);
+ 	albedo.rgb = lerp(sand, albedo.rgb, dryLand);
++	float2 ground = input.worldPosition.xz;
++	float variation = sin(ground.x * .008 + sin(ground.y * .006)) * sin(ground.y * .009);
++	float altitude = input.worldPosition.y + variation * g_terrainVariation.x;
++	float alpine = smoothstep(g_altitudeBands.x, g_altitudeBands.y, altitude);
++	float steepness = 1 - saturate(normalize(input.normal).y);
++	float mineral = dot(albedo.rgb, float3(.2126,.7152,.0722));
++	float3 alpineCover = lerp(float3(.25,.29,.16),float3(.35,.34,.32),saturate(steepness * 2 + alpine * .5));
++	albedo.rgb = lerp(albedo.rgb,alpineCover * (.8 + mineral),alpine);
++	float snow = smoothstep(g_altitudeBands.z, g_altitudeBands.w, altitude);
++	float3 snowColor = float3(.86,.9,.95) * (1 + variation * .035);
++	albedo.rgb = lerp(albedo.rgb,snowColor,snow * (1 - smoothstep(.55,.85,steepness)));
+ 	return shadeCity(input, albedo);
+ }
+ 
+--- a/City.vcxproj
++++ b/City.vcxproj
+@@ -147,6 +147,9 @@
+     <ClCompile Include="src\traffic\TrafficLight.cpp" />
+     <ClCompile Include="src\traffic\SignalRegistry.cpp" />
+     <ClCompile Include="src\ui\Camera.cpp" />
++    <ClCompile Include="src\ui\CommandPalette.cpp" />
++    <ClCompile Include="src\debug\GameCommands.cpp" />
++    <ClCompile Include="src\debug\CommandExecution.cpp" />
+     <ClCompile Include="src\render\WorldRenderer.cpp" />
+     <ClCompile Include="src\render\WorldRenderer_Buildings.cpp" />
+     <ClCompile Include="src\render\WorldRenderer_Streaming.cpp" />
+@@ -177,6 +180,7 @@
+     <ClCompile Include="src\scene\GameScene_Playtest.cpp" />
+     <ClCompile Include="src\scene\GameScene_ConstructionReview.cpp" />
+     <ClCompile Include="src\scene\GameScene_Construction.cpp" />
++    <ClCompile Include="src\scene\GameScene_Commands.cpp" />
+     <ClCompile Include="src\scene\GameScene_Render.cpp" />
+     <ClCompile Include="src\scene\GameScene_Panels.cpp" />
+     <ClCompile Include="src\scene\GuideSignEditor.cpp" />
+@@ -459,12 +463,18 @@
+     <ClInclude Include="src\traffic\LaneVehicleIndex.hpp" />
+     <ClInclude Include="src\traffic\BuildingAccess.hpp" />
+     <ClInclude Include="src\ui\Camera.hpp" />
++    <ClInclude Include="src\ui\MapStroke.hpp" />
++    <ClInclude Include="src\ui\CommandPalette.hpp" />
++    <ClInclude Include="src\debug\GameCommands.hpp" />
++    <ClInclude Include="src\debug\CommandExecution.hpp" />
+     <ClInclude Include="src\ui\CollapsibleHudPanel.hpp" />
+     <ClInclude Include="src\ui\LandParcelPanel.hpp" />
+     <ClInclude Include="src\world\LandPlot.hpp" />
+     <ClInclude Include="src\render\TreeGeometry.hpp" />
+     <ClInclude Include="src\render\FrontageGeometry.hpp" />
+     <ClInclude Include="src\render\WorldRenderer.hpp" />
++    <ClInclude Include="src\render\VegetationProfile.hpp" />
++    <ClInclude Include="src\render\RegionalTerrain.hpp" />
+     <ClInclude Include="src\render\LandscapeMaterials.hpp" />
+     <ClInclude Include="src\render\TerrainSurfaceGeometry.hpp" />
+     <ClInclude Include="src\render\RoadRenderer.hpp" />
+@@ -522,6 +532,7 @@
+     <ClInclude Include="src\render\MountainRoadGeometry.hpp" />
+     <ClInclude Include="src\road\RoadEnvironment.hpp" />
+     <ClInclude Include="src\gen\MapGenerator.hpp" />
++    <ClInclude Include="src\gen\SettlementNames.hpp" />
+     <ClInclude Include="src\gen\GenerationSettings.hpp" />
+     <ClInclude Include="src\gen\SettlementDevelopment.hpp" />
+     <ClInclude Include="src\gen\SettlementPlacement.hpp" />
+@@ -529,6 +540,7 @@
+     <ClInclude Include="src\ui\WorldMapView.hpp" />
+     <ClInclude Include="src\ui\LocalMapView.hpp" />
+     <ClInclude Include="src\ui\NavigationHeader.hpp" />
++    <ClInclude Include="src\ui\LocationTooltip.hpp" />
+     <ClInclude Include="src\ui\TownBillboards.hpp" />
+     <ClInclude Include="src\ui\MapTerrainLayer.hpp" />
+     <ClInclude Include="src\gen\TransportClearance.hpp" />
+--- a/City.vcxproj.filters
++++ b/City.vcxproj.filters
+@@ -1552,4 +1552,42 @@
+     <ClInclude Include="src\ui\FrameRateGraph.hpp" />
+     <ClInclude Include="src\render\VehiclePaint.hpp" />
+   </ItemGroup>
++  <ItemGroup>
++    <ClCompile Include="src\ui\CommandPalette.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="src\debug\GameCommands.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="src\debug\CommandExecution.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="src\scene\GameScene_Commands.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClInclude Include="src\ui\MapStroke.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\ui\CommandPalette.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\debug\GameCommands.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\debug\CommandExecution.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\render\VegetationProfile.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\render\RegionalTerrain.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\gen\SettlementNames.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++    <ClInclude Include="src\ui\LocationTooltip.hpp">
++      <Filter>Header Files</Filter>
++    </ClInclude>
++  </ItemGroup>
+ </Project>--- a/ISSUE.md
++++ b/ISSUE.md
+@@ -39,3 +39,11 @@
+ 2026-09-16の平野・海岸・周縁山地の再調整後は、シード42 / 7ともに施工条件を満たす再探索が成立せず見送った回廊が1本ある。両シードとも生成後の道路の勾配・曲率違反と中心市街地の高架・トンネルは0。最終計測は [平野・海岸の検証](artifacts/terrain_composition/REVIEW.md)。
+ 
+ 探索上限での失敗は数学的な到達不能の証明ではない。今後、地形回廊による誘導と探索解像度を改善して成立率を上げる。強制的な急坂や市街地の全面高架へのフォールバックは行わない。従来の検証は [道路線形の記録](artifacts/road_alignment/REVIEW.md)、今回の検証は [地形・郊外生成の記録](artifacts/regional_landscape/REVIEW.md) を参照。
++
++
++## 2026-09-17の20項目改修後に残る確認事項
++
++- 街の初回移動: 同一シード・18地点比較で、2地点目以降の描画ピークは109.472→87.893msへ改善。一方、最初に未表示の街へ飛ぶフレームは472.421→480.426msで未改善。建物・地形の初回準備には同期処理が残る。地点ごと60フレームの描画平均は24.495→25.047msで、平均FPSの改善は確認していない。
++- 拡大地図: 巨大な画面外座標を地形・線分へ渡さないクリップを追加。GPU20条件と本体の位置・倍率操作で白黒ブロックを認めなかったが、報告された欠落そのものの発生地点・倍率は未特定。以前の文字アトラス混入と同じ原因とも断定しない。
++
++詳細: [20項目の検証](artifacts/comprehensive_20260917/REVIEW.md)。未再現の異常終了は従来どおり再現待ちとする。
+--- a/Test/GenerationSettingsTests.cpp
++++ b/Test/GenerationSettingsTests.cpp
+@@ -49,5 +49,7 @@
+ 		rejectCombination(U"agriculture",U"plotWidth",2);
+ 		rejectCombination(U"rivers",U"minimumHalfWidth",300);
+ 		rejectCombination(U"roads",U"surfaceTolerance",20);
++		rejectCombination(U"vegetation",U"treeLine",2100);
++		rejectCombination(U"vegetation",U"snowFull",1800);
+ 	});
+ }
+--- a/Test/Main.cpp
++++ b/Test/Main.cpp
+@@ -27,6 +27,7 @@
+ 	registerModelLodTests(runner);
+ 	registerGenerationSettingsTests(runner);
+ 	registerRuralVisualTests(runner);
++	registerComprehensiveTests(runner);
+ 	registerRefactoringTests(runner);
+ 	registerMountainRoadTests(runner);
+ 	registerDrivingTests(runner);
+--- a/Test/MapTransportTests.cpp
++++ b/Test/MapTransportTests.cpp
+@@ -74,13 +74,17 @@
+ 		RegisterAssets();RoadNetwork network;const int a=network.addNode({100,20,100}),b=network.addNode({100,20,300});
+ 		const int edge=*network.addEdge(a,b,{100,20,167},{100,20,233});network.getEdge(edge)->edgeState=EdgeState::Existing;
+ 		const int route=network.addRoute(RoadRouteKind::NationalRoute,U"国道178号",{edge},178);
+-		GameCamera camera;camera.setFocus({100,20,200});RoadRouteSignRenderer renderer;
++		GameCamera camera;camera.setWalkingState({100,20,200},0);RoadRouteSignRenderer renderer;
+ 		const RenderTexture target{Scene::Size()};
+ 		{const ScopedRenderTarget2D scope{target.clear(ColorF{.1})};renderer.render(network,camera);}Graphics2D::Flush();
+ 		Image image;target.readAsImage(image);image.save(U"Screenshot/national_route_header.png");
+ 		context.expect(renderer.hitTest(NavigationHeader::routeBounds(Scene::Size()).center())==route,U"The actual national-road header opens the road beneath the camera");
+ 		context.expect(!renderer.hitTest(Scene::CenterF()),U"No invisible route hit area remains in the forward view");
+-		camera.setFocus({10000,20,10000});renderer.render(network,camera);
++		camera.setOverviewState({100,20,200},800,0,.8f);renderer.render(network,camera);
++		context.expect(!renderer.hitTest(NavigationHeader::routeBounds(Scene::Size()).center()),U"Overview has no fixed route header hit area");
++		camera.setDrivingState({100,20,200},0,0);renderer.render(network,camera);
++		context.expect(renderer.hitTest(NavigationHeader::routeBounds(Scene::Size()).center())==route,U"Driving retains the top route header");
++		camera.setWalkingState({10000,20,10000},0);renderer.render(network,camera);
+ 		context.expect(!renderer.hitTest(NavigationHeader::routeBounds(Scene::Size()).center()),U"Leaving the road removes its stale clickable label");
+ 	});
+ 
+--- a/Test/RoadsideLifeTests.cpp
++++ b/Test/RoadsideLifeTests.cpp
+@@ -247,7 +247,7 @@
+ 		context.expectNear(continuous,divided,.001,U"Subdividing a tunnel into edges cannot evade its total-length penalty");
+ 		run=0;double separated=segment(0,20,-1e9,400,run);separated+=segment(20,20,-1e9,1,run);separated+=segment(0,20,-1e9,400,run);
+ 		context.expect(continuous>separated && run==400,U"A genuine open-air interval ends a continuous tunnel run");
+-		context.expect(unit(11, 20) == 64 && unit(20, 100, 104) == 64, U"Covered tunnels cost sixty-four times surface, including those beneath streams");
++		context.expect(unit(11, 20) == 128 && unit(20, 100, 104) == 128, U"Covered tunnels cost 128 times surface, including those beneath streams");
+ 		Array<RailCostProfile::Sample> samples;
+ 		for (int i = 0; i <= 10; ++i) { samples << RailCostProfile::Sample{{i * 40, 0}, 20 + (i % 2) * 2.0, 15, 25}; }
+ 		const auto result = RailCostProfile::solve(samples, 20, 20, .06,
+--- a/Test/Test.vcxproj
++++ b/Test/Test.vcxproj
+@@ -154,6 +154,9 @@
+     <ClCompile Include="..\src\railway\RailDepotBuilder.cpp" />
+     <ClCompile Include="..\src\render\UIRenderer.cpp" />
+     <ClCompile Include="..\src\ui\Camera.cpp" />
++    <ClCompile Include="..\src\ui\CommandPalette.cpp" />
++    <ClCompile Include="..\src\debug\GameCommands.cpp" />
++    <ClCompile Include="..\src\debug\CommandExecution.cpp" />
+     <ClCompile Include="..\src\save\RoadBinary.cpp" />
+     <ClCompile Include="..\src\road\RoadPlanDraft.cpp" />
+     <ClCompile Include="..\src\road\RoadPlanConstruction.cpp" />
+@@ -213,6 +216,7 @@
+     <ClCompile Include="..\src\render\RoadRenderer.cpp" />
+     <ClCompile Include="..\src\render\RoadRenderer_Signs.cpp" />
+     <ClCompile Include="..\src\render\RoadRouteSignRenderer.cpp" />
++    <ClCompile Include="..\src\render\MinimapRenderer.cpp" />
+     <ClCompile Include="..\src\asset\AssetRegistrar.cpp" />
+     <ClCompile Include="..\src\road\BezierUtil.cpp" />
+     <ClCompile Include="..\src\road\GuideSign.cpp" />
+@@ -533,5 +537,6 @@
+     <ClInclude Include="..\src\render\ModelLod.hpp" />
+     <ClInclude Include="..\src\render\MeshLod.hpp" />
+     <ClInclude Include="..\src\render\VehicleInstanceBatch.hpp" />
++    <ClCompile Include="ComprehensiveTests.cpp" />
+   </ItemGroup>
+ </Project>--- a/Test/Test.vcxproj.filters
++++ b/Test/Test.vcxproj.filters
+@@ -1147,5 +1147,20 @@
+     <ClCompile Include="TrafficScalingTests.cpp" />
+     <ClCompile Include="ModelLodTests.cpp" />
+     <ClCompile Include="RuralVisualTests.cpp" />
++    <ClCompile Include="ComprehensiveTests.cpp" />
++  </ItemGroup>
++  <ItemGroup>
++    <ClCompile Include="..\src\ui\CommandPalette.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\debug\GameCommands.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\debug\CommandExecution.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="..\src\render\MinimapRenderer.cpp">
++      <Filter>Source Files</Filter>
++    </ClCompile>
+   </ItemGroup>
+ </Project>--- a/Test/TestCases.hpp
++++ b/Test/TestCases.hpp
+@@ -29,3 +29,4 @@
+ 
+ void registerGenerationSettingsTests(TestRunner& runner);
+ void registerRuralVisualTests(TestRunner& runner);
++void registerComprehensiveTests(TestRunner& runner);
+--- a/Test/TransportPlanningTests.cpp
++++ b/Test/TransportPlanningTests.cpp
+@@ -30,8 +30,24 @@
+ 		context.expect(generated.any([](Vec3 point) { return Abs(point.z-512)>100; }),U"The route detours around the measured steep hill");
+ 		context.expect(draft.undo() && !draft.generated() && draft.points().size()==2,U"Undo generation returns to endpoint selection");
+ 		context.expect(draft.redo() && draft.generated(),U"Redo restores the generated candidate and its stage");
++		context.expect(draft.rebuild(world,road),U"Redo restores the original valid curve geometry");
++		TextWriter dragReport{U"TestResults/road_drag_radius.txt"};
++		dragReport << U"anchors={} limit={}"_fmt(generated.size(),RoadDesignLimits::forType(road.roadType).minimumRadius);
++		for(double shift:{1.0,3.0,10.0,35.0})
++		{
++			double radius=Math::Inf;int index=0;
++			for(const auto& edge:draft.preview().edges())
++			{
++				if(edge.id<0) { continue; }const auto curve=draft.preview().getBezier(edge.id);
++				const Vec3 aShift{0,0,index==static_cast<int>(generated.size()/2) ? shift : 0};
++				const Vec3 bShift{0,0,index+1==static_cast<int>(generated.size()/2) ? shift : 0};
++				const CubicBezier moved{curve->p0+aShift,curve->p1+aShift,curve->p2+bShift,curve->p3+bShift};
++				radius=Min(radius,moved.minimumHorizontalRadius());++index;
++			}
++			dragReport << U"shift={} radius={}"_fmt(shift,radius);
++		}
+ 		Array<Vec3> edited=generated;
+-		edited[edited.size()/2].z+=35;
++		edited[edited.size()/2].z+=1;
+ 		context.expect(draft.revise(edited) && draft.rebuild(world,road),U"A completed drag adjusts the candidate without rerouting it");
+ 		context.expect(draft.points()==edited,U"Editing does not silently replace the user's points with another A-star route");
+ 		const double length=draft.length();
+@@ -41,6 +57,9 @@
+ 		const auto audit=RoadDesignLimits::measure(live,world);
+ 		context.expect(audit.gradeViolations==0 && audit.radiusViolations==0,U"Manual planning retains road-class grade and curvature limits");
+ 		context.expect(draft.undo() && draft.points()==generated,U"One undo reverses a whole drag");
++		Array<Vec3> tooSharp=generated;tooSharp[tooSharp.size()/2].z+=35;
++		context.expect(draft.revise(tooSharp) && !draft.rebuild(world,road),U"Moving a dense 10 m anchor by 35 m cannot create an illegal hairpin");
++		context.expect(draft.undo() && draft.points()==generated,U"An invalid large drag can be undone without losing the generated route");
+ 		Array<Vec3> invalid=draft.points(); invalid[1]=invalid[0];
+ 		context.expect(!draft.revise(invalid) && draft.points()==generated,U"Collapsed segments are rejected without losing the candidate");
+ 		RoadPlanDraft impossible; impossible.place({100,20,100}); impossible.place({110,70,100});
+@@ -271,7 +290,7 @@
+ 		context.expect(renderer.getGuideSignCachedTexture(*network.getGuideSign(signId)) != nullptr,
+ 			U"The guide board's real texture is prepared before the 3D pass");
+ 		const Size size{640, 480};
+-		const BasicCamera3D camera{size, 40_deg, Vec3{489.5, 26, 455}, Vec3{489.5, 25.75, 500}};
++		const BasicCamera3D camera{size, 40_deg, Vec3{489.5, 26, 545}, Vec3{489.5, 25.75, 500}};
+ 		RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes};
+ 		Array<Image> images;
+ 		for (const bool selection : {false, true})
+@@ -304,7 +323,7 @@
+ 		context.expect(bluePixels > 500, U"The production renderer draws the guide board's blue face");
+ 		context.expectEqual(outsideSelection, 0, U"The selected silhouette covers the actual board at the same position");
+ 		images[0].save(directory + U"Screenshot/guide_sign_normal.png");
+-		const BasicCamera3D reverseCamera{size,40_deg,Vec3{489.5,26,545},Vec3{489.5,25.75,500}};
++		const BasicCamera3D reverseCamera{size,40_deg,Vec3{489.5,26,455},Vec3{489.5,25.75,500}};
+ 		{
+ 			const ScopedRenderTarget3D scope{target.clear(ColorF{.1})};
+ 			const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
+@@ -312,7 +331,7 @@
+ 			renderer.render(network,world,ViewFrustum{reverseCamera,24000},reverseCamera.getEyePosition());
+ 		}Graphics3D::Flush();Image reverse;target.readAsImage(reverse);int reverseBlue=0;
+ 		for (const auto pixel : reverse) {reverseBlue+=pixel.b>pixel.r+30 && pixel.g>pixel.r+15;}
+-		context.expectEqual(reverseBlue,0,U"A driver leaving the junction sees the plain back of the approach guide sign");
++		context.expectEqual(reverseBlue,0,U"The opposing approach sees only the plain back of the guide sign");
+ 		reverse.save(directory+U"Screenshot/guide_sign_reverse.png");
+ 		images[1].save(directory + U"Screenshot/guide_sign_selection.png");
+ 		TextWriter{directory + U"TestResults/guide_sign_selection.txt"}.write(
+--- a/Test/UrbanMorphologyTests.cpp
++++ b/Test/UrbanMorphologyTests.cpp
+@@ -63,6 +63,7 @@
+ 			for (int x = 600; x < 12000; x += 480) { candidates << SettlementPlacement::Candidate{{x, z}, 0.7f}; }
+ 		}
+ 		const auto flat = [](Vec2) { return 20.0; };
++		double sampleNearest=1e9,sampleFarthest=0;
+ 		TextWriter report{U"TestResults/settlement_hinterland.txt"};
+ 		for (uint64 seed : {7, 42, 130, 2026})
+ 		{
+@@ -101,11 +102,12 @@
+ 					}
+ 				}
+ 			}
+-			context.expect(nearbyVillages >= 12 && attachedVillages >= nearbyVillages,
+-				U"A castle-town catchment includes several genuine small villages within six kilometres");
+-			context.expect(farthest - nearest > 1500, U"Villages occupy different distances rather than one decorative ring");
++			context.expect(nearbyVillages >= 2 && attachedVillages >= nearbyVillages,
++				U"Quarter-density catchments retain independent villages within six kilometres");
++			sampleNearest=Min(sampleNearest,nearest);sampleFarthest=Max(sampleFarthest,farthest);
+ 			report << U"seed={} total={} nearbyVillages={} attached={} nearest={} farthest={}"_fmt(seed, settlements.size(), nearbyVillages, attachedVillages, nearest, farthest);
+ 		}
++		context.expect(sampleFarthest-sampleNearest>1500,U"The seed ensemble retains villages at different distances from the city");
+ 	});
+ 	runner.add(U"Morphology.HinterlandTerrainCatchments", [](TestContext& context)
+ 	{
+@@ -120,15 +122,18 @@
+ 			// A tall north/south ridge separates otherwise flat agricultural basins.
+ 			return 20.0 + Max(0.0, 900.0 - Abs(p.x - 8500)) * 0.9;
+ 		};
+-		const auto settlements = SettlementPlacement::generate(42, candidates, RectF{0, 0, 30000, 12000}, terrain);
+ 		int rightOwned = 0, acrossRidge = 0;
+-		for (const auto& settlement : settlements)
+-		{
+-			context.expect(Abs(settlement.center.x - 8500) >= 900, U"Villages are not placed on the ridge even with candidate points supplied there");
+-			if (settlement.kind != Kind::RuralSettlement || !settlement.serviceCenter) { continue; }
+-			const auto& center = settlements[*settlement.serviceCenter];
+-			acrossRidge += (settlement.center.x < 8500) != (center.center.x < 8500);
+-			if (settlement.center.x > 10000 && settlement.center.x < 14000 && center.center.x > 20000) { ++rightOwned; }
++		for (uint64 seed=0;seed<16;++seed)
++		{
++			const auto settlements = SettlementPlacement::generate(seed, candidates, RectF{0, 0, 30000, 12000}, terrain);
++			for (const auto& settlement : settlements)
++			{
++				context.expect(Abs(settlement.center.x - 8500) >= 900, U"Villages are not placed on the ridge even with candidate points supplied there");
++				if (settlement.kind != Kind::RuralSettlement || !settlement.serviceCenter) { continue; }
++				const auto& center = settlements[*settlement.serviceCenter];
++				acrossRidge += (settlement.center.x < 8500) != (center.center.x < 8500);
++				if (settlement.center.x > 10000 && settlement.center.x < 14000 && center.center.x > 20000) { ++rightOwned; }
++			}
+ 		}
+ 		context.expect(acrossRidge == 0 && rightOwned > 0,
+ 			U"A physically nearer center across a mountain loses to the accessible center in the same basin");
+--- a/plan/00_current_implementation.md
++++ b/plan/00_current_implementation.md
+@@ -98,3 +98,9 @@
+ ### 2026-09-17 景観・選択・描画
+ 
+ 農道の道路グラフ統合、不整形農地、集落中心からの密度減衰、家まで500mの保証を追加。トンネル連続長・高架高さの指数費用、車体10色、敷地と電車の黄色い選択線、F3のFPSグラフを実装。地図画像の更新順序と敷地メッシュの表裏を修正し、木と道路は詳細表示より遠い範囲で準備する。
++
++## 俯瞰・生成・デバッグの追加仕様
++
++俯瞰は最大60km、ポインタの地名・道路名・国道マークと、市町村名のローマ字を表示する。全画面地図と周辺地図はトンネル部分を破線にする。町村は採用率1/4、全集落中心は端から1km以上。農道は完成状態で生成し、近傍道路への接続を優先する。自然植生は森林限界・高山植生・雪と500mの境界遷移を持つ。経路比較費は地上1・掘割8・高架64＋高さ罰則・トンネル128＋長さ罰則。
++
++`/` で [コマンドパレット](28_commands.md) を開く。通常経路生成とプレビュー・建設は同じ線形を維持し、サンドボックスでは資金による着工制限を省く。検証項目は [全項目チェックリスト](../artifacts/comprehensive_20260917/CHECKLIST.md)。
+--- a/plan/06_ui_spec.md
++++ b/plan/06_ui_spec.md
+@@ -49,7 +49,7 @@
+ - ホイールはカーソル位置を固定して拡大縮小。＋／−ボタンでも操作できる。倍率1〜512。
+ - 右クリックで「ここへジャンプ」。決定すると地図を閉じて移動し、車両追跡を解除する。
+ - Esc、M、閉じるボタンで終了。閉じたフレームも地図が入力を消費し、背後の道路建設やポーズ画面を動かさない。
+-- 道路・鉄道は全縮尺で表示。画面外だけを除外し、曲線の点数を画素密度に応じて減らす。川、地区界、重なりを避けた地名、駅名、カーソル位置の住所を表示。
++- 道路・鉄道は全縮尺で表示。画面外だけを除外し、曲線の点数を画素密度に応じて減らす。川、地区界、重なりを避けた地名とローマ字、駅名、カーソル位置の住所を表示。道路・鉄道の土被りがあるトンネル部分は破線で描く。坑口の前後は実線を保つ。
+ - 表示中心・倍率・サイズ・データが同じときは地形・道路の画像を再利用。地名・現在位置・住所・右クリックメニューは最終UI描画へ分離し、文字用テクスチャをキャッシュ画像へ混在させない。地図の描画設定とクリップ範囲は呼出し元へ復元する。
+ 
+ ## 編集モード
+@@ -68,7 +68,9 @@
+ 
+ ## 現在地と国道の表示
+ 
+-俯瞰・撮影視点では街の中心上空へ地名ビルボードを投影する。都市・町・村の順で優先し、同じ規模では注視点に近いものを優先する。重なる名前、画面外・視点背後、実際の開閉状態のHUDと重なる名前は描かない。距離上限は都市45km・町22km・村9.5km、最大24件。文字は画面に正対し、一定の読みやすい大きさで表示する。
++俯瞰・撮影視点では街の中心上空へ地名ビルボードを投影する。都市・町・村の順で優先し、同じ規模では注視点に近いものを優先する。重なる名前、画面外・視点背後、実際の開閉状態のHUDと重なる名前は描かない。距離上限は都市120km・町45km・村15km、最大24件。文字は画面に正対し、日本語の下にローマ字を併記する。市・町・村の接尾辞は集落種別に対応する。
++
++俯瞰ではポインタが指す地表の地名・ローマ字と近傍道路名を、ポインタ横の案内へ表示する。国道ならおにぎり型の国道マークと番号を併記する。画面端では位置を内側へ調整し、HUD・編集パネル・コマンド入力上では表示しない。道路の検索には空間索引を使い、画面移動ごとに全道路を走査しない。
+ 
+ 徒歩・運転・追従視点では、注視点に最も近い地区名と読みを上部中央へ1件だけ固定する。国道は80m以内で最も近い開通道路が属する路線を上部に1件表示し、クリックで路線情報を開く。徒歩・運転の前方には地名ビルボードを重ねない。地図内の地名と道路に立つ実物の標識はそれぞれ継続する。
+ 
+@@ -76,10 +78,10 @@
+ 
+ 1. 生活道路・サブ幹線・4車線幹線・一方通行を選ぶ。
+ 2. 地面または既存道路をクリックして始点、終点を選ぶ。この段階では道路を生成しない。
+-3. 「経路生成」を押す。初期生成と共通の `RoadPathfinder` で地形と水域を考慮し、点列を取得する。共通の曲線生成を使い、道路種別ごとの勾配・曲率制限も適用する。
++3. 「経路生成」を押す。初期生成の線形探索と共通の `RoadAlignment` で、勾配・曲率を制約に地形・水域・構造費を比較する。探索が選んだ曲線の制御点をプレビュー・Undo/Redo・確定へ引き継ぐ。探索後の再フィットや別の勾配上限で合法な候補を拒否しない。
+ 4. 候補の点をドラッグして移動。線をドラッグすると、その位置に調整点を追加する。移動中は点列のガイドを表示し、離した時点で候補を更新する。編集で勝手にA*探索し直さない。「経路を再生成」は始点・終点から再探索する。
+ 5. 右クリック、Backspace、Ctrl＋Zで戻す。Ctrl＋Y／Ctrl＋Shift＋Zでやり直す。生成前／生成後の状態も復元する。1回のドラッグが履歴1件、最大128件。
+-6. 延長・費用・工期を確認し、「確定して着工」またはEnterで建設を開始する。資金確認・接続検査を通った候補だけを反映し、費用を支払い、用地内の建物・敷地を撤去する。資金不足・接続失敗なら街を変更せず、候補を保持する。[工事仕様](23_road_construction_spec.md)
++6. 延長・費用・工期を確認し、「確定して着工」またはEnterで建設を開始する。通常モードでは資金確認・接続検査を通った候補だけを反映し、費用を支払い、用地内の建物・敷地を撤去する。サンドボックスでは資金確認と支払いを省き、接続・形状・用地の検査は維持する。資金不足・接続失敗なら街を変更せず、候補を保持する。[工事仕様](23_road_construction_spec.md)
+ 
+ 既存道路へ12m以内でスナップし、高さが異なる道路は除外する。Altで一時解除。PgUp/PgDnで次に置く・動かす点の高さを変更できる。2m未満の区間や固定端点間で成立しない勾配は拒否する。始点・終点は画面上のラベルと掴める丸印で表示する。
+ 
+@@ -129,3 +131,9 @@
+ F3で左下に直近30秒のFPSグラフを表示・非表示にする。約0.1秒ごとの実フレーム数と経過時間から求め、地図の操作中も切り替えられる。文字入力中とポーズメニュー中は反応させない。F3を押し続けてもカメラ操作を止めない。F3+Rのアセット再読込は維持する。
+ 
+ 敷地・田畑と電車の選択は、建物・車と同じ黄色い輪郭を使う。電車は編成の各車体に合わせてクリック判定し、道路に沿う坂道の姿勢も反映する。
++
++## 俯瞰距離とコマンド
++
++俯瞰距離は5〜60000m。地面からの高さを距離×sin(俯角)で決め、高標高でも地面直上へ押し込まない。ホイールは距離×1.12^ノッチ数として、同じ入力の分割・合算で変位を変えず、逆方向の同数入力で元の距離へ戻る（上下限に達した場合を除く）。地域全体を見渡す高度では、64km全域の128m格子LOD地形を表示する。
++
++`/` で左下のコマンドパレットを開く。入力中はゲームのキー操作を遮断し、Tab補完・上下キーの履歴・Enter実行・Esc終了を提供する。FPSグラフは入力中の描画だけを隠して重なりを避ける。[全コマンドと例](28_commands.md)。
+--- a/plan/12_visual_spec.md
++++ b/plan/12_visual_spec.md
+@@ -119,3 +119,18 @@
+ 車の塗装は `assets/vehicles/paint.json` の10色から車両IDで固定し、全LODへ引き継ぐ。ガラス・タイヤ・灯火は塗り替えない。遠景は変換と色を同じGPUバッチへ送る。
+ 
+ 選択した電車は実際の車体姿勢と同じ編成形状を黄色い輪郭で囲う。検証は `RuralVisualTests.cpp` と [今回の記録](../artifacts/rural_landscape_ui/REVIEW.md)。
++
++## 標高帯と地域俯瞰
++
++自然林は850mから1700mにかけて密度と樹高を連続的に減らす。森林限界付近から低い高山性植生と草地・岩地へ移行し、1900〜2200mで雪へ移る。雪線は世界座標の緩い変動（±35m）で揺らぎ、急な岩壁には露岩を残す。森林の生育可能域から約500m内側へかけて密度を増やし、境界で一律に木を切らない。海・道路・線路・施設の離隔は別に維持する。
++
++森林境界の距離場は世界座標の64m格子と周囲500m以上の余白から作り、チャンクを跨いで連続に補間する。設定は `assets/generation/vegetation.json`。`maximumForestAltitude` は疎林化の開始高度であり、突然の描画上限ではない。
++
++地表から4500m以上の俯瞰は、64km全域を128m間隔に簡略化した地形へ切り替える。近傍チャンクの外が消えるのを防ぎ、地形編集時にキャッシュを無効化する。詳細建物の同期生成を全域へ拡大しない。
++
++
++### 移動時の準備負荷（2026-09-17）
++
++初期読み込み中に道路の簡略路面・交差点を準備する。詳細形状と標識の準備はフレームの時間予算を共有する。未表示の先行準備メッシュは影へ送らず、一度表示に使った簡略路面だけを影の対象とする。地形変更時には該当キャッシュを破棄するが、初回のmeshDirtyだけでは地形の高さが同じ簡略路面を捨てない。地域チャンクの並べ替えは距離順の出力ではなく前回の入力順と比較する。
++
++実測の改善は移動中の大きな停止の軽減であり、全地点の平均60fpsを達成したとは扱わない。初回の建物・地形準備の負荷はISSUEへ残す。
+--- a/plan/20_road_object_spec.md
++++ b/plan/20_road_object_spec.md
+@@ -298,3 +298,7 @@
+ 道路の接線と対象車線から接近車へ正面を向ける。`reference/zushu_16_1-16.md` の5-1（道路に直角）と、`reference/06_案内標識_126_警戒標識_201-205.png` の202を参照。屈曲警告は value=1 が左、2が右。同じ道路でも逆向きに走れば左右が逆になる。矢印の先端は曲線の曲がる方向へ向ける。
+ 
+ 検証: `MapSigns.*` のカメラ四方向・前後両方向・表裏のGPU読み戻しと、`Planning.GuideSignSelectionMatchesRenderedBoard` の本番描画を使う。
++
++## 高架の橋脚配置
++
++長さ8m以上、地盤から路盤下まで3m以上の高架区間へ、最大30m間隔で橋脚を配置する。短い区間にも中央の1基を用意し、区間長が間隔の倍数に近くても配置が0基にならない。道路に属する橋脚だけを再生成し、他の設備を削除しない。閾値は `assets/generation/roads.json`。
+--- a/plan/21_guide_sign_spec.md
++++ b/plan/21_guide_sign_spec.md
+@@ -265,3 +265,7 @@
+ - 106と108の2に共通の判定を使う。手動で置いた看板は移動・削除しない。
+ - 全体再生成時は128mの空間索引を一度構築して共有し、看板ごとに全道路ノードを走査しない。DebugLogに生成数・除外帯への違反数を記録する。
+ - 既存セーブもロード後に自動案内標識を再計算するため適用される。
++
++## 接近方向と表面
++
++青看板の `nodeEndId` は、その案内を読む車が出発した側の基準端点。通常の規制標識の接近先端点とは意味が異なるため、描画時の向きを反転して取り扱う。接近方向から案内面、逆方向から金属製の裏面を描く。
+--- a/plan/23_road_construction_spec.md
++++ b/plan/23_road_construction_spec.md
+@@ -49,3 +49,9 @@
+ `Test/RefactoringTests.cpp` は計画全体への展開、重複課金防止、資金不足での無変更、各パネルの選択に対する同一結果を検証する。`Test/RoadConstructionTests.cpp` で時刻と保存復帰、回転建物と高架の高さ判定、別チャンクの敷地キー、破損履歴、通行制御、橋脚面の向き、全工程と近接描画を確認する。`--capture-construction --seed 42 --new` は隔離した作業ディレクトリで本体の新規都市を使い、自動撤去から開通まで撮影・計測する。プレイヤーのセーブを上書きしない。
+ 
+ 撤去費用の独立した内訳、計画中の撤去対象ハイライト、部材搬入車の運行、地下杭の施工アニメーションは含まない。
++
++## サンドボックスと生成曲線
++
++サンドボックスは新規道路と既存計画の着工で資金確認・引落しを省略する。形状・勾配・接続の検査、用地撤去、工事進捗は通常と共通。
++
++道路計画の自動生成は `RoadAlignment` の確定した制御点をそのまま保存する。ドラッグで点列を編集した場合だけ共通の `fit` で曲線を作り直す。以前の計画のプレビューや探索状態を次の道路に流用しない。
+--- a/plan/24_japanese_urban_morphology.md
++++ b/plan/24_japanese_urban_morphology.md
+@@ -140,3 +140,9 @@
+ 内陸河川も実際の水位を参照する。集落中心は水面から3.2 m以上を必要とし、耕地候補と往来費用も標高0 mだけで水域を判定しない。
+ 
+ 検証: `Morphology.CastleTownTransition`、`SuburbanOrigins`、`TownAlignedAgriculture` で外縁の接続・密度減衰・起源別の展開と、不整形区画の重なり・道路接続・起伏上の勾配・密度減衰・家までの距離を確認する。本体は `App/landscape_audit.json` に地割と外縁からの距離別建物数を記録する。
++
++## 町村密度と農道の接続
++
++配置条件を満たして採用された中心町・農村のうち、固定シードと座標から決まる25%を残す。地域都市はこの間引きの対象外。間引いた場所へ代替集落を追加しない。全種別についてマップ外周1000m内には中心を置かない。残った町と都市に対して農村の生活圏を再割当する。`placement.json` の `ruralRetentionRate`、`settlementEdgeMargin` で調整する。
++
++初期生成の農道は路盤完成・供用中とし、計画路線にしない。地形に沿う次の端点から45m以内に既設道路がある場合、勾配・曲率・建物と線路の離隔を満たす接続を優先する。途中へ取り付く際は接続先を分割し、実際の交差点と車線接続を作る。高架・トンネル・高速道路への短絡接続はしない。半径は `agriculture.json` の `connectionRadius`。
+--- a/plan/27_roadside_life_spec.md
++++ b/plan/27_roadside_life_spec.md
+@@ -36,9 +36,9 @@
+ 
+ 道路の縦断補正で、山の高さを街全体へ伝播して高架化しない。交差点間の連続した道路は端点を固定し、土工・橋・トンネルの相対費用を使う縦断最適化で整える。0.5mの高さ離散化が限界勾配付近の解を落とす場合は、連続した直線縦断も制約検証する。単独の行き止まり端点は、合計3m未満の不足に限って浅い土工で調整できる。
+ 
+-平面距離が不足する急坂は `RoadAlignment` で経路を再探索する。始終点の高さを固定し、位置・32方向の方位・高さを状態とする。直進と左右の円弧候補を作り、勾配・曲率を満たさない遷移は使わない。費用は延長に共通の `RoadConstructionCost` の単位費用を掛ける。地上1、掘割8、高架は路面と地盤の高低差[m]×16、トンネル64。地盤との差1m以内の整地は地上、切土8m以内と盛土6m以内の土工は8、これを超える切土はトンネル、盛土と水域横断は高架とする。旋回自体への追加費用は設けず、半径は制約として扱う。これはユーザー指定のゲーム内比較係数であり、実工事費の統計値ではない。折り返しの回数や位置は指定せず、距離を稼ぐ方が安い斜面では九十九折りが生じる。
++平面距離が不足する急坂は `RoadAlignment` で経路を再探索する。始終点の高さを固定し、位置・32方向の方位・高さを状態とする。直進と左右の円弧候補を作り、勾配・曲率を満たさない遷移は使わない。費用は延長に共通の `RoadConstructionCost` の単位費用を掛ける。地上1、掘割8、高架64＋路面と地盤の高低差[m]×16＋高さの指数罰則、トンネル128＋連続長の指数罰則。地盤との差1m以内の整地は地上、切土8m以内と盛土6m以内の土工は8、これを超える切土はトンネル、盛土と水域横断は高架とする。旋回自体への追加費用は設けず、半径は制約として扱う。これはユーザー指定のゲーム内比較係数であり、実工事費の統計値ではない。折り返しの回数や位置は指定せず、距離を稼ぐ方が安い斜面では九十九折りが生じる。
+ 
+-高架の高さは水面ではなく地盤（橋では川底・海底）から路面までの距離とする。高さ10mなら単位延長費160。粗い経路探索では水面上6mを満たす最小高さを見積もり、完成候補では約8m間隔の実際の路面高さで費用を積分する。
++高架の高さは水面ではなく地盤（橋では川底・海底）から路面までの距離とする。高さ10mなら基礎64＋高さ比例160に高さの指数罰則を加える。粗い経路探索では水面上6mを満たす最小高さを見積もり、完成候補では約8m間隔の実際の路面高さで費用を積分する。
+ 
+ 探索は有限範囲・有限状態で、通常6万展開まで。直線と粗い地形回廊も候補として評価する。最初の迂回候補の発見には距離を重み8で優先し、その後は過大評価しない残距離下界を使って費用を下げる。最初に見つけた経路へ即決せず、探索済みの最小費用候補を保持する。離散化と展開上限があるため連続空間の大域最適解は保証しない。遠距離では道路種別の勾配と同じ費用倍率による粗い地形回廊を使い、実際の曲線と縦断計画で制約を検証する。探索で得た接線を共有する曲線を保持し、後から鎖全体を直線化しない。道路計画でも同じ制限と探索器を使う。
+ 
+@@ -79,6 +79,6 @@
+ 
+ ## 長大構造物の経路費用（2026-09-17）
+ 
+-基礎費用は地上1・掘割8・高架は高さh[m]×16・トンネル64。高架の単位長費用に `16 × (exp(h / 12) - 1 - h / 12)` を加える。トンネルは連続長L[m]に対し `400 × 32 × (exp(L / 400) - 1 - L / 400)` を追加する。係数と尺度は `assets/generation/roads.json` で調整する。
++基礎費用は地上1・掘割8・高架64＋高さh[m]×16・トンネル128。高架の単位長費用に `16 × (exp(h / 12) - 1 - h / 12)` を加える。トンネルは連続長L[m]に対し `400 × 32 × (exp(L / 400) - 1 - L / 400)` を追加する。係数と尺度は `assets/generation/roads.json` で調整する。
+ 
+ トンネル長は同じ回廊の連続する道路片を跨いで積算し、地上へ出た時だけリセットする。分割数を増やして罰則を回避できない。制約付き線形探索は費用と連続トンネル長が両方優れる候補を残し、完成経路を同じ費用で比較する。有限探索であり、世界全体の大域最適解を保証するものではない。これは経路比較用の相対費用で、ゲーム内通貨の工事費とは区別する。
+--- a/plan/SPEC_INDEX.md
++++ b/plan/SPEC_INDEX.md
+@@ -39,3 +39,5 @@
+ - 調査補足: [日本の街の成立と集落ネットワーク（2026-09-15）](research/2026-09_japanese_settlement_networks.md)。実装は24章§8。
+ 
+ - 現行仕様: [生成設定・LOD・大量交通](28_generation_assets_lod_traffic.md)。外部設定、全モデルLOD、建物発着と車列の維持。
++
++- 現行操作: [コマンドパレット](28_commands.md)。時刻・日付・道路状態・カメラ・資金・FPSの変更。
+--- a/src/gen/AgriculturalLayout.cpp
++++ b/src/gen/AgriculturalLayout.cpp
+@@ -4,6 +4,7 @@
+ #include "StreetProfile.hpp"
+ #include "UrbanParcel.hpp"
+ #include "RoadDesignLimits.hpp"
++#include "../road/RoadPlanDraft.hpp"
+ 
+ namespace AgriculturalLayout
+ {
+@@ -165,21 +166,30 @@
+ 			}
+ 		}
+ 		ParcelRoadIndex occupied{roads,true};RoadNetwork empty;ParcelRoadIndex rail{empty};if (railway) { rail.addRailway(*railway); }
+-		Sites buildings{world};
++		Sites buildings{world};RoadPlanSnapIndex connections;connections.rebuild(roads);
+ 		for (const auto& root:roots)
+ 		{
+ 			int previous=root.id;Vec2 direction=root.direction;
+ 			for (double run=0;run<root.reach;run+=config.agriculture_trackStep)
+ 			{
+-				const Vec3 start=roads.getNode(previous)->position;Optional<CubicBezier> best;Vec2 bestDirection=direction;double bestCost=Math::Inf;
++				const Vec3 start=roads.getNode(previous)->position;Optional<CubicBezier> best;Optional<RoadPlanSnapIndex::Hit> bestConnection;Vec2 bestDirection=direction;double bestCost=Math::Inf;
+ 				for (const int turn:{0,-1,1,-2,2})
+ 				{
+ 					const double angle=turn*config.agriculture_trackHeadingStep;
+ 					const Vec2 next{direction.x*Cos(angle)-direction.y*Sin(angle),direction.x*Sin(angle)+direction.y*Cos(angle)};
+ 					if (next.dot(root.direction)<.25) { continue; }
+-					const Vec3 end=groundPoint(world,horizontal(start)+(direction+next).normalized()*config.agriculture_trackStep);
+-					if (!agricultural(world,horizontal(end))) { continue; }
+-					const double handle=config.agriculture_trackStep/3;
++					Vec3 end=groundPoint(world,horizontal(start)+(direction+next).normalized()*config.agriculture_trackStep);
++					Optional<RoadPlanSnapIndex::Hit> connection;
++					const auto hit=connections.find(roads,end,config.agriculture_connectionRadius,config.agriculture_maximumTrackCutFill,false);
++					if(hit.edgeId)
++					{
++						const auto* target=roads.getEdge(*hit.edgeId);const Vec2 span=horizontal(hit.position-start);
++						if(target && target->nodeA!=previous && target->nodeB!=previous && target->isRoadbedBuilt() && !target->tunnel && !target->useElevation && target->roadType!=RoadType::Expressway
++							&& span.length()>12 && span.normalized().dot(direction)>.5)
++						{ end=hit.position;connection=hit; }
++					}
++					if (!connection && !agricultural(world,horizontal(end))) { continue; }
++					const double handle=horizontal(end-start).length()/3;
+ 					const CubicBezier curve{start,{start.x+direction.x*handle,Math::Lerp(start.y,end.y,1.0/3),start.z+direction.y*handle},{end.x-next.x*handle,Math::Lerp(start.y,end.y,2.0/3),end.z-next.y*handle},end};
+ 					if (curve.minimumHorizontalRadius()<RoadDesignLimits::forType(RoadType::LocalRoad).minimumRadius) { continue; }
+ 					bool valid=true;double reliefCost=0;Vec3 last=start;
+@@ -188,23 +198,41 @@
+ 					{
+ 						const auto p=curve.positionAt(curve.totalLength*i/samples),ground=groundPoint(world,horizontal(p));const double distance=horizontal(p-last).length();
+ 						const auto footprint=ParcelGeometry::footprint(horizontal(p),config.agriculture_trackWidth*.5+1,0);
+-						valid &= (run==0 || agricultural(world,horizontal(p))) && ground.y>world.waterSurfaceHeight(p.x,p.z)+config.agriculture_minimumFreeboard
++						const double joiningWidth=connection ? roads.getEdge(*connection->edgeId)->totalWidth()*.5+config.agriculture_trackWidth*.5+3 : 0;
++						const bool joining=connection && p.distanceFrom(end)<joiningWidth;
++						valid &= (run==0 || joining || agricultural(world,horizontal(p))) && ground.y>world.waterSurfaceHeight(p.x,p.z)+config.agriculture_minimumFreeboard
+ 							&& Abs(ground.y-last.y)<=distance*config.agriculture_maximumTrackGrade && Abs(ground.y-p.y)<config.agriculture_maximumTrackCutFill
+ 							&& !rail.overlaps(footprint) && !buildings.occupied.overlaps(footprint);
+-						if (p.distanceFrom(start)>12 && occupied.overlaps(footprint)) { valid=false; }
++						if (p.distanceFrom(start)>12 && !joining && occupied.overlaps(footprint)) { valid=false; }
+ 						if (!valid) { break; }reliefCost+=Square(ground.y-last.y);last=ground;
+ 					}
+ 					const double cost=reliefCost+Square(angle)*config.agriculture_trackTurnPenalty+Square(1-next.dot(root.direction))*config.agriculture_trackDirectionPenalty;
+-					if (valid && cost<bestCost) { best=curve;bestDirection=next;bestCost=cost; }
++					if (valid && ((!bestConnection && connection) || (static_cast<bool>(bestConnection)==static_cast<bool>(connection) && cost<bestCost))) { best=curve;bestDirection=next;bestCost=cost;bestConnection=connection; }
+ 				}
+ 				if (!best) { break; }
+-				const int end=roads.addNode(best->p3,NodeType::Joint);
++				int end;
++				if(bestConnection)
++				{
++					const auto* target=roads.getEdge(*bestConnection->edgeId);const auto curve=roads.getBezier(target->id);
++					if(bestConnection->curveT==0) { end=target->nodeA; }
++					else if(bestConnection->curveT==1) { end=target->nodeB; }
++					else
++					{
++						const float sample=bestConnection->curveT*CubicBezier::SAMPLES;const int index=Min(CubicBezier::SAMPLES-1,static_cast<int>(sample));
++						end=roads.splitEdgeAt(target->id,Math::Lerp(curve->arcTable[index],curve->arcTable[index+1],sample-index));
++						if(end<0) { break; }
++						for(int child:roads.getNode(end)->edgeIds()) { connections.appendEdge(roads,child); }
++					}
++				}
++				else { end=roads.addNode(best->p3,NodeType::Joint); }
+ 				const auto edgeId=roads.addEdge(previous,end,best->p1,best->p2,RoadType::LocalRoad,2);
+-				if (!edgeId) { roads.removeNode(end);break; }
++				if (!edgeId) { if(!bestConnection) { roads.removeNode(end); }break; }
+ 				auto* edge=roads.getEdge(*edgeId);auto profile=GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);profile.laneWidth=static_cast<float>(config.agriculture_trackWidth/profile.lanes);
+-				GeneratedStreet::apply(*edge,profile);edge->farmAccess=true;edge->parts.remove_if([](const RoadPart& part){return part.type==RoadPartType::UtilityPole;});
++				GeneratedStreet::apply(*edge,profile);edge->edgeState=EdgeState::Existing;edge->farmAccess=true;edge->parts.remove_if([](const RoadPart& part){return part.type==RoadPartType::UtilityPole;});
+ 				for (int i=1;i<=8;++i) { occupied.add(ribbon(horizontal(best->evaluate((i-1)/8.0f)),horizontal(best->evaluate(i/8.0f)),edge->totalWidth()*.5+1)); }
++				roads.rebuildNodeConnectivity(previous,end);connections.appendEdge(roads,*edgeId);
+ 				previous=end;direction=bestDirection;++stats.tracks;
++				if(bestConnection) { ++stats.connections;break; }
+ 			}
+ 		}
+ 		stats.homes=prepareHomes(world,roads,railway,frames);stats.drains=stats.tracks*2;return stats;
+--- a/src/gen/AgriculturalLayout.hpp
++++ b/src/gen/AgriculturalLayout.hpp
+@@ -20,7 +20,7 @@
+ 	};
+ 	struct Stats
+ 	{
+-		int candidates=0, fields=0, paddies=0, tracks=0, drains=0, disconnected=0, homes=0;
++		int candidates=0, fields=0, paddies=0, tracks=0, drains=0, disconnected=0, homes=0, connections=0;
+ 	};
+ 	/// @brief 建物より先に、一般道路に接続する農道と沿道の民家を確保する。
+ 	Stats prepare(World& world,RoadNetwork& network,uint64 seed,const Array<Frame>& frames={},const TrainNetwork* railway=nullptr);
+--- a/src/gen/DistrictHierarchy.hpp
++++ b/src/gen/DistrictHierarchy.hpp
+@@ -1,12 +1,13 @@
+ #pragma once
+ #include "MapGenerator.hpp"
++#include "SettlementNames.hpp"
+ #include <queue>
+ 
+ /// @brief 市町村 → 町・大字 → 丁目・小字。河川と峠の通過費用を用いて連続した区域を分割する。
+ class DistrictHierarchy
+ {
+ public:
+-	struct Area { int id=-1,parent=-1,level=0; String name; Vec2 center; bool urban=false; };
++	struct Area { int id=-1,parent=-1,level=0; String name; Vec2 center; bool urban=false; String reading; };
+ 	struct Boundary { Vec2 a,b; int level=0; };
+ 	Array<Area> areas;
+ 	Array<Boundary> boundaries;
+@@ -23,29 +24,27 @@
+ 			const Vec2 p=point(cell); ground[cell]=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+ 			const auto channel=world.rivers().nearest(p); river[cell]=channel.distance<channel.halfWidth+60 ? 1.0f : 0.0f;
+ 		}
+-		const auto add=[&](int level,int parent,String name,Vec2 center,bool urban)
++		const auto add=[&](int level,int parent,String name,Vec2 center,bool urban,String reading=U"")
+ 		{
+-			const int id=static_cast<int>(areas.size()); areas << Area{id,parent,level,std::move(name),center,urban}; return id;
++			const int id=static_cast<int>(areas.size()); areas << Area{id,parent,level,std::move(name),center,urban,std::move(reading)}; return id;
+ 		};
+ 		for (const auto& town : towns)
+ 		{
+-			if (town.kind==MapGenerator::SettlementKind::RuralSettlement) { continue; }
+-			add(0,-1,town.name+(town.kind==MapGenerator::SettlementKind::RegionalCity ? U"市" : U"町"),town.center,true);
++			add(0,-1,SettlementNames::name(town),town.center,town.kind!=MapGenerator::SettlementKind::RuralSettlement,SettlementNames::reading(town));
+ 		}
+-		if (areas.isEmpty()) { add(0,-1,towns.front().name+U"村",towns.front().center,false); }
+ 		partition(0,ground,river);
+ 		for (const auto& town : towns)
+ 		{
+ 			const bool urban=town.kind!=MapGenerator::SettlementKind::RuralSettlement;
+ 			const int parent=at(town.center,0); if (parent<0) { continue; }
+-			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban);
++			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban,town.reading+(urban ? U" Honmachi" : U""));
+ 			if (town.kind==MapGenerator::SettlementKind::RegionalCity)
+ 			{
+ 				const std::array<String,4> names{U"東町",U"西町",U"南町",U"北町"};
+ 				for (int i=0;i<4;++i)
+ 				{
+ 					const Vec2 p=town.center+(i<2 ? town.gridAxisX : town.gridAxisZ)*(i%2==0 ? 1.0 : -1.0)*Max(300.0,static_cast<double>(town.radius)*.45);
+-					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true); }
++					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true,town.reading+std::array<String,4>{U" Higashimachi",U" Nishimachi",U" Minamimachi",U" Kitamachi"}[i]); }
+ 				}
+ 			}
+ 		}
+@@ -62,10 +61,11 @@
+ 				if (at(p,1)!=id) { continue; }
+ 				const auto channel=world.rivers().nearest(p);
+ 				const String name=area.urban ? numbers[i] : (channel.distance<500 ? U"字川端" : ground[cellAt(p)]>65 ? U"字山際" : U"字原")+std::array<String,4>{U"東",U"南",U"西",U"北"}[i];
+-				add(2,id,name,p,area.urban);
++				const String reading=area.urban ? U"{}-chome"_fmt(i+1) : (channel.distance<500 ? U"Kawabata" : ground[cellAt(p)]>65 ? U"Yamagiwa" : U"Hara")+std::array<String,4>{U" Higashi",U" Minami",U" Nishi",U" Kita"}[i];
++				add(2,id,name,p,area.urban,reading);
+ 			}
+ 			bool child=false; for (const auto& candidate : areas) { child|=candidate.parent==id; }
+-			if (!child) { add(2,id,area.urban ? U"一丁目" : U"字中村",area.center,area.urban); }
++			if (!child) { add(2,id,area.urban ? U"一丁目" : U"字中村",area.center,area.urban,area.urban ? U"1-chome" : U"Nakamura"); }
+ 		}
+ 		partition(2,ground,river);
+ 		// Shared cell edges are emitted once. River-adjacent vertices follow the actual channel center.
+--- a/src/gen/GenerationSettings.cpp
++++ b/src/gen/GenerationSettings.cpp
+@@ -57,6 +57,9 @@
+ 		require(result.agriculture_trackStep<=result.agriculture_trackReach, U"agriculture track step <= reach");
+ 		require(result.agriculture_homeSpacing<result.agriculture_homeMaximumDistance, U"agriculture houses within field service radius");
+ 		require(result.vegetation_minimumForestAltitude <= result.vegetation_maximumForestAltitude, U"vegetation altitude range");
++		require(result.vegetation_maximumForestAltitude < result.vegetation_treeLine
++			&& result.vegetation_treeLine <= result.vegetation_snowStart
++			&& result.vegetation_snowStart < result.vegetation_snowFull, U"vegetation forest < tree line <= snow start < snow full");
+ 		for (const auto item : files.at(U"streetProfiles"))
+ 		{
+ 			if (!item.key.ends_with(U"_lanes")) { continue; }
+--- a/src/gen/GenerationSettings.def
++++ b/src/gen/GenerationSettings.def
+@@ -850,3 +850,19 @@
+ GENERATION_SETTING(double, agriculture_minimumReachRatio, U"agriculture", U"minimumReachRatio", 0.2, 1)
+ GENERATION_SETTING(double, agriculture_homeSetback, U"agriculture", U"homeSetback", 1, 20)
+ GENERATION_SETTING(double, agriculture_homeFootprintMargin, U"agriculture", U"homeFootprintMargin", 0.1, 10)
++GENERATION_SETTING(double, roads_viaductBaseCost, U"roads", U"viaductBaseCost", 1, 100000)
++GENERATION_SETTING(double, placement_settlementEdgeMargin, U"placement", U"settlementEdgeMargin", 0, 20000)
++GENERATION_SETTING(double, placement_ruralRetentionRate, U"placement", U"ruralRetentionRate", 0, 1)
++GENERATION_SETTING(float, roads_pierInterval, U"roads", U"pierInterval", 5, 200)
++GENERATION_SETTING(float, roads_pierMinimumSpan, U"roads", U"pierMinimumSpan", 2, 40)
++GENERATION_SETTING(float, roads_pierMinimumClearance, U"roads", U"pierMinimumClearance", 1, 20)
++GENERATION_SETTING(double, vegetation_treeLine, U"vegetation", U"treeLine", 900, 4000)
++GENERATION_SETTING(double, vegetation_snowStart, U"vegetation", U"snowStart", 900, 5000)
++GENERATION_SETTING(double, vegetation_snowFull, U"vegetation", U"snowFull", 1000, 6000)
++GENERATION_SETTING(double, vegetation_boundaryFadeDistance, U"vegetation", U"boundaryFadeDistance", 64, 2000)
++GENERATION_SETTING(double, vegetation_boundarySampleSpacing, U"vegetation", U"boundarySampleSpacing", 16, 128)
++GENERATION_SETTING(double, vegetation_alpineDensity, U"vegetation", U"alpineDensity", 0, 1)
++GENERATION_SETTING(double, vegetation_alpineWidth, U"vegetation", U"alpineWidth", 1, 10)
++GENERATION_SETTING(double, vegetation_alpineHeight, U"vegetation", U"alpineHeight", 0.1, 5)
++GENERATION_SETTING(float, vegetation_snowVariation, U"vegetation", U"snowVariation", 0, 200)
++GENERATION_SETTING(double, agriculture_connectionRadius, U"agriculture", U"connectionRadius", 2, 100)
+--- a/src/gen/RoadAutoPlace.cpp
++++ b/src/gen/RoadAutoPlace.cpp
+@@ -34,139 +34,48 @@
+ namespace RoadAutoPlace
+ {
+ 
+-Array<Vec3> findWaypoints(const World& world, Vec3 startWorld, Vec3 goalWorld, RoadType type)
++Array<Vec3> findWaypoints(const World& world,Vec3 startWorld,Vec3 goalWorld,RoadType type)
+ {
+-	// 始点終点を囲う範囲だけで簡易経路探索を行い、その結果を Planned 状態の道路列へ変換する。
+-	const float sx = static_cast<float>(startWorld.x);
+-	const float sz = static_cast<float>(startWorld.z);
+-	const float ex = static_cast<float>(goalWorld.x);
+-	const float ez = static_cast<float>(goalWorld.z);
+-
+-	const float dist = std::sqrt((ex - sx) * (ex - sx) + (ez - sz) * (ez - sz));
+-
+-	// セルサイズは MapGenerator::buildRoadSegment と同じスケーリング
+-	const float cellSize = (dist > GenerationSettings::get().network_longRouteThreshold) ? GenerationSettings::get().network_longRoutingCell
+-	                     : (dist > GenerationSettings::get().network_mediumRouteThreshold) ? GenerationSettings::get().network_mediumRoutingCell
+-	                     : RoadPathfinder::defaultCellSize();
+-
+-	// バウンディング + 対角の 30% 余白
+-	const float margin = dist * 0.30f + cellSize * 2.0f;
+-	const float minX = Min(sx, ex) - margin;
+-	const float minZ = Min(sz, ez) - margin;
+-	const float maxX = Max(sx, ex) + margin;
+-	const float maxZ = Max(sz, ez) + margin;
+-
+-	const int pfW = Max(2, static_cast<int>(Ceil((maxX - minX) / cellSize)));
+-	const int pfH = Max(2, static_cast<int>(Ceil((maxZ - minZ) / cellSize)));
+-
+-	RoadPathfinder pf;
+-	Array<Vec3> wps;
+-	if (dist < RoadPathfinder::defaultCellSize())
+-	{
+-		if (dist < 2.0f) { return {}; }
+-		wps = { startWorld, goalWorld };
+-	}
+-	else
+-	{
+-		pf.setup(world, Vec2{ minX, minZ }, pfW, pfH, cellSize);
+-
+-		const Point gs = pf.worldToGrid(sx, sz);
+-		const Point ge = pf.worldToGrid(ex, ez);
+-
+-		pf.setRoadType(type);
+-		const Array<Point> path = pf.findPath(gs, ge);
+-
+-		if (path.isEmpty() || path.size() < 2)
+-		{
+-			DBG_LOG(U"[AutoPlace] 経路探索失敗: 到達不能な地点が選択されました");
+-			return {};
+-		}
+-
+-		const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
+-		wps = pf.samplePath(path, sampleStep);
+-	}
+-	wps.front() = startWorld;
+-	wps.back()  = goalWorld;
+-	bool feasible=true;
+-	for (const auto& curve : RoadAlignment::fit(wps))
+-	{
+-		feasible &= RoadAlignment::respectsLimits(curve,type);
+-	}
+-	if (!feasible)
+-	{
+-		const auto result=RoadAlignment::find(world,startWorld,goalWorld,type);
+-		if (!result) { return {}; }
+-		wps={result->curves.front().p0};
+-		for (const auto& curve : result->curves) { wps << curve.p3; }
+-	}
+-	return wps;
++	const auto result=RoadAlignment::find(world,startWorld,goalWorld,type);
++	if(!result) { return {}; }
++	Array<Vec3> points{result->curves.front().p0};
++	for(const auto& curve:result->curves) { points << curve.p3; }
++	return points;
+ }
+ 
+-Array<int> buildWaypoints(RoadNetwork& roads, const World& world, Array<Vec3> wps,
+-	const RoadEdge& templateEdge, float connectionRadius)
++Array<int> buildAlignment(RoadNetwork& roads,const World& world,Array<CubicBezier> curves,
++	const RoadEdge& roadTemplate,float connectionRadius)
+ {
+-	if (wps.size() < 2) { return {}; }
+-	const Vec3 startWorld = wps.front(), goalWorld = wps.back();
+-	RoadPathfinder pf;
+-	// スタート・ゴールは既存ノード優先、近傍エッジがあれば分割して接続点を作る。
+-	const int startNodeId = resolveEndpointNode(roads, startWorld, Min(connectionRadius, static_cast<float>(startWorld.distanceFrom(goalWorld)) * .25f));
+-	const int goalNodeId  = resolveEndpointNode(roads, goalWorld, Min(connectionRadius, static_cast<float>(startWorld.distanceFrom(goalWorld)) * .25f));
+-	wps.front() = roads.getNode(startNodeId)->position;
+-	wps.back() = roads.getNode(goalNodeId)->position;
++	if(curves.isEmpty()) { return {}; }
++	const Vec3 start=curves.front().p0,goal=curves.back().p3;
++	const float radius=Min(connectionRadius,static_cast<float>(start.distanceFrom(goal))*.25f);
++	const int startNode=resolveEndpointNode(roads,start,radius),goalNode=resolveEndpointNode(roads,goal,radius);
++	// 接続先の高さは固定する。探索で選んだ接線・曲率を再フィットで捨てない。
++	const Vec3 startShift=roads.getNode(startNode)->position-start,goalShift=roads.getNode(goalNode)->position-goal;
++	curves.front()=CubicBezier{start+startShift,curves.front().p1+startShift,curves.front().p2,curves.front().p3};
++	curves.back()=CubicBezier{curves.back().p0,curves.back().p1,curves.back().p2+goalShift,goal+goalShift};
++	for(const auto& curve:curves)
++	{
++		if(!RoadAlignment::respectsLimits(curve,roadTemplate.roadType)) { return {}; }
++	}
++	Array<int> ids;int previous=startNode;
++	for(size_t i=0;i<curves.size();++i)
++	{
++		const auto& curve=curves[i];const int next=i+1==curves.size() ? goalNode : roads.addNode(curve.p3);
++		const auto id=roads.addEdge(previous,next,curve.p1,curve.p2,roadTemplate.roadType,Max(1,static_cast<int>(roadTemplate.lanes.size())));
++		if(!id) { for(int created:ids) { roads.removeEdge(created); }return {}; }
++		roads.applyEdgeTemplate(*id,roadTemplate);auto* edge=roads.getEdge(*id);
++		edge->edgeState=EdgeState::Planned;edge->designGrade=true;edge->length=curve.totalLength;
++		roads.updateEdgeElevation(*id,world);roads.recomputeAutoSignsForEdge(*id);ids << *id;previous=next;
++	}
++	for(int id:ids) { const auto* edge=roads.getEdge(id);roads.rebuildNodeConnectivity(edge->nodeA,edge->nodeB); }
++	return ids;
++}
+ 
+-	// 初期生成と共通の道路種別別制限を使い、接続先の高さは動かさない。
+-	const double grade=RoadDesignLimits::forType(templateEdge.roadType).maximumGrade*.995;
+-	Array<double> distances{0};
+-	for (size_t index=1;index<wps.size();++index)
+-	{
+-		const Vec3 delta=wps[index]-wps[index-1];
+-		distances << distances.back()+Vec2{delta.x,delta.z}.length();
+-	}
+-	if (Abs(wps.back().y-wps.front().y)>distances.back()*grade+.0001) { return {}; }
+-	for (size_t index=1;index+1<wps.size();++index)
+-	{
+-		const double lower=Max(wps.front().y-grade*distances[index],wps.back().y-grade*(distances.back()-distances[index]));
+-		const double upper=Min(wps.front().y+grade*distances[index],wps.back().y+grade*(distances.back()-distances[index]));
+-		wps[index].y=Clamp(wps[index].y,lower,upper);
+-		const double rise=(distances[index]-distances[index-1])*grade;
+-		wps[index].y=Clamp(wps[index].y,wps[index-1].y-rise,wps[index-1].y+rise);
+-	}
+-	for (size_t index=wps.size()-1;index>1;--index)
+-	{
+-		const double rise=(distances[index]-distances[index-1])*grade;
+-		wps[index-1].y=Clamp(wps[index-1].y,wps[index].y-rise,wps[index].y+rise);
+-	}
+-	const int templateLanes = static_cast<int>(templateEdge.lanes.size());
+-	const int numLanes = (templateLanes > 0) ? templateLanes : 2;
+-
+-	Array<int> edgeIds;
+-	pf.pathToRoadEdges(wps, roads, templateEdge.roadType, numLanes, startNodeId, goalNodeId, &edgeIds);
+-
+-	if (edgeIds.size() + 1 != wps.size())
+-	{
+-		for (const int id : edgeIds) { roads.removeEdge(id); }
+-		return {};
+-	}
+-
+-	// 生成済みエッジへテンプレート断面と状態を適用し、編集前の計画道路として揃える。
+-	for (const int eid : edgeIds)
+-	{
+-		if (RoadEdge* edge = roads.getEdge(eid))
+-		{
+-			roads.applyEdgeTemplate(eid, templateEdge);
+-			edge->edgeState = EdgeState::Planned;
+-			RoadDesignLimits::constrainCurve(roads,eid);
+-			const Vec3 start=roads.getNode(edge->nodeA)->position,end=roads.getNode(edge->nodeB)->position;
+-			const Vec2 span{end.x-start.x,end.z-start.z};
+-			const auto level=[&](Vec3 point) { return start.y+(end.y-start.y)*Vec2{point.x-start.x,point.z-start.z}.dot(span)/Max(.0001,span.lengthSq()); };
+-			edge->ctrlA.y=level(edge->ctrlA); edge->ctrlB.y=level(edge->ctrlB); edge->designGrade=true;
+-			edge->length=roads.getBezier(eid)->totalLength;
+-			roads.updateEdgeElevation(eid,world);
+-			roads.recomputeAutoSignsForEdge(eid);
+-		}
+-	}
+-
+-	return edgeIds;
++Array<int> buildWaypoints(RoadNetwork& roads,const World& world,Array<Vec3> points,
++	const RoadEdge& roadTemplate,float connectionRadius)
++{
++	return buildAlignment(roads,world,RoadAlignment::fit(points),roadTemplate,connectionRadius);
+ }
+ 
+ Array<int> buildPlanned(
+@@ -176,9 +85,14 @@
+ 	const Array<int>& routeIds,
+ 	const RoadEdge& templateEdge, bool followTerrain, float connectionRadius)
+ {
+-	Array<Vec3> points = followTerrain ? findWaypoints(world, startWorld, goalWorld, templateEdge.roadType) : Array<Vec3>{startWorld, goalWorld};
+-	if (points.size() < 2 || startWorld.distanceFrom(goalWorld) < 2) { return {}; }
+-	Array<int> edgeIds = buildWaypoints(roads, world, std::move(points), templateEdge, connectionRadius);
++	Array<CubicBezier> curves;
++	if(followTerrain)
++	{
++		const auto result=RoadAlignment::find(world,startWorld,goalWorld,templateEdge.roadType);
++		if(!result) { return {}; }curves=result->curves;
++	}
++	else { curves=RoadAlignment::fit({startWorld,goalWorld}); }
++	Array<int> edgeIds=buildAlignment(roads,world,std::move(curves),templateEdge,connectionRadius);
+ 	if (!edgeIds.isEmpty()) { roads.resolveIntersections(*std::min_element(edgeIds.begin(),edgeIds.end()),&edgeIds); }
+ 
+ 	// 指定路線があれば新設エッジをまとめて所属させ、逆引きも更新する。
+--- a/src/gen/RoadAutoPlace.hpp
++++ b/src/gen/RoadAutoPlace.hpp
+@@ -9,6 +9,9 @@
+ {
+ 	/// @brief 初期生成と同じ地形探索から編集可能な点列を得る。
+ 	Array<Vec3> findWaypoints(const World& world, Vec3 startWorld, Vec3 goalWorld, RoadType type = RoadType::LocalRoad);
++	/// @brief 制約を満たした曲線列をそのままプレビュー・建設へ引き継ぐ。
++	Array<int> buildAlignment(RoadNetwork& roads,const World& world,Array<CubicBezier> curves,
++		const RoadEdge& roadTemplate,float connectionRadius=.5f);
+ 	/// @brief 編集済み点列を再探索せず、共通の曲線生成で道路へ変換する。
+ 	Array<int> buildWaypoints(RoadNetwork& roads, const World& world, Array<Vec3> points,
+ 		const RoadEdge& roadTemplate, float connectionRadius = .5f);
+--- a/src/gen/RoadConstructionCost.hpp
++++ b/src/gen/RoadConstructionCost.hpp
+@@ -35,7 +35,7 @@
+ 	{
+ 		const double difference = roadHeight - ground;
+ 		if (difference < -MaximumCut()) { return Tunnel(); }
+-		if (difference > MaximumFill() || ground < water + GenerationSettings::get().crossings_waterBankMargin) { return Max(0.0, difference) * ViaductPerMetre() + exponentialPenalty(Max(0.0, difference), GenerationSettings::get().roads_viaductHeightScale, GenerationSettings::get().roads_viaductHeightPenalty); }
++		if (difference > MaximumFill() || ground < water + GenerationSettings::get().crossings_waterBankMargin) { return GenerationSettings::get().roads_viaductBaseCost + Max(0.0, difference) * ViaductPerMetre() + exponentialPenalty(Max(0.0, difference), GenerationSettings::get().roads_viaductHeightScale, GenerationSettings::get().roads_viaductHeightPenalty); }
+ 		if (Abs(difference) > SurfaceTolerance()) { return Earthwork(); }
+ 		return Surface();
+ 	}
+--- a/src/gen/SettlementPlacement.cpp
++++ b/src/gen/SettlementPlacement.cpp
+@@ -196,6 +196,12 @@
+ 	}
+ }
+ 
++bool SettlementPlacement::retainRuralSite(uint64 seed,Vec2 center)
++{
++	const double draw=(UrbanMorphology::mix(locationSalt(seed,center)^0x8CB92BA72F3D8DD7ULL)%1000000)/1000000.0;
++	return draw<GenerationSettings::get().placement_ruralRetentionRate;
++}
++
+ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array<Candidate> candidates,
+ 	const RectF& bounds, const HeightSampler& height, const HeightSampler& water)
+ {
+@@ -209,7 +215,7 @@
+ 	HashTable<Point, Array<size_t>> buckets;
+ 	for (const auto& candidate : candidates)
+ 	{
+-		if (candidate.score <= 0 || !bounds.contains(candidate.center) || height(candidate.center) < water(candidate.center) + GenerationSettings::get().placement_homeFreeboard) { continue; }
++		if (candidate.score <= 0 || !bounds.stretched(-GenerationSettings::get().placement_settlementEdgeMargin).contains(candidate.center) || height(candidate.center) < water(candidate.center) + GenerationSettings::get().placement_homeFreeboard) { continue; }
+ 		const Point bucket{static_cast<int>(candidate.center.x / GenerationSettings::get().placement_candidateSpacing), static_cast<int>(candidate.center.y / GenerationSettings::get().placement_candidateSpacing)};
+ 		bool occupied = false;
+ 		for (int z = -1; z <= 1 && !occupied; ++z)
+@@ -322,6 +328,19 @@
+ 		makePlan(village, seed, false, height);
+ 		settlements << std::move(village);
+ 		villageSpacing << spacing;
++	}
++	// 採用済み集落を間引き、空いた場所が代替集落で埋め戻されるのを防ぐ。
++	settlements.remove_if([&](const Settlement& settlement)
++	{
++		return settlement.kind != Kind::RegionalCity && !retainRuralSite(seed,settlement.center);
++	});
++	// 間引きで消えた町の番号を残さず、残存する中心地に生活圏を割り当て直す。
++	Array<Settlement> centers;
++	for (const auto& settlement : settlements) { if (settlement.kind != Kind::RuralSettlement) { centers << settlement; } }
++	const TravelField retainedAccess(bounds, height, centers, water);
++	for (auto& settlement : settlements)
++	{
++		if (settlement.kind == Kind::RuralSettlement) { retainedAccess.assign(settlement, centers); }
+ 	}
+ 	int cities = 0, towns = 0, villages = 0, linked = 0;
+ 	for (const auto& settlement : settlements)
+--- a/src/gen/SettlementPlacement.hpp
++++ b/src/gen/SettlementPlacement.hpp
+@@ -16,6 +16,9 @@
+ 		const RectF& bounds, const HeightSampler& height,
+ 		const HeightSampler& water = [](const Vec2&) { return 0.0; });
+ 
++	/// @brief 町村候補を位置に固有の乱数で間引く。市の採用には適用しない。
++	bool retainRuralSite(uint64 seed,Vec2 center);
++
+ 	/// @brief 道路への接続候補を、距離と中心町への地形回廊の方向で評価する。
+ 	double roadAccessCost(Vec2 from, Vec2 target, const Optional<Vec2>& preferredDirection);
+ }
+--- a/src/render/CityLighting.cpp
++++ b/src/render/CityLighting.cpp
+@@ -1,4 +1,5 @@
+ #include "CityLighting.hpp"
++#include "../gen/GenerationSettings.hpp"
+ 
+ bool CityLighting::initialize(FilePathView shaderPath)
+ {
+@@ -6,6 +7,10 @@
+ 	{
+ 		return ready();
+ 	}
++	const auto& settings = GenerationSettings::get();
++	m_parameters->altitudeBands = Float4{static_cast<float>(settings.vegetation_maximumForestAltitude),
++		static_cast<float>(settings.vegetation_treeLine),static_cast<float>(settings.vegetation_snowStart),static_cast<float>(settings.vegetation_snowFull)};
++	m_parameters->terrainVariation = Float4{settings.vegetation_snowVariation,0,0,0};
+ 	m_attempted = true;
+ 	m_depthShader = PixelShader::HLSL(shaderPath, U"Depth_PS");
+ 	m_forwardShader = PixelShader::HLSL(shaderPath, U"Shading_PS");
+--- a/src/render/CityLighting.hpp
++++ b/src/render/CityLighting.hpp
+@@ -27,6 +27,8 @@
+ 		Float4 shadowParameters{ 0, 0, 0, 0 };
+ 		Float4 fogColorDensity{ 0, 0, 0, 0 };
+ 		Float4 dynamicShadow{ 0, 0, 0, 0 };
++		Float4 altitudeBands{ 850, 1700, 1900, 2200 };
++		Float4 terrainVariation{ 35, 0, 0, 0 };
+ 	};
+ 	PixelShader m_buildingShader;
+ 	PixelShader m_depthShader, m_forwardShader, m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
+--- a/src/render/MinimapRenderer.cpp
++++ b/src/render/MinimapRenderer.cpp
+@@ -1,6 +1,7 @@
+ #include "../../stdafx.h"
+ #include "MinimapRenderer.hpp"
+ #include "../debug/DebugLog.hpp"
++#include "../road/RoadEnvironment.hpp"
+ 
+ void MinimapRenderer::buildTerrainTexture(const World& world)
+ {
+@@ -31,30 +32,43 @@
+ 	if (m_mapDirty)
+ 	{
+ 		m_map.streets.clear(); m_map.labels.clear();
+-		const auto append = [&](const CubicBezier& curve, double width, int category)
++		const auto append = [&](const CubicBezier& curve, double width, int category, bool candidate)
+ 		{
+-			WorldMapView::Stroke stroke; stroke.width=width; stroke.category=category;
+-			Vec2 lower{1e9,1e9}, upper{-1e9,-1e9};
+-			const int count=Max(2, static_cast<int>(curve.totalLength/30)+1);
+-			for (int index=0;index<=count;++index)
++			WorldMapView::Stroke stroke;stroke.width=width;stroke.category=category;
++			const auto finish=[&]()
++			{
++				if(stroke.points.size()<2) { return; }
++				Vec2 lower{Math::Inf,Math::Inf},upper{-Math::Inf,-Math::Inf};
++				for(const Vec2 point:stroke.points)
++				{
++					lower.x=Min(lower.x,point.x);lower.y=Min(lower.y,point.y);upper.x=Max(upper.x,point.x);upper.y=Max(upper.y,point.y);
++				}
++				stroke.bounds=RectF{lower,upper-lower}.stretched(30);m_map.streets << stroke;
++			};
++			const int count=Max(2,static_cast<int>(Ceil(curve.totalLength/(candidate ? 6 : 30))));
++			stroke.points << Vec2{curve.p0.x,curve.p0.z};
++			for(int index=1;index<=count;++index)
+ 			{
+ 				const Vec3 point=curve.positionAt(curve.totalLength*index/count);
+-				stroke.points << Vec2{point.x,point.z};
+-				lower.x=Min(lower.x,point.x); lower.y=Min(lower.y,point.z);
+-				upper.x=Max(upper.x,point.x); upper.y=Max(upper.y,point.z);
++				const bool tunnel=m_world && RoadEnvironment::coveredAt(*m_world,curve.positionAt(curve.totalLength*(index-.5f)/count),candidate,
++					category==2 ? RoadEnvironment::kRailTunnelCrown : RoadEnvironment::kRoadTunnelCrown);
++				if(stroke.points.size()>1 && tunnel!=stroke.tunnel)
++				{
++					finish();const Vec2 previous=stroke.points.back();stroke.points={previous};
++				}
++				stroke.tunnel=tunnel;stroke.points << Vec2{point.x,point.z};
+ 			}
+-			stroke.bounds=RectF{lower,upper-lower}.stretched(30);
+-			m_map.streets << std::move(stroke);
++			finish();
+ 		};
+ 		for (const auto& edge : roads.edges())
+ 		{
+ 			if (edge.id<0 || edge.edgeState==EdgeState::Planned) { continue; }
+-			if (const auto curve=roads.getBezier(edge.id)) { append(*curve,edge.totalWidth(),edge.roadType==RoadType::LocalRoad ? 0 : 1); }
++			if (const auto curve=roads.getBezier(edge.id)) { append(*curve,edge.totalWidth(),edge.roadType==RoadType::LocalRoad ? 0 : 1,edge.tunnel); }
+ 		}
+ 		for (const auto& edge : railway.edges())
+ 		{
+ 			if (edge.id<0) { continue; }
+-			if (const auto curve=railway.getBezier(edge.id)) { append(*curve,4,2); }
++			if (const auto curve=railway.getBezier(edge.id)) { append(*curve,4,2,true); }
+ 		}
+ 		for (const auto& node : railway.nodes())
+ 		{
+@@ -67,12 +81,12 @@
+ 			for (const auto& area : m_districts->areas)
+ 			{
+ 				const String label=area.level==2 && area.urban ? m_districts->areas[area.parent].name+area.name : area.name;
+-				m_map.labels << WorldMapView::Label{area.center,label,false,area.level==0 ? 1.0 : area.level==1 ? 8.0 : 36.0};
++				m_map.labels << WorldMapView::Label{area.center,label,false,area.level==0 ? 1.0 : area.level==1 ? 8.0 : 36.0,area.level==2 && area.urban ? m_districts->areas[area.parent].reading+U" "+area.reading : area.reading};
+ 			}
+ 			for (const auto& border : m_districts->boundaries) { m_map.boundaries << WorldMapView::Border{border.a,border.b,border.level}; }
+ 			m_map.addressAt=[this](Vec2 p) { return m_districts->address(p); };
+ 		}
+-		else { for (const auto& town : settlements) { m_map.labels << WorldMapView::Label{town.center,town.name,false}; } }
++		else { for (const auto& town : settlements) { m_map.labels << WorldMapView::Label{town.center,SettlementNames::name(town),false,1,SettlementNames::reading(town)}; } }
+ 		m_map.invalidateCartography();
+ 		m_mapDirty=false;
+ 	}
+--- a/src/render/PlaceNameRenderer.cpp
++++ b/src/render/PlaceNameRenderer.cpp
+@@ -3,6 +3,7 @@
+ #include "../asset/AssetRegistrar.hpp"
+ #include "../ui/NavigationHeader.hpp"
+ #include "../ui/TownBillboards.hpp"
++#include "../gen/SettlementNames.hpp"
+ 
+ void PlaceNameRenderer::render(const Array<MapGenerator::Settlement>& settlements,const GameCamera& camera, const World& world, const Array<RectF>& hudBounds) const
+ {
+@@ -15,7 +16,7 @@
+ 			const int importance = town.kind == MapGenerator::SettlementKind::RegionalCity ? 2
+ 				: town.kind == MapGenerator::SettlementKind::LocalTown ? 1 : 0;
+ 			const double ground = world.sampleHeight(static_cast<float>(town.center.x), static_cast<float>(town.center.y));
+-			places << TownBillboards::Place{{town.center.x, ground + 25 + importance * 30, town.center.y}, town.name, importance};
++			places << TownBillboards::Place{{town.center.x, ground + 25 + importance * 30, town.center.y}, SettlementNames::name(town),importance,SettlementNames::reading(town)};
+ 		}
+ 		const Font font = FontAsset(Asset::CJK24);
+ 		m_labels = TownBillboards::layout(places, camera, Scene::Size(), font, hudBounds);
+@@ -30,5 +31,5 @@
+ 		const double candidate=town.center.distanceFromSq(point);
+ 		if (candidate<distance) { nearest=&town;distance=candidate; }
+ 	}
+-	if (nearest) { NavigationHeader::drawPlace(Scene::Size(),FontAsset(Asset::CJK24),nearest->name,nearest->reading); }
++	if (nearest) { NavigationHeader::drawPlace(Scene::Size(),FontAsset(Asset::CJK24),SettlementNames::name(*nearest),SettlementNames::reading(*nearest)); }
+ }
+--- a/src/render/RoadRenderer.cpp
++++ b/src/render/RoadRenderer.cpp
+@@ -605,6 +605,7 @@
+ 		++m_cacheBuildStats.edges;
+ 		m_cacheBuildStats.partsMs += buildTimer.msF();
+ 		m_fallbackEdges.erase(edge.id);
++		m_drawnFallbackEdges.erase(edge.id);
+ 		++m_geometryRevision;
+ 		meshIt = m_partMeshCache.emplace(edge.id, std::move(entries)).first;
+ 		m_marginCache[edge.id] = { marginA, marginB };
+@@ -682,21 +683,19 @@
+ 			}
+ 		}
+ 	}
+-	// ---- 道路標識（近距離のみ） ----
+-	if (isClose)
+-	{
+-		if (!m_signCache.contains(edge.id))
+-			m_signCache[edge.id] = buildEdgeSignMeshes(network, edge.id, world);
+-		drawSigns(m_signCache[edge.id]);
+-	}
+-
+-	// ---- 案内標識（近距離のみ） ----
+-	if (isClose)
+-	{
+-		if (!m_guideSignCache.contains(edge.id))
+-			m_guideSignCache[edge.id] = buildEdgeGuideSignDraws(network, edge.id, world);
+-		if (!m_guideSignCache[edge.id].isEmpty())
+-			drawGuideSigns(m_guideSignCache[edge.id]);
++	// 規制標識・案内板も接近前に準備し、初回描画で予算外の作業を集中させない。
++	if(isClose || prepareDetail)
++	{
++		if(!m_signCache.contains(edge.id) && canBuildCache())
++		{
++			const Stopwatch timer{StartImmediately::Yes};m_signCache[edge.id]=buildEdgeSignMeshes(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
++		}
++		if(!m_guideSignCache.contains(edge.id) && canBuildCache())
++		{
++			const Stopwatch timer{StartImmediately::Yes};m_guideSignCache[edge.id]=buildEdgeGuideSignDraws(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
++		}
++		if(const auto found=m_signCache.find(edge.id);isClose && found!=m_signCache.end()) { drawSigns(found->second); }
++		if(const auto found=m_guideSignCache.find(edge.id);isClose && found!=m_guideSignCache.end()) { drawGuideSigns(found->second); }
+ 	}
+ 
+ 	// ---- 橋脚描画 ----
+@@ -2754,7 +2753,7 @@
+ }
+ 
+ /// @brief A continuous, inexpensive surface remains visible while exact roadside parts are built.
+-void RoadRenderer::drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world)
++void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world)
+ {
+ 	if (!m_fallbackEdges.contains(edge.id))
+ 	{
+@@ -2782,10 +2781,16 @@
+ 		++m_geometryRevision;
+ 		m_cacheBuildStats.fallbackMs += timer.msF();
+ 	}
++}
++
++void RoadRenderer::drawFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world)
++{
++	prepareFallbackEdge(edge,network,world);
++	m_drawnFallbackEdges.emplace(edge.id);
+ 	for (const auto& entry : m_fallbackEdges.at(edge.id)) { drawSurface(entry, entry.meshPair.detail); }
+ }
+ 
+-void RoadRenderer::drawFallbackNode(int nodeId, const RoadNetwork& network, const World& world)
++void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, const World& world)
+ {
+ 	if (!m_fallbackNodes.contains(nodeId))
+ 	{
+@@ -2804,6 +2809,11 @@
+ 			definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
+ 		m_cacheBuildStats.fallbackMs += timer.msF();
+ 	}
++}
++
++void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const World& world)
++{
++	prepareFallbackNode(nodeId,network,world);
+ 	const auto& entry = m_fallbackNodes.at(nodeId);
+ 	if (entry.meshPair.detail) { drawSurface(entry, entry.meshPair.detail); }
+ }
+--- a/src/render/RoadRenderer.hpp
++++ b/src/render/RoadRenderer.hpp
+@@ -55,6 +55,8 @@
+ 
+ 	/// @brief 道路部品アセットをロードする
+ 	bool loadAssets();
++	/// @brief 読み込み中に地域全体の簡略路面を準備し、視点移動時の一斉生成を避ける。
++	void preloadFallbacks(const RoadNetwork& network,const World& world);
+ 	/// @brief Construction uses the paused/resumed game clock, never wall time.
+ 	void setConstructionTime(GameTime now) { m_constructionNow = now; }
+ 
+@@ -170,7 +172,11 @@
+ 	};
+ 	Array<VisibleRoad> m_visibleRoads;
+ 	HashTable<int, Array<PartMeshEntry>> m_fallbackEdges;
++	HashSet<int> m_drawnFallbackEdges;
+ 	HashTable<int, PartMeshEntry> m_fallbackNodes;
++	void prepareFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world);
++	void prepareFallbackNode(int nodeId,const RoadNetwork& network,const World& world);
++	HashTable<int64,uint64> m_preloadedHeights;
+ 	[[nodiscard]] bool canBuildCache();
+ 	void drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world);
+ 	void drawFallbackNode(int nodeId, const RoadNetwork& network, const World& world);
+--- a/src/render/RoadRenderer_Signs.cpp
++++ b/src/render/RoadRenderer_Signs.cpp
+@@ -401,7 +401,7 @@
+ 	const float arc = atA ? cutoff + sign.arcOffset : curve->totalLength - cutoff - sign.arcOffset;
+ 	const auto& meta = GuideSign::poleMetadata();
+ 	GuideSignDraw draw;
+-	if (!computeSignTransforms(*curve, world, arc, sign.lateralOffset, atA,
++	if (!computeSignTransforms(*curve, world, arc, sign.lateralOffset, !atA,
+ 		meta.offsetX, meta.offsetY, meta.offsetZ, *edge,
+ 		draw.poleMat, draw.boardMat, draw.poleTop)) { return none; }
+ 	const auto size = GuideSign::computeBoardSizeFor(sign);
+--- a/src/render/RoadRenderer_Streaming.cpp
++++ b/src/render/RoadRenderer_Streaming.cpp
+@@ -1,5 +1,30 @@
+ #include "RoadRenderer.hpp"
+ #include "../road/RoadSign.hpp"
++#include "../debug/DebugLog.hpp"
++#include <bit>
++
++namespace
++{
++	uint64 terrainSignature(const Chunk& chunk)
++	{
++		uint64 value=1469598103934665603ULL;
++		for(float height:chunk.heightMap) { value=(value^std::bit_cast<uint32>(height))*1099511628211ULL; }
++		return value;
++	}
++}
++
++void RoadRenderer::preloadFallbacks(const RoadNetwork& network,const World& world)
++{
++	const Stopwatch timer{StartImmediately::Yes};
++	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt()) { prepareFallbackEdge(edge,network,world); } }
++	for(const auto& node:network.nodes()) { if(node.id>=0 && !node.attachments.isEmpty()) { prepareFallbackNode(node.id,network,world); } }
++	for(int z=0;z<WORLD_CHUNKS;++z) { for(int x=0;x<WORLD_CHUNKS;++x)
++	{
++		if(const auto* chunk=world.getChunk({x,z});chunk && !chunk->heightMap.isEmpty()) { m_preloadedHeights[chunkCoordToKey(chunk->coord)]=terrainSignature(*chunk); }
++	} }
++	DBG_LOG(U"[RoadFallback] preload edges={} nodes={} ms={:.2f}"_fmt(m_fallbackEdges.size(),m_fallbackNodes.size(),timer.msF()));
++	m_cacheBuildStats={};
++}
+ 
+ void RoadRenderer::render(const RoadNetwork& network, const World& world,
+                           const ViewFrustum& frustum, Vec3 cameraPos)
+@@ -96,6 +121,11 @@
+ 		const int64 key = chunkCoordToKey(chunk->coord);
+ 		if (!chunk->meshDirty) { m_dirtyTerrainObserved.erase(key); continue; }
+ 		if (!m_dirtyTerrainObserved.insert(key).second) { continue; }
++		if(const auto initial=m_preloadedHeights.find(key);initial!=m_preloadedHeights.end())
++		{
++			// 初回の meshDirty は地形変更ではない。実際の高さ変更だけが先行準備を破棄する。
++			if(initial->second==terrainSignature(*chunk)) { continue; }m_preloadedHeights.erase(initial);
++		}
+ 		const double cx = chunk->coord.x * static_cast<double>(CHUNK_SIZE);
+ 		const double cz = chunk->coord.y * static_cast<double>(CHUNK_SIZE);
+ 		const double cs = CHUNK_SIZE;
+@@ -146,8 +176,12 @@
+ 		if (const auto signs = m_signCache.find(edgeId); signs != m_signCache.end()) { drawSigns(signs->second); }
+ 		if (const auto signs = m_guideSignCache.find(edgeId); signs != m_guideSignCache.end()) { drawGuideSigns(signs->second); }
+ 	}
+-	for (const auto& [id, entries] : m_fallbackEdges)
+-	{
++	// 読み込み時の先行準備は表示ではない。未使用の全地域メッシュを影の描画へ送らない。
++	for (const int id : m_drawnFallbackEdges)
++	{
++		const auto cached=m_fallbackEdges.find(id);
++		if(cached==m_fallbackEdges.end()) { continue; }
++		const auto& entries=cached->second;
+ 		const auto bounds = m_boundsCache.find(id);
+ 		if (bounds == m_boundsCache.end()) { continue; }
+ 		const Vec3 delta = Vec3{bounds->second.center} - focus;
+@@ -170,6 +204,7 @@
+ {
+ 	m_constructionCache.erase(edgeId);
+ 	m_fallbackEdges.erase(edgeId);
++	m_drawnFallbackEdges.erase(edgeId);
+ 	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
+ 		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
+ 	{
+@@ -224,8 +259,10 @@
+ 
+ void RoadRenderer::invalidateAllCaches()
+ {
++	m_preloadedHeights.clear();
+ 	m_constructionCache.clear();
+ 	m_fallbackEdges.clear();
++	m_drawnFallbackEdges.clear();
+ 	m_fallbackNodes.clear();
+ 	m_pierMeshCache.clear();
+ 	m_signalSummaryCache.clear();
+--- a/src/render/RoadRouteSignRenderer.cpp
++++ b/src/render/RoadRouteSignRenderer.cpp
+@@ -6,6 +6,7 @@
+ void RoadRouteSignRenderer::render(const RoadNetwork& network,const GameCamera& camera) const
+ {
+ 	m_route.reset();
++	if(camera.mode()==CameraMode::Overview || camera.mode()==CameraMode::Capture) { return; }
+ 	const auto nearby=network.findEdgeNear(camera.focusPoint(),80);
+ 	if (!nearby) { return; }
+ 	const auto* edge=network.getEdge(*nearby);
+--- a/src/render/WorldRenderer.cpp
++++ b/src/render/WorldRenderer.cpp
+@@ -1,5 +1,8 @@
+ #include "WorldRenderer.hpp"
+ #include "TreeGeometry.hpp"
++#include "RegionalTerrain.hpp"
++#include "../asset/AssetRegistrar.hpp"
++#include "../debug/DebugLog.hpp"
+ #include <Siv3D/Profiler.hpp>
+ #include <algorithm>
+ 
+@@ -13,6 +16,18 @@
+ 	Profiler::EnableAssetCreationWarning(false);
+ 	m_terrainRebuildBudget = Clamp(static_cast<int>(m_pendingTerrainRebuildKeys.size()), 1, 16);
+ 
++	const auto regionalEye=camera.getEyePosition();
++	if(regionalEye.y-world.sampleHeight(static_cast<float>(regionalEye.x),static_cast<float>(regionalEye.z))>RegionalTerrain::kMinimumClearance)
++	{
++		m_buildingsConsidered=m_buildingsSubmitted=m_buildingDrawCalls=m_buildingTriangles=0;
++		if(!m_regionalTerrain) { const Stopwatch timer{StartImmediately::Yes};m_regionalTerrain=Mesh{RegionalTerrain::build(world)};DBG_LOG(U"[RegionalTerrain] buildMs={:.2f}"_fmt(timer.msF())); }
++		{const ScopedCustomShader3D shader{m_terrainShader};const ScopedRenderStates3D state{RasterizerState::SolidCullNone};Graphics3D::SetPSTexture(2,TextureAsset(Asset::CoastSand));m_regionalTerrain.draw(TextureAsset(Asset::Grass));}
++		{const ScopedCustomShader3D shader{m_waterShader};Box{Vec3{WORLD_SIZE*.5,0,WORLD_SIZE*.5},Vec3{WORLD_SIZE,.04,WORLD_SIZE}}.draw(ColorF{1});}
++		// すでに用意済みの建物は地域LODでも残す。地形全域を同期で詳細化しない。
++		m_buildingFrustum=ViewFrustum{camera,160000};
++		for(const auto& [key,far]:m_farBuildings) { if(m_buildingFrustum->intersects(far.bounds)) { drawCachedBuildings(key); } }
++		return;
++	}
+ 	m_buildingFrustum = ViewFrustum{ camera, 9000.0 };
+ 	m_buildingsConsidered = m_buildingsSubmitted = 0;
+ 	m_buildingDrawCalls = m_buildingTriangles = 0;
+@@ -23,13 +38,14 @@
+ 	const Point camChunk{ camCx, camCz };
+ 
+ 	const auto& activeChunks = world.getActiveChunks();
+-	const bool activeChunkOrderChanged = (m_sortedChunks.size() != activeChunks.size())
+-		|| !std::equal(activeChunks.begin(), activeChunks.end(), m_sortedChunks.begin(), m_sortedChunks.end());
++	const bool activeChunkOrderChanged = (m_lastActiveOrder.size() != activeChunks.size())
++		|| !std::equal(activeChunks.begin(), activeChunks.end(), m_lastActiveOrder.begin(), m_lastActiveOrder.end());
+ 
+ 	// ソート済み順序を維持しつつ、カメラ位置やアクティブ集合が変わった時だけ並べ直す
+ 	if (camChunk != m_lastSortChunk || eye.distanceFromSq(m_lastSortEye)>128*128 || activeChunks.size() != m_lastActiveCount || activeChunkOrderChanged)
+ 	{
+ 		m_sortedChunks = activeChunks;
++		m_lastActiveOrder=activeChunks;
+ 		m_sortedChunks.sort_by([&](const Chunk* a, const Chunk* b)
+ 		{
+ 			return TreeGeometry::distanceSquared(a->coord,eye,{a->heightMin,a->heightMax}) < TreeGeometry::distanceSquared(b->coord,eye,{b->heightMin,b->heightMax});
+--- a/src/render/WorldRenderer.hpp
++++ b/src/render/WorldRenderer.hpp
+@@ -197,6 +197,7 @@
+ 	bool m_asyncTerrain = false;
+ 	uint64 m_terrainEpoch = 0;
+ 
++	Mesh m_regionalTerrain;
+ 	HashTable<Key, Array<TerrainMeshBatch>>       m_meshCache;
+ 	HashTable<Key, Array<TerrainSubtractionQuad>> m_chunkSubtractorCache;
+ 	HashTable<int, TerrainBooleanSubtractor>      m_edgeSubtractorCache;
+@@ -214,6 +215,7 @@
+ 	HashTable<Key, FarBuildings> m_farBuildings;
+ 	size_t m_buildingDrawCalls = 0, m_buildingTriangles = 0;
+ 	HashTable<uint32, BuildingModelAsset>         m_buildingModels; ///< 建物 OBJ+TOML（遅延ロード）
++	Array<Chunk*> m_lastActiveOrder;
+ 	Array<Chunk*>                        m_sortedChunks;      ///< ソート済みチャンク（カメラ移動時のみ再ソート）
+ 	Point                                m_lastSortChunk{ 0x7FFFFFFF, 0x7FFFFFFF };
+ 	size_t                               m_lastActiveCount = 0;
+--- a/src/render/WorldRenderer_Buildings.cpp
++++ b/src/render/WorldRenderer_Buildings.cpp
+@@ -3,6 +3,7 @@
+ #include "TerrainSurfaceGeometry.hpp"
+ #include "LandscapeMaterials.hpp"
+ #include "TreeGeometry.hpp"
++#include "VegetationProfile.hpp"
+ #include "TransportLandscape.hpp"
+ #include "FrontageGeometry.hpp"
+ #include "../gen/UrbanParcel.hpp"
+@@ -464,7 +465,8 @@
+ 		appendLandscapeTree(groups,position,groundY,variation,4.8*scale,4.8*heightScale*scale,false,detailedTrees);
+ 	}
+ 	/// @brief Deterministic woodland batches follow undeveloped slopes, excluding roads and plots.
+-	void appendWoodland(HashTable<int, MeshData>& groups, const Chunk& chunk,
++	template<class HeightSource>
++	void appendWoodland(HashTable<int, MeshData>& groups, const Chunk& chunk,const HeightSource& world,
+ 		const Array<LandRoadMask>& roadMasks,const RiverNetwork& rivers,bool detailedTrees=true)
+ 	{
+ 		if (chunk.zoneMap.isEmpty() || chunk.heightMap.isEmpty()) { return; }
+@@ -488,6 +490,16 @@
+ 			const int bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunk.coord.y*CHUNK_SIZE)/16)),0,ZONE_CELLS-1);
+ 			for (int row=top;row<=bottom;++row) for (int col=left;col<=right;++col) { nearbyRoads[{col,row}]<<roadIndex; }
+ 		}
++		const VegetationProfile::BoundaryField boundary{{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE},[&](Vec2 point)
++		{
++			const auto* source=world.getChunk({static_cast<int>(Floor(point.x/CHUNK_SIZE)),static_cast<int>(Floor(point.y/CHUNK_SIZE))});
++			if(!source) { return false; }
++			const int col=Clamp(static_cast<int>((point.x-source->coord.x*CHUNK_SIZE)/16),0,ZONE_CELLS-1),row=Clamp(static_cast<int>((point.y-source->coord.y*CHUNK_SIZE)/16),0,ZONE_CELLS-1);
++			if(!source->zoneMap.isEmpty() && source->zoneMap[{col,row}]!=ZoneType::Unzoned) { return false; }
++			const float x=static_cast<float>(point.x),z=static_cast<float>(point.y);
++			const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
++			return VegetationProfile::habitat(world.sampleHeight(x,z),slope);
++		}};
+ 		int excludedByFacilities=0;
+ 		static const auto shrub=TreeGeometry::build(37,false);
+ 		for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
+@@ -499,13 +511,18 @@
+ 				const uint32 hash=cellVisualHash(chunk.coord,col,row,179u+candidate*31u);
+ 				const float x=chunk.coord.x*CHUNK_SIZE+(col+.5f)*16+static_cast<float>((hash>>8)%141u)*.1f-7.0f;
+ 				const float z=chunk.coord.y*CHUNK_SIZE+(row+.5f)*16+static_cast<float>((hash>>16)%141u)*.1f-7.0f;
+-				const Vec2 position{x,z};const float ground=chunk.getHeight(x,z);
++				const Vec2 position{x,z};const float ground=world.sampleHeight(x,z);
+ 				if (!rivers.vegetationAllowed(position,ground,7)) { continue; }
+-				const float slope=Max(Abs(chunk.getHeight(x+8,z)-chunk.getHeight(x-8,z)),Abs(chunk.getHeight(x,z+8)-chunk.getHeight(x,z-8)))/16;
+-				if (ground<GenerationSettings::get().vegetation_minimumForestAltitude || ground>GenerationSettings::get().vegetation_maximumForestAltitude || slope>GenerationSettings::get().vegetation_maximumForestSlope || (ground<GenerationSettings::get().vegetation_flatClearingAltitude && slope<GenerationSettings::get().vegetation_flatClearingSlope) || hash%100u>GenerationSettings::get().vegetation_forestDensityPercent) { continue; }
+-				const float scale=GenerationSettings::get().vegetation_treeScaleMinimum+static_cast<float>((hash>>3)%29u)*.01f;
++				const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
++				const auto altitude=VegetationProfile::at(ground);
++				const double probability=altitude.trees*boundary.density(position)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
++				const double draw=(hash%10000u)/10000.0;
++				const bool alpine=draw>=probability && draw<probability+altitude.alpine
++					&& slope<=GenerationSettings::get().vegetation_maximumForestSlope;
++				if(draw>=probability && !alpine) { continue; }
++				const float scale=(GenerationSettings::get().vegetation_treeScaleMinimum+static_cast<float>((hash>>3)%29u)*.01f)*static_cast<float>(alpine ? 1 : altitude.treeScale);
+ 				const bool cedar=Sin(x*GenerationSettings::get().vegetation_speciesFrequencyX)+Cos(z*GenerationSettings::get().vegetation_speciesFrequencyZ)+Sin((x-z)*GenerationSettings::get().vegetation_speciesFrequencyDiagonal) > GenerationSettings::get().vegetation_speciesThreshold;
+-				const double treeWidth=(cedar ? GenerationSettings::get().vegetation_cedarWidth : GenerationSettings::get().vegetation_broadleafWidth)*scale;
++				const double treeWidth=(alpine ? GenerationSettings::get().vegetation_alpineWidth : cedar ? GenerationSettings::get().vegetation_cedarWidth : GenerationSettings::get().vegetation_broadleafWidth)*scale;
+ 				bool clear=true;
+ 				for (const size_t roadIndex : nearbyRoads[{col,row}])
+ 				{
+@@ -513,8 +530,8 @@
+ 					if (!TreeGeometry::clearOfCorridor(position,treeWidth,road.shape)) { excludedByFacilities+=road.facility;clear=false;break; }
+ 				}
+ 				if (!clear) { continue; }
+-				appendLandscapeTree(groups,position,ground,hash,(cedar ? GenerationSettings::get().vegetation_cedarWidth : GenerationSettings::get().vegetation_broadleafWidth)*scale,(cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar,detailedTrees,true);
+-				if (detailedTrees && candidate==0)
++				appendLandscapeTree(groups,position,ground,hash,treeWidth,(alpine ? GenerationSettings::get().vegetation_alpineHeight : cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar && !alpine,detailedTrees,true);
++				if (detailedTrees && candidate==0 && !alpine)
+ 				{
+ 					// 足元の低木を高木と別の高さで重ねる。路肩へはみ出す株は上の離隔で除外する。
+ 					MeshData leaves=shrub.leaves;
+@@ -1070,6 +1087,10 @@
+ 	struct HeightSnapshot
+ 	{
+ 		const Array<Chunk>& chunks;
++		const Chunk* getChunk(Point coord) const
++		{
++			for(const auto& chunk:chunks) { if(chunk.coord==coord) { return &chunk; } }return nullptr;
++		}
+ 		float sampleHeight(float x, float z) const
+ 		{
+ 			const Point coord{static_cast<int>(Floor(x/CHUNK_SIZE)),static_cast<int>(Floor(z/CHUNK_SIZE))};
+@@ -1102,7 +1123,7 @@
+ 	}
+ 	HashTable<int,MeshData> groups;
+ 	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks,detailedTrees); }
+-	appendWoodland(groups,chunk,masks,rivers,detailedTrees);
++	appendWoodland(groups,chunk,heights,masks,rivers,detailedTrees);
+ 	Array<TerrainMeshData> result;
+ 	for (auto& [key,mesh] : groups) { result << TerrainMeshData{key,std::move(mesh)}; }
+ 	return result;
+@@ -1150,7 +1171,7 @@
+ 	if (!m_asyncTerrain)
+ 	{
+ 		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
+-		appendWoodland(groups,chunk,roadMasks,world.rivers());
++		appendWoodland(groups,chunk,world,roadMasks,world.rivers());
+ 	}
+ 
+ 	for (int row = 0; row < ZONE_CELLS; ++row)
+--- a/src/render/WorldRenderer_Streaming.cpp
++++ b/src/render/WorldRenderer_Streaming.cpp
+@@ -191,6 +191,7 @@
+ 						Chunk heights;
+ 						heights.coord = neighbor->coord;
+ 						heights.heightMap = neighbor->heightMap;
++						heights.zoneMap = neighbor->zoneMap;
+ 						heightSnapshots << std::move(heights);
+ 					}
+ 				}
+--- a/src/render/WorldRenderer_Terrain.cpp
++++ b/src/render/WorldRenderer_Terrain.cpp
+@@ -624,6 +624,7 @@
+ 
+ void WorldRenderer::invalidateTerrainChunkKeys(const std::unordered_set<Key>& chunkKeys, bool rebuildImmediately)
+ {
++	m_regionalTerrain=Mesh{};
+ 	m_transportSitesDirty=true;
+ 	if (chunkKeys.empty()) return;
+ 
+@@ -865,6 +866,7 @@
+ 
+ void WorldRenderer::invalidateAllTerrain()
+ {
++	m_regionalTerrain=Mesh{};
+ 	m_transportSitesDirty=true;
+ 	++m_terrainEpoch;
+ 	m_detailedTreeChunks.clear();
+--- a/src/road/RoadConstructionStart.cpp
++++ b/src/road/RoadConstructionStart.cpp
+@@ -69,11 +69,11 @@
+ }
+ 
+ Optional<RoadConstructionStart::Receipt> RoadConstructionStart::start(RoadNetwork& network,
+-	const Array<int>& selectedEdgeIds, double funds, GameTime now)
++	const Array<int>& selectedEdgeIds, double funds, GameTime now, bool sandbox)
+ {
+ 	// 同じ選別処理を実行直前に再評価する。以降は外部コールバックを挟まず、確認済みの状態だけを変更する。
+ 	Order order = makeOrder(network, selectedEdgeIds);
+-	if (order.receipt.edgeIds.isEmpty() || !canAfford(funds, order.receipt.cost)) { return none; }
++	if (order.receipt.edgeIds.isEmpty() || (!sandbox && !canAfford(funds, order.receipt.cost))) { return none; }
+ 	for (const int planId : order.planIds) { network.startPlanConstruction(planId, now); }
+ 	for (const int edgeId : order.standaloneEdgeIds)
+ 	{
+--- a/src/road/RoadConstructionStart.hpp
++++ b/src/road/RoadConstructionStart.hpp
+@@ -15,5 +15,5 @@
+ 	[[nodiscard]] double estimateCost(const RoadNetwork& network, const Array<int>& selectedEdgeIds);
+ 	/// @brief 資金不足や対象なしでは何も変更しない。支払いと用地・描画更新は成功後に呼び出し側で行う。
+ 	[[nodiscard]] Optional<Receipt> start(RoadNetwork& network, const Array<int>& selectedEdgeIds,
+-		double funds, GameTime now);
++		double funds, GameTime now, bool sandbox = false);
+ }
+--- a/src/road/RoadNetwork.cpp
++++ b/src/road/RoadNetwork.cpp
+@@ -626,29 +626,29 @@
+ 	const RoadEdge* edge = getEdge(edgeId);
+ 	if (!edge || !edge->useElevation) return;
+ 
+-	// 既存橋脚を削除
+-	removeObjectsByEdge(edgeId);
++	// 橋脚だけ再生成し、同じ道路にある他の設備を保持する。
++	Array<int> previous;
++	for (const auto& object : objects()) { if (object.id >= 0 && object.parentEdgeId == edgeId && object.type == RoadObjectType::Pier) { previous << object.id; } }
++	for (const int id : previous) { removeObject(id); }
+ 
+ 	const auto bez = getBezier(edgeId);
+ 	if (!bez) return;
+ 
+-	constexpr float kPierInterval  = 30.0f;
+-	constexpr float kPierThreshold = 3.0f;
+-
++	const auto& settings = GenerationSettings::get();
+ 	const float totalLen = bez->totalLength;
+-	const int steps = Max(1, static_cast<int>(totalLen / kPierInterval));
+-
+-	for (int i = 1; i < steps; ++i)
+-	{
+-		const float s = kPierInterval * i;
+-		if (s >= totalLen) break;
++	if (totalLen < settings.roads_pierMinimumSpan || edge->tunnel) { return; }
++	const int steps = Max(1, static_cast<int>(Ceil(totalLen / settings.roads_pierInterval)));
++
++	for (int i = 0; i < steps; ++i)
++	{
++		const float s = totalLen * (i + .5f) / steps;
+ 
+ 		const Vec3 pos = bez->positionAt(s);
+ 		const float terrainY = world.sampleHeight(
+ 			static_cast<float>(pos.x), static_cast<float>(pos.z));
+ 		const float gap = static_cast<float>(pos.y) - terrainY;
+ 
+-		if (gap >= kPierThreshold)
++		if (gap >= settings.roads_pierMinimumClearance)
+ 		{
+ 			RoadObject pier;
+ 			pier.parentEdgeId = edgeId;
+--- a/src/road/RoadPlanConstruction.cpp
++++ b/src/road/RoadPlanConstruction.cpp
+@@ -21,7 +21,7 @@
+ 			weightedLength += proposed.getEdge(id)->constructionEquivalentLength();
+ 		}
+ 		const double cost = proposed.estimatePlanCost(roadTemplate.roadType, weightedLength);
+-		if (cost > funds) { return Error::InsufficientFunds; }
++		if (!request.sandbox && cost > funds) { return Error::InsufficientFunds; }
+ 
+ 		Array<int> removedEdgeIds;
+ 		for (const auto& edge : network.edges())
+--- a/src/road/RoadPlanConstruction.hpp
++++ b/src/road/RoadPlanConstruction.hpp
+@@ -10,6 +10,7 @@
+ 		String planName;
+ 		String routeName;
+ 		Optional<int> existingRouteId;
++		bool sandbox = false; ///< 資金制限なしで着工できる。
+ 	};
+ 
+ 	enum class Error : uint8
+--- a/src/road/RoadPlanDraft.cpp
++++ b/src/road/RoadPlanDraft.cpp
+@@ -1,5 +1,7 @@
+ #include "RoadPlanDraft.hpp"
+ #include "../gen/RoadAutoPlace.hpp"
++#include "../gen/RoadAlignment.hpp"
++#include "../debug/DebugLog.hpp"
+ 
+ bool RoadPlanDraft::place(Vec3 point, bool replaceEnd)
+ {
+@@ -14,6 +16,7 @@
+ 	}
+ 	remember();
+ 	m_state.generated = false;
++	m_state.curves.clear();
+ 	if (replacing) { m_state.points.back() = point; }
+ 	else { m_state.points << point; }
+ 	return true;
+@@ -43,18 +46,38 @@
+ 		if (!IsFinite(delta.x) || !IsFinite(delta.y) || !IsFinite(delta.z)
+ 			|| Vec2{delta.x, delta.z}.length() < kMinimumSegment) { return false; }
+ 	}
++	Array<CubicBezier> curves;
++	if (points.size() == m_state.points.size() && m_state.curves.size() + 1 == points.size())
++	{
++		// ドラッグした節点の両側で接線を保つ。既存の滑らかな経路を粗い点列から再推定しない。
++		curves = m_state.curves;
++		for (size_t index = 0; index < curves.size(); ++index)
++		{
++			const Vec3 startShift = points[index] - m_state.points[index];
++			const Vec3 endShift = points[index + 1] - m_state.points[index + 1];
++			const auto& curve = curves[index];
++			curves[index] = CubicBezier{curve.p0 + startShift,curve.p1 + startShift,
++				curve.p2 + endShift,curve.p3 + endShift};
++		}
++	}
+ 	remember();
+ 	m_state.points = std::move(points);
++	m_state.curves = std::move(curves);
+ 	return true;
+ }
+ 
+ bool RoadPlanDraft::generate(const World& world, const RoadEdge& roadTemplate)
+ {
+ 	if (m_state.points.size() < 2) { return false; }
+-	Array<Vec3> points = RoadAutoPlace::findWaypoints(world, m_state.points.front(), m_state.points.back(), roadTemplate.roadType);
+-	if (points.size() < 2) { return false; }
+-	remember();
+-	m_state = State{std::move(points), true};
++	const Stopwatch timer{StartImmediately::Yes};
++	const auto result=RoadAlignment::find(world,m_state.points.front(),m_state.points.back(),roadTemplate.roadType);
++	if(!result)
++	{
++		invalidate();DBG_LOG(U"[RoadPlan] no alignment start={} end={} type={} ms={:.1f}"_fmt(m_state.points.front(),m_state.points.back(),static_cast<int>(roadTemplate.roadType),timer.msF()));return false;
++	}
++	Array<Vec3> points{result->curves.front().p0};for(const auto& curve:result->curves) { points << curve.p3; }
++	remember();m_state=State{std::move(points),true,result->curves};
++	DBG_LOG(U"[RoadPlan] alignment start={} end={} curves={} expanded={} cost={:.1f} ms={:.1f}"_fmt(m_state.points.front(),m_state.points.back(),m_state.curves.size(),result->expanded,result->cost,timer.msF()));
+ 	return rebuild(world, roadTemplate);
+ }
+ 
+@@ -89,7 +112,7 @@
+ bool RoadPlanDraft::rebuild(const World& world, const RoadEdge& roadTemplate)
+ {
+ 	m_preview = RoadNetwork{};
+-	m_previewEdges = RoadAutoPlace::buildWaypoints(m_preview, world, m_state.points, roadTemplate, 0.25f);
++	m_previewEdges = RoadAutoPlace::buildAlignment(m_preview,world,m_state.curves.isEmpty() ? RoadAlignment::fit(m_state.points) : m_state.curves,roadTemplate,.25f);
+ 	return valid();
+ }
+ 
+@@ -99,7 +122,7 @@
+ 	if (!valid()) { return none; }
+ 	// 呼び出し側の追加検査まで同じ仮の道路網を使い、二重コピーを避ける。
+ 	Proposal proposal{ network, {} };
+-	proposal.edgeIds = RoadAutoPlace::buildWaypoints(proposal.network, world, m_state.points, roadTemplate, 0.5f);
++	proposal.edgeIds = RoadAutoPlace::buildAlignment(proposal.network,world,m_state.curves.isEmpty() ? RoadAlignment::fit(m_state.points) : m_state.curves,roadTemplate,.5f);
+ 	if (proposal.edgeIds.isEmpty()) { return none; }
+ 	proposal.network.resolveIntersections(*std::min_element(proposal.edgeIds.begin(),proposal.edgeIds.end()),&proposal.edgeIds);
+ 	return proposal;
+@@ -147,12 +170,17 @@
+ 	{
+ 		if (node.id >= 0) { m_nodes[Point{cell(node.position.x),cell(node.position.z)}] << node.id; }
+ 	}
+-	for (const auto& edge : network.edges())
+-	{
+-		if (edge.id < 0) { continue; }
++	for(const auto& edge:network.edges()) { if(edge.id>=0) { appendEdge(network,edge.id); } }
++}
++
++void RoadPlanSnapIndex::appendEdge(const RoadNetwork& network,int edgeId)
++{
++	const auto* found=network.getEdge(edgeId);if(!found) { return; }const auto& edge=*found;
++	const auto cell=[](double value){return static_cast<int>(Floor(value/kCellSize));};
++		if (edge.id < 0) { return; }
+ 		const auto* a = network.getNode(edge.nodeA);
+ 		const auto* b = network.getNode(edge.nodeB);
+-		if (!a || !b) { continue; }
++		if (!a || !b) { return; }
+ 		double minX = a->position.x, maxX = minX, minZ = a->position.z, maxZ = minZ;
+ 		for (const Vec3 p : {b->position,edge.ctrlA,edge.ctrlB})
+ 		{
+@@ -163,10 +191,9 @@
+ 		{
+ 			for (int x = cell(minX); x <= cell(maxX); ++x) { m_edges[Point{x,z}] << edge.id; }
+ 		}
+-	}
+-}
+-
+-RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius) const
++}
++
++RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius, double heightTolerance, bool preferNodes) const
+ {
+ 	Hit result{ cursor };
+ 	double bestDistance = radius * radius;
+@@ -181,7 +208,7 @@
+ 				for (const int id : it->second)
+ 				{
+ 					const auto* node = network.getNode(id);
+-					if (!node || Abs(node->position.y-cursor.y) > 6.0) { continue; }
++					if (!preferNodes || !node || Abs(node->position.y-cursor.y) > heightTolerance) { continue; }
+ 					const double distance = Vec2{node->position.x-cursor.x,node->position.z-cursor.z}.lengthSq();
+ 					if (distance <= bestDistance) { bestDistance = distance; result = Hit{node->position,true,true}; }
+ 				}
+@@ -217,10 +244,10 @@
+ 		double t = (low+high)*0.5;
+ 		if (t < 0.012) { t = 0; } else if (t > 0.988) { t = 1; }
+ 		const Vec3 p = curve->evaluate(static_cast<float>(t));
+-		if (distanceAt(t) < bestDistance && Abs(p.y-cursor.y) <= 6.0)
++		if (distanceAt(t) < bestDistance && Abs(p.y-cursor.y) <= heightTolerance)
+ 		{
+ 			bestDistance = distanceAt(t);
+-			result = Hit{p,true,t == 0 || t == 1};
++			result = Hit{p,true,t == 0 || t == 1,id,static_cast<float>(t)};
+ 		}
+ 	}
+ 	return result;
+--- a/src/road/RoadPlanDraft.hpp
++++ b/src/road/RoadPlanDraft.hpp
+@@ -34,7 +34,7 @@
+ 	static Vec3 constrainAngle(Vec3 origin, Vec3 cursor);
+ 	static RoadEdge makeRoadTemplate(int preset);
+ private:
+-	struct State { Array<Vec3> points; bool generated = false; };
++	struct State { Array<Vec3> points; bool generated = false; Array<CubicBezier> curves; };
+ 	State m_state;
+ 	Array<State> m_undo, m_redo;
+ 	void remember();
+@@ -52,9 +52,12 @@
+ 		Vec3 position;
+ 		bool connected = false;
+ 		bool node = false;
++		Optional<int> edgeId;
++		float curveT=0;
+ 	};
+ 	void rebuild(const RoadNetwork& network);
+-	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0) const;
++	void appendEdge(const RoadNetwork& network,int edgeId);
++	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0, double heightTolerance = 6.0, bool preferNodes = true) const;
+ private:
+ 	static constexpr double kCellSize = 128.0;
+ 	HashTable<Point, Array<int>> m_nodes;
+--- a/src/road/RoadTypes.hpp
++++ b/src/road/RoadTypes.hpp
+@@ -254,7 +254,7 @@
+ 	int                   id            = -1;    ///< ネットワーク内で一意の ID
+ 	int                   parentEdgeId  = -1;    ///< 親エッジ ID（エッジ削除時に連動）
+ 	GuideSignKind         kind          = GuideSignKind::DirectionDistance;
+-	int                   nodeEndId     = -1;    ///< 進行方向基準ノード
++	int                   nodeEndId     = -1;    ///< 出発側の基準ノード。車両はこの端から反対端へ進む
+ 	float                 arcOffset     = 0.0f;  ///< nodeEnd 端からの内側距離 [m]
+ 	float                 lateralOffset = 0.0f;  ///< 道路中心からの横方向 [m]
+ 	float                 poleHeight    = 3.5f;  ///< ポール高さ [m]（現在は guide_pole.json の値で上書き、UI 非編集）
+--- a/src/scene/GameScene.cpp
++++ b/src/scene/GameScene.cpp
+@@ -607,6 +607,7 @@
+ 			m_minimapRenderer.buildTerrainTexture(m_world);
+ 				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
+ 				m_worldRenderer.preloadBuildingModels();
++			m_roadRenderer.preloadFallbacks(m_network,m_world);
+ 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
+ 			m_phase = GamePhase::Playing;
+ 				return;
+@@ -640,6 +641,7 @@
+ 
+ 			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
+ 			m_worldRenderer.preloadBuildingModels();
++			m_roadRenderer.preloadFallbacks(m_network,m_world);
+ 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
+ 			m_economy.initializeGeneratedCity(m_housingCapacity.capacity());
+ 			DBG_LOG(U"[InitialEconomy] housing={} population={} grant={:.3f} maintenance={:.3f}"_fmt(
+@@ -2216,7 +2218,7 @@
+ 	if (!m_showPauseMenu && !mapInput && !m_panelManager.blocksMouseInput()) { m_uiRenderer.handleInput(); }
+ 	m_uiRenderer.updateLayout(m_hudStats);
+ 	m_minimapRenderer.setSmallBounds(m_uiRenderer.minimapBounds());
+-	if (MouseL.down() && GameInput::textInput) { GameInput::releaseTextFocus(); }
++	if (!m_commandPalette.visible && MouseL.down() && GameInput::textInput) { GameInput::releaseTextFocus(); }
+ 	if (MouseL.down() && m_panelManager.isMouseOnAnyPanel()) { GameInput::textOwnedFrame = true; }
+ 	const bool textFocused=GameInput::keyboardBlocked();
+ 	const bool commandChord=GameInput::pressed(KeyControl) &&
+--- a/src/scene/GameScene.hpp
++++ b/src/scene/GameScene.hpp
+@@ -1,5 +1,6 @@
+ #pragma once
+ #include "../ui/FrameRateGraph.hpp"
++#include "../ui/CommandPalette.hpp"
+ #include "../render/TunnelRenderer.hpp"
+ #include "../gen/DistrictHierarchy.hpp"
+ #include "../render/RiverRenderer.hpp"
+@@ -203,6 +204,8 @@
+ 	};
+ 	DraftRoadPlan m_draftRoadPlan;
+ 	RoadPlanSnapIndex m_roadPlanSnapIndex;
++	RoadPlanSnapIndex m_locationIndex;
++	bool m_locationIndexDirty=true;
+ 	Optional<RoadPlanSnapIndex::Hit> m_roadPlanCursor;
+ 	Optional<int> m_selectedRoadPlanId;
+ 
+@@ -454,6 +457,7 @@
+ 		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;
+ 
+ 		m_routeSignRenderer.invalidate();
++		m_locationIndexDirty=true;
+ 		m_trainRenderer.invalidateRoadClearance();
+ 		m_tunnelRenderer.dirty=true;
+ 		if (dirtyNodeIds.isEmpty())
+@@ -581,6 +585,8 @@
+ 	void renderSelectionOutline();
+ 	void renderEditModeOverlays();
+ 	void render2DUI();
++	void executeCommand(StringView input);
++	CommandPalette m_commandPalette;
+ 	/// @brief 時刻から空・太陽パラメータを計算する
+ 	SkyParams calcSkyParams() const;
+ 	/// @brief renderWorld のパフォーマンス計測値をリングバッファに記録する
+--- a/src/scene/GameScene_Construction.cpp
++++ b/src/scene/GameScene_Construction.cpp
+@@ -4,7 +4,7 @@
+ 
+ bool GameScene::startRoadConstruction(const Array<int>& edgeIds)
+ {
+-	const auto receipt = RoadConstructionStart::start(m_network, edgeIds, m_economy.funds, m_clock.now);
++	const auto receipt = RoadConstructionStart::start(m_network, edgeIds, m_economy.funds, m_clock.now, m_sandboxActive);
+ 	if (!receipt) { m_soundEffects.play(SoundEffects::Cue::Reject);return false; }
+ 	applyConstructionStart(receipt->cost, receipt->edgeIds, receipt->affectedNodeIds);
+ 	return true;
+@@ -27,7 +27,7 @@
+ 			prepareConstructionSite({edgeId});
+ 		}
+ 	}
+-	m_economy.funds = Max(0.0, m_economy.funds - cost);
++	if (!m_sandboxActive) { m_economy.funds = Max(0.0, m_economy.funds - cost); }
+ 	m_soundEffects.play(SoundEffects::Cue::Construction);
+ 	for (const int nodeId : affectedNodeIds) { m_roadRenderer.invalidateCachesAroundNode(nodeId, m_network); }
+ 	notifyNetworkChanged(affectedNodeIds);
+--- a/src/scene/GameScene_Input.cpp
++++ b/src/scene/GameScene_Input.cpp
+@@ -1475,8 +1475,8 @@
+ 		return;
+ 	}
+ 
+-	constexpr float kStep    = 8.0f;
+-	constexpr float kMaxDist = 8000.0f;
++	const float kStep = Max(8.0f,m_camera.distance()/1000.0f);
++	const float kMaxDist = Max(8000.0f,m_camera.distance()*3);
+ 
+ 	float tPrev    = 0.0f;
+ 	bool  hitFound = false;
+@@ -1701,5 +1701,11 @@
+ 
+ void GameScene::handleGlobalShortcuts()
+ {
++	if(!m_commandPalette.visible && !m_showPauseMenu && GameInput::down(KeySlash)) { m_commandPalette.open(); }
++	if(m_commandPalette.visible)
++	{
++		if(const auto command=m_commandPalette.update()) { executeCommand(*command); }
++		return;
++	}
+ 	if (!m_showPauseMenu && !GameInput::keyboardBlocked() && GameInput::down(KeyF3)) { m_frameRateGraph.visible=!m_frameRateGraph.visible; }
+ }
+--- a/src/scene/GameScene_Panels.cpp
++++ b/src/scene/GameScene_Panels.cpp
+@@ -842,7 +842,7 @@
+ 			if (edge->edgeState == EdgeState::Planned)
+ 			{
+ 				const double startCost = RoadConstructionStart::estimateCost(m_network, { edge->id });
+-				const bool hasFunds = RoadConstructionStart::canAfford(m_economy.funds, startCost);
++				const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, startCost);
+ 				if (ui.button(U"建設", false, 60, U"{}を支出して建設を開始"_fmt(formatConstructionCost(startCost))) && hasFunds)
+ 				{
+ 					if (startRoadConstruction({ edge->id })) { dirty = true; }
+@@ -1117,7 +1117,7 @@
+ 	toolbarState.length = m_draftRoadPlan.editor.length();
+ 	toolbarState.cost = m_network.estimatePlanCost(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength());
+ 	toolbarState.constructionSeconds = m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength());
+-	toolbarState.funds = m_economy.funds;
++	toolbarState.funds = m_sandboxActive ? Math::Inf : m_economy.funds;
+ 	toolbarState.message = m_draftRoadPlan.message;
+ 	toolbarState.error = m_draftRoadPlan.error;
+ 	const auto action = RoadPlanToolbar::draw(pFont,pBold,panelW-10,toolbarState);
+@@ -1193,7 +1193,7 @@
+ 		if (active)
+ 		{
+ 			const double planCost = static_cast<double>(plan.totalCost);
+-			const bool hasFunds = RoadConstructionStart::canAfford(m_economy.funds, planCost);
++			const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, planCost);
+ 			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {}"_fmt(plan.totalLength, formatConstructionCost(planCost)),
+ 				kPad + 8, y, ColorF{ 0.75 });
+ 			y += kLH + 2;
+@@ -2616,7 +2616,7 @@
+ 			}
+ 		}
+ 		const double routeConstructionCost = RoadConstructionStart::estimateCost(m_network, route->edgeIds);
+-		const bool hasFunds = RoadConstructionStart::canAfford(m_economy.funds, routeConstructionCost);
++		const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, routeConstructionCost);
+ 		if (hasPlanned)
+ 		{
+ 			ui.label(U"未着工 {} / 資金 {:.1f}億円"_fmt(formatConstructionCost(routeConstructionCost), m_economy.funds),
+--- a/src/scene/GameScene_Playtest.cpp
++++ b/src/scene/GameScene_Playtest.cpp
+@@ -14,6 +14,11 @@
+ 		Scene::DeltaTime()*1000,m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
+ 		m_vehicleManager.vehicleCount(),m_vehicleManager.lastStats().total(),m_renderTimings.vehicle,m_vehicleRenderer.drawCalls(),
+ 		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds()));
++	if(m_renderTimings.total>40)
++	{
++		const auto& cache=m_roadRenderer.cacheBuildStats();
++		DBG_LOG(U"[TravelCost] frame={} total={:.2f} terrain={:.2f} road={:.2f} parts={:.2f} node={:.2f} marks={:.2f} furniture={:.2f} fallback={:.2f} edges={} nodes={}"_fmt(m_playtestFrame,m_renderTimings.total,m_renderTimings.terrainOnly,m_renderTimings.roadMesh,cache.partsMs,cache.nodesMs,cache.markingsMs,cache.furnitureMs,cache.fallbackMs,cache.edges,cache.nodes));
++	}
+ 	bool inputChanged = false;
+ 	for (int code=0;code<256;++code)
+ 	{
+@@ -70,6 +75,9 @@
+ 		state[U"zone"]=static_cast<int>(m_paintZone);
+ 		state[U"development"]=m_zoneManager.developmentSnapshot();
+ 		state[U"zonePalette"]=m_panelManager.isVisible(U"zone_palette");
++		state[U"commandPalette"]=m_commandPalette.visible;
++		state[U"commandInput"]=m_commandPalette.input;
++		state[U"commandMessage"]=m_commandPalette.message;
+ 		state[U"zoneBrush"]=m_zoneBrushRadius;
+ 		int zoneIndex=0;
+ 		for (int gy=static_cast<int>(Floor(focus.z/16))-8;gy<=static_cast<int>(Floor(focus.z/16))+8;++gy)
+@@ -301,6 +309,8 @@
+ 	}
+ 	else if (action==U"rail_save_review") { getData().saveName=U"railway_review"; saveGame(); }
+ 	else if (action==U"volume") { getData().effectVolume=Clamp(number(U"value",.6),0.0,1.0); }
++	else if (action==U"command") { executeCommand(command[U"text"].getOr<String>(U"")); }
++	else if (action==U"palette_text" && m_commandPalette.visible) { m_commandPalette.input=command[U"text"].getOr<String>(U"/"); }
+ 	else if (action==U"generate") { generateDraftRoadPlan(); }
+ 	else if (action==U"commit") { commitDraftRoadPlan(); }
+ 	else if (action==U"select_parcel") { selectLandParcelAt({number(U"x"),number(U"z")}); }
+@@ -310,6 +320,7 @@
+ 	else if (action==U"map_zoom") { m_minimapRenderer.mapView().zoomAt(m_minimapRenderer.mapView().body(Scene::Size()).center(),number(U"factor",1),Scene::Size()); }
+ 	else if (action==U"map_close") { m_minimapRenderer.mapView().close(); }
+ 	else if (action==U"local_map") { auto& view=m_minimapRenderer.localView();view.changeZoom(static_cast<int>(number(U"zoom")));if (number(U"toggle")!=0) { view.headingUp=!view.headingUp; } }
++	else if (action==U"pointer") { Cursor::SetPos(Point{static_cast<int>(number(U"x")),static_cast<int>(number(U"y"))}); }
+ 	else if (action==U"snapshot") { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
+ 	else if (action==U"exit") { System::Exit(); }
+ 	if (number(U"capture")!=0) { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
+--- a/src/scene/GameScene_Render.cpp
++++ b/src/scene/GameScene_Render.cpp
+@@ -1,4 +1,6 @@
+ #include "GameScene.hpp"
++#include "../ui/LocationTooltip.hpp"
++#include "../gen/SettlementNames.hpp"
+ #include "EdgeSectionState.hpp"
+ #include "../traffic/VehiclePose.hpp"
+ #include "../ui/DrivingHud.hpp"
+@@ -185,7 +187,8 @@
+ 		const Stopwatch mapTimer{StartImmediately::Yes};
+ 		m_renderTimings = {};
+ 		m_minimapRenderer.drawFullScreen(m_camera);
+-		m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size());
++		m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
++		if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
+ 		m_renderTimings.total=mapTimer.msF();
+ 		return;
+ 	}
+@@ -326,7 +329,7 @@
+ 	                               m_renderTimings.debug, m_renderTimings.ui, m_network);
+ 
+ 	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
+-	m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size());
++	if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
+ 
+ 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
+ 	constexpr int kPerfLogIntervalFrames = 120;
+@@ -374,7 +377,7 @@
+ 	Stopwatch sw{ StartImmediately::Yes };
+ 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
+ 
+-	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
++	const ViewFrustum frustum{ m_camera.camera3D(), Max(24000.0,m_camera.distance()*2.0) };
+ 	m_roadRenderer.synchronizeTerrainChanges(m_world, m_network);
+ 	if (m_tunnelRenderer.dirty)
+ 	{
+@@ -907,6 +910,32 @@
+ 	lap(m_renderTimings.uiPlaceNames);
+ 
+ 	m_routeSignRenderer.render(m_network, m_camera);
++	if(m_camera.mode()==CameraMode::Overview && m_cursorGroundPos && !m_commandPalette.visible
++		&& !m_showPauseMenu && !m_panelManager.blocksMouseInput() && !m_uiRenderer.isMouseOnHud())
++	{
++		if(m_locationIndexDirty) { m_locationIndex.rebuild(m_network);m_locationIndexDirty=false; }
++		LocationTooltip::Content content;double nearest=Math::Inf;const Vec2 point{m_cursorGroundPos->x,m_cursorGroundPos->z};
++		for(const auto& town:m_districts)
++		{
++			const double distance=town.center.distanceFromSq(point);
++			if(distance<nearest) { nearest=distance;content.place=SettlementNames::name(town);content.reading=SettlementNames::reading(town); }
++		}
++		const auto hit=m_locationIndex.find(m_network,*m_cursorGroundPos,Clamp(m_camera.distance()*.008,12.0,80.0),Math::Inf,false);
++		if(hit.edgeId)
++		{
++			const auto* edge=m_network.getEdge(*hit.edgeId);
++			for(int id:edge->routeIds)
++			{
++				const auto* route=m_network.getRoute(id);if(!route) { continue; }
++				if(content.road.isEmpty() || route->kind==RoadRouteKind::Named) { content.road=route->name; }
++				if(route->kind==RoadRouteKind::NationalRoute) { content.nationalNumber=route->number; }
++			}
++			if(content.road.isEmpty()) { content.road=edge->farmAccess ? U"農道" : edge->roadType==RoadType::Arterial ? U"幹線道路" : U"生活道路"; }
++		}
++		LocationTooltip::draw(Scene::Size(),Cursor::PosF(),content,FontAsset(Asset::CJK14),TextureAsset(Asset::NationalRoadSign));
++		if(getData().playtest && m_playtestFrame%60==0) { DBG_LOG(U"[LocationHover] world={} place={} road={}"_fmt(point,content.place,content.road)); }
++	}
++
+ 	lap(m_renderTimings.uiRouteSigns);
+ 
+ 	const Stopwatch housingTimer{StartImmediately::Yes};
+@@ -998,6 +1027,7 @@
+ 	if (m_showPauseMenu)
+ 		drawPauseMenu();
+ 
++	m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
+ 	lap(m_renderTimings.uiPanels);
+ }
+ 
+--- a/src/scene/GameScene_RoadPlan.cpp
++++ b/src/scene/GameScene_RoadPlan.cpp
+@@ -65,7 +65,7 @@
+ 	const Stopwatch timer{ StartImmediately::Yes };
+ 	const RoadPlanConstruction::Request request{
+ 		m_draftRoadPlan.nameEdit.text, m_draftRoadPlan.routeNameEdit.text,
+-		m_draftRoadPlan.appendToExistingRoute ? m_draftRoadPlan.routeId : none };
++		m_draftRoadPlan.appendToExistingRoute ? m_draftRoadPlan.routeId : none, m_sandboxActive };
+ 	const auto result = RoadPlanConstruction::commit(m_network, m_world, m_draftRoadPlan.editor,
+ 		m_drawTemplate, request, m_economy.funds, m_clock.now);
+ 	if (const auto* error = std::get_if<RoadPlanConstruction::Error>(&result))
+--- a/src/time/GameClock.hpp
++++ b/src/time/GameClock.hpp
+@@ -110,7 +110,7 @@
+ 	static GameTime TimeFromMonthIndex(int64 monthIndex)
+ 	{
+ 		const double calendarMinutes = static_cast<double>(monthIndex) * kCalendarMinutesPerMonth;
+-		return Max(0.0, (calendarMinutes - kInitialCalendarMinute) / kCalendarMinutesPerSecond);
++		return (calendarMinutes - kInitialCalendarMinute) / kCalendarMinutesPerSecond;
+ 	}
+ 
+ 	/// @brief 0 起点の通算月インデックスから月 (1-12) を返す
+@@ -129,7 +129,7 @@
+ 	/// @brief 任意のゲーム時刻をカレンダー分へ変換する
+ 	static double calendarMinuteFromTime(GameTime gameNow)
+ 	{
+-		return kInitialCalendarMinute + Max(0.0, gameNow) * kCalendarMinutesPerSecond;
++		return Max(0.0,kInitialCalendarMinute + gameNow * kCalendarMinutesPerSecond);
+ 	}
+ 
+ 	/// @brief 速度文字列を返す
+--- a/src/ui/Camera.cpp
++++ b/src/ui/Camera.cpp
+@@ -94,8 +94,8 @@
+ 			// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
+ 			if (dir.y < 0.0f)
+ 			{
+-				constexpr float kStep    = 10.0f;
+-				constexpr float kMaxDist = 8000.0f;
++				const float kStep = Max(10.0f, m_distance / 800.0f);
++				const float kMaxDist = Max(8000.0f, m_distance * 3.0f);
+ 				float tPrev = 0.0f;
+ 
+ 				for (float t = kStep; t < kMaxDist; t += kStep)
+@@ -186,11 +186,7 @@
+ 	const double wheel = Mouse::Wheel();
+ 	if (wheel != 0.0 && !GameInput::pressed(KeyControl) && !m_blockInput)
+ 	{
+-		m_distance = static_cast<float>(
+-			Clamp(
+-				static_cast<double>(m_distance) * (1.0 + wheel * ZOOM_SPEED),
+-				static_cast<double>(MIN_DIST),
+-				static_cast<double>(MAX_DIST)));
++		zoom(wheel);
+ 	}
+ 
+ 	// ─── Numpad0: 真上視点リセット ───────────────────────────────────────────
+@@ -199,6 +195,13 @@
+ 		m_pitch = static_cast<float>(Math::ToRadians(89.0));
+ 		m_yaw   = 0.0f;
+ 	}
++}
++
++void GameCamera::zoom(double notches)
++{
++	if (!IsFinite(notches)) { return; }
++	m_distance = static_cast<float>(Clamp(m_distance * Pow(1.0 + ZOOM_SPEED, Clamp(notches, -200.0, 200.0)),
++		static_cast<double>(MIN_DIST), static_cast<double>(MAX_DIST)));
+ }
+ 
+ void GameCamera::rebuild(const World* world)
+@@ -210,16 +213,23 @@
+ 		Math::Cos(m_yaw)  * Math::Cos(m_pitch)
+ 	} * m_distance;
+ 
+-	// 地形床クランプ: eye が地形面より低い場合は浮かせる
++	Vec3 target = m_focus;
+ 	if (world)
+ 	{
+-		const float terrainY = world->sampleHeight(
+-			static_cast<float>(eye.x), static_cast<float>(eye.z));
+-		if (eye.y < terrainY + MIN_HEIGHT_ABOVE_TERRAIN)
+-			eye.y = terrainY + MIN_HEIGHT_ABOVE_TERRAIN;
+-	}
+-
+-	m_camera = BasicCamera3D{ Scene::Size(), 40_deg, eye, m_focus };
++		const double terrainY = world->sampleHeight(static_cast<float>(eye.x), static_cast<float>(eye.z));
++		if (m_mode == CameraMode::Overview)
++		{
++			// 地面からの高度を距離と俯角から決める。標高差で視線の俯角を変えない。
++			const double clearance = Max<double>(MIN_HEIGHT_ABOVE_TERRAIN, Sin(m_pitch) * m_distance);
++			const double lift = terrainY + clearance - eye.y;
++			eye.y += lift;
++			target.y += lift;
++			m_focus.y = world->sampleHeight(static_cast<float>(m_focus.x), static_cast<float>(m_focus.z));
++		}
++		else { eye.y = Max(eye.y, terrainY + MIN_HEIGHT_ABOVE_TERRAIN); }
++	}
++
++	m_camera = BasicCamera3D{ Scene::Size(), 40_deg, eye, target };
+ }
+ 
+ void GameCamera::setFocus(Vec3 focus)
+--- a/src/ui/Camera.hpp
++++ b/src/ui/Camera.hpp
+@@ -60,6 +60,14 @@
+ 
+ 	/// @brief カメラ姿勢を一括設定する（セーブロード用）
+ 	void setState(Vec3 focus, float distance, float yaw, float pitch);
++	/// @brief 俯瞰に戻り、距離制限を適用して指定座標を見る。
++	void setOverviewState(Vec3 focus,float distance,float yaw,float pitch)
++	{
++		m_mode=CameraMode::Overview;setState(focus,Clamp(distance,MIN_DIST,MAX_DIST),yaw,pitch);
++	}
++
++	/// @brief ホイール1目盛りを一定倍率で適用する。イベントの集約に依存しない。
++	void zoom(double notches);
+ 
+ 	/// @brief 提出用スクリーンショット撮影カメラを設定する
+ 	void setCaptureState(Vec3 focus, float distance, float yaw, float pitch);
+@@ -128,7 +136,7 @@
+ 	static constexpr float ROTATE_SPEED  = 0.005f;
+ 	static constexpr float ZOOM_SPEED    = 0.12f;
+ 	static constexpr float MIN_DIST      = 5.0f;
+-	static constexpr float MAX_DIST      = 3000.0f;
++	static constexpr float MAX_DIST      = 60000.0f;
+ 	static constexpr float MIN_PITCH_DEG = 10.0f;
+ 	static constexpr float MAX_PITCH_DEG = 89.0f;
+ 	/// @brief eye が地形面から最低限浮かせる高さ [m]
+--- a/src/ui/LocalMapView.hpp
++++ b/src/ui/LocalMapView.hpp
+@@ -63,16 +63,18 @@
+ 			for (const auto& river : data.rivers)
+ 			{
+ 				if (!river.bounds.intersects(visible) || river.points.size()<2) { continue; }
+-				Line{toScreen(river.points.front(),rect),toScreen(river.points.back(),rect)}.draw(Max(1.4,river.width*scale),ColorF{.27,.59,.78});
++				MapStroke::draw(toScreen(river.points.front(),rect),toScreen(river.points.back(),rect),area,Max(1.4,river.width*scale),ColorF{.27,.59,.78});
+ 			}
+ 			for (const auto& road : data.streets)
+ 			{
+ 				if (!road.bounds.intersects(visible)) { continue; }
+ 				const double width=Clamp(road.width*scale,road.category==0 ? 1.0 : 1.5,9.0);
+ 				const ColorF color=road.category==2 ? ColorF{.23,.31,.37} : road.category==1 ? ColorF{1,.82,.32} : ColorF{.97};
++				double phase=0;
+ 				for (size_t i=1;i<road.points.size();++i)
+ 				{
+-					Line{toScreen(road.points[i-1],rect),toScreen(road.points[i],rect)}.draw(width,color);
++					const Vec2 a=toScreen(road.points[i-1],rect),b=toScreen(road.points[i],rect);
++					MapStroke::draw(a,b,area,width,color,road.tunnel,phase);phase+=a.distanceFrom(b);
+ 				}
+ 			}
+ 			Array<RectF> used;
+@@ -82,11 +84,13 @@
+ 				const Vec2 point=toScreen(label.position,rect);
+ 				if (!area.stretched(-14).contains(point)) { continue; }
+ 				if (label.station) { RectF{point-Vec2{3,3},6,6}.draw(ColorF{.1,.3,.52}); }
+-				const RectF bounds{point+Vec2{6,-8},font(label.text).region().size+Vec2{6,3}};
++				const double width=Max(font(label.text).region().w,font(label.reading).region(10).w)+6;
++				const RectF bounds{point+Vec2{6,-8},width,label.reading.isEmpty() ? 23.0 : 35.0};
+ 				bool overlap=!area.contains(bounds.br());
+ 				for (const auto& other : used) { overlap|=other.intersects(bounds); }
+ 				if (overlap || used.size()>=4) { continue; }
+ 				used<<bounds; bounds.draw(ColorF{1,.88}); font(label.text).draw(bounds.pos+Vec2{3,0},ColorF{.12,.22,.3});
++				if (!label.reading.isEmpty()) { font(label.reading).draw(10,bounds.pos+Vec2{3,21},ColorF{.3,.38,.41}); }
+ 			}
+ 			const Vec2 position=area.center(),tip=toScreen(center+forward*(7/scale),rect),right{-(tip-position).y,(tip-position).x};
+ 			Triangle{tip,position-(tip-position)*.6+right*.6,position-(tip-position)*.6-right*.6}.draw(ColorF{.95,.25,.12}).drawFrame(1,Palette::White);
+--- a/src/ui/MapTerrainLayer.hpp
++++ b/src/ui/MapTerrainLayer.hpp
+@@ -28,8 +28,7 @@
+ 		Image image{pixels,Color{0,0,0,0}};
+ 		for (int y=0;y<pixels.y;++y) for (int x=0;x<pixels.x;++x)
+ 		{
+-			const Vec2 world=bounds.pos+Vec2{(x+.5)*step.x,(y+.5)*step.y};
+-			if (world.x<0 || world.y<0 || world.x>65536 || world.y>65536) { continue; }
++			// 境界外の画素にもクランプした地形色を持たせ、補間による黒縁を防ぐ。
+ 			const float height=heights[y+1][x+1];
+ 			const double dx=(heights[y+1][x+2]-heights[y+1][x])/(2*step.x);
+ 			const double dz=(heights[y+2][x+1]-heights[y][x+1])/(2*step.y);
+--- a/src/ui/TownBillboards.hpp
++++ b/src/ui/TownBillboards.hpp
+@@ -5,8 +5,8 @@
+ /// @brief 街の位置に追従する俯瞰用ラベル。画面内の重なりを除いてから描く。
+ namespace TownBillboards
+ {
+-	struct Place { Vec3 position; String name; int importance = 0; };
+-	struct Label { Vec2 anchor; RectF bounds; String name; double fontSize; };
++	struct Place { Vec3 position; String name; int importance = 0; String reading; };
++	struct Label { Vec2 anchor; RectF bounds; String name; double fontSize; String reading; };
+ 
+ 	inline Array<Label> layout(const Array<Place>& places, const GameCamera& camera, Size size, const Font& font, const Array<RectF>& excluded = {})
+ 	{
+@@ -25,19 +25,20 @@
+ 		{
+ 			const auto& place = places[i];
+ 			if (place.name.isEmpty() || (place.position - eye).dot(forward) <= 0) { continue; }
+-			const double reach = place.importance == 2 ? 45000 : place.importance == 1 ? 22000 : 9500;
++			const double reach = place.importance == 2 ? 120000 : place.importance == 1 ? 45000 : 15000;
+ 			if (place.position.distanceFromSq(eye) > reach * reach) { continue; }
+ 			const Float3 projected = camera.camera3D().worldToScreenPoint(Float3{place.position});
+ 			const Vec2 anchor{projected.x, projected.y};
+ 			const double fontSize = place.importance == 2 ? 21 : place.importance == 1 ? 18 : 15;
+-			const double width = Min(200.0, font(place.name).region(fontSize).w + 22);
+-			const RectF bounds{anchor.x - width * .5, anchor.y - 38, width, 29};
++			const double width = Min(260.0, Max(font(place.name).region(fontSize).w,font(place.reading).region(12).w)+22);
++			const double height = place.reading.isEmpty() ? 29 : 45;
++			const RectF bounds{anchor.x-width*.5,anchor.y-height-9,width,height};
+ 			if (!visible.contains(bounds.tl()) || !visible.contains(bounds.br())) { continue; }
+ 			bool overlap = false;
+ 			for (const auto& blocked : excluded) { overlap |= bounds.stretched(4).intersects(blocked); }
+ 			for (const auto& label : labels) { overlap |= bounds.stretched(8, 6).intersects(label.bounds); }
+ 			if (overlap) { continue; }
+-			labels << Label{anchor, bounds, place.name, fontSize};
++			labels << Label{anchor, bounds, place.name, fontSize, place.reading};
+ 			if (labels.size() == 24) { break; }
+ 		}
+ 		return labels;
+@@ -50,7 +51,8 @@
+ 			Line{Vec2{label.anchor.x, label.bounds.bottomY()}, label.anchor}.draw(1.5, ColorF{.85, .94, .95, .8});
+ 			Circle{label.anchor, 2.5}.draw(ColorF{.85, .94, .95});
+ 			label.bounds.rounded(5).draw(ColorF{.06, .12, .16, .88});
+-			NavigationHeader::fitted(font, label.name, label.bounds.stretched(-8, -2), label.fontSize, Palette::White);
++			NavigationHeader::fitted(font,label.name,{label.bounds.pos+Vec2{8,2},label.bounds.w-16,25},label.fontSize,Palette::White);
++			if (!label.reading.isEmpty()) { NavigationHeader::fitted(font,label.reading,{label.bounds.pos+Vec2{8,27},label.bounds.w-16,14},12,ColorF{.72,.84,.9}); }
+ 		}
+ 	}
+ }
+--- a/src/ui/WorldMapView.hpp
++++ b/src/ui/WorldMapView.hpp
+@@ -1,13 +1,14 @@
+ #pragma once
+ #include "KeyboardActions.hpp"
++#include "MapStroke.hpp"
+ #include <Siv3D.hpp>
+ 
+ /// @brief 地図の座標変換・ズーム・右クリックメニュー。地形は背景、道路は拡大率に応じた線で描く。
+ class WorldMapView
+ {
+ public:
+-	struct Stroke { Array<Vec2> points; RectF bounds; double width = 5; int category = 0; };
+-	struct Label { Vec2 position; String text; bool station = false; double minimumZoom=1; };
++	struct Stroke { Array<Vec2> points; RectF bounds; double width = 5; int category = 0; bool tunnel = false; };
++	struct Label { Vec2 position; String text; bool station = false; double minimumZoom=1; String reading; };
+ 	Array<Stroke> streets,rivers;
+ 	struct Border { Vec2 a,b; int level=0; };
+ 	Array<Border> boundaries;
+@@ -156,19 +157,30 @@
+ 		Graphics2D::SetScissorRect(Rect{0, 56, size.x, Max(1, size.y-56)});
+ 		{
+ 			const ScopedRenderStates2D clip{RasterizerState{FillMode::Solid, CullMode::Off, true}};
+-			if (!terrain.isEmpty()) { Quad{toScreen(terrainWorld.tl(),size),toScreen(terrainWorld.tr(),size),toScreen(terrainWorld.br(),size),toScreen(terrainWorld.bl(),size)}(terrain).draw(); }
+ 			const Vec2 upper = toWorld({0, 56}, size), lower = toWorld({static_cast<double>(size.x), static_cast<double>(size.y)}, size);
+ 			const RectF visibleWorld{Vec2{Min(upper.x,lower.x),Min(upper.y,lower.y)},Vec2{Abs(lower.x-upper.x),Abs(lower.y-upper.y)}};
++			if (!terrain.isEmpty() && terrainWorld.w>0 && terrainWorld.h>0)
++			{
++				const Vec2 lo{Max(0.0,Max(terrainWorld.x,visibleWorld.x)),Max(0.0,Max(terrainWorld.y,visibleWorld.y))};
++				const Vec2 hi{Min(kWorldSize,Min(terrainWorld.rightX(),visibleWorld.rightX())),Min(kWorldSize,Min(terrainWorld.bottomY(),visibleWorld.bottomY()))};
++				if (hi.x>lo.x && hi.y>lo.y)
++				{
++					const RectF clipped{lo,hi-lo};
++					const RectF uv{(lo.x-terrainWorld.x)/terrainWorld.w,(lo.y-terrainWorld.y)/terrainWorld.h,clipped.w/terrainWorld.w,clipped.h/terrainWorld.h};
++					Quad{toScreen(clipped.tl(),size),toScreen(clipped.tr(),size),toScreen(clipped.br(),size),toScreen(clipped.bl(),size)}(terrain.uv(uv)).draw();
++				}
++			}
+ 			for (const auto& river : rivers)
+ 			{
+ 				if (!river.bounds.intersects(visibleWorld)) { continue; }
+-				Line{toScreen(river.points.front(),size),toScreen(river.points.back(),size)}.draw(LineStyle::RoundCap,Max(1.2,river.width*scale(size)),ColorF{.38,.67,.82});
++				if (river.points.size()<2) { continue; }
++				MapStroke::draw(toScreen(river.points.front(),size),toScreen(river.points.back(),size),body(size),Max(1.2,river.width*scale(size)),ColorF{.38,.67,.82});
+ 			}
+ 			for (const auto& border : boundaries)
+ 			{
+ 				if (zoom<(border.level==0 ? 1 : border.level==1 ? 8 : 32)) { continue; }
+ 				if (!Line{border.a,border.b}.intersects(visibleWorld)) { continue; }
+-				Line{toScreen(border.a,size),toScreen(border.b,size)}.draw(LineStyle::SquareDot,border.level==0 ? 2.2 : 1.2,ColorF{.48,.28,.53,.7});
++				MapStroke::draw(toScreen(border.a,size),toScreen(border.b,size),body(size),border.level==0 ? 2.2 : 1.2,ColorF{.48,.28,.53,.7},true);
+ 			}
+ 			for (const int pass : {0, 1})
+ 			{
+@@ -178,9 +190,12 @@
+ 					const double width = Clamp(road.width*scale(size), road.category==0 ? 1.5 : 1.8, 24.0);
+ 					const ColorF color = pass==0 ? ColorF{.68,.68,.64} : (road.category==2 ? ColorF{.35,.4,.46} : (road.category==1 ? ColorF{1,.83,.39} : ColorF{1}));
+ 					const size_t stride=static_cast<size_t>(Max(1.0,std::floor(1.5/(30*scale(size)))));
++					double phase=0;
+ 					for (size_t index=1; index<road.points.size(); index+=stride)
+ 					{
+-						Line{toScreen(road.points[index-1], size), toScreen(road.points[Min(index+stride-1,road.points.size()-1)], size)}.draw(width+(pass==0 ? 2 : 0), color);
++						const Vec2 a=toScreen(road.points[index-1],size),b=toScreen(road.points[Min(index+stride-1,road.points.size()-1)],size);
++						MapStroke::draw(a,b,body(size),width+(pass==0 ? 2 : 0),color,road.tunnel,phase);
++						phase+=a.distanceFrom(b);
+ 					}
+ 				}
+ 			}
+@@ -201,7 +216,8 @@
+ 				if (zoom<label.minimumZoom) { continue; }
+ 				const Vec2 point = toScreen(label.position, size);
+ 				if (!body(size).stretched(-24).contains(point)) { continue; }
+-				const RectF bounds{point+Vec2{6,-10}, font(label.text).region().size+Vec2{12,8}};
++				const double width=Max(font(label.text).region().w,font(label.reading).region(11).w)+12;
++				const RectF bounds{point+Vec2{6,-10},width,label.reading.isEmpty() ? 26.0 : 40.0};
+ 				bool overlaps=false;
+ 				for (const auto& used : occupied) { if (used.intersects(bounds)) { overlaps=true; break; } }
+ 				if (overlaps) { continue; }
+@@ -209,6 +225,7 @@
+ 				if (label.station) { RectF{point-Vec2{4,4},8,8}.draw(ColorF{.18,.36,.55}); }
+ 				bounds.draw(ColorF{1,.85});
+ 				font(label.text).draw(bounds.pos+Vec2{6,2},ColorF{.17,.24,.29});
++				if (!label.reading.isEmpty()) { font(label.reading).draw(11,bounds.pos+Vec2{6,24},ColorF{.3,.38,.41}); }
+ 			}
+ 		}
+ 		Graphics2D::SetScissorRect(previous);

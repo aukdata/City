@@ -1,0 +1,127 @@
+﻿{
+  "total": 17,
+  "passed": 16,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Comprehensive.RepeatedRoadGeneration",
+      "status": "passed",
+      "durationMs": 236.352,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.GeneratedFarmRoadsOpen",
+      "status": "passed",
+      "durationMs": 436.519,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewTerrainHeight",
+      "status": "passed",
+      "durationMs": 467.888,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.AfterConstructionTerrain",
+      "status": "passed",
+      "durationMs": 838.425,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewZoom",
+      "status": "passed",
+      "durationMs": 0.016,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SandboxConstruction",
+      "status": "passed",
+      "durationMs": 229.142,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ShortViaductPiers",
+      "status": "passed",
+      "durationMs": 233.168,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.ExpandedMapLocations",
+      "status": "passed",
+      "durationMs": 71.917,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.MapTunnelAndReading",
+      "status": "passed",
+      "durationMs": 28.919,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.BlueGuideApproach",
+      "status": "passed",
+      "durationMs": 653.159,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.CommandParserAndPalette",
+      "status": "passed",
+      "durationMs": 15.432,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.CommandExecution",
+      "status": "passed",
+      "durationMs": 232.084,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SettlementNames",
+      "status": "passed",
+      "durationMs": 0.015,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.VegetationTransitions",
+      "status": "passed",
+      "durationMs": 0.091,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.AltitudeTerrainPixels",
+      "status": "passed",
+      "durationMs": 163.422,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.OverviewLocationTooltip",
+      "status": "passed",
+      "durationMs": 8.794,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.NextRoadAllowedGrade",
+      "status": "failed",
+      "durationMs": 237.070,
+      "failures": [
+        "A second road with an allowed grade must survive preview generation"
+      ]
+    }
+  ]
+}
