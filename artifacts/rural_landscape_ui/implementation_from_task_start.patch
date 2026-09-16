@@ -1,0 +1,2742 @@
+--- a/src/gen/AgriculturalLayout.cpp
++++ b/src/gen/AgriculturalLayout.cpp
+@@ -1,206 +1,278 @@
+ ﻿#include "AgriculturalLayout.hpp"
+ #include "ParcelRoadIndex.hpp"
+ #include "SettlementPlan.hpp"
++#include "StreetProfile.hpp"
++#include "UrbanParcel.hpp"
++#include "RoadDesignLimits.hpp"
+ 
+ namespace AgriculturalLayout
+ {
+ 	namespace
+ 	{
+-		struct Track { Point begin,end; int nodeA=0,nodeB=0; };
+-		struct Plot { Point grid; int access=0; bool paddy=false; uint32 salt=0; };
+-		Vec2 position(const Frame& frame,Point grid) { return {grid.x*frame.plotSize.x,grid.y*frame.plotSize.y}; }
+-
+-		RectF trackBounds(const Frame& frame,Point begin,Point end)
+-		{
+-			const Vec2 a=position(frame,begin),b=position(frame,end);
+-			return RectF{Min(a.x,b.x),Min(a.y,b.y),Abs(a.x-b.x),Abs(a.y-b.y)}.stretched(GenerationSettings::get().agriculture_trackWidth*.5);
+-		}
+-
+-		ParcelGeometry::Quad quad(const Frame& frame,RectF rect)
+-		{
+-			return {frame.worldPoint(rect.tl()),frame.worldPoint(rect.tr()),frame.worldPoint(rect.br()),frame.worldPoint(rect.bl())};
+-		}
+-
+-		bool dryTrack(const World& world,const Frame& frame,RectF rect)
+-		{
+-			const bool vertical=rect.h>rect.w;
+-			const int count=Max(2,static_cast<int>(Ceil(Max(rect.w,rect.h)/GenerationSettings::get().agriculture_sampleStep)));
+-			double previous=0;
+-			for (int step=0;step<=count;++step)
+-			{
+-				const double t=static_cast<double>(step)/count;
+-				const Vec2 p=frame.worldPoint(vertical ? Vec2{rect.center().x,rect.y+rect.h*t} : Vec2{rect.x+rect.w*t,rect.center().y});
+-				const double height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+-				if (p.x<0 || p.y<0 || p.x>=WORLD_SIZE || p.y>=WORLD_SIZE
+-					|| height<world.waterSurfaceHeight(p.x,p.y)+GenerationSettings::get().agriculture_minimumFreeboard
+-					|| (step>0 && Abs(height-previous)>Max(rect.w,rect.h)/count*GenerationSettings::get().agriculture_maximumTrackGrade)) { return false; }
+-				previous=height;
+-			}
+-			return true;
++		constexpr double kCellSize=static_cast<double>(CHUNK_SIZE)/ZONE_CELLS;
++		Vec2 horizontal(Vec3 point) { return {point.x,point.z}; }
++		Vec3 groundPoint(const World& world,Vec2 point) { return {point.x,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)),point.y}; }
++		bool agricultural(const World& world,Vec2 point)
++		{
++			if (point.x<0 || point.y<0 || point.x>=WORLD_SIZE || point.y>=WORLD_SIZE) { return false; }
++			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
++			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
++			return chunk && chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]==ZoneType::Agriculture;
++		}
++		uint32 hash(uint64 seed,Vec2 point)
++		{
++			return static_cast<uint32>(UrbanMorphology::mix(seed^(static_cast<uint64>(static_cast<uint32>(Floor(point.x)))<<32)^static_cast<uint32>(Floor(point.y))));
++		}
++		Array<Frame> localFrames(const RoadNetwork& roads,const Array<Frame>& frames)
++		{
++			if (!frames.isEmpty()) { return frames; }
++			Vec2 center{};int count=0;
++			for (const auto& node:roads.nodes()) { if (node.id>=0) { center+=horizontal(node.position);++count; } }
++			Frame frame;frame.center=count ? center/count : Vec2{};frame.origin=frame.center;
++			return {frame};
++		}
++		double settlementDistance(Vec2 point,const Array<Frame>& frames)
++		{
++			double distance=Math::Inf;
++			for (const auto& frame:frames) { distance=Min(distance,point.distanceFrom(frame.center)); }
++			return distance;
++		}
++		double density(Vec2 point,const Array<Frame>& frames)
++		{
++			const auto& config=GenerationSettings::get();const double distance=settlementDistance(point,frames);
++			return distance>config.agriculture_maximumRadius ? 0 : Exp(-Square(distance/config.agriculture_densityRadius)*config.agriculture_densityFalloff);
++		}
++		ParcelGeometry::Quad ribbon(Vec2 a,Vec2 b,double halfWidth)
++		{
++			const Vec2 delta=b-a;const Vec2 normal=Vec2{-delta.y,delta.x}.normalized()*halfWidth;
++			return {a-normal,b-normal,b+normal,a+normal};
++		}
++		/// @brief 実在する建物の占有面と農家位置。新しい農地が家を覆うことも防ぐ。
++		struct Sites
++		{
++			RoadNetwork empty;
++			ParcelRoadIndex occupied{empty};
++			Array<Vec2> homes;
++			explicit Sites(const World& world)
++			{
++				for (int z=0;z<WORLD_CHUNKS;++z) { for (int x=0;x<WORLD_CHUNKS;++x)
++				{
++					const auto* chunk=world.getChunk({x,z});if (!chunk) { continue; }
++					for (const auto& patch:chunk->landPatches)
++					{
++						if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField) { continue; }
++						for (size_t i=1;i+1<patch.polygon.size();++i) { occupied.add({patch.polygon[0],patch.polygon[i],patch.polygon[i+1],patch.polygon[i+1]}); }
++					}
++					for (int row=0;row<ZONE_CELLS;++row) { for (int col=0;col<ZONE_CELLS;++col)
++					{
++						const auto& building=chunk->buildingGrid[{col,row}];
++						if (building.type==BuildingType::None || building.type==BuildingType::Farmland) { continue; }
++						const Vec2 center{(x*ZONE_CELLS+col+.5)*kCellSize+building.offsetX,(z*ZONE_CELLS+row+.5)*kCellSize+building.offsetZ};
++						occupied.add(ParcelGeometry::footprint(center,buildingFootprintXZ(building.type)*.5+3,building.angle));
++						if (building.type==BuildingType::RuralHouse) { homes << center; }
++					} }
++				} }
++			}
++			bool served(const Array<Vec2>& polygon,double maximum) const
++			{
++				for (const Vec2 home:homes)
++				{
++					if (home.distanceFromSq(polygon.front())>maximum*maximum) { continue; }
++					bool within=true;for (const Vec2 point:polygon) { within &= point.distanceFromSq(home)<=maximum*maximum; }
++					if (within) { return true; }
++				}
++				return false;
++			}
++		};
++		int prepareHomes(World& world,const RoadNetwork& roads,const TrainNetwork* railway,const Array<Frame>& frames)
++		{
++			const auto& config=GenerationSettings::get();ParcelRoadIndex occupied{roads,true};if (railway) { occupied.addRailway(*railway); }
++			Sites sites{world};int placed=0;
++			for (const auto& edge:roads.edges())
++			{
++				if (edge.id<0 || edge.useElevation || edge.tunnel || !edge.farmAccess) { continue; }
++				const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
++				for (float arc=curve->totalLength*.5f;arc<curve->totalLength;arc+=static_cast<float>(config.agriculture_homeSpacing))
++				{
++					const Vec3 road=curve->positionAt(arc),right3=tangentToRight(curve->tangentAt(arc));
++					if (settlementDistance(horizontal(road),frames)>config.agriculture_maximumRadius) { continue; }
++					if (sites.served({horizontal(road)},config.agriculture_homeSpacing)) { continue; }
++					for (const int side:{-1,1})
++					{
++						const double half=buildingFootprintXZ(BuildingType::RuralHouse)*.5;
++						const Vec2 outward=horizontal(right3)*side,point=horizontal(road)+outward*(edge.totalWidth()*.5+half+config.agriculture_homeSetback);
++						if (!agricultural(world,point)) { continue; }
++						const double angle=Atan2(-outward.x,outward.y);const auto footprint=ParcelGeometry::footprint(point,half+config.agriculture_homeFootprintMargin,angle);
++						if (occupied.overlaps(footprint) || sites.occupied.overlaps(footprint)) { continue; }
++						double low=Math::Inf,high=-Math::Inf;bool valid=true;
++						for (const auto corner:footprint)
++						{
++							const auto ground=groundPoint(world,corner);low=Min(low,ground.y);high=Max(high,ground.y);
++							valid &= agricultural(world,corner) && ground.y>world.waterSurfaceHeight(corner.x,corner.y)+config.agriculture_minimumFreeboard;
++						}
++						if (!valid || high-low>config.development_maximumBuildingRelief) { continue; }
++						const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
++						auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});auto& building=chunk->buildingGrid[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}];
++						if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland) { continue; }
++						building.type=BuildingType::RuralHouse;building.angle=static_cast<float>(angle);building.edgeId=edge.id;building.edgeT=curve->tFromArcLength(arc);
++						building.offsetX=static_cast<float>(point.x-(cell.x+.5)*kCellSize);building.offsetZ=static_cast<float>(point.y-(cell.y+.5)*kCellSize);
++						chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]=ZoneType::LowResidential;chunk->meshDirty=true;
++						sites.occupied.add(footprint);sites.homes << point;++placed;break;
++					}
++				}
++			}
++			return placed;
+ 		}
+ 	}
+ 
+-	Stats generate(World& world, const RoadNetwork& network, uint64 seed, const Array<Frame>& frames)
++	Stats prepare(World& world,RoadNetwork& roads,uint64 seed,const Array<Frame>& inputFrames,const TrainNetwork* railway)
+ 	{
+-		Stats stats;
+-		const Array<Frame> fallback{Frame{}};
+-		const auto& divisions=frames.isEmpty() ? fallback : frames;
+-		const auto owner=[&](Vec2 point)
+-		{
+-			size_t best=0;
+-			double distance=1e30;
+-			for (size_t i=0;i<divisions.size();++i)
+-			{
+-				const double candidate=point.distanceFromSq(divisions[i].center);
+-				if (candidate<distance) { distance=candidate; best=i; }
+-			}
+-			return best;
+-		};
+-		Array<Array<Point>> chunks(divisions.size());
+-		for (int y=0;y<WORLD_CHUNKS;++y)
+-		{
+-			for (int x=0;x<WORLD_CHUNKS;++x)
+-			{
+-				const auto* chunk=world.getChunk(Point{x,y});
+-				if (!chunk) { continue; }
+-				bool agriculture=false;
+-				for (const auto zone : chunk->zoneMap) { if (zone==ZoneType::Agriculture) { agriculture=true; break; } }
+-				if (!agriculture) { continue; }
+-				const RectF area{x*CHUNK_SIZE,y*CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE};
+-				// Include every cell which intersects this chunk, even a small village's cell between the corners.
+-				const double centerDistance=area.center().distanceFrom(divisions[owner(area.center())].center);
+-				for (size_t i=0;i<divisions.size();++i)
+-				{
+-					if (area.center().distanceFrom(divisions[i].center)<=centerDistance+Vec2{area.w,area.h}.length()) { chunks[i] << Point{x,y}; }
+-				}
+-			}
+-		}
+-		const ParcelRoadIndex roads{network};
+-		for (size_t division=0;division<divisions.size();++division)
+-		{
+-			const auto& frame=divisions[division];
+-			HashSet<Point> visited;
+-			Array<Plot> plots;
+-			Array<Track> tracks;
+-			Array<int> parents;
+-			HashTable<Point,int> nodes;
+-			HashTable<uint64,int> segments;
+-			const auto root=[&](int node)
+-			{
+-				while (parents[node]!=node) { parents[node]=parents[parents[node]]; node=parents[node]; }
+-				return node;
+-			};
+-			const auto nodeFor=[&](Point point)
+-			{
+-				const auto found=nodes.find(point);
+-				if (found!=nodes.end()) { return found->second; }
+-				const int index=static_cast<int>(parents.size());
+-				nodes[point]=index; parents << index; return index;
+-			};
+-			const auto addTrack=[&](Point begin,Point end) -> Optional<int>
+-			{
+-				const int a=nodeFor(begin),b=nodeFor(end);
+-				const uint64 key=(static_cast<uint64>(Min(a,b))<<32)|static_cast<uint32>(Max(a,b));
+-				if (const auto found=segments.find(key);found!=segments.end()) { return found->second; }
+-				if (!dryTrack(world,frame,trackBounds(frame,begin,end))) { return none; }
+-				const int index=static_cast<int>(tracks.size());
+-				tracks << Track{begin,end,a,b}; segments[key]=index; parents[root(b)]=root(a); return index;
+-			};
+-			const double kPaddyRelief=GenerationSettings::get().agriculture_paddyRelief;
+-			const double kSampleStep=GenerationSettings::get().agriculture_sampleStep;
+-			constexpr double kZoneSize=static_cast<double>(CHUNK_SIZE)/ZONE_CELLS;
+-			for (const Point coord : chunks[division])
+-			{
+-				const RectF area{coord.x*CHUNK_SIZE,coord.y*CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE};
+-				Vec2 low{1e30,1e30},high{-1e30,-1e30};
+-				for (const Vec2 corner : {area.tl(),area.tr(),area.br(),area.bl()})
+-				{
+-					const Vec2 p=frame.localPoint(corner);
+-					low.x=Min(low.x,p.x); low.y=Min(low.y,p.y); high.x=Max(high.x,p.x); high.y=Max(high.y,p.y);
+-				}
+-				for (int row=static_cast<int>(Floor(low.y/frame.plotSize.y));row<Ceil(high.y/frame.plotSize.y);++row)
+-				{
+-					for (int col=static_cast<int>(Floor(low.x/frame.plotSize.x));col<Ceil(high.x/frame.plotSize.x);++col)
+-					{
+-						const Point grid{col,row};
+-						if (!visited.insert(grid).second) { continue; }
+-						const Vec2 corner=position(frame,grid);
+-						const RectF bounds{corner,frame.plotSize};
+-						bool suitable=true;
+-						// A shared headland separates differently oriented land divisions without overlapping fields.
+-						for (const Vec2 p : quad(frame,bounds.stretched(GenerationSettings::get().agriculture_trackWidth))) { suitable &= owner(p)==division; }
+-						if (!suitable) { continue; }
+-						double bottom=1e9,top=-1e9;
+-						const int columns=Max(2,static_cast<int>(Ceil(frame.plotSize.x/kSampleStep)));
+-						const int rows=Max(2,static_cast<int>(Ceil(frame.plotSize.y/kSampleStep)));
+-						for (int z=0;z<=rows && suitable;++z)
+-						{
+-							for (int x=0;x<=columns;++x)
+-							{
+-								const Vec2 p=frame.worldPoint(corner+Vec2{Clamp(frame.plotSize.x*x/columns,.01,frame.plotSize.x-.01),Clamp(frame.plotSize.y*z/rows,.01,frame.plotSize.y-.01)});
+-								const Point chunkCoord{static_cast<int>(Floor(p.x/CHUNK_SIZE)),static_cast<int>(Floor(p.y/CHUNK_SIZE))};
+-								const auto* chunk=world.getChunk(chunkCoord);
+-								if (!chunk || p.x<0 || p.y<0 || p.x>=WORLD_SIZE || p.y>=WORLD_SIZE) { suitable=false; break; }
+-								const Point cell{static_cast<int>((p.x-chunkCoord.x*CHUNK_SIZE)/kZoneSize),static_cast<int>((p.y-chunkCoord.y*CHUNK_SIZE)/kZoneSize)};
+-								if (chunk->zoneMap[cell]!=ZoneType::Agriculture) { suitable=false; break; }
+-								const double height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+-								bottom=Min(bottom,height); top=Max(top,height);
+-								if (height<=world.waterSurfaceHeight(p.x,p.y)+GenerationSettings::get().agriculture_minimumFreeboard || top-bottom>GenerationSettings::get().agriculture_maximumFieldRelief) { suitable=false; break; }
+-							}
+-						}
+-						if (!suitable) { continue; }
+-						++stats.candidates;
+-						const auto west=addTrack(grid,grid+Point{0,1});
+-						if (!west) { continue; }
+-						addTrack(grid+Point{1,0},grid+Point{1,1});
+-						if (grid.y%GenerationSettings::get().agriculture_crossTrackEveryRows==0) { addTrack(grid,grid+Point{1,0}); }
+-						if ((grid.y+1)%GenerationSettings::get().agriculture_crossTrackEveryRows==0) { addTrack(grid+Point{0,1},grid+Point{1,1}); }
+-						const uint32 salt=static_cast<uint32>(UrbanMorphology::mix(seed^(static_cast<uint64>(static_cast<uint32>(grid.x))<<32)^static_cast<uint32>(grid.y)^division)) & ~kManagedField;
+-						plots << Plot{grid,*west,top-bottom<kPaddyRelief && salt%GenerationSettings::get().agriculture_dryFieldDivisor!=0,salt};
++		Stats stats;const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
++		Array<int> originals;for (const auto& edge:roads.edges()) { if (edge.id>=0 && !edge.useElevation && !edge.tunnel && !edge.farmAccess && edge.roadType!=RoadType::Expressway) { originals << edge.id; } }
++		// Insert real junctions along long rural frontages before buildings receive edge references.
++		for (int id:originals)
++		{
++			float arc=static_cast<float>(config.agriculture_accessSpacing);
++			while (const auto curve=roads.getBezier(id))
++			{
++				if (arc>curve->totalLength-config.agriculture_accessSpacing*.5) { break; }
++				const Vec3 point=curve->positionAt(arc);
++				if (!agricultural(world,horizontal(point)) || density(horizontal(point),frames)<config.agriculture_minimumDensity) { arc+=static_cast<float>(config.agriculture_accessSpacing);continue; }
++				const int end=roads.getEdge(id)->nodeB,mid=roads.splitEdgeAt(id,arc);if (mid<0) { break; }
++				Optional<int> remaining;
++				for (int child:roads.getNode(mid)->edgeIds()) { const auto* edge=roads.getEdge(child);if (edge && edge->nodeB==end) { remaining=child;break; } }
++				if (!remaining) { break; }id=*remaining;arc=static_cast<float>(config.agriculture_accessSpacing);
++			}
++		}
++		struct Root { int id; Vec2 direction; double reach; };
++		Array<Root> roots;HashSet<Point> rootCells;
++		for (const auto& node:roads.nodes())
++		{
++			if (node.id<0 || node.attachments.isEmpty() || node.attachments.size()>3) { continue; }
++			const Vec2 point=horizontal(node.position);const double probability=density(point,frames);
++			if (probability<config.agriculture_minimumDensity || (hash(seed,point)%10000)/10000.0>probability) { continue; }
++			if (Abs(groundPoint(world,point).y-node.position.y)>1) { continue; }
++			const Point cell{static_cast<int>(point.x/(config.agriculture_accessSpacing*config.agriculture_rootSpacingRatio)),static_cast<int>(point.y/(config.agriculture_accessSpacing*config.agriculture_rootSpacingRatio))};
++			if (!rootCells.insert(cell).second) { continue; }
++			const int edgeId=node.attachments.front().edgeId;const auto* edge=roads.getEdge(edgeId);const auto curve=roads.getBezier(edgeId);
++			if (!edge || !curve || edge->useElevation || edge->tunnel || edge->farmAccess || edge->roadType==RoadType::Expressway) { continue; }
++			const Vec2 normal=horizontal(tangentToRight(curve->tangentAt(edge->nodeA==node.id ? 0 : curve->totalLength)));
++			for (int side:{-1,1})
++			{
++				// 町の道路沿いにある住宅帯を越え、最初の区間の先が農地なら取り付けを許可する。
++				if (!agricultural(world,point+normal*side*config.agriculture_trackStep)) { continue; }
++				roots << Root{node.id,normal*side,config.agriculture_trackReach*(config.agriculture_minimumReachRatio+(1-config.agriculture_minimumReachRatio)*probability)};
++			}
++		}
++		ParcelRoadIndex occupied{roads,true};RoadNetwork empty;ParcelRoadIndex rail{empty};if (railway) { rail.addRailway(*railway); }
++		Sites buildings{world};
++		for (const auto& root:roots)
++		{
++			int previous=root.id;Vec2 direction=root.direction;
++			for (double run=0;run<root.reach;run+=config.agriculture_trackStep)
++			{
++				const Vec3 start=roads.getNode(previous)->position;Optional<CubicBezier> best;Vec2 bestDirection=direction;double bestCost=Math::Inf;
++				for (const int turn:{0,-1,1,-2,2})
++				{
++					const double angle=turn*config.agriculture_trackHeadingStep;
++					const Vec2 next{direction.x*Cos(angle)-direction.y*Sin(angle),direction.x*Sin(angle)+direction.y*Cos(angle)};
++					if (next.dot(root.direction)<.25) { continue; }
++					const Vec3 end=groundPoint(world,horizontal(start)+(direction+next).normalized()*config.agriculture_trackStep);
++					if (!agricultural(world,horizontal(end))) { continue; }
++					const double handle=config.agriculture_trackStep/3;
++					const CubicBezier curve{start,{start.x+direction.x*handle,Math::Lerp(start.y,end.y,1.0/3),start.z+direction.y*handle},{end.x-next.x*handle,Math::Lerp(start.y,end.y,2.0/3),end.z-next.y*handle},end};
++					if (curve.minimumHorizontalRadius()<RoadDesignLimits::forType(RoadType::LocalRoad).minimumRadius) { continue; }
++					bool valid=true;double reliefCost=0;Vec3 last=start;
++					const int samples=Max(3,static_cast<int>(Ceil(curve.totalLength/config.agriculture_sampleStep)));
++					for (int i=1;i<=samples;++i)
++					{
++						const auto p=curve.positionAt(curve.totalLength*i/samples),ground=groundPoint(world,horizontal(p));const double distance=horizontal(p-last).length();
++						const auto footprint=ParcelGeometry::footprint(horizontal(p),config.agriculture_trackWidth*.5+1,0);
++						valid &= (run==0 || agricultural(world,horizontal(p))) && ground.y>world.waterSurfaceHeight(p.x,p.z)+config.agriculture_minimumFreeboard
++							&& Abs(ground.y-last.y)<=distance*config.agriculture_maximumTrackGrade && Abs(ground.y-p.y)<config.agriculture_maximumTrackCutFill
++							&& !rail.overlaps(footprint) && !buildings.occupied.overlaps(footprint);
++						if (p.distanceFrom(start)>12 && occupied.overlaps(footprint)) { valid=false; }
++						if (!valid) { break; }reliefCost+=Square(ground.y-last.y);last=ground;
+ 					}
+-				}
+-			}
+-			// Existing road ribbons seed connected components. A distant visual track is not access.
+-			HashSet<int> connected;
+-			for (const auto& track : tracks)
+-			{
+-				if (roads.overlaps(quad(frame,trackBounds(frame,track.begin,track.end)))) { connected.insert(root(track.nodeA)); }
+-			}
+-			const auto append=[&](RectF bounds,LandPatchType type,uint32 salt)
+-			{
+-				const Vec2 center=frame.worldPoint(bounds.center());
+-				const Point coord{static_cast<int>(Floor(center.x/CHUNK_SIZE)),static_cast<int>(Floor(center.y/CHUNK_SIZE))};
+-				auto* chunk=world.getChunk(coord);
+-				if (!chunk) { return; }
+-				LandPatch patch;
+-				patch.id=static_cast<int>(chunk->landPatches.size()); patch.type=type; patch.materialVariant=salt;
+-				patch.elevationOffset=GenerationSettings::get().agriculture_surfaceLift;
+-				const auto corners=quad(frame,bounds); patch.polygon.assign(corners.begin(),corners.end());
+-				chunk->landPatches << std::move(patch);
+-			};
+-			HashSet<int> usedComponents;
+-			for (const auto& plot : plots)
+-			{
+-				const int component=root(tracks[plot.access].nodeA);
+-				if (!connected.contains(component)) { ++stats.disconnected; continue; }
+-				usedComponents.insert(component);
+-				const Vec2 corner=position(frame,plot.grid);
+-				const double north=plot.grid.y%GenerationSettings::get().agriculture_crossTrackEveryRows==0 ? GenerationSettings::get().agriculture_headlandWidth : GenerationSettings::get().agriculture_bundWidth;
+-				const double south=(plot.grid.y+1)%GenerationSettings::get().agriculture_crossTrackEveryRows==0 ? GenerationSettings::get().agriculture_headlandWidth : GenerationSettings::get().agriculture_bundWidth;
+-				const RectF field{corner.x+GenerationSettings::get().agriculture_fieldSideInset,corner.y+north,frame.plotSize.x-GenerationSettings::get().agriculture_fieldCombinedInset,frame.plotSize.y-north-south};
+-				append(field,plot.paddy ? LandPatchType::PaddyField : LandPatchType::FarmField,plot.salt|kManagedField);
+-				++stats.fields; stats.paddies+=plot.paddy;
+-				// Separate concrete channel and an earth-bank entrance from the cultivation surface.
+-				append(RectF{corner.x+frame.plotSize.x-GenerationSettings::get().agriculture_drainSideInset,corner.y+(plot.grid.y%GenerationSettings::get().agriculture_crossTrackEveryRows==0 ? GenerationSettings::get().agriculture_headlandWidth : 0.0),GenerationSettings::get().agriculture_drainWidth,frame.plotSize.y-(plot.grid.y%GenerationSettings::get().agriculture_crossTrackEveryRows==0 ? GenerationSettings::get().agriculture_headlandWidth : 0.0)-((plot.grid.y+1)%GenerationSettings::get().agriculture_crossTrackEveryRows==0 ? GenerationSettings::get().agriculture_headlandWidth : 0.0)},LandPatchType::IrrigationDitch,plot.salt);
+-				append(RectF{corner.x+GenerationSettings::get().agriculture_entranceHalfDepth,field.center().y-GenerationSettings::get().agriculture_entranceHalfDepth,GenerationSettings::get().agriculture_entranceWidth,GenerationSettings::get().agriculture_entranceDepth},LandPatchType::FarmTrack,plot.salt);
+-				++stats.drains;
+-			}
+-			for (const auto& track : tracks)
+-			{
+-				if (!usedComponents.contains(root(track.nodeA))) { continue; }
+-				append(trackBounds(frame,track.begin,track.end),LandPatchType::FarmTrack,0);
+-				++stats.tracks;
+-			}
++					const double cost=reliefCost+Square(angle)*config.agriculture_trackTurnPenalty+Square(1-next.dot(root.direction))*config.agriculture_trackDirectionPenalty;
++					if (valid && cost<bestCost) { best=curve;bestDirection=next;bestCost=cost; }
++				}
++				if (!best) { break; }
++				const int end=roads.addNode(best->p3,NodeType::Joint);
++				const auto edgeId=roads.addEdge(previous,end,best->p1,best->p2,RoadType::LocalRoad,2);
++				if (!edgeId) { roads.removeNode(end);break; }
++				auto* edge=roads.getEdge(*edgeId);auto profile=GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);profile.laneWidth=static_cast<float>(config.agriculture_trackWidth/profile.lanes);
++				GeneratedStreet::apply(*edge,profile);edge->farmAccess=true;edge->parts.remove_if([](const RoadPart& part){return part.type==RoadPartType::UtilityPole;});
++				for (int i=1;i<=8;++i) { occupied.add(ribbon(horizontal(best->evaluate((i-1)/8.0f)),horizontal(best->evaluate(i/8.0f)),edge->totalWidth()*.5+1)); }
++				previous=end;direction=bestDirection;++stats.tracks;
++			}
++		}
++		stats.homes=prepareHomes(world,roads,railway,frames);stats.drains=stats.tracks*2;return stats;
++	}
++
++	Stats generate(World& world,RoadNetwork& roads,uint64 seed,const Array<Frame>& inputFrames,bool prepareAccess,const TrainNetwork* railway)
++	{
++		Stats stats=prepareAccess ? prepare(world,roads,seed,inputFrames,railway) : Stats{};
++		const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
++		ParcelRoadIndex occupied{roads,true};if (railway) { occupied.addRailway(*railway); }Sites sites{world};
++		struct Candidate { Vec2 center; Array<Vec2> polygon; uint32 salt; };
++		Array<Candidate> candidates;HashTable<Point,Array<size_t>> buckets;
++		const double bucketSize=config.agriculture_plotLength*2;
++		const auto bucket=[&](Vec2 p){return Point{static_cast<int>(Floor(p.x/bucketSize)),static_cast<int>(Floor(p.y/bucketSize))};};
++		for (const auto& edge:roads.edges())
++		{
++			if (edge.id<0 || !edge.farmAccess) { continue; }
++			if (!prepareAccess) { ++stats.tracks;stats.drains+=2; }
++			const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
++			const int count=Max(1,static_cast<int>(Round(curve->totalLength/(config.agriculture_plotLength*.5))));
++			for (int section=0;section<count;++section) { for (int side:{-1,1})
++			{
++				const float begin=curve->totalLength*section/count,end=curve->totalLength*(section+1)/count;
++				const Vec3 a=curve->positionAt(begin),b=curve->positionAt(end),n1=tangentToRight(curve->tangentAt(begin))*side,n2=tangentToRight(curve->tangentAt(end))*side;
++				const Vec2 center=horizontal((a+b)*.5+(n1+n2)*config.agriculture_plotWidth*.5);
++				const uint32 salt=hash(seed,center)&~kManagedField;
++				++stats.candidates;if (salt%10000/10000.0>density(center,frames) || !agricultural(world,center)) { continue; }
++				const double near=edge.totalWidth()*.5+config.agriculture_bundWidth+config.agriculture_drainWidth;
++				const double depth=config.agriculture_plotWidth*2*(1+config.agriculture_fieldShapeVariation*(static_cast<double>((salt>>8)%100)/50-1));
++				const Vec2 left=horizontal(a+n1*near),right=horizontal(b+n2*near),farLeft=horizontal(a+n1*(near+depth)),farRight=horizontal(b+n2*(near+depth*(.7+(salt%61)/100.0)));
++				Array<Vec2> polygon{left,right,farRight,farRight.lerp(farLeft,.5)+horizontal((n1+n2)*.5)*depth*.12,farLeft};
++				UrbanParcel::normalize(polygon);const size_t index=candidates.size();candidates << Candidate{center,std::move(polygon),salt};buckets[bucket(center)] << index;
++			} }
++		}
++		for (size_t index=0;index<candidates.size();++index)
++		{
++			const auto& candidate=candidates[index];auto polygon=candidate.polygon;const Point cell=bucket(candidate.center);
++			// A shared Voronoi boundary fills road gaps without overlapping independent plots.
++			for (int dz=-1;dz<=1;++dz) { for (int dx=-1;dx<=1;++dx)
++			{
++				if (const auto found=buckets.find(cell+Point{dx,dz});found!=buckets.end())
++				{
++					for (const size_t other:found->second) { if (other!=index) { polygon=UrbanParcel::clipCloserTo(std::move(polygon),candidate.center,candidates[other].center); } }
++				}
++			} }
++			UrbanParcel::normalize(polygon);if (polygon.size()<3 || Polygon{polygon}.area()<config.agriculture_minimumFieldArea) { continue; }
++			bool valid=true;double low=Math::Inf,high=-Math::Inf;const Vec2 center=Polygon{polygon}.centroid();
++			for (const Vec2 vertex:polygon)
++			{
++				const int samples=Max(1,static_cast<int>(Ceil(vertex.distanceFrom(center)/config.agriculture_sampleStep)));
++				for (int i=0;i<=samples;++i)
++				{
++					const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
++					valid &= agricultural(world,point) && ground.y>world.waterSurfaceHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
++				}
++			}
++			for (size_t i=1;i+1<polygon.size();++i)
++			{
++				const ParcelGeometry::Quad triangle{polygon[0],polygon[i],polygon[i+1],polygon[i+1]};
++				valid &= !occupied.overlaps(triangle) && !sites.occupied.overlaps(triangle);
++			}
++			if (!valid || high-low>config.agriculture_maximumFieldRelief) { continue; }
++			if (!sites.served(polygon,config.agriculture_homeMaximumDistance)) { ++stats.disconnected;continue; }
++			const Point coord{static_cast<int>(center.x/CHUNK_SIZE),static_cast<int>(center.y/CHUNK_SIZE)};auto* chunk=world.getChunk(coord);if (!chunk) { continue; }
++			LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
++			const bool paddy=high-low<config.agriculture_paddyRelief && candidate.salt%config.agriculture_dryFieldDivisor!=0;
++			patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=candidate.salt|kManagedField;
++			chunk->landPatches << std::move(patch);chunk->meshDirty=true;++stats.fields;stats.paddies+=paddy;
+ 		}
+ 		return stats;
+ 	}
+--- a/src/gen/AgriculturalLayout.hpp
++++ b/src/gen/AgriculturalLayout.hpp
+@@ -2,15 +2,13 @@
+ #include "GenerationSettings.hpp"
+ #include "../world/World.hpp"
+ #include "../road/RoadNetwork.hpp"
++#include "../railway/TrainNetwork.hpp"
+ 
+-/// @brief ほ場・耕作道・用排水路を同じ地割から生成する。道路に接続しない耕作道網は採用しない。
++/// @brief 既存道路から地形に沿う農道を伸ばし、民家の近くに不整形のほ場を生成する。
+ namespace AgriculturalLayout
+ {
+-	
+-	
+-	
+ 	constexpr uint32 kManagedField=0x80000000u;
+-	/// @brief 市街地の外周街区を農地へ延長する座標系。4枚の田畑で街区の奥行きを分割する。
++	/// @brief 密度計算に使う集落中心と、町割の参照情報。農道とほ場の向きは実際の接道先に従う。
+ 	struct Frame
+ 	{
+ 		Vec2 center{0,0};
+@@ -22,7 +20,9 @@
+ 	};
+ 	struct Stats
+ 	{
+-		int candidates=0, fields=0, paddies=0, tracks=0, drains=0, disconnected=0;
++		int candidates=0, fields=0, paddies=0, tracks=0, drains=0, disconnected=0, homes=0;
+ 	};
+-	Stats generate(World& world, const RoadNetwork& network, uint64 seed, const Array<Frame>& frames={});
++	/// @brief 建物より先に、一般道路に接続する農道と沿道の民家を確保する。
++	Stats prepare(World& world,RoadNetwork& network,uint64 seed,const Array<Frame>& frames={},const TrainNetwork* railway=nullptr);
++	Stats generate(World& world,RoadNetwork& network,uint64 seed,const Array<Frame>& frames={},bool prepareAccess=true,const TrainNetwork* railway=nullptr);
+ }
+--- a/src/gen/GenerationSettings.cpp
++++ b/src/gen/GenerationSettings.cpp
+@@ -53,9 +53,9 @@
+ 		require(result.rivers_bankBlendStart + result.rivers_bankBlendWidth <= result.rivers_carveExtent, U"rivers bank blend inside carve extent");
+ 		require(result.routing_minimumStep <= result.routing_maximumStep, U"routing step size");
+ 		require(result.network_mediumRouteThreshold <= result.network_longRouteThreshold, U"network route thresholds");
+-		require(result.agriculture_plotLength > result.agriculture_fieldCombinedInset
+-			&& result.agriculture_plotWidth > 2 * Max(result.agriculture_headlandWidth, result.agriculture_bundWidth), U"agriculture usable plot area");
+-		require(Abs(result.agriculture_fieldCombinedInset - 2 * result.agriculture_fieldSideInset) < .001, U"agriculture combined inset = 2 * side inset");
++		require(result.agriculture_plotWidth>2*result.agriculture_bundWidth+result.agriculture_drainWidth, U"agriculture usable field depth");
++		require(result.agriculture_trackStep<=result.agriculture_trackReach, U"agriculture track step <= reach");
++		require(result.agriculture_homeSpacing<result.agriculture_homeMaximumDistance, U"agriculture houses within field service radius");
+ 		require(result.vegetation_minimumForestAltitude <= result.vegetation_maximumForestAltitude, U"vegetation altitude range");
+ 		for (const auto item : files.at(U"streetProfiles"))
+ 		{
+--- a/src/gen/GenerationSettings.def
++++ b/src/gen/GenerationSettings.def
+@@ -169,18 +169,10 @@
+ GENERATION_SETTING(double, agriculture_maximumTrackGrade, U"agriculture", U"maximumTrackGrade", 0.001, 0.2)
+ GENERATION_SETTING(double, agriculture_minimumFreeboard, U"agriculture", U"minimumFreeboard", 0, 10)
+ GENERATION_SETTING(double, agriculture_maximumFieldRelief, U"agriculture", U"maximumFieldRelief", 0, 10)
+-GENERATION_SETTING(int, agriculture_crossTrackEveryRows, U"agriculture", U"crossTrackEveryRows", 1, 16)
+ GENERATION_SETTING(int, agriculture_dryFieldDivisor, U"agriculture", U"dryFieldDivisor", 1, 100)
+ GENERATION_SETTING(float, agriculture_surfaceLift, U"agriculture", U"surfaceLift", 0, 1)
+-GENERATION_SETTING(double, agriculture_headlandWidth, U"agriculture", U"headlandWidth", 0, 20)
+ GENERATION_SETTING(double, agriculture_bundWidth, U"agriculture", U"bundWidth", 0, 5)
+-GENERATION_SETTING(double, agriculture_fieldSideInset, U"agriculture", U"fieldSideInset", 0, 20)
+-GENERATION_SETTING(double, agriculture_fieldCombinedInset, U"agriculture", U"fieldCombinedInset", 0, 40)
+-GENERATION_SETTING(double, agriculture_drainSideInset, U"agriculture", U"drainSideInset", 0, 20)
+ GENERATION_SETTING(double, agriculture_drainWidth, U"agriculture", U"drainWidth", 0, 5)
+-GENERATION_SETTING(double, agriculture_entranceHalfDepth, U"agriculture", U"entranceHalfDepth", 0, 10)
+-GENERATION_SETTING(double, agriculture_entranceWidth, U"agriculture", U"entranceWidth", 0, 20)
+-GENERATION_SETTING(double, agriculture_entranceDepth, U"agriculture", U"entranceDepth", 0, 20)
+ GENERATION_SETTING(double, roads_surfaceCost, U"roads", U"surfaceCost", 1, 10000)
+ GENERATION_SETTING(double, roads_earthworkCost, U"roads", U"earthworkCost", 1, 10000)
+ GENERATION_SETTING(double, roads_viaductCostPerMetre, U"roads", U"viaductCostPerMetre", 0.01, 10000)
+@@ -835,3 +827,26 @@
+ GENERATION_SETTING(int, development_fieldRows, U"development", U"fieldRows", 1, 32)
+ GENERATION_SETTING(double, roads_endpointElevationThreshold, U"roads", U"endpointElevationThreshold", 0.01, 10)
+ GENERATION_SETTING(double, roads_interiorElevationThreshold, U"roads", U"interiorElevationThreshold", 0.01, 20)
++GENERATION_SETTING(double, roads_tunnelLengthScale, U"roads", U"tunnelLengthScale", 10, 10000)
++GENERATION_SETTING(double, roads_tunnelLengthPenalty, U"roads", U"tunnelLengthPenalty", 0, 10000)
++GENERATION_SETTING(double, roads_viaductHeightScale, U"roads", U"viaductHeightScale", 1, 1000)
++GENERATION_SETTING(double, roads_viaductHeightPenalty, U"roads", U"viaductHeightPenalty", 0, 10000)
++GENERATION_SETTING(double, agriculture_accessSpacing, U"agriculture", U"accessSpacing", 64, 1000)
++GENERATION_SETTING(double, agriculture_trackStep, U"agriculture", U"trackStep", 24, 160)
++GENERATION_SETTING(double, agriculture_trackReach, U"agriculture", U"trackReach", 72, 2000)
++GENERATION_SETTING(double, agriculture_densityRadius, U"agriculture", U"densityRadius", 200, 5000)
++GENERATION_SETTING(double, agriculture_maximumRadius, U"agriculture", U"maximumRadius", 300, 10000)
++GENERATION_SETTING(double, agriculture_homeSpacing, U"agriculture", U"homeSpacing", 80, 400)
++GENERATION_SETTING(double, agriculture_homeMaximumDistance, U"agriculture", U"homeMaximumDistance", 100, 500)
++GENERATION_SETTING(double, agriculture_minimumFieldArea, U"agriculture", U"minimumFieldArea", 100, 3000)
++GENERATION_SETTING(double, agriculture_fieldShapeVariation, U"agriculture", U"fieldShapeVariation", 0.1, 0.5)
++GENERATION_SETTING(double, agriculture_trackTurnPenalty, U"agriculture", U"trackTurnPenalty", 0, 100)
++GENERATION_SETTING(double, agriculture_trackDirectionPenalty, U"agriculture", U"trackDirectionPenalty", 0, 100)
++GENERATION_SETTING(double, agriculture_trackHeadingStep, U"agriculture", U"trackHeadingStep", 0.01, 0.5)
++GENERATION_SETTING(double, agriculture_maximumTrackCutFill, U"agriculture", U"maximumTrackCutFill", 0.1, 5)
++GENERATION_SETTING(double, agriculture_densityFalloff, U"agriculture", U"densityFalloff", 0.1, 3)
++GENERATION_SETTING(double, agriculture_minimumDensity, U"agriculture", U"minimumDensity", 0, 0.5)
++GENERATION_SETTING(double, agriculture_rootSpacingRatio, U"agriculture", U"rootSpacingRatio", 0.25, 1)
++GENERATION_SETTING(double, agriculture_minimumReachRatio, U"agriculture", U"minimumReachRatio", 0.2, 1)
++GENERATION_SETTING(double, agriculture_homeSetback, U"agriculture", U"homeSetback", 1, 20)
++GENERATION_SETTING(double, agriculture_homeFootprintMargin, U"agriculture", U"homeFootprintMargin", 0.1, 10)
+--- a/src/gen/ParcelRoadIndex.hpp
++++ b/src/gen/ParcelRoadIndex.hpp
+@@ -105,6 +105,9 @@
+ 		return collision;
+ 	}
+ 
++	/// @brief 生成中に追加した接道面・敷地を同じ空間索引へ登録する。
++	void add(const ParcelGeometry::Quad& quad) { visitBuckets(quad,[&](int64 key){m_buckets[key] << quad;}); }
++
+ private:
+ 	template <class Visitor>
+ 	static void visitBuckets(const ParcelGeometry::Quad& quad, Visitor visitor)
+--- a/src/gen/RoadAlignment.cpp
++++ b/src/gen/RoadAlignment.cpp
+@@ -34,23 +34,31 @@
+ 		RoadType type;
+ 		double grade;
+ 
+-		Optional<double> cost(const CubicBezier& curve) const
++		Optional<double> cost(const CubicBezier& curve, double* tunnelLength = nullptr) const
+ 		{
+ 			if (!RoadAlignment::respectsLimits(curve,type)) { return none; }
++			for (const Vec3 point : {curve.p0,curve.p3})
++			{
++				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
++				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
++				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterSurfaceHeight(point.x,point.z);
++				if (ground<water+GenerationSettings::get().crossings_waterBankMargin && ground-point.y<=RoadConstructionCost::MaximumCut() && point.y<water+5.5) { return none; }
++			}
+ 			const int count=Max(2,static_cast<int>(std::ceil(curve.totalLength/GenerationSettings::get().routing_sampleSpacing)));
+-			double total=0;
+-			for (int i=0;i<=count;++i)
+-			{
+-				const Vec3 point=curve.positionAt(curve.totalLength*static_cast<float>(i)/count);
++			double total=0, tunnelRun=tunnelLength ? *tunnelLength : 0;
++			for (int i=0;i<count;++i)
++			{
++				const Vec3 point=curve.positionAt(curve.totalLength*(static_cast<float>(i)+.5f)/count);
+ 				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
+ 				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
+ 				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+ 				const double water = world.waterSurfaceHeight(point.x, point.z);
+ 				if (ground < water + GenerationSettings::get().crossings_waterBankMargin && ground - point.y <= RoadConstructionCost::MaximumCut() && point.y < water + 5.5) { return none; }
+-				const double unit = RoadConstructionCost::unit(point.y, ground, water);
+-				total += unit * (i == 0 || i == count ? .5 : 1);
+-			}
+-			return curve.totalLength*total/count;
++				total += RoadConstructionCost::segment(point.y, ground, water, curve.totalLength/count, tunnelRun);
++			}
++			if (!std::isfinite(total)) { return none; }
++			if (tunnelLength) { *tunnelLength=tunnelRun; }
++			return total;
+ 		}
+ 	};
+ 
+@@ -62,6 +70,7 @@
+ 		double cost=0;
+ 		uint64 key=0;
+ 		bool expanded=false;
++		double tunnelLength=0;
+ 	};
+ }
+ 
+@@ -96,10 +105,15 @@
+ {
+ 	const Landscape landscape{world, {0, 0}, {WORLD_SIZE - .01, WORLD_SIZE - .01}, type,
+ 		RoadDesignLimits::forType(type).maximumGrade};
+-	double total = 0;
++	double total = 0, tunnelLength = 0;
++	Optional<Vec3> previous;
+ 	for (const auto& curve : curves)
+ 	{
+-		const auto cost = landscape.cost(curve);
++		CubicBezier oriented=curve;
++		if (previous && previous->distanceFromSq(curve.p3)<previous->distanceFromSq(curve.p0)) { oriented=CubicBezier{curve.p3,curve.p2,curve.p1,curve.p0}; }
++		if (previous && previous->distanceFromSq(oriented.p0)>1) { tunnelLength=0; }
++		const auto cost = landscape.cost(oriented, &tunnelLength);
++		previous=oriented.p3;
+ 		if (!cost) { return Math::Inf; }
+ 		total += *cost;
+ 	}
+@@ -152,21 +166,32 @@
+ 	};
+ 	const auto heuristic=[&](Vec3 p) { return Max(horizontal(goal-p).length(),Abs(goal.y-p.y)/limits.maximumGrade); };
+ 	Array<SearchNode> nodes;
+-	HashTable<uint64,int> best;
++	HashTable<uint64,Array<int>> best;
+ 	using Entry=std::pair<double,int>;
+ 	std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> pending, lowerBounds;
+-	const auto enqueue=[&](Vec3 point,int heading,int parent,double cost)
++	const auto enqueue=[&](Vec3 point,int heading,int parent,double cost,double tunnelLength)
+ 	{
+ 		if (incumbent && cost + heuristic(point) >= incumbent->cost) { return; }
+ 		const uint64 key=keyFor(point,heading);
+-		const auto existing=best.find(key);
+-		if (existing!=best.end() && nodes[existing->second].cost<=cost) { return; }
++		auto& labels=best[key];
++		// Cost and uninterrupted tunnel length are both relevant to future cost.
++		for (const int label : labels)
++		{
++			const auto& other=nodes[label];
++			if (other.cost<=cost && other.tunnelLength<=tunnelLength) { return; }
++		}
++		labels.remove_if([&](int label)
++		{
++			auto& other=nodes[label];
++			if (cost<=other.cost && tunnelLength<=other.tunnelLength) { other.expanded=true; return true; }
++			return false;
++		});
+ 		const int id=static_cast<int>(nodes.size());
+-		nodes << SearchNode{point,heading,parent,cost,key}; best[key]=id;
++		nodes << SearchNode{point,heading,parent,cost,key,false,tunnelLength}; labels << id;
+ 		pending.emplace(cost+heuristic(point)*GenerationSettings::get().routing_initialSearchWeight,id);
+ 		lowerBounds.emplace(cost+heuristic(point),id);
+ 	};
+-	for (int heading=0;heading<kHeadings;++heading) { enqueue(start,heading,-1,0); }
++	for (int heading=0;heading<kHeadings;++heading) { enqueue(start,heading,-1,0,0); }
+ 	int expanded=0,goalChecks=0,fitFailures=0; double nearest=distance,highest=start.y;
+ 	while (expanded < expansionLimit)
+ 	{
+@@ -175,7 +200,7 @@
+ 		if (queue.empty()) { break; }
+ 		const auto [estimate, id] = queue.top(); queue.pop();
+ 		const SearchNode current = nodes[id];
+-		if (best[current.key] != id || current.expanded) { continue; }
++		if (current.expanded) { continue; }
+ 		if (refining && incumbent && estimate >= incumbent->cost) { break; }
+ 		nodes[id].expanded = true;
+ 		++expanded; nearest=Min(nearest,horizontal(goal-current.point).length()); highest=Max(highest,current.point.y);
+@@ -185,7 +210,8 @@
+ 			++goalChecks;
+ 			const Vec3 approach=Vec3{goal.x-current.point.x,0,goal.z-current.point.z}.normalized();
+ 			const CubicBezier finish=profile(current.point,goal,direction(current.heading),approach,remaining/3);
+-			if (const auto finishCost=landscape.cost(finish))
++			double finishTunnel=current.tunnelLength;
++			if (const auto finishCost=landscape.cost(finish,&finishTunnel))
+ 			{
+ 				Array<int> chain;
+ 				for (int index=id;index>=0;index=nodes[index].parent) { chain << index; }
+@@ -197,8 +223,8 @@
+ 					curves << profile(a.point,b.point,direction(a.heading),direction(b.heading),horizontal(b.point-a.point).length()/3);
+ 				}
+ 				curves << finish;
+-				double cost=0; bool valid=true;
+-				for (const auto& curve : curves) { const auto value=landscape.cost(curve); valid&=value.has_value(); if (value) { cost+=*value; } }
++				const double cost=constructionCost(world,curves,type);
++				const bool valid=std::isfinite(cost);
+ 				if (valid && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, expanded}; refining = true; }
+ 				if (valid) { continue; }
+ 				++fitFailures;
+@@ -232,9 +258,10 @@
+ 			{
+ 				end.y=height;
+ 				const CubicBezier curve=profile(current.point,end,forward,endDirection,horizontal(end-current.point).length()/3);
+-				if (const auto cost=landscape.cost(curve))
++				double tunnelLength=current.tunnelLength;
++				if (const auto cost=landscape.cost(curve,&tunnelLength))
+ 				{
+-					enqueue(end,heading,id,current.cost+*cost);
++					enqueue(end,heading,id,current.cost+*cost,tunnelLength);
+ 				}
+ 			}
+ 		}
+@@ -345,6 +372,7 @@
+ 		const auto& corridor = corridors[i];
+ 		Array<CubicBezier> curves; double length = 0;
+ 		for (const int id : corridor.edges) { if (const auto curve = roads.getBezier(id)) { curves << *curve; length += curve->totalLength; } }
++		if (!curves.isEmpty() && roads.getEdge(corridor.edges.front())->nodeA!=corridor.start) { const auto c=curves.front();curves.front()=CubicBezier{c.p3,c.p2,c.p1,c.p0}; }
+ 		const double cost = constructionCost(world, curves, roads.getEdge(corridor.edges.front())->roadType);
+ 		if (length > 240 && std::isfinite(cost) && cost > length * 4) { candidates << i; }
+ 	}
+@@ -357,6 +385,7 @@
+ 		const Vec3 a=roads.getNode(corridor.start)->position,b=roads.getNode(corridor.end)->position;
+ 		Array<CubicBezier> oldCurves;
+ 		for (const int id : corridor.edges) { if (const auto curve = roads.getBezier(id)) { oldCurves << *curve; } }
++		if (!oldCurves.isEmpty() && original.nodeA!=corridor.start) { const auto c=oldCurves.front();oldCurves.front()=CubicBezier{c.p3,c.p2,c.p1,c.p0}; }
+ 		const double oldCost = constructionCost(world, oldCurves, original.roadType);
+ 		const auto alignment = find(world, a, b, original.roadType, std::isfinite(oldCost) ? 12000 : 60000);
+ 		if (std::isfinite(oldCost) && (!alignment || alignment->cost >= oldCost * .995)) { continue; }
+--- a/src/gen/RoadConstructionCost.hpp
++++ b/src/gen/RoadConstructionCost.hpp
+@@ -1,6 +1,7 @@
+ ﻿#pragma once
+ #include "GenerationSettings.hpp"
+ #include <Siv3D.hpp>
++#include <cmath>
+ 
+ /// @brief 道路の単位延長費。金額ではなく地上を1としたユーザー指定の比較係数。
+ namespace RoadConstructionCost
+@@ -13,13 +14,42 @@
+ 	inline double MaximumFill() { return GenerationSettings::get().roads_maximumFill; }
+ 	inline double MaximumCut() { return GenerationSettings::get().roads_maximumCut; }
+ 
+-	/// @brief 高架は路面から地盤までの高さ[m]×16。川底下の十分な土被りがある区間はトンネル。
++	/// @brief 短い構造物への影響を小さくし、長大構造物で急増する追加費用。
++	inline double exponentialPenalty(double value, double scale, double weight)
++	{
++		if (weight <= 0 || value <= 0) { return 0; }
++		const double ratio = value / scale;
++		if (ratio > 200) { return Math::Inf; }
++		return weight * (std::expm1(ratio) - ratio);
++	}
++	/// @brief 連続するトンネル全長に対する追加費用。エッジ分割ではリセットしない。
++	inline double tunnelPenalty(double length)
++	{
++		const auto& config = GenerationSettings::get();
++		return config.roads_tunnelLengthScale * exponentialPenalty(length,
++			config.roads_tunnelLengthScale, config.roads_tunnelLengthPenalty);
++	}
++
++	/// @brief 高架は高さ比例費に指数罰則を加える。川底下の土被りがある区間はトンネル。
+ 	inline double unit(double roadHeight, double ground, double water = -1e9)
+ 	{
+ 		const double difference = roadHeight - ground;
+ 		if (difference < -MaximumCut()) { return Tunnel(); }
+-		if (difference > MaximumFill() || ground < water + GenerationSettings::get().crossings_waterBankMargin) { return Max(0.0, difference) * ViaductPerMetre(); }
++		if (difference > MaximumFill() || ground < water + GenerationSettings::get().crossings_waterBankMargin) { return Max(0.0, difference) * ViaductPerMetre() + exponentialPenalty(Max(0.0, difference), GenerationSettings::get().roads_viaductHeightScale, GenerationSettings::get().roads_viaductHeightPenalty); }
+ 		if (Abs(difference) > SurfaceTolerance()) { return Earthwork(); }
+ 		return Surface();
+ 	}
++
++	/// @brief 区間を積算し、現在の連続トンネル長を次区間へ渡す。
++	inline double segment(double roadHeight, double ground, double water, double length, double& tunnelRun)
++	{
++		double cost = unit(roadHeight, ground, water) * length;
++		if (ground - roadHeight > MaximumCut())
++		{
++			cost += tunnelPenalty(tunnelRun + length) - tunnelPenalty(tunnelRun);
++			tunnelRun += length;
++		}
++		else { tunnelRun = 0; }
++		return cost;
++	}
+ }
+--- a/src/gen/SettlementDevelopment.cpp
++++ b/src/gen/SettlementDevelopment.cpp
+@@ -740,6 +740,11 @@
+ 
+ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(bool preserveLandPatches)
+ {
++	if (!preserveLandPatches)
++	{
++		const auto farms=AgriculturalLayout::prepare(m_world,m_network,m_seed,agriculturalFrames(),&m_trainNetwork);
++		DebugLog::print(U"[AgriculturalAccess] roads={} homes={}"_fmt(farms.tracks,farms.homes));
++	}
+ 	const Stopwatch sw{ StartImmediately::Yes };
+ 	
+ 	
+@@ -1296,23 +1301,30 @@
+ 	}
+ 	if (!preserveExisting)
+ 	{
+-		Array<AgriculturalLayout::Frame> farmFrames;
+-		for (const auto& settlement : m_districts)
+-		{
+-			// Villages in a town's agricultural hinterland retain that town's land division.
+-			if (settlement.kind==MapGenerator::SettlementKind::RuralSettlement && settlement.serviceCenter) { continue; }
+-			const auto& plan=settlement.plan;
+-			AgriculturalLayout::Frame frame;
+-			frame.center=settlement.center; frame.axisX=settlement.gridAxisX; frame.axisZ=settlement.gridAxisZ;
+-			frame.origin=settlement.center-frame.axisX*plan.halfExtent.x-frame.axisZ*plan.halfExtent.y;
+-			const auto columns=UrbanMorphology::streetCoordinates(plan,false),rows=UrbanMorphology::streetCoordinates(plan,true);
+-			frame.plotSize={columns[1]-columns[0],(rows[1]-rows[0])/4.0};
+-			farmFrames << frame;
+-		}
+-		const auto fields=AgriculturalLayout::generate(m_world,m_network,m_seed,farmFrames);
++		const auto farmFrames=agriculturalFrames();
++		const auto fields=AgriculturalLayout::generate(m_world,m_network,m_seed,farmFrames,false,&m_trainNetwork);
+ 		DebugLog::print(U"[AgriculturalLayout] candidates={} fields={} paddies={} tracks={} drains={} disconnected={}"_fmt(
+ 			fields.candidates,fields.fields,fields.paddies,fields.tracks,fields.drains,fields.disconnected));
+ 		JSON report; report[U"seed"]=m_seed; report[U"fields"]=fields.fields; report[U"tracks"]=fields.tracks;
++		Array<Vec2> farmHomes;Array<const LandPatch*> farmPlots;
++		for (int z=0;z<WORLD_CHUNKS;++z) { for (int x=0;x<WORLD_CHUNKS;++x)
++		{
++			const auto* chunk=m_world.getChunk({x,z});if (!chunk) { continue; }
++			for (int row=0;row<ZONE_CELLS;++row) { for (int col=0;col<ZONE_CELLS;++col)
++			{
++				const auto& home=chunk->buildingGrid[{col,row}];if (home.type==BuildingType::RuralHouse) { farmHomes << cellCenterXZ({x,z},col,row)+Vec2{home.offsetX,home.offsetZ}; }
++			} }
++			for (const auto& patch:chunk->landPatches) { if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField) { farmPlots << &patch; } }
++		} }
++		double maximumHomeDistance=0;int isolatedFields=0,irregularFields=0;
++		for (size_t index=0;index<farmPlots.size();++index)
++		{
++			const auto& patch=*farmPlots[index];double nearest=Math::Inf;
++			for (const Vec2 home:farmHomes) { double farthest=0;for (const Vec2 point:patch.polygon) { farthest=Max(farthest,home.distanceFrom(point)); }nearest=Min(nearest,farthest); }
++			maximumHomeDistance=Max(maximumHomeDistance,nearest);isolatedFields+=nearest>500;irregularFields+=patch.polygon.size()>4;
++			if (index<64) { const Vec2 center=Polygon{patch.polygon}.centroid();report[U"fieldExamples"][index]=Array<double>{center.x,center.y,nearest}; }
++		}
++		report[U"ruralHomes"]=farmHomes.size();report[U"maximumHomeDistance"]=maximumHomeDistance;report[U"isolatedFields"]=isolatedFields;report[U"irregularFields"]=irregularFields;
+ 		for (size_t index=0;index<farmFrames.size();++index)
+ 		{
+ 			const auto& frame=farmFrames[index];
+@@ -1613,3 +1625,19 @@
+ // 提出用スクリーンショット
+ // =============================================================================
+ 
++
++Array<AgriculturalLayout::Frame> SettlementDevelopment::agriculturalFrames() const
++{
++	Array<AgriculturalLayout::Frame> farmFrames;
++		for (const auto& settlement : m_districts)
++		{
++			const auto& plan=settlement.plan;
++			AgriculturalLayout::Frame frame;
++			frame.center=settlement.center; frame.axisX=settlement.gridAxisX; frame.axisZ=settlement.gridAxisZ;
++			frame.origin=settlement.center-frame.axisX*plan.halfExtent.x-frame.axisZ*plan.halfExtent.y;
++			const auto columns=UrbanMorphology::streetCoordinates(plan,false),rows=UrbanMorphology::streetCoordinates(plan,true);
++			frame.plotSize={columns[1]-columns[0],(rows[1]-rows[0])/4.0};
++			farmFrames << frame;
++		}
++	return farmFrames;
++}
+--- a/src/gen/SettlementDevelopment.hpp
++++ b/src/gen/SettlementDevelopment.hpp
+@@ -1,5 +1,6 @@
+ ﻿#pragma once
+ #include "MapGenerator.hpp"
++#include "AgriculturalLayout.hpp"
+ 
+ /// @brief 集落の土地利用・建物・敷地を生成する。画面や描画資産を所有しない。
+ class SettlementDevelopment
+@@ -25,6 +26,7 @@
+ 	void migrateLegacyBuildingFrontageReferences();
+ 
+ private:
++	Array<AgriculturalLayout::Frame> agriculturalFrames() const;
+ 	World& m_world;
+ 	RoadNetwork& m_network;
+ 	const TrainNetwork& m_trainNetwork;
+--- a/src/railway/TrainConsist.hpp
++++ b/src/railway/TrainConsist.hpp
+@@ -34,4 +34,44 @@
+ 		}
+ 		return none;
+ 	}
++	struct CarPose
++	{
++		Vec3 position, forward, right, up;
++		Mat4x4 transform;
++		String model;
++	};
++	/// @brief 台車の位置から求めた同一の車体姿勢を描画と選択で使用する。
++	inline Optional<CarPose> carPose(const Train& train,const TrainNetwork& network,int car)
++	{
++		const auto spec=profile(train.type);
++		const float center=(car+.5f)*spec.carSpacing;
++		const auto front=behind(train,network,center-6.75f),rear=behind(train,network,center+6.75f);
++		if (!front || !rear || front->distanceFromSq(*rear)<1e-6) { return none; }
++		const Vec3 direction=(*front-*rear).normalized();
++		const Vec3 right=tangentToRight(direction),up=direction.cross(right);
++		const double heading=Atan2(direction.x,direction.z),pitch=-Atan2(direction.y,Vec2{direction.x,direction.z}.length());
++		const bool last=car+1==spec.cars;
++		const Vec3 position=(*front+*rear)*.5+Vec3{0,.17,0};
++		return CarPose{position,direction,right,up,Mat4x4::RotateY(last ? Math::Pi : 0)*Mat4x4::RotateX(pitch)*Mat4x4::RotateY(heading)*Mat4x4::Translate(position),String{car==0 || last ? spec.cab : spec.trailer}};
++	}
++	/// @brief 傾斜した車体座標系へレイを投影し、編成中の最も近い車両を選ぶ。
++	inline Optional<double> hitDistance(const Train& train,const TrainNetwork& network,const Ray& ray)
++	{
++		Optional<double> nearest;
++		for (int car=0;car<profile(train.type).cars;++car)
++		{
++			const auto pose=carPose(train,network,car);if (!pose) { continue; }
++			const Vec3 origin=Vec3{ray.origin.xyz()}-pose->position;
++			const Vec3 direction{ray.direction.xyz()};
++			const Vec3 localOrigin{origin.dot(pose->right),origin.dot(pose->up),origin.dot(pose->forward)};
++			const Vec3 localDirection{direction.dot(pose->right),direction.dot(pose->up),direction.dot(pose->forward)};
++			const Ray local{localOrigin,localDirection};
++			if (const auto distance=Box{Vec3{0,1.85,0},Vec3{3.1,3.7,19.6}}.intersects(local))
++			{
++				if (!nearest || *distance<*nearest) { nearest=*distance; }
++			}
++		}
++		return nearest;
++	}
++
+ }
+--- a/src/render/RoadRenderer.cpp
++++ b/src/render/RoadRenderer.cpp
+@@ -572,7 +572,7 @@
+ // ─────────────────────────────────────────────────────────────────────────────
+ 
+ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
+-                             float marginA, float marginB, const World& world, bool isClose)
++                             float marginA, float marginB, const World& world, bool isClose, bool prepareDetail)
+ {
+ 	// エッジ単位で路面部品・車線線・標識・橋脚までの描画責務をまとめる。
+ 	if (edge.edgeState == EdgeState::Planned) return;
+@@ -636,7 +636,7 @@
+ 	}
+ 
+ 	// ---- 道路標示（遠方では描画しない） ----
+-	if (isClose)
++	if (isClose || prepareDetail)
+ 	{
+ 		if (!m_markingCacheByEdge.contains(edge.id) && canBuildCache())
+ 		{
+@@ -648,14 +648,14 @@
+ 			++m_cacheBuildStats.markings;
+ 		}
+ 
+-		if (const auto markings = m_markingCacheByEdge.find(edge.id); markings != m_markingCacheByEdge.end())
++		if (const auto markings = m_markingCacheByEdge.find(edge.id); isClose && markings != m_markingCacheByEdge.end())
+ 		{
+ 			for (const auto& batch : markings->second) { batch.mesh.draw(batch.color); }
+ 		}
+ 	}
+ 
+ 	// ---- 道路沿い設備（近距離のみ） ----
+-	if (isClose)
++	if (isClose || prepareDetail)
+ 	{
+ 		if (!m_streetFurnitureCache.contains(edge.id) && canBuildCache())
+ 		{
+@@ -667,7 +667,7 @@
+ 			++m_cacheBuildStats.furniture;
+ 			++m_geometryRevision;
+ 		}
+-		if (const auto furniture = m_streetFurnitureCache.find(edge.id); furniture != m_streetFurnitureCache.end())
++		if (const auto furniture = m_streetFurnitureCache.find(edge.id); isClose && furniture != m_streetFurnitureCache.end())
+ 		{
+ 			for (const auto& b : furniture->second)
+ 			{
+@@ -2726,19 +2726,7 @@
+ 		auto boundsIt = m_boundsCache.find(edge.id);
+ 		if (boundsIt == m_boundsCache.end())
+ 		{
+-			const RoadNode* nA = network.getNode(edge.nodeA);
+-			const RoadNode* nB = network.getNode(edge.nodeB);
+-			if (!nA || !nB) continue;
+-			EdgeBounds b;
+-			b.center = Float3{
+-				static_cast<float>((nA->position.x + nB->position.x) * 0.5),
+-				static_cast<float>((nA->position.y + nB->position.y) * 0.5),
+-				static_cast<float>((nA->position.z + nB->position.z) * 0.5)
+-			};
+-			const float chordSq = static_cast<float>((nA->position - nB->position).lengthSq());
+-			const float arcR    = edge.length * 0.6f;
+-			b.radiusSq = Max(arcR * arcR, chordSq * 0.36f);
+-			boundsIt = m_boundsCache.emplace(edge.id, b).first;
++			boundsIt = m_boundsCache.emplace(edge.id, edgeBounds(network,edge.id)).first;
+ 		}
+ 		const auto& bounds = boundsIt->second;
+ 		const float dx = bounds.center.x - camX;
+--- a/src/render/RoadRenderer.hpp
++++ b/src/render/RoadRenderer.hpp
+@@ -34,7 +34,8 @@
+ class RoadRenderer
+ {
+ public:
+-	static constexpr double kLodDist   = 800.0;
++	static constexpr double kLodDist   = 1200.0;
++	static constexpr double kPrepareDist = 1700.0;
+ 	static constexpr double kLodDistSq = kLodDist * kLodDist;
+ 	static constexpr double kDrawMaxDist   = 8000.0;
+ 	static constexpr double kDrawMaxDistSq = kDrawMaxDist * kDrawMaxDist;
+@@ -165,6 +166,7 @@
+ 		int id;
+ 		float distanceSquared;
+ 		bool node, close;
++		bool prepare = false;
+ 	};
+ 	Array<VisibleRoad> m_visibleRoads;
+ 	HashTable<int, Array<PartMeshEntry>> m_fallbackEdges;
+@@ -173,12 +175,13 @@
+ 	void drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world);
+ 	void drawFallbackNode(int nodeId, const RoadNetwork& network, const World& world);
+ 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
+-	struct EdgeBounds { Float3 center; float radiusSq; };
++	struct EdgeBounds { Float3 center; float radiusSq; Array<Vec3> samples; };
++	[[nodiscard]] EdgeBounds edgeBounds(const RoadNetwork& network, int edgeId) const;
+ 
+ 	// ---- 描画 ----
+ 
+ 	void drawEdge(const RoadEdge& edge, const RoadNetwork& network,
+-	              float marginA, float marginB, const World& world, bool isClose);
++	              float marginA, float marginB, const World& world, bool isClose, bool prepareDetail = false);
+ 	void drawNodeCap(const RoadNetwork& network, int nodeId, const World& world, bool isClose);
+ 
+ 	// ---- メッシュ生成 ----
+--- a/src/render/RoadRenderer_Streaming.cpp
++++ b/src/render/RoadRenderer_Streaming.cpp
+@@ -29,28 +29,20 @@
+ 		auto boundsIt = m_boundsCache.find(edge.id);
+ 		if (boundsIt == m_boundsCache.end())
+ 		{
+-			const RoadNode* nA = network.getNode(edge.nodeA);
+-			const RoadNode* nB = network.getNode(edge.nodeB);
+-			if (!nA || !nB) continue;
+-			EdgeBounds b;
+-			b.center = Float3{
+-				static_cast<float>((nA->position.x + nB->position.x) * 0.5),
+-				static_cast<float>((nA->position.y + nB->position.y) * 0.5),
+-				static_cast<float>((nA->position.z + nB->position.z) * 0.5)
+-			};
+-			const float chordSq = static_cast<float>((nA->position - nB->position).lengthSq());
+-			const float arcR    = edge.length * 0.6f;
+-			b.radiusSq = Max(arcR * arcR, chordSq * 0.36f);
+-			boundsIt = m_boundsCache.emplace(edge.id, b).first;
++			boundsIt = m_boundsCache.emplace(edge.id, edgeBounds(network,edge.id)).first;
+ 		}
+ 		const auto& bounds = boundsIt->second;
+ 
+-		// 距離チェックを先に（安価: float 演算のみ）
+-		const float dx = bounds.center.x - camX;
+-		const float dz = bounds.center.z - camZ;
+-		const float distSq = dx * dx + dz * dz;
+-		if (distSq > kDrawMaxDistSqF) continue;
+-		const bool isClose = distSq < kLodDistSqF;
++		const double coarseDistance=Max(0.0,Vec3{bounds.center}.distanceFrom(cameraPos)-Sqrt(bounds.radiusSq));
++		if (coarseDistance>kDrawMaxDist) { continue; }
++		double distSq=Math::Inf;
++		for (size_t i=1;i<bounds.samples.size();++i)
++		{
++			const Vec3 delta=bounds.samples[i]-bounds.samples[i-1];
++			const double t=Clamp((cameraPos-bounds.samples[i-1]).dot(delta)/Max(1e-9,delta.lengthSq()),0.0,1.0);
++			distSq=Min(distSq,cameraPos.distanceFromSq(bounds.samples[i-1]+delta*t));
++		}
++		const bool isClose=distSq<kLodDistSq;
+ 
+ 		// 視錐台カリング（距離チェックを通過した分のみ）
+ 		const float radius = Math::Sqrt(bounds.radiusSq);
+@@ -58,7 +50,7 @@
+ 
+ 		m_visibleEdges.emplace(edge.id);
+ 
+-		m_visibleRoads << VisibleRoad{edge.id, distSq, false, isClose};
++		m_visibleRoads << VisibleRoad{edge.id, static_cast<float>(distSq), false, isClose, distSq<kPrepareDist*kPrepareDist};
+ 	}
+ 
+ 	// ---- ノードキャップ描画（交差点フィル）----
+@@ -90,7 +82,7 @@
+ 		if (visible.node) { drawNodeCap(network, visible.id, world, visible.close); }
+ 		else if (const auto* edge = network.getEdge(visible.id))
+ 		{
+-			drawEdge(*edge, network, edgeMargin(*edge, edge->nodeA), edgeMargin(*edge, edge->nodeB), world, visible.close);
++			drawEdge(*edge, network, edgeMargin(*edge, edge->nodeA), edgeMargin(*edge, edge->nodeB), world, visible.close, visible.prepare);
+ 		}
+ 	}
+ }
+@@ -282,3 +274,20 @@
+ 	++m_cacheBuildStats.deferred;
+ 	return false;
+ }
++
++RoadRenderer::EdgeBounds RoadRenderer::edgeBounds(const RoadNetwork& network, int edgeId) const
++{
++	EdgeBounds result{};
++	if (const auto curve=network.getBezier(edgeId))
++	{
++		const Vec3 center=(curve->p0+curve->p1+curve->p2+curve->p3)*.25;
++		result.center=Float3{center};
++		for (const Vec3 point : {curve->p0,curve->p1,curve->p2,curve->p3})
++		{
++			result.radiusSq=Max(result.radiusSq,static_cast<float>(center.distanceFromSq(point)));
++		}
++		constexpr int kSamples=32;
++		for (int i=0;i<=kSamples;++i) { result.samples << curve->evaluate(static_cast<float>(i)/kSamples); }
++	}
++	return result;
++}
+--- a/src/render/TerrainSurfaceGeometry.cpp
++++ b/src/render/TerrainSurfaceGeometry.cpp
+@@ -297,7 +297,8 @@
+ 				vert.tex = v.tex;
+ 				vertices << vert;
+ 			}
+-			indices << TriangleIndex32{ base, base + 1, base + 2 };
++			const bool upward=(tri[1].pos-tri[0].pos).cross(tri[2].pos-tri[0].pos).y>=0;
++			indices << (upward ? TriangleIndex32{base,base+1,base+2} : TriangleIndex32{base,base+2,base+1});
+ 		}
+ 	}
+ 
+--- a/src/render/TrainRenderer.cpp
++++ b/src/render/TrainRenderer.cpp
+@@ -193,21 +193,13 @@
+ 		const auto profile=TrainConsist::profile(train.type);
+ 		for (int car=0;car<profile.cars;++car)
+ 		{
+-			const float center=(car+.5f)*profile.carSpacing;
+-			const auto front=TrainConsist::behind(train,network,center-6.75f);
+-			const auto rear=TrainConsist::behind(train,network,center+6.75f);
+-			if (!front || !rear) { continue; }
+-			const Vec3 direction=(*front-*rear).normalized();
+-			const double heading=Atan2(direction.x,direction.z);
+-			const double pitch=-Atan2(direction.y,Vec2{direction.x,direction.z}.length());
+-			const bool last=car+1==profile.cars;
+-			const double distanceSq = eye ? ((*front + *rear) * .5).distanceFromSq(*eye) : 0;
+-			if (distanceSq > 6000 * 6000) { continue; }
+-			const int level = distanceSq < 180 * 180 ? 0 : (distanceSq < 700 * 700 ? 1 : 2);
+-			Model& model=ensureModel(String{car==0 || last ? profile.cab : profile.trailer}, level);
+-			const Mat4x4 transform=Mat4x4::RotateY(last ? Math::Pi : 0)*Mat4x4::RotateX(pitch)*Mat4x4::RotateY(heading)
+-				*Mat4x4::Translate((*front+*rear)*.5+Vec3{0,kRailTopY,0});
+-			const Transformer3D scope{transform};
++			const auto pose=TrainConsist::carPose(train,network,car);
++			if (!pose) { continue; }
++			const double distanceSq=eye ? pose->position.distanceFromSq(*eye) : 0;
++			if (distanceSq>6000*6000) { continue; }
++			const int level=distanceSq<180*180 ? 0 : (distanceSq<700*700 ? 1 : 2);
++			Model& model=ensureModel(pose->model,level);
++			const Transformer3D scope{pose->transform};
+ 			for (const auto& object:model.objects()) { object.draw(model.materials()); }
+ 		}
+ 	}
+@@ -287,3 +279,16 @@
+ 	}
+ 	m_pendingFacilityNames.clear();
+ }
++
++void TrainRenderer::drawTrainSilhouette(const Train& train,const TrainNetwork& network,Vec3 eye,const ColorF& color)
++{
++	for (int car=0;car<TrainConsist::profile(train.type).cars;++car)
++	{
++		const auto pose=TrainConsist::carPose(train,network,car);if (!pose) { continue; }
++		const double distance=pose->position.distanceFromSq(eye);
++		const int level=distance<180*180 ? 0 : (distance<700*700 ? 1 : 2);
++		Model& model=ensureModel(pose->model,level);
++		const Transformer3D scope{pose->transform};
++		for (const auto& object:model.objects()) { for (const auto& part:object.parts) { part.mesh.draw(color); } }
++	}
++}
+--- a/src/render/TrainRenderer.hpp
++++ b/src/render/TrainRenderer.hpp
+@@ -19,6 +19,8 @@
+ 	void renderTrains(const Array<Train>& trains,const TrainNetwork& network, Optional<Vec3> eye = none);
+ 	/// @brief 前フレームで見えた駅名・車庫名を3D描画前に合成する。
+ 	void prepareFacilityTextures();
++	/// @brief 選択中の編成を通常描画と同じ姿勢・LODでマスクへ描く。
++	void drawTrainSilhouette(const Train& train,const TrainNetwork& network,Vec3 eye,const ColorF& color);
+ 
+ 	/// @brief エッジの線路メッシュキャッシュを無効化する（線路変更時に呼ぶ）
+ 	void invalidateTrackCache(int edgeId);
+--- a/src/render/TreeGeometry.hpp
++++ b/src/render/TreeGeometry.hpp
+@@ -78,17 +78,23 @@
+ 		const int z=(static_cast<int>(Floor(position.y/256))%4+4)%4;
+ 		return material+1000*(1+x+z*4);
+ 	}
+-	inline bool nearChunk(Point chunkCoord,Vec3 eye)
++	static constexpr double kDetailDistance = 600;
++	static constexpr double kPrepareDistance = 1100;
++	static constexpr double kRetainDistance = 1500;
++	/// @brief 標高ではなく、地表の範囲までの距離で詳細度を決める。
++	inline double distanceSquared(Point coord, Vec3 eye, Vec2 heights, int tile = -1)
+ 	{
+-		const Vec2 start{chunkCoord.x*1024.0,chunkCoord.y*1024.0};
+-		const Vec2 nearest{Clamp(eye.x,start.x,start.x+1024),Clamp(eye.z,start.y,start.y+1024)};
+-		return nearest.distanceFromSq(Vec2{eye.x,eye.z})<300*300 && eye.y<900;
++		const double side = tile < 0 ? 1024 : 256;
++		const Vec2 start{coord.x*1024.0+(tile<0 ? 0 : tile%4*256),coord.y*1024.0+(tile<0 ? 0 : tile/4*256)};
++		const Vec3 nearest{Clamp(eye.x,start.x,start.x+side),Clamp(eye.y,heights.x,heights.y+32),Clamp(eye.z,start.y,start.y+side)};
++		return eye.distanceFromSq(nearest);
+ 	}
+-	inline bool nearTile(int encoded,Point chunkCoord,Vec3 eye)
++	inline bool nearChunk(Point coord, Vec3 eye, Vec2 heights = {0,0}, double distance = kDetailDistance)
+ 	{
+-		const int tile=encoded/1000-1;
+-		const Vec2 start{chunkCoord.x*1024.0+(tile%4)*256,chunkCoord.y*1024.0+(tile/4)*256};
+-		const Vec2 nearest{Clamp(eye.x,start.x,start.x+256),Clamp(eye.z,start.y,start.y+256)};
+-		return nearest.distanceFromSq(Vec2{eye.x,eye.z})<300*300 && eye.y<900;
++		return distanceSquared(coord,eye,heights) < distance*distance;
++	}
++	inline bool nearTile(int encoded, Point coord, Vec3 eye, Vec2 heights = {0,0})
++	{
++		return distanceSquared(coord,eye,heights,encoded/1000-1) < kDetailDistance*kDetailDistance;
+ 	}
+ }
+--- a/src/render/VehicleInstanceBatch.hpp
++++ b/src/render/VehicleInstanceBatch.hpp
+@@ -5,8 +5,8 @@
+ class VehicleInstanceBatch
+ {
+ public:
+-	void clear() { m_transforms.clear(); }
+-	void append(const ModelMeshSource& source, const Mat4x4& transform)
++	void clear() { m_transforms.clear(); m_colors.clear(); m_hasPaint=false; }
++	void append(const ModelMeshSource& source, const Mat4x4& transform, Float4 paint = {1,1,1,1})
+ 	{
+ 		if (m_mesh.isEmpty())
+ 		{
+@@ -23,7 +23,8 @@
+ 			}
+ 			m_mesh = Mesh{packed}; m_triangles = static_cast<uint32>(source.geometry.indices.size()); m_material = source.material;
+ 		}
+-		m_transforms << transform;
++		m_transforms << transform; m_colors << paint;
++		m_hasPaint |= paint!=Float4{1,1,1,1};
+ 	}
+ 	uint32 draw()
+ 	{
+@@ -31,12 +32,15 @@
+ 		static const VertexShader shader = VertexShader::HLSL(U"shaders/hlsl/vehicle_instances.hlsl", U"VS");
+ 		if (shader.isEmpty()) { throw Error{U"車両LODの頂点シェーダーを読み込めません"}; }
+ 		const ScopedCustomShader3D scope{shader};
++		static const PixelShader paintShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"VehicleInstance_PS"}};
++		Optional<ScopedCustomShader3D> paintScope;
++		if (m_hasPaint) { paintScope.emplace(paintShader); }
+ 		uint32 calls = 0;
+ 		for (size_t start = 0; start < m_transforms.size(); start += kCapacity)
+ 		{
+ 			const uint32 count = static_cast<uint32>(Min<size_t>(kCapacity, m_transforms.size() - start));
+-			for (uint32 i = 0; i < count; ++i) { m_matrices->at(i) = m_transforms[start + i]; }
+-			Graphics3D::SetVSConstantBuffer(4, m_matrices);
++			for (uint32 i = 0; i < count; ++i) { m_instances->matrices[i] = m_transforms[start + i]; m_instances->colors[i]=m_colors[start+i]; }
++			Graphics3D::SetVSConstantBuffer(4, m_instances);
+ 			m_mesh.drawSubset(0, count * m_triangles, PhongMaterial{m_material, HasDiffuseTexture::No}); ++calls;
+ 		}
+ 		return calls;
+@@ -48,5 +52,8 @@
+ 	Material m_material;
+ 	uint32 m_triangles = 0;
+ 	Array<Mat4x4> m_transforms;
+-	ConstantBuffer<std::array<Mat4x4, kCapacity>> m_matrices;
++	struct Instances { std::array<Mat4x4,kCapacity> matrices; std::array<Float4,kCapacity> colors; };
++	ConstantBuffer<Instances> m_instances;
++	Array<Float4> m_colors;
++	bool m_hasPaint=false;
+ };
+--- a/src/render/VehicleRenderer.cpp
++++ b/src/render/VehicleRenderer.cpp
+@@ -1,4 +1,5 @@
+ ﻿#include "VehicleRenderer.hpp"
++#include "VehiclePaint.hpp"
+ #include "RoadRenderer.hpp"   // kLodDistSq
+ 
+ namespace
+@@ -106,7 +107,16 @@
+ 			asset.batches.resize(asset.parts.size());
+ 		}
+ 		const auto transform = carModelWorldMatrix(vehicle);
+-		for (size_t part = 0; part < asset.parts.size(); ++part) { asset.batches[part].append(asset.parts[part], transform); }
++		for (size_t part=0;part<asset.parts.size();++part)
++		{
++			Float4 tint{1,1,1,1};
++			if ((vehicle.type==VehicleType::PassengerCar || vehicle.type==VehicleType::KeiCar) && asset.parts[part].material.name.starts_with(U"body"))
++			{
++				const auto paint=VehiclePaint::color(vehicle);const auto base=asset.parts[part].material.diffuse;
++				tint=Float4{static_cast<float>(paint.r/Max(.001,base.r)),static_cast<float>(paint.g/Max(.001,base.g)),static_cast<float>(paint.b/Max(.001,base.b)),1};
++			}
++			asset.batches[part].append(asset.parts[part],transform,tint);
++		}
+ 	}
+ 	for (auto& asset : m_farAssets)
+ 	{
+@@ -159,6 +169,13 @@
+ 	{
+ 		Model& model = ensureVehicleModel(v, level);
+ 		const auto& materials = model.materials();
++		Optional<ScopedCustomShader3D> paintScope;
++		if (v.type==VehicleType::PassengerCar || v.type==VehicleType::KeiCar)
++		{
++			static const PixelShader shader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"VehiclePaint_PS"}};
++			m_paint->color=VehiclePaint::color(v).toFloat4();
++			Graphics3D::SetPSConstantBuffer(5,m_paint);paintScope.emplace(shader);
++		}
+ 		for (const auto& obj : model.objects())
+ 		{
+ 			const Transformer3D transform{ carModelWorldMatrix(v) };
+--- a/src/render/VehicleRenderer.hpp
++++ b/src/render/VehicleRenderer.hpp
+@@ -35,4 +35,6 @@
+ 	struct FarAsset { Array<ModelMeshSource> parts; Array<VehicleInstanceBatch> batches; };
+ 	std::array<FarAsset, 9> m_farAssets;
+ 	size_t m_drawCalls = 0, m_submitted = 0;
++	struct PaintConstants { Float4 color; };
++	ConstantBuffer<PaintConstants> m_paint;
+ };
+--- a/src/render/WorldRenderer.cpp
++++ b/src/render/WorldRenderer.cpp
+@@ -1,4 +1,5 @@
+ ﻿#include "WorldRenderer.hpp"
++#include "TreeGeometry.hpp"
+ #include <Siv3D/Profiler.hpp>
+ #include <algorithm>
+ 
+@@ -26,14 +27,15 @@
+ 		|| !std::equal(activeChunks.begin(), activeChunks.end(), m_sortedChunks.begin(), m_sortedChunks.end());
+ 
+ 	// ソート済み順序を維持しつつ、カメラ位置やアクティブ集合が変わった時だけ並べ直す
+-	if (camChunk != m_lastSortChunk || activeChunks.size() != m_lastActiveCount || activeChunkOrderChanged)
++	if (camChunk != m_lastSortChunk || eye.distanceFromSq(m_lastSortEye)>128*128 || activeChunks.size() != m_lastActiveCount || activeChunkOrderChanged)
+ 	{
+ 		m_sortedChunks = activeChunks;
+ 		m_sortedChunks.sort_by([&](const Chunk* a, const Chunk* b)
+ 		{
+-			return a->worldOrigin().distanceFromSq(eye) < b->worldOrigin().distanceFromSq(eye);
++			return TreeGeometry::distanceSquared(a->coord,eye,{a->heightMin,a->heightMax}) < TreeGeometry::distanceSquared(b->coord,eye,{b->heightMin,b->heightMax});
+ 		});
+ 		m_lastSortChunk  = camChunk;
++		m_lastSortEye = eye;
+ 		m_lastActiveCount = activeChunks.size();
+ 	}
+ 
+--- a/src/render/WorldRenderer.hpp
++++ b/src/render/WorldRenderer.hpp
+@@ -227,6 +227,8 @@
+ 	Optional<ViewFrustum> m_buildingFrustum;
+ 	HashSet<Key> m_distantDetailChunks;
+ 	HashSet<Key> m_detailedTreeChunks;
++	HashTable<Key, Vec2> m_treeHeightRanges;
++	Vec3 m_lastSortEye{Math::Inf,0,0};
+ 	Vec3 m_buildingEye{ 0, 0, 0 };
+ 	size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
+ };
+--- a/src/render/WorldRenderer_Buildings.cpp
++++ b/src/render/WorldRenderer_Buildings.cpp
+@@ -1280,11 +1280,13 @@
+ bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
+ {
+ 	const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
+-	const bool closeChunk=TreeGeometry::nearChunk(coord,m_buildingEye) && (!m_asyncTerrain || m_detailedTreeChunks.contains(key));
++	const auto range=m_treeHeightRanges.find(key);
++	const Vec2 heights=range==m_treeHeightRanges.end() ? Vec2{} : range->second;
++	const bool closeChunk=TreeGeometry::nearChunk(coord,m_buildingEye,heights) && (!m_asyncTerrain || m_detailedTreeChunks.contains(key));
+ 	if (materialKey==128 || materialKey==129) { return !closeChunk; }
+ 	if (materialKey<1000) { return materialKey!=124; }
+ 	if (!closeChunk) { return false; }
+-	const bool near=TreeGeometry::nearTile(materialKey,coord,m_buildingEye);
++	const bool near=TreeGeometry::nearTile(materialKey,coord,m_buildingEye,heights);
+ 	const int material=materialKey%1000;
+ 	return (material==128 || material==129) ? !near : near;
+ }
+--- a/src/render/WorldRenderer_Streaming.cpp
++++ b/src/render/WorldRenderer_Streaming.cpp
+@@ -57,7 +57,8 @@
+ 	for (const Key key : m_detailedTreeChunks)
+ 	{
+ 		const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
+-		if (TreeGeometry::nearChunk(coord,m_buildingEye)) { continue; }
++		const auto range=m_treeHeightRanges.find(key);
++		if (range!=m_treeHeightRanges.end() && TreeGeometry::nearChunk(coord,m_buildingEye,range->second,TreeGeometry::kRetainDistance)) { continue; }
+ 		if (auto cache=m_landscapeMeshCache.find(key);cache!=m_landscapeMeshCache.end())
+ 		{
+ 			cache->second.remove_if([](const BuildingBatch& batch){ return batch.materialKey>=1000; });
+@@ -127,7 +128,10 @@
+ 		Clamp(m_buildingEye.z, chunk.coord.y * static_cast<double>(CHUNK_SIZE), (chunk.coord.y + 1) * static_cast<double>(CHUNK_SIZE)) });
+ 	if (nearestDistance > 600) { m_distantDetailChunks.insert(key); }
+ 	else { m_distantDetailChunks.erase(key); }
+-	const bool needsTreeDetails=m_asyncTerrain && TreeGeometry::nearChunk(chunk.coord,m_buildingEye) && !m_detailedTreeChunks.contains(key);
++	const Vec2 treeHeights{chunk.heightMin,chunk.heightMax};
++	m_treeHeightRanges[key]=treeHeights;
++	const bool prepareTrees=TreeGeometry::nearChunk(chunk.coord,m_buildingEye,treeHeights,TreeGeometry::kPrepareDistance);
++	const bool needsTreeDetails=m_asyncTerrain && prepareTrees && !m_detailedTreeChunks.contains(key);
+ 	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key) || needsTreeDetails;
+ 
+ 	auto rebuildTerrainBatches = [&]
+@@ -195,7 +199,7 @@
+ 				auto sites=foundSites==m_transportSites.end() ? Array<Polygon>{} : foundSites->second;
+ 				auto rivers=world.rivers().subset(RectF{chunk.coord.x*CHUNK_SIZE-64,chunk.coord.y*CHUNK_SIZE-64,CHUNK_SIZE+128,CHUNK_SIZE+128});
+ 				TerrainJob job{ key, m_terrainEpoch, m_terrainRevisions[key], {} };
+-				job.detailedTrees=TreeGeometry::nearChunk(chunk.coord,m_buildingEye);
++				job.detailedTrees=prepareTrees || m_detailedTreeChunks.contains(key);
+ 				job.future = std::async(std::launch::async, [snapshot = std::move(snapshot), quads = std::move(quads), heightSnapshots = std::move(heightSnapshots),detailedTrees=job.detailedTrees,rivers=std::move(rivers),sites=std::move(sites)]()
+ 				{
+ 					const Stopwatch timer{ StartImmediately::Yes };
+--- a/src/render/WorldRenderer_Terrain.cpp
++++ b/src/render/WorldRenderer_Terrain.cpp
+@@ -868,6 +868,7 @@
+ 	m_transportSitesDirty=true;
+ 	++m_terrainEpoch;
+ 	m_detailedTreeChunks.clear();
++	m_treeHeightRanges.clear();
+ 	m_meshCache.clear();
+ 	m_chunkSubtractorCache.clear();
+ 	m_edgeSubtractorCache.clear();
+--- a/src/road/RoadNetwork.cpp
++++ b/src/road/RoadNetwork.cpp
+@@ -281,6 +281,7 @@
+ 	RoadEdge* e = getEdge(edgeId);
+ 	if (!e) return;
+ 	e->speedLimit   = tmpl.speedLimit;
++	e->farmAccess = tmpl.farmAccess;
+ 	e->parts        = tmpl.parts;
+ 	e->lanes        = tmpl.lanes;
+ 	e->laneVehicles = Array<Array<int>>(e->lanes.size());
+--- a/src/road/RoadTypes.hpp
++++ b/src/road/RoadTypes.hpp
+@@ -437,6 +437,7 @@
+ 	double    constructionStartTime = 0.0;  ///< UnderConstruction になった時刻 [ゲーム秒]
+ 	float     congestion = 0.0f;
+ 
++	bool      farmAccess = false; ///< 車で通行できる農道。農地の接道と生成で共有する。
+ 	bool      designGrade = false; ///< 地上区間も整地前に決めた設計縦断を保持する
+ 	[[nodiscard]] bool usesDesignHeight() const { return useElevation || designGrade; }
+ 
+--- a/src/save/RoadBinary.cpp
++++ b/src/save/RoadBinary.cpp
+@@ -178,7 +178,7 @@
+ 		}
+ 
+ 		// v2: useElevation
+-		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0)));
++		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0) | (e.farmAccess ? 8 : 0)));
+ 
+ 		// v3: parts（道路部品配列）
+ 		w.write(static_cast<uint32>(e.parts.size()));
+@@ -351,6 +351,7 @@
+ 			if (!r.read(elev)) return false;
+ 			e.useElevation = (elev & 1) != 0;
+ 			e.designGrade = (elev & 4) != 0;
++			e.farmAccess = (elev & 8) != 0;
+ 			e.tunnel = (elev & 2) != 0;
+ 		}
+ 
+--- a/src/scene/GameScene.cpp
++++ b/src/scene/GameScene.cpp
+@@ -2062,6 +2062,7 @@
+ 
+ void GameScene::update()
+ {
++	m_frameRateGraph.sampleNow();
+ 	// シミュレーション応答、時間進行、入力、カメラ、描画準備を毎フレームここで順に同期させる。
+ 	if (m_phase == GamePhase::Loading)
+ 	{
+@@ -2196,6 +2197,7 @@
+ 	if (m_mode==EditMode::ZonePaint && !m_panelManager.isVisible(U"zone_palette")) { setZonePaintMode(false); }
+ 	if (m_mode!=EditMode::ZonePaint && m_panelManager.isVisible(U"zone_palette")) { setZonePaintMode(false); }
+ 	m_minimapRenderer.setSmallBounds(m_uiRenderer.minimapBounds());
++	handleGlobalShortcuts();
+ 	if (!m_showPauseMenu && (!GameInput::keyboardBlocked()))
+ 	{
+ 		if (const auto target=m_minimapRenderer.update(m_camera,m_network,m_trainNetwork,m_districts))
+@@ -2219,7 +2221,7 @@
+ 	const bool textFocused=GameInput::keyboardBlocked();
+ 	const bool commandChord=GameInput::pressed(KeyControl) &&
+ 		(GameInput::pressed(KeyShift) || GameInput::pressed(KeyZ) || GameInput::pressed(KeyY) || GameInput::pressed(KeyR));
+-	m_camera.setKeyboardBlocked(mapInput || m_showPauseMenu || textFocused || commandChord || GameInput::pressed(KeyF3));
++	m_camera.setKeyboardBlocked(mapInput || m_showPauseMenu || textFocused || commandChord);
+ 	m_camera.setBlockInput(mapInput || m_showPauseMenu || textFocused || m_panelManager.isMouseOnAnyPanel() || m_uiRenderer.isMouseOnHud());
+ 	if (!mapInput) { m_camera.update(dt, m_world); }
+ 	m_logicMs = swLogic.msF();
+--- a/src/scene/GameScene.hpp
++++ b/src/scene/GameScene.hpp
+@@ -1,4 +1,5 @@
+ ﻿#pragma once
++#include "../ui/FrameRateGraph.hpp"
+ #include "../render/TunnelRenderer.hpp"
+ #include "../gen/DistrictHierarchy.hpp"
+ #include "../render/RiverRenderer.hpp"
+@@ -164,6 +165,7 @@
+ 	int              m_hudStatsRefreshCountdown = 0;
+ 	HousingCapacityCache m_housingCapacity;
+ 	DebugRenderer    m_debugRenderer;
++	FrameRateGraph m_frameRateGraph;
+ 	TrainRenderer        m_trainRenderer;
+ 	PlaceNameRenderer    m_placeNameRenderer;
+ 	RoadRouteSignRenderer m_routeSignRenderer;
+@@ -230,7 +232,7 @@
+ 	int             m_followVehicleIdx = 0;
+ 
+ 	// 選択状態（道路・付帯設備を統合）
+-	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel };
++	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel, Train };
+ 	struct Selection {
+ 		SelectionKind kind = SelectionKind::None;
+ 		int id = -1;
+@@ -525,6 +527,7 @@
+ 
+ 	// ---- 入力処理 (GameScene_Input.cpp) ----
+ 	void handleInput();
++	void handleGlobalShortcuts();
+ 	void updateCursor();
+ 	/// @brief 通常モード (EditMode::None) でのクリック選択処理（車両→ノード→エッジの優先順）
+ 	void handleSelectionClick();
+--- a/src/scene/GameScene_Input.cpp
++++ b/src/scene/GameScene_Input.cpp
+@@ -1,4 +1,5 @@
+ ﻿#include "GameScene.hpp"
++#include "../railway/TrainConsist.hpp"
+ #include "../ui/NavigationHeader.hpp"
+ #include "../ui/KeyboardActions.hpp"
+ #include "../gen/RoadTerrainFit.hpp"
+@@ -155,7 +156,7 @@
+ 	}
+ 
+ 	// ---- F3 コマンド ----
+-	if (GameInput::pressed(KeyF3))
++	if (GameInput::pressed(KeyF3) && GameInput::down(KeyR))
+ 	{
+ 		if (GameInput::down(KeyR))
+ 		{
+@@ -752,10 +753,14 @@
+ 
+ 	// ワールド上の候補を優先順位つきで走査し、対応する情報パネルと選択状態を一貫して切り替える。
+ 	// 車両 -> ノード -> エッジの優先順でクリック判定
+-	Optional<int> hitVehicleId;
++	Optional<int> hitVehicleId,hitTrainId;
+ 	{
+ 		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
+ 		double bestDist = 1e9;
++		for (const auto& train:m_trainManager.trains())
++		{
++			if (const auto distance=TrainConsist::hitDistance(train,m_trainNetwork,ray);distance && *distance<bestDist) { bestDist=*distance;hitTrainId=train.id; }
++		}
+ 		for (const auto& v : m_renderVehicles)
+ 		{
+ 			const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
+@@ -767,10 +772,17 @@
+ 				if (*d < bestDist)
+ 				{
+ 					bestDist = *d;
+-					hitVehicleId = v.id;
++					hitVehicleId = v.id; hitTrainId.reset();
+ 				}
+ 			}
+ 		}
++	}
++
++	if (hitTrainId)
++	{
++		clearSelection();m_selectedVehicleId.reset();m_trackingVehicle=false;
++		m_panelManager.hide(U"vehicle_info");
++		m_selection={SelectionKind::Train,*hitTrainId};return;
+ 	}
+ 
+ 	if (hitVehicleId)
+@@ -1686,3 +1698,8 @@
+ 	}
+ 	return false;
+ }
++
++void GameScene::handleGlobalShortcuts()
++{
++	if (!m_showPauseMenu && !GameInput::keyboardBlocked() && GameInput::down(KeyF3)) { m_frameRateGraph.visible=!m_frameRateGraph.visible; }
++}
+--- a/src/scene/GameScene_Playtest.cpp
++++ b/src/scene/GameScene_Playtest.cpp
+@@ -26,6 +26,8 @@
+ 		JSON state;
+ 		const Vec3 focus=m_camera.focusPoint(); auto& map=m_minimapRenderer.mapView();
+ 		state[U"commandId"]=m_playtestCommandId;
++		state[U"fpsGraph"]=m_frameRateGraph.visible;state[U"fps"]=m_frameRateGraph.latest();
++		state[U"selectionKind"]=static_cast<int>(m_selection.kind);state[U"selectionId"]=m_selection.id;
+ 		state[U"townLabels"] = Array<JSON>{};
+ 		int labelIndex = 0;
+ 		for (const auto& label : m_placeNameRenderer.labels())
+@@ -253,6 +255,7 @@
+ 			const auto original=GameInput::buffer;
+ 			GameInput::buffer=KeyboardActionBuffer{};
+ 			GameInput::buffer.update({{0,0,static_cast<uint8>(code),true,false}},true);
++			handleGlobalShortcuts();
+ 			handleInput();
+ 			GameInput::buffer=original;
+ 		}
+@@ -300,6 +303,8 @@
+ 	else if (action==U"volume") { getData().effectVolume=Clamp(number(U"value",.6),0.0,1.0); }
+ 	else if (action==U"generate") { generateDraftRoadPlan(); }
+ 	else if (action==U"commit") { commitDraftRoadPlan(); }
++	else if (action==U"select_parcel") { selectLandParcelAt({number(U"x"),number(U"z")}); }
++	else if (action==U"select_train") { clearSelection();m_selection={SelectionKind::Train,static_cast<int>(number(U"train"))}; }
+ 	else if (action==U"map_open") { m_minimapRenderer.openFullScreen(m_camera,m_network,m_trainNetwork,m_districts); }
+ 	else if (action==U"map_pan") { m_minimapRenderer.mapView().pan({number(U"x"),number(U"y")},Scene::Size()); }
+ 	else if (action==U"map_zoom") { m_minimapRenderer.mapView().zoomAt(m_minimapRenderer.mapView().body(Scene::Size()).center(),number(U"factor",1),Scene::Size()); }
+--- a/src/scene/GameScene_Render.cpp
++++ b/src/scene/GameScene_Render.cpp
+@@ -185,6 +185,7 @@
+ 		const Stopwatch mapTimer{StartImmediately::Yes};
+ 		m_renderTimings = {};
+ 		m_minimapRenderer.drawFullScreen(m_camera);
++		m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size());
+ 		m_renderTimings.total=mapTimer.msF();
+ 		return;
+ 	}
+@@ -325,6 +326,7 @@
+ 	                               m_renderTimings.debug, m_renderTimings.ui, m_network);
+ 
+ 	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
++	m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size());
+ 
+ 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
+ 	constexpr int kPerfLogIntervalFrames = 120;
+@@ -597,6 +599,14 @@
+ 			}
+ 		}
+ 
++		if (m_selection.kind==SelectionKind::Train)
++		{
++			for (const auto& train:m_trainManager.trains())
++			{
++				if (train.id==m_selection.id) { m_trainRenderer.drawTrainSilhouette(train,m_trainNetwork,m_camera.camera3D().getEyePosition(),maskColor);break; }
++			}
++		}
++
+ 		// 道路系（Edge/Node/Signal/GuideSign）
+ 		switch (m_selection.kind)
+ 		{
+--- a/src/ui/MapTerrainLayer.hpp
++++ b/src/ui/MapTerrainLayer.hpp
+@@ -40,7 +40,13 @@
+ 			image[y][x]=ColorF{color.r*light,color.g*light,color.b*light};
+ 		}
+ 		if (texture.size()!=pixels) { texture=DynamicTexture{image}; }
+-		else { texture.fill(image); }
++		else
++		{
++			// GPU更新は即時実行なので、旧画像を参照する2Dコマンドを先に完了する。
++			const ScopedCustomShader2D restoreShaders{VertexShader{},PixelShader{}};
++			Graphics2D::Flush();
++			if (!texture.fill(image)) { texture=DynamicTexture{image}; }
++		}
+ 		m_valid=true; return true;
+ 	}
+ private:
+--- a/src/ui/WorldMapView.hpp
++++ b/src/ui/WorldMapView.hpp
+@@ -94,8 +94,10 @@
+ 	void draw(Size size, const Texture& terrain, const Font& font, Vec2 camera,RectF terrainWorld={0,0,kWorldSize,kWorldSize}) const
+ 	{
+ 		// Cached geography never contains font-atlas commands. Labels stay in the final UI pass.
++		const bool rebuild=m_cartographyDirty || m_cacheSize!=size || m_cacheCenter!=center || m_cacheZoom!=zoom;
+ 		const ScopedCustomShader2D standard{VertexShader{},PixelShader{}};
+-		if (m_cartographyDirty || m_cacheSize!=size || m_cacheCenter!=center || m_cacheZoom!=zoom)
++		if (rebuild) { Graphics2D::Flush(); }
++		if (rebuild)
+ 		{
+ 			if (m_cacheSize!=size) { m_cartography=RenderTexture{size,TextureFormat::R8G8B8A8_Unorm}; }
+ 			{
+--- a/Test/FringeAgricultureTests.cpp
++++ b/Test/FringeAgricultureTests.cpp
+@@ -78,8 +78,8 @@
+ 		const int start=network.addNode(a,NodeType::Endpoint),end=network.addNode(b,NodeType::Endpoint);
+ 		network.addEdge(start,end,a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::LocalRoad,2);
+ 		const auto stats=AgriculturalLayout::generate(world,network,42);
+-		context.expect(stats.fields>=200 && stats.tracks>0 && stats.drains==stats.fields,U"Farm plots have shared access tracks and a channel at every plot");
+-		context.expect(stats.disconnected>=200 && world.getChunk(Point{35,32})->landPatches.isEmpty(),U"An isolated agricultural island is not filled with unreachable fields");
++		context.expect(stats.fields>=12 && stats.tracks>0 && stats.drains==stats.tracks*2,U"Farm plots have shared access tracks and a channel at every plot");
++		context.expect(world.getChunk(Point{35,32})->landPatches.isEmpty(),U"An isolated agricultural island is not filled with unreachable fields");
+ 		JSON report; int index=0,gateCount=0;
+ 		for (const auto& patch : world.getChunk(Point{32,32})->landPatches)
+ 		{
+@@ -89,7 +89,7 @@
+ 			report[U"patches"][index++]=item;
+ 			if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField)
+ 			{
+-				context.expect(patch.polygon[1].distanceFrom(patch.polygon[0])>110,U"Cultivation plots keep a long working direction");
++				context.expect(patch.polygon.size()>=4,U"Fields fit the spaces between actual farm roads");
+ 				gateCount+=(patch.materialVariant & AgriculturalLayout::kManagedField)!=0;
+ 			}
+ 		}
+@@ -115,36 +115,30 @@
+ 		const int start=network.addNode(a,NodeType::Endpoint),end=network.addNode(b,NodeType::Endpoint);
+ 		network.addEdge(start,end,a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::LocalRoad,2);
+ 		const auto stats=AgriculturalLayout::generate(world,network,42,frames);
+-		context.expect(stats.fields>500 && stats.drains==stats.fields,U"Rotated town divisions retain connected agricultural access and drainage");
+-		Array<ParcelGeometry::Quad> fields;
+-		int acrossChunks=0,firstDivision=0,secondDivision=0;
+-		double alignmentError=0,phaseError=0;
++		context.expect(stats.fields>30 && stats.tracks>0,U"Both village surroundings retain fields alongside real roads");
++		Array<Polygon> fields;int irregular=0;Array<Vec2> homes;
+ 		for (int y=32;y<=33;++y) { for (int x=32;x<=33;++x)
+ 		{
+-			for (const auto& patch : world.getChunk(Point{x,y})->landPatches)
++			const auto* chunk=world.getChunk(Point{x,y});
++			for (int row=0;row<ZONE_CELLS;++row) { for (int col=0;col<ZONE_CELLS;++col)
+ 			{
+-				if (patch.type!=LandPatchType::PaddyField && patch.type!=LandPatchType::FarmField) { continue; }
+-				ParcelGeometry::Quad polygon; std::copy_n(patch.polygon.begin(),4,polygon.begin()); fields << polygon;
+-				const Vec2 center=(polygon[0]+polygon[2])*.5;
+-				const int index=center.distanceFromSq(frames[0].center)<center.distanceFromSq(frames[1].center) ? 0 : 1;
+-				firstDivision+=index==0; secondDivision+=index==1;
+-				const auto& frame=frames[index];
+-				alignmentError=Max(alignmentError,Abs((polygon[1]-polygon[0]).normalized().dot(frame.axisZ)));
+-				const double gridX=(frame.localPoint(polygon[0]).x-4.8)/frame.plotSize.x;
+-				phaseError=Max(phaseError,Abs(gridX-std::round(gridX)));
+-				bool crosses=false;
+-				for (const Vec2 p : polygon) { crosses |= Floor(p.x/CHUNK_SIZE)!=Floor(center.x/CHUNK_SIZE) || Floor(p.y/CHUNK_SIZE)!=Floor(center.y/CHUNK_SIZE); }
+-				acrossChunks+=crosses;
++				const auto& building=chunk->buildingGrid[{col,row}];if (building.type==BuildingType::RuralHouse) { homes << Vec2{(x*ZONE_CELLS+col+.5)*16+building.offsetX,(y*ZONE_CELLS+row+.5)*16+building.offsetZ}; }
++			} }
++			for (const auto& patch:chunk->landPatches)
++			{
++				context.expect(patch.type!=LandPatchType::FarmTrack,U"Farm access is a road, never a land patch");
++				if (patch.type==LandPatchType::PaddyField || patch.type==LandPatchType::FarmField) { fields << Polygon{patch.polygon};irregular+=patch.polygon.size()>4; }
+ 			}
+ 		} }
+-		bool overlap=false;
+-		for (size_t i=0;i<fields.size();++i) { for (size_t j=i+1;j<fields.size();++j) { overlap |= ParcelGeometry::overlaps(fields[i],fields[j]); } }
+-		context.expect(firstDivision>100 && secondDivision>100 && acrossChunks>10,U"Both town grids continue over chunk boundaries");
+-		context.expect(alignmentError<1e-8 && phaseError<1e-8,U"Fields inherit town direction, block interval and grid origin");
+-		context.expect(!overlap,U"Different town divisions and adjacent chunk plots never overlap");
+-		JSON report; report[U"fields"]=stats.fields; report[U"tracks"]=stats.tracks; report[U"acrossChunks"]=acrossChunks;
+-		report[U"alignmentError"]=alignmentError; report[U"phaseError"]=phaseError; report[U"overlap"]=overlap;
+-		report.save(U"TestResults/town_aligned_agriculture.json");
++		bool overlap=false,served=true;
++		for (size_t i=0;i<fields.size();++i)
++		{
++			bool nearby=false;for (const Vec2 home:homes) { bool all=true;for (const auto point:fields[i].outer()) { all &= point.distanceFrom(home)<=500; }nearby |= all; }served &= nearby;
++			for (size_t j=i+1;j<fields.size();++j) { overlap |= fields[i].intersects(fields[j]); }
++		}
++		context.expect(irregular>5 && !overlap,U"Irregular road-following fields do not overlap at chunk or village boundaries");
++		context.expect(served && !homes.isEmpty(),U"Every part of every field has a rural house within 500 m");
++		JSON report;report[U"fields"]=stats.fields;report[U"roads"]=stats.tracks;report[U"irregular"]=irregular;report[U"homes"]=homes.size();report[U"overlap"]=overlap;report[U"served"]=served;report.save(U"TestResults/town_aligned_agriculture.json");
+ 	});
+ 	runner.add(U"Morphology.SuburbanOrigins",[](TestContext& context)
+ 	{
+@@ -160,4 +154,41 @@
+ 		}
+ 	});
+ 
++	runner.add(U"Morphology.FarmRoadTerrainAndDensity",[](TestContext& context)
++	{
++		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
++		for (int z=31;z<=34;++z) { for (int x=31;x<=34;++x)
++		{
++			Grid<float> heights(HEIGHT_CELLS+1,HEIGHT_CELLS+1);
++			for (int row=0;row<=HEIGHT_CELLS;++row) { for (int col=0;col<=HEIGHT_CELLS;++col) { const double wx=x*CHUNK_SIZE+col*16,wz=z*CHUNK_SIZE+row*16;heights[row][col]=static_cast<float>(80+.012*(wz-33792)+3*Sin(wx/180)*Cos(wz/240)); } }
++			world.installChunkDirect({x,z},HeightMapResult{heights,40,120});world.getChunk({x,z})->zoneMap.fill(ZoneType::Agriculture);
++		} }
++		RoadNetwork roads;for (int row=0;row<7;++row)
++		{
++			const double z=32000+row*500;const Vec3 a{31800,world.sampleHeight(31800,static_cast<float>(z)),z},b{35700,world.sampleHeight(35700,static_cast<float>(z)),z};
++			const int first=roads.addNode(a),last=roads.addNode(b);roads.addEdge(first,last,a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::LocalRoad,2);
++		}
++		AgriculturalLayout::Frame frame;frame.center={33792,33792};const auto stats=AgriculturalLayout::generate(world,roads,42,{frame});
++		HashSet<int> reachable;for (const auto& edge:roads.edges()) { if (edge.id>=0 && !edge.farmAccess) { reachable.insert(edge.nodeA);reachable.insert(edge.nodeB); } }
++		for (int pass=0;pass<20;++pass) { for (const auto& edge:roads.edges()) { if (edge.id>=0 && (reachable.contains(edge.nodeA) || reachable.contains(edge.nodeB))) { reachable.insert(edge.nodeA);reachable.insert(edge.nodeB); } } }
++		bool connected=true,grounded=true;int curved=0;double maximumGrade=0,nearArea=0,farArea=0;
++		for (const auto& edge:roads.edges())
++		{
++			if (edge.id<0 || !edge.farmAccess) { continue; }connected &= reachable.contains(edge.nodeA) && reachable.contains(edge.nodeB);grounded &= !edge.useElevation && !edge.tunnel;
++			const auto curve=*roads.getBezier(edge.id);curved+=(curve.p1-curve.p0).cross(curve.p3-curve.p0).length()>2;
++			Vec3 previous=curve.positionAt(0);previous.y=world.sampleHeight(static_cast<float>(previous.x),static_cast<float>(previous.z));
++			for (int i=1;i<=16;++i) { Vec3 p=curve.positionAt(curve.totalLength*i/16);p.y=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));maximumGrade=Max(maximumGrade,Abs(p.y-previous.y)/Vec2{p.x-previous.x,p.z-previous.z}.length());previous=p; }
++		}
++		for (int z=31;z<=34;++z) { for (int x=31;x<=34;++x) { for (const auto& patch:world.getChunk({x,z})->landPatches)
++		{
++			if (patch.type!=LandPatchType::FarmField && patch.type!=LandPatchType::PaddyField) { continue; }const Polygon polygon{patch.polygon};const double distance=polygon.centroid().distanceFrom(frame.center);
++			if (distance<700) { nearArea+=polygon.area(); }if (distance>1200 && distance<1900) { farArea+=polygon.area(); }
++		} } }
++		const double nearDensity=nearArea/(Math::Pi*700*700),farDensity=farArea/(Math::Pi*(1900*1900-1200*1200));
++		context.expect(stats.fields>50 && connected && grounded,U"Actual farm roads form a drivable ground network connected to existing roads");
++		context.expect(curved>5 && maximumGrade<.061,U"Farm branches bend with terrain without exceeding the farm-road gradient");
++		context.expect(nearDensity>farDensity*1.3 && farArea>0,U"Field coverage decreases outward from the village, measured per unit area");
++		JSON report;report[U"fields"]=stats.fields;report[U"curvedRoads"]=curved;report[U"maximumGrade"]=maximumGrade;report[U"nearDensity"]=nearDensity;report[U"farDensity"]=farDensity;report[U"connected"]=connected;report.save(U"TestResults/farm_terrain_density.json");
++	});
++
+ }
+--- a/Test/Main.cpp
++++ b/Test/Main.cpp
+@@ -26,6 +26,7 @@
+ 	registerTrafficScalingTests(runner);
+ 	registerModelLodTests(runner);
+ 	registerGenerationSettingsTests(runner);
++	registerRuralVisualTests(runner);
+ 	registerRefactoringTests(runner);
+ 	registerMountainRoadTests(runner);
+ 	registerDrivingTests(runner);
+--- a/Test/RefactoringTests.cpp
++++ b/Test/RefactoringTests.cpp
+@@ -94,11 +94,12 @@
+ 					for (const Vec2 point : patch.polygon) { snapshot.values << point.x << point.y; }
+ 					parcelsValid &= Polygon::Validate(patch.polygon) == PolygonFailureType::OK;
+ 					snapshot.fields += patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField;
+-					snapshot.tracks += patch.type == LandPatchType::FarmTrack;
++					context.expect(patch.type!=LandPatchType::FarmTrack,U"Access tracks are ordinary roads, not land patches");
+ 				}
+ 			}
+ 		}
+ 		context.expect(snapshot.buildings > 20 && frontageValid, U"Standalone development places homes on real roads and preserves shared cell coordinates");
++		for (const auto& edge:roads.edges()) { snapshot.tracks+=edge.id>=0 && edge.farmAccess; }
+ 		context.expect(snapshot.fields > 0 && snapshot.tracks > 0 && parcelsValid, U"The generated countryside has valid fields, access tracks and parcels");
+ 		context.expect(validation.passed, U"The standalone production pipeline passes its frontage and parcel constraints: " + validation.summary);
+ 		return snapshot;
+--- a/Test/RoadsideLifeTests.cpp
++++ b/Test/RoadsideLifeTests.cpp
+@@ -240,7 +240,13 @@
+ 		using namespace RoadConstructionCost;
+ 		context.expect(unit(20, 20) == 1 && unit(20.5, 20) == 1, U"Surface road is the unit cost");
+ 		context.expect(unit(15, 20) == 8 && unit(25, 20) == 8, U"Cuttings and bounded earthworks cost eight times surface");
+-		context.expect(unit(27, 20) == 112 && unit(6, -10, 0) == 256 && unit(30, 20) == 160, U"Viaduct cost is sixteen times its deck-to-ground height in metres");
++		context.expect(unit(27,20)>112 && unit(6,-10,0)>256 && unit(30,20)>160,U"Viaducts add an exponential height penalty to sixteen times their height");
++		context.expect((unit(60,20)-640)>(unit(40,20)-320)*4,U"Tall viaduct penalties grow faster than linearly");
++		double run=0;const double continuous=segment(0,20,-1e9,800,run);run=0;double divided=0;
++		for (int i=0;i<16;++i) { divided+=segment(0,20,-1e9,50,run); }
++		context.expectNear(continuous,divided,.001,U"Subdividing a tunnel into edges cannot evade its total-length penalty");
++		run=0;double separated=segment(0,20,-1e9,400,run);separated+=segment(20,20,-1e9,1,run);separated+=segment(0,20,-1e9,400,run);
++		context.expect(continuous>separated && run==400,U"A genuine open-air interval ends a continuous tunnel run");
+ 		context.expect(unit(11, 20) == 64 && unit(20, 100, 104) == 64, U"Covered tunnels cost sixty-four times surface, including those beneath streams");
+ 		Array<RailCostProfile::Sample> samples;
+ 		for (int i = 0; i <= 10; ++i) { samples << RailCostProfile::Sample{{i * 40, 0}, 20 + (i % 2) * 2.0, 15, 25}; }
+--- a/Test/Test.vcxproj
++++ b/Test/Test.vcxproj
+@@ -138,6 +138,7 @@
+     <ClCompile Include="TrafficScalingTests.cpp" />
+     <ClCompile Include="ModelLodTests.cpp" />
+     <ClCompile Include="GenerationSettingsTests.cpp" />
++    <ClCompile Include="RuralVisualTests.cpp" />
+     <ClCompile Include="..\src\traffic\VehiclePopulation.cpp" />
+     <ClCompile Include="..\src\traffic\VehicleManager.cpp" />
+     <ClCompile Include="..\src\traffic\BuildingAccess.cpp" />
+--- a/Test/Test.vcxproj.filters
++++ b/Test/Test.vcxproj.filters
+@@ -1146,5 +1146,6 @@
+     <ClCompile Include="GenerationSettingsTests.cpp" />
+     <ClCompile Include="TrafficScalingTests.cpp" />
+     <ClCompile Include="ModelLodTests.cpp" />
++    <ClCompile Include="RuralVisualTests.cpp" />
+   </ItemGroup>
+ </Project>--- a/Test/TestCases.hpp
++++ b/Test/TestCases.hpp
+@@ -28,3 +28,4 @@
+ void registerModelLodTests(TestRunner& runner);
+ 
+ void registerGenerationSettingsTests(TestRunner& runner);
++void registerRuralVisualTests(TestRunner& runner);
+--- a/plan/00_current_implementation.md
++++ b/plan/00_current_implementation.md
+@@ -18,7 +18,7 @@
+ 
+ 生成調整値は `App/assets/generation/` のJSONを一度読み込む。建物前で発着する通常交通は最大12,000台。全OBJと手続き生成形状に距離別の簡略描画を用意する。詳細は [生成設定・LOD・大量交通](28_generation_assets_lod_traffic.md)。
+ 
+-`MapGenerator` → 集水・河川と地形 → 集落類型・町割 → 道路接続・城下町外縁と設計縦断 → 水域横断の修正 → 切土・盛土 → 狭小街区の統合 → 鉄道 → 地区・地名 → 敷地・建物 → 接続する耕作道・ほ場・用排水路。
++`MapGenerator` → 集水・河川と地形 → 集落類型・町割 → 道路接続・城下町外縁と設計縦断 → 水域横断の修正 → 切土・盛土 → 狭小街区の統合 → 鉄道 → 地区・地名 → 接続する農道と田舎の家 → 敷地・建物 → 農道間の不整形ほ場。
+ 
+ - 64×64チャンク、1チャンク1024m。基礎高さ場は16m格子。
+ - 城下町、宿場、門前、港、駅周辺、農村などの成り立ちを、道路方向・街区寸法・土地利用へ反映する。[24](24_japanese_urban_morphology.md)
+@@ -88,9 +88,13 @@
+ ### 2026-09-16 都市外縁の住宅と農地
+ 
+ - 住宅街を都市の外に1〜3段接続し、外側ほど通り・住宅占有率を減らす。郊外は戸建てと低層住宅を中心にする。
+-- 田畑は都市の共有軸・外周街区寸法・原点を継承し、農道と用排水路も同じ格子で生成する。チャンク境界と隣町の地割との重なりを検証する。
++- 田畑は町割に沿う道路から伸ばした農道と方向を共有し、地形に応じた不整形区画を作る。農道は普通道路で、全ての田畑の端まで500m以内に田舎の家を置く。
+ - 詳細は [都市形態](24_japanese_urban_morphology.md)、検証は [今回の記録](../artifacts/regional_landscape/REVIEW.md)。
+ 
+ ### 2026-09-16 平野・海岸・中央の開発余地
+ 
+ 平野の複数スケールの起伏と海岸の2次元変形を追加した。山地は内陸・側縁を基本とし、中央の山・大湾・湖はシードごとの変化として残す。中央に実際の適地を残す地形生成で対応し、街の位置・道路・建物の制約は維持する。新地形で再現した鉄道候補の不成立による生成停止も修正し、接続できた駅・路線を残して街を生成する。現行地形の正本は03章、鉄道の不成立時の仕様は10章、検証は `artifacts/terrain_composition/REVIEW.md`。
++
++### 2026-09-17 景観・選択・描画
++
++農道の道路グラフ統合、不整形農地、集落中心からの密度減衰、家まで500mの保証を追加。トンネル連続長・高架高さの指数費用、車体10色、敷地と電車の黄色い選択線、F3のFPSグラフを実装。地図画像の更新順序と敷地メッシュの表裏を修正し、木と道路は詳細表示より遠い範囲で準備する。
+--- a/plan/03_procedural_generation_spec.md
++++ b/plan/03_procedural_generation_spec.md
+@@ -40,7 +40,7 @@
+ 5. 全街路の地形検査後、必要なら計画全体を縮小し、駅を街区内へ再配置する。道路が成立しない場所は沿道型に切り替える。
+ 6. 地区内の通りは共通の直交軸で通し、中心からの距離に応じて通り単位で間隔を変える。交差点ごとの座標ノイズは加えない。
+ 7. 農村では既存地域道路を残し、道路接線に対する支線・裏道と実際の接道位置を生成する。
+-8. 都市の外周から住宅街を段階的に延ばし、外側ほど道路と住宅を疎らにする。田畑・農道・用排水路は近くの町割の軸・原点・外周街区寸法を引き継ぐ。詳細は24章§7。
++8. 都市の外周から住宅街を段階的に延ばし、外側ほど道路と住宅を疎らにする。町割に沿う既存道路から地形に沿った農道を伸ばし、その間に不整形の田畑を配置する。集落から離れるほど密度を下げ、全区画を田舎の家から500m以内に保つ。詳細は24章§7。
+ 
+ 都市の町割と旧道の接続では、矩形から100 m外側で既存の地域道路を実曲線上で分割する。内側を新しい街路へ置換し、同じ辺の入口へつなぐ。近接した入口はまとめ、公共用地に向かう無用な短い枝道を除く。形状だけでなく路線・車線・RoadPartも更新する。
+ 
+--- a/plan/06_ui_spec.md
++++ b/plan/06_ui_spec.md
+@@ -123,3 +123,9 @@
+ Hでダイヤを開閉する。路線の新規作成・前後選択、名称、運休、2両普通／4両快速、始発・終発・間隔、停車駅一覧からの選択・追加・削除・並べ替え、駅ごとの停車時間を扱う。時刻と間隔はゲーム内時計で表示。発車予定と実際の走行数・発車待ちを確認できる。
+ 
+ 変更は「変更を適用」で反映し、走行中の便は発車時の内容を維持する。入力不正や経路不成立は下書きのまま修正できる。文字入力とポーズ中は背後のゲーム操作から保護する。駅の「地図」と「車庫を見る」で対象へ移動。「始発駅に車庫」で適地検証後に追加する。詳細は [鉄道](10_railway_spec.md)。
++
++## FPSと選択表示（2026-09-17）
++
++F3で左下に直近30秒のFPSグラフを表示・非表示にする。約0.1秒ごとの実フレーム数と経過時間から求め、地図の操作中も切り替えられる。文字入力中とポーズメニュー中は反応させない。F3を押し続けてもカメラ操作を止めない。F3+Rのアセット再読込は維持する。
++
++敷地・田畑と電車の選択は、建物・車と同じ黄色い輪郭を使う。電車は編成の各車体に合わせてクリック判定し、道路に沿う坂道の姿勢も反映する。
+--- a/plan/12_visual_spec.md
++++ b/plan/12_visual_spec.md
+@@ -48,14 +48,12 @@
+ 
+ ## 4. 敷地・田畑・耕作道
+ 
+-`LandPatch` の多角形を三角形化して地形へ追従させる。住宅の庭・舗装・砂利、畑、水田、耕作道、用排水路、砂浜、護岸を区別する。敷地選択も道路を切り抜いた同じ表面を使う。
++`LandPatch` の多角形を三角形化して地形へ追従させる。住宅敷地、畑、水田、砂浜、護岸を区別する。敷地選択も道路を切り抜いた同じ表面を使い、黄色い輪郭で表示する。三角形の表裏と上向き法線を一致させる。
+ 
+-- 城下町の外縁は、実際に生成した生活道路と街道に沿って住宅を配置し、外へ向けて密度を下げる。[24](24_japanese_urban_morphology.md)
+-- `AgriculturalLayout` は、幅4.4mの耕作道、128mごとの横連絡道、128×32mを基準とするほ場、用排水路を共通の地割から作る。耕作面は道路・水路・畦の幅を除いた大きさになる。
+-- 耕作道の連結成分が地上道路につながっていることを確認する。孤立した区画を田畑で埋めない。田の進入口は幅4m、畦は高さ20cmの台形断面とし、入口を土手で塞がない。
+-- 畑・水田のUVは区画の最長辺へ揃える。畑は土・畝・作物列、水田は湿った面・空の反射・稲列を専用シェーダーで表現する。
+-- 用排水路は水面を表す底とコンクリート縁を分ける。田面の厳密な均平・水理計算・農機運行・棚田造成は未実装。平坦地の整備済みほ場を近似する。
+-- 農地施設も土地パッチとして保存する。一般車の道路経路グラフとは別系統である。[14](14_save_spec.md)
++- 城下町の外縁は、生活道路と街道に沿って住宅を配置し、外へ向けて密度を下げる。[24](24_japanese_urban_morphology.md)
++- 農道は道路ネットワークの幅4.4mの普通道路として描画する。地形に沿う農道の間を不整形の田畑で埋め、全区画を田舎の家から500m以内に保つ。路肩と側溝も道路の共通部品を使う。
++- 畑・水田のUVは区画の最長辺へ揃える。畝・稲列・土粒の模様を画素の大きさに合わせて弱め、移動時の細かな点滅を抑える。
++- 農道・民家・既存敷地と重なる区画を除外する。田面の厳密な均平・水理計算・農機運行・棚田造成は未実装。
+ 
+ ## 5. 建物と街角
+ 
+@@ -71,7 +69,7 @@
+ 
+ ## 6. 植生・水面・日照
+ 
+-樹木は近景の枝分かれした幹と葉群、遠景の簡略樹冠を使い分ける。近景判定は256mタイルの最近点から300m以内。遠いチャンクは色ごとにまとめる。農地・宅地・道路・水域など植生を置けない範囲を共通データで除外する。
++樹木は近景の枝分かれした幹と葉群、遠景の簡略樹冠を使い分ける。近景判定は256mタイルと地表の高さ範囲までの立体距離600m以内。1100mから非同期で準備し、1500mまで保持する。絶対標高では判定せず、高い山でも地表へ近づけば詳細を表示する。遠いチャンクは色ごとにまとめる。農地・宅地・道路・水域など植生を置けない範囲を共通データで除外する。
+ 
+ 森林には庭木と別の形状を使う。杉は高さ25m・横方向の基準縮尺10m、広葉樹は高さ19m・横方向15mを基準に変化させ、細い幹の上へ樹冠を持ち上げる。16m区画の実際の候補位置で道路離隔を判定し、道路付近は候補を増やす。谷側で樹冠が路面上5mの空間へ届く場合は樹冠幅ぶん離す。下草は高木と別の低い葉群で構成する。以前のように道路付近の16m区画全体を一律除外しない。
+ 
+@@ -83,7 +81,7 @@
+ 
+ 信号は滑らかな鋼管支柱と曲がったアーム、薄い丸角筐体、厚みのある庇、固定金具を持つ。発光面は64分割で、筐体と独立して信号状態を表示する。通常標識・案内標識にもキャップ、固定帯、フランジとボルトを設ける。生成手順・寸法・点灯検証は [27](27_roadside_life_spec.md)。
+ 
+-乗用車、軽自動車、バス、緊急車両に加え、小型配送トラック・大型貨物トラックも近距離800m以内で専用OBJを使う。配送車はキャブと箱形荷室、貨物車は3軸車輪と長い荷室を持つ。タイヤ下端をモデルの接地原点0mに揃える。遠方は既存の簡易形状を使う。
++乗用車、軽自動車、バス、緊急車両に加え、小型配送トラック・大型貨物トラックも100m以内で詳細OBJ、350m以内で中景OBJ、それ以遠で遠景モデルを使う。配送車はキャブと箱形荷室、貨物車は3軸車輪と長い荷室を持つ。タイヤ下端をモデルの接地原点0mに揃える。遠方は既存の簡易形状を使う。
+ 
+ 車両モデルの作成は `scripts/build_neighborhood_vehicles.py` と既存のBlender焼き込み工程を使う。`--vehicle-paint` は車体塗装・ゴム・ガラス・金属用であり、建物向けの塗り壁材質とは別にする。
+ 
+@@ -111,3 +109,13 @@
+ Testでは、道路切り抜き・材質差・信号の表示距離・地図の再利用・段階的な道路準備後の画素一致・外縁の接続・農地アクセスを検証する。目標フレーム数を実測結果と混同しない。数値は解像度・視点・時刻・シードを添えて記録する。
+ 
+ 最新の観察と検証記録は [城下町外縁・農地](../artifacts/castle_town_edges/REVIEW.md)、通常操作の検証は [プレイテスト](../artifacts/playtest_refinement/REVIEW.md)。
++
++## 2026-09-17 描画更新
++
++道路の詳細表示は曲線の最近点まで1200m以内、標示・沿道設備は1700m以内から準備する。長い道路の中央までの距離で判定しない。樹木もチャンクの境界から近い順に準備する。
++
++地図の動的テクスチャ更新と全画面キャッシュのクリアの前に、以前の画像を参照する描画命令を送出する。呼出し元のシェーダー状態は送出前に保存して復元する。
++
++車の塗装は `assets/vehicles/paint.json` の10色から車両IDで固定し、全LODへ引き継ぐ。ガラス・タイヤ・灯火は塗り替えない。遠景は変換と色を同じGPUバッチへ送る。
++
++選択した電車は実際の車体姿勢と同じ編成形状を黄色い輪郭で囲う。検証は `RuralVisualTests.cpp` と [今回の記録](../artifacts/rural_landscape_ui/REVIEW.md)。
+--- a/plan/14_save_spec.md
++++ b/plan/14_save_spec.md
+@@ -432,6 +432,6 @@
+ 
+ `global/districts.json` の `morphologyVersion=2` では、地区ごとの `fringe_i` 件数と `fringeAX_i_j / fringeAZ_i_j / fringeBX_i_j / fringeBZ_i_j` に、外縁街路を地区座標で保存する。旧版でキーがない場合は空配列とする。道路そのものは既存の道路保存系で復元する。
+ 
+-`chunks/x_y/land_patches.bin` の既存レコード構造を保ち、`LandPatchType` の末尾に `FarmTrack=7`、`IrrigationDitch=8` を追加する。農地の `materialVariant` 上位ビットは耕作道側の畦の進入口を表す。田畑・耕作道・水路のポリゴンを保存するため、ロード時に農道を再抽選しない。新たな都市形態は新規生成に適用し、既存セーブへ外側道路を追加する移行処理は行わない。
++田畑の不整形ポリゴンは `chunks/x_y/land_patches.bin` に保存する。新規生成の農道は道路として保存し、道路の高さフラグのbit3に `farmAccess` を記録する。旧 `FarmTrack` / `IrrigationDitch` の列挙値は残すが、新規農道は土地パッチで生成しない。既存セーブの移行処理は行わない。
+ 
+ 当面の開発優先度は新規生成の景観と街のつながり。既存セーブの互換性・移行の拡充を優先しない（ユーザー指定、2026-09-13）。
+--- a/plan/24_japanese_urban_morphology.md
++++ b/plan/24_japanese_urban_morphology.md
+@@ -114,14 +114,12 @@
+ 
+ 農道と畦は別の幅と役割を持つ。農林水産省のほ場整備資料を参考に、耕作区画、農機のアクセス、用排水路を共通の地割から生成する。[土地改良事業設計指針「ほ場整備」](https://www.maff.go.jp/j/nousin/hojo_seibi_shishin.html)、[区画・用排水路及び農道の配置](https://www.maff.go.jp/j/nousin/attach/pdf/hojo_seibi_shishin-1.pdf)
+ 
+-- `AgriculturalLayout` が農地生成を担当する。従来の空きセルへの6×4セル詰め込みは農地には使用しない。
+-- 農地の座標系は近くの都市・地方町の `gridAxisX/Z` を引き継ぐ。原点は旧町割の角、長辺間隔は外周街区の幅、短辺間隔は外周街区の奥行きの1/4。これにより街路・農道・水路の方向と境界をつなぐ。生活圏に属する村の農地は中心町側の地割を共有し、圏外の村は独自の地割を持つ。地割の領域はこれらの中心からの近さで分け、向きの変わる境界に余白を残す。
+-- 幅4.4mの耕作道を長辺間隔ごと、横連絡道を田畑4枚ごとに配置する。畦・幅1mの用排水路と進入口を設け、その幅を耕作面から差し引く。チャンクごとに格子を始め直さず、回転した共通格子を使う。集落情報のない単独利用では128×32mを既定とする。地割寸法はゲーム用であり、日本全国の共通規格ではない。
+-- 耕作道は共通端点で接続を判定し、地上の既存道路に接触する連結成分を採用する。採用した道路につながる進入口を持つ田畑だけを生成する。孤立した候補は未開発のままとする。
+-- 各ほ場は8m間隔で地形・水域を検査する。高低差1.8m以内を耕作候補、0.8m未満を水田候補とする。耕作道は勾配6%以内、水面から1mの余裕を必要とする。
+-- 畦は高さ20cmの台形断面。進入口に幅4mの切れ目を作り、砂利の取り付けを耕作道につなぐ。用排水路は水面を表す底とコンクリート縁を別に描く。横連絡道との交差部は覆われた水路として表現する。
+-- 耕作道は地表の施設として保存し、歩いて確認できる。現在の一般車の経路グラフには登録しない。農機運行・取水源・流量・水位制御・厳密な田面均平・棚田の造成は未実装。
+-- 現行版は平坦地の整備済みほ場の近似。曲がった小区画、棚田、土地所有による細かな不整形まで全国一律に再現したとは扱わない。
++- `AgriculturalLayout::prepare` は建物配置より前に、既存の地上道路から普通の道路として農道を分岐する。道路グラフの `farmAccess` 属性で識別し、供用・接続・車両経路・選択・保存を共通化する。土地パッチの耕作道は新規生成しない。
++- 基準幅4.4m、速度20km/h。約224m間隔の分岐候補から、72mごとに地形・勾配6%・生活道路の曲率制限・道路や鉄道との離隔を検査する。進行方向の候補を地形変化と曲がりの費用で比較し、最大576mの枝道を伸ばす。元の町割に沿う道路から出発するため、市街地との方向のつながりを保ちながら地形へ追従する。
++- 集落からの距離をdとして、密度を exp(-0.65 × (d / 1000m)^2) で減衰させ、2200mを上限とする。道の採用と農地候補の両方へ反映する。距離は全ての町・村からの最短距離を使う。
++- 農道の両側に奥行きと後縁が異なる多角形を作り、隣接する候補との垂直二等分線で切り分けて隙間を埋める。道路・家・他の敷地との重なりは除外する。固定の矩形格子で全面を埋めない。
++- 各ほ場は地形・水域を検査し、高低差1.8m以内を耕作候補、0.8m未満を水田候補とする。農道には共通の路肩・側溝部品を使う。取水源・流量・田面均平・棚田造成の計算は未実装。
++- 農道沿いに接道・敷地離隔・水域・起伏を検証した田舎の家を配置する。農地の全頂点が同じ家から500m以内にある区画だけを採用し、家のない孤立した田畑を生成しない。調整値は `assets/generation/agriculture.json` に置く。
+ 
+ ## 8. 中心町と周辺集落の生活圏（2026-09-15）
+ 
+@@ -141,4 +139,4 @@
+ 
+ 内陸河川も実際の水位を参照する。集落中心は水面から3.2 m以上を必要とし、耕地候補と往来費用も標高0 mだけで水域を判定しない。
+ 
+-検証: `Morphology.CastleTownTransition`、`SuburbanOrigins`、`TownAlignedAgriculture` で外縁の接続・密度減衰・起源別の展開と、回転地割の方向・位相・重なり・道路接続を確認する。本体は `App/landscape_audit.json` に地割と外縁からの距離別建物数を記録する。
++検証: `Morphology.CastleTownTransition`、`SuburbanOrigins`、`TownAlignedAgriculture` で外縁の接続・密度減衰・起源別の展開と、不整形区画の重なり・道路接続・起伏上の勾配・密度減衰・家までの距離を確認する。本体は `App/landscape_audit.json` に地割と外縁からの距離別建物数を記録する。
+--- a/plan/27_roadside_life_spec.md
++++ b/plan/27_roadside_life_spec.md
+@@ -76,3 +76,9 @@
+ `RoadsideLifeTests.cpp` で全7建物の実寸・接地・LOD、山地の最終路面勾配、半径、継ぎ目の連続性、大きな敷地と隣家の境界、実経路による車の到着と再生成、信号色と支柱の表裏描画を検証する。
+ 
+ `--capture-city --seed 42 --new` は追加5種類の実在する建物を探して撮影し、生成数・位置・敷地幅を記録する。全35視点の画像はローカル保存のみとし、チャットへ画像を送信しない。検証結果の記録は `artifacts/roadside_life/REVIEW.md`。
++
++## 長大構造物の経路費用（2026-09-17）
++
++基礎費用は地上1・掘割8・高架は高さh[m]×16・トンネル64。高架の単位長費用に `16 × (exp(h / 12) - 1 - h / 12)` を加える。トンネルは連続長L[m]に対し `400 × 32 × (exp(L / 400) - 1 - L / 400)` を追加する。係数と尺度は `assets/generation/roads.json` で調整する。
++
++トンネル長は同じ回廊の連続する道路片を跨いで積算し、地上へ出た時だけリセットする。分割数を増やして罰則を回避できない。制約付き線形探索は費用と連続トンネル長が両方優れる候補を残し、完成経路を同じ費用で比較する。有限探索であり、世界全体の大域最適解を保証するものではない。これは経路比較用の相対費用で、ゲーム内通貨の工事費とは区別する。
+--- a/plan/28_generation_assets_lod_traffic.md
++++ b/plan/28_generation_assets_lod_traffic.md
+@@ -44,3 +44,9 @@
+ - `Rendering.SignalDistanceAndCost`: LOD切替後も500mの境界では表示し、その外側で消す。
+ 
+ 実機測定の条件・結果は `artifacts/traffic_lod_config/REVIEW.md` に記録する。
++
++## 詳細モデルの先読みと塗装（2026-09-17）
++
++樹木は地表の高さを含むタイル境界まで600mで詳細表示、1100mで準備開始、1500mまで保持する。高標高を理由に詳細を無効化しない。道路は曲線の最近点まで1200mで詳細表示し、標示・沿道設備を1700mで先に準備する。
++
++乗用車と軽自動車は `assets/vehicles/paint.json` の10色を使用する。IDから決めた同じ色を近・中・遠景へ渡し、遠景の色変更でバッチ数を増やさない。`RuralVisual` で切替距離・高山・長い道路・全3LODの車体色を検証する。
+--- a/App/assets/generation/agriculture.json
++++ b/App/assets/generation/agriculture.json
+@@ -7,16 +7,27 @@
+   "maximumTrackGrade": 0.06,
+   "minimumFreeboard": 1,
+   "maximumFieldRelief": 1.8,
+-  "crossTrackEveryRows": 4,
+   "dryFieldDivisor": 4,
+   "surfaceLift": 0.035,
+-  "headlandWidth": 3,
+   "bundWidth": 0.6,
+-  "fieldSideInset": 4.8,
+-  "fieldCombinedInset": 9.6,
+-  "drainSideInset": 4,
+   "drainWidth": 1,
+-  "entranceHalfDepth": 2,
+-  "entranceWidth": 3.4,
+-  "entranceDepth": 4
++  "accessSpacing": 224,
++  "trackStep": 72,
++  "trackReach": 576,
++  "densityRadius": 1000,
++  "maximumRadius": 2200,
++  "homeSpacing": 260,
++  "homeMaximumDistance": 500,
++  "minimumFieldArea": 280,
++  "fieldShapeVariation": 0.35,
++  "trackTurnPenalty": 0.3,
++  "trackDirectionPenalty": 0.3,
++  "trackHeadingStep": 0.16,
++  "maximumTrackCutFill": 1,
++  "densityFalloff": 0.65,
++  "minimumDensity": 0.08,
++  "rootSpacingRatio": 0.65,
++  "minimumReachRatio": 0.65,
++  "homeSetback": 4,
++  "homeFootprintMargin": 2
+ }
+--- a/App/assets/generation/README.md
++++ b/App/assets/generation/README.md
+@@ -33,3 +33,7 @@
+ 建物モデルのファイル、個々のセットバック、信号・道路パーツなどは、それぞれの既存 `assets` 内の OBJ / TOML / JSON を参照します。ハッシュ、配列のインデックス、ベジェ曲線の係数、ワールドのチャンク容量、数値誤差の許容値、メッシュの頂点設計は生成調整値と区別し、コードに残します。
+ 
+ 許容型と範囲は `schema/*.schema.json` で確認できます。スキーマは `src/gen/GenerationSettings.def` から生成します。開発時は `python scripts/generation_schema.py --check` と `GenerationSettings` テストで設定の整合性を確認してください。
++
++`roads.json` の `tunnelLengthScale` / `tunnelLengthPenalty` は連続トンネル長の指数罰則、`viaductHeightScale` / `viaductHeightPenalty` は高架高さの指数罰則です。尺度はm、罰則0で追加費用を無効にできます。
++
++`agriculture.json` は農道の分岐間隔・延伸・曲がりと地形変化の費用、不整形区画の大きさ、集落からの密度減衰、田舎の家の間隔を管理します。`homeMaximumDistance` は500mを超えられません。農道断面の幅・側溝は `streetProfiles.json` を参照します。
+--- a/App/assets/generation/roads.json
++++ b/App/assets/generation/roads.json
+@@ -13,5 +13,9 @@
+   "arterialMaximumGrade": 0.06,
+   "arterialMinimumRadius": 100,
+   "endpointElevationThreshold": 0.5,
+-  "interiorElevationThreshold": 2
++  "interiorElevationThreshold": 2,
++  "tunnelLengthScale": 400,
++  "tunnelLengthPenalty": 32,
++  "viaductHeightScale": 12,
++  "viaductHeightPenalty": 16
+ }
+--- a/App/assets/generation/schema/agriculture.schema.json
++++ b/App/assets/generation/schema/agriculture.schema.json
+@@ -12,18 +12,29 @@
+     "maximumTrackGrade",
+     "minimumFreeboard",
+     "maximumFieldRelief",
+-    "crossTrackEveryRows",
+     "dryFieldDivisor",
+     "surfaceLift",
+-    "headlandWidth",
+     "bundWidth",
+-    "fieldSideInset",
+-    "fieldCombinedInset",
+-    "drainSideInset",
+     "drainWidth",
+-    "entranceHalfDepth",
+-    "entranceWidth",
+-    "entranceDepth"
++    "accessSpacing",
++    "trackStep",
++    "trackReach",
++    "densityRadius",
++    "maximumRadius",
++    "homeSpacing",
++    "homeMaximumDistance",
++    "minimumFieldArea",
++    "fieldShapeVariation",
++    "trackTurnPenalty",
++    "trackDirectionPenalty",
++    "trackHeadingStep",
++    "maximumTrackCutFill",
++    "densityFalloff",
++    "minimumDensity",
++    "rootSpacingRatio",
++    "minimumReachRatio",
++    "homeSetback",
++    "homeFootprintMargin"
+   ],
+   "properties": {
+     "plotLength": {
+@@ -66,11 +77,6 @@
+       "minimum": 0.0,
+       "maximum": 10.0
+     },
+-    "crossTrackEveryRows": {
+-      "type": "integer",
+-      "minimum": 1.0,
+-      "maximum": 16.0
+-    },
+     "dryFieldDivisor": {
+       "type": "integer",
+       "minimum": 1.0,
+@@ -81,50 +87,110 @@
+       "minimum": 0.0,
+       "maximum": 1.0
+     },
+-    "headlandWidth": {
+-      "type": "number",
+-      "minimum": 0.0,
+-      "maximum": 20.0
+-    },
+     "bundWidth": {
+       "type": "number",
+       "minimum": 0.0,
+       "maximum": 5.0
+-    },
+-    "fieldSideInset": {
+-      "type": "number",
+-      "minimum": 0.0,
+-      "maximum": 20.0
+-    },
+-    "fieldCombinedInset": {
+-      "type": "number",
+-      "minimum": 0.0,
+-      "maximum": 40.0
+-    },
+-    "drainSideInset": {
+-      "type": "number",
+-      "minimum": 0.0,
+-      "maximum": 20.0
+     },
+     "drainWidth": {
+       "type": "number",
+       "minimum": 0.0,
+       "maximum": 5.0
+     },
+-    "entranceHalfDepth": {
++    "accessSpacing": {
++      "type": "number",
++      "minimum": 64.0,
++      "maximum": 1000.0
++    },
++    "trackStep": {
++      "type": "number",
++      "minimum": 24.0,
++      "maximum": 160.0
++    },
++    "trackReach": {
++      "type": "number",
++      "minimum": 72.0,
++      "maximum": 2000.0
++    },
++    "densityRadius": {
++      "type": "number",
++      "minimum": 200.0,
++      "maximum": 5000.0
++    },
++    "maximumRadius": {
++      "type": "number",
++      "minimum": 300.0,
++      "maximum": 10000.0
++    },
++    "homeSpacing": {
++      "type": "number",
++      "minimum": 80.0,
++      "maximum": 400.0
++    },
++    "homeMaximumDistance": {
++      "type": "number",
++      "minimum": 100.0,
++      "maximum": 500.0
++    },
++    "minimumFieldArea": {
++      "type": "number",
++      "minimum": 100.0,
++      "maximum": 3000.0
++    },
++    "fieldShapeVariation": {
++      "type": "number",
++      "minimum": 0.1,
++      "maximum": 0.5
++    },
++    "trackTurnPenalty": {
+       "type": "number",
+       "minimum": 0.0,
+-      "maximum": 10.0
++      "maximum": 100.0
+     },
+-    "entranceWidth": {
++    "trackDirectionPenalty": {
+       "type": "number",
+       "minimum": 0.0,
++      "maximum": 100.0
++    },
++    "trackHeadingStep": {
++      "type": "number",
++      "minimum": 0.01,
++      "maximum": 0.5
++    },
++    "maximumTrackCutFill": {
++      "type": "number",
++      "minimum": 0.1,
++      "maximum": 5.0
++    },
++    "densityFalloff": {
++      "type": "number",
++      "minimum": 0.1,
++      "maximum": 3.0
++    },
++    "minimumDensity": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 0.5
++    },
++    "rootSpacingRatio": {
++      "type": "number",
++      "minimum": 0.25,
++      "maximum": 1.0
++    },
++    "minimumReachRatio": {
++      "type": "number",
++      "minimum": 0.2,
++      "maximum": 1.0
++    },
++    "homeSetback": {
++      "type": "number",
++      "minimum": 1.0,
+       "maximum": 20.0
+     },
+-    "entranceDepth": {
++    "homeFootprintMargin": {
+       "type": "number",
+-      "minimum": 0.0,
+-      "maximum": 20.0
++      "minimum": 0.1,
++      "maximum": 10.0
+     }
+   }
+ }
+--- a/App/assets/generation/schema/roads.schema.json
++++ b/App/assets/generation/schema/roads.schema.json
+@@ -18,7 +18,11 @@
+     "arterialMaximumGrade",
+     "arterialMinimumRadius",
+     "endpointElevationThreshold",
+-    "interiorElevationThreshold"
++    "interiorElevationThreshold",
++    "tunnelLengthScale",
++    "tunnelLengthPenalty",
++    "viaductHeightScale",
++    "viaductHeightPenalty"
+   ],
+   "properties": {
+     "surfaceCost": {
+@@ -95,6 +99,26 @@
+       "type": "number",
+       "minimum": 0.01,
+       "maximum": 20.0
++    },
++    "tunnelLengthScale": {
++      "type": "number",
++      "minimum": 10.0,
++      "maximum": 10000.0
++    },
++    "tunnelLengthPenalty": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 10000.0
++    },
++    "viaductHeightScale": {
++      "type": "number",
++      "minimum": 1.0,
++      "maximum": 1000.0
++    },
++    "viaductHeightPenalty": {
++      "type": "number",
++      "minimum": 0.0,
++      "maximum": 10000.0
+     }
+   }
+ }
+--- a/App/shaders/hlsl/city_forward.hlsl
++++ b/App/shaders/hlsl/city_forward.hlsl
+@@ -237,7 +237,9 @@
+ 	float resolved=1-smoothstep(.2,1.2,footprint);
+ 	float ridge=cos(phase*6.2831853);
+ 	float crop=smoothstep(.45,.9,ridge);
+-	float variation=fieldNoise(floor(uv/(paddy ? .3 : .18)));
++	float2 detailUv=uv/(paddy ? .3 : .18);
++	float detailWeight=1-smoothstep(.3,1.0,max(fwidth(detailUv.x),fwidth(detailUv.y)));
++	float variation=lerp(.5,fieldNoise(floor(detailUv)),detailWeight);
+ 	float3 soil=g_hasTexture ? g_texture0.Sample(g_sampler0,uv*.21).rgb : float3(.35,.3,.2);
+ 	soil=lerp(float3(.10,.059,.031),float3(.21,.125,.060),saturate(dot(soil,float3(.3,.5,.2))*2));
+ 	soil*=lerp(1, .75+.32*(ridge*.5+.5),resolved);
+@@ -342,3 +344,27 @@
+ 	albedo.rgb = lerp(albedo.rgb,sky*shade,glass*fresnel);
+ 	return shadeCity(input,albedo);
+ }
++
++// Color is instance data, so thousands of differently painted cars share a draw.
++struct VehiclePSInput
++{
++    float4 position : SV_POSITION; float3 worldPosition : TEXCOORD0;
++    float2 uv : TEXCOORD1; float3 normal : TEXCOORD2; float4 paint : TEXCOORD3;
++};
++float4 VehicleInstance_PS(VehiclePSInput input) : SV_TARGET
++{
++    s3d::PSInput surface;
++    surface.position=input.position;surface.worldPosition=input.worldPosition;
++    surface.uv=input.uv;surface.normal=input.normal;
++    return shadeCity(surface,GetDiffuseColor(input.uv)*input.paint);
++}
++cbuffer VehiclePaint : register(b5) { float4 g_vehiclePaint; }
++float4 VehiclePaint_PS(s3d::PSInput input) : SV_TARGET
++{
++    float4 albedo=GetDiffuseColor(input.uv);
++    // Source coachwork is neutral .78/.80/.79. Glass, rubber, lamps and alloy remain unchanged.
++    float paintMask=smoothstep(.64,.76,min(albedo.r,min(albedo.g,albedo.b)));
++    paintMask*=1-smoothstep(.04,.12,max(albedo.r,max(albedo.g,albedo.b))-min(albedo.r,min(albedo.g,albedo.b)));
++    albedo.rgb*=lerp(float3(1,1,1),g_vehiclePaint.rgb/float3(.78,.80,.79),paintMask);
++    return shadeCity(input,albedo);
++}
+--- a/App/shaders/hlsl/vehicle_instances.hlsl
++++ b/App/shaders/hlsl/vehicle_instances.hlsl
+@@ -1,8 +1,8 @@
+ // Far vehicle geometry is shared; only the world matrices change each frame.
+ cbuffer VSPerView : register(b1) { row_major float4x4 g_worldToProjected; }
+-cbuffer VehicleInstances : register(b4) { row_major float4x4 g_instanceWorld[256]; }
++cbuffer VehicleInstances : register(b4) { row_major float4x4 g_instanceWorld[256]; float4 g_instanceColors[256]; }
+ struct VSInput { float4 position : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; };
+-struct PSInput { float4 position : SV_POSITION; float3 worldPosition : TEXCOORD0; float2 uv : TEXCOORD1; float3 normal : TEXCOORD2; };
++struct PSInput { float4 position : SV_POSITION; float3 worldPosition : TEXCOORD0; float2 uv : TEXCOORD1; float3 normal : TEXCOORD2; float4 paint : TEXCOORD3; };
+ PSInput VS(VSInput input)
+ {
+     row_major float4x4 world = g_instanceWorld[(uint)input.uv.x];
+@@ -11,6 +11,7 @@
+     output.position = mul(position, g_worldToProjected);
+     output.worldPosition = position.xyz;
+     output.uv = float2(0, 0);
++    output.paint = g_instanceColors[(uint)input.uv.x];
+     output.normal = mul(input.normal, (float3x3)world);
+     return output;
+ }
+--- a/City.vcxproj
++++ b/City.vcxproj
+@@ -642,5 +642,7 @@
+   </ImportGroup>
+   <ItemGroup>
+     <None Include="src\gen\GenerationSettings.def" />
++    <ClInclude Include="src\ui\FrameRateGraph.hpp" />
++    <ClInclude Include="src\render\VehiclePaint.hpp" />
+   </ItemGroup>
+ </Project>--- a/City.vcxproj.filters
++++ b/City.vcxproj.filters
+@@ -1549,5 +1549,7 @@
+     <ClInclude Include="src\render\ModelLod.hpp" />
+     <ClInclude Include="src\render\MeshLod.hpp" />
+     <ClInclude Include="src\render\VehicleInstanceBatch.hpp" />
++    <ClInclude Include="src\ui\FrameRateGraph.hpp" />
++    <ClInclude Include="src\render\VehiclePaint.hpp" />
+   </ItemGroup>
+ </Project>--- a/ISSUE.md
++++ b/ISSUE.md
+@@ -30,6 +30,8 @@
+ 
+ ユーザーの画像で全画面地図の上へ巨大な文字アトラスが重なる症状を確認。2026-09-14の本体操作と18フレームのGPU検査では同症状を再現できていない。地図のクリップ設定が呼出し元に漏れる問題はテストで再現して修正した。地理画像と文字を別描画にし、既定シェーダの使用・状態復元も追加したが、元の症状の根因が確定したとは扱わない。操作と同じフレームを保存する診断を追加。詳細は [今回の検証](artifacts/map_transport/REVIEW.md)。
+ 
++2026-09-17: 地形テクスチャを描画命令の送出前に更新すると、以前の地図描画に新しい画像が使われる問題をGPUで再現して修正した。敷地メッシュの表裏も修正した。全画面地図の巨大文字アトラスについては、同じ根因と断定しない。[今回の検証](artifacts/rural_landscape_ui/REVIEW.md)。
++
+ ## 急な山道の経路探索の成立率
+ 
+ 勾配・曲率を満たす経路を有限範囲・6万展開の探索で見つけられない接続は、周囲を高架化せず生成を見送る。旧地形の2026-09-15計測では、要再探索回廊の成立率が低かった。2026-09-16の地形・道路費用・橋取り付け順序の変更後は、シード42で15候補中10回廊、シード7で12候補中8回廊を改善し、どちらも不成立による削除は0。今回は「制約違反の修復」に加え「合法だが高費用の既存経路の改善」も候補に含むため、旧計測の件数と直接比較しない。費用改善の探索が上限に達した場合は合法な既存経路を維持する。
+--- /dev/null
++++ b/src/ui/FrameRateGraph.hpp
+@@ -0,0 +1,68 @@
++﻿#pragma once
++#include <Siv3D.hpp>
++
++/// @brief 直近30秒の実フレーム時間を0.1秒ごとに集計する。非表示中も履歴を保つ。
++class FrameRateGraph
++{
++public:
++	bool visible = false;
++	/// @brief ゲーム用DeltaTimeの上限に影響されず、長いフレームも実時間で記録する。
++	void sampleNow()
++	{
++		const double seconds=m_frameClock.msF()/1000;
++		m_frameClock.restart();
++		if (m_clockStarted) { sample(seconds); }
++		m_clockStarted=true;
++	}
++	void sample(double seconds)
++	{
++		if (!std::isfinite(seconds) || seconds <= 0) { return; }
++		m_time += seconds; m_elapsed += seconds; ++m_frames;
++		if (m_elapsed + 1e-9 < kInterval) { return; }
++		m_history[m_next] = m_frames / m_elapsed;
++		m_times[m_next] = m_time;
++		m_next = (m_next + 1) % kCapacity;
++		m_count = Min(m_count + 1, kCapacity);
++		m_elapsed = 0; m_frames = 0;
++	}
++	[[nodiscard]] size_t count() const { return m_count; }
++	[[nodiscard]] double latest() const { return m_count ? m_history[(m_next + kCapacity - 1) % kCapacity] : 0; }
++	[[nodiscard]] RectF bounds(Size size) const { return {16, Max(16, size.y - 180), Min(330, size.x - 32), 160}; }
++	void draw(const Font& font, Size size) const
++	{
++		if (!visible) { return; }
++		const auto panel = bounds(size);
++		panel.draw(ColorF{.025,.04,.06,.92}).drawFrame(1,ColorF{.45,.5,.55,.8});
++		font(U"FPS  {:.0f}"_fmt(latest())).draw(16,panel.pos+Vec2{12,8},Palette::White);
++		font(U"F3").draw(12,panel.pos+Vec2{panel.w-32,11},ColorF{.7});
++		const RectF plot{panel.x+38,panel.y+36,panel.w-50,100};
++		double maximum = 120;
++		for (size_t i=0;i<m_count;++i) { maximum=Max(maximum,m_history[i]); }
++		maximum = Ceil(maximum/30)*30;
++		for (const double fps : {0.0,30.0,60.0,maximum})
++		{
++			const double y=plot.br().y-plot.h*fps/maximum;
++			Line{plot.x,y,plot.br().x,y}.draw(1,ColorF{1,fps==60 ? .28 : .1});
++			font(U"{:.0f}"_fmt(fps)).draw(10,panel.x+5,y-6,ColorF{.72});
++		}
++		Array<Vec2> points;
++		for (size_t i=0;i<m_count;++i)
++		{
++			const size_t index=(m_next+kCapacity-m_count+i)%kCapacity;
++			const double age=m_time-m_times[index];if (age>30) { continue; }
++			points << Vec2{plot.br().x-plot.w*age/30,plot.br().y-plot.h*m_history[index]/maximum};
++		}
++		for (size_t i=1;i<points.size();++i) { Line{points[i-1],points[i]}.draw(2,ColorF{.3,.95,.65}); }
++		font(U"30秒前").draw(10,plot.x,panel.br().y-19,ColorF{.65});
++		font(U"現在").draw(10,plot.br().x-22,panel.br().y-19,ColorF{.65});
++	}
++private:
++	static constexpr size_t kCapacity = 300;
++	static constexpr double kInterval = .1;
++	std::array<double,kCapacity> m_history{}, m_times{};
++	size_t m_next = 0, m_count = 0;
++	double m_elapsed = 0, m_time = 0;
++	int m_frames = 0;
++	Stopwatch m_frameClock{StartImmediately::Yes};
++	bool m_clockStarted = false;
++};
+--- /dev/null
++++ b/src/render/VehiclePaint.hpp
+@@ -0,0 +1,27 @@
++﻿#pragma once
++#include "../traffic/Vehicle.hpp"
++
++/// @brief 個体IDから選ぶ車体色。距離・再描画・シミュレーション更新で色を変えない。
++namespace VehiclePaint
++{
++	inline ColorF color(const Vehicle& vehicle)
++	{
++		if (vehicle.type!=VehicleType::PassengerCar && vehicle.type!=VehicleType::KeiCar) { return ColorF{.8,.8,.78}; }
++		static const Array<ColorF> palette=[]
++		{
++			const auto document=JSON::Load(U"assets/vehicles/paint.json");
++			if (!document || !document[U"linearColors"].isArray()) { throw Error{U"車体色の設定を読み込めません"}; }
++			Array<ColorF> result;
++			for (const auto& item:document[U"linearColors"].arrayView())
++			{
++				Array<double> values;for (const auto& component:item.arrayView()) { values << component.get<double>(); }
++				if (values.size()!=3 || std::any_of(values.begin(),values.end(),[](double x){return !std::isfinite(x) || x<0 || x>1;})) { throw Error{U"車体色には0〜1のRGBが必要です"}; }
++				result << ColorF{values[0],values[1],values[2]};
++			}
++			if (result.isEmpty()) { throw Error{U"車体色を1色以上指定してください"}; }
++			return result;
++		}();
++		uint32 value=static_cast<uint32>(vehicle.id);value^=value>>16;value*=0x7feb352du;value^=value>>15;
++		return palette[value%palette.size()];
++	}
++}
+--- /dev/null
++++ b/Test/RuralVisualTests.cpp
+@@ -0,0 +1,160 @@
++﻿#include "TestCases.hpp"
++#include "TestRunner.hpp"
++#include "src/ui/FrameRateGraph.hpp"
++#include "src/ui/WorldMapView.hpp"
++#include "src/render/WorldRenderer.hpp"
++#include "src/ui/MapTerrainLayer.hpp"
++#include "src/render/TreeGeometry.hpp"
++#include "src/render/TrainRenderer.hpp"
++#include "src/render/VehicleRenderer.hpp"
++#include "src/render/VehiclePaint.hpp"
++#include "src/render/RoadRenderer.hpp"
++#include "src/render/CityLighting.hpp"
++#include "src/asset/AssetRegistrar.hpp"
++#include "src/railway/TrainConsist.hpp"
++
++void registerRuralVisualTests(TestRunner& runner)
++{
++	runner.add(U"RuralVisual.FrameRateGraph",[](TestContext& context)
++	{
++		FrameRateGraph graph;
++		for (int i=0;i<600;++i) { graph.sample(1.0/60); }
++		context.expectNear(graph.latest(),60,.01,U"FPS uses frame intervals, not CPU rendering duration");
++		for (int i=0;i<900;++i) { graph.sample(1.0/30); }
++		context.expect(graph.count()==300 && Abs(graph.latest()-30)<.01,U"History rolls over and follows a sustained drop");
++		const Size size{800,600}; const RenderTexture target{size};
++		const Font font{16}; graph.visible=true;
++		{ const ScopedRenderTarget2D scope{target.clear(ColorF{.5})}; graph.draw(font,size); }
++		Graphics2D::Flush(); Image pixels; target.readAsImage(pixels);
++		int green=0;
++		for (const auto color:pixels) { green+=color.g>color.r*1.5 && color.g>color.b*1.2; }
++		context.expect(green>100,U"The lower-left FPS graph draws its history");
++		context.expect(graph.bounds(size).br().y<size.y && graph.bounds(size).x==16,U"Graph stays inside the lower-left screen");
++		pixels.save(U"Screenshot/fps_history.png");
++	});
++	runner.add(U"RuralVisual.ParcelMask",[](TestContext& context)
++	{
++		World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
++		world.installChunkDirect({32,32},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20,20});
++		LandPatch patch;patch.type=LandPatchType::GardenSoil;
++		patch.polygon={{32800,32800},{32920,32800},{32920,32900},{32800,32900}};
++		RoadNetwork network;WorldRenderer renderer;
++		const MeshData surface=renderer.landPatchSurface(world,network,{32,32},patch);
++		const Mesh mesh{surface};const Size size{400,300};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm,HasDepth::Yes};
++		int visible[2]{};
++		for(int mode=0;mode<2;++mode)
++		{
++			{
++				const ScopedRenderTarget3D scope{target.clear(ColorF{0,0,0,0})};
++				const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite,mode==0 ? RasterizerState::SolidCullBack : RasterizerState::SolidCullNone};
++				Graphics3D::SetCameraTransform(BasicCamera3D{size,40_deg,Vec3{32860,160,32710},Vec3{32860,20,32850}});
++				mesh.draw(ColorF{1});
++			}
++			Graphics3D::Flush();Image pixels;target.readAsImage(pixels);
++			for(const auto color:pixels) { visible[mode]+=color.a>128; }
++		}
++		JSON report;report[U"backCullPixels"]=visible[0];report[U"twoSidedPixels"]=visible[1];report.save(U"TestResults/parcel_mask.json");
++		context.expect(visible[1]>2000 && visible[0]==visible[1],U"Selected parcel faces upward and draws a complete mask with normal culling");
++	});
++	runner.add(U"RuralVisual.MapQueuedRebuild",[](TestContext& context)
++	{
++		const Size size{400,300};const Font font{14};
++		WorldMapView map;map.center={32768,32768};map.zoom=128;
++		const Texture terrain{Image{32,32,Color{80,130,65}}};
++		const RenderTexture first{size},second{size};
++		{ const ScopedRenderTarget2D scope{first.clear(Palette::Black)};map.draw(size,terrain,font,{0,0}); }
++		map.center.x+=100;
++		{ const ScopedRenderTarget2D scope{second.clear(Palette::Black)};map.draw(size,terrain,font,{0,0}); }
++		Graphics2D::Flush();Image a,b;first.readAsImage(a);second.readAsImage(b);
++		int incorrect=0;
++		for(int y=80;y<210;++y) { for(int x=20;x<300;++x) { const auto p=a[y][x];incorrect+=Abs(p.r-80)>2 || Abs(p.g-130)>2 || Abs(p.b-65)>2; } }
++		JSON report;report[U"incorrectPixels"]=incorrect;report.save(U"TestResults/map_rebuild.json");
++		context.expect(incorrect==0,U"Rebuilding the map must preserve previously queued map draws");
++	});
++	runner.add(U"RuralVisual.MapTextureLifetime",[](TestContext& context)
++	{
++		MapTerrainLayer terrain;const Size size{64,64};
++		terrain.update({1000,1000,100,100},size,[](Vec2){return 10.0f;});
++		const RenderTexture expected{size},queued{size};
++		{ const ScopedRenderTarget2D scope{expected.clear(Palette::Black)};terrain.texture.draw(); }
++		Graphics2D::Flush();Image reference;expected.readAsImage(reference);
++		{ const ScopedRenderTarget2D scope{queued.clear(Palette::Black)};terrain.texture.draw(); }
++		terrain.invalidate();terrain.update({1000,1000,100,100},size,[](Vec2){return -70.0f;});
++		Graphics2D::Flush();Image actual;queued.readAsImage(actual);
++		int changed=0;for(int y=0;y<64;++y) { for(int x=0;x<64;++x) { changed+=reference[y][x]!=actual[y][x]; } }
++		JSON report;report[U"unexpectedPixels"]=changed;report.save(U"TestResults/map_texture_lifetime.json");
++		context.expect(changed==0,U"A terrain refresh cannot overwrite the map already queued for drawing");
++	});
++	runner.add(U"RuralVisual.TreeDetailApproach",[](TestContext& context)
++	{
++		const Vec2 mountain{1400,1450};const Point chunk{32,32};
++		context.expect(TreeGeometry::nearTile(1128,chunk,{32768-500,1452,32800},mountain),U"Detailed trees appear 500 m ahead even on mountains above 900 m");
++		context.expect(!TreeGeometry::nearTile(1128,chunk,{32768-900,1452,32800},mountain),U"Distant crowns remain cheap outside the detail range");
++		context.expect(TreeGeometry::nearChunk(chunk,{32768-900,1452,32800},mountain,TreeGeometry::kPrepareDistance),U"Tree preparation starts before the display boundary");
++		context.expect(!TreeGeometry::nearTile(1128,chunk,{32800,2600,32800},mountain),U"High aerial cameras keep the inexpensive distant model");
++		context.expect(TreeGeometry::nearChunk(chunk,{32768-1250,1452,32800},mountain,TreeGeometry::kRetainDistance),U"Prepared trees survive small return trips across the preload boundary");
++	});
++
++	runner.add(U"RuralVisual.TrainSelection",[](TestContext& context)
++	{
++		const FilePath directory=FileSystem::CurrentDirectory();
++		struct Restore { FilePath value; ~Restore() { FileSystem::ChangeCurrentDirectory(value); } } restore{directory};
++		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");
++		TrainNetwork network;const int a=network.addStation({100,20,100},U"始点"),b=network.addStation({600,40,100},U"終点");
++		const int edge=network.addEdge(a,b,{260,26,100},{430,34,100},60);
++		Train train;train.currentEdge=edge;train.routeEdges={edge};train.routeProgress=0;train.forward=true;train.arcPos=250;train.type=TrainType::Local;
++		const auto pose=TrainConsist::carPose(train,network,0);
++		context.expect(pose.has_value(),U"A sloped train has a selectable car pose");if (!pose) { return; }
++		const Vec3 eye=pose->position+Vec3{0,24,-55};
++		context.expect(TrainConsist::hitDistance(train,network,Ray{eye,(pose->position+Vec3{0,1.8,0}-eye).normalized()}).has_value(),U"Clicking a sloped car hits its rendered body");
++		context.expect(!TrainConsist::hitDistance(train,network,Ray{eye,Vec3{0,1,0}}),U"Clicking sky does not select a train");
++		const Size size{400,300};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm,HasDepth::Yes};TrainRenderer renderer;
++		{ const ScopedRenderTarget3D scope{target.clear(ColorF{0,0,0,0})};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
++		Graphics3D::SetCameraTransform(BasicCamera3D{size,40_deg,eye,pose->position});renderer.drawTrainSilhouette(train,network,eye,ColorF{1}); }
++		Graphics3D::Flush();Image pixels;target.readAsImage(pixels);int visible=0;for(const auto pixel:pixels) { visible+=pixel.a>128; }
++		context.expect(visible>1000,U"The complete train creates the same selection mask used for yellow building outlines");
++		pixels.save(directory+U"Screenshot/train_selection.png");
++	});
++
++	runner.add(U"RuralVisual.VehiclePaintAcrossLod",[](TestContext& context)
++	{
++		const FilePath directory=FileSystem::CurrentDirectory();struct Restore { FilePath value;~Restore(){FileSystem::ChangeCurrentDirectory(value);} } restore{directory};
++		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");RegisterAssets();
++		Array<Vehicle> vehicles;HashSet<uint32> colors;
++		for (int id=0;id<100;++id)
++		{
++			Vehicle car;car.id=id;car.type=VehicleType::PassengerCar;const auto paint=VehiclePaint::color(car);colors.insert(paint.toColor().asUint32());
++			if ((paint.r>paint.b*3 || paint.b>paint.r*3) && vehicles.size()<8) { car.position={static_cast<double>(vehicles.size()%4)*7,0,static_cast<double>(vehicles.size()/4)*8};vehicles << car; }
++		}
++		context.expect(colors.size()>=10,U"Ordinary traffic has a stable ten-color palette");
++		const Size size{640,480};const Vec3 eye{14,20,-26};const BasicCamera3D camera{size,40_deg,eye,Vec3{10,0,5}};
++		const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};VehicleRenderer renderer;CityLighting lighting;lighting.initialize();
++		for (int level=0;level<3;++level)
++		{
++			{ const ScopedRenderTarget3D scope{target.clear(ColorF{.12})};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
++			Graphics3D::SetCameraTransform(camera);Graphics3D::SetSunDirection(Vec3{1,1,-1}.normalized());Graphics3D::SetSunColor(ColorF{.8});Graphics3D::SetGlobalAmbientColor(ColorF{.4});lighting.bind();
++			renderer.render(vehicles,level==0 ? eye : Vec3{0,level==1 ? 180.0 : 900.0,0}); }
++			Graphics3D::Flush();Image pixels;target.readAsImage(pixels);int red=0,blue=0;
++			for (const auto pixel:pixels) { red+=pixel.r>pixel.b*1.7 && pixel.r>50;blue+=pixel.b>pixel.r*1.7 && pixel.b>50; }
++			context.expect(red>80 && blue>80,U"Both red and blue paint remain visible in each actual LOD");pixels.save(directory+U"Screenshot/vehicle_paint_{}.png"_fmt(level));
++		}
++	});
++	runner.add(U"RuralVisual.RoadDetailPreparesAtNearEnd",[](TestContext& context)
++	{
++		const FilePath directory=FileSystem::CurrentDirectory();struct Restore { FilePath value;~Restore(){FileSystem::ChangeCurrentDirectory(value);} } restore{directory};
++		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");RegisterAssets();World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
++		for (int x=0;x<4;++x) { world.installChunkDirect({x,0},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20,20}); }
++		RoadNetwork network;const Vec3 a{10,20,500},b{3900,20,500};const int first=network.addNode(a),last=network.addNode(b);const auto road=network.addEdge(first,last,a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::LocalRoad,2);context.expect(road.has_value(),U"Road fixture exists");if (!road) { return; }
++		auto* edge=network.getEdge(*road);edge->edgeState=EdgeState::Open;for (auto& part:edge->parts) { part.build=BuildState::Built; }
++		RoadRenderer renderer;renderer.loadAssets();const Size size{400,300};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm,HasDepth::Yes};
++		for (int approach=0;approach<2;++approach)
++		{
++			const Vec3 eye{10,100,500-(approach==0 ? 1500.0 : 1000.0)};const BasicCamera3D camera{size,50_deg,eye,Vec3{1000,20,500}};
++			{ const ScopedRenderTarget3D scope{target.clear(ColorF{.1})};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};Graphics3D::SetCameraTransform(camera);renderer.render(network,world,ViewFrustum{camera,8000},eye); }
++			Graphics3D::Flush();const auto stats=renderer.cacheBuildStats();
++			JSON report;report[U"edges"]=stats.edges;report[U"markings"]=stats.markings;report[U"furniture"]=stats.furniture;report.save(directory+U"TestResults/road_detail_{}.json"_fmt(approach));
++			context.expect(approach==0 ? stats.furniture>0 && stats.markings>0 : stats.furniture==0 && stats.edges==0,U"Long roads preload their details before reaching the near-end display range");
++		}
++	});
++
++}
+--- /dev/null
++++ b/App/assets/vehicles/paint.json
+@@ -0,0 +1,54 @@
++{
++  "linearColors": [
++    [
++      0.8,
++      0.8,
++      0.78
++    ],
++    [
++      0.48,
++      0.51,
++      0.54
++    ],
++    [
++      0.035,
++      0.042,
++      0.05
++    ],
++    [
++      0.025,
++      0.1,
++      0.29
++    ],
++    [
++      0.37,
++      0.024,
++      0.024
++    ],
++    [
++      0.04,
++      0.17,
++      0.095
++    ],
++    [
++      0.56,
++      0.43,
++      0.25
++    ],
++    [
++      0.21,
++      0.09,
++      0.042
++    ],
++    [
++      0.22,
++      0.29,
++      0.4
++    ],
++    [
++      0.67,
++      0.58,
++      0.39
++    ]
++  ]
++}

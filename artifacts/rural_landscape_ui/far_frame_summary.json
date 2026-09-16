@@ -1,0 +1,23 @@
+{
+  "frames": 5215,
+  "seed": 42,
+  "viewport": [
+    1280,
+    768
+  ],
+  "focus": [
+    14231.843970940427,
+    43,
+    26222.885950287728
+  ],
+  "distance": 3500,
+  "hour": 13,
+  "simulation": "paused",
+  "median": {
+    "renderMs": 8.368,
+    "frameMs": 13.375,
+    "gpuMs": 3.538,
+    "cars": 2444.0,
+    "carDrawCalls": 9.0
+  }
+}

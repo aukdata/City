@@ -70,17 +70,23 @@ namespace TreeGeometry
 		const int z=(static_cast<int>(Floor(position.y/256))%4+4)%4;
 		return material+1000*(1+x+z*4);
 	}
-	inline bool nearChunk(Point chunkCoord,Vec3 eye)
+	static constexpr double kDetailDistance = 600;
+	static constexpr double kPrepareDistance = 1100;
+	static constexpr double kRetainDistance = 1500;
+	/// @brief 標高ではなく、地表の範囲までの距離で詳細度を決める。
+	inline double distanceSquared(Point coord, Vec3 eye, Vec2 heights, int tile = -1)
 	{
-		const Vec2 start{chunkCoord.x*1024.0,chunkCoord.y*1024.0};
-		const Vec2 nearest{Clamp(eye.x,start.x,start.x+1024),Clamp(eye.z,start.y,start.y+1024)};
-		return nearest.distanceFromSq(Vec2{eye.x,eye.z})<300*300 && eye.y<900;
+		const double side = tile < 0 ? 1024 : 256;
+		const Vec2 start{coord.x*1024.0+(tile<0 ? 0 : tile%4*256),coord.y*1024.0+(tile<0 ? 0 : tile/4*256)};
+		const Vec3 nearest{Clamp(eye.x,start.x,start.x+side),Clamp(eye.y,heights.x,heights.y+32),Clamp(eye.z,start.y,start.y+side)};
+		return eye.distanceFromSq(nearest);
 	}
-	inline bool nearTile(int encoded,Point chunkCoord,Vec3 eye)
+	inline bool nearChunk(Point coord, Vec3 eye, Vec2 heights = {0,0}, double distance = kDetailDistance)
 	{
-		const int tile=encoded/1000-1;
-		const Vec2 start{chunkCoord.x*1024.0+(tile%4)*256,chunkCoord.y*1024.0+(tile/4)*256};
-		const Vec2 nearest{Clamp(eye.x,start.x,start.x+256),Clamp(eye.z,start.y,start.y+256)};
-		return nearest.distanceFromSq(Vec2{eye.x,eye.z})<300*300 && eye.y<900;
+		return distanceSquared(coord,eye,heights) < distance*distance;
+	}
+	inline bool nearTile(int encoded, Point coord, Vec3 eye, Vec2 heights = {0,0})
+	{
+		return distanceSquared(coord,eye,heights,encoded/1000-1) < kDetailDistance*kDetailDistance;
 	}
 }
