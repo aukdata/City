@@ -68,7 +68,7 @@ namespace
 	}
 }
 
-Array<PartModelData> ObjParser::parse(FilePathView path)
+Array<PartModelData> ObjParser::parse(FilePathView path, bool nativeMaterials)
 {
 	// OBJ をオブジェクト単位へ分割しつつ、face ごとの頂点参照を Siv3D の MeshData 形式へ展開する。
 	TextReader reader{ path };
@@ -112,7 +112,7 @@ Array<PartModelData> ObjParser::parse(FilePathView path)
 
 		const auto& cmd = tokens[0];
 
-		if (cmd == U"o" && tokens.size() >= 2)
+		if ((cmd == U"o" && !nativeMaterials || cmd == U"usemtl" && nativeMaterials) && tokens.size() >= 2)
 		{
 			// 新オブジェクト開始
 			objects << PartModelData{ tokens[1], {}, {} };
@@ -185,6 +185,22 @@ Array<PartModelData> ObjParser::parse(FilePathView path)
 		// mtllib, usemtl, s, g は無視
 	}
 
+	if (nativeMaterials)
+	{
+		for (auto& object : objects)
+		{
+			for (auto& vertex : object.vertices)
+			{
+				vertex.pos.z = -vertex.pos.z;
+				vertex.normal.z = -vertex.normal.z;
+				vertex.tex.y = 1.0f - vertex.tex.y;
+			}
+			if (object.name != U"default")
+			{
+				for (auto& triangle : object.indices) { std::swap(triangle.i1, triangle.i2); }
+			}
+		}
+	}
 	return objects;
 }
 

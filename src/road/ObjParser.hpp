@@ -10,9 +10,10 @@ namespace ObjParser
 	// 道路部品用 OBJ は CPU メッシュとして読み込み、後段で断面部品モデルへ再構成する。
 	/// @brief OBJ ファイルをパースし、オブジェクト名ごとに PartModelData に分割する
 	/// @param path OBJ ファイルのパス
+	/// @param nativeMaterials true なら材質名で分割し、Siv3D Model と同じ左手座標・UVに変換（法線付きOBJ用）。
 	/// @return オブジェクト名付きメッシュデータの配列。失敗時は空配列
 	[[nodiscard]]
-	Array<PartModelData> parse(FilePathView path);
+	Array<PartModelData> parse(FilePathView path, bool nativeMaterials = false);
 
 	/// @brief パース結果から RoadPartModel を構築する
 	/// @param meshes parse() の戻り値

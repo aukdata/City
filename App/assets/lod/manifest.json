@@ -1,0 +1,1410 @@
+[
+  {
+    "source": "buildings/commercial/convenience_roadside_001.obj",
+    "sourceTriangles": 14579,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/convenience_roadside_001.lod1.obj",
+        "triangles": 2622
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/convenience_roadside_001.lod2.obj",
+        "triangles": 1290
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/convenience_urban_001.obj",
+    "sourceTriangles": 8087,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/convenience_urban_001.lod1.obj",
+        "triangles": 1455
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/convenience_urban_001.lod2.obj",
+        "triangles": 584
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/factory_001.obj",
+    "sourceTriangles": 2595,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/factory_001.lod1.obj",
+        "triangles": 465
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/factory_001.lod2.obj",
+        "triangles": 177
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/factory_002.obj",
+    "sourceTriangles": 2884,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/factory_002.lod1.obj",
+        "triangles": 518
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/factory_002.lod2.obj",
+        "triangles": 252
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/factory_003.obj",
+    "sourceTriangles": 2994,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/factory_003.lod1.obj",
+        "triangles": 538
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/factory_003.lod2.obj",
+        "triangles": 118
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/factory_004.obj",
+    "sourceTriangles": 2872,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/factory_004.lod1.obj",
+        "triangles": 516
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/factory_004.lod2.obj",
+        "triangles": 154
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/fuel_roadside_001.obj",
+    "sourceTriangles": 8534,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/fuel_roadside_001.lod1.obj",
+        "triangles": 1535
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/fuel_roadside_001.lod2.obj",
+        "triangles": 788
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/fuel_urban_001.obj",
+    "sourceTriangles": 3732,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/fuel_urban_001.lod1.obj",
+        "triangles": 670
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/fuel_urban_001.lod2.obj",
+        "triangles": 355
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_001.obj",
+    "sourceTriangles": 23910,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_001.lod1.obj",
+        "triangles": 4304
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_001.lod2.obj",
+        "triangles": 1217
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_002.obj",
+    "sourceTriangles": 23910,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_002.lod1.obj",
+        "triangles": 4304
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_002.lod2.obj",
+        "triangles": 1164
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_003.obj",
+    "sourceTriangles": 23910,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_003.lod1.obj",
+        "triangles": 4304
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_003.lod2.obj",
+        "triangles": 1216
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_004.obj",
+    "sourceTriangles": 23910,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_004.lod1.obj",
+        "triangles": 4304
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_004.lod2.obj",
+        "triangles": 1179
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_005.obj",
+    "sourceTriangles": 7674,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_005.lod1.obj",
+        "triangles": 1369
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_005.lod2.obj",
+        "triangles": 192
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_006.obj",
+    "sourceTriangles": 12054,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_006.lod1.obj",
+        "triangles": 2158
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_006.lod2.obj",
+        "triangles": 301
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/parking_001.obj",
+    "sourceTriangles": 4507,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/parking_001.lod1.obj",
+        "triangles": 811
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/parking_001.lod2.obj",
+        "triangles": 413
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/parking_002.obj",
+    "sourceTriangles": 5786,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/parking_002.lod1.obj",
+        "triangles": 1040
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/parking_002.lod2.obj",
+        "triangles": 476
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_001.obj",
+    "sourceTriangles": 3452,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_001.lod1.obj",
+        "triangles": 620
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_001.lod2.obj",
+        "triangles": 277
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_002.obj",
+    "sourceTriangles": 3433,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_002.lod1.obj",
+        "triangles": 617
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_002.lod2.obj",
+        "triangles": 419
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_003.obj",
+    "sourceTriangles": 6450,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_003.lod1.obj",
+        "triangles": 1160
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_003.lod2.obj",
+        "triangles": 418
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_004.obj",
+    "sourceTriangles": 6309,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_004.lod1.obj",
+        "triangles": 1135
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_004.lod2.obj",
+        "triangles": 410
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_005.obj",
+    "sourceTriangles": 12085,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_005.lod1.obj",
+        "triangles": 2175
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_005.lod2.obj",
+        "triangles": 663
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_006.obj",
+    "sourceTriangles": 7425,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_006.lod1.obj",
+        "triangles": 1335
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_006.lod2.obj",
+        "triangles": 461
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_007.obj",
+    "sourceTriangles": 9312,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_007.lod1.obj",
+        "triangles": 1674
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_007.lod2.obj",
+        "triangles": 538
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/public_008.obj",
+    "sourceTriangles": 15480,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/public_008.lod1.obj",
+        "triangles": 2786
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/public_008.lod2.obj",
+        "triangles": 823
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_001.obj",
+    "sourceTriangles": 3812,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_001.lod1.obj",
+        "triangles": 686
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_001.lod2.obj",
+        "triangles": 295
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_002.obj",
+    "sourceTriangles": 5477,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_002.lod1.obj",
+        "triangles": 985
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_002.lod2.obj",
+        "triangles": 272
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_003.obj",
+    "sourceTriangles": 2846,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_003.lod1.obj",
+        "triangles": 524
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_003.lod2.obj",
+        "triangles": 524
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_004.obj",
+    "sourceTriangles": 3405,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_004.lod1.obj",
+        "triangles": 613
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_004.lod2.obj",
+        "triangles": 302
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_005.obj",
+    "sourceTriangles": 3637,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_005.lod1.obj",
+        "triangles": 655
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_005.lod2.obj",
+        "triangles": 305
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_006.obj",
+    "sourceTriangles": 3399,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_006.lod1.obj",
+        "triangles": 611
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_006.lod2.obj",
+        "triangles": 298
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_007.obj",
+    "sourceTriangles": 5922,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_007.lod1.obj",
+        "triangles": 1054
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_007.lod2.obj",
+        "triangles": 148
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_008.obj",
+    "sourceTriangles": 7674,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_008.lod1.obj",
+        "triangles": 1369
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_008.lod2.obj",
+        "triangles": 192
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_009.obj",
+    "sourceTriangles": 2282,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_009.lod1.obj",
+        "triangles": 411
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_009.lod2.obj",
+        "triangles": 57
+      }
+    ]
+  },
+  {
+    "source": "buildings/commercial/shop_010.obj",
+    "sourceTriangles": 2282,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shop_010.lod1.obj",
+        "triangles": 411
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shop_010.lod2.obj",
+        "triangles": 57
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_001.obj",
+    "sourceTriangles": 18483,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_001.lod1.obj",
+        "triangles": 8247
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_001.lod2.obj",
+        "triangles": 8247
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_002.obj",
+    "sourceTriangles": 11971,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_002.lod1.obj",
+        "triangles": 2153
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_002.lod2.obj",
+        "triangles": 755
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_003.obj",
+    "sourceTriangles": 16293,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_003.lod1.obj",
+        "triangles": 8154
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_003.lod2.obj",
+        "triangles": 8154
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_004.obj",
+    "sourceTriangles": 11057,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_004.lod1.obj",
+        "triangles": 1985
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_004.lod2.obj",
+        "triangles": 684
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_005.obj",
+    "sourceTriangles": 15934,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_005.lod1.obj",
+        "triangles": 2866
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_005.lod2.obj",
+        "triangles": 1387
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_006.obj",
+    "sourceTriangles": 23920,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_006.lod1.obj",
+        "triangles": 4303
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_006.lod2.obj",
+        "triangles": 2104
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_007.obj",
+    "sourceTriangles": 15356,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_007.lod1.obj",
+        "triangles": 2750
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_007.lod2.obj",
+        "triangles": 2500
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_008.obj",
+    "sourceTriangles": 15356,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_008.lod1.obj",
+        "triangles": 2755
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_008.lod2.obj",
+        "triangles": 2508
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_009.obj",
+    "sourceTriangles": 30476,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_009.lod1.obj",
+        "triangles": 5472
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_009.lod2.obj",
+        "triangles": 4950
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_010.obj",
+    "sourceTriangles": 30476,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_010.lod1.obj",
+        "triangles": 5473
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_010.lod2.obj",
+        "triangles": 4953
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_011.obj",
+    "sourceTriangles": 18483,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_011.lod1.obj",
+        "triangles": 8261
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_011.lod2.obj",
+        "triangles": 8261
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_012.obj",
+    "sourceTriangles": 11971,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_012.lod1.obj",
+        "triangles": 2153
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_012.lod2.obj",
+        "triangles": 739
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_013.obj",
+    "sourceTriangles": 16293,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_013.lod1.obj",
+        "triangles": 8173
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_013.lod2.obj",
+        "triangles": 8173
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_014.obj",
+    "sourceTriangles": 11057,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_014.lod1.obj",
+        "triangles": 1985
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_014.lod2.obj",
+        "triangles": 693
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_015.obj",
+    "sourceTriangles": 15934,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_015.lod1.obj",
+        "triangles": 2866
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_015.lod2.obj",
+        "triangles": 1387
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_016.obj",
+    "sourceTriangles": 23920,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_016.lod1.obj",
+        "triangles": 4303
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_016.lod2.obj",
+        "triangles": 2087
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_017.obj",
+    "sourceTriangles": 15356,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_017.lod1.obj",
+        "triangles": 2757
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_017.lod2.obj",
+        "triangles": 2500
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/residential_018.obj",
+    "sourceTriangles": 30476,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/residential_018.lod1.obj",
+        "triangles": 5476
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/residential_018.lod2.obj",
+        "triangles": 4952
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/rural_house_001.obj",
+    "sourceTriangles": 13058,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/rural_house_001.lod1.obj",
+        "triangles": 2350
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/rural_house_001.lod2.obj",
+        "triangles": 860
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/rural_house_002.obj",
+    "sourceTriangles": 12261,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/rural_house_002.lod1.obj",
+        "triangles": 2207
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/rural_house_002.lod2.obj",
+        "triangles": 815
+      }
+    ]
+  },
+  {
+    "source": "buildings/residential/rural_house_003.obj",
+    "sourceTriangles": 9121,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/residential/rural_house_003.lod1.obj",
+        "triangles": 1641
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/residential/rural_house_003.lod2.obj",
+        "triangles": 683
+      }
+    ]
+  },
+  {
+    "source": "construction/asphalt_paver.obj",
+    "sourceTriangles": 75076,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/construction/asphalt_paver.lod1.obj",
+        "triangles": 13514
+      },
+      {
+        "level": 2,
+        "path": "lod/construction/asphalt_paver.lod2.obj",
+        "triangles": 1876
+      }
+    ]
+  },
+  {
+    "source": "construction/excavator.obj",
+    "sourceTriangles": 38228,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/construction/excavator.lod1.obj",
+        "triangles": 6880
+      },
+      {
+        "level": 2,
+        "path": "lod/construction/excavator.lod2.obj",
+        "triangles": 956
+      }
+    ]
+  },
+  {
+    "source": "construction/mobile_crane.obj",
+    "sourceTriangles": 52727,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/construction/mobile_crane.lod1.obj",
+        "triangles": 9491
+      },
+      {
+        "level": 2,
+        "path": "lod/construction/mobile_crane.lod2.obj",
+        "triangles": 1318
+      }
+    ]
+  },
+  {
+    "source": "construction/road_roller.obj",
+    "sourceTriangles": 11088,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/construction/road_roller.lod1.obj",
+        "triangles": 1996
+      },
+      {
+        "level": 2,
+        "path": "lod/construction/road_roller.lod2.obj",
+        "triangles": 276
+      }
+    ]
+  },
+  {
+    "source": "railway/commuter_001.obj",
+    "sourceTriangles": 8444,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/commuter_001.lod1.obj",
+        "triangles": 1520
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/commuter_001.lod2.obj",
+        "triangles": 881
+      }
+    ]
+  },
+  {
+    "source": "railway/commuter_002.obj",
+    "sourceTriangles": 8444,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/commuter_002.lod1.obj",
+        "triangles": 1520
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/commuter_002.lod2.obj",
+        "triangles": 881
+      }
+    ]
+  },
+  {
+    "source": "railway/regional_cab.obj",
+    "sourceTriangles": 9979,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/regional_cab.lod1.obj",
+        "triangles": 1795
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/regional_cab.lod2.obj",
+        "triangles": 821
+      }
+    ]
+  },
+  {
+    "source": "railway/regional_trailer.obj",
+    "sourceTriangles": 9479,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/regional_trailer.lod1.obj",
+        "triangles": 1705
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/regional_trailer.lod2.obj",
+        "triangles": 803
+      }
+    ]
+  },
+  {
+    "source": "railway/station_001.obj",
+    "sourceTriangles": 3130,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/station_001.lod1.obj",
+        "triangles": 562
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/station_001.lod2.obj",
+        "triangles": 316
+      }
+    ]
+  },
+  {
+    "source": "railway/station_002.obj",
+    "sourceTriangles": 7073,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/station_002.lod1.obj",
+        "triangles": 1273
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/station_002.lod2.obj",
+        "triangles": 552
+      }
+    ]
+  },
+  {
+    "source": "railway/urban_cab.obj",
+    "sourceTriangles": 10270,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/urban_cab.lod1.obj",
+        "triangles": 1848
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/urban_cab.lod2.obj",
+        "triangles": 859
+      }
+    ]
+  },
+  {
+    "source": "railway/urban_trailer.obj",
+    "sourceTriangles": 10145,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/railway/urban_trailer.lod1.obj",
+        "triangles": 1825
+      },
+      {
+        "level": 2,
+        "path": "lod/railway/urban_trailer.lod2.obj",
+        "triangles": 820
+      }
+    ]
+  },
+  {
+    "source": "road_parts/curb_concrete.obj",
+    "sourceTriangles": 8,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/curb_concrete.lod1.obj",
+        "triangles": 8
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/curb_concrete.lod2.obj",
+        "triangles": 8
+      }
+    ]
+  },
+  {
+    "source": "road_parts/guardrail_steel.obj",
+    "sourceTriangles": 22,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/guardrail_steel.lod1.obj",
+        "triangles": 20
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/guardrail_steel.lod2.obj",
+        "triangles": 20
+      }
+    ]
+  },
+  {
+    "source": "road_parts/median_concrete.obj",
+    "sourceTriangles": 6,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/median_concrete.lod1.obj",
+        "triangles": 4
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/median_concrete.lod2.obj",
+        "triangles": 4
+      }
+    ]
+  },
+  {
+    "source": "road_parts/roadbed_asphalt.obj",
+    "sourceTriangles": 6,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/roadbed_asphalt.lod1.obj",
+        "triangles": 4
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/roadbed_asphalt.lod2.obj",
+        "triangles": 4
+      }
+    ]
+  },
+  {
+    "source": "road_parts/sidewalk_tile.obj",
+    "sourceTriangles": 12,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/sidewalk_tile.lod1.obj",
+        "triangles": 8
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/sidewalk_tile.lod2.obj",
+        "triangles": 8
+      }
+    ]
+  },
+  {
+    "source": "road_parts/slope_grass.obj",
+    "sourceTriangles": 6,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/road_parts/slope_grass.lod1.obj",
+        "triangles": 4
+      },
+      {
+        "level": 2,
+        "path": "lod/road_parts/slope_grass.lod2.obj",
+        "triangles": 4
+      }
+    ]
+  },
+  {
+    "source": "signals/signal.obj",
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signals/signal.lod1.obj",
+        "triangles": 952
+      },
+      {
+        "level": 2,
+        "path": "lod/signals/signal.lod2.obj",
+        "triangles": 171
+      }
+    ],
+    "sourceTriangles": 5284
+  },
+  {
+    "source": "signs/guide/guide_pole.obj",
+    "sourceTriangles": 3752,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/guide/guide_pole.lod1.obj",
+        "triangles": 674
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/guide/guide_pole.lod2.obj",
+        "triangles": 92
+      }
+    ]
+  },
+  {
+    "source": "signs/guide/onigiri.obj",
+    "sourceTriangles": 44,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/guide/onigiri.lod1.obj",
+        "triangles": 44
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/guide/onigiri.lod2.obj",
+        "triangles": 24
+      }
+    ]
+  },
+  {
+    "source": "signs/pole.obj",
+    "sourceTriangles": 24,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/pole.lod1.obj",
+        "triangles": 24
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/pole.lod2.obj",
+        "triangles": 24
+      }
+    ]
+  },
+  {
+    "source": "signs/regulatory/circle.obj",
+    "sourceTriangles": 188,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/regulatory/circle.lod1.obj",
+        "triangles": 48
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/regulatory/circle.lod2.obj",
+        "triangles": 24
+      }
+    ]
+  },
+  {
+    "source": "signs/regulatory/inverted_triangle.obj",
+    "sourceTriangles": 8,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/regulatory/inverted_triangle.lod1.obj",
+        "triangles": 8
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/regulatory/inverted_triangle.lod2.obj",
+        "triangles": 8
+      }
+    ]
+  },
+  {
+    "source": "signs/sign_pole.obj",
+    "sourceTriangles": 760,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/signs/sign_pole.lod1.obj",
+        "triangles": 137
+      },
+      {
+        "level": 2,
+        "path": "lod/signs/sign_pole.lod2.obj",
+        "triangles": 23
+      }
+    ]
+  },
+  {
+    "source": "vehicles/car.obj",
+    "sourceTriangles": 4000,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/car.lod1.obj",
+        "triangles": 824
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/car.lod2.obj",
+        "triangles": 48
+      }
+    ]
+  },
+  {
+    "source": "vehicles/cargo_truck.obj",
+    "sourceTriangles": 9143,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/cargo_truck.lod1.obj",
+        "triangles": 1645
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/cargo_truck.lod2.obj",
+        "triangles": 60
+      }
+    ]
+  },
+  {
+    "source": "vehicles/city_bus.obj",
+    "sourceTriangles": 3955,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/city_bus.lod1.obj",
+        "triangles": 711
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/city_bus.lod2.obj",
+        "triangles": 48
+      }
+    ]
+  },
+  {
+    "source": "vehicles/delivery_truck.obj",
+    "sourceTriangles": 6382,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/delivery_truck.lod1.obj",
+        "triangles": 1148
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/delivery_truck.lod2.obj",
+        "triangles": 60
+      }
+    ]
+  },
+  {
+    "source": "vehicles/fire_engine.obj",
+    "sourceTriangles": 6823,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/fire_engine.lod1.obj",
+        "triangles": 1227
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/fire_engine.lod2.obj",
+        "triangles": 60
+      }
+    ]
+  },
+  {
+    "source": "vehicles/kei_wagon.obj",
+    "sourceTriangles": 3481,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/kei_wagon.lod1.obj",
+        "triangles": 627
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/kei_wagon.lod2.obj",
+        "triangles": 48
+      }
+    ]
+  },
+  {
+    "source": "vehicles/patrol_car.obj",
+    "sourceTriangles": 3779,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/patrol_car.lod1.obj",
+        "triangles": 679
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/patrol_car.lod2.obj",
+        "triangles": 48
+      }
+    ]
+  },
+  {
+    "source": "vehicles/sedan.obj",
+    "sourceTriangles": 3461,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/vehicles/sedan.lod1.obj",
+        "triangles": 623
+      },
+      {
+        "level": 2,
+        "path": "lod/vehicles/sedan.lod2.obj",
+        "triangles": 48
+      }
+    ]
+  }
+]
