@@ -1,12 +1,13 @@
 ﻿#pragma once
 #include "MapGenerator.hpp"
+#include "SettlementNames.hpp"
 #include <queue>
 
 /// @brief 市町村 → 町・大字 → 丁目・小字。河川と峠の通過費用を用いて連続した区域を分割する。
 class DistrictHierarchy
 {
 public:
-	struct Area { int id=-1,parent=-1,level=0; String name; Vec2 center; bool urban=false; };
+	struct Area { int id=-1,parent=-1,level=0; String name; Vec2 center; bool urban=false; String reading; };
 	struct Boundary { Vec2 a,b; int level=0; };
 	Array<Area> areas;
 	Array<Boundary> boundaries;
@@ -23,29 +24,27 @@ public:
 			const Vec2 p=point(cell); ground[cell]=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
 			const auto channel=world.rivers().nearest(p); river[cell]=channel.distance<channel.halfWidth+60 ? 1.0f : 0.0f;
 		}
-		const auto add=[&](int level,int parent,String name,Vec2 center,bool urban)
+		const auto add=[&](int level,int parent,String name,Vec2 center,bool urban,String reading=U"")
 		{
-			const int id=static_cast<int>(areas.size()); areas << Area{id,parent,level,std::move(name),center,urban}; return id;
+			const int id=static_cast<int>(areas.size()); areas << Area{id,parent,level,std::move(name),center,urban,std::move(reading)}; return id;
 		};
 		for (const auto& town : towns)
 		{
-			if (town.kind==MapGenerator::SettlementKind::RuralSettlement) { continue; }
-			add(0,-1,town.name+(town.kind==MapGenerator::SettlementKind::RegionalCity ? U"市" : U"町"),town.center,true);
+			add(0,-1,SettlementNames::name(town),town.center,town.kind!=MapGenerator::SettlementKind::RuralSettlement,SettlementNames::reading(town));
 		}
-		if (areas.isEmpty()) { add(0,-1,towns.front().name+U"村",towns.front().center,false); }
 		partition(0,ground,river);
 		for (const auto& town : towns)
 		{
 			const bool urban=town.kind!=MapGenerator::SettlementKind::RuralSettlement;
 			const int parent=at(town.center,0); if (parent<0) { continue; }
-			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban);
+			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban,town.reading+(urban ? U" Honmachi" : U""));
 			if (town.kind==MapGenerator::SettlementKind::RegionalCity)
 			{
 				const std::array<String,4> names{U"東町",U"西町",U"南町",U"北町"};
 				for (int i=0;i<4;++i)
 				{
 					const Vec2 p=town.center+(i<2 ? town.gridAxisX : town.gridAxisZ)*(i%2==0 ? 1.0 : -1.0)*Max(300.0,static_cast<double>(town.radius)*.45);
-					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true); }
+					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true,town.reading+std::array<String,4>{U" Higashimachi",U" Nishimachi",U" Minamimachi",U" Kitamachi"}[i]); }
 				}
 			}
 		}
@@ -62,10 +61,11 @@ public:
 				if (at(p,1)!=id) { continue; }
 				const auto channel=world.rivers().nearest(p);
 				const String name=area.urban ? numbers[i] : (channel.distance<500 ? U"字川端" : ground[cellAt(p)]>65 ? U"字山際" : U"字原")+std::array<String,4>{U"東",U"南",U"西",U"北"}[i];
-				add(2,id,name,p,area.urban);
+				const String reading=area.urban ? U"{}-chome"_fmt(i+1) : (channel.distance<500 ? U"Kawabata" : ground[cellAt(p)]>65 ? U"Yamagiwa" : U"Hara")+std::array<String,4>{U" Higashi",U" Minami",U" Nishi",U" Kita"}[i];
+				add(2,id,name,p,area.urban,reading);
 			}
 			bool child=false; for (const auto& candidate : areas) { child|=candidate.parent==id; }
-			if (!child) { add(2,id,area.urban ? U"一丁目" : U"字中村",area.center,area.urban); }
+			if (!child) { add(2,id,area.urban ? U"一丁目" : U"字中村",area.center,area.urban,area.urban ? U"1-chome" : U"Nakamura"); }
 		}
 		partition(2,ground,river);
 		// Shared cell edges are emitted once. River-adjacent vertices follow the actual channel center.
