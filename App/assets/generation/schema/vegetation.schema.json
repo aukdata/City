@@ -22,7 +22,16 @@
     "speciesFrequencyDiagonal",
     "speciesThreshold",
     "parkScaleMinimum",
-    "parkScaleVariationStep"
+    "parkScaleVariationStep",
+    "treeLine",
+    "snowStart",
+    "snowFull",
+    "boundaryFadeDistance",
+    "boundarySampleSpacing",
+    "alpineDensity",
+    "alpineWidth",
+    "alpineHeight",
+    "snowVariation"
   ],
   "properties": {
     "minimumForestAltitude": {
@@ -119,6 +128,51 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 0.1
+    },
+    "treeLine": {
+      "type": "number",
+      "minimum": 900.0,
+      "maximum": 4000.0
+    },
+    "snowStart": {
+      "type": "number",
+      "minimum": 900.0,
+      "maximum": 5000.0
+    },
+    "snowFull": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 6000.0
+    },
+    "boundaryFadeDistance": {
+      "type": "number",
+      "minimum": 64.0,
+      "maximum": 2000.0
+    },
+    "boundarySampleSpacing": {
+      "type": "number",
+      "minimum": 16.0,
+      "maximum": 128.0
+    },
+    "alpineDensity": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "alpineWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "alpineHeight": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 5.0
+    },
+    "snowVariation": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 200.0
     }
   }
 }

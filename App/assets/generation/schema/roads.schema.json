@@ -22,7 +22,11 @@
     "tunnelLengthScale",
     "tunnelLengthPenalty",
     "viaductHeightScale",
-    "viaductHeightPenalty"
+    "viaductHeightPenalty",
+    "viaductBaseCost",
+    "pierInterval",
+    "pierMinimumSpan",
+    "pierMinimumClearance"
   ],
   "properties": {
     "surfaceCost": {
@@ -119,6 +123,26 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10000.0
+    },
+    "viaductBaseCost": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
+    "pierInterval": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 200.0
+    },
+    "pierMinimumSpan": {
+      "type": "number",
+      "minimum": 2.0,
+      "maximum": 40.0
+    },
+    "pierMinimumClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
     }
   }
 }

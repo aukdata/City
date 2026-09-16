@@ -1,4 +1,5 @@
 ﻿#include "CityLighting.hpp"
+#include "../gen/GenerationSettings.hpp"
 
 bool CityLighting::initialize(FilePathView shaderPath)
 {
@@ -6,6 +7,10 @@ bool CityLighting::initialize(FilePathView shaderPath)
 	{
 		return ready();
 	}
+	const auto& settings = GenerationSettings::get();
+	m_parameters->altitudeBands = Float4{static_cast<float>(settings.vegetation_maximumForestAltitude),
+		static_cast<float>(settings.vegetation_treeLine),static_cast<float>(settings.vegetation_snowStart),static_cast<float>(settings.vegetation_snowFull)};
+	m_parameters->terrainVariation = Float4{settings.vegetation_snowVariation,0,0,0};
 	m_attempted = true;
 	m_depthShader = PixelShader::HLSL(shaderPath, U"Depth_PS");
 	m_forwardShader = PixelShader::HLSL(shaderPath, U"Shading_PS");

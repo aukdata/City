@@ -27,6 +27,8 @@ private:
 		Float4 shadowParameters{ 0, 0, 0, 0 };
 		Float4 fogColorDensity{ 0, 0, 0, 0 };
 		Float4 dynamicShadow{ 0, 0, 0, 0 };
+		Float4 altitudeBands{ 850, 1700, 1900, 2200 };
+		Float4 terrainVariation{ 35, 0, 0, 0 };
 	};
 	PixelShader m_buildingShader;
 	PixelShader m_depthShader, m_forwardShader, m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;

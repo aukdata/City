@@ -34,7 +34,8 @@
     "rootSpacingRatio",
     "minimumReachRatio",
     "homeSetback",
-    "homeFootprintMargin"
+    "homeFootprintMargin",
+    "connectionRadius"
   ],
   "properties": {
     "plotLength": {
@@ -191,6 +192,11 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 10.0
+    },
+    "connectionRadius": {
+      "type": "number",
+      "minimum": 2.0,
+      "maximum": 100.0
     }
   }
 }

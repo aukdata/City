@@ -29,5 +29,6 @@
   "rootSpacingRatio": 0.65,
   "minimumReachRatio": 0.65,
   "homeSetback": 4,
-  "homeFootprintMargin": 2
+  "homeFootprintMargin": 2,
+  "connectionRadius": 45
 }

@@ -49,5 +49,7 @@ void registerGenerationSettingsTests(TestRunner& runner)
 		rejectCombination(U"agriculture",U"plotWidth",2);
 		rejectCombination(U"rivers",U"minimumHalfWidth",300);
 		rejectCombination(U"roads",U"surfaceTolerance",20);
+		rejectCombination(U"vegetation",U"treeLine",2100);
+		rejectCombination(U"vegetation",U"snowFull",1800);
 	});
 }

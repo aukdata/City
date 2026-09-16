@@ -17,5 +17,14 @@
   "speciesFrequencyDiagonal": 0.0027,
   "speciesThreshold": -0.15,
   "parkScaleMinimum": 0.78,
-  "parkScaleVariationStep": 0.028
+  "parkScaleVariationStep": 0.028,
+  "treeLine": 1700,
+  "snowStart": 1900,
+  "snowFull": 2200,
+  "boundaryFadeDistance": 500,
+  "boundarySampleSpacing": 64,
+  "alpineDensity": 0.22,
+  "alpineWidth": 3.5,
+  "alpineHeight": 1.6,
+  "snowVariation": 35
 }

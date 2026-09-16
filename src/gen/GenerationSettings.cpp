@@ -57,6 +57,9 @@ namespace GenerationSettings
 		require(result.agriculture_trackStep<=result.agriculture_trackReach, U"agriculture track step <= reach");
 		require(result.agriculture_homeSpacing<result.agriculture_homeMaximumDistance, U"agriculture houses within field service radius");
 		require(result.vegetation_minimumForestAltitude <= result.vegetation_maximumForestAltitude, U"vegetation altitude range");
+		require(result.vegetation_maximumForestAltitude < result.vegetation_treeLine
+			&& result.vegetation_treeLine <= result.vegetation_snowStart
+			&& result.vegetation_snowStart < result.vegetation_snowFull, U"vegetation forest < tree line <= snow start < snow full");
 		for (const auto item : files.at(U"streetProfiles"))
 		{
 			if (!item.key.ends_with(U"_lanes")) { continue; }

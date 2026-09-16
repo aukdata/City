@@ -2,7 +2,7 @@
   "surfaceCost": 1,
   "earthworkCost": 8,
   "viaductCostPerMetre": 16,
-  "tunnelCost": 64,
+  "tunnelCost": 128,
   "surfaceTolerance": 1,
   "maximumFill": 6,
   "maximumCut": 8,
@@ -17,5 +17,9 @@
   "tunnelLengthScale": 400,
   "tunnelLengthPenalty": 32,
   "viaductHeightScale": 12,
-  "viaductHeightPenalty": 16
+  "viaductHeightPenalty": 16,
+  "viaductBaseCost": 64,
+  "pierInterval": 30,
+  "pierMinimumSpan": 8,
+  "pierMinimumClearance": 3
 }

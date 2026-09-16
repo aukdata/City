@@ -130,6 +130,8 @@ cbuffer CityParameters : register(b4)
 	float4 g_shadowParameters;
 	float4 g_fogColorDensity;
 	float4 g_dynamicShadow;
+	float4 g_altitudeBands;
+	float4 g_terrainVariation;
 }
 
 float Depth_PS(s3d::PSInput input) : SV_TARGET
@@ -193,6 +195,17 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);
 	albedo.rgb = lerp(sand, albedo.rgb, dryLand);
+	float2 ground = input.worldPosition.xz;
+	float variation = sin(ground.x * .008 + sin(ground.y * .006)) * sin(ground.y * .009);
+	float altitude = input.worldPosition.y + variation * g_terrainVariation.x;
+	float alpine = smoothstep(g_altitudeBands.x, g_altitudeBands.y, altitude);
+	float steepness = 1 - saturate(normalize(input.normal).y);
+	float mineral = dot(albedo.rgb, float3(.2126,.7152,.0722));
+	float3 alpineCover = lerp(float3(.25,.29,.16),float3(.35,.34,.32),saturate(steepness * 2 + alpine * .5));
+	albedo.rgb = lerp(albedo.rgb,alpineCover * (.8 + mineral),alpine);
+	float snow = smoothstep(g_altitudeBands.z, g_altitudeBands.w, altitude);
+	float3 snowColor = float3(.86,.9,.95) * (1 + variation * .035);
+	albedo.rgb = lerp(albedo.rgb,snowColor,snow * (1 - smoothstep(.55,.85,steepness)));
 	return shadeCity(input, albedo);
 }
 

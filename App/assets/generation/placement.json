@@ -55,5 +55,7 @@
   "slopingSiteScore": 0.5,
   "candidateCellSize": 40,
   "candidateMarginCells": 2,
-  "candidateStrideCells": 3
+  "candidateStrideCells": 3,
+  "settlementEdgeMargin": 1000,
+  "ruralRetentionRate": 0.25
 }
