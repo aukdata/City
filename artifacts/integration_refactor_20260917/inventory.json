@@ -1,0 +1,6842 @@
+{
+  "files": [
+    {
+      "path": "src/asset/AssetRegistrar.cpp",
+      "module": "asset",
+      "lines": 43,
+      "denseLines": 0,
+      "includes": [
+        "AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "RegisterAssets"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/asset/AssetRegistrar.hpp",
+      "module": "asset",
+      "lines": 42,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/asset/ModelLodPath.hpp",
+      "module": "asset",
+      "lines": 13,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "modelLodPath"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/audio/SoundEffects.cpp",
+      "module": "audio",
+      "lines": 141,
+      "denseLines": 0,
+      "includes": [
+        "SoundEffects.hpp"
+      ],
+      "functions": [
+        "tone",
+        "envelope",
+        "SoundEffects::makeEngine",
+        "SoundEffects::makeRoadNoise",
+        "SoundEffects::makeCue",
+        "SoundEffects::setVolume",
+        "SoundEffects::play",
+        "SoundEffects::drivingMix",
+        "SoundEffects::stopDriving",
+        "SoundEffects::updateDriving"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/audio/SoundEffects.hpp",
+      "module": "audio",
+      "lines": 35,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "volume",
+        "drivingPlaying",
+        "playedCount",
+        "mix"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/CommandExecution.cpp",
+      "module": "debug",
+      "lines": 61,
+      "denseLines": 1,
+      "includes": [
+        "CommandExecution.hpp"
+      ],
+      "functions": [
+        "CommandExecution::execute"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/CommandExecution.hpp",
+      "module": "debug",
+      "lines": 12,
+      "denseLines": 0,
+      "includes": [
+        "GameCommands.hpp",
+        "../road/RoadNetwork.hpp",
+        "../ui/Camera.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/DebugLog.hpp",
+      "module": "debug",
+      "lines": 99,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "initialize",
+        "shutdown",
+        "print",
+        "clear",
+        "entries",
+        "file",
+        "writeToFile"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/DebugRenderer.cpp",
+      "module": "debug",
+      "lines": 748,
+      "denseLines": 0,
+      "includes": [
+        "DebugRenderer.hpp",
+        "DebugLog.hpp"
+      ],
+      "functions": [
+        "DebugRenderer::handleInput",
+        "DebugRenderer::render",
+        "DebugRenderer::renderNetwork",
+        "if",
+        "DebugRenderer::renderChunks",
+        "vehicleStateStr",
+        "DebugRenderer::renderVehicleInfo",
+        "DebugRenderer::renderGrid",
+        "DebugRenderer::renderDetailHUD",
+        "DebugRenderer::renderLog",
+        "DebugRenderer::renderHelp",
+        "DebugRenderer::renderBiomes",
+        "DebugRenderer::renderBiomeLegend",
+        "DebugRenderer::renderProfiler",
+        "DebugRenderer::renderPerfGraph",
+        "DebugRenderer::dumpPerfToConsole"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/DebugRenderer.hpp",
+      "module": "debug",
+      "lines": 72,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../traffic/Vehicle.hpp",
+        "../world/World.hpp",
+        "../ui/Camera.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "PerfStats.hpp"
+      ],
+      "functions": [
+        "isDebugMode"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/GameCommands.cpp",
+      "module": "debug",
+      "lines": 96,
+      "denseLines": 0,
+      "includes": [
+        "GameCommands.hpp"
+      ],
+      "functions": [
+        "words",
+        "placeholder",
+        "integer",
+        "GameCommands::suggest",
+        "GameCommands::parse"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/GameCommands.hpp",
+      "module": "debug",
+      "lines": 13,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/debug/PerfStats.hpp",
+      "module": "debug",
+      "lines": 76,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "total",
+        "total",
+        "push",
+        "count",
+        "capacity"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/economy/Economy.cpp",
+      "module": "economy",
+      "lines": 83,
+      "denseLines": 0,
+      "includes": [
+        "Economy.hpp"
+      ],
+      "functions": [
+        "Economy::initializeGeneratedCity",
+        "Economy::monthlyGrant",
+        "Economy::roadMaintenanceCost",
+        "Economy::applyMonthly",
+        "Economy::previewMonthly",
+        "Economy::applyMonthly"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/economy/Economy.hpp",
+      "module": "economy",
+      "lines": 45,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../gameplay/CitySimulation.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/event/EventSystem.cpp",
+      "module": "event",
+      "lines": 219,
+      "denseLines": 0,
+      "includes": [
+        "EventSystem.hpp"
+      ],
+      "functions": [
+        "demandMultiplierForEvent",
+        "isMonthInRange",
+        "EventSystem::update",
+        "EventSystem::rollMonthly",
+        "EventSystem::globalSpeedMultiplier",
+        "EventSystem::globalDemandMultiplier",
+        "EventSystem::popNewNotifications",
+        "EventSystem::addEvent",
+        "EventSystem::removeExpired",
+        "EventSystem::buildSeasonalEvent",
+        "EventSystem::rollRandomEvent"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/event/EventSystem.hpp",
+      "module": "event",
+      "lines": 88,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/GameApp.cpp",
+      "module": "GameApp.cpp",
+      "lines": 182,
+      "denseLines": 0,
+      "includes": [
+        "GameApp.hpp",
+        "ui/KeyboardActions.hpp",
+        "asset/AssetRegistrar.hpp",
+        "debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "update",
+        "GameApp::run",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/GameApp.hpp",
+      "module": "GameApp.hpp",
+      "lines": 11,
+      "denseLines": 0,
+      "includes": [
+        "scene/TitleScene.hpp",
+        "scene/GameScene.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gameplay/CitySimulation.cpp",
+      "module": "gameplay",
+      "lines": 188,
+      "denseLines": 1,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "CitySimulation.hpp"
+      ],
+      "functions": [
+        "timeOfDayMultiplier",
+        "commuteGrowthMultiplier",
+        "commuteQuality",
+        "collectCitySnapshot",
+        "if",
+        "calculateTrafficDemand",
+        "calculateMonthlyCityOutcome",
+        "HousingCapacityCache::update"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gameplay/CitySimulation.hpp",
+      "module": "gameplay",
+      "lines": 83,
+      "denseLines": 0,
+      "includes": [
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../traffic/Vehicle.hpp"
+      ],
+      "functions": [
+        "capacity",
+        "initialized"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/AgriculturalLayout.cpp",
+      "module": "gen",
+      "lines": 307,
+      "denseLines": 9,
+      "includes": [
+        "AgriculturalLayout.hpp",
+        "ParcelRoadIndex.hpp",
+        "SettlementPlan.hpp",
+        "StreetProfile.hpp",
+        "UrbanParcel.hpp",
+        "RoadDesignLimits.hpp",
+        "../road/RoadPlanDraft.hpp"
+      ],
+      "functions": [
+        "horizontal",
+        "groundPoint",
+        "agricultural",
+        "hash",
+        "localFrames",
+        "settlementDistance",
+        "density",
+        "ribbon",
+        "Sites",
+        "served",
+        "prepareHomes",
+        "prepare",
+        "if",
+        "generate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/AgriculturalLayout.hpp",
+      "module": "gen",
+      "lines": 28,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../railway/TrainNetwork.hpp"
+      ],
+      "functions": [
+        "worldPoint",
+        "localPoint"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/DistrictHierarchy.hpp",
+      "module": "gen",
+      "lines": 129,
+      "denseLines": 1,
+      "includes": [
+        "MapGenerator.hpp",
+        "SettlementNames.hpp"
+      ],
+      "functions": [
+        "generate",
+        "at",
+        "address",
+        "cellAt",
+        "point",
+        "partition"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/DistrictRoads.cpp",
+      "module": "gen",
+      "lines": 1821,
+      "denseLines": 17,
+      "includes": [
+        "GenerationSettings.hpp",
+        "DistrictRoads.hpp",
+        "StreetProfile.hpp",
+        "SettlementFringe.hpp",
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "key",
+        "insert",
+        "findNearest",
+        "safeNormalized",
+        "districtHash",
+        "districtHashSigned",
+        "isKaidoEdge",
+        "applyStreetProfile",
+        "tryAddLocalRoadEdge",
+        "ensureNodeWithMerge",
+        "rebuildStraightGeometry",
+        "insideCastleBlock",
+        "buildCastleGridCoords",
+        "findEdgeBetweenNodes",
+        "distanceXZ",
+        "collectArterialNodesAroundRadius",
+        "cutCastleApproaches",
+        "castleHalfExtent",
+        "findNearestArterialDirection",
+        "computeArterialAxisTangent",
+        "computeCastleGridAxes",
+        "if",
+        "if",
+        "reattachRoutesFromNeighbors",
+        "findGridPathTurnPenalty",
+        "pruneCastleGridEdges",
+        "findNearestKaidoEdgeToCenter",
+        "computeKaidoAxisOverall",
+        "applyCastleKaidoCrank",
+        "nodeInRange",
+        "walkKaido",
+        "computeKaidoAxisFromCenter",
+        "buildCastleTownFrames",
+        "toFrameLocal",
+        "extractKaido",
+        "segmentFitsTerrain",
+        "fitTownToTerrain",
+        "generateRuralFrontage",
+        "tryAddLocalRoadEdge",
+        "generateSettlement",
+        "if",
+        "generateCastleTown",
+        "straightenCastleTownRoads"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/DistrictRoads.hpp",
+      "module": "gen",
+      "lines": 52,
+      "denseLines": 0,
+      "includes": [
+        "MapGenerator.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/GenerationSettings.cpp",
+      "module": "gen",
+      "lines": 78,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "GenerationSettings.def"
+      ],
+      "functions": [
+        "load"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/GenerationSettings.hpp",
+      "module": "gen",
+      "lines": 17,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.def"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/MapGenerator.cpp",
+      "module": "gen",
+      "lines": 862,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp",
+        "MapGenerator.hpp",
+        "SettlementPlacement.hpp",
+        "RoadAlignment.hpp",
+        "RoadDesignLimits.hpp",
+        "RailwayAlignment.hpp",
+        "StreetProfile.hpp",
+        "../debug/DebugLog.hpp",
+        "PlaceNameGenerator.hpp",
+        "DistrictRoads.hpp"
+      ],
+      "functions": [
+        "MapGenerator::initWorld",
+        "key",
+        "insert",
+        "findNearest",
+        "tangentAt",
+        "MapGenerator::computeMSTSubset",
+        "MapGenerator::findMSTDiameter",
+        "occupyKey",
+        "MapGenerator::buildRoadSegment",
+        "MapGenerator::generateGlobalRoads",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "MapGenerator::generateDistrictRoads",
+        "MapGenerator::setupTrain"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/MapGenerator.hpp",
+      "module": "gen",
+      "lines": 103,
+      "denseLines": 0,
+      "includes": [
+        "SettlementPlan.hpp",
+        "TerrainType.hpp",
+        "PlaceNameGenerator.hpp",
+        "RoadPathfinder.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../railway/TrainNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/ParcelGeometry.hpp",
+      "module": "gen",
+      "lines": 49,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "footprint",
+        "overlaps"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/ParcelRoadIndex.hpp",
+      "module": "gen",
+      "lines": 132,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "ParcelGeometry.hpp",
+        "../road/RoadNetwork.hpp",
+        "../road/RoadGeometry.hpp",
+        "../railway/TrainNetwork.hpp",
+        "../railway/RailwaySite.hpp"
+      ],
+      "functions": [
+        "ParcelRoadIndex",
+        "addRailway",
+        "overlaps",
+        "add",
+        "visitBuckets"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/PlaceNameGenerator.cpp",
+      "module": "gen",
+      "lines": 268,
+      "denseLines": 12,
+      "includes": [
+        "GenerationSettings.hpp",
+        "PlaceNameGenerator.hpp"
+      ],
+      "functions": [
+        "readStringArray",
+        "PlaceNameGenerator::load",
+        "PlaceNameGenerator::generate",
+        "PlaceNameGenerator::generateWithBiomes",
+        "PlaceNameGenerator::pickCategory",
+        "PlaceNameGenerator::pickCategoryForBiome",
+        "PlaceNameGenerator::nextRand",
+        "PlaceNameGenerator::randIndex",
+        "PlaceNameGenerator::hashCombine"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/PlaceNameGenerator.hpp",
+      "module": "gen",
+      "lines": 161,
+      "denseLines": 0,
+      "includes": [
+        "TerrainType.hpp"
+      ],
+      "functions": [
+        "settlementName",
+        "settlementReading",
+        "makeStationName",
+        "makeICName",
+        "makeRoadName",
+        "makeSignalName"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RailCostProfile.hpp",
+      "module": "gen",
+      "lines": 87,
+      "denseLines": 4,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "unitCost",
+        "solve"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RailwayAlignment.hpp",
+      "module": "gen",
+      "lines": 201,
+      "denseLines": 12,
+      "includes": [
+        "GenerationSettings.hpp",
+        "MapGenerator.hpp",
+        "RoadPathfinder.hpp",
+        "TransportClearance.hpp",
+        "RailCostProfile.hpp",
+        "../railway/RailTimetable.hpp",
+        "../railway/RailDepotBuilder.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "generate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RiverNetwork.hpp",
+      "module": "gen",
+      "lines": 153,
+      "denseLines": 4,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "generate",
+        "nearest",
+        "vegetationAllowed",
+        "subset",
+        "waterLevel",
+        "carveHeight",
+        "key"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadAlignment.cpp",
+      "module": "gen",
+      "lines": 457,
+      "denseLines": 3,
+      "includes": [
+        "GenerationSettings.hpp",
+        "RoadAlignment.hpp",
+        "RoadDesignLimits.hpp",
+        "RailCostProfile.hpp",
+        "RoadConstructionCost.hpp",
+        "RoadPathfinder.hpp"
+      ],
+      "functions": [
+        "horizontal",
+        "direction",
+        "profile",
+        "cost",
+        "RoadAlignment::respectsLimits",
+        "RoadAlignment::fit",
+        "RoadAlignment::constructionCost",
+        "RoadAlignment::find",
+        "RoadAlignment::repairSteepEdges"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadAlignment.hpp",
+      "module": "gen",
+      "lines": 26,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadAutoPlace.cpp",
+      "module": "gen",
+      "lines": 148,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "RoadAutoPlace.hpp",
+        "RoadPathfinder.hpp",
+        "RoadDesignLimits.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "resolveEndpointNode",
+        "findWaypoints",
+        "buildAlignment",
+        "buildWaypoints",
+        "buildPlanned",
+        "buildPreviewPlan"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadAutoPlace.hpp",
+      "module": "gen",
+      "lines": 41,
+      "denseLines": 0,
+      "includes": [
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadConstructionCost.hpp",
+      "module": "gen",
+      "lines": 55,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp"
+      ],
+      "functions": [
+        "Surface",
+        "Earthwork",
+        "ViaductPerMetre",
+        "Tunnel",
+        "SurfaceTolerance",
+        "MaximumFill",
+        "MaximumCut",
+        "exponentialPenalty",
+        "tunnelPenalty",
+        "unit",
+        "segment"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadDesignLimits.hpp",
+      "module": "gen",
+      "lines": 299,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp",
+        "../debug/DebugLog.hpp",
+        "RoadAlignment.hpp"
+      ],
+      "functions": [
+        "forType",
+        "minimumRadius",
+        "smoothThroughChains",
+        "constrainCurve",
+        "measure",
+        "fitGrades",
+        "apply"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadPathfinder.cpp",
+      "module": "gen",
+      "lines": 291,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp",
+        "RoadPathfinder.hpp",
+        "RoadConstructionCost.hpp",
+        "RoadDesignLimits.hpp"
+      ],
+      "functions": [
+        "RoadPathfinder::setup",
+        "RoadPathfinder::setupFromHeightMap",
+        "RoadPathfinder::gridToWorld",
+        "RoadPathfinder::worldToGrid",
+        "RoadPathfinder::findPath",
+        "RoadPathfinder::samplePath",
+        "RoadPathfinder::pathToRoadEdges"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadPathfinder.hpp",
+      "module": "gen",
+      "lines": 78,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "setRailwayRouting",
+        "setRoadType",
+        "setConstructionCost",
+        "defaultCellSize",
+        "gridW",
+        "gridH",
+        "cellSize",
+        "offset",
+        "height"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadTerrainFit.hpp",
+      "module": "gen",
+      "lines": 85,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "apply"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/RoadVerticalAlignment.hpp",
+      "module": "gen",
+      "lines": 68,
+      "denseLines": 0,
+      "includes": [
+        "RailCostProfile.hpp",
+        "RoadConstructionCost.hpp",
+        "RoadDesignLimits.hpp",
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "apply"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementDevelopment.cpp",
+      "module": "gen",
+      "lines": 1643,
+      "denseLines": 25,
+      "includes": [
+        "GenerationSettings.hpp",
+        "SettlementDevelopment.hpp",
+        "AgriculturalLayout.hpp",
+        "StreetBlocks.hpp",
+        "ParcelGeometry.hpp",
+        "UrbanParcel.hpp",
+        "ParcelRoadIndex.hpp",
+        "../road/RoadGeometry.hpp",
+        "../world/ZoneGrid.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "settlementCellHash",
+        "hash01",
+        "landUseAxisX",
+        "localSlope",
+        "planLocal",
+        "pickInitialZone",
+        "zonePriority",
+        "nearestSettlementIndex",
+        "makeCellPatchPolygon",
+        "makeOrientedPatchPolygon",
+        "makeCoastalBandPolygon",
+        "hasWaterNeighbor",
+        "infillDensity",
+        "SettlementDevelopment::applyZonesGlobal",
+        "density",
+        "if",
+        "spawn",
+        "applySettlementContext",
+        "ruralFringeBuildingType",
+        "buildingTomlPathFromStem",
+        "loadSetbackFromToml",
+        "setbackFromRoadByModel",
+        "interiorBuildingOffset",
+        "projectPointToEdgeXZ",
+        "roadsideBuildingOffset",
+        "hasRoadClearance",
+        "overlapsExistingBuilding",
+        "if",
+        "if",
+        "collectEdgeFacingSlots",
+        "SettlementDevelopment::placeInitialBuildings",
+        "SettlementDevelopment::generateLandPatches",
+        "if",
+        "SettlementDevelopment::migrateLegacyBuildingFrontageReferences",
+        "SettlementDevelopment::validateGeneratedCityConstraints",
+        "SettlementDevelopment::refreshBuildingAnglesFromEdges",
+        "SettlementDevelopment::agriculturalFrames"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementDevelopment.hpp",
+      "module": "gen",
+      "lines": 35,
+      "denseLines": 0,
+      "includes": [
+        "MapGenerator.hpp",
+        "AgriculturalLayout.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementFringe.cpp",
+      "module": "gen",
+      "lines": 150,
+      "denseLines": 2,
+      "includes": [
+        "GenerationSettings.hpp",
+        "SettlementFringe.hpp",
+        "StreetProfile.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "horizontal",
+        "fitsTerrain",
+        "clearOfRoads",
+        "generate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementFringe.hpp",
+      "module": "gen",
+      "lines": 8,
+      "denseLines": 0,
+      "includes": [
+        "MapGenerator.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementNames.hpp",
+      "module": "gen",
+      "lines": 19,
+      "denseLines": 0,
+      "includes": [
+        "MapGenerator.hpp"
+      ],
+      "functions": [
+        "suffix",
+        "name",
+        "reading"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementPlacement.cpp",
+      "module": "gen",
+      "lines": 464,
+      "denseLines": 10,
+      "includes": [
+        "GenerationSettings.hpp",
+        "SettlementPlacement.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "locationSalt",
+        "agriculturalLand",
+        "Abs",
+        "index",
+        "position",
+        "TravelField",
+        "cost",
+        "assign",
+        "makePlan",
+        "if",
+        "SettlementPlacement::retainRuralSite",
+        "SettlementPlacement::generate",
+        "SettlementPlacement::roadAccessCost",
+        "MapGenerator::scoreSuitability",
+        "MapGenerator::placeAllSettlements"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementPlacement.hpp",
+      "module": "gen",
+      "lines": 24,
+      "denseLines": 0,
+      "includes": [
+        "MapGenerator.hpp"
+      ],
+      "functions": [
+        "generate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/SettlementPlan.hpp",
+      "module": "gen",
+      "lines": 324,
+      "denseLines": 29,
+      "includes": [
+        "GenerationSettings.hpp"
+      ],
+      "functions": [
+        "mix",
+        "originName",
+        "inspectSite",
+        "chooseOrigin",
+        "makePlan",
+        "if",
+        "if",
+        "if",
+        "rescale",
+        "inCore",
+        "fringeDistance",
+        "coverageRadius",
+        "contains",
+        "sample",
+        "streetCoordinates",
+        "allowStreet"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/StreetBlocks.hpp",
+      "module": "gen",
+      "lines": 135,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "contains",
+        "collect",
+        "mergeNarrowFaces"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/StreetProfile.hpp",
+      "module": "gen",
+      "lines": 119,
+      "denseLines": 12,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "describe",
+        "apply"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/TerrainType.hpp",
+      "module": "gen",
+      "lines": 21,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/TransportClearance.hpp",
+      "module": "gen",
+      "lines": 52,
+      "denseLines": 2,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "TransportClearance",
+        "minimumRailHeight",
+        "maximumUnderpassHeight",
+        "interval",
+        "key"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/UrbanParcel.hpp",
+      "module": "gen",
+      "lines": 97,
+      "denseLines": 0,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "normalize",
+        "clipCloserTo",
+        "clipBetweenSites",
+        "partition"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/gen/WaterCrossings.hpp",
+      "module": "gen",
+      "lines": 215,
+      "denseLines": 1,
+      "includes": [
+        "GenerationSettings.hpp",
+        "../road/RoadNetwork.hpp",
+        "RoadDesignLimits.hpp"
+      ],
+      "functions": [
+        "splitWaterSpans",
+        "repair",
+        "repair",
+        "repair"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailDepotBuilder.cpp",
+      "module": "railway",
+      "lines": 122,
+      "denseLines": 0,
+      "includes": [
+        "RailDepotBuilder.hpp",
+        "../gen/ParcelRoadIndex.hpp",
+        "../debug/DebugLog.hpp",
+        "../gen/TransportClearance.hpp"
+      ],
+      "functions": [
+        "addAt",
+        "add",
+        "generate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailDepotBuilder.hpp",
+      "module": "railway",
+      "lines": 11,
+      "denseLines": 0,
+      "includes": [
+        "RailwaySite.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailTimetable.cpp",
+      "module": "railway",
+      "lines": 136,
+      "denseLines": 0,
+      "includes": [
+        "RailTimetable.hpp",
+        "TrainConsist.hpp"
+      ],
+      "functions": [
+        "calendarAt",
+        "simulationAt",
+        "duration",
+        "validTimes",
+        "formatTime",
+        "parseTime",
+        "route",
+        "validate",
+        "journeySeconds",
+        "makeDefault",
+        "dueDeparture",
+        "nextDeparture",
+        "departures"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailTimetable.hpp",
+      "module": "railway",
+      "lines": 19,
+      "denseLines": 0,
+      "includes": [
+        "TrainNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailwaySite.cpp",
+      "module": "railway",
+      "lines": 128,
+      "denseLines": 0,
+      "includes": [
+        "RailwaySite.hpp",
+        "../world/World.hpp",
+        "../road/RoadEnvironment.hpp"
+      ],
+      "functions": [
+        "stationMinimumRadius",
+        "stationPaths",
+        "stationFrame",
+        "depotFrame",
+        "rectangle",
+        "footprints",
+        "landscapeFootprints"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailwaySite.hpp",
+      "module": "railway",
+      "lines": 27,
+      "denseLines": 0,
+      "includes": [
+        "TrainNetwork.hpp",
+        "../gen/ParcelGeometry.hpp"
+      ],
+      "functions": [
+        "point"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/RailwayStorage.cpp",
+      "module": "railway",
+      "lines": 103,
+      "denseLines": 0,
+      "includes": [
+        "TrainNetwork.hpp",
+        "RailTimetable.hpp"
+      ],
+      "functions": [
+        "vectorJson",
+        "readVector",
+        "finite",
+        "TrainNetwork::saveState",
+        "TrainNetwork::restoreState"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrackTypes.hpp",
+      "module": "railway",
+      "lines": 66,
+      "denseLines": 0,
+      "includes": [
+        "Train.hpp"
+      ],
+      "functions": [
+        "isValid",
+        "isValid"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/Train.hpp",
+      "module": "railway",
+      "lines": 60,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrainConsist.hpp",
+      "module": "railway",
+      "lines": 77,
+      "denseLines": 1,
+      "includes": [
+        "Train.hpp",
+        "TrainNetwork.hpp"
+      ],
+      "functions": [
+        "profile",
+        "length",
+        "behind",
+        "carPose",
+        "hitDistance"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrainManager.cpp",
+      "module": "railway",
+      "lines": 257,
+      "denseLines": 0,
+      "includes": [
+        "TrainManager.hpp",
+        "TrainNetwork.hpp",
+        "TrainConsist.hpp",
+        "RailTimetable.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "brakingSpeed",
+        "TrainManager::init",
+        "TrainManager::finishService",
+        "TrainManager::updatePosition",
+        "TrainManager::addTrain",
+        "TrainManager::update",
+        "TrainManager::updateTrain",
+        "TrainManager::nextStop",
+        "TrainManager::advanceTrain",
+        "TrainManager::targetSpeed",
+        "TrainManager::buildServiceRoute",
+        "TrainManager::canReserveRoute",
+        "TrainManager::makeScheduledTrain",
+        "TrainManager::spawnScheduledTrains"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrainManager.hpp",
+      "module": "railway",
+      "lines": 45,
+      "denseLines": 0,
+      "includes": [
+        "Train.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrainNetwork.cpp",
+      "module": "railway",
+      "lines": 179,
+      "denseLines": 0,
+      "includes": [
+        "TrainNetwork.hpp",
+        "RailTimetable.hpp"
+      ],
+      "functions": [
+        "TrainNetwork::addNode",
+        "TrainNetwork::addEdge",
+        "TrainNetwork::addStation",
+        "TrainNetwork::getNode",
+        "TrainNetwork::getEdge",
+        "TrainNetwork::getBezier",
+        "TrainNetwork::tryOccupy",
+        "TrainNetwork::releaseOccupy",
+        "TrainNetwork::addSchedule",
+        "TrainNetwork::getSchedule",
+        "TrainNetwork::applySchedule",
+        "TrainNetwork::nodeIndex",
+        "TrainNetwork::edgeIndex",
+        "TrainNetwork::findRoute"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/railway/TrainNetwork.hpp",
+      "module": "railway",
+      "lines": 68,
+      "denseLines": 0,
+      "includes": [
+        "TrackTypes.hpp",
+        "../road/BezierUtil.hpp"
+      ],
+      "functions": [
+        "depots",
+        "schedules"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/BridgeStructure.hpp",
+      "module": "render",
+      "lines": 78,
+      "denseLines": 0,
+      "includes": [
+        "../road/BezierUtil.hpp"
+      ],
+      "functions": [
+        "append",
+        "quad",
+        "pier",
+        "girders"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/CityLighting.cpp",
+      "module": "render",
+      "lines": 113,
+      "denseLines": 0,
+      "includes": [
+        "CityLighting.hpp",
+        "../gen/GenerationSettings.hpp"
+      ],
+      "functions": [
+        "CityLighting::initialize",
+        "CityLighting::update",
+        "CityLighting::bind"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/CityLighting.hpp",
+      "module": "render",
+      "lines": 43,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "shadowMilliseconds",
+        "ready"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/FrontageGeometry.hpp",
+      "module": "render",
+      "lines": 124,
+      "denseLines": 0,
+      "includes": [
+        "TreeGeometry.hpp"
+      ],
+      "functions": [
+        "build"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/GpuFrameTimer.hpp",
+      "module": "render",
+      "lines": 105,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "begin",
+        "end",
+        "milliseconds",
+        "initialize"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/LandscapeMaterials.hpp",
+      "module": "render",
+      "lines": 50,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "detailColorForKey"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MeshBoolean.hpp",
+      "module": "render",
+      "lines": 93,
+      "denseLines": 0,
+      "includes": [
+        "BridgeStructure.hpp"
+      ],
+      "functions": [
+        "clip",
+        "append",
+        "planes",
+        "subtractFace",
+        "difference"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MeshLod.hpp",
+      "module": "render",
+      "lines": 29,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "simplifyMesh"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MinimapRenderer.cpp",
+      "module": "render",
+      "lines": 137,
+      "denseLines": 4,
+      "includes": [
+        "../../stdafx.h",
+        "MinimapRenderer.hpp",
+        "../debug/DebugLog.hpp",
+        "../road/RoadEnvironment.hpp"
+      ],
+      "functions": [
+        "MinimapRenderer::buildTerrainTexture",
+        "MinimapRenderer::terrainHeight",
+        "MinimapRenderer::updateRoadOverlay",
+        "MinimapRenderer::updateRoadOverlayAround",
+        "MinimapRenderer::refreshMap",
+        "MinimapRenderer::update",
+        "MinimapRenderer::openFullScreen",
+        "MinimapRenderer::drawFullScreen",
+        "MinimapRenderer::render",
+        "MinimapRenderer::smallRect"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MinimapRenderer.hpp",
+      "module": "render",
+      "lines": 42,
+      "denseLines": 0,
+      "includes": [
+        "../gen/DistrictHierarchy.hpp",
+        "../gen/MapGenerator.hpp",
+        "../ui/Camera.hpp",
+        "../ui/LocalMapView.hpp",
+        "../ui/MapTerrainLayer.hpp",
+        "../railway/TrainNetwork.hpp",
+        "../road/RoadNetwork.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "setSmallBounds",
+        "setGeography",
+        "mapView",
+        "localView",
+        "fullScreen",
+        "consumedInput"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/ModelBatch.hpp",
+      "module": "render",
+      "lines": 59,
+      "denseLines": 0,
+      "includes": [
+        "ModelLod.hpp",
+        "../road/ObjParser.hpp"
+      ],
+      "functions": [
+        "loadModelMeshSource",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/ModelLod.hpp",
+      "module": "render",
+      "lines": 27,
+      "denseLines": 0,
+      "includes": [
+        "../asset/ModelLodPath.hpp"
+      ],
+      "functions": [
+        "ModelLod"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MountainRoadGeometry.cpp",
+      "module": "render",
+      "lines": 93,
+      "denseLines": 0,
+      "includes": [
+        "MountainRoadGeometry.hpp",
+        "BridgeStructure.hpp",
+        "TreeGeometry.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/RoadEnvironment.hpp"
+      ],
+      "functions": [
+        "groundPosition",
+        "doubleQuad",
+        "MountainRoadGeometry::build"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/MountainRoadGeometry.hpp",
+      "module": "render",
+      "lines": 10,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/PlaceNameRenderer.cpp",
+      "module": "render",
+      "lines": 35,
+      "denseLines": 0,
+      "includes": [
+        "../../stdafx.h",
+        "PlaceNameRenderer.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../ui/NavigationHeader.hpp",
+        "../ui/TownBillboards.hpp",
+        "../gen/SettlementNames.hpp"
+      ],
+      "functions": [
+        "PlaceNameRenderer::render"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/PlaceNameRenderer.hpp",
+      "module": "render",
+      "lines": 14,
+      "denseLines": 0,
+      "includes": [
+        "../gen/MapGenerator.hpp",
+        "../ui/Camera.hpp",
+        "../ui/TownBillboards.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RailFacilities.cpp",
+      "module": "render",
+      "lines": 174,
+      "denseLines": 0,
+      "includes": [
+        "RailFacilities.hpp",
+        "RailStructure.hpp"
+      ],
+      "functions": [
+        "box",
+        "gable",
+        "groundAt",
+        "color",
+        "station",
+        "depot",
+        "parkedTrains"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RailFacilities.hpp",
+      "module": "render",
+      "lines": 15,
+      "denseLines": 0,
+      "includes": [
+        "../railway/RailwaySite.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RailStructure.hpp",
+      "module": "render",
+      "lines": 30,
+      "denseLines": 0,
+      "includes": [
+        "BridgeStructure.hpp"
+      ],
+      "functions": [
+        "prism",
+        "deck"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RegionalTerrain.hpp",
+      "module": "render",
+      "lines": 43,
+      "denseLines": 0,
+      "includes": [
+        "../world/World.hpp",
+        "TerrainSurfaceGeometry.hpp",
+        "TerrainMaterials.hpp"
+      ],
+      "functions": [
+        "build",
+        "batches"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RiverRenderer.hpp",
+      "module": "render",
+      "lines": 62,
+      "denseLines": 1,
+      "includes": [
+        "../world/World.hpp",
+        "BridgeStructure.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "build",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRenderer.cpp",
+      "module": "render",
+      "lines": 2819,
+      "denseLines": 0,
+      "includes": [
+        "RoadRenderer.hpp",
+        "ModelLod.hpp",
+        "../road/RoadEnvironment.hpp",
+        "MountainRoadGeometry.hpp",
+        "BridgeStructure.hpp",
+        "../debug/DebugLog.hpp",
+        "../road/RoadArrow.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/JunctionGeometry.hpp",
+        "../road/RoadMarkingGenerator.hpp",
+        "../road/ObjParser.hpp",
+        "../traffic/TrafficCommon.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "makeSlice",
+        "makeVert",
+        "makeVertWorldUV",
+        "makeVertWorldUVWithNormal",
+        "appendQuad",
+        "orientRoadFaces",
+        "appendMeshData",
+        "appendCylinder",
+        "adjacentPavement",
+        "rotateMeshY",
+        "appendOrientedBox",
+        "appendDashedStrip",
+        "appendBar",
+        "appendLaneStripes",
+        "calcStripRange",
+        "getPartDefaults",
+        "roadPartSideSkirtDrop",
+        "buildRoadPartModelStrip",
+        "lineStyleFor",
+        "calcEdgeLineAt",
+        "appendBezierLine",
+        "appendStraightLine",
+        "RoadRenderer::loadAssets",
+        "RoadRenderer::drawEdge",
+        "RoadRenderer::drawNodeCap",
+        "RoadRenderer::edgeMargin",
+        "RoadRenderer::drawSurface",
+        "if",
+        "RoadRenderer::getPartVisual",
+        "RoadRenderer::buildStripMesh",
+        "RoadRenderer::buildStripMeshTapered",
+        "RoadRenderer::buildPartMeshes",
+        "RoadRenderer::buildLaneLineBatches",
+        "makeRoadMarkingRenderPlan",
+        "buildLaneLineBatchesFromPlacements",
+        "RoadRenderer::collectEdgeRoadMarkings",
+        "RoadRenderer::collectNodeRoadMarkings",
+        "RoadRenderer::buildEdgeRoadMarkingsFromPlacements",
+        "RoadRenderer::buildNodeRoadMarkingsFromPlacements",
+        "RoadRenderer::buildEdgeRoadMarkingBatches",
+        "RoadRenderer::buildNodeRoadMarkingBatches",
+        "RoadRenderer::buildStreetFurnitureBatches",
+        "if",
+        "RoadRenderer::buildNodeCapParts",
+        "RoadRenderer::buildNodeCapLaneLines",
+        "RoadRenderer::buildStopLineBatches",
+        "buildCrosswalkBatchesFromPlacements",
+        "RoadRenderer::buildJointBlendLaneLines",
+        "RoadRenderer::buildLaneArrowMeshes",
+        "RoadRenderer::ensureSignalAttachGeomCache",
+        "RoadRenderer::drawSignals",
+        "if",
+        "if",
+        "RoadRenderer::drawEdgeSilhouette",
+        "RoadRenderer::drawNodeSilhouette",
+        "RoadRenderer::drawSignalSilhouette",
+        "RoadRenderer::drawEdgeWireframe",
+        "RoadRenderer::drawNodeCapWireframe",
+        "RoadRenderer::renderWireframes",
+        "RoadRenderer::prepareFallbackEdge",
+        "RoadRenderer::drawFallbackEdge",
+        "RoadRenderer::prepareFallbackNode",
+        "RoadRenderer::drawFallbackNode"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRenderer.hpp",
+      "module": "render",
+      "lines": 461,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../road/RoadConstruction.hpp",
+        "../road/GuideSign.hpp",
+        "../road/ArrowMarkingRegistry.hpp",
+        "../road/RoadPartRegistry.hpp",
+        "../sim/SimGraph.hpp",
+        "../traffic/SignalRegistry.hpp",
+        "../traffic/TrafficLight.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "buildMilliseconds",
+        "setCacheBuildBudget",
+        "setConstructionTime",
+        "geometryRevision",
+        "invalidateRouteSigns",
+        "setMunicipalityLookup"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRenderer_Construction.cpp",
+      "module": "render",
+      "lines": 285,
+      "denseLines": 3,
+      "includes": [
+        "RoadRenderer.hpp",
+        "TunnelGeometry.hpp",
+        "BridgeStructure.hpp",
+        "../road/RoadGeometry.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "append",
+        "earthSurface",
+        "point",
+        "box",
+        "beam",
+        "lineCart",
+        "RoadRenderer::drawConstruction",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRenderer_Signs.cpp",
+      "module": "render",
+      "lines": 509,
+      "denseLines": 0,
+      "includes": [
+        "RoadRenderer.hpp",
+        "../road/LocationSigns.hpp",
+        "../road/SignArtwork.hpp",
+        "../road/RoadSign.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/RoadEnvironment.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "RoadRenderer::computeSignTransforms",
+        "RoadRenderer::buildEdgeSignMeshes",
+        "RoadRenderer::buildRouteSignDraws",
+        "RoadRenderer::drawSigns",
+        "isDrawableNamedRoute",
+        "RoadRenderer::prepareSignTextures",
+        "RoadRenderer::drawRouteSigns",
+        "guideSignTexKey",
+        "buildGuideSignTexture",
+        "RoadRenderer::prepareGuideSignTextures",
+        "RoadRenderer::buildGuideSignDraw",
+        "RoadRenderer::buildEdgeGuideSignDraws",
+        "RoadRenderer::ensureGuidePoleMesh",
+        "RoadRenderer::drawGuideSignSilhouette",
+        "RoadRenderer::drawGuideSigns"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRenderer_Streaming.cpp",
+      "module": "render",
+      "lines": 330,
+      "denseLines": 0,
+      "includes": [
+        "RoadRenderer.hpp",
+        "../road/RoadSign.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "terrainSignature",
+        "RoadRenderer::preloadFallbacks",
+        "RoadRenderer::render",
+        "if",
+        "RoadRenderer::synchronizeTerrainChanges",
+        "RoadRenderer::renderShadowCasters",
+        "RoadRenderer::eraseEdgeCaches",
+        "RoadRenderer::eraseNodeCaches",
+        "RoadRenderer::invalidateEdgeCache",
+        "RoadRenderer::invalidateAllCaches",
+        "RoadRenderer::invalidateCachesAroundNode",
+        "RoadRenderer::canBuildCache",
+        "RoadRenderer::edgeBounds"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRouteSignRenderer.cpp",
+      "module": "render",
+      "lines": 26,
+      "denseLines": 0,
+      "includes": [
+        "../../stdafx.h",
+        "RoadRouteSignRenderer.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../ui/NavigationHeader.hpp"
+      ],
+      "functions": [
+        "RoadRouteSignRenderer::render",
+        "RoadRouteSignRenderer::hitTest"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/RoadRouteSignRenderer.hpp",
+      "module": "render",
+      "lines": 15,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp",
+        "../ui/Camera.hpp"
+      ],
+      "functions": [
+        "invalidate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TerrainMaterials.hpp",
+      "module": "render",
+      "lines": 50,
+      "denseLines": 0,
+      "includes": [
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "keyForHeight",
+        "color",
+        "texture"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TerrainSurfaceGeometry.cpp",
+      "module": "render",
+      "lines": 305,
+      "denseLines": 0,
+      "includes": [
+        "TerrainSurfaceGeometry.hpp"
+      ],
+      "functions": [
+        "terrainTextureTileSize",
+        "terrainUvAt",
+        "withMaterialUv",
+        "lerpClipVertex",
+        "signedAreaXZ",
+        "boundsOfPolygon",
+        "rectIntersects",
+        "removeDegenerateClip",
+        "clipPolygonByHeight",
+        "if",
+        "clipPolygonByHalfPlaneXZ",
+        "if",
+        "subtractConvexPolygonXZ",
+        "polygonNormal",
+        "appendPolygonAsTriangles"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TerrainSurfaceGeometry.hpp",
+      "module": "render",
+      "lines": 27,
+      "denseLines": 0,
+      "includes": [
+        "../world/Chunk.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TrainRenderer.cpp",
+      "module": "render",
+      "lines": 294,
+      "denseLines": 0,
+      "includes": [
+        "TrainRenderer.hpp",
+        "../railway/TrainConsist.hpp",
+        "BridgeStructure.hpp",
+        "RailStructure.hpp"
+      ],
+      "functions": [
+        "addQuad",
+        "TrainRenderer::buildTrackMesh",
+        "TrainRenderer::renderTracks",
+        "TrainRenderer::renderTrains",
+        "TrainRenderer::invalidateTrackCache",
+        "TrainRenderer::ensureModel",
+        "TrainRenderer::buildFacility",
+        "TrainRenderer::drawFacility",
+        "TrainRenderer::prepareFacilityTextures",
+        "TrainRenderer::drawTrainSilhouette"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TrainRenderer.hpp",
+      "module": "render",
+      "lines": 55,
+      "denseLines": 0,
+      "includes": [
+        "../railway/TrainManager.hpp",
+        "RailFacilities.hpp",
+        "ModelLod.hpp",
+        "MeshLod.hpp",
+        "../railway/TrainNetwork.hpp",
+        "../world/World.hpp",
+        "../gen/ParcelRoadIndex.hpp"
+      ],
+      "functions": [
+        "invalidateRoadClearance"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TransportLandscape.cpp",
+      "module": "render",
+      "lines": 23,
+      "denseLines": 0,
+      "includes": [
+        "TransportLandscape.hpp",
+        "../world/World.hpp",
+        "../road/RoadEnvironment.hpp"
+      ],
+      "functions": [
+        "TransportLandscape::footprints"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TransportLandscape.hpp",
+      "module": "render",
+      "lines": 9,
+      "denseLines": 0,
+      "includes": [
+        "../railway/RailwaySite.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TreeGeometry.hpp",
+      "module": "render",
+      "lines": 100,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "horizontalClearance",
+        "clearOfCorridor",
+        "append",
+        "branch",
+        "build",
+        "materialKey",
+        "distanceSquared",
+        "nearChunk",
+        "nearTile"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TunnelGeometry.cpp",
+      "module": "render",
+      "lines": 221,
+      "denseLines": 0,
+      "includes": [
+        "TunnelGeometry.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/RoadNetwork.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "excavationPlanes",
+        "TunnelGeometry::build",
+        "excludeTunnelVolumes",
+        "junctionChamber",
+        "TunnelGeometry::buildRoadNetwork"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TunnelGeometry.hpp",
+      "module": "render",
+      "lines": 79,
+      "denseLines": 0,
+      "includes": [
+        "BridgeStructure.hpp",
+        "MeshBoolean.hpp",
+        "../road/RoadEnvironment.hpp"
+      ],
+      "functions": [
+        "cutter",
+        "portal",
+        "lining"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/TunnelRenderer.hpp",
+      "module": "render",
+      "lines": 49,
+      "denseLines": 0,
+      "includes": [
+        "TunnelGeometry.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../railway/TrainNetwork.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "build",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/UIRenderer.cpp",
+      "module": "render",
+      "lines": 187,
+      "denseLines": 0,
+      "includes": [
+        "../ui/NavigationHelp.hpp",
+        "UIRenderer.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "moneyColor",
+        "goodRatioColor",
+        "congestionColor",
+        "signedMoneyText",
+        "clippedText",
+        "UIRenderer::updateLayout",
+        "UIRenderer::handleInput",
+        "UIRenderer::render"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/UIRenderer.hpp",
+      "module": "render",
+      "lines": 51,
+      "denseLines": 0,
+      "includes": [
+        "../ui/CollapsibleHudPanel.hpp",
+        "../time/GameClock.hpp",
+        "../economy/Economy.hpp"
+      ],
+      "functions": [
+        "panelBounds",
+        "isMouseOnHud",
+        "minimapBounds"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/VegetationProfile.hpp",
+      "module": "render",
+      "lines": 64,
+      "denseLines": 1,
+      "includes": [
+        "../gen/GenerationSettings.hpp"
+      ],
+      "functions": [
+        "blend",
+        "at",
+        "habitat",
+        "BoundaryField",
+        "density"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/VehicleInstanceBatch.hpp",
+      "module": "render",
+      "lines": 59,
+      "denseLines": 0,
+      "includes": [
+        "ModelBatch.hpp"
+      ],
+      "functions": [
+        "clear",
+        "append",
+        "draw",
+        "triangles"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/VehiclePaint.hpp",
+      "module": "render",
+      "lines": 27,
+      "denseLines": 0,
+      "includes": [
+        "../traffic/Vehicle.hpp"
+      ],
+      "functions": [
+        "color"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/VehicleRenderer.cpp",
+      "module": "render",
+      "lines": 193,
+      "denseLines": 0,
+      "includes": [
+        "VehicleRenderer.hpp",
+        "VehiclePaint.hpp",
+        "RoadRenderer.hpp"
+      ],
+      "functions": [
+        "getVehicleVisual",
+        "boxWorldRotation",
+        "VehicleRenderer::carModelWorldMatrix",
+        "VehicleRenderer::usesCarModel",
+        "VehicleRenderer::modelStem",
+        "if",
+        "if",
+        "if",
+        "if",
+        "VehicleRenderer::ensureVehicleModel",
+        "VehicleRenderer::render",
+        "VehicleRenderer::renderShadowCasters",
+        "VehicleRenderer::drawVehicleSilhouette",
+        "VehicleRenderer::drawVehicle"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/VehicleRenderer.hpp",
+      "module": "render",
+      "lines": 40,
+      "denseLines": 0,
+      "includes": [
+        "../traffic/Vehicle.hpp",
+        "VehicleInstanceBatch.hpp"
+      ],
+      "functions": [
+        "drawCalls",
+        "submitted"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/WorldRenderer.cpp",
+      "module": "render",
+      "lines": 155,
+      "denseLines": 0,
+      "includes": [
+        "WorldRenderer.hpp",
+        "TreeGeometry.hpp",
+        "RegionalTerrain.hpp",
+        "TerrainMaterials.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "WorldRenderer::render"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/WorldRenderer.hpp",
+      "module": "render",
+      "lines": 236,
+      "denseLines": 1,
+      "includes": [
+        "TunnelGeometry.hpp",
+        "ModelBatch.hpp",
+        "../railway/RailwaySite.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "geometryRevision",
+        "buildingsConsidered",
+        "buildingsSubmitted",
+        "buildingDrawCalls",
+        "buildingTriangles",
+        "setAsyncTerrain",
+        "pendingTerrainJobs",
+        "setBuildingShader",
+        "setTerrainShader",
+        "setLandscapeShaders",
+        "setTunnelOpenings"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/WorldRenderer_Buildings.cpp",
+      "module": "render",
+      "lines": 1531,
+      "denseLines": 6,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "WorldRenderer.hpp",
+        "TerrainSurfaceGeometry.hpp",
+        "LandscapeMaterials.hpp",
+        "TreeGeometry.hpp",
+        "VegetationProfile.hpp",
+        "TransportLandscape.hpp",
+        "FrontageGeometry.hpp",
+        "../gen/UrbanParcel.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "WorldRenderer::preloadBuildingModels",
+        "buildingBaseHeight",
+        "buildingAssetSubDir",
+        "parseModelScale",
+        "rotateBoxVerticesY",
+        "appendMeshData",
+        "cellVisualHash",
+        "appendRotatedBox",
+        "landPatchMaterialKey",
+        "appendLandPatchSurface",
+        "appendLandPatchMesh",
+        "appendGableRoof",
+        "targetBuildingModelFootprint",
+        "targetBuildingModelHeight",
+        "normalizedObjScale",
+        "boxBuildingFootprintScale",
+        "appendLandscapeTree",
+        "appendParkTree",
+        "appendWoodland",
+        "appendParcelLandscape",
+        "if",
+        "appendUrbanLotDetails",
+        "appendFarmlandDetails",
+        "appendBoxBuildingDetails",
+        "drawModelSilhouette",
+        "WorldRenderer::getBuildingModelAsset",
+        "WorldRenderer::buildingHitBox",
+        "WorldRenderer::drawBuildingSilhouette",
+        "WorldRenderer::buildLandscapeMeshData",
+        "sampleHeight",
+        "WorldRenderer::landPatchSurface",
+        "WorldRenderer::rebuildBuildingMeshes",
+        "WorldRenderer::drawLandscapeBatch",
+        "WorldRenderer::drawCachedBuildings",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "WorldRenderer::renderShadowCasters",
+        "WorldRenderer::drawFrontage",
+        "if",
+        "if",
+        "WorldRenderer::setTransportSites"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/WorldRenderer_Streaming.cpp",
+      "module": "render",
+      "lines": 213,
+      "denseLines": 1,
+      "includes": [
+        "WorldRenderer.hpp",
+        "LandscapeMaterials.hpp",
+        "TerrainMaterials.hpp",
+        "TreeGeometry.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "WorldRenderer::trimDistantTreeDetails",
+        "WorldRenderer::uploadCompletedTerrain",
+        "WorldRenderer::drawChunk",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/render/WorldRenderer_Terrain.cpp",
+      "module": "render",
+      "lines": 881,
+      "denseLines": 1,
+      "includes": [
+        "WorldRenderer.hpp",
+        "TerrainSurfaceGeometry.hpp",
+        "TerrainMaterials.hpp",
+        "../debug/DebugLog.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/JunctionGeometry.hpp"
+      ],
+      "functions": [
+        "roadEdgeOffsetAt",
+        "calcRoadCrossSectionRange",
+        "terrainMaterialKeyForCell",
+        "chunkKeysAroundPoint",
+        "formatChunkKeySet",
+        "formatChunkKeyArray",
+        "formatIntArray",
+        "WorldRenderer::buildTerrainMeshData",
+        "WorldRenderer::primeAllChunkSubtractorCaches",
+        "WorldRenderer::invalidateTerrainChunkKeys",
+        "WorldRenderer::invalidateTerrainForEdges",
+        "WorldRenderer::invalidateTerrainNearDirtyNodes",
+        "WorldRenderer::invalidateTerrainNearMovedNode",
+        "WorldRenderer::invalidateTerrainForNodes",
+        "WorldRenderer::invalidateTerrainForEdge",
+        "WorldRenderer::invalidateTerrainForNode",
+        "WorldRenderer::invalidateAllTerrain"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/ArrowMarkingRegistry.cpp",
+      "module": "road",
+      "lines": 100,
+      "denseLines": 0,
+      "includes": [
+        "ArrowMarkingRegistry.hpp"
+      ],
+      "functions": [
+        "ArrowMarkingRegistry::load",
+        "ArrowMarkingRegistry::parseType",
+        "ArrowMarkingRegistry::buildMesh"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/ArrowMarkingRegistry.hpp",
+      "module": "road",
+      "lines": 39,
+      "denseLines": 0,
+      "includes": [
+        "RoadArrow.hpp"
+      ],
+      "functions": [
+        "size"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/BezierUtil.cpp",
+      "module": "road",
+      "lines": 119,
+      "denseLines": 0,
+      "includes": [
+        "BezierUtil.hpp"
+      ],
+      "functions": [
+        "p0",
+        "CubicBezier::buildTable",
+        "CubicBezier::evaluate",
+        "CubicBezier::tangent",
+        "CubicBezier::tFromArcLength",
+        "CubicBezier::minimumHorizontalRadius"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/BezierUtil.hpp",
+      "module": "road",
+      "lines": 55,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "tangentToRight",
+        "positionAt",
+        "tangentAt"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/GuideSign.cpp",
+      "module": "road",
+      "lines": 1182,
+      "denseLines": 0,
+      "includes": [
+        "../asset/ModelLodPath.hpp",
+        "GuideSign.hpp",
+        "RoadNetwork.hpp",
+        "RoadSign.hpp",
+        "ObjParser.hpp",
+        "../traffic/TrafficCommon.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "makeBoardVertex",
+        "computeDirectionDistanceBoardSize",
+        "computeDirectionArrowBoardSize",
+        "GuideSign::computeBoardSizeFor",
+        "GuideSign::CreateBoardMesh",
+        "GuideSign::reloadPoleMetadata",
+        "GuideSign::guideSignTexSize",
+        "drawArrow",
+        "drawArrowNoHead",
+        "renderSign",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "renderEmptyPlaceholder",
+        "GuideSign::renderContents",
+        "GuideSign::CreatePoleMesh",
+        "incomingTangentAngle",
+        "operator",
+        "makeDestAt",
+        "expandNeighbors",
+        "resolveDestinations",
+        "resolveNearestDestinationVia",
+        "makeRouteNumberElement",
+        "buildDirectionDistance_Elements",
+        "computeArrowLayout",
+        "makeUpArrowElement",
+        "appendSideArmElements",
+        "appendStraightLabelElement",
+        "makeShaftRouteIconElement",
+        "buildDirectionArrow_Elements",
+        "locateArcAlongChain",
+        "GuideSign::AutoPlacementClearance::allows",
+        "GuideSign::InferAutoForEdge"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/GuideSign.hpp",
+      "module": "road",
+      "lines": 141,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [
+        "resolveBgColor"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/JunctionGeometry.cpp",
+      "module": "road",
+      "lines": 339,
+      "denseLines": 1,
+      "includes": [
+        "JunctionGeometry.hpp",
+        "RoadGeometry.hpp",
+        "../world/World.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "cross",
+        "vertex",
+        "sideBands",
+        "bandPosition",
+        "build",
+        "if",
+        "terrainFootprint"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/JunctionGeometry.hpp",
+      "module": "road",
+      "lines": 36,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/LocationSigns.hpp",
+      "module": "road",
+      "lines": 34,
+      "denseLines": 0,
+      "includes": [
+        "BezierUtil.hpp"
+      ],
+      "functions": [
+        "boundaries"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/ObjParser.cpp",
+      "module": "road",
+      "lines": 265,
+      "denseLines": 0,
+      "includes": [
+        "ObjParser.hpp"
+      ],
+      "functions": [
+        "parseFaceVertex",
+        "makeVertex",
+        "mirrorX",
+        "ObjParser::parse",
+        "if",
+        "if",
+        "if",
+        "if",
+        "ObjParser::buildModel"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/ObjParser.hpp",
+      "module": "road",
+      "lines": 24,
+      "denseLines": 0,
+      "includes": [
+        "RoadPartTypes.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadArrow.cpp",
+      "module": "road",
+      "lines": 128,
+      "denseLines": 0,
+      "includes": [
+        "RoadArrow.hpp",
+        "RoadNetwork.hpp",
+        "../traffic/TrafficCommon.hpp",
+        "../traffic/TrafficGraph.hpp"
+      ],
+      "functions": [
+        "RoadArrow::InferType",
+        "if",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadArrow.hpp",
+      "module": "road",
+      "lines": 51,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadConstruction.cpp",
+      "module": "road",
+      "lines": 204,
+      "denseLines": 0,
+      "includes": [
+        "RoadConstruction.hpp",
+        "RoadGeometry.hpp"
+      ],
+      "functions": [
+        "Progress::name",
+        "progress",
+        "progress",
+        "cellKey",
+        "eraseCell",
+        "affectedCells",
+        "ClearanceLedger::clear",
+        "ClearanceLedger::apply",
+        "ClearanceLedger::save",
+        "ClearanceLedger::load"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadConstruction.hpp",
+      "module": "road",
+      "lines": 40,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp",
+        "../world/World.hpp",
+        "../gen/ParcelGeometry.hpp"
+      ],
+      "functions": [
+        "size"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadConstructionStart.cpp",
+      "module": "road",
+      "lines": 85,
+      "denseLines": 0,
+      "includes": [
+        "RoadConstructionStart.hpp"
+      ],
+      "functions": [
+        "makeOrder",
+        "RoadConstructionStart::canAfford",
+        "RoadConstructionStart::estimateCost",
+        "RoadConstructionStart::start"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadConstructionStart.hpp",
+      "module": "road",
+      "lines": 19,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadEnums.hpp",
+      "module": "road",
+      "lines": 11,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadEnvironment.hpp",
+      "module": "road",
+      "lines": 32,
+      "denseLines": 0,
+      "includes": [
+        "BezierUtil.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "coveredAt",
+        "outdoorSpan"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadGeometry.cpp",
+      "module": "road",
+      "lines": 323,
+      "denseLines": 0,
+      "includes": [
+        "RoadGeometry.hpp",
+        "../debug/DebugLog.hpp",
+        "BezierUtil.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "isStructuralStrip",
+        "isRenderableStrip",
+        "isRoadOwnedObject",
+        "partOffsetAt",
+        "structuralRangeAt",
+        "roadbedRangeAt",
+        "structuralWidth",
+        "surfaceY",
+        "markingY",
+        "furnitureBaseY",
+        "roadbedSurface",
+        "projectMarking",
+        "excludeSurface"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadGeometry.hpp",
+      "module": "road",
+      "lines": 34,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [
+        "width"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadMarkingGenerator.hpp",
+      "module": "road",
+      "lines": 250,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp",
+        "RoadGeometry.hpp"
+      ],
+      "functions": [
+        "collectEdge",
+        "hasLaneLinesAtNode",
+        "collectNode",
+        "markingTargetsEdge",
+        "markingTargetsNode",
+        "appendManualMarkings",
+        "edgeTangentAtNode",
+        "hasNearlyOrthogonalCrossTraffic",
+        "appendSafeCenterLines",
+        "isStableCrosswalkArc",
+        "appendSafeEdgeCrosswalks",
+        "appendControlledStopLines"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork.cpp",
+      "module": "road",
+      "lines": 660,
+      "denseLines": 0,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "RoadNetwork.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "RoadNetwork::addNode",
+        "RoadNetwork::addEdge",
+        "RoadNetwork::removeEdge",
+        "RoadNetwork::removeNode",
+        "RoadNetwork::addNodeRaw",
+        "RoadNetwork::addEdgeRaw",
+        "RoadNetwork::getEdge",
+        "RoadNetwork::getNode",
+        "RoadNetwork::findNodeNear",
+        "RoadNetwork::applyEdgeTemplate",
+        "RoadNetwork::addEdgeWithIntersection",
+        "RoadNetwork::getBezier",
+        "RoadNetwork::edgeIndex",
+        "RoadNetwork::nodeIndex",
+        "RoadNetwork::addTempOp",
+        "RoadNetwork::clearExpiredTempOps",
+        "RoadNetwork::buildDefaultParts",
+        "RoadNetwork::buildDefaultLanes",
+        "RoadNetwork::addObject",
+        "RoadNetwork::removeObject",
+        "RoadNetwork::removeObjectsByEdge",
+        "RoadNetwork::getObject",
+        "RoadNetwork::isNodeElevated",
+        "RoadNetwork::nodeUsesDesignHeight",
+        "RoadNetwork::updateEdgeElevation",
+        "RoadNetwork::generatePiersForEdge"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork.hpp",
+      "module": "road",
+      "lines": 436,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp",
+        "BezierUtil.hpp"
+      ],
+      "functions": [
+        "setNextIds",
+        "nextNodeId",
+        "nextEdgeId",
+        "findEdgeNear",
+        "rebuildNodeConnectivity",
+        "addManualMarking",
+        "clearManualMarkings",
+        "guideSignIndex",
+        "routeIndex",
+        "planIndex",
+        "objectIndex"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork_Connections.cpp",
+      "module": "road",
+      "lines": 513,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp",
+        "RoadGeometry.hpp",
+        "../debug/DebugLog.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "calcLaneEndpoint",
+        "RoadNetwork::buildStraightPairs",
+        "RoadNetwork::rebuildLaneConnections",
+        "if",
+        "RoadNetwork::updateLaneConnectionPaths",
+        "RoadNetwork::buildDefaultSignalPhases"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork_Plans.cpp",
+      "module": "road",
+      "lines": 244,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp"
+      ],
+      "functions": [
+        "constructionCostPerKm",
+        "constructionSecondsPerKm",
+        "RoadNetwork::addPlan",
+        "RoadNetwork::addPlanRaw",
+        "RoadNetwork::removePlan",
+        "RoadNetwork::getPlan",
+        "RoadNetwork::rebuildPlanEdgeLinks",
+        "RoadNetwork::rebuildPlanStats",
+        "RoadNetwork::rebuildAllPlanStats",
+        "RoadNetwork::startPlanConstruction",
+        "RoadNetwork::completePlanConstruction",
+        "RoadNetwork::estimatePlanConstructionDuration",
+        "RoadNetwork::estimatePlanCost",
+        "RoadNetwork::onEdgeRemovedFromPlans"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork_Routes.cpp",
+      "module": "road",
+      "lines": 317,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp"
+      ],
+      "functions": [
+        "RoadNetwork::defaultRouteColor",
+        "RoadNetwork::generateAutoRouteName",
+        "RoadNetwork::addRoute",
+        "RoadNetwork::addRouteRaw",
+        "RoadNetwork::removeRoute",
+        "RoadNetwork::getRoute",
+        "RoadNetwork::rebuildEdgeRouteIndex",
+        "RoadNetwork::onEdgeRemovedFromRoutes"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork_Signs.cpp",
+      "module": "road",
+      "lines": 232,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp",
+        "../debug/DebugLog.hpp",
+        "RoadSign.hpp",
+        "GuideSign.hpp"
+      ],
+      "functions": [
+        "RoadNetwork::recomputeAutoSignsForEdge",
+        "RoadNetwork::recomputeAllAutoSigns",
+        "RoadNetwork::recomputeAutoGuideSignsForEdge",
+        "RoadNetwork::recomputeAutoGuideSignsForNode",
+        "RoadNetwork::recomputeAllAutoGuideSigns",
+        "RoadNetwork::addGuideSign",
+        "RoadNetwork::addGuideSignRaw",
+        "RoadNetwork::removeGuideSign",
+        "RoadNetwork::removeGuideSignsByEdge",
+        "RoadNetwork::getGuideSign",
+        "RoadNetwork::clearGuideSigns",
+        "RoadNetwork::addNamedDestination",
+        "RoadNetwork::clearNamedDestinations",
+        "RoadNetwork::getDestinationTier"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadNetwork_Topology.cpp",
+      "module": "road",
+      "lines": 1306,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp",
+        "RoadGeometry.hpp",
+        "../debug/DebugLog.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "segIntersect2D",
+        "RoadNetwork::splitEdgeAt",
+        "RoadNetwork::splitEdgeAtParameter",
+        "if",
+        "if",
+        "RoadNetwork::updateNodeCutoffs",
+        "if",
+        "RoadNetwork::spreadIntersectionTangents",
+        "RoadNetwork::dissolveNode",
+        "RoadNetwork::smoothCurveAt",
+        "RoadNetwork::smoothAllCurves",
+        "RoadNetwork::removeDuplicateEdges",
+        "RoadNetwork::consolidateOverlappingRoads",
+        "RoadNetwork::resolveIntersections",
+        "RoadNetwork::fixSharpAngles",
+        "RoadNetwork::mergeShortEdges"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPartRegistry.cpp",
+      "module": "road",
+      "lines": 199,
+      "denseLines": 0,
+      "includes": [
+        "RoadPartRegistry.hpp"
+      ],
+      "functions": [
+        "parseColorArray",
+        "parsePartType",
+        "parseTilingMode",
+        "parsePlacement",
+        "parseEnvelopeRole",
+        "RoadPartRegistry::load",
+        "RoadPartRegistry::defIds",
+        "RoadPartRegistry::loadEntry"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPartRegistry.hpp",
+      "module": "road",
+      "lines": 51,
+      "denseLines": 0,
+      "includes": [
+        "RoadPartTypes.hpp",
+        "ObjParser.hpp"
+      ],
+      "functions": [
+        "size"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPartTypes.hpp",
+      "module": "road",
+      "lines": 148,
+      "denseLines": 0,
+      "includes": [
+        "RoadEnums.hpp"
+      ],
+      "functions": [
+        "isEmpty",
+        "widthA",
+        "widthB",
+        "width",
+        "offsetL",
+        "offsetR"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPlanConstruction.cpp",
+      "module": "road",
+      "lines": 64,
+      "denseLines": 0,
+      "includes": [
+        "RoadPlanConstruction.hpp"
+      ],
+      "functions": [
+        "commit"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPlanConstruction.hpp",
+      "module": "road",
+      "lines": 39,
+      "denseLines": 0,
+      "includes": [
+        "RoadPlanDraft.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPlanDraft.cpp",
+      "module": "road",
+      "lines": 268,
+      "denseLines": 2,
+      "includes": [
+        "RoadPlanDraft.hpp",
+        "../gen/RoadAutoPlace.hpp",
+        "../gen/RoadAlignment.hpp",
+        "../debug/DebugLog.hpp"
+      ],
+      "functions": [
+        "RoadPlanDraft::place",
+        "RoadPlanDraft::invalidate",
+        "RoadPlanDraft::remember",
+        "RoadPlanDraft::revise",
+        "RoadPlanDraft::generate",
+        "RoadPlanDraft::undo",
+        "RoadPlanDraft::redo",
+        "RoadPlanDraft::clear",
+        "RoadPlanDraft::rebuild",
+        "RoadPlanDraft::propose",
+        "RoadPlanDraft::apply",
+        "RoadPlanDraft::length",
+        "RoadPlanDraft::constructionEquivalentLength",
+        "RoadPlanDraft::constrainAngle",
+        "RoadPlanSnapIndex::rebuild",
+        "RoadPlanSnapIndex::appendEdge",
+        "RoadPlanSnapIndex::find",
+        "RoadPlanDraft::makeRoadTemplate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPlanDraft.hpp",
+      "module": "road",
+      "lines": 65,
+      "denseLines": 0,
+      "includes": [
+        "RoadNetwork.hpp"
+      ],
+      "functions": [
+        "generated",
+        "canUndo",
+        "canRedo",
+        "valid"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPreset.cpp",
+      "module": "road",
+      "lines": 289,
+      "denseLines": 0,
+      "includes": [
+        "RoadPreset.hpp",
+        "RoadNetwork.hpp"
+      ],
+      "functions": [
+        "partToJson",
+        "partFromJson",
+        "laneToJson",
+        "laneFromJson",
+        "roadTypeName",
+        "RoadTemplatePreset::fromEdge",
+        "RoadTemplatePreset::applyTo",
+        "RoadTemplatePreset::autoName",
+        "RoadPresetStore::load",
+        "RoadPresetStore::save",
+        "RoadPresetStore::addFavorite",
+        "RoadPresetStore::removeFavoriteAt",
+        "RoadPresetStore::buildDefaults"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadPreset.hpp",
+      "module": "road",
+      "lines": 51,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadSign.cpp",
+      "module": "road",
+      "lines": 468,
+      "denseLines": 1,
+      "includes": [
+        "../asset/ModelLodPath.hpp",
+        "RoadSign.hpp",
+        "SignArtwork.hpp",
+        "RoadNetwork.hpp",
+        "ObjParser.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../traffic/TrafficCommon.hpp"
+      ],
+      "functions": [
+        "makeVert",
+        "boardFront",
+        "makeCylinder",
+        "loadBoardObj",
+        "RoadSign::CreatePoleMesh",
+        "RoadSign::reloadPoleMetadata",
+        "RoadSign::CreateBoardMesh",
+        "RoadSign::CreateBoardBackingMesh",
+        "RoadSign::BoardCenterFromPoleTop",
+        "RoadSign::roadbedExtentsOf",
+        "RoadSign::InferAutoForEdge"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadSign.hpp",
+      "module": "road",
+      "lines": 89,
+      "denseLines": 0,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/RoadTypes.hpp",
+      "module": "road",
+      "lines": 659,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp",
+        "RoadEnums.hpp",
+        "RoadPartTypes.hpp",
+        "BezierUtil.hpp"
+      ],
+      "functions": [
+        "centerAt",
+        "usesDesignHeight",
+        "constructionEquivalentLength",
+        "effectiveLane",
+        "openLanes",
+        "totalWidth",
+        "isRoadbedBuilt",
+        "isPassable",
+        "edgeIds",
+        "addEdge",
+        "removeEdge",
+        "getAttachment"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/road/SignArtwork.hpp",
+      "module": "road",
+      "lines": 84,
+      "denseLines": 1,
+      "includes": [
+        "RoadTypes.hpp"
+      ],
+      "functions": [
+        "wide",
+        "dynamic",
+        "textureKey",
+        "key",
+        "draw",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/GuideSignStorage.cpp",
+      "module": "save",
+      "lines": 108,
+      "denseLines": 0,
+      "includes": [
+        "GuideSignStorage.hpp"
+      ],
+      "functions": [
+        "signToJson",
+        "signFromJson",
+        "GuideSignStorage::writeJson",
+        "GuideSignStorage::readJson"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/GuideSignStorage.hpp",
+      "module": "save",
+      "lines": 23,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/RoadBinary.cpp",
+      "module": "save",
+      "lines": 805,
+      "denseLines": 1,
+      "includes": [
+        "RoadBinary.hpp"
+      ],
+      "functions": [
+        "validateCount",
+        "writeString",
+        "readString",
+        "skipString",
+        "skipSignalPlacement",
+        "RoadBinary::write",
+        "RoadBinary::read",
+        "RoadBinary::writeGlobal",
+        "RoadBinary::readGlobal"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/RoadBinary.hpp",
+      "module": "save",
+      "lines": 34,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/SaveResult.hpp",
+      "module": "save",
+      "lines": 43,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "succeeded",
+        "failed"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/SaveTransaction.cpp",
+      "module": "save",
+      "lines": 201,
+      "denseLines": 0,
+      "includes": [
+        "SaveTransaction.hpp"
+      ],
+      "functions": [
+        "toNativePath",
+        "toFilePath",
+        "errorMessage",
+        "nextTransactionId",
+        "verifyContainsFile",
+        "removeDirectory",
+        "SaveTransaction::commit"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/save/SaveTransaction.hpp",
+      "module": "save",
+      "lines": 19,
+      "denseLines": 0,
+      "includes": [
+        "SaveResult.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scenario/ScenarioSystem.cpp",
+      "module": "scenario",
+      "lines": 72,
+      "denseLines": 0,
+      "includes": [
+        "ScenarioSystem.hpp"
+      ],
+      "functions": [
+        "evaluateObjective",
+        "ScenarioSystem::start",
+        "ScenarioSystem::clear",
+        "ScenarioSystem::evaluate",
+        "ScenarioSystem::MakeBypassScenario"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scenario/ScenarioSystem.hpp",
+      "module": "scenario",
+      "lines": 66,
+      "denseLines": 0,
+      "includes": [
+        "../gameplay/CitySimulation.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/EdgeSectionState.hpp",
+      "module": "scene",
+      "lines": 9,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene.cpp",
+      "module": "scene",
+      "lines": 2480,
+      "denseLines": 14,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/ZonePalette.hpp",
+        "../gen/SettlementDevelopment.hpp",
+        "../world/ZoneGrid.hpp",
+        "../gen/WaterCrossings.hpp",
+        "../gen/RoadTerrainFit.hpp",
+        "../gen/RoadDesignLimits.hpp",
+        "../gen/RoadVerticalAlignment.hpp",
+        "../gen/StreetBlocks.hpp",
+        "../ui/PanelWidget.hpp",
+        "../road/JunctionGeometry.hpp",
+        "../gen/RoadPathfinder.hpp",
+        "../gen/DistrictRoads.hpp",
+        "../save/RoadBinary.hpp",
+        "../save/GuideSignStorage.hpp",
+        "../save/SaveTransaction.hpp",
+        "../sim/SimGraph.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../road/RoadGeometry.hpp"
+      ],
+      "functions": [
+        "GameScene::initScene",
+        "GameScene::initLoadGame",
+        "GameScene::initNewGame",
+        "GameScene::setLoadingTitleAndStatus",
+        "GameScene::setLoadingStatus",
+        "GameScene::loadingTitleSnapshot",
+        "GameScene::loadingStatusSnapshot",
+        "GameScene::startLoadingPhase",
+        "GameScene::generateAllTerrain",
+        "GameScene::placeAllSettlements",
+        "GameScene::generateAllRoads",
+        "GameScene::generateDistrictRoads",
+        "GameScene::postProcessRoads",
+        "GameScene::registerGuideDestinations",
+        "GameScene::updateLoading",
+        "GameScene::startSimThread",
+        "GameScene::drawLoadingScreen",
+        "GameScene::saveGame",
+        "GameScene::writeGameSnapshot",
+        "GameScene::verifyGameSnapshot",
+        "GameScene::loadTerrainChunks",
+        "GameScene::loadGame",
+        "GameScene::addDistricts",
+        "GameScene::settlementDevelopment",
+        "GameScene::applyZonesGlobal",
+        "GameScene::placeInitialBuildings",
+        "GameScene::generateLandPatches",
+        "GameScene::migrateLegacyBuildingFrontageReferences",
+        "GameScene::validateGeneratedCityConstraints",
+        "GameScene::refreshBuildingAnglesFromEdges",
+        "GameScene::captureFocusPoint",
+        "GameScene::captureRuralFringePoint",
+        "GameScene::captureStreetCornerPoint",
+        "GameScene::captureIntersectionPoint",
+        "GameScene::captureCoastalBufferPoint",
+        "GameScene::captureFileName",
+        "GameScene::updateStreamingBenchmark",
+        "GameScene::updateCaptureCityRenders",
+        "switch",
+        "if",
+        "GameScene::update",
+        "GameScene::jumpToMapPosition",
+        "GameScene::updateTransportReview",
+        "GameScene::updateStreetReview",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene.hpp",
+      "module": "scene",
+      "lines": 632,
+      "denseLines": 6,
+      "includes": [
+        "../ui/FrameRateGraph.hpp",
+        "../ui/CommandPalette.hpp",
+        "../render/TunnelRenderer.hpp",
+        "../gen/DistrictHierarchy.hpp",
+        "../render/RiverRenderer.hpp",
+        "../ui/WalkSurface.hpp",
+        "SceneCommon.hpp",
+        "../ui/KeyboardActions.hpp",
+        "../ui/PanelManager.hpp",
+        "../sim/SimGraph.hpp",
+        "../sim/SimThread.hpp",
+        "../time/GameClock.hpp",
+        "../world/World.hpp",
+        "../gen/MapGenerator.hpp",
+        "../gen/PlaceNameGenerator.hpp",
+        "../road/RoadNetwork.hpp",
+        "../traffic/VehicleManager.hpp",
+        "../traffic/DrivingController.hpp",
+        "../audio/SoundEffects.hpp",
+        "../traffic/BusSystem.hpp",
+        "../zone/ZoneManager.hpp",
+        "../economy/Economy.hpp",
+        "../event/EventSystem.hpp",
+        "../scenario/ScenarioSystem.hpp",
+        "../save/SaveResult.hpp",
+        "../ui/Camera.hpp",
+        "../ui/PauseMenu.hpp",
+        "../render/WorldRenderer.hpp",
+        "../render/RoadRenderer.hpp",
+        "../render/VehicleRenderer.hpp",
+        "../render/UIRenderer.hpp",
+        "../debug/DebugRenderer.hpp",
+        "../railway/TrainNetwork.hpp",
+        "../railway/TrainManager.hpp",
+        "../render/TrainRenderer.hpp",
+        "../render/PlaceNameRenderer.hpp",
+        "../render/RoadRouteSignRenderer.hpp",
+        "../render/MinimapRenderer.hpp",
+        "../debug/DebugLog.hpp",
+        "../render/CityLighting.hpp",
+        "../render/GpuFrameTimer.hpp",
+        "GuideSignEditor.hpp",
+        "../road/RoadPreset.hpp",
+        "../gen/RoadAutoPlace.hpp",
+        "../road/RoadPlanDraft.hpp",
+        "../ui/RoadPlanToolbar.hpp",
+        "../ui/TrainTimetableEditor.hpp"
+      ],
+      "functions": [
+        "clear",
+        "selectedEdgeId",
+        "selectedNodeId",
+        "selectedRouteId",
+        "selectedRoadPlanId",
+        "selectEdge",
+        "selectNode",
+        "selectGuideSign",
+        "selectSignal",
+        "selectBuilding",
+        "selectRoute",
+        "selectRoadPlan",
+        "clearSelection",
+        "worldPosToChunk",
+        "notifyNetworkChanged",
+        "notifyNetworkChanged"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Commands.cpp",
+      "module": "scene",
+      "lines": 29,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../debug/CommandExecution.hpp"
+      ],
+      "functions": [
+        "GameScene::executeCommand"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Construction.cpp",
+      "module": "scene",
+      "lines": 102,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../road/RoadConstructionStart.hpp",
+        "../gen/RoadTerrainFit.hpp"
+      ],
+      "functions": [
+        "GameScene::startRoadConstruction",
+        "GameScene::applyConstructionStart",
+        "GameScene::prepareConstructionSite",
+        "GameScene::tickConstruction"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_ConstructionReview.cpp",
+      "module": "scene",
+      "lines": 91,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/ConstructionStatus.hpp"
+      ],
+      "functions": [
+        "GameScene::updateConstructionReview"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Driving.cpp",
+      "module": "scene",
+      "lines": 63,
+      "denseLines": 1,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/DrivingControls.hpp"
+      ],
+      "functions": [
+        "GameScene::handleDrivingShortcuts",
+        "GameScene::leaveDriving",
+        "GameScene::updateDriving"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Input.cpp",
+      "module": "scene",
+      "lines": 1711,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../railway/TrainConsist.hpp",
+        "../ui/NavigationHeader.hpp",
+        "../ui/KeyboardActions.hpp",
+        "../gen/RoadTerrainFit.hpp",
+        "EdgeSectionState.hpp",
+        "../world/LandPlot.hpp",
+        "../ui/PanelWidget.hpp"
+      ],
+      "functions": [
+        "GameScene::panelRightPos",
+        "GameScene::raycastElevated",
+        "GameScene::handleInput",
+        "if",
+        "if",
+        "if",
+        "GameScene::handleEdgeHandleInput",
+        "GameScene::handleSelectionClick",
+        "if",
+        "if",
+        "GameScene::handleRoadDraw",
+        "GameScene::invokeAutoPlace",
+        "GameScene::handleZonePaint",
+        "GameScene::handleBusRouteDraw",
+        "GameScene::handleTerrainEdit",
+        "GameScene::handleTrainDraw",
+        "GameScene::handleSandboxEdit",
+        "if",
+        "if",
+        "GameScene::updateCursor",
+        "GameScene::modeString",
+        "GameScene::findGuideSignAt",
+        "GameScene::findSignalAt",
+        "GameScene::findBuildingAt",
+        "GameScene::selectLandParcelAt",
+        "GameScene::handleGlobalShortcuts"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Panels.cpp",
+      "module": "scene",
+      "lines": 2679,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/LandParcelPanel.hpp",
+        "../ui/ConstructionStatus.hpp",
+        "EdgeSectionState.hpp",
+        "../ui/PanelWidget.hpp",
+        "../ui/PanelLayout.hpp",
+        "../asset/AssetRegistrar.hpp",
+        "../road/GuideSign.hpp",
+        "../road/RoadSign.hpp",
+        "../road/RoadConstructionStart.hpp"
+      ],
+      "functions": [
+        "panelFont",
+        "panelBoldFont",
+        "formatConstructionCost",
+        "formatConstructionDuration",
+        "defaultDefIdForType",
+        "partTypeColor",
+        "lineTypeColor",
+        "detectDoubleClick",
+        "drawRoadSections",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "GameScene::drawNameListPanel",
+        "GameScene::drawEdgePanel",
+        "if",
+        "GameScene::drawGuideSignSection",
+        "GameScene::drawGuideSignEditPanel",
+        "GameScene::drawGuideSignEditorPanel",
+        "GameScene::drawRoadPlanPanel",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "GameScene::drawDrawTemplatePanel",
+        "GameScene::drawNodePanel",
+        "if",
+        "GameScene::recomputeGuideSignsAroundNode",
+        "GameScene::drawVehiclePanel",
+        "GameScene::drawBuildingPanel",
+        "bezier2D",
+        "bezierBand",
+        "drawSignalDiagram",
+        "GameScene::drawSignalEditPanel",
+        "GameScene::resumeFromPauseMenu",
+        "GameScene::drawPauseMenu",
+        "GameScene::drawRoutePanel",
+        "if",
+        "GameScene::drawLandParcelPanel"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Playtest.cpp",
+      "module": "scene",
+      "lines": 477,
+      "denseLines": 4,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/PanelWidget.hpp"
+      ],
+      "functions": [
+        "GameScene::recordPlaytestFrame",
+        "GameScene::updateNavigationBenchmark",
+        "GameScene::processPlaytestCommand",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "GameScene::prepareFringeCapture",
+        "GameScene::prepareRoadsideCapture"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Railway.cpp",
+      "module": "scene",
+      "lines": 61,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../railway/RailDepotBuilder.hpp"
+      ],
+      "functions": [
+        "GameScene::setRailTimetableVisible",
+        "GameScene::addRailDepot",
+        "GameScene::drawRailTimetable"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Render.cpp",
+      "module": "scene",
+      "lines": 1216,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/LocationTooltip.hpp",
+        "../gen/SettlementNames.hpp",
+        "EdgeSectionState.hpp",
+        "../traffic/VehiclePose.hpp",
+        "../ui/DrivingHud.hpp",
+        "../ui/PanelWidget.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "collectTrafficStats",
+        "collectEventStats",
+        "buildCityHudStats",
+        "GameScene::calcSkyParams",
+        "GameScene::pushPerfStats",
+        "GameScene::renderWorld",
+        "GameScene::renderScene3D",
+        "GameScene::renderSelectionHighlights",
+        "GameScene::renderSelectionOutline",
+        "GameScene::prepareVehicleRenderData",
+        "GameScene::renderVehicles",
+        "GameScene::renderEditModeOverlays",
+        "GameScene::render2DUI",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if",
+        "handlePartColor",
+        "sideTint",
+        "GameScene::renderEdgeHandles"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_RoadPlan.cpp",
+      "module": "scene",
+      "lines": 173,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../road/RoadPlanConstruction.hpp",
+        "../ui/KeyboardActions.hpp"
+      ],
+      "functions": [
+        "roadPlanErrorMessage",
+        "GameScene::clearDraftRoadPlan",
+        "GameScene::generateDraftRoadPlan",
+        "GameScene::rebuildDraftRoadPlan",
+        "GameScene::commitDraftRoadPlan",
+        "GameScene::handleRoadPlan",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_RoadReview.cpp",
+      "module": "scene",
+      "lines": 144,
+      "denseLines": 1,
+      "includes": [
+        "GameScene.hpp",
+        "../railway/TrainConsist.hpp",
+        "../road/LocationSigns.hpp",
+        "../road/RoadSign.hpp"
+      ],
+      "functions": [
+        "GameScene::updateRoadPlanReview",
+        "GameScene::updateTransportObjectsReview"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GameScene_Zoning.cpp",
+      "module": "scene",
+      "lines": 54,
+      "denseLines": 0,
+      "includes": [
+        "GameScene.hpp",
+        "../ui/ZonePalette.hpp"
+      ],
+      "functions": [
+        "GameScene::setZonePaintMode",
+        "GameScene::drawZonePalette",
+        "GameScene::updateZoneDevelopment"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GuideSignEditor.cpp",
+      "module": "scene",
+      "lines": 723,
+      "denseLines": 0,
+      "includes": [
+        "GuideSignEditor.hpp",
+        "../road/RoadNetwork.hpp",
+        "../road/GuideSign.hpp",
+        "../road/RoadSign.hpp",
+        "../render/RoadRenderer.hpp",
+        "../ui/PanelManager.hpp",
+        "../ui/PanelLayout.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "createNewElement",
+        "drawPlacementRow",
+        "drawPreview",
+        "GuideSignEditor::open",
+        "GuideSignEditor::close",
+        "GuideSignEditor::drawEdgeSection",
+        "GuideSignEditor::drawEditPanel",
+        "GuideSignEditor::regenerateDraftTextureIfDirty",
+        "GuideSignEditor::addElementFromToolbar",
+        "GuideSignEditor::deleteSelectedElement",
+        "GuideSignEditor::drawEditorPanel",
+        "if",
+        "if",
+        "if",
+        "if",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/GuideSignEditor.hpp",
+      "module": "scene",
+      "lines": 91,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadTypes.hpp"
+      ],
+      "functions": [
+        "isOpen",
+        "editingId",
+        "isDraftSelValid"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/SceneCommon.hpp",
+      "module": "scene",
+      "lines": 34,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/TitleScene.cpp",
+      "module": "scene",
+      "lines": 163,
+      "denseLines": 0,
+      "includes": [
+        "TitleScene.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "TitleScene::scanSaves",
+        "TitleScene::update",
+        "TitleScene::draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/scene/TitleScene.hpp",
+      "module": "scene",
+      "lines": 26,
+      "denseLines": 0,
+      "includes": [
+        "SceneCommon.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/sim/MessageQueue.hpp",
+      "module": "sim",
+      "lines": 44,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "push",
+        "drain",
+        "waitFor"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/sim/SimGraph.hpp",
+      "module": "sim",
+      "lines": 197,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadTypes.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "isRoadbedBuilt",
+        "build",
+        "updateAround",
+        "edgeIds"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/sim/SimMessages.hpp",
+      "module": "sim",
+      "lines": 64,
+      "denseLines": 0,
+      "includes": [
+        "../traffic/Vehicle.hpp",
+        "../debug/PerfStats.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/sim/SimThread.cpp",
+      "module": "sim",
+      "lines": 143,
+      "denseLines": 0,
+      "includes": [
+        "SimThread.hpp"
+      ],
+      "functions": [
+        "SimThread::start",
+        "SimThread::stop",
+        "SimThread::run",
+        "SimThread::handleRouteRequest",
+        "SimThread::handleNetworkUpdate"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/sim/SimThread.hpp",
+      "module": "sim",
+      "lines": 48,
+      "denseLines": 0,
+      "includes": [
+        "SimGraph.hpp",
+        "MessageQueue.hpp",
+        "SimMessages.hpp",
+        "../traffic/TrafficGraph.hpp",
+        "../debug/PerfStats.hpp"
+      ],
+      "functions": [
+        "pushRequest",
+        "drainResponses"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/time/GameClock.hpp",
+      "module": "time",
+      "lines": 161,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "advance",
+        "syncCalendar",
+        "cycleSpeed",
+        "speedMultiplier",
+        "monthIndex",
+        "elapsedMonthIndex",
+        "MonthIndexFromTime",
+        "TimeFromMonthIndex",
+        "MonthFromMonthIndex",
+        "monthFromElapsedMonthIndex",
+        "calendarMinuteFromTime",
+        "speedString",
+        "timeString"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/BuildingAccess.cpp",
+      "module": "traffic",
+      "lines": 99,
+      "denseLines": 0,
+      "includes": [
+        "BuildingAccess.hpp"
+      ],
+      "functions": [
+        "BuildingAccessIndex::project",
+        "BuildingAccessIndex::updateChunk",
+        "BuildingAccessIndex::rebuild",
+        "BuildingAccessIndex::refresh"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/BuildingAccess.hpp",
+      "module": "traffic",
+      "lines": 35,
+      "denseLines": 0,
+      "includes": [
+        "TrafficSpawn.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "size"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/BusRoute.hpp",
+      "module": "traffic",
+      "lines": 23,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/BusSystem.cpp",
+      "module": "traffic",
+      "lines": 91,
+      "denseLines": 0,
+      "includes": [
+        "BusSystem.hpp"
+      ],
+      "functions": [
+        "BusSystem::addStop",
+        "BusSystem::addRoute",
+        "BusSystem::update"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/BusSystem.hpp",
+      "module": "traffic",
+      "lines": 31,
+      "denseLines": 0,
+      "includes": [
+        "BusRoute.hpp",
+        "VehicleManager.hpp"
+      ],
+      "functions": [
+        "activeRouteCount"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/DrivingController.cpp",
+      "module": "traffic",
+      "lines": 262,
+      "denseLines": 0,
+      "includes": [
+        "DrivingController.hpp",
+        "../road/RoadGeometry.hpp",
+        "../road/JunctionGeometry.hpp"
+      ],
+      "functions": [
+        "forward",
+        "approach",
+        "drivable",
+        "usable",
+        "contactSize",
+        "DrivingController::contactDepth",
+        "DrivingController::overlaps",
+        "DrivingController::rebuildSurface",
+        "DrivingController::surfaceAt",
+        "DrivingController::fitToRoad",
+        "DrivingController::blockedByTraffic",
+        "DrivingController::enter",
+        "DrivingController::stopMotion",
+        "DrivingController::leave",
+        "DrivingController::update",
+        "if",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/DrivingController.hpp",
+      "module": "traffic",
+      "lines": 46,
+      "denseLines": 0,
+      "includes": [
+        "Vehicle.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "active",
+        "steering",
+        "distance",
+        "speedLimit",
+        "blocked",
+        "reversing"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/LaneVehicleIndex.hpp",
+      "module": "traffic",
+      "lines": 135,
+      "denseLines": 0,
+      "includes": [
+        "TrafficSpawn.hpp"
+      ],
+      "functions": [
+        "key",
+        "rebuild",
+        "reserve",
+        "reserveConnection",
+        "connectionEntryClear",
+        "neighbors",
+        "measureGaps",
+        "hasSpace",
+        "occupant",
+        "sort",
+        "append"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/SignalRegistry.cpp",
+      "module": "traffic",
+      "lines": 218,
+      "denseLines": 0,
+      "includes": [
+        "../asset/ModelLodPath.hpp",
+        "SignalRegistry.hpp"
+      ],
+      "functions": [
+        "parseUvRect",
+        "parseFloat3",
+        "SignalRegistry::load",
+        "SignalRegistry::defIds",
+        "SignalRegistry::loadEntry"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/SignalRegistry.hpp",
+      "module": "traffic",
+      "lines": 81,
+      "denseLines": 0,
+      "includes": [
+        "../road/ObjParser.hpp"
+      ],
+      "functions": [
+        "size"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficCommon.hpp",
+      "module": "traffic",
+      "lines": 327,
+      "denseLines": 0,
+      "includes": [
+        "Vehicle.hpp",
+        "TrafficLight.hpp",
+        "TrafficGraph.hpp",
+        "../sim/SimGraph.hpp"
+      ],
+      "functions": [
+        "isForwardLane",
+        "collectDrivableEdges",
+        "selectRandomGoalEdge",
+        "idmFollowingAcceleration",
+        "idmAcceleration",
+        "stopLineAccel",
+        "measureGaps",
+        "isLaneChangeSafe",
+        "classifyTurnByAngles",
+        "classifyTurn",
+        "costTransition",
+        "convertPhaseDefs",
+        "buildAllGreenPhase"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficGraph.cpp",
+      "module": "traffic",
+      "lines": 396,
+      "denseLines": 0,
+      "includes": [
+        "TrafficGraph.hpp",
+        "TrafficCommon.hpp"
+      ],
+      "functions": [
+        "computeForwardCost",
+        "TrafficGraph::rebuild",
+        "TrafficGraph::updateMovedIntersectionNode",
+        "TrafficGraph::ufFind",
+        "TrafficGraph::ufUnion",
+        "TrafficGraph::buildUnionFind",
+        "TrafficGraph::sameComponent",
+        "TrafficGraph::dijkstra",
+        "TrafficGraph::entryNodeId",
+        "TrafficGraph::exitNodeId",
+        "TrafficGraph::isNodePassable"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficGraph.hpp",
+      "module": "traffic",
+      "lines": 144,
+      "denseLines": 0,
+      "includes": [
+        "../sim/SimGraph.hpp",
+        "TrafficLight.hpp"
+      ],
+      "functions": [
+        "laneNodeCount",
+        "allocId",
+        "laneKey"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficLight.cpp",
+      "module": "traffic",
+      "lines": 84,
+      "denseLines": 0,
+      "includes": [
+        "TrafficLight.hpp"
+      ],
+      "functions": [
+        "m_nodeId",
+        "TrafficLight::update",
+        "TrafficLight::isGreen",
+        "TrafficLight::phaseElapsed",
+        "TrafficLight::currentPhaseDuration",
+        "TrafficLight::expectedWaitTime"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficLight.hpp",
+      "module": "traffic",
+      "lines": 54,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp"
+      ],
+      "functions": [
+        "nodeId",
+        "currentPhaseIndex",
+        "phaseCount"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/TrafficSpawn.hpp",
+      "module": "traffic",
+      "lines": 73,
+      "denseLines": 0,
+      "includes": [
+        "TrafficCommon.hpp"
+      ],
+      "functions": [
+        "vehicleLength",
+        "laneOpen",
+        "reachableGoal",
+        "hasSpace"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/Vehicle.hpp",
+      "module": "traffic",
+      "lines": 151,
+      "denseLines": 0,
+      "includes": [
+        "../time/GameClock.hpp"
+      ],
+      "functions": [
+        "getDefaultIDMParams"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehicleManager.cpp",
+      "module": "traffic",
+      "lines": 1022,
+      "denseLines": 0,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "VehicleManager.hpp",
+        "TrafficSpawn.hpp",
+        "VehiclePose.hpp"
+      ],
+      "functions": [
+        "VehicleManager::init",
+        "VehicleManager::onNetworkChanged",
+        "VehicleManager::spawnRandom",
+        "VehicleManager::spawnOnEdge",
+        "VehicleManager::spawnBus",
+        "VehicleManager::selectDemandVehicleType",
+        "VehicleManager::recordCompletedTrip",
+        "VehicleManager::setGoalAndReroute",
+        "VehicleManager::applyRouteResponse",
+        "VehicleManager::collectRequests",
+        "VehicleManager::update",
+        "if",
+        "if",
+        "VehicleManager::updateActiveVehicle",
+        "VehicleManager::advanceOnConnection",
+        "VehicleManager::advanceOnLane",
+        "hasConflictingTraffic",
+        "VehicleManager::advanceOnSegment",
+        "enterConnection",
+        "enterEdgeDirect",
+        "findRouteTargetLane",
+        "findPlannedConnectionId",
+        "getExitNodeId",
+        "VehicleManager::transitToNextWaypoint",
+        "VehicleManager::fallbackRandomTransit",
+        "VehicleManager::tryLaneChange",
+        "VehicleManager::buildTrafficLights",
+        "if",
+        "VehicleManager::rebuildTrafficLightForNode",
+        "VehicleManager::updateTrafficLights",
+        "VehicleManager::getEdgeControl",
+        "VehicleManager::hasConflictingTraffic",
+        "VehicleManager::requestRoute"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehicleManager.hpp",
+      "module": "traffic",
+      "lines": 162,
+      "denseLines": 0,
+      "includes": [
+        "Vehicle.hpp",
+        "TrafficLight.hpp",
+        "LaneVehicleIndex.hpp",
+        "BuildingAccess.hpp",
+        "TrafficCommon.hpp",
+        "../sim/SimMessages.hpp",
+        "../sim/SimGraph.hpp",
+        "../road/RoadNetwork.hpp",
+        "../debug/PerfStats.hpp",
+        "../gameplay/CitySimulation.hpp"
+      ],
+      "functions": [
+        "setTrafficFocus",
+        "setDrivenVehicle",
+        "vehicleCount",
+        "setTrafficDemand",
+        "setGlobalSpeedMultiplier",
+        "applyTrafficEventEffect",
+        "markLightsDirty"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehicleManager_Driving.cpp",
+      "module": "traffic",
+      "lines": 39,
+      "denseLines": 0,
+      "includes": [
+        "VehicleManager.hpp",
+        "VehiclePose.hpp",
+        "DrivingController.hpp"
+      ],
+      "functions": [
+        "VehicleManager::avoidDrivenVehicle"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehiclePopulation.cpp",
+      "module": "traffic",
+      "lines": 166,
+      "denseLines": 3,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "VehicleManager.hpp",
+        "TrafficSpawn.hpp"
+      ],
+      "functions": [
+        "VehicleManager::tryAutomaticSpawn",
+        "VehicleManager::assignBuildingGoal",
+        "VehicleManager::replenishTraffic",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehiclePose.cpp",
+      "module": "traffic",
+      "lines": 52,
+      "denseLines": 0,
+      "includes": [
+        "VehiclePose.hpp",
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "lanePosition",
+        "VehiclePose::resolve"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/traffic/VehiclePose.hpp",
+      "module": "traffic",
+      "lines": 10,
+      "denseLines": 0,
+      "includes": [
+        "Vehicle.hpp",
+        "../road/RoadNetwork.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/Camera.cpp",
+      "module": "ui",
+      "lines": 387,
+      "denseLines": 0,
+      "includes": [
+        "Camera.hpp",
+        "KeyboardActions.hpp"
+      ],
+      "functions": [
+        "GameCamera::update",
+        "if",
+        "if",
+        "if",
+        "GameCamera::handleInput",
+        "GameCamera::zoom",
+        "GameCamera::rebuild",
+        "GameCamera::setFocus",
+        "GameCamera::setState",
+        "GameCamera::setCaptureState",
+        "GameCamera::screenToGround",
+        "GameCamera::screenToRay",
+        "GameCamera::setFollowTarget",
+        "GameCamera::rebuildFollow",
+        "GameCamera::handleFirstPersonInput",
+        "GameCamera::walk",
+        "GameCamera::setWalkingState",
+        "GameCamera::rebuildFirstPerson",
+        "GameCamera::setDrivingState",
+        "GameCamera::setDrivingLook",
+        "GameCamera::rebuildDriving"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/Camera.hpp",
+      "module": "ui",
+      "lines": 166,
+      "denseLines": 0,
+      "includes": [
+        "../world/World.hpp"
+      ],
+      "functions": [
+        "setWalkSurface",
+        "focusPoint",
+        "distance",
+        "yaw",
+        "pitch",
+        "mode",
+        "eyePosition",
+        "horizontalDistanceTo",
+        "setOverviewState",
+        "setBlockInput",
+        "setKeyboardBlocked",
+        "walkingSpeed",
+        "cycleMode"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/CollapsibleHudPanel.hpp",
+      "module": "ui",
+      "lines": 25,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "bounds",
+        "toggleBounds",
+        "click",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/CommandPalette.cpp",
+      "module": "ui",
+      "lines": 81,
+      "denseLines": 0,
+      "includes": [
+        "CommandPalette.hpp",
+        "NavigationHeader.hpp"
+      ],
+      "functions": [
+        "CommandPalette::open",
+        "CommandPalette::close",
+        "pressedOnce",
+        "CommandPalette::update",
+        "CommandPalette::bounds",
+        "CommandPalette::draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/CommandPalette.hpp",
+      "module": "ui",
+      "lines": 22,
+      "denseLines": 0,
+      "includes": [
+        "KeyboardActions.hpp",
+        "../debug/GameCommands.hpp"
+      ],
+      "functions": [
+        "report"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/ConstructionStatus.hpp",
+      "module": "ui",
+      "lines": 22,
+      "denseLines": 0,
+      "includes": [
+        "../road/RoadConstruction.hpp"
+      ],
+      "functions": [
+        "durationLabel",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/DrivingControls.hpp",
+      "module": "ui",
+      "lines": 14,
+      "denseLines": 0,
+      "includes": [
+        "KeyboardActions.hpp",
+        "../traffic/DrivingController.hpp"
+      ],
+      "functions": [
+        "read"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/DrivingHud.cpp",
+      "module": "ui",
+      "lines": 50,
+      "denseLines": 0,
+      "includes": [
+        "DrivingHud.hpp"
+      ],
+      "functions": [
+        "DrivingHud::instrumentBounds",
+        "DrivingHud::draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/DrivingHud.hpp",
+      "module": "ui",
+      "lines": 10,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/FrameRateGraph.hpp",
+      "module": "ui",
+      "lines": 68,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "sampleNow",
+        "sample",
+        "count",
+        "latest",
+        "bounds",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/KeyboardActions.hpp",
+      "module": "ui",
+      "lines": 46,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "update",
+        "down",
+        "keyboardBlocked",
+        "releaseTextFocus",
+        "beginFrame",
+        "down",
+        "pressed",
+        "down",
+        "pressed"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/LandParcelPanel.hpp",
+      "module": "ui",
+      "lines": 17,
+      "denseLines": 0,
+      "includes": [
+        "../world/LandPlot.hpp"
+      ],
+      "functions": [
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/LocalMapView.hpp",
+      "module": "ui",
+      "lines": 115,
+      "denseLines": 0,
+      "includes": [
+        "PlainLabel.hpp",
+        "WorldMapView.hpp"
+      ],
+      "functions": [
+        "span",
+        "body",
+        "orientationButton",
+        "zoomButton",
+        "changeZoom",
+        "follow",
+        "up",
+        "toScreen",
+        "toWorld",
+        "interact",
+        "if",
+        "if",
+        "if",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/LocationTooltip.hpp",
+      "module": "ui",
+      "lines": 32,
+      "denseLines": 0,
+      "includes": [
+        "PlainLabel.hpp"
+      ],
+      "functions": [
+        "bounds",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/MapStroke.hpp",
+      "module": "ui",
+      "lines": 32,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/MapTerrainLayer.hpp",
+      "module": "ui",
+      "lines": 53,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "invalidate",
+        "update"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/NavigationHeader.hpp",
+      "module": "ui",
+      "lines": 38,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "placeBounds",
+        "routeBounds",
+        "fitted",
+        "drawPlace",
+        "drawRoute"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/NavigationHelp.hpp",
+      "module": "ui",
+      "lines": 22,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "bounds",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PanelLayout.cpp",
+      "module": "ui",
+      "lines": 170,
+      "denseLines": 0,
+      "includes": [
+        "PanelLayout.hpp"
+      ],
+      "functions": [
+        "m_width",
+        "PanelBuilder::widgetX",
+        "PanelBuilder::widgetW",
+        "PanelBuilder::advance",
+        "PanelBuilder::label",
+        "PanelBuilder::button",
+        "PanelBuilder::buttonDanger",
+        "PanelBuilder::toggle",
+        "PanelBuilder::textInput",
+        "PanelBuilder::section",
+        "PanelBuilder::spacer",
+        "PanelBuilder::separator",
+        "PanelBuilder::row",
+        "PanelBuilder::flush"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PanelLayout.hpp",
+      "module": "ui",
+      "lines": 130,
+      "denseLines": 0,
+      "includes": [
+        "PanelWidget.hpp",
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "height",
+        "PanelBuilder::cycle",
+        "PanelBuilder::numberInput"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PanelManager.cpp",
+      "module": "ui",
+      "lines": 259,
+      "denseLines": 0,
+      "includes": [
+        "PanelManager.hpp"
+      ],
+      "functions": [
+        "PanelManager::find",
+        "PanelManager::sortedPanels",
+        "PanelManager::registerPanel",
+        "PanelManager::show",
+        "PanelManager::hide",
+        "PanelManager::isVisible",
+        "PanelManager::handleInput",
+        "PanelManager::drawBackgrounds",
+        "PanelManager::drawBackground",
+        "PanelManager::sortedPanelIds",
+        "PanelManager::beginContent",
+        "PanelManager::reportContentHeight",
+        "PanelManager::isMouseOnAnyPanel"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PanelManager.hpp",
+      "module": "ui",
+      "lines": 99,
+      "denseLines": 0,
+      "includes": [
+        "../asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "consumedInput",
+        "blocksMouseInput",
+        "getSize"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PanelWidget.hpp",
+      "module": "ui",
+      "lines": 326,
+      "denseLines": 0,
+      "includes": [
+        "KeyboardActions.hpp"
+      ],
+      "functions": [
+        "flushTooltip",
+        "buttonMinWidth",
+        "hitTest",
+        "button",
+        "buttonDanger",
+        "toggle",
+        "cycle",
+        "textInput",
+        "numberInput",
+        "label",
+        "section"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PauseMenu.hpp",
+      "module": "ui",
+      "lines": 35,
+      "denseLines": 0,
+      "includes": [
+        "KeyboardActions.hpp"
+      ],
+      "functions": [
+        "panel",
+        "button",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/PlainLabel.hpp",
+      "module": "ui",
+      "lines": 21,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "draw",
+        "fitted"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/RoadPlanToolbar.cpp",
+      "module": "ui",
+      "lines": 56,
+      "denseLines": 0,
+      "includes": [
+        "RoadPlanToolbar.hpp",
+        "ConstructionStatus.hpp"
+      ],
+      "functions": [
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/RoadPlanToolbar.hpp",
+      "module": "ui",
+      "lines": 22,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/TownBillboards.hpp",
+      "module": "ui",
+      "lines": 58,
+      "denseLines": 0,
+      "includes": [
+        "PlainLabel.hpp",
+        "Camera.hpp",
+        "NavigationHeader.hpp"
+      ],
+      "functions": [
+        "layout",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/TrainTimetableEditor.cpp",
+      "module": "ui",
+      "lines": 190,
+      "denseLines": 0,
+      "includes": [
+        "TrainTimetableEditor.hpp",
+        "PanelWidget.hpp"
+      ],
+      "functions": [
+        "fit",
+        "TrainTimetableEditor::select",
+        "TrainTimetableEditor::draft",
+        "if",
+        "if",
+        "TrainTimetableEditor::apply",
+        "TrainTimetableEditor::draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/TrainTimetableEditor.hpp",
+      "module": "ui",
+      "lines": 31,
+      "denseLines": 0,
+      "includes": [
+        "../railway/RailTimetable.hpp",
+        "../railway/TrainManager.hpp"
+      ],
+      "functions": [
+        "contentHeight",
+        "dirty",
+        "selectedId"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/WalkSurface.hpp",
+      "module": "ui",
+      "lines": 61,
+      "denseLines": 0,
+      "includes": [
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../railway/TrainNetwork.hpp"
+      ],
+      "functions": [
+        "resolve"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/WorldMapView.hpp",
+      "module": "ui",
+      "lines": 234,
+      "denseLines": 1,
+      "includes": [
+        "PlainLabel.hpp",
+        "KeyboardActions.hpp",
+        "MapStroke.hpp"
+      ],
+      "functions": [
+        "body",
+        "scale",
+        "toScreen",
+        "toWorld",
+        "open",
+        "invalidateCartography",
+        "cartographyBuilds",
+        "close",
+        "recenter",
+        "zoomAt",
+        "pan",
+        "panKeyboard",
+        "showContext",
+        "menuBounds",
+        "jumpFromMenu",
+        "update",
+        "if",
+        "if",
+        "draw",
+        "drawCartography",
+        "drawLabels",
+        "clampCenter"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/ZonePalette.cpp",
+      "module": "ui",
+      "lines": 75,
+      "denseLines": 0,
+      "includes": [
+        "ZonePalette.hpp"
+      ],
+      "functions": [
+        "zoneButton",
+        "brushButton",
+        "description",
+        "draw"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/ui/ZonePalette.hpp",
+      "module": "ui",
+      "lines": 21,
+      "denseLines": 0,
+      "includes": [
+        "../zone/ZoneManager.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/world/Chunk.hpp",
+      "module": "world",
+      "lines": 154,
+      "denseLines": 0,
+      "includes": [
+        "../zone/Building.hpp"
+      ],
+      "functions": [
+        "sampleHeightMap",
+        "chunkCoordToKey",
+        "updateHeightBounds",
+        "Chunk",
+        "worldOrigin",
+        "getHeight"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/world/LandPlot.hpp",
+      "module": "world",
+      "lines": 46,
+      "denseLines": 0,
+      "includes": [
+        "Chunk.hpp"
+      ],
+      "functions": [
+        "selectable",
+        "shape",
+        "containsSurface",
+        "name"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/world/World.cpp",
+      "module": "world",
+      "lines": 315,
+      "denseLines": 21,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "World.hpp"
+      ],
+      "functions": [
+        "World::reserveChunks",
+        "World::installChunkDirect",
+        "World::update",
+        "World::getChunk",
+        "World::rebuildActiveChunkCache",
+        "World::sampleHeight",
+        "World::setGenerationParams",
+        "transition",
+        "World::lakeInfluence",
+        "World::computeBiomeParams",
+        "World::getBiome",
+        "World::computeBaseHeight",
+        "World::buildHeightMap",
+        "World::generateRivers",
+        "World::computeHeight",
+        "World::setGridHeight"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/world/World.hpp",
+      "module": "world",
+      "lines": 101,
+      "denseLines": 0,
+      "includes": [
+        "Chunk.hpp",
+        "../gen/TerrainType.hpp",
+        "../gen/RiverNetwork.hpp"
+      ],
+      "functions": [
+        "waterSurfaceHeight",
+        "worldToChunkCoord",
+        "isValidCoord",
+        "coordToIndex"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/world/ZoneGrid.hpp",
+      "module": "world",
+      "lines": 32,
+      "denseLines": 0,
+      "includes": [
+        "Chunk.hpp"
+      ],
+      "functions": [
+        "zoneCellKey",
+        "worldToZoneCell",
+        "cellCenterXZ"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/zone/Building.hpp",
+      "module": "zone",
+      "lines": 237,
+      "denseLines": 0,
+      "includes": [
+        "../gen/GenerationSettings.hpp",
+        "ZoneTypes.hpp"
+      ],
+      "functions": [
+        "isCompleteSiteBuilding",
+        "isRoadsideServiceBuilding",
+        "buildingFootprintXZ",
+        "isResidentialBuildingType",
+        "residentialModelIndex",
+        "buildingModelVariant",
+        "isObjBuildingType",
+        "tryGetBuildingModelStemForVariant",
+        "if",
+        "tryGetBuildingModelStem",
+        "buildingCapacity",
+        "buildingHeight",
+        "buildingColor"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/zone/ZoneDevelopment.cpp",
+      "module": "zone",
+      "lines": 383,
+      "denseLines": 0,
+      "includes": [
+        "ZoneManager.hpp",
+        "../world/ZoneGrid.hpp",
+        "../gen/ParcelGeometry.hpp",
+        "../gen/UrbanParcel.hpp",
+        "../road/RoadGeometry.hpp"
+      ],
+      "functions": [
+        "canDevelop",
+        "plotHash",
+        "initialBuilding",
+        "roadsNear",
+        "overlapsBuildings",
+        "trimNeighborParcels",
+        "overlapsRoads",
+        "inspectSite",
+        "ZoneManager::paintCell",
+        "ZoneManager::removeDevelopment",
+        "ZoneManager::updateDevelopment",
+        "ZoneManager::developmentSummary",
+        "ZoneManager::developmentSnapshot",
+        "ZoneManager::restoreDevelopment",
+        "ZoneManager::saveState",
+        "ZoneManager::restoreState"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/zone/ZoneManager.cpp",
+      "module": "zone",
+      "lines": 169,
+      "denseLines": 0,
+      "includes": [
+        "ZoneManager.hpp"
+      ],
+      "functions": [
+        "calculateZoneDevelopmentDemand",
+        "ZoneManager::paintZone",
+        "if",
+        "if",
+        "ZoneManager::paintZoneRect",
+        "ZoneManager::getZone",
+        "ZoneManager::totalHousingCapacity",
+        "ZoneManager::renderOverlay"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/zone/ZoneManager.hpp",
+      "module": "zone",
+      "lines": 91,
+      "denseLines": 0,
+      "includes": [
+        "Building.hpp",
+        "../world/World.hpp",
+        "../road/RoadNetwork.hpp",
+        "../time/GameClock.hpp",
+        "../gameplay/CitySimulation.hpp",
+        "../gen/ParcelRoadIndex.hpp"
+      ],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "src/zone/ZoneTypes.hpp",
+      "module": "zone",
+      "lines": 46,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "zoneColor",
+        "zoneName"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/BezierBuildingFrontageTests.cpp",
+      "module": "Test",
+      "lines": 89,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/BezierUtil.hpp"
+      ],
+      "functions": [
+        "projectPointToBezierXZ",
+        "registerBezierBuildingFrontageTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/BezierBuildingFrontageVisualLegacy.cpp",
+      "module": "Test",
+      "lines": 223,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [
+        "angleFromNodeAxis",
+        "angleFromSampledTangent",
+        "projectPointToBezierXZ",
+        "worldToScreen",
+        "drawBezier2D",
+        "drawBuildingFootprint",
+        "drawDirectionMarker",
+        "drawLegendItem",
+        "Main"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/BuildingAssetTests.cpp",
+      "module": "Test",
+      "lines": 164,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/zone/Building.hpp",
+        "src/road/ObjParser.hpp"
+      ],
+      "functions": [
+        "registerBuildingAssetTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/CityGenerationTests.cpp",
+      "module": "Test",
+      "lines": 756,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/world/World.hpp",
+        "src/gameplay/CitySimulation.hpp",
+        "src/road/RoadTypes.hpp",
+        "src/road/RoadMarkingGenerator.hpp",
+        "src/road/JunctionGeometry.hpp",
+        "src/gen/ParcelGeometry.hpp",
+        "src/gen/UrbanParcel.hpp",
+        "src/render/VehicleRenderer.hpp",
+        "src/render/CityLighting.hpp",
+        "src/gen/DistrictRoads.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/debug/DebugLog.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "registerCityGenerationTests",
+        "if",
+        "if"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/ComprehensiveTests.cpp",
+      "module": "Test",
+      "lines": 507,
+      "denseLines": 51,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadPlanConstruction.hpp",
+        "src/gen/AgriculturalLayout.hpp",
+        "src/ui/Camera.hpp",
+        "src/gen/RoadTerrainFit.hpp",
+        "src/gen/RoadDesignLimits.hpp",
+        "src/gen/RoadConstructionCost.hpp",
+        "src/road/RoadConstructionStart.hpp",
+        "src/ui/WorldMapView.hpp",
+        "src/ui/MapTerrainLayer.hpp",
+        "src/ui/TownBillboards.hpp",
+        "src/ui/CommandPalette.hpp",
+        "src/ui/LocationTooltip.hpp",
+        "src/debug/CommandExecution.hpp",
+        "src/gen/SettlementNames.hpp",
+        "src/gen/SettlementPlacement.hpp",
+        "src/ui/LocalMapView.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/render/VegetationProfile.hpp",
+        "src/render/CityLighting.hpp",
+        "src/render/RegionalTerrain.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/render/MinimapRenderer.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "flatWorld",
+        "registerComprehensiveTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/DrivingTests.cpp",
+      "module": "Test",
+      "lines": 332,
+      "denseLines": 2,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "../src/traffic/VehicleManager.hpp",
+        "../src/traffic/VehiclePose.hpp",
+        "../src/ui/Camera.hpp",
+        "../src/ui/DrivingControls.hpp",
+        "../src/render/TunnelRenderer.hpp",
+        "../src/render/RoadRenderer.hpp",
+        "../src/render/VehicleRenderer.hpp",
+        "../src/render/WorldRenderer.hpp",
+        "../src/traffic/DrivingController.hpp",
+        "../src/road/RoadGeometry.hpp",
+        "../src/ui/DrivingHud.hpp",
+        "../src/gen/StreetProfile.hpp",
+        "../src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "makeWorld",
+        "road",
+        "advance",
+        "registerDrivingTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/FringeAgricultureTests.cpp",
+      "module": "Test",
+      "lines": 194,
+      "denseLines": 7,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/gen/DistrictRoads.hpp",
+        "src/gen/AgriculturalLayout.hpp",
+        "src/gen/ParcelGeometry.hpp",
+        "src/render/WorldRenderer.hpp"
+      ],
+      "functions": [
+        "flatChunk",
+        "registerFringeAgricultureTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/GenerationSettingsTests.cpp",
+      "module": "Test",
+      "lines": 55,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/gen/GenerationSettings.hpp"
+      ],
+      "functions": [
+        "registerGenerationSettingsTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/Main.cpp",
+      "module": "Test",
+      "lines": 37,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp"
+      ],
+      "functions": [
+        "Main"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/MapTransportTests.cpp",
+      "module": "Test",
+      "lines": 463,
+      "denseLines": 6,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "../src/ui/WorldMapView.hpp",
+        "../src/ui/LocalMapView.hpp",
+        "../src/ui/NavigationHeader.hpp",
+        "../src/ui/TownBillboards.hpp",
+        "../src/ui/MapTerrainLayer.hpp",
+        "../src/render/RoadRouteSignRenderer.hpp",
+        "../src/asset/AssetRegistrar.hpp",
+        "../src/road/RoadSign.hpp",
+        "../src/road/GuideSign.hpp",
+        "../src/railway/RailDepotBuilder.hpp",
+        "../src/gen/RailwayAlignment.hpp",
+        "../src/render/TreeGeometry.hpp",
+        "../src/render/TunnelGeometry.hpp",
+        "../src/render/TransportLandscape.hpp",
+        "../src/road/RoadPlanDraft.hpp",
+        "../src/road/RoadGeometry.hpp"
+      ],
+      "functions": [
+        "hitsMesh",
+        "registerMapTransportTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/ModelLodTests.cpp",
+      "module": "Test",
+      "lines": 188,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/render/ModelBatch.hpp",
+        "src/render/VehicleRenderer.hpp",
+        "src/render/GpuFrameTimer.hpp",
+        "src/traffic/SignalRegistry.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "registerModelLodTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/MountainRoadTests.cpp",
+      "module": "Test",
+      "lines": 397,
+      "denseLines": 3,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "../src/render/TunnelRenderer.hpp",
+        "../src/render/WorldRenderer.hpp",
+        "../src/road/RoadGeometry.hpp",
+        "../src/render/RoadRenderer.hpp",
+        "../src/render/MountainRoadGeometry.hpp",
+        "../src/render/TreeGeometry.hpp",
+        "../src/render/CityLighting.hpp",
+        "../src/gen/StreetProfile.hpp",
+        "../src/ui/Camera.hpp"
+      ],
+      "functions": [
+        "installMountain",
+        "hitsPortal",
+        "registerMountainRoadTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/PlayabilityTests.cpp",
+      "module": "Test",
+      "lines": 360,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/ui/KeyboardActions.hpp",
+        "src/ui/PanelWidget.hpp",
+        "src/ui/PauseMenu.hpp",
+        "src/ui/NavigationHelp.hpp",
+        "src/asset/AssetRegistrar.hpp",
+        "src/ui/Camera.hpp",
+        "src/ui/WorldMapView.hpp",
+        "src/economy/Economy.hpp",
+        "src/render/RoadRenderer.hpp"
+      ],
+      "functions": [
+        "registerPlayabilityTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RailwayTimetableTests.cpp",
+      "module": "Test",
+      "lines": 280,
+      "denseLines": 1,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/ui/TrainTimetableEditor.hpp",
+        "src/ui/KeyboardActions.hpp",
+        "src/render/TrainRenderer.hpp",
+        "src/railway/RailDepotBuilder.hpp",
+        "src/railway/TrainConsist.hpp"
+      ],
+      "functions": [
+        "sampleNetwork",
+        "registerRailwayTimetableTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RefactoringTests.cpp",
+      "module": "Test",
+      "lines": 184,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadConstructionStart.hpp",
+        "src/gen/SettlementDevelopment.hpp",
+        "src/gen/DistrictRoads.hpp",
+        "src/world/ZoneGrid.hpp"
+      ],
+      "functions": [
+        "plannedRoad",
+        "developTown",
+        "registerRefactoringTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RegionalTerrainTests.cpp",
+      "module": "Test",
+      "lines": 151,
+      "denseLines": 2,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/world/World.hpp",
+        "src/gen/RailwayAlignment.hpp",
+        "src/railway/RailTimetable.hpp"
+      ],
+      "functions": [
+        "surveyRegion",
+        "registerRegionalTerrainTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RoadConstructionTests.cpp",
+      "module": "Test",
+      "lines": 222,
+      "denseLines": 2,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadConstruction.hpp",
+        "src/road/RoadPlanDraft.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/render/BridgeStructure.hpp",
+        "src/ui/ConstructionStatus.hpp",
+        "src/asset/AssetRegistrar.hpp",
+        "src/save/RoadBinary.hpp"
+      ],
+      "functions": [
+        "makeRoad",
+        "flatWorld",
+        "registerRoadConstructionTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RoadIntegrityTests.cpp",
+      "module": "Test",
+      "lines": 335,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadNetwork.hpp",
+        "src/road/GuideSign.hpp",
+        "src/road/JunctionGeometry.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/world/World.hpp",
+        "src/gen/DistrictRoads.hpp"
+      ],
+      "functions": [
+        "addRoad",
+        "registerRoadIntegrityTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RoadNetworkStubs.cpp",
+      "module": "Test",
+      "lines": 15,
+      "denseLines": 0,
+      "includes": [
+        "../src/road/RoadNetwork.hpp"
+      ],
+      "functions": [
+        "RoadNetwork::getEdge",
+        "RoadNetwork::getNode",
+        "RoadNetwork::getBezier",
+        "RoadNetwork::getDestinationTier",
+        "RoadNetwork::getRoute",
+        "RoadNetwork::getPlan"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RoadPlanUxTests.cpp",
+      "module": "Test",
+      "lines": 151,
+      "denseLines": 1,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadPlanDraft.hpp",
+        "src/ui/RoadPlanToolbar.hpp",
+        "src/world/World.hpp"
+      ],
+      "functions": [
+        "registerRoadPlanUxTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RoadsideLifeTests.cpp",
+      "module": "Test",
+      "lines": 532,
+      "denseLines": 5,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/gen/RoadDesignLimits.hpp",
+        "src/gen/RoadTerrainFit.hpp",
+        "src/gen/WaterCrossings.hpp",
+        "src/gen/RoadAlignment.hpp",
+        "src/gen/RoadConstructionCost.hpp",
+        "src/gen/RailCostProfile.hpp",
+        "src/gen/StreetProfile.hpp",
+        "src/traffic/TrafficSpawn.hpp",
+        "src/traffic/VehicleManager.hpp",
+        "src/asset/AssetRegistrar.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/gen/UrbanParcel.hpp",
+        "src/traffic/SignalRegistry.hpp",
+        "src/road/GuideSign.hpp",
+        "src/road/RoadSign.hpp",
+        "src/road/JunctionGeometry.hpp"
+      ],
+      "functions": [
+        "resolveTrips",
+        "registerRoadsideLifeTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/RuralVisualTests.cpp",
+      "module": "Test",
+      "lines": 160,
+      "denseLines": 7,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/ui/FrameRateGraph.hpp",
+        "src/ui/WorldMapView.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/ui/MapTerrainLayer.hpp",
+        "src/render/TreeGeometry.hpp",
+        "src/render/TrainRenderer.hpp",
+        "src/render/VehicleRenderer.hpp",
+        "src/render/VehiclePaint.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/render/CityLighting.hpp",
+        "src/asset/AssetRegistrar.hpp",
+        "src/railway/TrainConsist.hpp"
+      ],
+      "functions": [
+        "registerRuralVisualTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/SaveTransactionTests.cpp",
+      "module": "Test",
+      "lines": 234,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/save/SaveTransaction.hpp"
+      ],
+      "functions": [
+        "toNativePath",
+        "toFilePath",
+        "checksum",
+        "writeFixture",
+        "readFixture",
+        "verifyFixture",
+        "createCaseRoot",
+        "registerSaveTransactionTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/SoundEffectsTests.cpp",
+      "module": "Test",
+      "lines": 55,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/audio/SoundEffects.hpp"
+      ],
+      "functions": [
+        "registerSoundEffectsTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/stdafx.cpp",
+      "module": "Test",
+      "lines": 1,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/stdafx.h",
+      "module": "Test",
+      "lines": 3,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/TestCases.hpp",
+      "module": "Test",
+      "lines": 32,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/TestRunner.cpp",
+      "module": "Test",
+      "lines": 203,
+      "denseLines": 0,
+      "includes": [
+        "TestRunner.hpp"
+      ],
+      "functions": [
+        "escapeJson",
+        "escapeXml",
+        "TestContext::expect",
+        "TestContext::expectEqual",
+        "TestContext::expectNear",
+        "TestRunner::add",
+        "TestRunner::run",
+        "TestRunner::writeJson",
+        "TestRunner::writeXml"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/TestRunner.hpp",
+      "module": "Test",
+      "lines": 46,
+      "denseLines": 0,
+      "includes": [],
+      "functions": [],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/TrafficScalingTests.cpp",
+      "module": "Test",
+      "lines": 182,
+      "denseLines": 0,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/traffic/LaneVehicleIndex.hpp",
+        "src/traffic/BuildingAccess.hpp",
+        "src/traffic/VehicleManager.hpp",
+        "src/gen/StreetProfile.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "resolveTrips",
+        "registerTrafficScalingTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/TransportPlanningTests.cpp",
+      "module": "Test",
+      "lines": 385,
+      "denseLines": 10,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/road/RoadPlanDraft.hpp",
+        "src/road/RoadPlanConstruction.hpp",
+        "src/gen/RoadAutoPlace.hpp",
+        "src/gen/RoadDesignLimits.hpp",
+        "src/road/LocationSigns.hpp",
+        "src/road/SignArtwork.hpp",
+        "src/road/RoadSign.hpp",
+        "src/railway/TrainConsist.hpp",
+        "src/railway/TrainManager.hpp",
+        "src/render/TrainRenderer.hpp",
+        "src/render/RoadRenderer.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "registerTransportPlanningTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/UrbanMorphologyTests.cpp",
+      "module": "Test",
+      "lines": 763,
+      "denseLines": 14,
+      "includes": [
+        "TestCases.hpp",
+        "src/gen/RailCostProfile.hpp",
+        "src/road/RoadGeometry.hpp",
+        "src/ui/WalkSurface.hpp",
+        "src/ui/Camera.hpp",
+        "src/gen/RiverNetwork.hpp",
+        "src/gen/RoadTerrainFit.hpp",
+        "src/gen/DistrictHierarchy.hpp",
+        "src/render/RailStructure.hpp",
+        "src/render/TunnelGeometry.hpp",
+        "src/ui/WorldMapView.hpp",
+        "src/gen/RoadAutoPlace.hpp",
+        "src/road/RoadConstruction.hpp",
+        "src/save/RoadBinary.hpp",
+        "TestRunner.hpp",
+        "src/gen/DistrictRoads.hpp",
+        "src/gen/SettlementPlan.hpp",
+        "src/gen/SettlementPlacement.hpp",
+        "src/gen/StreetProfile.hpp",
+        "src/gen/WaterCrossings.hpp",
+        "src/gen/StreetBlocks.hpp",
+        "src/railway/TrainManager.hpp",
+        "src/road/SignArtwork.hpp",
+        "src/road/RoadSign.hpp"
+      ],
+      "functions": [
+        "registerUrbanMorphologyTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/UrbanUsabilityTests.cpp",
+      "module": "Test",
+      "lines": 271,
+      "denseLines": 2,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/ui/Camera.hpp",
+        "src/render/FrontageGeometry.hpp",
+        "src/ui/WorldMapView.hpp",
+        "src/ui/CollapsibleHudPanel.hpp",
+        "src/ui/LandParcelPanel.hpp",
+        "src/road/RoadMarkingGenerator.hpp",
+        "src/render/WorldRenderer.hpp",
+        "src/render/TreeGeometry.hpp",
+        "src/render/CityLighting.hpp",
+        "src/render/UIRenderer.hpp",
+        "src/asset/AssetRegistrar.hpp"
+      ],
+      "functions": [
+        "registerUrbanUsabilityTests"
+      ],
+      "bom": true,
+      "crlf": true
+    },
+    {
+      "path": "Test/ZoneDevelopmentTests.cpp",
+      "module": "Test",
+      "lines": 188,
+      "denseLines": 1,
+      "includes": [
+        "TestCases.hpp",
+        "TestRunner.hpp",
+        "src/zone/ZoneManager.hpp",
+        "src/road/RoadPlanDraft.hpp",
+        "src/ui/ZonePalette.hpp"
+      ],
+      "functions": [
+        "flatWorld",
+        "road",
+        "advance",
+        "registerZoneDevelopmentTests"
+      ],
+      "bom": true,
+      "crlf": true
+    }
+  ],
+  "modules": {
+    "asset": {
+      "files": 3,
+      "lines": 98,
+      "denseLines": 0
+    },
+    "audio": {
+      "files": 2,
+      "lines": 176,
+      "denseLines": 0
+    },
+    "debug": {
+      "files": 8,
+      "lines": 1177,
+      "denseLines": 1
+    },
+    "economy": {
+      "files": 2,
+      "lines": 128,
+      "denseLines": 0
+    },
+    "event": {
+      "files": 2,
+      "lines": 307,
+      "denseLines": 0
+    },
+    "GameApp.cpp": {
+      "files": 1,
+      "lines": 182,
+      "denseLines": 0
+    },
+    "GameApp.hpp": {
+      "files": 1,
+      "lines": 11,
+      "denseLines": 0
+    },
+    "gameplay": {
+      "files": 2,
+      "lines": 271,
+      "denseLines": 1
+    },
+    "gen": {
+      "files": 40,
+      "lines": 9302,
+      "denseLines": 148
+    },
+    "railway": {
+      "files": 14,
+      "lines": 1298,
+      "denseLines": 1
+    },
+    "render": {
+      "files": 51,
+      "lines": 10670,
+      "denseLines": 18
+    },
+    "road": {
+      "files": 42,
+      "lines": 9693,
+      "denseLines": 5
+    },
+    "save": {
+      "files": 7,
+      "lines": 1233,
+      "denseLines": 1
+    },
+    "scenario": {
+      "files": 2,
+      "lines": 138,
+      "denseLines": 0
+    },
+    "scene": {
+      "files": 20,
+      "lines": 10958,
+      "denseLines": 26
+    },
+    "sim": {
+      "files": 5,
+      "lines": 496,
+      "denseLines": 0
+    },
+    "time": {
+      "files": 1,
+      "lines": 161,
+      "denseLines": 0
+    },
+    "traffic": {
+      "files": 23,
+      "lines": 3701,
+      "denseLines": 3
+    },
+    "ui": {
+      "files": 34,
+      "lines": 2988,
+      "denseLines": 1
+    },
+    "world": {
+      "files": 5,
+      "lines": 648,
+      "denseLines": 21
+    },
+    "zone": {
+      "files": 5,
+      "lines": 926,
+      "denseLines": 0
+    },
+    "Test": {
+      "files": 34,
+      "lines": 8158,
+      "denseLines": 114
+    }
+  },
+  "includeFanIn": [
+    [
+      "RoadNetwork.hpp",
+      56
+    ],
+    [
+      "World.hpp",
+      43
+    ],
+    [
+      "AssetRegistrar.hpp",
+      36
+    ],
+    [
+      "GenerationSettings.hpp",
+      35
+    ],
+    [
+      "DebugLog.hpp",
+      32
+    ],
+    [
+      "TestRunner.hpp",
+      28
+    ],
+    [
+      "TestCases.hpp",
+      27
+    ],
+    [
+      "RoadGeometry.hpp",
+      21
+    ],
+    [
+      "RoadRenderer.hpp",
+      16
+    ],
+    [
+      "Camera.hpp",
+      14
+    ],
+    [
+      "GameScene.hpp",
+      14
+    ],
+    [
+      "TrainNetwork.hpp",
+      14
+    ],
+    [
+      "WorldRenderer.hpp",
+      14
+    ],
+    [
+      "KeyboardActions.hpp",
+      12
+    ],
+    [
+      "RoadSign.hpp",
+      12
+    ],
+    [
+      "RoadDesignLimits.hpp",
+      11
+    ],
+    [
+      "MapGenerator.hpp",
+      11
+    ],
+    [
+      "RoadTypes.hpp",
+      10
+    ],
+    [
+      "Vehicle.hpp",
+      9
+    ],
+    [
+      "GameClock.hpp",
+      9
+    ],
+    [
+      "StreetProfile.hpp",
+      9
+    ],
+    [
+      "RoadPlanDraft.hpp",
+      9
+    ],
+    [
+      "BezierUtil.hpp",
+      9
+    ],
+    [
+      "TreeGeometry.hpp",
+      9
+    ],
+    [
+      "BridgeStructure.hpp",
+      9
+    ],
+    [
+      "DistrictRoads.hpp",
+      8
+    ],
+    [
+      "TrainConsist.hpp",
+      8
+    ],
+    [
+      "ObjParser.hpp",
+      8
+    ],
+    [
+      "JunctionGeometry.hpp",
+      8
+    ],
+    [
+      "GuideSign.hpp",
+      8
+    ]
+  ],
+  "duplicates": [
+    {
+      "lines": "{\nstatic constexpr float kBucketSize = 200.0f;\nHashTable<int64, Array<int>> buckets;\nstatic int64 key(float x, float z)\n{\nconst int bx = static_cast<int>(Math::Floor(x / kBucketSize));\nconst int bz = static_cast<int>(Math::Floor(z / kBucketSize));\nreturn (static_cast<int64>(bx) << 32) | static_cast<uint32>(bz);\n}\nvoid insert(Vec3 pos, int nodeId)\n{\nbuckets[key(static_cast<float>(pos.x), static_cast<float>(pos.z))] << nodeId;",
+      "locations": [
+        [
+          "src/gen/DistrictRoads.cpp",
+          23
+        ],
+        [
+          "src/gen/MapGenerator.cpp",
+          42
+        ]
+      ]
+    },
+    {
+      "lines": "const bool entryOnRight = !isNodeA;\nfloat roadEdgeOffset = 0.0f;\nbool foundRoadbed = false;\nfor (const auto& part : edge->parts)\n{\nif (part.type != RoadPartType::Roadbed) continue;\nconst float oL = isNodeA ? part.offsetA_L : part.offsetB_L;\nconst float oR = isNodeA ? part.offsetA_R : part.offsetB_R;\nconst float edgePos = entryOnRight ? oR : oL;\nif (!foundRoadbed)\n{\nroadEdgeOffset = edgePos;",
+      "locations": [
+        [
+          "src/render/RoadRenderer.cpp",
+          2277
+        ],
+        [
+          "src/scene/GameScene_Input.cpp",
+          1604
+        ]
+      ]
+    }
+  ],
+  "projects": {
+    "City.vcxproj": {
+      "sources": [
+        "Main.cpp",
+        "stdafx.cpp",
+        "src/road/BezierUtil.cpp",
+        "src/world/World.cpp",
+        "src/road/RoadArrow.cpp",
+        "src/road/RoadSign.cpp",
+        "src/road/GuideSign.cpp",
+        "src/save/GuideSignStorage.cpp",
+        "src/road/RoadNetwork.cpp",
+        "src/road/RoadNetwork_Plans.cpp",
+        "src/road/RoadNetwork_Routes.cpp",
+        "src/road/RoadNetwork_Signs.cpp",
+        "src/road/RoadNetwork_Connections.cpp",
+        "src/road/RoadNetwork_Topology.cpp",
+        "src/road/RoadGeometry.cpp",
+        "src/road/JunctionGeometry.cpp",
+        "src/road/RoadPreset.cpp",
+        "src/road/ArrowMarkingRegistry.cpp",
+        "src/road/ObjParser.cpp",
+        "src/road/RoadPartRegistry.cpp",
+        "src/ui/PanelLayout.cpp",
+        "src/ui/PanelManager.cpp",
+        "src/sim/SimThread.cpp",
+        "src/traffic/VehicleManager.cpp",
+        "src/traffic/BuildingAccess.cpp",
+        "src/traffic/TrafficGraph.cpp",
+        "src/traffic/TrafficLight.cpp",
+        "src/traffic/SignalRegistry.cpp",
+        "src/ui/Camera.cpp",
+        "src/ui/CommandPalette.cpp",
+        "src/debug/GameCommands.cpp",
+        "src/debug/CommandExecution.cpp",
+        "src/render/WorldRenderer.cpp",
+        "src/render/WorldRenderer_Buildings.cpp",
+        "src/render/WorldRenderer_Streaming.cpp",
+        "src/render/WorldRenderer_Terrain.cpp",
+        "src/render/TerrainSurfaceGeometry.cpp",
+        "src/render/TunnelGeometry.cpp",
+        "src/render/TransportLandscape.cpp",
+        "src/render/MountainRoadGeometry.cpp",
+        "src/traffic/DrivingController.cpp",
+        "src/audio/SoundEffects.cpp",
+        "src/traffic/VehiclePose.cpp",
+        "src/traffic/VehicleManager_Driving.cpp",
+        "src/ui/DrivingHud.cpp",
+        "src/render/CityLighting.cpp",
+        "src/render/RoadRenderer.cpp",
+        "src/render/RoadRenderer_Signs.cpp",
+        "src/render/VehicleRenderer.cpp",
+        "src/render/UIRenderer.cpp",
+        "src/GameApp.cpp",
+        "src/scene/TitleScene.cpp",
+        "src/scene/GameScene.cpp",
+        "src/scene/GameScene_Input.cpp",
+        "src/scene/GameScene_Zoning.cpp",
+        "src/scene/GameScene_Railway.cpp",
+        "src/scene/GameScene_Driving.cpp",
+        "src/scene/GameScene_RoadPlan.cpp",
+        "src/scene/GameScene_RoadReview.cpp",
+        "src/scene/GameScene_Playtest.cpp",
+        "src/scene/GameScene_ConstructionReview.cpp",
+        "src/scene/GameScene_Construction.cpp",
+        "src/scene/GameScene_Commands.cpp",
+        "src/scene/GameScene_Render.cpp",
+        "src/scene/GameScene_Panels.cpp",
+        "src/scene/GuideSignEditor.cpp",
+        "src/debug/DebugRenderer.cpp",
+        "src/zone/ZoneManager.cpp",
+        "src/zone/ZoneDevelopment.cpp",
+        "src/traffic/VehiclePopulation.cpp",
+        "src/economy/Economy.cpp",
+        "src/gameplay/CitySimulation.cpp",
+        "src/event/EventSystem.cpp",
+        "src/railway/TrainNetwork.cpp",
+        "src/railway/TrainManager.cpp",
+        "src/railway/RailTimetable.cpp",
+        "src/railway/RailwayStorage.cpp",
+        "src/railway/RailwaySite.cpp",
+        "src/railway/RailDepotBuilder.cpp",
+        "src/render/TrainRenderer.cpp",
+        "src/render/RailFacilities.cpp",
+        "src/render/PlaceNameRenderer.cpp",
+        "src/render/RoadRouteSignRenderer.cpp",
+        "src/render/MinimapRenderer.cpp",
+        "src/gen/MapGenerator.cpp",
+        "src/gen/GenerationSettings.cpp",
+        "src/gen/RoadPathfinder.cpp",
+        "src/gen/RoadAutoPlace.cpp",
+        "src/gen/RoadAlignment.cpp",
+        "src/road/RoadPlanDraft.cpp",
+        "src/road/RoadPlanConstruction.cpp",
+        "src/road/RoadConstructionStart.cpp",
+        "src/road/RoadConstruction.cpp",
+        "src/render/RoadRenderer_Construction.cpp",
+        "src/render/RoadRenderer_Streaming.cpp",
+        "src/ui/RoadPlanToolbar.cpp",
+        "src/ui/ZonePalette.cpp",
+        "src/ui/TrainTimetableEditor.cpp",
+        "src/gen/DistrictRoads.cpp",
+        "src/gen/AgriculturalLayout.cpp",
+        "src/gen/SettlementDevelopment.cpp",
+        "src/gen/SettlementPlacement.cpp",
+        "src/gen/SettlementFringe.cpp",
+        "src/save/RoadBinary.cpp",
+        "src/save/SaveTransaction.cpp",
+        "src/scenario/ScenarioSystem.cpp",
+        "src/traffic/BusSystem.cpp",
+        "src/gen/PlaceNameGenerator.cpp",
+        "src/asset/AssetRegistrar.cpp"
+      ],
+      "duplicates": [],
+      "missing": []
+    },
+    "Test/Test.vcxproj": {
+      "sources": [
+        "Test/BezierBuildingFrontageTests.cpp",
+        "Test/BuildingAssetTests.cpp",
+        "Test/CityGenerationTests.cpp",
+        "Test/RoadPlanUxTests.cpp",
+        "Test/TransportPlanningTests.cpp",
+        "Test/RefactoringTests.cpp",
+        "Test/MountainRoadTests.cpp",
+        "Test/DrivingTests.cpp",
+        "Test/SoundEffectsTests.cpp",
+        "src/render/TrainRenderer.cpp",
+        "src/render/RailFacilities.cpp",
+        "Test/RoadConstructionTests.cpp",
+        "Test/ZoneDevelopmentTests.cpp",
+        "Test/RailwayTimetableTests.cpp",
+        "Test/MapTransportTests.cpp",
+        "Test/RoadIntegrityTests.cpp",
+        "Test/UrbanUsabilityTests.cpp",
+        "Test/PlayabilityTests.cpp",
+        "Test/FringeAgricultureTests.cpp",
+        "Test/RoadsideLifeTests.cpp",
+        "Test/TrafficScalingTests.cpp",
+        "Test/ModelLodTests.cpp",
+        "Test/GenerationSettingsTests.cpp",
+        "Test/RuralVisualTests.cpp",
+        "src/traffic/VehiclePopulation.cpp",
+        "src/traffic/VehicleManager.cpp",
+        "src/traffic/BuildingAccess.cpp",
+        "src/traffic/TrafficGraph.cpp",
+        "src/economy/Economy.cpp",
+        "Test/UrbanMorphologyTests.cpp",
+        "Test/RegionalTerrainTests.cpp",
+        "src/railway/TrainNetwork.cpp",
+        "src/railway/TrainManager.cpp",
+        "src/railway/RailTimetable.cpp",
+        "src/railway/RailwayStorage.cpp",
+        "src/railway/RailwaySite.cpp",
+        "src/railway/RailDepotBuilder.cpp",
+        "src/render/UIRenderer.cpp",
+        "src/ui/Camera.cpp",
+        "src/ui/CommandPalette.cpp",
+        "src/debug/GameCommands.cpp",
+        "src/debug/CommandExecution.cpp",
+        "src/save/RoadBinary.cpp",
+        "src/road/RoadPlanDraft.cpp",
+        "src/road/RoadPlanConstruction.cpp",
+        "src/road/RoadConstructionStart.cpp",
+        "src/road/RoadConstruction.cpp",
+        "src/render/RoadRenderer_Construction.cpp",
+        "src/render/RoadRenderer_Streaming.cpp",
+        "src/gen/RoadAutoPlace.cpp",
+        "src/gen/RoadAlignment.cpp",
+        "src/ui/RoadPlanToolbar.cpp",
+        "src/ui/ZonePalette.cpp",
+        "src/ui/TrainTimetableEditor.cpp",
+        "src/gameplay/CitySimulation.cpp",
+        "src/render/CityLighting.cpp",
+        "src/render/VehicleRenderer.cpp",
+        "src/world/World.cpp",
+        "src/gen/GenerationSettings.cpp",
+        "src/zone/ZoneManager.cpp",
+        "src/zone/ZoneDevelopment.cpp",
+        "Test/Main.cpp",
+        "Test/SaveTransactionTests.cpp",
+        "Test/TestRunner.cpp",
+        "src/save/SaveTransaction.cpp",
+        "src/road/RoadNetwork.cpp",
+        "src/road/RoadNetwork_Plans.cpp",
+        "src/road/RoadNetwork_Routes.cpp",
+        "src/road/RoadNetwork_Signs.cpp",
+        "src/road/RoadNetwork_Connections.cpp",
+        "src/road/RoadNetwork_Topology.cpp",
+        "src/road/RoadGeometry.cpp",
+        "src/road/JunctionGeometry.cpp",
+        "src/road/RoadPreset.cpp",
+        "src/road/RoadPartRegistry.cpp",
+        "src/road/RoadArrow.cpp",
+        "src/road/ArrowMarkingRegistry.cpp",
+        "src/traffic/SignalRegistry.cpp",
+        "src/traffic/TrafficLight.cpp",
+        "src/gen/DistrictRoads.cpp",
+        "src/gen/AgriculturalLayout.cpp",
+        "src/gen/SettlementDevelopment.cpp",
+        "src/gen/SettlementPlacement.cpp",
+        "src/gen/SettlementFringe.cpp",
+        "src/gen/RoadPathfinder.cpp",
+        "src/render/WorldRenderer.cpp",
+        "src/render/WorldRenderer_Buildings.cpp",
+        "src/render/WorldRenderer_Streaming.cpp",
+        "src/render/WorldRenderer_Terrain.cpp",
+        "src/render/TerrainSurfaceGeometry.cpp",
+        "src/render/TunnelGeometry.cpp",
+        "src/render/TransportLandscape.cpp",
+        "src/render/MountainRoadGeometry.cpp",
+        "src/traffic/DrivingController.cpp",
+        "src/audio/SoundEffects.cpp",
+        "src/traffic/VehiclePose.cpp",
+        "src/traffic/VehicleManager_Driving.cpp",
+        "src/ui/DrivingHud.cpp",
+        "src/render/RoadRenderer.cpp",
+        "src/render/RoadRenderer_Signs.cpp",
+        "src/render/RoadRouteSignRenderer.cpp",
+        "src/render/MinimapRenderer.cpp",
+        "src/asset/AssetRegistrar.cpp",
+        "src/road/BezierUtil.cpp",
+        "src/road/GuideSign.cpp",
+        "src/road/ObjParser.cpp",
+        "src/road/RoadSign.cpp",
+        "src/ui/PanelManager.cpp",
+        "src/ui/PanelLayout.cpp",
+        "Test/stdafx.cpp",
+        "Test/ComprehensiveTests.cpp"
+      ],
+      "duplicates": [],
+      "missing": []
+    }
+  }
+}
