@@ -82,5 +82,10 @@
   "coastalPlainHeight": 35,
   "detailFrequency": 0.00055,
   "detailOctaves": 5,
-  "detailPersistence": 0.5
+  "detailPersistence": 0.5,
+  "maximumPlainFraction": 0.5,
+  "interiorHillHeight": 6500,
+  "interiorHillScale": 0.12,
+  "interiorHillThreshold": 0.47,
+  "macroSampleStep": 64
 }

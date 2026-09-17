@@ -35,7 +35,7 @@ namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez, bool distant)
+MeshData TrainRenderer::trackGeometry(const TrackEdge& edge, const CubicBezier& bez, bool distant)
 {
 	// 線路 1 本をレール 2 本と枕木列へ分解し、静的メッシュとしてまとめて構築する。
 	MeshData mesh;
@@ -114,7 +114,12 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 
 	}
 
-	return Mesh{ mesh };
+	return mesh;
+}
+
+Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez, bool distant)
+{
+	return Mesh{trackGeometry(edge, bez, distant)};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,7 +168,8 @@ void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,
 	renderTrains(m_parkedTrains,network,eye);
 }
 
-void TrainRenderer::renderTrains(const Array<Train>& trains,const TrainNetwork& network, Optional<Vec3> eye)
+void TrainRenderer::renderTrains(const Array<Train>& trains, const TrainNetwork& network, Optional<Vec3> eye,
+	const std::function<bool(Vec3)>& visible)
 {
 	for (const auto& train:trains)
 	{
@@ -173,7 +179,10 @@ void TrainRenderer::renderTrains(const Array<Train>& trains,const TrainNetwork& 
 		for (int car=0;car<profile.cars;++car)
 		{
 			const auto pose=TrainConsist::carPose(train,network,car);
-			if (!pose) { continue; }
+			if (!pose || (visible && !visible(pose->position)))
+			{
+				continue;
+			}
 			const double distanceSq=eye ? pose->position.distanceFromSq(*eye) : 0;
 			if (distanceSq>6000*6000) { continue; }
 			const int level=distanceSq<180*180 ? 0 : (distanceSq<700*700 ? 1 : 2);
@@ -258,11 +267,16 @@ void TrainRenderer::prepareFacilityTextures()
 	m_pendingFacilityNames.clear();
 }
 
-void TrainRenderer::drawTrainSilhouette(const Train& train,const TrainNetwork& network,Vec3 eye,const ColorF& color)
+void TrainRenderer::drawTrainSilhouette(const Train& train, const TrainNetwork& network, Vec3 eye, const ColorF& color,
+	const std::function<bool(Vec3)>& visible)
 {
 	for (int car=0;car<TrainConsist::profile(train.type).cars;++car)
 	{
-		const auto pose=TrainConsist::carPose(train,network,car);if (!pose) { continue; }
+		const auto pose = TrainConsist::carPose(train, network, car);
+		if (!pose || (visible && !visible(pose->position)))
+		{
+			continue;
+		}
 		const double distance=pose->position.distanceFromSq(eye);
 		const int level=distance<180*180 ? 0 : (distance<700*700 ? 1 : 2);
 		Model& model=ensureModel(pose->model,level);

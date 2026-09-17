@@ -27,6 +27,7 @@ saves/
 
 - `meta.json`
   - `version`, `seed`, `worldChunks`
+  - `generation`: 河川・町村・道路・鉄道・建物・農地・自然林・自動車・歩行者の生成選択
   - `gameNow`, `timeScale`
   - `nextNodeId`, `nextEdgeId`
   - `cameraFocusX/Y/Z`, `cameraDistance`, `cameraYaw`, `cameraPitch`
@@ -63,6 +64,10 @@ saves/
 - 全セルの `zoneMap`（プレイヤーが塗ったセルは保存済み）
 - 全セルの `buildingGrid`（プレイヤーが塗った区画の建物は保存済み）
 - 各種 UI 状態
+
+### 0.5 一覧と削除
+
+タイトルの保存一覧はmeta.jsonを持つセーブを列挙し、ロードと名前指定の削除に対応する。削除前に対象名を確認する。一覧を再取得しても確認対象を番号で取り違えない。失敗理由を画面に表示する。ロード時は生成選択を復元し、無効にした農地・建物や自動交通を勝手に生成しない。詳しくは [33](33_generation_and_underground.md)。
 
 以下の章は中長期の理想設計として残す。
 

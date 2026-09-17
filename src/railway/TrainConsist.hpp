@@ -60,12 +60,17 @@ namespace TrainConsist
 		return CarPose{position,direction,right,up,Mat4x4::RotateY(last ? Math::Pi : 0)*Mat4x4::RotateX(pitch)*Mat4x4::RotateY(heading)*Mat4x4::Translate(position),String{car==0 || last ? spec.cab : spec.trailer}};
 	}
 	/// @brief 傾斜した車体座標系へレイを投影し、編成中の最も近い車両を選ぶ。
-	inline Optional<double> hitDistance(const Train& train,const TrainNetwork& network,const Ray& ray)
+	inline Optional<double> hitDistance(
+		const Train& train, const TrainNetwork& network, const Ray& ray, const std::function<bool(Vec3)>& visible = {})
 	{
 		Optional<double> nearest;
 		for (int car=0;car<profile(train.type).cars;++car)
 		{
-			const auto pose=carPose(train,network,car);if (!pose) { continue; }
+			const auto pose = carPose(train, network, car);
+			if (!pose || (visible && !visible(pose->position)))
+			{
+				continue;
+			}
 			const Vec3 origin=Vec3{ray.origin.xyz()}-pose->position;
 			const Vec3 direction{ray.direction.xyz()};
 			const Vec3 localOrigin{origin.dot(pose->right),origin.dot(pose->up),origin.dot(pose->forward)};

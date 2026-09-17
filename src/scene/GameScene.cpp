@@ -22,6 +22,8 @@ GameScene::GameScene(const InitData& init)
 	{
 		DebugLog::print(U"[WARN] selection_outline.hlsl load failed");
 	}
+	// 自動鉄道を外した街でも、後から引く線路は共通の道路網を使う。
+	m_trainNetwork.bind(&m_network);
 	m_trainManager.init(&m_trainNetwork);
 
 	m_roadRenderer.loadAssets();
@@ -50,6 +52,7 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"land_info",Vec2{320,190},true,true);
+	m_panelManager.registerPanel(U"rail_info", Vec2{RailInfoPanel::kWidth, 280}, true, true);
 	m_panelManager.registerPanel(U"zone_palette",Vec2{ZonePalette::kWidth,ZonePalette::kHeight+24},true,true);
 	m_panelManager.registerPanel(U"rail_timetable",Vec2{TrainTimetableEditor::kWidth,Min(TrainTimetableEditor::kHeight,Scene::Height()-40)},true,true);
 	m_panelManager.registerPanel(U"building_info", Vec2{320, static_cast<double>(Scene::Height() - 20)}, true, true);
@@ -81,7 +84,11 @@ void GameScene::startSimThread()
 	m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
 	m_vehicleManager.init(*m_simGraph, m_network, &m_world);
 	m_trainManager.enablePassengerEvents();
-	m_pedestrianManager.initialize(m_world, m_network, m_vehicleManager.buildingAccess(), m_trainNetwork);
+	m_pedestrianManager.setCarsEnabled(getData().generation.enabled(GenerationOptions::Element::Cars));
+	if (getData().generation.enabled(GenerationOptions::Element::Pedestrians))
+	{
+		m_pedestrianManager.initialize(m_world, m_network, m_vehicleManager.buildingAccess(), m_trainNetwork);
+	}
 	m_citySnapshot = collectCitySnapshot(m_world, m_network, m_vehicleManager.vehicles());
 	m_simThread.start(m_simGraph);
 }
@@ -197,14 +204,20 @@ void GameScene::update()
 
 		if (m_simGraph)
 		{
-			m_vehicleManager.setTrafficDemand(calculateTrafficDemand(m_economy.population, m_citySnapshot, m_clock.hour));
+			// 自動発生だけを止め、手動運転や明示的に配置した車両の更新は継続する。
+			auto demand = calculateTrafficDemand(m_economy.population, m_citySnapshot, m_clock.hour);
+			if (!getData().generation.enabled(GenerationOptions::Element::Cars))
+			{
+				demand.targetVehicleCount = 0;
+			}
+			m_vehicleManager.setTrafficDemand(demand);
 			m_vehicleManager.setTrafficFocus(m_camera.focusPoint());
 			m_vehicleManager.update(simulationDt, m_clock.now, *m_simGraph,
 			                        m_network, m_roadRenderer.visibleEdges());
 		}
 
 		m_trainManager.update(simulationDt, m_clock.now);
-		if (m_simGraph)
+		if (m_simGraph && getData().generation.enabled(GenerationOptions::Element::Pedestrians))
 		{
 			// 乗物の到着を確定してから、降車・徒歩・次の乗車へ進める。
 			m_pedestrianManager.update(simulationDt, m_camera.eyePosition(), m_world, m_network,
@@ -247,6 +260,14 @@ void GameScene::update()
 		GameInput::releaseTextFocus(); m_railTimetableWasVisible = false;
 	}
 	const bool mapInput=m_minimapRenderer.consumedInput();
+	const bool layerHover =
+		!mapInput && StartScreenControls::layerButton(Scene::Size(), m_frameRateGraph.visible).contains(Cursor::PosF());
+	if (layerHover && MouseL.down() && !m_showPauseMenu && !GameInput::keyboardBlocked() &&
+		!m_panelManager.blocksMouseInput())
+	{
+		toggleUnderground();
+		GameInput::textOwnedFrame = true;
+	}
 	if (!m_showPauseMenu && !mapInput)
 		m_panelManager.handleInput();
 	m_uiRenderer.updateLayout(m_camera.mode() == CameraMode::FirstPerson,m_driving.active(),!modeString().isEmpty());
@@ -271,12 +292,13 @@ void GameScene::update()
 	const bool commandChord=GameInput::pressed(KeyControl) &&
 		(GameInput::pressed(KeyShift) || GameInput::pressed(KeyZ) || GameInput::pressed(KeyY) || GameInput::pressed(KeyR));
 	m_camera.setKeyboardBlocked(mapInput || m_showPauseMenu || textFocused || commandChord);
-	m_camera.setBlockInput(mapInput || m_showPauseMenu || textFocused || m_panelManager.isMouseOnAnyPanel() || m_uiRenderer.isMouseOnHud());
+	m_camera.setBlockInput(mapInput || m_showPauseMenu || textFocused || m_panelManager.isMouseOnAnyPanel() ||
+						   m_uiRenderer.isMouseOnHud() || layerHover);
 	if (!mapInput) { m_camera.update(dt, m_world); }
 	m_logicMs = swLogic.msF();
 
 	// 車両追跡
-	if (!mapInput && m_trackingVehicle && m_selectedVehicleId)
+	if (!mapInput && !m_showPauseMenu && !textFocused && m_trackingVehicle && m_selectedVehicleId)
 	{
 		if (GameInput::pressed(KeyW) || GameInput::pressed(KeyA) || GameInput::pressed(KeyS) || GameInput::pressed(KeyD))
 		{
@@ -293,6 +315,32 @@ void GameScene::update()
 				}
 			}
 		}
+	}
+
+	if (m_selection.kind == SelectionKind::Train)
+	{
+		const auto found = std::find_if(m_trainManager.trains().begin(), m_trainManager.trains().end(),
+			[&](const Train& train) { return train.id == m_selection.id; });
+		if (found == m_trainManager.trains().end() || !m_panelManager.isVisible(U"rail_info"))
+		{
+			clearSelection();
+		}
+		else if (m_trackingTrain && !mapInput && !m_showPauseMenu && !textFocused)
+		{
+			if (GameInput::pressed(KeyW) || GameInput::pressed(KeyA) || GameInput::pressed(KeyS) ||
+				GameInput::pressed(KeyD))
+			{
+				m_trackingTrain = false;
+			}
+			else
+			{
+				m_camera.setFocus(RailInfoPanel::followPosition(*found, m_trainNetwork));
+			}
+		}
+	}
+	if (m_selection.kind == SelectionKind::Station && !m_panelManager.isVisible(U"rail_info"))
+	{
+		clearSelection();
 	}
 
 	if (m_selectedVehicleId && !m_panelManager.isVisible(U"vehicle_info"))
@@ -317,6 +365,9 @@ void GameScene::jumpToMapPosition(Vec2 target)
 {
 	leaveDriving(true);
 	m_trackingVehicle=false;
+	m_trackingTrain = false;
 	target.x=Clamp(target.x,.5,static_cast<double>(WORLD_SIZE)-.5); target.y=Clamp(target.y,.5,static_cast<double>(WORLD_SIZE)-.5);
-	m_camera.setFocus({target.x,m_world.sampleHeight(static_cast<float>(target.x),static_cast<float>(target.y)),target.y});
+	m_camera.setFocus({target.x,
+		m_world.sampleHeight(static_cast<float>(target.x), static_cast<float>(target.y)) - (m_underground ? 20 : 0),
+		target.y});
 }

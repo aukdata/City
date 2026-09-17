@@ -508,4 +508,22 @@ void registerPedestrianTests(TestRunner& runner)
 		context.expect(renderer.stats().submitted == 0, U"Riders are not drawn simultaneously on the street");
 		report.save(directory.previous + U"TestResults/pedestrian_gpu.json");
 	});
+	runner.add(U"Pedestrians.DisabledCars", [](TestContext& context)
+	{
+		Town town{1};
+		town.people.setCarsEnabled(false);
+		const auto origin = town.people.people()[0].origin;
+		int64 destination = origin;
+		for (const auto& site : town.people.network().sites())
+		{
+			if (site.key != origin)
+			{
+				destination = site.key;
+				break;
+			}
+		}
+		context.expect(
+			town.people.beginTrip(0, destination, PedestrianTripMode::Car), U"交通を抑えた街でも移動を開始できる");
+		context.expect(town.people.people()[0].mode == PedestrianTripMode::Walk, U"車を待ち続けずに徒歩へ切り替える");
+	});
 }

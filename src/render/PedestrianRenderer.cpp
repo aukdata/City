@@ -59,7 +59,8 @@ void PedestrianRenderer::prepare()
 	box(m_far.source.geometry, {0, 1.64, 0}, {.22, .24, .22});
 	m_far.source.material.diffuse = ColorF{1};
 }
-void PedestrianRenderer::render(const Array<Pedestrian>& people, double now, const BasicCamera3D& camera)
+void PedestrianRenderer::render(
+	const Array<Pedestrian>& people, double now, const BasicCamera3D& camera, const std::function<bool(Vec3)>& visible)
 {
 	prepare();
 	m_stats = {};
@@ -87,6 +88,10 @@ void PedestrianRenderer::render(const Array<Pedestrian>& people, double now, con
 			continue;
 		}
 		Vec3 position = person.position;
+		if (visible && !visible(position))
+		{
+			continue;
+		}
 		const double distance = position.distanceFromSq(eye);
 		if (distance > maximum * maximum || !frustum.intersects(Sphere{position + Vec3{0, .9, 0}, 1.1}))
 		{

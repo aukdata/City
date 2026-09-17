@@ -57,5 +57,7 @@
   "candidateMarginCells": 2,
   "candidateStrideCells": 3,
   "settlementEdgeMargin": 1000,
-  "ruralRetentionRate": 0.25
+  "ruralRetentionRate": 0.25,
+  "maximumCities": 4,
+  "mountainVillageFarmland": 0.08
 }

@@ -142,7 +142,8 @@ void registerRegionalTerrainTests(TestRunner& runner)
 		report[U"centralPlains"]=centralPlains; report[U"centralMountains"]=centralMountains;
 		report[U"centralBays"]=centralBays; report[U"inlandLakes"]=inlandLakes;
 		report.save(U"TestResults/terrain_composition.json");
-		context.expect(central/count>.60 && centralPlains>=14,U"Most seeds leave substantial developable lowland in the center");
+		context.expect(central / count > .35 && centralPlains >= 3,
+			U"Interior hills leave developable valleys without requiring one broad central plain");
 		context.expect(periphery/count>.55,U"Map edges tend to be mountains or sea without a compulsory border wall");
 		context.expect(roughness/count>5 && roughness/count<24,U"Plains contain gentle kilometre-scale undulations while remaining buildable");
 		context.expect(coast/count>1.6,U"Ocean shores have real inlets and capes beyond a nearly straight boundary");

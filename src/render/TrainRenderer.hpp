@@ -16,11 +16,16 @@ public:
 	void renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,const RoadNetwork& roads);
 
 	/// @brief 列車を描画する
-	void renderTrains(const Array<Train>& trains,const TrainNetwork& network, Optional<Vec3> eye = none);
+	void renderTrains(const Array<Train>& trains, const TrainNetwork& network, Optional<Vec3> eye = none,
+		const std::function<bool(Vec3)>& visible = {});
 	/// @brief 前フレームで見えた駅名・車庫名を3D描画前に合成する。
 	void prepareFacilityTextures();
 	/// @brief 選択中の編成を通常描画と同じ姿勢・LODでマスクへ描く。
-	void drawTrainSilhouette(const Train& train,const TrainNetwork& network,Vec3 eye,const ColorF& color);
+	void drawTrainSilhouette(const Train& train, const TrainNetwork& network, Vec3 eye, const ColorF& color,
+		const std::function<bool(Vec3)>& visible = {});
+
+	/// @brief 通常表示と地下断面が同じレール形状を使う。
+	static MeshData trackGeometry(const TrackEdge& edge, const CubicBezier& curve, bool distant = false);
 
 	/// @brief エッジの線路メッシュキャッシュを無効化する（線路変更時に呼ぶ）
 	void invalidateTrackCache(int edgeId);

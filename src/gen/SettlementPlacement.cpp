@@ -273,11 +273,17 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 		makePlan(settlement, seed, nearRegional, height);
 		settlements << std::move(settlement);
 	};
+	int cityCount = 0;
 	for (const auto& site : sites)
 	{
+		if (cityCount >= GenerationSettings::get().placement_maximumCities)
+		{
+			break;
+		}
 		if (site.score >= GenerationSettings::get().placement_minimumCityScore && site.farmland >= GenerationSettings::get().placement_minimumCityFarmland && clearOfCenters(site.center, GenerationSettings::get().placement_regionalSpacing))
 		{
 			addCenter(site, Kind::RegionalCity);
+			++cityCount;
 		}
 	}
 	// A market town needs surrounding agricultural sites and separation from other centers.
@@ -312,7 +318,14 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 	Array<double> villageSpacing;
 	for (const auto& site : sites)
 	{
-		if (site.farmland < GenerationSettings::get().placement_minimumVillageFarmland) { continue; }
+		// 山村は狭い谷底の耕地でも成立する。住宅の局所勾配と水面の検査は共通。
+		const double minimumFarmland = height(site.center) >= GenerationSettings::get().placement_uplandHeight
+										   ? GenerationSettings::get().placement_mountainVillageFarmland
+										   : GenerationSettings::get().placement_minimumVillageFarmland;
+		if (site.farmland < minimumFarmland)
+		{
+			continue;
+		}
 		const double cost = Min(GenerationSettings::get().placement_catchmentReach, access.cost(site.center));
 		const double spacing = GenerationSettings::get().placement_villageMinimumSpacing + std::pow(cost / GenerationSettings::get().placement_catchmentReach, GenerationSettings::get().placement_villageRemotenessExponent) * GenerationSettings::get().placement_villageRemoteSpacing;
 		bool occupied = false;

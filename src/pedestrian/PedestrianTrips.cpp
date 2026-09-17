@@ -14,6 +14,11 @@ bool PedestrianManager::beginTrip(int id, int64 destination, PedestrianTripMode 
 	{
 		return false;
 	}
+	// 車の自動生成を無効にした街では、指定された自動車移動も徒歩へ揃える。
+	if (!m_carsEnabled && mode == PedestrianTripMode::Car)
+	{
+		mode = PedestrianTripMode::Walk;
+	}
 	person.destination = destination;
 	person.mode = mode;
 	person.finalWalk = false;
@@ -33,7 +38,7 @@ bool PedestrianManager::beginTrip(int id, int64 destination, PedestrianTripMode 
 			person.toStation = m_walk.stations()[b].stationId;
 		}
 	}
-	if (mode == PedestrianTripMode::Car)
+	if (m_carsEnabled && mode == PedestrianTripMode::Car)
 	{
 		const int a = m_nearParking[*from], b = m_nearParking[*to];
 		if (a < 0 || b < 0 || a == b)

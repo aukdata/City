@@ -94,6 +94,12 @@ void GameScene::handleInput()
 		return;
 	}
 
+	if (!m_showPauseMenu && GameInput::down(KeyU))
+	{
+		toggleUnderground();
+		return;
+	}
+
 	if (m_mode == EditMode::RoadPlan && GameInput::down(KeyEscape) && !m_draftRoadPlan.editor.points().isEmpty())
 	{
 		clearDraftRoadPlan();
@@ -350,7 +356,11 @@ void GameScene::handleInput()
 		}
 	}
 
-	if (m_uiRenderer.isMouseOnHud() || NavigationHeader::placeBounds(Scene::Size()).contains(Cursor::PosF())) { return; }
+	if (StartScreenControls::layerButton(Scene::Size(), m_frameRateGraph.visible).contains(Cursor::PosF()) ||
+		m_uiRenderer.isMouseOnHud() || NavigationHeader::placeBounds(Scene::Size()).contains(Cursor::PosF()))
+	{
+		return;
+	}
 
 	if      (m_mode == EditMode::RoadPlan)     handleRoadPlan();
 	else if (m_mode == EditMode::RoadDraw)     handleRoadDraw();
@@ -758,13 +768,25 @@ void GameScene::handleSelectionClick()
 	Optional<int> hitVehicleId,hitTrainId;
 	{
 		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
-		double bestDist = 1e9;
+		double bestDist = !m_underground && m_camera.mode() == CameraMode::Overview && m_cursorGroundPos
+							  ? Vec3{ray.getOrigin()}.distanceFrom(*m_cursorGroundPos) + 1
+							  : 1e9;
 		for (const auto& train:m_trainManager.trains())
 		{
-			if (const auto distance=TrainConsist::hitDistance(train,m_trainNetwork,ray);distance && *distance<bestDist) { bestDist=*distance;hitTrainId=train.id; }
+			if (const auto distance = TrainConsist::hitDistance(train, m_trainNetwork, ray,
+					[&](Vec3 point) { return !m_underground || SubsurfaceView::below(point, m_world); });
+				distance && *distance < bestDist)
+			{
+				bestDist = *distance;
+				hitTrainId = train.id;
+			}
 		}
 		for (const auto& v : m_renderVehicles)
 		{
+			if (m_underground && !SubsurfaceView::below(v.position, m_world))
+			{
+				continue;
+			}
 			const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
 			const Vec3 center = v.position + Vec3{ 0, size.y / 2, 0 };
 			const Quaternion rot = Quaternion::RotateY(v.heading);
@@ -782,9 +804,8 @@ void GameScene::handleSelectionClick()
 
 	if (hitTrainId)
 	{
-		clearSelection();m_selectedVehicleId.reset();m_trackingVehicle=false;
-		m_panelManager.hide(U"vehicle_info");
-		m_selection={SelectionKind::Train,*hitTrainId};return;
+		selectTrain(*hitTrainId);
+		return;
 	}
 
 	if (hitVehicleId)
@@ -803,6 +824,27 @@ void GameScene::handleSelectionClick()
 		m_selectedVehicleId = none;
 		m_trackingVehicle = false;
 		m_panelManager.hide(U"vehicle_info");
+	}
+
+	const Ray selectionRay = m_camera.screenToRay(Cursor::PosF());
+	if (const auto station = SubsurfaceView::stationHit(m_world, m_trainNetwork, selectionRay, m_underground))
+	{
+		selectStation(*station->station);
+		return;
+	}
+	if (m_underground)
+	{
+		if (const auto hit = m_subsurface.hit(selectionRay); hit && hit->edge)
+		{
+			selectEdge(*hit->edge);
+			m_panelManager.show(U"edge_info", U"地下の道路・線路 #{}"_fmt(*hit->edge), panelRightPos(U"edge_info"));
+		}
+		else
+		{
+			clearSelection();
+			m_panelManager.hide(U"edge_info");
+		}
+		return;
 	}
 
 	// ── 付帯設備（看板・信号）のヒットテスト（ノード/エッジより優先） ──
@@ -846,7 +888,7 @@ void GameScene::handleSelectionClick()
 	}
 
 	// 地上カーソルで検索（ノード・エッジ）
-	auto hitNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+	auto hitNode = visibleNodeNear(*m_cursorGroundPos, 20.0f);
 	Optional<int> hitEdge;
 	if (!hitNode)
 		hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
@@ -1007,7 +1049,7 @@ void GameScene::handleRoadDraw()
 		clickPos.y += m_drawElevation;
 
 		// ノード決定: 既存ノード → エッジ分割 → 新規作成
-		auto nearNode = m_network.findNodeNear(clickPos, 20.0f);
+		auto nearNode = visibleNodeNear(clickPos, 20.0f);
 		int nodeId;
 		if (nearNode)
 		{
@@ -1191,6 +1233,8 @@ void GameScene::handleTerrainEdit()
 	if (delta == 0.0f) return;
 
 	const Vec3 center = *m_cursorGroundPos;
+	constexpr float kMinimumEditableHeight = -2000.0f;
+	constexpr float kMaximumEditableHeight = 6000.0f;
 
 	for (Chunk* chunk : m_world.getActiveChunks())
 	{
@@ -1210,9 +1254,8 @@ void GameScene::handleTerrainEdit()
 
 				const float t      = static_cast<float>(dist / m_terrainBrushRadius);
 				const float weight = static_cast<float>(Math::Cos(t * Math::Pi / 2.0));
-				chunk->heightMap[{ col, row }] = Clamp(
-					chunk->heightMap[{ col, row }] + delta * weight,
-					-200.0f, 350.0f);
+				chunk->heightMap[{col, row}] = Clamp(
+					chunk->heightMap[{col, row}] + delta * weight, kMinimumEditableHeight, kMaximumEditableHeight);
 				modified = true;
 			}
 		}
@@ -1221,6 +1264,8 @@ void GameScene::handleTerrainEdit()
 		{
 			chunk->meshDirty = true;
 			chunk->updateHeightBounds();
+			m_subsurface.invalidate();
+			m_tunnelRenderer.dirty = true;
 		}
 	}
 }
@@ -1340,7 +1385,7 @@ void GameScene::handleSandboxEdit()
 		m_sandboxDragNodeStartPos = none;
 		m_sandboxDragCtrl = none;
 
-		m_sandboxDragNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+		m_sandboxDragNode = visibleNodeNear(*m_cursorGroundPos, 20.0f);
 		if (m_sandboxDragNode)
 		{
 			if (const RoadNode* node = m_network.getNode(*m_sandboxDragNode))
@@ -1431,7 +1476,7 @@ void GameScene::handleSandboxEdit()
 
 	if (MouseR.down())
 	{
-		auto nearNode = m_network.findNodeNear(*m_cursorGroundPos, 20.0f);
+		auto nearNode = visibleNodeNear(*m_cursorGroundPos, 20.0f);
 		if (nearNode)
 		{
 			Array<int> neighborNodes;
@@ -1504,6 +1549,19 @@ void GameScene::updateCursor()
 	const Ray    ray  = m_camera.screenToRay(Vec2{ Cursor::Pos() });
 	const Float3 orig = ray.origin;
 	const Float3 dir  = ray.direction;
+	if (m_underground)
+	{
+		m_subsurface.prepare(m_world, m_network, m_trainNetwork);
+		if (const auto hit = m_subsurface.hit(ray))
+		{
+			m_cursorGroundPos = hit->position;
+			return;
+		}
+		const double distance = Abs(dir.y) > 1e-6 ? (m_camera.focusPoint().y - orig.y) / dir.y : -1;
+		m_cursorGroundPos =
+			Abs(dir.y) > 1e-6 && distance > 0 ? Optional<Vec3>{Vec3{ray.point_at(static_cast<float>(distance))}} : none;
+		return;
+	}
 
 	if (dir.y >= 0.0f)
 	{

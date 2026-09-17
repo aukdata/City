@@ -194,7 +194,8 @@ void RoadPlanSnapIndex::appendEdge(const RoadNetwork& network,int edgeId)
 		}
 }
 
-RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius, double heightTolerance, bool preferNodes) const
+RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius,
+	double heightTolerance, bool preferNodes, const std::function<bool(const RoadEdge&)>& accept) const
 {
 	Hit result{ cursor };
 	double bestDistance = radius * radius;
@@ -222,6 +223,11 @@ RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 
 	nearbyEdges.erase(std::unique(nearbyEdges.begin(), nearbyEdges.end()), nearbyEdges.end());
 	for (const int id : nearbyEdges)
 	{
+		const auto* edge = network.getEdge(id);
+		if (!edge || (accept && !accept(*edge)))
+		{
+			continue;
+		}
 		const auto curve = network.getBezier(id);
 		if (!curve) { continue; }
 		constexpr int kSamples = 32;

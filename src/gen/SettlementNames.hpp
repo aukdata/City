@@ -12,8 +12,13 @@ namespace SettlementNames
 	inline String name(const MapGenerator::Settlement& town) { const String ending=suffix(town.kind);return town.name.ends_with(ending) ? town.name : town.name+ending; }
 	inline String reading(const MapGenerator::Settlement& town)
 	{
-		if (town.reading.isEmpty() || town.name.ends_with(suffix(town.kind))) { return town.reading; }
-		return town.reading+(town.kind==MapGenerator::SettlementKind::RegionalCity ? U"-shi"
-			: town.kind==MapGenerator::SettlementKind::LocalTown ? U"-machi" : U"-mura");
+		if (town.reading.isEmpty())
+		{
+			return {};
+		}
+		// 語幹が「村」で終わる場合も英語の行政種別は省略しない。
+		return town.reading + (town.kind == MapGenerator::SettlementKind::RegionalCity	 ? U" City"
+								  : town.kind == MapGenerator::SettlementKind::LocalTown ? U" Towm"
+																						 : U" Vill.");
 	}
 }

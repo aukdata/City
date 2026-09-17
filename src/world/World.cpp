@@ -1,6 +1,8 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "World.hpp"
 #include <cmath>
+#include <thread>
+#include <atomic>
 
 void World::reserveChunks()
 {
@@ -149,6 +151,7 @@ void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 	m_rangeWidth=kRangeWidthMin+random()*kRangeWidthSpread;
 	m_flankSign=random()<.5 ? -1 : 1;
 	if (m_centralLandform==CentralLandform::Bay) { m_bayCenter=m_featureCenter.y*Min(mapWidth,mapDepth); }
+	buildMacroTerrain();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,7 +179,7 @@ double World::lakeInfluence(double inlandAxis, double alongAxis, double scale) c
 	return transition(edge,kShoreBlendWidth);
 }
 
-void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
+void World::computeRawBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
 {
 	// Horizontal dimensions below are fractions of the shorter map side; heights are metres.
 	const double kFullReliefMapSize=GenerationSettings::get().terrain_fullReliefMapSize;
@@ -246,6 +249,100 @@ void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp
 	const double lake=lakeInfluence(u,v,scale);
 	outBase=static_cast<float>(Math::Lerp((plain+mountain)*coastBlend,kLakeBed*reliefScale,lake));
 	outAmp=static_cast<float>((kPlainDetail+mountain*kMountainDetail)*coastBlend*(1-lake));
+}
+
+/// @brief 重い海岸・山脈ノイズは共有格子に一度だけ評価し、16m地表と地図は補間で参照する。
+void World::buildMacroTerrain()
+{
+	const auto& config = GenerationSettings::get();
+	const int columns = Max(2, static_cast<int>(Ceil(m_mapWidth / config.terrain_macroSampleStep)));
+	const int rows = Max(2, static_cast<int>(Ceil(m_mapDepth / config.terrain_macroSampleStep)));
+	m_macroStepX = m_mapWidth / columns;
+	m_macroStepZ = m_mapDepth / rows;
+	m_macroTerrain = Grid<Float2>(columns + 1, rows + 1);
+	Grid<float> noise(columns + 1, rows + 1);
+	const double relief = Min(1.0, Min(m_mapWidth, m_mapDepth) / config.terrain_fullReliefMapSize);
+	const double hillHeight = config.terrain_interiorHillHeight * relief;
+	const double scale = Min(m_mapWidth, m_mapDepth) * config.terrain_interiorHillScale;
+	std::atomic<int> nextRow{0};
+	Array<std::thread> workers;
+	const unsigned count = Min(8u, Max(1u, std::thread::hardware_concurrency()));
+	for (unsigned i = 0; i < count; ++i)
+	{
+		workers.emplace_back([&]()
+		{
+			for (int z = nextRow.fetch_add(1); z <= rows; z = nextRow.fetch_add(1))
+			{
+				for (int x = 0; x <= columns; ++x)
+				{
+					float base, amplitude;
+					const float wx = static_cast<float>(x * m_macroStepX), wz = static_cast<float>(z * m_macroStepZ);
+					computeRawBiomeParams(wx, wz, base, amplitude);
+					m_macroTerrain[{x, z}] = {base, amplitude};
+					noise[{x, z}] = static_cast<float>(m_perlin.noise2D0_1(wx / scale + 171.0, wz / scale + 513.0));
+				}
+			}
+		});
+	}
+	for (auto& worker : workers)
+	{
+		worker.join();
+	}
+	// 平野になる格子の「丘陵へ変わる閾値」を順位付けする。一律の環状山地は作らない。
+	Array<double> thresholds;
+	for (int z = 0; z < rows; ++z)
+	{
+		for (int x = 0; x < columns; ++x)
+		{
+			const auto value = m_macroTerrain[{x, z}];
+			if (value.x < 0 || value.x > config.terrain_mountainBiomeHeight || value.y > config.terrain_hillBiomeRelief)
+			{
+				continue;
+			}
+			const double coastalFade = Clamp(value.x / 20.0, 0.0, 1.0);
+			const double required = (config.terrain_hillBiomeRelief + .01 - value.y) / config.terrain_mountainDetail;
+			thresholds << noise[{x, z}] - Sqrt(required / Max(.001, hillHeight * coastalFade));
+		}
+	}
+	double threshold = config.terrain_interiorHillThreshold;
+	// 補間境界の誤差を含めても半分を超えないよう、面積に2ポイントの余裕を持たせる。
+	const size_t allowed = static_cast<size_t>(columns * rows * (config.terrain_maximumPlainFraction - .02));
+	if (thresholds.size() > allowed)
+	{
+		thresholds.sort();
+		threshold = Min(threshold, thresholds[allowed]);
+	}
+	for (int z = 0; z <= rows; ++z)
+	{
+		for (int x = 0; x <= columns; ++x)
+		{
+			auto& value = m_macroTerrain[{x, z}];
+			if (value.x <= 0)
+			{
+				continue;
+			}
+			const double hill =
+				Square(Max(0.0, noise[{x, z}] - threshold)) * hillHeight * Clamp(value.x / 20.0, 0.0, 1.0);
+			value.x += static_cast<float>(hill);
+			value.y += static_cast<float>(hill * config.terrain_mountainDetail);
+		}
+	}
+}
+
+void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
+{
+	if (m_macroTerrain.isEmpty() || wx < 0 || wz < 0 || wx > m_mapWidth || wz > m_mapDepth)
+	{
+		computeRawBiomeParams(wx, wz, outBase, outAmp);
+		return;
+	}
+	const double x = wx / m_macroStepX, z = wz / m_macroStepZ;
+	const int col = Min(static_cast<int>(m_macroTerrain.width()) - 2, static_cast<int>(x));
+	const int row = Min(static_cast<int>(m_macroTerrain.height()) - 2, static_cast<int>(z));
+	const auto a = m_macroTerrain[{col, row}], b = m_macroTerrain[{col + 1, row}];
+	const auto c = m_macroTerrain[{col, row + 1}], d = m_macroTerrain[{col + 1, row + 1}];
+	outBase = static_cast<float>(Math::Lerp(Math::Lerp(a.x, b.x, x - col), Math::Lerp(c.x, d.x, x - col), z - row));
+	outAmp = static_cast<float>(Math::Lerp(Math::Lerp(a.y, b.y, x - col), Math::Lerp(c.y, d.y, x - col), z - row));
 }
 
 BiomeType World::getBiome(float wx, float wz) const

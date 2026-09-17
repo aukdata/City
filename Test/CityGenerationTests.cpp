@@ -711,6 +711,7 @@ void registerCityGenerationTests(TestRunner& runner)
 			double maxDifference = 0.0;
 			double totalDifference = 0.0;
 			double maxTriangleError = 0.0;
+			double maxRoundedTriangleError = 0.0;
 			Vec2 worstPosition;
 			double worstSample = 0, worstReference = 0;
 			Float3 worstVertices;
@@ -729,6 +730,9 @@ void registerCityGenerationTests(TestRunner& runner)
 						const double triangleHeight = terrain.heightMap[{ col, row }] * (4.0 / 16.0)
 							+ terrain.heightMap[{ col + 1, row }] * (5.0 / 16.0)
 							+ terrain.heightMap[{ col, row + 1 }] * (7.0 / 16.0);
+						// 2,048m以上ではfloatの1ULPが0.244mm。格納精度に丸めた同じ平面と比較する。
+						maxRoundedTriangleError =
+							Max(maxRoundedTriangleError, Abs(sampled - static_cast<float>(triangleHeight)));
 						if (Abs(sampled - triangleHeight) > maxTriangleError)
 						{
 							maxTriangleError = Abs(sampled - triangleHeight);
@@ -750,7 +754,8 @@ void registerCityGenerationTests(TestRunner& runner)
 			context.expect(sampleCount > 0, U"Real generated terrain was sampled");
 			report << U"renderedTriangleMaxErrorM={:.9f} position={} sampled={:.9f} reference={:.9f} vertices={}"_fmt(
 				maxTriangleError, worstPosition, worstSample, worstReference, worstVertices);
-			context.expect(maxTriangleError < 0.0001, U"Generated terrain sampling matches the rendered plane within 0.1mm");
+			context.expect(maxRoundedTriangleError == 0,
+				U"Generated terrain sampling exactly matches the rendered plane at float storage precision");
 		}
 	});
 }

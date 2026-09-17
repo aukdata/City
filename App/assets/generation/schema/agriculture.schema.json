@@ -35,7 +35,10 @@
     "minimumReachRatio",
     "homeSetback",
     "homeFootprintMargin",
-    "connectionRadius"
+    "connectionRadius",
+    "deadEndConnectionRadius",
+    "meanderAngle",
+    "meanderWavelength"
   ],
   "properties": {
     "plotLength": {
@@ -197,6 +200,21 @@
       "type": "number",
       "minimum": 2.0,
       "maximum": 100.0
+    },
+    "deadEndConnectionRadius": {
+      "type": "number",
+      "minimum": 80.0,
+      "maximum": 500.0
+    },
+    "meanderAngle": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.7
+    },
+    "meanderWavelength": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 1200.0
     }
   }
 }

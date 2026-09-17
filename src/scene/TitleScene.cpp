@@ -1,163 +1,106 @@
 ﻿#include "TitleScene.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../save/SaveCatalog.hpp"
 
 TitleScene::TitleScene(const InitData& init)
-	: IScene{ init }
-	, m_selectedSeed{ getData().seed }
-	, m_sandboxMode{ getData().sandboxMode }
+	: IScene{init}, m_selectedSeed{getData().seed}, m_sandboxMode{getData().sandboxMode},
+	  m_options{getData().generation}
 {
-	// タイトル表示前に前回値を UI 状態へ反映し、保存データ一覧もここで読み込んでおく。
 	m_seedTextState.text = Format(m_selectedSeed);
 	scanSaves();
 }
 
 void TitleScene::scanSaves() const
 {
-	// saves/ 直下の有効セーブだけを列挙し、ロードリスト用に名前一覧を作り直す。
-	m_saveNames.clear();
-	const FilePath savesDir = U"saves";
-	if (!FileSystem::Exists(savesDir)) return;
-
-	for (const auto& entry : FileSystem::DirectoryContents(savesDir, Recursive::No))
+	String selected;
+	if (m_saves.selected >= 0 && m_saves.selected < static_cast<int>(m_saves.names.size()))
 	{
-		if (!FileSystem::IsDirectory(entry)) continue;
-
-		// DirectoryContents は末尾 / 付きパスを返すため除去してから名前を取得
-		String path = entry;
-		while (path.ends_with(U'/') || path.ends_with(U'\\'))
-			path.pop_back();
-		const String name = FileSystem::FileName(path);
-		if (name.isEmpty()) continue;
-
-		if (FileSystem::Exists(entry + U"meta.json") || FileSystem::Exists(entry + U"/meta.json"))
-			m_saveNames << name;
+		selected = m_saves.names[m_saves.selected];
 	}
-	m_saveNames.sort();
+	m_saves.names = SaveCatalog::list(U"saves");
+	m_saves.selected = -1;
+	for (size_t i = 0; i < m_saves.names.size(); ++i)
+	{
+		if (m_saves.names[i] == selected)
+		{
+			m_saves.selected = static_cast<int>(i);
+		}
+	}
+	m_saves.first =
+		Clamp(m_saves.first, 0, Max(0, static_cast<int>(m_saves.names.size()) - StartScreenControls::kVisibleSaves));
 }
 
 void TitleScene::update()
 {
-	// タイトル画面では入力結果を SceneData へ反映し、新規開始かロードかだけを切り替えて遷移する。
+	if (m_deleteRequested)
+	{
+		m_deleteRequested = false;
+		const auto result = SaveCatalog::remove(U"saves", m_saves.confirming);
+		m_saves.error = result.success ? U"" : result.message;
+		m_saves.confirming.clear();
+		scanSaves();
+	}
 	if (m_startRequested)
 	{
-		getData().seed        = m_selectedSeed;
+		getData().seed = m_selectedSeed;
 		getData().sandboxMode = m_sandboxMode;
-		getData().isNewGame   = true;
+		getData().generation = m_options;
+		getData().isNewGame = true;
 		getData().saveName.clear();
 		changeScene(SceneState::Game, 0s);
+		return;
 	}
-
-	if (m_loadRequested && m_selectedSave >= 0
-	    && m_selectedSave < static_cast<int>(m_saveNames.size()))
+	if (m_loadRequested && m_saves.selected >= 0 && m_saves.selected < static_cast<int>(m_saves.names.size()))
 	{
-		getData().saveName    = m_saveNames[m_selectedSave];
+		getData().saveName = m_saves.names[m_saves.selected];
 		getData().sandboxMode = m_sandboxMode;
-		getData().isNewGame   = false;
+		getData().isNewGame = false;
 		changeScene(SceneState::Game, 0s);
 	}
 }
 
 void TitleScene::draw() const
 {
-	// 左に新規生成、右にセーブロードを固定配置し、開始前に必要な選択肢を一画面へ収める。
-	const auto& titleFont = FontAsset(Asset::TitleBold46);
-	const auto& subFont   = FontAsset(Asset::Sub16);
-	const auto& labelFont = FontAsset(Asset::Label17);
-	const auto& listFont  = FontAsset(Asset::List15);
-
-	const int W = Scene::Width();
-	const int H = Scene::Height();
-
-	// ---- 背景 ----
-	Rect{ 0, 0, W, H }.draw(ColorF{ 0.07, 0.11, 0.16 });
-
-	// ---- タイトル ----
-	titleFont(U"City Simulation").drawAt(W * 0.5, 80, ColorF{ 0.90, 0.95, 1.00 });
-	subFont(U"プロシージャル都市生成シミュレーター").drawAt(W * 0.5, 135, ColorF{ 0.52, 0.63, 0.74 });
-
-	// ============ 左側: 新規生成 ============
-	const int colL = 80;
-
-	labelFont(U"-- 新規生成 --").draw(Vec2{ colL, 185 }, ColorF{ 0.78, 0.86, 0.93 });
-
-	// シード値
-	labelFont(U"シード値").draw(Vec2{ colL, 218 }, ColorF{ 0.78, 0.86, 0.93 });
-	SimpleGUI::TextBox(m_seedTextState, Vec2{ colL, 244 }, 220);
-
+	const auto& title = FontAsset(Asset::TitleBold46);
+	const auto& font = FontAsset(Asset::Small16);
+	const int width = Scene::Width();
+	const double left = Max(24, width / 2 - 370), right = width / 2 + 24;
+	Scene::Rect().draw(ColorF{.07, .11, .16});
+	title(U"Pavecity").drawAt(width * .5, 60, ColorF{.9, .95, 1});
+	font(U"日本のまちと交通をつくる").drawAt(width * .5, 104, ColorF{.6, .73, .8});
+	font(U"新しい街").draw(left, 147, ColorF{.92});
+	font(U"シード値").draw(left, 178, ColorF{.8});
+	SimpleGUI::TextBox(m_seedTextState, {left, 202}, 224);
+	const auto parsed = ParseOpt<uint64>(m_seedTextState.text);
+	if (parsed)
 	{
-		uint64 val  = 0;
-		bool   valid = !m_seedTextState.text.isEmpty();
-		for (char32 c : m_seedTextState.text)
-		{
-			if (c >= U'0' && c <= U'9')
-				val = val * 10 + (c - U'0');
-			else { valid = false; break; }
-		}
-		if (valid)
-			m_selectedSeed = val;
+		m_selectedSeed = *parsed;
 	}
-
-	if (SimpleGUI::Button(U"ランダム", Vec2{ colL + 230, 244 }, 100))
+	if (SimpleGUI::Button(U"ランダム", {left + 236, 202}, 110))
 	{
-		m_selectedSeed       = static_cast<uint64>(Random(10000000, 99999999));
+		m_selectedSeed = Random<uint64>(10000000, 99999999);
 		m_seedTextState.text = Format(m_selectedSeed);
 	}
-
-	// サンドボックスモード
-	SimpleGUI::CheckBox(m_sandboxMode, U"サンドボックスモード",
-	                    Vec2{ colL, 290 }, 300);
-
-	// 生成開始ボタン
-	if (SimpleGUI::Button(U"生成開始", Vec2{ colL, 340 }, 200))
+	SimpleGUI::CheckBox(m_sandboxMode, U"サンドボックス", {left, 249}, 346);
+	font(U"生成するもの").draw(left, 296, ColorF{.92});
+	const Vec2 options{left, 326};
+	StartScreenControls::selectOption(options, m_options, Cursor::PosF(), MouseL.down());
+	StartScreenControls::drawOptions(options, m_options, font);
+	if (SimpleGUI::Button(U"生成開始", {left, 492}, 346, parsed.has_value()))
 	{
 		m_startRequested = true;
 	}
-
-	// ============ 右側: セーブデータロード ============
-	const int colR = W / 2 + 40;
-
-	labelFont(U"-- セーブデータ --").draw(Vec2{ colR, 185 }, ColorF{ 0.78, 0.86, 0.93 });
-
-	if (m_saveNames.isEmpty())
-	{
-		listFont(U"セーブデータがありません").draw(Vec2{ colR, 220 }, ColorF{ 0.5 });
-	}
-	else
-	{
-		constexpr int kItemH = 28;
-		constexpr int kListW = 300;
-		const int listY = 218;
-
-		for (int i = 0; i < static_cast<int>(m_saveNames.size()); ++i)
-		{
-			const int iy = listY + i * kItemH;
-			const RectF r{ static_cast<double>(colR), static_cast<double>(iy),
-			               static_cast<double>(kListW), static_cast<double>(kItemH - 2) };
-			const bool selected = (m_selectedSave == i);
-			const bool hover = r.mouseOver();
-
-			r.draw(selected ? ColorF{ 0.25, 0.40, 0.65 }
-			       : (hover ? ColorF{ 0.20, 0.25, 0.35 } : ColorF{ 0.12, 0.14, 0.20 }));
-
-			listFont(m_saveNames[i]).draw(Vec2{ colR + 8, iy + 4 },
-				selected ? ColorF{ 1.0 } : ColorF{ 0.8 });
-
-			if (hover && MouseL.down())
-				m_selectedSave = i;
-		}
-
-		// ロードボタン
-		const bool canLoad = (m_selectedSave >= 0);
-		if (SimpleGUI::Button(U"ロード", Vec2{ colR, listY + static_cast<int>(m_saveNames.size()) * kItemH + 10 },
-		                      200, canLoad))
-		{
-			m_loadRequested = true;
-		}
-	}
-
-	// 更新ボタン
-	if (SimpleGUI::Button(U"更新", Vec2{ colR + 220, 185 }, 80))
+	font(U"地形・海は常に生成します").draw(13, Vec2{left, 537}, ColorF{.6, .7, .75});
+	font(U"灰色の項目は道路・建物などが必要です").draw(13, Vec2{left, 560}, ColorF{.6, .7, .75});
+	font(U"セーブデータ").draw(right, 147, ColorF{.92});
+	if (SimpleGUI::Button(U"更新", {right + 256, 141}, 84, m_saves.confirming.isEmpty()))
 	{
 		scanSaves();
 	}
+	const Vec2 saves{right, 182};
+	const auto action =
+		StartScreenControls::interactSaves(saves, m_saves, Cursor::PosF(), MouseL.down(), Mouse::Wheel());
+	m_loadRequested = action == StartScreenControls::Action::Load;
+	m_deleteRequested = action == StartScreenControls::Action::Delete;
+	StartScreenControls::drawSaves(saves, m_saves, font);
 }

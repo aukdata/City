@@ -275,7 +275,12 @@ void SettlementDevelopment::applyZonesGlobal()
 						const int globalGZ = cc.y * ZONE_CELLS + gz;
 						const ZoneType candidate = pickInitialZone(m_seed, si, settlement,
 							*chunk, cc, globalGX, globalGZ, wx, wz);
-						if (candidate == ZoneType::Unzoned) continue;
+						if (candidate == ZoneType::Unzoned ||
+							(candidate == ZoneType::Agriculture &&
+								!m_options.enabled(GenerationOptions::Element::Farms)))
+						{
+							continue;
+						}
 
 						ZoneType& current = chunk->zoneMap[{ gx, gz }];
 						if (zonePriority(candidate) >= zonePriority(current))
@@ -776,7 +781,11 @@ namespace
 
 SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(bool preserveLandPatches)
 {
-	if (!preserveLandPatches)
+	if (!m_options.enabled(GenerationOptions::Element::Buildings))
+	{
+		return {true, U"建物の初期生成なし"};
+	}
+	if (!preserveLandPatches && m_options.enabled(GenerationOptions::Element::Farms))
 	{
 		const auto farms=AgriculturalLayout::prepare(m_world,m_network,m_seed,agriculturalFrames(),&m_trainNetwork);
 		DebugLog::print(U"[AgriculturalAccess] roads={} homes={}"_fmt(farms.tracks,farms.homes));
@@ -1412,7 +1421,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 
 		}
 	}
-	if (!preserveExisting)
+	if (!preserveExisting && m_options.enabled(GenerationOptions::Element::Farms))
 	{
 		const auto farmFrames=agriculturalFrames();
 		const auto fields=AgriculturalLayout::generate(m_world,m_network,m_seed,farmFrames,false,&m_trainNetwork);

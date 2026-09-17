@@ -26,9 +26,13 @@ void GameScene::drawNameListPanel()
 		switch (s.kind)
 		{
 		case MapGenerator::SettlementKind::RegionalCity:
-			typeStr = U"[城]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
+			typeStr = U"[市]";
+			typeColor = ColorF{1.0, 0.4, 0.4};
+			break;
 		case MapGenerator::SettlementKind::LocalTown:
-			typeStr = U"[宿]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
+			typeStr = U"[町]";
+			typeColor = ColorF{0.4, 0.8, 1.0};
+			break;
 		default:
 			typeStr = U"[村]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
 		}

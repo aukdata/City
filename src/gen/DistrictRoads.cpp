@@ -1366,7 +1366,10 @@ namespace DistrictRoads
 			settlement.gridAxisX = axisX;
 			settlement.gridAxisZ = axisZ;
 
-			if (plan.origin==UrbanMorphology::Origin::Rural)
+			// 宿場・門前町は既存の街道を骨格にする。町全域を矩形街路へ置き換えない。
+			if (plan.origin == UrbanMorphology::Origin::Rural ||
+				(plan.scale == 1 &&
+					(plan.origin == UrbanMorphology::Origin::Post || plan.origin == UrbanMorphology::Origin::Temple)))
 			{
 				generateRuralFrontage(settlement,world,network); return;
 			}

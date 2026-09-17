@@ -15,6 +15,7 @@ void GameScene::initLoadGame()
 
 void GameScene::initNewGame()
 {
+	m_worldRenderer.setWoodlandEnabled(getData().generation.enabled(GenerationOptions::Element::Trees));
 	// 新規ゲーム開始時は地形から建物配置までの生成パイプラインを非同期ロード段階へ載せる。
 	const auto initResult = MapGenerator::initWorld(getData().seed, m_world);
 	m_placeNames = std::move(initResult.placeNames);
@@ -28,22 +29,39 @@ void GameScene::initNewGame()
 
 	startLoadingPhase(LoadingTask::NewGame, U"マップ生成中...", U"地形生成中", [this]()
 	{
-		m_world.generateRivers();
+		using Element = GenerationOptions::Element;
+		const auto& options = getData().generation;
+		if (options.enabled(Element::Rivers))
+		{
+			m_world.generateRivers();
+		}
 		generateAllTerrain();
-		placeAllSettlements();
-		generateAllRoads();
-		generateDistrictRoads();
-		postProcessRoads();
-		MapGenerator::setupTrain(m_trainNetwork,m_world,m_districts,&m_network);
+		if (options.enabled(Element::Settlements))
+		{
+			placeAllSettlements();
+		}
+		if (options.enabled(Element::Roads))
+		{
+			generateAllRoads();
+			generateDistrictRoads();
+			postProcessRoads();
+		}
+		if (options.enabled(Element::Railway))
+		{
+			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts, &m_network);
+		}
 		m_districtHierarchy.generate(m_world,m_districts);
-	m_network.recomputeAllAutoSigns();
-	m_roadRenderer.setMunicipalityLookup([this](Vec2 point)
-	{
-		const int id=m_districtHierarchy.at(point,0);
-		return id>=0 ? m_districtHierarchy.areas[id].name : U"";
-	});
-		applyZonesGlobal();
-		placeInitialBuildings();
+		m_network.recomputeAllAutoSigns();
+		m_roadRenderer.setMunicipalityLookup([this](Vec2 point)
+		{
+			const int id = m_districtHierarchy.at(point, 0);
+			return id >= 0 ? m_districtHierarchy.areas[id].name : U"";
+		});
+		if (options.enabled(Element::Buildings))
+		{
+			applyZonesGlobal();
+			placeInitialBuildings();
+		}
 		m_trainNetwork.synchronize();
 	});
 	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);

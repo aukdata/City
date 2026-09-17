@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "SceneCommon.hpp"
+#include "../ui/StartScreenControls.hpp"
 
 /// @brief タイトルシーン（マップ生成パラメータ選択 + セーブデータロード）
 class TitleScene : public App::Scene
@@ -18,9 +19,9 @@ private:
 	mutable bool          m_startRequested = false;
 
 	// セーブデータ
-	mutable Array<String> m_saveNames;
-	mutable int           m_selectedSave   = -1;
-	mutable bool          m_loadRequested  = false;
+	mutable StartScreenControls::SaveList m_saves;
+	mutable GenerationOptions m_options;
+	mutable bool m_loadRequested = false, m_deleteRequested = false;
 
 	void scanSaves() const;
 };

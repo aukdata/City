@@ -7,6 +7,7 @@
 #include "../gen/RoadVerticalAlignment.hpp"
 #include "../gen/StreetBlocks.hpp"
 #include "../gen/DistrictRoads.hpp"
+#include "../gen/VillageConnections.hpp"
 #include "../save/RoadBinary.hpp"
 
 /// @file
@@ -124,6 +125,8 @@ void GameScene::generateDistrictRoads()
 			m_genProgress.store(kProgressDistrict +
 				(kProgressPostProcess - kProgressDistrict) * fraction);
 		});
+	setLoadingStatus(U"村どうしの遠回りを改善中");
+	VillageConnections::improve(getData().seed, m_districts, m_world, m_network);
 }
 
 void GameScene::postProcessRoads()
@@ -400,7 +403,7 @@ void GameScene::addDistricts(const Array<MapGenerator::Settlement>& newDistricts
 
 SettlementDevelopment GameScene::settlementDevelopment()
 {
-	return { m_world, m_network, m_trainNetwork, m_districts, getData().seed };
+	return {m_world, m_network, m_trainNetwork, m_districts, getData().seed, getData().generation};
 }
 
 void GameScene::applyZonesGlobal()

@@ -158,12 +158,16 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 				auto rivers=world.rivers().subset(RectF{chunk.coord.x*CHUNK_SIZE-64,chunk.coord.y*CHUNK_SIZE-64,CHUNK_SIZE+128,CHUNK_SIZE+128});
 				TerrainJob job{ key, m_terrainEpoch, m_terrainRevisions[key], {} };
 				job.detailedTrees=prepareTrees || m_detailedTreeChunks.contains(key);
-				job.future = std::async(std::launch::async, [snapshot = std::move(snapshot), quads = std::move(quads), heightSnapshots = std::move(heightSnapshots),detailedTrees=job.detailedTrees,rivers=std::move(rivers),sites=std::move(sites)]()
+				job.future = std::async(std::launch::async,
+					[snapshot = std::move(snapshot), quads = std::move(quads),
+						heightSnapshots = std::move(heightSnapshots), detailedTrees = job.detailedTrees,
+						rivers = std::move(rivers), sites = std::move(sites), woodland = m_woodlandEnabled]()
 				{
 					const Stopwatch timer{ StartImmediately::Yes };
 					TerrainJobResult result;
 					result.batches = buildTerrainMeshData(snapshot, quads);
-					result.landscape = buildLandscapeMeshData(snapshot,quads,heightSnapshots,detailedTrees,rivers,sites);
+					result.landscape = buildLandscapeMeshData(
+						snapshot, quads, heightSnapshots, detailedTrees, rivers, sites, woodland);
 					result.milliseconds = timer.msF();
 					return result;
 				});

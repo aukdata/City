@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "MapGenerator.hpp"
 #include "AgriculturalLayout.hpp"
+#include "GenerationOptions.hpp"
 
 /// @brief 集落の土地利用・建物・敷地を生成する。画面や描画資産を所有しない。
 class SettlementDevelopment
@@ -13,8 +14,11 @@ public:
 	};
 
 	SettlementDevelopment(World& world, RoadNetwork& network, const TrainNetwork& trains,
-		const Array<MapGenerator::Settlement>& districts, uint64 seed)
-		: m_world{ world }, m_network{ network }, m_trainNetwork{ trains }, m_districts{ districts }, m_seed{ seed } {}
+		const Array<MapGenerator::Settlement>& districts, uint64 seed, GenerationOptions options = {})
+		: m_world{world}, m_network{network}, m_trainNetwork{trains}, m_districts{districts}, m_seed{seed},
+		  m_options{options}
+	{
+	}
 
 	void applyZonesGlobal();
 	/// @brief 建物、敷地、接道方向の順に生成し、街の制約を検証する。
@@ -32,4 +36,5 @@ private:
 	const TrainNetwork& m_trainNetwork;
 	const Array<MapGenerator::Settlement>& m_districts;
 	uint64 m_seed;
+	GenerationOptions m_options;
 };

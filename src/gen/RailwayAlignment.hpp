@@ -86,37 +86,93 @@ namespace RailwayAlignment
 			Array<Vec3> bestPoints; Array<double> bestHeights; double bestCost=Math::Inf; int chosen=-1;
 			for (int alternative=0;alternative<5;++alternative)
 			{
-				const double padding=alternative<3 ? GenerationSettings::get().railway_corridorMargin : GenerationSettings::get().railway_wideCorridorMargin;
-				const Vec2 offset{Max(0.0,Min(start.x,end.x)-padding),Max(0.0,Min(start.z,end.z)-padding)};
-				const Vec2 upper{Min(static_cast<double>(WORLD_SIZE),Max(start.x,end.x)+padding),Min(static_cast<double>(WORLD_SIZE),Max(start.z,end.z)+padding)};
-				RoadPathfinder finder; finder.setRailwayRouting(true);
-				finder.setConstructionCost([&](Vec2 point,double ground)
-				{
-					const double t=Clamp((point-Vec2{start.x,start.z}).dot(delta)/Max(1.0,delta.lengthSq()),0.0,1.0);
-					const double reference=Math::Lerp(start.y,end.y,t);
-					const double coefficient=alternative==0 ? GenerationSettings::get().railway_corridorCostWeight0 : alternative==1 ? GenerationSettings::get().railway_corridorCostWeight1 : alternative==2 ? GenerationSettings::get().railway_corridorCostWeight2 : GenerationSettings::get().railway_corridorCostWeight3;
-					const double water=world.waterSurfaceHeight(point.x,point.y);
-					return 1+RailCostProfile::unitCost(reference-ground)*coefficient+(ground<water+1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0);
-				});
-				finder.setup(world,offset,Max(2,static_cast<int>((upper.x-offset.x)/GenerationSettings::get().railway_routingCell)),Max(2,static_cast<int>((upper.y-offset.y)/GenerationSettings::get().railway_routingCell)),GenerationSettings::get().railway_routingCell);
-				const auto path=finder.findPath(finder.worldToGrid(static_cast<float>(startGate.x),static_cast<float>(startGate.z)),finder.worldToGrid(static_cast<float>(endGate.x),static_cast<float>(endGate.z)));
-				auto coarse=finder.samplePath(path,2); if (coarse.size()<2) { continue; }
-				coarse.front()=startGate; coarse.back()=endGate;
-				for (int pass=0;pass<24+alternative*12;++pass) { auto next=coarse; for (size_t i=1;i+1<coarse.size();++i) { next[i]=coarse[i]*.5+(coarse[i-1]+coarse[i+1])*.25; } coarse=std::move(next); }
-				coarse.insert(coarse.begin(),start); coarse<<end;
 				Array<Vec3> points;
-				for (size_t i=0;i+1<coarse.size();++i)
+				// 解析曲線候補は探索経路を使わないため、破棄されていた5回目の探索を省く。
+				if (alternative < 4)
 				{
-					const Vec3 direction=coarse[i+1]-coarse[i]; const double handle=Vec2{direction.x,direction.z}.length()/3;
-					Vec3 a=i>0 ? coarse[i+1]-coarse[i-1] : axes[from]*(axes[from].dot(direction)>=0 ? 1.0 : -1.0);
-					Vec3 b=i+2<coarse.size() ? coarse[i+2]-coarse[i] : axes[to]*(axes[to].dot(direction)>=0 ? 1.0 : -1.0); a.y=b.y=0;
-					if (i==0) { a=b=fromAxis; } else if (i==1) { a=fromAxis; }
-					if (i+2==coarse.size()) { a=b=toAxis; } else if (i+3==coarse.size()) { b=toAxis; }
-					const CubicBezier curve{coarse[i],coarse[i]+a.normalized()*handle,coarse[i+1]-b.normalized()*handle,coarse[i+1]};
-					const int count=Max(1,static_cast<int>(std::ceil(curve.totalLength/GenerationSettings::get().railway_profileSampleLength)));
-					for (int sample=0;sample<count;++sample) { points << curve.positionAt(curve.totalLength*sample/count); }
+					const double padding = alternative < 3 ? GenerationSettings::get().railway_corridorMargin
+														   : GenerationSettings::get().railway_wideCorridorMargin;
+					const Vec2 offset{Max(0.0, Min(start.x, end.x) - padding), Max(0.0, Min(start.z, end.z) - padding)};
+					const Vec2 upper{Min(static_cast<double>(WORLD_SIZE), Max(start.x, end.x) + padding),
+						Min(static_cast<double>(WORLD_SIZE), Max(start.z, end.z) + padding)};
+					RoadPathfinder finder;
+					finder.setRailwayRouting(true);
+					finder.setConstructionCost([&](Vec2 point, double ground)
+					{
+						const double t =
+							Clamp((point - Vec2{start.x, start.z}).dot(delta) / Max(1.0, delta.lengthSq()), 0.0, 1.0);
+						const double reference = Math::Lerp(start.y, end.y, t);
+						const double coefficient =
+							alternative == 0   ? GenerationSettings::get().railway_corridorCostWeight0
+							: alternative == 1 ? GenerationSettings::get().railway_corridorCostWeight1
+							: alternative == 2 ? GenerationSettings::get().railway_corridorCostWeight2
+											   : GenerationSettings::get().railway_corridorCostWeight3;
+						const double water = world.waterSurfaceHeight(point.x, point.y);
+						return 1 + RailCostProfile::unitCost(reference - ground) * coefficient +
+							   (ground < water + 1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0);
+					});
+					finder.setup(world, offset,
+						Max(2, static_cast<int>((upper.x - offset.x) / GenerationSettings::get().railway_routingCell)),
+						Max(2, static_cast<int>((upper.y - offset.y) / GenerationSettings::get().railway_routingCell)),
+						GenerationSettings::get().railway_routingCell);
+					const auto path = finder.findPath(
+						finder.worldToGrid(static_cast<float>(startGate.x), static_cast<float>(startGate.z)),
+						finder.worldToGrid(static_cast<float>(endGate.x), static_cast<float>(endGate.z)));
+					auto coarse = finder.samplePath(path, 2);
+					if (coarse.size() < 2)
+					{
+						continue;
+					}
+					coarse.front() = startGate;
+					coarse.back() = endGate;
+					for (int pass = 0; pass < 24 + alternative * 12; ++pass)
+					{
+						auto next = coarse;
+						for (size_t i = 1; i + 1 < coarse.size(); ++i)
+						{
+							next[i] = coarse[i] * .5 + (coarse[i - 1] + coarse[i + 1]) * .25;
+						}
+						coarse = std::move(next);
+					}
+					coarse.insert(coarse.begin(), start);
+					coarse << end;
+					for (size_t i = 0; i + 1 < coarse.size(); ++i)
+					{
+						const Vec3 direction = coarse[i + 1] - coarse[i];
+						const double handle = Vec2{direction.x, direction.z}.length() / 3;
+						Vec3 a = i > 0 ? coarse[i + 1] - coarse[i - 1]
+									   : axes[from] * (axes[from].dot(direction) >= 0 ? 1.0 : -1.0);
+						Vec3 b = i + 2 < coarse.size() ? coarse[i + 2] - coarse[i]
+													   : axes[to] * (axes[to].dot(direction) >= 0 ? 1.0 : -1.0);
+						a.y = b.y = 0;
+						if (i == 0)
+						{
+							a = b = fromAxis;
+						}
+						else if (i == 1)
+						{
+							a = fromAxis;
+						}
+						if (i + 2 == coarse.size())
+						{
+							a = b = toAxis;
+						}
+						else if (i + 3 == coarse.size())
+						{
+							b = toAxis;
+						}
+						const CubicBezier curve{coarse[i], coarse[i] + a.normalized() * handle,
+							coarse[i + 1] - b.normalized() * handle, coarse[i + 1]};
+						const int count = Max(1,
+							static_cast<int>(
+								std::ceil(curve.totalLength / GenerationSettings::get().railway_profileSampleLength)));
+						for (int sample = 0; sample < count; ++sample)
+						{
+							points << curve.positionAt(curve.totalLength * sample / count);
+						}
+					}
+					points << end;
 				}
-				points << end;
 				if (alternative == 4)
 				{
 					// 駅の接線を固定した大きな曲線も、地形追従候補と同じ費用・制約で比較する。

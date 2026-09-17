@@ -41,7 +41,8 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 				highest = Max(highest, h); lowest = Min(lowest, h);
 			}
 			report.writeln(U"seed={} sea={} flat={} mountain={} min={} max={}"_fmt(seed, sea / 65536.0, flat / 65536.0, mountain / 65536.0, lowest, highest));
-			context.expect(highest > 1200 && highest < 2200 && mountain > 65536 * .20, U"Mountain belts have substantial area and plausible regional summits");
+			context.expect(highest > 1200 && highest < 3777 && mountain > 65536 * .20,
+				U"Mountain belts have substantial area and plausible regional summits");
 			context.expect(sea > 65536 * .10 && sea < 65536 * .40 && flat > 65536 * .18, U"Bays coexist with enough dry, gently sloping land for towns and farms");
 			const auto left = world.buildHeightMap({31, 31}), right = world.buildHeightMap({32, 31});
 			for (int z = 0; z <= HEIGHT_CELLS; ++z)

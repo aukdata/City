@@ -62,7 +62,9 @@
     "candidateMarginCells",
     "candidateStrideCells",
     "settlementEdgeMargin",
-    "ruralRetentionRate"
+    "ruralRetentionRate",
+    "maximumCities",
+    "mountainVillageFarmland"
   ],
   "properties": {
     "candidateSpacing": {
@@ -359,6 +361,16 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 1.0
+    },
+    "maximumCities": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 4.0
+    },
+    "mountainVillageFarmland": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.25
     }
   }
 }

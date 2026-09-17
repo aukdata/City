@@ -1000,6 +1000,9 @@
     <ClCompile Include="UrbanStructureTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GenerationRevisionTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="UrbanFacilitiesTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1211,5 +1214,20 @@
     <ClCompile Include="..\src\render\PedestrianRenderer.cpp" />
     <ClCompile Include="..\src\traffic\VehiclePassengers.cpp" />
     <ClCompile Include="PedestrianTests.cpp" />
+    <ClCompile Include="..\src\render\SubsurfaceView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ui\StartScreenControls.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ui\RailInfoPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\save\SaveCatalog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gen\VillageConnections.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -17,5 +17,8 @@
   "mountainRoadSideSample": 25,
   "mountainRoadRelief": 12,
   "minimumKaidoSearchRadius": 180,
-  "kaidoSearchRadiusScale": 1.6
+  "kaidoSearchRadiusScale": 1.6,
+  "villageShortcutMinimumTrials": 12,
+  "villageShortcutMaximumTrials": 19,
+  "villageDetourRatio": 3
 }

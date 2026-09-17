@@ -22,7 +22,10 @@
     "mountainRoadSideSample",
     "mountainRoadRelief",
     "minimumKaidoSearchRadius",
-    "kaidoSearchRadiusScale"
+    "kaidoSearchRadiusScale",
+    "villageShortcutMinimumTrials",
+    "villageShortcutMaximumTrials",
+    "villageDetourRatio"
   ],
   "properties": {
     "localRoutingCell": {
@@ -119,6 +122,21 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 10.0
+    },
+    "villageShortcutMinimumTrials": {
+      "type": "integer",
+      "minimum": 10.0,
+      "maximum": 19.0
+    },
+    "villageShortcutMaximumTrials": {
+      "type": "integer",
+      "minimum": 10.0,
+      "maximum": 19.0
+    },
+    "villageDetourRatio": {
+      "type": "number",
+      "minimum": 3.0,
+      "maximum": 3.0
     }
   }
 }

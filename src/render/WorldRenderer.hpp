@@ -12,6 +12,7 @@
 class WorldRenderer
 {
 public:
+	void setWoodlandEnabled(bool enabled) { m_woodlandEnabled = enabled; }
 	/// @brief アクティブチャンクをカリングして描画する
 	/// @brief Load building GPU assets during the loading phase, before camera travel.
 	void preloadBuildingModels();
@@ -68,6 +69,7 @@ public:
 	                                     int col, int row);
 
 private:
+	bool m_woodlandEnabled = true;
 	using Key = int64;
 	Array<TunnelGeometry::Opening> m_tunnelOpenings;
 	HashTable<Key,Array<Polygon>> m_transportSites;
@@ -138,7 +140,9 @@ private:
 	};
 
 	/// @brief チャンクの地形メッシュデータを生成する
-	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees,const RiverNetwork& rivers,const Array<Polygon>& sites);
+	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads,
+		const Array<Chunk>& heightSnapshots, bool detailedTrees, const RiverNetwork& rivers,
+		const Array<Polygon>& sites, bool woodland = true);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）

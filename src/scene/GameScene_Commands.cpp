@@ -7,7 +7,12 @@ void GameScene::executeCommand(StringView input)
 	if(!parsed.command) { m_commandPalette.report(parsed.message,true);return; }
 	if(parsed.command->kind==GameCommands::Kind::CameraGoto || parsed.command->kind==GameCommands::Kind::CameraZoom)
 	{
-		if(m_driving.active()) { leaveDriving(true); }m_trackingVehicle=false;
+		if (m_driving.active())
+		{
+			leaveDriving(true);
+		}
+		m_trackingVehicle = false;
+		m_trackingTrain = false;
 	}
 	const auto result=CommandExecution::execute(*parsed.command,{m_clock,m_network,m_world,m_camera,m_economy.funds,m_frameRateGraph.visible});
 	m_commandPalette.report(result.message,!result.success);

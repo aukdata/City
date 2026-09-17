@@ -22,6 +22,7 @@ public:
 	/// @param dt    リアル経過秒
 	/// @param world 地形クエリに使用（地形床クランプ・軌道ピボット計算）
 	void update(double dt, const World& world);
+	void setIgnoreTerrain(bool ignore) { m_ignoreTerrain = ignore; }
 	/// @brief Move in the walking camera frame: positive X is screen right, Y is forward.
 	void walk(Vec2 input, double distance, const World& world);
 	void setWalkSurface(std::function<double(Vec3)> resolver) { m_walkSurface=std::move(resolver); }
@@ -110,6 +111,7 @@ public:
 	}
 
 private:
+	bool m_ignoreTerrain = false; ///< 地下断面では地表へカメラを引き戻さない。
 	std::function<double(Vec3)> m_walkSurface;
 	BasicCamera3D m_camera;
 	CameraMode    m_mode     = CameraMode::Overview;

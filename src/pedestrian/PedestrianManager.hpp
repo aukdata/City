@@ -38,6 +38,7 @@ struct Pedestrian
 class PedestrianManager
 {
 public:
+	void setCarsEnabled(bool enabled) { m_carsEnabled = enabled; }
 	struct Stats
 	{
 		int population = 0, walking = 0, waitingTrain = 0, ridingTrain = 0, waitingCar = 0, ridingCar = 0;
@@ -58,6 +59,7 @@ public:
 	[[nodiscard]] double now() const { return m_now; }
 
 private:
+	bool m_carsEnabled = true;
 	struct Parking
 	{
 		int available = 0, reserved = 0;

@@ -326,7 +326,10 @@ void GameScene::processPlaytestCommand()
 	else if (action==U"generate") { generateDraftRoadPlan(); }
 	else if (action==U"commit") { commitDraftRoadPlan(); }
 	else if (action==U"select_parcel") { selectLandParcelAt({number(U"x"),number(U"z")}); }
-	else if (action==U"select_train") { clearSelection();m_selection={SelectionKind::Train,static_cast<int>(number(U"train"))}; }
+	else if (action == U"select_train")
+	{
+		selectTrain(static_cast<int>(number(U"train")));
+	}
 	else if (action==U"map_open") { m_minimapRenderer.openFullScreen(m_camera,m_network,m_trainNetwork,m_districts); }
 	else if (action==U"map_pan") { m_minimapRenderer.mapView().pan({number(U"x"),number(U"y")},Scene::Size()); }
 	else if (action==U"map_zoom") { m_minimapRenderer.mapView().zoomAt(m_minimapRenderer.mapView().body(Scene::Size()).center(),number(U"factor",1),Scene::Size()); }

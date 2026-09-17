@@ -57,6 +57,7 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 	meta[U"zoneDevelopment"] = m_zoneManager.saveState(m_world);
 	meta[U"railway"] = m_trainNetwork.saveState();
 	meta[U"seed"] = getData().seed;
+	meta[U"generation"] = getData().generation.save();
 	meta[U"worldChunks"] = WORLD_CHUNKS;
 	meta[U"gameNow"] = m_clock.now;
 	meta[U"timeScale"] = static_cast<int>(m_clock.speed);
@@ -381,6 +382,8 @@ bool GameScene::loadGame()
 	if (!meta) return false;
 
 	getData().seed    = meta[U"seed"].get<uint64>();
+	getData().generation = GenerationOptions::load(meta[U"generation"]);
+	m_worldRenderer.setWoodlandEnabled(getData().generation.enabled(GenerationOptions::Element::Trees));
 	const double gameNow    = meta[U"gameNow"].get<double>();
 	const int    timeScale  = meta[U"timeScale"].get<int>();
 	const int    nextNodeId = meta[U"nextNodeId"].get<int>();
@@ -395,7 +398,10 @@ bool GameScene::loadGame()
 	m_world.setGenerationParams(getData().seed,
 		WORLD_SIZE,
 		WORLD_SIZE);
-	m_world.generateRivers();
+	if (getData().generation.enabled(GenerationOptions::Element::Rivers))
+	{
+		m_world.generateRivers();
+	}
 	m_world.reserveChunks();
 	Console << U"[Load] meta+init: {:.0f}ms"_fmt(step.msF());
 	step.restart();
@@ -509,7 +515,10 @@ bool GameScene::loadGame()
 			return false;
 		}
 	}
-	else { MapGenerator::setupTrain(m_trainNetwork,m_world,m_districts,&m_network); }
+	else if (getData().generation.enabled(GenerationOptions::Element::Railway))
+	{
+		MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts, &m_network);
+	}
 	m_districtHierarchy.generate(m_world,m_districts);
 	m_network.recomputeAllAutoSigns();
 	m_roadRenderer.setMunicipalityLookup([this](Vec2 point)

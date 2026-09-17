@@ -104,12 +104,12 @@ void GameCamera::handleInput(double dt, const World& world)
 					const float pz = orig.z + dir.z * t;
 					const float py = orig.y + dir.y * t;
 
-					if (py <= world.sampleHeight(px, pz))
+					if (py <= (m_ignoreTerrain ? m_focus.y : world.sampleHeight(px, pz)))
 					{
 						const float tMid = (tPrev + t) * 0.5f;
 						const float hx   = orig.x + dir.x * tMid;
 						const float hz   = orig.z + dir.z * tMid;
-						const float hy   = world.sampleHeight(hx, hz);
+						const float hy = m_ignoreTerrain ? static_cast<float>(m_focus.y) : world.sampleHeight(hx, hz);
 
 						m_orbitPivot    = Vec3{ hx, hy, hz };
 						m_hasOrbitPivot = true;
@@ -214,7 +214,7 @@ void GameCamera::rebuild(const World* world)
 	} * m_distance;
 
 	Vec3 target = m_focus;
-	if (world)
+	if (world && !m_ignoreTerrain)
 	{
 		const double terrainY = world->sampleHeight(static_cast<float>(eye.x), static_cast<float>(eye.z));
 		if (m_mode == CameraMode::Overview)

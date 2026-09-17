@@ -1,7 +1,7 @@
 {
   "metropolitan": {
     "name": "大都市多核型（東京・大阪）",
-    "weight": 1,
+    "weight": 0.75,
     "maximumRelief": 70,
     "minimumRelief": 0,
     "shoreRange": 0,
@@ -62,7 +62,7 @@
   },
   "historic_grid": {
     "name": "歴史的細街区型（京都）",
-    "weight": 1,
+    "weight": 0.3,
     "maximumRelief": 100,
     "minimumRelief": 0,
     "shoreRange": 0,
@@ -109,7 +109,7 @@
   },
   "transit_corridor": {
     "name": "交通軸・沿線拠点型（富山）",
-    "weight": 1,
+    "weight": 2,
     "maximumRelief": 100,
     "minimumRelief": 0,
     "shoreRange": 0,
@@ -163,7 +163,7 @@
   },
   "coastal_hubs": {
     "name": "臨海複合拠点型（福岡）",
-    "weight": 1,
+    "weight": 1.5,
     "maximumRelief": 120,
     "minimumRelief": 0,
     "shoreRange": 2400,
@@ -217,7 +217,7 @@
   },
   "planned_grid": {
     "name": "計画格子・緑軸型（札幌）",
-    "weight": 1,
+    "weight": 0.25,
     "maximumRelief": 30,
     "minimumRelief": 0,
     "shoreRange": 0,
@@ -271,7 +271,7 @@
   },
   "constrained_linear": {
     "name": "地形制約・線状型（長崎）",
-    "weight": 1,
+    "weight": 2.5,
     "maximumRelief": 2000,
     "minimumRelief": 25,
     "shoreRange": 0,

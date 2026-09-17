@@ -57,7 +57,9 @@ public:
 	};
 	void rebuild(const RoadNetwork& network);
 	void appendEdge(const RoadNetwork& network,int edgeId);
-	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0, double heightTolerance = 6.0, bool preferNodes = true) const;
+	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0, double heightTolerance = 6.0,
+		bool preferNodes = true, const std::function<bool(const RoadEdge&)>& accept = {}) const;
+
 private:
 	static constexpr double kCellSize = 128.0;
 	HashTable<Point, Array<int>> m_nodes;

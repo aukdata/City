@@ -1,0 +1,232 @@
+﻿{
+  "centralBays": 3,
+  "centralMountains": 3,
+  "centralPlains": 6,
+  "inlandLakes": 1,
+  "meanCoreDry": 0.479156901628508,
+  "meanEdgeBarrier": 0.709179745889387,
+  "meanPlainRelief1024": 6.633026504516602,
+  "meanShoreSinuosity": 2.0476146585104833,
+  "seeds": [
+    {
+      "coreDry": 0.5375277928009135,
+      "coreMountain": 0.02716182921699417,
+      "coreWater": 0.0,
+      "edgeBarrier": 0.6307174887892377,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.5074310302734375,
+      "seed": 7,
+      "shoreLengthKm": 104.13692211718056,
+      "shoreSinuosity": 2.099801402959844
+    },
+    {
+      "coreDry": 0.491436812691545,
+      "coreMountain": 0.0030647196682891654,
+      "coreWater": 0.22144101916952105,
+      "edgeBarrier": 0.816405082212257,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.726100921630859,
+      "seed": 42,
+      "shoreLengthKm": 176.4792099264784,
+      "shoreSinuosity": 2.3128610379089354
+    },
+    {
+      "coreDry": 0.4765338621477075,
+      "coreMountain": 0.0397211706027282,
+      "coreWater": 0.015083228171383932,
+      "edgeBarrier": 0.7715994020926756,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.808366775512695,
+      "seed": 130,
+      "shoreLengthKm": 121.86600352280252,
+      "shoreSinuosity": 2.084028752850816
+    },
+    {
+      "coreDry": 0.4428219457965267,
+      "coreMountain": 0.018568595637281412,
+      "coreWater": 0.25022534703443305,
+      "edgeBarrier": 0.6672645739910313,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.705131530761719,
+      "seed": 2026,
+      "shoreLengthKm": 117.41803297173101,
+      "shoreSinuosity": 2.104357814170115
+    },
+    {
+      "coreDry": 0.49402079201971033,
+      "coreMountain": 0.04002163331530557,
+      "coreWater": 0.043206538068625684,
+      "edgeBarrier": 0.6552690582959642,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.352169036865234,
+      "seed": 0,
+      "shoreLengthKm": 95.44111309383598,
+      "shoreSinuosity": 2.101153167400363
+    },
+    {
+      "coreDry": 0.4897542215011117,
+      "coreMountain": 0.022654888528333635,
+      "coreWater": 0.0030046271257736915,
+      "edgeBarrier": 0.6997384155455905,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.586643218994141,
+      "seed": 1,
+      "shoreLengthKm": 107.75456177697245,
+      "shoreSinuosity": 2.155612596103585
+    },
+    {
+      "coreDry": 0.5289345592212007,
+      "coreMountain": 0.03954089297518178,
+      "coreWater": 0.012799711555795925,
+      "edgeBarrier": 0.6685351270553064,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.436408996582031,
+      "seed": 2,
+      "shoreLengthKm": 94.6421583055041,
+      "shoreSinuosity": 2.086166944590831
+    },
+    {
+      "coreDry": 0.2567153416261042,
+      "coreMountain": 0.23988942972177152,
+      "coreWater": 0.022053963103178895,
+      "edgeBarrier": 0.6429745889387145,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.890522003173828,
+      "seed": 3,
+      "shoreLengthKm": 88.39275195038174,
+      "shoreSinuosity": 2.0089793671033425
+    },
+    {
+      "coreDry": 0.47088516315125295,
+      "coreMountain": 0.007151012559341386,
+      "coreWater": 0.012499248843218557,
+      "edgeBarrier": 0.6769058295964125,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.270606994628906,
+      "seed": 4,
+      "shoreLengthKm": 105.72452056834175,
+      "shoreSinuosity": 1.9700057286354875
+    },
+    {
+      "coreDry": 0.3650621957815035,
+      "coreMountain": 0.2061775133705907,
+      "coreWater": 0.02716182921699417,
+      "edgeBarrier": 0.6819880418535127,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 7.260215759277344,
+      "seed": 5,
+      "shoreLengthKm": 95.6355400510675,
+      "shoreSinuosity": 2.003897788561001
+    },
+    {
+      "coreDry": 0.3600745147527192,
+      "coreMountain": 0.18670752959557718,
+      "coreWater": 0.010155639685115077,
+      "edgeBarrier": 0.8068759342301943,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 7.5221099853515625,
+      "seed": 6,
+      "shoreLengthKm": 137.62356189484254,
+      "shoreSinuosity": 2.027760212579657
+    },
+    {
+      "coreDry": 0.49774652965566973,
+      "coreMountain": 0.024037017006189532,
+      "coreWater": 0.04032209602788294,
+      "edgeBarrier": 0.6298206278026905,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.521442413330078,
+      "seed": 8,
+      "shoreLengthKm": 85.60089836886232,
+      "shoreSinuosity": 1.9819559264576687
+    },
+    {
+      "coreDry": 0.4941409771047413,
+      "coreMountain": 0.011657953248001923,
+      "coreWater": 0.033711916351180815,
+      "edgeBarrier": 0.751457399103139,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.498172760009766,
+      "seed": 9,
+      "shoreLengthKm": 108.01595429454662,
+      "shoreSinuosity": 2.1074852077549666
+    },
+    {
+      "coreDry": 0.5282735412535304,
+      "coreMountain": 0.027522384472087012,
+      "coreWater": 0.002463794243134427,
+      "edgeBarrier": 0.8054932735426009,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.5278472900390625,
+      "seed": 10,
+      "shoreLengthKm": 136.81630908822106,
+      "shoreSinuosity": 1.9971464405962442
+    },
+    {
+      "coreDry": 0.3794243134427018,
+      "coreMountain": 0.06279670692867015,
+      "coreWater": 0.03827894958235683,
+      "edgeBarrier": 0.6523542600896861,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.7889251708984375,
+      "seed": 11,
+      "shoreLengthKm": 90.38250835363381,
+      "shoreSinuosity": 1.742543623435076
+    },
+    {
+      "coreDry": 0.5813352562946938,
+      "coreMountain": 0.03701700618953188,
+      "coreWater": 0.00024037017006189532,
+      "edgeBarrier": 0.7328101644245142,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.620574951171875,
+      "seed": 12,
+      "shoreLengthKm": 106.09863519019943,
+      "shoreSinuosity": 2.152131978228148
+    },
+    {
+      "coreDry": 0.6026681088876871,
+      "coreMountain": 0.0,
+      "coreWater": 0.2082807523586323,
+      "edgeBarrier": 0.8088191330343797,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.267021179199219,
+      "seed": 13,
+      "shoreLengthKm": 170.50368009941002,
+      "shoreSinuosity": 2.186867830586215
+    },
+    {
+      "coreDry": 0.6264647557238147,
+      "coreMountain": 0.06369809506640225,
+      "coreWater": 0.0,
+      "edgeBarrier": 0.6957025411061285,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.188083648681641,
+      "seed": 14,
+      "shoreLengthKm": 101.90176402774935,
+      "shoreSinuosity": 2.077651128928146
+    },
+    {
+      "coreDry": 0.4718466438315005,
+      "coreMountain": 0.017006189531879094,
+      "coreWater": 0.06496003845922721,
+      "edgeBarrier": 0.7764947683109118,
+      "inlandLakeKm2": 57.868288,
+      "plainRelief1024": 6.687986373901367,
+      "seed": 15,
+      "shoreLengthKm": 136.69043390774755,
+      "shoreSinuosity": 2.002305608214226
+    },
+    {
+      "coreDry": 0.4874707048855237,
+      "coreMountain": 0.04410792620635779,
+      "coreWater": 0.0,
+      "edgeBarrier": 0.6123692077727952,
+      "inlandLakeKm2": 0.0,
+      "plainRelief1024": 6.494770050048828,
+      "seed": 16,
+      "shoreLengthKm": 84.67205773325836,
+      "shoreSinuosity": 1.7495806131449951
+    }
+  ]
+}

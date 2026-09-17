@@ -60,3 +60,128 @@ void GameScene::drawRailTimetable()
 		if (const auto site=RailwaySite::depotFrame(m_trainNetwork,depot)) { m_camera.setCaptureState(site->point(3,0,65),270,-.7f,.72f); }
 	}
 }
+
+void GameScene::selectTrain(int id)
+{
+	clearSelection();
+	m_selectedVehicleId.reset();
+	m_trackingVehicle = false;
+	m_selection = {SelectionKind::Train, id};
+	for (const auto key : {U"vehicle_info", U"building_info", U"edge_info", U"node_info"})
+	{
+		m_panelManager.hide(key);
+	}
+	m_panelManager.show(U"rail_info", U"電車 #{}"_fmt(id), panelRightPos(U"rail_info"));
+}
+void GameScene::selectStation(int id)
+{
+	const auto* station = m_trainNetwork.getNode(id);
+	if (!station || station->type != TrackNodeType::Station)
+	{
+		return;
+	}
+	clearSelection();
+	m_selectedVehicleId.reset();
+	m_trackingVehicle = false;
+	m_selection = {SelectionKind::Station, id};
+	for (const auto& data : SubsurfaceView::stationGeometry(m_world, m_trainNetwork, id, m_underground))
+	{
+		m_stationSelectionMeshes << Mesh{data};
+	}
+	for (const auto key : {U"vehicle_info", U"building_info", U"edge_info", U"node_info"})
+	{
+		m_panelManager.hide(key);
+	}
+	m_panelManager.show(U"rail_info", RailInfoPanel::station(id, m_trainNetwork).title, panelRightPos(U"rail_info"));
+}
+void GameScene::drawRailInfoPanel()
+{
+	RailInfoPanel::Summary summary;
+	Optional<int> schedule;
+	if (m_selection.kind == SelectionKind::Train)
+	{
+		for (const auto& train : m_trainManager.trains())
+		{
+			if (train.id == m_selection.id)
+			{
+				summary = RailInfoPanel::train(train, m_trainNetwork);
+				schedule = train.scheduleId;
+				break;
+			}
+		}
+	}
+	else if (m_selection.kind == SelectionKind::Station)
+	{
+		summary = RailInfoPanel::station(m_selection.id, m_trainNetwork);
+	}
+	if (summary.title.isEmpty())
+	{
+		m_panelManager.hide(U"rail_info");
+		return;
+	}
+	auto area = m_panelManager.beginContent(U"rail_info");
+	if (!area)
+	{
+		return;
+	}
+	RailInfoPanel::draw(summary, m_trackingTrain, FontAsset(Asset::Panel14));
+	m_panelManager.reportContentHeight(U"rail_info", RailInfoPanel::height(summary));
+	if (m_showPauseMenu || !MouseL.down())
+	{
+		return;
+	}
+	if (summary.canFollow && RailInfoPanel::followButton(summary).mouseOver())
+	{
+		m_trackingTrain = !m_trackingTrain;
+		leaveDriving(true);
+	}
+	if (RailInfoPanel::timetableButton(summary).mouseOver())
+	{
+		if (schedule)
+		{
+			if (const auto* service = m_trainNetwork.getSchedule(*schedule))
+			{
+				m_trainTimetableEditor.select(*service);
+			}
+		}
+		setRailTimetableVisible(true);
+	}
+}
+
+void GameScene::toggleUnderground()
+{
+	leaveDriving(true);
+	clearSelection();
+	m_selectedVehicleId.reset();
+	m_trackingVehicle = false;
+	for (const auto key :
+		{U"vehicle_info", U"building_info", U"edge_info", U"node_info", U"signal_edit", U"guide_sign_edit"})
+	{
+		m_panelManager.hide(key);
+	}
+	m_underground = !m_underground;
+	m_subsurface.invalidate();
+	m_camera.setIgnoreTerrain(m_underground);
+	Vec3 focus = m_camera.focusPoint();
+	focus.y = m_world.sampleHeight(static_cast<float>(focus.x), static_cast<float>(focus.z)) - (m_underground ? 20 : 0);
+	m_camera.setOverviewState(focus, m_camera.distance(), m_camera.yaw(), m_camera.pitch());
+}
+Optional<int> GameScene::visibleNodeNear(Vec3 position, float radius) const
+{
+	Optional<int> best;
+	double distance = radius * radius;
+	for (const auto& node : m_network.nodes())
+	{
+		if (node.id < 0 || (m_underground && !SubsurfaceView::below(node.position, m_world)))
+		{
+			continue;
+		}
+		const double next = node.position.distanceFromSq(position);
+		if (next < distance)
+		{
+			best = node.id;
+			distance = next;
+		}
+	}
+	return best;
+}

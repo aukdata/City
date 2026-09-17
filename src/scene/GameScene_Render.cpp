@@ -227,12 +227,16 @@ void GameScene::renderWorld()
 		}
 		m_cityLighting.update(m_camera.camera3D(), m_camera.focusPoint(), sunDir, sky.dayFactor,
 			m_worldRenderer.geometryRevision() + m_roadRenderer.geometryRevision(), [this](Vec3 focus, double radius)
+		{
+			if (m_underground)
 			{
-				m_worldRenderer.renderShadowCasters(focus, radius);
-				m_roadRenderer.renderShadowCasters(focus, radius);
-				m_roadRenderer.drawSignals(m_network, *m_simGraph, m_world,
-					m_vehicleManager.trafficLights(), m_clock.now, focus);
-			}, dynamicCasters);
+				return;
+			}
+			m_worldRenderer.renderShadowCasters(focus, radius);
+			m_roadRenderer.renderShadowCasters(focus, radius);
+			m_roadRenderer.drawSignals(
+				m_network, *m_simGraph, m_world, m_vehicleManager.trafficLights(), m_clock.now, focus);
+		}, dynamicCasters);
 		m_worldRenderer.setBuildingShader(m_cityLighting.buildingShader());
 		m_worldRenderer.setTerrainShader(m_cityLighting.terrainShader());
 		m_worldRenderer.setLandscapeShaders(m_cityLighting.fieldShader(),m_cityLighting.paddyShader(),m_cityLighting.foliageShader());
@@ -262,7 +266,15 @@ void GameScene::renderWorld()
 		m_sky.starBrightness = Clamp(1.0 - sky.dayFactor * 3.0 - sky.dawnFactor * 2.0, 0.0, 1.0);
 		m_sky.cloudTime = Scene::Time() * 0.015;
 		m_sky.cloudsEnabled = false;
-		m_sky.draw(sky.exposure);
+		if (!m_underground)
+		{
+			m_sky.draw(sky.exposure);
+		}
+		else
+		{
+			Graphics3D::SetGlobalAmbientColor(ColorF{.65});
+			Graphics3D::SetSunColor(ColorF{.45});
+		}
 		lap(m_renderTimings.sky);
 
 		m_cityLighting.bind();
@@ -278,7 +290,7 @@ void GameScene::renderWorld()
 		}
 		lap(m_renderTimings.road);
 
-		if (!getData().captureCityRenders)
+		if (!getData().captureCityRenders && !m_underground)
 		{
 			m_zoneManager.renderOverlay(m_world);
 		}
@@ -287,18 +299,26 @@ void GameScene::renderWorld()
 		renderVehicles();
 		lap(m_renderTimings.vehicle);
 
-		m_riverRenderer.draw(m_camera.eyePosition());
-		m_tunnelRenderer.draw(m_camera.eyePosition());
-		m_trainRenderer.renderTracks(m_trainNetwork,m_world,m_camera.eyePosition(),m_network);
-		m_trainRenderer.renderTrains(m_trainManager.trains(),m_trainNetwork,m_camera.camera3D().getEyePosition());
+		if (!m_underground)
+		{
+			m_riverRenderer.draw(m_camera.eyePosition());
+			m_tunnelRenderer.draw(m_camera.eyePosition());
+			m_trainRenderer.renderTracks(m_trainNetwork, m_world, m_camera.eyePosition(), m_network);
+		}
+		m_trainRenderer.renderTrains(m_trainManager.trains(), m_trainNetwork, m_camera.camera3D().getEyePosition(),
+			[&](Vec3 position) { return !m_underground || SubsurfaceView::below(position, m_world); });
 		lap(m_renderTimings.train);
-		m_pedestrianRenderer.render(m_pedestrianManager.people(), m_pedestrianManager.now(), m_camera.camera3D());
+		m_pedestrianRenderer.render(m_pedestrianManager.people(), m_pedestrianManager.now(), m_camera.camera3D(),
+			[&](Vec3 position) { return !m_underground || SubsurfaceView::below(position, m_world); });
 		lap(m_renderTimings.pedestrian);
 
 		if (!getData().captureCityRenders)
 		{
 			renderEditModeOverlays();
-			m_debugRenderer.render(m_network, m_renderVehicles, m_world, m_camera);
+			if (!m_underground)
+			{
+				m_debugRenderer.render(m_network, m_renderVehicles, m_world, m_camera);
+			}
 		}
 		lap(m_renderTimings.debug);
 	}
@@ -379,6 +399,12 @@ void GameScene::renderScene3D()
 	Stopwatch sw{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
+	if (m_underground)
+	{
+		m_subsurface.prepare(m_world, m_network, m_trainNetwork);
+		m_subsurface.draw(m_camera.eyePosition());
+		return;
+	}
 	const ViewFrustum frustum{ m_camera.camera3D(), Max(24000.0,m_camera.distance()*2.0) };
 	m_roadRenderer.synchronizeTerrainChanges(m_world, m_network);
 	if (m_tunnelRenderer.dirty)
@@ -608,7 +634,20 @@ void GameScene::renderSelectionOutline()
 		{
 			for (const auto& train:m_trainManager.trains())
 			{
-				if (train.id==m_selection.id) { m_trainRenderer.drawTrainSilhouette(train,m_trainNetwork,m_camera.camera3D().getEyePosition(),maskColor);break; }
+				if (train.id == m_selection.id)
+				{
+					m_trainRenderer.drawTrainSilhouette(train, m_trainNetwork, m_camera.camera3D().getEyePosition(),
+						maskColor, [&](Vec3 point) { return !m_underground || SubsurfaceView::below(point, m_world); });
+					break;
+				}
+			}
+		}
+
+		if (m_selection.kind == SelectionKind::Station)
+		{
+			for (const auto& mesh : m_stationSelectionMeshes)
+			{
+				mesh.draw(maskColor);
 			}
 		}
 
@@ -616,7 +655,14 @@ void GameScene::renderSelectionOutline()
 		switch (m_selection.kind)
 		{
 		case SelectionKind::Edge:
-			m_roadRenderer.drawEdgeSilhouette(m_selection.id, m_network, m_world, maskColor);
+			if (m_underground)
+			{
+				m_subsurface.drawSelection(m_selection.id, false, maskColor);
+			}
+			else
+			{
+				m_roadRenderer.drawEdgeSilhouette(m_selection.id, m_network, m_world, maskColor);
+			}
 			break;
 		case SelectionKind::Node:
 			m_roadRenderer.drawNodeSilhouette(m_selection.id, m_network, m_world, maskColor);
@@ -663,7 +709,22 @@ void GameScene::prepareVehicleRenderData()
 
 void GameScene::renderVehicles()
 {
-	m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition(), &m_camera.camera3D());
+	if (m_underground)
+	{
+		Array<Vehicle> visible;
+		for (const auto& vehicle : m_renderVehicles)
+		{
+			if (SubsurfaceView::below(vehicle.position, m_world))
+			{
+				visible << vehicle;
+			}
+		}
+		m_vehicleRenderer.render(visible, m_camera.eyePosition(), &m_camera.camera3D());
+	}
+	else
+	{
+		m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition(), &m_camera.camera3D());
+	}
 }
 
 // =============================================================================
@@ -678,7 +739,10 @@ void GameScene::renderEditModeOverlays()
 		const ColorF cyan = ColorF{0.22,0.85,1.0}.removeSRGBCurve();
 		const auto raised = [&](Vec3 p)
 		{
-			p.y = Max(p.y,static_cast<double>(m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))))+kRoadSurfaceLift+0.35;
+			p.y = (m_underground ? p.y
+								 : Max(p.y, static_cast<double>(m_world.sampleHeight(
+												static_cast<float>(p.x), static_cast<float>(p.z))))) +
+				  kRoadSurfaceLift + 0.35;
 			return p;
 		};
 		const double halfWidth = m_drawTemplate.totalWidth()*0.5;
@@ -905,10 +969,15 @@ void GameScene::renderEditModeOverlays()
 
 void GameScene::render2DUI()
 {
+	StartScreenControls::drawLayerButton(
+		Scene::Size(), m_underground, FontAsset(Asset::CJK14), m_frameRateGraph.visible);
 	Stopwatch sw{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
-	m_placeNameRenderer.render(m_districts, m_camera, m_world, m_uiRenderer.panelBounds());
+	if (!m_underground)
+	{
+		m_placeNameRenderer.render(m_districts, m_camera, m_world, m_uiRenderer.panelBounds());
+	}
 	lap(m_renderTimings.uiPlaceNames);
 
 	m_routeSignRenderer.render(m_network, m_camera);
@@ -1019,6 +1088,10 @@ void GameScene::render2DUI()
 		else if (panelId == U"guide_sign_edit") { drawGuideSignEditPanel(); }
 		else if (panelId == U"guide_sign_editor") { drawGuideSignEditorPanel(); }
 		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
+		else if (panelId == U"rail_info")
+		{
+			drawRailInfoPanel();
+		}
 		else if (panelId == U"building_info"){ drawBuildingPanel(); }
 		else if (panelId == U"land_info") { drawLandParcelPanel(); }
 		else if (panelId == U"zone_palette") { drawZonePalette(); }

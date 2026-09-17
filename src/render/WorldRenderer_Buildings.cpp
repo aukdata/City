@@ -1120,8 +1120,9 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	Mesh{ box }.draw(color);
 }
 
-Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(
-	const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees,const RiverNetwork& rivers,const Array<Polygon>& sites)
+Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(const Chunk& chunk,
+	const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots, bool detailedTrees,
+	const RiverNetwork& rivers, const Array<Polygon>& sites, bool woodland)
 {
 	struct HeightSnapshot
 	{
@@ -1162,7 +1163,10 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(
 	}
 	HashTable<int,MeshData> groups;
 	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks,detailedTrees); }
-	appendWoodland(groups,chunk,heights,masks,rivers,detailedTrees);
+	if (woodland)
+	{
+		appendWoodland(groups, chunk, heights, masks, rivers, detailedTrees);
+	}
 	Array<TerrainMeshData> result;
 	for (auto& [key,mesh] : groups) { result << TerrainMeshData{key,std::move(mesh)}; }
 	return result;
@@ -1210,7 +1214,10 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	if (!m_asyncTerrain)
 	{
 		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
-		appendWoodland(groups,chunk,world,roadMasks,world.rivers());
+		if (m_woodlandEnabled)
+		{
+			appendWoodland(groups, chunk, world, roadMasks, world.rivers());
+		}
 	}
 
 	for (int row = 0; row < ZONE_CELLS; ++row)

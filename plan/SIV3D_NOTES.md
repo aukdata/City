@@ -209,3 +209,8 @@ Shader::LinearToScreen(m_renderTexture);
 ### 時刻の08・09と整数パース（2026-09-14）
 
 `ParseOpt<int>()` は `ParseIntOpt<int>(s)` の基数自動判定を使用するため、先頭0は八進数になり08・09は失敗する。時刻は `ParseIntOpt<int>(text, Arg::radix = 10)` で読む。SDKの `ParseInt.hpp` / `detail/Parse.ipp` で確認。
+
+## Ray とメッシュ三角形（2026-09-17 SDK確認）
+- `ray.intersects(Triangle3D{Float3,Float3,Float3})` は `Optional<float>` の交差距離。
+- `ray.point_at(distance)` は `Float3` の交点。Ray方向は呼出側で正規化する。
+- Meshを直接渡す交差APIはない。保持したMeshDataの三角形を、描画と同じワールド座標で検査する。

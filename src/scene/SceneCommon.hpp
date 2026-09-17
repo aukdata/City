@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "../gen/GenerationOptions.hpp"
 
 /// @brief シーン識別子
 enum class SceneState { Title, Game };
@@ -6,6 +7,7 @@ enum class SceneState { Title, Game };
 /// @brief シーン間で共有するデータ
 struct SceneData
 {
+	GenerationOptions generation; ///< 生成前に選んだ要素。ロード時は保存側の設定で復元する。
 	// タイトル画面で決めた開始条件をここへ集約し、GameScene への遷移時にまとめて引き渡す。
 	uint64 seed        = 20260316ULL;
 	double effectVolume = .6; ///< 起動中はシーンを切り替えても効果音の設定を保持する。

@@ -30,5 +30,8 @@
   "minimumReachRatio": 0.65,
   "homeSetback": 4,
   "homeFootprintMargin": 2,
-  "connectionRadius": 45
+  "connectionRadius": 80,
+  "deadEndConnectionRadius": 280,
+  "meanderAngle": 0.42,
+  "meanderWavelength": 480
 }

@@ -1,0 +1,84 @@
+﻿{
+  "total": 11,
+  "passed": 11,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "GenerationRevision.Benchmark",
+      "status": "passed",
+      "durationMs": 224.232,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.StartAndRailUi",
+      "status": "passed",
+      "durationMs": 128.190,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.PlainLimitAndCityCap",
+      "status": "passed",
+      "durationMs": 696.624,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.VillageShortcuts",
+      "status": "passed",
+      "durationMs": 216.835,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.SaveDelete",
+      "status": "passed",
+      "durationMs": 2.011,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.UndergroundGeometry",
+      "status": "passed",
+      "durationMs": 236.708,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.DisabledElements",
+      "status": "passed",
+      "durationMs": 959.348,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.MountainVillages",
+      "status": "passed",
+      "durationMs": 1.493,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.FarmDeadEnd",
+      "status": "passed",
+      "durationMs": 431.180,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.TrainFollow",
+      "status": "passed",
+      "durationMs": 0.037,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.LayerAndFpsLayout",
+      "status": "passed",
+      "durationMs": 7.099,
+      "failures": [
+      ]
+    }
+  ]
+}

@@ -256,7 +256,7 @@ void PedestrianManager::chooseTrip(Pedestrian& person)
 				continue;
 			}
 			const double distance = person.position.distanceFromSq(m_walk.sites()[candidate].entrance);
-			if (preference < 55 && m_nearParking[*source] >= 0 && m_nearParking[candidate] >= 0 &&
+			if (m_carsEnabled && preference < 55 && m_nearParking[*source] >= 0 && m_nearParking[candidate] >= 0 &&
 				m_nearParking[*source] != m_nearParking[candidate] && distance > Square(300.0))
 			{
 				destination = candidate;

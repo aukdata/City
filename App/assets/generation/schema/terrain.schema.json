@@ -87,7 +87,12 @@
     "coastalPlainHeight",
     "detailFrequency",
     "detailOctaves",
-    "detailPersistence"
+    "detailPersistence",
+    "maximumPlainFraction",
+    "interiorHillHeight",
+    "interiorHillScale",
+    "interiorHillThreshold",
+    "macroSampleStep"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -509,6 +514,31 @@
       "type": "number",
       "minimum": 1e-06,
       "maximum": 5.0
+    },
+    "maximumPlainFraction": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 0.5
+    },
+    "interiorHillHeight": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 12000.0
+    },
+    "interiorHillScale": {
+      "type": "number",
+      "minimum": 0.02,
+      "maximum": 0.3
+    },
+    "interiorHillThreshold": {
+      "type": "number",
+      "minimum": 0.3,
+      "maximum": 0.7
+    },
+    "macroSampleStep": {
+      "type": "number",
+      "minimum": 16.0,
+      "maximum": 128.0
     }
   }
 }

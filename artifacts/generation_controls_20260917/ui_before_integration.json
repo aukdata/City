@@ -1,0 +1,42 @@
+﻿{
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "GenerationRevision.Benchmark",
+      "status": "passed",
+      "durationMs": 238.846,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.StartAndRailUi",
+      "status": "passed",
+      "durationMs": 130.383,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.PlainLimitAndCityCap",
+      "status": "passed",
+      "durationMs": 743.575,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.VillageShortcuts",
+      "status": "passed",
+      "durationMs": 211.170,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationRevision.SaveDelete",
+      "status": "passed",
+      "durationMs": 2.204,
+      "failures": [
+      ]
+    }
+  ]
+}

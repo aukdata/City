@@ -69,6 +69,11 @@ private:
 
 	/// @brief バイオームパラメータ（基底高・振幅）を連続補間で計算する
 	void computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
+	void computeRawBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
+	/// @brief 広域地形を一度だけ計算し、平野面積の上限と内部の丘陵を反映する。
+	void buildMacroTerrain();
+	Grid<Float2> m_macroTerrain;
+	double m_macroStepX = 64, m_macroStepZ = 64;
 
 	/// @brief 中央は平野を基本とし、一部の種では山・湾・湖を持つ。
 	enum class CentralLandform : uint8 { Plain, Mountain, Bay, Lake };

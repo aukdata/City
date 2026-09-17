@@ -195,7 +195,15 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		context.expect(stats.fields>50 && connected && grounded,U"Actual farm roads form a drivable ground network connected to existing roads");
 		context.expect(curved>5 && maximumGrade<.061,U"Farm branches bend with terrain without exceeding the farm-road gradient");
 		context.expect(nearDensity>farDensity*1.3 && farArea>0,U"Field coverage decreases outward from the village, measured per unit area");
-		JSON report;report[U"fields"]=stats.fields;report[U"curvedRoads"]=curved;report[U"maximumGrade"]=maximumGrade;report[U"nearDensity"]=nearDensity;report[U"farDensity"]=farDensity;report[U"connected"]=connected;report.save(U"TestResults/farm_terrain_density.json");
+		JSON report;
+		report[U"fields"] = stats.fields;
+		report[U"curvedRoads"] = curved;
+		report[U"connections"] = stats.connections;
+		report[U"maximumGrade"] = maximumGrade;
+		report[U"nearDensity"] = nearDensity;
+		report[U"farDensity"] = farDensity;
+		report[U"connected"] = connected;
+		report.save(U"TestResults/farm_terrain_density.json");
 	});
 
 }

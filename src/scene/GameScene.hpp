@@ -2,6 +2,9 @@
 #include "../ui/FrameRateGraph.hpp"
 #include "../ui/CommandPalette.hpp"
 #include "../render/TunnelRenderer.hpp"
+#include "../render/SubsurfaceView.hpp"
+#include "../ui/RailInfoPanel.hpp"
+#include "../ui/StartScreenControls.hpp"
 #include "../gen/DistrictHierarchy.hpp"
 #include "../render/RiverRenderer.hpp"
 #include "../ui/WalkSurface.hpp"
@@ -164,6 +167,14 @@ private:
 	RiverRenderer m_riverRenderer;
 	WalkSurface m_walkSurface;
 	TunnelRenderer m_tunnelRenderer;
+	SubsurfaceView m_subsurface;
+	bool m_underground = false, m_trackingTrain = false;
+	Array<Mesh> m_stationSelectionMeshes;
+	void toggleUnderground();
+	void selectTrain(int id);
+	void selectStation(int id);
+	void drawRailInfoPanel();
+	Optional<int> visibleNodeNear(Vec3 position, float radius) const;
 	DistrictHierarchy m_districtHierarchy;
 	CityLighting     m_cityLighting;
 	GpuFrameTimer    m_gpuTimer;
@@ -243,7 +254,18 @@ private:
 	int             m_followVehicleIdx = 0;
 
 	// 選択状態（道路・付帯設備を統合）
-	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel, Train };
+	enum class SelectionKind
+	{
+		None,
+		Edge,
+		Node,
+		GuideSign,
+		Signal,
+		Building,
+		LandParcel,
+		Train,
+		Station
+	};
 	struct Selection {
 		SelectionKind kind = SelectionKind::None;
 		int id = -1;
@@ -289,7 +311,19 @@ private:
 	void selectBuilding(BuildingRef ref) { m_selectedBuilding=none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); m_selection = { SelectionKind::Building, 0 }; m_selectedBuilding = ref; }
 	void selectRoute(int id)  { m_selectedRouteId = id; }
 	void selectRoadPlan(int id) { m_selectedRoadPlanId = id; }
-	void clearSelection()     { m_selection.clear(); m_selectedRouteId = none; m_selectedRoadPlanId = none; m_selectedBuilding = none; m_selectedLandParcel=none; m_landParcelOutline=Mesh{}; m_panelManager.hide(U"land_info"); }
+	void clearSelection()
+	{
+		m_trackingTrain = false;
+		m_stationSelectionMeshes.clear();
+		m_panelManager.hide(U"rail_info");
+		m_selection.clear();
+		m_selectedRouteId = none;
+		m_selectedRoadPlanId = none;
+		m_selectedBuilding = none;
+		m_selectedLandParcel = none;
+		m_landParcelOutline = Mesh{};
+		m_panelManager.hide(U"land_info");
+	}
 	void recomputeGuideSignsAroundNode(int nodeId);
 
 	// 車両選択
@@ -470,6 +504,7 @@ private:
 		m_locationIndexDirty=true;
 		m_trainRenderer.invalidateRoadClearance();
 		m_tunnelRenderer.dirty=true;
+		m_subsurface.invalidate();
 		if (dirtyNodeIds.isEmpty())
 		{
 			m_worldRenderer.invalidateAllTerrain();

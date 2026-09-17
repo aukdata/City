@@ -111,8 +111,15 @@ void GameScene::handleRoadPlan()
 	{
 		Vec3 point = *m_cursorGroundPos;
 		point.y += m_drawElevation;
-		m_roadPlanCursor = m_draftRoadPlan.snapping && !GameInput::pressed(KeyAlt) && Abs(m_drawElevation)<.1f
-			? m_roadPlanSnapIndex.find(m_network,point) : RoadPlanSnapIndex::Hit{point};
+		m_roadPlanCursor =
+			m_draftRoadPlan.snapping && !GameInput::pressed(KeyAlt) && Abs(m_drawElevation) < .1f
+				? m_roadPlanSnapIndex.find(m_network, point, 12, 6, !m_underground,
+					  [&](const RoadEdge& edge) { return !m_underground || m_subsurface.containsEdge(edge.id); })
+				: RoadPlanSnapIndex::Hit{point};
+		if (m_underground && !SubsurfaceView::below(m_roadPlanCursor->position, m_world))
+		{
+			m_roadPlanCursor = RoadPlanSnapIndex::Hit{point};
+		}
 	}
 	if (m_draftRoadPlan.draggedPoint)
 	{
