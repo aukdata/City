@@ -1,0 +1,12 @@
+﻿{
+  "far": {
+    "averageUpdateMs": 0.09490400000000036,
+    "positionUpdates": 18772,
+    "walking": 9106
+  },
+  "near": {
+    "averageUpdateMs": 0.6187920000000003,
+    "positionUpdates": 4118032,
+    "walking": 9106
+  }
+}

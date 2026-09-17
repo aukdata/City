@@ -25,6 +25,7 @@ void TrainManager::init(TrainNetwork* network)
 	m_network = network;
 	m_trains.clear();
 	m_nextId = 0;
+	m_stopEvents.clear();
 	if (!m_network) { return; }
 	for (const auto& edge : m_network->edges())
 	{
@@ -35,6 +36,7 @@ void TrainManager::init(TrainNetwork* network)
 void TrainManager::finishService(Train& train)
 {
 	for (const int id : train.routeEdges) { m_network->releaseOccupy(id, train.id); }
+	if (m_passengerEventsEnabled) { m_stopEvents << StopEvent{train.id,-1,train.position,true}; }
 	train.currentEdge = -1;
 }
 
@@ -130,6 +132,7 @@ void TrainManager::advanceTrain(Train& train, double dt)
 			train.state = TrainState::WaitingStation;
 			train.speed = 0;
 			train.waitRemaining = stop->dwellSec;
+			if (m_passengerEventsEnabled) { m_stopEvents << StopEvent{train.id,end,m_network->getNode(end)->position}; }
 			break;
 		}
 		if (train.routeProgress + 1 >= static_cast<int>(train.routeEdges.size()))
@@ -262,8 +265,19 @@ void TrainManager::spawnScheduledTrains(GameTime now)
 		DBG_LOG(U"[Train] spawn id={} type={} cars={} reverse={} sections={}"_fmt(
 			m_nextId, static_cast<int>(train.type), TrainConsist::profile(train.type).cars,
 			train.reverseService, train.routeEdges.size()));
+		const int trainId = m_nextId;
 		addTrain(std::move(train));
+		if (m_passengerEventsEnabled) { m_stopEvents << StopEvent{trainId,serviceStop(schedule,0,schedule.reverseNext).stationNodeId,m_trains.back().position}; }
 		schedule.lastSpawnAt = now;
 		schedule.reverseNext = !schedule.reverseNext;
 	}
+}
+
+Array<TrainManager::StopEvent> TrainManager::drainStopEvents()
+{
+	auto result=std::move(m_stopEvents); m_stopEvents.clear(); return result;
+}
+void TrainManager::setPassengerCount(int trainId,int count)
+{
+	for(auto& train:m_trains) { if(train.id==trainId) { train.passengerCount=Max(0,count); return; } }
 }

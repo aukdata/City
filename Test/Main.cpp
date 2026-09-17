@@ -24,6 +24,7 @@ void Main()
 	registerFringeAgricultureTests(runner);
 	registerRoadsideLifeTests(runner);
 	registerTrafficScalingTests(runner);
+	registerPedestrianTests(runner);
 	registerModelLodTests(runner);
 	registerGenerationSettingsTests(runner);
 	registerRuralVisualTests(runner);

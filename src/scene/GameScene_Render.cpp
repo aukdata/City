@@ -170,7 +170,7 @@ void GameScene::pushPerfStats()
 	stats.terrain  = m_renderTimings.terrain;
 	stats.road     = m_renderTimings.road;
 	stats.zone     = m_renderTimings.zone;
-	stats.vehicle  = m_renderTimings.vehicle;
+	stats.vehicle  = m_renderTimings.vehicle + m_renderTimings.pedestrian;
 	stats.train    = m_renderTimings.train;
 	stats.debugUI  = m_renderTimings.debug + m_renderTimings.ui;
 	m_mainPerfHistory.push(stats);
@@ -292,6 +292,8 @@ void GameScene::renderWorld()
 		m_trainRenderer.renderTracks(m_trainNetwork,m_world,m_camera.eyePosition(),m_network);
 		m_trainRenderer.renderTrains(m_trainManager.trains(),m_trainNetwork,m_camera.camera3D().getEyePosition());
 		lap(m_renderTimings.train);
+		m_pedestrianRenderer.render(m_pedestrianManager.people(), m_pedestrianManager.now(), m_camera.camera3D());
+		lap(m_renderTimings.pedestrian);
 
 		if (!getData().captureCityRenders)
 		{

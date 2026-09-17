@@ -19,6 +19,9 @@ namespace
 void VehicleManager::init(const SimGraph& simGraph, const RoadNetwork& network, const World* world)
 {
 	m_world = world;
+	m_passengerArrivals.clear();
+	m_pedestrianCrossings.clear();
+	m_waitingPassengerCount=0;
 	m_spawnCredit = GenerationSettings::get().traffic_burst;
 	if (m_world) { m_buildingAccess.rebuild(*m_world, network, simGraph); }
 	buildTrafficLights(simGraph, &network);
@@ -165,11 +168,13 @@ void VehicleManager::applyRouteResponse(const RouteResponse& resp)
 		}
 		else
 		{
-			// 経路探索失敗 → 5回連続失敗で削除、そうでなければゴールをリセットして再試行
+			// 乗客がいる車は目的地を勝手に変えず降車へ戻す。通常交通は最大5回まで再試行する。
 			++v.routeFailCount;
 			++m_populationStats.routeFailures;
-			if (v.routeFailCount >= 5)
+			if (v.passengerId >= 0 || v.routeFailCount >= 5)
+			{
 				v.currentEdge = -1;
+			}
 			else { v.goalEdgeId = -1; v.goalArc = -1; v.goalLane = -1; }
 		}
 
@@ -199,7 +204,7 @@ void VehicleManager::update(double dt, GameTime gameNow,
 	if (m_trafficDemandConfigured)
 	{
 		m_targetVehicleCount = Clamp(static_cast<int>(Math::Round(
-			m_trafficDemand.targetVehicleCount * m_eventDemandMultiplier)), 0, GenerationSettings::get().traffic_maximumVehicles);
+			m_trafficDemand.targetVehicleCount * m_eventDemandMultiplier)), 0, Max(0, GenerationSettings::get().traffic_maximumVehicles - m_waitingPassengerCount));
 	}
 
 	const auto t0 = Clock::now();
@@ -246,7 +251,8 @@ void VehicleManager::update(double dt, GameTime gameNow,
 			}
 		}
 		const auto moveStart = Clock::now();
-		updateActiveVehicle(v, dt, simGraph, network);
+		// 住民を乗せた車は経路回答を待ってから発車し、未確定の交差点へ流さない。
+		if (!(v.passengerId >= 0 && v.routeRequested && v.routeWaypoints.isEmpty())) { updateActiveVehicle(v, dt, simGraph, network); }
 		idmTotal += toMs(Clock::now() - moveStart);
 
 		// 目的地エッジを実際に走り切った車両だけを完了履歴へ記録する。
@@ -274,6 +280,13 @@ void VehicleManager::update(double dt, GameTime gameNow,
 	m_stats.idm = idmTotal;
 	m_stats.laneChange = lcTotal;
 
+	for (const auto& vehicle : m_vehicles)
+	{
+		if (vehicle.currentEdge < 0 && vehicle.passengerId >= 0)
+		{
+			m_passengerArrivals << PassengerArrival{vehicle.passengerId,vehicle.destinationBuilding,vehicle.position,vehicle.tripCompleted};
+		}
+	}
 	m_vehicles.remove_if([](const Vehicle& v) { return v.currentEdge == -1; });
 	m_vehicleIndices.clear();
 	for (size_t i = 0; i < m_vehicles.size(); ++i) { m_vehicleIndices[m_vehicles[i].id] = i; }
@@ -419,6 +432,11 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 		? (edge->length - stopCutoff - kStopLineOffset - v.arcPos)
 		: (v.arcPos - stopCutoff - kStopLineOffset);
 
+	if (m_pedestrianCrossings.contains(exitNId) && distToStop > 0)
+	{
+		// 横断中は停止線に仮想の先行車を置き、車両の通常の制動処理で待つ。
+		accel = Min(accel, idmFollowingAcceleration(v.speed, params, distToStop + params.s0, 0));
+	}
 	// Keep the intersection clear when the receiving lane is full. Queues therefore
 	// propagate onto upstream roads instead of overlapping cars inside the crossing.
 	if (distToStop < 45 && v.goalEdgeId != v.currentEdge)

@@ -1185,4 +1185,13 @@
   <ItemGroup>
     <ClCompile Include="SharedTransportTests.cpp" />
   </ItemGroup>
+<ItemGroup>
+    <ClCompile Include="..\src\pedestrian\PedestrianManager.cpp" />
+    <ClCompile Include="..\src\pedestrian\PedestrianTrips.cpp" />
+    <ClCompile Include="..\src\pedestrian\PedestrianTransfers.cpp" />
+    <ClCompile Include="..\src\pedestrian\PedestrianNetwork.cpp" />
+    <ClCompile Include="..\src\render\PedestrianRenderer.cpp" />
+    <ClCompile Include="..\src\traffic\VehiclePassengers.cpp" />
+    <ClCompile Include="PedestrianTests.cpp" />
+  </ItemGroup>
 </Project>

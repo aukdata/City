@@ -51,6 +51,7 @@ void BuildingAccessIndex::updateChunk(int index, const World& world, const RoadN
 	}
 	if (!force && m_fingerprints[index] == fingerprint) { return; }
 	m_fingerprints[index] = fingerprint;
+	++m_revision;
 	for (const int edge : m_chunkEdges[index])
 	{
 		auto found = m_edges.find(edge);

@@ -19,6 +19,7 @@
 | 地区街路・集落の接続候補検索 | `gen/RoadNodeIndex.hpp` | 空間検索だけを共有し、距離・費用・除外条件は呼出側が決める。 |
 | 初期集落・農地・家並み | `MapGenerator`, `SettlementPlacement`, `DistrictRoads`, `SettlementDevelopment`, `AgriculturalLayout` | 生成順序と外部設定の依存を維持する。 |
 | 車両・運転・経路 | `traffic/VehicleManager*`, `DrivingController`, `sim/SimThread` | 所有する可変車両と、読取り専用の経路グラフを分ける。 |
+| 歩行者・乗換 | `pedestrian/PedestrianNetwork`, `PedestrianManager`, `PedestrianTrips`, `PedestrianTransfers` | 徒歩網・住民の移動状態・乗換予約を分け、車と列車の実到着で更新 |
 | 鉄道・ダイヤ・車庫 | `railway/TrainNetwork`, `TrainManager`, `RailTimetable`, `RailDepotBuilder` | 編集データと運行中の状態を区別する。 |
 
 ## 生成と通常実行の境界

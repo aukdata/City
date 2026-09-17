@@ -1633,4 +1633,15 @@
     <ClInclude Include="src\road\TransportCrossSection.hpp" />
     <ClInclude Include="src\ui\TransportSectionControls.hpp" />
   </ItemGroup>
+<ItemGroup>
+    <ClInclude Include="src\pedestrian\PedestrianManager.hpp" />
+    <ClCompile Include="src\pedestrian\PedestrianManager.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianTrips.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianTransfers.cpp" />
+    <ClInclude Include="src\pedestrian\PedestrianNetwork.hpp" />
+    <ClCompile Include="src\pedestrian\PedestrianNetwork.cpp" />
+    <ClInclude Include="src\render\PedestrianRenderer.hpp" />
+    <ClCompile Include="src\render\PedestrianRenderer.cpp" />
+    <ClCompile Include="src\traffic\VehiclePassengers.cpp" />
+  </ItemGroup>
 </Project>

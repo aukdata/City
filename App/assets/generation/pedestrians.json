@@ -1,0 +1,17 @@
+{
+  "targetPopulation": 10000,
+  "routesPerUpdate": 16,
+  "routeExpansionLimit": 6000,
+  "nearDistance": 500,
+  "farUpdateSeconds": 4,
+  "walkSpeed": 1.35,
+  "destinationRestSeconds": 40,
+  "maximumTrainWait": 1800,
+  "maximumParkingWait": 90,
+  "parkingSpaces": 24,
+  "initialParkedCars": 12,
+  "passengersPerCarriage": 80,
+  "drawDistance": 1000,
+  "detailedDrawDistance": 100,
+  "refreshSeconds": 15
+}

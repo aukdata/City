@@ -42,6 +42,18 @@ void GameScene::recordPlaytestFrame()
 			item[U"bounds"] = Array<double>{label.bounds.x, label.bounds.y, label.bounds.w, label.bounds.h};
 			state[U"townLabels"][labelIndex++] = item;
 		}
+		const auto& residents=m_pedestrianManager.stats();
+		state[U"pedestrians"][U"population"]=residents.population;
+		state[U"pedestrians"][U"walking"]=residents.walking;
+		state[U"pedestrians"][U"waitingTrain"]=residents.waitingTrain;
+		state[U"pedestrians"][U"ridingTrain"]=residents.ridingTrain;
+		state[U"pedestrians"][U"waitingCar"]=residents.waitingCar;
+		state[U"pedestrians"][U"ridingCar"]=residents.ridingCar;
+		state[U"pedestrians"][U"completed"]=residents.completed;
+		state[U"pedestrians"][U"updateMs"]=residents.updateMs;
+		state[U"pedestrians"][U"renderMs"]=m_renderTimings.pedestrian;
+		state[U"pedestrians"][U"drawCalls"]=m_pedestrianRenderer.stats().drawCalls;
+		state[U"pedestrians"][U"visible"]=m_pedestrianRenderer.stats().submitted;
 		state[U"railway"][U"editorVisible"]=m_panelManager.isVisible(U"rail_timetable");
 		state[U"railway"][U"message"]=m_trainTimetableEditor.message;
 		state[U"railway"][U"edgeCount"]=m_trainNetwork.edges().size();
@@ -50,7 +62,7 @@ void GameScene::recordPlaytestFrame()
 		int trainIndex=0;
 		for (const auto& train : m_trainManager.trains())
 		{
-			JSON item; item[U"id"]=train.id; item[U"line"]=train.scheduleId; item[U"speed"]=train.speed;
+			JSON item; item[U"id"]=train.id; item[U"line"]=train.scheduleId; item[U"speed"]=train.speed; item[U"passengers"]=train.passengerCount;
 			item[U"state"]=static_cast<int>(train.state); item[U"stopIndex"]=train.nextStopIdx;
 			item[U"position"]=Array<double>{train.position.x,train.position.y,train.position.z};
 			state[U"railway"][U"trains"][trainIndex++]=item;

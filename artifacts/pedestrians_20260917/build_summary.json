@@ -1,0 +1,12 @@
+{
+  "targets": [
+    "City",
+    "Test"
+  ],
+  "configuration": "Release x64",
+  "warnings": 0,
+  "errors": 0,
+  "settingsValidated": 885,
+  "testTotal": 263,
+  "testPassed": 263
+}

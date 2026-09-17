@@ -14,6 +14,8 @@
     "viaductHeightCost",
     "viaductHeightSquaredCost",
     "maximumGrade",
+    "minimumRadius",
+    "smoothingPasses",
     "profileHeightStep",
     "gradeCost",
     "stationBaseElevation",
@@ -43,9 +45,7 @@
     "crossingExtraClearance",
     "waterClearance",
     "waterTunnelCover",
-    "platformLevelMargin",
-    "minimumRadius",
-    "smoothingPasses"
+    "platformLevelMargin"
   ],
   "properties": {
     "maximumCut": {
@@ -97,6 +97,16 @@
       "type": "number",
       "minimum": 0.001,
       "maximum": 0.1
+    },
+    "minimumRadius": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 5000.0
+    },
+    "smoothingPasses": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1024.0
     },
     "profileHeightStep": {
       "type": "number",
@@ -247,17 +257,6 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10000.0
-    },
-    "minimumRadius": {
-      "type": "number",
-      "minimum": 50,
-      "maximum": 5000,
-      "description": "鉄道の最小平面半径 [m]。道路より厳しく制限する。"
-    },
-    "smoothingPasses": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 1024
     }
   }
 }

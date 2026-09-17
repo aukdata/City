@@ -143,6 +143,10 @@
     <ClCompile Include="src\sim\SimThread.cpp" />
     <ClCompile Include="src\traffic\VehicleManager.cpp" />
     <ClCompile Include="src\traffic\BuildingAccess.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianNetwork.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianManager.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianTransfers.cpp" />
+    <ClCompile Include="src\pedestrian\PedestrianTrips.cpp" />
     <ClCompile Include="src\traffic\TrafficGraph.cpp" />
     <ClCompile Include="src\traffic\TrafficLight.cpp" />
     <ClCompile Include="src\traffic\SignalRegistry.cpp" />
@@ -168,6 +172,7 @@
     <ClCompile Include="src\render\RoadRenderer_Signals.cpp" />
     <ClCompile Include="src\render\RoadRenderer_Signs.cpp" />
     <ClCompile Include="src\render\VehicleRenderer.cpp" />
+    <ClCompile Include="src\render\PedestrianRenderer.cpp" />
     <ClCompile Include="src\render\UIRenderer.cpp" />
     <ClCompile Include="src\ui\CityHud.cpp" />
     <ClCompile Include="src\GameApp.cpp" />
@@ -196,6 +201,7 @@
     <ClCompile Include="src\zone\ZoneManager.cpp" />
     <ClCompile Include="src\zone\ZoneDevelopment.cpp" />
     <ClCompile Include="src\traffic\VehiclePopulation.cpp" />
+    <ClCompile Include="src\traffic\VehiclePassengers.cpp" />
     <ClCompile Include="src\economy\Economy.cpp" />
     <ClCompile Include="src\gameplay\CitySimulation.cpp" />
     <ClCompile Include="src\event\EventSystem.cpp" />
@@ -473,6 +479,8 @@
     <ClInclude Include="src\traffic\VehicleManager.hpp" />
     <ClInclude Include="src\traffic\LaneVehicleIndex.hpp" />
     <ClInclude Include="src\traffic\BuildingAccess.hpp" />
+    <ClInclude Include="src\pedestrian\PedestrianNetwork.hpp" />
+    <ClInclude Include="src\pedestrian\PedestrianManager.hpp" />
     <ClInclude Include="src\ui\Camera.hpp" />
     <ClInclude Include="src\ui\MapStroke.hpp" />
     <ClInclude Include="src\ui\CommandPalette.hpp" />
@@ -490,6 +498,7 @@
     <ClInclude Include="src\render\TerrainSurfaceGeometry.hpp" />
     <ClInclude Include="src\render\RoadRenderer.hpp" />
     <ClInclude Include="src\render\VehicleRenderer.hpp" />
+    <ClInclude Include="src\render\PedestrianRenderer.hpp" />
     <ClInclude Include="src\render\MeshLod.hpp" />
     <ClInclude Include="src\render\ModelBatch.hpp" />
     <ClInclude Include="src\render\VehicleInstanceBatch.hpp" />

@@ -19,6 +19,8 @@
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../traffic/VehicleManager.hpp"
+#include "../pedestrian/PedestrianManager.hpp"
+#include "../render/PedestrianRenderer.hpp"
 #include "../traffic/DrivingController.hpp"
 #include "../audio/SoundEffects.hpp"
 #include "../traffic/BusSystem.hpp"
@@ -132,6 +134,8 @@ private:
 	// ---- 鉄道システム ----
 	TrainNetwork     m_trainNetwork;
 	TrainManager     m_trainManager;
+	PedestrianManager m_pedestrianManager;
+	PedestrianRenderer m_pedestrianRenderer;
 	TrainTimetableEditor m_trainTimetableEditor;
 	bool m_railTimetableWasVisible = false;
 
@@ -351,7 +355,7 @@ private:
 	struct RenderTimings
 	{
 		double sky = 0, terrain = 0, road = 0, zone = 0;
-		double vehicle = 0, train = 0, debug = 0, ui = 0, total = 0;
+		double vehicle = 0, train = 0, pedestrian = 0, debug = 0, ui = 0, total = 0;
 		// renderScene3D 内訳
 		double terrainOnly = 0, roadMesh = 0, signals = 0, routeSigns = 0;
 		// render2DUI 内訳
@@ -457,6 +461,7 @@ private:
 	void notifyNetworkChanged(const NetworkChangeContext& context)
 	{
 		m_trainNetwork.synchronize();
+		m_pedestrianManager.invalidate();
 		Stopwatch step{ StartImmediately::Yes };
 		const bool isFastPath = (context.kind == NetworkChangeKind::MovedIntersectionNode);
 		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;

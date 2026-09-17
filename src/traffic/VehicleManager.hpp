@@ -54,6 +54,11 @@ public:
 		int localVehicles = 0, localTarget = 0;
 	};
 	const PopulationStats& populationStats() const { return m_populationStats; }
+	struct PassengerArrival { int passengerId; int64 parkingKey; Vec3 position; bool arrived; };
+	/// @brief 駐車場の出入口から、指定した駐車場へ向かう実車を生成する。満車線では乗車を待つ。
+	Optional<int> boardPassenger(int passengerId, const BuildingAccessPoint& from, const BuildingAccessPoint& to,
+		const SimGraph& graph, const RoadNetwork& roads);
+	Array<PassengerArrival> drainPassengerArrivals();
 	/// @brief 見ている街の通常交通を維持する。建物の前で発着する。
 	void setTrafficFocus(Vec3 point)
 	{
@@ -65,6 +70,9 @@ public:
 	/// @brief 自由運転車を交通の障害物として公開する。降車時は none。
 	void setDrivenVehicle(Optional<Vehicle> vehicle,const World* world=nullptr) { m_drivenVehicle=std::move(vehicle);m_drivingWorld=world; }
 	const Array<Vehicle>& vehicles() const { return m_vehicles; }
+	/// @brief 横断中の歩行者がいる交差点。歩行者側から毎フレーム更新する。
+	void setPassengerDemand(int count) { m_waitingPassengerCount=Max(0,count); }
+	void setPedestrianCrossings(HashSet<int> nodes) { m_pedestrianCrossings=std::move(nodes); }
 	int vehicleCount() const { return static_cast<int>(m_vehicles.size()); }
 
 	/// @brief 人口・用途から算出済みの交通需要を反映する
@@ -102,6 +110,9 @@ public:
 
 private:
 	Array<Vehicle> m_vehicles;
+	Array<PassengerArrival> m_passengerArrivals;
+	HashSet<int> m_pedestrianCrossings;
+	int m_waitingPassengerCount=0;
 	Optional<Vehicle> m_drivenVehicle;
 	const World* m_drivingWorld=nullptr;
 	void avoidDrivenVehicle(Vehicle& vehicle,double dt,const RoadNetwork& roads) const;

@@ -16,6 +16,11 @@ public:
 	const Array<Train>& trains() const { return m_trains; }
 	/// @brief 手動で列車を追加する。
 	void addTrain(Train train);
+	struct StopEvent { int trainId, stationId; Vec3 position; bool ended = false; };
+	/// @brief 乗客管理が接続された場合だけ停車イベントを記録する。
+	void enablePassengerEvents() { m_passengerEventsEnabled = true; }
+	Array<StopEvent> drainStopEvents();
+	void setPassengerCount(int trainId,int count);
 
 private:
 	static constexpr double kMaximumStep = 0.1;  ///< 積分の最大刻み [秒]
@@ -28,6 +33,8 @@ private:
 	TrainNetwork* m_network = nullptr;
 	Array<Train> m_trains;
 	int m_nextId = 0;
+	bool m_passengerEventsEnabled = false;
+	Array<StopEvent> m_stopEvents;
 
 	void updateTrain(Train& train, double dt);
 	void advanceTrain(Train& train, double dt);

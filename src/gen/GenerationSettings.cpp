@@ -66,6 +66,8 @@ namespace GenerationSettings
 			const int lanes=item.value.get<int>();
 			require(lanes==1 || lanes%2==0, U"streetProfiles lanes: one-way 1, two-way 2 / 4 / 6");
 		}
+		require(result.pedestrians_initialParkedCars<=result.pedestrians_parkingSpaces, U"pedestrians parked cars <= spaces");
+		require(result.pedestrians_detailedDrawDistance<=result.pedestrians_drawDistance, U"pedestrians detailed draw distance <= maximum");
 		return result;
 	}
 

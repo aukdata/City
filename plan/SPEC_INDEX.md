@@ -15,6 +15,7 @@
 | 沿道店舗・田舎の住宅・山道・自動交通・信号モデル | [27 沿道の暮らし](27_roadside_life_spec.md) | `Building`, `RoadDesignLimits`, `VehiclePopulation`, `RoadSign` |
 | 車線・断面・接続 | [07 道路](07_road_lane_spec.md) / [16 断面](16_road_cross_section_spec.md) / [17 ノード](17_road_node_spec.md) | `RoadNetwork`, `RoadGeometry` |
 | 道路設備・標識・路線 | [20 道路設備](20_road_object_spec.md) / [21 案内標識](21_guide_sign_spec.md) / [22 路線](22_road_route_spec.md) | `RoadRenderer`, `GuideSign`, `RoadRoute` |
+| 歩行者・敷地間移動・駅と駐車場での乗換 | [30 歩行者](30_pedestrian_spec.md) | `PedestrianNetwork`, `PedestrianManager`, `PedestrianRenderer` |
 | 日本風の電車・編成・駅停車・復路 | [10 鉄道](10_railway_spec.md) | `TrainNetwork`, `TrainManager`, `TrainConsist`, `TrainRenderer` |
 | 道路工事 | [23 工事](23_road_construction_spec.md) | `RoadPlanDraft`, `RoadPlanConstruction`, `RoadConstructionStart`, `RoadConstruction`, `ConstructionSite` |
 | 描画・LOD・キャッシュ | [12 ビジュアル](12_visual_spec.md) | `WorldRenderer`, `RoadRenderer`, `CityLighting` |

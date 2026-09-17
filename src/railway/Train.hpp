@@ -45,6 +45,7 @@ struct Train
 	float       heading     = 0.0f;   ///< 進行方向 [rad]
 
 	// ダイヤ
+	int         passengerCount = 0; ///< 実際に乗車中の住民数。
 	int         scheduleId  = -1;  ///< 所属 TrainSchedule id
 	int         nextStopIdx = 0;   ///< 次の停車駅インデックス
 	float       waitRemaining = 0.0f; ///< 駅停車の残り待機 [ゲーム秒]

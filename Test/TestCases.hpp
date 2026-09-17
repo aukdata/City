@@ -28,6 +28,7 @@ void registerFringeAgricultureTests(TestRunner& runner);
 
 void registerRoadsideLifeTests(TestRunner& runner);
 void registerTrafficScalingTests(TestRunner& runner);
+void registerPedestrianTests(TestRunner& runner);
 void registerModelLodTests(TestRunner& runner);
 
 void registerGenerationSettingsTests(TestRunner& runner);

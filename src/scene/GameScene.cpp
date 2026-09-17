@@ -80,6 +80,8 @@ void GameScene::startSimThread()
 {
 	m_simGraph = std::make_shared<const SimGraph>(SimGraph::build(m_network));
 	m_vehicleManager.init(*m_simGraph, m_network, &m_world);
+	m_trainManager.enablePassengerEvents();
+	m_pedestrianManager.initialize(m_world, m_network, m_vehicleManager.buildingAccess(), m_trainNetwork);
 	m_citySnapshot = collectCitySnapshot(m_world, m_network, m_vehicleManager.vehicles());
 	m_simThread.start(m_simGraph);
 }
@@ -202,6 +204,12 @@ void GameScene::update()
 		}
 
 		m_trainManager.update(simulationDt, m_clock.now);
+		if (m_simGraph)
+		{
+			// 乗物の到着を確定してから、降車・徒歩・次の乗車へ進める。
+			m_pedestrianManager.update(simulationDt, m_camera.eyePosition(), m_world, m_network,
+				*m_simGraph, m_vehicleManager, m_trainNetwork, m_trainManager);
+		}
 		m_eventSystem.update(m_clock.now);
 		for (auto& event : m_eventSystem.popNewNotifications())
 		{

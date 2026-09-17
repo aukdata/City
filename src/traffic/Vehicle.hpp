@@ -92,6 +92,7 @@ struct Vehicle
 {
 	// 車両 1 台分の状態を、経路・物理・LOD モード・停車状態まで含めて 1 つに保持する。
 	int          id          = -1;
+	int          passengerId = -1; ///< 駐車場で乗車した住民。通常の自動交通は-1。
 	VehicleType  type        = VehicleType::PassengerCar;
 
 	// 経路状態
