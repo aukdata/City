@@ -1,0 +1,9 @@
+{
+  "beforeCommit": "21a6ae0",
+  "changedSourceEncodingChecked": 11,
+  "oldDefaultHudArea": 237280,
+  "newDefaultHudArea": 82192,
+  "areaReductionPercent": 65.36075522589346,
+  "gpuCases": 27,
+  "outsidePixels": 0
+}

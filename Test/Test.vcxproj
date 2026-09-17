@@ -122,6 +122,7 @@
     <ClCompile Include="TransportPlanningTests.cpp" />
     <ClCompile Include="RefactoringTests.cpp" />
     <ClCompile Include="IntegrationRefactoringTests.cpp" />
+    <ClCompile Include="CityHudTests.cpp" />
     <ClCompile Include="MountainRoadTests.cpp" />
     <ClCompile Include="DrivingTests.cpp" />
     <ClCompile Include="SoundEffectsTests.cpp" />
@@ -154,6 +155,7 @@
     <ClCompile Include="..\src\railway\RailwaySite.cpp" />
     <ClCompile Include="..\src\railway\RailDepotBuilder.cpp" />
     <ClCompile Include="..\src\render\UIRenderer.cpp" />
+    <ClCompile Include="..\src\ui\CityHud.cpp" />
     <ClCompile Include="..\src\ui\Camera.cpp" />
     <ClCompile Include="..\src\ui\CommandPalette.cpp" />
     <ClCompile Include="..\src\debug\GameCommands.cpp" />

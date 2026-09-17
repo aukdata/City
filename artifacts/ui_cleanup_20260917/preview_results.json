@@ -1,0 +1,21 @@
+﻿{
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "CityHud.CompactLayoutAndInteraction",
+      "status": "passed",
+      "durationMs": 0.015,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.GpuReview",
+      "status": "passed",
+      "durationMs": 800.815,
+      "failures": [
+      ]
+    }
+  ]
+}

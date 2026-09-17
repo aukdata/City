@@ -169,6 +169,7 @@
     <ClCompile Include="src\render\RoadRenderer_Signs.cpp" />
     <ClCompile Include="src\render\VehicleRenderer.cpp" />
     <ClCompile Include="src\render\UIRenderer.cpp" />
+    <ClCompile Include="src\ui\CityHud.cpp" />
     <ClCompile Include="src\GameApp.cpp" />
     <ClCompile Include="src\scene\TitleScene.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
@@ -493,6 +494,7 @@
     <ClInclude Include="src\render\ModelLod.hpp" />
     <ClInclude Include="src\asset\ModelLodPath.hpp" />
     <ClInclude Include="src\render\UIRenderer.hpp" />
+    <ClInclude Include="src\ui\CityHud.hpp" />
     <ClInclude Include="src\GameApp.hpp" />
     <ClInclude Include="src\scene\SceneCommon.hpp" />
     <ClInclude Include="src\scene\TitleScene.hpp" />

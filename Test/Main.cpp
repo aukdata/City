@@ -30,6 +30,7 @@ void Main()
 	registerComprehensiveTests(runner);
 	registerRefactoringTests(runner);
 	registerIntegrationRefactoringTests(runner);
+	registerCityHudTests(runner);
 	registerMountainRoadTests(runner);
 	registerDrivingTests(runner);
 	registerSoundEffectsTests(runner);

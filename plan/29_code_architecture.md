@@ -9,6 +9,7 @@
 | 初期生成の順序と事後調整 | `GameScene_Generation.cpp` | gen のアルゴリズムを順番に呼び、描画準備へ渡せるデータにする。 |
 | ゲーム全体の保存・復元 | `GameScene_Storage.cpp` | save の形式別処理と SaveTransaction に委譲する。 |
 | 再現用撮影・走行確認 | `GameScene_Capture.cpp` / 既存の `*_Review.cpp`, `*_Playtest.cpp` | 通常更新に検証用カメラやログの詳細を混在させない。 |
+| 常時表示・詳細タブ・周辺地図の配置 | `ui/CityHud`, `render/UIRenderer` | テスト済みHUDへ描画・入力を委譲し、時刻変更は GameScene 側で適用する。 |
 | 道路断面・計画・路線の編集パネル | `GameScene_Panels.cpp` | RoadPlanDraft / RoadConstructionStart などの共通処理を使う。 |
 | 建物・車両・敷地などの情報 | `GameScene_InspectorPanels.cpp` | GameScene の選択状態と PanelManager を使用する。 |
 | 信号の現示編集と模式図 | `GameScene_SignalPanel.cpp` | 道路断面と模式図の色は `ui/RoadDiagramStyle.hpp` で共有する。 |

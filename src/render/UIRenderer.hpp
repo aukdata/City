@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../ui/CollapsibleHudPanel.hpp"
+#include "../ui/CityHud.hpp"
 #include <Siv3D.hpp>
 #include "../time/GameClock.hpp"
 #include "../economy/Economy.hpp"
@@ -27,18 +27,14 @@ struct CityHudStats
 /// @brief 2D HUD の描画クラス
 class UIRenderer
 {
-	CollapsibleHudPanel m_left,m_right;
+	CityHud m_hud;
 public:
-	void updateLayout(const CityHudStats& stats);
-	void handleInput();
-	/// @brief 街名ラベルが実際の開閉状態のHUDへ重ならないための領域。
-	Array<RectF> panelBounds() const { return {m_left.bounds(), m_right.bounds()}; }
-	[[nodiscard]] bool isMouseOnHud() const { return m_left.bounds().mouseOver() || m_right.bounds().mouseOver(); }
-	[[nodiscard]] Optional<RectF> minimapBounds() const
-	{
-		if (m_right.collapsed) { return none; }
-		return RectF{m_right.expanded.x+m_right.expanded.w-210,m_right.expanded.y+m_right.expanded.h-210,200,200};
-	}
+	void updateLayout(bool walking = false, bool driving = false, bool hasMode = false);
+	CityHud::Action handleInput(bool enabled = true);
+	/// @brief 実際に見えているHUDだけを街名ラベルとマウス入力の回避領域にする。
+	[[nodiscard]] Array<RectF> panelBounds() const { return m_hud.bounds(); }
+	[[nodiscard]] bool isMouseOnHud() const { return m_hud.blocksMouse(Cursor::PosF()); }
+	[[nodiscard]] Optional<RectF> minimapBounds() const { return m_hud.minimapBounds(); }
 
 	/// @brief HUD を描画する（毎フレーム呼ぶ）
 	/// @param clock        ゲーム時計

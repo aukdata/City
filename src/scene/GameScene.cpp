@@ -42,6 +42,8 @@ GameScene::~GameScene()
 
 void GameScene::initScene()
 {
+	// 初回の地図・入力判定も、描画を待たず確定したHUD領域を使う。
+	m_uiRenderer.updateLayout();
 	// シーン全体で使う UI パネルと、編集系の初期テンプレートをここでまとめて準備する。
 	m_panelManager.registerPanel(U"edge_info", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
@@ -239,9 +241,21 @@ void GameScene::update()
 	const bool mapInput=m_minimapRenderer.consumedInput();
 	if (!m_showPauseMenu && !mapInput)
 		m_panelManager.handleInput();
-	m_uiRenderer.updateLayout(m_hudStats);
-	if (!m_showPauseMenu && !mapInput && !m_panelManager.blocksMouseInput()) { m_uiRenderer.handleInput(); }
-	m_uiRenderer.updateLayout(m_hudStats);
+	m_uiRenderer.updateLayout(m_camera.mode() == CameraMode::FirstPerson,m_driving.active(),!modeString().isEmpty());
+	const auto hudAction = m_uiRenderer.handleInput(!m_showPauseMenu && !mapInput
+		&& !m_panelManager.blocksMouseInput() && !GameInput::keyboardBlocked());
+	// HUD操作はゲーム側で適用する。描画処理から時計を変更せず、入力欄・地図・ポーズを優先する。
+	if (hudAction == CityHud::Action::TogglePause)
+	{
+		if (m_clock.speed == TimeSpeed::Paused) { m_clock.speed = m_driving.active() ? TimeSpeed::x1 : m_prevSpeed; }
+		else { m_prevSpeed = m_clock.speed; m_clock.speed = TimeSpeed::Paused; }
+	}
+	else if (hudAction == CityHud::Action::NextSpeed)
+	{
+		m_clock.speed = m_clock.speed == TimeSpeed::x1 ? TimeSpeed::x2 : m_clock.speed == TimeSpeed::x2 ? TimeSpeed::x4 : TimeSpeed::x1;
+		m_prevSpeed = m_clock.speed;
+	}
+	m_uiRenderer.updateLayout(m_camera.mode() == CameraMode::FirstPerson,m_driving.active(),!modeString().isEmpty());
 	m_minimapRenderer.setSmallBounds(m_uiRenderer.minimapBounds());
 	if (!m_commandPalette.visible && MouseL.down() && GameInput::textInput) { GameInput::releaseTextFocus(); }
 	if (MouseL.down() && m_panelManager.isMouseOnAnyPanel()) { GameInput::textOwnedFrame = true; }

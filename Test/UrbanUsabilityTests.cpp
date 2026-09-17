@@ -191,8 +191,8 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 	{
 		RegisterAssets();UIRenderer hud;CityHudStats stats;GameClock clock;Economy economy;
 		stats.activeEventSummaries={U"道路工事中",U"春のお祭り",U"通勤時間帯"};stats.notificationSummaries={U"まちの開発が進んでいます",U"農地をクリックして選択"};
-		hud.updateLayout(stats);const auto map=hud.minimapBounds();
-		context.expect(map.has_value() && map->y>=150,U"Map is below all event and notice rows");
+		hud.updateLayout();const auto map=hud.minimapBounds();
+		context.expect(map.has_value() && map->y==44,U"Map stays independent of event and notice details");
 		const RenderTexture target{Scene::Size(),TextureFormat::R8G8B8A8_Unorm};
 		{ const ScopedRenderTarget2D rt{target.clear(ColorF{.24,.32,.2})};hud.render(clock,20,U"",economy,stats);if(map) map->draw(ColorF{.25,.4,.3}); }
 		Graphics2D::Flush();Image capture;target.readAsImage(capture);capture.save(U"Screenshot/hud_integrated.png");

@@ -1524,23 +1524,23 @@ void GameScene::updateCursor()
 
 String GameScene::modeString() const
 {
-	if (m_drivingNoticeSeconds>0) { return U"近くに運転できる開通済みの道路がありません"; }
+	if (m_drivingNoticeSeconds>0) { return U"近くに走れる道路がありません"; }
 	switch (m_mode)
 	{
 	case EditMode::RoadPlan:
-		return U"道路計画: クリックで延長 / Enter 保存 / 右クリック 戻す / Esc 破棄";
+		return U"道路計画 · 右側のパネルで経路を編集";
 	case EditMode::RoadDraw:
 		return U"道路敷設デバッグ（Sandbox 限定 / Ctrl+R）";
 	case EditMode::ZonePaint:
-		return U"ゾーン塗り [{}] 左:ブラシ Shift+左ドラッグ:矩形  0〜6:種別変更"_fmt(zoneName(m_paintZone));
+		return U"用途：{} · 左ドラッグで指定"_fmt(zoneName(m_paintZone));
 	case EditMode::BusRouteDraw:
-		return U"バス路線描画モード（左クリックでバス停配置・Bキーで確定）";
+		return U"バス · クリックで停留所を指定";
 	case EditMode::TerrainEdit:
-		return U"地形編集モード（左:盛土 右:掘削 Ctrl+ホイール:ブラシサイズ）";
+		return U"地形 · 左で盛土 / 右で掘削";
 	case EditMode::TrainDraw:
-		return U"線路描画モード（左クリックで駅配置・連結 右クリックで中断）";
+		return U"線路 · クリックで接続 / 右で中断";
 	case EditMode::SandboxEdit:
-		return U"サンドボックス編集（左ドラッグ:ノード移動 右クリック:削除）";
+		return U"調整 · 左ドラッグで移動 / 右で削除";
 	default:
 		return U"";
 	}
