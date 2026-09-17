@@ -28,7 +28,7 @@ void TrainManager::init(TrainNetwork* network)
 	if (!m_network) { return; }
 	for (const auto& edge : m_network->edges())
 	{
-		if (auto* current = m_network->getEdge(edge.id)) { current->occupiedBy = -1; }
+		if (auto* current = m_network->getEdge(edge.id)) { current->occupiedBy = -1; for (auto& lane : current->lanes) { lane.reservedBy = -1; } }
 	}
 }
 
@@ -43,7 +43,10 @@ void TrainManager::updatePosition(Train& train)
 	if (const auto curve = m_network->getBezier(train.currentEdge))
 	{
 		const float arc = train.forward ? train.arcPos : curve->totalLength - train.arcPos;
-		train.position = curve->positionAt(arc);
+		const auto* edge = m_network->getEdge(train.currentEdge);
+		const int lane = TransportCrossSection::railLane(*edge,train.forward);
+		if (lane < 0) { finishService(train); return; }
+		train.position = TransportCrossSection::lanePosition(*edge,*curve,arc,lane);
 		const Vec3 tangent = curve->tangentAt(arc) * (train.forward ? 1 : -1);
 		train.heading = static_cast<float>(Math::Atan2(tangent.x, tangent.z));
 	}
@@ -84,7 +87,10 @@ void TrainManager::updateTrain(Train& train, double dt)
 	{
 		if (train.routeProgress + 1 >= static_cast<int>(train.routeEdges.size())) { return; }
 		const auto* next = m_network->getEdge(train.routeEdges[train.routeProgress + 1]);
-		if (next && next->occupiedBy >= 0 && next->occupiedBy != train.id) { return; }
+		const auto* current = m_network->getEdge(train.currentEdge);
+		if (!current || !next) { finishService(train); return; }
+		const int end = train.forward ? current->nodeB : current->nodeA;
+		if (!m_network->canOccupy(next->id,train.id,next->nodeA == end)) { return; }
 		train.state = TrainState::Running;
 	}
 	advanceTrain(train, dt);
@@ -101,7 +107,7 @@ Optional<StopEntry> TrainManager::nextStop(const Train& train) const
 
 void TrainManager::advanceTrain(Train& train, double dt)
 {
-	if (!m_network->getEdge(train.currentEdge)) { finishService(train); return; }
+	if (!m_network->getEdge(train.currentEdge) || TransportCrossSection::railLane(*m_network->getEdge(train.currentEdge),train.forward) < 0) { finishService(train); return; }
 	const float target = targetSpeed(train);
 	const float step = static_cast<float>(dt);
 	train.speed = target > train.speed
@@ -138,7 +144,7 @@ void TrainManager::advanceTrain(Train& train, double dt)
 			finishService(train);
 			return;
 		}
-		if (!m_network->tryOccupy(nextId, train.id))
+		if (!m_network->tryOccupy(nextId, train.id, next->nodeA == end))
 		{
 			train.state = TrainState::WaitingSignal;
 			train.speed = 0;
@@ -166,7 +172,7 @@ float TrainManager::targetSpeed(const Train& train) const
 	{
 		const auto* edge = m_network->getEdge(train.routeEdges[index]);
 		if (!edge) { break; }
-		if (index > train.routeProgress && edge->occupiedBy >= 0 && edge->occupiedBy != train.id)
+		if (index > train.routeProgress && !m_network->canOccupy(edge->id,train.id,edge->nodeA == start))
 		{
 			speed = Min(speed, brakingSpeed(distance, kMaxDecel));
 			break;
@@ -194,14 +200,15 @@ Array<int> TrainManager::buildServiceRoute(const TrainSchedule& schedule) const
 	return RailTimetable::route(*m_network, schedule, schedule.reverseNext);
 }
 
-bool TrainManager::canReserveRoute(const Array<int>& route, TrainType type) const
+bool TrainManager::canReserveRoute(const Array<int>& route, TrainType type, int origin) const
 {
 	if (route.isEmpty()) { return false; }
 	float length = 0;
 	for (const int id : route)
 	{
 		const auto* edge = m_network->getEdge(id);
-		if (!edge || edge->occupiedBy >= 0 || !edge->electrified) { return false; }
+		if (!edge || !edge->electrified || !m_network->canOccupy(id,m_nextId,edge->nodeA == origin)) { return false; }
+		origin = edge->nodeA == origin ? edge->nodeB : edge->nodeA;
 		length += edge->length;
 	}
 	return length > TrainConsist::length(type) + kDepartureClearance;
@@ -242,9 +249,14 @@ void TrainManager::spawnScheduledTrains(GameTime now)
 	{
 		if (!RailTimetable::dueDeparture(schedule, now)) { continue; }
 		auto route = buildServiceRoute(schedule);
-		if (!canReserveRoute(route, schedule.type)) { continue; }
-		// 行き違い設備がない単線では、経路全体を予約して対向列車の行き詰まりを防ぐ。
-		for (const int id : route) { m_network->tryOccupy(id, m_nextId); }
+		int origin = serviceStop(schedule,0,schedule.reverseNext).stationNodeId;
+		if (!canReserveRoute(route, schedule.type, origin)) { continue; }
+		// 単線は両方向で共有、複線は進行方向の軌道だけを予約する。
+		for (const int id : route)
+		{
+			const auto* edge = m_network->getEdge(id); const bool forward = edge->nodeA == origin;
+			m_network->tryOccupy(id,m_nextId,forward); origin = forward ? edge->nodeB : edge->nodeA;
+		}
 		Train train = makeScheduledTrain(schedule, std::move(route), now);
 		updatePosition(train);
 		DBG_LOG(U"[Train] spawn id={} type={} cars={} reverse={} sections={}"_fmt(

@@ -32,6 +32,7 @@ void GameScene::addRailDepot(int station)
 	if (RailDepotBuilder::add(m_trainNetwork,m_world,m_network,station,error))
 	{
 		m_trainTimetableEditor.message=U"車庫と留置線を追加しました";
+		notifyNetworkChanged();
 		m_soundEffects.play(SoundEffects::Cue::Complete);
 	}
 	else { m_trainTimetableEditor.message=error; m_soundEffects.play(SoundEffects::Cue::Reject); }

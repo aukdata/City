@@ -33,10 +33,11 @@ namespace
 		Vec2 lower,upper;
 		RoadType type;
 		double grade;
+		TransportMode mode = TransportMode::Road;
 
 		Optional<double> cost(const CubicBezier& curve, double* tunnelLength = nullptr) const
 		{
-			if (!RoadAlignment::respectsLimits(curve,type)) { return none; }
+			if (!RoadAlignment::respectsLimits(curve,type,mode)) { return none; }
 			for (const Vec3 point : {curve.p0,curve.p3})
 			{
 				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
@@ -74,9 +75,9 @@ namespace
 	};
 }
 
-bool RoadAlignment::respectsLimits(const CubicBezier& curve,RoadType type)
+bool RoadAlignment::respectsLimits(const CubicBezier& curve,RoadType type,TransportMode mode)
 {
-	const auto limits=RoadDesignLimits::forType(type);
+	const auto limits=RoadDesignLimits::forType(type,mode);
 	if (curve.minimumHorizontalRadius()+.001<limits.minimumRadius) { return false; }
 	for (int i=0;i<=16;++i)
 	{
@@ -101,10 +102,10 @@ Array<CubicBezier> RoadAlignment::fit(const Array<Vec3>& points)
 	return curves;
 }
 
-double RoadAlignment::constructionCost(const World& world, const Array<CubicBezier>& curves, RoadType type)
+double RoadAlignment::constructionCost(const World& world, const Array<CubicBezier>& curves, RoadType type, TransportMode mode)
 {
 	const Landscape landscape{world, {0, 0}, {WORLD_SIZE - .01, WORLD_SIZE - .01}, type,
-		RoadDesignLimits::forType(type).maximumGrade};
+		RoadDesignLimits::forType(type,mode).maximumGrade,mode};
 	double total = 0, tunnelLength = 0;
 	Optional<Vec3> previous;
 	for (const auto& curve : curves)
@@ -120,9 +121,9 @@ double RoadAlignment::constructionCost(const World& world, const Array<CubicBezi
 	return total;
 }
 
-Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 start,Vec3 goal,RoadType type,int expansionLimit)
+Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 start,Vec3 goal,RoadType type,int expansionLimit,TransportMode mode)
 {
-	const auto limits=RoadDesignLimits::forType(type);
+	const auto limits=RoadDesignLimits::forType(type,mode);
 	const double distance=horizontal(goal-start).length();
 	if (distance<2) { return none; }
 	const double grade=limits.maximumGrade*GenerationSettings::get().routing_gradeReserve;
@@ -130,7 +131,7 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 	const double margin=Max(GenerationSettings::get().routing_minimumSearchMargin,Max(limits.minimumRadius*GenerationSettings::get().routing_radiusMarginRatio,Max(distance*GenerationSettings::get().routing_distanceMarginRatio,Abs(goal.y-start.y)/grade*GenerationSettings::get().routing_riseMarginRatio)));
 	const Landscape landscape{world,
 		{Max(0.0,Min(start.x,goal.x)-margin),Max(0.0,Min(start.z,goal.z)-margin)},
-		{Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.x,goal.x)+margin),Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.z,goal.z)+margin)},type,grade};
+		{Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.x,goal.x)+margin),Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.z,goal.z)+margin)},type,grade,mode};
 	const Vec3 straight=Vec3{goal.x-start.x,0,goal.z-start.z}.normalized();
 	const CubicBezier direct=profile(start,goal,straight,straight,distance/3);
 	const auto directCost=landscape.cost(direct);
@@ -144,14 +145,14 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 	const float coarseStep = static_cast<float>(Max(GenerationSettings::get().routing_coarseMinimumStep, Max(limits.minimumRadius * GenerationSettings::get().routing_coarseRadiusRatio, distance / GenerationSettings::get().routing_distanceStepDivisor)));
 	const int width = Max(2, static_cast<int>(Ceil((landscape.upper.x - landscape.lower.x) / coarseStep)));
 	const int depth = Max(2, static_cast<int>(Ceil((landscape.upper.y - landscape.lower.y) / coarseStep)));
-	coarse.setup(world, landscape.lower, width, depth, coarseStep); coarse.setRoadType(type);
+	coarse.setup(world, landscape.lower, width, depth, coarseStep); coarse.setRoadType(type); coarse.setRailwayRouting(mode == TransportMode::Rail);
 	const auto path = coarse.findPath(coarse.worldToGrid(static_cast<float>(start.x), static_cast<float>(start.z)),
 		coarse.worldToGrid(static_cast<float>(goal.x), static_cast<float>(goal.z)));
 	if (path.size() > 1)
 	{
 		auto points = coarse.samplePath(path, 3); points.front() = start; points.back() = goal;
 		const auto curves = fit(points);
-		const double cost = constructionCost(world, curves, type);
+		const double cost = constructionCost(world, curves, type, mode);
 		if (std::isfinite(cost) && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, 0}; }
 	}
 

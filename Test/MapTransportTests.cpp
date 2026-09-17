@@ -310,7 +310,9 @@ void registerMapTransportTests(TestRunner& runner)
 		for (int z=0;z<7;++z) for (int x=0;x<7;++x) { world.installChunkDirect({x,z},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20),20,20}); }
 		MapGenerator::Settlement a,b;a.center={1000,1000};b.center={4100,3700};a.name=U"西町";b.name=U"東町";
 		a.plan.station=b.plan.station=Vec2{0,0};b.gridAxisX={0,1};b.gridAxisZ={-1,0};
-		TrainNetwork network;RailwayAlignment::generate(network,world,{a,b});
+		TrainNetwork network;RailwayAlignment::Audit audit; RailwayAlignment::generate(network,world,{a,b},nullptr,&audit);
+		TextWriter diagnostic{U"TestResults/rail_generation_audit.txt"};
+		for (const auto& item : audit.candidates) { diagnostic << U"variant={} profile={} radius={} grade={}"_fmt(item.variant,item.profile,item.radius,item.grade); }
 		context.expect(!network.schedules().isEmpty(),U"Reserving straight station space still allows an actual terrain-generated route");
 		for (const auto& node : network.nodes())
 		{

@@ -174,11 +174,11 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 			w.write(static_cast<uint8>(lane.lineLeft));
 			w.write(static_cast<uint8>(lane.lineRight));
 			w.write(static_cast<uint8>(lane.canChangeLaneLeft ? 1 : 0));
-			w.write(static_cast<uint8>(lane.canChangeLaneRight ? 1 : 0));
+			w.write(static_cast<uint8>((lane.canChangeLaneRight ? 1 : 0) | (lane.bidirectional ? 2 : 0)));
 		}
 
 		// v2: useElevation
-		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0) | (e.farmAccess ? 8 : 0)));
+		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0) | (e.farmAccess ? 8 : 0) | (!e.electrified ? 16 : 0) | (e.depotTrack ? 32 : 0)));
 
 		// v3: parts（道路部品配列）
 		w.write(static_cast<uint32>(e.parts.size()));
@@ -341,7 +341,8 @@ bool RoadBinary::read(const FilePath& path,
 			lane.lineLeft  = static_cast<LineType>(lineL);
 			lane.lineRight = static_cast<LineType>(lineR);
 			lane.canChangeLaneLeft  = (canL != 0);
-			lane.canChangeLaneRight = (canR != 0);
+			lane.canChangeLaneRight = (canR & 1) != 0;
+			lane.bidirectional = (canR & 2) != 0;
 		}
 		e.laneVehicles = Array<Array<int>>(e.lanes.size());
 
@@ -352,6 +353,8 @@ bool RoadBinary::read(const FilePath& path,
 			e.useElevation = (elev & 1) != 0;
 			e.designGrade = (elev & 4) != 0;
 			e.farmAccess = (elev & 8) != 0;
+			e.electrified = (elev & 16) == 0;
+			e.depotTrack = (elev & 32) != 0;
 			e.tunnel = (elev & 2) != 0;
 		}
 

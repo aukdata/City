@@ -1182,4 +1182,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SharedTransportTests.cpp" />
+  </ItemGroup>
 </Project>

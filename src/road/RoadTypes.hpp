@@ -45,7 +45,11 @@ enum class LaneType : uint8
 	EmergencyStop,
 	KeepOut,        ///< 立入り禁止部分（規制標示101・ゼブラゾーン）
 	TrafficIsland,  ///< 導流帯（指示標示208の2・分岐合流鼻の縞模様）
+	Rail,           ///< 軌道。自動車は進入できない。
 };
+
+/// @brief 同じ路盤に属していても、経路は交通手段ごとに分離する。
+enum class TransportMode : uint8 { Road, Rail };
 
 /// @brief 区画線種別
 enum class LineType : uint8
@@ -323,6 +327,12 @@ struct Lane
 	float     nominalWidth = 3.5f;         ///< 公称幅 [m]（容量計算・UI表示用）
 	LaneType  type = LaneType::Normal;     ///< 機能種別
 
+	bool bidirectional = false; ///< 単線・留置線だけ両方向を許可する。
+	int reservedBy = -1; ///< 軌道の列車予約。実行時のみ保持し、保存しない。
+
+	/// @brief 路盤の材質と独立して走行資格を判定する。
+	[[nodiscard]] bool allows(TransportMode mode) const { return (type == LaneType::Rail) == (mode == TransportMode::Rail); }
+
 	/// @brief A端・B端の中心オフセットを弧長割合 ft で補間した値を返す
 	/// @param ft  0.0 = A端, 1.0 = B端（bez.totalLength > 0 なら arc / totalLength）
 	/// @return 道路中心からの横方向オフセット [m]（右が正）
@@ -410,6 +420,12 @@ struct RoadEdge
 	float     speedLimit = 60.0f;            ///< 制限速度 [km/h]
 	float     length     = 0.0f;            ///< 弧長 [m]
 	int       planId     = -1;              ///< 所属 RoadPlan（-1 = 既存道路）
+	bool electrified = true; ///< 軌道の電化状態。
+	bool depotTrack = false; ///< 車庫への引込線・留置線。
+	int occupiedBy = -1; ///< 単線の占有表示。複線は各 Lane::reservedBy を使う。
+	[[nodiscard]] bool isValid() const { return id >= 0; }
+	[[nodiscard]] bool hasRailLanes() const { return lanes.any([](const Lane& lane) { return lane.type == LaneType::Rail; }); }
+	[[nodiscard]] bool hasRoadLanes() const { return lanes.any([](const Lane& lane) { return lane.allows(TransportMode::Road); }); }
 
 	/// @brief nodeA 端でのカットオフ量 [m]（描画メッシュをノード手前で切る距離）
 	/// @note RoadNetwork::updateNodeCutoffs() で自動計算される。0 = カットなし（端点）
@@ -497,14 +513,14 @@ struct RoadEdge
 	}
 
 	/// @brief 指定方向の走行可能な車線インデックス一覧を返す
-	Array<int> openLanes(LaneDir dir, GameTime now) const
+	Array<int> openLanes(LaneDir dir, GameTime now, TransportMode mode = TransportMode::Road) const
 	{
 		Array<int> result;
 		if (edgeState != EdgeState::Open && edgeState != EdgeState::Existing) return result;
 		for (int i = 0; i < static_cast<int>(lanes.size()); ++i)
 		{
 			const Lane L = effectiveLane(i, now);
-			if (isRoadbedBuilt() && (L.op == OpState::Open || L.op == OpState::Provisional) && L.dir == dir)
+			if (L.allows(mode) && isRoadbedBuilt() && (L.op == OpState::Open || L.op == OpState::Provisional) && (L.dir == dir || L.bidirectional))
 				result << i;
 		}
 		return result;
@@ -541,12 +557,12 @@ struct RoadEdge
 
 /// @brief 車線が走行可能か（新シグネチャ: RoadEdge + 車線インデックス）
 /// @details 路盤パーツの BuildState + 車線の OpState で判定
-inline bool isPassable(const RoadEdge& edge, int laneIndex)
+inline bool isPassable(const RoadEdge& edge, int laneIndex, TransportMode mode = TransportMode::Road)
 {
 	if (laneIndex < 0 || laneIndex >= static_cast<int>(edge.lanes.size()))
 		return false;
 	const auto& lane = edge.lanes[laneIndex];
-	return (edge.edgeState == EdgeState::Open || edge.edgeState == EdgeState::Existing) && edge.isRoadbedBuilt()
+	return lane.allows(mode) && (edge.edgeState == EdgeState::Open || edge.edgeState == EdgeState::Existing) && edge.isRoadbedBuilt()
 		&& (lane.op == OpState::Open || lane.op == OpState::Provisional);
 }
 

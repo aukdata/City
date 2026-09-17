@@ -20,6 +20,7 @@ struct PartMeshEntry
 	ColorF         color{ 0.35 };
 	const Texture* texture = nullptr;  ///< null なら単色
 	RoadPartType materialType = RoadPartType::Shoulder;
+	bool asphalt = true; ///< 形状の種別ではなく路盤材質で舗装シェーダを選ぶ。
 };
 
 /// @brief 同マテリアルの LOD パーツを結合した描画バッチ（遠距離用）

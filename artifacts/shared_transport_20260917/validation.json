@@ -1,0 +1,27 @@
+{
+  "configuration": "Release x64",
+  "projects": [
+    "City",
+    "Test"
+  ],
+  "warnings": 0,
+  "errors": 0,
+  "tests": {
+    "total": 254,
+    "passed": 254,
+    "failed": 0
+  },
+  "newTransportTests": [
+    "SharedTransport.GeometryAndTravelPermissions",
+    "SharedTransport.OpposingTrainsUseDifferentLanes",
+    "SharedTransport.DirectionalReturnRoute",
+    "SharedTransport.SharedAndStandaloneStorage",
+    "SharedTransport.EditingKeepsInfrastructureConsistent",
+    "SharedTransport.GeneratedDoubleTrackLimits",
+    "SharedTransport.EditorPreview",
+    "SharedTransport.CommonRoadbedGpuReview",
+    "SharedTransport.PlanningToolbarReview"
+  ],
+  "mainAppManualPlay": false,
+  "renderReview": "Test GPU readback; no images sent to chat"
+}

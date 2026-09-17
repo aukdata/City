@@ -282,8 +282,13 @@ void RoadNetwork::applyEdgeTemplate(int edgeId, const RoadEdge& tmpl)
 	if (!e) return;
 	e->speedLimit   = tmpl.speedLimit;
 	e->farmAccess = tmpl.farmAccess;
+	e->electrified = tmpl.electrified;
+	e->depotTrack = tmpl.depotTrack;
 	e->parts        = tmpl.parts;
 	e->lanes        = tmpl.lanes;
+	// 断面は複製しても運行中の予約は引き継がない。旧エッジの列車が解放できなくなるため。
+	for (auto& lane : e->lanes) { lane.reservedBy = -1; }
+	e->occupiedBy = -1;
 	e->laneVehicles = Array<Array<int>>(e->lanes.size());
 }
 

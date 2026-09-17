@@ -4,6 +4,7 @@
 #include "../ui/NavigationHeader.hpp"
 #include "../ui/KeyboardActions.hpp"
 #include "../gen/RoadTerrainFit.hpp"
+#include "../gen/RoadAlignment.hpp"
 #include "EdgeSectionState.hpp"
 #include "../world/LandPlot.hpp"
 #include "../ui/PanelWidget.hpp"
@@ -1247,7 +1248,20 @@ void GameScene::handleTrainDraw()
 		if (!nearNode)
 			nodeId = m_trainNetwork.addStation(*m_cursorGroundPos, U"新駅{}"_fmt(m_trainNetwork.nodes().size()+1));
 		else
+		{
 			nodeId = *nearNode;
+			auto* node = m_trainNetwork.getNode(nodeId);
+			if (node->type != TrackNodeType::Station)
+			{
+				if (RailwaySite::stationMinimumRadius(m_trainNetwork,nodeId) < RailwaySite::kStationMinimumRadius)
+				{
+					DebugLog::print(U"駅には半径500m以上のホーム区間が必要です");
+					m_soundEffects.play(SoundEffects::Cue::Reject); return;
+				}
+				node->type = TrackNodeType::Station;
+				if (node->name.isEmpty()) { node->name=U"新駅{}"_fmt(nodeId); }
+			}
+		}
 
 		if (!m_trainDrawStartNode)
 		{
@@ -1260,12 +1274,33 @@ void GameScene::handleTrainDraw()
 			{
 				const Vec3 pa = m_trainNetwork.getNode(from)->position;
 				const Vec3 pb = m_trainNetwork.getNode(nodeId)->position;
-				m_trainNetwork.addEdge(from, nodeId,
-					pa + (pb - pa) * (1.0 / 3),
-					pa + (pb - pa) * (2.0 / 3));
+				// 既設の軌道がつながっていれば、駅とダイヤだけを追加する。
+				if (m_trainNetwork.findRoute(from,nodeId).isEmpty())
+				{
+					if (m_network.getNode(from)->attachments.size() >= 6 || m_network.getNode(nodeId)->attachments.size() >= 6)
+					{
+						DebugLog::print(U"この駅にはこれ以上線路を接続できません"); return;
+					}
+					const auto alignment = RoadAlignment::find(m_world,pa,pb,RoadType::LocalRoad,60000,TransportMode::Rail);
+					if (!alignment)
+					{
+						DebugLog::print(U"鉄道の曲率・勾配を満たす経路がありません");
+						m_soundEffects.play(SoundEffects::Cue::Reject); return;
+					}
+					Array<int> changed{from,nodeId}; int previous = from;
+					for (size_t i=0;i<alignment->curves.size();++i)
+					{
+						const auto& curve = alignment->curves[i];
+						const int next = i+1==alignment->curves.size() ? nodeId : m_trainNetwork.addNode(curve.p3);
+						const int edgeId = m_trainNetwork.addEdge(previous,next,curve.p1,curve.p2,80,true);
+						if (edgeId >= 0) { m_network.updateEdgeElevation(edgeId,m_world); m_network.generatePiersForEdge(edgeId,m_world); }
+						changed << next; previous = next;
+					}
+					notifyNetworkChanged(changed);
+				}
 				const auto schedule = RailTimetable::makeDefault(m_trainNetwork,from,nodeId);
 				String error;
-				if (m_trainNetwork.applySchedule(schedule,error)) { m_soundEffects.play(SoundEffects::Cue::Complete); }
+				if (m_trainNetwork.applySchedule(schedule,error)) { m_trainRenderer.clearTrackCache(); m_soundEffects.play(SoundEffects::Cue::Complete); }
 			}
 			m_trainDrawStartNode = nodeId;
 		}

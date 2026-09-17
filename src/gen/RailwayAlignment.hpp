@@ -4,6 +4,7 @@
 #include "RoadPathfinder.hpp"
 #include "TransportClearance.hpp"
 #include "RailCostProfile.hpp"
+#include "RoadAlignment.hpp"
 #include "../railway/RailTimetable.hpp"
 #include "../railway/RailDepotBuilder.hpp"
 #include "../debug/DebugLog.hpp"
@@ -11,10 +12,13 @@
 /// @brief 近接駅の接続ごとに複数の地形回廊と縦断施工費を比較して線形を選ぶ。
 namespace RailwayAlignment
 {
-	inline void generate(TrainNetwork& network,World& world,const Array<MapGenerator::Settlement>& towns,const RoadNetwork* roads=nullptr)
+	struct CandidateAudit { int variant; bool profile; double radius; double grade; };
+	struct Audit { Array<CandidateAudit> candidates; };
+	inline void generate(TrainNetwork& network,World& world,const Array<MapGenerator::Settlement>& towns,RoadNetwork* roads=nullptr, Audit* audit=nullptr)
 	{
 		const TransportClearance crossings{roads,world};
 		network=TrainNetwork{};
+		network.bind(roads);
 		struct StationCandidate { Vec3 position; String name; };
 		Array<StationCandidate> candidates;
 		Array<int> stations; HashTable<int,Vec3> axes; HashTable<int,int> builtStations;
@@ -74,7 +78,7 @@ namespace RailwayAlignment
 			const Vec3 toAxis=axes[to]*(axes[to].dot(end-start)>=0 ? 1.0 : -1.0);
 			const Vec3 startGate=start+fromAxis*kStationStraightLead,endGate=end-toAxis*kStationStraightLead;
 			Array<Vec3> bestPoints; Array<double> bestHeights; double bestCost=Math::Inf; int chosen=-1;
-			for (int alternative=0;alternative<4;++alternative)
+			for (int alternative=0;alternative<5;++alternative)
 			{
 				const double padding=alternative<3 ? GenerationSettings::get().railway_corridorMargin : GenerationSettings::get().railway_wideCorridorMargin;
 				const Vec2 offset{Max(0.0,Min(start.x,end.x)-padding),Max(0.0,Min(start.z,end.z)-padding)};
@@ -92,7 +96,7 @@ namespace RailwayAlignment
 				const auto path=finder.findPath(finder.worldToGrid(static_cast<float>(startGate.x),static_cast<float>(startGate.z)),finder.worldToGrid(static_cast<float>(endGate.x),static_cast<float>(endGate.z)));
 				auto coarse=finder.samplePath(path,2); if (coarse.size()<2) { continue; }
 				coarse.front()=startGate; coarse.back()=endGate;
-				for (int pass=0;pass<5;++pass) { auto next=coarse; for (size_t i=1;i+1<coarse.size();++i) { next[i]=coarse[i]*.5+(coarse[i-1]+coarse[i+1])*.25; } coarse=std::move(next); }
+				for (int pass=0;pass<24+alternative*12;++pass) { auto next=coarse; for (size_t i=1;i+1<coarse.size();++i) { next[i]=coarse[i]*.5+(coarse[i-1]+coarse[i+1])*.25; } coarse=std::move(next); }
 				coarse.insert(coarse.begin(),start); coarse<<end;
 				Array<Vec3> points;
 				for (size_t i=0;i+1<coarse.size();++i)
@@ -107,6 +111,46 @@ namespace RailwayAlignment
 					for (int sample=0;sample<count;++sample) { points << curve.positionAt(curve.totalLength*sample/count); }
 				}
 				points << end;
+				if (alternative == 4)
+				{
+					// 駅の接線を固定した大きな曲線も、地形追従候補と同じ費用・制約で比較する。
+					const double arm = Vec2{endGate.x-startGate.x,endGate.z-startGate.z}.length()/3;
+					const Array<CubicBezier> corridor{
+						{start,start+(startGate-start)/3,start+(startGate-start)*2/3,startGate},
+						{startGate,startGate+fromAxis*arm,endGate-toAxis*arm,endGate},
+						{endGate,endGate+(end-endGate)/3,endGate+(end-endGate)*2/3,end}};
+					points.clear();
+					for (const auto& curve : corridor)
+					{
+						const int count = Max(1,static_cast<int>(Ceil(curve.totalLength/GenerationSettings::get().railway_profileSampleLength)));
+						for (int i=0;i<count;++i) { points << curve.positionAt(curve.totalLength*i/count); }
+					}
+					points << end;
+				}
+
+				// 地形・費用を評価する前に曲率を収める。平面を後から動かして縦断評価を無効にしない。
+				if (points.size() > 6)
+				{
+					for (int pass=0;pass<GenerationSettings::get().railway_smoothingPasses;++pass)
+					{
+						bool curved = false;
+						const auto fitted = RoadAlignment::fit(points);
+						for (size_t i=0;i<fitted.size();++i)
+						{
+							const double radius = (i<2 || i+2>=fitted.size()) ? RailwaySite::kStationMinimumRadius : GenerationSettings::get().railway_minimumRadius+TransportCrossSection::kTrackSpacing*.5;
+							curved |= fitted[i].minimumHorizontalRadius() < radius*1.02;
+						}
+						if (!curved) { break; }
+						auto softened = points;
+						for (size_t i=2;i+2<points.size();++i) { softened[i] = points[i].lerp((points[i-1]+points[i+1])*.5,.45); }
+						points = std::move(softened);
+					}
+				}
+				if (points.any([&](Vec3 point)
+				{
+					return point.x<0 || point.z<0 || point.x>=WORLD_SIZE || point.z>=WORLD_SIZE
+						|| !world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE});
+				})) { continue; }
 				Array<RailCostProfile::Sample> samples;
 				for (size_t i=0;i<points.size();++i)
 				{
@@ -124,24 +168,49 @@ namespace RailwayAlignment
 					if (Vec2{point.x-end.x,point.z-end.z}.length()<=RailwaySite::kPlatformLength+GenerationSettings::get().railway_platformLevelMargin) { minimum=maximum=end.y; }
 					samples << RailCostProfile::Sample{position,ground,minimum,maximum,roadClearance,underpass};
 				}
-				const auto profile=RailCostProfile::solve(samples,start.y,end.y);
+				const auto profile=RailCostProfile::solve(samples,start.y,end.y,GenerationSettings::get().railway_maximumGrade*.97);
+				if (audit) { audit->candidates << CandidateAudit{alternative,profile.feasible,Math::Inf,0}; }
 				DBG_LOG(U"[RailCostCandidate] line={} variant={} feasible={} cost={:.0f} points={}"_fmt(lines,alternative,profile.feasible,profile.cost,points.size()));
-				if (profile.feasible && profile.cost<bestCost) { bestCost=profile.cost; bestPoints=std::move(points); bestHeights=profile.heights; chosen=alternative; }
+				if (profile.feasible && profile.cost<bestCost)
+				{
+					for (size_t i=0;i<points.size();++i) { points[i].y=profile.heights[i]; }
+					const auto curves = RoadAlignment::fit(points);
+					bool legal = curves.size()+1 == points.size();
+					if (audit)
+					{
+						for (const auto& curve : curves)
+						{
+							audit->candidates.back().radius = Min(audit->candidates.back().radius,curve.minimumHorizontalRadius());
+							for (int i=0;i<=32;++i) { const Vec3 t=curve.tangent(i/32.0f); audit->candidates.back().grade=Max(audit->candidates.back().grade,Abs(t.y)/Max(1e-8,Vec2{t.x,t.z}.length())); }
+						}
+					}
+					for (const auto& curve : curves) { legal &= RoadAlignment::respectsLimits(curve,RoadType::LocalRoad,TransportMode::Rail); }
+					// 線路中心だけでなく、内側軌道にも最小半径の余裕を確保する。
+					for (const auto& curve : curves) { legal &= curve.minimumHorizontalRadius()+.001 >= GenerationSettings::get().railway_minimumRadius+TransportCrossSection::kTrackSpacing*.5; }
+					if (legal) { bestCost=profile.cost; bestPoints=std::move(points); bestHeights=profile.heights; chosen=alternative; }
+					else { DBG_LOG(U"[RailAlignmentRejected] variant={} reason=radius-or-grade"_fmt(alternative)); }
+				}
 			}
 			if (bestPoints.isEmpty()) { ++failures; rejected.insert(pairKey(from,to)); DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to)); continue; }
 			connected.insert(to);
 			const int firstStation=buildStation(from),lastStation=buildStation(to);
 			Array<int> ids{firstStation};
 			for (size_t i=0;i<bestPoints.size();++i) { bestPoints[i].y=bestHeights[i]; if (i>0 && i+1<bestPoints.size()) { ids << network.addNode(bestPoints[i]); } } ids << lastStation;
-			for (size_t i=0;i+1<bestPoints.size();++i)
+			const auto curves = RoadAlignment::fit(bestPoints);
+			for (size_t i=0;i<curves.size();++i)
 			{
-				const Vec3 a=bestPoints[i],b=bestPoints[i+1],span=b-a;
-				Vec3 ta=i>0 ? b-bestPoints[i-1] : axes[from]*(axes[from].dot(span)>=0 ? 1.0 : -1.0);
-				Vec3 tb=i+2<bestPoints.size() ? bestPoints[i+2]-a : axes[to]*(axes[to].dot(span)>=0 ? 1.0 : -1.0);
-				ta.y=tb.y=0; const double handle=Vec2{span.x,span.z}.length()/3;
-				Vec3 controlA=a+ta.normalized()*handle,controlB=b-tb.normalized()*handle;
-				controlA.y=Math::Lerp(a.y,b.y,1.0/3); controlB.y=Math::Lerp(a.y,b.y,2.0/3);
-				network.addEdge(ids[i],ids[i+1],controlA,controlB,80);
+				const auto& curve = curves[i];
+				const int id = network.addEdge(ids[i],ids[i+1],curve.p1,curve.p2,80,true);
+				if (auto* edge = network.getEdge(id))
+				{
+					for (int sample=0;sample<=8;++sample)
+					{
+						const Vec3 point = curve.evaluate(sample/8.0f);
+						const double height = point.y-world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+						edge->useElevation |= height>3; edge->tunnel |= height < -5;
+					}
+					if (edge->useElevation) { network.infrastructure().generatePiersForEdge(id,world); }
+				}
 			}
 			DBG_LOG(U"[RailCostChosen] line={} variant={} cost={:.0f} sections={}"_fmt(lines,chosen,bestCost,bestPoints.size()-1));
 			network.addSchedule(RailTimetable::makeDefault(network,firstStation,lastStation));

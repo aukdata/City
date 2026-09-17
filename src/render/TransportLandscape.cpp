@@ -8,7 +8,7 @@ Array<ParcelGeometry::Quad> TransportLandscape::footprints(const TrainNetwork& r
 	for (const auto& edge : roads.edges())
 	{
 		// Ground roads already supply their complete roadbed footprint through terrain cutting.
-		if (edge.id<0 || !edge.isRoadbedBuilt() || (!edge.useElevation && !edge.tunnel)) { continue; }
+		if (edge.id<0 || !edge.hasRoadLanes() || !edge.isRoadbedBuilt() || (!edge.useElevation && !edge.tunnel)) { continue; }
 		const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
 		const int count=Max(1,static_cast<int>(Ceil(curve->totalLength/8)));
 		for (int i=0;i<count;++i)

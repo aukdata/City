@@ -16,16 +16,19 @@ namespace RoadPlanToolbar
 			font(label).draw(rect.pos+Point{8,4}, enabled ? ColorF{0.93} : ColorF{0.42});
 			if (hover && MouseL.down()) { action = value; }
 		};
-		bold(U"1  道路を選ぶ").draw(kPad,4,ColorF{0.68,0.86,0.96});
-		const String labels[] = {U"生活道路",U"サブ幹線",U"幹線道路",U"一方通行 →"};
-		const String details[] = {U"2車線・30 km/h",U"2車線・40 km/h",U"4車線・50 km/h",U"1車線・30 km/h"};
-		for (int i = 0; i < 4; ++i)
+		const bool railway = state.preset >= 4;
+		bold(railway ? U"1  軌道を選ぶ" : U"1  道路を選ぶ").draw(kPad,4,ColorF{0.68,0.86,0.96});
+		button(railway ? U"道路へ" : U"鉄道へ",{width-kPad-88,0,88,25},railway ? Action::Local : Action::RailBallast);
+		const String labels[] = {U"生活道路",U"サブ幹線",U"幹線道路",U"一方通行 →",U"複線・バラスト",U"複線・スラブ",U"軌道併設道路"};
+		const String details[] = {U"2車線・30 km/h",U"2車線・40 km/h",U"4車線・50 km/h",U"1車線・30 km/h",U"上下2軌道・80 km/h",U"上下2軌道・80 km/h",U"車道＋複線・40 km/h"};
+		for (int i = 0; i < (railway ? 3 : 4); ++i)
 		{
+			const int preset = i+(railway ? 4 : 0);
 			const Rect rect{kPad+(i%2)*(half+8),30+(i/2)*56,half,50};
-			button(labels[i],rect,static_cast<Action>(static_cast<int>(Action::Local)+i),true,state.preset == i);
-			font(details[i]).draw(rect.pos+Point{8,27},ColorF{0.67,0.77,0.82});
+			button(labels[preset],rect,static_cast<Action>(static_cast<int>(Action::Local)+preset),true,state.preset == preset);
+			font(details[preset]).draw(rect.pos+Point{8,27},ColorF{0.67,0.77,0.82});
 		}
-		font(U"幅員 {:.1f}m  /  一方通行は描く向きに進行"_fmt(state.width)).draw(kPad,143,ColorF{0.72});
+		font(railway ? U"幅員 {:.1f}m / 上下の軌道を分離"_fmt(state.width) : U"幅員 {:.1f}m / 一方通行は描く向きに進行"_fmt(state.width)).draw(kPad,143,ColorF{0.72});
 		bold(U"2  始点・終点 → 経路生成").draw(kPad,168,ColorF{0.68,0.86,0.96});
 		button(state.generated ? U"経路を再生成" : U"経路生成",{kPad,194,half,28},Action::Generate,state.points >= 2,true);
 		button(state.snapping ? U"道路に接続: ON" : U"道路に接続: OFF",{kPad+half+8,194,half,28},Action::Snap,true,state.snapping);

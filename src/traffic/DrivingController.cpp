@@ -15,7 +15,7 @@ namespace
 	}
 	bool drivable(const Lane& lane)
 	{
-		return (lane.op==OpState::Open || lane.op==OpState::Provisional)
+		return lane.allows(TransportMode::Road) && (lane.op==OpState::Open || lane.op==OpState::Provisional)
 			&& lane.type!=LaneType::KeepOut && lane.type!=LaneType::TrafficIsland
 			&& lane.type!=LaneType::ParkingBay && lane.type!=LaneType::EmergencyStop;
 	}
@@ -91,6 +91,19 @@ void DrivingController::rebuildSurface(Vec3 focus,const World& world,const RoadN
 		}
 		if (!RectF{low,high-low}.stretched(edge.totalWidth()).intersects(region)) { continue; }
 		RoadEdge pavement=edge;
+		if (edge.hasRailLanes())
+		{
+			// 併用断面でも運転可能な面は車線だけ。軌道を横切って走り続けられない。
+			pavement.parts.clear();
+			for (const auto& lane : edge.lanes)
+			{
+				if (!drivable(lane)) { continue; }
+				RoadPart part; part.type=RoadPartType::Roadbed;
+				part.offsetA_L=lane.offsetA_L;part.offsetA_R=lane.offsetA_R;
+				part.offsetB_L=lane.offsetB_L;part.offsetB_R=lane.offsetB_R;
+				pavement.parts<<part;
+			}
+		}
 		for (auto& part : pavement.parts) { if (part.type==RoadPartType::Shoulder) { part.type=RoadPartType::Roadbed; } }
 		append(RoadGeometry::roadbedSurface(pavement,*curve,world),edge.id,edge.speedLimit);
 		nodes.insert(edge.nodeA);nodes.insert(edge.nodeB);

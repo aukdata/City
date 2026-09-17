@@ -637,6 +637,8 @@ GENERATION_SETTING(double, railway_viaductBaseCost, U"railway", U"viaductBaseCos
 GENERATION_SETTING(double, railway_viaductHeightCost, U"railway", U"viaductHeightCost", 0, 1000)
 GENERATION_SETTING(double, railway_viaductHeightSquaredCost, U"railway", U"viaductHeightSquaredCost", 0, 1000)
 GENERATION_SETTING(double, railway_maximumGrade, U"railway", U"maximumGrade", 0.001, 0.1)
+GENERATION_SETTING(double, railway_minimumRadius, U"railway", U"minimumRadius", 50, 5000)
+GENERATION_SETTING(int, railway_smoothingPasses, U"railway", U"smoothingPasses", 0, 1024)
 GENERATION_SETTING(double, railway_profileHeightStep, U"railway", U"profileHeightStep", 0.1, 2)
 GENERATION_SETTING(double, railway_gradeCost, U"railway", U"gradeCost", 0, 1000)
 GENERATION_SETTING(double, railway_stationBaseElevation, U"railway", U"stationBaseElevation", 0, 10000)

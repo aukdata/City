@@ -456,6 +456,7 @@ private:
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	void notifyNetworkChanged(const NetworkChangeContext& context)
 	{
+		m_trainNetwork.synchronize();
 		Stopwatch step{ StartImmediately::Yes };
 		const bool isFastPath = (context.kind == NetworkChangeKind::MovedIntersectionNode);
 		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;

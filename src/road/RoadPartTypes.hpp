@@ -113,6 +113,9 @@ struct RoadPart
 	bool useDefinitionRepeatSpacing = true;              ///< true: RoadPartDef の repeatSpacing を使う
 	bool useDefinitionRepeatJitter = true;               ///< true: RoadPartDef の repeatJitter を使う
 
+	/// @brief 舗装用シェーダを使う路盤。バラスト・スラブは独自の材質で描く。
+	[[nodiscard]] bool asphalt() const { return type == RoadPartType::Roadbed && (defId.isEmpty() || defId == U"roadbed_asphalt"); }
+
 	/// @brief A 端での幅
 	[[nodiscard]] float widthA()   const { return offsetA_R - offsetA_L; }
 	/// @brief B 端での幅

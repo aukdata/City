@@ -43,7 +43,9 @@
     "crossingExtraClearance",
     "waterClearance",
     "waterTunnelCover",
-    "platformLevelMargin"
+    "platformLevelMargin",
+    "minimumRadius",
+    "smoothingPasses"
   ],
   "properties": {
     "maximumCut": {
@@ -245,6 +247,17 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10000.0
+    },
+    "minimumRadius": {
+      "type": "number",
+      "minimum": 50,
+      "maximum": 5000,
+      "description": "鉄道の最小平面半径 [m]。道路より厳しく制限する。"
+    },
+    "smoothingPasses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1024
     }
   }
 }

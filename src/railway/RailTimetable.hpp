@@ -8,6 +8,8 @@ namespace RailTimetable
 	String formatTime(int minute);
 	Optional<int> parseTime(const String& text);
 	Array<int> route(const TrainNetwork& network, const TrainSchedule& schedule, bool reverse = false);
+	/// @brief 保存する設定値の妥当性。線路撤去による一時的な経路不成立とは分ける。
+	String validateSettings(const TrainSchedule& schedule);
 	String validate(const TrainNetwork& network, const TrainSchedule& schedule);
 	double journeySeconds(const TrainNetwork& network, const TrainSchedule& schedule);
 	TrainSchedule makeDefault(const TrainNetwork& network, int from, int to);

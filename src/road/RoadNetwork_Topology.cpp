@@ -339,7 +339,7 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 		RoadEdge* e = getEdge(att.edgeId);
 		if (!e) continue;
 		const float maxCut = e->length * 0.4f;
-		const float c = Min(cutoff, maxCut);
+		const float c = e->hasRailLanes() ? 0.0f : Min(cutoff, maxCut);
 		if (e->nodeA == nodeId) e->cutoffA = c;
 		else                    e->cutoffB = c;
 	}

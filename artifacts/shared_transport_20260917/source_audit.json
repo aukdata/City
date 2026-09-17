@@ -1,0 +1,10 @@
+{
+  "sourceFilesChecked": 63,
+  "encoding": "UTF-8 BOM + CRLF",
+  "issues": [],
+  "preExistingFormatting": [
+    "src/traffic/TrafficCommon.hpp: one pre-existing redundant CR preserved"
+  ],
+  "projectXml": "valid",
+  "newRoadbedAssets": "parsed; model and texture paths exist"
+}

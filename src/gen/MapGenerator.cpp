@@ -809,7 +809,7 @@ void MapGenerator::generateDistrictRoads(
 // ─────────────────────────────────────────────────────────────────────────────
 
 void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world,
-                              const Array<Settlement>& districts, const RoadNetwork* roads)
+                              const Array<Settlement>& districts, RoadNetwork* roads)
 {
 	RailwayAlignment::generate(trainNet,world,districts,roads);
 }

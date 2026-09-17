@@ -500,6 +500,7 @@ bool GameScene::loadGame()
 
 	if (meta.hasElement(U"railway"))
 	{
+		m_trainNetwork.bind(&m_network);
 		if (!m_trainNetwork.restoreState(meta[U"railway"]))
 		{
 			DBG_LOG(U"[Load] railway snapshot is invalid");

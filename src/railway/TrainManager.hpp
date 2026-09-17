@@ -5,7 +5,7 @@ class TrainNetwork;
 struct TrainSchedule;
 struct StopEntry;
 
-/// @brief ダイヤに基づく編成生成・駅停車・単線経路の排他予約。
+/// @brief ダイヤに基づく編成生成・駅停車・進行方向の軌道予約。
 class TrainManager
 {
 public:
@@ -40,6 +40,6 @@ private:
 
 	void spawnScheduledTrains(GameTime gameNow);
 	Array<int> buildServiceRoute(const TrainSchedule& schedule) const;
-	bool canReserveRoute(const Array<int>& route, TrainType type) const;
+	bool canReserveRoute(const Array<int>& route, TrainType type, int origin) const;
 	Train makeScheduledTrain(const TrainSchedule& schedule, Array<int> route, GameTime now) const;
 };

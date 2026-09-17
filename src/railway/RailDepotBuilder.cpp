@@ -83,11 +83,15 @@ namespace RailDepotBuilder
 		RailDepot depot; depot.stationNodeId = station; depot.name = name;
 		depot.throatNodeId = network.addNode(yard.origin);
 		int id = network.addEdge(station,depot.throatNodeId,approach.p1,approach.p2,25); network.getEdge(id)->depotTrack = true;
+		network.infrastructure().updateEdgeElevation(id,world);
+		network.infrastructure().generatePiersForEdge(id,world);
 		for (const double side : {0.0,7.0})
 		{
 			const int end = network.addNode(yard.point(side,0,130),TrackNodeType::Buffer);
 			id = network.addEdge(depot.throatNodeId,end,yard.point(0,0,40),yard.point(side,0,75),15);
-			network.getEdge(id)->depotTrack = true; depot.sidingNodes << end;
+			network.getEdge(id)->depotTrack = true;
+			network.infrastructure().updateEdgeElevation(id,world);
+			network.infrastructure().generatePiersForEdge(id,world); depot.sidingNodes << end;
 		}
 		network.depots() << std::move(depot);
 		DBG_LOG(U"[RailDepot] station={} name={} sidings=2 lead={} offset={}"_fmt(station,name,lead,offset));
@@ -95,7 +99,7 @@ namespace RailDepotBuilder
 	}
 	bool add(TrainNetwork& network, const World& world, const RoadNetwork& roads, int station, String& error)
 	{
-		const ParcelRoadIndex roadSpace{roads,true};
+		const ParcelRoadIndex roadSpace{roads,true,false};
 		ParcelRoadIndex railSpace{RoadNetwork{}}; railSpace.addRailway(network);
 		const TransportClearance crossings{&roads,world};
 		for (const double lead : {80.0,160.0,280.0,440.0})

@@ -123,6 +123,7 @@
     <ClCompile Include="RefactoringTests.cpp" />
     <ClCompile Include="IntegrationRefactoringTests.cpp" />
     <ClCompile Include="CityHudTests.cpp" />
+    <ClCompile Include="SharedTransportTests.cpp" />
     <ClCompile Include="MountainRoadTests.cpp" />
     <ClCompile Include="DrivingTests.cpp" />
     <ClCompile Include="SoundEffectsTests.cpp" />

@@ -644,7 +644,7 @@ namespace
 
 		for (const auto& edge : network.edges())
 		{
-			if (edge.id < 0 || !edge.isRoadbedBuilt()) continue;
+			if (edge.id < 0 || !edge.hasRoadLanes() || !edge.isRoadbedBuilt()) continue;
 			if (edge.roadType != RoadType::LocalRoad && edge.roadType != RoadType::Arterial) continue;
 
 			const auto bez = network.getBezier(edge.id);

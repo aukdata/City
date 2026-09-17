@@ -2,43 +2,62 @@
 #include "RailTimetable.hpp"
 #include <queue>
 
-int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
+void TrainNetwork::registerNode(int id)
 {
-	// ノードは連番 ID で所有し、駅や分岐点を同じ配列上で管理する。
-	TrackNode node;
-	node.id       = m_nextNodeId++;
-	node.position = pos;
-	node.type     = type;
-	node.name     = name;
-	m_nodes << std::move(node);
-	return m_nodes.back().id;
+	if (m_nodeIndex.contains(id)) { return; }
+	const auto* source = infrastructure().getNode(id); if (!source) { return; }
+	TrackNode node; node.id = id; node.position = source->position;
+	m_nodeIndex[id] = static_cast<int>(m_nodes.size()); m_nodes << std::move(node);
 }
 
-int TrainNetwork::addEdge(int nodeA, int nodeB, Vec3 ctrlA, Vec3 ctrlB, float speedLimit)
+void TrainNetwork::synchronize()
 {
-	// エッジ追加時に曲線長と接続関係をまとめて確定し、以後の走行計算で再計算を避ける。
-	TrackEdge edge;
-	edge.id         = m_nextEdgeId++;
-	edge.nodeA      = nodeA;
-	edge.nodeB      = nodeB;
-	edge.ctrlA      = ctrlA;
-	edge.ctrlB      = ctrlB;
-	edge.speedLimit = speedLimit;
+	m_edgeIds.clear();
+	// 共通網から撤去された駅・接続点は、表示や保存用の参照にも残さない。
+	m_nodes.remove_if([&](const TrackNode& node) { return !infrastructure().getNode(node.id); });
+	m_nodeIndex.clear();
+	for (size_t i=0;i<m_nodes.size();++i) { m_nodeIndex[m_nodes[i].id]=static_cast<int>(i); m_nodes[i].edgeIds.clear(); }
+	m_depots.remove_if([&](const RailDepot& depot)
+	{
+		return !getNode(depot.stationNodeId) || !getNode(depot.throatNodeId)
+			|| depot.sidingNodes.any([&](int id) { return !getNode(id); });
+	});
+	for (const auto& edge : infrastructure().edges())
+	{
+		if (edge.id < 0 || !edge.hasRailLanes()) { continue; }
+		m_edgeIds << edge.id;
+		registerNode(edge.nodeA); registerNode(edge.nodeB);
+		for (const int id : {edge.nodeA,edge.nodeB})
+		{
+			auto& node = m_nodes[m_nodeIndex.at(id)];
+			node.position = infrastructure().getNode(id)->position; node.edgeIds << edge.id;
+		}
+	}
+}
 
-	// 制御点から近似弧長を計算する
-	const int ia = nodeIndex(nodeA);
-	const int ib = nodeIndex(nodeB);
-	const Vec3 posA = (ia >= 0) ? m_nodes[ia].position : Vec3{ 0, 0, 0 };
-	const Vec3 posB = (ib >= 0) ? m_nodes[ib].position : Vec3{ 0, 0, 0 };
-	const CubicBezier bez{ posA, ctrlA, ctrlB, posB };
-	edge.length = bez.totalLength;
+int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
+{
+	const int id = infrastructure().addNode(pos);
+	registerNode(id);
+	auto* node = getNode(id); node->type = type; node->name = name;
+	return id;
+}
 
-	// ノードにエッジを登録する
-	if (ia >= 0) m_nodes[ia].edgeIds << edge.id;
-	if (ib >= 0) m_nodes[ib].edgeIds << edge.id;
-
-	m_edges << std::move(edge);
-	return m_edges.back().id;
+int TrainNetwork::addEdge(int nodeA, int nodeB, Vec3 ctrlA, Vec3 ctrlB, float speedLimit, bool doubleTrack)
+{
+	if (!getNode(nodeA) || !getNode(nodeB)) { return -1; }
+	const auto id = infrastructure().addEdge(nodeA,nodeB,ctrlA,ctrlB);
+	if (!id) { return -1; }
+	auto* edge = infrastructure().getEdge(*id);
+	TransportCrossSection::railway(*edge,doubleTrack);
+	edge->speedLimit = speedLimit; edge->edgeState = EdgeState::Existing;
+	edge->designGrade = true;
+	// 接続は道路網が所有し、鉄道側は運行に必要な軌道だけを参照する。
+	m_edgeIds << *id;
+	getNode(nodeA)->edgeIds << *id; getNode(nodeB)->edgeIds << *id;
+	infrastructure().updateNodeCutoffs(nodeA); infrastructure().updateNodeCutoffs(nodeB);
+	infrastructure().rebuildLaneConnections(nodeA); infrastructure().rebuildLaneConnections(nodeB);
+	return *id;
 }
 
 int TrainNetwork::addStation(Vec3 pos, const String& name)
@@ -61,45 +80,44 @@ const TrackNode* TrainNetwork::getNode(int id) const
 
 TrackEdge* TrainNetwork::getEdge(int id)
 {
-	const int i = edgeIndex(id);
-	return i >= 0 ? &m_edges[i] : nullptr;
+	auto* edge = infrastructure().getEdge(id);
+	return edge && edge->hasRailLanes() ? edge : nullptr;
 }
-
 const TrackEdge* TrainNetwork::getEdge(int id) const
 {
-	const int i = edgeIndex(id);
-	return i >= 0 ? &m_edges[i] : nullptr;
+	const auto* edge = infrastructure().getEdge(id);
+	return edge && edge->hasRailLanes() ? edge : nullptr;
 }
-
 Optional<CubicBezier> TrainNetwork::getBezier(int edgeId) const
 {
-	// 線路形状は edge 単体では完結しないため、両端ノード位置と制御点から都度復元する。
-	const int i = edgeIndex(edgeId);
-	if (i < 0) return none;
-	const TrackEdge& e = m_edges[i];
-
-	const TrackNode* nA = getNode(e.nodeA);
-	const TrackNode* nB = getNode(e.nodeB);
-	if (!nA || !nB) return none;
-
-	return CubicBezier{ nA->position, e.ctrlA, e.ctrlB, nB->position };
+	return getEdge(edgeId) ? infrastructure().getBezier(edgeId) : none;
 }
 
-bool TrainNetwork::tryOccupy(int edgeId, int trainId)
+bool TrainNetwork::canOccupy(int edgeId, int trainId, bool forward) const
 {
-	// 単線区間の衝突を避けるため、占有は空き区間か自列車の再取得だけを許可する。
-	TrackEdge* e = getEdge(edgeId);
-	if (!e) return false;
-	if (e->occupiedBy >= 0 && e->occupiedBy != trainId) return false;
-	e->occupiedBy = trainId;
+	const auto* edge = getEdge(edgeId); if (!edge) { return false; }
+	const int lane = TransportCrossSection::railLane(*edge, forward);
+	if (lane < 0) { return false; }
+	const int occupant = edge->lanes[lane].reservedBy;
+	return (occupant < 0 || occupant == trainId)
+		&& (!edge->lanes[lane].bidirectional || edge->occupiedBy < 0 || edge->occupiedBy == trainId);
+}
+
+bool TrainNetwork::tryOccupy(int edgeId, int trainId, bool forward)
+{
+	if (!canOccupy(edgeId, trainId, forward)) { return false; }
+	auto* edge = getEdge(edgeId); const int lane = TransportCrossSection::railLane(*edge,forward);
+	edge->lanes[lane].reservedBy = trainId;
+	if (edge->lanes[lane].bidirectional) { edge->occupiedBy = trainId; }
 	return true;
 }
-
 void TrainNetwork::releaseOccupy(int edgeId, int trainId)
 {
-	TrackEdge* e = getEdge(edgeId);
-	if (e && e->occupiedBy == trainId)
-		e->occupiedBy = -1;
+	if (auto* edge = getEdge(edgeId))
+	{
+		for (auto& lane : edge->lanes) { if (lane.reservedBy == trainId) { lane.reservedBy = -1; } }
+		if (edge->occupiedBy == trainId) { edge->occupiedBy = -1; }
+	}
 }
 
 int TrainNetwork::addSchedule(TrainSchedule schedule)
@@ -139,12 +157,8 @@ bool TrainNetwork::applySchedule(const TrainSchedule& schedule, String& error)
 
 int TrainNetwork::nodeIndex(int id) const
 {
-	return id>=0 && id<static_cast<int>(m_nodes.size()) && m_nodes[id].id==id ? id : -1;
-}
-
-int TrainNetwork::edgeIndex(int id) const
-{
-	return id>=0 && id<static_cast<int>(m_edges.size()) && m_edges[id].id==id ? id : -1;
+	const auto found = m_nodeIndex.find(id);
+	return found == m_nodeIndex.end() ? -1 : found->second;
 }
 
 Array<int> TrainNetwork::findRoute(int from,int to) const
@@ -160,7 +174,9 @@ Array<int> TrainNetwork::findRoute(int from,int to) const
 		if (cost>distance[node]) { continue; }
 		for (const int id : getNode(node)->edgeIds)
 		{
-			const auto* edge=getEdge(id); const int next=edge->nodeA==node ? edge->nodeB : edge->nodeA;
+			const auto* edge=getEdge(id);
+			if (!edge || !edge->electrified || TransportCrossSection::railLane(*edge,edge->nodeA==node)<0) { continue; }
+			const int next=edge->nodeA==node ? edge->nodeB : edge->nodeA;
 			const double candidate=cost+edge->length;
 			if (!distance.contains(next) || candidate<distance[next])
 			{

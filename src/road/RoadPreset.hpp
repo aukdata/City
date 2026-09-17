@@ -49,3 +49,12 @@ private:
 	Array<RoadTemplatePreset> m_favorites;
 	Array<RoadTemplatePreset> m_defaults = buildDefaults();
 };
+
+/// @brief 道路・鉄道の断面を同じ保存形式で扱う。
+namespace RoadSectionJson
+{
+	JSON partToJson(const RoadPart& part);
+	RoadPart partFromJson(const JSON& value);
+	JSON laneToJson(const Lane& lane);
+	Lane laneFromJson(const JSON& value);
+}

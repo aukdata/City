@@ -129,7 +129,7 @@ namespace AgriculturalLayout
 	Stats prepare(World& world,RoadNetwork& roads,uint64 seed,const Array<Frame>& inputFrames,const TrainNetwork* railway)
 	{
 		Stats stats;const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
-		Array<int> originals;for (const auto& edge:roads.edges()) { if (edge.id>=0 && !edge.useElevation && !edge.tunnel && !edge.farmAccess && edge.roadType!=RoadType::Expressway) { originals << edge.id; } }
+		Array<int> originals;for (const auto& edge:roads.edges()) { if (edge.id>=0 && edge.hasRoadLanes() && !edge.useElevation && !edge.tunnel && !edge.farmAccess && edge.roadType!=RoadType::Expressway) { originals << edge.id; } }
 		// Insert real junctions along long rural frontages before buildings receive edge references.
 		for (int id:originals)
 		{

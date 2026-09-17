@@ -37,29 +37,43 @@ namespace RailTimetable
 		Array<int> result;
 		for (size_t index = 1; index < schedule.stops.size(); ++index)
 		{
-			const auto leg = network.findRoute(schedule.stops[index - 1].stationNodeId, schedule.stops[index].stationNodeId);
+			// 復路は駅順と探索方向を反転する。一方通行の軌道では往路と別の区間を使える。
+			const size_t from = reverse ? schedule.stops.size()-index : index-1;
+			const size_t to = reverse ? from-1 : index;
+			const auto leg = network.findRoute(schedule.stops[from].stationNodeId,schedule.stops[to].stationNodeId);
 			if (leg.isEmpty()) { return {}; }
 			result.append(leg);
 		}
-		if (reverse) { result.reverse(); }
 		return result;
 	}
-	String validate(const TrainNetwork& network, const TrainSchedule& schedule)
+	String validateSettings(const TrainSchedule& schedule)
 	{
 		if (!validTimes(schedule)) { return U"始発・終発は00:00〜23:59、間隔は1〜1440分です"; }
 		if (schedule.stops.size() < 2 || schedule.stops.size() > 12) { return U"停車駅を2〜12駅選んでください"; }
-		HashSet<int> stations, usedEdges;
+		HashSet<int> stations;
+		for (const auto& stop : schedule.stops)
+		{
+			if (stop.stationNodeId < 0) { return U"存在する駅を選んでください"; }
+			if (stations.contains(stop.stationNodeId)) { return U"同じ駅は一度だけ指定します。復路は自動で逆順です"; }
+			stations.insert(stop.stationNodeId);
+			if (!std::isfinite(stop.dwellSec) || !InRange(stop.dwellSec, 0.0f, 120.0f)) { return U"停車時間は0〜120分です"; }
+		}
+		return U"";
+	}
+	String validate(const TrainNetwork& network, const TrainSchedule& schedule)
+	{
+		const String settingsError = validateSettings(schedule);
+		if (!settingsError.isEmpty()) { return settingsError; }
+		HashSet<int> usedEdges;
 		for (size_t index = 0; index < schedule.stops.size(); ++index)
 		{
 			const auto& stop = schedule.stops[index];
 			const auto* station = network.getNode(stop.stationNodeId);
 			if (!station || station->type != TrackNodeType::Station) { return U"存在する駅を選んでください"; }
-			if (stations.contains(stop.stationNodeId)) { return U"同じ駅は一度だけ指定します。復路は自動で逆順です"; }
-			stations.insert(stop.stationNodeId);
-			if (!std::isfinite(stop.dwellSec) || !InRange(stop.dwellSec, 0.0f, 120.0f)) { return U"停車時間は0〜120分です"; }
 			if (index == 0) { continue; }
 			const auto leg = network.findRoute(schedule.stops[index - 1].stationNodeId, stop.stationNodeId);
 			if (leg.isEmpty()) { return U"停車駅の間が線路でつながっていません"; }
+			if (network.findRoute(stop.stationNodeId,schedule.stops[index-1].stationNodeId).isEmpty()) { return U"復路に使える向きの軌道がありません"; }
 			double length = 0;
 			for (const int id : leg)
 			{

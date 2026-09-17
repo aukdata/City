@@ -62,12 +62,12 @@ void MinimapRenderer::refreshMap(const RoadNetwork& roads,const TrainNetwork& ra
 		};
 		for (const auto& edge : roads.edges())
 		{
-			if (edge.id<0 || edge.edgeState==EdgeState::Planned) { continue; }
+			if (edge.id<0 || !edge.hasRoadLanes() || edge.edgeState==EdgeState::Planned) { continue; }
 			if (const auto curve=roads.getBezier(edge.id)) { append(*curve,edge.totalWidth(),edge.roadType==RoadType::LocalRoad ? 0 : 1,edge.tunnel); }
 		}
 		for (const auto& edge : railway.edges())
 		{
-			if (edge.id<0) { continue; }
+			if (edge.id<0 || edge.edgeState==EdgeState::Planned) { continue; }
 			if (const auto curve=railway.getBezier(edge.id)) { append(*curve,4,2,true); }
 		}
 		for (const auto& node : railway.nodes())

@@ -148,7 +148,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 		{
 			const Lane& lane = edge->lanes[i];
-			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+			if (!lane.allows(TransportMode::Road) || (lane.op != OpState::Open && lane.op != OpState::Provisional)) continue;
 			const bool exits =
 				(lane.dir == LaneDir::Forward  && edge->nodeB == nodeId) ||
 				(lane.dir == LaneDir::Backward && edge->nodeA == nodeId);
@@ -171,7 +171,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 		{
 			const Lane& lane = edge->lanes[i];
-			if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
+			if (!lane.allows(TransportMode::Road) || (lane.op != OpState::Open && lane.op != OpState::Provisional)) continue;
 			const bool enters =
 				(lane.dir == LaneDir::Forward  && edge->nodeA == nodeId) ||
 				(lane.dir == LaneDir::Backward && edge->nodeB == nodeId);

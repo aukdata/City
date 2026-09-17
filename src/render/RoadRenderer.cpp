@@ -795,7 +795,7 @@ void RoadRenderer::drawSurface(const PartMeshEntry& entry, const Mesh& mesh) con
 		if (entry.texture) { mesh.draw(*entry.texture, entry.color); }
 		else { mesh.draw(entry.color); }
 	};
-	if (entry.materialType == RoadPartType::Roadbed && m_asphaltPS)
+	if (entry.materialType == RoadPartType::Roadbed && entry.asphalt && m_asphaltPS)
 	{
 		Graphics3D::SetPSTexture(4, m_asphaltNormal);
 		const ScopedCustomShader3D shader{m_asphaltPS};
@@ -828,7 +828,7 @@ RoadRenderer::PartVisual RoadRenderer::getPartVisual(const RoadPart& part) const
 	}
 
 	// Registry colors are authored in sRGB; the HDR lighting pass expects linear albedo.
-	if (part.type != RoadPartType::Roadbed) { color = color.removeSRGBCurve(); }
+	if (!part.asphalt()) { color = color.removeSRGBCurve(); }
 	return { color, heightOff, tex };
 }
 
@@ -987,7 +987,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
 
 		auto [color, heightOff, tex] = getPartVisual(part);
-		if (part.type == RoadPartType::Roadbed)
+		if (part.asphalt())
 		{
 			if (edge.roadType == RoadType::Arterial) color = ColorF{ 0.29, 0.30, 0.32 };
 			else if (edge.roadType == RoadType::LocalRoad) color = ColorF{ 0.29, 0.30, 0.32 };
@@ -1035,6 +1035,7 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		entry.color   = color;
 		entry.texture = tex;
 		entry.materialType = part.type;
+		entry.asphalt = part.asphalt();
 		entries << std::move(entry);
 		// 既存グループを検索（部品数は通常 ≤10 なので線形探索で十分）
 		MaterialGroup* group = nullptr;
@@ -2403,7 +2404,7 @@ void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& 
 					if (data.indices.isEmpty()) { continue; }
 					orientRoadFaces(data);
 					const Mesh mesh{data};
-					entries << PartMeshEntry{{mesh, mesh}, color, texture, part.type};
+					entries << PartMeshEntry{{mesh, mesh}, color, texture, part.type, part.asphalt()};
 				}
 			}
 		}

@@ -10,12 +10,12 @@
 class ParcelRoadIndex
 {
 public:
-	explicit ParcelRoadIndex(const RoadNetwork& network,bool includeElevated=false)
+	explicit ParcelRoadIndex(const RoadNetwork& network,bool includeElevated=false,bool includeRailway=true)
 	{
 		constexpr float kSampleLength = 4.0f;
 		for (const RoadEdge& edge : network.edges())
 		{
-			if (edge.id < 0 || !edge.isRoadbedBuilt() || (edge.useElevation && !includeElevated))
+			if ((!includeRailway && !edge.hasRoadLanes()) || edge.id < 0 || !edge.isRoadbedBuilt() || (edge.useElevation && !includeElevated))
 			{
 				continue;
 			}

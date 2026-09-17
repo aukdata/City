@@ -4,7 +4,7 @@
 /// @brief 道路計画パネルの状態と入力。Test と本体で同じ表示を使う。
 namespace RoadPlanToolbar
 {
-	enum class Action : uint8 { None, Local, Collector, Arterial, OneWay, Generate, Snap, Undo, Redo, Construct, Clear };
+	enum class Action : uint8 { None, Local, Collector, Arterial, OneWay, RailBallast, RailSlab, Tram, Generate, Snap, Undo, Redo, Construct, Clear };
 	struct State
 	{
 		int preset = 0;

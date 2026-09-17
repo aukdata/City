@@ -181,6 +181,7 @@ Array<TunnelGeometry::Section> TunnelGeometry::buildRoadNetwork(const World& wor
 	Array<Section> result;HashTable<int,size_t> sections;HashTable<int,Array<Opening>> cuts;
 	for (const auto& edge : roads.edges())
 	{
+		if (!edge.hasRoadLanes()) { continue; }
 		if (edge.id<0 || !(edge.useElevation || edge.tunnel) || !edge.isRoadbedBuilt()) { continue; }
 		const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
 		auto geometry=build(*curve,world,edge.totalWidth(),false);if (geometry.openings.isEmpty()) { continue; }

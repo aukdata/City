@@ -56,7 +56,7 @@ Array<int> buildAlignment(RoadNetwork& roads,const World& world,Array<CubicBezie
 	curves.back()=CubicBezier{curves.back().p0,curves.back().p1,curves.back().p2+goalShift,goal+goalShift};
 	for(const auto& curve:curves)
 	{
-		if(!RoadAlignment::respectsLimits(curve,roadTemplate.roadType)) { return {}; }
+		if(!RoadAlignment::respectsLimits(curve,roadTemplate.roadType,roadTemplate.hasRailLanes() ? TransportMode::Rail : TransportMode::Road)) { return {}; }
 	}
 	Array<int> ids;int previous=startNode;
 	for(size_t i=0;i<curves.size();++i)
@@ -88,7 +88,7 @@ Array<int> buildPlanned(
 	Array<CubicBezier> curves;
 	if(followTerrain)
 	{
-		const auto result=RoadAlignment::find(world,startWorld,goalWorld,templateEdge.roadType);
+		const auto result=RoadAlignment::find(world,startWorld,goalWorld,templateEdge.roadType,60000,templateEdge.hasRailLanes() ? TransportMode::Rail : TransportMode::Road);
 		if(!result) { return {}; }curves=result->curves;
 	}
 	else { curves=RoadAlignment::fit({startWorld,goalWorld}); }

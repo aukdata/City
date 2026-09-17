@@ -64,7 +64,7 @@ void VehicleManager::spawnOnEdge(int edgeId, const SimGraph& simGraph, VehicleTy
 	int laneIdx = -1;
 	for (int i = 0; i < static_cast<int>(edge->lanes.size()); ++i)
 	{
-		if (edge->lanes[i].op == OpState::Open || edge->lanes[i].op == OpState::Provisional)
+		if (edge->lanes[i].allows(TransportMode::Road) && (edge->lanes[i].op == OpState::Open || edge->lanes[i].op == OpState::Provisional))
 		{
 			laneIdx = i;
 			break;
@@ -758,7 +758,7 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 		for (int i = 0; i < static_cast<int>(nextE->lanes.size()); ++i)
 		{
 			if (nextE->lanes[i].dir == needDir &&
-				(nextE->lanes[i].op == OpState::Open || nextE->lanes[i].op == OpState::Provisional))
+				(nextE->lanes[i].allows(TransportMode::Road) && (nextE->lanes[i].op == OpState::Open || nextE->lanes[i].op == OpState::Provisional)))
 			{ lane = i; break; }
 		}
 		const float arcPos = enterAtA ? 0.0f : nextE->length;

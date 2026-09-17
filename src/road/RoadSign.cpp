@@ -289,6 +289,7 @@ RoadSign::RoadbedExtents RoadSign::roadbedExtentsOf(const RoadEdge& edge)
 
 Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const RoadNetwork& network)
 {
+	if (!edge.hasRoadLanes()) { return {}; }
 	// エッジ両端の交通規制と接続関係を見て、必要な規制標識だけを自動配置候補として生成する。
 	Array<RoadSignPlacement> out;
 

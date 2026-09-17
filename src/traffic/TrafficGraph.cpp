@@ -31,7 +31,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 		for (int i = 0; i < static_cast<int>(edge.lanes.size()); ++i)
 		{
 			const Lane& L = edge.lanes[i];
-			if (!(edge.isRoadbedBuilt() && (L.op == OpState::Open || L.op == OpState::Provisional))) continue;
+			if (!(edge.isRoadbedBuilt() && (L.allows(TransportMode::Road) && (L.op == OpState::Open || L.op == OpState::Provisional)))) continue;
 
 			const float entryArc = (L.dir == LaneDir::Forward) ? 0.0f : edge.length;
 			const float exitArc  = (L.dir == LaneDir::Forward) ? edge.length : 0.0f;
@@ -70,8 +70,8 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			const int j = i + 1;
 			const Lane& Li = edge.lanes[i];
 			const Lane& Lj = edge.lanes[j];
-			if (!(edge.isRoadbedBuilt() && (Li.op == OpState::Open || Li.op == OpState::Provisional))
-				|| !(edge.isRoadbedBuilt() && (Lj.op == OpState::Open || Lj.op == OpState::Provisional))) continue;
+			if (!(edge.isRoadbedBuilt() && (Li.allows(TransportMode::Road) && (Li.op == OpState::Open || Li.op == OpState::Provisional)))
+				|| !(edge.isRoadbedBuilt() && (Lj.allows(TransportMode::Road) && (Lj.op == OpState::Open || Lj.op == OpState::Provisional)))) continue;
 			if (Li.dir != Lj.dir) continue;
 
 			const auto eiIt = m_entryNodeIds.find(laneKey(edge.id, i));
@@ -108,12 +108,12 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 			// from 側車線が走行可能か
 			if (conn.fromLaneIndex < 0 || conn.fromLaneIndex >= static_cast<int>(fromE->lanes.size())) continue;
 			const Lane& fromLane = fromE->lanes[conn.fromLaneIndex];
-			if (!(fromE->isRoadbedBuilt() && (fromLane.op == OpState::Open || fromLane.op == OpState::Provisional))) continue;
+			if (!(fromE->isRoadbedBuilt() && (fromLane.allows(TransportMode::Road) && (fromLane.op == OpState::Open || fromLane.op == OpState::Provisional)))) continue;
 
 			// to 側車線が走行可能か
 			if (conn.toLaneIndex < 0 || conn.toLaneIndex >= static_cast<int>(toE->lanes.size())) continue;
 			const Lane& toLane = toE->lanes[conn.toLaneIndex];
-			if (!(toE->isRoadbedBuilt() && (toLane.op == OpState::Open || toLane.op == OpState::Provisional))) continue;
+			if (!(toE->isRoadbedBuilt() && (toLane.allows(TransportMode::Road) && (toLane.op == OpState::Open || toLane.op == OpState::Provisional)))) continue;
 
 			// 進入エッジの exit ノード ID と退出エッジの entry ノード ID を取得
 			const auto exitIt = m_exitNodeIds.find(laneKey(conn.fromEdgeId, conn.fromLaneIndex));

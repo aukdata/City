@@ -1,0 +1,17 @@
+﻿[
+  {
+    "bedPixels": 28613,
+    "meanBedBrightness": 65.80874660701843,
+    "railPixels": 3530
+  },
+  {
+    "bedPixels": 28613,
+    "meanBedBrightness": 82.17373221962174,
+    "railPixels": 3530
+  },
+  {
+    "bedPixels": 50228,
+    "meanBedBrightness": 95.11064213851067,
+    "railPixels": 1901
+  }
+]

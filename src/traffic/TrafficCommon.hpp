@@ -75,7 +75,7 @@ namespace TrafficCommon
 			if (!e.isRoadbedBuilt()) continue;
 			for (const auto& lane : e.lanes)
 			{
-				if ((lane.op == OpState::Open || lane.op == OpState::Provisional)
+				if ((lane.allows(TransportMode::Road) && (lane.op == OpState::Open || lane.op == OpState::Provisional))
 					&& lane.dir == LaneDir::Forward)
 				{
 					candidates << e.id;
@@ -208,7 +208,7 @@ namespace TrafficCommon
 	{
 		if (targetLane < 0 || targetLane >= static_cast<int>(edge.lanes.size())) return false;
 		const Lane& tgt = edge.lanes[targetLane];
-		if (!(edge.isRoadbedBuilt() && (tgt.op == OpState::Open || tgt.op == OpState::Provisional)))
+		if (!(edge.isRoadbedBuilt() && (tgt.allows(TransportMode::Road) && (tgt.op == OpState::Open || tgt.op == OpState::Provisional))))
 			return false;
 		const LaneDir dir = fwdLane ? LaneDir::Forward : LaneDir::Backward;
 		if (tgt.dir != dir) return false;

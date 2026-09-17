@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/TransportSectionControls.hpp"
 #include "../ui/RoadDiagramStyle.hpp"
 #include "../ui/LandParcelPanel.hpp"
 #include "../ui/ConstructionStatus.hpp"
@@ -350,6 +351,7 @@ namespace
 						st.selectedPart = -1;
 						dirty = true;
 					}
+					if (st.selectedPart >= 0) { dirty |= TransportSectionControls::roadbed(pFont,edge.parts[st.selectedPart],bx+24,y,kLH); }
 					y += kLH;
 
 					if (st.selectedPart >= 0)
@@ -379,7 +381,6 @@ namespace
 		// ========== Lanes セクション ==========
 		{
 			static constexpr StringView osN[] = { U"開放", U"暫定供用", U"閉鎖", U"予約" };
-			static constexpr StringView ltN[] = { U"通常", U"バス専用", U"登坂車線", U"右左折", U"加速", U"減速" };
 			static constexpr StringView lnN[] = { U"なし", U"白実線", U"白破線", U"黄実線", U"黄二重線" };
 			static constexpr StringView drN[] = { U"順方向", U"逆方向" };
 
@@ -642,8 +643,8 @@ namespace
 					bx += 68;
 					dirty |= PanelWidget::cycle(pFont, sl.op, osN, 4, bx, y, 78, kLH);
 					bx += 80;
-					dirty |= PanelWidget::cycle(pFont, sl.type, ltN, 6, bx, y, 50, kLH);
-					bx += 54;
+					dirty |= TransportSectionControls::laneKind(pFont,sl,bx,y,kLH);
+					bx += 68;
 					if (PanelWidget::buttonDanger(pFont, U"X", bx, y, 18, kLH, U"削除"))
 					{
 						edge.lanes.remove_at(st.selectedLane);
@@ -1029,7 +1030,7 @@ void GameScene::drawRoadPlanPanel()
 	toolbarState.error = m_draftRoadPlan.error;
 	const auto action = RoadPlanToolbar::draw(pFont,pBold,panelW-10,toolbarState);
 	using Action = RoadPlanToolbar::Action;
-	if (action >= Action::Local && action <= Action::OneWay)
+	if (action >= Action::Local && action <= Action::Tram)
 	{
 		m_draftRoadPlan.preset = static_cast<int>(action)-static_cast<int>(Action::Local);
 		m_drawTemplate = RoadPlanDraft::makeRoadTemplate(m_draftRoadPlan.preset);

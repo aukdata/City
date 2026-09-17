@@ -24,7 +24,11 @@ namespace TrainConsist
 			const auto* edge=network.getEdge(id);
 			const auto curve=network.getBezier(id);
 			if (!edge || !curve) { return none; }
-			if (arc>=0) { return curve->positionAt(forward ? Min(arc,edge->length) : Max(0.0f,edge->length-arc)); }
+			if (arc>=0)
+			{
+				const int lane = TransportCrossSection::railLane(*edge,forward); if (lane < 0) { return none; }
+				return TransportCrossSection::lanePosition(*edge,*curve,forward ? Min(arc,edge->length) : Max(0.0f,edge->length-arc),lane);
+			}
 			const int start=forward ? edge->nodeA : edge->nodeB;
 			if (--progress<0) { return none; }
 			const auto* previous=network.getEdge(train.routeEdges[progress]);
@@ -51,7 +55,8 @@ namespace TrainConsist
 		const Vec3 right=tangentToRight(direction),up=direction.cross(right);
 		const double heading=Atan2(direction.x,direction.z),pitch=-Atan2(direction.y,Vec2{direction.x,direction.z}.length());
 		const bool last=car+1==spec.cars;
-		const Vec3 position=(*front+*rear)*.5+Vec3{0,.17,0};
+		const auto* edge = network.getEdge(train.currentEdge);
+		const Vec3 position=(*front+*rear)*.5+Vec3{0,edge ? TransportCrossSection::railTop(*edge) : .17,0};
 		return CarPose{position,direction,right,up,Mat4x4::RotateY(last ? Math::Pi : 0)*Mat4x4::RotateX(pitch)*Mat4x4::RotateY(heading)*Mat4x4::Translate(position),String{car==0 || last ? spec.cab : spec.trailer}};
 	}
 	/// @brief 傾斜した車体座標系へレイを投影し、編成中の最も近い車両を選ぶ。

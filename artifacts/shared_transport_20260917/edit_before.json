@@ -1,0 +1,21 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "SharedTransport.EditingKeepsInfrastructureConsistent",
+      "status": "failed",
+      "durationMs": 0.212,
+      "failures": [
+        "分割後も電化・車庫の属性を保持する",
+        "撤去された旧区間の予約を新しい区間へ複製しない",
+        "分割後も電化・車庫の属性を保持する",
+        "撤去された旧区間の予約を新しい区間へ複製しない",
+        "撤去した共通ノードを駅として残さない",
+        "線路撤去で経路が途切れても街全体の復元を失敗させない",
+        "経路不成立のダイヤを消さず修正用に保持する (actual=0, expected=1)"
+      ]
+    }
+  ]
+}

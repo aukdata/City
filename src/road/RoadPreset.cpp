@@ -1,14 +1,15 @@
 ﻿#include "RoadPreset.hpp"
 #include "RoadNetwork.hpp"
+#include "TransportCrossSection.hpp"
 
 // =============================================================================
 // JSON シリアライズ ヘルパー（内部使用）
 // =============================================================================
 
-namespace
+namespace RoadSectionJson
 {
 	// プリセット保存では parts / lanes を JSON へ個別展開し、道路テンプレートを丸ごと復元可能にする。
-	static JSON partToJson(const RoadPart& part)
+	JSON partToJson(const RoadPart& part)
 	{
 		JSON j;
 		j[U"defId"] = part.defId;
@@ -27,7 +28,7 @@ namespace
 		return j;
 	}
 
-	static RoadPart partFromJson(const JSON& j)
+	RoadPart partFromJson(const JSON& j)
 	{
 		RoadPart part;
 		part.defId = j[U"defId"].getString();
@@ -65,7 +66,7 @@ namespace
 		}
 		return part;
 	}
-	static JSON laneToJson(const Lane& lane)
+	JSON laneToJson(const Lane& lane)
 	{
 		JSON j;
 		j[U"offsetA_L"]          = lane.offsetA_L;
@@ -80,10 +81,11 @@ namespace
 		j[U"lineRight"]          = static_cast<uint8>(lane.lineRight);
 		j[U"nominalWidth"]       = lane.nominalWidth;
 		j[U"type"]               = static_cast<uint8>(lane.type);
+		j[U"bidirectional"] = lane.bidirectional;
 		return j;
 	}
 
-	static Lane laneFromJson(const JSON& j)
+	Lane laneFromJson(const JSON& j)
 	{
 		Lane lane;
 		lane.offsetA_L          = j[U"offsetA_L"].get<float>();
@@ -98,6 +100,7 @@ namespace
 		lane.lineRight          = static_cast<LineType>(j[U"lineRight"].get<uint8>());
 		lane.nominalWidth       = j[U"nominalWidth"].get<float>();
 		lane.type               = static_cast<LaneType>(j[U"type"].get<uint8>());
+		lane.bidirectional = j[U"bidirectional"].getOr<bool>(false);
 		return lane;
 	}
 
@@ -113,6 +116,8 @@ namespace
 		return U"道路";
 	}
 }
+
+using namespace RoadSectionJson;
 
 // =============================================================================
 // RoadTemplatePreset
@@ -280,10 +285,18 @@ Array<RoadTemplatePreset> RoadPresetStore::buildDefaults()
 		return RoadTemplatePreset::fromEdge(edge, RoadTemplatePreset::autoName(edge));
 	};
 
-	return {
+	Array<RoadTemplatePreset> result{
 		makePreset(RoadType::LocalRoad,  2, 60.0f),
 		makePreset(RoadType::LocalRoad,  4, 60.0f),
 		makePreset(RoadType::Arterial,   4, 80.0f),
 		makePreset(RoadType::Expressway, 4, 100.0f),
 	};
+	for (int variant=0;variant<3;++variant)
+	{
+		RoadEdge edge; TransportCrossSection::railway(edge,true,variant==1,variant==2);
+		edge.speedLimit = variant==2 ? 40.0f : 80.0f;
+		const String name = variant==0 ? U"複線・バラスト" : variant==1 ? U"複線・スラブ" : U"軌道併設道路";
+		result << RoadTemplatePreset::fromEdge(edge,name);
+	}
+	return result;
 }

@@ -163,7 +163,7 @@ TrainTimetableEditor::Action TrainTimetableEditor::draw(const Font& font, const 
 		font(schedule.enabled ? U"発車予定  " + times : U"運休中：新しい列車は発車しません").draw(8, y, text); y += 26;
 		if (schedule.headwaySec < RailTimetable::journeySeconds(network, schedule))
 		{
-			font(U"間隔が短いため、単線が空くまで発車を待ちます").draw(8, y, ColorF{1,.80,.47}); y += 26;
+			font(U"間隔が短い場合、同じ軌道の空きを待ちます").draw(8, y, ColorF{1,.80,.47}); y += 26;
 		}
 	}
 	int running = 0;

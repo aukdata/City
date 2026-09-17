@@ -21,7 +21,7 @@ namespace TrafficSpawn
 	{
 		if (!edge.isRoadbedBuilt() || lane < 0 || lane >= static_cast<int>(edge.lanes.size())) { return false; }
 		const auto& value = edge.lanes[lane];
-		return (value.op == OpState::Open || value.op == OpState::Provisional)
+		return value.allows(TransportMode::Road) && (value.op == OpState::Open || value.op == OpState::Provisional)
 			&& value.type != LaneType::KeepOut && value.type != LaneType::TrafficIsland
 			&& value.type != LaneType::ParkingBay && value.type != LaneType::EmergencyStop;
 	}

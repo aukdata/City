@@ -5,6 +5,7 @@ void registerTransportPlanningTests(TestRunner& runner);
 void registerRefactoringTests(TestRunner& runner);
 void registerIntegrationRefactoringTests(TestRunner& runner);
 void registerCityHudTests(TestRunner& runner);
+void registerSharedTransportTests(TestRunner& runner);
 void registerMountainRoadTests(TestRunner& runner);
 void registerDrivingTests(TestRunner& runner);
 void registerSoundEffectsTests(TestRunner& runner);

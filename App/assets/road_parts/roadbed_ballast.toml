@@ -1,0 +1,17 @@
+id = "roadbed_ballast"
+name = "バラスト路盤"
+type = "Roadbed"
+tiling = "CrossSection"
+model = "roadbed_asphalt.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = true
+
+[material]
+texture = "../third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg"
+color = [0.43, 0.42, 0.39]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [800.0]

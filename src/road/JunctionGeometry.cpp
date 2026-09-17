@@ -59,7 +59,7 @@ namespace JunctionGeometry
 		for (const auto& attachment : node->attachments)
 		{
 			const auto* edge = network.getEdge(attachment.edgeId);
-			if (!edge || (onlyOpenEdges && edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing)) { continue; }
+			if (!edge || !edge->hasRoadLanes() || (onlyOpenEdges && edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing)) { continue; }
 			const auto bezier = network.getBezier(edge->id);
 			if (!bezier || bezier->totalLength < 0.1f) { continue; }
 			Approach approach;

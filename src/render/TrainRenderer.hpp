@@ -26,7 +26,13 @@ public:
 	void invalidateTrackCache(int edgeId);
 
 	/// @brief 道路形状の変更時に橋脚の干渉判定と床版キャッシュを更新する。
-	void invalidateRoadClearance() { m_roadClearance.reset(); m_bedMeshCache.clear(); }
+	void invalidateRoadClearance() { clearTrackCache(); }
+	/// @brief 共通道路網の断面・形状編集で軌道と施設を再構築する。
+	void clearTrackCache()
+	{
+		m_trackMeshCache.clear(); m_distantTracks.clear(); m_stations.clear(); m_depots.clear();
+		m_facilityEdgeCount = std::numeric_limits<size_t>::max();
+	}
 
 private:
 	/// @brief エッジの線路メッシュを構築する
@@ -48,8 +54,5 @@ private:
 	HashTable<String, ModelLod> m_models;
 	Array<Train> m_parkedTrains;
 	HashTable<int, Mesh> m_distantTracks;
-	std::unique_ptr<ParcelRoadIndex> m_roadClearance;
-	size_t m_roadEdgeCount=0;
-	HashTable<int, Mesh> m_bedMeshCache;
 	HashTable<int, Mesh> m_trackMeshCache;  ///< エッジ ID → 線路メッシュ
 };

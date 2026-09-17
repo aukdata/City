@@ -39,6 +39,8 @@ namespace RailwaySite
 		for (const int first : node->edgeIds)
 		{
 			const auto* edge = network.getEdge(first); if (!edge || edge->depotTrack) { continue; }
+			const int firstLane = TransportCrossSection::railLane(*edge,edge->nodeA == station);
+			const float lateral = firstLane >= 0 ? Abs(edge->lanes[firstLane].centerAt(0)) : 0;
 			Array<Vec3> path{node->position}; int current = station; double left = kPlatformLength;
 			HashSet<int> visited;
 			while (edge && left > .1 && !visited.contains(edge->id))
@@ -59,7 +61,27 @@ namespace RailwaySite
 					if (id != previous && !network.getEdge(id)->depotTrack) { edge = network.getEdge(id); break; }
 				}
 			}
-			if (path.size() >= 2) { paths << std::move(path); }
+			if (path.size() >= 2)
+			{
+				const auto original = path;
+				for (size_t i=0;i<path.size();++i)
+				{
+					const Vec3 along = original[Min(i+1,original.size()-1)]-original[i>0 ? i-1 : 0];
+					path[i] -= tangentToRight(along)*lateral;
+				}
+				paths << std::move(path);
+				// 終端駅でも上下線の外側にホームを配置する。
+				if (lateral > .1)
+				{
+					Array<Vec3> opposite = original;
+					for (size_t i=0;i<opposite.size();++i)
+					{
+						const Vec3 along = original[Min(i+1,original.size()-1)]-original[i>0 ? i-1 : 0];
+						opposite[i] += tangentToRight(along)*lateral;
+					}
+					opposite.reverse(); paths << std::move(opposite);
+				}
+			}
 		}
 		return paths;
 	}
@@ -68,7 +90,7 @@ namespace RailwaySite
 		const auto paths = stationPaths(network, station); if (paths.isEmpty()) { return none; }
 		Vec3 along = paths.front()[1]-paths.front()[0]; along.y = 0;
 		if (along.lengthSq() < .001) { return none; }
-		along.normalize(); return Frame{paths.front().front(), along, {along.z,0,-along.x}};
+		along.normalize(); return Frame{network.getNode(station)->position, along, {along.z,0,-along.x}};
 	}
 	Optional<Frame> depotFrame(const TrainNetwork& network, const RailDepot& depot)
 	{
@@ -119,7 +141,7 @@ namespace RailwaySite
 				const Vec3 a=curve->positionAt(curve->totalLength*i/count),b=curve->positionAt(curve->totalLength*(i+1)/count),middle=(a+b)*.5;
 				if (RoadEnvironment::coveredAt(world,middle,true,RoadEnvironment::kRailTunnelCrown)) { continue; }
 				Vec3 along=b-a;along.y=0;const double length=along.length();if (length<.01) { continue; } along/=length;
-				result<<rectangle({a,along,{along.z,0,-along.x}},-3.5,3.5,-.3,length+.3);
+				result<<rectangle({a,along,{along.z,0,-along.x}},-edge.totalWidth()*.5-.5,edge.totalWidth()*.5+.5,-.3,length+.3);
 			}
 		}
 		return result;

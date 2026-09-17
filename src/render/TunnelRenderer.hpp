@@ -31,7 +31,7 @@ public:
 			if (!section.geometry.lights.indices.isEmpty()) { batch.lights=Mesh{section.geometry.lights}; }
 			m_batches<<std::move(batch);++roadCount;
 		}
-		for (const auto& edge : railway.edges()) { if (edge.id>=0) { if (const auto curve=railway.getBezier(edge.id)) { railCount+=append(*curve,4.8,true); } } }
+		for (const auto& edge : railway.edges()) { if (edge.id>=0 && !edge.hasRoadLanes() && edge.isRoadbedBuilt() && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing)) { if (const auto curve=railway.getBezier(edge.id)) { railCount+=append(*curve,edge.totalWidth(),true); } } }
 		dirty=false; DBG_LOG(U"[TunnelRenderer] roadSections={} railSections={} mouthOpenings={}"_fmt(roadCount,railCount,openings.size()));
 	}
 	void draw(Vec3 eye) const

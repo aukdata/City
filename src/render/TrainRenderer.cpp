@@ -8,7 +8,6 @@ namespace
 {
 	constexpr float kTrackWidth    = 1.067f;   // 軌間 [m]（狭軌）
 	constexpr float kRailHalfW     = 0.07f;    // レール断面の半幅 [m]
-	constexpr float kRailTopY      = 0.17f;    // レール天面の高さ [m]（地盤からの offset）
 	constexpr float kSleeperY      = 0.10f;    // 枕木天面の高さ [m]
 	constexpr float kSleeperHalfL  = kTrackWidth * 0.5f + 0.2f;  // 枕木の半長
 	constexpr float kSleeperHalfW  = 0.065f;  // 枕木の半幅（進行方向）
@@ -43,69 +42,76 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 	const int segments = distant ? Max(4, kSegments / 5) : kSegments;
 	mesh.vertices.reserve((segments + 1) * 4 + (static_cast<int>(edge.length / .65f) + 2) * 4);
 
-	// ---- レール（左右 2本のリボン） ----
-	for (int side = 0; side < 2; ++side)
+	for (const auto& lane : edge.lanes)
 	{
-		const float sideSign = (side == 0) ? -1.0f : 1.0f;
-
-		Array<Float3> edgeL, edgeR;
-		edgeL.reserve(segments + 1);
-		edgeR.reserve(segments + 1);
-
-		for (int i = 0; i <= segments; ++i)
+		if (lane.type != LaneType::Rail) { continue; }
+		// ---- レール（左右 2本のリボン） ----
+		for (int side = 0; side < 2; ++side)
 		{
-			const float t      = static_cast<float>(i) / segments;
-			const Vec3  pos    = bez.evaluate(t);
+			const float sideSign = (side == 0) ? -1.0f : 1.0f;
+
+			Array<Float3> edgeL, edgeR;
+			edgeL.reserve(segments + 1);
+			edgeR.reserve(segments + 1);
+
+			for (int i = 0; i <= segments; ++i)
+			{
+				const float fraction = static_cast<float>(i) / segments;
+				const float t = bez.tFromArcLength(bez.totalLength * fraction);
+				const Vec3  pos    = bez.evaluate(t) + tangentToRight(bez.tangent(t)) * lane.centerAt(fraction);
+				const Vec3  tan    = bez.tangent(t).normalized();
+				const Vec3  right  = tangentToRight(tan);
+
+				// レール中心（左右どちらか）
+				const Vec3  center = pos + right * (sideSign * kTrackWidth * 0.5f)
+				                         + Vec3{ 0, TransportCrossSection::railTop(edge), 0 };
+
+				edgeL << Float3{
+					static_cast<float>((center - right * kRailHalfW).x),
+					static_cast<float>((center - right * kRailHalfW).y),
+					static_cast<float>((center - right * kRailHalfW).z) };
+				edgeR << Float3{
+					static_cast<float>((center + right * kRailHalfW).x),
+					static_cast<float>((center + right * kRailHalfW).y),
+					static_cast<float>((center + right * kRailHalfW).z) };
+			}
+
+			const Float3 up{ 0, 1, 0 };
+			for (int i = 0; i < segments; ++i)
+			{
+				// 上面（CW = Siv3D 表面）: edgeL[i], edgeL[i+1], edgeR[i], edgeR[i+1]
+				addQuad(mesh, edgeL[i], edgeL[i + 1], edgeR[i], edgeR[i + 1], up);
+			}
+		}
+
+		// ---- 枕木（約0.65m ごと） ----
+		const int numSleepers = Max(1, static_cast<int>(edge.length / .65f));
+
+		for (int si = 0; !distant && !edge.hasRoadLanes() && si <= numSleepers; ++si)
+		{
+			const float fraction = static_cast<float>(si) / numSleepers;
+			const float t = bez.tFromArcLength(bez.totalLength * fraction);
+			const Vec3  pos    = bez.evaluate(t) + tangentToRight(bez.tangent(t)) * lane.centerAt(fraction);
 			const Vec3  tan    = bez.tangent(t).normalized();
-			const Vec3  right  = tangentToRight(tan);
+			const Vec3  right  = Vec3{ tan.z, 0, -tan.x };
 
-			// レール中心（左右どちらか）
-			const Vec3  center = pos + right * (sideSign * kTrackWidth * 0.5f)
-			                         + Vec3{ 0, kRailTopY, 0 };
+			// 枕木の四隅（進行方向 = tan、幅方向 = right）
+			const auto toF3 = [](const Vec3& v) -> Float3 {
+				return Float3{
+					static_cast<float>(v.x),
+					static_cast<float>(v.y),
+					static_cast<float>(v.z) };
+			};
 
-			edgeL << Float3{
-				static_cast<float>((center - right * kRailHalfW).x),
-				static_cast<float>((center - right * kRailHalfW).y),
-				static_cast<float>((center - right * kRailHalfW).z) };
-			edgeR << Float3{
-				static_cast<float>((center + right * kRailHalfW).x),
-				static_cast<float>((center + right * kRailHalfW).y),
-				static_cast<float>((center + right * kRailHalfW).z) };
+			const Vec3 base = pos + Vec3{ 0, kSleeperY, 0 };
+			const Float3 v0 = toF3(base - right * kSleeperHalfL + tan * kSleeperHalfW);
+			const Float3 v1 = toF3(base + right * kSleeperHalfL + tan * kSleeperHalfW);
+			const Float3 v2 = toF3(base - right * kSleeperHalfL - tan * kSleeperHalfW);
+			const Float3 v3 = toF3(base + right * kSleeperHalfL - tan * kSleeperHalfW);
+
+			addQuad(mesh, v0, v1, v2, v3, Float3{ 0, 1, 0 });
 		}
 
-		const Float3 up{ 0, 1, 0 };
-		for (int i = 0; i < segments; ++i)
-		{
-			// 上面（CW = Siv3D 表面）: edgeL[i], edgeL[i+1], edgeR[i], edgeR[i+1]
-			addQuad(mesh, edgeL[i], edgeL[i + 1], edgeR[i], edgeR[i + 1], up);
-		}
-	}
-
-	// ---- 枕木（約0.65m ごと） ----
-	const int numSleepers = Max(1, static_cast<int>(edge.length / .65f));
-
-	for (int si = 0; !distant && si <= numSleepers; ++si)
-	{
-		const float t      = static_cast<float>(si) / numSleepers;
-		const Vec3  pos    = bez.evaluate(t);
-		const Vec3  tan    = bez.tangent(t).normalized();
-		const Vec3  right  = Vec3{ tan.z, 0, -tan.x };
-
-		// 枕木の四隅（進行方向 = tan、幅方向 = right）
-		const auto toF3 = [](const Vec3& v) -> Float3 {
-			return Float3{
-				static_cast<float>(v.x),
-				static_cast<float>(v.y),
-				static_cast<float>(v.z) };
-		};
-
-		const Vec3 base = pos + Vec3{ 0, kSleeperY, 0 };
-		const Float3 v0 = toF3(base - right * kSleeperHalfL + tan * kSleeperHalfW);
-		const Float3 v1 = toF3(base + right * kSleeperHalfL + tan * kSleeperHalfW);
-		const Float3 v2 = toF3(base - right * kSleeperHalfL - tan * kSleeperHalfW);
-		const Float3 v3 = toF3(base + right * kSleeperHalfL - tan * kSleeperHalfW);
-
-		addQuad(mesh, v0, v1, v2, v3, Float3{ 0, 1, 0 });
 	}
 
 	return Mesh{ mesh };
@@ -113,12 +119,8 @@ Mesh TrainRenderer::buildTrackMesh(const TrackEdge& edge, const CubicBezier& bez
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,const RoadNetwork& roads)
+void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,[[maybe_unused]] const RoadNetwork& roads)
 {
-	if (!m_roadClearance || m_roadEdgeCount!=roads.edges().size())
-	{
-		m_roadClearance=std::make_unique<ParcelRoadIndex>(roads,true); m_roadEdgeCount=roads.edges().size(); m_bedMeshCache.clear();
-	}
 	// 線路はエッジ単位でメッシュキャッシュし、未構築分だけ初回描画時に生成する。
 	Profiler::EnableAssetCreationWarning(false);
 
@@ -126,7 +128,7 @@ void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,
 
 	for (const auto& edge : network.edges())
 	{
-		if (!edge.isValid()) continue;
+		if (!edge.isValid() || !edge.isRoadbedBuilt() || (edge.edgeState != EdgeState::Open && edge.edgeState != EdgeState::Existing)) continue;
 		const Vec3 center=(network.getNode(edge.nodeA)->position+network.getNode(edge.nodeB)->position)*.5;
 		if (Vec2{center.x-eye.x,center.z-eye.z}.length()>5000+edge.length*.5) { continue; }
 		const auto bez = network.getBezier(edge.id);
@@ -137,29 +139,6 @@ void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,
 		auto& trackCache = distant ? m_distantTracks : m_trackMeshCache;
 		if (!trackCache.contains(edge.id)) { trackCache.emplace(edge.id, buildTrackMesh(edge, *bez, distant)); }
 
-		if (!m_bedMeshCache.contains(edge.id))
-		{
-			MeshData bed;
-			for (float arc=0;arc<bez->totalLength;arc+=5)
-			{
-				const Vec3 a=bez->positionAt(arc),b=bez->positionAt(Min(arc+5,bez->totalLength));
-				const Vec3 rightA=tangentToRight(bez->tangentAt(arc)),rightB=tangentToRight(bez->tangentAt(Min(arc+5,bez->totalLength)));
-				const double ground=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
-				const bool viaduct=a.y-ground>3;
-				if (viaduct) { BridgeStructure::append(bed,RailStructure::deck(a,b,rightA,rightB)); }
-				else
-				{
-					RailStructure::prism(bed,a,b,rightA,rightB,0,2.4,0,Min(-.5,ground-a.y-.25));
-				}
-
-				if (viaduct && static_cast<int>(arc)%30==0 && !m_roadClearance->overlaps(ParcelGeometry::footprint({a.x,a.z},3,0)))
-				{
-					BridgeStructure::append(bed,BridgeStructure::pier(a,rightA,ground,a.y-1.5,4.8));
-				}
-			}
-			m_bedMeshCache.emplace(edge.id,Mesh{bed});
-		}
-		m_bedMeshCache[edge.id].draw(ColorF{.38,.39,.37}.removeSRGBCurve());
 		trackCache[edge.id].draw(railColor);
 	}
 
@@ -209,7 +188,6 @@ void TrainRenderer::invalidateTrackCache(int edgeId)
 {
 	m_trackMeshCache.erase(edgeId);
 	m_distantTracks.erase(edgeId);
-	m_bedMeshCache.erase(edgeId);
 }
 
 Model& TrainRenderer::ensureModel(const String& stem, int level)

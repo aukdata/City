@@ -1,4 +1,5 @@
 ﻿#include "RoadPlanDraft.hpp"
+#include "TransportCrossSection.hpp"
 #include "../gen/RoadAutoPlace.hpp"
 #include "../gen/RoadAlignment.hpp"
 #include "../debug/DebugLog.hpp"
@@ -70,7 +71,7 @@ bool RoadPlanDraft::generate(const World& world, const RoadEdge& roadTemplate)
 {
 	if (m_state.points.size() < 2) { return false; }
 	const Stopwatch timer{StartImmediately::Yes};
-	const auto result=RoadAlignment::find(world,m_state.points.front(),m_state.points.back(),roadTemplate.roadType);
+	const auto result=RoadAlignment::find(world,m_state.points.front(),m_state.points.back(),roadTemplate.roadType,60000,roadTemplate.hasRailLanes() ? TransportMode::Rail : TransportMode::Road);
 	if(!result)
 	{
 		invalidate();DBG_LOG(U"[RoadPlan] no alignment start={} end={} type={} ms={:.1f}"_fmt(m_state.points.front(),m_state.points.back(),static_cast<int>(roadTemplate.roadType),timer.msF()));return false;
@@ -256,6 +257,11 @@ RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 
 RoadEdge RoadPlanDraft::makeRoadTemplate(int preset)
 {
 	RoadEdge road;
+	if (InRange(preset,4,6))
+	{
+		TransportCrossSection::railway(road,true,preset==5,preset==6);
+		road.speedLimit = preset==6 ? 40.0f : 80.0f; return road;
+	}
 	road.roadType = (preset == 1 || preset == 2) ? RoadType::Arterial : RoadType::LocalRoad;
 	road.speedLimit = preset == 2 ? 50.0f : (preset == 1 ? 40.0f : 30.0f);
 	road.lanes = RoadNetwork::buildDefaultLanes(preset == 2 ? 4 : (preset == 3 ? 1 : 2), road.roadType);

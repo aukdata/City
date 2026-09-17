@@ -11,8 +11,9 @@ namespace RoadDesignLimits
 {
 	struct Limits { double maximumGrade; double minimumRadius; };
 
-	inline Limits forType(RoadType type)
+	inline Limits forType(RoadType type, TransportMode mode = TransportMode::Road)
 	{
+		if (mode == TransportMode::Rail) { return {GenerationSettings::get().railway_maximumGrade,GenerationSettings::get().railway_minimumRadius}; }
 		switch (type)
 		{
 		case RoadType::LocalRoad: return { GenerationSettings::get().roads_localMaximumGrade, GenerationSettings::get().roads_localMinimumRadius };

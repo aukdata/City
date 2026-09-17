@@ -38,5 +38,7 @@
   "crossingExtraClearance": 0.6,
   "waterClearance": 6,
   "waterTunnelCover": 10,
-  "platformLevelMargin": 10
+  "platformLevelMargin": 10,
+  "minimumRadius": 300,
+  "smoothingPasses": 256
 }

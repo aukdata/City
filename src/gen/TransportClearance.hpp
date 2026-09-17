@@ -12,7 +12,7 @@ public:
 		if (!roads) { return; }
 		for (const auto& edge : roads->edges())
 		{
-			if (edge.id<0) { continue; }
+			if (edge.id<0 || !edge.hasRoadLanes()) { continue; }
 			const auto curve=roads->getBezier(edge.id); if (!curve) { continue; }
 			const int count=Max(1,static_cast<int>(std::ceil(curve->totalLength/6)));
 			for (int i=0;i<=count;++i)

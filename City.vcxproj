@@ -453,6 +453,8 @@
     <ClInclude Include="src\road\RoadTypes.hpp" />
       <ClInclude Include="src\road\RoadGeometry.hpp" />
     <ClInclude Include="src\road\RoadPreset.hpp" />
+    <ClInclude Include="src\ui\TransportSectionControls.hpp" />
+    <ClInclude Include="src\road\TransportCrossSection.hpp" />
     <ClInclude Include="src\road\BezierUtil.hpp" />
     <ClInclude Include="src\road\RoadNetwork.hpp" />
     <ClInclude Include="src\traffic\Vehicle.hpp" />

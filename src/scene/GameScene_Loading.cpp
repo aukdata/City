@@ -44,6 +44,7 @@ void GameScene::initNewGame()
 	});
 		applyZonesGlobal();
 		placeInitialBuildings();
+		m_trainNetwork.synchronize();
 	});
 	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
 }

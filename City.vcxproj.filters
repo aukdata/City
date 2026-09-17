@@ -1629,4 +1629,8 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\road\TransportCrossSection.hpp" />
+    <ClInclude Include="src\ui\TransportSectionControls.hpp" />
+  </ItemGroup>
 </Project>
