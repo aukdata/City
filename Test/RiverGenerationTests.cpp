@@ -43,6 +43,7 @@ namespace
 		int uphill = 0, crossings = 0;
 		HashTable<Point, Array<size_t>> index;
 		HashSet<uint64> crossingPairs;
+		JSON examples; int exampleCount=0;
 		const auto cross = [](Vec2 a, Vec2 b) { return a.x * b.y - a.y * b.x; };
 		for (size_t id = 0; id < river.reaches.size(); ++id)
 		{
@@ -61,7 +62,11 @@ namespace
 						const double denominator = cross(delta, d - c);
 						if (Abs(denominator) < 1e-9) { continue; }
 						const double t = cross(c - a, d - c) / denominator, u = cross(c - a, delta) / denominator;
-						if (t >= 0 && t <= 1 && u >= 0 && u <= 1) { crossingPairs.insert((static_cast<uint64>(id) << 32) | otherId); }
+						if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+							{
+								crossingPairs.insert((static_cast<uint64>(id) << 32) | otherId);
+								if (exampleCount<3) { examples[Format(exampleCount++)]=Array<double>{a.x,a.y,b.x,b.y,c.x,c.y,d.x,d.y,t,u}; }
+							}
 					}
 					nearby << id;
 				}
@@ -79,6 +84,7 @@ namespace
 			uphill += reach.end.y > reach.start.y + 1e-7;
 		}
 		JSON result;
+		result[U"crossingExamples"] = examples;
 		result[U"reaches"] = river.reaches.size(); result[U"lengthKm"] = length / 1000;
 		result[U"gridAlignedFraction"] = gridLength / Max(1.0, length);
 		result[U"maximumSegment"] = maximumSegment; result[U"uphill"] = uphill; result[U"unconnectedCrossings"] = crossings;
@@ -88,6 +94,27 @@ namespace
 
 void registerRiverGenerationTests(TestRunner& runner)
 {
+	runner.add(U"Rivers.FollowsNegativeGradient", [](TestContext& context)
+	{
+		const auto valley=[](double z) { return 4096+600*Sin(z/1800); };
+		const auto height=[&](double x,double z) { return z*.012+Square(x-valley(z))*.00008-8; };
+		RiverNetwork river; river.generate(8192,16384,height);
+		double sum=0,run=0; int uphill=0;
+		for (const auto& reach : river.reaches)
+		{
+			const Vec2 a{reach.start.x,reach.start.z},b{reach.end.x,reach.end.z},p=(a+b)*.5;
+			const double side=p.x-valley(p.y);
+			const Vec2 downhill{-side*.00016, -.012+side*.00016*(600.0/1800)*Cos(p.y/1800)};
+			const double length=a.distanceFrom(b);
+			if (length>.1 && downhill.lengthSq()>1e-10) { sum+=(b-a).normalized().dot(downhill.normalized())*length; run+=length; }
+			uphill+=height(b.x,b.y)>height(a.x,a.y)+1e-7;
+		}
+		JSON report; report[U"meanGradientAlignment"]=sum/Max(1.0,run); report[U"length"]=run; report[U"terrainUphill"]=uphill;
+		report.save(U"TestResults/river_gradient.json");
+		context.expect(run>8000 && sum/run>.98, U"完成流路は各地点の -grad f と一致する");
+		context.expectEqual(uphill,0,U"川を後から曲げて斜面を逆流させない");
+	});
+
 	runner.add(U"Rivers.LowlandAndMountainCourse", [](TestContext& context)
 	{
 		const auto center = [](double) { return 4096.0; };
@@ -100,8 +127,8 @@ void registerRiverGenerationTests(TestRunner& runner)
 		result[U"plainNetwork"] = surveyNetwork(broad); result[U"gorgeNetwork"] = surveyNetwork(mountain);
 		result.save(U"TestResults/river_course.json");
 		context.expect(plain[U"samples"].get<int>() > 180 && gorge[U"samples"].get<int>() > 180, U"Both fixtures contain a continuous main channel");
-		context.expect(plain[U"sinuosity"].get<double>() > 1.015, U"A broad gentle valley must not remain an 8 km straight canal");
-		context.expect(plain[U"rmsOffset"].get<double>() > 20, U"Lowland bends are visible at landscape scale");
+		context.expectNear(plain[U"sinuosity"].get<double>(), 1, .005, U"一定勾配の直線谷では人工的な蛇行を足さない");
+		context.expect(plain[U"rmsOffset"].get<double>() < 8, U"平野でも谷底の最急降下を追う");
 		context.expect(gorge[U"rmsOffset"].get<double>() < 20, U"The same bends must not cut across steep valley walls");
 		context.expectEqual(result[U"plainNetwork"][U"uphill"].get<int>(), 0, U"Bends preserve downstream water level");
 	});
@@ -111,7 +138,7 @@ void registerRiverGenerationTests(TestRunner& runner)
 		const auto valley = [](double z) { return 4096 + 450 * Sin(z / 1500) + 80 * Sin(z / 510); };
 		const auto height = [&](double x, double z) { return z * .009 + Abs(x - valley(z)) * .24 - 4; };
 		RiverNetwork first, same, different;
-		first.generate(8192, 16384, height, 42); same.generate(8192, 16384, height, 42);
+		first.generate(8192, 16384, height); same.generate(8192, 16384, height);
 		const JSON measured = surveyTrunk(first, valley);
 		measured.save(U"TestResults/river_curved_valley.json");
 		context.expect(measured[U"samples"].get<int>() > 180, U"The curved valley has a continuous main stream");
@@ -124,10 +151,10 @@ void registerRiverGenerationTests(TestRunner& runner)
 		}
 		context.expect(identical, U"Repeat generation preserves exact geometry and water levels");
 		const auto plain = [](double x, double z) { return z * .001 + Abs(x - 4096) * .004 - 4; };
-		first.generate(8192, 16384, plain, 42); different.generate(8192, 16384, plain, 7);
-		context.expect(Abs(surveyTrunk(first, [](double) { return 4096.0; })[U"rmsOffset"].get<double>()
-			- surveyTrunk(different, [](double) { return 4096.0; })[U"rmsOffset"].get<double>()) > .1,
-			U"Different seeds vary lowland courses on identical terrain");
+		first.generate(8192, 16384, plain); different.generate(8192, 16384, plain);
+		context.expectNear(surveyTrunk(first, [](double) { return 4096.0; })[U"rmsOffset"].get<double>(),
+			surveyTrunk(different, [](double) { return 4096.0; })[U"rmsOffset"].get<double>(), 1e-9,
+			U"同じ地形なら同じ勾配を流れ、乱数で別の方向へ曲げない");
 	});
 
 	runner.add(U"Rivers.GeneratedRegionCourseAudit", [](TestContext& context)

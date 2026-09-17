@@ -394,7 +394,7 @@ HeightMapResult World::buildHeightMap(Point chunkCoord) const
 
 void World::generateRivers()
 {
-	m_rivers.generate(m_mapWidth,m_mapDepth,[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); }, m_seed);
+	m_rivers.generate(m_mapWidth,m_mapDepth,[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); });
 }
 
 float World::computeHeight(float wx,float wz) const

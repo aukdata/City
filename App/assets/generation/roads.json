@@ -21,5 +21,6 @@
   "viaductBaseCost": 64,
   "pierInterval": 30,
   "pierMinimumSpan": 8,
-  "pierMinimumClearance": 3
+  "pierMinimumClearance": 3,
+  "maximumGeneratedViaductHeight": 60
 }

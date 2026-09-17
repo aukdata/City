@@ -6,6 +6,8 @@
 #include "src/gen/RoadAlignment.hpp"
 #include "src/gen/RoadConstructionCost.hpp"
 #include "src/gen/RailCostProfile.hpp"
+#include "src/gen/RoadVerticalAlignment.hpp"
+#include "src/gen/MapGenerator.hpp"
 #include "src/gen/StreetProfile.hpp"
 #include "src/traffic/TrafficSpawn.hpp"
 #include "src/traffic/VehicleManager.hpp"
@@ -264,6 +266,122 @@ void registerRoadsideLifeTests(TestRunner& runner)
 			context.expect(Abs(cost - result.cost) < .001 && cost < 1800, U"Reported cost matches final smoothed geometry and improves on the flat cutting-heavy profile");
 		}
 	});
+	runner.add(U"RoadDesign.LongValleyDetour", [](TestContext& context)
+	{
+		World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+		DebugLog::initialize(U"TestResults/long_road.log");
+		// 北側の狭い谷は急斜面、南側は緩い谷。約7 kmの両岸を結ぶ。
+		const auto terrain = [](double x, double z)
+		{
+			const double spread = 200 + z * .55;
+			return 20 + 180 * (1 - std::exp(-Square((x - 4096) / spread)));
+		};
+		for (int cz = 0; cz < 8; ++cz) for (int cx = 0; cx < 8; ++cx)
+		{
+			Grid<float> grid(65, 65);
+			for (int z = 0; z <= 64; ++z) for (int x = 0; x <= 64; ++x) { grid[{x,z}] = static_cast<float>(terrain(cx*1024+x*16, cz*1024+z*16)); }
+			world.installChunkDirect({cx,cz}, HeightMapResult{grid,20,200});
+		}
+		const Vec3 start{700, world.sampleHeight(700,600), 600}, goal{7492,world.sampleHeight(7492,600),600};
+		const Stopwatch timer{StartImmediately::Yes};
+		const auto result = RoadAlignment::find(world, start, goal, RoadType::Arterial);
+		JSON report; report[U"found"] = result.has_value(); report[U"milliseconds"] = timer.msF();
+		context.expect(result.has_value(), U"長距離の両岸を、緩い斜面を通って接続できる");
+		if (result)
+		{
+			double gap=0, run=0, detour=0;
+			for (const auto& curve : result->curves)
+			{
+				run += curve.totalLength;
+				context.expect(RoadAlignment::respectsLimits(curve,RoadType::Arterial), U"幹線の勾配と半径を満たす");
+				for (int i=0; i<=20; ++i)
+				{
+					const Vec3 p=curve.evaluate(i/20.0f);
+					gap=Max(gap,p.y-world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)));
+					detour=Max(detour,Abs(p.z-start.z));
+				}
+			}
+			RoadNetwork built; int previous=built.addNode(start);
+			for (const auto& curve : result->curves)
+			{
+				const int next=built.addNode(curve.p3);
+				const int edge=*built.addEdge(previous,next,curve.p1,curve.p2,RoadType::Arterial,2);
+				built.getEdge(edge)->designGrade=true;built.updateEdgeElevation(edge,world);previous=next;
+			}
+			built.smoothAllCurves();RoadDesignLimits::smoothThroughChains(built);
+			RoadVerticalAlignment::apply(built,world);RoadDesignLimits::apply(built,world);
+			WaterCrossings::repair(built,[&](double x,double z) { return world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); });
+			RoadDesignLimits::fitGrades(built,world);
+			Array<CubicBezier> finished;
+			for (const auto& edge : built.edges()) { if (edge.id>=0) { finished << *built.getBezier(edge.id); } }
+			const auto audit=RoadDesignLimits::measure(built,world);
+			report[U"finalMaximumHeight"]=RoadAlignment::maximumClearance(world,finished);
+			context.expect(finished.size()==result->curves.size() && audit.gradeViolations==0 && audit.radiusViolations==0,U"完成後も接続と設計制約を保つ");
+			context.expect(RoadAlignment::maximumClearance(world,finished)<20,U"後処理で地上回廊を高架化しない");
+			report[U"maximumHeight"] = gap; report[U"length"] = run; report[U"detour"] = detour; report[U"cost"] = result->cost;
+			context.expect(gap < 20, U"約180 m高の直線高架を選ばない");
+			context.expect(detour > 500 && result->cost < 100000, U"広い探索範囲で安価な地形沿いの経路を選ぶ");
+		}
+		RoadNetwork generated;
+		MapGenerator::Settlement left,right; left.center={start.x,start.z};right.center={goal.x,goal.z};
+		left.kind=right.kind=MapGenerator::SettlementKind::RegionalCity;
+		MapGenerator::generateGlobalRoads(42,{left,right},world,generated);
+		Array<CubicBezier> initial;
+		for (const auto& edge : generated.edges()) { if (edge.id>=0) { initial << *generated.getBezier(edge.id); } }
+		const auto generatedAudit=RoadDesignLimits::measure(generated,world);
+		report[U"generatedMaximumHeight"]=RoadAlignment::maximumClearance(world,initial);
+		report[U"generatedEdges"]=initial.size();
+		context.expect(generated.getNode(0)->attachments.size()>0 && generated.getNode(1)->attachments.size()>0 && initial.size()>10,U"初期生成の街道にも同じ地形回廊を使い、両都市を接続する");
+		context.expect(generatedAudit.gradeViolations==0 && generatedAudit.radiusViolations==0 && RoadAlignment::maximumClearance(world,initial)<20,U"初期生成の完成形でも高架化・制約違反を起こさない");
+		report.save(U"TestResults/long_valley_road.json");
+		DebugLog::shutdown();
+	});
+
+	runner.add(U"RoadDesign.LongRidgeDetour", [](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		for (int cz=0;cz<8;++cz) for (int cx=0;cx<8;++cx)
+		{
+			Grid<float> grid(65,65);
+			for (int z=0;z<=64;++z) for (int x=0;x<=64;++x)
+			{
+				const double wx=cx*1024+x*16,wz=cz*1024+z*16;
+				grid[{x,z}]=static_cast<float>(20+200*std::exp(-Square((wx-4096)/500))*Clamp((3600-wz)/400,0.0,1.0));
+			}
+			world.installChunkDirect({cx,cz},HeightMapResult{grid,20,220});
+		}
+		const Vec3 a{400,20,600},b{7800,20,600};
+		const auto route=RoadAlignment::find(world,a,b,RoadType::Arterial,60000,TransportMode::Road,GenerationSettings::get().roads_maximumGeneratedViaductHeight);
+		context.expect(route.has_value(),U"7.4 kmの山越えでも尾根の端を回る地上経路が見つかる");
+		if (!route) { return; }
+		double maximumCut=0,detour=0;
+		for (const auto& curve : route->curves)
+		{
+			context.expect(RoadAlignment::respectsLimits(curve,RoadType::Arterial),U"長距離の迂回も勾配と半径を守る");
+			for (int i=0;i<=16;++i)
+			{
+				const auto p=curve.evaluate(i/16.0f);
+				maximumCut=Max(maximumCut,world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))-p.y);
+				detour=Max(detour,Abs(p.z-a.z));
+			}
+		}
+		JSON report; report[U"cost"]=route->cost;report[U"maximumCut"]=maximumCut;report[U"detour"]=detour;
+		report.save(U"TestResults/long_ridge_road.json");
+		context.expect(maximumCut<8 && detour>2400 && route->cost<50000,U"長い直線トンネルを短絡として採用しない");
+	});
+
+	runner.add(U"RoadDesign.GenerationHeightBoundAndFlatRoute", [](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		world.installChunkDirect({0,0},HeightMapResult{Grid<float>(65,65,20),20,20});
+		const Vec3 a{100,20,100},b{900,20,100};
+		const auto flat=RoadAlignment::find(world,a,b,RoadType::Arterial);
+		context.expect(flat && flat->curves.size()==1 && flat->expanded==0,U"合理的な平地の直線は余計に曲げない");
+		const auto manual=RoadAlignment::find(world,a+Vec3{0,100,0},b+Vec3{0,100,0},RoadType::Arterial,100);
+		const auto automatic=RoadAlignment::find(world,a+Vec3{0,100,0},b+Vec3{0,100,0},RoadType::Arterial,100,TransportMode::Road,GenerationSettings::get().roads_maximumGeneratedViaductHeight);
+		context.expect(manual.has_value() && !automatic,U"自動生成の高架上限は手動計画の高さ指定と分ける");
+	});
+
 	runner.add(U"RoadDesign.SurfaceDetourBeatsTunnel", [](TestContext& context)
 	{
 		World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);

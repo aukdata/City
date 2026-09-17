@@ -1,8 +1,6 @@
 {
   "catchmentGrid": 256,
   "minimumCatchmentCells": 100,
-  "initialWaterDepth": 0.8,
-  "smoothingMinimumAltitude": 2,
   "valleyWaterDepth": 0.7,
   "minimumWaterGrade": 0.0003,
   "mouthAltitude": 0.1,
@@ -19,11 +17,7 @@
   "bankSlope": 0.18,
   "bankBlendStart": 24,
   "bankBlendWidth": 41,
-  "meanderAmplitudeWidths": 3.0,
-  "meanderWavelengthWidths": 16.0,
-  "meanderMinimumWavelength": 768.0,
-  "meanderGradeScale": 0.012,
-  "meanderSecondaryShare": 0.28,
-  "courseBankRiseLimit": 1.5,
-  "courseSearchSamples": 16
+  "gradientProbe": 6,
+  "minimumTraceStep": 0.375,
+  "confluenceSnap": 1.5
 }

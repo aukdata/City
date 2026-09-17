@@ -4,17 +4,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "meanderAmplitudeWidths",
-    "meanderWavelengthWidths",
-    "meanderMinimumWavelength",
-    "meanderGradeScale",
-    "meanderSecondaryShare",
-    "courseBankRiseLimit",
-    "courseSearchSamples",
     "catchmentGrid",
     "minimumCatchmentCells",
-    "initialWaterDepth",
-    "smoothingMinimumAltitude",
     "valleyWaterDepth",
     "minimumWaterGrade",
     "mouthAltitude",
@@ -30,44 +21,12 @@
     "bedDepth",
     "bankSlope",
     "bankBlendStart",
-    "bankBlendWidth"
+    "bankBlendWidth",
+    "gradientProbe",
+    "minimumTraceStep",
+    "confluenceSnap"
   ],
   "properties": {
-    "meanderAmplitudeWidths": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 6.0
-    },
-    "meanderWavelengthWidths": {
-      "type": "number",
-      "minimum": 6.0,
-      "maximum": 40.0
-    },
-    "meanderMinimumWavelength": {
-      "type": "number",
-      "minimum": 256.0,
-      "maximum": 4000.0
-    },
-    "meanderGradeScale": {
-      "type": "number",
-      "minimum": 0.001,
-      "maximum": 0.1
-    },
-    "meanderSecondaryShare": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 0.5
-    },
-    "courseBankRiseLimit": {
-      "type": "number",
-      "minimum": 0.1,
-      "maximum": 8.0
-    },
-    "courseSearchSamples": {
-      "type": "integer",
-      "minimum": 4.0,
-      "maximum": 32.0
-    },
     "catchmentGrid": {
       "type": "number",
       "minimum": 64.0,
@@ -76,16 +35,6 @@
     "minimumCatchmentCells": {
       "type": "integer",
       "minimum": 1.0,
-      "maximum": 10000.0
-    },
-    "initialWaterDepth": {
-      "type": "number",
-      "minimum": 0.0,
-      "maximum": 10000.0
-    },
-    "smoothingMinimumAltitude": {
-      "type": "number",
-      "minimum": 0.0,
       "maximum": 10000.0
     },
     "valleyWaterDepth": {
@@ -167,6 +116,21 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 80.0
+    },
+    "gradientProbe": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 32
+    },
+    "minimumTraceStep": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 4
+    },
+    "confluenceSnap": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 4
     }
   }
 }

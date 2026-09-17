@@ -27,6 +27,30 @@ namespace
 		return {a,first,second,b};
 	}
 
+	/// @brief 折れ線の各角だけを円弧で丸める。山を迂回する折り返し全体は縮めない。
+	Array<CubicBezier> roundCorridor(const Array<Vec3>& points,double radius)
+	{
+		Array<CubicBezier> result;
+		Vec3 previous=points.front(); previous.y=0;
+		const auto straight=[&](Vec3 a,Vec3 b) { if (horizontal(b-a).length()>.01) { result << CubicBezier{a,a.lerp(b,1.0/3),a.lerp(b,2.0/3),b}; } };
+		for (size_t i=1;i+1<points.size();++i)
+		{
+			Vec3 center=points[i],before=points[i-1],after=points[i+1]; center.y=before.y=after.y=0;
+			Vec3 incoming=center-before,outgoing=after-center;
+			if (incoming.lengthSq()<.01 || outgoing.lengthSq()<.01) { return {}; }
+			const double available=Min(incoming.length(),outgoing.length())*.49;
+			incoming=incoming.normalized(); outgoing=outgoing.normalized();
+			const double angle=Acos(Clamp(incoming.dot(outgoing),-1.0,1.0));
+			if (angle<.001) { continue; }
+			const double tangent=radius*Tan(angle*.5),arm=4.0/3*radius*Tan(angle*.25);
+			if (tangent>available) { return {}; }
+			const Vec3 a=center-incoming*tangent,b=center+outgoing*tangent;
+			straight(previous,a); result << CubicBezier{a,a+incoming*arm,b-outgoing*arm,b}; previous=b;
+		}
+		Vec3 end=points.back(); end.y=0; straight(previous,end);
+		return result;
+	}
+
 	struct Landscape
 	{
 		const World& world;
@@ -34,6 +58,7 @@ namespace
 		RoadType type;
 		double grade;
 		TransportMode mode = TransportMode::Road;
+		double maximumViaductHeight = Math::Inf;
 
 		Optional<double> cost(const CubicBezier& curve, double* tunnelLength = nullptr) const
 		{
@@ -43,6 +68,7 @@ namespace
 				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
 				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
 				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterSurfaceHeight(point.x,point.z);
+				if (point.y-ground>maximumViaductHeight) { return none; }
 				if (ground<water+GenerationSettings::get().crossings_waterBankMargin && ground-point.y<=RoadConstructionCost::MaximumCut() && point.y<water+5.5) { return none; }
 			}
 			const int count=Max(2,static_cast<int>(std::ceil(curve.totalLength/GenerationSettings::get().routing_sampleSpacing)));
@@ -53,6 +79,7 @@ namespace
 				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
 				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
 				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+				if (point.y-ground>maximumViaductHeight) { return none; }
 				const double water = world.waterSurfaceHeight(point.x, point.z);
 				if (ground < water + GenerationSettings::get().crossings_waterBankMargin && ground - point.y <= RoadConstructionCost::MaximumCut() && point.y < water + 5.5) { return none; }
 				total += RoadConstructionCost::segment(point.y, ground, water, curve.totalLength/count, tunnelRun);
@@ -121,22 +148,129 @@ double RoadAlignment::constructionCost(const World& world, const Array<CubicBezi
 	return total;
 }
 
-Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 start,Vec3 goal,RoadType type,int expansionLimit,TransportMode mode)
+double RoadAlignment::maximumClearance(const World& world,const Array<CubicBezier>& curves)
+{
+	double result=0;
+	for (const auto& curve : curves)
+	{
+		const int count=Max(2,static_cast<int>(Ceil(curve.totalLength/GenerationSettings::get().routing_sampleSpacing)));
+		for (int i=0;i<=count;++i)
+		{
+			const auto p=curve.positionAt(curve.totalLength*static_cast<float>(i)/count);
+			result=Max(result,p.y-world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)));
+		}
+	}
+	return result;
+}
+
+/// @brief 平面回廊を少しずつ丸め、細分化した実地盤上で勾配の上下包絡線を解く。
+Optional<RoadAlignment::Result> RoadAlignment::fitTerrain(const World& world, const Array<Vec3>& input, RoadType type, TransportMode mode)
+{
+	if (input.size() < 2) { return none; }
+	const auto limits = RoadDesignLimits::forType(type, mode);
+	const auto& settings = GenerationSettings::get();
+	const double grade = limits.maximumGrade * settings.routing_gradeReserve;
+	Array<Vec3> points = input;
+	int radiusPasses=0, profilePasses=0;
+	Optional<Result> best;
+	for (int pass = 0; pass <= settings.routing_terrainSmoothingPasses; ++pass)
+	{
+		if (pass > 0)
+		{
+			Array<Vec3> next = points;
+			for (size_t i=1; i+1<points.size(); ++i)
+			{
+				next[i] = points[i].lerp((points[i-1]+points[i+1])*.5, .25);
+				// 高さまで隣接点で平均すると、谷を横切る空中道路に変わる。
+				next[i].y = world.sampleHeight(static_cast<float>(next[i].x), static_cast<float>(next[i].z));
+			}
+			points = std::move(next);
+		}
+		if (pass % 4 != 0) { continue; }
+		auto horizontalCurves = roundCorridor(points,limits.minimumRadius*1.02);
+		if (horizontalCurves.isEmpty()) { horizontalCurves=fit(points); }
+		bool radiusValid = !horizontalCurves.isEmpty();
+		for (const auto& curve : horizontalCurves) { radiusValid &= curve.minimumHorizontalRadius()+.001 >= limits.minimumRadius; }
+		if (!radiusValid) { continue; }
+		++radiusPasses;
+		Array<CubicBezier> pieces;
+		for (auto curve : horizontalCurves)
+		{
+			const int count = Max(1,static_cast<int>(Ceil(curve.totalLength/settings.routing_terrainProfileSpacing)));
+			for (int remaining=count; remaining>1; --remaining)
+			{
+				auto pair=curve.split(1.0f/remaining); pieces << pair.first; curve=pair.second;
+			}
+			pieces << curve;
+		}
+		Array<double> levels, lower, upper, rises;
+		for (size_t i=0; i<=pieces.size(); ++i)
+		{
+			const Vec3 p=i<pieces.size() ? pieces[i].p0 : pieces.back().p3;
+			const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),water=world.waterSurfaceHeight(p.x,p.z);
+			const bool wet=ground<water+settings.crossings_waterBankMargin;
+			const double target=wet ? water+settings.crossings_waterClearance : ground;
+			levels << target;
+			lower << (wet ? target : ground-RoadConstructionCost::MaximumCut());
+			upper << Max(target,ground+RoadConstructionCost::MaximumFill());
+			if (i>0) { rises << horizontal(p-pieces[i-1].p0).length()*grade; }
+		}
+		lower.front()=upper.front()=levels.front()=input.front().y;
+		lower.back()=upper.back()=levels.back()=input.back().y;
+		// 前後2走査で勾配制約の包絡線を確定。固定端点も同じ制約に含める。
+		for (size_t i=1; i<levels.size(); ++i) { lower[i]=Max(lower[i],lower[i-1]-rises[i-1]); upper[i]=Min(upper[i],upper[i-1]+rises[i-1]); }
+		for (size_t i=levels.size()-1; i-->0;) { lower[i]=Max(lower[i],lower[i+1]-rises[i]); upper[i]=Min(upper[i],upper[i+1]+rises[i]); }
+		bool feasible=true;
+		for (size_t i=0; i<levels.size(); ++i)
+		{
+			if (lower[i]>upper[i]+1e-6) { feasible=false; break; }
+			levels[i]=Clamp(levels[i],lower[i],upper[i]);
+		}
+		if (!feasible)
+		{
+			if (pass==0 || pass==settings.routing_terrainSmoothingPasses)
+			{
+				double excess=0; size_t worst=0;
+				for (size_t i=0;i<levels.size();++i) { if (lower[i]-upper[i]>excess) { excess=lower[i]-upper[i];worst=i; } }
+				DBG_LOG(U"[RoadTerrainEnvelope] points={} pass={} excess={} index={} first={} last={}"_fmt(points.size(),pass,excess,worst,points.front(),points.back()));
+			}
+			continue;
+		}
+		for (size_t i=1; i<levels.size(); ++i) { levels[i]=Min(levels[i],levels[i-1]+rises[i-1]); }
+		for (size_t i=levels.size()-1; i-->0;) { levels[i]=Min(levels[i],levels[i+1]+rises[i]); }
+		++profilePasses;
+		Array<CubicBezier> curves;
+		for (size_t i=0; i<pieces.size(); ++i)
+		{
+			auto c=pieces[i]; c.p0.y=levels[i]; c.p3.y=levels[i+1];
+			const Vec2 span=horizontal(c.p3-c.p0);
+			const auto height=[&](Vec3 p) { return c.p0.y+(c.p3.y-c.p0.y)*horizontal(p-c.p0).dot(span)/Max(1e-9,span.lengthSq()); };
+			c.p1.y=height(c.p1); c.p2.y=height(c.p2);
+			curves << CubicBezier{c.p0,c.p1,c.p2,c.p3};
+		}
+		const double cost=constructionCost(world,curves,type,mode);
+		if (std::isfinite(cost) && (!best || cost<best->cost)) { best=Result{curves,cost,0}; }
+	}
+	if (!best) { DBG_LOG(U"[RoadTerrainFitRejected] points={} radiusPasses={} profilePasses={}"_fmt(points.size(),radiusPasses,profilePasses)); }
+	return best;
+}
+
+Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 start,Vec3 goal,RoadType type,int expansionLimit,TransportMode mode,double maximumViaductHeight)
 {
 	const auto limits=RoadDesignLimits::forType(type,mode);
 	const double distance=horizontal(goal-start).length();
 	if (distance<2) { return none; }
 	const double grade=limits.maximumGrade*GenerationSettings::get().routing_gradeReserve;
 	const double step=Max(GenerationSettings::get().routing_minimumStep,Max(limits.minimumRadius*GenerationSettings::get().routing_radiusStepRatio,Min(GenerationSettings::get().routing_maximumStep,distance/GenerationSettings::get().routing_distanceStepDivisor)));
-	const double margin=Max(GenerationSettings::get().routing_minimumSearchMargin,Max(limits.minimumRadius*GenerationSettings::get().routing_radiusMarginRatio,Max(distance*GenerationSettings::get().routing_distanceMarginRatio,Abs(goal.y-start.y)/grade*GenerationSettings::get().routing_riseMarginRatio)));
+	const double margin=Max(GenerationSettings::get().routing_minimumSearchMargin,Max(limits.minimumRadius*GenerationSettings::get().routing_radiusMarginRatio,Max(distance*(distance>GenerationSettings::get().network_mediumRouteThreshold ? GenerationSettings::get().routing_longDistanceMarginRatio : GenerationSettings::get().routing_distanceMarginRatio),Abs(goal.y-start.y)/grade*GenerationSettings::get().routing_riseMarginRatio)));
 	const Landscape landscape{world,
 		{Max(0.0,Min(start.x,goal.x)-margin),Max(0.0,Min(start.z,goal.z)-margin)},
-		{Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.x,goal.x)+margin),Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.z,goal.z)+margin)},type,grade,mode};
+		{Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.x,goal.x)+margin),Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.z,goal.z)+margin)},type,grade,mode,maximumViaductHeight};
 	const Vec3 straight=Vec3{goal.x-start.x,0,goal.z-start.z}.normalized();
 	const CubicBezier direct=profile(start,goal,straight,straight,distance/3);
 	const auto directCost=landscape.cost(direct);
 	// On a flat unobstructed site, a straight surface road is already the minimum-length solution.
-	if (directCost && *directCost<=direct.totalLength+1e-6) { return Result{{direct},*directCost,0}; }
+	if (directCost && *directCost<=direct.totalLength*(1+1e-6)) { return Result{{direct},*directCost,0}; }
 
 	Optional<Result> incumbent;
 	if (directCost) { incumbent = Result{{direct}, *directCost, 0}; }
@@ -153,9 +287,25 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 		auto points = coarse.samplePath(path, 3); points.front() = start; points.back() = goal;
 		const auto curves = fit(points);
 		const double cost = constructionCost(world, curves, type, mode);
-		if (std::isfinite(cost) && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, 0}; }
+		if (std::isfinite(cost) && maximumClearance(world,curves)<=maximumViaductHeight && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, 0}; }
+		if (mode == TransportMode::Road)
+		{
+			if (const auto terrain = fitTerrain(world, points, type, mode); terrain && maximumClearance(world,terrain->curves)<=maximumViaductHeight && (!incumbent || terrain->cost < incumbent->cost)) { incumbent = terrain; }
+		}
 	}
 
+	if (mode == TransportMode::Road)
+	{
+		coarse.setSurfaceOnly(true);
+		const auto groundPath = coarse.findPath(coarse.worldToGrid(static_cast<float>(start.x),static_cast<float>(start.z)),
+			coarse.worldToGrid(static_cast<float>(goal.x),static_cast<float>(goal.z)));
+		DBG_LOG(U"[RoadGroundCorridor] cells={} step={} margin={}"_fmt(groundPath.size(),coarseStep,margin));
+		if (groundPath.size()>1)
+		{
+			auto points=coarse.samplePath(groundPath,3); points.front()=start; points.back()=goal;
+			if (const auto terrain=fitTerrain(world,points,type,mode); terrain && maximumClearance(world,terrain->curves)<=maximumViaductHeight && (!incumbent || terrain->cost<incumbent->cost)) { incumbent=terrain; }
+		}
+	}
 	bool refining = incumbent && incumbent->curves.size() > 1;
 	const double cell=step*GenerationSettings::get().routing_stateCellRatio;
 	const auto keyFor=[&](Vec3 p,int heading)
@@ -224,7 +374,7 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 					curves << profile(a.point,b.point,direction(a.heading),direction(b.heading),horizontal(b.point-a.point).length()/3);
 				}
 				curves << finish;
-				const double cost=constructionCost(world,curves,type);
+				const double cost=constructionCost(world,curves,type,mode);
 				const bool valid=std::isfinite(cost);
 				if (valid && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, expanded}; refining = true; }
 				if (valid) { continue; }
@@ -387,8 +537,9 @@ void RoadAlignment::repairSteepEdges(RoadNetwork& roads,const World& world)
 		Array<CubicBezier> oldCurves;
 		for (const int id : corridor.edges) { if (const auto curve = roads.getBezier(id)) { oldCurves << *curve; } }
 		if (!oldCurves.isEmpty() && original.nodeA!=corridor.start) { const auto c=oldCurves.front();oldCurves.front()=CubicBezier{c.p3,c.p2,c.p1,c.p0}; }
-		const double oldCost = constructionCost(world, oldCurves, original.roadType);
-		const auto alignment = find(world, a, b, original.roadType, std::isfinite(oldCost) ? 12000 : 60000);
+		const double limit=GenerationSettings::get().roads_maximumGeneratedViaductHeight;
+		const double oldCost = maximumClearance(world,oldCurves)>limit ? Math::Inf : constructionCost(world, oldCurves, original.roadType);
+		const auto alignment = find(world, a, b, original.roadType, std::isfinite(oldCost) ? 12000 : 60000,TransportMode::Road,limit);
 		if (std::isfinite(oldCost) && (!alignment || alignment->cost >= oldCost * .995)) { continue; }
 		if (alignment && std::isfinite(oldCost)) { savedCost += oldCost - alignment->cost; }
 		if (!alignment)

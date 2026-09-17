@@ -3,6 +3,7 @@
 #include "RoadNodeIndex.hpp"
 #include "SettlementPlacement.hpp"
 #include "RoadAlignment.hpp"
+#include "RoadConstructionCost.hpp"
 #include "RoadDesignLimits.hpp"
 #include "RailwayAlignment.hpp"
 #include "StreetProfile.hpp"
@@ -208,7 +209,9 @@ void MapGenerator::buildRoadSegment(
 	const Array<Vec2>& forbiddenGoalDirs,
 	Array<int>* outEdgeIds)
 {
-	const float kMargin = GenerationSettings::get().network_routingMargin;
+	const double distance=Vec2{endPos.x-startPos.x,endPos.z-startPos.z}.length();
+	const float kMargin = static_cast<float>(Max(static_cast<double>(GenerationSettings::get().network_routingMargin),
+		distance*(distance>GenerationSettings::get().network_mediumRouteThreshold ? GenerationSettings::get().routing_longDistanceMarginRatio : GenerationSettings::get().routing_distanceMarginRatio)));
 	const float sx = static_cast<float>(startPos.x);
 	const float sz = static_cast<float>(startPos.z);
 	const float ex = static_cast<float>(endPos.x);
@@ -258,35 +261,37 @@ void MapGenerator::buildRoadSegment(
 	}
 	Array<Vec3> wps=pf.samplePath(path,sampleStep);
 	wps.front()=startPos; wps.back()=endPos;
-	bool feasible=true;
-	for (const auto& curve : RoadAlignment::fit(wps)) { feasible &= RoadAlignment::respectsLimits(curve,roadType); }
-	if (!feasible && dist<=GenerationSettings::get().network_steepRerouteDistance && Abs(endPos.y-startPos.y)>dist*RoadDesignLimits::forType(roadType).maximumGrade*GenerationSettings::get().routing_gradeReserve)
+	Optional<RoadAlignment::Result> selected=RoadAlignment::fitTerrain(world,wps,roadType);
+	const double maximumHeight=GenerationSettings::get().roads_maximumGeneratedViaductHeight;
+	if (selected && RoadAlignment::maximumClearance(world,selected->curves)>maximumHeight) { selected.reset(); }
+	// 距離による検証の省略をしない。成立しない粗い回廊は地形・方位・高さを再探索する。
+	if (!selected || selected->cost>distance*RoadConstructionCost::Earthwork())
 	{
-		// The same constrained alignment solver is used by the road-plan editor.
-		if (const auto route=RoadAlignment::find(world,startPos,endPos,roadType))
+		if (const auto route=RoadAlignment::find(world,startPos,endPos,roadType,60000,TransportMode::Road,maximumHeight); route && (!selected || route->cost<selected->cost)) { selected=route; }
+	}
+	if (!selected)
+	{
+		DBG_LOG(U"[RoadGeneration] no legal alignment from={} to={} distance={}"_fmt(startNodeId,endNodeId,distance));
+		return;
+	}
+	int previous=startNodeId;
+	for (size_t i=0; i<selected->curves.size(); ++i)
+	{
+		const auto& curve=selected->curves[i];
+		const int next=i+1==selected->curves.size() ? endNodeId : network.addNode(curve.p3);
+		if (const auto id=network.addEdge(previous,next,curve.p1,curve.p2,roadType,lanes))
 		{
-			int previous=startNodeId;
-			for (size_t i=0;i<route->curves.size();++i)
-			{
-				const auto& curve=route->curves[i];
-				const int next=i+1==route->curves.size() ? endNodeId : network.addNode(curve.p3);
-				if (const auto id=network.addEdge(previous,next,curve.p1,curve.p2,roadType,lanes))
-				{
-					network.getEdge(*id)->designGrade=true;
-					if (outEdgeIds) { *outEdgeIds << *id; }
-				}
-				previous=next;
-			}
-			return;
+			network.getEdge(*id)->designGrade=true;
+			network.updateEdgeElevation(*id,world);
+			if (outEdgeIds) { *outEdgeIds << *id; }
 		}
-		// Keep the coarse corridor for bounded vertical fitting and local rerouting at junctions.
+		for (float along=0; along<=curve.totalLength; along+=kOccupyCellSize*.5f)
+		{
+			const auto point=curve.positionAt(along);
+			globalOccupied.insert(occupyKey(static_cast<float>(point.x),static_cast<float>(point.z)));
+		}
+		previous=next;
 	}
-	for (const Point& gp : path)
-	{
-		const Vec2 wp=pf.gridToWorld(gp.x,gp.y);
-		globalOccupied.insert(occupyKey(static_cast<float>(wp.x),static_cast<float>(wp.y)));
-	}
-	pf.pathToRoadEdges(wps,network,roadType,lanes,startNodeId,endNodeId,outEdgeIds);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -310,7 +315,7 @@ void MapGenerator::generateGlobalRoads(
 	nodeIds.reserve(settlements.size());
 	for (const auto& s : settlements)
 	{
-		const float y = world.computeHeight(
+		const float y = world.sampleHeight(
 			static_cast<float>(s.center.x), static_cast<float>(s.center.y));
 		nodeIds << network.addNode(Vec3{ s.center.x, y, s.center.y }, NodeType::Intersection);
 	}
@@ -423,7 +428,7 @@ void MapGenerator::generateGlobalRoads(
 			edgeX = Clamp(edgeX, GenerationSettings::get().network_borderInset, worldSize - GenerationSettings::get().network_borderInset);
 			edgeZ = Clamp(edgeZ, GenerationSettings::get().network_borderInset, worldSize - GenerationSettings::get().network_borderInset);
 
-			const float ey = world.computeHeight(edgeX, edgeZ);
+			const float ey = world.sampleHeight(edgeX, edgeZ);
 			const Vec3 edgePos{ edgeX, ey, edgeZ };
 			const int edgeNodeId = network.addNode(edgePos, NodeType::Endpoint);
 
@@ -452,7 +457,7 @@ void MapGenerator::generateGlobalRoads(
 			else if (minD == dRight) { ex = worldSize - GenerationSettings::get().network_borderInset; ez = sz; }
 			else if (minD == dTop)   { ex = sx;               ez = GenerationSettings::get().network_borderInset; }
 			else                     { ex = sx;               ez = worldSize - GenerationSettings::get().network_borderInset; }
-			const float ey = world.computeHeight(ex, ez);
+			const float ey = world.sampleHeight(ex, ez);
 			const Vec3 ep{ ex, ey, ez };
 			const int enid = network.addNode(ep, NodeType::Endpoint);
 			buildRoadSegment(world, network, nodeIds[si], sn->position, enid, ep,
@@ -706,6 +711,8 @@ void MapGenerator::generateGlobalRoads(
 			nearId, nearNode->position, nodeIds[i], sn->position,
 			RoadType::LocalRoad, 1, globalOccupied);
 
+		// 探索失敗を接続済みと扱わない。上限に達した候補は後続の接続先にも使わない。
+		if (network.getNode(nodeIds[i])->attachments.isEmpty()) { continue; }
 		// BFS で新たに到達可能になったノードを reachable に追加
 		{
 			std::queue<int> q;

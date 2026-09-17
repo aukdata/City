@@ -26,7 +26,10 @@
     "coarseRadiusRatio",
     "stateCellRatio",
     "initialSearchWeight",
-    "finalGradeReserve"
+    "finalGradeReserve",
+    "terrainSmoothingPasses",
+    "terrainProfileSpacing",
+    "longDistanceMarginRatio"
   ],
   "properties": {
     "gradeReserve": {
@@ -143,6 +146,21 @@
       "type": "number",
       "minimum": 0.5,
       "maximum": 1.0
+    },
+    "terrainSmoothingPasses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64
+    },
+    "terrainProfileSpacing": {
+      "type": "number",
+      "minimum": 8,
+      "maximum": 64
+    },
+    "longDistanceMarginRatio": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2
     }
   }
 }

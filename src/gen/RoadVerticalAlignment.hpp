@@ -13,7 +13,7 @@ namespace RoadVerticalAlignment
 		HashSet<int> visited; int tunnelSections=0;
 		for (const auto& first : roads.edges())
 		{
-			if (first.id<0 || first.roadType==RoadType::LocalRoad || visited.contains(first.id)) { continue; }
+			if (first.id<0 || first.designGrade || first.roadType==RoadType::LocalRoad || visited.contains(first.id)) { continue; }
 			Array<int> chain{first.id},nodes{first.nodeA,first.nodeB}; visited.insert(first.id);
 			for (int direction=0;direction<2;++direction)
 			{
@@ -23,7 +23,7 @@ namespace RoadVerticalAlignment
 					if (node->attachments.size()!=2) { break; }
 					int next=-1;
 					for (const auto& attachment : node->attachments) { if (!visited.contains(attachment.edgeId)) { next=attachment.edgeId; } }
-					const auto* edge=roads.getEdge(next); if (!edge || edge->roadType!=first.roadType) { break; }
+					const auto* edge=roads.getEdge(next); if (!edge || edge->designGrade || edge->roadType!=first.roadType) { break; }
 					visited.insert(next); const int other=edge->nodeA==id ? edge->nodeB : edge->nodeA;
 					if (direction==0) { chain.insert(chain.begin(),next); nodes.insert(nodes.begin(),other); } else { chain << next; nodes << other; }
 				}
@@ -55,6 +55,20 @@ namespace RoadVerticalAlignment
 			if (!profile.feasible) { continue; }
 			bool tunnel=false; for (size_t i=0;i<samples.size();++i) { tunnel|=samples[i].ground-profile.heights[i]>6; }
 			if (!tunnel) { continue; }
+			Array<CubicBezier> before,after;
+			for (size_t i=0;i<chain.size();++i)
+			{
+				const auto c=*roads.getBezier(chain[i]); before << c;
+				const bool forward=roads.getEdge(chain[i])->nodeA==nodes[i];
+				Vec3 a=c.p0,b=c.p3,controlA=c.p1,controlB=c.p2;
+				a.y=profile.heights[nodeSamples[forward ? i : i+1]]; b.y=profile.heights[nodeSamples[forward ? i+1 : i]];
+				controlA.y=Math::Lerp(a.y,b.y,1.0/3); controlB.y=Math::Lerp(a.y,b.y,2.0/3);
+				after << CubicBezier{a,controlA,controlB,b};
+			}
+			const double cost=RoadAlignment::constructionCost(world,after,first.roadType);
+			// 中間標本を捨てると谷上の高架へ化けることがあるため、書き戻す曲線全体で採否を決める。
+			if (!std::isfinite(cost) || cost>=RoadAlignment::constructionCost(world,before,first.roadType)
+				|| RoadAlignment::maximumClearance(world,after)>GenerationSettings::get().roads_maximumGeneratedViaductHeight) { continue; }
 			for (size_t i=1;i+1<nodes.size();++i) { roads.getNode(nodes[i])->position.y=profile.heights[nodeSamples[i]]; }
 			for (size_t i=0;i<chain.size();++i)
 			{

@@ -111,15 +111,7 @@ namespace RoadDesignLimits
 				points = std::move(next);
 				fitted = fit();
 			}
-			if (!fitted && !closed)
-			{
-				// An unfit short chain becomes an engineered direct connection with the same endpoints.
-				for (size_t index = 1; index+1 < points.size(); ++index)
-				{
-					points[index] = points.front().lerp(points.back(), static_cast<double>(index)/(points.size()-1));
-				}
-				fitted = fit();
-			}
+			// 曲率不足を鎖全体の直線化で隠さず、後段の地形を考慮した再探索に渡す。
 			if (!fitted) { continue; }
 			for (size_t index = 1; index+1 < points.size(); ++index) { roads.getNode(nodes[index])->position = points[index]; }
 			for (size_t index = 0; index < chain.size(); ++index)

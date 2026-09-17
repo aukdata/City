@@ -21,5 +21,8 @@
   "coarseRadiusRatio": 2.5,
   "stateCellRatio": 0.7,
   "initialSearchWeight": 8,
-  "finalGradeReserve": 0.995
+  "finalGradeReserve": 0.995,
+  "terrainSmoothingPasses": 32,
+  "terrainProfileSpacing": 32,
+  "longDistanceMarginRatio": 0.75
 }

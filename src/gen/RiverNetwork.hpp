@@ -11,8 +11,8 @@ public:
 	struct Reach { Vec3 start,end; double halfWidth=20; double endHalfWidth=20; double barSide=0; double catchment=0; RectF bounds; };
 	struct Sample { Vec2 center; double distance=1e30; double surface=0; double halfWidth=0; int reach=-1; };
 	Array<Reach> reaches;
-	/// @brief 集水格子から連続する河道を形成し、同じ曲線で水位と河岸を求める。
-	void generate(double width, double depth, const std::function<double(double, double)>& height, uint64 seed = 0);
+	/// @brief 集水から水源を選び、連続地形の -grad f を追跡して河道と合流を形成する。
+	void generate(double width, double depth, const std::function<double(double, double)>& height);
 	Sample nearest(Vec2 point) const
 	{
 		Sample result;

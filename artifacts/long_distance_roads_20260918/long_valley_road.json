@@ -1,0 +1,11 @@
+﻿{
+  "cost": 13817.460074424744,
+  "detour": 4005.2240367088953,
+  "finalMaximumHeight": 0.020065209682854857,
+  "found": true,
+  "generatedEdges": 442,
+  "generatedMaximumHeight": 0.03475919970273367,
+  "length": 11825.80514717102,
+  "maximumHeight": 0.0204010009765625,
+  "milliseconds": 3167.509
+}

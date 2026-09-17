@@ -7,7 +7,6 @@
   "occupiedCell": 120,
   "routingMargin": 300,
   "denseSampleThreshold": 60,
-  "steepRerouteDistance": 3000,
   "borderInset": 10,
   "cityJoinRadius": 5000,
   "townJoinRadius": 15000,

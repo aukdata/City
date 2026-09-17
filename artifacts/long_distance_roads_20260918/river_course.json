@@ -1,0 +1,32 @@
+﻿{
+  "gorge": {
+    "maximumOffset": 0.0,
+    "rmsOffset": 0.0,
+    "samples": 201,
+    "sinuosity": 1.0
+  },
+  "gorgeNetwork": {
+    "crossingExamples": null,
+    "gridAlignedFraction": 1.0,
+    "lengthKm": 15.204,
+    "maximumSegment": 12.0,
+    "reaches": 1267,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "plain": {
+    "maximumOffset": 0.0,
+    "rmsOffset": 0.0,
+    "samples": 201,
+    "sinuosity": 1.0
+  },
+  "plainNetwork": {
+    "crossingExamples": null,
+    "gridAlignedFraction": 1.0,
+    "lengthKm": 10.752,
+    "maximumSegment": 12.0,
+    "reaches": 896,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  }
+}

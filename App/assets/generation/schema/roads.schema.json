@@ -26,7 +26,8 @@
     "viaductBaseCost",
     "pierInterval",
     "pierMinimumSpan",
-    "pierMinimumClearance"
+    "pierMinimumClearance",
+    "maximumGeneratedViaductHeight"
   ],
   "properties": {
     "surfaceCost": {
@@ -143,6 +144,11 @@
       "type": "number",
       "minimum": 1.0,
       "maximum": 20.0
+    },
+    "maximumGeneratedViaductHeight": {
+      "type": "number",
+      "minimum": 8,
+      "maximum": 200
     }
   }
 }

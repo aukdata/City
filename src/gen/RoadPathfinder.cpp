@@ -25,6 +25,11 @@ void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH
 			const Vec2 wp = gridToWorld(gx, gz);
 			m_heightGrid[gz * gridW + gx] = world.sampleHeight(
 				static_cast<float>(wp.x), static_cast<float>(wp.y));
+			if (wp.x<0 || wp.y<0 || wp.x>=WORLD_SIZE || wp.y>=WORLD_SIZE
+				|| !world.getChunk({static_cast<int>(wp.x)/CHUNK_SIZE,static_cast<int>(wp.y)/CHUNK_SIZE}))
+			{
+				m_heightGrid[gz*gridW+gx]=std::numeric_limits<float>::quiet_NaN();
+			}
 			m_waterGrid[gz*gridW+gx]=static_cast<float>(world.waterSurfaceHeight(wp.x,wp.y));
 			const auto sample=world.rivers().nearest(wp);
 			if (sample.reach>=0 && sample.distance<sample.halfWidth+cellSize)
@@ -87,6 +92,52 @@ Array<Point> RoadPathfinder::findPath(
 	const Array<Vec2>& forbiddenGoalDirs,
 	const HashSet<int>& occupiedCells) const
 {
+	if (m_surfaceOnly)
+	{
+		// 地上回廊は到着方位も状態に持つ。隣接セルで左右に振るだけの擬似的な九十九折りを防ぐ。
+		const Array<Point> directions{{1,0},{2,1},{1,1},{1,2},{0,1},{-1,2},{-1,1},{-2,1},
+			{-1,0},{-2,-1},{-1,-1},{-1,-2},{0,-1},{1,-2},{1,-1},{2,-1}};
+		constexpr int headings=16;
+		struct Label { double cost=Math::Inf; int parent=-1; bool closed=false; };
+		Array<Label> labels(static_cast<size_t>(m_gridW*m_gridH)*headings);
+		using Entry=std::pair<double,int>;
+		std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> pending;
+		for (int heading=0;heading<headings;++heading)
+		{
+			const int id=(start.y*m_gridW+start.x)*headings+heading;
+			labels[id].cost=0; pending.emplace(start.distanceFrom(goal)*m_cellSize,id);
+		}
+		const double grade=RoadDesignLimits::forType(m_roadType).maximumGrade*Square(GenerationSettings::get().routing_gradeReserve);
+		int last=-1;
+		while (!pending.empty())
+		{
+			const int id=pending.top().second;pending.pop();auto& label=labels[id];
+			if (label.closed) { continue; } label.closed=true;
+			const Point p{(id/headings)%m_gridW,(id/headings)/m_gridW};
+			if (p==goal) { last=id;break; }
+			for (int heading=0;heading<headings;++heading)
+			{
+				const Vec2 before{directions[id%headings]},after{directions[heading]};
+				if (before.normalized().dot(after.normalized())<.70710678) { continue; }
+				const Point next=p+directions[heading];
+				if (next.x<0 || next.y<0 || next.x>=m_gridW || next.y>=m_gridH) { continue; }
+				const int ci=p.y*m_gridW+p.x,ni=next.y*m_gridW+next.x,nextId=ni*headings+heading;
+				if (labels[nextId].closed || !std::isfinite(m_heightGrid[ci]) || !std::isfinite(m_heightGrid[ni])) { continue; }
+				const auto level=[&](int cell) { return m_heightGrid[cell]<m_waterGrid[cell]+1 ? Max(m_heightGrid[cell],m_waterGrid[cell]+6) : m_heightGrid[cell]; };
+				const double run=after.length()*m_cellSize;
+				if (Abs(level(ni)-level(ci))>run*grade) { continue; }
+				const double cost=label.cost+run*(RoadConstructionCost::unit(level(ci),m_heightGrid[ci],m_waterGrid[ci])+RoadConstructionCost::unit(level(ni),m_heightGrid[ni],m_waterGrid[ni]))*.5;
+				if (cost<labels[nextId].cost)
+				{
+					labels[nextId].cost=cost;labels[nextId].parent=id;
+					pending.emplace(cost+next.distanceFrom(goal)*m_cellSize,nextId);
+				}
+			}
+		}
+		Array<Point> result;
+		for (int id=last;id>=0;id=labels[id].parent) { result << Point{(id/headings)%m_gridW,(id/headings)/m_gridW}; }
+		result.reverse();return result;
+	}
 	// 地形勾配、既存道路、始終点の鋭角接続をコスト化した 8 近傍 A* で道路芯線を探す。
 	const int total = m_gridW * m_gridH;
 
@@ -130,11 +181,16 @@ Array<Point> RoadPathfinder::findPath(
 			if (nx < 0 || nx >= m_gridW || nz < 0 || nz >= m_gridH) continue;
 
 			const int ni = nz * m_gridW + nx;
-			if (cells[ni].closed) continue;
+			if (cells[ni].closed || !std::isfinite(height(nx,nz)) || !std::isfinite(height(cx,cz))) continue;
 
 			// 勾配ペナルティ
 			const bool wet=height(nx,nz)<m_waterGrid[ni]+1 || height(cx,cz)<m_waterGrid[ci]+1;
-			const float dh = wet ? 0.0f : height(nx, nz) - height(cx, cz);
+			// 水域でも両岸と橋面の高低差を無視しない。高い崖から水面へ瞬間移動する候補を防ぐ。
+			const auto roadLevel = [&](int index)
+			{
+				return m_heightGrid[index]<m_waterGrid[index]+1 ? Max(m_heightGrid[index],m_waterGrid[index]+6) : m_heightGrid[index];
+			};
+			const float dh = roadLevel(ni)-roadLevel(ci);
 			const float slope = std::abs(dh) / (m_cellSize * kDc[d]);
 			const double grade = RoadDesignLimits::forType(m_roadType).maximumGrade * GenerationSettings::get().routing_gradeReserve;
 			const double excess = Max(0.0, Abs(dh) - m_cellSize * kDc[d] * grade);

@@ -10,6 +10,8 @@ class RoadPathfinder
 public:
 	void setRailwayRouting(bool enabled) { m_railwayRouting=enabled; }
 	void setRoadType(RoadType type) { m_roadType = type; }
+	/// @brief 地上回廊の候補探索では許容勾配を超える斜面の短絡を除外する。
+	void setSurfaceOnly(bool enabled) { m_surfaceOnly = enabled; }
 	void setConstructionCost(std::function<double(Vec2,double)> cost) { m_constructionCost=std::move(cost); }
 	static float defaultCellSize() { return GenerationSettings::get().network_localRoutingCell; }
 
@@ -67,6 +69,7 @@ public:
 private:
 	std::function<double(Vec2,double)> m_constructionCost;
 	bool m_railwayRouting=false;
+	bool m_surfaceOnly=false;
 	RoadType m_roadType = RoadType::LocalRoad;
 	int          m_gridW    = 0;
 	int          m_gridH    = 0;

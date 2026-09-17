@@ -225,6 +225,8 @@
     <ClCompile Include="..\src\gen\VillageConnections.cpp" />
     <ClCompile Include="..\src\gen\SettlementFringe.cpp" />
     <ClCompile Include="..\src\gen\RoadPathfinder.cpp" />
+    <ClCompile Include="..\src\gen\MapGenerator.cpp" />
+    <ClCompile Include="..\src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer_Buildings.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer_Streaming.cpp" />
