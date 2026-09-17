@@ -1,0 +1,222 @@
+﻿{
+  "0": {
+    "generationMs": 83.185,
+    "gridAlignedFraction": 0.13653908821665156,
+    "lengthKm": 787.7514978363689,
+    "maximumSegment": 14.417089655359005,
+    "reaches": 66690,
+    "seed": 0,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "1": {
+    "generationMs": 83.7621,
+    "gridAlignedFraction": 0.1838004553080337,
+    "lengthKm": 787.3417739366639,
+    "maximumSegment": 14.445591909523976,
+    "reaches": 66701,
+    "seed": 1,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "10": {
+    "generationMs": 96.0398,
+    "gridAlignedFraction": 0.18256072733962816,
+    "lengthKm": 914.2327237793318,
+    "maximumSegment": 14.245575561868906,
+    "reaches": 77447,
+    "seed": 10,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "11": {
+    "generationMs": 87.7785,
+    "gridAlignedFraction": 0.17133042792883882,
+    "lengthKm": 777.2233398842981,
+    "maximumSegment": 14.399928873053671,
+    "reaches": 65844,
+    "seed": 11,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "12": {
+    "generationMs": 76.6854,
+    "gridAlignedFraction": 0.14603134751586277,
+    "lengthKm": 705.4222398611163,
+    "maximumSegment": 14.56169421846443,
+    "reaches": 59729,
+    "seed": 12,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "13": {
+    "generationMs": 80.9384,
+    "gridAlignedFraction": 0.14198038209923428,
+    "lengthKm": 758.9610444326488,
+    "maximumSegment": 14.719596258195327,
+    "reaches": 64240,
+    "seed": 13,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "14": {
+    "generationMs": 82.8226,
+    "gridAlignedFraction": 0.14427165159637362,
+    "lengthKm": 775.2164309593833,
+    "maximumSegment": 14.380899981008763,
+    "reaches": 65659,
+    "seed": 14,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "15": {
+    "generationMs": 87.2085,
+    "gridAlignedFraction": 0.1469850246595242,
+    "lengthKm": 783.4777267186194,
+    "maximumSegment": 14.7450756025038,
+    "reaches": 66303,
+    "seed": 15,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "16": {
+    "generationMs": 77.3587,
+    "gridAlignedFraction": 0.15414336619009816,
+    "lengthKm": 723.7364334272754,
+    "maximumSegment": 14.275830183473927,
+    "reaches": 61367,
+    "seed": 16,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "17": {
+    "generationMs": 84.6527,
+    "gridAlignedFraction": 0.13842131335790128,
+    "lengthKm": 836.1487448772273,
+    "maximumSegment": 14.474930032552859,
+    "reaches": 70737,
+    "seed": 17,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "18": {
+    "generationMs": 78.2067,
+    "gridAlignedFraction": 0.15588263275904787,
+    "lengthKm": 807.0047860810146,
+    "maximumSegment": 14.176382508465121,
+    "reaches": 68322,
+    "seed": 18,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "19": {
+    "generationMs": 92.1776,
+    "gridAlignedFraction": 0.1559311889516361,
+    "lengthKm": 812.4805749053262,
+    "maximumSegment": 14.591888911564638,
+    "reaches": 68798,
+    "seed": 19,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "2": {
+    "generationMs": 72.1718,
+    "gridAlignedFraction": 0.15929593329454525,
+    "lengthKm": 701.4898010899692,
+    "maximumSegment": 14.715201687498144,
+    "reaches": 59424,
+    "seed": 2,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "2026": {
+    "generationMs": 72.0297,
+    "gridAlignedFraction": 0.1304233232831948,
+    "lengthKm": 657.9815465890991,
+    "maximumSegment": 14.087147651833169,
+    "reaches": 55745,
+    "seed": 2026,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "3": {
+    "generationMs": 87.3982,
+    "gridAlignedFraction": 0.147542175356604,
+    "lengthKm": 851.903779796698,
+    "maximumSegment": 14.747287281368344,
+    "reaches": 72191,
+    "seed": 3,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "4": {
+    "generationMs": 91.7149,
+    "gridAlignedFraction": 0.19588375215064435,
+    "lengthKm": 913.3935012964066,
+    "maximumSegment": 14.335605220110482,
+    "reaches": 77426,
+    "seed": 4,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "42": {
+    "generationMs": 81.2998,
+    "gridAlignedFraction": 0.13715630062854675,
+    "lengthKm": 787.2493582923038,
+    "maximumSegment": 14.491386273943847,
+    "reaches": 66594,
+    "seed": 42,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "5": {
+    "generationMs": 90.9163,
+    "gridAlignedFraction": 0.18915142803154547,
+    "lengthKm": 838.4117210682878,
+    "maximumSegment": 14.074599283825663,
+    "reaches": 71076,
+    "seed": 5,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "6": {
+    "generationMs": 91.2117,
+    "gridAlignedFraction": 0.13773783706433085,
+    "lengthKm": 816.4959591935773,
+    "maximumSegment": 14.541978151690502,
+    "reaches": 69118,
+    "seed": 6,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "7": {
+    "generationMs": 79.3032,
+    "gridAlignedFraction": 0.14795340814594463,
+    "lengthKm": 732.618489769447,
+    "maximumSegment": 14.379576056336562,
+    "reaches": 62048,
+    "seed": 7,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "8": {
+    "generationMs": 79.8496,
+    "gridAlignedFraction": 0.1358623728048455,
+    "lengthKm": 737.4550812245027,
+    "maximumSegment": 14.2850400646337,
+    "reaches": 62434,
+    "seed": 8,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "9": {
+    "generationMs": 87.7527,
+    "gridAlignedFraction": 0.19033518653319081,
+    "lengthKm": 800.3102723779897,
+    "maximumSegment": 14.43933313846292,
+    "reaches": 67786,
+    "seed": 9,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  }
+}

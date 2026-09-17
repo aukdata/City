@@ -1,0 +1,37 @@
+﻿{
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Rivers.DrainageAndWaterLevel",
+      "status": "passed",
+      "durationMs": 12.632,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.SmoothWideningAndVegetation",
+      "status": "passed",
+      "durationMs": 1.637,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.LowlandAndMountainCourse",
+      "status": "failed",
+      "durationMs": 1.399,
+      "failures": [
+        "A broad gentle valley must not remain an 8 km straight canal",
+        "Lowland bends are visible at landscape scale"
+      ]
+    },
+    {
+      "name": "Rivers.GeneratedRegionCourseAudit",
+      "status": "passed",
+      "durationMs": 296.130,
+      "failures": [
+      ]
+    }
+  ]
+}

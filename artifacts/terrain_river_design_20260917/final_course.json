@@ -1,0 +1,30 @@
+﻿{
+  "gorge": {
+    "maximumOffset": 9.094947017729282e-13,
+    "rmsOffset": 4.056994708661346e-13,
+    "samples": 196,
+    "sinuosity": 1.0
+  },
+  "gorgeNetwork": {
+    "gridAlignedFraction": 1.0,
+    "lengthKm": 13.824,
+    "maximumSegment": 11.636363636369424,
+    "reaches": 1188,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  },
+  "plain": {
+    "maximumOffset": 115.19999999999982,
+    "rmsOffset": 59.17965302926892,
+    "samples": 196,
+    "sinuosity": 1.0593252791867636
+  },
+  "plainNetwork": {
+    "gridAlignedFraction": 0.2008300991502595,
+    "lengthKm": 10.195378730308997,
+    "maximumSegment": 12.85133852164257,
+    "reaches": 869,
+    "unconnectedCrossings": 0,
+    "uphill": 0
+  }
+}

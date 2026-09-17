@@ -1557,6 +1557,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\gen\GenerationSettings.cpp" />
+    <ClCompile Include="src\gen\RiverNetwork.cpp" />
     <ClInclude Include="src\gen\GenerationSettings.hpp" />
     <None Include="src\gen\GenerationSettings.def" />
     <ClCompile Include="src\traffic\BuildingAccess.cpp" />

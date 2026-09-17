@@ -1,0 +1,29 @@
+﻿{
+  "2026": {
+    "generationMs": 35.4774,
+    "gridAlignedFraction": 0.5091058149982647,
+    "lengthKm": 646.6346257191208,
+    "maximumSegment": 14.073831361389631,
+    "reaches": 54831,
+    "seed": 2026,
+    "uphill": 0
+  },
+  "42": {
+    "generationMs": 38.2796,
+    "gridAlignedFraction": 0.39480703083219004,
+    "lengthKm": 769.7229978009143,
+    "maximumSegment": 14.059613710827604,
+    "reaches": 65098,
+    "seed": 42,
+    "uphill": 0
+  },
+  "7": {
+    "generationMs": 38.042,
+    "gridAlignedFraction": 0.4830190376030357,
+    "lengthKm": 720.9287429629317,
+    "maximumSegment": 13.809238760054289,
+    "reaches": 61093,
+    "seed": 7,
+    "uphill": 0
+  }
+}

@@ -18,5 +18,12 @@
   "bedDepth": 1.4,
   "bankSlope": 0.18,
   "bankBlendStart": 24,
-  "bankBlendWidth": 41
+  "bankBlendWidth": 41,
+  "meanderAmplitudeWidths": 3.0,
+  "meanderWavelengthWidths": 16.0,
+  "meanderMinimumWavelength": 768.0,
+  "meanderGradeScale": 0.012,
+  "meanderSecondaryShare": 0.28,
+  "courseBankRiseLimit": 1.5,
+  "courseSearchSamples": 16
 }

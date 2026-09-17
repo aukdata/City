@@ -160,6 +160,7 @@
     <ClCompile Include="UrbanFacilitiesTests.cpp" />
     <ClCompile Include="GenerationRevisionTests.cpp" />
     <ClCompile Include="RegionalTerrainTests.cpp" />
+    <ClCompile Include="RiverGenerationTests.cpp" />
     <ClCompile Include="..\src\railway\TrainNetwork.cpp" />
     <ClCompile Include="..\src\railway\TrainManager.cpp" />
     <ClCompile Include="..\src\railway\RailTimetable.cpp" />
@@ -192,6 +193,7 @@
     <ClCompile Include="..\src\render\PedestrianRenderer.cpp" />
     <ClCompile Include="..\src\world\World.cpp" />
     <ClCompile Include="..\src\gen\GenerationSettings.cpp" />
+    <ClCompile Include="..\src\gen\RiverNetwork.cpp" />
     <ClCompile Include="..\src\zone\ZoneManager.cpp" />
     <ClCompile Include="..\src\zone\ZoneDevelopment.cpp" />
     <ClCompile Include="Main.cpp" />

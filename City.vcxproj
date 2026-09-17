@@ -221,6 +221,7 @@
     <ClCompile Include="src\render\MinimapRenderer.cpp" />
     <ClCompile Include="src\gen\MapGenerator.cpp" />
     <ClCompile Include="src\gen\GenerationSettings.cpp" />
+    <ClCompile Include="src\gen\RiverNetwork.cpp" />
     <ClCompile Include="src\gen\RoadPathfinder.cpp" />
     <ClCompile Include="src\gen\RoadAutoPlace.cpp" />
     <ClCompile Include="src\gen\RoadAlignment.cpp" />

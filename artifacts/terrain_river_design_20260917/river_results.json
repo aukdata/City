@@ -1,0 +1,42 @@
+﻿{
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Rivers.DrainageAndWaterLevel",
+      "status": "passed",
+      "durationMs": 13.140,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.SmoothWideningAndVegetation",
+      "status": "passed",
+      "durationMs": 1.657,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.LowlandAndMountainCourse",
+      "status": "passed",
+      "durationMs": 1.579,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.CurvedValleyAndRepeatability",
+      "status": "passed",
+      "durationMs": 2.697,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.GeneratedRegionCourseAudit",
+      "status": "passed",
+      "durationMs": 3562.369,
+      "failures": [
+      ]
+    }
+  ]
+}

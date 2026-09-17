@@ -1009,6 +1009,9 @@
     <ClCompile Include="RegionalTerrainTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RiverGenerationTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\railway\TrainNetwork.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1154,6 +1157,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\gen\GenerationSettings.cpp" />
+    <ClCompile Include="..\src\gen\RiverNetwork.cpp" />
     <ClInclude Include="..\src\gen\GenerationSettings.hpp" />
     <None Include="..\src\gen\GenerationSettings.def" />
     <ClCompile Include="..\src\traffic\BuildingAccess.cpp" />

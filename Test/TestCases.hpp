@@ -27,6 +27,7 @@ void registerUrbanStructureTests(TestRunner& runner);
 void registerUrbanFacilitiesTests(TestRunner& runner);
 void registerGenerationRevisionTests(TestRunner& runner);
 void registerRegionalTerrainTests(TestRunner& runner);
+void registerRiverGenerationTests(TestRunner& runner);
 void registerPlayabilityTests(TestRunner& runner);
 void registerFringeAgricultureTests(TestRunner& runner);
 
