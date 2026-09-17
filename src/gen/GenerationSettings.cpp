@@ -70,6 +70,9 @@ namespace GenerationSettings
 		require(result.urbanFabric_downtownFullExtent+result.urbanFabric_downtownFadeExtent<=1, U"urbanFabric downtown fade within city");
 		require(result.pedestrians_initialParkedCars<=result.pedestrians_parkingSpaces, U"pedestrians parked cars <= spaces");
 		require(result.pedestrians_detailedDrawDistance<=result.pedestrians_drawDistance, U"pedestrians detailed draw distance <= maximum");
+		require(result.landmarks_towerVariants<=2,U"landmarks tower variants must have shipped models");
+		require(result.landmarks_mallMinimumRadius<result.landmarks_mallMaximumRadius,U"landmarks mall distance range");
+		require(result.landmarks_subwayDepth<=result.landmarks_subwayMaximumDepth,U"landmarks subway cover <= maximum depth");
 		return result;
 	}
 

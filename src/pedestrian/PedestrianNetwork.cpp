@@ -12,7 +12,8 @@ Point spatialCell(Vec3 p)
 }
 bool parkingSite(BuildingType type)
 {
-	return type == BuildingType::Parking || type == BuildingType::RoadsideConvenience ||
+	return type == BuildingType::ShoppingMall || type == BuildingType::Hospital || type == BuildingType::CityHall
+		|| type == BuildingType::Parking || type == BuildingType::RoadsideConvenience ||
 		   type == BuildingType::RoadsideFuelStation;
 }
 } // namespace
@@ -281,7 +282,7 @@ void PedestrianNetwork::rebuild(
 			continue;
 		}
 		const Vec3 platform = frame->point(-5.8, 1.08, 8);
-		Vec3 entrance = frame->point(-12, 0, 8);
+		Vec3 entrance = station.entrance.value_or(frame->point(-12, 0, 8));
 		entrance.y = world.sampleHeight(static_cast<float>(entrance.x), static_cast<float>(entrance.z)) + .03;
 		const auto street = nearestNode(entrance, 350);
 		if (!street)

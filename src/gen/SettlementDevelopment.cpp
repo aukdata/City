@@ -1,6 +1,7 @@
 ﻿#include "GenerationSettings.hpp"
 #include "SettlementDevelopment.hpp"
 #include "AgriculturalLayout.hpp"
+#include "UrbanFacilities.hpp"
 #include "StreetBlocks.hpp"
 #include "ParcelGeometry.hpp"
 #include "UrbanParcel.hpp"
@@ -630,7 +631,8 @@ namespace
 		float angle)
 	{
 		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-		const int checkRange = static_cast<int>(Ceil((halfBuilding + 44.0f) / cellSize)) + 2;
+		const int checkRange =
+			static_cast<int>(Ceil((halfBuilding + maximumBuildingFootprint() * .5f + 16.0f) / cellSize)) + 2;
 		for (int oy = -checkRange; oy <= checkRange; ++oy)
 		{
 			for (int ox = -checkRange; ox <= checkRange; ++ox)
@@ -780,9 +782,8 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		DebugLog::print(U"[AgriculturalAccess] roads={} homes={}"_fmt(farms.tracks,farms.homes));
 	}
 	const Stopwatch sw{ StartImmediately::Yes };
-	
-	
-	int placed = 0;
+
+	int placed = UrbanFacilities::generate(m_world, m_network, m_trainNetwork, m_districts, m_seed).placed;
 	int rejectedRoad = 0;
 	int rejectedGreen = 0;
 	int rejectedSlope = 0;
@@ -1166,6 +1167,10 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		{
 			return ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
 		}
+		if (buildingType >= BuildingType::OfficeTower)
+		{
+			return LandPatchType::ParcelAsphalt;
+		}
 		if (buildingType == BuildingType::Office || buildingType == BuildingType::MidApartment || buildingType == BuildingType::HighApartment) { return LandPatchType::ParcelAsphalt; }
 		if (buildingType == BuildingType::Parking || zone == ZoneType::Commercial || zone == ZoneType::Industrial)
 		{
@@ -1174,6 +1179,48 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		return LandPatchType::GardenSoil;
 	};
 
+	// 市役所・学校の中心セル以外も施設用地。空き公共緑地を上に敷き詰めない。
+	HashSet<int64> facilityCells;
+	for (int z = 0; z < WORLD_CHUNKS; ++z)
+	{
+		for (int x = 0; x < WORLD_CHUNKS; ++x)
+		{
+			const auto* chunk = m_world.getChunk({x, z});
+			if (!chunk)
+			{
+				continue;
+			}
+			for (int row = 0; row < ZONE_CELLS; ++row)
+			{
+				for (int col = 0; col < ZONE_CELLS; ++col)
+				{
+					const auto& building = chunk->buildingGrid[{col, row}];
+					if (building.type < BuildingType::OfficeTower)
+					{
+						continue;
+					}
+					const Vec2 center = cellCenterXZ({x, z}, col, row) + Vec2{building.offsetX, building.offsetZ};
+					const auto footprint =
+						ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * .5 + 2, building.angle);
+					const double reach = buildingFootprintXZ(building.type) * .72 + 16;
+					for (double wz = center.y - reach; wz <= center.y + reach; wz += 16)
+					{
+						for (double wx = center.x - reach; wx <= center.x + reach; wx += 16)
+						{
+							Point coord;
+							int cx = 0, cz = 0;
+							worldToZoneCell(static_cast<float>(wx), static_cast<float>(wz), coord, cx, cz);
+							if (ParcelGeometry::overlaps(
+									footprint, ParcelGeometry::footprint(cellCenterXZ(coord, cx, cz), 8, 0)))
+							{
+								facilityCells.insert(zoneCellKey(coord, cx, cz));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
 		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
@@ -1196,25 +1243,39 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 				{
 					const ZoneType zone = chunk.zoneMap[{ col, row }];
 					const bool civicZone=(zone==ZoneType::UrbanControl);
-					const bool agricultureZone = civicZone;
-					if (!isUrbanLandZone(zone) && !agricultureZone) continue;
+					const bool agricultureZone = civicZone && chunk.buildingGrid[{col, row}].type == BuildingType::None;
+					if (!isUrbanLandZone(zone) && !civicZone)
+					{
+						continue;
+					}
+					if (agricultureZone && facilityCells.contains(zoneCellKey(coord, col, row)))
+					{
+						continue;
+					}
 					if (agricultureZone && agriculturePatchCovered[{ col, row }]) continue;
 
 					if (agricultureZone)
 					{
 						const int kFieldColumns = GenerationSettings::get().development_fieldColumns, kFieldRows = GenerationSettings::get().development_fieldRows;
 						int width = 0;
-						while (width < kFieldColumns && col + width < ZONE_CELLS
-							&& chunk.zoneMap[{ col + width, row }] == zone
-							&& !agriculturePatchCovered[{ col + width, row }]) { ++width; }
+						while (width < kFieldColumns && col + width < ZONE_CELLS &&
+							   chunk.zoneMap[{col + width, row}] == zone &&
+							   !facilityCells.contains(zoneCellKey(coord, col + width, row)) &&
+							   chunk.buildingGrid[{col + width, row}].type == BuildingType::None &&
+							   !agriculturePatchCovered[{col + width, row}])
+						{
+							++width;
+						}
 						int height = 1;
 						for (; height < kFieldRows && row + height < ZONE_CELLS; ++height)
 						{
 							bool available = true;
 							for (int x = 0; x < width; ++x)
 							{
-								available &= chunk.zoneMap[{ col + x, row + height }] == zone
-									&& !agriculturePatchCovered[{ col + x, row + height }];
+								available &= chunk.zoneMap[{col + x, row + height}] == zone &&
+											 !facilityCells.contains(zoneCellKey(coord, col + x, row + height)) &&
+											 chunk.buildingGrid[{col + x, row + height}].type == BuildingType::None &&
+											 !agriculturePatchCovered[{col + x, row + height}];
 							}
 							if (!available) { break; }
 						}

@@ -56,3 +56,7 @@
 - `coreRadiusRatio` は中心用途の範囲/影響半径。`edgeFadeEnd` / `edgeFadeWidth` は半幅に対する外縁減衰の終端と幅です。
 
 [比較調査](../../../plan/research/2026-09_japanese_city_structures.md)と[仕様](../../../plan/24_japanese_urban_morphology.md)を参照。数値はゲームの調整値で、実在都市の統計値や法的規制値ではありません。
+
+## 都市の拠点施設
+
+`landmarks.json` に高層オフィス、市役所、モール、病院、学校、地下線、ターミナル駅の調整値をまとめます。`footprint_*` / `height_*` はモデルの占有幅・高さ[m]、`*Count*` は都市あたり上限。`mallMinimumRadius` / `mallMaximumRadius` は都市半幅に対する郊外帯、`maximumRelief` は敷地内部の標高差上限[m]です。地下線は `subwayDepth` の土被りと `subwayMaximumDepth` を両方満たす場合に限ります。`towerVariants` は配布済みの1～2種に制限します。[仕様](../../../plan/32_urban_facilities.md)。

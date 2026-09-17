@@ -4,6 +4,7 @@
 #include "RoadPathfinder.hpp"
 #include "TransportClearance.hpp"
 #include "RailCostProfile.hpp"
+#include "UrbanFacilities.hpp"
 #include "RoadAlignment.hpp"
 #include "../railway/RailTimetable.hpp"
 #include "../railway/RailDepotBuilder.hpp"
@@ -19,7 +20,7 @@ namespace RailwayAlignment
 		const TransportClearance crossings{roads,world};
 		network=TrainNetwork{};
 		network.bind(roads);
-		struct StationCandidate { Vec3 position; String name; };
+		struct StationCandidate { Vec3 position; String name; StationKind kind; };
 		Array<StationCandidate> candidates;
 		Array<int> stations; HashTable<int,Vec3> axes; HashTable<int,int> builtStations;
 		// Candidate IDs are separate from the live graph. Only feasible corridors create stations.
@@ -28,6 +29,7 @@ namespace RailwayAlignment
 			if (!builtStations.contains(candidate))
 			{
 				builtStations[candidate]=network.addStation(candidates[candidate].position,candidates[candidate].name);
+				network.getNode(builtStations[candidate])->stationKind=candidates[candidate].kind;
 			}
 			return builtStations[candidate];
 		};
@@ -47,11 +49,11 @@ namespace RailwayAlignment
 				required=Min(required,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationMaximumElevation);
 				const double elevation=std::ceil(required/.5)*.5;
 				const int id=static_cast<int>(candidates.size());
-				candidates << StationCandidate{{point.x,elevation,point.y},stationIndex==0 ? town.name : U"{}第{}地区"_fmt(town.name,stationIndex+1)};
+				candidates << StationCandidate{{point.x,elevation,point.y},stationIndex==0 ? town.name : U"{}第{}地区"_fmt(town.name,stationIndex+1),town.plan.scale==0 && stationIndex==0 ? StationKind::Terminal : StationKind::Local};
 				stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
 			}
 		}
-		if (stations.size()<2) { return; }
+		if (stations.size()<2) { UrbanFacilities::generateSubways(world,network,towns); return; }
 		HashSet<int> connected{stations.front()}; HashSet<uint64> rejected; int lines=0,failures=0;
 		const auto pairKey=[](int a,int b) { return (static_cast<uint64>(Min(a,b))<<32)|static_cast<uint32>(Max(a,b)); };
 		while (connected.size()<stations.size())
@@ -269,6 +271,7 @@ namespace RailwayAlignment
 		}
 		DBG_LOG(U"[StationCurvature] violations={}"_fmt(stationViolations));
 		if (roads) { RailDepotBuilder::generate(network,world,*roads); }
+		UrbanFacilities::generateSubways(world,network,towns);
 		DBG_LOG(U"[RailwayAlignment] stations={} lines={} sections={} rejectedCorridors={}"_fmt(builtStations.size(),lines,network.edges().size(),failures));
 	}
 }

@@ -23,13 +23,18 @@ enum class BuildingType : uint8
 	UrbanFuelStation = 14, ///< 市街地の小規模給油所
 	RoadsideFuelStation = 15, ///< 郊外のセルフ給油所・洗車場
 	RuralHouse = 16, ///< 庭・附属屋を持つ田舎の民家
+	OfficeTower, ///< 高層オフィス
+	CityHall, ///< 市役所
+	ShoppingMall, ///< 郊外ショッピングモール
+	Hospital, ///< 総合病院
+	School, ///< 学校
 	Count,
 };
 
 /// @brief 敷地内設備を含む専用モデルか。汎用の玄関装飾を重ねない。
 inline bool isCompleteSiteBuilding(BuildingType type)
 {
-	return type >= BuildingType::UrbanConvenience && type <= BuildingType::RuralHouse;
+	return type >= BuildingType::UrbanConvenience && type < BuildingType::Count;
 }
 
 /// @brief 商業沿道サービス施設か。
@@ -58,8 +63,28 @@ inline float buildingFootprintXZ(BuildingType type = BuildingType::Detached)
 	case BuildingType::UrbanFuelStation: return GenerationSettings::get().buildings_footprint_UrbanFuelStation;
 	case BuildingType::RoadsideFuelStation: return GenerationSettings::get().buildings_footprint_RoadsideFuelStation;
 	case BuildingType::RuralHouse: return GenerationSettings::get().buildings_footprint_RuralHouse;
+	case BuildingType::OfficeTower: return static_cast<float>(GenerationSettings::get().landmarks_footprint_OfficeTower);
+	case BuildingType::CityHall: return static_cast<float>(GenerationSettings::get().landmarks_footprint_CityHall);
+	case BuildingType::ShoppingMall: return static_cast<float>(GenerationSettings::get().landmarks_footprint_ShoppingMall);
+	case BuildingType::Hospital: return static_cast<float>(GenerationSettings::get().landmarks_footprint_Hospital);
+	case BuildingType::School: return static_cast<float>(GenerationSettings::get().landmarks_footprint_School);
 	default: return GenerationSettings::get().buildings_footprint_default;
 	}
+}
+
+/// @brief 探索範囲も最大敷地に追従させ、モールの外縁へ住宅を重ねない。
+inline float maximumBuildingFootprint()
+{
+	static const float maximum=[]
+	{
+		float result=0;
+		for (int value=1;value<static_cast<int>(BuildingType::Count);++value)
+		{
+			result=Max(result,buildingFootprintXZ(static_cast<BuildingType>(value)));
+		}
+		return result;
+	}();
+	return maximum;
 }
 
 /// @brief 住宅系建物かどうか
@@ -96,6 +121,7 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 {
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
+	if (t == BuildingType::OfficeTower) { return static_cast<uint8>(h % GenerationSettings::get().landmarks_towerVariants); }
 	if (t == BuildingType::RuralHouse) { return static_cast<uint8>(h % GenerationSettings::get().buildings_ruralHouseVariants); }
 	if (isResidentialBuildingType(t)) { return residentialModelIndex(t, gx, gz); }
 	const uint32 kShopVariantCount = GenerationSettings::get().buildings_shopVariants;
@@ -151,6 +177,11 @@ inline bool tryGetBuildingModelStemForVariant(BuildingType type, uint8 variant, 
 	case BuildingType::PublicFacility: prefix = U"public"; break;
 	case BuildingType::Parking: prefix = U"parking"; break;
 	case BuildingType::Office: prefix = U"office"; break;
+	case BuildingType::OfficeTower: prefix = U"office_tower"; break;
+	case BuildingType::CityHall: prefix = U"city_hall"; break;
+	case BuildingType::ShoppingMall: prefix = U"shopping_mall"; break;
+	case BuildingType::Hospital: prefix = U"hospital"; break;
+	case BuildingType::School: prefix = U"school"; break;
 	default:
 		if (!isResidentialBuildingType(type)) { return false; }
 		prefix = U"residential";
@@ -200,6 +231,11 @@ inline float buildingHeight(BuildingType type)
 	case BuildingType::UrbanFuelStation:
 	case BuildingType::RoadsideFuelStation: return GenerationSettings::get().buildings_height_RoadsideFuelStation;
 	case BuildingType::RuralHouse: return GenerationSettings::get().buildings_height_RuralHouse;
+	case BuildingType::OfficeTower: return static_cast<float>(GenerationSettings::get().landmarks_height_OfficeTower);
+	case BuildingType::CityHall: return static_cast<float>(GenerationSettings::get().landmarks_height_CityHall);
+	case BuildingType::ShoppingMall: return static_cast<float>(GenerationSettings::get().landmarks_height_ShoppingMall);
+	case BuildingType::Hospital: return static_cast<float>(GenerationSettings::get().landmarks_height_Hospital);
+	case BuildingType::School: return static_cast<float>(GenerationSettings::get().landmarks_height_School);
 	default:                           return 0.0f;
 	}
 }

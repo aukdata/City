@@ -49,7 +49,7 @@ CitySnapshot collectCitySnapshot(const World& world, const RoadNetwork& network,
 					const BuildingType type = chunk->buildingGrid[{ col, row }].type;
 					snapshot.housingCapacity += buildingCapacity(type);
 					if (isResidentialBuildingType(type)) ++snapshot.residentialBuildings;
-					else if (type == BuildingType::Shop || type == BuildingType::Office || isRoadsideServiceBuilding(type)) ++snapshot.commercialBuildings;
+					else if (type == BuildingType::Shop || type == BuildingType::Office || type == BuildingType::OfficeTower || type == BuildingType::ShoppingMall || isRoadsideServiceBuilding(type)) ++snapshot.commercialBuildings;
 					else if (type == BuildingType::Factory) ++snapshot.industrialBuildings;
 					else if (type == BuildingType::ParkBuilding) ++snapshot.parkBuildings;
 				}

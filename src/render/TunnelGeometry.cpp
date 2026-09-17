@@ -38,12 +38,19 @@ namespace
 	}
 }
 
-TunnelGeometry::Geometry TunnelGeometry::build(const CubicBezier& curve,const World& world,double width,bool railwayTrack)
+TunnelGeometry::Geometry TunnelGeometry::build(const CubicBezier& curve,const World& world,double width,bool railwayTrack,bool stationA,bool stationB)
 {
 	Geometry result;
 	if (curve.totalLength<.01f) { return result; }
 	const double crown=railwayTrack ? RoadEnvironment::kRailTunnelCrown : RoadEnvironment::kRoadTunnelCrown;
-	const double half=width*.5+kMaintenanceWidth;
+	const double normalHalf=width*.5+kMaintenanceWidth;
+	// 地下ホーム部分だけを広げ、一般部へ滑らかに戻す。同じ端点断面を隣接面で共有する。
+	const auto halfAt=[&](double arc)
+	{
+		const double distance=Min(stationA ? arc : Math::Inf,stationB ? curve.totalLength-arc : Math::Inf);
+		const double blend=Clamp((150-distance)/50,0.0,1.0);
+		return Math::Lerp(normalHalf,Max(normalHalf,9.5),blend*blend*(3-2*blend));
+	};
 	const double surfaceLift=railwayTrack ? .15 : kRoadSurfaceLift;
 	const int count=Max(2,static_cast<int>(Ceil(curve.totalLength/RoadEnvironment::kSectionStep)));
 	Array<float> cuts;
@@ -60,7 +67,7 @@ TunnelGeometry::Geometry TunnelGeometry::build(const CubicBezier& curve,const Wo
 			if (covered(middle)==before) { low=middle; } else { high=middle; }
 		}
 		const float arc=(low+high)*.5f;cuts<<arc;
-		BridgeStructure::append(result.lining,portal(curve.positionAt(arc)+Vec3{0,surfaceLift,0},curve.tangentAt(arc),half,crown));
+		BridgeStructure::append(result.lining,portal(curve.positionAt(arc)+Vec3{0,surfaceLift,0},curve.tangentAt(arc),halfAt(arc),crown));
 	}
 	cuts.sort();
 	for (size_t i=0;i+1<cuts.size();++i)
@@ -70,18 +77,19 @@ TunnelGeometry::Geometry TunnelGeometry::build(const CubicBezier& curve,const Wo
 		const Vec3 center=curve.positionAt(middle);
 		const double depth=world.sampleHeight(static_cast<float>(center.x),static_cast<float>(center.z))-center.y;
 		if (depth<.1) { continue; }
+		const double halfA=halfAt(start),halfB=halfAt(end),half=Max(halfA,halfB);
 		const Vec3 a=curve.positionAt(start)+Vec3{0,surfaceLift,0},b=curve.positionAt(end)+Vec3{0,surfaceLift,0};
 		const Vec3 rightA=tangentToRight(curve.tangentAt(start)),rightB=tangentToRight(curve.tangentAt(end));
 		const Vec3 along=(b-a).normalized(),right=tangentToRight(along);
 		const bool enclosed=covered(middle);
 		if (enclosed)
 		{
-			BridgeStructure::append(result.lining,lining(a,b,rightA,rightB,half,crown));
+			BridgeStructure::append(result.lining,lining(a,b,rightA,rightB,halfA,crown,false,halfB));
 			// 舗装端と壁を連続した点検路で結び、下には閉じたインバートを残す。
 			for (const int side : {-1,1})
 			{
-				const double inner=(width*.5-.04)*side,outer=half*side;
-				const Vec3 p=a+rightA*inner,q=b+rightB*inner,r=b+rightB*outer,s=a+rightA*outer;
+				const double inner=(width*.5-.04)*side,outerA=halfA*side,outerB=halfB*side;
+				const Vec3 p=a+rightA*inner,q=b+rightB*inner,r=b+rightB*outerB,s=a+rightA*outerA;
 				BridgeStructure::quad(result.lining,p,q,r,s);BridgeStructure::quad(result.lining,s,r,q,p);
 			}
 		}

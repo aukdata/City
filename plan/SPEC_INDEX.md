@@ -48,3 +48,5 @@
 - 写真調査: [ニュータウンと中心街の密度](research/2026-09_newtown_photo_study.md)。実装は24章、計測結果は `artifacts/downtown_newtown_20260917/REVIEW.md`。
 
 - 都市比較: [日本の現代都市構造](research/2026-09_japanese_city_structures.md)。8都市の一次資料、7類型、生成への対応と限界。実装は24章§10。
+
+- 都市施設: [高層ビル・行政施設・郊外モール・ターミナル駅・地下駅](32_urban_facilities.md)。専用モデル、配置条件、交通接続、参照資料。

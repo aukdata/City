@@ -353,7 +353,7 @@ void registerUrbanStructureTests(TestRunner& runner)
 			int actualStations = 0;
 			for (const auto& node : trains.nodes())
 			{
-				actualStations += node.id >= 0 && node.type == TrackNodeType::Station;
+				actualStations += node.id >= 0 && node.type == TrackNodeType::Station && node.stationKind != StationKind::Underground;
 			}
 			report[U"stations"] = actualStations;
 			report[U"railEdges"] = railEdges;

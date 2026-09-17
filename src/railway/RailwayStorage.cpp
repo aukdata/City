@@ -21,6 +21,8 @@ JSON TrainNetwork::saveState() const
 	for (const auto& node : m_nodes)
 	{
 		JSON item; item[U"id"] = node.id; item[U"type"] = static_cast<int>(node.type); item[U"name"] = node.name;
+		item[U"stationKind"] = static_cast<int>(node.stationKind);
+		if (node.entrance) { item[U"entrance"] = vectorJson(*node.entrance); }
 		if (!sharedInfrastructure()) { item[U"position"] = vectorJson(node.position); }
 		state[U"nodes"].push_back(item);
 	}
@@ -87,6 +89,15 @@ bool TrainNetwork::restoreState(const JSON& state)
 				if (!finite(point) || restored.addNode(point) != id) { return false; }
 			}
 			auto* node = restored.getNode(id); node->type = static_cast<TrackNodeType>(type); node->name = item[U"name"].get<String>();
+			const int kind=item[U"stationKind"].getOr<int>(0);
+			if (!InRange(kind,0,2)) { return false; }
+			node->stationKind=static_cast<StationKind>(kind);
+			if (item.contains(U"entrance"))
+			{
+				const Vec3 entrance=readVector(item[U"entrance"]);
+				if (!finite(entrance)) { return false; }
+				node->entrance=entrance;
+			}
 		}
 		for (const auto& item : state[U"edges"].arrayView())
 		{

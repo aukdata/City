@@ -112,6 +112,14 @@ namespace RailwaySite
 		for (const auto& node : network.nodes())
 		{
 			if (node.type != TrackNodeType::Station) { continue; }
+			if (node.stationKind==StationKind::Underground && node.entrance)
+			{
+				if (const auto frame=stationFrame(network,node.id))
+				{
+					result << rectangle({*node.entrance,frame->along,frame->right},-5,5,-5,5);
+				}
+				continue;
+			}
 			for (const auto& path : stationPaths(network, node.id))
 			{
 				for (size_t i = 1; i < path.size(); ++i)
@@ -121,7 +129,15 @@ namespace RailwaySite
 					result << rectangle({path[i-1],along,{along.z,0,-along.x}}, -7, -1.7, 0, length);
 				}
 			}
-			if (const auto frame = stationFrame(network, node.id)) { result << rectangle(*frame, -17, -5, 2, 64); }
+			if (const auto frame = stationFrame(network, node.id))
+			{
+				result << rectangle(*frame,-17,-5,2,64);
+				if (node.stationKind==StationKind::Terminal)
+				{
+					const auto& settings=GenerationSettings::get();
+					result << rectangle(*frame,-settings.landmarks_terminalWidth*.5-1,settings.landmarks_terminalWidth*.5+1,2,settings.landmarks_terminalLength+4);
+				}
+			}
 		}
 		for (const auto& depot : network.depots())
 		{

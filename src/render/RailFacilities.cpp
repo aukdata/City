@@ -38,6 +38,8 @@ namespace RailFacilities
 		const auto frame = RailwaySite::stationFrame(network,stationId); if (!node || !frame) { return geometry; }
 		const auto paths = RailwaySite::stationPaths(network,stationId);
 		const bool urban = paths.size()>1;
+		const bool underground = node->stationKind == StationKind::Underground;
+		const bool terminal = node->stationKind == StationKind::Terminal;
 		for (const auto& path : paths)
 		{
 			double distance = 0, nextColumn = 0, nextBench = 16;
@@ -54,7 +56,13 @@ namespace RailFacilities
 					RailStructure::prism(geometry.parts[Steel],path[i-1],path[i],right,right,-6.02,.035,height+.035,height-.035);
 				}
 				box(geometry.parts[Steel],local,{-6.02,1.60,0},{.09,1.15,.09});
-				const bool covered = distance>=4 && distance<(urban ? 78 : 48);
+				// 地下ホームでは覆工自体が屋根。地上駅の庇を重ねるとアーチ外側へ食い込む。
+				if (underground && distance >= nextColumn)
+				{
+					box(geometry.parts[Light], local, {-3.4, 3.6, 1}, {.22, .10, 1.45});
+					nextColumn = distance + 12;
+				}
+				const bool covered = !underground && distance >= 4 && distance < (urban ? 78 : 48);
 				if (covered)
 				{
 					RailStructure::prism(geometry.parts[Roof],path[i-1],path[i],right,right,-4.15,2.45,4.95,4.76);
@@ -80,6 +88,46 @@ namespace RailFacilities
 			}
 		}
 		const auto& base = *frame;
+		if (underground)
+		{
+			// 地上は階段屋根とエレベーター棟だけ。ホームの駅舎を地上へ複製しない。
+			const Vec3 entrance =
+				node->entrance.value_or(base.point(-12, groundAt(world, base.origin) - base.origin.y, 8));
+			const RailwaySite::Frame surface{entrance, base.along, base.right};
+			for (const double x : {-2.5, 1.3})
+			{
+				box(geometry.parts[Concrete], surface, {x, -1.5, 0}, {.18, 3, 7.8});
+			}
+			box(geometry.parts[Concrete], surface, {-.6, -2.8, 3.3}, {3.6, .2, 1.1});
+			box(geometry.parts[Concrete], surface, {-3.6, .12, 0}, {2.4, .24, 9.6});
+			box(geometry.parts[Concrete], surface, {3.0, .12, 0}, {3.6, .24, 9.6});
+			for (const double z : {-4.3, 4.3})
+			{
+				box(geometry.parts[Concrete], surface, {-.6, .12, z}, {3.6, .24, 1.0});
+			}
+			for (const double x : {-2.5, 1.3})
+			{
+				box(geometry.parts[Concrete], surface, {x, .4, 0}, {.18, .8, 7.8});
+				box(geometry.parts[Glass], surface, {x, 1.75, 0}, {.07, 1.9, 7.8});
+				for (const double z : {-3.7, 0.0, 3.7})
+				{
+					box(geometry.parts[Steel], surface, {x, 1.5, z}, {.09, 3, .09});
+				}
+			}
+			box(geometry.parts[Roof], surface, {-.6, 3.1, 0}, {4.2, .18, 8.3});
+			box(geometry.parts[Glass], surface, {3.2, 1.9, .6}, {2.4, 3.8, 3.8});
+			box(geometry.parts[Steel], surface, {3.2, 3.85, .6}, {2.55, .16, 3.95});
+			box(geometry.parts[Steel], surface, {3.2, 1.1, -1.33}, {1.1, 2.2, .05});
+			geometry.signs << Sign{surface.point(-.6, 2.68, -3.98), surface.right, node->name + U"駅", 3.5};
+			geometry.signs << Sign{surface.point(3.2, 3.1, -1.4), surface.right, U"EV", 1.5};
+			// 開口した階段口と地下の中間踊り場。黒い立方体で入口を塞がない。
+			for (int step = 0; step < 16; ++step)
+			{
+				box(geometry.parts[Concrete], surface, {-.6, -step * .18, -3.5 + step * .42}, {3.5, .18, .43});
+			}
+			box(geometry.parts[Light], surface, {-.6, 2.9, 0}, {.25, .1, 5.8});
+			return geometry;
+		}
 		box(geometry.parts[Concrete],base,{-11, .45,14},{9,1.2,17});
 		for (const double x : {-14.0,-8.0})
 		{
@@ -90,7 +138,56 @@ namespace RailFacilities
 			}
 		}
 		box(geometry.parts[urban ? Concrete : Timber],base,{-11,2.65,14},{7,3.2,14});
-		gable(geometry.parts[Roof],base,-15.3,-6.7,5.8,22.2,4.35,5.65);
+		if (!terminal)
+		{
+			gable(geometry.parts[Roof], base, -15.3, -6.7, 5.8, 22.2, 4.35, 5.65);
+		}
+		else
+		{
+			const auto& settings = GenerationSettings::get();
+			const double width = settings.landmarks_terminalWidth, length = settings.landmarks_terminalLength;
+			// 線路上の橋上コンコース。柱はホーム上に置き、車両限界を空ける。
+			box(geometry.parts[Concrete], base, {0, 7.0, length * .5 + 3}, {width, .45, length});
+			box(geometry.parts[Roof], base, {0, 11.6, length * .5 + 3}, {width + 1, .28, length + 1});
+			for (const double x : {-width * .5, width * .5})
+			{
+				box(geometry.parts[Glass], base, {x, 9.35, length * .5 + 3}, {.12, 4.3, length});
+				for (double z = 4; z < length + 3; z += 6)
+				{
+					box(geometry.parts[Steel], base, {x, 9.35, z}, {.22, 4.5, .22});
+				}
+			}
+			for (const double z : {3.0, length + 3})
+			{
+				box(geometry.parts[Glass], base, {0, 9.35, z}, {width, 4.3, .12});
+			}
+			for (const double x : {-7.4, 7.4})
+			{
+				for (double z = 8; z < length; z += 12)
+				{
+					box(geometry.parts[Concrete], base, {x, 4.0, z}, {.55, 6, .55});
+				}
+			}
+			// 改札機、ホーム連絡エレベーター、タクシー・バス待合を一体化。
+			for (const double x : {-4.0, -2.0, 0.0, 2.0, 4.0})
+			{
+				box(geometry.parts[Steel], base, {x, 7.8, 9}, {.5, 1.1, 1.8});
+			}
+			for (const double x : {-6.9, 6.9})
+			{
+				box(geometry.parts[Glass], base, {x, 4.1, 20}, {2.2, 6.2, 2.5});
+			}
+			// バス・タクシーの待合はホーム標高でなく、実際の地表へ下ろす。
+			const double forecourtGround=groundAt(world,base.point(-12,0,38))-base.origin.y;
+			box(geometry.parts[Concrete],base,{-12,forecourtGround+.03,38},{6,.06,12});
+			box(geometry.parts[Roof], base, {-12, forecourtGround+3.0, 38}, {5.5, .15, 10});
+			for (const double z : {34.0, 42.0})
+			{
+				box(geometry.parts[Steel], base, {-14, forecourtGround+1.5, z}, {.12, 3.0, .12});
+			}
+			geometry.signs << Sign{base.point(0, 10.1, 2.85), base.right, node->name + U" ターミナル", width * .7};
+			geometry.signs << Sign{base.point(-12, forecourtGround+2.5, 33), base.right, U"バス・タクシー", 5};
+		}
 		for (const double z : {9.0,14.0,19.0})
 		{
 			box(geometry.parts[Steel],base,{-7.46,2.75,z},{.10,1.65,2.8});

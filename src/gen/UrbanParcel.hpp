@@ -74,9 +74,10 @@ namespace UrbanParcel
 		const int globalCol = coord.x * ZONE_CELLS + col;
 		const int globalRow = coord.y * ZONE_CELLS + row;
 		const Building& owner = world.getChunk(coord)->buildingGrid[{col, row}];
-		for (int dz = -5; dz <= 5; ++dz)
+		const int range=Max(5,static_cast<int>(Ceil((buildingFootprintXZ(owner.type)+maximumBuildingFootprint())/kCellSize))+2);
+		for (int dz = -range; dz <= range; ++dz)
 		{
-			for (int dx = -5; dx <= 5; ++dx)
+			for (int dx = -range; dx <= range; ++dx)
 			{
 				if (dx == 0 && dz == 0) { continue; }
 				const int x = globalCol + dx, z = globalRow + dz;

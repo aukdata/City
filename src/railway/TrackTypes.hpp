@@ -11,6 +11,9 @@ enum class TrackNodeType : uint8
 	Buffer,   ///< 車止め（端点）
 };
 
+/// @brief 駅施設の構成。地下でも駅ノードは実際のホーム標高を保持する。
+enum class StationKind : uint8 { Local, Terminal, Underground };
+
 /// @brief 線路ノード（交差点・駅・端点）
 struct TrackNode
 {
@@ -19,6 +22,9 @@ struct TrackNode
 	TrackNodeType type     = TrackNodeType::Joint;
 	Array<int>    edgeIds;          ///< 接続する TrackEdge id リスト
 	String        name;             ///< 駅名（type==Station の場合）
+
+	StationKind stationKind = StationKind::Local;
+	Optional<Vec3> entrance; ///< 地上の徒歩入口。ホームとの上下移動を徒歩リンクで接続する。
 
 	/// @brief 有効なノードか
 	bool isValid() const { return id >= 0; }

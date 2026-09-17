@@ -14,7 +14,7 @@ namespace TunnelGeometry
 	[[nodiscard]] Array<Section> buildRoadNetwork(const World& world,const RoadNetwork& roads);
 	inline constexpr int kArchSegments = 32;
 	/// @brief 同一の測点断面で覆工と切削を連続させる。GPU資源の生成は描画側で行う。
-	[[nodiscard]] Geometry build(const CubicBezier& curve,const World& world,double width,bool railwayTrack);
+	[[nodiscard]] Geometry build(const CubicBezier& curve,const World& world,double width,bool railwayTrack,bool stationA=false,bool stationB=false);
 	/// @brief 同じ馬蹄断面を閉じたブーリアン用切削ソリッドへ押し出す。
 	inline MeshData cutter(Vec3 a,Vec3 b,double halfWidth,double crown)
 	{
@@ -50,30 +50,31 @@ namespace TunnelGeometry
 		for (auto& vertex : block.vertices) { const Vec3 p{vertex.pos}; vertex.pos=Float3{center+right*p.x+Vec3{0,p.y,0}+along*p.z}; }
 		block.computeNormals();return MeshBoolean::difference(block,cutter(center-along*2,center+along*2,half,crown));
 	}
-	inline MeshData lining(Vec3 a,Vec3 b,Vec3 rightA,Vec3 rightB,double halfWidth,double crown,bool portal=false)
+	inline MeshData lining(Vec3 a,Vec3 b,Vec3 rightA,Vec3 rightB,double halfWidth,double crown,bool portal=false,double endHalfWidth=-1)
 	{
 		MeshData mesh;
-		const auto section=[&](Vec3 center,Vec3 right,int index,double thickness)
+		const double endWidth=endHalfWidth<0 ? halfWidth : endHalfWidth;
+		const auto section=[&](Vec3 center,Vec3 right,int index,double thickness,double half)
 		{
 			const double angle=index*Math::Pi/kArchSegments;
-			return center+right*(Cos(angle)*(halfWidth+thickness))+Vec3{0,2.2+Sin(angle)*(crown-2.2+thickness),0};
+			return center+right*(Cos(angle)*(half+thickness))+Vec3{0,2.2+Sin(angle)*(crown-2.2+thickness),0};
 		};
 		for (int i=0;i<kArchSegments;++i)
 		{
-			const Vec3 p=section(a,rightA,i,0),q=section(a,rightA,i+1,0),r=section(b,rightB,i+1,0),s=section(b,rightB,i,0);
+			const Vec3 p=section(a,rightA,i,0,halfWidth),q=section(a,rightA,i+1,0,halfWidth),r=section(b,rightB,i+1,0,endWidth),s=section(b,rightB,i,0,endWidth);
 			BridgeStructure::quad(mesh,p,s,r,q); // inward facing vault
 			const double thickness=portal ? .65 : .35;
-			const Vec3 pp=section(a,rightA,i,thickness),qq=section(a,rightA,i+1,thickness),rr=section(b,rightB,i+1,thickness),ss=section(b,rightB,i,thickness);
+			const Vec3 pp=section(a,rightA,i,thickness,halfWidth),qq=section(a,rightA,i+1,thickness,halfWidth),rr=section(b,rightB,i+1,thickness,endWidth),ss=section(b,rightB,i,thickness,endWidth);
 			BridgeStructure::quad(mesh,pp,qq,rr,ss);
 			if (portal) { BridgeStructure::quad(mesh,p,pp,qq,q); BridgeStructure::quad(mesh,s,r,rr,ss); }
 		}
 		for (const int side : {-1,1})
 		{
-			const Vec3 p=a+rightA*(halfWidth*side)-Vec3{0,.35,0},q=b+rightB*(halfWidth*side)-Vec3{0,.35,0};
+			const Vec3 p=a+rightA*(halfWidth*side)-Vec3{0,.35,0},q=b+rightB*(endWidth*side)-Vec3{0,.35,0};
 			BridgeStructure::quad(mesh,p,q,q+Vec3{0,2.55,0},p+Vec3{0,2.55,0});
 			BridgeStructure::quad(mesh,p,p+Vec3{0,2.55,0},q+Vec3{0,2.55,0},q);
 		}
-		BridgeStructure::quad(mesh,a-rightA*halfWidth-Vec3{0,.35,0},b-rightB*halfWidth-Vec3{0,.35,0},b+rightB*halfWidth-Vec3{0,.35,0},a+rightA*halfWidth-Vec3{0,.35,0});
+		BridgeStructure::quad(mesh,a-rightA*halfWidth-Vec3{0,.35,0},b-rightB*endWidth-Vec3{0,.35,0},b+rightB*endWidth-Vec3{0,.35,0},a+rightA*halfWidth-Vec3{0,.35,0});
 		return mesh;
 	}
 }

@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: landmarks",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "footprint_OfficeTower",
+    "footprint_CityHall",
+    "footprint_ShoppingMall",
+    "footprint_Hospital",
+    "footprint_School",
+    "height_OfficeTower",
+    "height_CityHall",
+    "height_ShoppingMall",
+    "height_Hospital",
+    "height_School",
+    "towerVariants",
+    "towerCountMetropolitan",
+    "towerCountCoastal",
+    "towerCountRegional",
+    "cityHallCount",
+    "hospitalCount",
+    "schoolCount",
+    "mallCount",
+    "siteSampleSpacing",
+    "terrainSampleSpacing",
+    "maximumRelief",
+    "setback",
+    "siteSeparation",
+    "schoolSeparation",
+    "towerMinimumIntensity",
+    "mallMinimumRadius",
+    "mallMaximumRadius",
+    "mallMinimumRoadWidth",
+    "subwayDepth",
+    "subwayMaximumDepth",
+    "subwayOffset",
+    "subwayMinimumLength",
+    "subwayHalfLength",
+    "subwayHeadwayMinutes",
+    "terminalWidth",
+    "terminalLength"
+  ],
+  "properties": {
+    "footprint_OfficeTower": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "footprint_CityHall": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "footprint_ShoppingMall": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "footprint_Hospital": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "footprint_School": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "height_OfficeTower": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "height_CityHall": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "height_ShoppingMall": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "height_Hospital": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "height_School": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "towerVariants": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 2.0
+    },
+    "towerCountMetropolitan": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "towerCountCoastal": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "towerCountRegional": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "cityHallCount": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "hospitalCount": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "schoolCount": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "mallCount": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 32.0
+    },
+    "siteSampleSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "terrainSampleSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "maximumRelief": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "setback": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "siteSeparation": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "schoolSeparation": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "towerMinimumIntensity": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 1.0
+    },
+    "mallMinimumRadius": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "mallMaximumRadius": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "mallMinimumRoadWidth": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayDepth": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayMaximumDepth": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayOffset": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayMinimumLength": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayHalfLength": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "subwayHeadwayMinutes": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "terminalWidth": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    },
+    "terminalLength": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 2000.0
+    }
+  }
+}

@@ -235,6 +235,7 @@
     <ClCompile Include="src\gen\SettlementDevelopment.cpp" />
     <ClCompile Include="src\gen\NewTownLayout.cpp" />
     <ClCompile Include="src\gen\UrbanStructure.cpp" />
+    <ClCompile Include="src\gen\UrbanFacilities.cpp" />
     <ClCompile Include="src\gen\SettlementPlacement.cpp" />
     <ClCompile Include="src\gen\SettlementFringe.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
@@ -561,6 +562,7 @@
     <ClInclude Include="src\gen\SettlementDevelopment.hpp" />
     <ClInclude Include="src\gen\NewTownLayout.hpp" />
     <ClInclude Include="src\gen\UrbanStructure.hpp" />
+    <ClInclude Include="src\gen\UrbanFacilities.hpp" />
     <ClInclude Include="src\gen\SettlementPlacement.hpp" />
     <ClInclude Include="src\road\SignArtwork.hpp" />
     <ClInclude Include="src\ui\WorldMapView.hpp" />

@@ -1,0 +1,21 @@
+﻿{
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "UrbanFacilities.ModelsAndGpu",
+      "status": "passed",
+      "durationMs": 231.413,
+      "failures": [
+      ]
+    },
+    {
+      "name": "UrbanFacilities.GeneratedAccess",
+      "status": "passed",
+      "durationMs": 2423.220,
+      "failures": [
+      ]
+    }
+  ]
+}

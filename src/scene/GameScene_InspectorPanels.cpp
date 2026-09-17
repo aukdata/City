@@ -203,7 +203,8 @@ void GameScene::drawBuildingPanel()
 	static constexpr StringView typeNames[] = {
 		U"(None)", U"戸建て住宅", U"低層マンション", U"中層マンション", U"高層マンション",
 		U"店舗", U"オフィス", U"工場", U"農地", U"公園", U"公共施設", U"駐車場", U"コンビニ（都市型）", U"コンビニ（郊外型）",
-		U"給油所（都市型）", U"給油所（郊外型）", U"田舎の民家"
+		U"給油所（都市型）", U"給油所（郊外型）", U"田舎の民家",
+		U"高層オフィス", U"市役所", U"郊外ショッピングモール", U"総合病院", U"学校"
 	};
 	const int typeIdx = static_cast<int>(b.type);
 	const StringView typeName = (typeIdx >= 0 && typeIdx < static_cast<int>(std::size(typeNames)))
