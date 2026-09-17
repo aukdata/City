@@ -1,0 +1,35 @@
+﻿{
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "IntegrationRefactoring.NodeIndexMatchesFullScan",
+      "status": "passed",
+      "durationMs": 0.243,
+      "failures": [
+      ]
+    },
+    {
+      "name": "IntegrationRefactoring.NodeIndexSelectionPolicy",
+      "status": "passed",
+      "durationMs": 0.031,
+      "failures": [
+      ]
+    },
+    {
+      "name": "IntegrationRefactoring.SignalAnchorAsymmetricRoad",
+      "status": "passed",
+      "durationMs": 0.015,
+      "failures": [
+      ]
+    },
+    {
+      "name": "IntegrationRefactoring.SignalAnchorCurveAndFallback",
+      "status": "passed",
+      "durationMs": 0.013,
+      "failures": [
+      ]
+    }
+  ]
+}

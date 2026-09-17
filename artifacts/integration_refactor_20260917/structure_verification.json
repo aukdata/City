@@ -1,0 +1,93 @@
+{
+  "methodsChecked": 50,
+  "unchangedMethodBodies": 49,
+  "intentionalChanges": [
+    "RoadRenderer::ensureSignalAttachGeomCache"
+  ],
+  "originalMethodsPresentOnce": 97,
+  "projects": {
+    "City.vcxproj": {
+      "compileFiles": 116,
+      "added": [
+        "src\\render\\RoadRenderer_Signals.cpp",
+        "src\\scene\\GameScene_Capture.cpp",
+        "src\\scene\\GameScene_Generation.cpp",
+        "src\\scene\\GameScene_InspectorPanels.cpp",
+        "src\\scene\\GameScene_Loading.cpp",
+        "src\\scene\\GameScene_SignalPanel.cpp",
+        "src\\scene\\GameScene_Storage.cpp"
+      ],
+      "removed": [],
+      "missing": []
+    },
+    "Test/Test.vcxproj": {
+      "compileFiles": 113,
+      "added": [
+        "..\\src\\render\\RoadRenderer_Signals.cpp",
+        "IntegrationRefactoringTests.cpp"
+      ],
+      "removed": [],
+      "missing": []
+    }
+  },
+  "changedSourceEncodingPassed": 21,
+  "changedFiles": [
+    ".codex/refactor.md",
+    ".codex/review.md",
+    ".editorconfig",
+    "City.vcxproj",
+    "City.vcxproj.filters",
+    "Test/IntegrationRefactoringTests.cpp",
+    "Test/Main.cpp",
+    "Test/Test.vcxproj",
+    "Test/Test.vcxproj.filters",
+    "Test/TestCases.hpp",
+    "plan/00_current_implementation.md",
+    "plan/SPEC_INDEX.md",
+    "src/gen/DistrictRoads.cpp",
+    "src/gen/MapGenerator.cpp",
+    "src/gen/RoadNodeIndex.hpp",
+    "src/render/RoadRenderer.cpp",
+    "src/render/RoadRenderer_Signals.cpp",
+    "src/road/RoadGeometry.cpp",
+    "src/road/RoadGeometry.hpp",
+    "src/scene/GameScene.cpp",
+    "src/scene/GameScene.hpp",
+    "src/scene/GameScene_Capture.cpp",
+    "src/scene/GameScene_Generation.cpp",
+    "src/scene/GameScene_Input.cpp",
+    "src/scene/GameScene_InspectorPanels.cpp",
+    "src/scene/GameScene_Loading.cpp",
+    "src/scene/GameScene_Panels.cpp",
+    "src/scene/GameScene_SignalPanel.cpp",
+    "src/scene/GameScene_Storage.cpp",
+    "src/ui/RoadDiagramStyle.hpp"
+  ],
+  "lineCounts": {
+    "src/scene/GameScene.cpp": {
+      "before": 2480,
+      "after": 300
+    },
+    "src/scene/GameScene_Panels.cpp": {
+      "before": 2679,
+      "after": 1863
+    },
+    "src/render/RoadRenderer.cpp": {
+      "before": 2819,
+      "after": 2449
+    },
+    "src/gen/MapGenerator.cpp": {
+      "before": 862,
+      "after": 815
+    },
+    "src/gen/DistrictRoads.cpp": {
+      "before": 1821,
+      "after": 1762
+    }
+  },
+  "baselineExactMethodBodies": 47,
+  "fontAccessorOnly": [
+    "GameScene::drawVehiclePanel",
+    "GameScene::drawSignalEditPanel"
+  ]
+}
