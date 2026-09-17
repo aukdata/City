@@ -33,19 +33,23 @@ namespace RailwayAlignment
 		};
 		for (const auto& town : towns)
 		{
-			if (!town.plan.station) { continue; }
-			const Vec2 point=town.center+town.gridAxisX*town.plan.station->x+town.gridAxisZ*town.plan.station->y;
-			double required=Max(world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationBaseElevation,crossings.minimumRailHeight(point,GenerationSettings::get().railway_stationRoadMargin)+GenerationSettings::get().railway_stationRoadClearance);
-			for (int i=0;i<16;++i) for (const double distance : {GenerationSettings::get().railway_stationSurveyRadius0,GenerationSettings::get().railway_stationSurveyRadius1,GenerationSettings::get().railway_stationSurveyRadius2})
+			const auto positions=UrbanStructure::stationPositions(town.plan);
+			for (size_t stationIndex=0;stationIndex<positions.size();++stationIndex)
 			{
-				const Vec2 around=point+Vec2{Cos(i*Math::TwoPi/16),Sin(i*Math::TwoPi/16)}*distance;
-				required=Max(required,crossings.minimumRailHeight(around,GenerationSettings::get().railway_stationSurveyRoadMargin)+GenerationSettings::get().railway_stationRoadClearance-distance*GenerationSettings::get().railway_stationApproachGrade);
+				const Vec2 local=positions[stationIndex];
+				const Vec2 point=town.center+town.gridAxisX*local.x+town.gridAxisZ*local.y;
+				double required=Max(world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationBaseElevation,crossings.minimumRailHeight(point,GenerationSettings::get().railway_stationRoadMargin)+GenerationSettings::get().railway_stationRoadClearance);
+				for (int i=0;i<16;++i) for (const double distance : {GenerationSettings::get().railway_stationSurveyRadius0,GenerationSettings::get().railway_stationSurveyRadius1,GenerationSettings::get().railway_stationSurveyRadius2})
+				{
+					const Vec2 around=point+Vec2{Cos(i*Math::TwoPi/16),Sin(i*Math::TwoPi/16)}*distance;
+					required=Max(required,crossings.minimumRailHeight(around,GenerationSettings::get().railway_stationSurveyRoadMargin)+GenerationSettings::get().railway_stationRoadClearance-distance*GenerationSettings::get().railway_stationApproachGrade);
+				}
+				required=Min(required,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationMaximumElevation);
+				const double elevation=std::ceil(required/.5)*.5;
+				const int id=static_cast<int>(candidates.size());
+				candidates << StationCandidate{{point.x,elevation,point.y},stationIndex==0 ? town.name : U"{}第{}地区"_fmt(town.name,stationIndex+1)};
+				stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
 			}
-			required=Min(required,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationMaximumElevation);
-			const double elevation=std::ceil(required/.5)*.5;
-			const int id=static_cast<int>(candidates.size());
-			candidates << StationCandidate{{point.x,elevation,point.y},town.name};
-			stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
 		}
 		if (stations.size()<2) { return; }
 		HashSet<int> connected{stations.front()}; HashSet<uint64> rejected; int lines=0,failures=0;

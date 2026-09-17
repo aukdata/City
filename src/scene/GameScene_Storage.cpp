@@ -108,6 +108,7 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 		districts[U"name_{}"_fmt(index)] = settlement.name;
 		districts[U"reading_{}"_fmt(index)] = settlement.reading;
 		const auto& plan=settlement.plan;
+		districts[U"structure_{}"_fmt(index)]=UrbanStructure::saveLayout(plan);
 		districts[U"origin_{}"_fmt(index)]=static_cast<int>(plan.origin);
 		districts[U"ruralForm_{}"_fmt(index)]=static_cast<int>(plan.ruralForm);
 		districts[U"halfX_{}"_fmt(index)]=plan.halfExtent.x;
@@ -482,6 +483,7 @@ bool GameScene::loadGame()
 					Vec2{dist[U"fringeAX_{}_{}"_fmt(i,street)].get<double>(),dist[U"fringeAZ_{}_{}"_fmt(i,street)].get<double>()},
 					Vec2{dist[U"fringeBX_{}_{}"_fmt(i,street)].get<double>(),dist[U"fringeBZ_{}_{}"_fmt(i,street)].get<double>()}};
 			}
+			UrbanStructure::restoreLayout(s.plan,dist[U"structure_{}"_fmt(i)]);
 			s.gridAxisX={dist[U"axisX_{}"_fmt(i)].getOr<double>(1),dist[U"axisZ_{}"_fmt(i)].getOr<double>(0)};
 			s.gridAxisZ={-s.gridAxisX.y,s.gridAxisX.x};
 			settlements << s;

@@ -1233,6 +1233,7 @@ namespace DistrictRoads
 						};
 						settlement.plan.station=Vec2{center(x,settlement.plan.station->x),center(z,settlement.plan.station->y)};
 					}
+					UrbanStructure::alignCenters(settlement.plan);
 					return true;
 				}
 				if (Min(settlement.plan.halfExtent.x,settlement.plan.halfExtent.y)*GenerationSettings::get().districtRoads_townShrinkRatio<GenerationSettings::get().districtRoads_minimumTownHalfExtent) { return false; }
@@ -1347,7 +1348,7 @@ namespace DistrictRoads
 
 			// 3) グリッド軸：街道が通過する場合はその方向を優先し、settlement に保存（buildCastleTownFrames と共有）
 			Vec2 axisX, axisZ;
-			if (plan.origin==UrbanMorphology::Origin::Port || (plan.origin==UrbanMorphology::Origin::Rural && plan.ruralForm==UrbanMorphology::RuralForm::Valley))
+			if (plan.origin==UrbanMorphology::Origin::Port || plan.structure==UrbanStructure::Type::CoastalHubs || plan.structure==UrbanStructure::Type::ConstrainedLinear || (plan.origin==UrbanMorphology::Origin::Rural && plan.ruralForm==UrbanMorphology::RuralForm::Valley))
 			{
 				axisX=settlement.gridAxisX; axisZ=settlement.gridAxisZ;
 			}
@@ -1431,6 +1432,7 @@ namespace DistrictRoads
 		auto tryAddGridEdge = [&](int colA, int rowA, int colB, int rowB)
 		{
 			if (!UrbanMorphology::allowStreet(plan,{coordsX[colA],coordsZ[rowA]},{coordsX[colB],coordsZ[rowB]})) { return; }
+			if (plan.structure!=UrbanStructure::Type::None && !UrbanStructure::allowStreet(plan,coordsX,coordsZ,colA,rowA,colB,rowB)) { return; }
 
 			const bool outerFrame = (colA == colB && (colA == 0 || colA == n - 1))
 				|| (rowA == rowB && (rowA == 0 || rowA == rows - 1));
@@ -1478,7 +1480,8 @@ namespace DistrictRoads
 				const Role role=plan.scale==2 ? (offset==0 ? Role::Village : Role::FarmAccess)
 					: (boulevard ? Role::MainArterial : (collector ? Role::Collector : (oneWay ? Role::OneWay
 					: (plan.origin==UrbanMorphology::Origin::Planned ? Role::ResidentialWalkways : Role::Local))));
-				GeneratedStreet::Profile profile=GeneratedStreet::describe(role);
+				GeneratedStreet::Profile profile=GeneratedStreet::describe(plan.structure==UrbanStructure::Type::None ? role
+					: UrbanStructure::streetRole(plan,coordsX,coordsZ,colA,rowA,colB,rowB));
 				if (corridor==stationCorridor) { profile.walkwayLeft=profile.walkwayRight=GenerationSettings::get().districtRoads_stationWalkwayWidth; }
 				if (outerFrame && plan.scale!=2)
 				{

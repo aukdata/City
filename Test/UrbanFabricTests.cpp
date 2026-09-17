@@ -181,7 +181,7 @@ void registerUrbanFabricTests(TestRunner& runner)
 									for (const Vec2 corner:ParcelGeometry::footprint(center,buildingFootprintXZ(building.type)*.5,building.angle))
 									{
 										const Vec2 offset=corner-town.center;
-										context.expect(!UrbanMorphology::isNewTownGreen(town.plan,{offset.dot(town.gridAxisX),offset.dot(town.gridAxisZ)}),U"Final building footprints leave the greenway reservation clear");
+										context.expect(!UrbanMorphology::isReservedGreen(town.plan,{offset.dot(town.gridAxisX),offset.dot(town.gridAxisZ)}),U"Final building footprints leave the greenway reservation clear");
 									}
 								}
 								const Vec2 delta = center - town.center;

@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity urban structures",
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "weight",
+        "maximumRelief",
+        "minimumRelief",
+        "shoreRange",
+        "extentX",
+        "extentZ",
+        "spacingX",
+        "spacingZ",
+        "cubicWeight",
+        "collectorEvery",
+        "staggerEvery",
+        "ringRatio",
+        "crossBoulevard",
+        "backgroundIntensity",
+        "outerOccupancy",
+        "coreFrontage",
+        "outerFrontage",
+        "coreHighShare",
+        "coreOfficeShare",
+        "coreMidShare",
+        "innerDetachedShare",
+        "outerDetachedShare",
+        "housingMidShare",
+        "coreRadiusRatio",
+        "edgeFadeEnd",
+        "edgeFadeWidth",
+        "shoppingOfficeRatio",
+        "centers",
+        "greenAreas"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 100.0
+        },
+        "maximumRelief": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 2000.0
+        },
+        "minimumRelief": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 2000.0
+        },
+        "shoreRange": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 10000.0
+        },
+        "extentX": {
+          "type": "number",
+          "minimum": 300.0,
+          "maximum": 1800.0
+        },
+        "extentZ": {
+          "type": "number",
+          "minimum": 250.0,
+          "maximum": 1800.0
+        },
+        "spacingX": {
+          "type": "number",
+          "minimum": 45.0,
+          "maximum": 200.0
+        },
+        "spacingZ": {
+          "type": "number",
+          "minimum": 45.0,
+          "maximum": 200.0
+        },
+        "cubicWeight": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 0.4
+        },
+        "collectorEvery": {
+          "type": "integer",
+          "minimum": 2.0,
+          "maximum": 8.0
+        },
+        "staggerEvery": {
+          "type": "integer",
+          "minimum": 0.0,
+          "maximum": 8.0
+        },
+        "ringRatio": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 0.85
+        },
+        "crossBoulevard": {
+          "type": "integer",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "backgroundIntensity": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "outerOccupancy": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "coreFrontage": {
+          "type": "number",
+          "minimum": 10.0,
+          "maximum": 30.0
+        },
+        "outerFrontage": {
+          "type": "number",
+          "minimum": 12.0,
+          "maximum": 40.0
+        },
+        "coreHighShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "coreOfficeShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "coreMidShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "innerDetachedShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "outerDetachedShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "housingMidShare": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "coreRadiusRatio": {
+          "type": "number",
+          "minimum": 0.2,
+          "maximum": 0.9
+        },
+        "edgeFadeEnd": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 1.5
+        },
+        "edgeFadeWidth": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 0.6
+        },
+        "shoppingOfficeRatio": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "centers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "z",
+              "radius",
+              "role",
+              "rail"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": -0.85,
+                "maximum": 0.85
+              },
+              "z": {
+                "type": "number",
+                "minimum": -0.85,
+                "maximum": 0.85
+              },
+              "radius": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.8
+              },
+              "role": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              },
+              "rail": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "greenAreas": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "z",
+              "w",
+              "h"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": -0.95,
+                "maximum": 0.95
+              },
+              "z": {
+                "type": "number",
+                "minimum": -0.95,
+                "maximum": 0.95
+              },
+              "w": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 1.9
+              },
+              "h": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 1.9
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metropolitan",
+    "historic_grid",
+    "transit_corridor",
+    "coastal_hubs",
+    "planned_grid",
+    "constrained_linear",
+    "regional_hub"
+  ],
+  "properties": {
+    "metropolitan": {
+      "$ref": "#/$defs/profile"
+    },
+    "historic_grid": {
+      "$ref": "#/$defs/profile"
+    },
+    "transit_corridor": {
+      "$ref": "#/$defs/profile"
+    },
+    "coastal_hubs": {
+      "$ref": "#/$defs/profile"
+    },
+    "planned_grid": {
+      "$ref": "#/$defs/profile"
+    },
+    "constrained_linear": {
+      "$ref": "#/$defs/profile"
+    },
+    "regional_hub": {
+      "$ref": "#/$defs/profile"
+    }
+  }
+}

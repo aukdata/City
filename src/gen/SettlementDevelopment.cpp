@@ -368,7 +368,15 @@ namespace
 			const auto use=UrbanMorphology::sample(settlement.plan,planLocal(settlement,position));
 			const uint32 roll=(hash/17u)%100u;
 			const Vec2 local=planLocal(settlement,position);
-			if (settlement.plan.station && Abs(local.x-settlement.plan.station->x)<GenerationSettings::get().development_stationKeepoutX && Abs(local.y-settlement.plan.station->y)<GenerationSettings::get().development_stationKeepoutZ)
+			const auto nearStation=[&](Vec2 station)
+			{
+				return Abs(local.x-station.x)<GenerationSettings::get().development_stationKeepoutX
+					&& Abs(local.y-station.y)<GenerationSettings::get().development_stationKeepoutZ;
+			};
+			const bool reservedStation=settlement.plan.structure==UrbanStructure::Type::None
+				? (settlement.plan.station && nearStation(*settlement.plan.station))
+				: settlement.plan.centers.any([&](const UrbanStructure::Center& center) { return center.rail && nearStation(center.position); });
+			if (reservedStation)
 			{
 				building.type=BuildingType::None; return;
 			}
@@ -416,6 +424,7 @@ namespace
 				if (use.district==UrbanMorphology::District::PlannedHousing) { building.type=roll<GenerationSettings::get().urbanFabric_newTownMidrisePercent ? BuildingType::MidApartment : BuildingType::LowApartment; }
 				if (use.district==UrbanMorphology::District::Housing) { building.type=roll<GenerationSettings::get().urbanFabric_newTownDetachedPercent ? BuildingType::Detached : BuildingType::LowApartment; }
 			}
+			UrbanStructure::adaptBuilding(building,settlement.plan,local,roll);
 			if (building.type == BuildingType::Detached
 				&& (settlement.plan.scale == 2 || !UrbanMorphology::inCore(settlement.plan, local,GenerationSettings::get().development_ruralHouseCoreMargin))
 				&& (hash / 101u) % 100u < GenerationSettings::get().development_context_Housing_70)
@@ -673,7 +682,7 @@ namespace
 			const Vec3 middle=bez->positionAt(bez->totalLength*0.5f);
 			const Vec2 localMiddle=planLocal(settlement,{middle.x,middle.z});
 			const auto use=UrbanMorphology::sample(settlement.plan,localMiddle);
-			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned ? static_cast<float>(use.frontage)
+			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned || settlement.plan.structure!=UrbanStructure::Type::None ? static_cast<float>(use.frontage)
 				: static_cast<float>(Math::Lerp(static_cast<double>(Min(settlement.plan.scale<2 ? GenerationSettings::get().development_urbanFrontagePitch : GenerationSettings::get().development_ruralFrontagePitch,static_cast<float>(use.frontage))),
 				GenerationSettings::get().urbanFabric_downtownFrontagePitch,UrbanMorphology::downtownIntensity(settlement.plan,localMiddle)));
 			
@@ -791,10 +800,10 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		// セル中心から接道位置へ移した後の建物全体で確認し、緑道沿いの角地へのはみ出しを防ぐ。
 		for (const auto& district:m_districts)
 		{
-			if (district.plan.origin!=UrbanMorphology::Origin::Planned) { continue; }
+			if (district.plan.origin!=UrbanMorphology::Origin::Planned && district.plan.neighborhoodParks.isEmpty()) { continue; }
 			for (const Vec2 corner:footprint)
 			{
-				if (UrbanMorphology::isNewTownGreen(district.plan,planLocal(district,corner))) { ++rejectedGreen; return false; }
+				if (UrbanMorphology::isReservedGreen(district.plan,planLocal(district,corner))) { ++rejectedGreen; return false; }
 			}
 		}
 		float minHeight = Math::Inf, maxHeight = -Math::Inf;
@@ -1052,7 +1061,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			}
 			if (within) { town=&candidate; break; }
 		}
-		if (!town || (town->plan.origin==UrbanMorphology::Origin::Planned && UrbanMorphology::isNewTownGreen(town->plan,planLocal(*town,block.center)))) { continue; }
+		if (!town || UrbanMorphology::isReservedGreen(town->plan,planLocal(*town,block.center))) { continue; }
 		++blockCount; bool occupied=false;
 		Point lowChunk,highChunk; int lowX,lowZ,highX,highZ;
 		worldToZoneCell(static_cast<float>(block.bounds.x),static_cast<float>(block.bounds.y),lowChunk,lowX,lowZ);

@@ -1,0 +1,373 @@
+{
+  "metropolitan": {
+    "name": "大都市多核型（東京・大阪）",
+    "weight": 1,
+    "maximumRelief": 70,
+    "minimumRelief": 0,
+    "shoreRange": 0,
+    "extentX": 1250,
+    "extentZ": 1100,
+    "spacingX": 76,
+    "spacingZ": 64,
+    "cubicWeight": 0.14,
+    "collectorEvery": 3,
+    "staggerEvery": 3,
+    "ringRatio": 0.62,
+    "crossBoulevard": 1,
+    "backgroundIntensity": 0.38,
+    "outerOccupancy": 0.9,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.36,
+    "coreOfficeShare": 0.32,
+    "coreMidShare": 0.2,
+    "innerDetachedShare": 0.12,
+    "outerDetachedShare": 0.48,
+    "housingMidShare": 0.38,
+    "centers": [
+      {
+        "x": 0,
+        "z": -0.3,
+        "radius": 0.46,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": -0.66,
+        "z": -0.3,
+        "radius": 0.38,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": 0.66,
+        "z": -0.3,
+        "radius": 0.38,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": 0.35,
+        "z": 0.48,
+        "radius": 0.32,
+        "role": 1,
+        "rail": false
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "historic_grid": {
+    "name": "歴史的細街区型（京都）",
+    "weight": 1,
+    "maximumRelief": 100,
+    "minimumRelief": 0,
+    "shoreRange": 0,
+    "extentX": 1050,
+    "extentZ": 950,
+    "spacingX": 98,
+    "spacingZ": 54,
+    "cubicWeight": 0,
+    "collectorEvery": 4,
+    "staggerEvery": 0,
+    "ringRatio": 0,
+    "crossBoulevard": 1,
+    "backgroundIntensity": 0.76,
+    "outerOccupancy": 0.91,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0,
+    "coreOfficeShare": 0,
+    "coreMidShare": 0.18,
+    "innerDetachedShare": 0.38,
+    "outerDetachedShare": 0.72,
+    "housingMidShare": 0.06,
+    "centers": [
+      {
+        "x": 0.38,
+        "z": 0,
+        "radius": 0.46,
+        "role": 1,
+        "rail": false
+      },
+      {
+        "x": 0,
+        "z": -0.65,
+        "radius": 0.34,
+        "role": 0,
+        "rail": true
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "transit_corridor": {
+    "name": "交通軸・沿線拠点型（富山）",
+    "weight": 1,
+    "maximumRelief": 100,
+    "minimumRelief": 0,
+    "shoreRange": 0,
+    "extentX": 1250,
+    "extentZ": 780,
+    "spacingX": 108,
+    "spacingZ": 88,
+    "cubicWeight": 0.06,
+    "collectorEvery": 5,
+    "staggerEvery": 3,
+    "ringRatio": 0,
+    "crossBoulevard": 0,
+    "backgroundIntensity": 0.08,
+    "outerOccupancy": 0.65,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.03,
+    "coreOfficeShare": 0.3,
+    "coreMidShare": 0.37,
+    "innerDetachedShare": 0.27,
+    "outerDetachedShare": 0.87,
+    "housingMidShare": 0.12,
+    "centers": [
+      {
+        "x": 0,
+        "z": -0.25,
+        "radius": 0.36,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": -0.68,
+        "z": -0.25,
+        "radius": 0.26,
+        "role": 1,
+        "rail": true
+      },
+      {
+        "x": 0.68,
+        "z": -0.25,
+        "radius": 0.26,
+        "role": 1,
+        "rail": true
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "coastal_hubs": {
+    "name": "臨海複合拠点型（福岡）",
+    "weight": 1,
+    "maximumRelief": 120,
+    "minimumRelief": 0,
+    "shoreRange": 2400,
+    "extentX": 1150,
+    "extentZ": 780,
+    "spacingX": 86,
+    "spacingZ": 72,
+    "cubicWeight": 0.14,
+    "collectorEvery": 3,
+    "staggerEvery": 4,
+    "ringRatio": 0,
+    "crossBoulevard": 1,
+    "backgroundIntensity": 0.38,
+    "outerOccupancy": 0.87,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.13,
+    "coreOfficeShare": 0.35,
+    "coreMidShare": 0.27,
+    "innerDetachedShare": 0.16,
+    "outerDetachedShare": 0.69,
+    "housingMidShare": 0.32,
+    "centers": [
+      {
+        "x": 0.43,
+        "z": 0,
+        "radius": 0.46,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": -0.43,
+        "z": 0,
+        "radius": 0.46,
+        "role": 1,
+        "rail": true
+      },
+      {
+        "x": 0,
+        "z": 0.62,
+        "radius": 0.26,
+        "role": 2,
+        "rail": false
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "planned_grid": {
+    "name": "計画格子・緑軸型（札幌）",
+    "weight": 1,
+    "maximumRelief": 30,
+    "minimumRelief": 0,
+    "shoreRange": 0,
+    "extentX": 1000,
+    "extentZ": 1000,
+    "spacingX": 104,
+    "spacingZ": 104,
+    "cubicWeight": 0,
+    "collectorEvery": 3,
+    "staggerEvery": 0,
+    "ringRatio": 0,
+    "crossBoulevard": 1,
+    "backgroundIntensity": 0.4,
+    "outerOccupancy": 0.88,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.1,
+    "coreOfficeShare": 0.36,
+    "coreMidShare": 0.24,
+    "innerDetachedShare": 0.2,
+    "outerDetachedShare": 0.7,
+    "housingMidShare": 0.32,
+    "centers": [
+      {
+        "x": 0,
+        "z": -0.58,
+        "radius": 0.42,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": 0,
+        "z": 0.35,
+        "radius": 0.43,
+        "role": 1,
+        "rail": false
+      }
+    ],
+    "greenAreas": [
+      {
+        "x": -0.78,
+        "z": 0.015,
+        "w": 1.56,
+        "h": 0.06
+      }
+    ],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "constrained_linear": {
+    "name": "地形制約・線状型（長崎）",
+    "weight": 1,
+    "maximumRelief": 2000,
+    "minimumRelief": 25,
+    "shoreRange": 0,
+    "extentX": 1400,
+    "extentZ": 420,
+    "spacingX": 100,
+    "spacingZ": 62,
+    "cubicWeight": 0.08,
+    "collectorEvery": 5,
+    "staggerEvery": 3,
+    "ringRatio": 0,
+    "crossBoulevard": 0,
+    "backgroundIntensity": 0.28,
+    "outerOccupancy": 0.79,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.02,
+    "coreOfficeShare": 0.23,
+    "coreMidShare": 0.38,
+    "innerDetachedShare": 0.23,
+    "outerDetachedShare": 0.8,
+    "housingMidShare": 0.18,
+    "centers": [
+      {
+        "x": 0,
+        "z": -0.12,
+        "radius": 0.55,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": -0.67,
+        "z": -0.12,
+        "radius": 0.4,
+        "role": 1,
+        "rail": true
+      },
+      {
+        "x": 0.67,
+        "z": -0.12,
+        "radius": 0.4,
+        "role": 1,
+        "rail": true
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  },
+  "regional_hub": {
+    "name": "広域中心・駅前連結型（仙台など）",
+    "weight": 1.5,
+    "maximumRelief": 2000,
+    "minimumRelief": 0,
+    "shoreRange": 0,
+    "extentX": 1100,
+    "extentZ": 900,
+    "spacingX": 85,
+    "spacingZ": 70,
+    "cubicWeight": 0.14,
+    "collectorEvery": 3,
+    "staggerEvery": 4,
+    "ringRatio": 0,
+    "crossBoulevard": 1,
+    "backgroundIntensity": 0.35,
+    "outerOccupancy": 0.82,
+    "coreFrontage": 13.8,
+    "outerFrontage": 18,
+    "coreHighShare": 0.12,
+    "coreOfficeShare": 0.32,
+    "coreMidShare": 0.28,
+    "innerDetachedShare": 0.22,
+    "outerDetachedShare": 0.7,
+    "housingMidShare": 0.22,
+    "centers": [
+      {
+        "x": 0.5,
+        "z": -0.28,
+        "radius": 0.43,
+        "role": 0,
+        "rail": true
+      },
+      {
+        "x": -0.3,
+        "z": 0,
+        "radius": 0.48,
+        "role": 1,
+        "rail": false
+      }
+    ],
+    "greenAreas": [],
+    "coreRadiusRatio": 0.58,
+    "edgeFadeEnd": 1.12,
+    "edgeFadeWidth": 0.3,
+    "shoppingOfficeRatio": 0.3
+  }
+}

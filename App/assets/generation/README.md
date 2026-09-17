@@ -40,3 +40,19 @@
 `roads.json` の `tunnelLengthScale` / `tunnelLengthPenalty` は連続トンネル長の指数罰則、`viaductHeightScale` / `viaductHeightPenalty` は高架高さの指数罰則です。尺度はm、罰則0で追加費用を無効にできます。
 
 `agriculture.json` は農道の分岐間隔・延伸・曲がりと地形変化の費用、不整形区画の大きさ、集落からの密度減衰、田舎の家の間隔を管理します。`homeMaximumDistance` は500mを超えられません。農道断面の幅・側溝は `streetProfiles.json` を参照します。
+
+## 現代都市の構造設定
+
+`urbanStructures.json` は地域中心都市の7類型を定義します。`UrbanStructure::load` が全キー、型・範囲、中心数、建物比率の合計などを検証します。設定は起動中に一度だけ読み込みます。`python scripts/generation_schema.py --check` はこのカタログも検証します。
+
+- `weight` は適地での選択重み。`minimumRelief` / `maximumRelief` は近傍の標高差[m]。`shoreRange` が0より大きい型はその距離[m]以内に水際が必要です。
+- `extentX/Z` は街域の半幅[m]。`spacingX/Z` は街路間隔[m]。`cubicWeight` は中央の街区を細かくする度合い。地形制約で半幅は縮小されます。
+- `collectorEvery` は集散道路の間隔[街区数]。`staggerEvery` は生活道路の丁字接続周期（0は連続格子）。`ringRatio` は外周連絡幹線の位置/半幅（0はなし）。`crossBoulevard` は長軸以外の中央幹線の有無。
+- `centers` のx/zは半幅を1とする地区座標、`radius` は短い方の半幅に対する影響半径。`role` は0業務、1商業、2水際交流。`rail` がtrueなら駅候補。実際に線形制約を満たした候補だけ建設されます。
+- `greenAreas` は同じ地区座標で表す公園の矩形。x/zが左上、w/hが幅と奥行き。通過道路は保持し、建物を除外します。
+- `backgroundIntensity` は核の外に残る市街地密度。`outerOccupancy` は外縁の建物候補採用率。`coreFrontage` / `outerFrontage` は候補間隔[m]です。
+- `coreHighShare` / `coreOfficeShare` / `coreMidShare` は中心部の高層住宅・業務・中層住宅の配分で、残りは店舗。核から遠ざかるほど高層・業務を減らします。`shoppingOfficeRatio` は商業核の業務配分倍率。
+- `innerDetachedShare` / `outerDetachedShare` は核周辺と外縁の戸建て率。残りの住宅に対する中層割合が `housingMidShare` です。
+- `coreRadiusRatio` は中心用途の範囲/影響半径。`edgeFadeEnd` / `edgeFadeWidth` は半幅に対する外縁減衰の終端と幅です。
+
+[比較調査](../../../plan/research/2026-09_japanese_city_structures.md)と[仕様](../../../plan/24_japanese_urban_morphology.md)を参照。数値はゲームの調整値で、実在都市の統計値や法的規制値ではありません。

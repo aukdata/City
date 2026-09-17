@@ -46,3 +46,5 @@
 - 実装構成: [コード構成と所有権](29_code_architecture.md)。担当ファイル、非同期処理、共有計算の入口。
 
 - 写真調査: [ニュータウンと中心街の密度](research/2026-09_newtown_photo_study.md)。実装は24章、計測結果は `artifacts/downtown_newtown_20260917/REVIEW.md`。
+
+- 都市比較: [日本の現代都市構造](research/2026-09_japanese_city_structures.md)。8都市の一次資料、7類型、生成への対応と限界。実装は24章§10。

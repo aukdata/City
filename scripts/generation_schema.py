@@ -62,6 +62,8 @@ def main():
         used |= fields & set(re.findall(r'\b\w+\b', source))
     assert fields <= used, f'Unused external settings: {fields - used}'
     print(f'{count} settings: all defaults, schemas and references valid')
+    from urban_structure_schema import check
+    check(args.check)
 
 
 if __name__ == '__main__':

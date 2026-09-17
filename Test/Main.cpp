@@ -20,6 +20,7 @@ void Main()
 	registerUrbanUsabilityTests(runner);
 	registerUrbanMorphologyTests(runner);
 	registerUrbanFabricTests(runner);
+	registerUrbanStructureTests(runner);
 	registerRegionalTerrainTests(runner);
 	registerPlayabilityTests(runner);
 	registerFringeAgricultureTests(runner);

@@ -865,6 +865,9 @@
     <ClCompile Include="..\src\gen\NewTownLayout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gen\UrbanStructure.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\gen\SettlementPlacement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -989,6 +992,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="UrbanFabricTests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UrbanStructureTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RegionalTerrainTests.cpp">

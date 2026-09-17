@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "GenerationSettings.hpp"
+#include "UrbanStructure.hpp"
 #include <Siv3D.hpp>
 
 /// @brief 地形・成立史から街路と土地利用に共通の計画を構成する。
@@ -23,6 +24,8 @@ namespace UrbanMorphology
 	struct Plan
 	{
 		Origin origin = Origin::Rural;
+		UrbanStructure::Type structure = UrbanStructure::Type::None;
+		Array<UrbanStructure::Center> centers; ///< 生成済みの現代拠点。起源とは独立。
 		RuralForm ruralForm = RuralForm::Clustered;
 		uint8 scale = 2;
 		uint64 salt = 0;
@@ -188,6 +191,7 @@ namespace UrbanMorphology
 	inline void rescale(Plan& plan, double factor)
 	{
 		plan.halfExtent*=factor; plan.oldCore*=factor;
+		for (auto& center:plan.centers) { center.position*=factor; center.radius*=factor; }
 		if (plan.station) { *plan.station*=factor; }
 		for (auto& line:plan.greenways) { line.begin*=factor; line.end*=factor; }
 		for (auto& park:plan.neighborhoodParks)
@@ -239,6 +243,7 @@ namespace UrbanMorphology
 	/// @brief 市の中心から外周へ連続的に弱める密度。計画住宅地・農村・工業地は別の町割りを保つ。
 	inline double downtownIntensity(const Plan& plan, Vec2 point)
 	{
+		if (plan.structure!=UrbanStructure::Type::None) { return UrbanStructure::intensity(plan,point); }
 		if (plan.scale!=0 || plan.origin==Origin::Planned || plan.origin==Origin::Rural || plan.origin==Origin::Industrial) { return 0; }
 		const auto& settings=GenerationSettings::get();
 		const double extent=Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y);
@@ -246,12 +251,13 @@ namespace UrbanMorphology
 			/settings.urbanFabric_downtownFadeExtent,0.0,1.0);
 	}
 
-	/// @brief 専用路の周囲を緑道として予約。実際に生成できた道だけを使う。
-	inline bool isNewTownGreen(const Plan& plan, Vec2 point)
+	/// @brief 都市の公園とニュータウンの緑道を予約。建物と補完配置で共有する。
+	inline bool isReservedGreen(const Plan& plan, Vec2 point)
 	{
-		if (plan.origin!=Origin::Planned || !inCore(plan,point)) { return false; }
-		if (Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y)>GenerationSettings::get().urbanFabric_newTownGreenBeltStart) { return true; }
+		if (!inCore(plan,point)) { return false; }
 		if (plan.neighborhoodParks.any([&](const Polygon& park) { return park.contains(point); })) { return true; }
+		if (plan.origin!=Origin::Planned) { return false; }
+		if (Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y)>GenerationSettings::get().urbanFabric_newTownGreenBeltStart) { return true; }
 		for (const auto& path:plan.greenways)
 		{
 			const Vec2 span=path.end-path.begin;
@@ -270,8 +276,9 @@ namespace UrbanMorphology
 			const double occupancy=GenerationSettings::get().settlements_fringeOccupancy*std::exp(-depth/(plan.scale==0 ? GenerationSettings::get().settlements_cityFringeDecayDistance : GenerationSettings::get().settlements_townFringeDecayDistance));
 			return fringeDistance(plan,point)<GenerationSettings::get().settlements_fringeWidth ? LandUse{District::Housing,Generation::Modern,occupancy,GenerationSettings::get().settlements_fringeFrontage} : LandUse{};
 		}
-		if (isNewTownGreen(plan,point)) { return {District::Civic,Generation::Modern,1,36}; }
+		if (isReservedGreen(plan,point)) { return {District::Civic,Generation::Modern,1,36}; }
 		if (plan.civic && plan.civic->contains(point)) { return {District::Civic,Generation::Historic,GenerationSettings::get().settlements_civicOccupancy,GenerationSettings::get().settlements_civicFrontage}; }
+		if (plan.structure!=UrbanStructure::Type::None) { return UrbanStructure::sample(plan,point); }
 		if (plan.industry.w>0 && plan.industry.contains(point)) { return {District::Industry,Generation::Modern,GenerationSettings::get().settlements_industryOccupancy,GenerationSettings::get().settlements_industryFrontage}; }
 		if (plan.origin==Origin::Rural)
 		{
@@ -335,6 +342,7 @@ namespace UrbanMorphology
 	/// @brief 街区の用途に応じて街路間隔を変える。各交差点にはノイズを加えない。
 	inline Array<float> streetCoordinates(const Plan& plan, bool crossAxis)
 	{
+		if (plan.structure!=UrbanStructure::Type::None) { return UrbanStructure::streetCoordinates(plan,crossAxis); }
 		const double extent=crossAxis ? plan.halfExtent.y : plan.halfExtent.x;
 		double spacing=crossAxis ? GenerationSettings::get().settlements_historicSpacingCross : GenerationSettings::get().settlements_historicSpacingAlong;
 		if (plan.origin==Origin::Post || plan.origin==Origin::Temple || plan.origin==Origin::Port) { spacing=crossAxis ? GenerationSettings::get().settlements_linearTownSpacingCross : GenerationSettings::get().settlements_linearTownSpacingAlong; }

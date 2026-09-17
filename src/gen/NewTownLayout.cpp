@@ -118,7 +118,7 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 				for (const int side:{-1,1})
 				{
 					const Vec2 candidate=Vec2{p.x,p.z}+right*(distance*side);
-					frontage |= block.contains(candidate) && !UrbanMorphology::isNewTownGreen(plan,local({candidate.x,0,candidate.y}));
+					frontage |= block.contains(candidate) && !UrbanMorphology::isReservedGreen(plan,local({candidate.x,0,candidate.y}));
 				}
 			}
 		}

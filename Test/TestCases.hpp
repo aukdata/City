@@ -23,6 +23,7 @@ void registerRoadIntegrityTests(TestRunner& runner);
 void registerUrbanUsabilityTests(TestRunner& runner);
 void registerUrbanMorphologyTests(TestRunner& runner);
 void registerUrbanFabricTests(TestRunner& runner);
+void registerUrbanStructureTests(TestRunner& runner);
 void registerRegionalTerrainTests(TestRunner& runner);
 void registerPlayabilityTests(TestRunner& runner);
 void registerFringeAgricultureTests(TestRunner& runner);

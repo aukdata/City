@@ -1243,6 +1243,9 @@
     <ClCompile Include="src\gen\NewTownLayout.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\gen\UrbanStructure.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\gen\SettlementPlacement.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1261,6 +1264,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\gen\NewTownLayout.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\UrbanStructure.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\gen\SettlementPlacement.hpp">

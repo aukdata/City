@@ -183,12 +183,16 @@ namespace
 		const auto origin = UrbanMorphology::chooseOrigin(static_cast<uint8>(settlement.kind), site, salt, nearRegional);
 		const bool railway = settlement.kind == Kind::RegionalCity || origin == UrbanMorphology::Origin::Planned;
 		settlement.plan = UrbanMorphology::makePlan(origin, static_cast<uint8>(settlement.kind), site, salt, railway);
-		if (origin == UrbanMorphology::Origin::Port)
+		if (settlement.kind==Kind::RegionalCity)
+		{
+			UrbanStructure::apply(settlement.plan,UrbanStructure::choose(site,salt));
+		}
+		if (origin == UrbanMorphology::Origin::Port || settlement.plan.structure==UrbanStructure::Type::CoastalHubs)
 		{
 			settlement.gridAxisZ = site.shoreDirection;
 			settlement.gridAxisX = {site.shoreDirection.y, -site.shoreDirection.x};
 		}
-		else if (settlement.plan.ruralForm == UrbanMorphology::RuralForm::Valley)
+		else if (settlement.plan.ruralForm == UrbanMorphology::RuralForm::Valley || settlement.plan.structure==UrbanStructure::Type::ConstrainedLinear)
 		{
 			settlement.gridAxisX = site.contourAxis;
 			settlement.gridAxisZ = {-site.contourAxis.y, site.contourAxis.x};
@@ -503,6 +507,8 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 		row[U"z"] = settlement.center.y;
 		row[U"scale"] = static_cast<int>(settlement.kind);
 		row[U"origin"] = UrbanMorphology::originName(settlement.plan.origin);
+		row[U"urbanStructure"] = String{UrbanStructure::id(settlement.plan.structure)};
+		row[U"centers"] = settlement.plan.centers.size();
 		row[U"accessCost"] = settlement.accessCost;
 		row[U"height"] = world.sampleHeight(static_cast<float>(settlement.center.x), static_cast<float>(settlement.center.y));
 		row[U"water"] = world.waterSurfaceHeight(settlement.center.x, settlement.center.y);
