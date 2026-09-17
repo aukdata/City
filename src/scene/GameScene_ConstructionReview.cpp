@@ -58,12 +58,7 @@ void GameScene::updateConstructionReview()
 		started=m_clock.now;
 		for(const int id:planIds)
 		{
-			startRoadPlanConstruction(id);
-			const auto* plan=m_network.getPlan(id);
-			m_economy.funds=Max(0.0,m_economy.funds-plan->totalCost);
-			Array<int> nodes;
-			for(int edgeId:plan->edgeIds) {const auto* edge=m_network.getEdge(edgeId);nodes<<edge->nodeA<<edge->nodeB;}
-			notifyNetworkChanged(nodes);
+			startRoadConstruction(m_network.getPlan(id)->edgeIds);
 		}
 	}
 	if(phase>0)

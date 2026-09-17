@@ -98,7 +98,7 @@ public:
 	void updateMovedIntersectionNode(const SimGraph& graph, const Array<int>& dirtyNodeIds);
 
 	/// @brief 出発 LaneNode から目標エッジへの経路を探索する
-	PathResult dijkstra(int startLaneNodeId, int goalEdgeId) const;
+	PathResult dijkstra(int startLaneNodeId, int goalEdgeId, int goalLane = -1) const;
 
 	/// @brief エッジの車線の入口 LaneNode ID を返す（存在しなければ -1）
 	int entryNodeId(int edgeId, int laneIdx) const;
@@ -121,6 +121,7 @@ public:
 
 private:
 	HashTable<int, LaneNode>   m_laneNodes;
+	HashTable<int, Array<int>> m_edgeEntries;
 	HashTable<int, BorderNode> m_borderNodes;
 	HashTable<int64, int>      m_entryNodeIds;  ///< laneKey(edgeId, laneIdx) → nodeId
 	HashTable<int64, int>      m_exitNodeIds;   ///< laneKey(edgeId, laneIdx) → nodeId

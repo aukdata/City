@@ -46,6 +46,7 @@ struct SignalModel
 {
 	HashTable<String, PartModelData> meshes;  ///< メッシュ名 → メッシュデータ
 	Optional<Texture>                texture;
+	std::array<HashTable<String, PartModelData>, 2> lodMeshes;
 };
 
 /// @brief 信号アセット管理レジストリ

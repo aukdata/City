@@ -1,4 +1,5 @@
-﻿#include "CitySimulation.hpp"
+﻿#include "../gen/GenerationSettings.hpp"
+#include "CitySimulation.hpp"
 
 namespace
 {
@@ -7,11 +8,11 @@ namespace
 
 	double timeOfDayMultiplier(double hour)
 	{
-		if (hour >= 6.0 && hour < 9.0) return 1.50;
-		if (hour >= 9.0 && hour < 17.0) return 1.00;
-		if (hour >= 17.0 && hour < 20.0) return 1.70;
-		if (hour >= 20.0 && hour < 23.0) return 0.60;
-		return 0.20;
+		if (hour >= 6.0 && hour < 9.0) return GenerationSettings::get().traffic_morningMultiplier;
+		if (hour >= 9.0 && hour < 17.0) return GenerationSettings::get().traffic_dayMultiplier;
+		if (hour >= 17.0 && hour < 20.0) return GenerationSettings::get().traffic_eveningMultiplier;
+		if (hour >= 20.0 && hour < 23.0) return GenerationSettings::get().traffic_lateMultiplier;
+		return GenerationSettings::get().traffic_nightMultiplier;
 	}
 
 	double commuteGrowthMultiplier(double commuteMinutes)
@@ -48,7 +49,7 @@ CitySnapshot collectCitySnapshot(const World& world, const RoadNetwork& network,
 					const BuildingType type = chunk->buildingGrid[{ col, row }].type;
 					snapshot.housingCapacity += buildingCapacity(type);
 					if (isResidentialBuildingType(type)) ++snapshot.residentialBuildings;
-					else if (type == BuildingType::Shop || type == BuildingType::Office) ++snapshot.commercialBuildings;
+					else if (type == BuildingType::Shop || type == BuildingType::Office || isRoadsideServiceBuilding(type)) ++snapshot.commercialBuildings;
 					else if (type == BuildingType::Factory) ++snapshot.industrialBuildings;
 					else if (type == BuildingType::ParkBuilding) ++snapshot.parkBuildings;
 				}
@@ -118,18 +119,18 @@ TrafficDemand calculateTrafficDemand(int population, const CitySnapshot& snapsho
 	double hour, double eventDemandMultiplier)
 {
 	TrafficDemand demand;
-	const double populationVehicles = Max(0, population) / 750.0;
-	const double activityVehicles = snapshot.commercialBuildings * 0.10
-		+ snapshot.industrialBuildings * 0.16;
+	const double populationVehicles = Max(0, population) / GenerationSettings::get().traffic_peoplePerCar;
+	const double activityVehicles = snapshot.commercialBuildings * GenerationSettings::get().traffic_commercialCars
+		+ snapshot.industrialBuildings * GenerationSettings::get().traffic_industrialCars;
 	demand.multiplier = timeOfDayMultiplier(hour) * Max(0.0, eventDemandMultiplier);
 	demand.targetVehicleCount = Clamp(static_cast<int>(Math::Round(
-		(populationVehicles + activityVehicles) * demand.multiplier)), 0, 600);
+		(populationVehicles + activityVehicles) * demand.multiplier)), 0, GenerationSettings::get().traffic_maximumVehicles);
 
-	const double freightWeight = snapshot.industrialBuildings * 2.0 + snapshot.commercialBuildings;
+	const double freightWeight = snapshot.industrialBuildings * GenerationSettings::get().traffic_industrialFreightWeight + snapshot.commercialBuildings;
 	const double residentWeight = Max(1, snapshot.residentialBuildings);
-	const double freightShare = Clamp(freightWeight / (freightWeight + residentWeight * 8.0), 0.08, 0.45);
-	demand.largeTruckShare = freightShare * 0.35;
-	demand.smallTruckShare = freightShare * 0.65;
+	const double freightShare = Clamp(freightWeight / (freightWeight + residentWeight * GenerationSettings::get().traffic_residentFreightWeight), GenerationSettings::get().traffic_minimumFreightShare, GenerationSettings::get().traffic_maximumFreightShare);
+	demand.largeTruckShare = freightShare * GenerationSettings::get().traffic_largeTruckFreightShare;
+	demand.smallTruckShare = freightShare * GenerationSettings::get().traffic_smallTruckFreightShare;
 	demand.passengerShare = 1.0 - freightShare;
 	return demand;
 }

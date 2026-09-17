@@ -20,6 +20,13 @@ enum class TrainState : uint8
 	OutOfService,      ///< 回送・休止
 };
 
+/// @brief 駅停車情報（ダイヤ）
+struct StopEntry
+{
+	int       stationNodeId = -1; ///< 駅 TrackNode id
+	float     dwellSec      = 30.0f; ///< 停車時間 [ゲーム秒]
+};
+
 /// @brief 列車エージェント
 struct Train
 {
@@ -43,10 +50,11 @@ struct Train
 	float       waitRemaining = 0.0f; ///< 駅停車の残り待機 [ゲーム秒]
 
 	// 経路（TrackEdge id の列）
+	Array<StopEntry> serviceStops; ///< 発車時の停車順と停車時間。ダイヤ編集から独立する。
 	Array<int>  routeEdges;
 	int         routeProgress = 0;
 
 	// ライフサイクル
 	GameTime    departedAt = 0.0;
-	int         scheduleIteration = 0;  ///< 何周目か（ループ運行の折り返し）
+	bool        reverseService = false; ///< ダイヤの停車駅列を逆順に使う
 };

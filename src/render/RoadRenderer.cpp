@@ -1,9 +1,10 @@
 ﻿#include "RoadRenderer.hpp"
-#include "../road/SignArtwork.hpp"
+#include "ModelLod.hpp"
+#include "../road/RoadEnvironment.hpp"
+#include "MountainRoadGeometry.hpp"
 #include "BridgeStructure.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../road/RoadArrow.hpp"
-#include "../road/RoadSign.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../road/JunctionGeometry.hpp"
 #include "../road/RoadMarkingGenerator.hpp"
@@ -392,7 +393,7 @@ namespace
 				Vec3 pos = sl.center + sl.right * static_cast<double>(lateral) + Vec3{ 0.0, src.pos.y + def.heightOffset, 0.0 };
 				if (!useElevation)
 				{
-					pos.y = world.sampleHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadSurfaceLift + src.pos.y + def.heightOffset;
+					pos.y = sl.center.y + src.pos.y + def.heightOffset;
 				}
 				dst.pos = Float3{ static_cast<float>(pos.x), static_cast<float>(pos.y), static_cast<float>(pos.z) };
 				dst.normal = Float3{
@@ -446,7 +447,7 @@ namespace
 		const Vec3 rawTan = bez->tangentAt(s);
 		const Vec3 right = tangentToRight(rawTan);
 		const Vec3 tan = isNodeA ? -rawTan : rawTan;
-		const double lineY = edge.useElevation
+		const double lineY = edge.usesDesignHeight()
 			? pos.y + kRoadLineLift
 			: world.sampleHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
 		return { Vec3{ pos.x, lineY, pos.z } + right * static_cast<double>(offset), tan };
@@ -555,6 +556,8 @@ bool RoadRenderer::loadAssets()
 		m_constructionModels[i]=Model{U"assets/construction/{}.obj"_fmt(models[i])};
 		if(m_constructionModels[i].isEmpty()) return false;
 		Model::RegisterDiffuseTextures(m_constructionModels[i],TextureDesc::MippedSRGB);
+		m_constructionLodModels[i] = Model{modelLodPath(U"assets/construction/{}.obj"_fmt(models[i]), 2)};
+		Model::RegisterDiffuseTextures(m_constructionLodModels[i],TextureDesc::MippedSRGB);
 	}
 	m_arrowMarkingRegistry.load(U"assets/road_markings");
 	m_cableVS = VertexShader::HLSL(U"shaders/hlsl/city_cable.hlsl", U"Cable_VS");
@@ -564,260 +567,12 @@ bool RoadRenderer::loadAssets()
 	return m_partRegistry.load(U"assets/road_parts");
 }
 
-void RoadRenderer::render(const RoadNetwork& network, const World& world,
-                          const ViewFrustum& frustum, Vec3 cameraPos)
-{
-	// 可視判定・地形起因のキャッシュ失効・エッジ/ノード描画を 1 フレーム内でまとめて回す。
-	m_visibleEdges.clear();
-	const Size viewport = Scene::Size();
-	m_cableView->viewport = Float4{ static_cast<float>(viewport.x), static_cast<float>(viewport.y),
-		1.0f / viewport.x, 1.0f / viewport.y };
-	Profiler::EnableAssetCreationWarning(false);
-
-	synchronizeTerrainChanges(world, network);
-	// ---- エッジ描画（端をノード半幅分カット）----
-	const float camX = static_cast<float>(cameraPos.x);
-	const float camZ = static_cast<float>(cameraPos.z);
-	constexpr float kDrawMaxDistSqF = static_cast<float>(kDrawMaxDistSq);
-	constexpr float kLodDistSqF     = static_cast<float>(kLodDistSq);
-
-
-	for (const RoadEdge& edge : network.edges())
-	{
-		if (edge.id == -1) continue;
-
-		// バウンディング情報をキャッシュから取得（なければ計算してキャッシュ）
-		auto boundsIt = m_boundsCache.find(edge.id);
-		if (boundsIt == m_boundsCache.end())
-		{
-			const RoadNode* nA = network.getNode(edge.nodeA);
-			const RoadNode* nB = network.getNode(edge.nodeB);
-			if (!nA || !nB) continue;
-			EdgeBounds b;
-			b.center = Float3{
-				static_cast<float>((nA->position.x + nB->position.x) * 0.5),
-				static_cast<float>((nA->position.y + nB->position.y) * 0.5),
-				static_cast<float>((nA->position.z + nB->position.z) * 0.5)
-			};
-			const float chordSq = static_cast<float>((nA->position - nB->position).lengthSq());
-			const float arcR    = edge.length * 0.6f;
-			b.radiusSq = Max(arcR * arcR, chordSq * 0.36f);
-			boundsIt = m_boundsCache.emplace(edge.id, b).first;
-		}
-		const auto& bounds = boundsIt->second;
-
-		// 距離チェックを先に（安価: float 演算のみ）
-		const float dx = bounds.center.x - camX;
-		const float dz = bounds.center.z - camZ;
-		const float distSq = dx * dx + dz * dz;
-		if (distSq > kDrawMaxDistSqF) continue;
-		const bool isClose = distSq < kLodDistSqF;
-
-		// 視錐台カリング（距離チェックを通過した分のみ）
-		const float radius = Math::Sqrt(bounds.radiusSq);
-		if (!frustum.intersects(Sphere{ Vec3{ bounds.center }, static_cast<double>(radius) })) continue;
-
-		m_visibleEdges.emplace(edge.id);
-
-		const float mA = edgeMargin(edge, edge.nodeA);
-		const float mB = edgeMargin(edge, edge.nodeB);
-
-		const Stopwatch edgeTimer{StartImmediately::Yes};
-		drawEdge(edge, network, mA, mB, world, isClose);
-		if (edgeTimer.msF() > 8.0) { DBG_LOG(U"[RoadBuild] edge={} length={:.1f} ms={:.2f}"_fmt(edge.id,edge.length,edgeTimer.msF())); }
-	}
-
-	// ---- ノードキャップ描画（交差点フィル）----
-	for (const RoadNode& node : network.nodes())
-	{
-		if (node.id < 0) continue;
-
-		// 距離チェック（float 演算のみ）
-		const float nodeDx = static_cast<float>(node.position.x) - camX;
-		const float nodeDz = static_cast<float>(node.position.z) - camZ;
-		const float nodeDistSq = nodeDx * nodeDx + nodeDz * nodeDz;
-		if (nodeDistSq > kDrawMaxDistSqF) continue;
-
-		// 視錐台カリング
-		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
-
-		const bool isClose = nodeDistSq < kLodDistSqF;
-		const Stopwatch nodeTimer{StartImmediately::Yes};
-		drawNodeCap(network, node.id, world, isClose);
-		if (nodeTimer.msF() > 8.0) { DBG_LOG(U"[RoadBuild] node={} arms={} ms={:.2f}"_fmt(node.id,node.attachments.size(),nodeTimer.msF())); }
-	}
-}
-
-void RoadRenderer::synchronizeTerrainChanges(const World& world, const RoadNetwork& network)
-{
-	// 地形変更時は該当チャンク内のエッジ/ノードのキャッシュのみクリアする
-	for (const Chunk* chunk : world.getActiveChunks())
-	{
-		if (!chunk) { continue; }
-		const int64 key = chunkCoordToKey(chunk->coord);
-		if (!chunk->meshDirty) { m_dirtyTerrainObserved.erase(key); continue; }
-		if (!m_dirtyTerrainObserved.insert(key).second) { continue; }
-		const double cx = chunk->coord.x * static_cast<double>(CHUNK_SIZE);
-		const double cz = chunk->coord.y * static_cast<double>(CHUNK_SIZE);
-		const double cs = CHUNK_SIZE;
-		for (const auto& node : network.nodes())
-		{
-			if (node.id < 0) continue;
-			if (node.position.x >= cx && node.position.x < cx + cs &&
-			    node.position.z >= cz && node.position.z < cz + cs)
-			{
-				eraseNodeCaches(node.id);
-				for (const auto& att : node.attachments)
-					eraseEdgeCaches(att.edgeId);
-			}
-		}
-	}
-}
-
-void RoadRenderer::renderShadowCasters(Vec3 focus, double radius)
-{
-	for (const auto& [id,cache] : m_constructionCache)
-	{
-		const auto bounds = m_boundsCache.find(id);
-		if (bounds == m_boundsCache.end()) continue;
-		if (Vec3{bounds->second.center}.distanceFrom(focus) > radius + Sqrt(bounds->second.radiusSq)) continue;
-		for (const auto& surface : cache.surfaces) surface.meshPair.detail.draw(ColorF{1});
-		for (const auto& detail : cache.details) detail.mesh.draw(ColorF{1});
-		for (const auto& [index,transform] : cache.machines) m_constructionModels[index].draw(transform);
-	}
-	for (const auto& [edgeId, entries] : m_partLodBatchCache)
-	{
-		const auto bounds = m_boundsCache.find(edgeId);
-		if (bounds == m_boundsCache.end()) { continue; }
-		const Vec3 delta = Vec3{ bounds->second.center } - focus;
-		const double reach = radius + Sqrt(bounds->second.radiusSq);
-		if (delta.x * delta.x + delta.z * delta.z > reach * reach) { continue; }
-		for (const auto& entry : entries) { entry.mesh.draw(ColorF{ 1 }); }
-		if (const auto furniture = m_streetFurnitureCache.find(edgeId); furniture != m_streetFurnitureCache.end())
-		{
-			for (const auto& batch : furniture->second)
-			{
-				if (!batch.cable) { batch.mesh.draw(ColorF{ 1 }); }
-			}
-		}
-		if (const auto piers = m_pierMeshCache.find(edgeId); piers != m_pierMeshCache.end())
-		{
-			for (const auto& mesh : piers->second) { mesh.draw(ColorF{ 1 }); }
-		}
-		if (const auto signs = m_signCache.find(edgeId); signs != m_signCache.end()) { drawSigns(signs->second); }
-		if (const auto signs = m_guideSignCache.find(edgeId); signs != m_guideSignCache.end()) { drawGuideSigns(signs->second); }
-	}
-	for (const auto& [routeId, signs] : m_routeSignCache)
-	{
-		for (const auto& sign : signs)
-		{
-			if (sign.poleTop.distanceFrom(focus) > radius + 40) { continue; }
-			if (m_signPoleMesh) { m_signPoleMesh->draw(sign.poleMat, ColorF{ 1 }); }
-			if (const Mesh* board = getSignBoardMesh(sign.type)) { board->draw(sign.boardMat, ColorF{ 1 }); }
-		}
-	}
-}
-
-void RoadRenderer::eraseEdgeCaches(int edgeId)
-{
-	m_constructionCache.erase(edgeId);
-	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
-		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
-	{
-		++m_geometryRevision;
-	}
-	m_partMeshCache.erase(edgeId);
-	m_partLodBatchCache.erase(edgeId);
-	m_markingCacheByEdge.erase(edgeId);
-	m_streetFurnitureCache.erase(edgeId);
-	m_marginCache.erase(edgeId);
-	m_boundsCache.erase(edgeId);
-	m_pierMeshCache.erase(edgeId);
-	m_signCache.erase(edgeId);
-	m_guideSignCache.erase(edgeId);
-	m_guideSignTexAllReady = false;  // エッジ変更時は案内標識テクスチャを再チェック
-}
-
-void RoadRenderer::eraseNodeCaches(int nodeId)
-{
-	if (m_nodeCapCache.contains(nodeId) || m_signalAttachGeomCache.contains(nodeId)) { ++m_geometryRevision; }
-	m_nodeCapCache.erase(nodeId);
-	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2);
-	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2 + 1);
-
-
-
-	m_signalAttachGeomCache.erase(nodeId);
-	m_nodeCapWireCache.erase(nodeId);
-}
-
-void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
-{
-	eraseEdgeCaches(edgeId);
-	// route は複数エッジを跨ぐため、どのエッジ変更でも全 route 描画情報を再計算
-	m_routeSignCache.clear();
-	if (nodeA >= 0 || nodeB >= 0)
-	{
-		if (nodeA >= 0) eraseNodeCaches(nodeA);
-		if (nodeB >= 0) eraseNodeCaches(nodeB);
-	}
-	else
-	{
-		m_nodeCapCache.clear();
-		m_nodeCapWireCache.clear();
-		m_markingCacheByNode.clear();
-
-
-	}
-}
-
-void RoadRenderer::invalidateAllCaches()
-{
-	m_constructionCache.clear();
-	++m_geometryRevision;
-	m_dirtyTerrainObserved.clear();
-	m_partMeshCache.clear();
-	m_partLodBatchCache.clear();
-	m_markingCacheByEdge.clear();
-	m_streetFurnitureCache.clear();
-	m_marginCache.clear();
-	m_nodeCapCache.clear();
-	m_nodeCapWireCache.clear();
-	m_markingCacheByNode.clear();
-
-
-
-	m_boundsCache.clear();
-	m_signalMeshCache.clear();
-	m_signCache.clear();
-	m_routeSignCache.clear();
-	m_guideSignCache.clear();
-	m_guideSignTexAllReady = false;  // 標識内容が変わった可能性があるため再チェック
-	m_signalAttachGeomCache.clear();
-	m_signPoleMesh.reset();
-	m_guidePoleMesh.reset();
-	m_signBoardMeshes.clear();
-	RoadSign::reloadPoleMetadata();
-	GuideSign::reloadPoleMetadata();
-}
-
-void RoadRenderer::invalidateCachesAroundNode(int nodeId, const RoadNetwork& network)
-{
-	eraseNodeCaches(nodeId);
-	const RoadNode* node = network.getNode(nodeId);
-	if (node)
-	{
-		for (const auto& att : node->attachments)
-			eraseEdgeCaches(att.edgeId);
-	}
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // エッジ描画
 // ─────────────────────────────────────────────────────────────────────────────
 
 void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
-                             float marginA, float marginB, const World& world, bool isClose)
+                             float marginA, float marginB, const World& world, bool isClose, bool prepareDetail)
 {
 	// エッジ単位で路面部品・車線線・標識・橋脚までの描画責務をまとめる。
 	if (edge.edgeState == EdgeState::Planned) return;
@@ -843,20 +598,20 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	auto meshIt = m_partMeshCache.find(edge.id);
 	if (meshIt == m_partMeshCache.end())
 	{
+		if (!canBuildCache()) { drawFallbackEdge(edge, network, world); return; }
 		const auto bez = network.getBezier(edge.id);
 		if (!bez) return;
 		auto entries = buildPartMeshes(network, edge, *bez, world, marginA, marginB);
-		if (entries.isEmpty()) return;
+		++m_cacheBuildStats.edges;
+		m_cacheBuildStats.partsMs += buildTimer.msF();
+		m_fallbackEdges.erase(edge.id);
+		m_drawnFallbackEdges.erase(edge.id);
 		++m_geometryRevision;
 		meshIt = m_partMeshCache.emplace(edge.id, std::move(entries)).first;
 		m_marginCache[edge.id] = { marginA, marginB };
-		if (buildTimer.msF()>5) { DBG_LOG(U"[RoadPhase] edge={} partsMs={:.2f}"_fmt(edge.id,buildTimer.msF())); }
-		buildTimer.restart();
-		// 遠距離用 combined LOD バッチも同じベジェから同時に構築する
-		m_partLodBatchCache[edge.id] = buildPartLodBatches(network, edge, *bez, world, marginA, marginB);
+		// Combined LOD batches use the same strip data as the detailed geometry.
 	}
 
-	if (buildTimer.msF()>5) { DBG_LOG(U"[RoadPhase] edge={} lodMs={:.2f}"_fmt(edge.id,buildTimer.msF())); }
 	// ---- 部品ごとに描画 ----
 	if (isClose)
 	{
@@ -882,55 +637,65 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	}
 
 	// ---- 道路標示（遠方では描画しない） ----
-	if (isClose)
+	if (isClose || prepareDetail)
 	{
-		if (!m_markingCacheByEdge.contains(edge.id))
+		if (!m_markingCacheByEdge.contains(edge.id) && canBuildCache())
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
+			const Stopwatch cacheTimer{StartImmediately::Yes};
 			m_markingCacheByEdge[edge.id] = buildEdgeRoadMarkingBatches(network, edge, *bez, world, marginA, marginB);
+			m_cacheBuildStats.markingsMs += cacheTimer.msF();
+			++m_cacheBuildStats.markings;
 		}
 
-		for (const auto& b : m_markingCacheByEdge[edge.id])
-			b.mesh.draw(b.color);
+		if (const auto markings = m_markingCacheByEdge.find(edge.id); isClose && markings != m_markingCacheByEdge.end())
+		{
+			for (const auto& batch : markings->second) { batch.mesh.draw(batch.color); }
+		}
 	}
 
 	// ---- 道路沿い設備（近距離のみ） ----
-	if (isClose)
+	if (isClose || prepareDetail)
 	{
-		if (!m_streetFurnitureCache.contains(edge.id))
+		if (!m_streetFurnitureCache.contains(edge.id) && canBuildCache())
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
+			const Stopwatch cacheTimer{StartImmediately::Yes};
 			m_streetFurnitureCache[edge.id] = buildStreetFurnitureBatches(edge, *bez, world, marginA, marginB);
+			m_cacheBuildStats.furnitureMs += cacheTimer.msF();
+			++m_cacheBuildStats.furniture;
+			++m_geometryRevision;
 		}
-		for (const auto& b : m_streetFurnitureCache[edge.id])
+		if (const auto furniture = m_streetFurnitureCache.find(edge.id); isClose && furniture != m_streetFurnitureCache.end())
 		{
-			if (b.cable)
+			for (const auto& b : furniture->second)
 			{
-				Graphics3D::SetVSConstantBuffer(4, m_cableView);
-				const ScopedCustomShader3D shader{ m_cableVS, m_cablePS };
-				const ScopedRenderStates3D state{ BlendState::Default2D, RasterizerState::SolidCullNone, DepthStencilState::DepthTest };
-				b.mesh.draw(ColorF{ 1 });
+				if (b.cable)
+				{
+					Graphics3D::SetVSConstantBuffer(4, m_cableView);
+					const ScopedCustomShader3D shader{ m_cableVS, m_cablePS };
+					const ScopedRenderStates3D state{ BlendState::Default2D, RasterizerState::SolidCullNone, DepthStencilState::DepthTest };
+					b.mesh.draw(ColorF{ 1 });
+				}
+				else { b.mesh.draw(b.color); }
 			}
-			else { b.mesh.draw(b.color); }
 		}
 	}
-	// ---- 道路標識（近距離のみ） ----
-	if (isClose && !edge.signs.isEmpty())
+	// 規制標識・案内板も接近前に準備し、初回描画で予算外の作業を集中させない。
+	if(isClose || prepareDetail)
 	{
-		if (!m_signCache.contains(edge.id))
-			m_signCache[edge.id] = buildEdgeSignMeshes(network, edge.id, world);
-		drawSigns(m_signCache[edge.id]);
-	}
-
-	// ---- 案内標識（近距離のみ） ----
-	if (isClose)
-	{
-		if (!m_guideSignCache.contains(edge.id))
-			m_guideSignCache[edge.id] = buildEdgeGuideSignDraws(network, edge.id, world);
-		if (!m_guideSignCache[edge.id].isEmpty())
-			drawGuideSigns(m_guideSignCache[edge.id]);
+		if(!m_signCache.contains(edge.id) && canBuildCache())
+		{
+			const Stopwatch timer{StartImmediately::Yes};m_signCache[edge.id]=buildEdgeSignMeshes(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
+		}
+		if(!m_guideSignCache.contains(edge.id) && canBuildCache())
+		{
+			const Stopwatch timer{StartImmediately::Yes};m_guideSignCache[edge.id]=buildEdgeGuideSignDraws(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
+		}
+		if(const auto found=m_signCache.find(edge.id);isClose && found!=m_signCache.end()) { drawSigns(found->second); }
+		if(const auto found=m_guideSignCache.find(edge.id);isClose && found!=m_guideSignCache.end()) { drawGuideSigns(found->second); }
 	}
 
 	// ---- 橋脚描画 ----
@@ -983,8 +748,13 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 
 	if (!m_nodeCapCache.contains(nodeId))
 	{
+		if (!canBuildCache()) { drawFallbackNode(nodeId, network, world); return; }
+		const Stopwatch cacheTimer{StartImmediately::Yes};
 		auto entries = buildNodeCapParts(network, nodeId, world, 16);
-		if (entries.isEmpty()) return;
+		++m_cacheBuildStats.nodes;
+		m_cacheBuildStats.nodesMs += cacheTimer.msF();
+		m_fallbackNodes.erase(nodeId);
+		++m_geometryRevision;
 		m_nodeCapCache[nodeId] = std::move(entries);
 	}
 
@@ -996,13 +766,16 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 
 	// 道路標示（停止線・横断歩道・矢印・ノード内区画線）
 	const int64 nodeMarkingCacheKey = static_cast<int64>(nodeId) * 2 + (isClose ? 1 : 0);
-	if (!m_markingCacheByNode.contains(nodeMarkingCacheKey))
+	if (!m_markingCacheByNode.contains(nodeMarkingCacheKey) && canBuildCache())
 	{
+		const Stopwatch cacheTimer{StartImmediately::Yes};
 		m_markingCacheByNode[nodeMarkingCacheKey] = buildNodeRoadMarkingBatches(network, nodeId, world, isClose);
+		m_cacheBuildStats.markingsMs += cacheTimer.msF();
+		++m_cacheBuildStats.markings;
 	}
-	for (const auto& b : m_markingCacheByNode[nodeMarkingCacheKey])
+	if (const auto markings = m_markingCacheByNode.find(nodeMarkingCacheKey); markings != m_markingCacheByNode.end())
 	{
-		b.mesh.draw(b.color);
+		for (const auto& batch : markings->second) { batch.mesh.draw(batch.color); }
 	}
 }
 
@@ -1132,8 +905,8 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 		Vec3 pR = sl.center + sl.right * static_cast<double>(oR);
 		if (!useElevation)
 		{
-			pL.y = world.sampleHeight(static_cast<float>(pL.x), static_cast<float>(pL.z)) + kRoadSurfaceLift + static_cast<double>(heightOffset);
-			pR.y = world.sampleHeight(static_cast<float>(pR.x), static_cast<float>(pR.z)) + kRoadSurfaceLift + static_cast<double>(heightOffset);
+			pL.y = sl.center.y;
+			pR.y = sl.center.y;
 		}
 		vertices << makeVertWorldUV(pL);
 		vertices << makeVertWorldUV(pR);
@@ -1164,8 +937,8 @@ MeshData RoadRenderer::buildStripMeshTapered(const CubicBezier& bezier, const Wo
 			Vec3 pR = sl.center + sl.right * static_cast<double>(oR);
 			if (!useElevation)
 			{
-				pL.y = world.sampleHeight(static_cast<float>(pL.x), static_cast<float>(pL.z)) + kRoadSurfaceLift + static_cast<double>(heightOffset);
-				pR.y = world.sampleHeight(static_cast<float>(pR.x), static_cast<float>(pR.z)) + kRoadSurfaceLift + static_cast<double>(heightOffset);
+				pL.y = sl.center.y;
+				pR.y = sl.center.y;
 			}
 			const Vec3  bL{ pL.x, pL.y - static_cast<double>(sideSkirtDrop), pL.z };
 			const Vec3  bR{ pR.x, pR.y - static_cast<double>(sideSkirtDrop), pR.z };
@@ -1198,6 +971,15 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 	if (!calcStripRange(bezier.totalLength, marginA, marginB, range)) return {};
 
 	Array<PartMeshEntry> entries;
+	struct MaterialGroup
+	{
+		const Texture* tex;
+		ColorF         color;
+		MeshData       md;
+	};
+	Array<MaterialGroup> groups;
+
+
 	const MeshData overlappingPavement = adjacentPavement(network,edge,world);
 
 	for (const auto& part : edge.parts)
@@ -1219,11 +1001,11 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		{
 			mdDetail = buildRoadPartModelStrip(bezier, world, def, model.center,
 				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
-				range.sStart, range.sEnd, 1.0f, edge.useElevation);
+				range.sStart, range.sEnd, 1.0f, edge.usesDesignHeight());
 			const PartModelData& lodModel = (!model.lods.isEmpty() && !model.lods[0].center.isEmpty()) ? model.lods[0].center : model.center;
 			mdLod = buildRoadPartModelStrip(bezier, world, def, lodModel,
 				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
-				range.sStart, range.sEnd, 0.25f, edge.useElevation);
+				range.sStart, range.sEnd, 0.25f, edge.usesDesignHeight());
 		}
 		else
 		{
@@ -1231,12 +1013,12 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 				part.offsetA_L, part.offsetA_R,
 				part.offsetB_L, part.offsetB_R,
 				heightOff,
-				range.sStart, range.sEnd, 1.0f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
+				range.sStart, range.sEnd, 1.0f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
 			mdLod = buildStripMeshTapered(bezier, world,
 				part.offsetA_L, part.offsetA_R,
 				part.offsetB_L, part.offsetB_R,
 				heightOff,
-				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
+				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
 		}
 		if (part.type != RoadPartType::Roadbed && !overlappingPavement.indices.isEmpty())
 		{
@@ -1254,63 +1036,6 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		entry.texture = tex;
 		entry.materialType = part.type;
 		entries << std::move(entry);
-	}
-
-	return entries;
-}
-
-Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
-                                                       const World& world,
-                                                       float marginA, float marginB) const
-{
-	const MeshData overlappingPavement = adjacentPavement(network,edge,world);
-	StripRange range;
-	if (!calcStripRange(bezier.totalLength, marginA, marginB, range)) return {};
-
-	// 同マテリアル（tex + color）の部品メッシュを 1 バッファに統合して draw call を削減する
-	struct MaterialGroup
-	{
-		const Texture* tex;
-		ColorF         color;
-		MeshData       md;
-	};
-	Array<MaterialGroup> groups;
-
-	for (const auto& part : edge.parts)
-	{
-		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
-
-		auto [color, heightOff, tex] = getPartVisual(part);
-		if (part.type == RoadPartType::Roadbed)
-		{
-			if (edge.roadType == RoadType::Arterial) color = ColorF{ 0.29, 0.30, 0.32 };
-			else if (edge.roadType == RoadType::LocalRoad) color = ColorF{ 0.29, 0.30, 0.32 };
-		}
-
-		const RoadPartDef& def = m_partRegistry.get(part.defId);
-		const RoadPartModel& model = m_partRegistry.getModel(part.defId);
-		MeshData md;
-		if (part.type != RoadPartType::Roadbed && !model.center.isEmpty())
-		{
-			const PartModelData& lodModel = (!model.lods.isEmpty() && !model.lods[0].center.isEmpty()) ? model.lods[0].center : model.center;
-			md = buildRoadPartModelStrip(bezier, world, def, lodModel,
-				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
-				range.sStart, range.sEnd, 0.25f, edge.useElevation);
-		}
-		else
-		{
-			md = buildStripMeshTapered(bezier, world,
-				part.offsetA_L, part.offsetA_R,
-				part.offsetB_L, part.offsetB_R,
-				heightOff,
-				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.useElevation);
-		}
-		if (part.type != RoadPartType::Roadbed && !overlappingPavement.indices.isEmpty())
-		{
-			md = RoadGeometry::excludeSurface(md,overlappingPavement);
-		}
-		if (md.vertices.isEmpty()) continue;
-
 		// 既存グループを検索（部品数は通常 ≤10 なので線形探索で十分）
 		MaterialGroup* group = nullptr;
 		for (auto& g : groups)
@@ -1328,14 +1053,16 @@ Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadNetwork& network
 		}
 
 		const uint32 indexBase = static_cast<uint32>(group->md.vertices.size());
-		group->md.vertices.append(md.vertices);
-		for (const auto& tri : md.indices)
+		group->md.vertices.append(mdLod.vertices);
+		for (const auto& tri : mdLod.indices)
 		{
 			group->md.indices << TriangleIndex32{ tri.i0 + indexBase, tri.i1 + indexBase, tri.i2 + indexBase };
 		}
+
 	}
 
-	Array<PartLodBatch> batches;
+	auto& batches=m_partLodBatchCache[edge.id];
+	batches.clear();
 	batches.reserve(groups.size());
 	for (auto& g : groups)
 	{
@@ -1343,7 +1070,7 @@ Array<PartLodBatch> RoadRenderer::buildPartLodBatches(const RoadNetwork& network
 		orientRoadFaces(g.md);
 		batches << PartLodBatch{ Mesh{ g.md }, g.color, g.tex };
 	}
-	return batches;
+	return entries;
 }
 
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
@@ -1373,7 +1100,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  bezier, world,
 			                  lane.offsetA_R, lane.offsetB_R, lineStyle.lineWidth * 0.5f,
 			                  lineStyle.dashLen, lineStyle.gapLen,
-			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.useElevation);
+			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.usesDesignHeight());
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ lineStyle.color.removeSRGBCurve(), Mesh{ md } };
@@ -1390,7 +1117,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  bezier, world,
 			                  lane.offsetA_L, lane.offsetB_L, lineStyle.lineWidth * 0.5f,
 			                  lineStyle.dashLen, lineStyle.gapLen,
-			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.useElevation);
+			                  sStart, sEnd, static_cast<float>(kRoadLineLift), edge.usesDesignHeight());
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ lineStyle.color.removeSRGBCurve(), Mesh{ md } };
@@ -1407,7 +1134,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneLineBatches(
 			                  lane.offsetB_L, lane.offsetB_R,
 			                  sStart, sEnd,
 			                  lane.type == LaneType::TrafficIsland,
-			                  static_cast<float>(kRoadLineLift), edge.useElevation);
+			                  static_cast<float>(kRoadLineLift), edge.usesDesignHeight());
 			if (!md.vertices.isEmpty())
 			{
 				batches << LaneLineBatch{ ColorF{ 1, 1, 1 }.removeSRGBCurve(), Mesh{ md } };
@@ -1515,7 +1242,7 @@ Array<RoadRenderer::LaneLineBatch> buildLaneLineBatchesFromPlacements(
 		}
 		const auto style = lineStyleFor(type);
 		appendDashedStrip(md.vertices, md.indices, bezier, world, offsetA, offsetB, halfLineWidth,
-			style.dashLen, style.gapLen, sStart, sEnd, static_cast<float>(kRoadLineLift), edge.useElevation);
+			style.dashLen, style.gapLen, sStart, sEnd, static_cast<float>(kRoadLineLift), edge.usesDesignHeight());
 		md = RoadGeometry::projectMarking(md, surface);
 		if (!overlap.indices.isEmpty()) { md = RoadGeometry::excludeSurface(md,overlap); }
 		if (!md.vertices.isEmpty())
@@ -1612,6 +1339,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 	MeshData roadsideMd;
 	MeshData markerMd;
 	MeshData ironMd;
+	const auto mountain=MountainRoadGeometry::build(edge,bezier,world,range.sStart,range.sEnd);
 
 	for (size_t partIndex = 0; partIndex < edge.parts.size(); ++partIndex)
 	{
@@ -1638,6 +1366,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 		if (sEnd <= sStart) continue;
 
 		Optional<Vec3> previousPole;
+		float previousArc = sStart;
 		Vec2 previousRight{ 0, 0 };
 		const int sampleCount = Max(1, static_cast<int>((sEnd - sStart) / spacing));
 		for (int i = 0; i <= sampleCount; ++i)
@@ -1647,6 +1376,9 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 				: 0.0f;
 			const float s = Clamp(sStart + static_cast<float>(i) * spacing + jitterOffset, range.sStart, range.sEnd);
 			const Vec3 pos = bezier.positionAt(s);
+			if (!RoadEnvironment::outdoorSpan(world,bezier,previousArc,s,edge.useElevation || edge.tunnel)) { previousPole.reset(); }
+			previousArc=s;
+			if (RoadEnvironment::coveredAt(world,pos,edge.useElevation || edge.tunnel)) { continue; }
 			const Vec3 tan3 = bezier.tangentAt(s);
 			Vec2 tangent{ static_cast<float>(tan3.x), static_cast<float>(tan3.z) };
 			if (tangent.lengthSq() <= 1e-8f) continue;
@@ -1655,9 +1387,9 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 			const float yaw = static_cast<float>(std::atan2(tangent.y, tangent.x));
 			const double anchorX = pos.x + right.x * static_cast<double>(offset);
 			const double anchorZ = pos.z + right.y * static_cast<double>(offset);
-			const double terrainY = edge.useElevation
+			const double terrainY = edge.usesDesignHeight()
 				? pos.y
-				: world.sampleHeight(static_cast<float>(anchorX), static_cast<float>(anchorZ));
+				: world.sampleHeight(static_cast<float>(pos.x), static_cast<float>(pos.z));
 			const float groundY = static_cast<float>(RoadGeometry::furnitureBaseY(edge, pos, terrainY));
 
 			if (part.type == RoadPartType::UtilityPole)
@@ -1753,7 +1485,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 				const Vec3 tangent = bezier.tangentAt(arc);
 				const Vec3 right = tangentToRight(tangent);
 				Vec3 center = bezier.positionAt(arc) + right * offset;
-				center.y = world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift + .155;
+				center.y = makeSlice(bezier,world,arc,kRoadSurfaceLift,edge.usesDesignHeight()).center.y + .155;
 				const float yaw = static_cast<float>(Atan2(tangent.z, tangent.x));
 				appendOrientedBox(roadsideMd, center, Float3{.70f,.018f,.35f}, yaw);
 				for (int bar = -4; bar <= 4; ++bar)
@@ -1768,7 +1500,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 			const Vec3 tangent = bezier.tangentAt(arc);
 			const Vec3 right = tangentToRight(tangent);
 			Vec3 center = bezier.positionAt(arc) + right * .6;
-			center.y = world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.z)) + kRoadSurfaceLift + .012;
+			center.y = makeSlice(bezier,world,arc,kRoadSurfaceLift,edge.usesDesignHeight()).center.y + .012;
 			appendCylinder(roadsideMd, center, .32, .012, 24);
 			for (int rib = -2; rib <= 2; ++rib)
 			{
@@ -1777,6 +1509,12 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 		}
 	}
 	Array<LaneLineBatch> batches;
+	for (const auto& item : {std::pair<const MeshData*,ColorF>{&mountain.wall,ColorF{.43,.45,.40}},
+		{&mountain.moss,ColorF{.24,.34,.16}},{&mountain.rail,ColorF{.48,.49,.43}},
+		{&mountain.posts,ColorF{.82,.81,.69}},{&mountain.reflectors,ColorF{1,.36,.07}}})
+	{
+		if (!item.first->indices.isEmpty()) { batches<<LaneLineBatch{item.second.removeSRGBCurve(),Mesh{*item.first}}; }
+	}
 	if (!poleMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.57, 0.57, 0.53 }.removeSRGBCurve(), Mesh{ poleMd } };
 	if (!cableMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.05, 0.05, 0.045 }.removeSRGBCurve(), Mesh{ cableMd }, true };
 	if (!markerMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), Mesh{ markerMd } };
@@ -1908,7 +1646,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 	};
 
 	// === Diverge — 各エッジの車線境界からノード中心へベジェ曲線 ===
-	const bool anyElev = network.isNodeElevated(nodeId);
+	const bool anyElev = network.nodeUsesDesignHeight(nodeId);
 	const double ctrY = anyElev
 		? node->position.y + kRoadLineLift
 		: world.sampleHeight(static_cast<float>(node->position.x),
@@ -1994,7 +1732,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStopLineBatches(
 		}
 		if (!hasEntry) continue;
 
-		const double lineY = edge->useElevation
+		const double lineY = edge->usesDesignHeight()
 			? pos.y + kRoadLineLift
 			: world.sampleHeight(static_cast<float>(pos.x), static_cast<float>(pos.z)) + kRoadLineLift;
 
@@ -2308,226 +2046,6 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 	return batches;
 }
 
-bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World& world,
-	float arcLen, float lateralOffset, bool boardFacesTan,
-	float boardOffsetX, float boardOffsetY, float boardOffsetZ,
-	bool useElevation, Mat4x4& outPole, Mat4x4& outBoard, Vec3& outPoleTop)
-{
-	if (arcLen < 0.0f || arcLen > bezier.totalLength) return false;
-
-	const Vec3 roadPos = bezier.positionAt(arcLen);
-	const Vec3 rawTan  = bezier.tangentAt(arcLen);
-	const Vec3 right   = tangentToRight(rawTan);
-
-	const double anchorX = roadPos.x + right.x * static_cast<double>(lateralOffset);
-	const double anchorZ = roadPos.z + right.z * static_cast<double>(lateralOffset);
-	// 標識の接地 Y は Roadbed の高さに合わせる（路面リフト込み）
-	// 高架: bezier Y / 非高架: 地形 Y
-	const double baseY = useElevation
-		? roadPos.y
-		: static_cast<double>(world.sampleHeight(static_cast<float>(anchorX), static_cast<float>(anchorZ)));
-	const double groundY = baseY + kRoadSurfaceLift;
-
-	const Vec3   frontDir = boardFacesTan ? rawTan : -rawTan;
-	const double dLen = Math::Sqrt(frontDir.x * frontDir.x + frontDir.z * frontDir.z);
-	if (dLen < 1e-6) return false;
-	const float yaw = static_cast<float>(Math::Atan2(frontDir.x / dLen, frontDir.z / dLen));
-
-	// ポール: OBJ 実寸で配置（スケール無し）、yaw のみ適用
-	outPole = Mat4x4::RotateY(yaw)
-		* Mat4x4::Translate(Float3{
-			static_cast<float>(anchorX),
-			static_cast<float>(groundY),
-			static_cast<float>(anchorZ) });
-
-	// 看板: local (offsetX, offsetY, offsetZ) → world
-	// 行ベクトル規約 (v' = v * M) で以下の順に適用:
-	//   1) local 座標に offset を加算 (Translate(offset))
-	//   2) RotateY(rotated) — yaw+π で local +Z を driver 反対方向（= -frontDir）に向け、
-	//      看板正面（local -Z）が driver 方向を向くようにする
-	//   3) anchor へ平行移動
-	// 軸: X=driver から見た横方向, Y=垂直, Z=道路の長手方向（driver 逆向き）
-	const float rotated = yaw + static_cast<float>(Math::Pi);
-	outBoard = Mat4x4::Translate(Float3{ boardOffsetX, boardOffsetY, boardOffsetZ })
-		* Mat4x4::RotateY(rotated)
-		* Mat4x4::Translate(Float3{
-			static_cast<float>(anchorX),
-			static_cast<float>(groundY),
-			static_cast<float>(anchorZ) });
-	outPoleTop = Vec3{ anchorX, groundY + boardOffsetY, anchorZ };
-	return true;
-}
-
-Array<RoadRenderer::SignDraw> RoadRenderer::buildEdgeSignMeshes(
-	const RoadNetwork& network, int edgeId, const World& world) const
-{
-	const RoadEdge* edge = network.getEdge(edgeId);
-	if (!edge || !edge->isRoadbedBuilt()) return {};
-	const auto bez = network.getBezier(edgeId);
-	if (!bez) return {};
-
-	Array<SignDraw> batches;
-
-	for (const auto& sp : edge->signs)
-	{
-		if (sp.type == RoadSignType::None) continue;
-
-		const bool atA = (sp.nodeEndId == edge->nodeA);
-		const bool atB = (sp.nodeEndId == edge->nodeB);
-		if (!atA && !atB) continue;
-
-		// 弧長位置: cutoff + arcOffset を内側方向に
-		const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
-		const float arc = atA
-			? (cutoff + sp.arcOffset)
-			: (bez->totalLength - cutoff - sp.arcOffset);
-
-		// 看板は driver に向ける: nodeA 側 → driver は B→A → 看板正面は +tan
-		//                          nodeB 側 → driver は A→B → 看板正面は -tan
-		const bool entering=sp.type==RoadSignType::NoEntry || sp.type==RoadSignType::OneWay;
-		const bool boardFacesTan = entering ? !atA : atA;
-
-		Mat4x4 poleMat, boardMat;
-		Vec3   poleTop;
-		const auto& meta = RoadSign::poleMetadata();
-		if (!computeSignTransforms(*bez, world, arc, sp.lateralOffset, boardFacesTan,
-		                           meta.offsetX, meta.offsetY, meta.offsetZ,
-		                           edge->useElevation, poleMat, boardMat, poleTop))
-			continue;
-
-		SignDraw signDraw;
-		signDraw.poleMat  = poleMat;
-		signDraw.boardMat = boardMat;
-		signDraw.poleTop  = poleTop;
-		signDraw.type     = sp.type;
-		signDraw.auxNumber = sp.auxValue;
-		batches << signDraw;
-	}
-
-	return batches;
-}
-
-Array<RoadRenderer::SignDraw> RoadRenderer::buildRouteSignDraws(
-	const RoadRoute& route, const RoadNetwork& network, const World& world) const
-{
-	Array<SignDraw> out;
-	if (route.kind != RoadRouteKind::NationalRoute) return out;
-	if (route.number <= 0 || route.edgeIds.isEmpty()) return out;
-
-	if (!m_routeSignTexCache.contains(route.number)) return out;
-
-	const auto& routeMeta = RoadSign::poleMetadata();
-
-	for (const auto& [edgeId, arcLen] : network.routeSignAnchors(route))
-	{
-		const auto bezier = network.getBezier(edgeId);
-		if (!bezier) continue;
-
-		const RoadEdge* edge = network.getEdge(edgeId);
-		const float roadRightEdge = edge
-			? RoadSign::roadbedExtentsOf(*edge).right
-			: 5.0f;
-		const float lateral = roadRightEdge + static_cast<float>(RoadSign::kSideMargin_m);
-
-		Mat4x4 poleMat, boardMat;
-		Vec3   poleTop;
-		if (!computeSignTransforms(*bezier, world, arcLen, lateral,
-		                           /*boardFacesTan=*/false,
-		                           routeMeta.offsetX, routeMeta.offsetY, routeMeta.offsetZ,
-		                           edge ? edge->useElevation : false,
-		                           poleMat, boardMat, poleTop))
-			continue;
-
-		SignDraw signDraw;
-		signDraw.poleMat   = poleMat;
-		signDraw.boardMat  = boardMat;
-		signDraw.poleTop   = poleTop;
-		signDraw.type      = RoadSignType::NationalRoute;
-		signDraw.auxNumber = route.number;
-		out << signDraw;
-	}
-	return out;
-}
-
-const Mesh* RoadRenderer::getSignBoardMesh(RoadSignType type)
-{
-	if (type == RoadSignType::None) return nullptr;
-	const auto& vis = RoadSign::visualOf(type);
-	if (vis.shapeObjPath.isEmpty()) return nullptr;
-
-	const String key{ vis.shapeObjPath };
-	if (auto it = m_signBoardMeshes.find(key); it != m_signBoardMeshes.end())
-		return &it->second;
-
-	const MeshData md = RoadSign::CreateBoardMesh(type);
-	if (md.vertices.isEmpty()) return nullptr;
-	return &m_signBoardMeshes.emplace(key, Mesh{ md }).first->second;
-}
-
-void RoadRenderer::drawSigns(const Array<SignDraw>& draws)
-{
-	if (draws.isEmpty()) return;
-
-	// OBJ ロード（遅延初期化）
-	if (not m_signPoleMesh)
-	{
-		const auto parsed = ObjParser::parse(U"assets/signs/sign_pole.obj");
-		MeshData combined;
-		for (const auto& pd : parsed)
-		{
-			if (pd.isEmpty()) continue;
-			const uint32 base = static_cast<uint32>(combined.vertices.size());
-			combined.vertices.insert(combined.vertices.end(), pd.vertices.begin(), pd.vertices.end());
-			for (const auto& t : pd.indices)
-				combined.indices << TriangleIndex32{ base + t.i0, base + t.i1, base + t.i2 };
-		}
-		if (!combined.vertices.isEmpty()) m_signPoleMesh = Mesh{ combined };
-	}
-
-	// ポール
-	for (const auto& signDraw : draws)
-	{
-		if (m_signPoleMesh) m_signPoleMesh->draw(signDraw.poleMat, RoadSign::kPoleColor.removeSRGBCurve());
-	}
-
-	// 看板裏面: 灰色（前面ポリゴンをカリングして裏面のみ表示）
-	{
-		const ScopedRenderStates3D states{ RasterizerState::SolidCullFront };
-		for (const auto& signDraw : draws)
-		{
-			const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
-			if (!boardMesh) continue;
-			boardMesh->draw(signDraw.boardMat, ColorF{ 0.55 }.removeSRGBCurve());
-		}
-	}
-
-	// 看板前面: テクスチャ（裏面ポリゴンをカリングして前面のみ表示）
-	{
-		const ScopedRenderStates3D states{ BlendState::Default2D, RasterizerState::SolidCullBack };
-		for (const auto& signDraw : draws)
-		{
-			const Mesh* boardMesh = getSignBoardMesh(signDraw.type);
-			if (!boardMesh) continue;
-
-			const auto& vis = RoadSign::visualOf(signDraw.type);
-			if (!vis.textureAssetName.isEmpty())
-			{
-				boardMesh->draw(signDraw.boardMat, TextureAsset(vis.textureAssetName));
-				continue;
-			}
-			if (SignArtwork::dynamic(signDraw.type))
-			{
-				if (auto found=m_regulatorySignTexCache.find(SignArtwork::key(signDraw.type,signDraw.auxNumber));found!=m_regulatorySignTexCache.end()) { boardMesh->draw(signDraw.boardMat,found->second); }
-			}
-			if (signDraw.type == RoadSignType::NationalRoute)
-			{
-				if (auto it = m_routeSignTexCache.find(signDraw.auxNumber); it != m_routeSignTexCache.end())
-					boardMesh->draw(signDraw.boardMat, it->second);
-			}
-		}
-	}
-}
-
 Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneArrowMeshes(
 	const RoadNetwork& network, int nodeId, const World& world) const
 {
@@ -2620,7 +2138,7 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildLaneArrowMeshes(
 						? static_cast<float>(arcCenter - lx)
 						: static_cast<float>(arcCenter + lx);
 					double vy;
-					if (edge->useElevation)
+					if (edge->usesDesignHeight())
 					{
 						vy = bez->positionAt(sForVertex).y + kRoadLineLift;
 					}
@@ -2665,595 +2183,9 @@ Array<std::pair<Vec3, Vec3>> RoadRenderer::buildNodeCapWireLines(
 	return lines;
 }
 
-// ---------------------------------------------------------------------------
-// 信号メッシュキャッシュ
-// ---------------------------------------------------------------------------
-
-const Mesh* RoadRenderer::getSignalMesh(const String& defId, const String& meshName)
-{
-	auto& cache = m_signalMeshCache[defId];
-	if (auto it = cache.meshes.find(meshName); it != cache.meshes.end())
-		return &it->second;
-
-	const SignalModel* model = m_signalRegistry.getModel(defId);
-	if (!model) return nullptr;
-
-	auto mit = model->meshes.find(meshName);
-	if (mit == model->meshes.end()) return nullptr;
-
-	const auto& partModelData = mit->second;
-	if (partModelData.isEmpty()) return nullptr;
-
-	cache.meshes[meshName] = Mesh{ MeshData{ partModelData.vertices, partModelData.indices } };
-	return &cache.meshes[meshName];
-}
-
-// ---------------------------------------------------------------------------
-// 信号機描画
-// ---------------------------------------------------------------------------
-
-// =============================================================================
-// 信号描画ヘルパー
-// =============================================================================
-
-HashTable<int, RoadRenderer::EdgeSignalSummary>
-RoadRenderer::buildEdgeSignalSummaries(const RoadNode& node,
-                                        const SimGraph& simGraph,
-                                        const TrafficLight* tl)
-{
-	HashTable<int, EdgeSignalSummary> summaries;
-	for (const auto& conn : node.laneConnections)
-	{
-		const TurnType turn = TrafficCommon::classifyTurn(simGraph, conn);
-		if (turn == TurnType::UTurn) continue;  // 描画上は無視
-
-		const bool connGreen = tl ? tl->isGreen(conn.id) : true;
-		EdgeSignalSummary& sum = summaries[conn.fromEdgeId];
-		switch (turn)
-		{
-		case TurnType::Straight: sum.hasStraight = true; if (connGreen) sum.straightGreen = true; break;
-		case TurnType::Left:     sum.hasLeft     = true; if (connGreen) sum.leftGreen     = true; break;
-		case TurnType::Right:    sum.hasRight    = true; if (connGreen) sum.rightGreen    = true; break;
-		default: break;
-		}
-	}
-	return summaries;
-}
-
-// =============================================================================
-// 信号機描画
-// =============================================================================
-
-void RoadRenderer::ensureSignalAttachGeomCache(const RoadNode& node, const RoadNetwork& network,
-                                               const World& world, bool elevated,
-                                               Array<SignalAttachGeomCache>& cacheArr) const
-{
-	// サイズが一致していればキャッシュ済み。道路変更時は呼び出し側で erase される
-	if (cacheArr.size() == node.attachments.size()) return;
-
-	cacheArr.assign(node.attachments.size(), SignalAttachGeomCache{});
-
-	for (size_t ai = 0; ai < node.attachments.size(); ++ai)
-	{
-		const auto& att = node.attachments[ai];
-		if (att.control != TrafficControl::Signal) continue;
-
-		const RoadEdge* edge = network.getEdge(att.edgeId);
-		if (!edge) continue;
-		const auto bez = network.getBezier(att.edgeId);
-		if (!bez) continue;
-
-		const bool  isNodeA   = (edge->nodeA == node.id);
-		const float cutoff    = isNodeA ? edge->cutoffA : edge->cutoffB;
-		const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
-		const Vec3  cutPos    = bez->positionAt(cutoffArc);
-		const Vec3  tan       = bez->tangentAt(cutoffArc);
-		const Vec3  faceDir   = isNodeA ? tan : Vec3{ -tan.x, -tan.y, -tan.z };
-		const float yaw       = static_cast<float>(Math::Atan2(faceDir.x, faceDir.z));
-		const Vec3  rightVec  = tangentToRight(tan);
-
-		// 進入方向から見た右肩側に信号を立てる。Roadbed パーツの端 = 路面端。
-		// ノード端（A/B）でのオフセットを使用する
-		const bool entryOnRight = !isNodeA;
-		float roadEdgeOffset = 0.0f;
-		bool  foundRoadbed   = false;
-		for (const auto& part : edge->parts)
-		{
-			if (part.type != RoadPartType::Roadbed) continue;
-			const float oL = isNodeA ? part.offsetA_L : part.offsetB_L;
-			const float oR = isNodeA ? part.offsetA_R : part.offsetB_R;
-			const float edgePos = entryOnRight ? oR : oL;
-			if (!foundRoadbed)
-			{
-				roadEdgeOffset = edgePos;
-				foundRoadbed   = true;
-			}
-			else
-			{
-				roadEdgeOffset = entryOnRight ? Max(roadEdgeOffset, edgePos) : Min(roadEdgeOffset, edgePos);
-			}
-		}
-		if (!foundRoadbed)
-		{
-			roadEdgeOffset = entryOnRight ? edge->totalWidth() * 0.5f : -edge->totalWidth() * 0.5f;
-		}
-
-		const double signalY = elevated
-			? cutPos.y + kRoadSurfaceLift
-			: static_cast<double>(world.sampleHeight(
-				static_cast<float>(cutPos.x), static_cast<float>(cutPos.z))) + kRoadSurfaceLift;
-
-		const Vec3 signalPos{ cutPos.x - rightVec.x * roadEdgeOffset, signalY, cutPos.z - rightVec.z * roadEdgeOffset };
-		cacheArr[ai].baseMat = Mat4x4::RotateY(yaw)
-			* Mat4x4::Translate(Float3{
-				static_cast<float>(signalPos.x),
-				static_cast<float>(signalPos.y),
-				static_cast<float>(signalPos.z) });
-		cacheArr[ai].valid = true;
-	}
-}
-
-void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGraph,
-                               const World& world,
-                               const HashTable<int, TrafficLight>& trafficLights,
-                               GameTime gameNow, Vec3 cameraPos)
-{
-	constexpr double kSignalDrawMaxDistSq = 500.0 * 500.0;
-
-	// 交差点ごとの進入方向サマリーと取付行列を再利用しながら、信号灯器をまとめて描画する。
-	for (const auto& node : network.nodes())
-	{
-		if (node.id < 0 || !node.signalPlacement)
-		{
-			continue;
-		}
-
-		const auto& sigPlacement = *node.signalPlacement;
-		const SignalDef* def = m_signalRegistry.getDef(sigPlacement.signalDefId);
-		const SignalModel* model = def ? m_signalRegistry.getModel(sigPlacement.signalDefId) : nullptr;
-		if (!def || !model || !model->texture)
-		{
-			continue;
-		}
-
-		// 距離カリング
-		const double dx = node.position.x - cameraPos.x;
-		const double dz = node.position.z - cameraPos.z;
-		if (dx * dx + dz * dz > kSignalDrawMaxDistSq)
-		{
-			continue;
-		}
-
-		const bool elevated = network.isNodeElevated(node.id);
-
-		// この交差点の LaneConnection を進入エッジ別 × 旋回別に集計する。
-		// attachments ループの中で繰り返し計算しないようここで一度だけ作る。
-		const auto tlIt = trafficLights.find(node.id);
-		const TrafficLight* tl = (tlIt != trafficLights.end()) ? &tlIt->second : nullptr;
-
-		// フェーズが変化したときのみ再構築（毎フレームのアロケーションを回避）
-		const int phaseIdx = tl ? tl->currentPhaseIndex() : -1;
-		auto& sCache = m_signalSummaryCache[node.id];
-		if (sCache.lastPhaseIdx != phaseIdx)
-		{
-			sCache.summaries    = buildEdgeSignalSummaries(node, simGraph, tl);
-			sCache.lastPhaseIdx = phaseIdx;
-		}
-		const auto& edgeSummaries = sCache.summaries;
-
-		// アタッチメントの変換行列キャッシュを構築（未構築の場合のみ）
-		auto& geomCacheArr = m_signalAttachGeomCache[node.id];
-		ensureSignalAttachGeomCache(node, network, world, elevated, geomCacheArr);
-
-		for (size_t ai = 0; ai < node.attachments.size(); ++ai)
-		{
-			const auto& att = node.attachments[ai];
-			if (att.control != TrafficControl::Signal) continue;
-			if (!geomCacheArr[ai].valid) continue;
-
-			const Mat4x4& baseMat = geomCacheArr[ai].baseMat;
-
-			// 筐体メッシュ描画
-			if (const Mesh* bodyMesh = getSignalMesh(sigPlacement.signalDefId, def->bodyMeshName))
-			{
-				PhongMaterial bodyMat;
-				bodyMat.ambientColor = ColorF{ 0.5 };
-				bodyMat.diffuseColor = ColorF{ 1.0 };
-				bodyMat.hasDiffuseTexture = true;
-				bodyMesh->draw(baseMat, *model->texture, bodyMat);
-			}
-
-			// 進入エッジ単位の集計サマリーを引き当てる（loop 外で計算済み）
-			const auto sumIt = edgeSummaries.find(att.edgeId);
-			const EdgeSignalSummary sum = (sumIt != edgeSummaries.end())
-				? sumIt->second
-				: EdgeSignalSummary{};
-
-			// メインランプ: 直進 LaneConnection が青なら緑。直進が無ければ全方向の論理和
-			const bool isGreen = sum.hasStraight
-				? sum.straightGreen
-				: (sum.leftGreen || sum.rightGreen);
-
-			bool isYellow = false;
-			if (tl)
-			{
-				const float elapsed = tl->phaseElapsed(gameNow);
-				const float duration = tl->currentPhaseDuration();
-				if (isGreen && duration > 0.0f && (duration - elapsed) < kYellowDuration)
-				{
-					isYellow = true;
-				}
-			}
-
-			// メインランプ描画
-			for (size_t li = 0; li < def->lamps.size(); ++li)
-			{
-				const auto& lampDef = def->lamps[li];
-				const Mesh* lampMesh = getSignalMesh(sigPlacement.signalDefId, lampDef.meshName);
-				if (!lampMesh)
-				{
-					continue;
-				}
-
-				// ランプの状態を決定
-				String stateId = U"off";
-				if (lampDef.stateIds.contains(U"green") && isGreen && !isYellow)
-				{
-					stateId = U"green";
-				}
-				else if (lampDef.stateIds.contains(U"yellow") && isYellow)
-				{
-					stateId = U"yellow";
-				}
-				else if (lampDef.stateIds.contains(U"red") && !isGreen && !isYellow)
-				{
-					stateId = U"red";
-				}
-
-				auto stIt = def->states.find(stateId);
-				if (stIt == def->states.end())
-				{
-					stIt = def->states.find(U"off");
-				}
-				if (stIt == def->states.end())
-				{
-					continue;
-				}
-
-				const auto& state = stIt->second;
-				const TextureRegion texRegion = (*model->texture)(
-					static_cast<int>(state.uvRect.x),
-					static_cast<int>(state.uvRect.y),
-					static_cast<int>(state.uvRect.z),
-					static_cast<int>(state.uvRect.w));
-
-				lampMesh->draw(baseMat, texRegion);
-			}
-
-			// sub_lamp（矢印信号）描画 — フェーズから自動導出
-			// 進入エッジに属する LaneConnection を旋回別に分類し、
-			// メインランプが赤のときに該当方向が青の場合のみ矢印を点灯する。
-			// 配置列: arrow_left=0, arrow_straight=1, arrow_right=2
-			if (def->subLamp)
-			{
-				const auto& subLampDef = *def->subLamp;
-				const Mesh* subLampMesh = getSignalMesh(sigPlacement.signalDefId, subLampDef.meshName);
-				const Mesh* subBodyMesh = getSignalMesh(sigPlacement.signalDefId, subLampDef.bodyMeshName);
-
-				// メインランプが青/黄のときは矢印は点灯しない（重複を避ける）
-				const bool mainLit = (isGreen || isYellow);
-
-				// 各方向の点灯判定: 該当 LaneConnection が青 かつ メインが赤
-				struct ArrowSlot { int col; String stateId; bool lit; };
-				Array<ArrowSlot> slots;
-				if (sum.hasLeft)
-					slots << ArrowSlot{ 0, U"arrow_left",     sum.leftGreen     && !mainLit };
-				if (sum.hasStraight)
-					slots << ArrowSlot{ 1, U"arrow_straight", sum.straightGreen && !mainLit };
-				if (sum.hasRight)
-					slots << ArrowSlot{ 2, U"arrow_right",    sum.rightGreen    && !mainLit };
-
-				for (const auto& s : slots)
-				{
-					const int row = s.col / subLampDef.cols;
-					const int c   = s.col % subLampDef.cols;
-					const Float3 offset{
-						subLampDef.colStride.x * c + subLampDef.rowStride.x * row,
-						subLampDef.colStride.y * c + subLampDef.rowStride.y * row,
-						subLampDef.colStride.z * c + subLampDef.rowStride.z * row
-					};
-
-					const Mat4x4 subLampMat = Mat4x4::Translate(offset) * baseMat;
-
-					if (subBodyMesh)
-					{
-						PhongMaterial subBodyMat;
-						subBodyMat.ambientColor = ColorF{ 0.5 };
-						subBodyMat.diffuseColor = ColorF{ 1.0 };
-						subBodyMat.hasDiffuseTexture = true;
-						subBodyMesh->draw(subLampMat, *model->texture, subBodyMat);
-					}
-
-					if (subLampMesh)
-					{
-						const String renderStateId = s.lit ? s.stateId : U"off";
-						auto renderStIt = def->states.find(renderStateId);
-						if (renderStIt == def->states.end())
-						{
-							continue;
-						}
-						const auto& renderState = renderStIt->second;
-
-						const TextureRegion texRegion = (*model->texture)(
-							static_cast<int>(renderState.uvRect.x),
-							static_cast<int>(renderState.uvRect.y),
-							static_cast<int>(renderState.uvRect.z),
-							static_cast<int>(renderState.uvRect.w));
-
-						subLampMesh->draw(subLampMat, texRegion);
-					}
-				}
-			}
-		}
-	}
-
-}
 
 // =============================================================================
 // 国道路線標識（3D）
-// =============================================================================
-
-namespace
-{
-	/// @brief 国道標識を生成・描画する対象となる route かどうか
-	bool isDrawableNationalRoute(const RoadRoute& route)
-	{
-		return route.id >= 0
-			&& route.kind == RoadRouteKind::NationalRoute
-			&& route.number > 0;
-	}
-}
-
-void RoadRenderer::prepareRouteSignTextures(const RoadNetwork& network)
-{
-	// A fixed small shared palette avoids traversing every road each frame.
-	for (const auto type : {RoadSignType::SpeedLimit,RoadSignType::OneWay,RoadSignType::CurveWarning})
-	{
-		const int start=type==RoadSignType::SpeedLimit ? 20 : 0,end=type==RoadSignType::SpeedLimit ? 100 : 2,step=type==RoadSignType::SpeedLimit ? 10 : 1;
-		for (int value=start;value<=end;value+=step)
-		{
-			const int key=SignArtwork::key(type,value);
-			if (m_regulatorySignTexCache.contains(key)) { continue; }
-			RenderTexture texture{256,256,ColorF{0,0},TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::No,HasMipMap::Yes};
-			{
-				const ScopedRenderTarget2D target{texture};
-				const ScopedRenderStates2D blend{BlendState::Opaque};
-				SignArtwork::draw(type,value,FontAsset(Asset::Arial24)); Graphics2D::Flush();
-			}
-			texture.generateMips(); m_regulatorySignTexCache.emplace(key,std::move(texture));
-		}
-	}
-	const Texture& baseTex = TextureAsset(Asset::NationalRoadSign);
-	if (not baseTex) return;
-
-	const Font& fontNum = FontAsset(Asset::Arial24);
-	constexpr int kTexSize = 256;
-
-	for (const auto& route : network.routes())
-	{
-		if (!isDrawableNationalRoute(route)) continue;
-		if (m_routeSignTexCache.contains(route.number)) continue;
-
-		// 路線番号ごとに 1 回だけ看板テクスチャを合成し、以後は共有キャッシュから使い回す。
-		// 透明背景に看板 + 号数を合成（透過部分は alpha=0）
-		// 3D Mesh::draw が mipmap サンプルするため HasMipMap::Yes を指定し、生成する。
-		RenderTexture rt{ kTexSize, kTexSize, ColorF{ 0.0, 0.0 },
-		                  TextureFormat::R8G8B8A8_Unorm_SRGB,
-		                  HasDepth::No, HasMipMap::Yes };
-		{
-			const ScopedRenderTarget2D target2d{ rt };
-			// ベース看板はアルファをそのまま書き写したい → Opaque で上書き
-			{
-				const ScopedRenderStates2D blend{ BlendState::Opaque };
-				baseTex.resized(kTexSize).draw(0, 0);
-				Graphics2D::Flush();
-			}
-			// 号数は透明背景でも見える Default2D で重ねる
-			{
-				const ScopedRenderStates2D blend{ BlendState::Default2D };
-				const double numSize = kTexSize * 0.361;
-				fontNum(route.number).drawAt(
-					numSize,
-					Vec2{ kTexSize * 0.5, kTexSize * 0.5 - kTexSize * 0.02 },
-					Palette::White);
-				Graphics2D::Flush();
-			}
-		}
-		rt.generateMips();
-		m_routeSignTexCache[route.number] = std::move(rt);
-	}
-}
-
-void RoadRenderer::drawRouteSigns(const RoadNetwork& network, const World& world, [[maybe_unused]] Vec3 cameraPos)
-{
-	for (const auto& route : network.routes())
-	{
-		if (!isDrawableNationalRoute(route)) continue;
-
-		if (!m_routeSignCache.contains(route.id))
-			m_routeSignCache[route.id] = buildRouteSignDraws(route, network, world);
-
-		drawSigns(m_routeSignCache[route.id]);
-	}
-}
-
-// =============================================================================
-// 案内標識（GuideSign）
-// =============================================================================
-
-namespace
-{
-	/// @brief GuideSignPlacement の内容からテクスチャキャッシュキーを計算
-	uint64 guideSignTexKey(const GuideSignPlacement& g)
-	{
-		// FNV-1a 64bit
-		uint64 h = 14695981039346656037ull;
-		auto mix = [&](uint64 v) {
-			h ^= v;
-			h *= 1099511628211ull;
-		};
-		auto mixStr = [&](const String& s) {
-			for (char32_t c : s) mix(static_cast<uint64>(c));
-			mix(0xff);  // 区切り
-		};
-		auto mixFloat = [&](float f) {
-			mix(static_cast<uint64>(static_cast<int64>(f * 1000.0f + (f >= 0 ? 0.5f : -0.5f))));
-		};
-		mix(static_cast<uint64>(g.kind));
-		mixFloat(g.widthOverride);
-		mixFloat(g.heightOverride);
-		mixFloat(static_cast<float>(g.bgColor.r));
-		mixFloat(static_cast<float>(g.bgColor.g));
-		mixFloat(static_cast<float>(g.bgColor.b));
-		mixFloat(static_cast<float>(g.bgColor.a));
-		mix(g.showReading ? 1 : 0);
-		mix(static_cast<uint64>(g.elements.size()));
-		for (const auto& el : g.elements)
-		{
-			mix(static_cast<uint64>(el.kind));
-			mixFloat(el.posX);
-			mixFloat(el.posY);
-			mixFloat(el.scale);
-			mixFloat(el.arrowAngle);
-			mixStr(el.text);
-			mixStr(el.reading);
-		}
-		return h;
-	}
-
-}
-
-namespace
-{
-	/// @brief 1基分の案内標識テクスチャを合成する
-	/// @details SRGB format でサンプリング時に線形空間へ自動変換させる（ルート看板と色合いを合わせる）
-	///   HasMipMap なし（Test 検証: HasMipMap::Yes だと描画内容がキャプチャ先に反映されない）
-	RenderTexture buildGuideSignTexture(const GuideSignPlacement& g, const Font& fontJa, const Font& fontNum)
-	{
-		const auto   bs      = GuideSign::computeBoardSizeFor(g);
-		const Size   texSize = GuideSign::guideSignTexSize(bs.width, bs.height);
-		const ColorF bg      = GuideSign::resolveBgColor(g.bgColor);
-
-		// SRGB フォーマットへのクリア色は linear 値として解釈されて sRGB 符号化される。
-		// bgColor (21/255, 87/255, 161/255) を linear とみなして encode した結果が物理バイトに
-		// 入るため、3D でサンプリングしたとき国道アイコン PNG（Mipped / Unorm 読み込み）と
-		// 同じ明るめの青 ≒ (94,193,230) で表示され両者の色味が一致する。
-		RenderTexture rt{ static_cast<uint32>(texSize.x), static_cast<uint32>(texSize.y), bg,
-		                  TextureFormat::R8G8B8A8_Unorm_SRGB };
-		{
-			const ScopedRenderTarget2D target{ rt };
-			const ScopedRenderStates2D blend{ BlendState::Default2D };
-			GuideSign::renderContents(g, texSize, fontJa, fontNum);
-			Graphics2D::Flush();
-		}
-		rt.generateMips();
-		return rt;
-	}
-}
-
-void RoadRenderer::prepareGuideSignTextures(const RoadNetwork& network)
-{
-	// 全テクスチャ準備済みなら即リターン（毎フレーム 5000 件を走査するコストを回避）
-	if (m_guideSignTexAllReady) return;
-
-	// 地名は太字で表示（現物に合わせる）
-	const Font& fontJa  = FontAsset(Asset::CJK32Bold);
-	const Font& fontNum = FontAsset(Asset::Arial24);
-	if (!fontJa || !fontNum) return;
-
-	int missCount = 0;
-
-	for (const auto& g : network.guideSigns())
-	{
-		if (g.id < 0) continue;
-		if (g.elements.isEmpty()) continue;
-
-		// 板面内容のハッシュ単位でテクスチャ化し、同一内容の標識はエッジをまたいで共有する。
-		const uint64 key = guideSignTexKey(g);
-		if (m_guideSignTexCache.contains(key)) continue;
-		++missCount;
-
-		m_guideSignTexCache[key] = buildGuideSignTexture(g, fontJa, fontNum);
-	}
-
-	// キャッシュミスがなくなったら準備完了フラグをセット
-	if (missCount == 0)
-		m_guideSignTexAllReady = true;
-}
-
-Array<RoadRenderer::GuideSignDraw> RoadRenderer::buildEdgeGuideSignDraws(
-	const RoadNetwork& network, int edgeId, const World& world) const
-{
-	const RoadEdge* edge = network.getEdge(edgeId);
-	if (!edge || !edge->isRoadbedBuilt()) return {};
-	const auto bez = network.getBezier(edgeId);
-	if (!bez) return {};
-
-	Array<GuideSignDraw> out;
-
-	for (const auto& g : network.guideSigns())
-	{
-		if (g.id < 0 || g.parentEdgeId != edgeId) continue;
-		if (g.elements.isEmpty()) continue;
-
-		const bool atA = (g.nodeEndId == edge->nodeA);
-		const bool atB = (g.nodeEndId == edge->nodeB);
-		if (!atA && !atB) continue;
-
-		// 弧長位置: cutoff + arcOffset を内側方向に
-		const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
-		const float arc = atA
-			? (cutoff + g.arcOffset)
-			: (bez->totalLength - cutoff - g.arcOffset);
-
-		// 看板は driver に向ける: nodeA 側 → driver は B→A → 看板正面は +tan
-		//                          nodeB 側 → driver は A→B → 看板正面は -tan
-		const bool boardFacesTan = atA;
-
-		const auto bs = GuideSign::computeBoardSizeFor(g);
-		const auto& meta = GuideSign::poleMetadata();
-
-		Mat4x4 poleMat, boardMat;
-		Vec3   poleTop;
-		if (!computeSignTransforms(*bez, world, arc, g.lateralOffset, boardFacesTan,
-		                           meta.offsetX, meta.offsetY, meta.offsetZ,
-		                           edge->useElevation, poleMat, boardMat, poleTop))
-			continue;
-
-		MeshData md = GuideSign::CreateBoardMesh(bs.width, bs.height);
-		if (md.vertices.isEmpty()) continue;
-
-		GuideSignDraw d;
-		d.poleMat   = poleMat;
-		d.boardMat  = boardMat;
-		d.poleTop   = poleTop;
-		d.boardMesh = Mesh{ md };
-		d.texKey    = guideSignTexKey(g);
-		out << d;
-	}
-	return out;
-}
-
-const Texture* RoadRenderer::getGuideSignCachedTexture(const GuideSignPlacement& g) const
-{
-	const uint64 key = guideSignTexKey(g);
-	if (auto it = m_guideSignTexCache.find(key); it != m_guideSignTexCache.end())
-		return &it->second;
-	return nullptr;
-}
-
-// =============================================================================
-// 選択アウトライン用シルエット描画（書き込み先を差し替え、通常パスと同じメッシュ・変換で描画）
 // =============================================================================
 
 void RoadRenderer::drawEdgeSilhouette(int edgeId, const RoadNetwork& network, const World& world,
@@ -3305,99 +2237,6 @@ void RoadRenderer::drawNodeSilhouette(int nodeId, const RoadNetwork& network, co
 		entry.meshPair.detail.draw(color);
 }
 
-void RoadRenderer::drawSignalSilhouette(int nodeId, const RoadNetwork& network, const World& world,
-                                         const ColorF& color)
-{
-	const RoadNode* node = network.getNode(nodeId);
-	if (!node || !node->signalPlacement) return;
-
-	const auto& sigPlacement = *node->signalPlacement;
-	const SignalDef* def = m_signalRegistry.getDef(sigPlacement.signalDefId);
-	if (!def) return;
-
-	const bool elevated = network.isNodeElevated(nodeId);
-	auto& geomCacheArr = m_signalAttachGeomCache[nodeId];
-	ensureSignalAttachGeomCache(*node, network, world, elevated, geomCacheArr);
-
-	for (size_t ai = 0; ai < node->attachments.size(); ++ai)
-	{
-		const auto& att = node->attachments[ai];
-		if (att.control != TrafficControl::Signal) continue;
-		if (ai >= geomCacheArr.size() || !geomCacheArr[ai].valid) continue;
-
-		const Mat4x4& baseMat = geomCacheArr[ai].baseMat;
-		if (const Mesh* bodyMesh = getSignalMesh(sigPlacement.signalDefId, def->bodyMeshName))
-			bodyMesh->draw(baseMat, color);
-		for (const auto& lampDef : def->lamps)
-		{
-			if (const Mesh* lampMesh = getSignalMesh(sigPlacement.signalDefId, lampDef.meshName))
-				lampMesh->draw(baseMat, color);
-		}
-		if (def->subLamp)
-		{
-			if (const Mesh* subMesh = getSignalMesh(sigPlacement.signalDefId, def->subLamp->meshName))
-				subMesh->draw(baseMat, color);
-		}
-	}
-}
-
-void RoadRenderer::drawGuideSignSilhouette(int signId, const RoadNetwork& network, const World& world,
-                                            const ColorF& color)
-{
-	const GuideSignPlacement* target = nullptr;
-	for (const auto& g : network.guideSigns())
-	{
-		if (g.id == signId) { target = &g; break; }
-	}
-	if (!target) return;
-
-	const RoadEdge* edge = network.getEdge(target->parentEdgeId);
-	if (!edge || !edge->isRoadbedBuilt()) return;
-	const auto bez = network.getBezier(target->parentEdgeId);
-	if (!bez) return;
-
-	const bool atA = (target->nodeEndId == edge->nodeA);
-	const bool atB = (target->nodeEndId == edge->nodeB);
-	if (!atA && !atB) return;
-
-	const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
-	const float arc = atA ? (cutoff + target->arcOffset)
-	                      : (bez->totalLength - cutoff - target->arcOffset);
-	const bool boardFacesTan = atA;
-
-	const auto bs = GuideSign::computeBoardSizeFor(*target);
-	const auto& meta = GuideSign::poleMetadata();
-
-	Mat4x4 poleMat, boardMat;
-	Vec3 poleTop;
-	if (!computeSignTransforms(*bez, world, arc, target->lateralOffset, boardFacesTan,
-	                           meta.offsetX, meta.offsetY, meta.offsetZ,
-	                           edge->useElevation, poleMat, boardMat, poleTop))
-		return;
-
-	if (not m_guidePoleMesh)
-	{
-		const MeshData md = GuideSign::CreatePoleMesh();
-		if (not md.vertices.isEmpty()) m_guidePoleMesh = Mesh{ md };
-	}
-	if (m_guidePoleMesh)
-	{
-		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
-		m_guidePoleMesh->draw(poleMat, color);
-	}
-
-	MeshData md = GuideSign::CreateBoardMesh(bs.width, bs.height);
-	if (!md.vertices.isEmpty())
-	{
-		const Mesh boardMesh{ md };
-		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
-		boardMesh.draw(boardMat, color);
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ワイヤーフレーム描画 (Planned / UnderConstruction)
-// ─────────────────────────────────────────────────────────────────────────────
 
 void RoadRenderer::drawEdgeWireframe(const RoadEdge& edge, const RoadNetwork& network,
                                       const World& world, ColorF color)
@@ -3443,7 +2282,7 @@ void RoadRenderer::drawEdgeWireframe(const RoadEdge& edge, const RoadNetwork& ne
 			const float s = sStart + (sEnd - sStart) * (i / static_cast<float>(kSegs));
 			const Vec3 p = bez.positionAt(s);
 			const Vec3 r = tangentToRight(bez.tangentAt(s));
-			const double y = edge.useElevation
+			const double y = edge.usesDesignHeight()
 				? p.y + kRoadSurfaceLift + 0.1
 				: world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z)) + kRoadSurfaceLift + 0.1;
 			const Vec3 cur = Vec3{ p.x, y, p.z } + r * static_cast<double>(off);
@@ -3458,7 +2297,7 @@ void RoadRenderer::drawEdgeWireframe(const RoadEdge& edge, const RoadNetwork& ne
 		const float s = (endIdx == 0) ? sStart : sEnd;
 		const Vec3 p = bez.positionAt(s);
 		const Vec3 r = tangentToRight(bez.tangentAt(s));
-		const double y = edge.useElevation
+		const double y = edge.usesDesignHeight()
 			? p.y + kRoadSurfaceLift + 0.1
 			: world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z)) + kRoadSurfaceLift + 0.1;
 		const Vec3 center{ p.x, y, p.z };
@@ -3516,19 +2355,7 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 		auto boundsIt = m_boundsCache.find(edge.id);
 		if (boundsIt == m_boundsCache.end())
 		{
-			const RoadNode* nA = network.getNode(edge.nodeA);
-			const RoadNode* nB = network.getNode(edge.nodeB);
-			if (!nA || !nB) continue;
-			EdgeBounds b;
-			b.center = Float3{
-				static_cast<float>((nA->position.x + nB->position.x) * 0.5),
-				static_cast<float>((nA->position.y + nB->position.y) * 0.5),
-				static_cast<float>((nA->position.z + nB->position.z) * 0.5)
-			};
-			const float chordSq = static_cast<float>((nA->position - nB->position).lengthSq());
-			const float arcR    = edge.length * 0.6f;
-			b.radiusSq = Max(arcR * arcR, chordSq * 0.36f);
-			boundsIt = m_boundsCache.emplace(edge.id, b).first;
+			boundsIt = m_boundsCache.emplace(edge.id, edgeBounds(network,edge.id)).first;
 		}
 		const auto& bounds = boundsIt->second;
 		const float dx = bounds.center.x - camX;
@@ -3555,39 +2382,68 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 	}
 }
 
-void RoadRenderer::drawGuideSigns(const Array<GuideSignDraw>& draws)
+/// @brief A continuous, inexpensive surface remains visible while exact roadside parts are built.
+void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world)
 {
-	if (draws.isEmpty()) return;
-
-	// 2 本柱フレーム（OBJ ロード、遅延初期化）
-	if (not m_guidePoleMesh)
+	if (!m_fallbackEdges.contains(edge.id))
 	{
-		const MeshData md = GuideSign::CreatePoleMesh();
-		if (not md.vertices.isEmpty()) m_guidePoleMesh = Mesh{ md };
-	}
-	if (not m_guidePoleMesh) return;
-
-	// ポール
-	{
-		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
-		for (const auto& d : draws)
-			m_guidePoleMesh->draw(d.poleMat, RoadSign::kPoleColor.removeSRGBCurve());
-	}
-
-	// 看板裏面: 灰色（前面ポリゴンをカリングして裏面のみ表示）
-	{
-		const ScopedRenderStates3D states{ RasterizerState::SolidCullFront };
-		for (const auto& d : draws)
-			d.boardMesh.draw(d.boardMat, ColorF{ 0.55 }.removeSRGBCurve());
-	}
-
-	// 看板前面: テクスチャ（裏面ポリゴンをカリングして前面のみ表示）
-	{
-		const ScopedRenderStates3D states{ BlendState::Default2D, RasterizerState::SolidCullBack };
-		for (const auto& d : draws)
+		const Stopwatch timer{StartImmediately::Yes};
+		Array<PartMeshEntry> entries;
+		if (const auto bezier = network.getBezier(edge.id))
 		{
-			if (auto itRt = m_guideSignTexCache.find(d.texKey); itRt != m_guideSignTexCache.end())
-				d.boardMesh.draw(d.boardMat, itRt->second);
+			StripRange range;
+			if (calcStripRange(bezier->totalLength, edge.cutoffA, edge.cutoffB, range))
+			{
+				for (const auto& part : edge.parts)
+				{
+					if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) { continue; }
+					const auto [color, height, texture] = getPartVisual(part);
+					auto data = buildStripMeshTapered(*bezier, world, part.offsetA_L, part.offsetA_R,
+						part.offsetB_L, part.offsetB_R, height, range.sStart, range.sEnd, .25f, 0, edge.usesDesignHeight());
+					if (data.indices.isEmpty()) { continue; }
+					orientRoadFaces(data);
+					const Mesh mesh{data};
+					entries << PartMeshEntry{{mesh, mesh}, color, texture, part.type};
+				}
+			}
 		}
+		m_fallbackEdges.emplace(edge.id, std::move(entries));
+		++m_geometryRevision;
+		m_cacheBuildStats.fallbackMs += timer.msF();
 	}
+}
+
+void RoadRenderer::drawFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world)
+{
+	prepareFallbackEdge(edge,network,world);
+	m_drawnFallbackEdges.emplace(edge.id);
+	for (const auto& entry : m_fallbackEdges.at(edge.id)) { drawSurface(entry, entry.meshPair.detail); }
+}
+
+void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, const World& world)
+{
+	if (!m_fallbackNodes.contains(nodeId))
+	{
+		const Stopwatch timer{StartImmediately::Yes};
+		const auto layout = JunctionGeometry::build(network, nodeId, true, &world);
+		auto data = JunctionGeometry::terrainFootprint(layout);
+		for (auto& vertex : data.vertices)
+		{
+			if (!layout.elevated) { vertex.pos.y = static_cast<float>(world.sampleHeight(vertex.pos.x, vertex.pos.z) + kRoadSurfaceLift); }
+			vertex.tex = Float2{vertex.pos.x * kWorldUV, vertex.pos.z * kWorldUV};
+		}
+		orientRoadFaces(data);
+		const auto& definition = m_partRegistry.get(U"roadbed_asphalt");
+		const Mesh mesh = data.indices.isEmpty() ? Mesh{} : Mesh{data};
+		m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, ColorF{.29, .30, .32},
+			definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
+		m_cacheBuildStats.fallbackMs += timer.msF();
+	}
+}
+
+void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const World& world)
+{
+	prepareFallbackNode(nodeId,network,world);
+	const auto& entry = m_fallbackNodes.at(nodeId);
+	if (entry.meshPair.detail) { drawSurface(entry, entry.meshPair.detail); }
 }

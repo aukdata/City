@@ -40,27 +40,41 @@ def material(index):
     nodes=mat.node_tree.nodes;nodes.clear();links=mat.node_tree.links
     out=nodes.new('ShaderNodeOutputMaterial')
     emit=nodes.new('ShaderNodeEmission')
-    tex=nodes.new('ShaderNodeTexImage')
-    uv=nodes.new('ShaderNodeUVMap');uv.uv_map='SourceUV'
-    if index in PHOTO:
-        name=PHOTO[index]
-        filename=ROOT/'App/assets/third_party/polyhaven'/name/f'{name}_diff_1k.jpg'
+    if '--vehicle-paint' in ARGS:
+        # Factory paint, rubber, glass and alloy: no plaster texture on coachwork.
+        colors = {4:(.035,.075,.10,1), 7:(.78,.80,.79,1), 8:(.04,.18,.22,1),
+                  9:(.52,.025,.018,1), 10:(.85,.44,.035,1), 11:(.025,.03,.033,1),
+                  13:(.42,.46,.48,1)}
+        paint=nodes.new('ShaderNodeRGB')
+        paint.outputs[0].default_value=colors.get(index,(.55,.55,.52,1))
+        surface=paint.outputs[0]
+        if '--train-displays' in ARGS and index in (30,31):
+            tex=nodes.new('ShaderNodeTexImage')
+            tex.image=bpy.data.images.load(str(WORK/'materials'/f'{index:02d}.png'),check_existing=True)
+            uv=nodes.new('ShaderNodeUVMap');uv.uv_map='SourceUV'
+            links.new(uv.outputs['UV'],tex.inputs['Vector']);surface=tex.outputs['Color']
     else:
-        filename=WORK/'materials'/f'{index:02d}.png'
-    tex.image=bpy.data.images.load(str(filename),check_existing=True)
-    tex.extension='REPEAT' if index<16 else 'EXTEND'
-    links.new(uv.outputs['UV'],tex.inputs['Vector'])
-    tint=nodes.new('ShaderNodeMixRGB');tint.blend_type='MULTIPLY';tint.inputs[0].default_value=1
-    tint.inputs[2].default_value=TINT.get(index,(1,1,1,1))
-    links.new(tex.outputs['Color'],tint.inputs[1])
-    surface=tint.outputs[0]
-    if index in (0,7):
-        # Painted plaster: retain fine photographic variation without turning
-        # an ordinary inhabited home into a heavily stained ruin.
-        paint=nodes.new('ShaderNodeMixRGB');paint.blend_type='MIX'
-        paint.inputs[0].default_value=.72
-        paint.inputs[2].default_value=(.67,.65,.60,1) if index==0 else (.8,.8,.77,1)
-        links.new(surface,paint.inputs[1]);surface=paint.outputs[0]
+        tex=nodes.new('ShaderNodeTexImage')
+        uv=nodes.new('ShaderNodeUVMap');uv.uv_map='SourceUV'
+        if index in PHOTO:
+            name=PHOTO[index]
+            filename=ROOT/'App/assets/third_party/polyhaven'/name/f'{name}_diff_1k.jpg'
+        else:
+            filename=WORK/'materials'/f'{index:02d}.png'
+        tex.image=bpy.data.images.load(str(filename),check_existing=True)
+        tex.extension='REPEAT' if index<16 else 'EXTEND'
+        links.new(uv.outputs['UV'],tex.inputs['Vector'])
+        tint=nodes.new('ShaderNodeMixRGB');tint.blend_type='MULTIPLY';tint.inputs[0].default_value=1
+        tint.inputs[2].default_value=TINT.get(index,(1,1,1,1))
+        links.new(tex.outputs['Color'],tint.inputs[1])
+        surface=tint.outputs[0]
+        if index in (0,7):
+            # Painted plaster: retain fine photographic variation without turning
+            # an ordinary inhabited home into a heavily stained ruin.
+            paint=nodes.new('ShaderNodeMixRGB');paint.blend_type='MIX'
+            paint.inputs[0].default_value=.72
+            paint.inputs[2].default_value=(.67,.65,.60,1) if index==0 else (.8,.8,.77,1)
+            links.new(surface,paint.inputs[1]);surface=paint.outputs[0]
     ao=nodes.new('ShaderNodeAmbientOcclusion');ao.samples=16;ao.inputs['Distance'].default_value=.48
     ao.only_local=True
     shade=nodes.new('ShaderNodeMath');shade.operation='MULTIPLY_ADD'

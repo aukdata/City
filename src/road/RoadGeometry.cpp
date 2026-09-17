@@ -5,6 +5,32 @@
 
 namespace RoadGeometry
 {
+	Optional<SignalAnchor> signalAnchor(const RoadEdge& edge, const CubicBezier& bezier, int nodeId)
+	{
+		if (nodeId != edge.nodeA && nodeId != edge.nodeB) { return none; }
+		const bool isNodeA = nodeId == edge.nodeA;
+		const float arc = isNodeA ? edge.cutoffA : bezier.totalLength - edge.cutoffB;
+		const Vec3 roadPosition = bezier.positionAt(arc);
+		const Vec3 tangent = bezier.tangentAt(arc);
+		const Vec3 facing = isNodeA ? tangent : -tangent;
+		const Vec3 right = tangentToRight(tangent);
+
+		// A/B端の断面を参照する。路肩・歩道幅を車道端と取り違えないよう Roadbed のみを調べる。
+		// 描画とクリック選択を同じ計算に通し、非対称の道路や端点ごとの幅変更でも一致させる。
+		Optional<float> offset;
+		for (const auto& part : edge.parts)
+		{
+			if (part.type != RoadPartType::Roadbed) { continue; }
+			const float candidate = isNodeA ? part.offsetA_L : part.offsetB_R;
+			if (!offset) { offset = candidate; }
+			else { offset = isNodeA ? Min(*offset, candidate) : Max(*offset, candidate); }
+		}
+		const float lateral = offset.value_or((isNodeA ? -1.0f : 1.0f) * edge.totalWidth() * 0.5f);
+		return SignalAnchor{roadPosition,
+			{roadPosition.x - right.x * lateral, roadPosition.y, roadPosition.z - right.z * lateral},
+			static_cast<float>(Math::Atan2(facing.x, facing.z))};
+	}
+
 	bool isStructuralStrip(const RoadPart& part)
 	{
 		return part.build == BuildState::Built
@@ -95,12 +121,12 @@ namespace RoadGeometry
 
 	double surfaceY(const RoadEdge& edge, const Vec3& roadPosition, double terrainHeight)
 	{
-		return (edge.useElevation ? roadPosition.y : terrainHeight) + kRoadSurfaceLift;
+		return (edge.usesDesignHeight() ? roadPosition.y : terrainHeight) + kRoadSurfaceLift;
 	}
 
 	double markingY(const RoadEdge& edge, const Vec3& roadPosition, double terrainHeight)
 	{
-		return (edge.useElevation ? roadPosition.y : terrainHeight) + kRoadLineLift;
+		return (edge.usesDesignHeight() ? roadPosition.y : terrainHeight) + kRoadLineLift;
 	}
 
 	double furnitureBaseY(const RoadEdge& edge, const Vec3& roadPosition, double terrainHeight)
@@ -127,7 +153,7 @@ namespace RoadGeometry
 				for (const bool left : { true, false })
 				{
 					Vec3 position = center + right * partOffsetAt(part, arc / bezier.totalLength, left);
-					position.y = surfaceY(edge, center, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.z)));
+					position.y = surfaceY(edge, center, world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.z)));
 					mesh.vertices << Vertex3D{ Float3{ position }, Float3{ 0, 1, 0 }, Float2{ 0, 0 } };
 				}
 			}

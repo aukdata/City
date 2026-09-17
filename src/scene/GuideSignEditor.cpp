@@ -532,7 +532,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 				m_dragOffset = Vec2{ previewX + el.posX * previewW, previewY + el.posY * drawH } - mousePos;
 				m_dragStartNorm = Vec2{ el.posX, el.posY };
 				m_dragging = true;
-				m_copyDrag = KeyControl.pressed();
+				m_copyDrag = GameInput::pressed(KeyControl);
 				if (m_copyDrag)
 				{
 					els << els[m_selectedElement];
@@ -548,7 +548,7 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 			const Vec2 ns = mousePos + m_dragOffset;
 			float nx = static_cast<float>(Clamp((ns.x - previewX) / previewW, 0.0, 1.0));
 			float ny = static_cast<float>(Clamp((ns.y - previewY) / drawH, 0.0, 1.0));
-			if (KeyShift.pressed())
+			if (GameInput::pressed(KeyShift))
 			{
 				if (std::abs(nx - m_dragStartNorm.x) > std::abs(ny - m_dragStartNorm.y))
 					ny = static_cast<float>(m_dragStartNorm.y);
@@ -567,14 +567,14 @@ bool GuideSignEditor::drawEditorPanel(RoadNetwork& network, PanelManager& panelM
 		if (isDraftSelValid())
 		{
 			auto& el = els[m_selectedElement];
-			const float step = KeyShift.pressed() ? kArrowKeyShiftStepPx : kArrowKeyStepPx;
+			const float step = GameInput::pressed(KeyShift) ? kArrowKeyShiftStepPx : kArrowKeyStepPx;
 			const float dx = step / static_cast<float>(previewW);
 			const float dy = step / static_cast<float>(drawH);
-			if (KeyUp.down())    { el.posY = Max(0.0f, el.posY - dy); m_draftTexDirty = true; }
-			if (KeyDown.down())  { el.posY = Min(1.0f, el.posY + dy); m_draftTexDirty = true; }
-			if (KeyLeft.down())  { el.posX = Max(0.0f, el.posX - dx); m_draftTexDirty = true; }
-			if (KeyRight.down()) { el.posX = Min(1.0f, el.posX + dx); m_draftTexDirty = true; }
-			if (KeyDelete.down())
+			if (GameInput::down(KeyUp))    { el.posY = Max(0.0f, el.posY - dy); m_draftTexDirty = true; }
+			if (GameInput::down(KeyDown))  { el.posY = Min(1.0f, el.posY + dy); m_draftTexDirty = true; }
+			if (GameInput::down(KeyLeft))  { el.posX = Max(0.0f, el.posX - dx); m_draftTexDirty = true; }
+			if (GameInput::down(KeyRight)) { el.posX = Min(1.0f, el.posX + dx); m_draftTexDirty = true; }
+			if (GameInput::down(KeyDelete))
 			{
 				deleteSelectedElement();
 			}

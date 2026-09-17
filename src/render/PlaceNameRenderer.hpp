@@ -1,19 +1,14 @@
 ﻿#pragma once
 #include "../gen/MapGenerator.hpp"
-#include "../gen/PlaceNameGenerator.hpp"
 #include "../ui/Camera.hpp"
-#include "../world/World.hpp"
+#include "../ui/TownBillboards.hpp"
 
-/// @brief 地区地名をビルボードとして2D投影表示するレンダラ
+/// @brief 俯瞰では街の上へ地名を投影し、徒歩・運転では現在地を上部へ固定する。
 class PlaceNameRenderer
 {
+	mutable Array<TownBillboards::Label> m_labels;
 public:
-	// 地区データを読み取り専用で受け取り、ワールド高さとカメラ投影を使って画面上へ配置する。
-	/// @brief 地区地名を描画する（Shader::LinearToScreen の後に呼ぶこと）
-	/// @param settlements  地区リスト（MapGenerator::settlements()）
-	/// @param camera       ゲームカメラ
-	/// @param world        高さサンプリング用ワールド
-	void render(const Array<MapGenerator::Settlement>& settlements,
-	            const GameCamera& camera,
-	            const World& world) const;
+	/// @brief 描画したラベルの検証用スナップショット。
+	const Array<TownBillboards::Label>& labels() const { return m_labels; }
+	void render(const Array<MapGenerator::Settlement>& settlements,const GameCamera& camera, const World& world, const Array<RectF>& hudBounds) const;
 };

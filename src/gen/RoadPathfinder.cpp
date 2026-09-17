@@ -1,5 +1,8 @@
-﻿#include "RoadPathfinder.hpp"
+﻿#include "GenerationSettings.hpp"
+#include "RoadPathfinder.hpp"
 #include <queue>
+#include "RoadConstructionCost.hpp"
+#include "RoadDesignLimits.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // グリッド構築
@@ -14,12 +17,21 @@ void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH
 	m_cellSize = cellSize;
 
 	m_heightGrid.resize(gridW * gridH);
+	m_waterGrid.assign(static_cast<size_t>(gridW*gridH),0.0f);
+	m_flowGrid.assign(static_cast<size_t>(gridW*gridH),Vec2{0,0});
 	for (int gz = 0; gz < gridH; ++gz)
 		for (int gx = 0; gx < gridW; ++gx)
 		{
 			const Vec2 wp = gridToWorld(gx, gz);
 			m_heightGrid[gz * gridW + gx] = world.sampleHeight(
 				static_cast<float>(wp.x), static_cast<float>(wp.y));
+			m_waterGrid[gz*gridW+gx]=static_cast<float>(world.waterSurfaceHeight(wp.x,wp.y));
+			const auto sample=world.rivers().nearest(wp);
+			if (sample.reach>=0 && sample.distance<sample.halfWidth+cellSize)
+			{
+				const auto& reach=world.rivers().reaches[sample.reach]; const Vec2 direction{reach.end.x-reach.start.x,reach.end.z-reach.start.z};
+				if (direction.lengthSq()>.01) { m_flowGrid[gz*gridW+gx]=direction.normalized(); }
+			}
 		}
 }
 
@@ -35,6 +47,8 @@ void RoadPathfinder::setupFromHeightMap(
 	m_cellSize = cellSize;
 
 	m_heightGrid.resize(gridW * gridH);
+	m_waterGrid.assign(static_cast<size_t>(gridW*gridH),0.0f);
+	m_flowGrid.assign(static_cast<size_t>(gridW*gridH),Vec2{0,0});
 	for (int gz = 0; gz < gridH; ++gz)
 		for (int gx = 0; gx < gridW; ++gx)
 		{
@@ -119,20 +133,34 @@ Array<Point> RoadPathfinder::findPath(
 			if (cells[ni].closed) continue;
 
 			// 勾配ペナルティ
-			const float dh    = height(nx, nz) - height(cx, cz);
+			const bool wet=height(nx,nz)<m_waterGrid[ni]+1 || height(cx,cz)<m_waterGrid[ci]+1;
+			const float dh = wet ? 0.0f : height(nx, nz) - height(cx, cz);
 			const float slope = std::abs(dh) / (m_cellSize * kDc[d]);
-			float gradPenalty;
-			if      (slope < 0.05f) gradPenalty = 1.0f;
-			else if (slope < 0.15f) gradPenalty = 2.0f;
-			else if (slope < 0.30f) gradPenalty = 5.0f;
-			else                    gradPenalty = 20.0f;
+			const double grade = RoadDesignLimits::forType(m_roadType).maximumGrade * GenerationSettings::get().routing_gradeReserve;
+			const double excess = Max(0.0, Abs(dh) - m_cellSize * kDc[d] * grade);
+			// Coarse terrain-following estimate; final height/curvature costs are evaluated on the actual curves.
+			float gradPenalty = static_cast<float>(RoadConstructionCost::unit(dh < 0 ? excess : -excess, 0));
+			if (slope > grade && excess <= RoadConstructionCost::SurfaceTolerance()) { gradPenalty = static_cast<float>(RoadConstructionCost::Earthwork()); }
 
-			if (m_railwayRouting) { gradPenalty=m_constructionCost ? 1+Min(2.0f,Square(slope)*2) : 1+Square(slope/.035f); }
+			if (m_railwayRouting) { gradPenalty=m_constructionCost ? 1+Min(2.0f,Square(slope)*2) : 1+Square(slope/GenerationSettings::get().routing_railCoarseGrade); }
 
 			// Water is expensive; railway crossings may use a viaduct.
 			float terrainPenalty = 1.0f;
-			if (height(nx, nz) < 0.0f)
-				terrainPenalty = m_railwayRouting ? 12.0f : 1e6f;
+			if (wet)
+			{
+				const Vec2 direction=Vec2{kDx[d],kDz[d]}.normalized();
+				const double parallel=Max(Abs(direction.dot(m_flowGrid[ni])),Abs(direction.dot(m_flowGrid[ci])));
+				if (m_railwayRouting) { terrainPenalty = static_cast<float>(GenerationSettings::get().routing_railWaterCost + GenerationSettings::get().routing_railAlongRiverPenalty * parallel * parallel); }
+				else
+				{
+					const auto crossingCost = [&](int index)
+					{
+						const double ground = m_heightGrid[index], water = m_waterGrid[index];
+						return RoadConstructionCost::unit(Max(ground, water + 6), ground, water);
+					};
+					terrainPenalty = static_cast<float>((crossingCost(ci) + crossingCost(ni)) * .5);
+				}
+			}
 			{
 				const Vec2 wp = gridToWorld(nx, nz);
 				if (wp.x < 0.0f || wp.x > WORLD_SIZE || wp.y < 0.0f || wp.y > WORLD_SIZE)
@@ -144,12 +172,12 @@ Array<Point> RoadPathfinder::findPath(
 
 			// 重複道路ペナルティ
 			if (occupiedCells.count(ni) > 0)
-				move *= 2.5f;
+				move *= GenerationSettings::get().routing_occupiedPenalty;
 
 			// 鋭角ペナルティ（cos 45° ≈ 0.707）
-			constexpr float kNearDist       = 6.0f;
-			constexpr float kSharpCosThresh = 0.707f;
-			constexpr float kSharpPenalty   = 50.0f;
+			const float kNearDist       = GenerationSettings::get().routing_junctionInfluenceCells;
+			const float kSharpCosThresh = GenerationSettings::get().routing_junctionSharpCosine;
+			const float kSharpPenalty   = GenerationSettings::get().routing_junctionSharpPenalty;
 			const Vec2 moveDirN = Vec2{ static_cast<float>(kDx[d]),
 			                           static_cast<float>(kDz[d]) }.normalized();
 
@@ -182,6 +210,7 @@ Array<Point> RoadPathfinder::findPath(
 	// パス復元
 	Array<Point> path;
 	int cur = goal.y * m_gridW + goal.x;
+	if (!cells[cur].closed) { return {}; }
 	while (cur >= 0)
 	{
 		path << Point{ cur % m_gridW, cur / m_gridW };
@@ -204,12 +233,15 @@ Array<Vec3> RoadPathfinder::samplePath(const Array<Point>& path, int stepCells) 
 	const Vec2 wp0 = gridToWorld(path.front().x, path.front().y);
 	wps << Vec3{ wp0.x, height(path.front().x, path.front().y), wp0.y };
 
-	for (int i = stepCells; i < static_cast<int>(path.size()) - 1; i += stepCells)
+	int last=0;
+	for (int i=1;i+1<static_cast<int>(path.size());++i)
 	{
-		const Vec2 wp = gridToWorld(path[i].x, path[i].y);
-		wps << Vec3{ wp.x, height(path[i].x, path[i].y), wp.y };
+		const auto wetAt=[&](int index) { const Point p=path[index];const int cell=p.y*m_gridW+p.x;return m_heightGrid[cell]<m_waterGrid[cell]+1; };
+		const Point before=path[i]-path[i-1],after=path[i+1]-path[i];
+		if (i-last<stepCells && before==after && wetAt(i)==wetAt(i-1)) { continue; }
+		const Vec2 wp=gridToWorld(path[i].x,path[i].y);
+		wps<<Vec3{wp.x,height(path[i].x,path[i].y),wp.y};last=i;
 	}
-
 	const Vec2 wpN = gridToWorld(path.back().x, path.back().y);
 	wps << Vec3{ wpN.x, height(path.back().x, path.back().y), wpN.y };
 	return wps;

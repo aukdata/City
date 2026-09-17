@@ -148,6 +148,11 @@ enum class RoadSignType : uint8
 	NationalRoute,            ///< 一般国道標識（案内・おにぎり・118）— route 由来の動的生成
 	DirectionalRestriction,   ///< 指定方向外進行禁止（規制・青円・311）
 	CurveWarning,              ///< 左右の屈曲あり（警戒・黄菱形・202）
+	PrefectureRoute,           ///< 都道府県道番号（六角形・118の2）
+	RoadName,                  ///< 道路の通称名（119）
+	Municipality,              ///< 市町村境界（101）
+	SteepGrade,                ///< 上り・下り急勾配（212の3・212の4）
+	NarrowRoad,                ///< 幅員減少（212）
 };
 
 /// @brief 道路標示の種類
@@ -249,7 +254,7 @@ struct GuideSignPlacement
 	int                   id            = -1;    ///< ネットワーク内で一意の ID
 	int                   parentEdgeId  = -1;    ///< 親エッジ ID（エッジ削除時に連動）
 	GuideSignKind         kind          = GuideSignKind::DirectionDistance;
-	int                   nodeEndId     = -1;    ///< 進行方向基準ノード
+	int                   nodeEndId     = -1;    ///< 出発側の基準ノード。車両はこの端から反対端へ進む
 	float                 arcOffset     = 0.0f;  ///< nodeEnd 端からの内側距離 [m]
 	float                 lateralOffset = 0.0f;  ///< 道路中心からの横方向 [m]
 	float                 poleHeight    = 3.5f;  ///< ポール高さ [m]（現在は guide_pole.json の値で上書き、UI 非編集）
@@ -432,6 +437,17 @@ struct RoadEdge
 	double    constructionStartTime = 0.0;  ///< UnderConstruction になった時刻 [ゲーム秒]
 	float     congestion = 0.0f;
 
+	bool      farmAccess = false; ///< 車で通行できる農道。農地の接道と生成で共有する。
+	bool      designGrade = false; ///< 地上区間も整地前に決めた設計縦断を保持する
+	[[nodiscard]] bool usesDesignHeight() const { return useElevation || designGrade; }
+
+	/// @brief 工費・工期を見積もる換算延長 [m]。トンネルと高架の係数を共用する。
+	[[nodiscard]] double constructionEquivalentLength() const
+	{
+		constexpr float kTunnelFactor = 6.0f;
+		constexpr float kElevatedFactor = 3.0f;
+		return length * (tunnel ? kTunnelFactor : useElevation ? kElevatedFactor : 1.0f);
+	}
 	bool      tunnel = false; ///< 地中区間を含む設計縦断
 	bool      useElevation = false;  ///< true: ベジェ Y を路面高さとして使用（高架・トンネル）
 

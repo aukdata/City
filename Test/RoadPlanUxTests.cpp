@@ -30,13 +30,13 @@ void registerRoadPlanUxTests(TestRunner& runner)
 		RoadNetwork network;
 		RoadPlanDraft draft;
 		draft.place({100,7,100}); draft.place({110,7,100});
-		context.expect(draft.rebuild(world,road,false),U"10m roads are valid even within one pathfinder cell");
+		context.expect(draft.rebuild(world,road),U"10m roads are valid even within one pathfinder cell");
 		context.expectNear(draft.length(),10,0.01,U"Preview measures the actual short road");
 		context.expectEqual(network.nodes().size(),0,U"Preview does not modify the live network");
-		const auto ids = draft.apply(network,world,road,false);
+		const auto ids = draft.apply(network,world,road);
 		context.expectEqual(ids.size(),1,U"A valid plan is added on save");
 		const int nextNode = network.nextNodeId(), nextEdge = network.nextEdgeId();
-		context.expect(draft.apply(network,world,road,false).isEmpty(),U"An overlapping duplicate fails instead of overwriting the road");
+		context.expect(draft.apply(network,world,road).isEmpty(),U"An overlapping duplicate fails instead of overwriting the road");
 		context.expectEqual(network.nextNodeId(),nextNode,U"Failed save rolls back node allocations");
 		context.expectEqual(network.nextEdgeId(),nextEdge,U"Failed save rolls back edge allocations");
 		draft.clear();
@@ -61,8 +61,8 @@ void registerRoadPlanUxTests(TestRunner& runner)
 		RoadPlanDraft draft;
 		draft.place(hit.position); draft.place(hit.position+Vec3{0,0,35});
 		const RoadEdge road=RoadPlanDraft::makeRoadTemplate(1);
-		draft.rebuild(world,road,false);
-		const auto added=draft.apply(network,world,road,false);
+		draft.rebuild(world,road);
+		const auto added=draft.apply(network,world,road);
 		context.expectEqual(added.size(),1,U"A branch can be saved onto the displayed snap point");
 		if (!added.isEmpty())
 		{
@@ -91,8 +91,8 @@ void registerRoadPlanUxTests(TestRunner& runner)
 		RoadPlanDraft draft;
 		draft.place({250,7,100}); draft.place({250,7,145});
 		const RoadEdge road=RoadPlanDraft::makeRoadTemplate(0);
-		draft.rebuild(world,road,false);
-		context.expect(!draft.apply(network,world,road,false).isEmpty(),U"Branch is added at the middle of the named road");
+		draft.rebuild(world,road);
+		context.expect(!draft.apply(network,world,road).isEmpty(),U"Branch is added at the middle of the named road");
 		const auto* savedRoute=network.getRoute(route);
 		const auto* savedPlan=network.getPlan(planId);
 		context.expect(savedRoute && savedRoute->edgeIds.size()==4,U"Connecting a branch preserves the original route and ordered split segments");
@@ -137,10 +137,10 @@ void registerRoadPlanUxTests(TestRunner& runner)
 				const Transformer2D transform{Mat3x2::Translate(12+i*390,12)};
 				Rect{0,0,374,450}.draw(ColorF{0.09,0.11,0.14});
 				RoadPlanToolbar::State state;
-				if (i>0) { state.points=3; state.preset=2; state.valid=true; state.canUndo=true; state.length=1280; state.cost=1.92; state.days=77; state.width=24.28; state.funds=30; }
+				if (i>0) { state.points=3; state.generated=true; state.preset=2; state.valid=true; state.canUndo=true; state.length=1280; state.cost=1.92; state.constructionSeconds=154; state.width=24.28; state.funds=30; }
 				if (i==2) { state.valid=false; state.canRedo=true; state.error=true; state.message=U"接続できません。終点を調整してください"; }
 				RoadPlanToolbar::draw(font,bold,364,state);
-				font(i==0 ? U"開始前" : (i==1 ? U"計画の確認" : U"失敗からの修正")).draw(8,425,ColorF{0.7});
+				font(i==0 ? U"開始前" : (i==1 ? U"計画の確認" : U"失敗からの修正")).draw(8,432,ColorF{0.7});
 			}
 		}
 		Graphics2D::Flush();

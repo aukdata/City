@@ -13,6 +13,8 @@
 | ローカル変数 | camelCase | `cutoffArc`, `signalPos` |
 | フィールド（構造体） | camelCase | `nodeA`, `speedLimit`, `arcPos` |
 
+過剰な略語を避け、意味を読める名前にする。`tex` / `vert` / `bez` / `mat` / `dx` / `dz`、型が明らかな短いスコープの `md`、ループの `i` / `j` は許容する。`mk`、文脈のない `ls` / `rn` / `sld` 等は使わない。`k` 接頭辞は constexpr 定数専用。
+
 ## ファイル構成
 
 ### ディレクトリ
@@ -41,7 +43,7 @@ src/
 ## 文字コード・改行
 
 - **UTF-8 BOM + CRLF**: `.cpp` / `.hpp` / `.h` ファイル
-- 新規ファイル作成後は `python3 chore/add_bom.py` を実行
+- 新規ファイルは作成時から BOM + CRLF で保存する
 - 編集時に LF/CRLF 一括変換を行わない。UTF-8 BOM + CRLF を保持できるコマンドオプション/API（例: PowerShell の `[System.IO.File]::ReadAllText()` / `WriteAllText()` と `UTF8Encoding($true)`）で編集する
 - `convert_line_endings.py` は、改行・BOM が壊れた場合の一括修復用に限って使う
 
@@ -135,7 +137,7 @@ arr.sort_by([](const T& a, const T& b) { return a.x < b.x; });
 - 失敗可能な関数は **`Optional<T>`** または `bool` を返す
 - **`-1` や `nullptr` を失敗値として返すことを禁止** — 代わりに `Optional<T>` を使う
 - バイナリ I/O: 読み込み失敗で即座に `return false`
-- ユーザ向けエラー: `Console << U"[モジュール名] メッセージ"` で出力
+- 本体の診断は `DebugLog::print` / `DBG_LOG`。ユーザーが Console 出力を指定した場合のみ `Console <<`。ユーザーが対処する必要のあるエラーは操作中の UI にも表示する
 
 ```cpp
 // OK: 失敗時は none
@@ -172,7 +174,7 @@ TextureAsset(U"Tex_Asphalt").draw(...);
 
 ```cpp
 const TOMLReader toml{ tomlPath };
-if (!toml) { Console << U"[Module] Failed: " << path; return none; }
+if (!toml) { DBG_LOG(U"[Module] Failed: {}"_fmt(path)); return none; }
 
 def.id   = toml[U"id"].getOr<String>(U"");
 def.name = toml[U"name"].getOr<String>(def.id);
@@ -193,7 +195,7 @@ writeString(w, str);
 // 読み込み
 if (!r.read(magic) || magic != kMagic) return false;
 if (!r.read(version) || version != kVersion) {
-    Console << U"[Module] Unsupported version: " << version;
+    DBG_LOG(U"[Module] Unsupported version: {}"_fmt(version));
     return false;
 }
 ```
@@ -256,7 +258,7 @@ m_fooRenderer.render(...); lap(m_renderTimings.foo);
 m_barRenderer.render(...); lap(m_renderTimings.bar);
 ```
 
-ピンポイント内訳（どの呼び出しが重いか）は `Console` に 120 フレームごとの集計を出すと `perf.log` と突き合わせやすい。
+ピンポイント内訳（どの呼び出しが重いか）は `DebugLog` に 120 フレームごとの集計を出すと `perf.log` と突き合わせやすい。
 
 ## アセット管理パターン（Registry）
 

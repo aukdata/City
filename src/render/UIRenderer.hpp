@@ -31,6 +31,8 @@ class UIRenderer
 public:
 	void updateLayout(const CityHudStats& stats);
 	void handleInput();
+	/// @brief 街名ラベルが実際の開閉状態のHUDへ重ならないための領域。
+	Array<RectF> panelBounds() const { return {m_left.bounds(), m_right.bounds()}; }
 	[[nodiscard]] bool isMouseOnHud() const { return m_left.bounds().mouseOver() || m_right.bounds().mouseOver(); }
 	[[nodiscard]] Optional<RectF> minimapBounds() const
 	{
@@ -45,5 +47,5 @@ public:
 	/// @param economy      経済状態
 	/// @param stats        HUD 用に集計済みの街の概況
 	void render(const GameClock& clock, int vehicleCount, StringView modeText,
-	            const Economy& economy, const CityHudStats& stats);
+	            const Economy& economy, const CityHudStats& stats, bool walking = false, bool driving = false);
 };

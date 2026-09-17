@@ -250,5 +250,47 @@
     "sourceFaces": 5786,
     "lodFaces": 1040,
     "ratio": 0.1797
+  },
+  {
+    "model": "rural_house_001",
+    "sourceFaces": 13058,
+    "lodFaces": 2350,
+    "ratio": 0.18
+  },
+  {
+    "model": "rural_house_002",
+    "sourceFaces": 12261,
+    "lodFaces": 2205,
+    "ratio": 0.1798
+  },
+  {
+    "model": "rural_house_003",
+    "sourceFaces": 9121,
+    "lodFaces": 1641,
+    "ratio": 0.1799
+  },
+  {
+    "model": "convenience_urban_001",
+    "sourceFaces": 8087,
+    "lodFaces": 1455,
+    "ratio": 0.1799
+  },
+  {
+    "model": "convenience_roadside_001",
+    "sourceFaces": 14579,
+    "lodFaces": 2623,
+    "ratio": 0.1799
+  },
+  {
+    "model": "fuel_urban_001",
+    "sourceFaces": 3732,
+    "lodFaces": 670,
+    "ratio": 0.1795
+  },
+  {
+    "model": "fuel_roadside_001",
+    "sourceFaces": 8534,
+    "lodFaces": 1536,
+    "ratio": 0.18
   }
 ]

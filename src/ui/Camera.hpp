@@ -8,6 +8,7 @@ enum class CameraMode
 	Follow,       ///< 車両追従（後方視点）
 	FirstPerson,  ///< 一人称（地面から1.5 mの歩行視点）
 	Capture,      ///< 提出用スクリーンショット撮影
+	Driving,      ///< 路面に接地した車の右側運転席
 };
 
 /// @brief ゲームカメラ（BasicCamera3D ラッパー）
@@ -59,12 +60,24 @@ public:
 
 	/// @brief カメラ姿勢を一括設定する（セーブロード用）
 	void setState(Vec3 focus, float distance, float yaw, float pitch);
+	/// @brief 俯瞰に戻り、距離制限を適用して指定座標を見る。
+	void setOverviewState(Vec3 focus,float distance,float yaw,float pitch)
+	{
+		m_mode=CameraMode::Overview;setState(focus,Clamp(distance,MIN_DIST,MAX_DIST),yaw,pitch);
+	}
+
+	/// @brief ホイール1目盛りを一定倍率で適用する。イベントの集約に依存しない。
+	void zoom(double notches);
 
 	/// @brief 提出用スクリーンショット撮影カメラを設定する
 	void setCaptureState(Vec3 focus, float distance, float yaw, float pitch);
 
 	/// @brief 通常の歩行カメラと同じ1.5 m目線・視野角で姿勢を指定する。
 	void setWalkingState(Vec3 ground, float yaw, float pitch = 0.0f);
+	/// @brief 車体姿勢に追従する右ハンドルの運転席。地表への高さ補正は行わない。
+	void setDrivingState(Vec3 ground, float heading, float grade);
+	/// @brief 車体に対する見回し角を設定する。中央へ戻す場合は {0,0}。
+	void setDrivingLook(Vec2 angles);
 
 	/// @brief スクリーン座標からグラウンド（y=0）上のワールド座標を返す
 	/// @return 地面と交差しない場合は none
@@ -75,6 +88,9 @@ public:
 
 	/// @brief パネル上でのマウス入力ブロック設定
 	void setBlockInput(bool block) { m_blockInput = block; }
+	void setKeyboardBlocked(bool block) { m_keyboardBlocked = block; }
+	/// @brief Human walking pace; Shift runs, Ctrl provides faster exploration.
+	static double walkingSpeed(bool run, bool fast) { return fast ? 15.0 : run ? 4.5 : 1.5; }
 
 	/// @brief 俯瞰と一人称を切り替える
 	void cycleMode()
@@ -84,10 +100,12 @@ public:
 			m_mode    = CameraMode::FirstPerson;
 			m_fpYaw   = m_yaw + static_cast<float>(Math::Pi);  // 俯瞰の向きを引き継ぐ
 			m_fpPitch = 0.0f;
+			rebuildFirstPerson();
 		}
 		else
 		{
 			m_mode = CameraMode::Overview;
+			rebuild();
 		}
 	}
 
@@ -118,12 +136,13 @@ private:
 	static constexpr float ROTATE_SPEED  = 0.005f;
 	static constexpr float ZOOM_SPEED    = 0.12f;
 	static constexpr float MIN_DIST      = 5.0f;
-	static constexpr float MAX_DIST      = 3000.0f;
+	static constexpr float MAX_DIST      = 60000.0f;
 	static constexpr float MIN_PITCH_DEG = 10.0f;
 	static constexpr float MAX_PITCH_DEG = 89.0f;
 	/// @brief eye が地形面から最低限浮かせる高さ [m]
 	static constexpr float MIN_HEIGHT_ABOVE_TERRAIN = 3.0f;
 
+	bool m_keyboardBlocked = false;
 	bool m_blockInput = false;  ///< true: ホイール・ミドルクリック操作を無視
 
 	/// @brief m_focus / m_yaw / m_pitch / m_distance から m_camera を再構築する
@@ -141,4 +160,7 @@ private:
 
 	/// @brief 一人称モードのカメラを再構築する
 	void rebuildFirstPerson();
+	void rebuildDriving();
+	float m_drivingGrade = 0;
+	Vec2 m_drivingLook{0,0};
 };

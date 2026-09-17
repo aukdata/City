@@ -11,10 +11,28 @@ void Main()
 	registerBuildingAssetTests(runner);
 	registerCityGenerationTests(runner);
 	registerRoadPlanUxTests(runner);
+	registerTransportPlanningTests(runner);
 	registerRoadConstructionTests(runner);
+	registerZoneDevelopmentTests(runner);
+	registerRailwayTimetableTests(runner);
+	registerMapTransportTests(runner);
 	registerRoadIntegrityTests(runner);
 	registerUrbanUsabilityTests(runner);
 	registerUrbanMorphologyTests(runner);
+	registerRegionalTerrainTests(runner);
+	registerPlayabilityTests(runner);
+	registerFringeAgricultureTests(runner);
+	registerRoadsideLifeTests(runner);
+	registerTrafficScalingTests(runner);
+	registerModelLodTests(runner);
+	registerGenerationSettingsTests(runner);
+	registerRuralVisualTests(runner);
+	registerComprehensiveTests(runner);
+	registerRefactoringTests(runner);
+	registerIntegrationRefactoringTests(runner);
+	registerMountainRoadTests(runner);
+	registerDrivingTests(runner);
+	registerSoundEffectsTests(runner);
 	const int exitCode = runner.run();
 	::_exit(exitCode);
 }

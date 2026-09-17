@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include <Siv3D.hpp>
 
 /// @brief 地形・成立史から街路と土地利用に共通の計画を構成する。
@@ -28,7 +29,8 @@ namespace UrbanMorphology
 		bool ready = false;
 		bool frontageRoads = false;
 		Array<Vec2> ruralHomes;
-		Vec2 halfExtent{220,160};
+		Array<Line> fringeStreets; ///< 生成済み外縁街路の地区座標。沿道だけを住宅候補にする。
+		Vec2 halfExtent{GenerationSettings::get().settlements_defaultExtentX,GenerationSettings::get().settlements_defaultExtentZ};
 		Vec2 oldCore{0,0};
 		Optional<Vec2> station;
 		Optional<RectF> civic;
@@ -40,7 +42,7 @@ namespace UrbanMorphology
 		District district = District::Countryside;
 		Generation generation = Generation::Historic;
 		double occupancy = 0;
-		double frontage = 24;
+		double frontage = GenerationSettings::get().settlements_countrysideFrontage;
 	};
 
 	inline uint64 mix(uint64 value)
@@ -71,24 +73,24 @@ namespace UrbanMorphology
 		Site site;
 		site.elevation = height(center);
 		double low = site.elevation, high = site.elevation;
-		constexpr int kDirections = 16;
-		constexpr double kStep = 100;
+		const int kDirections = GenerationSettings::get().settlements_siteSampleDirections;
+		const double kStep = GenerationSettings::get().settlements_siteSampleStep;
 		for (int direction = 0; direction < kDirections; ++direction)
 		{
 			const double angle = Math::TwoPi * direction / kDirections;
 			const Vec2 axis{Math::Cos(angle),Math::Sin(angle)};
-			for (int step = 1; step <= 12; ++step)
+			for (int step = 1; step <= GenerationSettings::get().settlements_siteSampleSteps; ++step)
 			{
 				const double distance = kStep * step;
 				const double h = height(center + axis * distance);
-				if (distance <= 600) { low = Min(low,h); high = Max(high,h); }
-				if (h < 0.5)
+				if (distance <= GenerationSettings::get().settlements_siteReliefRadius) { low = Min(low,h); high = Max(high,h); }
+				if (h < GenerationSettings::get().settlements_siteWaterHeight)
 				{
 					double a = distance-kStep, b = distance;
 					for (int iteration = 0; iteration < 10; ++iteration)
 					{
 						const double middle = (a+b)*0.5;
-						if (height(center+axis*middle)<0.5) { b=middle; }
+						if (height(center+axis*middle)<GenerationSettings::get().settlements_siteWaterHeight) { b=middle; }
 						else { a=middle; }
 					}
 					if (b < site.shoreDistance) { site.shoreDistance=b; site.shoreDirection=axis; }
@@ -97,8 +99,8 @@ namespace UrbanMorphology
 			}
 		}
 		site.relief = high-low;
-		const Vec2 gradient{height(center+Vec2{160,0})-height(center-Vec2{160,0}),
-			height(center+Vec2{0,160})-height(center-Vec2{0,160})};
+		const Vec2 gradient{height(center+Vec2{GenerationSettings::get().settlements_contourSampleRadius,0})-height(center-Vec2{GenerationSettings::get().settlements_contourSampleRadius,0}),
+			height(center+Vec2{0,GenerationSettings::get().settlements_contourSampleRadius})-height(center-Vec2{0,GenerationSettings::get().settlements_contourSampleRadius})};
 		if (gradient.lengthSq()>0.01) { site.contourAxis=Vec2{-gradient.y,gradient.x}.normalized(); }
 		return site;
 	}
@@ -108,12 +110,12 @@ namespace UrbanMorphology
 	{
 		const uint64 choice=mix(salt)%100;
 		if (scale==2) { return Origin::Rural; }
-		if (site.elevation<65 && site.shoreDistance>90 && site.shoreDistance<650) { return Origin::Port; }
-		if (site.relief>35 && choice<50) { return Origin::Temple; }
-		if (site.relief<25 && choice<19) { return Origin::Industrial; }
-		if (nearRegionalCity && choice<48) { return Origin::Planned; }
-		if (scale==0) { return choice<75 ? Origin::Castle : Origin::Market; }
-		return choice<62 ? Origin::Post : (choice<83 ? Origin::Market : Origin::Temple);
+		if (site.elevation<GenerationSettings::get().settlements_portMaximumHeight && site.shoreDistance>GenerationSettings::get().settlements_portMinimumShoreDistance && site.shoreDistance<GenerationSettings::get().settlements_portMaximumShoreDistance) { return Origin::Port; }
+		if (site.relief>GenerationSettings::get().settlements_templeRelief && choice<GenerationSettings::get().settlements_templeChoiceThreshold) { return Origin::Temple; }
+		if (site.relief<GenerationSettings::get().settlements_industrialMaximumRelief && choice<GenerationSettings::get().settlements_industrialChoiceThreshold) { return Origin::Industrial; }
+		if (nearRegionalCity && choice<GenerationSettings::get().settlements_plannedChoiceThreshold) { return Origin::Planned; }
+		if (scale==0) { return choice<GenerationSettings::get().settlements_castleChoiceThreshold ? Origin::Castle : Origin::Market; }
+		return choice<GenerationSettings::get().settlements_postChoiceThreshold ? Origin::Post : (choice<GenerationSettings::get().settlements_marketChoiceThreshold ? Origin::Market : Origin::Temple);
 	}
 
 	inline Array<float> streetCoordinates(const Plan& plan, bool crossAxis);
@@ -122,48 +124,48 @@ namespace UrbanMorphology
 	{
 		Plan plan;
 		plan.origin=origin; plan.scale=scale; plan.salt=salt; plan.ready=true;
-		const double size=scale==0 ? 1.0 : 0.52;
+		const double size=scale==0 ? 1.0 : GenerationSettings::get().settlements_townScale;
 		switch (origin)
 		{
-		case Origin::Castle: plan.halfExtent={1000,1000}; break;
-		case Origin::Post: plan.halfExtent={1100,360}; break;
-		case Origin::Temple: plan.halfExtent={950,560}; break;
-		case Origin::Port: plan.halfExtent={1100,Clamp(site.shoreDistance-45.0,160.0,480.0)/size}; break;
-		case Origin::Market: plan.halfExtent={920,760}; break;
-		case Origin::Industrial: plan.halfExtent={1040,850}; break;
-		case Origin::Planned: plan.halfExtent={960,800}; break;
+		case Origin::Castle: plan.halfExtent={GenerationSettings::get().settlements_castleExtentX,GenerationSettings::get().settlements_castleExtentZ}; break;
+		case Origin::Post: plan.halfExtent={GenerationSettings::get().settlements_postExtentX,GenerationSettings::get().settlements_postExtentZ}; break;
+		case Origin::Temple: plan.halfExtent={GenerationSettings::get().settlements_templeExtentX,GenerationSettings::get().settlements_templeExtentZ}; break;
+		case Origin::Port: plan.halfExtent={GenerationSettings::get().settlements_portExtentX,Clamp(site.shoreDistance-GenerationSettings::get().settlements_portShoreSetback,GenerationSettings::get().settlements_portMinimumDepth,GenerationSettings::get().settlements_portMaximumDepth)/size}; break;
+		case Origin::Market: plan.halfExtent={GenerationSettings::get().settlements_marketExtentX,GenerationSettings::get().settlements_marketExtentZ}; break;
+		case Origin::Industrial: plan.halfExtent={GenerationSettings::get().settlements_industrialExtentX,GenerationSettings::get().settlements_industrialExtentZ}; break;
+		case Origin::Planned: plan.halfExtent={GenerationSettings::get().settlements_plannedExtentX,GenerationSettings::get().settlements_plannedExtentZ}; break;
 		case Origin::Rural:
-			plan.ruralForm=site.relief>28 ? RuralForm::Valley : (mix(salt)%3==0 ? RuralForm::Dispersed : RuralForm::Clustered);
-			plan.halfExtent=plan.ruralForm==RuralForm::Valley ? Vec2{520,135}
-				: (plan.ruralForm==RuralForm::Dispersed ? Vec2{580,380} : Vec2{230,170});
+			plan.ruralForm=site.relief>GenerationSettings::get().settlements_valleyRelief ? RuralForm::Valley : (mix(salt)%GenerationSettings::get().settlements_dispersedChoiceDivisor==0 ? RuralForm::Dispersed : RuralForm::Clustered);
+			plan.halfExtent=plan.ruralForm==RuralForm::Valley ? Vec2{GenerationSettings::get().settlements_valleyExtentX,GenerationSettings::get().settlements_valleyExtentZ}
+				: (plan.ruralForm==RuralForm::Dispersed ? Vec2{GenerationSettings::get().settlements_dispersedExtentX,GenerationSettings::get().settlements_dispersedExtentZ} : Vec2{GenerationSettings::get().settlements_clusterExtentX,GenerationSettings::get().settlements_clusterExtentZ});
 			return plan;
 		}
 		plan.halfExtent*=size;
 		const Vec2 extent=plan.halfExtent;
-		plan.oldCore={-extent.x*0.25,0};
+		plan.oldCore={-extent.x*GenerationSettings::get().settlements_oldCoreOffset,0};
 		if (railway)
 		{
-			plan.station=Vec2{extent.x*0.48,-extent.y*0.26};
+			plan.station=Vec2{extent.x*GenerationSettings::get().settlements_stationOffsetX,-extent.y*GenerationSettings::get().settlements_stationOffsetZ};
 		}
 		if (origin==Origin::Castle)
 		{
-			plan.civic=RectF{-extent.x*0.62,extent.y*0.17,extent.x*0.40,extent.y*0.35};
+			plan.civic=RectF{-extent.x*GenerationSettings::get().settlements_castleCivicX,extent.y*GenerationSettings::get().settlements_castleCivicZ,extent.x*GenerationSettings::get().settlements_castleCivicWidth,extent.y*GenerationSettings::get().settlements_castleCivicDepth};
 		}
 		else if (origin==Origin::Temple)
 		{
-			plan.civic=RectF{-extent.x,-extent.y*0.30,extent.x*0.34,extent.y*0.60};
+			plan.civic=RectF{-extent.x,-extent.y*GenerationSettings::get().settlements_templeCivicX,extent.x*GenerationSettings::get().settlements_templeCivicZ,extent.y*GenerationSettings::get().settlements_templeCivicWidth};
 		}
 		else if (origin==Origin::Planned)
 		{
-			plan.civic=RectF{-extent.x*0.52,extent.y*0.2,extent.x*0.34,extent.y*0.34};
+			plan.civic=RectF{-extent.x*GenerationSettings::get().settlements_plannedCivicX,extent.y*GenerationSettings::get().settlements_plannedCivicZ,extent.x*GenerationSettings::get().settlements_plannedCivicWidth,extent.y*GenerationSettings::get().settlements_plannedCivicDepth};
 		}
 		if (origin==Origin::Industrial)
 		{
-			plan.industry=RectF{extent.x*0.08,extent.y*0.08,extent.x*0.88,extent.y*0.88};
+			plan.industry=RectF{extent.x*GenerationSettings::get().settlements_industrialZoneX,extent.y*GenerationSettings::get().settlements_industrialZoneZ,extent.x*GenerationSettings::get().settlements_industrialZoneWidth,extent.y*GenerationSettings::get().settlements_industrialZoneDepth};
 		}
 		else if (origin==Origin::Port)
 		{
-			plan.industry=RectF{-extent.x*0.90,extent.y*0.53,extent.x*1.80,extent.y*0.47};
+			plan.industry=RectF{-extent.x*GenerationSettings::get().settlements_portIndustryX,extent.y*GenerationSettings::get().settlements_portIndustryZ,extent.x*GenerationSettings::get().settlements_portIndustryWidth,extent.y*GenerationSettings::get().settlements_portIndustryDepth};
 		}
 		if (plan.station)
 		{
@@ -193,16 +195,49 @@ namespace UrbanMorphology
 		scaleRectangle(plan.industry);
 	}
 
-	inline bool contains(const Plan& plan, Vec2 point, double margin=0)
+	inline bool inCore(const Plan& plan, Vec2 point, double margin=0)
 	{
 		return Abs(point.x)<=plan.halfExtent.x+margin && Abs(point.y)<=plan.halfExtent.y+margin;
 	}
 
+	inline double fringeDistance(const Plan& plan, Vec2 point)
+	{
+		double distance=1e9;
+		for (const auto& street : plan.fringeStreets)
+		{
+			const Vec2 span=street.end-street.begin;
+			const double t=Clamp((point-street.begin).dot(span)/Max(1.0,span.lengthSq()),0.0,1.0);
+			distance=Min(distance,point.distanceFrom(street.begin+span*t));
+		}
+		return distance;
+	}
+
+	inline double coverageRadius(const Plan& plan)
+	{
+		double radius=plan.halfExtent.length();
+		for (const auto& street : plan.fringeStreets)
+		{
+			radius=Max(radius,Max(street.begin.length(),street.end.length())+GenerationSettings::get().settlements_coverageMargin);
+		}
+		return radius;
+	}
+
+	inline bool contains(const Plan& plan, Vec2 point, double margin=0)
+	{
+		return inCore(plan,point,margin) || fringeDistance(plan,point)<=GenerationSettings::get().settlements_fringeWidth+margin;
+	}
+
 	inline LandUse sample(const Plan& plan, Vec2 point)
 	{
-		if (!contains(plan,point,22)) { return {}; }
-		if (plan.civic && plan.civic->contains(point)) { return {District::Civic,Generation::Historic,1.0,36}; }
-		if (plan.industry.w>0 && plan.industry.contains(point)) { return {District::Industry,Generation::Modern,0.92,40}; }
+		if (!contains(plan,point,GenerationSettings::get().settlements_coreMargin)) { return {}; }
+		if (!inCore(plan,point,GenerationSettings::get().settlements_coreMargin))
+		{
+			const double depth=Max(Abs(point.x)-plan.halfExtent.x,Abs(point.y)-plan.halfExtent.y);
+			const double occupancy=GenerationSettings::get().settlements_fringeOccupancy*std::exp(-depth/(plan.scale==0 ? GenerationSettings::get().settlements_cityFringeDecayDistance : GenerationSettings::get().settlements_townFringeDecayDistance));
+			return fringeDistance(plan,point)<GenerationSettings::get().settlements_fringeWidth ? LandUse{District::Housing,Generation::Modern,occupancy,GenerationSettings::get().settlements_fringeFrontage} : LandUse{};
+		}
+		if (plan.civic && plan.civic->contains(point)) { return {District::Civic,Generation::Historic,GenerationSettings::get().settlements_civicOccupancy,GenerationSettings::get().settlements_civicFrontage}; }
+		if (plan.industry.w>0 && plan.industry.contains(point)) { return {District::Industry,Generation::Modern,GenerationSettings::get().settlements_industryOccupancy,GenerationSettings::get().settlements_industryFrontage}; }
 		if (plan.origin==Origin::Rural)
 		{
 			if (plan.ruralForm==RuralForm::Dispersed)
@@ -211,24 +246,24 @@ namespace UrbanMorphology
 				{
 					for (const Vec2 home : plan.ruralHomes)
 					{
-						if (point.distanceFrom(home)<42) { return {District::Housing,Generation::Historic,0.92,28}; }
+						if (point.distanceFrom(home)<GenerationSettings::get().settlements_ruralHomeRadius) { return {District::Housing,Generation::Historic,GenerationSettings::get().settlements_dispersedRoadHomeOccupancy,GenerationSettings::get().settlements_dispersedRoadHomeFrontage}; }
 					}
 					return {};
 				}
-				const double width=plan.halfExtent.x/Max(1.0,std::round(plan.halfExtent.x/230.0));
-				const double depth=plan.halfExtent.y/Max(1.0,std::round(plan.halfExtent.y/190.0));
+				const double width=plan.halfExtent.x/Max(1.0,std::round(plan.halfExtent.x/GenerationSettings::get().settlements_dispersedHomeSpacingX));
+				const double depth=plan.halfExtent.y/Max(1.0,std::round(plan.halfExtent.y/GenerationSettings::get().settlements_dispersedHomeSpacingZ));
 				const double x=point.x-std::round(point.x/width)*width;
 				const double z=point.y-std::round(point.y/depth)*depth;
-				return Abs(x)<35 && Abs(z)<38 ? LandUse{District::Housing,Generation::Historic,0.64,42} : LandUse{};
+				return Abs(x)<GenerationSettings::get().settlements_dispersedHomeHalfX && Abs(z)<GenerationSettings::get().settlements_dispersedHomeHalfZ ? LandUse{District::Housing,Generation::Historic,GenerationSettings::get().settlements_dispersedHomeOccupancy,GenerationSettings::get().settlements_dispersedHomeFrontage} : LandUse{};
 			}
-			const bool housing=plan.ruralForm==RuralForm::Valley ? Abs(point.y)<90
-				: (Square(point.x/240.0)+Square(point.y/175.0)<1.0);
-			return housing ? LandUse{District::Housing,Generation::Historic,0.84,23} : LandUse{};
+			const bool housing=plan.ruralForm==RuralForm::Valley ? Abs(point.y)<GenerationSettings::get().settlements_valleyHomeHalfWidth
+				: (Square(point.x/GenerationSettings::get().settlements_clusterHousingHalfX)+Square(point.y/GenerationSettings::get().settlements_clusterHousingHalfZ)<1.0);
+			return housing ? LandUse{District::Housing,Generation::Historic,GenerationSettings::get().settlements_villageHomeOccupancy,GenerationSettings::get().settlements_villageHomeFrontage} : LandUse{};
 		}
 		if (plan.station)
 		{
-			const double radius=plan.scale==0 ? 240.0 : 150.0;
-			if ((point-*plan.station).length()<radius) { return {District::Station,Generation::Railway,0.98,15}; }
+			const double radius=plan.scale==0 ? GenerationSettings::get().settlements_cityStationRadius : GenerationSettings::get().settlements_townStationRadius;
+			if ((point-*plan.station).length()<radius) { return {District::Station,Generation::Railway,GenerationSettings::get().settlements_stationOccupancy,GenerationSettings::get().settlements_stationFrontage}; }
 			const Vec2 corner{plan.station->x,plan.oldCore.y};
 			const auto distanceToStreet=[&](Vec2 a,Vec2 b)
 			{
@@ -236,31 +271,33 @@ namespace UrbanMorphology
 				const double t=Clamp((point-a).dot(span)/Max(1.0,span.lengthSq()),0.0,1.0);
 				return point.distanceFrom(a+span*t);
 			};
-			if (Min(distanceToStreet(plan.oldCore,corner),distanceToStreet(corner,*plan.station))<55)
+			if (Min(distanceToStreet(plan.oldCore,corner),distanceToStreet(corner,*plan.station))<GenerationSettings::get().settlements_stationStreetRadius)
 			{
-				return {District::OldTown,Generation::Railway,0.96,14};
+				return {District::OldTown,Generation::Railway,GenerationSettings::get().settlements_stationStreetOccupancy,GenerationSettings::get().settlements_stationStreetFrontage};
 			}
 		}
-		const bool commercialAxis=Abs(point.y)<65 && Abs(point.x)<plan.halfExtent.x*0.90;
-		const bool marketCross=plan.origin==Origin::Market && Abs(point.x)<65;
-		if (commercialAxis || marketCross) { return {District::OldTown,Generation::Historic,0.98,14}; }
-		if (plan.origin==Origin::Planned || (point.x>plan.halfExtent.x*0.25 && point.y<-plan.halfExtent.y*0.25))
+		const bool commercialAxis=Abs(point.y)<GenerationSettings::get().settlements_commercialAxisWidth && Abs(point.x)<plan.halfExtent.x*GenerationSettings::get().settlements_commercialAxisLengthRatio;
+		const bool marketCross=plan.origin==Origin::Market && Abs(point.x)<GenerationSettings::get().settlements_marketCrossWidth;
+		if (commercialAxis || marketCross) { return {District::OldTown,Generation::Historic,GenerationSettings::get().settlements_merchantStreetOccupancy,GenerationSettings::get().settlements_merchantStreetFrontage}; }
+		const double edge=Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y);
+		const double density=1.0-GenerationSettings::get().settlements_edgeDensityReduction*Clamp((edge-GenerationSettings::get().settlements_edgeDensityStart)/GenerationSettings::get().settlements_edgeDensityRange,0.0,1.0);
+		if (plan.origin==Origin::Planned || (point.x>plan.halfExtent.x*GenerationSettings::get().settlements_plannedHousingStartX && point.y<-plan.halfExtent.y*GenerationSettings::get().settlements_plannedHousingStartZ))
 		{
-			return {District::PlannedHousing,Generation::Modern,0.94,23};
+			return {District::PlannedHousing,Generation::Modern,GenerationSettings::get().settlements_plannedHomeOccupancy*density,GenerationSettings::get().settlements_plannedHomeFrontage};
 		}
-		return {District::Housing,Generation::Historic,0.96,17};
+		return {District::Housing,Generation::Historic,GenerationSettings::get().settlements_historicHomeOccupancy*density,GenerationSettings::get().settlements_historicHomeFrontage};
 	}
 
 	/// @brief 街区の用途に応じて街路間隔を変える。各交差点にはノイズを加えない。
 	inline Array<float> streetCoordinates(const Plan& plan, bool crossAxis)
 	{
 		const double extent=crossAxis ? plan.halfExtent.y : plan.halfExtent.x;
-		double spacing=crossAxis ? 85.0 : 108.0;
-		if (plan.origin==Origin::Post || plan.origin==Origin::Temple || plan.origin==Origin::Port) { spacing=crossAxis ? 75.0 : 120.0; }
-		if (plan.origin==Origin::Industrial || plan.origin==Origin::Planned) { spacing=crossAxis ? 135.0 : 150.0; }
+		double spacing=crossAxis ? GenerationSettings::get().settlements_historicSpacingCross : GenerationSettings::get().settlements_historicSpacingAlong;
+		if (plan.origin==Origin::Post || plan.origin==Origin::Temple || plan.origin==Origin::Port) { spacing=crossAxis ? GenerationSettings::get().settlements_linearTownSpacingCross : GenerationSettings::get().settlements_linearTownSpacingAlong; }
+		if (plan.origin==Origin::Industrial || plan.origin==Origin::Planned) { spacing=crossAxis ? GenerationSettings::get().settlements_modernSpacingCross : GenerationSettings::get().settlements_modernSpacingAlong; }
 		if (plan.origin==Origin::Rural)
 		{
-			spacing=plan.ruralForm==RuralForm::Dispersed ? (crossAxis ? 190.0 : 230.0) : (crossAxis ? 170.0 : 145.0);
+			spacing=plan.ruralForm==RuralForm::Dispersed ? (crossAxis ? GenerationSettings::get().settlements_dispersedSpacingCross : GenerationSettings::get().settlements_dispersedSpacingAlong) : (crossAxis ? GenerationSettings::get().settlements_villageSpacingCross : GenerationSettings::get().settlements_villageSpacingAlong);
 		}
 		const int cells=Max(2,static_cast<int>(std::round(2*extent/spacing/2))*2);
 		Array<float> coordinates;
@@ -269,7 +306,7 @@ namespace UrbanMorphology
 			const double t=2.0*cell/cells-1.0;
 			// Keep the central merchant blocks shallower and outer residential blocks deeper.
 			const bool historic=plan.origin!=Origin::Industrial && plan.origin!=Origin::Planned && plan.origin!=Origin::Rural;
-			const double position=historic ? extent*(0.84*t+0.16*t*t*t) : extent*t;
+			const double position=historic ? extent*(GenerationSettings::get().settlements_historicGridLinearWeight*t+GenerationSettings::get().settlements_historicGridCubicWeight*t*t*t) : extent*t;
 			coordinates << static_cast<float>(position);
 		}
 		return coordinates;
@@ -281,7 +318,7 @@ namespace UrbanMorphology
 		if (plan.civic && (plan.civic->contains(a) || plan.civic->contains(middle) || plan.civic->contains(b))) { return false; }
 		// Combine industrial parcels into large blocks by omitting internal cross streets.
 		if (plan.industry.w>0 && plan.industry.contains(middle) && Abs(a.y-b.y)<0.01
-			&& middle.y<plan.industry.y+plan.industry.h*0.75) { return false; }
+			&& middle.y<plan.industry.y+plan.industry.h*GenerationSettings::get().settlements_industrialStreetOmissionDepth) { return false; }
 		return true;
 	}
 }

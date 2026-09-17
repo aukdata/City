@@ -11,6 +11,7 @@ namespace LandParcelPanel
 		font(U"面積: {:.0f} m²"_fmt(shape.area())).draw(14,origin+Vec2{0,34},Palette::White);
 		const Vec2 center=shape.boundingRect().center();
 		font(U"位置: {:.0f}, {:.0f}"_fmt(center.x,center.y)).draw(14,origin+Vec2{0,58},Palette::White);
-		font(patch.sourceParcelKey>=0 ? U"建物に付属する敷地" : U"農地の区画").draw(14,origin+Vec2{0,82},ColorF{.72,.82,.72});
+		font(patch.sourceParcelKey>=0 ? U"建物に付属する敷地"
+			: (patch.type==LandPatchType::FarmTrack || patch.type==LandPatchType::IrrigationDitch) ? U"農地のアクセス・水利施設" : U"農地の区画").draw(14,origin+Vec2{0,82},ColorF{.72,.82,.72});
 	}
 }

@@ -80,8 +80,15 @@ int TestRunner::run(FilePathView outputDirectory)
 	Array<TestCaseResult> results;
 	results.reserve(m_tests.size());
 	int testFailedCount = 0;
+	String filter;
+	const auto arguments = System::GetCommandLineArgs();
+	for (size_t index = 0; index+1 < arguments.size(); ++index)
+	{
+		if (arguments[index] == U"--filter") { filter = arguments[index+1]; }
+	}
 	for (const TestCase& test : m_tests)
 	{
+		if (!filter.isEmpty() && !test.name.includes(filter)) { continue; }
 		FileSystem::CreateDirectories(outputDirectory);
 		{ TextWriter progress{FilePath{outputDirectory}+U"/running.txt"}; progress << test.name; }
 		TestContext context;

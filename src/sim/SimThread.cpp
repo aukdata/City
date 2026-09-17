@@ -93,13 +93,7 @@ void SimThread::handleRouteRequest(const RouteRequest& req)
 	}
 
 	// 探索結果は lane node 列から RouteWaypoint 列へ落とし直し、Main 側がそのまま消化できる形で返す。
-	using Clock = std::chrono::steady_clock;
-	const auto tDijk = Clock::now();
-
-	const PathResult result = m_graph.dijkstra(startNode, req.goalEdge);
-
-	const double ms = std::chrono::duration<double, std::milli>(
-		Clock::now() - tDijk).count();
+	const PathResult result = m_graph.dijkstra(startNode, req.goalEdge, req.goalLane);
 
 	resp.found = result.found;
 
@@ -127,13 +121,6 @@ void SimThread::handleRouteRequest(const RouteRequest& req)
 
 			prevEdge = ln->edgeId;
 		}
-	}
-
-	if (result.found)
-	{
-		Console << U"[Route] vid={} edge={} goal={} | {:.1f}ms | visited={}/{}"_fmt(
-			req.vehicleId, req.startEdge, req.goalEdge,
-			ms, result.nodesVisited, result.graphSize);
 	}
 
 	m_outbox.push(std::move(resp));

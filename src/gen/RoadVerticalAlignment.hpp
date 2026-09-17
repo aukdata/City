@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include "RailCostProfile.hpp"
+#include "RoadConstructionCost.hpp"
+#include "RoadDesignLimits.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
 
@@ -36,14 +38,20 @@ namespace RoadVerticalAlignment
 					const float t=static_cast<float>(j)/count; const Vec3 p=curve->positionAt(curve->totalLength*(reverse ? 1-t : t));
 					const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),water=world.waterSurfaceHeight(p.x,p.z);
 					low=Min(low,ground);high=Max(high,ground);
-					samples << RailCostProfile::Sample{{p.x,p.z},ground,ground<water+1 ? water+6 : Max(-30.0,ground-200),ground+14};
+					const bool wet = ground < water + 1;
+					samples << RailCostProfile::Sample{{p.x,p.z}, ground, Max(-30.0, ground-200), Max(ground+14, water+12),
+						wet ? water+6 : -1e9, wet ? ground-8.01 : 1e9};
 				}
 				nodeSamples << samples.size();
 			}
 			if (length<600 || high-low<20) { continue; }
 			const Vec3 start=roads.getNode(nodes.front())->position,end=roads.getNode(nodes.back())->position;
 			samples << RailCostProfile::Sample{{end.x,end.z},end.y,end.y,end.y}; samples.front().minimum=samples.front().maximum=start.y;
-			const auto profile=RailCostProfile::solve(samples,start.y,end.y,.05);
+			const auto profile = RailCostProfile::solve(samples, start.y, end.y, RoadDesignLimits::forType(first.roadType).maximumGrade * .995,
+				[&](const RailCostProfile::Sample& sample, double elevation)
+				{
+					return RoadConstructionCost::unit(elevation, sample.ground, world.waterSurfaceHeight(sample.position.x, sample.position.y));
+				});
 			if (!profile.feasible) { continue; }
 			bool tunnel=false; for (size_t i=0;i<samples.size();++i) { tunnel|=samples[i].ground-profile.heights[i]>6; }
 			if (!tunnel) { continue; }

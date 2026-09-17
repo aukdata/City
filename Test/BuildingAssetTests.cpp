@@ -82,7 +82,9 @@ void registerBuildingAssetTests(TestRunner& runner)
 			{ BuildingType::Detached, 8 }, { BuildingType::LowApartment, 4 },
 			{ BuildingType::MidApartment, 3 }, { BuildingType::HighApartment, 3 },
 			{ BuildingType::Shop, 10 }, { BuildingType::Office, 6 },
-			{ BuildingType::Factory, 4 }, { BuildingType::PublicFacility, 8 }, { BuildingType::Parking, 2 }
+			{ BuildingType::Factory, 4 }, { BuildingType::PublicFacility, 8 }, { BuildingType::Parking, 2 }, { BuildingType::RuralHouse, 3 },
+			{ BuildingType::UrbanConvenience, 1 }, { BuildingType::RoadsideConvenience, 1 },
+			{ BuildingType::UrbanFuelStation, 1 }, { BuildingType::RoadsideFuelStation, 1 }
 		};
 		for (const auto& family : families)
 		{
@@ -137,6 +139,8 @@ void registerBuildingAssetTests(TestRunner& runner)
 			U"../../App/assets/vehicles/patrol_car",
 			U"../../App/assets/vehicles/fire_engine",
 			U"../../App/assets/vehicles/city_bus",
+			U"../../App/assets/vehicles/delivery_truck",
+			U"../../App/assets/vehicles/cargo_truck",
 			U"../../App/assets/railway/commuter_001",
 			U"../../App/assets/railway/commuter_002"
 		};

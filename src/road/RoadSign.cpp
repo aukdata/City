@@ -1,4 +1,5 @@
-﻿#include "RoadSign.hpp"
+﻿#include "../asset/ModelLodPath.hpp"
+#include "RoadSign.hpp"
 #include "SignArtwork.hpp"
 #include "RoadNetwork.hpp"
 #include "ObjParser.hpp"
@@ -16,6 +17,33 @@ namespace
 		vt.normal = Float3{ static_cast<float>(nx), static_cast<float>(ny), static_cast<float>(nz) };
 		vt.tex    = Float2{ u, v };
 		return vt;
+	}
+
+	/// @brief OBJ の厚み・UV規約に依存せず、local -Zの表面だけを取り出す。
+	MeshData boardFront(const MeshData& source)
+	{
+		if (source.vertices.isEmpty()) { return {}; }
+		Float3 lower{1e9f,1e9f,1e9f},upper{-1e9f,-1e9f,-1e9f};
+		for (const auto& vertex : source.vertices)
+		{
+			lower.x=Min(lower.x,vertex.pos.x);lower.y=Min(lower.y,vertex.pos.y);lower.z=Min(lower.z,vertex.pos.z);
+			upper.x=Max(upper.x,vertex.pos.x);upper.y=Max(upper.y,vertex.pos.y);
+		}
+		MeshData face;
+		for (const auto triangle : source.indices)
+		{
+			const Vec3 a{source.vertices[triangle.i0].pos},b{source.vertices[triangle.i1].pos},c{source.vertices[triangle.i2].pos};
+			if (Abs(a.z-lower.z)>1e-5 || Abs(b.z-lower.z)>1e-5 || Abs(c.z-lower.z)>1e-5) { continue; }
+			const double winding=(b-a).cross(c-a).z;if (Abs(winding)<1e-10) { continue; }
+			const uint32 base=static_cast<uint32>(face.vertices.size());
+			for (const Vec3 point : {a,b,c})
+			{
+				face.vertices << makeVert(point.x,point.y,-.01,static_cast<float>((point.x-lower.x)/(upper.x-lower.x)),
+					static_cast<float>((upper.y-point.y)/(upper.y-lower.y)),0,0,-1);
+			}
+			face.indices << (winding<0 ? TriangleIndex32{base,base+1,base+2} : TriangleIndex32{base,base+2,base+1});
+		}
+		return face;
 	}
 
 	/// @brief XZ 平面の半幅 r、高さ h の円柱を生成（底面 Y=0、上面 Y=h）
@@ -63,10 +91,23 @@ namespace
 	}
 }
 
-MeshData RoadSign::CreatePoleMesh(float poleHeight)
+MeshData RoadSign::CreatePoleMesh(float poleHeight, int lod)
 {
-	// ポールは全標識共通の円柱メッシュとして実寸生成し、種別差分は看板側で吸収する。
-	return makeCylinder(kPoleRadius_m, static_cast<double>(poleHeight), 10);
+	// 共有する実寸モデルには天蓋・根元のカラー・板面の固定帯を含める。
+	static std::array<MeshData, 3> levels;
+	lod = Clamp(lod, 0, 2);
+	if (levels[lod].vertices.isEmpty()) { levels[lod] = loadBoardObj(modelLodPath(U"assets/signs/sign_pole.obj", lod)); }
+	const auto& kPole = levels[lod];
+	if (kPole.vertices.isEmpty()) { return makeCylinder(kPoleRadius_m, poleHeight, 32); }
+	MeshData result = kPole;
+	const float scale = Max(.01f, poleHeight)/2.5f;
+	for (auto& vertex : result.vertices)
+	{
+		vertex.pos.y *= scale;
+		vertex.normal.y /= scale;
+		vertex.normal = vertex.normal.normalized();
+	}
+	return result;
 }
 
 namespace
@@ -124,10 +165,11 @@ const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 	static const SignVisual kDirectionalRestriction{
 		RoadSignCategory::Regulatory,
 		U"assets/signs/regulatory/circle.obj",
-		Asset::DirectionalRestrictionSign };
+		U"" };
 	static const SignVisual kSpeed{RoadSignCategory::Regulatory,U"assets/signs/regulatory/circle.obj",U""};
 	static const SignVisual kOneWay{RoadSignCategory::Regulatory,U"",U""};
 	static const SignVisual kCurve{RoadSignCategory::Warning,U"",U""};
+	static const SignVisual kLabel{RoadSignCategory::Guide,U"",U""};
 	static const SignVisual kNationalRoute{
 		RoadSignCategory::Guide,
 		U"assets/signs/guide/onigiri.obj",
@@ -135,6 +177,11 @@ const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 
 	switch (type)
 	{
+	case RoadSignType::RoadName:
+	case RoadSignType::Municipality:
+	case RoadSignType::PrefectureRoute: return kLabel;
+	case RoadSignType::SteepGrade:
+	case RoadSignType::NarrowRoad: return kCurve;
 	case RoadSignType::SpeedLimit: return kSpeed;
 	case RoadSignType::OneWay: return kOneWay;
 	case RoadSignType::CurveWarning: return kCurve;
@@ -149,18 +196,64 @@ const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 
 MeshData RoadSign::CreateBoardMesh(RoadSignType type)
 {
-	if (type==RoadSignType::OneWay || type==RoadSignType::CurveWarning)
+	if (type==RoadSignType::OneWay || type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::PrefectureRoute || SignArtwork::wide(type))
 	{
 		MeshData mesh;
-		const double halfWidth=type==RoadSignType::OneWay ? .23 : .45,halfHeight=type==RoadSignType::OneWay ? .45 : .45;
+		const double halfWidth=SignArtwork::wide(type) ? 1.2 : type==RoadSignType::OneWay ? .23 : .45,halfHeight=SignArtwork::wide(type) ? .4 : .45;
 		mesh.vertices << makeVert(-halfWidth,halfHeight,0,0,0,0,0,-1) << makeVert(halfWidth,halfHeight,0,1,0,0,0,-1)
 			<< makeVert(-halfWidth,-halfHeight,0,0,1,0,0,-1) << makeVert(halfWidth,-halfHeight,0,1,1,0,0,-1);
 		mesh.indices << TriangleIndex32{0,1,2} << TriangleIndex32{2,1,3};
+		if (type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::PrefectureRoute)
+		{
+			mesh=MeshData{};
+			const Array<Vec2> shape=type==RoadSignType::PrefectureRoute
+				? Array<Vec2>{{-.23,.45},{.23,.45},{.45,0},{.23,-.45},{-.23,-.45},{-.45,0}}
+				: Array<Vec2>{{0,.45},{.45,0},{0,-.45},{-.45,0}};
+			mesh.vertices << makeVert(0,0,0,.5f,.5f,0,0,-1);
+			for (Vec2 point:shape) { mesh.vertices << makeVert(point.x,point.y,0,static_cast<float>(point.x/.9+.5),static_cast<float>(.5-point.y/.9),0,0,-1); }
+			for (uint32 index=1;index<=shape.size();++index) { mesh.indices << TriangleIndex32{0,index,index==shape.size() ? 1u : index+1}; }
+		}
 		return mesh;
 	}
 	const auto& vis = visualOf(type);
 	if (vis.shapeObjPath.isEmpty()) return {};
-	return loadBoardObj(vis.shapeObjPath);
+	return boardFront(loadBoardObj(vis.shapeObjPath));
+}
+
+MeshData RoadSign::CreateBoardBackingMesh(const MeshData& front)
+{
+	MeshData back;
+	struct Edge { Vec3 a,b; int count=1; }; Array<Edge> outline;
+	for (const auto& vertex : front.vertices)
+	{
+		auto copy=vertex;copy.pos.z+=.02f;copy.normal={0,0,1};back.vertices<<copy;
+	}
+	for (const auto triangle : front.indices)
+	{
+		back.indices<<TriangleIndex32{triangle.i0,triangle.i2,triangle.i1};
+		const std::array<uint32,3> points{triangle.i0,triangle.i1,triangle.i2};
+		for (int index=0;index<3;++index)
+		{
+			const Vec3 a{front.vertices[points[index]].pos},b{front.vertices[points[(index+1)%3]].pos};
+			bool found=false;
+			for (auto& edge : outline)
+			{
+				if ((edge.a.distanceFromSq(a)<1e-10 && edge.b.distanceFromSq(b)<1e-10)
+					|| (edge.a.distanceFromSq(b)<1e-10 && edge.b.distanceFromSq(a)<1e-10)) { ++edge.count;found=true;break; }
+			}
+			if (!found) { outline<<Edge{a,b}; }
+		}
+	}
+	for (const auto& edge : outline)
+	{
+		if (edge.count!=1) { continue; }
+		const Vec3 normal=Vec3{0,0,1}.cross(edge.b-edge.a).normalized();
+		const uint32 base=static_cast<uint32>(back.vertices.size());
+		for (const Vec3 point : {edge.a,edge.b,edge.b+Vec3{0,0,.02},edge.a+Vec3{0,0,.02}})
+		{ back.vertices<<makeVert(point.x,point.y,point.z,0,0,normal.x,normal.y,normal.z); }
+		back.indices<<TriangleIndex32{base,base+2,base+1}<<TriangleIndex32{base,base+3,base+2};
+	}
+	return back;
 }
 
 double RoadSign::BoardCenterFromPoleTop(RoadSignType type)
@@ -223,7 +316,7 @@ Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const 
 		if (oneWay && !towardNode && usable>20 && node->attachments.size()>=3) { add(RoadSignType::OneWay,8,0,true); }
 		if (towardNode && usable>95 && node->attachments.size()>=3)
 		{
-			add(RoadSignType::SpeedLimit,40,Clamp(static_cast<int>(edge.speedLimit/10)*10,20,100),false);
+			add(RoadSignType::SpeedLimit,40,Clamp(static_cast<int>(Round(edge.speedLimit)),1,140),false);
 		}
 		if (towardNode && usable>130)
 		{
@@ -233,11 +326,11 @@ Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const 
 				if (a.dot(b)<.90)
 				{
 					const double turn=(a.x*b.z-a.z*b.x)*(nodeId==edge.nodeB ? 1 : -1);
-					add(RoadSignType::CurveWarning,usable*.72f,turn<0 ? 1 : 2,false);
+					add(RoadSignType::CurveWarning,usable*.72f,turn>0 ? 1 : 2,false);
 				}
 			}
 		}
-		if (att->control == TrafficControl::Stop)
+		if (att->control == TrafficControl::Stop && towardNode)
 		{
 			RoadSignPlacement sp;
 			sp.type      = RoadSignType::Stop;
@@ -252,6 +345,26 @@ Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const 
 			out << sp;
 		}
 
+		if (att->control==TrafficControl::Yield && towardNode) { add(RoadSignType::Yield,5,0,false); }
+		if (towardNode && usable>90)
+		{
+			const auto curve=network.getBezier(edge.id);
+			if (curve)
+			{
+				const Vec3 rise=curve->p3-curve->p0;
+				const double grade=100*rise.y/Max(1.0,Vec2{rise.x,rise.z}.length())*(nodeId==edge.nodeB ? 1 : -1);
+				if (Abs(grade)>=5) { add(RoadSignType::SteepGrade,usable*.55f,static_cast<int>(Round(grade)),false); }
+			}
+		}
+		// 幅員減少はこの先の道路が実際に狭くなるときだけ予告する。
+		if (towardNode && usable>70 && node->attachments.size()==2)
+		{
+			for (const auto& other:node->attachments)
+			{
+				const auto* next=network.getEdge(other.edgeId);
+				if (next && next->id!=edge.id && next->totalWidth()+2<edge.totalWidth()) { add(RoadSignType::NarrowRoad,30,0,false); }
+			}
+		}
 		// 車両進入禁止（303）: このノードから当該エッジへ進入できる車線が
 		// 1本もなければ、「こちら側から入るな」という意味で自動配置。
 		// 進入車（nodeId から入ろうとする車）の視点で右側に立てる。
@@ -335,6 +448,7 @@ Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const 
 				{
 					RoadSignPlacement sp;
 					sp.type      = RoadSignType::DirectionalRestriction;
+					sp.auxValue  = static_cast<int>(actualMask);
 					sp.nodeEndId = nodeId;
 					sp.arcOffset = 0.0f;
 					// Stop と同じ規約で driver の左側（Roadbed 基準）

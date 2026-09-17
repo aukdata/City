@@ -1,69 +1,139 @@
 ﻿#include "RoadPlanDraft.hpp"
 #include "../gen/RoadAutoPlace.hpp"
+#include "../gen/RoadAlignment.hpp"
+#include "../debug/DebugLog.hpp"
 
 bool RoadPlanDraft::place(Vec3 point, bool replaceEnd)
 {
-	const bool replacing = replaceEnd && m_points.size() >= 2;
-	if (!m_points.isEmpty())
+	const bool replacing = replaceEnd && m_state.points.size() >= 2;
+	if (!m_state.points.isEmpty())
 	{
-		const Vec3 origin = m_points[replacing ? m_points.size() - 2 : m_points.size() - 1];
+		const Vec3 origin = m_state.points[replacing ? m_state.points.size() - 2 : m_state.points.size() - 1];
 		if (Vec2{point.x - origin.x, point.z - origin.z}.length() < kMinimumSegment)
 		{
 			return false;
 		}
 	}
+	remember();
+	m_state.generated = false;
+	m_state.curves.clear();
+	if (replacing) { m_state.points.back() = point; }
+	else { m_state.points << point; }
+	return true;
+}
+
+void RoadPlanDraft::invalidate()
+{
+	m_preview = RoadNetwork{};
+	m_previewEdges.clear();
+}
+
+void RoadPlanDraft::remember()
+{
 	constexpr size_t kHistoryLimit = 128;
 	if (m_undo.size() >= kHistoryLimit) { m_undo.erase(m_undo.begin()); }
-	m_undo << m_points;
+	m_undo << m_state;
 	m_redo.clear();
-	if (replacing) { m_points.back() = point; }
-	else { m_points << point; }
+	invalidate();
+}
+
+bool RoadPlanDraft::revise(Array<Vec3> points)
+{
+	if (points.size() < 2 || points == m_state.points) { return false; }
+	for (size_t index = 1; index < points.size(); ++index)
+	{
+		const Vec3 delta = points[index]-points[index-1];
+		if (!IsFinite(delta.x) || !IsFinite(delta.y) || !IsFinite(delta.z)
+			|| Vec2{delta.x, delta.z}.length() < kMinimumSegment) { return false; }
+	}
+	Array<CubicBezier> curves;
+	if (points.size() == m_state.points.size() && m_state.curves.size() + 1 == points.size())
+	{
+		// ドラッグした節点の両側で接線を保つ。既存の滑らかな経路を粗い点列から再推定しない。
+		curves = m_state.curves;
+		for (size_t index = 0; index < curves.size(); ++index)
+		{
+			const Vec3 startShift = points[index] - m_state.points[index];
+			const Vec3 endShift = points[index + 1] - m_state.points[index + 1];
+			const auto& curve = curves[index];
+			curves[index] = CubicBezier{curve.p0 + startShift,curve.p1 + startShift,
+				curve.p2 + endShift,curve.p3 + endShift};
+		}
+	}
+	remember();
+	m_state.points = std::move(points);
+	m_state.curves = std::move(curves);
 	return true;
+}
+
+bool RoadPlanDraft::generate(const World& world, const RoadEdge& roadTemplate)
+{
+	if (m_state.points.size() < 2) { return false; }
+	const Stopwatch timer{StartImmediately::Yes};
+	const auto result=RoadAlignment::find(world,m_state.points.front(),m_state.points.back(),roadTemplate.roadType);
+	if(!result)
+	{
+		invalidate();DBG_LOG(U"[RoadPlan] no alignment start={} end={} type={} ms={:.1f}"_fmt(m_state.points.front(),m_state.points.back(),static_cast<int>(roadTemplate.roadType),timer.msF()));return false;
+	}
+	Array<Vec3> points{result->curves.front().p0};for(const auto& curve:result->curves) { points << curve.p3; }
+	remember();m_state=State{std::move(points),true,result->curves};
+	DBG_LOG(U"[RoadPlan] alignment start={} end={} curves={} expanded={} cost={:.1f} ms={:.1f}"_fmt(m_state.points.front(),m_state.points.back(),m_state.curves.size(),result->expanded,result->cost,timer.msF()));
+	return rebuild(world, roadTemplate);
 }
 
 bool RoadPlanDraft::undo()
 {
 	if (m_undo.isEmpty()) { return false; }
-	m_redo << m_points;
-	m_points = std::move(m_undo.back());
+	m_redo << m_state;
+	m_state = std::move(m_undo.back());
 	m_undo.pop_back();
+	invalidate();
 	return true;
 }
 
 bool RoadPlanDraft::redo()
 {
 	if (m_redo.isEmpty()) { return false; }
-	m_undo << m_points;
-	m_points = std::move(m_redo.back());
+	m_undo << m_state;
+	m_state = std::move(m_redo.back());
 	m_redo.pop_back();
+	invalidate();
 	return true;
 }
 
 void RoadPlanDraft::clear()
 {
-	m_points.clear();
+	m_state = State{};
 	m_undo.clear();
 	m_redo.clear();
-	m_preview = RoadNetwork{};
-	m_previewEdges.clear();
+	invalidate();
 }
 
-bool RoadPlanDraft::rebuild(const World& world, const RoadEdge& roadTemplate, bool followTerrain)
+bool RoadPlanDraft::rebuild(const World& world, const RoadEdge& roadTemplate)
 {
 	m_preview = RoadNetwork{};
-	m_previewEdges = RoadAutoPlace::buildPreviewPlan(m_preview, world, m_points, roadTemplate, followTerrain, 0.25f);
+	m_previewEdges = RoadAutoPlace::buildAlignment(m_preview,world,m_state.curves.isEmpty() ? RoadAlignment::fit(m_state.points) : m_state.curves,roadTemplate,.25f);
 	return valid();
 }
 
-Array<int> RoadPlanDraft::apply(RoadNetwork& network, const World& world, const RoadEdge& roadTemplate, bool followTerrain) const
+Optional<RoadPlanDraft::Proposal> RoadPlanDraft::propose(
+	const RoadNetwork& network, const World& world, const RoadEdge& roadTemplate) const
 {
-	if (!valid()) { return {}; }
-	// スナップ先の道路分割も含めてトランザクションにし、失敗・破棄で既存の街を壊さない。
-	RoadNetwork proposed = network;
-	Array<int> edges = RoadAutoPlace::buildPreviewPlan(proposed, world, m_points, roadTemplate, followTerrain, 0.5f);
-	if (edges.isEmpty()) { return {}; }
-	network = std::move(proposed);
-	return edges;
+	if (!valid()) { return none; }
+	// 呼び出し側の追加検査まで同じ仮の道路網を使い、二重コピーを避ける。
+	Proposal proposal{ network, {} };
+	proposal.edgeIds = RoadAutoPlace::buildAlignment(proposal.network,world,m_state.curves.isEmpty() ? RoadAlignment::fit(m_state.points) : m_state.curves,roadTemplate,.5f);
+	if (proposal.edgeIds.isEmpty()) { return none; }
+	proposal.network.resolveIntersections(*std::min_element(proposal.edgeIds.begin(),proposal.edgeIds.end()),&proposal.edgeIds);
+	return proposal;
+}
+
+Array<int> RoadPlanDraft::apply(RoadNetwork& network, const World& world, const RoadEdge& roadTemplate) const
+{
+	auto proposal = propose(network, world, roadTemplate);
+	if (!proposal) { return {}; }
+	network = std::move(proposal->network);
+	return std::move(proposal->edgeIds);
 }
 
 double RoadPlanDraft::length() const
@@ -79,7 +149,7 @@ double RoadPlanDraft::length() const
 double RoadPlanDraft::constructionEquivalentLength() const
 {
 	double result=0;
-	for (const int id : m_previewEdges) { if (const auto* edge=m_preview.getEdge(id)) { result+=edge->length*(edge->tunnel ? 6 : edge->useElevation ? 3 : 1); } }
+	for (const int id : m_previewEdges) { if (const auto* edge=m_preview.getEdge(id)) { result += edge->constructionEquivalentLength(); } }
 	return result;
 }
 
@@ -100,12 +170,17 @@ void RoadPlanSnapIndex::rebuild(const RoadNetwork& network)
 	{
 		if (node.id >= 0) { m_nodes[Point{cell(node.position.x),cell(node.position.z)}] << node.id; }
 	}
-	for (const auto& edge : network.edges())
-	{
-		if (edge.id < 0) { continue; }
+	for(const auto& edge:network.edges()) { if(edge.id>=0) { appendEdge(network,edge.id); } }
+}
+
+void RoadPlanSnapIndex::appendEdge(const RoadNetwork& network,int edgeId)
+{
+	const auto* found=network.getEdge(edgeId);if(!found) { return; }const auto& edge=*found;
+	const auto cell=[](double value){return static_cast<int>(Floor(value/kCellSize));};
+		if (edge.id < 0) { return; }
 		const auto* a = network.getNode(edge.nodeA);
 		const auto* b = network.getNode(edge.nodeB);
-		if (!a || !b) { continue; }
+		if (!a || !b) { return; }
 		double minX = a->position.x, maxX = minX, minZ = a->position.z, maxZ = minZ;
 		for (const Vec3 p : {b->position,edge.ctrlA,edge.ctrlB})
 		{
@@ -116,10 +191,9 @@ void RoadPlanSnapIndex::rebuild(const RoadNetwork& network)
 		{
 			for (int x = cell(minX); x <= cell(maxX); ++x) { m_edges[Point{x,z}] << edge.id; }
 		}
-	}
 }
 
-RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius) const
+RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 cursor, double radius, double heightTolerance, bool preferNodes) const
 {
 	Hit result{ cursor };
 	double bestDistance = radius * radius;
@@ -134,7 +208,7 @@ RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 
 				for (const int id : it->second)
 				{
 					const auto* node = network.getNode(id);
-					if (!node || Abs(node->position.y-cursor.y) > 6.0) { continue; }
+					if (!preferNodes || !node || Abs(node->position.y-cursor.y) > heightTolerance) { continue; }
 					const double distance = Vec2{node->position.x-cursor.x,node->position.z-cursor.z}.lengthSq();
 					if (distance <= bestDistance) { bestDistance = distance; result = Hit{node->position,true,true}; }
 				}
@@ -170,10 +244,10 @@ RoadPlanSnapIndex::Hit RoadPlanSnapIndex::find(const RoadNetwork& network, Vec3 
 		double t = (low+high)*0.5;
 		if (t < 0.012) { t = 0; } else if (t > 0.988) { t = 1; }
 		const Vec3 p = curve->evaluate(static_cast<float>(t));
-		if (distanceAt(t) < bestDistance && Abs(p.y-cursor.y) <= 6.0)
+		if (distanceAt(t) < bestDistance && Abs(p.y-cursor.y) <= heightTolerance)
 		{
 			bestDistance = distanceAt(t);
-			result = Hit{p,true,t == 0 || t == 1};
+			result = Hit{p,true,t == 0 || t == 1,id,static_cast<float>(t)};
 		}
 	}
 	return result;

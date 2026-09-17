@@ -6,6 +6,17 @@ struct CubicBezier;
 
 namespace RoadGeometry
 {
+	/// @brief 信号柱の道路上の配置。高さを地形へ合わせる処理は描画側が受け持つ。
+	struct SignalAnchor
+	{
+		Vec3 roadPosition;
+		Vec3 position;
+		float yaw = 0.0f;
+	};
+
+	/// @brief ノードに進入する車から見た路肩位置と向き。接続していない端点は none。
+	[[nodiscard]] Optional<SignalAnchor> signalAnchor(const RoadEdge& edge, const CubicBezier& bezier, int nodeId);
+
 	struct LateralRange
 	{
 		float left = 0.0f;

@@ -1,11 +1,11 @@
 # セーブ・ロード仕様書
 
-将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-04 時点）** は
+将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-09-14）** は
 `JSON + 独自バイナリ` の簡易構成で保存している。
 
 ---
 
-## 0. 現行実装（2026-04）
+## 0. 現行実装（2026-09-14）
 
 ### 0.1 ディレクトリ構造
 
@@ -30,6 +30,8 @@ saves/
   - `gameNow`, `timeScale`
   - `nextNodeId`, `nextEdgeId`
   - `cameraFocusX/Y/Z`, `cameraDistance`, `cameraYaw`, `cameraPitch`
+  - `zoneDevelopment`: プレイヤーが編集したセルの用途・建物・開発進捗。基礎街の再生成後に復元する
+  - `railway`: 線路・駅・車庫のグラフ、路線名・停車駅・運行時間帯・間隔・種別、直前発車と次便の方向
 - `global/economy.json`
   - `funds`, `population`, `happiness`
 - `global/districts.json`
@@ -52,14 +54,14 @@ saves/
 - ゾーン
   - 地区情報から `applyZonesGlobal()` で再適用
 - 鉄道
-  - `MapGenerator::setupTrain()` で再生成
+  - `meta.railway` がある場合は保存したグラフとダイヤを復元し、再生成しない。保存前の形式で鉄道欄がない場合だけ生成する
 
 ### 0.4 まだ永続化していない内容
 
 - 車両の現在位置・経路
-- 鉄道ネットワークの編集結果
-- チャンクごとの `zoneMap`
-- チャンクごとの `buildingGrid`
+- 走行中の列車の位置・停車状態（ロード後は保存ダイヤの次便から再開）
+- 全セルの `zoneMap`（プレイヤーが塗ったセルは保存済み）
+- 全セルの `buildingGrid`（プレイヤーが塗った区画の建物は保存済み）
 - 各種 UI 状態
 
 以下の章は中長期の理想設計として残す。
@@ -425,3 +427,11 @@ meta.json に `roadGeometryVersion: 1` を保存する。キーが存在しな�
 ### 2026-09-12: 都市の形成計画
 
 `global/districts.json` に `morphologyVersion: 1` と計画の起源・農村形態、街区軸、範囲、旧中心、駅、公共・産業用地、沿道型フラグ、散村の居住点を保存する。読み込み時も同じ計画を復元するため、ロード後に土地利用の判定が別の街へ変化しない。`SettlementKind` は規模（RegionalCity / LocalTown / RuralSettlement）を表し、歴史的起源は独立した値とする。新しい計画の往復保存を検証する。旧セーブの景観互換性は対象外。
+
+## 城下町外縁・耕作道の現行保存形式（2026-09-13）
+
+`global/districts.json` の `morphologyVersion=2` では、地区ごとの `fringe_i` 件数と `fringeAX_i_j / fringeAZ_i_j / fringeBX_i_j / fringeBZ_i_j` に、外縁街路を地区座標で保存する。旧版でキーがない場合は空配列とする。道路そのものは既存の道路保存系で復元する。
+
+田畑の不整形ポリゴンは `chunks/x_y/land_patches.bin` に保存する。新規生成の農道は道路として保存し、道路の高さフラグのbit3に `farmAccess` を記録する。旧 `FarmTrack` / `IrrigationDitch` の列挙値は残すが、新規農道は土地パッチで生成しない。既存セーブの移行処理は行わない。
+
+当面の開発優先度は新規生成の景観と街のつながり。既存セーブの互換性・移行の拡充を優先しない（ユーザー指定、2026-09-13）。

@@ -132,6 +132,9 @@ public:
 	/// @brief ノードの接続エッジのいずれかが高架かどうかを返す
 	[[nodiscard]] bool isNodeElevated(int nodeId) const;
 
+	/// @brief 高架・地上の区別に関係なく、接続道路が設計高さを使うか。
+	[[nodiscard]] bool nodeUsesDesignHeight(int nodeId) const;
+
 	/// @brief エッジの両端ノード高さから useElevation を自動判定・更新する
 	void updateEdgeElevation(int edgeId, const World& world);
 
@@ -159,7 +162,8 @@ public:
 	///   高架を含む交差で高さが1m以上異なる場合は接続しない。
 	/// @param sinceEdgeId  この ID 以上のエッジのみを判定対象にする（0 なら全エッジ）。
 	///   前回ポスト処理以降に追加されたエッジだけをチェックする用途で使う。
-	bool resolveIntersections(int sinceEdgeId = 0);
+	/// @param trackedEdges 分割後も新設計画などの所属と経路順を保持するエッジ列。
+	bool resolveIntersections(int sinceEdgeId = 0, Array<int>* trackedEdges = nullptr);
 	/// @brief Join physically overlapping generated corridors while preserving their branches.
 	int consolidateOverlappingRoads();
 

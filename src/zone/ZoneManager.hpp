@@ -5,8 +5,9 @@
 #include "../road/RoadNetwork.hpp"
 #include "../time/GameClock.hpp"
 #include "../gameplay/CitySimulation.hpp"
+#include "../gen/ParcelRoadIndex.hpp"
 
-/// @brief 月次の用途別開発需要
+/// @brief 用途別開発需要
 struct ZoneDevelopmentDemand
 {
 	double residential = 0.0;
@@ -14,18 +15,22 @@ struct ZoneDevelopmentDemand
 	double industrial = 0.0;
 };
 
-/// @brief 都市統計から用途別の月次開発需要を計算する
+/// @brief 都市統計から用途別の開発需要を計算する
 ZoneDevelopmentDemand calculateZoneDevelopmentDemand(int population, const CitySnapshot& snapshot);
 
-/// @brief 月次ゾーン更新の変更件数
-struct ZoneMonthlyUpdateResult
+/// @brief 塗った空き区画の開発状態。
+enum class ZoneDevelopmentState : uint8 { Checking, Developing, NeedsRoad, NeedsSpace, UnsuitableTerrain };
+struct ZoneDevelopmentSummary
 {
-	int spawnedBuildings = 0;
-	int upgradedBuildings = 0;
-	int removedBuildings = 0;
+	int checking = 0, developing = 0, needsRoad = 0, needsSpace = 0, unsuitableTerrain = 0;
+	int completed = 0;
+};
+struct ZoneDevelopmentResult
+{
+	int buildings = 0, housing = 0, residential = 0, commercial = 0, industrial = 0;
 };
 
-/// @brief ゾーン塗り・建物自動生成・月次評価を担うクラス（05_zoning_spec.md §5）
+/// @brief ゾーン塗り・道路沿いの開発を担うクラス（05_zoning_spec.md §5）
 class ZoneManager
 {
 public:
@@ -47,9 +52,15 @@ public:
 	/// @brief 全ワールドの住宅収容人口合計を返す
 	int totalHousingCapacity(const World& world) const;
 
-	/// @brief 全ワールドのゾーンを決定論的に月次評価する
-	ZoneMonthlyUpdateResult updateMonthly(World& world, const RoadNetwork& network,
-		const ZoneDevelopmentDemand& demand, GameTime gameNow, int64 monthIndex) const;
+	/// @brief 塗った空き区画を少しずつ開発する。秒数は標準速度基準で、停止中は0。
+	ZoneDevelopmentResult updateDevelopment(World& world, const RoadNetwork& network,
+		const ZoneDevelopmentDemand& demand, double simulationSeconds, GameTime gameNow, const TrainNetwork* railway=nullptr);
+	[[nodiscard]] ZoneDevelopmentSummary developmentSummary() const;
+	[[nodiscard]] JSON developmentSnapshot() const;
+	[[nodiscard]] JSON saveState(const World& world) const;
+	void restoreState(const JSON& snapshot, World& world);
+	/// @brief 開発途中の区画と進捗を復元する。既存建物・ゾーンが一致する区画だけを採用。
+	void restoreDevelopment(const JSON& snapshot, const World& world);
 
 	// ----- オーバーレイ描画 -----
 
@@ -58,27 +69,23 @@ public:
 	/// @brief 3D シーンにゾーンオーバーレイを描画する（update 後・UI 前に呼ぶ）
 	void renderOverlay(const World& world) const;
 
-	// ----- 建物生成 -----
-
-	/// @brief ゾーン種別に応じた初期建物を返す
-	Building spawnBuilding(ZoneType zone, double gameNow) const;
-
 private:
-	// ----- 座標変換ヘルパー -----
-
-	/// @brief ワールド座標 → (チャンク座標, セル座標) に変換する
+	struct DevelopmentPlot
+	{
+		Point chunk, cell;
+		ZoneType zone = ZoneType::Unzoned;
+		double progress = 0, checkedAt = 0, nextCheck = 0;
+		ZoneDevelopmentState state = ZoneDevelopmentState::Checking;
+	};
+	Optional<ParcelRoadIndex> m_railwayCorridor;
+	size_t m_railwayEdgeCount = 0;
+	HashSet<Point> m_editedCells;
+	Array<DevelopmentPlot> m_development;
+	HashTable<int64, size_t> m_developmentIndex;
+	size_t m_developmentCursor = 0;
+	double m_developmentTime = 0;
+	int m_completed = 0;
+	void paintCell(Chunk& chunk, Point cell, ZoneType zone);
+	void removeDevelopment(size_t index);
 	static std::pair<Point, Point> worldToCell(Vec3 worldPos);
-
-	/// @brief セルの中心ワールド座標を返す
-	static Vec3 cellToWorld(Point chunkCoord, Point cellCoord);
-
-	// ----- 発展スコア -----
-
-	/// @brief セルの発展スコア（0.0〜1.0）を計算する
-	/// @details 道路アクセス係数をメインに算出（Phase 3: 簡易版）
-	float calcDevelopmentScore(Point chunkCoord, int cx, int cy,
-	                           const RoadNetwork& network) const;
-
-	/// @brief 乱数状態に依存しない月次生成用の建物選択
-	Building spawnBuildingDeterministic(ZoneType zone, GameTime gameNow, uint32 roll) const;
 };

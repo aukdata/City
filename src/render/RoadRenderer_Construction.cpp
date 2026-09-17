@@ -281,5 +281,5 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 		else surface.meshPair.detail.draw(surface.color);
 	}
 	if(close || edge.useElevation) for(const auto& batch:cache.details) batch.mesh.draw(batch.color);
-	if(close) for(const auto& [index,transform]:cache.machines) m_constructionModels[index].draw(transform);
+	for(const auto& [index,transform]:cache.machines) { (close ? m_constructionModels[index] : m_constructionLodModels[index]).draw(transform); }
 }

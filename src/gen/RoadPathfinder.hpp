@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
 
@@ -8,8 +9,9 @@ class RoadPathfinder
 {
 public:
 	void setRailwayRouting(bool enabled) { m_railwayRouting=enabled; }
+	void setRoadType(RoadType type) { m_roadType = type; }
 	void setConstructionCost(std::function<double(Vec2,double)> cost) { m_constructionCost=std::move(cost); }
-	static constexpr float kDefaultCellSize = 40.0f;
+	static float defaultCellSize() { return GenerationSettings::get().network_localRoutingCell; }
 
 	/// @brief 高さグリッドを構築する
 	/// @param world     高さ計算に使用するワールド
@@ -18,12 +20,12 @@ public:
 	/// @param gridH     グリッド縦セル数
 	/// @param cellSize  1 セルのサイズ [m]
 	void setup(const World& world, Vec2 offset, int gridW, int gridH,
-	           float cellSize = kDefaultCellSize);
+	           float cellSize = defaultCellSize());
 
 	/// @brief 事前計算済み heightMap からパスファインダーグリッドを構築する（computeHeight 不要）
 	void setupFromHeightMap(const Grid<float>& heightMap, Point chunkCoord,
 	                        int gridW, int gridH,
-	                        float cellSize = kDefaultCellSize);
+	                        float cellSize = defaultCellSize());
 
 	// ----- アクセサ -----
 	int   gridW()    const { return m_gridW; }
@@ -65,9 +67,12 @@ public:
 private:
 	std::function<double(Vec2,double)> m_constructionCost;
 	bool m_railwayRouting=false;
+	RoadType m_roadType = RoadType::LocalRoad;
 	int          m_gridW    = 0;
 	int          m_gridH    = 0;
-	float        m_cellSize = kDefaultCellSize;
+	float        m_cellSize = defaultCellSize();
 	Vec2         m_offset;
 	Array<float> m_heightGrid;
+	Array<float> m_waterGrid;
+	Array<Vec2> m_flowGrid;
 };

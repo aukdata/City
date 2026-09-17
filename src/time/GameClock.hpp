@@ -16,7 +16,7 @@ struct GameClock
 	static constexpr double kCalendarMinutesPerDay = 24.0 * kCalendarMinutesPerHour;
 	static constexpr double kCalendarDaysPerMonth = 30.0;
 	static constexpr double kCalendarMinutesPerMonth = kCalendarMinutesPerDay * kCalendarDaysPerMonth;
-	static constexpr double kSecondsPerGameDay = 6.0;
+	static constexpr double kSecondsPerGameDay = 24.0 * 60.0; ///< 標準速度で現実24分が1日
 	static constexpr double kSecondsPerGameHour = kSecondsPerGameDay / 24.0;
 	static constexpr double kSecondsPerGameMonth = kSecondsPerGameDay * kCalendarDaysPerMonth;
 	static constexpr double kCalendarMinutesPerSecond = kCalendarMinutesPerDay / kSecondsPerGameDay;
@@ -110,7 +110,7 @@ struct GameClock
 	static GameTime TimeFromMonthIndex(int64 monthIndex)
 	{
 		const double calendarMinutes = static_cast<double>(monthIndex) * kCalendarMinutesPerMonth;
-		return Max(0.0, (calendarMinutes - kInitialCalendarMinute) / kCalendarMinutesPerSecond);
+		return (calendarMinutes - kInitialCalendarMinute) / kCalendarMinutesPerSecond;
 	}
 
 	/// @brief 0 起点の通算月インデックスから月 (1-12) を返す
@@ -129,7 +129,7 @@ struct GameClock
 	/// @brief 任意のゲーム時刻をカレンダー分へ変換する
 	static double calendarMinuteFromTime(GameTime gameNow)
 	{
-		return kInitialCalendarMinute + Max(0.0, gameNow) * kCalendarMinutesPerSecond;
+		return Max(0.0,kInitialCalendarMinute + gameNow * kCalendarMinutesPerSecond);
 	}
 
 	/// @brief 速度文字列を返す

@@ -2,81 +2,41 @@
 #include "../gen/DistrictHierarchy.hpp"
 #include "../gen/MapGenerator.hpp"
 #include "../ui/Camera.hpp"
-#include "../ui/WorldMapView.hpp"
+#include "../ui/LocalMapView.hpp"
+#include "../ui/MapTerrainLayer.hpp"
 #include "../railway/TrainNetwork.hpp"
-#include "../ui/PanelManager.hpp"
 #include "../road/RoadNetwork.hpp"
-#include "../world/World.hpp"
 #include "../asset/AssetRegistrar.hpp"
 
-/// @brief 画面右上に表示するミニマップレンダラ
+/// @brief 周辺地図と全画面地図で、同じ道路・鉄道・地名を共有する。
 class MinimapRenderer
 {
 public:
-	void setSmallBounds(Optional<RectF> bounds) { m_smallBounds=bounds; m_smallVisible=bounds.has_value(); }
-	// 地形と道路の事前生成テクスチャを持ち、小マップ表示と拡大パネル表示の両方を担当する。
-	/// @brief 地形テクスチャを生成する（ロード完了後に1回呼ぶ）
+	void setSmallBounds(Optional<RectF> bounds) { m_smallBounds=bounds;m_smallVisible=bounds.has_value(); }
 	void buildTerrainTexture(const World& world);
-	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world; m_districts=&districts; m_mapDirty=true; }
-
-	/// @brief 道路オーバーレイテクスチャを全道路から再構築する
-	void updateRoadOverlay(const RoadNetwork& network, const World& world);
-
-	/// @brief 指定ノード周辺の道路オーバーレイだけ差分更新する
-	void updateRoadOverlayAround(const Array<int>& dirtyNodeIds,
-	                              const RoadNetwork& network);
-
-	/// @brief 入力処理（クリックで拡大パネル表示）。毎フレーム render の前に呼ぶ
-	Optional<Vec2> update(const GameCamera& camera, const RoadNetwork& roads, const TrainNetwork& railway,
-		const Array<MapGenerator::Settlement>& settlements);
+	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world;m_districts=&districts;m_mapDirty=true; }
+	void updateRoadOverlay(const RoadNetwork& roads,const World& world);
+	void updateRoadOverlayAround(const Array<int>& nodes,const RoadNetwork& roads);
+	Optional<Vec2> update(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 	void openFullScreen(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 	WorldMapView& mapView() { return m_map; }
+	LocalMapView& localView() { return m_local; }
 	bool fullScreen() const { return m_map.visible; }
 	bool consumedInput() const { return m_consumedInput; }
 	void drawFullScreen(const GameCamera& camera) const;
-
-	/// @brief 右上の小さいミニマップを描画する（毎フレーム）
-	void render(const GameCamera& camera,
-	            const Array<MapGenerator::Settlement>& settlements) const;
-
-	/// @brief 拡大パネル内のコンテンツを描画する
-	void drawExpandedPanel(PanelManager& panels,
-	                       const GameCamera& camera,
-	                       const Array<MapGenerator::Settlement>& settlements) const;
-
+	void render(const GameCamera& camera,const Array<MapGenerator::Settlement>& settlements) const;
 private:
-	WorldMapView m_map;
+	mutable WorldMapView m_map;
+	LocalMapView m_local;
 	const World* m_world=nullptr;
 	const DistrictHierarchy* m_districts=nullptr;
-	bool m_mapDirty = true;
-	bool m_consumedInput = false;
-	static constexpr int kMapSize     = 256;  ///< テクスチャ解像度 [px]
-	static constexpr int kDisplaySize = 200;  ///< 縮小時の表示サイズ [px]
-	static constexpr int kMargin      = 12;   ///< 画面端からのマージン [px]
-
-	DynamicTexture m_terrainTex;  ///< 地形テクスチャ
-	DynamicTexture m_roadTex;     ///< 道路オーバーレイテクスチャ
-	Image          m_roadImage;   ///< 道路オーバーレイ画像（差分更新用）
-	Font           m_font = FontAsset(Asset::CJK14);  ///< 地名用フォント
-
-	/// @brief ワールド範囲（テクスチャ生成時に確定）
-	float m_worldMinX = 0, m_worldMinZ = 0;
-	float m_worldMaxX = 0, m_worldMaxZ = 0;
-
-	/// @brief 指定描画領域に対してワールド座標 → 画面座標に変換
-	Vec2 worldToScreen(float wx, float wz, const RectF& rect) const;
-
-	/// @brief ワールド座標 → テクスチャピクセル座標に変換
-	Point worldToPixel(float wx, float wz) const;
-
-	/// @brief 右上の小さいミニマップの描画領域を返す
-	RectF smallRect() const;
+	bool m_mapDirty=true,m_consumedInput=false,m_smallVisible=true;
+	size_t m_railEdges=0,m_railNodes=0;
+	static constexpr int kDisplaySize=200,kMargin=12;
+	mutable MapTerrainLayer m_localTerrain,m_fullTerrain;
+	Font m_font=FontAsset(Asset::CJK14);
 	Optional<RectF> m_smallBounds;
-	bool m_smallVisible=true;
-
-	/// @brief マップ＋オーバーレイ＋地名＋カメラを描画する共通処理
-	void drawMapContent(const RectF& rect,
-	                    const GameCamera& camera,
-	                    const Array<MapGenerator::Settlement>& settlements,
-	                    bool showLabels) const;
+	RectF smallRect() const;
+	float terrainHeight(Vec2 point) const;
+	void refreshMap(const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 };

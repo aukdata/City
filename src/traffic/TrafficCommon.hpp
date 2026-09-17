@@ -99,6 +99,25 @@ namespace TrafficCommon
 
 	// ========== IDM ==========
 
+	/// @brief 車間と先行車速度から加速度を計算する。車線索引と参照実装で共有する。
+	inline float idmFollowingAcceleration(float speed, const IDMParams& params, float gap, float vLead)
+	{
+		const float vRatio = speed / Max(0.1f, params.v0);
+		const float freeAccel = params.aMax * (1.0f - vRatio * vRatio * vRatio * vRatio);
+
+		if (gap > kFreeFlowGap)
+			return freeAccel;
+
+		const float dv    = speed - vLead;
+		const float sStar = params.s0 + Max(0.0f,
+			speed * params.T + speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
+		const float safeGap = Max(0.1f, gap);
+
+		return params.aMax * (
+			1.0f - vRatio * vRatio * vRatio * vRatio
+			- (sStar / safeGap) * (sStar / safeGap));
+	}
+
 	/// @brief IDM 加速度を計算する [m/s^2]
 	/// @param vehicles   車両リスト（前方車両の検索対象）
 	/// @param self       対象車両
@@ -132,20 +151,7 @@ namespace TrafficCommon
 			}
 		}
 
-		const float vRatio = self.speed / Max(0.1f, params.v0);
-		const float freeAccel = params.aMax * (1.0f - vRatio * vRatio * vRatio * vRatio);
-
-		if (gap > kFreeFlowGap)
-			return freeAccel;
-
-		const float dv    = self.speed - vLead;
-		const float sStar = params.s0 + Max(0.0f,
-			self.speed * params.T + self.speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
-		const float safeGap = Max(0.1f, gap);
-
-		return params.aMax * (
-			1.0f - vRatio * vRatio * vRatio * vRatio
-			- (sStar / safeGap) * (sStar / safeGap));
+		return idmFollowingAcceleration(self.speed, params, gap, vLead);
 	}
 
 	/// @brief 停止線手前での IDM 減速加速度を計算する
@@ -218,8 +224,8 @@ namespace TrafficCommon
 	/// @brief 進入・退出方向角から旋回種別を分類する（45° ルール、プリミティブ版）
 	/// @details
 	///   |θ| ≤ 45°            → Straight
-	///   45° < θ < 135°       → Left
-	///   -135° < θ < -45°     → Right
+	///   45° < θ < 135°       → Right
+	///   -135° < θ < -45°     → Left
 	///   |θ| ≥ 135°           → UTurn
 	///
 	///   経路探索・信号フェーズ自動生成・矢印ランプ描画の 3 箇所で共通使用する。

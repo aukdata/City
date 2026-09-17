@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "../time/GameClock.hpp"
+#include "Train.hpp"
 
 /// @brief 線路ノード種別
 enum class TrackNodeType : uint8
@@ -33,6 +33,7 @@ struct TrackEdge
 	Vec3      ctrlB;            ///< ベジェ制御点 B
 	float     length  = 0.0f;  ///< 弧長 [m]
 	float     speedLimit = 130.0f;  ///< 制限速度 [km/h]（新幹線 = 200+）
+	bool      depotTrack = false; ///< 車庫への引込線・留置線
 	bool      electrified = true;   ///< 電化区間か
 	int       occupiedBy = -1;  ///< 占有中の Train id（閉塞制御）
 
@@ -40,20 +41,26 @@ struct TrackEdge
 	bool isValid() const { return id >= 0; }
 };
 
-/// @brief 駅停車情報（ダイヤ）
-struct StopEntry
+/// @brief 駅に接続する2本の留置線。独立した車両在庫管理は持たない。
+struct RailDepot
 {
-	int       stationNodeId = -1; ///< 駅 TrackNode id
-	float     dwellSec      = 30.0f; ///< 停車時間 [ゲーム秒]
-	float     arrivalOffset = 0.0f;  ///< 始発からの到着時刻オフセット [ゲーム秒]
+	int stationNodeId = -1;
+	int throatNodeId = -1;
+	Array<int> sidingNodes;
+	String name;
 };
 
 /// @brief 運行ダイヤ
 struct TrainSchedule
 {
 	int           id       = -1;
+	String        name;
+	bool          enabled = true;
+	int           firstDepartureMinute = 8 * 60; ///< ゲーム内の始発時刻（0〜1439分）
+	int           lastDepartureMinute = 23 * 60; ///< 終発。始発より前なら翌日。
 	Array<StopEntry> stops;   ///< 停車駅リスト（順序通り）
 	float         headwaySec = 600.0f;  ///< 運行間隔 [ゲーム秒]
-	bool          loop       = true;    ///< 折り返し運転か
+	TrainType     type = TrainType::Local;
+	bool          reverseNext = false; ///< 次便は停車駅列の逆順を走る
 	GameTime      lastSpawnAt = -9999.0;  ///< 最後にスポーンした時刻（初回即時スポーンのため大負数）
 };

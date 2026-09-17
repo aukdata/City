@@ -1,4 +1,5 @@
-﻿#include "GuideSign.hpp"
+﻿#include "../asset/ModelLodPath.hpp"
+#include "GuideSign.hpp"
 #include "RoadNetwork.hpp"
 #include "RoadSign.hpp"
 #include "ObjParser.hpp"
@@ -23,7 +24,7 @@ namespace
 	{
 		Vertex3D vt;
 		vt.pos    = Float3{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
-		vt.normal = Float3{ 0.0f, 0.0f, 1.0f };
+		vt.normal = Float3{ 0.0f, 0.0f, -1.0f };
 		vt.tex    = Float2{ u, v };
 		return vt;
 	}
@@ -98,15 +99,12 @@ MeshData GuideSign::CreateBoardMesh(double width, double height)
 	md.vertices.reserve(4);
 	md.indices.reserve(2);
 
-	// 片面メッシュ（z=0 平面）。裏面は RoadRenderer の CullFront パスで灰色描画される。
-	// computeSignTransforms が RotateY(yaw+π) を適用するため、driver 視点で
-	// local +X が左に来る。よって U=0 を +hx、U=1 を -hx に割当てる。
-	md.vertices << makeBoardVertex( hx,  hy, 0.0, 0.0f, 0.0f);
-	md.vertices << makeBoardVertex(-hx,  hy, 0.0, 1.0f, 0.0f);
-	md.vertices << makeBoardVertex(-hx, -hy, 0.0, 1.0f, 1.0f);
-	md.vertices << makeBoardVertex( hx, -hy, 0.0, 0.0f, 1.0f);
-	md.indices << TriangleIndex32{ 0, 1, 2 };
-	md.indices << TriangleIndex32{ 0, 2, 3 };
+	// 警戒・規制標識と共通: local -Z が表、右へU増加、下へV増加。
+	md.vertices << makeBoardVertex(-hx, hy,0,0,0);
+	md.vertices << makeBoardVertex( hx, hy,0,1,0);
+	md.vertices << makeBoardVertex( hx,-hy,0,1,1);
+	md.vertices << makeBoardVertex(-hx,-hy,0,0,1);
+	md.indices << TriangleIndex32{0,1,2} << TriangleIndex32{0,2,3};
 
 	return md;
 }
@@ -299,10 +297,10 @@ void GuideSign::renderContents(const GuideSignPlacement& g, const Size& texSize,
 	renderSign(g, texSize, fontJa, fontNum);
 }
 
-MeshData GuideSign::CreatePoleMesh()
+MeshData GuideSign::CreatePoleMesh(int lod)
 {
 	// guide_pole.obj は複数オブジェクトに分かれているため、単一 MeshData にマージする
-	const auto parsedParts = ObjParser::parse(U"assets/signs/guide/guide_pole.obj");
+	const auto parsedParts = ObjParser::parse(modelLodPath(U"assets/signs/guide/guide_pole.obj", lod));
 	MeshData md;
 	for (const auto& part : parsedParts)
 	{

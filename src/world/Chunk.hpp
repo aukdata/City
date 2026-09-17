@@ -50,16 +50,17 @@ inline float sampleHeightMap(const Grid<float>& heightMap, Point chunkCoord,
 	const float tz = fz - iz;
 	const int ix1 = Min(ix + 1, HEIGHT_CELLS);
 	const int iz1 = Min(iz + 1, HEIGHT_CELLS);
-	const float h00 = heightMap[{ ix,  iz  }];
-	const float h10 = heightMap[{ ix1, iz  }];
-	const float h01 = heightMap[{ ix,  iz1 }];
-	const float h11 = heightMap[{ ix1, iz1 }];
-	// WorldRenderer uses the diagonal (1,0)-(0,1). Match its two planes exactly.
+	const double h00 = heightMap[{ ix,  iz  }];
+	const double h10 = heightMap[{ ix1, iz  }];
+	const double h01 = heightMap[{ ix,  iz1 }];
+	const double h11 = heightMap[{ ix1, iz1 }];
+	// WorldRenderer uses the diagonal (1,0)-(0,1). Round once after interpolating
+	// in double precision so high terrain does not accumulate float addition errors.
 	if (tx + tz <= 1.0f)
 	{
-		return h00 + (h10 - h00) * tx + (h01 - h00) * tz;
+		return static_cast<float>(h00 + (h10 - h00) * tx + (h01 - h00) * tz);
 	}
-	return h11 + (h01 - h11) * (1.0f - tx) + (h10 - h11) * (1.0f - tz);
+	return static_cast<float>(h11 + (h01 - h11) * (1.0 - tx) + (h10 - h11) * (1.0 - tz));
 }
 
 /// @brief チャンク座標をハッシュキー (int64) に変換する
@@ -78,6 +79,8 @@ enum class LandPatchType : uint8
 	PaddyField = 4,
 	Beach = 5,
 	Seawall = 6,
+	FarmTrack = 7,       ///< 耕作道。一般車の経路とは別の地表アクセス網。
+	IrrigationDitch = 8, ///< ほ場に沿う用排水路。
 };
 
 /// @brief 道路・海岸・農地境界から生成される土地ポリゴン

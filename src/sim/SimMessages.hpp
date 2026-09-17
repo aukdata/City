@@ -19,6 +19,7 @@ struct RouteRequest
 	int startEdge  = -1;
 	int startLane  = 0;
 	int goalEdge   = -1;
+	int goalLane = -1; ///< -1 は車線を指定しないデバッグ・バス用。
 };
 
 enum class NetworkChangeKind : uint8

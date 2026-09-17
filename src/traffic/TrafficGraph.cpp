@@ -21,6 +21,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 	m_laneNodes.clear();
 	m_borderNodes.clear();
 	m_entryNodeIds.clear();
+	m_edgeEntries.clear();
 	m_exitNodeIds.clear();
 	m_nextNodeId = 0;
 
@@ -52,6 +53,7 @@ void TrafficGraph::rebuild(const SimGraph& graph, [[maybe_unused]] GameTime now,
 
 			const int64 key = laneKey(edge.id, i);
 			m_entryNodeIds[key] = entryNode.id;
+			m_edgeEntries[edge.id] << entryNode.id;
 			m_exitNodeIds[key]  = exitNode.id;
 			m_laneNodes[entryNode.id] = std::move(entryNode);
 			m_laneNodes[exitNode.id]  = std::move(exitNode);
@@ -250,7 +252,7 @@ bool TrafficGraph::sameComponent(int nodeA, int nodeB) const
 
 // ===== dijkstra =====
 
-PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
+PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId, int goalLane) const
 {
 	// 車線ノード上で Dijkstra を回し、ゴールエッジへ入った最初のノードから経路を復元する。
 	PathResult result;
@@ -261,13 +263,13 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 	// 連結成分チェック: ゴールエッジの任意の entry ノードと start が同成分か
 	{
 		bool reachable = false;
-		for (const auto& [key, nodeId] : m_entryNodeIds)
+		if (const auto entries = m_edgeEntries.find(goalEdgeId); entries != m_edgeEntries.end())
 		{
-			const int eid = static_cast<int>(key >> 16);
-			if (eid == goalEdgeId && sameComponent(startLaneNodeId, nodeId))
+			for (const int node : entries->second)
 			{
-				reachable = true;
-				break;
+				const auto* laneNode = getLaneNode(node);
+				if (goalLane >= 0 && laneNode->laneIndex != goalLane) { continue; }
+				if (sameComponent(startLaneNodeId, node)) { reachable = true; break; }
 			}
 		}
 		if (!reachable)
@@ -301,7 +303,7 @@ PathResult TrafficGraph::dijkstra(int startLaneNodeId, int goalEdgeId) const
 		++visited;
 
 		const LaneNode* lNode = getLaneNode(u);
-		if (lNode && lNode->edgeId == goalEdgeId)
+		if (lNode && lNode->edgeId == goalEdgeId && (goalLane < 0 || lNode->laneIndex == goalLane))
 		{
 			goalNode = u;
 			break;

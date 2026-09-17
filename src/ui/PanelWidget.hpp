@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include "KeyboardActions.hpp"
 
 /// @brief パネル内 UI ウィジェット（即時モード描画）
 /// @details 各関数はパネルの beginContent() ～ reportContentHeight() 間で呼ぶ。
@@ -145,14 +146,14 @@ namespace PanelWidget
 	// activeId: 現在フォーカス中のウィジェットを追跡するグローバルポインタ。
 	// クリックでフォーカス取得、外部クリックでフォーカス喪失。
 
-	inline TextEditState* activeTextInput = nullptr;
+	inline TextEditState*& activeTextInput = GameInput::textInput;
 
 	inline bool textInput(const Font& font, TextEditState& state,
 	                       int x, int y, int w, int h, size_t maxChars = 32)
 	{
 		const RectF rect{ static_cast<double>(x), static_cast<double>(y),
 		                  static_cast<double>(w), static_cast<double>(h) };
-		const bool isActive = (activeTextInput == &state);
+		bool isActive = (activeTextInput == &state);
 		const bool hover    = rect.mouseOver();
 		bool changed = false;
 
@@ -163,32 +164,38 @@ namespace PanelWidget
 		// クリックでフォーカス
 		if (hover && MouseL.down())
 		{
+			if (activeTextInput && activeTextInput != &state) { activeTextInput->active = false; }
 			activeTextInput = &state;
+			GameInput::textOwnedFrame = true;
+			isActive = true;
 			state.active = true;
 			state.cursorPos = state.text.size();
 		}
 		// 外部クリックでフォーカス喪失
 		if (isActive && MouseL.down() && !hover)
 		{
-			activeTextInput = nullptr;
-			state.active = false;
+			GameInput::releaseTextFocus();
+			isActive = false;
 			state.textChanged = true;
 		}
 
 		// テキスト入力処理（フォーカス中のみ）
 		if (isActive)
 		{
-			const size_t prevLen = state.text.size();
+			const String previous = state.text;
+			const bool composing = !TextInput::GetEditingText().isEmpty();
 			state.cursorPos = TextInput::UpdateText(state.text, state.cursorPos);
 			if (maxChars > 0 && state.text.size() > maxChars)
 				state.text = state.text.substr(0, maxChars);
-			if (state.text.size() != prevLen) { changed = true; state.textChanged = true; }
+			state.text.remove(U'\n').remove(U'\r').remove(U'\t');
+			state.cursorPos = Min(state.cursorPos, state.text.size());
+			if (state.text != previous) { changed = true; state.textChanged = true; }
 
 			// Enter で確定
-			if (KeyEnter.down())
+			if ((KeyEnter.down() && !composing) || KeyEscape.down())
 			{
-				activeTextInput = nullptr;
-				state.active = false;
+				GameInput::releaseTextFocus();
+				isActive = false;
 				state.textChanged = true;
 			}
 		}

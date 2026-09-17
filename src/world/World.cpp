@@ -1,4 +1,5 @@
-﻿#include "World.hpp"
+﻿#include "../gen/GenerationSettings.hpp"
+#include "World.hpp"
 #include <cmath>
 
 void World::reserveChunks()
@@ -118,178 +119,158 @@ float World::sampleHeight(float wx, float wz) const
 
 void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 {
+	const double kCentralMountainThreshold=GenerationSettings::get().terrain_centralMountainThreshold, kCentralLakeThreshold=GenerationSettings::get().terrain_centralLakeThreshold, kCentralBayThreshold=GenerationSettings::get().terrain_centralBayThreshold;
+	const double kFeatureInlandOffset=GenerationSettings::get().terrain_featureInlandOffset, kFeatureInlandSpread=GenerationSettings::get().terrain_featureInlandSpread, kFeatureLateralSpread=GenerationSettings::get().terrain_featureLateralSpread;
+	const double kRangeOffsetMin=GenerationSettings::get().terrain_rangeOffsetMin, kRangeOffsetSpread=GenerationSettings::get().terrain_rangeOffsetSpread, kRangeWidthMin=GenerationSettings::get().terrain_rangeWidthMin, kRangeWidthSpread=GenerationSettings::get().terrain_rangeWidthSpread;
 	// 地形生成で参照する乱数種とマップ寸法をまとめて差し替え、Perlin も同じ種で再初期化する。
 	m_seed     = seed;
 	m_mapWidth = mapWidth;
 	m_mapDepth = mapDepth;
 	m_perlin   = PerlinNoise{ seed };
 	m_rivers=RiverNetwork{};
+	uint64 state = seed;
+	const auto random = [&]()
+	{
+		state += 0x9e3779b97f4a7c15ULL;
+		uint64 value = state;
+		value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+		value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+		return static_cast<double>((value ^ (value >> 31)) >> 11) / 9007199254740992.0;
+	};
+	const double angle = random() * Math::TwoPi;
+	m_landAxis = {Cos(angle), Sin(angle)};
+	m_bayCenter = (random() - .5) * Min(mapWidth, mapDepth) * GenerationSettings::get().terrain_bayLateralSpread;
+	m_terrainPhase = random() * Math::TwoPi;
+	const double central=random();
+	m_centralLandform=central<kCentralMountainThreshold ? CentralLandform::Mountain : (central<kCentralLakeThreshold ? CentralLandform::Lake
+		: (central<kCentralBayThreshold ? CentralLandform::Bay : CentralLandform::Plain));
+	m_featureCenter={kFeatureInlandOffset+random()*kFeatureInlandSpread,(random()-.5)*kFeatureLateralSpread};
+	m_rangeOffset=kRangeOffsetMin+random()*kRangeOffsetSpread;
+	m_rangeWidth=kRangeWidthMin+random()*kRangeWidthSpread;
+	m_flankSign=random()<.5 ? -1 : 1;
+	if (m_centralLandform==CentralLandform::Bay) { m_bayCenter=m_featureCenter.y*Min(mapWidth,mapDepth); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // バイオームベース地形生成
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// @brief cont ノイズにマップ端距離補正を加える
-/// マップ端 → cont が下がり海に。中央 → cont が上がり内陸に。
-/// 海は必ずマップ端に接し、小さな内陸海を防ぐ。
-float World::adjustContinentalness(float rawCont, float wx, float wz) const
+namespace
 {
-	// マップ端からの最短距離 (0 = 端, mapWidth/2 = 中央)
-	const float dLeft   = wx;
-	const float dRight  = m_mapWidth - wx;
-	const float dTop    = wz;
-	const float dBottom = m_mapDepth - wz;
-	const float edgeDist = Min({ dLeft, dRight, dTop, dBottom });
+	/// @brief 地形帯の境界で高さと傾きが連続になる補間。
+	double transition(double distance, double width)
+	{
+		const double t = Clamp(distance / width, 0.0, 1.0);
+		return t * t * (3 - 2 * t);
+	}
+}
 
-	// 端からの距離を 0〜1 に正規化（5チャンク=5120m で完全に内陸扱い）
-	constexpr float kEdgeZone = 5120.0f;
-	const float edgeFactor = Clamp(edgeDist / kEdgeZone, 0.0f, 1.0f);
-
-	// edgeFactor=0(端) → cont を 0.15 下げる（海になりやすい）
-	// edgeFactor=1(中央) → cont を 0.15 上げる（海になりにくい）
-	return Clamp(rawCont + (edgeFactor - 0.5f) * 0.30f, 0.0f, 1.0f);
+double World::lakeInfluence(double inlandAxis, double alongAxis, double scale) const
+{
+	const double kShoreIrregularity=GenerationSettings::get().terrain_shoreIrregularity, kShoreNoiseScale=GenerationSettings::get().terrain_shoreNoiseScale, kShoreBlendWidth=GenerationSettings::get().terrain_shoreBlendWidth;
+	if (m_centralLandform!=CentralLandform::Lake) { return 0; }
+	const Vec2 kLakeRadius{GenerationSettings::get().terrain_lakeRadiusX,GenerationSettings::get().terrain_lakeRadiusZ};
+	const double x=(inlandAxis/scale-m_featureCenter.x)/kLakeRadius.x;
+	const double z=(alongAxis/scale-m_featureCenter.y)/kLakeRadius.y;
+	const double edge=1-std::sqrt(x*x+z*z)+kShoreIrregularity*m_perlin.noise2D(inlandAxis/(scale*kShoreNoiseScale),alongAxis/(scale*kShoreNoiseScale));
+	return transition(edge,kShoreBlendWidth);
 }
 
 void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
 {
-	// continentalness と mountainness の 2 軸ノイズから、連続補間で基底高と起伏量を決める。
-	// 2つの独立した低周波ノイズ (0〜1)
-	const float rawCont = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
-	const float cont = adjustContinentalness(rawCont, wx, wz);
-	const float mtn = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
-
-	// ── 完全連続な二軸補間 ──
-	// cont 軸: 海(0) → 海岸(0.3) → 内陸(0.5) → 高地(0.8) → 山脈帯(1.0)
-	// mtn  軸: 平坦(0) → 起伏(0.5) → 険峻(1.0)
-	// 各軸で基底高・振幅の「低 mtn 時」「高 mtn 時」を連続カーブで求め、mtn で補間する
-
-	// smoothstep で遷移を滑らかにする
-	auto smoothstep = [](float edge0, float edge1, float x) -> float
+	// Horizontal dimensions below are fractions of the shorter map side; heights are metres.
+	const double kFullReliefMapSize=GenerationSettings::get().terrain_fullReliefMapSize;
+	const double kLargeWarpScale=GenerationSettings::get().terrain_largeWarpScale, kLargeWarpAmplitude=GenerationSettings::get().terrain_largeWarpAmplitude;
+	const double kSmallWarpScale=GenerationSettings::get().terrain_smallWarpScale, kSmallWarpAmplitude=GenerationSettings::get().terrain_smallWarpAmplitude, kSmallWarpNoiseOffset=GenerationSettings::get().terrain_smallWarpNoiseOffset;
+	const double kMainBayWidth=GenerationSettings::get().terrain_mainBayWidth, kSecondaryBayOffset=GenerationSettings::get().terrain_secondaryBayOffset, kSecondaryBayWidth=GenerationSettings::get().terrain_secondaryBayWidth, kSecondaryBayDepth=GenerationSettings::get().terrain_secondaryBayDepth;
+	const double kCapeScale=GenerationSettings::get().terrain_capeScale, kCapeAmplitude=GenerationSettings::get().terrain_capeAmplitude;
+	const double kInletScale=GenerationSettings::get().terrain_inletScale, kInletAmplitude=GenerationSettings::get().terrain_inletAmplitude, kInletNoiseOffset=GenerationSettings::get().terrain_inletNoiseOffset;
+	const double kShoreDetailScale=GenerationSettings::get().terrain_shoreDetailScale, kShoreDetailAmplitude=GenerationSettings::get().terrain_shoreDetailAmplitude, kShoreDetailNoiseOffset=GenerationSettings::get().terrain_shoreDetailNoiseOffset;
+	const double kSeaDepth=GenerationSettings::get().terrain_seaDepth, kSeaShelfWidth=GenerationSettings::get().terrain_seaShelfWidth, kCoastBlendWidth=GenerationSettings::get().terrain_coastBlendWidth;
+	const double kFirstRangeWander=GenerationSettings::get().terrain_firstRangeWander, kFirstRangeWavelength=GenerationSettings::get().terrain_firstRangeWavelength;
+	const double kSideRangeOffset=GenerationSettings::get().terrain_sideRangeOffset, kSideRangeWander=GenerationSettings::get().terrain_sideRangeWander, kSideRangeWavelength=GenerationSettings::get().terrain_sideRangeWavelength, kSideRangePhase=GenerationSettings::get().terrain_sideRangePhase;
+	const double kValleyOffset=GenerationSettings::get().terrain_valleyOffset, kValleyWander=GenerationSettings::get().terrain_valleyWander, kValleyWavelength=GenerationSettings::get().terrain_valleyWavelength, kValleyWidth=GenerationSettings::get().terrain_valleyWidth;
+	const double kPassOffset=GenerationSettings::get().terrain_passOffset, kPassWidth=GenerationSettings::get().terrain_passWidth, kValleyReduction=GenerationSettings::get().terrain_valleyReduction, kPassReduction=GenerationSettings::get().terrain_passReduction;
+	const double kRidgeFloor=GenerationSettings::get().terrain_ridgeFloor, kRidgeVariation=GenerationSettings::get().terrain_ridgeVariation, kRidgeNoiseScale=GenerationSettings::get().terrain_ridgeNoiseScale, kRidgeNoiseOffset=GenerationSettings::get().terrain_ridgeNoiseOffset;
+	const double kFirstRangeHeight=GenerationSettings::get().terrain_firstRangeHeight, kSideRangeHeight=GenerationSettings::get().terrain_sideRangeHeight, kSideRangeWidth=GenerationSettings::get().terrain_sideRangeWidth, kRangeOverlap=GenerationSettings::get().terrain_rangeOverlap;
+	const double kCentralMountainHeight=GenerationSettings::get().terrain_centralMountainHeight, kCentralMountainWidth=GenerationSettings::get().terrain_centralMountainWidth, kCentralMountainLength=GenerationSettings::get().terrain_centralMountainLength;
+	const double kBroadPlainScale=GenerationSettings::get().terrain_broadPlainScale, kLocalPlainScale=GenerationSettings::get().terrain_localPlainScale, kLocalPlainNoiseOffset=GenerationSettings::get().terrain_localPlainNoiseOffset;
+	const double kPlainFloor=GenerationSettings::get().terrain_plainFloor, kInlandGradient=GenerationSettings::get().terrain_inlandGradient, kLakeBed=GenerationSettings::get().terrain_lakeBed, kMountainDetail=GenerationSettings::get().terrain_mountainDetail;
+	const double scale=Min(m_mapWidth,m_mapDepth),reliefScale=Min(1.0,scale/kFullReliefMapSize);
+	const Vec2 p{wx-m_mapWidth*.5,wz-m_mapDepth*.5};
+	const double u=p.dot(m_landAxis),v=p.dot(Vec2{-m_landAxis.y,m_landAxis.x});
+	// Warp the coast in two dimensions so small valleys branch off the larger bays.
+	const double kCoastOffset=GenerationSettings::get().terrain_coastOffset, kUsualBayDepth=GenerationSettings::get().terrain_usualBayDepth, kCentralBayDepth=GenerationSettings::get().terrain_centralBayDepth;
+	const double shoreV=v+scale*kLargeWarpAmplitude*m_perlin.noise2D(u/(scale*kLargeWarpScale),v/(scale*kLargeWarpScale))
+		+scale*kSmallWarpAmplitude*m_perlin.noise2D(u/(scale*kSmallWarpScale)+kSmallWarpNoiseOffset,v/(scale*kSmallWarpScale));
+	const double bay=std::exp(-Square((shoreV-m_bayCenter)/(scale*kMainBayWidth)));
+	const double secondBay=std::exp(-Square((shoreV+scale*kSecondaryBayOffset)/(scale*kSecondaryBayWidth)));
+	const double bayDepth=m_centralLandform==CentralLandform::Bay ? kCentralBayDepth : kUsualBayDepth;
+	const double coast=scale*(kCoastOffset+bayDepth*bay+kSecondaryBayDepth*secondBay)
+		+scale*kCapeAmplitude*Sin(shoreV/(scale*kCapeScale)+m_terrainPhase)
+		+scale*kInletAmplitude*m_perlin.noise2D(shoreV/(scale*kInletScale),kInletNoiseOffset)
+		+scale*kShoreDetailAmplitude*m_perlin.noise2D(shoreV/(scale*kShoreDetailScale),kShoreDetailNoiseOffset);
+	const double inland=u-coast;
+	if (inland<0)
 	{
-		const float t = Clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
-		return t * t * (3.0f - 2.0f * t);
+		outBase=static_cast<float>(-kSeaDepth*reliefScale*(1-std::exp(inland/(scale*kSeaShelfWidth))));
+		outAmp=0; return;
+	}
+	// The two mountain belts usually occupy the inland and lateral margins, with gaps rather than a border wall.
+	const double firstAxis=scale*(m_rangeOffset+kFirstRangeWander*Sin(v/(scale*kFirstRangeWavelength)+m_terrainPhase));
+	const double secondAxis=scale*(m_flankSign*kSideRangeOffset+kSideRangeWander*Sin(u/(scale*kSideRangeWavelength)+m_terrainPhase+kSideRangePhase));
+	const auto ridge=[](double across,double width)
+	{
+		const double distance=Abs(across)/width;
+		return distance<1 ? .5+.5*Cos(distance*Math::Pi) : 0;
 	};
-
-	// cont 軸: 低 mtn 時の base/amp カーブ（平坦系: 海→海岸平野→平野→高原）
-	float baseLow, ampLow;
+	const double valleyAxis=scale*kValleyOffset*Sin(m_terrainPhase)+scale*kValleyWander*Sin(u/(scale*kValleyWavelength)+m_terrainPhase);
+	const double valley=std::exp(-Square((v-valleyAxis)/(scale*kValleyWidth)));
+	const double pass=std::exp(-Square((u-scale*kPassOffset)/(scale*kPassWidth)));
+	const double variation=kRidgeFloor+kRidgeVariation*m_perlin.noise2D0_1(v/(scale*kRidgeNoiseScale),kRidgeNoiseOffset);
+	const double first=kFirstRangeHeight*ridge(u-firstAxis,scale*m_rangeWidth)*(1-kValleyReduction*valley)*variation;
+	const double second=kSideRangeHeight*ridge(v-secondAxis,scale*kSideRangeWidth)*(1-kPassReduction*pass)*variation;
+	double mountain=Max(first,second)+kRangeOverlap*Min(first,second);
+	if (m_centralLandform==CentralLandform::Mountain)
 	{
-		const float seaToCoast  = smoothstep(0.20f, 0.35f, cont);  // 海→海岸
-		const float coastToLand = smoothstep(0.35f, 0.50f, cont);  // 海岸→内陸
-		const float landToHigh  = smoothstep(0.60f, 0.80f, cont);  // 内陸→高地
-
-		baseLow = Math::Lerp(-40.0f, 0.0f, seaToCoast);            // 海→海岸
-		baseLow = Math::Lerp(baseLow, 15.0f, coastToLand);         // →平野
-		baseLow = Math::Lerp(baseLow, 200.0f, landToHigh);         // →高原
-
-		ampLow = Math::Lerp(8.0f, 15.0f, seaToCoast);
-		ampLow = Math::Lerp(ampLow, 20.0f, coastToLand);
-		ampLow = Math::Lerp(ampLow, 40.0f, landToHigh);
+		const double central=kCentralMountainHeight*std::exp(-Square((u/scale-m_featureCenter.x)/kCentralMountainWidth)-Square((v/scale-m_featureCenter.y)/kCentralMountainLength));
+		mountain=Max(mountain,central);
 	}
-
-	// cont 軸: 高 mtn 時の base/amp カーブ（山系: 海→海岸丘陵→山麓→山脈）
-	float baseHigh, ampHigh;
-	{
-		const float seaToCoast  = smoothstep(0.20f, 0.35f, cont);
-		const float coastToLand = smoothstep(0.35f, 0.50f, cont);
-		const float landToHigh  = smoothstep(0.55f, 0.75f, cont);
-
-		baseHigh = Math::Lerp(-40.0f, 30.0f, seaToCoast);          // 海→海岸丘陵
-		baseHigh = Math::Lerp(baseHigh, 120.0f, coastToLand);      // →山麓
-		baseHigh = Math::Lerp(baseHigh, 500.0f, landToHigh);       // →山脈
-
-		ampHigh = Math::Lerp(8.0f, 60.0f, seaToCoast);
-		ampHigh = Math::Lerp(ampHigh, 200.0f, coastToLand);
-		ampHigh = Math::Lerp(ampHigh, 450.0f, landToHigh);
-	}
-
-	// mtn 軸で低/高を滑らかに補間
-	const float mtnBlend = smoothstep(0.25f, 0.75f, mtn);
-	outBase = Math::Lerp(baseLow, baseHigh, mtnBlend);
-	outAmp  = Math::Lerp(ampLow, ampHigh, mtnBlend);
+	mountain*=reliefScale;
+	const double coastBlend=transition(inland,scale*kCoastBlendWidth);
+	// Long undulations and shorter terraces replace the near-planar inland ramp. Fine noise remains subdued.
+	const double kBroadPlainRelief=GenerationSettings::get().terrain_broadPlainRelief, kLocalPlainRelief=GenerationSettings::get().terrain_localPlainRelief, kPlainDetail=GenerationSettings::get().terrain_plainDetail;
+	const double broad=m_perlin.noise2D0_1(wx/(scale*kBroadPlainScale),wz/(scale*kBroadPlainScale));
+	const double local=m_perlin.noise2D0_1(wx/(scale*kLocalPlainScale)+kLocalPlainNoiseOffset,wz/(scale*kLocalPlainScale));
+	const double plain=kPlainFloor+inland*kInlandGradient+reliefScale*(kBroadPlainRelief*broad+kLocalPlainRelief*local);
+	const double lake=lakeInfluence(u,v,scale);
+	outBase=static_cast<float>(Math::Lerp((plain+mountain)*coastBlend,kLakeBed*reliefScale,lake));
+	outAmp=static_cast<float>((kPlainDetail+mountain*kMountainDetail)*coastBlend*(1-lake));
 }
 
 BiomeType World::getBiome(float wx, float wz) const
 {
-	// 地形連続値とは別に、描画や生成ルールで使う離散バイオームを閾値ベースで分類する。
-	const float rawCont = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
-	const float cont = adjustContinentalness(rawCont, wx, wz);
-	const float mtn = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
-	// 湖判定用の独立ノイズ
-	const float lake = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00015 + 3000.0, wz * 0.00015 + 3000.0));
-
-	if (cont < 0.25f) return BiomeType::Ocean;
-	if (cont < 0.38f) return (mtn < 0.5f) ? BiomeType::CoastalPlain : BiomeType::CoastalHill;
-	if (cont < 0.62f)
+	float base, amplitude; computeBiomeParams(wx, wz, base, amplitude);
+	if (base < 0)
 	{
-		// 内陸部の低 mtn で lake ノイズが低い → 湖
-		if (mtn < 0.30f && lake < 0.20f) return BiomeType::Lake;
-		// 低 mtn で lake がやや低い → 窪地
-		if (mtn < 0.25f && lake < 0.35f) return BiomeType::Basin;
-		if (mtn < 0.30f) return BiomeType::Plain;
-		if (mtn < 0.55f) return BiomeType::Hill;
-		return BiomeType::Foothill;
+		const Vec2 point{wx-m_mapWidth*.5,wz-m_mapDepth*.5};
+		return lakeInfluence(point.dot(m_landAxis),point.dot(Vec2{-m_landAxis.y,m_landAxis.x}),Min(m_mapWidth,m_mapDepth))>0
+			? BiomeType::Lake : BiomeType::Ocean;
 	}
-	// 高地帯でも lake ノイズが非常に低ければ高原湖
-	if (mtn < 0.35f && lake < 0.15f) return BiomeType::Lake;
-	if (mtn < 0.35f) return BiomeType::Plateau;
-	if (mtn < 0.65f) return BiomeType::Mountain;
-	return BiomeType::MountainRange;
+	if (base > GenerationSettings::get().terrain_mountainRangeBiomeHeight) { return BiomeType::MountainRange; }
+	if (base > GenerationSettings::get().terrain_mountainBiomeHeight) { return BiomeType::Mountain; }
+	if (amplitude > GenerationSettings::get().terrain_foothillBiomeRelief) { return BiomeType::Foothill; }
+	if (amplitude > GenerationSettings::get().terrain_hillBiomeRelief) { return base < GenerationSettings::get().terrain_coastalHillHeight ? BiomeType::CoastalHill : BiomeType::Hill; }
+	if (base < GenerationSettings::get().terrain_coastalPlainHeight) { return BiomeType::CoastalPlain; }
+	return BiomeType::Basin;
 }
 
 float World::computeBaseHeight(float wx, float wz) const
 {
-	// 1. バイオームパラメータ（連続補間）
-	float baseHeight, amplitude;
-	computeBiomeParams(wx, wz, baseHeight, amplitude);
-
-	// 2. ディテールノイズ（6オクターブ Perlin）
-	constexpr double kFreq = 0.00035;
-	const float detail = static_cast<float>(
-		m_perlin.octave2D0_1(wx * kFreq, wz * kFreq, 6, 0.5));
-
-	// 3. 中周波ノイズ（丘陵ディテール）
-	const float midDetail = static_cast<float>(
-		m_perlin.octave2D0_1(wx * kFreq * 3.0, wz * kFreq * 3.0, 4, 0.5));
-
-	// 4. 湖ノイズ: 内陸の窪みを水面下に沈める
-	const float lake = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00015 + 3000.0, wz * 0.00015 + 3000.0));
-
-	float h = baseHeight
-		+ (detail - 0.5f) * amplitude * 1.6f
-		+ (midDetail - 0.5f) * amplitude * 0.4f;
-
-	// 5. 海・湖は標高をマイナスに保証
-	const float rawCont = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00008 + 1000.0, wz * 0.00008 + 1000.0));
-	const float cont = adjustContinentalness(rawCont, wx, wz);
-	const float mtn = static_cast<float>(
-		m_perlin.noise2D0_1(wx * 0.00012 + 2000.0, wz * 0.00012 + 2000.0));
-
-	// 海: cont < 0.25 → 確実に水面下
-	if (cont < 0.20f)
-		h = Min(h, -5.0f);
-	else if (cont < 0.30f)
-	{
-		// 海岸遷移帯: 滑らかに水面下制約を緩和
-		const float seaClamp = (cont - 0.20f) / 0.10f;  // 0→1
-		h = Min(h, Math::Lerp(-5.0f, h, seaClamp));
-	}
-
-	// 湖: 内陸で lake ノイズが低い領域を水面下に沈める
-	if (cont >= 0.30f && lake < 0.20f && mtn < 0.35f)
-	{
-		const float lakeDepth = (0.20f - lake) / 0.20f;  // 0→1 (lake=0.2→0, lake=0→1)
-		h = Min(h, Math::Lerp(h, -10.0f, lakeDepth * lakeDepth));
-	}
-
-	return h;
+	float base, amplitude; computeBiomeParams(wx, wz, base, amplitude);
+	if (base < 0) { return base; }
+	const double detail = m_perlin.octave2D0_1(wx * GenerationSettings::get().terrain_detailFrequency, wz * GenerationSettings::get().terrain_detailFrequency, GenerationSettings::get().terrain_detailOctaves, GenerationSettings::get().terrain_detailPersistence);
+	return static_cast<float>(base + (detail - .5) * amplitude);
 }
 
 HeightMapResult World::buildHeightMap(Point chunkCoord) const

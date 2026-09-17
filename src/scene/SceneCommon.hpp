@@ -8,16 +8,22 @@ struct SceneData
 {
 	// タイトル画面で決めた開始条件をここへ集約し、GameScene への遷移時にまとめて引き渡す。
 	uint64 seed        = 20260316ULL;
+	double effectVolume = .6; ///< 起動中はシーンを切り替えても効果音の設定を保持する。
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）
 	bool   isNewGame   = true;   ///< true: 新規生成、false: セーブロード
 	bool   captureFirstPerson = false; ///< 同じ街角を歩行目線で比較撮影する。
+	bool   captureTransportObjects = false;
 	bool   captureTransport = false; ///< Streets, railway, bridges and full-screen map render review.
 	bool   auditRoadIntegrity = false; ///< 道路生成の段階データを出力して終了（画像なし）
 	bool   captureConstruction = false; ///< 工事の実画面と自動撤去を検証
 	bool   captureRoadPlanUx = false; ///< 道路計画の入力状態を再現して実画面を撮影する
 	bool   captureCityRenders = false; ///< true: 提出用に実ゲームレンダを自動撮影して終了
 	bool   captureRoadRenders = false; ///< true: 幹線交差点を近景・上空から自動検証
+	bool   syncRoads = false; ///< Synchronous road-cache reference for controlled benchmarks.
+	bool   benchmarkNavigation = false; ///< Repeat walking transitions, turns and map jumps.
 	bool   benchmarkStreaming = false; ///< Deterministic camera flight with per-frame CPU measurements.
+	FilePath playtestCommands; ///< 明示指定されたローカル操作コマンドだけを読む。
+	bool   playtest = false; ///< Opt-in live input/state/frame diagnostics without image output.
 	bool   syncTerrain = false; ///< Reference path for terrain streaming A/B measurements.
 	int    captureNode = -1; ///< Optional exact junction for render regression on saved maps.
 	int    inspectNode = -1; ///< 起動後に指定した交差点へカメラを移動

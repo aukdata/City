@@ -33,6 +33,9 @@ public:
 		Vec2           gridAxisX{ 1.0f, 0.0f };
 		Vec2           gridAxisZ{ 0.0f, 1.0f };
 		UrbanMorphology::Plan plan; ///< 成立史・駅・公共用地・街区を共有する計画
+		Optional<size_t> serviceCenter; ///< 往来費用で選んだ中心町の配列index。行政界・成立順序ではない
+		double accessCost = 0; ///< 中心町までの地形を考慮した距離相当費用 [m]
+		Optional<Vec2> accessDirection; ///< 中心町へ向かう地形回廊の初期方向
 	};
 
 	/// @brief initWorld() の結果
@@ -44,7 +47,7 @@ public:
 	/// @brief ワールドパラメータ設定 + 地名生成（メインスレッドで即座に完了）
 	static InitResult initWorld(uint64 seed, World& world);
 
-	/// @brief 全ワールドの地区を一括配置する（地形スコアベース）
+	/// @brief 全ワールドの中心町と周辺農村を地形・農業立地・往来費用で配置する
 	static Array<Settlement> placeAllSettlements(uint64 seed, const World& world);
 
 	/// @brief 進捗コールバック (0.0〜1.0)
@@ -72,9 +75,6 @@ public:
 	                        const Array<Settlement>& districts, const RoadNetwork* roads=nullptr);
 
 private:
-	static constexpr float kCellSize = 40.0f;
-	static constexpr int   kGridW    = 26;
-	static constexpr int   kGridH    = 26;
 
 	/// @brief 地形適性スコアを計算する (0.0=不適, 1.0=最適)
 	static float scoreSuitability(const RoadPathfinder& pf, int gx, int gz);

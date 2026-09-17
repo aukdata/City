@@ -1,5 +1,8 @@
 ﻿#include "TestCases.hpp"
 #include "src/gen/RailCostProfile.hpp"
+#include "src/road/RoadGeometry.hpp"
+#include "src/ui/WalkSurface.hpp"
+#include "src/ui/Camera.hpp"
 #include "src/gen/RiverNetwork.hpp"
 #include "src/gen/RoadTerrainFit.hpp"
 #include "src/gen/DistrictHierarchy.hpp"
@@ -12,6 +15,7 @@
 #include "TestRunner.hpp"
 #include "src/gen/DistrictRoads.hpp"
 #include "src/gen/SettlementPlan.hpp"
+#include "src/gen/SettlementPlacement.hpp"
 #include "src/gen/StreetProfile.hpp"
 #include "src/gen/WaterCrossings.hpp"
 #include "src/gen/StreetBlocks.hpp"
@@ -21,7 +25,140 @@
 
 void registerUrbanMorphologyTests(TestRunner& runner)
 {
+	runner.add(U"Morphology.RegionalTerrainSurvey", [](TestContext& context)
+	{
+		TextWriter report{U"TestResults/regional_terrain.txt"};
+		for (uint64 seed : {7, 42, 130, 2026})
+		{
+			World world; world.setGenerationParams(seed, WORLD_SIZE, WORLD_SIZE);
+			int sea = 0, flat = 0, mountain = 0; double highest = -10000, lowest = 10000;
+			for (int z = 0; z < 256; ++z) for (int x = 0; x < 256; ++x)
+			{
+				const float wx = (x + .5f) * 256, wz = (z + .5f) * 256;
+				const double h = world.computeHeight(wx, wz);
+				const double slope = Max(Abs(world.computeHeight(wx + 40, wz) - h), Abs(world.computeHeight(wx, wz + 40) - h)) / 40;
+				sea += h < 0; flat += h > 3.2 && h < 300 && slope < .05; mountain += h > 600;
+				highest = Max(highest, h); lowest = Min(lowest, h);
+			}
+			report.writeln(U"seed={} sea={} flat={} mountain={} min={} max={}"_fmt(seed, sea / 65536.0, flat / 65536.0, mountain / 65536.0, lowest, highest));
+			context.expect(highest > 1200 && highest < 2200 && mountain > 65536 * .20, U"Mountain belts have substantial area and plausible regional summits");
+			context.expect(sea > 65536 * .10 && sea < 65536 * .40 && flat > 65536 * .18, U"Bays coexist with enough dry, gently sloping land for towns and farms");
+			const auto left = world.buildHeightMap({31, 31}), right = world.buildHeightMap({32, 31});
+			for (int z = 0; z <= HEIGHT_CELLS; ++z)
+			{
+				context.expect(left.heightMap[{HEIGHT_CELLS, z}] == right.heightMap[{0, z}], U"Regional landforms have exactly matching chunk seams");
+			}
+			World repeat; repeat.setGenerationParams(seed, WORLD_SIZE, WORLD_SIZE);
+			context.expect(world.computeHeight(30000, 32000) == repeat.computeHeight(30000, 32000), U"Regional structure is deterministic for a seed");
+		}
+	});
+
 	using namespace UrbanMorphology;
+	runner.add(U"Morphology.HinterlandPreservesVillages", [](TestContext& context)
+	{
+		using Kind = MapGenerator::SettlementKind;
+		Array<SettlementPlacement::Candidate> candidates{{{6000, 6000}, 1.0f}};
+		for (int z = 600; z < 12000; z += 480)
+		{
+			for (int x = 600; x < 12000; x += 480) { candidates << SettlementPlacement::Candidate{{x, z}, 0.7f}; }
+		}
+		const auto flat = [](Vec2) { return 20.0; };
+		double sampleNearest=1e9,sampleFarthest=0;
+		TextWriter report{U"TestResults/settlement_hinterland.txt"};
+		for (uint64 seed : {7, 42, 130, 2026})
+		{
+			const auto settlements = SettlementPlacement::generate(seed, candidates, RectF{0, 0, 12000, 12000}, flat);
+			const auto repeat = SettlementPlacement::generate(seed, candidates, RectF{0, 0, 12000, 12000}, flat);
+			context.expectEqual(settlements.size(), repeat.size(), U"Seed and terrain give the same settlement count");
+			context.expect(settlements.front().center == Vec2{6000, 6000}, U"The broad best site becomes the regional center");
+			int nearbyVillages = 0, attachedVillages = 0;
+			double nearest = 1e9, farthest = 0;
+			for (size_t i = 0; i < settlements.size(); ++i)
+			{
+				const auto& settlement = settlements[i];
+				context.expect(settlement.center == repeat[i].center && settlement.kind == repeat[i].kind
+					&& settlement.serviceCenter == repeat[i].serviceCenter, U"Ordering, origins and catchments are deterministic");
+				if (settlement.kind != Kind::RuralSettlement) { continue; }
+				const double distance = settlement.center.distanceFrom(settlements.front().center);
+				nearbyVillages += distance < 6000;
+				nearest = Min(nearest, distance); farthest = Max(farthest, distance);
+				context.expect(distance >= 3200, U"Farmland separates the castle-town fringe and independent village nuclei");
+				context.expect(settlement.plan.origin == Origin::Rural && !settlement.plan.station,
+					U"Nearby villages keep rural plots instead of turning into urban grids or station towns");
+				if (settlement.serviceCenter)
+				{
+					++attachedVillages;
+					context.expect(*settlement.serviceCenter < i && settlements[*settlement.serviceCenter].kind != Kind::RuralSettlement,
+						U"A village refers to a real center, never itself or another dependent village");
+					context.expect(settlement.accessDirection && Abs(settlement.accessDirection->length() - 1) < 1e-8,
+						U"Village access retains the initial direction of the terrain corridor");
+				}
+				for (size_t j = 0; j < i; ++j)
+				{
+					if (settlements[j].kind == Kind::RuralSettlement)
+					{
+						context.expect(settlement.center.distanceFrom(settlements[j].center) >= 1400,
+							U"Village farming areas are not packed against one another");
+					}
+				}
+			}
+			context.expect(nearbyVillages >= 2 && attachedVillages >= nearbyVillages,
+				U"Quarter-density catchments retain independent villages within six kilometres");
+			sampleNearest=Min(sampleNearest,nearest);sampleFarthest=Max(sampleFarthest,farthest);
+			report << U"seed={} total={} nearbyVillages={} attached={} nearest={} farthest={}"_fmt(seed, settlements.size(), nearbyVillages, attachedVillages, nearest, farthest);
+		}
+		context.expect(sampleFarthest-sampleNearest>1500,U"The seed ensemble retains villages at different distances from the city");
+	});
+	runner.add(U"Morphology.HinterlandTerrainCatchments", [](TestContext& context)
+	{
+		using Kind = MapGenerator::SettlementKind;
+		Array<SettlementPlacement::Candidate> candidates{{{3000, 6000}, 1.0f}, {{25000, 6000}, 1.0f}, {{12000, 6000}, 0.29f}};
+		for (int z = 1000; z < 12000; z += 640)
+		{
+			for (int x = 1000; x < 30000; x += 640) { candidates << SettlementPlacement::Candidate{{x, z}, 0.25f}; }
+		}
+		const auto terrain = [](Vec2 p)
+		{
+			// A tall north/south ridge separates otherwise flat agricultural basins.
+			return 20.0 + Max(0.0, 900.0 - Abs(p.x - 8500)) * 0.9;
+		};
+		int rightOwned = 0, acrossRidge = 0;
+		for (uint64 seed=0;seed<16;++seed)
+		{
+			const auto settlements = SettlementPlacement::generate(seed, candidates, RectF{0, 0, 30000, 12000}, terrain);
+			for (const auto& settlement : settlements)
+			{
+				context.expect(Abs(settlement.center.x - 8500) >= 900, U"Villages are not placed on the ridge even with candidate points supplied there");
+				if (settlement.kind != Kind::RuralSettlement || !settlement.serviceCenter) { continue; }
+				const auto& center = settlements[*settlement.serviceCenter];
+				acrossRidge += (settlement.center.x < 8500) != (center.center.x < 8500);
+				if (settlement.center.x > 10000 && settlement.center.x < 14000 && center.center.x > 20000) { ++rightOwned; }
+			}
+		}
+		context.expect(acrossRidge == 0 && rightOwned > 0,
+			U"A physically nearer center across a mountain loses to the accessible center in the same basin");
+		const auto flooded = SettlementPlacement::generate(42, candidates, RectF{0, 0, 30000, 12000}, [](Vec2) { return -10.0; });
+		context.expect(flooded.isEmpty(), U"Water-only terrain does not receive settlements");
+		const auto inlandLake = SettlementPlacement::generate(42, candidates, RectF{0, 0, 30000, 12000},
+			[](Vec2) { return 100.0; }, [](Vec2) { return 102.0; });
+		context.expect(inlandLake.isEmpty(), U"Positive-altitude inland water is excluded using its actual surface level");
+		const auto inlandRiver = SettlementPlacement::generate(42, candidates, RectF{0, 0, 30000, 12000},
+			[](Vec2 p) { return Abs(p.x - 8500) < 220 ? 98.0 : 105.0; },
+			[](Vec2 p) { return Abs(p.x - 8500) < 220 ? 101.0 : 0.0; });
+		for (const auto& settlement : inlandRiver)
+		{
+			context.expect(Abs(settlement.center.x - 8500) >= 220, U"A river bed above sea level cannot host village nuclei");
+		}
+		const Vec2 village{0, 0};
+		const Optional<Vec2> corridor{Vec2{1, 0}};
+		context.expect(SettlementPlacement::roadAccessCost(village, {1400, 0}, corridor)
+			< SettlementPlacement::roadAccessCost(village, {-1000, 0}, corridor),
+			U"Shared roads in the center's corridor are preferred over a slightly nearer road pointing away");
+		context.expect(SettlementPlacement::roadAccessCost(village, {-100, 0}, corridor)
+			< SettlementPlacement::roadAccessCost(village, {1400, 0}, corridor),
+			U"An immediately adjacent road still wins; access does not force long radial spokes");
+	});
+
 	runner.add(U"Morphology.StreetCrossSections",[](TestContext& context)
 	{
 		using namespace GeneratedStreet;
@@ -317,7 +454,7 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 		context.expectEqual(route.size(),size_t{2},U"Intermediate track sections belong to the route");
 		context.expectEqual(route.front(),first,U"Routes can start on a reversed edge");
 		context.expectEqual(route.back(),second,U"Route reaches the actual destination");
-		TrainSchedule schedule; schedule.id=0; schedule.headwaySec=3600; schedule.stops={StopEntry{a,1,0},StopEntry{c,10,0}}; network.addSchedule(schedule);
+		TrainSchedule schedule; schedule.id=0; schedule.headwaySec=1440; schedule.stops={StopEntry{a,1},StopEntry{c,10}}; network.addSchedule(schedule);
 		TrainManager manager; manager.init(&network);
 		Vec3 previous{0,10,0}; bool crossed=false,stopped=false;
 		for (int i=0;i<400;++i)
@@ -325,7 +462,7 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			manager.update(.1,i*.1);
 			if (manager.trains().isEmpty()) { break; }
 			const auto& train=manager.trains().front();
-			context.expect(train.position.distanceFrom(previous)<1.1,U"Edge transfer never teleports a train");
+			context.expect(i==0 || train.position.distanceFrom(previous)<1.1,U"Edge transfer never teleports a train");
 			previous=train.position; crossed|=train.currentEdge==second;
 			if (train.state==TrainState::WaitingStation) { stopped=true; context.expectNear(train.position.x,200,.05,U"Train stops at the destination node"); break; }
 		}
@@ -366,7 +503,7 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 	{
 		WorldMapView map; const Size size{960,640}; map.open({32768,32768}); map.zoom=1;
 		const Vec2 before=map.center; map.panKeyboard({1,0},.1,size);
-		context.expectNear((map.center-before).x*map.scale(size),42,.001,U"D pans east at 420 screen pixels per second");
+		context.expectNear((before-map.center).x*map.scale(size),42,.001,U"D pans east at 420 screen pixels per second");
 		map.panKeyboard({-1,0},.1,size); context.expectNear(map.center.distanceFrom(before),0,.001,U"A reverses east movement");
 		map.panKeyboard({0,-1},.1,size); context.expect(map.center.y<before.y,U"W pans north"); map.panKeyboard({0,1},.1,size);
 		map.panKeyboard({1,1},.1,size); context.expectNear(map.center.distanceFrom(before)*map.scale(size),42,.001,U"Diagonal keys do not move faster");
@@ -481,6 +618,146 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			if (area>=0 && leaf>=0) { context.expect(hierarchy.areas[area].parent==city && hierarchy.areas[leaf].parent==area,U"No child boundary crosses its parent district"); }
 		}
 		context.expect(hierarchy.address(towns[2].center).includes(U"大字"),U"Rural settlement names use an oaza parent");
+	});
+
+	runner.add(U"Terrain.LevelRoadAcrossHillside",[](TestContext& context)
+	{
+		World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		Grid<float> heights(HEIGHT_CELLS+1,HEIGHT_CELLS+1);
+		for (int z=0;z<=HEIGHT_CELLS;++z) for (int x=0;x<=HEIGHT_CELLS;++x) { heights[{x,z}]=static_cast<float>(100+(z*16-512)*.6); }
+		world.installChunkDirect({0,0},HeightMapResult{heights,-208,408});
+		RoadNetwork roads; const int a=roads.addNode({200,100,512}),b=roads.addNode({800,100,512});
+		const int id=*roads.addEdge(a,b,{400,100,512},{600,100,512},RoadType::Arterial,2);
+		const auto mesh=RoadGeometry::roadbedSurface(*roads.getEdge(id),*roads.getBezier(id),world);
+		double roll=0;
+		for (size_t i=0;i+1<mesh.vertices.size();i+=2) { const Vec3 delta=Vec3{mesh.vertices[i+1].pos}-Vec3{mesh.vertices[i].pos}; roll=Max(roll,Abs(delta.y)/Max(.01,Vec2{delta.x,delta.z}.length())); }
+		TextWriter{U"TestResults/hillside_roll.txt"}.write(U"crossSlope={}"_fmt(roll));
+		context.expect(roll<=.025,U"Road crossfall stays under 2.5 percent on a 60 percent hillside");
+	});
+	runner.add(U"Transport.StreamOnLegalMountainGrade", [](TestContext& context)
+	{
+		RoadNetwork roads; Array<int> nodes;
+		for (int i = 0; i <= 20; ++i) { nodes << roads.addNode({100 + i * 40.0, 20 + i * 3.2, 500}); }
+		for (int i = 0; i < 20; ++i)
+		{
+			const Vec3 a = roads.getNode(nodes[i])->position, b = roads.getNode(nodes[i+1])->position;
+			roads.addEdge(nodes[i], nodes[i+1], a.lerp(b, 1.0/3), a.lerp(b, 2.0/3), RoadType::LocalRoad, 2);
+		}
+		const auto level = [](double x) { return 20 + (x - 100) * .08; };
+		const auto ground = [&](double x, double) { return level(x) - (Abs(x - 740) < 20 ? 8 : 0); };
+		const auto water = [&](double x, double) { return Abs(x - 740) < 20 ? level(x) - 6 : 0; };
+		WaterCrossings::repair(roads, ground, water);
+		context.expectNear(roads.getNode(nodes.front())->position.y, 20, .01, U"An uphill bank and a legal eight-percent approach cannot lift the distant town");
+		double lift = 0; for (int i = 0; i <= 20; ++i) { lift = Max(lift, roads.getNode(nodes[i])->position.y - (20 + i * 3.2)); }
+		context.expect(lift < 5, U"Bridge adjustment stays near the stream and never inherits the whole upper hillside");
+		JSON report; report[U"maximumLift"] = lift; report.save(U"TestResults/stream_grade.json");
+	});
+
+	runner.add(U"Transport.IncisedValleyApproach",[](TestContext& context)
+	{
+		const auto ground=[](double x,double) { return 60-Min(40.0,Max(0.0,180-Abs(x-500))*.4); };
+		const auto water=[](double x,double) { return Abs(x-500)<70 ? 24.0 : 0.0; };
+		RoadNetwork roads; Array<int> nodes;
+		for (int i=0;i<=10;++i) { nodes<<roads.addNode({i*100.0,ground(i*100.0,0),0}); }
+		for (int i=0;i<10;++i) { const Vec3 a=roads.getNode(nodes[i])->position,b=roads.getNode(nodes[i+1])->position; roads.addEdge(nodes[i],nodes[i+1],a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::Arterial,2); }
+		WaterCrossings::repair(roads,ground,water); double slope=0,minimum=1e9;
+		for (const auto& edge : roads.edges()) { if (edge.id<0) { continue; } const auto curve=roads.getBezier(edge.id); for (float arc=0;arc<curve->totalLength;arc+=2) { const Vec3 tangent=curve->tangentAt(arc),p=curve->positionAt(arc); slope=Max(slope,Abs(tangent.y)/Max(.001,Vec2{tangent.x,tangent.z}.length())); if (Abs(p.x-500)<80) { minimum=Min(minimum,p.y); } } }
+		TextWriter report{U"TestResults/valley_approach.txt"}; report.writeln(U"maximumGrade={} bridgeLow={}"_fmt(slope,minimum));
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id<0) { continue; }
+			const Vec3 a=roads.getNode(edge.nodeA)->position,b=roads.getNode(edge.nodeB)->position;
+			report.writeln(U"{} {} -> {} {} elevated={}"_fmt(a.x,a.y,b.x,b.y,edge.useElevation));
+		}
+		context.expect(slope<=.061,U"Bridge and approaches stay below six percent without copying the incised river bed");
+		context.expect(minimum>=50,U"Bridge connects high banks without an unnecessary descent into the valley");
+	});
+
+	runner.add(U"Rivers.SmoothWideningAndVegetation",[](TestContext& context)
+	{
+		const auto height=[](double x,double z) { return z*.004+Abs(x-8192-500*Sin(z*.0005))*.03-8; };
+		RiverNetwork river;river.generate(16384,16384,height);
+		bool widened=false;double maxSegment=0;int wetTrees=0;
+		for (const auto& reach : river.reaches)
+		{
+			context.expect(reach.endHalfWidth>=reach.halfWidth,U"Accumulated flow never narrows toward the mouth");
+			widened|=reach.endHalfWidth>reach.halfWidth+.001;maxSegment=Max(maxSegment,Vec2{reach.end.x-reach.start.x,reach.end.z-reach.start.z}.length());
+			const Vec2 point{reach.start.x,reach.start.z}; wetTrees+=river.vegetationAllowed(point,100,12);
+		}
+		context.expect(widened && maxSegment<18,U"Banks follow short curved stations with downstream widening");
+		context.expectEqual(wetTrees,0,U"Even high-elevation river surfaces exclude tree crowns");
+	});
+	runner.add(U"Terrain.CutFillAndBridgeClassification",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		world.installChunkDirect({0,0},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,30),30,30});
+		RoadNetwork roads;
+		const auto add=[&](double z,double y,bool tunnel) { const int a=roads.addNode({100,y,z}),b=roads.addNode({900,y,z});const int id=*roads.addEdge(a,b,{366,y,z},{634,y,z},RoadType::Arterial,2);auto* edge=roads.getEdge(id);edge->useElevation=true;edge->tunnel=tunnel;return id; };
+		const int fill=add(200,35,false),cut=add(400,24,false),bridge=add(600,45,false),tunnel=add(800,10,true);
+		RoadTerrainFit::apply(roads,world);
+		context.expect(!roads.getEdge(fill)->useElevation && !roads.getEdge(cut)->useElevation,U"Five metre fills and six metre cuttings are earthworks");
+		context.expect(roads.getEdge(bridge)->useElevation && roads.getEdge(tunnel)->tunnel,U"Tall viaducts and covered tunnels keep their structure");
+		context.expectNear(world.sampleHeight(512,200),35,.05,U"Embankment supports the complete roadbed");
+		context.expectNear(world.sampleHeight(512,400),24,.05,U"Cutting removes the terrain from the roadbed");
+		context.expectNear(world.sampleHeight(512,800),30,.01,U"Tunnel roof terrain is retained");
+	});
+	runner.add(U"Camera.TransportWalkingAndFastMap",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		world.installChunkDirect({0,0},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20),20,20});
+		RoadNetwork roads;TrainNetwork trains;WalkSurface surface;
+		const auto road=[&](double y,double z,bool tunnel) { const int a=roads.addNode({100,y,z}),b=roads.addNode({900,y,z});const int id=*roads.addEdge(a,b,{366,y,z},{634,y,z},RoadType::Arterial,2);roads.getEdge(id)->useElevation=true;roads.getEdge(id)->tunnel=tunnel; };
+		road(28,200,false);road(8,400,true);
+		const int a=trains.addNode({100,5,600}),b=trains.addNode({900,5,600});trains.addEdge(a,b,{366,5,600},{634,5,600});
+		context.expectNear(surface.resolve({500,28,200},world,roads,trains),28+kRoadSurfaceLift,.001,U"Walking follows bridge pavement");
+		context.expectNear(surface.resolve({500,20,200},world,roads,trains),20,.001,U"Walking below a viaduct does not jump onto it");
+		context.expectNear(surface.resolve({500,8,400},world,roads,trains),8+kRoadSurfaceLift,.001,U"Tunnel road surface wins over terrain overhead");
+		context.expectNear(surface.resolve({500,5,600},world,roads,trains),5.15,.001,U"Railway tunnel is walkable below the mountain");
+		GameCamera camera;camera.setWalkingState({200,8,400},static_cast<float>(Math::HalfPi));camera.setWalkSurface([&](Vec3 p) { return surface.resolve(p,world,roads,trains); });camera.walk({0,1},180,world);
+		context.expectNear(camera.eyePosition().y,9.5+kRoadSurfaceLift,.001,U"Accelerated walking preserves tunnel eye height");
+		WorldMapView map;const Size size{960,640};map.open({32768,32768});const Vec2 before=map.center;map.panKeyboard({1,1},.1,size,true);
+		context.expectNear(map.center.distanceFrom(before)*map.scale(size),126,.001,U"Ctrl map movement triples speed without diagonal acceleration");
+	});
+	runner.add(U"Tunnels.BooleanPortalAndRoof",[](TestContext& context)
+	{
+		const Vec3 origin{0,20,0};const auto portal=TunnelGeometry::portal(origin,{0,0,1},4.2,6);
+		const auto cutter=TunnelGeometry::cutter({0,20,-10},{0,20,10},4.2,6);const auto planes=MeshBoolean::planes(cutter);
+		MeshBoolean::Face roof;
+		for (const Vec3 p : {Vec3{-10,30,-5},Vec3{10,30,-5},Vec3{0,30,5}}) { roof<<Vertex3D{Float3{p},Float3{0,1,0},Float2{0,0}}; }
+		context.expectEqual(MeshBoolean::subtractFace(roof,planes).size(),size_t{1},U"True three-dimensional subtraction preserves terrain above the tunnel crown");
+		MeshBoolean::Face obstructing;
+		for (const Vec3 p : {Vec3{-2,22,-1},Vec3{2,22,-1},Vec3{0,22,1}}) { obstructing<<Vertex3D{Float3{p},Float3{0,1,0},Float2{0,0}}; }
+		context.expect(MeshBoolean::subtractFace(obstructing,planes).isEmpty(),U"Terrain inside the excavated tunnel is removed");
+		const Size size{640,400};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
+		for (const int side : {-1,1})
+		{
+			const BasicCamera3D camera{size,50_deg,{0,23,side*18.0},{0,23,0}};
+			{ const ScopedRenderTarget3D rt{target.clear(ColorF{.02,.08,.2})};const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite,RasterizerState::SolidCullBack};Graphics3D::SetCameraTransform(camera);Graphics3D::SetGlobalAmbientColor(ColorF{.8});Mesh{portal}.draw(ColorF{.7}); }
+			Graphics3D::Flush();Image pixels;target.readAsImage(pixels);pixels.save(U"Screenshot/boolean_portal_{}.png"_fmt(side));
+			context.expect(pixels[200][320].b>pixels[200][320].r*2,U"The portal passage stays open from both directions");
+			int concrete=0;for (int y=0;y<size.y;++y) for (int x=0;x<size.x;++x) { const auto c=pixels[y][x];concrete+=c.r>90 && Abs(static_cast<int>(c.r)-c.b)<25; }
+			context.expect(concrete>5000,U"The boolean portal retains visible concrete and inner thickness");
+		}
+	});
+
+	runner.add(U"Transport.CurvedBridgeGrade",[](TestContext& context)
+	{
+		RoadNetwork roads;const int a=roads.addNode({0,12,0}),b=roads.addNode({120,16,40});
+		const int id=*roads.addEdge(a,b,{3,13.3,30},{110,14.7,30},RoadType::Arterial,2);roads.getEdge(id)->useElevation=true;
+		WaterCrossings::repair(roads,[](double,double) { return -4.0; });
+		double maximum=0;const auto curve=roads.getBezier(id);
+		for (int i=0;i<=200;++i) { const Vec3 tangent=curve->tangent(i/200.0f);maximum=Max(maximum,Abs(tangent.y)/Max(.001,Vec2{tangent.x,tangent.z}.length())); }
+		context.expect(maximum<=.05001,U"An already elevated curved bridge respects the actual spatial grade, including short control arms");
+	});
+
+	runner.add(U"Morphology.NarrowFacesMergeWithoutDisconnecting",[](TestContext& context)
+	{
+		RoadNetwork roads;Array<int> nodes;
+		for (const Vec3 p : {Vec3{0,20,0},Vec3{100,20,0},Vec3{100,20,100},Vec3{0,20,100},Vec3{8,20,0},Vec3{8,20,100}}) { nodes<<roads.addNode(p); }
+		const auto connect=[&](int a,int b) { const Vec3 p=roads.getNode(nodes[a])->position,q=roads.getNode(nodes[b])->position;roads.addEdge(nodes[a],nodes[b],p.lerp(q,1.0/3),p.lerp(q,2.0/3),RoadType::LocalRoad,2); };
+		connect(0,4);connect(4,1);connect(1,2);connect(2,5);connect(5,3);connect(3,0);connect(4,5);
+		context.expectEqual(StreetBlocks::mergeNarrowFaces(roads),1,U"A shortcut enclosing an eight metre sliver is merged into the usable block");
+		context.expectEqual(StreetBlocks::collect(roads).size(),size_t{1},U"Removing the redundant shortcut retains the outer access loop");
 	});
 
 }

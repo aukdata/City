@@ -205,3 +205,7 @@ Shader::LinearToScreen(m_renderTexture);
 
 - `[[maybe_unused]]` — 未使用パラメータの警告抑制に使う
 - ヘッダ内インライン関数でローカル変数を定義したが使わない場合は変数ごと削除すること（ODR 違反を避けるため warning を放置しない）
+
+### 時刻の08・09と整数パース（2026-09-14）
+
+`ParseOpt<int>()` は `ParseIntOpt<int>(s)` の基数自動判定を使用するため、先頭0は八進数になり08・09は失敗する。時刻は `ParseIntOpt<int>(text, Arg::radix = 10)` で読む。SDKの `ParseInt.hpp` / `detail/Parse.ipp` で確認。

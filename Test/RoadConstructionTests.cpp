@@ -31,6 +31,19 @@ namespace
 }
 void registerRoadConstructionTests(TestRunner& runner)
 {
+	runner.add(U"Construction.PlayableDuration",[](TestContext& context)
+	{
+		RoadNetwork network;
+		const double duration=network.estimatePlanConstructionDuration(RoadType::LocalRoad,70);
+		context.expect(duration>=5 && duration<=10,U"A short local road opens within seconds, despite a 24-minute day");
+		context.expectNear(network.estimatePlanConstructionDuration(RoadType::Arterial,1000),120,1e-6,U"One kilometre of arterial takes two minutes at standard speed");
+		context.expect(network.estimatePlanConstructionDuration(RoadType::Highway,1000)>120,U"Large roads keep longer construction work");
+		GameClock clock;clock.speed=TimeSpeed::Paused;clock.advance(100);
+		context.expectNear(clock.now,0,1e-6,U"Pause still stops construction");
+		clock.speed=TimeSpeed::x4;clock.advance(duration/4);
+		context.expectNear(clock.now,duration,1e-6,U"Speed controls accelerate construction consistently");
+		context.expect(ConstructionStatus::durationLabel(duration)==U"約5秒" && ConstructionStatus::durationLabel(120)==U"約2分",U"Estimate shows real waiting time");
+	});
 	runner.add(U"Construction.TrafficAdmission",[](TestContext& context)
 	{
 		RoadNetwork network;const int id=makeRoad(network,false);

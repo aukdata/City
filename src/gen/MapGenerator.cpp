@@ -1,4 +1,9 @@
-﻿#include "MapGenerator.hpp"
+﻿#include "GenerationSettings.hpp"
+#include "MapGenerator.hpp"
+#include "RoadNodeIndex.hpp"
+#include "SettlementPlacement.hpp"
+#include "RoadAlignment.hpp"
+#include "RoadDesignLimits.hpp"
 #include "RailwayAlignment.hpp"
 #include "StreetProfile.hpp"
 #include "../debug/DebugLog.hpp"
@@ -6,6 +11,7 @@
 #include "DistrictRoads.hpp"
 #include <random>
 #include <queue>
+#include <limits>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // initWorld()
@@ -28,310 +34,44 @@ MapGenerator::InitResult MapGenerator::initWorld(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 地形適性スコア
-// ─────────────────────────────────────────────────────────────────────────────
-
-float MapGenerator::scoreSuitability(const RoadPathfinder& pf, int gx, int gz)
-{
-	// 集落候補セルを標高と周辺傾斜だけで粗くふるい、道路生成前の立地適性を決める。
-	const float h = pf.height(gx, gz);
-	if (h < 0.5f || h > 800.0f) return 0.0f;
-
-	// elevation: 低地ほど高スコア
-	float elevation;
-	if      (h < 50.0f)  elevation = 1.0f;
-	else if (h < 200.0f) elevation = 0.7f;
-	else if (h < 500.0f) elevation = 0.3f;
-	else                 elevation = 0.1f;
-
-	// slope: 周囲3x3の最大傾斜をチェック
-	const int gridW = pf.gridW();
-	const int gridH = pf.gridH();
-	float maxSlope = 0.0f;
-	for (int dz = -1; dz <= 1; ++dz)
-	{
-		for (int dx = -1; dx <= 1; ++dx)
-		{
-			if (dx == 0 && dz == 0) continue;
-			const int nx = gx + dx, nz = gz + dz;
-			if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridH) continue;
-			const float slope = std::abs(pf.height(nx, nz) - h) / pf.cellSize();
-			if (slope > maxSlope) maxSlope = slope;
-		}
-	}
-
-	float slopeBonus;
-	if      (maxSlope < 0.03f) slopeBonus = 1.0f;
-	else if (maxSlope < 0.05f) slopeBonus = 0.8f;
-	else if (maxSlope < 0.10f) slopeBonus = 0.5f;
-	else                       return 0.0f;  // 傾斜10%超は不適
-
-	return elevation * slopeBonus;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // 空間ハッシュ（道路ノード最近傍検索用）
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace
 {
-	struct RoadNodeSpatialHash
+	/// @brief 集落の接続先は道路に接続済みのノードから、進入方向も含めた費用で選ぶ。
+	Optional<int> findRoadAccess(const RoadNodeIndex& index, Vec3 position, const RoadNetwork& network,
+		float radius, int excludeId = -1, const Optional<Vec2>& preferredDirection = none)
 	{
-		static constexpr float kBucketSize = 200.0f;
-		HashTable<int64, Array<int>> buckets;
-
-		static int64 key(float x, float z)
+		const Vec2 origin{static_cast<float>(position.x), static_cast<float>(position.z)};
+		return index.findBest(position, network, radius, [&](const RoadNode& node, float) -> Optional<double>
 		{
-			const int bx = static_cast<int>(Math::Floor(x / kBucketSize));
-			const int bz = static_cast<int>(Math::Floor(z / kBucketSize));
-			return (static_cast<int64>(bx) << 32) | static_cast<uint32>(bz);
-		}
-
-		void insert(Vec3 pos, int nodeId)
-		{
-			buckets[key(static_cast<float>(pos.x), static_cast<float>(pos.z))] << nodeId;
-		}
-
-		/// @brief 最寄りノードを検索（maxDist 以内、excludeId を除外、見つからなければ -1）
-		int findNearest(Vec3 pos, const RoadNetwork& net, float maxDist, int excludeId = -1) const
-		{
-			const float px = static_cast<float>(pos.x);
-			const float pz = static_cast<float>(pos.z);
-			const int range = static_cast<int>(Ceil(maxDist / kBucketSize));
-			const int bx0 = static_cast<int>(Math::Floor(px / kBucketSize));
-			const int bz0 = static_cast<int>(Math::Floor(pz / kBucketSize));
-
-			float bestDistSq = maxDist * maxDist;
-			int bestId = -1;
-
-			for (int dz = -range; dz <= range; ++dz)
-			{
-				for (int dx = -range; dx <= range; ++dx)
-				{
-					const int64 k = (static_cast<int64>(bx0 + dx) << 32) | static_cast<uint32>(bz0 + dz);
-					const auto it = buckets.find(k);
-					if (it == buckets.end()) continue;
-					for (const int nid : it->second)
-					{
-						if (nid == excludeId) continue;
-						const RoadNode* node = net.getNode(nid);
-						if (!node) continue;
-						const float ddx = static_cast<float>(node->position.x) - px;
-						const float ddz = static_cast<float>(node->position.z) - pz;
-						const float dSq = ddx * ddx + ddz * ddz;
-						if (dSq < bestDistSq)
-						{
-							bestDistSq = dSq;
-							bestId = nid;
-						}
-					}
-				}
-			}
-			return bestId;
-		}
-
-		/// @brief 指定ノードの前後ノードから接線方向を返す
-		static Vec2 tangentAt(int nodeId, const RoadNetwork& net)
-		{
-			const RoadNode* node = net.getNode(nodeId);
-			if (!node || node->attachments.isEmpty()) return Vec2{ 1, 0 };
-
-			// 最初の接続エッジの方向を返す
-			const RoadEdge* edge = net.getEdge(node->attachments[0].edgeId);
-			if (!edge) return Vec2{ 1, 0 };
-
-			const RoadNode* other = net.getNode(
-				(edge->nodeA == nodeId) ? edge->nodeB : edge->nodeA);
-			if (!other) return Vec2{ 1, 0 };
-
-			Vec2 dir{
-				static_cast<float>(other->position.x - node->position.x),
-				static_cast<float>(other->position.z - node->position.z)
-			};
-			const float len = static_cast<float>(dir.length());
-			return (len > 0.01f) ? Vec2{ dir.x / len, dir.y / len } : Vec2{ 1, 0 };
-		}
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// placeAllSettlements: 地形スコアベースの地区配置
-// ─────────────────────────────────────────────────────────────────────────────
-
-Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
-	uint64 seed, const World& world)
-{
-	// 候補セル収集、Poisson 間引き、城下町/宿場町への格上げを順に行って地区一覧を作る。
-	const Stopwatch sw{ StartImmediately::Yes };
-	std::mt19937_64 rng(seed ^ 0xABCD1234ULL);
-
-	// 候補セルを収集（スコア付き）
-	struct Candidate { Vec2 pos; float score; };
-	Array<Candidate> candidates;
-
-	for (int cy = 0; cy < WORLD_CHUNKS; ++cy)
-	{
-		for (int cx = 0; cx < WORLD_CHUNKS; ++cx)
-		{
-			const Point coord{ cx, cy };
-			const Chunk* chunk = world.getChunk(coord);
-			if (!chunk) continue;
-
-			RoadPathfinder pf;
-			pf.setupFromHeightMap(chunk->heightMap, coord, kGridW, kGridH, kCellSize);
-
-			for (int gz = 2; gz < kGridH - 2; ++gz)
-				for (int gx = 2; gx < kGridW - 2; ++gx)
-				{
-					const float sc = scoreSuitability(pf, gx, gz);
-					if (sc > 0.0f)
-						candidates << Candidate{ pf.gridToWorld(gx, gz), sc };
-				}
-		}
-	}
-
-	// スコア降順でソート（同スコアはシャッフルで乱数化）
-	std::shuffle(candidates.begin(), candidates.end(), rng);
-	candidates.sort_by([](const Candidate& a, const Candidate& b)
-	{
-		return a.score > b.score;
-	});
-
-	Logger << U"[placeAllSettlements] 候補セル: {}"_fmt(candidates.size());
-
-	// Poisson ディスクサンプリング（スコア降順で採用）
-	// 8チャンクに1地区 ≒ 2.8km間隔
-	constexpr float kMinDist   = 2800.0f;
-	constexpr float kMinDistSq = kMinDist * kMinDist;
-	constexpr float kHashCell  = kMinDist;
-
-	HashTable<int64, Array<int>> spatialHash;
-	Array<Settlement> settlements;
-
-	for (const auto& [wp, sc] : candidates)
-	{
-		const int hx = static_cast<int>(wp.x / kHashCell);
-		const int hz = static_cast<int>(wp.y / kHashCell);
-
-		bool tooClose = false;
-		for (int dz = -2; dz <= 2 && !tooClose; ++dz)
-		{
-			for (int dx = -2; dx <= 2 && !tooClose; ++dx)
-			{
-				const int64 cellKey = (static_cast<int64>(hx + dx) << 32) | static_cast<uint32>(hz + dz);
-				const auto it = spatialHash.find(cellKey);
-				if (it == spatialHash.end()) continue;
-				for (const int idx : it->second)
-				{
-					if (wp.distanceFromSq(settlements[idx].center) < kMinDistSq)
-					{
-						tooClose = true;
-						break;
-					}
-				}
-			}
-		}
-		if (tooClose) continue;
-
-		Settlement s;
-		s.center = wp;
-		s.kind   = SettlementKind::RuralSettlement;
-		s.radius = 150.0f;
-		s.score  = sc;
-
-		const int idx = static_cast<int>(settlements.size());
-		const int64 cellKey = (static_cast<int64>(hx) << 32) | static_cast<uint32>(hz);
-		spatialHash[cellKey] << idx;
-		settlements << s;
-	}
-
-	Logger << U"[placeAllSettlements] Poisson 完了: {} 地区"_fmt(settlements.size());
-
-	// 種別割当て
-	constexpr float kCastleTownExclusionSq = 20000.0f * 20000.0f;  // 20km 排他
-	constexpr float kCastleTownMinScore    = 0.6f;
-
-	// Pass 1: スコア上位の候補を城下町化（排他距離内に他の城下町を置かない）
-	// settlements はスコア降順で入っているので、先頭から走査すればスコア最高から決まる
-	for (auto& s : settlements)
-	{
-		if (s.score < kCastleTownMinScore) continue;
-		bool canBeCastleTown = true;
-		for (const auto& other : settlements)
-		{
-			if (&other == &s) continue;
-			if (other.kind == SettlementKind::RegionalCity &&
-			    static_cast<float>(s.center.distanceFromSq(other.center)) < kCastleTownExclusionSq)
-			{
-				canBeCastleTown = false;
-				break;
-			}
-		}
-		if (canBeCastleTown)
-		{
-			s.kind   = SettlementKind::RegionalCity;
-			s.radius = 700.0f;
-		}
-	}
-
-	// Secondary centres reflect a rural market catchment as well as proximity to a city.
-	// Their size does not determine whether they originated as a post town.
-	for (size_t index=0;index<settlements.size();++index)
-	{
-		auto& settlement=settlements[index];
-		if (settlement.kind==SettlementKind::RegionalCity) { continue; }
-		int neighbours=0;
-		bool nearRegional=false;
-		for (const auto& other : settlements)
-		{
-			const double distance=settlement.center.distanceFrom(other.center);
-			if (distance>1 && distance<7500) { ++neighbours; }
-			if (other.kind==SettlementKind::RegionalCity && distance<6000) { nearRegional=true; }
-		}
-		const uint64 salt=UrbanMorphology::mix(seed ^ (index*0x9e3779b97f4a7c15ULL));
-		if (nearRegional || (neighbours>=4 && salt%5==0))
-		{
-			settlement.kind=SettlementKind::LocalTown;
-			settlement.radius=360;
-		}
-	}
-	Array<int> counts(8,0);
-	for (size_t index=0;index<settlements.size();++index)
-	{
-		auto& settlement=settlements[index];
-		const auto site=UrbanMorphology::inspectSite(settlement.center,[&](const Vec2& p)
-		{
-			return world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+			if (node.id == excludeId || node.attachments.isEmpty()) { return none; }
+			return SettlementPlacement::roadAccessCost(origin, {node.position.x, node.position.z}, preferredDirection);
 		});
-		bool nearRegional=false;
-		for (const auto& other : settlements)
-		{
-			if (&other!=&settlement && other.kind==SettlementKind::RegionalCity
-				&& settlement.center.distanceFrom(other.center)<8000) { nearRegional=true; break; }
-		}
-		const uint64 salt=UrbanMorphology::mix(seed ^ (index*0x9e3779b97f4a7c15ULL));
-		const auto origin=UrbanMorphology::chooseOrigin(static_cast<uint8>(settlement.kind),site,salt,nearRegional);
-		const bool railway=settlement.kind==SettlementKind::RegionalCity || origin==UrbanMorphology::Origin::Planned;
-		settlement.plan=UrbanMorphology::makePlan(origin,static_cast<uint8>(settlement.kind),site,salt,railway);
-		if (origin==UrbanMorphology::Origin::Port)
-		{
-			settlement.gridAxisZ=site.shoreDirection;
-			settlement.gridAxisX={site.shoreDirection.y,-site.shoreDirection.x};
-		}
-		else if (settlement.plan.ruralForm==UrbanMorphology::RuralForm::Valley)
-		{
-			settlement.gridAxisX=site.contourAxis;
-			settlement.gridAxisZ={-site.contourAxis.y,site.contourAxis.x};
-		}
-		++counts[static_cast<size_t>(origin)];
 	}
-	for (size_t origin=0;origin<counts.size();++origin)
-	{
-		DBG_LOG(U"[SettlementOrigins] origin={} count={}"_fmt(UrbanMorphology::originName(static_cast<UrbanMorphology::Origin>(origin)),counts[origin]));
-	}
-	DBG_LOG(U"[SettlementOrigins] total={} elapsedMs={:.1f}"_fmt(settlements.size(),sw.msF()));
 
-	return settlements;
+	/// @brief 指定ノードの前後ノードから接線方向を返す
+	Vec2 roadNodeTangent(int nodeId, const RoadNetwork& net)
+	{
+		const RoadNode* node = net.getNode(nodeId);
+		if (!node || node->attachments.isEmpty()) return Vec2{ 1, 0 };
+
+		// 最初の接続エッジの方向を返す
+		const RoadEdge* edge = net.getEdge(node->attachments[0].edgeId);
+		if (!edge) return Vec2{ 1, 0 };
+
+		const RoadNode* other = net.getNode(
+			(edge->nodeA == nodeId) ? edge->nodeB : edge->nodeA);
+		if (!other) return Vec2{ 1, 0 };
+
+		Vec2 dir{
+			static_cast<float>(other->position.x - node->position.x),
+			static_cast<float>(other->position.z - node->position.z)
+		};
+		const float len = static_cast<float>(dir.length());
+		return (len > 0.01f) ? Vec2{ dir.x / len, dir.y / len } : Vec2{ 1, 0 };
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -450,7 +190,7 @@ Array<int> MapGenerator::findMSTDiameter(
 namespace
 {
 	// グローバル占有セルのキー（ワールド座標を粗いグリッドに量子化）
-	constexpr float kOccupyCellSize = 120.0f;
+	const float kOccupyCellSize = GenerationSettings::get().network_occupiedCell;
 	int64 occupyKey(float wx, float wz)
 	{
 		const int gx = static_cast<int>(Math::Floor(wx / kOccupyCellSize));
@@ -468,7 +208,7 @@ void MapGenerator::buildRoadSegment(
 	const Array<Vec2>& forbiddenGoalDirs,
 	Array<int>* outEdgeIds)
 {
-	constexpr float kMargin = 300.0f;
+	const float kMargin = GenerationSettings::get().network_routingMargin;
 	const float sx = static_cast<float>(startPos.x);
 	const float sz = static_cast<float>(startPos.z);
 	const float ex = static_cast<float>(endPos.x);
@@ -480,9 +220,9 @@ void MapGenerator::buildRoadSegment(
 	const float maxZ = Max(sz, ez) + kMargin;
 
 	const float dist = std::sqrt((ex - sx) * (ex - sx) + (ez - sz) * (ez - sz));
-	const float cellSize = (dist > 5000.0f) ? 120.0f
-	                     : (dist > 2000.0f) ? 80.0f
-	                     : RoadPathfinder::kDefaultCellSize;
+	const float cellSize = (dist > GenerationSettings::get().network_longRouteThreshold) ? GenerationSettings::get().network_longRoutingCell
+	                     : (dist > GenerationSettings::get().network_mediumRouteThreshold) ? GenerationSettings::get().network_mediumRoutingCell
+	                     : RoadPathfinder::defaultCellSize();
 
 	const int pfW = Max(2, static_cast<int>(Ceil((maxX - minX) / cellSize)));
 	const int pfH = Max(2, static_cast<int>(Ceil((maxZ - minZ) / cellSize)));
@@ -506,34 +246,47 @@ void MapGenerator::buildRoadSegment(
 			localOccupied.insert(lp.y * pfW + lp.x);
 	}
 
-	const int sampleStep = (cellSize > 60.0f) ? 2 : 3;
+	const int sampleStep = (cellSize > GenerationSettings::get().network_denseSampleThreshold) ? 2 : 3;
 
+	pf.setRoadType(roadType);
 	const Array<Point> path = pf.findPath(gs, ge, forbiddenStartDirs, forbiddenGoalDirs, localOccupied);
 
-	if (path.isEmpty() || path.size() < 2)
+	if (path.isEmpty() || path.size()<2)
 	{
-		if (auto eid = network.addEdge(startNodeId, endNodeId,
-		                startPos + (endPos - startPos) * (1.0 / 3.0),
-		                startPos + (endPos - startPos) * (2.0 / 3.0),
-		                roadType, lanes))
-		{
-			if (outEdgeIds) *outEdgeIds << *eid;
-		}
+		DBG_LOG(U"[RoadGeneration] no feasible coarse path from={} to={}"_fmt(startNodeId,endNodeId));
+		return;
 	}
-	else
+	Array<Vec3> wps=pf.samplePath(path,sampleStep);
+	wps.front()=startPos; wps.back()=endPos;
+	bool feasible=true;
+	for (const auto& curve : RoadAlignment::fit(wps)) { feasible &= RoadAlignment::respectsLimits(curve,roadType); }
+	if (!feasible && dist<=GenerationSettings::get().network_steepRerouteDistance && Abs(endPos.y-startPos.y)>dist*RoadDesignLimits::forType(roadType).maximumGrade*GenerationSettings::get().routing_gradeReserve)
 	{
-		// 通過セルをグローバル占有セットに登録
-		for (const Point& gp : path)
+		// The same constrained alignment solver is used by the road-plan editor.
+		if (const auto route=RoadAlignment::find(world,startPos,endPos,roadType))
 		{
-			const Vec2 wp = pf.gridToWorld(gp.x, gp.y);
-			globalOccupied.insert(occupyKey(static_cast<float>(wp.x), static_cast<float>(wp.y)));
+			int previous=startNodeId;
+			for (size_t i=0;i<route->curves.size();++i)
+			{
+				const auto& curve=route->curves[i];
+				const int next=i+1==route->curves.size() ? endNodeId : network.addNode(curve.p3);
+				if (const auto id=network.addEdge(previous,next,curve.p1,curve.p2,roadType,lanes))
+				{
+					network.getEdge(*id)->designGrade=true;
+					if (outEdgeIds) { *outEdgeIds << *id; }
+				}
+				previous=next;
+			}
+			return;
 		}
-
-		Array<Vec3> wps = pf.samplePath(path, sampleStep);
-		wps.front() = startPos;
-		wps.back()  = endPos;
-		pf.pathToRoadEdges(wps, network, roadType, lanes, startNodeId, endNodeId, outEdgeIds);
+		// Keep the coarse corridor for bounded vertical fitting and local rerouting at junctions.
 	}
+	for (const Point& gp : path)
+	{
+		const Vec2 wp=pf.gridToWorld(gp.x,gp.y);
+		globalOccupied.insert(occupyKey(static_cast<float>(wp.x),static_cast<float>(wp.y)));
+	}
+	pf.pathToRoadEdges(wps,network,roadType,lanes,startNodeId,endNodeId,outEdgeIds);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -577,7 +330,7 @@ void MapGenerator::generateGlobalRoads(
 	Logger << U"[Roads] ノード作成: {} (城下町={}, 宿場町={}, 農村={})"_fmt(
 		nodeIds.size(), castleTownIdx.size(), postTownIdx.size(), villageIdx.size());
 
-	RoadNodeSpatialHash roadHash;
+	RoadNodeIndex roadHash;
 	HashSet<int64> globalOccupied;  // 既存道路が通過するワールドセルの集合
 
 	// =====================================================================
@@ -667,8 +420,8 @@ void MapGenerator::generateGlobalRoads(
 			else                             { edgeX = sx;         edgeZ = worldSize; }
 
 			// マップ端に少し余裕を持たせる（10m内側）
-			edgeX = Clamp(edgeX, 10.0f, worldSize - 10.0f);
-			edgeZ = Clamp(edgeZ, 10.0f, worldSize - 10.0f);
+			edgeX = Clamp(edgeX, GenerationSettings::get().network_borderInset, worldSize - GenerationSettings::get().network_borderInset);
+			edgeZ = Clamp(edgeZ, GenerationSettings::get().network_borderInset, worldSize - GenerationSettings::get().network_borderInset);
 
 			const float ey = world.computeHeight(edgeX, edgeZ);
 			const Vec3 edgePos{ edgeX, ey, edgeZ };
@@ -695,10 +448,10 @@ void MapGenerator::generateGlobalRoads(
 			const float dTop = sz, dBottom = worldSize - sz;
 			const float minD = Min({ dLeft, dRight, dTop, dBottom });
 			float ex, ez;
-			if (minD == dLeft)       { ex = 10.0f;           ez = sz; }
-			else if (minD == dRight) { ex = worldSize - 10.0f; ez = sz; }
-			else if (minD == dTop)   { ex = sx;               ez = 10.0f; }
-			else                     { ex = sx;               ez = worldSize - 10.0f; }
+			if (minD == dLeft)       { ex = GenerationSettings::get().network_borderInset;           ez = sz; }
+			else if (minD == dRight) { ex = worldSize - GenerationSettings::get().network_borderInset; ez = sz; }
+			else if (minD == dTop)   { ex = sx;               ez = GenerationSettings::get().network_borderInset; }
+			else                     { ex = sx;               ez = worldSize - GenerationSettings::get().network_borderInset; }
 			const float ey = world.computeHeight(ex, ez);
 			const Vec3 ep{ ex, ey, ez };
 			const int enid = network.addNode(ep, NodeType::Endpoint);
@@ -757,7 +510,7 @@ void MapGenerator::generateGlobalRoads(
 		const RoadNode* sn = network.getNode(nodeIds[si]);
 		if (!sn) continue;
 
-		const int nearId = roadHash.findNearest(sn->position, network, 5000.0f, nodeIds[si]);
+		const int nearId = findRoadAccess(roadHash, sn->position, network, GenerationSettings::get().network_cityJoinRadius, nodeIds[si]).value_or(-1);
 		if (nearId < 0)
 		{
 			deferredPostTowns << si;
@@ -768,7 +521,7 @@ void MapGenerator::generateGlobalRoads(
 		if (!nearNode) { deferredPostTowns << si; continue; }
 
 		// Y字分岐: 幹線の接線方向を forbiddenGoalDirs に設定
-		const Vec2 tangent = RoadNodeSpatialHash::tangentAt(nearId, network);
+		const Vec2 tangent = roadNodeTangent(nearId, network);
 		buildRoadSegment(world, network,
 			nearId, nearNode->position, nodeIds[si], sn->position,
 			RoadType::Arterial, 2, globalOccupied,
@@ -791,7 +544,7 @@ void MapGenerator::generateGlobalRoads(
 		const RoadNode* sn = network.getNode(nodeIds[si]);
 		if (!sn) continue;
 
-		const int nearId = roadHash.findNearest(sn->position, network, 15000.0f, nodeIds[si]);
+		const int nearId = findRoadAccess(roadHash, sn->position, network, GenerationSettings::get().network_townJoinRadius, nodeIds[si]).value_or(-1);
 		if (nearId < 0) continue;
 
 		const RoadNode* nearNode = network.getNode(nearId);
@@ -821,11 +574,16 @@ void MapGenerator::generateGlobalRoads(
 	swStep.restart();
 
 	// Layer 2 完了時点の全ノードで空間ハッシュを再構築
-	roadHash.buckets.clear();
+	roadHash.clear();
 	for (const auto& node : network.nodes())
 		if (node.id >= 0)
 			roadHash.insert(node.position, node.id);
 
+	villageIdx.sort_by([&](int a, int b)
+	{
+		return settlements[a].accessCost != settlements[b].accessCost
+			? settlements[a].accessCost < settlements[b].accessCost : a < b;
+	});
 	int villagesConnected = 0, villagesRoadFacing = 0;
 	const int totalVillages = static_cast<int>(villageIdx.size());
 
@@ -835,7 +593,7 @@ void MapGenerator::generateGlobalRoads(
 		const RoadNode* sn = network.getNode(nodeIds[si]);
 		if (!sn) continue;
 
-		const int nearId = roadHash.findNearest(sn->position, network, 10000.0f, nodeIds[si]);
+		const int nearId = findRoadAccess(roadHash, sn->position, network, GenerationSettings::get().network_villageJoinRadius, nodeIds[si], settlements[si].accessDirection).value_or(-1);
 		if (nearId < 0) continue;
 
 		const RoadNode* nearNode = network.getNode(nearId);
@@ -843,13 +601,13 @@ void MapGenerator::generateGlobalRoads(
 
 		const float dist = static_cast<float>(sn->position.distanceFrom(nearNode->position));
 
-		if (dist < 300.0f)
+		if (dist < GenerationSettings::get().network_villageDirectJoinDistance)
 		{
 			++villagesRoadFacing;
 		}
 		else
 		{
-			const Vec2 tangent = RoadNodeSpatialHash::tangentAt(nearId, network);
+			const Vec2 tangent = roadNodeTangent(nearId, network);
 			const int prevNodeCount = static_cast<int>(network.nodes().size());
 
 			buildRoadSegment(world, network,
@@ -863,7 +621,8 @@ void MapGenerator::generateGlobalRoads(
 				if (nodes[i].id >= 0)
 					roadHash.insert(nodes[i].position, nodes[i].id);
 
-			++villagesConnected;
+			const RoadNode* villageNode = network.getNode(nodeIds[si]);
+			if (villageNode && !villageNode->attachments.isEmpty()) { ++villagesConnected; }
 		}
 
 		if (onProgress && (ri % 500 == 0))
@@ -923,7 +682,7 @@ void MapGenerator::generateGlobalRoads(
 	}
 
 	// 空間ハッシュを再構築（接続済みノードのみ）
-	roadHash.buckets.clear();
+	roadHash.clear();
 	for (const auto& node : network.nodes())
 		if (node.id >= 0 && reachable.contains(node.id))
 			roadHash.insert(node.position, node.id);
@@ -937,7 +696,7 @@ void MapGenerator::generateGlobalRoads(
 		const RoadNode* sn = network.getNode(nodeIds[i]);
 		if (!sn) continue;
 
-		const int nearId = roadHash.findNearest(sn->position, network, 50000.0f, nodeIds[i]);
+		const int nearId = findRoadAccess(roadHash, sn->position, network, GenerationSettings::get().network_fallbackJoinRadius, nodeIds[i]).value_or(-1);
 		if (nearId < 0) continue;
 
 		const RoadNode* nearNode = network.getNode(nearId);
@@ -1002,8 +761,21 @@ void MapGenerator::generateDistrictRoads(
 		if (source.roadType!=RoadType::Arterial && source.roadType!=RoadType::LocalRoad) { continue; }
 		if (auto* edge=network.getEdge(source.id))
 		{
-			GeneratedStreet::apply(*edge,GeneratedStreet::describe(source.roadType==RoadType::Arterial
-				? GeneratedStreet::Role::Regional : GeneratedStreet::Role::Village));
+			auto role=source.roadType==RoadType::Arterial ? GeneratedStreet::Role::Regional : GeneratedStreet::Role::Village;
+			if (role==GeneratedStreet::Role::Regional)
+			{
+				const auto curve=network.getBezier(source.id);
+				int slopes=0;
+				if (curve) for (const float fraction : {.2f,.5f,.8f})
+				{
+					const Vec3 center=curve->positionAt(curve->totalLength*fraction),right=tangentToRight(curve->tangentAt(curve->totalLength*fraction));
+					const Vec3 left=center-right*GenerationSettings::get().network_mountainRoadSideSample,other=center+right*GenerationSettings::get().network_mountainRoadSideSample;
+					slopes+=Abs(world.sampleHeight(static_cast<float>(left.x),static_cast<float>(left.z))
+						-world.sampleHeight(static_cast<float>(other.x),static_cast<float>(other.z)))>GenerationSettings::get().network_mountainRoadRelief;
+				}
+				if (slopes>=2) { role=GeneratedStreet::Role::Mountain; }
+			}
+			GeneratedStreet::apply(*edge,GeneratedStreet::describe(role));
 		}
 	}
 
@@ -1011,7 +783,7 @@ void MapGenerator::generateDistrictRoads(
 	for (int si = 0; si < static_cast<int>(settlements.size()); ++si)
 	{
 		auto& s = settlements[si];
-		const float kaidoSearchRadius = Max(180.0f, s.radius * 1.6f);
+		const float kaidoSearchRadius = Max(GenerationSettings::get().network_minimumKaidoSearchRadius, s.radius * GenerationSettings::get().network_kaidoSearchRadiusScale);
 		const DistrictRoads::KaidoSegment kaido = DistrictRoads::extractKaido(
 			s, network, kaidoSearchRadius);
 

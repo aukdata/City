@@ -16,13 +16,14 @@ public:
 			const Vec3 right=Vec3{delta.z,0,-delta.x}.normalized();
 			const int key=static_cast<int>(reach.start.z/1024)*64+static_cast<int>(reach.start.x/1024);
 			Vec3 a=reach.start+Vec3{0,.06,0},b=reach.end+Vec3{0,.06,0};
-			BridgeStructure::quad(water[key],a-right*reach.halfWidth,b-right*reach.halfWidth,b+right*reach.halfWidth,a+right*reach.halfWidth);
+			BridgeStructure::quad(water[key],a-right*reach.halfWidth,b-right*reach.endHalfWidth,b+right*reach.endHalfWidth,a+right*reach.halfWidth);
 			// Round joins keep the tributary mouths watertight even when widths differ.
 			for (const Vec3 center : {a,b}) for (int i=0;i<16;++i)
 			{
 				const double t=i*Math::TwoPi/16,u=(i+1)*Math::TwoPi/16;
+				const double width=center==a ? reach.halfWidth : reach.endHalfWidth;
 				const uint32 n=static_cast<uint32>(water[key].vertices.size());
-				for (const Vec3 p : {center,center+Vec3{Cos(u),0,Sin(u)}*reach.halfWidth,center+Vec3{Cos(t),0,Sin(t)}*reach.halfWidth})
+				for (const Vec3 p : {center,center+Vec3{Cos(u),0,Sin(u)}*width,center+Vec3{Cos(t),0,Sin(t)}*width})
 					water[key].vertices << Vertex3D{Float3{p},Float3{0,1,0},Float2{static_cast<float>(p.x*.1),static_cast<float>(p.z*.1)}};
 				water[key].indices << TriangleIndex32{n,n+1,n+2};
 			}

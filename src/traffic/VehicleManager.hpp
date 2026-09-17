@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "Vehicle.hpp"
+class World;
 #include "TrafficLight.hpp"
+#include "LaneVehicleIndex.hpp"
+#include "BuildingAccess.hpp"
 #include "TrafficCommon.hpp"
 #include "../sim/SimMessages.hpp"
 #include "../sim/SimGraph.hpp"
@@ -15,7 +18,8 @@ class VehicleManager
 {
 public:
 	/// @brief SimGraph から信号機を構築する
-	void init(const SimGraph& simGraph, const RoadNetwork& network);
+	void init(const SimGraph& simGraph, const RoadNetwork& network, const World* world = nullptr);
+	const BuildingAccessIndex& buildingAccess() const { return m_buildingAccess; }
 
 	/// @brief ネットワーク変更通知
 	void onNetworkChanged(const SimGraph& simGraph, const RoadNetwork& network,
@@ -44,6 +48,22 @@ public:
 	/// @brief 送信待ちの SimRequest を全て取り出す
 	Array<SimRequest> collectRequests();
 
+	struct PopulationStats
+	{
+		int spawned = 0, completed = 0, recycled = 0, routeFailures = 0;
+		int localVehicles = 0, localTarget = 0;
+	};
+	const PopulationStats& populationStats() const { return m_populationStats; }
+	/// @brief 見ている街の通常交通を維持する。建物の前で発着する。
+	void setTrafficFocus(Vec3 point)
+	{
+		const Vec2 next{point.x, point.z};
+		if (!m_trafficFocus || m_trafficFocus->distanceFrom(next) > 100) { m_spawnRefresh = 0; }
+		m_trafficFocus = next;
+	}
+
+	/// @brief 自由運転車を交通の障害物として公開する。降車時は none。
+	void setDrivenVehicle(Optional<Vehicle> vehicle,const World* world=nullptr) { m_drivenVehicle=std::move(vehicle);m_drivingWorld=world; }
 	const Array<Vehicle>& vehicles() const { return m_vehicles; }
 	int vehicleCount() const { return static_cast<int>(m_vehicles.size()); }
 
@@ -82,6 +102,22 @@ public:
 
 private:
 	Array<Vehicle> m_vehicles;
+	Optional<Vehicle> m_drivenVehicle;
+	const World* m_drivingWorld=nullptr;
+	void avoidDrivenVehicle(Vehicle& vehicle,double dt,const RoadNetwork& roads) const;
+	Optional<Vec2> m_trafficFocus;
+	Array<int> m_localSpawnEdges, m_globalSpawnEdges;
+	double m_spawnRefresh = 0, m_spawnCredit = 0;
+	const World* m_world = nullptr;
+	BuildingAccessIndex m_buildingAccess;
+	LaneVehicleIndex m_laneTraffic;
+	HashTable<int, size_t> m_vehicleIndices;
+	HashSet<int> m_localSpawnSet;
+	bool assignBuildingGoal(Vehicle& vehicle, const SimGraph& graph);
+	int m_localTrafficTarget = 0;
+	PopulationStats m_populationStats;
+	bool tryAutomaticSpawn(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork* network);
+	void replenishTraffic(double dt, const SimGraph& graph, const RoadNetwork& network, const HashSet<int>& visibleEdges);
 	int            m_nextId = 0;
 	int            m_targetVehicleCount = 20;  ///< 自動スポーンの目標台数
 	TrafficDemand  m_trafficDemand;
@@ -106,16 +142,11 @@ private:
 
 	// --- 車両更新 ---
 	void updateActiveVehicle(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
-	void updateDormantVehicle(Vehicle& v, double dt);
 	void advanceOnSegment(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	void advanceOnConnection(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	void advanceOnLane(Vehicle& v, double dt, const SimGraph& simGraph, const RoadNetwork& network);
 	bool transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
 	bool fallbackRandomTransit(Vehicle& v, const SimGraph& simGraph, const RoadNetwork& network);
-
-	// --- Active/Dormant 遷移 ---
-	void activateVehicle(Vehicle& v, const SimGraph& simGraph);
-	void deactivateVehicle(Vehicle& v, const SimGraph& simGraph);
 
 	// --- 交通規制 ---
 	TrafficControl getEdgeControl(int nodeId, int edgeId, const SimGraph& simGraph) const;

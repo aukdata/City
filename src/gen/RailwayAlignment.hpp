@@ -1,8 +1,11 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include "MapGenerator.hpp"
 #include "RoadPathfinder.hpp"
 #include "TransportClearance.hpp"
 #include "RailCostProfile.hpp"
+#include "../railway/RailTimetable.hpp"
+#include "../railway/RailDepotBuilder.hpp"
 #include "../debug/DebugLog.hpp"
 
 /// @brief 近接駅の接続ごとに複数の地形回廊と縦断施工費を比較して線形を選ぶ。
@@ -11,20 +14,34 @@ namespace RailwayAlignment
 	inline void generate(TrainNetwork& network,World& world,const Array<MapGenerator::Settlement>& towns,const RoadNetwork* roads=nullptr)
 	{
 		const TransportClearance crossings{roads,world};
-		network=TrainNetwork{}; Array<int> stations; HashTable<int,Vec3> axes;
+		network=TrainNetwork{};
+		struct StationCandidate { Vec3 position; String name; };
+		Array<StationCandidate> candidates;
+		Array<int> stations; HashTable<int,Vec3> axes; HashTable<int,int> builtStations;
+		// Candidate IDs are separate from the live graph. Only feasible corridors create stations.
+		const auto buildStation=[&](int candidate)
+		{
+			if (!builtStations.contains(candidate))
+			{
+				builtStations[candidate]=network.addStation(candidates[candidate].position,candidates[candidate].name);
+			}
+			return builtStations[candidate];
+		};
 		for (const auto& town : towns)
 		{
 			if (!town.plan.station) { continue; }
 			const Vec2 point=town.center+town.gridAxisX*town.plan.station->x+town.gridAxisZ*town.plan.station->y;
-			double required=Max(world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+9.0,crossings.minimumRailHeight(point,80)+2.0);
-			for (int i=0;i<16;++i) for (const double distance : {160.0,320.0,640.0})
+			double required=Max(world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationBaseElevation,crossings.minimumRailHeight(point,GenerationSettings::get().railway_stationRoadMargin)+GenerationSettings::get().railway_stationRoadClearance);
+			for (int i=0;i<16;++i) for (const double distance : {GenerationSettings::get().railway_stationSurveyRadius0,GenerationSettings::get().railway_stationSurveyRadius1,GenerationSettings::get().railway_stationSurveyRadius2})
 			{
 				const Vec2 around=point+Vec2{Cos(i*Math::TwoPi/16),Sin(i*Math::TwoPi/16)}*distance;
-				required=Max(required,crossings.minimumRailHeight(around,64)+2-distance*.012);
+				required=Max(required,crossings.minimumRailHeight(around,GenerationSettings::get().railway_stationSurveyRoadMargin)+GenerationSettings::get().railway_stationRoadClearance-distance*GenerationSettings::get().railway_stationApproachGrade);
 			}
-			required=Min(required,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+22.0);
+			required=Min(required,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+GenerationSettings::get().railway_stationMaximumElevation);
 			const double elevation=std::ceil(required/.5)*.5;
-			const int id=network.addStation({point.x,elevation,point.y},town.name); stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
+			const int id=static_cast<int>(candidates.size());
+			candidates << StationCandidate{{point.x,elevation,point.y},town.name};
+			stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
 		}
 		if (stations.size()<2) { return; }
 		HashSet<int> connected{stations.front()}; HashSet<uint64> rejected; int lines=0,failures=0;
@@ -35,16 +52,31 @@ namespace RailwayAlignment
 			for (const int a : stations) if (connected.contains(a)) for (const int b : stations) if (!connected.contains(b))
 			{
 				if (rejected.contains(pairKey(a,b))) { continue; }
-				const double distance=network.getNode(a)->position.distanceFromSq(network.getNode(b)->position);
+				const double distance=candidates[a].position.distanceFromSq(candidates[b].position);
 				if (distance<nearest) { nearest=distance; from=a; to=b; }
 			}
-			if (from<0) { throw Error{U"鉄道の接続可能な経路が見つかりません"}; }
-			const Vec3 start=network.getNode(from)->position,end=network.getNode(to)->position;
+			if (from<0)
+			{
+				// A sea or mountain barrier can separate railway regions without invalidating the city.
+				for (const int candidate : stations)
+				{
+					if (connected.contains(candidate)) { continue; }
+					connected.insert(candidate);
+					DBG_LOG(U"[RailwaySeparateRegion] candidate={} position={} reason=no-feasible-corridor"_fmt(candidate,candidates[candidate].position));
+					break;
+				}
+				continue;
+			}
+			const Vec3 start=candidates[from].position,end=candidates[to].position;
 			const Vec2 delta{end.x-start.x,end.z-start.z};
+			const double kStationStraightLead=GenerationSettings::get().railway_stationStraightLead;
+			const Vec3 fromAxis=axes[from]*(axes[from].dot(end-start)>=0 ? 1.0 : -1.0);
+			const Vec3 toAxis=axes[to]*(axes[to].dot(end-start)>=0 ? 1.0 : -1.0);
+			const Vec3 startGate=start+fromAxis*kStationStraightLead,endGate=end-toAxis*kStationStraightLead;
 			Array<Vec3> bestPoints; Array<double> bestHeights; double bestCost=Math::Inf; int chosen=-1;
 			for (int alternative=0;alternative<4;++alternative)
 			{
-				const double padding=alternative<3 ? 3000 : 6500;
+				const double padding=alternative<3 ? GenerationSettings::get().railway_corridorMargin : GenerationSettings::get().railway_wideCorridorMargin;
 				const Vec2 offset{Max(0.0,Min(start.x,end.x)-padding),Max(0.0,Min(start.z,end.z)-padding)};
 				const Vec2 upper{Min(static_cast<double>(WORLD_SIZE),Max(start.x,end.x)+padding),Min(static_cast<double>(WORLD_SIZE),Max(start.z,end.z)+padding)};
 				RoadPathfinder finder; finder.setRailwayRouting(true);
@@ -52,23 +84,26 @@ namespace RailwayAlignment
 				{
 					const double t=Clamp((point-Vec2{start.x,start.z}).dot(delta)/Max(1.0,delta.lengthSq()),0.0,1.0);
 					const double reference=Math::Lerp(start.y,end.y,t);
-					const double coefficient=alternative==0 ? .35 : alternative==1 ? .7 : alternative==2 ? .12 : 1.4;
+					const double coefficient=alternative==0 ? GenerationSettings::get().railway_corridorCostWeight0 : alternative==1 ? GenerationSettings::get().railway_corridorCostWeight1 : alternative==2 ? GenerationSettings::get().railway_corridorCostWeight2 : GenerationSettings::get().railway_corridorCostWeight3;
 					const double water=world.waterSurfaceHeight(point.x,point.y);
-					return 1+RailCostProfile::unitCost(reference-ground)*coefficient+(ground<water+1 ? 3.0 : 0.0);
+					return 1+RailCostProfile::unitCost(reference-ground)*coefficient+(ground<water+1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0);
 				});
-				finder.setup(world,offset,Max(2,static_cast<int>((upper.x-offset.x)/100)),Max(2,static_cast<int>((upper.y-offset.y)/100)),100);
-				const auto path=finder.findPath(finder.worldToGrid(static_cast<float>(start.x),static_cast<float>(start.z)),finder.worldToGrid(static_cast<float>(end.x),static_cast<float>(end.z)));
+				finder.setup(world,offset,Max(2,static_cast<int>((upper.x-offset.x)/GenerationSettings::get().railway_routingCell)),Max(2,static_cast<int>((upper.y-offset.y)/GenerationSettings::get().railway_routingCell)),GenerationSettings::get().railway_routingCell);
+				const auto path=finder.findPath(finder.worldToGrid(static_cast<float>(startGate.x),static_cast<float>(startGate.z)),finder.worldToGrid(static_cast<float>(endGate.x),static_cast<float>(endGate.z)));
 				auto coarse=finder.samplePath(path,2); if (coarse.size()<2) { continue; }
-				coarse.front()=start; coarse.back()=end;
+				coarse.front()=startGate; coarse.back()=endGate;
 				for (int pass=0;pass<5;++pass) { auto next=coarse; for (size_t i=1;i+1<coarse.size();++i) { next[i]=coarse[i]*.5+(coarse[i-1]+coarse[i+1])*.25; } coarse=std::move(next); }
+				coarse.insert(coarse.begin(),start); coarse<<end;
 				Array<Vec3> points;
 				for (size_t i=0;i+1<coarse.size();++i)
 				{
 					const Vec3 direction=coarse[i+1]-coarse[i]; const double handle=Vec2{direction.x,direction.z}.length()/3;
 					Vec3 a=i>0 ? coarse[i+1]-coarse[i-1] : axes[from]*(axes[from].dot(direction)>=0 ? 1.0 : -1.0);
 					Vec3 b=i+2<coarse.size() ? coarse[i+2]-coarse[i] : axes[to]*(axes[to].dot(direction)>=0 ? 1.0 : -1.0); a.y=b.y=0;
+					if (i==0) { a=b=fromAxis; } else if (i==1) { a=fromAxis; }
+					if (i+2==coarse.size()) { a=b=toAxis; } else if (i+3==coarse.size()) { b=toAxis; }
 					const CubicBezier curve{coarse[i],coarse[i]+a.normalized()*handle,coarse[i+1]-b.normalized()*handle,coarse[i+1]};
-					const int count=Max(1,static_cast<int>(std::ceil(curve.totalLength/70)));
+					const int count=Max(1,static_cast<int>(std::ceil(curve.totalLength/GenerationSettings::get().railway_profileSampleLength)));
 					for (int sample=0;sample<count;++sample) { points << curve.positionAt(curve.totalLength*sample/count); }
 				}
 				points << end;
@@ -77,15 +112,16 @@ namespace RailwayAlignment
 				{
 					const auto& point=points[i]; const Vec2 position{point.x,point.z};
 					const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-					double minimum=Max(-50.0,ground-300),maximum=ground+30,roadClearance=-1e9,underpass=1e9;
+					double minimum=Max(GenerationSettings::get().railway_minimumAltitude,ground-GenerationSettings::get().railway_maximumTunnelDepth),maximum=ground+GenerationSettings::get().railway_maximumViaductHeight,roadClearance=-1e9,underpass=1e9;
 					for (int dz=-1;dz<=1;++dz) for (int dx=-1;dx<=1;++dx)
 					{
-						const Vec2 around=position+Vec2{dx*8.0,dz*8.0}; const double terrain=world.sampleHeight(static_cast<float>(around.x),static_cast<float>(around.y)),water=world.waterSurfaceHeight(around.x,around.y);
-						const auto corridor=crossings.interval(around,40);
-						roadClearance=Max(roadClearance,corridor.second+.6); underpass=Min(underpass,corridor.first-.6);
-						if (terrain<water+1) { roadClearance=Max(roadClearance,water+6); underpass=Min(underpass,terrain-10); }
+						const Vec2 around=position+Vec2{dx*GenerationSettings::get().railway_crossingSideSample,dz*GenerationSettings::get().railway_crossingSideSample}; const double terrain=world.sampleHeight(static_cast<float>(around.x),static_cast<float>(around.y)),water=world.waterSurfaceHeight(around.x,around.y);
+						const auto corridor=crossings.interval(around,GenerationSettings::get().railway_crossingMargin);
+						roadClearance=Max(roadClearance,corridor.second+GenerationSettings::get().railway_crossingExtraClearance); underpass=Min(underpass,corridor.first-GenerationSettings::get().railway_crossingExtraClearance);
+						if (terrain<water+1) { roadClearance=Max(roadClearance,water+GenerationSettings::get().railway_waterClearance); underpass=Min(underpass,terrain-GenerationSettings::get().railway_waterTunnelCover); }
 					}
-					if (i==0) { minimum=maximum=start.y; } if (i+1==points.size()) { minimum=maximum=end.y; }
+					if (Vec2{point.x-start.x,point.z-start.z}.length()<=RailwaySite::kPlatformLength+GenerationSettings::get().railway_platformLevelMargin) { minimum=maximum=start.y; }
+					if (Vec2{point.x-end.x,point.z-end.z}.length()<=RailwaySite::kPlatformLength+GenerationSettings::get().railway_platformLevelMargin) { minimum=maximum=end.y; }
 					samples << RailCostProfile::Sample{position,ground,minimum,maximum,roadClearance,underpass};
 				}
 				const auto profile=RailCostProfile::solve(samples,start.y,end.y);
@@ -94,8 +130,9 @@ namespace RailwayAlignment
 			}
 			if (bestPoints.isEmpty()) { ++failures; rejected.insert(pairKey(from,to)); DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to)); continue; }
 			connected.insert(to);
-			Array<int> ids{from};
-			for (size_t i=0;i<bestPoints.size();++i) { bestPoints[i].y=bestHeights[i]; if (i>0 && i+1<bestPoints.size()) { ids << network.addNode(bestPoints[i]); } } ids << to;
+			const int firstStation=buildStation(from),lastStation=buildStation(to);
+			Array<int> ids{firstStation};
+			for (size_t i=0;i<bestPoints.size();++i) { bestPoints[i].y=bestHeights[i]; if (i>0 && i+1<bestPoints.size()) { ids << network.addNode(bestPoints[i]); } } ids << lastStation;
 			for (size_t i=0;i+1<bestPoints.size();++i)
 			{
 				const Vec3 a=bestPoints[i],b=bestPoints[i+1],span=b-a;
@@ -107,7 +144,8 @@ namespace RailwayAlignment
 				network.addEdge(ids[i],ids[i+1],controlA,controlB,80);
 			}
 			DBG_LOG(U"[RailCostChosen] line={} variant={} cost={:.0f} sections={}"_fmt(lines,chosen,bestCost,bestPoints.size()-1));
-			TrainSchedule schedule; schedule.id=lines++; schedule.headwaySec=1800; schedule.stops={StopEntry{from,30,0},StopEntry{to,30,0}}; schedule.loop=false; network.addSchedule(schedule);
+			network.addSchedule(RailTimetable::makeDefault(network,firstStation,lastStation));
+			++lines;
 		}
 		// Shallow cuts are physical earthworks, not track meshes hidden inside the original terrain.
 		HashTable<int64,float> cutting;
@@ -142,7 +180,22 @@ namespace RailwayAlignment
 		}
 		clearances.sort();
 		if (!clearances.isEmpty()) { DBG_LOG(U"[RailHeight] samples={} median={} p95={} maximum={}"_fmt(clearances.size(),clearances[clearances.size()/2],clearances[clearances.size()*95/100],clearances.back())); }
-		DBG_LOG(U"[RailwayAudit] maxGrade={} roadConflicts={} underWater={} failedConnections={}"_fmt(maximumGrade,conflicts,underWater,stations.size()-connected.size()));
-		DBG_LOG(U"[RailwayAlignment] stations={} lines={} sections={} rejectedCorridors={}"_fmt(stations.size(),lines,network.edges().size(),failures));
+		DBG_LOG(U"[RailwayAudit] maxGrade={} roadConflicts={} underWater={} failedConnections={}"_fmt(maximumGrade,conflicts,underWater,stations.size()-builtStations.size()));
+		int stationViolations=0;
+		for (const int candidate : stations)
+		{
+			if (!builtStations.contains(candidate))
+			{
+				DBG_LOG(U"[RailwayStationOmitted] candidate={} name={} position={} reason=no-feasible-corridor"_fmt(candidate,candidates[candidate].name,candidates[candidate].position));
+				continue;
+			}
+			const int station=builtStations[candidate];
+			const double radius=RailwaySite::stationMinimumRadius(network,station);
+			stationViolations+=radius<RailwaySite::kStationMinimumRadius;
+			DBG_LOG(U"[StationCurvature] station={} minimumRadius={}"_fmt(station,radius));
+		}
+		DBG_LOG(U"[StationCurvature] violations={}"_fmt(stationViolations));
+		if (roads) { RailDepotBuilder::generate(network,world,*roads); }
+		DBG_LOG(U"[RailwayAlignment] stations={} lines={} sections={} rejectedCorridors={}"_fmt(builtStations.size(),lines,network.edges().size(),failures));
 	}
 }

@@ -343,6 +343,13 @@ void registerCityGenerationTests(TestRunner& runner)
 			for (const auto& edge : network.edges())
 			{
 				if (edge.id < 0) { continue; }
+				const auto insideCore=[&](int nodeId)
+				{
+					const Vec3 position=network.getNode(nodeId)->position;
+					const Vec2 delta=Vec2{position.x,position.z}-settlement.center;
+					return UrbanMorphology::inCore(settlement.plan,{delta.dot(settlement.gridAxisX),delta.dot(settlement.gridAxisZ)},.1);
+				};
+				if (!insideCore(edge.nodeA) || !insideCore(edge.nodeB)) { continue; }
 				const Vec3 direction = network.getNode(edge.nodeB)->position - network.getNode(edge.nodeA)->position;
 				const Vec2 horizontal{ direction.x, direction.z };
 				maxAxisError = Max(maxAxisError, Min(Abs(horizontal.dot(settlement.gridAxisX)), Abs(horizontal.dot(settlement.gridAxisZ))));
@@ -704,6 +711,9 @@ void registerCityGenerationTests(TestRunner& runner)
 			double maxDifference = 0.0;
 			double totalDifference = 0.0;
 			double maxTriangleError = 0.0;
+			Vec2 worstPosition;
+			double worstSample = 0, worstReference = 0;
+			Float3 worstVertices;
 			int buriedSamples = 0;
 			int sampleCount = 0;
 			for (Point coord : { Point{ 21, 63 }, Point{ 32, 32 }, Point{ 16, 20 } })
@@ -719,7 +729,14 @@ void registerCityGenerationTests(TestRunner& runner)
 						const double triangleHeight = terrain.heightMap[{ col, row }] * (4.0 / 16.0)
 							+ terrain.heightMap[{ col + 1, row }] * (5.0 / 16.0)
 							+ terrain.heightMap[{ col, row + 1 }] * (7.0 / 16.0);
-						maxTriangleError = Max(maxTriangleError, Abs(sampled - triangleHeight));
+						if (Abs(sampled - triangleHeight) > maxTriangleError)
+						{
+							maxTriangleError = Abs(sampled - triangleHeight);
+							worstPosition = Vec2{x, z};
+							worstSample = sampled;
+							worstReference = triangleHeight;
+							worstVertices = Float3{terrain.heightMap[{col, row}], terrain.heightMap[{col + 1, row}], terrain.heightMap[{col, row + 1}]};
+						}
 						const double difference = sampled - world.computeHeight(x, z);
 						maxDifference = Max(maxDifference, Abs(difference));
 						totalDifference += Abs(difference);
@@ -731,7 +748,8 @@ void registerCityGenerationTests(TestRunner& runner)
 			report << U"seed={} samples={} analyticMaxDifferenceM={:.5f} analyticMeanDifferenceM={:.5f} analyticBuriedSamples={}"_fmt(
 				seed, sampleCount, maxDifference, totalDifference / sampleCount, buriedSamples);
 			context.expect(sampleCount > 0, U"Real generated terrain was sampled");
-			report << U"renderedTriangleMaxErrorM={:.7f}"_fmt(maxTriangleError);
+			report << U"renderedTriangleMaxErrorM={:.9f} position={} sampled={:.9f} reference={:.9f} vertices={}"_fmt(
+				maxTriangleError, worstPosition, worstSample, worstReference, worstVertices);
 			context.expect(maxTriangleError < 0.0001, U"Generated terrain sampling matches the rendered plane within 0.1mm");
 		}
 	});

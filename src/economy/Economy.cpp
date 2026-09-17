@@ -1,6 +1,15 @@
 ﻿
 #include "Economy.hpp"
 
+void Economy::initializeGeneratedCity(int64 housingCapacity)
+{
+	constexpr double kInitialOccupancy=.72;
+	population=static_cast<int>(Clamp<int64>(static_cast<int64>(Max<int64>(0,housingCapacity)*kInitialOccupancy),0,std::numeric_limits<int>::max()));
+	funds=30.0;
+	happiness=.70;
+}
+
+
 double Economy::monthlyGrant() const
 {
 	// 交付金は人口帯ごとの基本単価を土台にし、幸福度で軽く増減させる。
@@ -24,7 +33,7 @@ double Economy::roadMaintenanceCost(const RoadNetwork& net) const
 	double total = 0.0;
 	for (const auto& edge : net.edges())
 	{
-		if (edge.id == -1) continue;
+		if (edge.id < 0 || edge.edgeState == EdgeState::Planned || edge.edgeState == EdgeState::UnderConstruction) { continue; }
 		const double km = edge.length / 1000.0;
 		double costPerKm = 0.0;
 		switch (edge.roadType)

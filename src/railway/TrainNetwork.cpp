@@ -1,4 +1,5 @@
 ﻿#include "TrainNetwork.hpp"
+#include "RailTimetable.hpp"
 #include <queue>
 
 int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)
@@ -101,10 +102,39 @@ void TrainNetwork::releaseOccupy(int edgeId, int trainId)
 		e->occupiedBy = -1;
 }
 
-void TrainNetwork::addSchedule(TrainSchedule schedule)
+int TrainNetwork::addSchedule(TrainSchedule schedule)
 {
-	// 時刻表は列車生成側がそのまま参照できる配列へ順次積み増すだけに留める。
+	int nextId = 0;
+	for (const auto& current : m_schedules) { nextId = Max(nextId, current.id + 1); }
+	if (schedule.id < 0 || getSchedule(schedule.id)) { schedule.id = nextId; }
 	m_schedules << std::move(schedule);
+	return m_schedules.back().id;
+}
+
+TrainSchedule* TrainNetwork::getSchedule(int id)
+{
+	for (auto& schedule : m_schedules) { if (schedule.id == id) { return &schedule; } }
+	return nullptr;
+}
+const TrainSchedule* TrainNetwork::getSchedule(int id) const
+{
+	for (const auto& schedule : m_schedules) { if (schedule.id == id) { return &schedule; } }
+	return nullptr;
+}
+bool TrainNetwork::applySchedule(const TrainSchedule& schedule, String& error)
+{
+	error = RailTimetable::validate(*this, schedule);
+	if (!error.isEmpty()) { return false; }
+	if (auto* current = getSchedule(schedule.id))
+	{
+		const auto lastSpawn = current->lastSpawnAt;
+		const bool reverse = current->reverseNext;
+		*current = schedule;
+		current->lastSpawnAt = lastSpawn;
+		current->reverseNext = reverse;
+	}
+	else { addSchedule(schedule); }
+	return true;
 }
 
 int TrainNetwork::nodeIndex(int id) const

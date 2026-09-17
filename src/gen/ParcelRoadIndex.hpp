@@ -1,8 +1,10 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include "ParcelGeometry.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../railway/TrainNetwork.hpp"
+#include "../railway/RailwaySite.hpp"
 
 /// @brief Spatial index of ground-level road ribbons used to protect every side of a lot.
 class ParcelRoadIndex
@@ -38,7 +40,7 @@ public:
 					hasPrevious = false;
 					continue;
 				}
-				constexpr float kRoadMargin = 0.35f;
+				const float kRoadMargin = GenerationSettings::get().parcels_roadMargin;
 				const Vec2 center{ position.x, position.z };
 				const Vec2 leftPoint = center + right * (range.left - kRoadMargin);
 				const Vec2 rightPoint = center + right * (range.right + kRoadMargin);
@@ -56,11 +58,15 @@ public:
 
 	void addRailway(const TrainNetwork& network)
 	{
+		for (const auto& site : RailwaySite::footprints(network))
+		{
+			visitBuckets(site,[&](int64 key) { m_buckets[key] << site; });
+		}
 		for (const auto& edge : network.edges())
 		{
 			const auto curve=network.getBezier(edge.id);
 			if (!curve) { continue; }
-			Vec2 previousLeft,previousRight;
+			Vec2 previousLeft{0, 0}, previousRight{0, 0};
 			const int count=Max(1,static_cast<int>(std::ceil(curve->totalLength/8)));
 			for (int i=0;i<=count;++i)
 			{
@@ -98,6 +104,9 @@ public:
 		});
 		return collision;
 	}
+
+	/// @brief 生成中に追加した接道面・敷地を同じ空間索引へ登録する。
+	void add(const ParcelGeometry::Quad& quad) { visitBuckets(quad,[&](int64 key){m_buckets[key] << quad;}); }
 
 private:
 	template <class Visitor>

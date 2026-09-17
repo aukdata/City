@@ -112,6 +112,9 @@ struct Vehicle
 	Array<RouteWaypoint> routeWaypoints;
 	int          routeIdx       = 0;     ///< 次に使うウェイポイントのインデックス
 	int          goalEdgeId     = -1;    ///< 目的地エッジ id
+	int goalLane = -1;
+	float goalArc = -1;
+	int64 originBuilding = -1, destinationBuilding = -1;
 	bool         routeRequested = false; ///< RouteRequest 送信済みフラグ
 	int          routeFailCount = 0;     ///< 経路探索連続失敗回数
 
@@ -136,6 +139,9 @@ struct Vehicle
 	// トリップ計測
 	GameTime departedAt = 0.0;
 	bool tripCompleted = false;  ///< 目的地エッジ終端へ到達し、履歴記録待ち
+
+	bool populationManaged = false; ///< 自動発生した通常交通のみ再配置の対象
+	float outsideFocusSeconds = 0; ///< 遠方かつ不可視で経過した時間
 
 	// バス専用フィールド
 	int    busRouteId       = -1;

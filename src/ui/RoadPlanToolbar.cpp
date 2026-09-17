@@ -1,4 +1,5 @@
 ﻿#include "RoadPlanToolbar.hpp"
+#include "ConstructionStatus.hpp"
 
 namespace RoadPlanToolbar
 {
@@ -25,27 +26,31 @@ namespace RoadPlanToolbar
 			font(details[i]).draw(rect.pos+Point{8,27},ColorF{0.67,0.77,0.82});
 		}
 		font(U"幅員 {:.1f}m  /  一方通行は描く向きに進行"_fmt(state.width)).draw(kPad,143,ColorF{0.72});
-		bold(U"2  クリックして道路を延ばす").draw(kPad,168,ColorF{0.68,0.86,0.96});
-		button(state.followTerrain ? U"経路: 地形に沿う" : U"経路: 直線",{kPad,194,half,28},Action::Routing,true,state.followTerrain);
+		bold(U"2  始点・終点 → 経路生成").draw(kPad,168,ColorF{0.68,0.86,0.96});
+		button(state.generated ? U"経路を再生成" : U"経路生成",{kPad,194,half,28},Action::Generate,state.points >= 2,true);
 		button(state.snapping ? U"道路に接続: ON" : U"道路に接続: OFF",{kPad+half+8,194,half,28},Action::Snap,true,state.snapping);
-		button(state.replaceEnd ? U"終点の調整中" : U"終点を調整",{kPad,230,half,28},Action::ReplaceEnd,state.points >= 2,state.replaceEnd);
+		font(U"点・線をドラッグで調整").draw(kPad,234,ColorF{0.82});
 		const int quarter = (half-6)/2;
 		button(U"戻す",{kPad+half+8,230,quarter,28},Action::Undo,state.canUndo);
 		button(U"やり直す",{kPad+half+8+quarter+6,230,quarter,28},Action::Redo,state.canRedo);
 		font(U"右クリック / Ctrl+Z: 戻す   Ctrl+Y: やり直す").draw(kPad,264,ColorF{0.67});
 		font(U"PgUp / PgDn: 高さ {:+.0f} m（地下も可）"_fmt(state.elevation)).draw(kPad,283,ColorF{0.67});
-		bold(U"3  確認して計画を保存").draw(kPad,308,ColorF{0.68,0.86,0.96});
-		font(state.valid ? U"延長 {:.0f}m   概算 {:.2f}億円   工期 {}日"_fmt(state.length,state.cost,state.days) : U"始点と終点を指定すると見積りを表示").draw(kPad,334,ColorF{0.88});
+		bold(U"3  確定して建設").draw(kPad,308,ColorF{0.68,0.86,0.96});
+		font(state.valid ? U"延長 {:.0f}m   概算 {:.2f}億円"_fmt(state.length,state.cost) : U"経路生成後に見積りを表示").draw(kPad,334,ColorF{0.88});
+		if (state.valid)
+		{
+			font(U"開通まで {}（標準速度）"_fmt(ConstructionStatus::durationLabel(state.constructionSeconds))).draw(kPad,355,ColorF{0.75});
+		}
 		String status = state.message;
-		if (status.isEmpty() && state.valid && state.cost > state.funds) { status = U"着工資金が不足しています（保存は可能）"; }
+		if (status.isEmpty() && state.valid && state.cost > state.funds) { status = U"着工資金が不足しています"; }
 		if (status.isEmpty())
 		{
-			status = state.points == 0 ? U"地面か既存の道路をクリックして開始" : (state.points == 1 ? U"次のクリックで終点を指定" : U"続けて延長できます。Enter で保存");
+			status = state.points == 0 ? U"地面か既存の道路をクリックして開始" : (state.points == 1 ? U"次のクリックで終点を指定" : U"経路生成 → 点や線をドラッグで調整");
 		}
 		while (font(status).region().w > inner && !status.isEmpty()) { status.pop_back(); }
-		font(status).draw(kPad,355,state.error ? ColorF{1.0,0.50,0.40} : ColorF{0.66,0.84,0.70});
-		button(U"計画を保存  [Enter]",{kPad,378,half,26},Action::Save,state.valid,true);
-		button(U"破棄  [Esc]",{kPad+half+8,378,half,26},Action::Clear,state.points > 0);
+		font(status).draw(kPad,377,state.error ? ColorF{1.0,0.50,0.40} : ColorF{0.66,0.84,0.70});
+		button(U"確定して着工 [Enter]",{kPad,400,half,26},Action::Construct,state.valid && state.cost <= state.funds,true);
+		button(U"破棄  [Esc]",{kPad+half+8,400,half,26},Action::Clear,state.points > 0);
 		return action;
 	}
 }

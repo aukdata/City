@@ -34,13 +34,29 @@ struct PartLodBatch
 class RoadRenderer
 {
 public:
-	static constexpr double kLodDist   = 800.0;
+	static constexpr double kLodDist   = 1200.0;
+	static constexpr double kPrepareDist = 1700.0;
 	static constexpr double kLodDistSq = kLodDist * kLodDist;
 	static constexpr double kDrawMaxDist   = 8000.0;
 	static constexpr double kDrawMaxDistSq = kDrawMaxDist * kDrawMaxDist;
 
+	/// @brief CPU cache construction performed in the latest render call.
+	struct CacheBuildStats
+	{
+		int edges = 0, nodes = 0, markings = 0, furniture = 0, deferred = 0;
+		double partsMs = 0, nodesMs = 0, markingsMs = 0, furnitureMs = 0, fallbackMs = 0;
+		[[nodiscard]] double buildMilliseconds() const { return partsMs + nodesMs + markingsMs + furnitureMs; }
+	};
+	[[nodiscard]] const CacheBuildStats& cacheBuildStats() const { return m_cacheBuildStats; }
+
+	/// @brief Limit new detailed caches per render call; infinity is the synchronous reference.
+	/// @details Existing geometry always draws. A single build cannot be interrupted.
+	void setCacheBuildBudget(double milliseconds) { m_cacheBuildBudgetMs = Max(0.01, milliseconds); }
+
 	/// @brief 道路部品アセットをロードする
 	bool loadAssets();
+	/// @brief 読み込み中に地域全体の簡略路面を準備し、視点移動時の一斉生成を避ける。
+	void preloadFallbacks(const RoadNetwork& network,const World& world);
 	/// @brief Construction uses the paused/resumed game clock, never wall time.
 	void setConstructionTime(GameTime now) { m_constructionNow = now; }
 
@@ -60,10 +76,10 @@ public:
 	                 const HashTable<int, TrafficLight>& trafficLights,
 	                 GameTime gameNow, Vec3 cameraPos);
 
-	/// @brief 国道標識テクスチャを事前合成する（3D シーン描画前・2D パイプライン有効時に呼ぶこと）
-	void prepareRouteSignTextures(const RoadNetwork& network);
+	/// @brief 表示要求のある小型標識テクスチャを合成する（3D シーン描画前・2D パイプライン有効時に呼ぶこと）
+	void prepareSignTextures();
 
-	/// @brief 国道路線標識（3D ポール＋テクスチャ板）を描画する
+	/// @brief 路線番号・道路名標識（3D ポール＋テクスチャ板）を描画する
 	void drawRouteSigns(const RoadNetwork& network, const World& world, Vec3 cameraPos);
 
 	/// @brief 案内標識テクスチャを事前合成する（3D 描画前・2D 有効時に呼ぶこと）
@@ -98,6 +114,7 @@ public:
 
 	void invalidateEdgeCache(int edgeId, int nodeA = -1, int nodeB = -1);
 	void invalidateAllCaches();
+	void invalidateRouteSigns(int routeId) { m_routeSignCache.erase(routeId); }
 	void invalidateCachesAroundNode(int nodeId, const RoadNetwork& network);
 
 	/// @brief Planned / UnderConstruction エッジをワイヤーフレームで描画する
@@ -113,16 +130,25 @@ public:
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; bool cable = false; };
 
+	/// @brief 市町村名の参照元を変更し、境界標識の位置を再生成する。
+	void setMunicipalityLookup(std::function<String(Vec2)> lookup)
+	{
+		m_municipalityLookup = std::move(lookup);
+		m_signCache.clear();
+	}
+
+private:
 	/// @brief ポール＋看板 1基分の描画情報
 	/// @details 種別ごとに OBJ メッシュ + テクスチャで描画。テクスチャは type + auxNumber から
-	///   描画時に引き当てる（TextureAsset / m_routeSignTexCache）。
+	///   描画時に引き当てる（TextureAsset / m_signTextures）。
 	struct SignDraw
 	{
 		Mat4x4       poleMat;                 ///< ポールに適用（Scale(1,h,1) * Translate(groundPos)）
 		Mat4x4       boardMat;                ///< 看板に適用（RotateY(yaw) * Translate(boardCenter)）
 		Vec3         poleTop;                 ///< ポール頂上のワールド座標（デバッグ目印用）
 		RoadSignType type      = RoadSignType::None;
-		int          auxNumber = 0;           ///< NationalRoute: 号数（m_routeSignTexCache キー）
+		int          auxNumber = 0;
+		String       label;
 	};
 
 	/// @brief 案内標識 1基分の描画情報
@@ -131,18 +157,37 @@ public:
 		Mat4x4 poleMat;
 		Mat4x4 boardMat;
 		Vec3   poleTop;
-		Mesh   boardMesh;    ///< 板寸法ごとに生成される平面メッシュ
+		Mesh   boardMesh,backMesh;    ///< 板寸法ごとに生成される平面メッシュ
 		uint64 texKey = 0;   ///< m_guideSignTexCache のキー
 	};
 
-private:
+	CacheBuildStats m_cacheBuildStats;
+	double m_cacheBuildBudgetMs = Math::Inf;
+	struct VisibleRoad
+	{
+		int id;
+		float distanceSquared;
+		bool node, close;
+		bool prepare = false;
+	};
+	Array<VisibleRoad> m_visibleRoads;
+	HashTable<int, Array<PartMeshEntry>> m_fallbackEdges;
+	HashSet<int> m_drawnFallbackEdges;
+	HashTable<int, PartMeshEntry> m_fallbackNodes;
+	void prepareFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world);
+	void prepareFallbackNode(int nodeId,const RoadNetwork& network,const World& world);
+	HashTable<int64,uint64> m_preloadedHeights;
+	[[nodiscard]] bool canBuildCache();
+	void drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world);
+	void drawFallbackNode(int nodeId, const RoadNetwork& network, const World& world);
 	struct EdgeMargins { float atNodeA = 0.0f; float atNodeB = 0.0f; };
-	struct EdgeBounds { Float3 center; float radiusSq; };
+	struct EdgeBounds { Float3 center; float radiusSq; Array<Vec3> samples; };
+	[[nodiscard]] EdgeBounds edgeBounds(const RoadNetwork& network, int edgeId) const;
 
 	// ---- 描画 ----
 
 	void drawEdge(const RoadEdge& edge, const RoadNetwork& network,
-	              float marginA, float marginB, const World& world, bool isClose);
+	              float marginA, float marginB, const World& world, bool isClose, bool prepareDetail = false);
 	void drawNodeCap(const RoadNetwork& network, int nodeId, const World& world, bool isClose);
 
 	// ---- メッシュ生成 ----
@@ -173,11 +218,6 @@ private:
 	Array<PartMeshEntry> buildPartMeshes(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
 	                                     const World& world,
 	                                     float marginA, float marginB);
-
-	/// @brief 同マテリアルの LOD パーツを結合した遠距離描画バッチを構築する
-	Array<PartLodBatch> buildPartLodBatches(const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier,
-	                                        const World& world,
-	                                        float marginA, float marginB) const;
 
 	/// @brief 生活感を出す道路沿い設備（車・電柱・側溝・小看板）メッシュを生成する
 	Array<LaneLineBatch> buildStreetFurnitureBatches(const RoadEdge& edge, const CubicBezier& bezier,
@@ -244,9 +284,8 @@ private:
 	Array<SignDraw> buildEdgeSignMeshes(const RoadNetwork& network, int edgeId,
 	                                    const World& world) const;
 
-	/// @brief 1路線分の国道標識描画情報を生成する
-	/// @details route 全長を2等分した各区間中央に1基ずつ配置。
-	///   合成済みテクスチャは m_routeSignTexCache から参照（未登録なら空配列）。
+	/// @brief 1路線分の路線番号・道路名標識の描画情報を生成する
+	/// @details 路線のアンカーを両方向に配置し、テクスチャは実際の描画時に要求する。
 	Array<SignDraw> buildRouteSignDraws(const RoadRoute& route, const RoadNetwork& network,
 	                                    const World& world) const;
 
@@ -261,7 +300,7 @@ private:
 	                                  float arcLen, float lateralOffset,
 	                                  bool boardFacesTan,
 	                                  float boardOffsetX, float boardOffsetY, float boardOffsetZ,
-	                                  bool useElevation,
+	                                  const RoadEdge& edge,
 	                                  Mat4x4& outPole, Mat4x4& outBoard,
 	                                  Vec3& outPoleTop);
 
@@ -270,6 +309,11 @@ private:
 
 	/// @brief SignDraw 配列を統一的に描画する（ポール + 看板）
 	void drawSigns(const Array<SignDraw>& draws);
+
+	/// @brief 通常描画と選択表示で共用する案内標識1基の位置・形状。
+	Optional<GuideSignDraw> buildGuideSignDraw(const GuideSignPlacement& sign,
+		const RoadNetwork& network, const World& world) const;
+	bool ensureGuidePoleMesh();
 
 	/// @brief 案内標識の描画情報を 1 エッジ分構築する
 	Array<GuideSignDraw> buildEdgeGuideSignDraws(const RoadNetwork& network, int edgeId,
@@ -351,7 +395,7 @@ private:
 	HashTable<String, SignalMeshCache> m_signalMeshCache;
 
 	/// @brief 信号定義のメッシュを取得（キャッシュ付き）
-	const Mesh* getSignalMesh(const String& defId, const String& meshName);
+	const Mesh* getSignalMesh(const String& defId, const String& meshName, int lod = 0);
 
 	// ---- Construction meshes are rebuilt only at 5% stage boundaries. ----
 	struct ConstructionCache
@@ -370,6 +414,7 @@ private:
 	Texture m_constructionSoilNormal, m_constructionGravelNormal;
 	Texture m_constructionSoil, m_constructionGravel, m_constructionConcrete;
 	std::array<Model,4> m_constructionModels;
+	std::array<Model,4> m_constructionLodModels;
 	void drawConstruction(const RoadEdge& edge, const RoadNetwork& network, const World& world, bool close);
 
 	// ---- メンバ ----
@@ -395,13 +440,22 @@ private:
 	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
 	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
 	HashSet<int>                              m_visibleEdges;     ///< 直近 render() の可視エッジ集合
-	HashTable<int, RenderTexture> m_regulatorySignTexCache;
-	HashTable<int, RenderTexture>             m_routeSignTexCache; ///< 国道号数 → 合成テクスチャ
-	HashTable<int, Array<SignDraw>>           m_routeSignCache;    ///< route ID → 国道標識描画情報
+	std::function<String(Vec2)> m_municipalityLookup;
+	HashTable<String, RenderTexture> m_signTextures;
+	struct SignTextureContent
+	{
+		RoadSignType type;
+		int auxNumber;
+		String label;
+	};
+	HashTable<String, SignTextureContent> m_pendingSignTextures;
+	HashTable<int, Array<SignDraw>>           m_routeSignCache;    ///< route ID → 路線番号・道路名標識描画情報
 	HashTable<uint64, RenderTexture>          m_guideSignTexCache;    ///< パネル内容ハッシュ → 合成テクスチャ（ランタイムのみ、セッション毎に再生成）
 	bool                                      m_guideSignTexAllReady = false; ///< 全案内標識テクスチャ準備済みフラグ（true なら毎フレームのループをスキップ）
 	HashTable<int, Array<GuideSignDraw>>      m_guideSignCache;    ///< エッジ ID → 案内標識描画情報
+	std::array<Optional<Mesh>, 2> m_signPoleLods, m_guidePoleLods;
 	Optional<Mesh>                            m_signPoleMesh;       ///< RoadSign 共通ポール（OBJ ロード、実寸）
 	Optional<Mesh>                            m_guidePoleMesh;     ///< 案内標識用ポール（2 本柱フレーム、OBJ ロード）
+	HashTable<String, Mesh>                   m_signBoardBacks;
 	HashTable<String, Mesh>                   m_signBoardMeshes;   ///< 看板メッシュ（形状 OBJ パス別・遅延生成、カテゴリ内の同形状は共有）
 };

@@ -1,4 +1,9 @@
 ﻿#include "GameScene.hpp"
+#include "../road/RoadGeometry.hpp"
+#include "../railway/TrainConsist.hpp"
+#include "../ui/NavigationHeader.hpp"
+#include "../ui/KeyboardActions.hpp"
+#include "../gen/RoadTerrainFit.hpp"
 #include "EdgeSectionState.hpp"
 #include "../world/LandPlot.hpp"
 #include "../ui/PanelWidget.hpp"
@@ -82,28 +87,28 @@ void GameScene::handleInput()
 {
 	// ゲーム内入力の仲裁をここに集約し、UI フォーカス・一時停止・編集モードの優先順位を先に確定する。
 	// テキスト入力フォーカス中はゲーム入力を抑制（ESC のみ通す）
-	if (PanelWidget::activeTextInput != nullptr)
+	if (GameInput::keyboardBlocked())
 	{
-		if (KeyEscape.down())
-		{
-			PanelWidget::activeTextInput->active = false;
-			PanelWidget::activeTextInput = nullptr;
-		}
+		if (KeyEscape.down() || GameInput::buffer.down(KeyEscape.code())) { GameInput::releaseTextFocus(); }
 		return;
 	}
 
-	if (m_mode == EditMode::RoadPlan && KeyEscape.down() && !m_draftRoadPlan.editor.points().isEmpty())
+	if (m_mode == EditMode::RoadPlan && GameInput::down(KeyEscape) && !m_draftRoadPlan.editor.points().isEmpty())
 	{
 		clearDraftRoadPlan();
 		return;
 	}
 
+	if (!m_showPauseMenu && GameInput::down(KeyEscape) && m_panelManager.isVisible(U"rail_timetable"))
+	{
+		setRailTimetableVisible(false); return;
+	}
 	// ---- ESC: ポーズメニュートグル ----
-	if (KeyEscape.down())
+	if (GameInput::down(KeyEscape))
 	{
 		if (m_showPauseMenu)
 		{
-			m_showPauseMenu = false;
+			resumeFromPauseMenu();
 		}
 		else if (m_mode != EditMode::None
 			|| m_selection.kind != SelectionKind::None)
@@ -132,6 +137,8 @@ void GameScene::handleInput()
 		else
 		{
 			m_showPauseMenu = true;
+			m_pauseMenu.selected=0;
+			m_pauseResumeSpeed=m_clock.speed;
 			if (m_clock.speed != TimeSpeed::Paused)
 			{
 				m_prevSpeed   = m_clock.speed;
@@ -143,16 +150,16 @@ void GameScene::handleInput()
 	// ポーズメニュー表示中は他の入力をブロック
 	if (m_showPauseMenu) return;
 
-	if (KeyControl.pressed() && KeyShift.pressed() && KeyS.down())
+	if (GameInput::pressed(KeyControl) && GameInput::pressed(KeyShift) && GameInput::down(KeyS))
 	{
 		saveGame();
 		return;
 	}
 
 	// ---- F3 コマンド ----
-	if (KeyF3.pressed())
+	if (GameInput::pressed(KeyF3) && GameInput::down(KeyR))
 	{
-		if (KeyR.down())
+		if (GameInput::down(KeyR))
 		{
 			Console << U"[Reload] Reloading all assets...";
 			m_roadRenderer.loadAssets();
@@ -162,7 +169,15 @@ void GameScene::handleInput()
 		return;  // F3 押下中は通常操作を無効化
 	}
 
-	if (KeySpace.down())
+	if (GameInput::down(KeyH))
+	{
+		setRailTimetableVisible(!m_panelManager.isVisible(U"rail_timetable")); return;
+	}
+	if (MouseL.down() && !m_panelManager.blocksMouseInput() && !m_uiRenderer.isMouseOnHud()
+		&& m_routeSignRenderer.hitTest(Cursor::PosF())) { handleSelectionClick();return; }
+	if (handleDrivingShortcuts()) { return; }
+
+	if (GameInput::down(KeySpace))
 	{
 		if (m_clock.speed == TimeSpeed::Paused)
 			m_clock.speed = m_prevSpeed;
@@ -173,10 +188,10 @@ void GameScene::handleInput()
 		}
 	}
 
-	if (KeyTab.down())
+	if (GameInput::down(KeyTab))
 		m_zoneManager.showOverlay = !m_zoneManager.showOverlay;
 
-	if (m_sandboxActive && KeyControl.pressed() && KeyR.down())
+	if (m_sandboxActive && GameInput::pressed(KeyControl) && GameInput::down(KeyR))
 	{
 		if (m_mode == EditMode::RoadPlan)
 			clearDraftRoadPlan();
@@ -189,7 +204,7 @@ void GameScene::handleInput()
 		else
 			m_panelManager.hide(U"draw_template");
 	}
-	else if (KeyR.down())
+	else if (GameInput::down(KeyR))
 	{
 		const bool enable = (m_mode != EditMode::RoadPlan || !m_panelManager.isVisible(U"draw_template"));
 		if (!enable)
@@ -212,42 +227,37 @@ void GameScene::handleInput()
 			clearSelection();
 		}
 	}
-	if (KeyZ.down() && !KeyControl.pressed())
+	if (GameInput::down(KeyZ) && !GameInput::pressed(KeyControl))
 	{
-		if (m_mode == EditMode::RoadPlan)
-			clearDraftRoadPlan();
-		m_mode = (m_mode == EditMode::ZonePaint) ? EditMode::None : EditMode::ZonePaint;
-		m_drawStartNode = none;
-		m_rectStart     = none;
-		m_zoneManager.showOverlay = (m_mode == EditMode::ZonePaint);
+		setZonePaintMode(m_mode!=EditMode::ZonePaint);
 	}
 
 	if (m_mode == EditMode::ZonePaint)
 	{
-		if (Key1.down()) m_paintZone = ZoneType::UrbanControl;
-		if (Key2.down()) m_paintZone = ZoneType::LowResidential;
-		if (Key3.down()) m_paintZone = ZoneType::Residential;
-		if (Key4.down()) m_paintZone = ZoneType::Commercial;
-		if (Key5.down()) m_paintZone = ZoneType::Industrial;
-		if (Key6.down()) m_paintZone = ZoneType::Agriculture;
-		if (Key0.down()) m_paintZone = ZoneType::Unzoned;
+		if (GameInput::down(Key1)) m_paintZone = ZoneType::UrbanControl;
+		if (GameInput::down(Key2)) m_paintZone = ZoneType::LowResidential;
+		if (GameInput::down(Key3)) m_paintZone = ZoneType::Residential;
+		if (GameInput::down(Key4)) m_paintZone = ZoneType::Commercial;
+		if (GameInput::down(Key5)) m_paintZone = ZoneType::Industrial;
+		if (GameInput::down(Key6)) m_paintZone = ZoneType::Agriculture;
+		if (GameInput::down(Key0)) m_paintZone = ZoneType::Unzoned;
 	}
 	else
 	{
-		if (Key1.down()) { m_prevSpeed = TimeSpeed::x1; m_clock.speed = TimeSpeed::x1; }
-		if (Key2.down()) { m_prevSpeed = TimeSpeed::x2; m_clock.speed = TimeSpeed::x2; }
-		if (Key3.down()) { m_prevSpeed = TimeSpeed::x4; m_clock.speed = TimeSpeed::x4; }
-		if (Key0.down()) { m_prevSpeed = m_clock.speed != TimeSpeed::Paused ? m_clock.speed : m_prevSpeed;
+		if (GameInput::down(Key1)) { m_prevSpeed = TimeSpeed::x1; m_clock.speed = TimeSpeed::x1; }
+		if (GameInput::down(Key2)) { m_prevSpeed = TimeSpeed::x2; m_clock.speed = TimeSpeed::x2; }
+		if (GameInput::down(Key3)) { m_prevSpeed = TimeSpeed::x4; m_clock.speed = TimeSpeed::x4; }
+		if (GameInput::down(Key0)) { m_prevSpeed = m_clock.speed != TimeSpeed::Paused ? m_clock.speed : m_prevSpeed;
 		                   m_clock.speed = TimeSpeed::Paused; }
 	}
 
-	if (KeyT.down() && m_simGraph)
+	if (GameInput::down(KeyT) && m_simGraph)
 		m_vehicleManager.spawnRandom(*m_simGraph);
 
-	if (KeyF.down())
+	if (GameInput::down(KeyF))
 		m_camera.cycleMode();
 
-	if (KeyG.down())
+	if (GameInput::down(KeyG))
 	{
 		if (m_mode == EditMode::RoadPlan)
 			clearDraftRoadPlan();
@@ -256,7 +266,7 @@ void GameScene::handleInput()
 		m_rectStart     = none;
 	}
 
-	if (m_mode == EditMode::TerrainEdit && KeyControl.pressed())
+	if (m_mode == EditMode::TerrainEdit && GameInput::pressed(KeyControl))
 	{
 		const double wheel = Mouse::Wheel();
 		m_terrainBrushRadius = Clamp(
@@ -264,7 +274,7 @@ void GameScene::handleInput()
 			20.0f, 400.0f);
 	}
 
-	if (KeyX.down())
+	if (GameInput::down(KeyX))
 	{
 		if (m_mode == EditMode::RoadPlan)
 			clearDraftRoadPlan();
@@ -272,7 +282,7 @@ void GameScene::handleInput()
 		m_trainDrawStartNode = none;
 	}
 
-	if (KeyB.down())
+	if (GameInput::down(KeyB))
 	{
 		if (m_mode == EditMode::RoadPlan)
 			clearDraftRoadPlan();
@@ -290,7 +300,7 @@ void GameScene::handleInput()
 		}
 	}
 
-	if (m_sandboxActive && KeyV.down())
+	if (m_sandboxActive && GameInput::down(KeyV))
 	{
 		if (m_mode == EditMode::RoadPlan)
 			clearDraftRoadPlan();
@@ -300,7 +310,7 @@ void GameScene::handleInput()
 		m_rectStart       = none;
 	}
 
-	if (KeyN.down())
+	if (GameInput::down(KeyN))
 	{
 		if (m_panelManager.isVisible(U"name_list"))
 			m_panelManager.hide(U"name_list");
@@ -312,8 +322,8 @@ void GameScene::handleInput()
 	if (selectedNodeId())
 	{
 		constexpr float kNodeYStep = 1.0f;
-		const bool up   = KeyPageUp.pressed();
-		const bool down = KeyPageDown.pressed();
+		const bool up   = GameInput::pressed(KeyPageUp);
+		const bool down = GameInput::pressed(KeyPageDown);
 		if (up || down)
 		{
 			if (auto* node = m_network.getNode(*selectedNodeId()))
@@ -339,7 +349,7 @@ void GameScene::handleInput()
 		}
 	}
 
-	if (m_uiRenderer.isMouseOnHud()) { return; }
+	if (m_uiRenderer.isMouseOnHud() || NavigationHeader::placeBounds(Scene::Size()).contains(Cursor::PosF())) { return; }
 
 	if      (m_mode == EditMode::RoadPlan)     handleRoadPlan();
 	else if (m_mode == EditMode::RoadDraw)     handleRoadDraw();
@@ -723,12 +733,35 @@ bool GameScene::handleEdgeHandleInput()
 
 void GameScene::handleSelectionClick()
 {
+	// ── 国道路線標識のヒットテスト（ノード・エッジより優先） ──
+	if (const auto hitRoute = m_routeSignRenderer.hitTest(Vec2{ Cursor::Pos() }))
+	{
+		if (const RoadRoute* r = m_network.getRoute(*hitRoute))
+		{
+			selectRoute(*hitRoute);
+			m_routeNameEditState = TextEditState{};
+			m_routeNameEditState.text = r->name;
+			m_panelManager.show(U"route_info",
+				U"路線 #{}"_fmt(*hitRoute), panelRightPos(U"route_info"));
+			m_panelManager.hide(U"edge_info");
+			m_panelManager.hide(U"node_info");
+			m_panelManager.hide(U"guide_sign_edit");
+			m_panelManager.hide(U"signal_edit");
+			m_panelManager.hide(U"building_info");
+			return;
+		}
+	}
+
 	// ワールド上の候補を優先順位つきで走査し、対応する情報パネルと選択状態を一貫して切り替える。
 	// 車両 -> ノード -> エッジの優先順でクリック判定
-	Optional<int> hitVehicleId;
+	Optional<int> hitVehicleId,hitTrainId;
 	{
 		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
 		double bestDist = 1e9;
+		for (const auto& train:m_trainManager.trains())
+		{
+			if (const auto distance=TrainConsist::hitDistance(train,m_trainNetwork,ray);distance && *distance<bestDist) { bestDist=*distance;hitTrainId=train.id; }
+		}
 		for (const auto& v : m_renderVehicles)
 		{
 			const Vec3 size = Vec3{ 2.0, 3.0, 5.0 };
@@ -740,10 +773,17 @@ void GameScene::handleSelectionClick()
 				if (*d < bestDist)
 				{
 					bestDist = *d;
-					hitVehicleId = v.id;
+					hitVehicleId = v.id; hitTrainId.reset();
 				}
 			}
 		}
+	}
+
+	if (hitTrainId)
+	{
+		clearSelection();m_selectedVehicleId.reset();m_trackingVehicle=false;
+		m_panelManager.hide(U"vehicle_info");
+		m_selection={SelectionKind::Train,*hitTrainId};return;
 	}
 
 	if (hitVehicleId)
@@ -800,25 +840,6 @@ void GameScene::handleSelectionClick()
 			m_panelManager.hide(U"node_info");
 			m_panelManager.hide(U"guide_sign_edit");
 			m_panelManager.hide(U"signal_edit");
-			return;
-		}
-	}
-
-	// ── 国道路線標識のヒットテスト（ノード・エッジより優先） ──
-	if (const auto hitRoute = m_routeSignRenderer.hitTest(Vec2{ Cursor::Pos() }))
-	{
-		if (const RoadRoute* r = m_network.getRoute(*hitRoute))
-		{
-			selectRoute(*hitRoute);
-			m_routeNameEditState = TextEditState{};
-			m_routeNameEditState.text = r->name;
-			m_panelManager.show(U"route_info",
-				U"路線 #{}"_fmt(*hitRoute), panelRightPos(U"route_info"));
-			m_panelManager.hide(U"edge_info");
-			m_panelManager.hide(U"node_info");
-			m_panelManager.hide(U"guide_sign_edit");
-			m_panelManager.hide(U"signal_edit");
-			m_panelManager.hide(U"building_info");
 			return;
 		}
 	}
@@ -914,8 +935,8 @@ void GameScene::handleRoadDraw()
 	// PgUp/PgDown: 高さオフセットを変更（キー操作はパネル上でも有効）
 	{
 		constexpr float kElevStep = 1.0f;
-		if (KeyPageUp.pressed())   m_drawElevation += kElevStep;
-		if (KeyPageDown.pressed()) m_drawElevation = Max(m_drawElevation - kElevStep, -100.0f);
+		if (GameInput::pressed(KeyPageUp))   m_drawElevation += kElevStep;
+		if (GameInput::pressed(KeyPageDown)) m_drawElevation = Max(m_drawElevation - kElevStep, -100.0f);
 	}
 
 	// パネル上にカーソルがあるときはマウス操作をすべて吸収
@@ -927,7 +948,7 @@ void GameScene::handleRoadDraw()
 	if (m_autoPlaceMode)
 	{
 		// ESC でスタートをクリア（モードは継続）
-		if (KeyEscape.down())
+		if (GameInput::down(KeyEscape))
 		{
 			m_autoPlaceStart = none;
 			return;
@@ -1064,161 +1085,6 @@ void GameScene::handleRoadDraw()
 		m_drawStartNode = none;
 }
 
-void GameScene::clearDraftRoadPlan()
-{
-	m_draftRoadPlan.editor.clear();
-	m_draftRoadPlan.replaceEnd = false;
-	m_draftRoadPlan.message.clear();
-	m_draftRoadPlan.error = false;
-	m_roadPlanCursor = none;
-}
-
-Array<Vec3> GameScene::draftRoadPlanViaPoints() const
-{
-	Array<Vec3> viaPoints;
-	const auto& points = m_draftRoadPlan.editor.points();
-	for (size_t i = 1; i + 1 < points.size(); ++i) { viaPoints << points[i]; }
-	return viaPoints;
-}
-
-bool GameScene::rebuildDraftRoadPlan()
-{
-	const Stopwatch timer{StartImmediately::Yes};
-	const bool valid = m_draftRoadPlan.editor.rebuild(m_world,m_drawTemplate,m_draftRoadPlan.followTerrain);
-	m_draftRoadPlan.error = !valid && m_draftRoadPlan.editor.points().size() >= 2;
-	m_draftRoadPlan.message = m_draftRoadPlan.error ? U"経路が見つかりません。終点を調整できます" : U"";
-	DBG_LOG(U"[RoadPlan] preview points={} valid={} length={:.1f} elapsedMs={:.3f}"_fmt(
-		m_draftRoadPlan.editor.points().size(),valid,m_draftRoadPlan.editor.length(),timer.msF()));
-	return valid;
-}
-
-bool GameScene::commitDraftRoadPlan()
-{
-	if (!m_draftRoadPlan.editor.valid()) { return false; }
-	if (m_draftRoadPlan.appendToExistingRoute && (!m_draftRoadPlan.routeId || !m_network.getRoute(*m_draftRoadPlan.routeId)))
-	{
-		m_draftRoadPlan.message = U"保存先の路線を選択してください";
-		m_draftRoadPlan.error = true;
-		return false;
-	}
-	const Stopwatch timer{StartImmediately::Yes};
-	const int firstNewEdge = m_network.nextEdgeId();
-	Array<int> previousEdges;
-	for (const auto& edge : m_network.edges()) { if (edge.id >= 0) { previousEdges << edge.id; } }
-	const Array<int> edgeIds = m_draftRoadPlan.editor.apply(m_network,m_world,m_drawTemplate,m_draftRoadPlan.followTerrain);
-	if (edgeIds.isEmpty())
-	{
-		m_draftRoadPlan.message = U"接続できません。重複や接続本数を確認";
-		m_draftRoadPlan.error = true;
-		DBG_LOG(U"[RoadPlan] save failed; live network unchanged, elapsedMs={:.3f}"_fmt(timer.msF()));
-		return false;
-	}
-	for (const int id : previousEdges)
-	{
-		if (!m_network.getEdge(id)) { m_worldRenderer.invalidateTerrainForEdge(id); }
-	}
-	Array<int> dirtyNodes;
-	for (const auto& edge : m_network.edges())
-	{
-		if (edge.id < firstNewEdge) { continue; }
-		m_network.updateEdgeElevation(edge.id,m_world);
-		dirtyNodes << edge.nodeA << edge.nodeB;
-		m_roadRenderer.invalidateCachesAroundNode(edge.nodeA,m_network);
-		m_roadRenderer.invalidateCachesAroundNode(edge.nodeB,m_network);
-	}
-	notifyNetworkChanged(dirtyNodes);
-	m_roadPlanSnapIndex.rebuild(m_network);
-
-
-	int routeId = -1;
-	String routeName = m_draftRoadPlan.routeNameEdit.text;
-	if (m_draftRoadPlan.appendToExistingRoute && m_draftRoadPlan.routeId)
-	{
-		routeId = *m_draftRoadPlan.routeId;
-		if (RoadRoute* route = m_network.getRoute(routeId))
-		{
-			for (const int eid : edgeIds)
-				route->edgeIds << eid;
-			routeName = route->name;
-		}
-	}
-	else
-	{
-		routeId = m_network.addRoute(
-			RoadRouteKind::Named,
-			routeName,
-			edgeIds,
-			0);
-		if (const RoadRoute* route = m_network.getRoute(routeId))
-			routeName = route->name;
-	}
-	m_network.rebuildEdgeRouteIndex();
-
-	RoadPlan plan;
-	plan.name = m_draftRoadPlan.nameEdit.text;
-	if (plan.name.isEmpty())
-		plan.name = U"道路計画 {}"_fmt(m_network.plans().size() + 1);
-	plan.routeId = routeId;
-	plan.routeName = routeName;
-	plan.roadType = m_drawTemplate.roadType;
-	plan.edgeIds = edgeIds;
-	plan.viaPoints = draftRoadPlanViaPoints();
-	plan.originName = U"始点";
-	plan.destName = U"終点";
-	plan.state = PlanState::Planning;
-
-	const int planId = m_network.addPlan(std::move(plan));
-	selectRoadPlan(planId);
-	clearDraftRoadPlan();
-	m_draftRoadPlan.message = U"計画を保存しました。着工は計画一覧から";
-	DBG_LOG(U"[RoadPlan] saved plan={} edges={} elapsedMs={:.3f}"_fmt(planId,edgeIds.size(),timer.msF()));
-	return true;
-}
-
-void GameScene::handleRoadPlan()
-{
-	if (KeyPageUp.down()) { m_drawElevation=Min(100.0f,m_drawElevation+1); }
-	if (KeyPageDown.down()) { m_drawElevation=Max(-100.0f,m_drawElevation-1); }
-	if (!m_panelManager.isVisible(U"draw_template")) { m_roadPlanCursor = none; return; }
-	if (KeyEnter.down()) { commitDraftRoadPlan(); return; }
-	const bool redo = KeyControl.pressed() && (KeyY.down() || (KeyShift.pressed() && KeyZ.down()));
-	const bool undo = KeyBackspace.down() || (KeyControl.pressed() && !KeyShift.pressed() && KeyZ.down());
-	if (redo || undo)
-	{
-		if (redo ? m_draftRoadPlan.editor.redo() : m_draftRoadPlan.editor.undo()) { rebuildDraftRoadPlan(); }
-		return;
-	}
-	m_roadPlanCursor = none;
-	if (m_panelManager.blocksMouseInput() || !m_cursorGroundPos) { return; }
-	if (MouseR.down())
-	{
-		if (m_draftRoadPlan.editor.undo()) { rebuildDraftRoadPlan(); }
-		return;
-	}
-	Vec3 point = *m_cursorGroundPos;
-	const auto& points = m_draftRoadPlan.editor.points();
-	if (KeyShift.pressed() && !points.isEmpty())
-	{
-		const Vec3 origin = points[m_draftRoadPlan.replaceEnd && points.size() >= 2 ? points.size()-2 : points.size()-1];
-		point = RoadPlanDraft::constrainAngle(origin,point);
-		point.y = m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-	}
-	point.y+=m_drawElevation;
-	m_roadPlanCursor = m_draftRoadPlan.snapping && !KeyAlt.pressed() && Abs(m_drawElevation)<.1f
-		? m_roadPlanSnapIndex.find(m_network,point) : RoadPlanSnapIndex::Hit{point};
-	if (!MouseL.down()) { return; }
-	if (m_draftRoadPlan.editor.place(m_roadPlanCursor->position,m_draftRoadPlan.replaceEnd))
-	{
-		m_draftRoadPlan.replaceEnd = false;
-		rebuildDraftRoadPlan();
-	}
-	else
-	{
-		m_draftRoadPlan.error = true;
-		m_draftRoadPlan.message = U"直前の点から2m以上離して指定してください";
-	}
-}
-
 void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 {
 	const Array<int> edgeIds = RoadAutoPlace::buildPlanned(m_network, m_world, start, goal, m_pendingRouteIds, m_drawTemplate);
@@ -1239,6 +1105,9 @@ void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 				m_network.generatePiersForEdge(eid, m_world);
 		}
 	}
+
+	RoadTerrainFit::apply(m_network,m_world,HashSet<int>{edgeIds.begin(),edgeIds.end()});
+	m_worldRenderer.invalidateTerrainForEdges(m_network,edgeIds);
 
 	// 影響ノードを収集して差分更新
 	Array<int> dirtyNodes;
@@ -1261,7 +1130,7 @@ void GameScene::handleZonePaint()
 	if (!m_cursorGroundPos) return;
 	if (m_panelManager.blocksMouseInput()) return;
 
-	if (KeyShift.pressed())
+	if (GameInput::pressed(KeyShift))
 	{
 		if (MouseL.down())
 			m_rectStart = m_cursorGroundPos;
@@ -1275,7 +1144,7 @@ void GameScene::handleZonePaint()
 	{
 		m_rectStart = none;
 		if (MouseL.pressed())
-			m_zoneManager.paintZone(m_world, *m_cursorGroundPos, m_paintZone, 2);
+			m_zoneManager.paintZone(m_world, *m_cursorGroundPos, m_paintZone, m_zoneBrushRadius);
 	}
 }
 
@@ -1376,7 +1245,7 @@ void GameScene::handleTrainDraw()
 
 		int nodeId;
 		if (!nearNode)
-			nodeId = m_trainNetwork.addStation(*m_cursorGroundPos, U"駅");
+			nodeId = m_trainNetwork.addStation(*m_cursorGroundPos, U"新駅{}"_fmt(m_trainNetwork.nodes().size()+1));
 		else
 			nodeId = *nearNode;
 
@@ -1394,6 +1263,9 @@ void GameScene::handleTrainDraw()
 				m_trainNetwork.addEdge(from, nodeId,
 					pa + (pb - pa) * (1.0 / 3),
 					pa + (pb - pa) * (2.0 / 3));
+				const auto schedule = RailTimetable::makeDefault(m_trainNetwork,from,nodeId);
+				String error;
+				if (m_trainNetwork.applySchedule(schedule,error)) { m_soundEffects.play(SoundEffects::Cue::Complete); }
 			}
 			m_trainDrawStartNode = nodeId;
 		}
@@ -1604,8 +1476,8 @@ void GameScene::updateCursor()
 		return;
 	}
 
-	constexpr float kStep    = 8.0f;
-	constexpr float kMaxDist = 8000.0f;
+	const float kStep = Max(8.0f,m_camera.distance()/1000.0f);
+	const float kMaxDist = Max(8000.0f,m_camera.distance()*3);
 
 	float tPrev    = 0.0f;
 	bool  hitFound = false;
@@ -1652,6 +1524,7 @@ void GameScene::updateCursor()
 
 String GameScene::modeString() const
 {
+	if (m_drivingNoticeSeconds>0) { return U"近くに運転できる開通済みの道路がありません"; }
 	switch (m_mode)
 	{
 	case EditMode::RoadPlan:
@@ -1711,7 +1584,7 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 {
 	Optional<int> best;
 	float bestDistSq = radius * radius;
-	// RoadRenderer::ensureSignalAttachGeomCache と同じ計算で各 attachment の描画位置を算出する
+	// 描画と共通の信号柱位置を使い、道路幅や端点の向きが変わっても選択位置を一致させる。
 	for (const auto& node : m_network.nodes())
 	{
 		if (node.id < 0 || !node.signalPlacement) continue;
@@ -1723,42 +1596,10 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 			const auto bez = m_network.getBezier(att.edgeId);
 			if (!bez) continue;
 
-			const bool  isNodeA   = (edge->nodeA == node.id);
-			const float cutoff    = isNodeA ? edge->cutoffA : edge->cutoffB;
-			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
-			const Vec3  cutPos    = bez->positionAt(cutoffArc);
-			const Vec3  rightVec  = tangentToRight(bez->tangentAt(cutoffArc));
-
-			const bool entryOnRight = !isNodeA;
-			float roadEdgeOffset = 0.0f;
-			bool  foundRoadbed   = false;
-			for (const auto& part : edge->parts)
-			{
-				if (part.type != RoadPartType::Roadbed) continue;
-				const float oL = isNodeA ? part.offsetA_L : part.offsetB_L;
-				const float oR = isNodeA ? part.offsetA_R : part.offsetB_R;
-				const float edgePos = entryOnRight ? oR : oL;
-				if (!foundRoadbed)
-				{
-					roadEdgeOffset = edgePos;
-					foundRoadbed   = true;
-				}
-				else
-				{
-					roadEdgeOffset = entryOnRight
-						? Max(roadEdgeOffset, edgePos)
-						: Min(roadEdgeOffset, edgePos);
-				}
-			}
-			if (!foundRoadbed)
-			{
-				roadEdgeOffset = entryOnRight
-					? edge->totalWidth() * 0.5f
-					: -edge->totalWidth() * 0.5f;
-			}
-
-			const double sx = cutPos.x - rightVec.x * roadEdgeOffset;
-			const double sz = cutPos.z - rightVec.z * roadEdgeOffset;
+			const auto anchor = RoadGeometry::signalAnchor(*edge, *bez, node.id);
+			if (!anchor) { continue; }
+			const double sx = anchor->position.x;
+			const double sz = anchor->position.z;
 			const float dx = static_cast<float>(sx - pos.x);
 			const float dz = static_cast<float>(sz - pos.z);
 			const float d2 = dx * dx + dz * dz;
@@ -1825,4 +1666,15 @@ bool GameScene::selectLandParcelAt(Vec2 position)
 		return true;
 	}
 	return false;
+}
+
+void GameScene::handleGlobalShortcuts()
+{
+	if(!m_commandPalette.visible && !m_showPauseMenu && GameInput::down(KeySlash)) { m_commandPalette.open(); }
+	if(m_commandPalette.visible)
+	{
+		if(const auto command=m_commandPalette.update()) { executeCommand(*command); }
+		return;
+	}
+	if (!m_showPauseMenu && !GameInput::keyboardBlocked() && GameInput::down(KeyF3)) { m_frameRateGraph.visible=!m_frameRateGraph.visible; }
 }

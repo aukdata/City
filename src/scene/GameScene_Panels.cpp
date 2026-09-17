@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/RoadDiagramStyle.hpp"
 #include "../ui/LandParcelPanel.hpp"
 #include "../ui/ConstructionStatus.hpp"
 #include "EdgeSectionState.hpp"
@@ -7,20 +8,12 @@
 #include "../asset/AssetRegistrar.hpp"
 #include "../road/GuideSign.hpp"
 #include "../road/RoadSign.hpp"
+#include "../road/RoadConstructionStart.hpp"
 
+/// @file
+/// @brief 道路の断面・計画・路線の編集。車両等の情報は InspectorPanels、信号現示は SignalPanel に置く。
 namespace
 {
-	Font panelFont()
-	{
-		return FontAsset(Asset::Panel14);
-	}
-	Font panelBoldFont()
-	{
-		return FontAsset(Asset::PanelBold14);
-	}
-
-	constexpr double kConstructionUnitsPerDay = GameClock::kSecondsPerGameDay;
-	constexpr double kConstructionCostEpsilon = 1e-6;
 
 	String formatConstructionCost(double costOku)
 	{
@@ -41,73 +34,7 @@ namespace
 
 	String formatConstructionDuration(double constructionDuration)
 	{
-		const int totalDays = static_cast<int>(Ceil(Max(0.0, constructionDuration) / kConstructionUnitsPerDay));
-		if (totalDays <= 0)
-		{
-			return U"0日";
-		}
-		const int months = totalDays / 30;
-		const int days = totalDays % 30;
-		if (months > 0 && days > 0)
-		{
-			return U"{}か月{}日"_fmt(months, days);
-		}
-		if (months > 0)
-		{
-			return U"{}か月"_fmt(months);
-		}
-		return U"{}日"_fmt(days);
-	}
-
-	bool canAffordConstruction(double funds, double costOku)
-	{
-		return funds + kConstructionCostEpsilon >= costOku;
-	}
-
-	double constructionStartCostForEdge(const RoadNetwork& network, const RoadEdge& edge)
-	{
-		if (edge.planId >= 0)
-		{
-			if (const RoadPlan* plan = network.getPlan(edge.planId))
-			{
-				return (plan->state == PlanState::Planning) ? static_cast<double>(plan->totalCost) : 0.0;
-			}
-		}
-		return network.estimatePlanCost(edge.roadType, edge.length);
-	}
-
-	double plannedConstructionCostForRoute(const RoadNetwork& network, const RoadRoute& route)
-	{
-		HashSet<int> countedPlanIds;
-		double totalCost = 0.0;
-		for (const int eid : route.edgeIds)
-		{
-			const RoadEdge* edge = network.getEdge(eid);
-			if (!edge || edge->edgeState != EdgeState::Planned)
-			{
-				continue;
-			}
-			if (edge->planId >= 0)
-			{
-				if (countedPlanIds.contains(edge->planId))
-				{
-					continue;
-				}
-				if (const RoadPlan* plan = network.getPlan(edge->planId))
-				{
-					if (plan->state == PlanState::Planning)
-					{
-						totalCost += static_cast<double>(plan->totalCost);
-						countedPlanIds.insert(edge->planId);
-					}
-				}
-			}
-			else
-			{
-				totalCost += network.estimatePlanCost(edge->roadType, edge->length);
-			}
-		}
-		return totalCost;
+		return ConstructionStatus::durationLabel(constructionDuration);
 	}
 
 	/// @brief RoadPartType に対するデフォルト defId を返す
@@ -124,39 +51,6 @@ namespace
 		case RoadPartType::Guardrail: return U"guardrail_steel";
 		case RoadPartType::Wall:      return U"wall_concrete";
 		default:                       return U"";
-		}
-	}
-
-/// @brief RoadPartType → UI 描画色（断面バー / 信号編集図 共用）
-	ColorF partTypeColor(RoadPartType type)
-	{
-		switch (type)
-		{
-		case RoadPartType::Roadbed:   return ColorF{0.25, 0.25, 0.27};
-		case RoadPartType::Shoulder:  return ColorF{0.35, 0.33, 0.30};
-		case RoadPartType::Median:    return ColorF{0.45, 0.55, 0.30};
-		case RoadPartType::Sidewalk:  return ColorF{0.60, 0.58, 0.55};
-		case RoadPartType::Gutter:    return ColorF{0.20, 0.20, 0.22};
-		case RoadPartType::Guardrail: return ColorF{0.55, 0.55, 0.55};
-		case RoadPartType::Wall:      return ColorF{0.45, 0.42, 0.38};
-		case RoadPartType::Curb:      return ColorF{0.50, 0.48, 0.44};
-		case RoadPartType::Slope:     return ColorF{0.40, 0.52, 0.30};
-		case RoadPartType::BikeLane:  return ColorF{0.30, 0.45, 0.55};
-		default:                      return ColorF{0.3};
-		}
-	}
-
-	/// @brief LineType → 描画色（断面バー / 信号編集図 共用）
-	/// @note DashedWhite は alpha=0.5（バー上で破線を視覚的に示す）
-	ColorF lineTypeColor(LineType lt)
-	{
-		switch (lt)
-		{
-		case LineType::SolidWhite:  return ColorF{1.0, 1.0, 1.0};
-		case LineType::DashedWhite: return ColorF{1.0, 1.0, 1.0, 0.5};
-		case LineType::SolidYellow: return ColorF{1.0, 0.9, 0.0};
-		case LineType::DoubleYellow:return ColorF{1.0, 0.9, 0.0};
-		default:                    return ColorF{0, 0, 0, 0};
 		}
 	}
 
@@ -343,7 +237,7 @@ namespace
 					const RectF hitRect{ hitX0, yTop, hitW, yBot - yTop };
 					const bool sel = (i == st.selectedPart);
 
-					ColorF col = partTypeColor(p.type);
+					ColorF col = RoadDiagramStyle::partTypeColor(p.type);
 					if (p.build != BuildState::Built) col = col * 0.5;
 					const ColorF drawCol = sel ? col.lerp(ColorF{1.0}, 0.25) : col;
 					const ColorF frameCol = sel ? ColorF{1.0, 1.0, 0.3} : ColorF{0.3, 0.3, 0.3};
@@ -605,7 +499,7 @@ namespace
 
 					// 左側ライン
 					{
-						const ColorF lc = lineTypeColor(L.lineLeft);
+						const ColorF lc = RoadDiagramStyle::lineTypeColor(L.lineLeft);
 						if (lc.a > 0.01)
 						{
 							const double lw = (L.lineLeft == LineType::DoubleYellow) ? 3.0 : 1.0;
@@ -614,7 +508,7 @@ namespace
 					}
 					// 右側ライン
 					{
-						const ColorF lc = lineTypeColor(L.lineRight);
+						const ColorF lc = RoadDiagramStyle::lineTypeColor(L.lineRight);
 						if (lc.a > 0.01)
 						{
 							const double lw = (L.lineRight == LineType::DoubleYellow) ? 3.0 : 1.0;
@@ -814,60 +708,6 @@ namespace
 	}
 }
 
-// =============================================================================
-// 地名リストパネル
-// =============================================================================
-
-void GameScene::drawNameListPanel()
-{
-	auto area = m_panelManager.beginContent(U"name_list");
-	if (!area) return;
-
-	const auto& listFont = FontAsset(Asset::Panel14);
-	constexpr int kLineH = 22;
-	constexpr int kPad = 8;
-
-	double y = kPad;
-
-	for (size_t idx = 0; idx < m_districts.size(); ++idx)
-	{
-		const auto& s = m_districts[idx];
-		StringView typeStr;
-		ColorF typeColor;
-		switch (s.kind)
-		{
-		case MapGenerator::SettlementKind::RegionalCity:
-			typeStr = U"[城]"; typeColor = ColorF{ 1.0, 0.4, 0.4 }; break;
-		case MapGenerator::SettlementKind::LocalTown:
-			typeStr = U"[宿]"; typeColor = ColorF{ 0.4, 0.8, 1.0 }; break;
-		default:
-			typeStr = U"[村]"; typeColor = ColorF{ 0.6, 0.8, 0.5 }; break;
-		}
-
-		const RectF itemRect{ static_cast<double>(kPad), y,
-			240.0 - kPad * 2, static_cast<double>(kLineH) };
-		const bool hovered = itemRect.mouseOver();
-
-		if (hovered)
-			itemRect.draw(ColorF{ 1, 1, 1, 0.1 });
-
-		listFont(typeStr).draw(Vec2{ kPad, y + 2 }, typeColor);
-		listFont(s.name).draw(Vec2{ kPad + 30, y + 2 },
-			hovered ? Palette::Yellow : Palette::White);
-
-		if (hovered && MouseL.down())
-		{
-			const float h = m_world.computeHeight(
-				static_cast<float>(s.center.x), static_cast<float>(s.center.y));
-			m_camera.setFocus(Vec3{ s.center.x, h, s.center.y });
-			if (m_camera.mode() != CameraMode::Overview)
-				m_camera.cycleMode();
-		}
-
-		y += kLineH;
-	}
-	m_panelManager.reportContentHeight(U"name_list", y);
-}
 
 // =============================================================================
 // 道路エッジ編集パネル
@@ -882,8 +722,8 @@ void GameScene::drawEdgePanel()
 	auto area = m_panelManager.beginContent(U"edge_info");
 	if (!area) return;
 
-	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
+	const auto& pFont = FontAsset(Asset::Panel14);
+	const auto& pBold = FontAsset(Asset::PanelBold14);
 
 	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"edge_info").x));
 	bool dirty = false;
@@ -908,36 +748,11 @@ void GameScene::drawEdgePanel()
 
 			if (edge->edgeState == EdgeState::Planned)
 			{
-				const double startCost = constructionStartCostForEdge(m_network, *edge);
-				const bool hasFunds = canAffordConstruction(m_economy.funds, startCost);
+				const double startCost = RoadConstructionStart::estimateCost(m_network, { edge->id });
+				const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, startCost);
 				if (ui.button(U"建設", false, 60, U"{}を支出して建設を開始"_fmt(formatConstructionCost(startCost))) && hasFunds)
 				{
-					bool started = false;
-					double chargedCost = 0.0;
-					if (edge->planId >= 0)
-					{
-						if (const RoadPlan* plan = m_network.getPlan(edge->planId))
-						{
-							chargedCost = static_cast<double>(plan->totalCost);
-							started = startRoadPlanConstruction(edge->planId);
-						}
-					}
-					else
-					{
-						chargedCost = m_network.estimatePlanCost(edge->roadType, edge->length);
-						edge->edgeState = EdgeState::UnderConstruction;
-						edge->constructionStartTime = m_clock.now;
-						prepareConstructionSite({edge->id});
-						started = true;
-					}
-					if (started)
-					{
-						m_economy.funds = Max(0.0, m_economy.funds - chargedCost);
-						m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
-						m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
-						notifyNetworkChanged({ edge->nodeA, edge->nodeB });
-						dirty = true;
-					}
+					if (startRoadConstruction({ edge->id })) { dirty = true; }
 				}
 				if (!hasFunds)
 				{
@@ -1099,7 +914,7 @@ void GameScene::drawEdgePanel()
 		const int btnW = 120;
 		const int btnX = 6;
 		const int btnY = y + 8;
-		const auto& font = panelFont();
+		const auto& font = FontAsset(Asset::Panel14);
 		const bool clicked = PanelWidget::buttonDanger(font, U"エッジを削除",
 		                                               btnX, btnY, btnW, PanelBuilder::kLineH,
 		                                               U"このエッジを削除します（接続数0のノードも削除）");
@@ -1189,8 +1004,8 @@ void GameScene::drawRoadPlanPanel()
 	auto area = m_panelManager.beginContent(U"draw_template");
 	if (!area) return;
 
-	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
+	const auto& pFont = FontAsset(Asset::Panel14);
+	const auto& pBold = FontAsset(Asset::PanelBold14);
 	const int panelW = static_cast<int>(m_panelManager.getSize(U"draw_template").x);
 	constexpr int kPad = 6;
 	constexpr int kLH  = 17;
@@ -1199,18 +1014,17 @@ void GameScene::drawRoadPlanPanel()
 	RoadPlanToolbar::State toolbarState;
 	toolbarState.preset = m_draftRoadPlan.preset;
 	toolbarState.points = m_draftRoadPlan.editor.points().size();
-	toolbarState.valid = m_draftRoadPlan.editor.valid();
+	toolbarState.valid = m_draftRoadPlan.editor.valid() && !m_draftRoadPlan.draggedPoint;
 	toolbarState.canUndo = m_draftRoadPlan.editor.canUndo();
 	toolbarState.canRedo = m_draftRoadPlan.editor.canRedo();
-	toolbarState.followTerrain = m_draftRoadPlan.followTerrain;
+	toolbarState.generated = m_draftRoadPlan.editor.generated();
 	toolbarState.snapping = m_draftRoadPlan.snapping;
-	toolbarState.replaceEnd = m_draftRoadPlan.replaceEnd;
 	toolbarState.width = m_drawTemplate.totalWidth();
 	toolbarState.elevation=m_drawElevation;
 	toolbarState.length = m_draftRoadPlan.editor.length();
 	toolbarState.cost = m_network.estimatePlanCost(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength());
-	toolbarState.days = static_cast<int>(Ceil(m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength())/GameClock::kSecondsPerGameDay));
-	toolbarState.funds = m_economy.funds;
+	toolbarState.constructionSeconds = m_network.estimatePlanConstructionDuration(m_drawTemplate.roadType,m_draftRoadPlan.editor.constructionEquivalentLength());
+	toolbarState.funds = m_sandboxActive ? Math::Inf : m_economy.funds;
 	toolbarState.message = m_draftRoadPlan.message;
 	toolbarState.error = m_draftRoadPlan.error;
 	const auto action = RoadPlanToolbar::draw(pFont,pBold,panelW-10,toolbarState);
@@ -1221,13 +1035,12 @@ void GameScene::drawRoadPlanPanel()
 		m_drawTemplate = RoadPlanDraft::makeRoadTemplate(m_draftRoadPlan.preset);
 		rebuildDraftRoadPlan();
 	}
-	else if (action == Action::Routing) { m_draftRoadPlan.followTerrain = !m_draftRoadPlan.followTerrain; rebuildDraftRoadPlan(); }
+	else if (action == Action::Generate) { generateDraftRoadPlan(); }
 	else if (action == Action::Snap) { m_draftRoadPlan.snapping = !m_draftRoadPlan.snapping; }
-	else if (action == Action::ReplaceEnd) { m_draftRoadPlan.replaceEnd = !m_draftRoadPlan.replaceEnd; }
 	else if (action == Action::Undo && m_draftRoadPlan.editor.undo()) { rebuildDraftRoadPlan(); }
 	else if (action == Action::Redo && m_draftRoadPlan.editor.redo()) { rebuildDraftRoadPlan(); }
 	else if (action == Action::Clear) { clearDraftRoadPlan(); }
-	else if (action == Action::Save) { commitDraftRoadPlan(); }
+	else if (action == Action::Construct) { commitDraftRoadPlan(); }
 	y = RoadPlanToolbar::kHeight+10;
 
 	PanelWidget::label(pFont, U"計画名", kPad, y, ColorF{ 0.6 });
@@ -1287,7 +1100,7 @@ void GameScene::drawRoadPlanPanel()
 		if (active)
 		{
 			const double planCost = static_cast<double>(plan.totalCost);
-			const bool hasFunds = canAffordConstruction(m_economy.funds, planCost);
+			const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, planCost);
 			PanelWidget::label(pFont, U"延長 {:.0f}m / 概算 {}"_fmt(plan.totalLength, formatConstructionCost(planCost)),
 				kPad + 8, y, ColorF{ 0.75 });
 			y += kLH + 2;
@@ -1304,21 +1117,7 @@ void GameScene::drawRoadPlanPanel()
 
 				if (PanelWidget::button(pFont, U"着工", false, kPad + 8, y, 50, kLH, U"概算費用を支出して計画全体を着工") && hasFunds)
 				{
-					if (startRoadPlanConstruction(plan.id))
-					{
-						m_economy.funds = Max(0.0, m_economy.funds - planCost);
-						Array<int> dirtyNodes;
-						for (const int eid : plan.edgeIds)
-						{
-							if (const RoadEdge* edge = m_network.getEdge(eid))
-							{
-								dirtyNodes << edge->nodeA << edge->nodeB;
-								m_roadRenderer.invalidateCachesAroundNode(edge->nodeA, m_network);
-								m_roadRenderer.invalidateCachesAroundNode(edge->nodeB, m_network);
-							}
-						}
-						notifyNetworkChanged(dirtyNodes);
-					}
+					startRoadConstruction(plan.edgeIds);
 				}
 			}
 			if (PanelWidget::buttonDanger(pFont, U"削除", kPad + 64, y, 50, kLH, U"計画を削除"))
@@ -1382,8 +1181,8 @@ void GameScene::drawDrawTemplatePanel()
 
 	RoadEdge* edge = &m_drawTemplate;
 
-	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
+	const auto& pFont = FontAsset(Asset::Panel14);
+	const auto& pBold = FontAsset(Asset::PanelBold14);
 
 	const int panelW = static_cast<int>(m_panelManager.getSize(U"draw_template").x);
 	constexpr int kPad = 6;
@@ -1659,8 +1458,8 @@ void GameScene::drawNodePanel()
 	auto area = m_panelManager.beginContent(U"node_info");
 	if (!area) return;
 
-	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
+	const auto& pFont = FontAsset(Asset::Panel14);
+	const auto& pBold = FontAsset(Asset::PanelBold14);
 
 	constexpr int kPad = 6;
 	constexpr int kLH = 17;
@@ -1923,752 +1722,6 @@ void GameScene::recomputeGuideSignsAroundNode(int nodeId)
 	}
 }
 
-// =============================================================================
-// 車両情報パネル
-// =============================================================================
-
-void GameScene::drawVehiclePanel()
-{
-	if (!m_selectedVehicleId) return;
-
-	const Vehicle* veh = nullptr;
-	for (const auto& v : m_vehicleManager.vehicles())
-	{
-		if (v.id == *m_selectedVehicleId) { veh = &v; break; }
-	}
-	if (!veh)
-	{
-		m_selectedVehicleId = none;
-		m_trackingVehicle = false;
-		m_panelManager.hide(U"vehicle_info");
-		return;
-	}
-
-	auto area = m_panelManager.beginContent(U"vehicle_info");
-	if (!area) return;
-
-	const auto& pFont = panelFont();
-
-	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"vehicle_info").x));
-
-	static constexpr StringView typeNames[] = {
-		U"乗用車", U"軽自動車", U"原付", U"小型車",
-		U"バス", U"小型トラック", U"大型トラック", U"緊急車両"
-	};
-	const int typeIdx = static_cast<int>(veh->type);
-	ui.label(U"種別: {}"_fmt(typeIdx < 8 ? typeNames[typeIdx] : U"?"), ColorF{1.0});
-	ui.label(U"速度: {:.1f} km/h"_fmt(veh->speed * 3.6f), ColorF{1.0});
-
-	static constexpr StringView locNames[] = { U"車線上", U"交差点内", U"車線変更中" };
-	ui.label(U"位置種別: {}"_fmt(locNames[static_cast<int>(veh->location)]), ColorF{1.0});
-	ui.label(U"エッジ: {}  車線: {}"_fmt(veh->currentEdge, veh->currentLane), ColorF{1.0});
-
-	ui.row(4, [&] {
-		ui.label(U"目標エッジ: {}"_fmt(veh->goalEdgeId), ColorF{1.0});
-		// 選択中エッジをゴールに設定するボタン
-		if (selectedEdgeId())
-		{
-			if (ui.button(U"目標に設定", false, 70, U"選択中エッジを目標に設定"))
-			{
-				m_vehicleManager.setGoalAndReroute(veh->id, *selectedEdgeId(), *m_simGraph);
-			}
-		}
-	});
-	ui.spacer(4);
-
-	// 追跡ボタン
-	if (ui.button(m_trackingVehicle ? U"追跡中" : U"追跡", m_trackingVehicle, 120))
-	{
-		m_trackingVehicle = !m_trackingVehicle;
-	}
-	ui.spacer(6);
-
-	// 経路ウェイポイント
-	const int wpCount = static_cast<int>(veh->routeWaypoints.size());
-	ui.label(U"経路: {}/{} 点"_fmt(veh->routeIdx, wpCount), ColorF{1.0, 1.0, 0.4}, true);
-	ui.spacer(2);
-
-	if (wpCount == 0)
-	{
-		ui.label(veh->routeRequested ? U"(経路要求中...)" : U"(経路なし)", ColorF{0.6});
-	}
-
-	// ウェイポイントリスト（手動座標制御）
-	constexpr int kLH = 17;
-	constexpr int kPad = 6;
-	int y = ui.height();
-	const int showStart = Max(0, veh->routeIdx - 2);
-	const int showEnd   = Min(wpCount, veh->routeIdx + 10);
-	for (int i = showStart; i < showEnd; ++i)
-	{
-		const auto& wp = veh->routeWaypoints[i];
-		const bool isCurrent = (i == veh->routeIdx);
-		const bool isPast    = (i < veh->routeIdx);
-
-		const RoadEdge* edge = m_network.getEdge(wp.edgeId);
-		const String label = U"{} E:{} L:{} {:.0f}m"_fmt(
-			isCurrent ? U">" : (isPast ? U" " : U" "),
-			wp.edgeId, wp.laneIndex, wp.edgeLength);
-
-		const RectF itemRect{ static_cast<double>(kPad), static_cast<double>(y),
-			260.0, static_cast<double>(kLH) };
-		const bool itemHover = itemRect.mouseOver();
-
-		if (itemHover)
-		{
-			itemRect.draw(ColorF{ 0.3, 0.3, 0.5, 0.4 });
-		}
-
-		const ColorF color = isPast ? ColorF{ 0.4 }
-			: (isCurrent ? ColorF{ 0.0, 1.0, 1.0 }
-			: (itemHover ? ColorF{ 1.0, 1.0, 0.0 } : ColorF{ 1.0 }));
-		PanelWidget::label(pFont, label, kPad + 2, y, color);
-
-		if (itemHover && MouseL.down() && edge)
-		{
-			const RoadNode* node = m_network.getNode(edge->nodeA);
-			if (node)
-			{
-				m_camera.setFocus(node->position);
-			}
-		}
-
-		y += kLH;
-	}
-
-	ui.flush();
-	m_panelManager.reportContentHeight(U"vehicle_info", y);
-}
-
-// =============================================================================
-// 建物情報パネル
-// =============================================================================
-
-void GameScene::drawBuildingPanel()
-{
-	if (!m_selectedBuilding)
-	{
-		m_panelManager.hide(U"building_info");
-		return;
-	}
-	const auto& ref = *m_selectedBuilding;
-	Chunk* chunk = m_world.getChunk(Point{ ref.chunkX, ref.chunkZ });
-	if (!chunk)
-	{
-		m_panelManager.hide(U"building_info");
-		return;
-	}
-	const Building& b = chunk->buildingGrid[{ ref.col, ref.row }];
-	if (b.type == BuildingType::None)
-	{
-		m_panelManager.hide(U"building_info");
-		return;
-	}
-	const auto hitBox = m_worldRenderer.buildingHitBox(*chunk, m_world, ref.col, ref.row);
-
-	auto area = m_panelManager.beginContent(U"building_info");
-	if (!area) return;
-
-	PanelBuilder ui(static_cast<int>(m_panelManager.getSize(U"building_info").x));
-
-	static constexpr StringView typeNames[] = {
-		U"(None)", U"戸建て住宅", U"低層マンション", U"中層マンション", U"高層マンション",
-		U"店舗", U"オフィス", U"工場", U"農地", U"公園", U"公共施設", U"駐車場"
-	};
-	const int typeIdx = static_cast<int>(b.type);
-	const StringView typeName = (typeIdx >= 0 && typeIdx < static_cast<int>(std::size(typeNames)))
-		? typeNames[typeIdx] : U"?";
-
-	constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	const Vec3 origin = chunk->worldOrigin();
-	const double cx = origin.x + (ref.col + 0.5) * cellSize;
-	const double cz = origin.z + (ref.row + 0.5) * cellSize;
-
-	ui.label(U"種別: {}"_fmt(typeName), ColorF{1.0});
-	if (hitBox)
-	{
-		ui.label(U"描画サイズ: {:.1f} x {:.1f} x {:.1f} m"_fmt(
-			hitBox->size.x, hitBox->size.y, hitBox->size.z), ColorF{1.0});
-	}
-	else
-	{
-		ui.label(U"描画高さ: {:.1f} m"_fmt(buildingHeight(b.type)), ColorF{1.0});
-	}
-	const int cap = buildingCapacity(b.type);
-	if (cap > 0)
-		ui.label(U"収容: {} 人"_fmt(cap), ColorF{1.0});
-	ui.label(U"建設時刻: {:.1f}"_fmt(b.builtAt), ColorF{0.8, 0.8, 0.8});
-	ui.label(U"向き: {:.1f}°"_fmt(Math::ToDegrees(b.angle)), ColorF{0.8, 0.8, 0.8});
-	ui.label(U"接道エッジ: {}  t={:.3f}"_fmt(b.edgeId, b.edgeT), ColorF{0.8, 0.8, 0.8});
-	if (b.edgeId >= 0)
-	{
-		if (const auto bez = m_network.getBezier(b.edgeId))
-		{
-			const float t = Clamp(b.edgeT, 0.0f, 1.0f);
-			const float arc = bez->totalLength * t;
-			Vec3 p = bez->positionAt(arc);
-			if (const RoadEdge* e = m_network.getEdge(b.edgeId))
-			{
-				if (e->useElevation) p.y += 4.0;
-				else p.y = m_world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z));
-			}
-			ui.label(U"接道位置: ({:.1f}, {:.1f}, {:.1f})"_fmt(p.x, p.y, p.z), ColorF{0.8, 0.8, 0.8});
-		}
-	}
-	ui.label(U"位置: ({:.0f}, {:.0f})"_fmt(cx, cz), ColorF{0.8, 0.8, 0.8});
-	ui.label(U"Chunk({}, {}) Cell({}, {})"_fmt(ref.chunkX, ref.chunkZ, ref.col, ref.row),
-		ColorF{0.6, 0.6, 0.6});
-	ui.spacer(6);
-	if (ui.buttonDanger(U"建物を削除", 120, U"この建物を削除して空き地に戻す"))
-	{
-		chunk->buildingGrid[{ ref.col, ref.row }] = Building{};
-		chunk->meshDirty = true;
-		clearSelection();
-		m_panelManager.hide(U"building_info");
-		ui.flush();
-		m_panelManager.reportContentHeight(U"building_info", ui.height());
-		return;
-	}
-
-	ui.flush();
-	m_panelManager.reportContentHeight(U"building_info", ui.height());
-}
-
-// ===== 信号サイクル編集パネル =====
-
-namespace
-{
-	/// @brief 2D 3次ベジェ補間
-	Vec2 bezier2D(const Vec2& p0, const Vec2& p1, const Vec2& p2, const Vec2& p3, double t)
-	{
-		const double m = 1.0 - t;
-		return p0 * (m * m * m) + p1 * (3 * m * m * t) + p2 * (3 * m * t * t) + p3 * (t * t * t);
-	}
-
-	/// @brief 2D ベジェ帯（内側+外側カーブ）を Polygon 化する
-	Array<Vec2> bezierBand(const Vec2& iP0, const Vec2& iP3, const Vec2& oP0, const Vec2& oP3,
-	                       const Vec2& tan0, const Vec2& tan3, int div = 8)
-	{
-		const double dI = Max((iP3 - iP0).length() / 3.0, 1.0);
-		const double dO = Max((oP3 - oP0).length() / 3.0, 1.0);
-
-		Array<Vec2> pts;
-		// 内側: 0→1
-		for (int k = 0; k <= div; ++k)
-		{
-			const double t = k / static_cast<double>(div);
-			pts << bezier2D(iP0, iP0 + tan0 * dI, iP3 + tan3 * dI, iP3, t);
-		}
-		// 外側: 1→0（逆順）
-		for (int k = div; k >= 0; --k)
-		{
-			const double t = k / static_cast<double>(div);
-			pts << bezier2D(oP0, oP0 + tan0 * dO, oP3 + tan3 * dO, oP3, t);
-		}
-		return pts;
-	}
-
-	/// @brief エッジの cutoff 位置の情報（2D 図描画用）
-	struct EdgeCap2D
-	{
-		Vec2 center;     ///< カットオフ中心（2D）
-		Vec2 fwd;        ///< ノード外向き正規化方向
-		Vec2 right;      ///< 右方向
-		double angle;    ///< 角度（ソート用）
-		const RoadEdge* edge;
-		int edgeId;
-		bool isNodeA;
-	};
-
-	/// @brief outward フレームの offset を返す（左端・右端を個別に受け取る）
-	std::pair<float, float> outwardOffset(float oL, float oR, bool isNodeA)
-	{
-		if (isNodeA) return { oL, oR };
-		return { -oR, -oL };
-	}
-
-	/// @brief 道路全幅の outward left/right を取得
-	std::pair<float, float> getRoadExtent(const RoadEdge* edge, bool isNodeA)
-	{
-		float minL = 1e9f, maxR = -1e9f;
-		for (const auto& p : edge->parts)
-		{
-			if (p.build != BuildState::Built) continue;
-			const auto [l, r] = outwardOffset(p.offsetL(), p.offsetR(), isNodeA);
-			minL = Min(minL, l);
-			maxR = Max(maxR, r);
-		}
-		return { minL, maxR };
-	}
-
-	/// @brief 路盤の outward left/right を取得
-	std::pair<float, float> getRoadbedExtent(const RoadEdge* edge, bool isNodeA)
-	{
-		float minL = 1e9f, maxR = -1e9f;
-		for (const auto& p : edge->parts)
-		{
-			if (p.type != RoadPartType::Roadbed) continue;
-			const auto [l, r] = outwardOffset(p.offsetL(), p.offsetR(), isNodeA);
-			minL = Min(minL, l);
-			maxR = Max(maxR, r);
-		}
-		return { minL, maxR };
-	}
-
-	/// @brief 信号編集パネルの交差点図を描画する
-	/// @param[in,out] dirty 変更があった場合 true にセットされる
-	void drawSignalDiagram(const RoadNode& node, const RoadNetwork& network,
-	                       const Font& pFont, Vec2 panelSize, int kLeftW,
-	                       const HashSet<int>& greenSet, SignalPhaseDef* curPhasePtr,
-	                       bool& dirty)
-	{
-		constexpr int kPad = 6;
-		const double rightX = kLeftW;
-		const double rightW = panelSize.x - kLeftW;
-		const double diagramSize = Min(rightW - kPad, 380.0);
-		const Vec2 center{ rightX + rightW * 0.5, kPad + diagramSize * 0.5 };
-		const double armLen = diagramSize * 0.28;
-		constexpr double kScale = 4.5;
-
-		auto flipY = [&](Vec2 p) -> Vec2 { return { p.x, 2.0 * center.y - p.y }; };
-
-		// ---- カットオフ情報を収集（角度順ソート）----
-		Array<EdgeCap2D> caps;
-		for (const auto& att : node.attachments)
-		{
-			const RoadEdge* edge = network.getEdge(att.edgeId);
-			if (!edge) continue;
-			const auto bez = network.getBezier(att.edgeId);
-			if (!bez) continue;
-
-			const bool isNodeA = (edge->nodeA == node.id);
-			const float cutoff = isNodeA ? edge->cutoffA : edge->cutoffB;
-
-			Vec3 capTan;
-			if (isNodeA)
-			{
-				const float s = Clamp(cutoff - 0.1f, 0.0f, bez->totalLength * 0.45f);
-				capTan = bez->tangentAt(s);
-			}
-			else
-			{
-				const float s = Clamp(bez->totalLength - cutoff + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
-				capTan = -bez->tangentAt(s);
-			}
-
-			const Vec2 fwd{ capTan.x, capTan.z };
-			const double fwdLen = fwd.length();
-			if (fwdLen < 1e-6) continue;
-			const Vec2 dn = fwd / fwdLen;
-
-			const float cutoffArc = isNodeA ? cutoff : (bez->totalLength - cutoff);
-			const Vec3 cutPos = bez->positionAt(cutoffArc);
-
-			EdgeCap2D cap;
-			cap.center  = center + Vec2{
-				(cutPos.x - node.position.x) * kScale,
-				(cutPos.z - node.position.z) * kScale
-			};
-			cap.fwd     = dn;
-			cap.right   = Vec2{ -dn.y, dn.x };
-			cap.angle   = Math::Atan2(dn.y, dn.x);
-			cap.edge    = edge;
-			cap.edgeId  = att.edgeId;
-			cap.isNodeA = isNodeA;
-			caps << cap;
-		}
-		caps.sort_by([](const EdgeCap2D& a, const EdgeCap2D& b) { return a.angle < b.angle; });
-
-		// ---- 交差点内エリアを全周ポリゴンで塗りつぶし ----
-		if (caps.size() >= 2)
-		{
-			const int N = static_cast<int>(caps.size());
-			const ColorF junctionColor{ 0.25, 0.25, 0.28 };
-			constexpr int kBezDiv = 12;
-
-			Array<Vec2> boundary;
-			for (int i = 0; i < N; ++i)
-			{
-				const auto& capCur = caps[i];
-				const auto& capNext = caps[(i + 1) % N];
-				const auto [rbL, rbR] = getRoadbedExtent(capCur.edge, capCur.isNodeA);
-				const auto [nbL, nbR] = getRoadbedExtent(capNext.edge, capNext.isNodeA);
-
-				boundary << (capCur.center + capCur.right * (rbL * kScale));
-				boundary << (capCur.center + capCur.right * (rbR * kScale));
-
-				const Vec2 pA = capCur.center + capCur.right * (rbR * kScale);
-				const Vec2 pB = capNext.center + capNext.right * (nbL * kScale);
-				const Vec2 tanA{ -capCur.fwd.x, -capCur.fwd.y };
-				const Vec2 tanB{ -capNext.fwd.x, -capNext.fwd.y };
-				const double d = Max((pB - pA).length() / 3.0, 2.0);
-
-				for (int k = 1; k < kBezDiv; ++k)
-				{
-					const double t = k / static_cast<double>(kBezDiv);
-					boundary << bezier2D(pA, pA + tanA * d, pB + tanB * d, pB, t);
-				}
-			}
-
-			for (int k = 0; k < static_cast<int>(boundary.size()); ++k)
-			{
-				const int next = (k + 1) % static_cast<int>(boundary.size());
-				Triangle{ center, flipY(boundary[next]), flipY(boundary[k]) }.draw(junctionColor);
-			}
-		}
-
-		// ---- 各エッジアーム ----
-		for (const auto& cap : caps)
-		{
-			const auto* edge = cap.edge;
-			const Vec2& dn = cap.fwd;
-			const Vec2& rt = cap.right;
-
-			for (const auto& part : edge->parts)
-			{
-				if (part.build != BuildState::Built) continue;
-
-				const auto [oL, oR] = outwardOffset(part.offsetL(), part.offsetR(), cap.isNodeA);
-				const double pLeft  = static_cast<double>(oL) * kScale;
-				const double pRight = static_cast<double>(oR) * kScale;
-
-				const Vec2 nearL = cap.center + rt * pLeft;
-				const Vec2 nearR = cap.center + rt * pRight;
-				const Vec2 farL  = nearL + dn * armLen;
-				const Vec2 farR  = nearR + dn * armLen;
-
-				Quad{ flipY(nearL), flipY(nearR), flipY(farR), flipY(farL) }.draw(partTypeColor(part.type));
-			}
-
-			const auto [totalL, totalR] = getRoadExtent(edge, cap.isNodeA);
-			{
-				const Vec2 outerL0 = cap.center + rt * (totalL * kScale);
-				const Vec2 outerL1 = outerL0 + dn * armLen;
-				const Vec2 outerR0 = cap.center + rt * (totalR * kScale);
-				const Vec2 outerR1 = outerR0 + dn * armLen;
-				Line{ flipY(outerL0), flipY(outerL1) }.draw(1.5, ColorF{ 1.0 });
-				Line{ flipY(outerR0), flipY(outerR1) }.draw(1.5, ColorF{ 1.0 });
-			}
-
-			for (const auto& lane : edge->lanes)
-			{
-				if (lane.op != OpState::Open && lane.op != OpState::Provisional) continue;
-
-				auto drawLaneLine = [&](LineType lt, float rawOffset)
-				{
-					if (lt == LineType::None) return;
-					const double off = static_cast<double>(cap.isNodeA ? rawOffset : -rawOffset) * kScale;
-					const Vec2 p0 = cap.center + rt * off;
-					const Vec2 p1 = p0 + dn * armLen;
-					const bool dashed = (lt == LineType::DashedWhite);
-					if (dashed)
-					{
-						for (double dd = 0; dd < armLen; dd += 10.0)
-						{
-							const double d1 = Min(dd + 4.0, armLen);
-							Line{ flipY(p0 + dn * dd), flipY(p0 + dn * d1) }.draw(1.0, lineTypeColor(lt));
-						}
-					}
-					else
-					{
-						Line{ flipY(p0), flipY(p1) }.draw(1.0, lineTypeColor(lt));
-					}
-				};
-				const float oL = cap.isNodeA ? lane.offsetA_L : lane.offsetB_L;
-				const float oR = cap.isNodeA ? lane.offsetA_R : lane.offsetB_R;
-				drawLaneLine(lane.lineLeft, oL);
-				drawLaneLine(lane.lineRight, oR);
-			}
-
-			pFont(U"E{}"_fmt(cap.edgeId)).drawAt(flipY(cap.center + dn * (armLen + 12.0)), ColorF{ 0.8 });
-		}
-
-		// ---- LaneConnection 描画 + クリックトグル ----
-		{
-			auto worldToDiag = [&](const Vec3& w) -> Vec2
-			{
-				return flipY(center + Vec2{
-					(w.x - node.position.x) * kScale,
-					(w.z - node.position.z) * kScale
-				});
-			};
-
-			constexpr int kBezDiv = 14;
-			struct ConnDraw { int connId; bool isGreen; Array<Vec2> path; };
-			Array<ConnDraw> draws;
-			draws.reserve(node.laneConnections.size());
-			for (const auto& conn : node.laneConnections)
-			{
-				const float bezLen = conn.path.totalLength;
-				if (bezLen <= 0.0f) continue;
-				ConnDraw dd;
-				dd.connId  = conn.id;
-				dd.isGreen = greenSet.contains(conn.id);
-				dd.path.reserve(kBezDiv + 1);
-				for (int k = 0; k <= kBezDiv; ++k)
-				{
-					const float s = (k / static_cast<float>(kBezDiv)) * bezLen;
-					dd.path << worldToDiag(conn.path.positionAt(s));
-				}
-				draws << std::move(dd);
-			}
-
-			auto drawLines = [&](bool greenPass)
-			{
-				for (const auto& dd : draws)
-				{
-					if (dd.isGreen != greenPass) continue;
-					const ColorF lineC = greenPass
-						? ColorF{ 0.2, 0.95, 0.4, 0.85 }
-						: ColorF{ 0.95, 0.25, 0.15, 0.55 };
-					const double thickness = greenPass ? 2.5 : 1.5;
-					for (int k = 0; k + 1 < static_cast<int>(dd.path.size()); ++k)
-						Line{ dd.path[k], dd.path[k + 1] }.draw(thickness, lineC);
-				}
-			};
-			drawLines(false);
-			drawLines(true);
-
-			for (const auto& dd : draws)
-			{
-				const Vec2 mid = dd.path[kBezDiv / 2];
-				constexpr double r = 6.0;
-				const ColorF handleC = dd.isGreen
-					? ColorF{ 0.1, 0.95, 0.35 }
-					: ColorF{ 0.95, 0.2, 0.1 };
-				Circle{ mid, r }.draw(handleC);
-				Circle{ mid, r }.drawFrame(1.2, ColorF{ 0.0, 0.0, 0.0, 0.7 });
-
-				if (curPhasePtr)
-				{
-					const int hx = static_cast<int>(mid.x - r);
-					const int hy = static_cast<int>(mid.y - r);
-					const int hw = static_cast<int>(r * 2);
-					auto hit = PanelWidget::hitTest(pFont, hx, hy, hw, hw, U"青/赤を切替");
-					if (hit.clickL)
-					{
-						if (dd.isGreen) curPhasePtr->greenConnectionIds.remove(dd.connId);
-						else            curPhasePtr->greenConnectionIds << dd.connId;
-						dirty = true;
-					}
-				}
-			}
-		}
-	}
-}
-
-void GameScene::drawSignalEditPanel()
-{
-	// Signal 選択 or Node 選択どちらでも対応
-	const Optional<int> sigNodeId = (m_selection.kind == SelectionKind::Signal)
-		? Optional<int>{ m_selection.id }
-		: selectedNodeId();
-	if (!sigNodeId) { m_panelManager.hide(U"signal_edit"); return; }
-	RoadNode* node = m_network.getNode(*sigNodeId);
-	if (!node || !node->signalPlacement) { m_panelManager.hide(U"signal_edit"); return; }
-
-	auto area = m_panelManager.beginContent(U"signal_edit");
-	if (!area) return;
-
-	auto& sp = *node->signalPlacement;
-	const auto& pFont = panelFont();
-	const auto& pBold = panelBoldFont();
-	constexpr int kPad = 6;
-	constexpr int kLH = 17;
-	constexpr int kLeftW = 180;  // 左ペイン幅
-	const Vec2 panelSize = m_panelManager.getSize(U"signal_edit");
-	bool dirty = false;
-
-	// ========================================
-	// 左ペイン: フェーズ一覧
-	// ========================================
-	int ly = kPad;
-	constexpr int kRowH = 38; // フェーズ行の高さ（2段: ランプ + 時間）
-
-	PanelWidget::label(pBold, U"フェーズ", kPad, ly, ColorF{ 1.0, 1.0, 0.4 });
-	if (PanelWidget::button(pFont, U"+", false, kLeftW - 26, ly, 20, kLH, U"フェーズを追加"))
-	{
-		SignalPhaseDef ph;
-		ph.duration = 30.0f;
-		sp.phases << std::move(ph);
-		m_signalEditPhase = static_cast<int>(sp.phases.size()) - 1;
-		dirty = true;
-	}
-	ly += kLH + 4;
-
-	const int totalConn = static_cast<int>(node->laneConnections.size());
-
-	float totalDuration = 0.0f;
-	for (int pi = 0; pi < static_cast<int>(sp.phases.size()); ++pi)
-	{
-		auto& ph = sp.phases[pi];
-		totalDuration += ph.duration + kYellowDuration;
-
-		const bool selected = (pi == m_signalEditPhase);
-		const ColorF bg = selected ? ColorF{ 0.25, 0.35, 0.55 } : ColorF{ 0.16 };
-		RectF{ static_cast<double>(kPad), static_cast<double>(ly),
-		       static_cast<double>(kLeftW - kPad * 2), static_cast<double>(kRowH) }.rounded(3).draw(bg);
-
-		// クリックでフェーズ選択
-		{
-			auto hit = PanelWidget::hitTest(pFont, kPad, ly, kLeftW - kPad * 2, kRowH);
-			if (hit.clickL)
-			{
-				m_signalEditPhase = pi;
-			}
-		}
-
-		// 1段目: フェーズ番号 + LaneConnection 別の小ランプ
-		int lx = kPad + 4;
-		PanelWidget::label(pFont, U"P{}"_fmt(pi + 1), lx, ly + 1, selected ? ColorF{ 1.0 } : ColorF{ 0.7 });
-		lx += 22;
-
-		for (const auto& conn : node->laneConnections)
-		{
-			const bool g = ph.greenConnectionIds.contains(conn.id);
-			const ColorF lampC = g ? ColorF{ 0.1, 0.9, 0.3 } : ColorF{ 0.9, 0.15, 0.1 };
-			Circle{ Vec2{ lx + 3.0, ly + 8.0 }, 2.5 }.draw(lampC);
-			lx += 7;
-			if (lx > kLeftW - 32) break;  // 表示幅オーバー対策
-		}
-
-		// 削除ボタン（右端）
-		if (sp.phases.size() > 1)
-		{
-			if (PanelWidget::button(pFont, U"x", false, kLeftW - 24, ly + 1, 16, kLH - 2, U"フェーズを削除"))
-			{
-				sp.phases.remove_at(pi);
-				if (m_signalEditPhase >= static_cast<int>(sp.phases.size()))
-				{
-					m_signalEditPhase = Max(0, static_cast<int>(sp.phases.size()) - 1);
-				}
-				dirty = true;
-				break;
-			}
-		}
-
-		// 2段目: 持続時間（実時間秒）+ 青連数
-		if (PanelWidget::numberInput(pFont, ph.duration, 1.0f, 5.0f, 120.0f,
-		                      kPad + 4, ly + kLH + 1, 56, kLH - 2))
-		{
-			dirty = true;
-		}
-		PanelWidget::label(pFont, U"秒  {}/{} 青"_fmt(ph.greenConnectionIds.size(), totalConn),
-		                   kPad + 62, ly + kLH + 1, ColorF{ 0.55 });
-
-		ly += kRowH + 3;
-	}
-
-	// サイクル合計
-	ly += 4;
-	PanelWidget::label(pBold, U"サイクル: {:.0f}秒"_fmt(totalDuration), kPad, ly, ColorF{ 0.9, 0.8, 0.4 });
-	ly += kLH + 4;
-
-	// ========================================
-	// 右ペイン: 交差点図 + 信号表示
-	// ========================================
-	HashSet<int> greenSet;
-	SignalPhaseDef* curPhasePtr = nullptr;
-	if (m_signalEditPhase >= 0 && m_signalEditPhase < static_cast<int>(sp.phases.size()))
-	{
-		curPhasePtr = &sp.phases[m_signalEditPhase];
-		for (const int cid : curPhasePtr->greenConnectionIds)
-			greenSet.insert(cid);
-	}
-
-	drawSignalDiagram(*node, m_network, pFont, panelSize, kLeftW, greenSet, curPhasePtr, dirty);
-
-	const double rightW = panelSize.x - kLeftW;
-	const double diagramSize = Min(rightW - kPad, 380.0);
-	const int totalHeight = Max(ly, static_cast<int>(diagramSize) + kPad * 2);
-
-	if (dirty)
-	{
-		m_vehicleManager.markLightsDirty();
-	}
-
-	PanelWidget::flushTooltip();
-	m_panelManager.reportContentHeight(U"signal_edit", totalHeight);
-}
-
-// =============================================================================
-// ポーズメニュー (GameScene_Panels.cpp)
-// 注意: 描画だけでなく saveGame() / changeScene() / System::Exit() の呼び出しを含む。
-// UI 入力を受けて状態遷移を起こすため _Panels.cpp に配置する。
-// =============================================================================
-
-void GameScene::drawPauseMenu()
-{
-	const double sw = Scene::Width();
-	const double sh = Scene::Height();
-
-	// 半透明オーバーレイ
-	Scene::Rect().draw(ColorF{ 0.0, 0.0, 0.0, 0.6 });
-
-	// メニューパネル
-	constexpr double panelW = 320;
-	constexpr double panelH = 340;
-	const RectF panel{ (sw - panelW) / 2, (sh - panelH) / 2, panelW, panelH };
-	panel.rounded(8).draw(ColorF{ 0.12, 0.12, 0.15, 0.95 });
-	panel.rounded(8).drawFrame(1.0, ColorF{ 0.5, 0.5, 0.55, 0.6 });
-
-	// タイトル
-	const Font& font = SimpleGUI::GetFont();
-	font(U"PAUSED").drawAt(32, Vec2{ sw / 2, panel.y + 40 }, ColorF{ 0.9 });
-
-	// ボタン配置
-	constexpr double btnW = 240;
-	constexpr double btnH = 44;
-	constexpr double gap  = 12;
-	const double startY = panel.y + 90;
-	const double btnX = (sw - btnW) / 2;
-
-	struct MenuItem { String label; };
-	const Array<MenuItem> items =
-	{
-		{ U"ゲームに戻る" },
-		{ U"セーブ" },
-		{ U"設定" },
-		{ U"タイトルに戻る" },
-		{ U"ゲーム終了" },
-	};
-
-	for (int32 i = 0; i < static_cast<int32>(items.size()); ++i)
-	{
-		const RectF btn{ btnX, startY + i * (btnH + gap), btnW, btnH };
-		const bool hover = btn.mouseOver();
-
-		btn.rounded(4).draw(hover ? ColorF{ 0.35, 0.38, 0.45 } : ColorF{ 0.2, 0.22, 0.28 });
-		btn.rounded(4).drawFrame(1.0, hover ? ColorF{ 0.7, 0.75, 0.85 } : ColorF{ 0.4, 0.42, 0.48 });
-		font(items[i].label).drawAt(20, btn.center(), ColorF{ 0.92 });
-
-		if (hover && MouseL.down())
-		{
-			switch (i)
-			{
-			case 0: // ゲームに戻る
-				m_showPauseMenu = false;
-				break;
-
-			case 1: // セーブ
-				saveGame();
-				break;
-
-			case 2: // 設定（仮）
-				break;
-
-			case 3: // タイトルに戻る
-				m_showPauseMenu = false;
-				changeScene(SceneState::Title, 0s);
-				break;
-
-			case 4: // ゲーム終了
-				System::Exit();
-				break;
-			}
-		}
-	}
-}
 
 // =============================================================================
 // 道路路線（RoadRoute）編集パネル — plan/22_road_route_spec.md
@@ -2696,6 +1749,7 @@ void GameScene::drawRoutePanel()
 		if (ui.textInput(m_routeNameEditState, 240, 64))
 		{
 			route->name = m_routeNameEditState.text;
+			m_roadRenderer.invalidateRouteSigns(route->id);
 		}
 	});
 
@@ -2766,8 +1820,8 @@ void GameScene::drawRoutePanel()
 				break;
 			}
 		}
-		const double routeConstructionCost = plannedConstructionCostForRoute(m_network, *route);
-		const bool hasFunds = canAffordConstruction(m_economy.funds, routeConstructionCost);
+		const double routeConstructionCost = RoadConstructionStart::estimateCost(m_network, route->edgeIds);
+		const bool hasFunds = m_sandboxActive || RoadConstructionStart::canAfford(m_economy.funds, routeConstructionCost);
 		if (hasPlanned)
 		{
 			ui.label(U"未着工 {} / 資金 {:.1f}億円"_fmt(formatConstructionCost(routeConstructionCost), m_economy.funds),
@@ -2776,63 +1830,7 @@ void GameScene::drawRoutePanel()
 		ui.row(4, [&] {
 			if (ui.button(U"着工", hasPlanned && hasFunds, 60, U"概算費用を支出して Planned エッジを着工") && hasPlanned && hasFunds)
 			{
-				Array<int> dirtyNodes;
-				HashSet<int> startedPlans;
-				double chargedCost = 0.0;
-				for (const int eid : route->edgeIds)
-				{
-					RoadEdge* e = m_network.getEdge(eid);
-					if (!e || e->edgeState != EdgeState::Planned)
-					{
-						continue;
-					}
-					if (e->planId >= 0)
-					{
-						if (startedPlans.contains(e->planId))
-						{
-							continue;
-						}
-						const RoadPlan* plan = m_network.getPlan(e->planId);
-						if (!plan || plan->state != PlanState::Planning)
-						{
-							continue;
-						}
-						const double planCost = static_cast<double>(plan->totalCost);
-						const Array<int> planEdgeIds = plan->edgeIds;
-						if (startRoadPlanConstruction(e->planId))
-						{
-							chargedCost += planCost;
-							startedPlans.insert(e->planId);
-							for (const int planEid : planEdgeIds)
-							{
-								if (const RoadEdge* edge = m_network.getEdge(planEid))
-								{
-									dirtyNodes << edge->nodeA << edge->nodeB;
-								}
-							}
-						}
-					}
-					else
-					{
-						chargedCost += m_network.estimatePlanCost(e->roadType, e->length);
-						e->edgeState = EdgeState::UnderConstruction;
-						e->constructionStartTime = m_clock.now;
-						prepareConstructionSite({e->id});
-						dirtyNodes << e->nodeA << e->nodeB;
-					}
-				}
-				if (chargedCost > 0.0)
-				{
-					m_economy.funds = Max(0.0, m_economy.funds - chargedCost);
-				}
-				if (!dirtyNodes.isEmpty())
-				{
-					for (const int nid : dirtyNodes)
-					{
-						m_roadRenderer.invalidateCachesAroundNode(nid, m_network);
-					}
-					notifyNetworkChanged(dirtyNodes);
-				}
+				startRoadConstruction(route->edgeIds);
 			}
 			else if (hasPlanned && !hasFunds)
 			{
@@ -2862,25 +1860,4 @@ void GameScene::drawRoutePanel()
 		// 路線の kind/number 変更は ガイド標識の自動生成テキストに影響
 		notifyNetworkChanged(Array<int>{});
 	}
-}
-
-void GameScene::drawLandParcelPanel()
-{
-	if (!m_selectedLandParcel || m_selection.kind!=SelectionKind::LandParcel) { m_panelManager.hide(U"land_info"); return; }
-	if (!m_panelManager.isVisible(U"land_info")) { clearSelection(); return; }
-	const Chunk* chunk=m_world.getChunk(m_selectedLandParcel->chunkCoord);
-	if (!chunk) { clearSelection(); return; }
-	const LandPatch* patch=nullptr;
-	for (const auto& candidate : chunk->landPatches) { if (candidate.id==m_selectedLandParcel->id) { patch=&candidate; break; } }
-	if (!patch) { clearSelection(); return; }
-	if (m_landParcelRevision!=m_worldRenderer.geometryRevision())
-	{
-		const MeshData surface=m_worldRenderer.landPatchSurface(m_world,m_network,chunk->coord,*patch);
-		m_landParcelOutline=surface.indices.isEmpty() ? Mesh{} : Mesh{surface};
-		m_landParcelRevision=m_worldRenderer.geometryRevision();
-	}
-	const auto area=m_panelManager.beginContent(U"land_info");
-	if (!area) { return; }
-	LandParcelPanel::draw(FontAsset(Asset::Panel14),*patch,{8,10});
-	m_panelManager.reportContentHeight(U"land_info",120);
 }

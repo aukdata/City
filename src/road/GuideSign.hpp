@@ -93,7 +93,7 @@ namespace GuideSign
 	/// @brief 案内標識用ポール（2 本柱フレーム構造）を OBJ から読み込む
 	/// @details 単位高さ 1.0 で設計されており、実行時に Scale(1, poleHeight, 1) で伸縮する
 	///   形状詳細は chore/generate_guide_pole_obj.py と assets/signs/guide/guide_pole.obj 参照
-	MeshData CreatePoleMesh();
+	MeshData CreatePoleMesh(int lod = 0);
 
 	/// @brief ポール OBJ に対応するメタデータ（assets/signs/guide/guide_pole.json）
 	/// @details OBJ は実寸 [m] で設計され、スケールされない。

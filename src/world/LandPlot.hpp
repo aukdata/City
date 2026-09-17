@@ -35,6 +35,8 @@ namespace LandPlot
 	}
 	inline StringView name(const LandPatch& patch)
 	{
+		if (patch.type==LandPatchType::FarmTrack) { return U"耕作道"; }
+		if (patch.type==LandPatchType::IrrigationDitch) { return U"用排水路"; }
 		if (patch.type==LandPatchType::PaddyField) { return U"水田"; }
 		if (patch.type==LandPatchType::FarmField) { return U"畑"; }
 		if (patch.type==LandPatchType::GardenSoil) { return U"庭・住宅敷地"; }

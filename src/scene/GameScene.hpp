@@ -1,11 +1,15 @@
 ﻿#pragma once
+#include "../ui/FrameRateGraph.hpp"
+#include "../ui/CommandPalette.hpp"
 #include "../render/TunnelRenderer.hpp"
 #include "../gen/DistrictHierarchy.hpp"
 #include "../render/RiverRenderer.hpp"
+#include "../ui/WalkSurface.hpp"
 #include <future>
 #include <atomic>
 #include <mutex>
 #include "SceneCommon.hpp"
+#include "../ui/KeyboardActions.hpp"
 #include "../ui/PanelManager.hpp"
 #include "../sim/SimGraph.hpp"
 #include "../sim/SimThread.hpp"
@@ -15,6 +19,8 @@
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../traffic/VehicleManager.hpp"
+#include "../traffic/DrivingController.hpp"
+#include "../audio/SoundEffects.hpp"
 #include "../traffic/BusSystem.hpp"
 #include "../zone/ZoneManager.hpp"
 #include "../economy/Economy.hpp"
@@ -22,6 +28,7 @@
 #include "../scenario/ScenarioSystem.hpp"
 #include "../save/SaveResult.hpp"
 #include "../ui/Camera.hpp"
+#include "../ui/PauseMenu.hpp"
 #include "../render/WorldRenderer.hpp"
 #include "../render/RoadRenderer.hpp"
 #include "../render/VehicleRenderer.hpp"
@@ -41,8 +48,13 @@
 #include "../gen/RoadAutoPlace.hpp"
 #include "../road/RoadPlanDraft.hpp"
 #include "../ui/RoadPlanToolbar.hpp"
+#include "../ui/TrainTimetableEditor.hpp"
 
-/// @brief ゲームプレイシーン
+class SettlementDevelopment;
+
+/// @brief ゲーム状態を所有し、入力・シミュレーション・描画を協調させるシーン。
+/// @details 実装は Loading / Generation / Storage / Capture / 各編集パネルに分割する。
+/// 所有権はこのクラスに集約し、ファイル分割のためのグローバル状態や別インスタンスを作らない。
 class GameScene : public App::Scene
 {
 public:
@@ -55,6 +67,17 @@ public:
 	void draw() const override {}
 
 private:
+	SoundEffects m_soundEffects;
+	void recordPlaytestFrame();
+	void processPlaytestCommand();
+	int m_playtestCommandId=0;
+	DrivingInput m_playtestDrivingInput;
+	double m_playtestDrivingUntil=0;
+	void prepareFringeCapture(int variant);
+	void prepareRoadsideCapture(int variant);
+	TextWriter m_playtestFrames;
+	int m_playtestFrame = 0;
+
 	// ---- ゲームフェーズ ----
 	enum class GamePhase { Loading, Playing };
 	enum class LoadingTask { NewGame, LoadGame };
@@ -64,14 +87,16 @@ private:
 	// ---- ローディング管理 ----
 	int       m_totalInitChunks  = 0;    ///< 初期チャンク総数
 	Stopwatch m_loadingTimer;            ///< 生成/ロード開始からの経過時間
-	mutable std::mutex m_loadingTextMutex;
+	mutable std::mutex m_loadingTextMutex; ///< 生成ワーカと画面が共有する進捗文字列を保護する
 	String    m_loadingStatus;           ///< 現在実行中の処理内容
 	String    m_loadingTitle;            ///< ローディング画面のタイトル
 	bool      m_loadGameResult = false;  ///< loadGame() の結果（非同期完了後に参照）
 	bool      m_loadingFailed = false;
 	String    m_loadingError;
 
-	/// @brief バックグラウンド生成/ロードの非同期タスク
+	/// @brief バックグラウンド生成/ロードの非同期タスク。
+	/// @details Loading 中は通常更新を止め、get() 後にメインスレッドで GPU 資源を準備する。
+	/// 破棄時にも完了を待ち、ワーカが参照するワールドの寿命を守る。
 	std::future<void> m_generationFuture;
 
 	/// @brief 生成進捗 [0.0, 1.0]（atomic でバックグラウンドスレッドから更新）
@@ -87,6 +112,12 @@ private:
 	World            m_world;
 	RoadNetwork      m_network;
 	GameCamera       m_camera;
+	DrivingController m_driving;
+	TimeSpeed m_beforeDrivingSpeed=TimeSpeed::x1;
+	double m_drivingNoticeSeconds=0;
+	bool handleDrivingShortcuts();
+	void leaveDriving(bool overview=false);
+	void updateDriving(double dt,bool blocked);
 	ZoneManager      m_zoneManager;
 	Economy          m_economy;
 	CitySnapshot     m_citySnapshot;
@@ -101,6 +132,8 @@ private:
 	// ---- 鉄道システム ----
 	TrainNetwork     m_trainNetwork;
 	TrainManager     m_trainManager;
+	TrainTimetableEditor m_trainTimetableEditor;
+	bool m_railTimetableWasVisible = false;
 
 	// ---- イベント ----
 	EventSystem      m_eventSystem;
@@ -125,6 +158,7 @@ private:
 	Sky              m_sky;
 	WorldRenderer    m_worldRenderer;
 	RiverRenderer m_riverRenderer;
+	WalkSurface m_walkSurface;
 	TunnelRenderer m_tunnelRenderer;
 	DistrictHierarchy m_districtHierarchy;
 	CityLighting     m_cityLighting;
@@ -136,6 +170,7 @@ private:
 	int              m_hudStatsRefreshCountdown = 0;
 	HousingCapacityCache m_housingCapacity;
 	DebugRenderer    m_debugRenderer;
+	FrameRateGraph m_frameRateGraph;
 	TrainRenderer        m_trainRenderer;
 	PlaceNameRenderer    m_placeNameRenderer;
 	RoadRouteSignRenderer m_routeSignRenderer;
@@ -164,8 +199,8 @@ private:
 		TextEditState routeNameEdit;
 		Optional<int> routeId;
 		bool appendToExistingRoute = false;
-		bool replaceEnd = false;
-		bool followTerrain = false;
+		Optional<size_t> draggedPoint;
+		Array<Vec3> dragPoints;
 		bool snapping = true;
 		int preset = 0;
 		String message;
@@ -173,11 +208,14 @@ private:
 	};
 	DraftRoadPlan m_draftRoadPlan;
 	RoadPlanSnapIndex m_roadPlanSnapIndex;
+	RoadPlanSnapIndex m_locationIndex;
+	bool m_locationIndexDirty=true;
 	Optional<RoadPlanSnapIndex::Hit> m_roadPlanCursor;
 	Optional<int> m_selectedRoadPlanId;
 
 	// ゾーン塗り
-	ZoneType        m_paintZone     = ZoneType::Residential;
+	ZoneType        m_paintZone     = ZoneType::LowResidential;
+	int             m_zoneBrushRadius = 1;
 	Optional<Vec3>  m_rectStart;
 
 	// バス路線描画
@@ -201,7 +239,7 @@ private:
 	int             m_followVehicleIdx = 0;
 
 	// 選択状態（道路・付帯設備を統合）
-	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel };
+	enum class SelectionKind { None, Edge, Node, GuideSign, Signal, Building, LandParcel, Train };
 	struct Selection {
 		SelectionKind kind = SelectionKind::None;
 		int id = -1;
@@ -283,6 +321,9 @@ private:
 
 	// ポーズメニュー
 	bool            m_showPauseMenu = false;
+	PauseMenu m_pauseMenu;
+	TimeSpeed m_pauseResumeSpeed=TimeSpeed::Paused;
+	void resumeFromPauseMenu();
 
 	// 一時停止トグル用：ポーズ前の速度を記憶する
 	TimeSpeed       m_prevSpeed = TimeSpeed::x1;
@@ -346,7 +387,8 @@ private:
 	// ---- 内部メソッド ----
 	/// @brief UnderConstruction エッジの Open 遷移チェック（毎フレーム呼び出し）
 	void tickConstruction();
-	bool startRoadPlanConstruction(int planId);
+	bool startRoadConstruction(const Array<int>& edgeIds);
+	void applyConstructionStart(double cost, const Array<int>& edgeIds, const Array<int>& affectedNodeIds);
 	void prepareConstructionSite(const Array<int>& edgeIds);
 	RoadConstruction::ClearanceLedger m_clearanceLedger;
 	bool m_restoreConstructionSites = false;
@@ -359,6 +401,7 @@ private:
 	SaveResult verifyGameSnapshot(const FilePath& saveRoot) const;
 	bool loadGame();
 	void addDistricts(const Array<MapGenerator::Settlement>& newDistricts);
+	SettlementDevelopment settlementDevelopment();
 	void applyZonesGlobal();
 	void updateLoading();
 	void drawLoadingScreen(float progress);
@@ -376,13 +419,14 @@ private:
 	void generateAllRoads();
 	void generateDistrictRoads();
 	void postProcessRoads();
-	void placeInitialBuildings();
+	void placeInitialBuildings(bool preserveLandPatches=false);
 	void generateLandPatches(bool preserveExisting = false);
 	void migrateLegacyBuildingFrontageReferences();
 	bool validateGeneratedCityConstraints();
 	void refreshBuildingAnglesFromEdges();
 	void updateCaptureCityRenders();
 	void updateStreamingBenchmark();
+	void updateNavigationBenchmark();
 	Vec3 captureFocusPoint() const;
 	Vec3 captureStreetCornerPoint(Vec3 fallback) const;
 	Vec3 captureIntersectionPoint(Vec3 fallback, int variant) const;
@@ -417,6 +461,7 @@ private:
 		const Array<int>& dirtyNodeIds = context.dirtyNodeIds;
 
 		m_routeSignRenderer.invalidate();
+		m_locationIndexDirty=true;
 		m_trainRenderer.invalidateRoadClearance();
 		m_tunnelRenderer.dirty=true;
 		if (dirtyNodeIds.isEmpty())
@@ -490,6 +535,7 @@ private:
 
 	// ---- 入力処理 (GameScene_Input.cpp) ----
 	void handleInput();
+	void handleGlobalShortcuts();
 	void updateCursor();
 	/// @brief 通常モード (EditMode::None) でのクリック選択処理（車両→ノード→エッジの優先順）
 	void handleSelectionClick();
@@ -498,20 +544,28 @@ private:
 	/// @brief 選択中エッジの 3D ハンドル（Cutoff A/B）を描画する
 	void renderEdgeHandles();
 	void handleRoadDraw();
-	void handleRoadPlan();
 	void updateRoadPlanReview();
 	Array<int> m_streetReviewEdges;
 	void updateStreetReview();
 	void updateTransportReview();
+	void updateTransportObjectsReview();
 	void jumpToMapPosition(Vec2 target);
 	void updateConstructionReview();
 	/// @brief スタート/ゴール指定モードの経路探索・敷設を実行する
 	void invokeAutoPlace(Vec3 start, Vec3 goal);
+	// ---- 道路計画の操作 (GameScene_RoadPlan.cpp) ----
+	void handleRoadPlan();
+	bool generateDraftRoadPlan();
 	bool rebuildDraftRoadPlan();
 	void clearDraftRoadPlan();
 	bool commitDraftRoadPlan();
-	Array<Vec3> draftRoadPlanViaPoints() const;
 	void handleZonePaint();
+	void setZonePaintMode(bool enabled);
+	void drawZonePalette();
+	void setRailTimetableVisible(bool visible);
+	void drawRailTimetable();
+	void addRailDepot(int station);
+	void updateZoneDevelopment(double simulationSeconds);
 	void handleBusRouteDraw();
 	void handleTerrainEdit();
 	void handleTrainDraw();
@@ -535,6 +589,8 @@ private:
 	void renderSelectionOutline();
 	void renderEditModeOverlays();
 	void render2DUI();
+	void executeCommand(StringView input);
+	CommandPalette m_commandPalette;
 	/// @brief 時刻から空・太陽パラメータを計算する
 	SkyParams calcSkyParams() const;
 	/// @brief renderWorld のパフォーマンス計測値をリングバッファに記録する

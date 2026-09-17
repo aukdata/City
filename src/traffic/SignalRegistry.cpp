@@ -1,4 +1,5 @@
-﻿#include "SignalRegistry.hpp"
+﻿#include "../asset/ModelLodPath.hpp"
+#include "SignalRegistry.hpp"
 
 namespace
 {
@@ -157,9 +158,12 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 
 	// OBJ は読み込み後に座標系と UV を描画都合に合わせて補正し、メッシュ名で引ける形に詰める。
 	SignalModel model;
-	if (!def.modelPath.isEmpty() && FileSystem::Exists(def.modelPath))
+	for (int level = 0; level <= 2; ++level)
 	{
-		auto meshes = ObjParser::parse(def.modelPath);
+		if (def.modelPath.isEmpty()) { continue; }
+		const FilePath path = modelLodPath(def.modelPath, level);
+		if (!FileSystem::Exists(path)) { continue; }
+		auto meshes = ObjParser::parse(path);
 
 		// Blender(右手系) → DirectX(左手系) 変換: X反転 + UV V反転
 		for (auto& m : meshes)
@@ -200,8 +204,8 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 		}
 
 		for (const auto& m : meshes)
-			model.meshes[m.name] = m;
-		Console << U"[SignalRegistry] " << def.id << U": " << meshes.size() << U" meshes loaded";
+			(level == 0 ? model.meshes : model.lodMeshes[level-1])[m.name] = m;
+		if (level == 0) { Console << U"[SignalRegistry] " << def.id << U": " << meshes.size() << U" meshes loaded"; }
 	}
 
 	// テクスチャは存在する場合だけ後付けし、モデル未使用定義も扱えるようにする。

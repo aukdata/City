@@ -5,6 +5,12 @@
 namespace TreeGeometry
 {
 	struct Geometry { MeshData wood,leaves,distant; };
+	/// @brief 全LODの枝葉と風の揺れを含む水平離隔。幹だけの判定にしない。
+	inline double horizontalClearance(double width) { return width*.55+1.0; }
+	inline bool clearOfCorridor(Vec2 position,double width,const Polygon& corridor)
+	{
+		return !Circle{position,horizontalClearance(width)}.intersects(corridor);
+	}
 	inline void append(MeshData& target,const MeshData& source)
 	{
 		const uint32 offset=static_cast<uint32>(target.vertices.size());
@@ -29,11 +35,13 @@ namespace TreeGeometry
 			mesh.indices << TriangleIndex32{offset+i,offset+next,offset+6+i} << TriangleIndex32{offset+next,offset+6+next,offset+6+i};
 		}
 	}
-	inline Geometry build(uint32 seed,bool cedar)
+	inline Geometry build(uint32 seed,bool cedar,bool woodland=false)
 	{
 		Geometry result;
-		branch(result.wood,{0,0,0},{.035,cedar ? .94 : .69,.025},.045);
-		result.distant=cedar ? MeshData::Cone(Float3{0,.15f,0},.31,.85,9) : MeshData::Sphere(.34,5);
+		const double trunkRadius=woodland ? (cedar ? .018 : .025) : .045;
+		const Vec3 trunkTop=woodland ? Vec3{.018,cedar ? .98 : .75,.012} : Vec3{.035,cedar ? .94 : .69,.025};
+		branch(result.wood,{0,woodland ? -.012 : 0,0},trunkTop,trunkRadius);
+		result.distant=cedar ? MeshData::Cone(Float3{0,woodland ? .50f : .15f,0},.31,woodland ? .50 : .85,woodland ? 12 : 9) : MeshData::Sphere(.34,5);
 		if (!cedar) { result.distant.scale(1,.94,1).translate(0,.64,0); }
 		for (auto& vertex : result.distant.vertices)
 		{
@@ -48,9 +56,9 @@ namespace TreeGeometry
 			const double angle=i*2.399963+(seed%97)*.064;
 			const double level=cedar ? static_cast<double>(i)/clusters : Fmod(i*.754877+seed*.136,1.0);
 			const double spread=cedar ? .28*(1-level)+.035 : (.12+.18*Sqrt(1-Pow(level*2-1,2)))*Sqrt(.20+.80*Fmod(i*.5698+seed*.042,1.0));
-			const double y=cedar ? .25+level*.69 : .40+level*.49;
+			const double y=woodland ? (cedar ? .52+level*.45 : .49+level*.40) : (cedar ? .25+level*.69 : .40+level*.49);
 			const Vec3 end{Cos(angle)*spread,y,Sin(angle)*spread};
-			if (i%6==0) { branch(result.wood,{0,y*.7,0},end,.015*(1-level*.65)); }
+			if (i%6==0) { branch(result.wood,{0,y*(woodland ? .94 : .7),0},end,(woodland ? .008 : .015)*(1-level*.65)); }
 			MeshData cluster=MeshData::Sphere(1,3);
 			for (auto& vertex : cluster.vertices)
 			{

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
 
@@ -18,7 +19,8 @@ public:
 			{
 				const Vec3 point=curve->positionAt(curve->totalLength*i/count);
 				const double elevation=edge.useElevation ? point.y : world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-				m_samples[key(static_cast<int>(point.x/32),static_cast<int>(point.z/32))] << Sample{{point.x,point.z},elevation,edge.totalWidth()*.5+7};
+				m_samples[key(static_cast<int>(point.x/32),static_cast<int>(point.z/32))] << Sample{{point.x,point.z},elevation,edge.totalWidth()*.5+GenerationSettings::get().crossings_railRoadLateralClearance};
+				m_maximumRadius=Max(m_maximumRadius,edge.totalWidth()*.5+GenerationSettings::get().crossings_railRoadLateralClearance);
 			}
 		}
 	}
@@ -28,20 +30,22 @@ public:
 	{
 		double result=-1e9,under=1e9;
 		const int x=static_cast<int>(point.x/32),z=static_cast<int>(point.y/32);
-		for (int dz=-2;dz<=2;++dz)
+		const int range=static_cast<int>(Ceil((margin + m_maximumRadius) / 32));
+		for (int dz=-range;dz<=range;++dz)
 		{
-			for (int dx=-2;dx<=2;++dx)
+			for (int dx=-range;dx<=range;++dx)
 			{
 				const auto found=m_samples.find(key(x+dx,z+dz)); if (found==m_samples.end()) { continue; }
 				for (const auto& sample : found->second)
 				{
-					if (point.distanceFromSq(sample.position)<Square(sample.radius+margin)) { result=Max(result,sample.height+7.0); under=Min(under,sample.height-10.0); }
+					if (point.distanceFromSq(sample.position)<Square(sample.radius+margin)) { result=Max(result,sample.height+GenerationSettings::get().crossings_railOverRoadClearance); under=Min(under,sample.height-GenerationSettings::get().crossings_railUnderRoadClearance); }
 				}
 			}
 		}
 		return {under,result};
 	}
 private:
+	double m_maximumRadius=0;
 	struct Sample { Vec2 position; double height; double radius; };
 	static int64 key(int x,int z) { return static_cast<int64>(x)*0x100000000LL+static_cast<uint32>(z); }
 	HashTable<int64,Array<Sample>> m_samples;

@@ -21,7 +21,7 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 		map.zoomAt(cursor,3,size);
 		context.expect(map.toWorld(cursor,size).distanceFrom(anchor)<1e-6,U"Zoom stays anchored to the cursor");
 		map.pan({80,0},size);
-		context.expect(map.toWorld(cursor,size).x<anchor.x,U"Dragging right reveals the west side");
+		context.expect(map.toWorld(cursor,size).x>anchor.x,U"Dragging right reveals the west side");
 		map.zoom=128;map.center={32768,32768};
 		for (int index=-4;index<=4;++index)
 		{

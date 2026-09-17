@@ -30,7 +30,7 @@ namespace RoadSign
 	///   原点 = ポール接地点（地面）
 	///   Y 軸: 上向き
 	/// @note 実寸のため、描画時に Y スケールしないこと。
-	MeshData CreatePoleMesh(float poleHeight);
+	MeshData CreatePoleMesh(float poleHeight, int lod = 0);
 
 	/// @brief RoadSign ポール/看板メタデータ（assets/signs/sign_pole.json）
 	/// @details 全 RoadSign 種別で共通のポール（2.5m 円柱）を使用。
@@ -69,6 +69,8 @@ namespace RoadSign
 	/// @details ローカル座標: 原点=看板中心, X 右・Y 上・Z 前面法線。
 	///   形状は RoadSignCategory ごとに assets/signs/<category>/<shape>.obj に配置。
 	MeshData CreateBoardMesh(RoadSignType type);
+	/// @brief 表面に20mmの裏板と縁を加える。模様は貼らない。
+	MeshData CreateBoardBackingMesh(const MeshData& front);
 
 	/// @brief 看板中心がポール頂上から下方向に何 m 下がった位置かを返す
 	double BoardCenterFromPoleTop(RoadSignType type);

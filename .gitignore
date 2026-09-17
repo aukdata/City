@@ -30,6 +30,10 @@ App/saves/
 
 # 実行ログ
 App/*.log
+/App/playtest_frames.csv
+/App/playtest_state.json
+/App/streaming_frames.csv
+/App/asan_report.*
 Test/App/TestArtifacts/
 Test/App/TestResults/
 
@@ -77,3 +81,9 @@ __pycache__/
 !/artifacts/landscape_transport/verification/*.png
 
 !/artifacts/firstperson_realism/verification/*.png
+
+/App/navigation_frames.csv
+/App/settlement_audit.json
+/App/road_ground_audit.json
+/App/landscape_audit.json
+/Test/App/landscape_audit.json

@@ -5,6 +5,7 @@ Run: blender --background --python scripts/build_city_lod.py
 from pathlib import Path
 import bpy
 import json
+import sys
 from mathutils.kdtree import KDTree
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,12 @@ reports = []
 sources = sorted((BUILDINGS / 'residential').glob('residential_???.obj'))
 for stem in ('shop', 'office', 'factory', 'public', 'parking'):
     sources += sorted((BUILDINGS / 'commercial').glob(stem + '_???.obj'))
+for folder, stem in [('residential', 'rural_house'), ('commercial', 'convenience_urban'),
+                     ('commercial', 'convenience_roadside'), ('commercial', 'fuel_urban'),
+                     ('commercial', 'fuel_roadside')]:
+    sources += sorted((BUILDINGS / folder).glob(stem + '_???.obj'))
+if '--new-sites' in sys.argv:
+    sources = [path for path in sources if path.stem.startswith(('rural_house_', 'convenience_', 'fuel_'))]
 
 for source in sources:
     bpy.ops.object.select_all(action='SELECT')
@@ -59,5 +66,9 @@ for source in sources:
                     'lodFaces': after, 'ratio': round(after / max(1, before), 4)})
     print(f'LOD {source.stem}: {before} -> {after}', flush=True)
 
-(DEST / 'manifest.json').write_text(json.dumps(reports, indent=2) + '\n', encoding='utf-8')
+manifest = DEST / 'manifest.json'
+if '--new-sites' in sys.argv and manifest.exists():
+    updated = {report['model'] for report in reports}
+    reports = [report for report in json.loads(manifest.read_text()) if report['model'] not in updated] + reports
+manifest.write_text(json.dumps(reports, indent=2) + '\n', encoding='utf-8')
 print('LOD COMPLETE', len(reports), flush=True)

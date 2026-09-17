@@ -1,153 +1,57 @@
-# AGENTS.md
+# AI 作業ガイド
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+日本の街づくり・交通シミュレーション。目標は Cities: Skylines 風の遊びと、日本の街・山道・鉄道の自然な景観。C++ / Siv3D 0.6.16、Windows x64 専用。
 
-## Project Overview
+## 優先順位とユーザー指定
 
-日本の街づくり・交通シミュレーションゲーム。Siv3D v0.6.16 (C++) で実装。Windows x64 専用。
+- 新規生成した街のリアルさを優先する。既存セーブの互換性・移行対応には当分作業を割かない。
+- 街路・家並み・農地・農道・用排水路の関係を実在の街と照らして改善する。`reference/` の資料も活用する。
+- 道路は基本的に地上。勾配を合わせるために街全体を高架化しない。山道は道路種別の勾配・曲率制約と建設費の比較で経路を選び、必要なら九十九折りにする。
+- 1フレーム程度の遅延は低優先度。再現しない異常終了は再現待ちとし、景観改善より優先しない。
+- **画像データを会話に送らない**（2026-09-13 指定）。`view_image` 等の結果を画像として渡す確認も禁止。スクリーンショットはローカル保存し、ログ・GPU readback・画像の数値解析で検証する。報告はテキストと通常のファイルリンク。ユーザーが画像送信を明示的に再許可した場合のみ変更する。
 
-## Build & Run
+## 作業の進め方
 
-**要件**: Visual Studio 2026, MSVC v145, Siv3D v0.6.16 (`$(SIV3D_0_6_16)` 環境変数が必要)
+1. 作業ツリーの既存変更を確認し、今回と無関係な変更を保持する。
+2. [仕様の目次](plan/SPEC_INDEX.md)、[現在の実装](plan/00_current_implementation.md)から該当仕様を読む。[既知の問題](ISSUE.md)も確認する。
+3. バグ・性能問題は再現条件、座標・ID・状態、処理時間等を計測して原因を確かめる。「推測するな。計測せよ。」
+4. [コーディング規約](CODING_STYLE.md)に従い、必要な変更を実装する。
+5. 関連する常設テストとビルドを実行し、結果を記録する。新規 UI・レイアウト変更は **Test で表示を検証・レビューしてから本体へ反映**する。
+6. 適切な粒度で`git commit`をする。コミットメッセージは、内容がわかる程度に簡素なものでよい。
+7. 変更した仕様を更新する。`ISSUE.md` は未解決の問題のみ管理し、修正完了した項目を削除する。
 
-**CLI からのビルド**（WSL/ターミナルから実行可能）:
-```bash
-# Debug
-"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" City.sln -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
-# Release（-p:Configuration=Release に変更するだけ）
+- memory システムは使わない。継続的なルールはこのファイルに集約する。コード規約・仕様・検証結果はそれぞれの専用文書へ置く。
+- コミットする場合は意味のある単位に分け、無関係な変更を混ぜない。
+- コンパイラ警告は基本的にすべて解決する。将来使用予定のパラメータに `[[maybe_unused]]` を付け、使用時に除去する。
+
+## ファイル編集
+
+- `.editorconfig` に従い、タブ幅4、Doxygen コメントを使用する。
+- `.cpp` / `.hpp` / `.h` は **UTF-8 BOM + CRLF**。新規作成時も BOM を付ける。LF に変換してから編集しない。
+- PowerShell は `[IO.File]::ReadAllText()` / `WriteAllText()` と `[Text.UTF8Encoding]::new($true)` を使用し、CRLF を保持する。行単位の `Get-Content` / `Set-Content` による書き戻しを避ける。
+- `convert_line_endings.py` は破損修復時に限り `-d src Test` で使用する。通常の編集前後には実行しない。
+
+## ビルド・実行
+
+要件: Visual Studio 2026 / MSVC v145、環境変数 `SIV3D_0_6_16`。
+リポジトリ直下から PowerShell で実行する。
+
+```powershell
+& 'C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe' City.sln -target:City -p:Configuration=Release -p:Platform=x64 -p:PreferredToolArchitecture=x64 -m:1 -verbosity:minimal -noLogo
 ```
 
-ビルド後、`App/` ディレクトリに実行ファイルが自動コピーされる。実行時のワーキングディレクトリは `App/`。
-- Debug: `App/City(debug).exe` / Release: `App/City.exe`
+- `-target:Test` でテストをビルド。Debug は `-p:Configuration=Debug`。
+- WSL では実行ファイルを `/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe` として同じ引数を渡す。
+- 本体は `App/City.exe`（Debug: `City(debug).exe`）へ自動コピーされる。**実行時の作業ディレクトリは必ず `App/`**。
+- 本体の起動はユーザーが明示的に依頼した場合に行う。「実際に遊んで確認して」という依頼は、その作業に必要な起動を含む。依頼がなければ起動しない。Test は自律実行できる。
+- `--load <saveName>` で直接ロード、`--new` で新規生成。`--seed <数値>` 等を使う場合、`--load` / `--new` は最後に置く。
+- `cmd.exe /c start` は括弧入りパスで失敗するため使わない。PowerShell の `Start-Process` でバックグラウンド起動する場合は `-WindowStyle Hidden` を指定する。
+- 実行後はプロジェクトルートを作業ディレクトリに戻す。テスト手順・出力先は [Test/AGENTS.md](Test/AGENTS.md)。
 
-**起動コマンド**（「起動して」と明示的に指示された場合のみ実行。指示がなければ起動しない）:
-```bash
-cd /mnt/d/Users/Takuma/Creations/codes/City/App && "./City(debug).exe" --load default &
-```
-- `--load <saveName>` でタイトル画面をスキップして直接ロード
-- ワーキングディレクトリは必ず `App/` にすること
-- `cmd.exe /c start` は括弧入りパスで失敗するため使わない
-- 起動後は `cd /mnt/d/Users/Takuma/Creations/codes/City` でプロジェクトルートに戻ること
+## デバッグ・SDK 調査
 
-**Test プロジェクト** (`Test/`): Codex が自律的にテストを行うための Siv3D プロジェクト。詳細は `Test/AGENTS.md` を参照。
-- 通常の編集では `convert_line_endings.py` による LF/CRLF 一括変換を行わず、既存の UTF-8 BOM + CRLF を保持すること
-- `convert_line_endings.py` は、改行・BOM が壊れた場合の一括修復に限って `-d src Test` で Test/ も対象にして使うこと
-```bash
-# ビルド
-"/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe" Test/Test.vcxproj -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
-# 実行（自動終了する）
-cd /mnt/d/Users/Takuma/Creations/codes/City/Test/App && "./Test(debug).exe"
-# スクリーンショット確認先
-Test/App/Screenshot/
-```
-
-**カスタム Agent**（`.Codex/agents/` に定義、全て Sonnet モデル）:
-
-| Agent | 説明 | 呼び出し例 |
-|---|---|---|
-| `build.md` | MSBuild 実行 + エラー・警告解析 | 「ビルドして」 |
-| `review.md` | コードレビュー（バグ・規約・設計） | 「レビューして」 |
-| `explore.md` | コードベース調査（探索 + 実装読解・処理フロー追跡） | 「〇〇を調べて」「〇〇の実装を調べて」 |
-| `commit.md` | 変更を意味のある単位に分割しコミット&プッシュ | 「コミットして」「コミット&プッシュ」 |
-| `refactor.md` | チェックリストに従いコードをリファクタリング | 「リファクタして」 |
-| `design.md` | 要求を受けて既存コード調査 + 実装計画を作成（Opus、コードは書かない） | 「〇〇を設計して」「計画を立てて」 |
-| `implement.md` | 渡された実装計画に従ってコード編集 + ビルド確認 | 「この計画で実装して」 |
-| `siv3d-api.md` | Siv3D v0.6.16 API 調査 | 「Siv3D の〇〇の使い方」 |
-
-## Code Style
-
-詳細なコーディング規約は `CODING_STYLE.md` を参照すること。
-
-### ファイル形式
-
-`.editorconfig` に従う:
-- インデント: タブ (サイズ4)
-- **文字コード: UTF-8 BOM（必須）** — 全ての `.cpp` / `.hpp` / `.h` ファイルは BOM 付き UTF-8 で保存する。新規ファイル作成時も必ず BOM (`\xEF\xBB\xBF`) をファイル先頭に付与すること。
-- ドキュメントコメント: Doxygen形式
-- **CRLF/BOM ファイルの編集**: LF 化してから編集する運用は禁止。コマンド側で UTF-8 BOM + CRLF を保持すること。
-  - PowerShell では行単位の `Get-Content` / `Set-Content` を避け、`[System.IO.File]::ReadAllText()` / `WriteAllText()` を使う。
-  - 書き込み時は `.cpp` / `.hpp` / `.h` で `New-Object System.Text.UTF8Encoding($true)` を指定し、BOM を保持する。
-  - 改行を組み立てる必要がある場合は CRLF (0x0D 0x0A) を使い、既存テキストの CRLF を維持する。
-  - `convert_line_endings.py` は、改行・BOM が壊れた場合の一括修復用に限って使う。
-
-### 命名規則
-
-過剰な略語は使わない。識別子は読んで意味が即座にわかる名前にすること。
-
-**OK（慣用として許容）:**
-- `tex` / `vert` — グラフィクス分野の定番
-- `bez` — Bezier（プロジェクト全体で統一使用）
-- `mat` — Matrix または Material（文脈で明確）
-- `dx` / `dz` — delta x/z（数学慣用）
-- `md` — MeshData（短スコープかつ型が自明な場合）
-- ループ変数 `i` / `j` など
-
-**NG（過剰な略語の例）:**
-- `mk` → `make`（動詞の短縮）
-- `ls` → `lineStyle`、`rn` → `rightVec`、`sld` → `subLampDef` など文脈がないと読めないもの
-- `k` プレフィックスは `constexpr` 定数専用 — 引数・ローカル変数には使わない
-
-## Development Rules
-
-- **コミットは意味のある単位で分ける** — 1つのコミットに無関係な変更を混ぜない
-- **memory システムは使わない** — ルールや記憶は全て AGENTS.md に記載する
-- **既知の問題は `ISSUE.md` で管理** — バグ修正時に参照・更新し、完了したら該当項目を削除する
-- **「Consoleに出して」は `Console <<` を使う** — `Print`（画面オーバーレイ）ではなくターミナル出力。`Print` は明示的に指示された場合のみ
-- **UI を実装したら Test で表示を確認、レビューしてからメインに移す** — 新規 UI ウィジェットやレイアウト変更は Test プロジェクトでスクリーンショット検証してから本体に反映する
-- **「推測するな。計測せよ。」** — パフォーマンス問題やバグの原因を推測で修正しない。必ず Console 出力やタイマーで実測データを取得し、データに基づいて修正する
-- **コンパイラ警告は基本的にすべて解決すること** — 将来使用する予定のパラメータには `[[maybe_unused]]` を付与し、実際に使われるようになったら除去すること
-
-### Debug Output
-
-ゲーム本体のデバッグでは、ターミナルの `Console <<` に依存せず、原則として `DebugLog` を使うこと。
-
-- `DebugLog::print(U"...")` または `DBG_LOG(U"...")` で出力する
-- 出力はオンスクリーンログと `App/debug.log` の両方に流れる
-- `GameApp::run()` で起動時に `DebugLog::initialize(U"debug.log")`、終了時に `DebugLog::shutdown()` する
-- `App/` をワーキングディレクトリにして起動した場合、ログは `App/debug.log` に生成される
-- バグ調査では、原因を推測で直さず、`DebugLog` に状態・ID・座標・経過時間・失敗理由を出して計測する
-- 既存の `Console <<` を置き換える場合は、ユーザーが明示的に「Consoleに出して」と言っていない限り `DebugLog::print` を優先する
-
-## Siv3D
-
-コンパイルエラーや API の使い方で迷ったら、まず `plan/SIV3D_NOTES.md` を検索すること。
-API 調査は `siv3d-api` Agent 経由で行う（ヘッダを直接 Read する）。Siv3D の型・関数は極力既存 API を使い、自前で再実装しない。
-
-**クラス定義の参照先**: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`
-
-## Architecture
-
-### 仕様書
-
-`plan/` に詳細仕様書がある。実装前に必ず参照すること。
-実装によって仕様が変わった場合は、該当する仕様書を適宜更新すること:
-
-| ファイル | 内容 |
-|---|---|
-| `SPEC_INDEX.md` | 仕様書の目次・ナビゲーション |
-| `01_overview_spec.md` | ゲーム概要・コアメカニクス |
-| `02_technical_spec.md` | アーキテクチャ・データ構造・アルゴリズム |
-| `03_procedural_generation_spec.md` | マップ・地形・集落の手続き生成 |
-| `04_gameplay_detail_spec.md` | 経済・バランス・イベント・幸福度 |
-| `05_zoning_spec.md` | ゾーニングと建物システム |
-| `06_ui_spec.md` | UIレイアウト・操作モード |
-| `07_road_lane_spec.md` | 道路構造・車線システム |
-| `08_pathfinding_spec.md` | グラフベース経路探索 |
-| `09_vehicle_spec.md` | 車両種別・物理・交通ルール |
-| `10_railway_spec.md` | 鉄道・線路・駅・ダイヤ |
-| `11_placename_spec.md` | 手続き的地名生成 |
-| `12_visual_spec.md` | レンダリング・ビジュアル設計・LOD |
-| `13_sound_spec.md` | オーディオ設計 |
-| `14_save_spec.md` | セーブシステム・チャンク永続化 |
-| `15_chunk_data_spec.md` | チャンクデータ設計（二層構造・境界ノード重複） |
-| `16_road_cross_section_spec.md` | 道路部品・断面構成（RoadPart + OBJ モデル） |
-| `17_road_node_spec.md` | 道路ノード接続（継ぎ目・交差点・分岐合流） |
-| `18_panel_system_spec.md` | パネルシステム（UI パネル管理・Z オーダー・ドラッグ・PanelBuilder 自動レイアウト） |
-| `20_road_object_spec.md` | 道路オブジェクト（橋脚・街灯・標識等）・高架橋 |
-| `21_guide_sign_spec.md` | 案内標識（方面及び距離 106・方面及び方向 108の2）— GuideSign 独立系統 |
-
-
-## 画像検証時の制約（ユーザー指定、2026-09-13）
-
-- `Invalid image in your last message` が繰り返し発生するため、スクリーンショット・参考写真をチャットの画像データとして返さない。`view_image` 等の結果を画像として会話へ渡す確認も行わない。
-- 撮影はローカルファイルへ保存し、ログ・GPU readback・画像ファイルの数値解析で検証する。報告はテキストと通常のファイルリンクにする。ユーザーが画像の送信を明示的に再許可した場合のみ変更する。
+- 本体は原則 `DebugLog::print(U"...")` / `DBG_LOG(U"...")` を使用する。`GameApp::run()` の initialize/shutdown を維持し、状態・ID・座標・時間・失敗理由を `App/debug.log` とオンスクリーンログへ出す。
+- ユーザーが「Console に出して」と指定した場合は `Console <<`。`Print` は明示的に指定された場合のみ。
+- Siv3D API に迷ったら、まず [SIV3D_NOTES.md](plan/SIV3D_NOTES.md) を検索する。追加調査は `siv3d-api` Agent 経由で SDK ヘッダを読む。既存 API を優先し、自前で再実装しない。
+- SDK ヘッダ: `D:/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`（WSL: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`）。
+- 作業別ガイドは `.codex/`、Claude 用 Agent 定義は `.claude/agents/`。必要なものだけ参照する。ルールの正本はこのファイルとする。

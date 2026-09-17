@@ -1,4 +1,5 @@
-﻿# include "../../stdafx.h"
+﻿#include "GenerationSettings.hpp"
+# include "../../stdafx.h"
 #include "PlaceNameGenerator.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8,7 +9,7 @@
 
 namespace
 {
-	constexpr int kDefaultWeights[5] = { 20, 25, 25, 10, 20 };
+	
 
 	/// @brief TOML 配列から String 配列を読む
 	Array<String> readStringArray(const TOMLValue& v)
@@ -97,7 +98,7 @@ PlaceNameDB PlaceNameGenerator::generateWithBiomes(
 
 PlaceCategory PlaceNameGenerator::pickCategory(uint64& state) const
 {
-	const int* w   = kDefaultWeights;
+	const int w[5] = { GenerationSettings::get().placeNames_default_river, GenerationSettings::get().placeNames_default_mountain, GenerationSettings::get().placeNames_default_plain, GenerationSettings::get().placeNames_default_coast, GenerationSettings::get().placeNames_default_general };
 	int        sum = 0;
 	for (int k = 0; k < 5; ++k) sum += w[k];
 	if (sum <= 0) return PlaceCategory::General;
@@ -116,18 +117,18 @@ PlaceCategory PlaceNameGenerator::pickCategory(uint64& state) const
 PlaceCategory PlaceNameGenerator::pickCategoryForBiome(BiomeType biome, uint64& state) const
 {
 	// バイオーム別重み: { River, Mountain, Plain, Coast, General }
-	static constexpr int kBiomeWeights[][5] = {
-		/* Ocean         */ {  5,  0, 10, 60, 25 },
-		/* Lake          */ { 40,  5, 20, 15, 20 },
-		/* CoastalPlain  */ { 10,  0, 30, 40, 20 },
-		/* CoastalHill   */ { 10, 20, 15, 30, 25 },
-		/* Plain         */ { 15,  5, 50,  0, 30 },
-		/* Basin         */ { 30,  5, 30,  0, 35 },
-		/* Hill          */ { 10, 35, 25,  0, 30 },
-		/* Foothill      */ { 10, 45, 15,  0, 30 },
-		/* Plateau       */ {  5, 30, 30,  0, 35 },
-		/* Mountain      */ {  5, 55, 10,  0, 30 },
-		/* MountainRange */ {  0, 65,  5,  0, 30 },
+	const int kBiomeWeights[][5] = {
+		/* Ocean */ { GenerationSettings::get().placeNames_Ocean_river, GenerationSettings::get().placeNames_Ocean_mountain, GenerationSettings::get().placeNames_Ocean_plain, GenerationSettings::get().placeNames_Ocean_coast, GenerationSettings::get().placeNames_Ocean_general },
+		/* Lake */ { GenerationSettings::get().placeNames_Lake_river, GenerationSettings::get().placeNames_Lake_mountain, GenerationSettings::get().placeNames_Lake_plain, GenerationSettings::get().placeNames_Lake_coast, GenerationSettings::get().placeNames_Lake_general },
+		/* CoastalPlain */ { GenerationSettings::get().placeNames_CoastalPlain_river, GenerationSettings::get().placeNames_CoastalPlain_mountain, GenerationSettings::get().placeNames_CoastalPlain_plain, GenerationSettings::get().placeNames_CoastalPlain_coast, GenerationSettings::get().placeNames_CoastalPlain_general },
+		/* CoastalHill */ { GenerationSettings::get().placeNames_CoastalHill_river, GenerationSettings::get().placeNames_CoastalHill_mountain, GenerationSettings::get().placeNames_CoastalHill_plain, GenerationSettings::get().placeNames_CoastalHill_coast, GenerationSettings::get().placeNames_CoastalHill_general },
+		/* Plain */ { GenerationSettings::get().placeNames_Plain_river, GenerationSettings::get().placeNames_Plain_mountain, GenerationSettings::get().placeNames_Plain_plain, GenerationSettings::get().placeNames_Plain_coast, GenerationSettings::get().placeNames_Plain_general },
+		/* Basin */ { GenerationSettings::get().placeNames_Basin_river, GenerationSettings::get().placeNames_Basin_mountain, GenerationSettings::get().placeNames_Basin_plain, GenerationSettings::get().placeNames_Basin_coast, GenerationSettings::get().placeNames_Basin_general },
+		/* Hill */ { GenerationSettings::get().placeNames_Hill_river, GenerationSettings::get().placeNames_Hill_mountain, GenerationSettings::get().placeNames_Hill_plain, GenerationSettings::get().placeNames_Hill_coast, GenerationSettings::get().placeNames_Hill_general },
+		/* Foothill */ { GenerationSettings::get().placeNames_Foothill_river, GenerationSettings::get().placeNames_Foothill_mountain, GenerationSettings::get().placeNames_Foothill_plain, GenerationSettings::get().placeNames_Foothill_coast, GenerationSettings::get().placeNames_Foothill_general },
+		/* Plateau */ { GenerationSettings::get().placeNames_Plateau_river, GenerationSettings::get().placeNames_Plateau_mountain, GenerationSettings::get().placeNames_Plateau_plain, GenerationSettings::get().placeNames_Plateau_coast, GenerationSettings::get().placeNames_Plateau_general },
+		/* Mountain */ { GenerationSettings::get().placeNames_Mountain_river, GenerationSettings::get().placeNames_Mountain_mountain, GenerationSettings::get().placeNames_Mountain_plain, GenerationSettings::get().placeNames_Mountain_coast, GenerationSettings::get().placeNames_Mountain_general },
+		/* MountainRange */ { GenerationSettings::get().placeNames_MountainRange_river, GenerationSettings::get().placeNames_MountainRange_mountain, GenerationSettings::get().placeNames_MountainRange_plain, GenerationSettings::get().placeNames_MountainRange_coast, GenerationSettings::get().placeNames_MountainRange_general },
 	};
 
 	const int idx = Clamp(static_cast<int>(biome), 0,
@@ -157,7 +158,7 @@ std::pair<String, String> PlaceNameGenerator::generateOne(PlaceCategory cat, Pla
 		return { U"不明", U"fumei" };
 
 	// 10% の確率で 3 文字地名（prefix+prefix+suffix または prefix+suffix+suffix）
-	const bool threeChar         = (randIndex(state, 10) == 0);
+	const bool threeChar         = (randIndex(state, GenerationSettings::get().placeNames_threeCharacterPeriod) == 0);
 	const bool prefixPrefixSuffix = threeChar && (randIndex(state, 2) == 0);
 
 	constexpr int kMaxRetry = 200;

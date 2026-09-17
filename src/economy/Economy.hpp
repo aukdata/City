@@ -21,6 +21,9 @@ struct Economy
 	int    population = 15000;   ///< 人口
 	double happiness  = 0.70;    ///< 幸福度 0.0〜1.0
 
+	/// @brief Initialize a newly generated region at 72% housing occupancy. Saved economies are not reset.
+	void initializeGeneratedCity(int64 housingCapacity);
+
 	/// @brief 人口規模に応じた交付金を返す [億円/月]
 	/// @details 交付単価は人口規模ステップで変化（04_gameplay_detail_spec.md §2）
 	double monthlyGrant() const;

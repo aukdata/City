@@ -70,8 +70,17 @@ private:
 	/// @brief バイオームパラメータ（基底高・振幅）を連続補間で計算する
 	void computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
 
-	/// @brief cont ノイズにマップ端距離補正を加える（海をマップ端に誘導）
-	float adjustContinentalness(float rawCont, float wx, float wz) const;
+	/// @brief 中央は平野を基本とし、一部の種では山・湾・湖を持つ。
+	enum class CentralLandform : uint8 { Plain, Mountain, Bay, Lake };
+	CentralLandform m_centralLandform=CentralLandform::Plain;
+	double lakeInfluence(double inlandAxis, double alongAxis, double scale) const;
+	Vec2 m_featureCenter{.06,0}; ///< 海岸座標系での正規化位置。
+	double m_rangeOffset=.4, m_rangeWidth=.18, m_flankSign=1;
+
+	/// @brief 種ごとの海岸法線、湾位置、山並みの位相。全チャンクで同じ座標系を使う。
+	Vec2 m_landAxis{1, 0};
+	double m_bayCenter = 0;
+	double m_terrainPhase = 0;
 
 	void rebuildActiveChunkCache();
 

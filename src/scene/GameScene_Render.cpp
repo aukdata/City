@@ -1,5 +1,9 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/LocationTooltip.hpp"
+#include "../gen/SettlementNames.hpp"
 #include "EdgeSectionState.hpp"
+#include "../traffic/VehiclePose.hpp"
+#include "../ui/DrivingHud.hpp"
 #include "../ui/PanelWidget.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include <Siv3D/ViewFrustum.hpp>
@@ -13,23 +17,6 @@ namespace
 	constexpr Float4 kSelectionOutlineColor{ 1.0f, 0.85f, 0.1f, 1.0f };
 	/// @brief アウトラインの幅（ピクセル単位、シェーダ内で texelSize と乗算される）
 	constexpr float  kSelectionOutlineWidthPx = 6.0f;
-
-	// 車線中心のワールド座標を返す（路盤ベジェ + 車線オフセット）
-	Vec3 calcLaneWorldPos(const CubicBezier& bez, const RoadEdge& edge, int laneIdx, float arc)
-	{
-		const float ca = Clamp(arc, 0.0f, bez.totalLength);
-		Vec3 pos = bez.positionAt(ca);
-		const Vec3 tan = bez.tangentAt(ca);
-		if (laneIdx >= 0 && laneIdx < static_cast<int>(edge.lanes.size()))
-		{
-			const Lane& ln = edge.lanes[laneIdx];
-			const float ft = (bez.totalLength > 0.0f) ? (ca / bez.totalLength) : 0.0f;
-			const float off = ln.centerAt(ft);
-			const Vec3 perp = tangentToRight(tan);
-			pos += perp * static_cast<double>(off);
-		}
-		return pos;
-	}
 
 	constexpr int    kHudStatsRefreshFrames      = 60;
 	constexpr double kTrafficVehicleHeadwayMeters = 25.0;
@@ -195,7 +182,16 @@ void GameScene::pushPerfStats()
 
 void GameScene::renderWorld()
 {
-	if (m_minimapRenderer.fullScreen()) { m_minimapRenderer.drawFullScreen(m_camera); return; }
+	if (m_minimapRenderer.fullScreen())
+	{
+		const Stopwatch mapTimer{StartImmediately::Yes};
+		m_renderTimings = {};
+		m_minimapRenderer.drawFullScreen(m_camera);
+		m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
+		if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
+		m_renderTimings.total=mapTimer.msF();
+		return;
+	}
 	// 3D 本体、選択エフェクト、2D UI、性能計測を 1 フレームの決まった順序で積み上げる。
 	Stopwatch swStep{ StartImmediately::Yes };
 	const Stopwatch swTotal{ StartImmediately::Yes };
@@ -206,7 +202,8 @@ void GameScene::renderWorld()
 	double dbgRouteSign = 0, dbgGuideSign = 0, dbgRtSetup = 0;
 
 	// 国道標識テクスチャ合成（3D シーン前・2D パイプライン有効時）
-	m_roadRenderer.prepareRouteSignTextures(m_network);
+	m_roadRenderer.prepareSignTextures();
+	m_trainRenderer.prepareFacilityTextures();
 	lap(dbgRouteSign);
 	// 案内標識テクスチャ合成（同上）
 	m_roadRenderer.prepareGuideSignTextures(m_network);
@@ -293,7 +290,7 @@ void GameScene::renderWorld()
 		m_riverRenderer.draw(m_camera.eyePosition());
 		m_tunnelRenderer.draw(m_camera.eyePosition());
 		m_trainRenderer.renderTracks(m_trainNetwork,m_world,m_camera.eyePosition(),m_network);
-		m_trainRenderer.renderTrains(m_trainManager.trains());
+		m_trainRenderer.renderTrains(m_trainManager.trains(),m_trainNetwork,m_camera.camera3D().getEyePosition());
 		lap(m_renderTimings.train);
 
 		if (!getData().captureCityRenders)
@@ -332,6 +329,7 @@ void GameScene::renderWorld()
 	                               m_renderTimings.debug, m_renderTimings.ui, m_network);
 
 	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
+	if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
 
 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
 	constexpr int kPerfLogIntervalFrames = 120;
@@ -379,13 +377,14 @@ void GameScene::renderScene3D()
 	Stopwatch sw{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
-	const ViewFrustum frustum{ m_camera.camera3D(), 24000.0 };
+	const ViewFrustum frustum{ m_camera.camera3D(), Max(24000.0,m_camera.distance()*2.0) };
 	m_roadRenderer.synchronizeTerrainChanges(m_world, m_network);
 	if (m_tunnelRenderer.dirty)
 	{
 		m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
 		m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
 	}
+	m_worldRenderer.setTransportSites(m_trainNetwork,m_network,m_world);
 	m_worldRenderer.render(m_world, m_network, m_camera.camera3D());
 	lap(m_renderTimings.terrainOnly);
 
@@ -460,7 +459,7 @@ void GameScene::renderSelectionHighlights()
 					const float off = lane.centerAt(ft);
 					const Vec3 perp = tangentToRight(tan);
 					Vec3 world = pos + perp * static_cast<double>(off);
-					world.y = edge->useElevation
+					world.y = edge->usesDesignHeight()
 						? pos.y + 4.0
 						: m_world.sampleHeight(static_cast<float>(world.x), static_cast<float>(world.z)) + 4.0;
 
@@ -484,8 +483,8 @@ void GameScene::renderSelectionHighlights()
 				// 接続元・接続先いずれかのエッジが useElevation の場合は高架扱い
 				const RoadEdge* fromEdge = m_network.getEdge(conn.fromEdgeId);
 				const RoadEdge* toEdge   = m_network.getEdge(conn.toEdgeId);
-				const bool connElev = (fromEdge && fromEdge->useElevation)
-				                   || (toEdge   && toEdge->useElevation);
+				const bool connElev = (fromEdge && fromEdge->usesDesignHeight())
+				                   || (toEdge   && toEdge->usesDesignHeight());
 
 				for (int i = 0; i < kSegments; ++i)
 				{
@@ -534,7 +533,7 @@ void GameScene::renderSelectionHighlights()
 					Vec3 anchor = bez->positionAt(arc);
 					const Vec3 tan = bez->tangentAt(arc);
 
-					if (edge->useElevation)
+					if (edge->usesDesignHeight())
 						anchor.y += 4.0;
 					else
 						anchor.y = m_world.sampleHeight(static_cast<float>(anchor.x), static_cast<float>(anchor.z)) + 3.0;
@@ -603,6 +602,14 @@ void GameScene::renderSelectionOutline()
 			}
 		}
 
+		if (m_selection.kind==SelectionKind::Train)
+		{
+			for (const auto& train:m_trainManager.trains())
+			{
+				if (train.id==m_selection.id) { m_trainRenderer.drawTrainSilhouette(train,m_trainNetwork,m_camera.camera3D().getEyePosition(),maskColor);break; }
+			}
+		}
+
 		// 道路系（Edge/Node/Signal/GuideSign）
 		switch (m_selection.kind)
 		{
@@ -645,81 +652,16 @@ void GameScene::renderSelectionOutline()
 void GameScene::prepareVehicleRenderData()
 {
 	m_renderVehicles.clear();
-
-	for (const auto& v : m_vehicleManager.vehicles())
+	for (const auto& vehicle : m_vehicleManager.vehicles())
 	{
-		if (v.mode != VehicleMode::Active) continue;
-
-		Vehicle rv = v;
-		Vec3 tangent;
-
-		if (v.location == VehicleLocation::OnConnection)
-		{
-			const RoadNode* node = m_network.getNode(v.connectionNodeId);
-			if (!node) continue;
-			const LaneConnection* conn = nullptr;
-			for (const auto& c : node->laneConnections)
-				if (c.id == v.connectionId) { conn = &c; break; }
-			if (!conn) continue;
-			const float ca = Clamp(v.arcPos, 0.0f, conn->path.totalLength);
-			rv.position = conn->path.positionAt(ca);
-			tangent = conn->path.tangentAt(ca);
-		}
-		else if (v.location == VehicleLocation::ChangingLane)
-		{
-			if (v.currentEdge < 0) continue;
-			const auto bezier = m_network.getBezier(v.currentEdge);
-			if (!bezier) continue;
-			const RoadEdge* edgeCL = m_network.getEdge(v.currentEdge);
-			if (!edgeCL) continue;
-			const Vec3 posFrom = calcLaneWorldPos(*bezier, *edgeCL, v.laneFrom, v.arcPos);
-			const Vec3 posTo   = calcLaneWorldPos(*bezier, *edgeCL, v.laneTo,   v.arcPos);
-			rv.position = posFrom.lerp(posTo, static_cast<double>(v.laneChangeBlend));
-			tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
-		}
-		else
-		{
-			if (v.currentEdge < 0) continue;
-			const auto bezier = m_network.getBezier(v.currentEdge);
-			if (!bezier) continue;
-			const RoadEdge* edgeOL = m_network.getEdge(v.currentEdge);
-			if (!edgeOL) continue;
-			rv.position = calcLaneWorldPos(*bezier, *edgeOL, v.currentLane, v.arcPos);
-			tangent = bezier->tangentAt(Clamp(v.arcPos, 0.0f, bezier->totalLength));
-		}
-
-		{
-			const bool onElevated = (v.location == VehicleLocation::OnConnection)
-				? m_network.isNodeElevated(v.connectionNodeId)
-				: [&]{ const RoadEdge* e = m_network.getEdge(v.currentEdge); return e && e->useElevation; }();
-			if (onElevated)
-				rv.position.y += kRoadLineLift;
-			else
-				rv.position.y = m_world.sampleHeight(
-					static_cast<float>(rv.position.x),
-					static_cast<float>(rv.position.z)) + kRoadLineLift;
-		}
-
-		float sign = 1.0f;
-		if (v.location != VehicleLocation::OnConnection)
-		{
-			const RoadEdge* edge = m_network.getEdge(v.currentEdge);
-			const int li = (v.location == VehicleLocation::ChangingLane) ? v.laneFrom : v.currentLane;
-			if (edge && li >= 0 && li < static_cast<int>(edge->lanes.size()))
-				sign = (edge->lanes[li].dir == LaneDir::Forward) ? 1.0f : -1.0f;
-		}
-		const double fx = sign * tangent.x;
-		const double fy = sign * tangent.y;
-		const double fz = sign * tangent.z;
-		rv.heading = static_cast<float>(Math::Atan2(fx, fz));
-		rv.pitch   = static_cast<float>(Math::Atan2(fy, Math::Sqrt(fx * fx + fz * fz)));
-		m_renderVehicles << rv;
+		if (vehicle.mode!=VehicleMode::Active) { continue; }
+		if (const auto pose=VehiclePose::resolve(vehicle,m_network,&m_world)) { m_renderVehicles<<*pose; }
 	}
 }
 
 void GameScene::renderVehicles()
 {
-	m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition());
+	m_vehicleRenderer.render(m_renderVehicles, m_camera.camera3D().getEyePosition(), &m_camera.camera3D());
 }
 
 // =============================================================================
@@ -759,19 +701,21 @@ void GameScene::renderEditModeOverlays()
 				left=p-side; right=p+side; center=p;
 			}
 		}
-		for (size_t i=0;i<draft.points().size();++i)
+		const auto& displayedPoints = m_draftRoadPlan.draggedPoint ? m_draftRoadPlan.dragPoints : draft.points();
+		for (size_t i=0;i<displayedPoints.size();++i)
 		{
-			Sphere{raised(draft.points()[i]),1.5}.draw(i == 0 ? ColorF{0.25,1.0,0.55}.removeSRGBCurve() : cyan);
+			Sphere{raised(displayedPoints[i]),1.5}.draw(i == 0 ? ColorF{0.25,1.0,0.55}.removeSRGBCurve() : cyan);
+			if (i>0 && (!draft.generated() || m_draftRoadPlan.draggedPoint)) { Line3D{raised(displayedPoints[i-1]),raised(displayedPoints[i])}.draw(cyan); }
 		}
 		if (m_roadPlanCursor)
 		{
 			const Vec3 to=raised(m_roadPlanCursor->position);
 			const ColorF guideColor = m_roadPlanCursor->connected ? ColorF{0.3,1.0,0.5}.removeSRGBCurve() : ColorF{0.95}.removeSRGBCurve();
 			Sphere{to,1.7}.draw(guideColor);
-			if (!draft.points().isEmpty())
+			if (draft.points().size() == 1)
 			{
 				const auto& points=draft.points();
-				const Vec3 from=raised(points[m_draftRoadPlan.replaceEnd && points.size()>=2 ? points.size()-2 : points.size()-1]);
+				const Vec3 from=raised(points.back());
 				const Vec3 side=tangentToRight(to-from)*halfWidth;
 				const int samples=Clamp(static_cast<int>(Ceil(from.distanceFrom(to)/8.0)),2,128);
 				for (int i=0;i<samples;i+=2)
@@ -962,10 +906,37 @@ void GameScene::render2DUI()
 	Stopwatch sw{ StartImmediately::Yes };
 	auto lap = [&](double& out) { out = sw.msF(); sw.restart(); };
 
-	m_placeNameRenderer.render(m_districts, m_camera, m_world);
+	m_placeNameRenderer.render(m_districts, m_camera, m_world, m_uiRenderer.panelBounds());
 	lap(m_renderTimings.uiPlaceNames);
 
 	m_routeSignRenderer.render(m_network, m_camera);
+	if(m_camera.mode()==CameraMode::Overview && m_cursorGroundPos && !m_commandPalette.visible
+		&& !m_showPauseMenu && !m_panelManager.blocksMouseInput() && !m_uiRenderer.isMouseOnHud())
+	{
+		if(m_locationIndexDirty) { m_locationIndex.rebuild(m_network);m_locationIndexDirty=false; }
+		LocationTooltip::Content content;double nearest=Math::Inf;const Vec2 point{m_cursorGroundPos->x,m_cursorGroundPos->z};
+		for(const auto& town:m_districts)
+		{
+			const double distance=town.center.distanceFromSq(point);
+			if(distance<nearest) { nearest=distance;content.place=SettlementNames::name(town);content.reading=SettlementNames::reading(town); }
+		}
+		const auto hit=m_locationIndex.find(m_network,*m_cursorGroundPos,Clamp(m_camera.distance()*.008,12.0,80.0),Math::Inf,false);
+		if(hit.edgeId)
+		{
+			const auto* edge=m_network.getEdge(*hit.edgeId);
+			for(int id:edge->routeIds)
+			{
+				const auto* route=m_network.getRoute(id);if(!route) { continue; }
+				if(content.road.isEmpty() || route->kind==RoadRouteKind::Named) { content.road=route->name; }
+				if(route->kind==RoadRouteKind::NationalRoute) { content.nationalNumber=route->number; }
+			}
+			if(content.road.isEmpty()) { content.road=edge->farmAccess ? U"農道" : edge->roadType==RoadType::Arterial ? U"幹線道路" : U"生活道路"; }
+		}
+		const double bottomInset=m_frameRateGraph.visible ? Scene::Height()-m_frameRateGraph.bounds(Scene::Size()).y+12 : 12;
+		LocationTooltip::draw(Scene::Size(),content,FontAsset(Asset::CJK14),TextureAsset(Asset::NationalRoadSign),bottomInset);
+		if(getData().playtest && m_playtestFrame%60==0) { DBG_LOG(U"[LocationHover] world={} place={} road={}"_fmt(point,content.place,content.road)); }
+	}
+
 	lap(m_renderTimings.uiRouteSigns);
 
 	const Stopwatch housingTimer{StartImmediately::Yes};
@@ -979,7 +950,12 @@ void GameScene::render2DUI()
 	}
 	--m_hudStatsRefreshCountdown;
 
-	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy, m_hudStats);
+	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy, m_hudStats, m_camera.mode() == CameraMode::FirstPerson, m_driving.active());
+	if (m_driving.active())
+	{
+		DrivingHud::draw(FontAsset(Asset::CJK14),Scene::Size(),{m_driving.vehicle().speed,m_driving.steering(),m_driving.distance(),
+			m_driving.speedLimit(),m_clock.speed==TimeSpeed::Paused,m_driving.blocked()});
+	}
 	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる
@@ -992,6 +968,20 @@ void GameScene::render2DUI()
 	renderEdgeHandles();
 	lap(m_renderTimings.uiEdgeHandles);
 
+	if (m_mode == EditMode::RoadPlan && m_panelManager.isVisible(U"draw_template"))
+	{
+		const auto& points = m_draftRoadPlan.draggedPoint ? m_draftRoadPlan.dragPoints : m_draftRoadPlan.editor.points();
+		const Font font=FontAsset(Asset::Panel14);
+		for (size_t index=0; index<points.size(); ++index)
+		{
+			const Vec3 projected=m_camera.camera3D().worldToScreenPoint(points[index]+Vec3{0,1,0});
+			if (projected.z <= 0 || projected.z >= 1) { continue; }
+			const Vec2 position=projected.xy();
+			const ColorF color=index==0 ? ColorF{.3,1,.6} : index+1==points.size() ? ColorF{1,.8,.3} : ColorF{.3,.85,1};
+			Circle{position,7}.draw(ColorF{.05,.1,.15}).drawFrame(2,color);
+			if (index==0 || index+1==points.size()) { font(index==0 ? U"始点" : U"終点").draw(position+Vec2{11,-8},color); }
+		}
+	}
 	if (m_mode == EditMode::RoadPlan && m_roadPlanCursor && m_panelManager.isVisible(U"draw_template"))
 	{
 		const Font font=FontAsset(Asset::Panel14);
@@ -999,10 +989,10 @@ void GameScene::render2DUI()
 		const auto& points=m_draftRoadPlan.editor.points();
 		if (!points.isEmpty())
 		{
-			const Vec3 from=points[m_draftRoadPlan.replaceEnd && points.size()>=2 ? points.size()-2 : points.size()-1];
+			const Vec3 from=points.back();
 			label += U"  {:.0f}m"_fmt(from.distanceFrom(m_roadPlanCursor->position));
 		}
-		const String detail=m_draftRoadPlan.followTerrain ? U"直線距離のガイド / 経路はクリック後に計算" : U"白い点線: 次の区間 / 水色: 現在の計画";
+		const String detail=m_draftRoadPlan.editor.generated() ? U"点・線をドラッグで調整 / Enterで着工" : U"始点・終点を選択して「経路生成」";
 		const double width=Max(font(label).region().w,font(detail).region().w)+16;
 		const Vec2 position{Clamp(Cursor::PosF().x+20,8.0,Max(8.0,Scene::Width()-width-8)),Clamp(Cursor::PosF().y+22,8.0,Max(8.0,Scene::Height()-60.0))};
 		RectF{position,width,48}.draw(ColorF{0.06,0.09,0.12,0.95});
@@ -1029,16 +1019,16 @@ void GameScene::render2DUI()
 		else if (panelId == U"vehicle_info") { drawVehiclePanel(); }
 		else if (panelId == U"building_info"){ drawBuildingPanel(); }
 		else if (panelId == U"land_info") { drawLandParcelPanel(); }
+		else if (panelId == U"zone_palette") { drawZonePalette(); }
+		else if (panelId == U"rail_timetable") { drawRailTimetable(); }
 		else if (panelId == U"route_info")   { drawRoutePanel(); }
-		else if (panelId == U"minimap_expanded")
-		{
-			m_minimapRenderer.drawExpandedPanel(m_panelManager, m_camera, m_districts);
-		}
+
 	}
 
 	if (m_showPauseMenu)
 		drawPauseMenu();
 
+	m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
 	lap(m_renderTimings.uiPanels);
 }
 

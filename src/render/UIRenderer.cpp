@@ -1,4 +1,5 @@
-﻿#include "UIRenderer.hpp"
+﻿#include "../ui/NavigationHelp.hpp"
+#include "UIRenderer.hpp"
 #include "../asset/AssetRegistrar.hpp"
 
 namespace
@@ -71,7 +72,7 @@ void UIRenderer::handleInput()
 }
 
 void UIRenderer::render(const GameClock& clock, int vehicleCount, StringView modeText,
-                        const Economy& economy, const CityHudStats& stats)
+                        const Economy& economy, const CityHudStats& stats, bool walking, bool driving)
 {
 	updateLayout(stats);
 	// 常時参照する HUD 情報だけを画面四隅へ集約し、操作中でも視線移動を短く保つ。
@@ -182,9 +183,5 @@ void UIRenderer::render(const GameClock& clock, int vehicleCount, StringView mod
 		font(modeText).drawAt(20, Vec2{ Scene::Width() / 2.0, Scene::Height() - 30.0 }, Palette::White);
 	}
 
-	smallFont(
-		U"WASD:移動  右ドラッグ:回転  ホイール:ズーム  F:カメラ切替\n"
-		U"R:道路  Z:ゾーン塗り  G:地形  X:線路  B:バス路線\n"
-		U"Tab:ゾーン表示  T:車両生成  0:一時停止  1-3:速度"
-	).draw(12, Vec2{ Scene::Width() - 430.0, Scene::Height() - 62.0 }, Palette::White);
+	if (!driving) { NavigationHelp::draw(smallFont, Scene::Size(), walking); }
 }

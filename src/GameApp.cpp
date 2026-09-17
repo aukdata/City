@@ -1,4 +1,5 @@
 ﻿#include "GameApp.hpp"
+#include "ui/KeyboardActions.hpp"
 #include "asset/AssetRegistrar.hpp"
 #include "debug/DebugLog.hpp"
 
@@ -71,10 +72,15 @@ void GameApp::run()
 
 		if (args[i] == U"--audit-road-integrity") { manager.get()->auditRoadIntegrity = true; continue; }
 		if (args[i] == U"--capture-first-person") { manager.get()->captureFirstPerson = true; captureCityRenders = true; continue; }
+		if (args[i] == U"--capture-rail-signs") { manager.get()->captureTransportObjects=true; continue; }
 		if (args[i] == U"--capture-transport") { manager.get()->captureTransport=true; continue; }
 		if (args[i] == U"--capture-construction") { manager.get()->captureConstruction = true; continue; }
 		if (args[i] == U"--capture-road-ux") { manager.get()->captureRoadPlanUx = true; continue; }
 		if (args[i] == U"--benchmark-streaming") { manager.get()->benchmarkStreaming = true; continue; }
+		if (args[i] == U"--benchmark-navigation") { manager.get()->benchmarkNavigation = true; continue; }
+		if (args[i] == U"--playtest-commands" && i+1<args.size()) { manager.get()->playtestCommands=args[++i];manager.get()->playtest=true;continue; }
+		if (args[i] == U"--playtest") { manager.get()->playtest = true; continue; }
+		if (args[i] == U"--sync-roads") { manager.get()->syncRoads = true; continue; }
 		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
 
 		if (args[i] == U"--uncapped") { uncapped = true; continue; }
@@ -158,6 +164,7 @@ void GameApp::run()
 	{
 		const Stopwatch systemTimer{ StartImmediately::Yes };
 		if (!System::Update()) { break; }
+		GameInput::beginFrame();
 		if (captureCityRenders) { systemTimes << systemTimer.msF(); }
 		if (!manager.update()) { break; }
 		if (systemTimes.size() >= 120)

@@ -1,4 +1,5 @@
 ﻿#include "Camera.hpp"
+#include "KeyboardActions.hpp"
 
 GameCamera::GameCamera()
 {
@@ -11,13 +12,13 @@ void GameCamera::update(double dt, const World& world)
 	// カメラモードごとに入力と再構築方法を切り替え、Overview / Follow / FirstPerson を一つの状態機械で扱う。
 	if (m_mode == CameraMode::Overview)
 	{
-		handleInput(dt, world);
+		handleInput(Clamp(dt,0.0,.1), world);
 		rebuild(&world);
 	}
 	else if (m_mode == CameraMode::Follow)
 	{
 		// ホイールズームで追従距離調整は不要。yaw 調整のみ許容
-		if (MouseM.pressed())
+		if (MouseM.pressed() && !m_blockInput)
 		{
 			const Vec2 delta = Cursor::DeltaF();
 			m_followHeading -= static_cast<float>(delta.x) * ROTATE_SPEED * 4.0f;
@@ -26,9 +27,26 @@ void GameCamera::update(double dt, const World& world)
 		// Overview に戻ったとき focus を現在の追従位置にリセット
 		m_focus = m_followPos;
 	}
+	else if (m_mode == CameraMode::Driving)
+	{
+		if (!m_blockInput && (MouseR.down() || MouseM.down())) { m_dragAnchor=Cursor::Pos(); }
+		if (!m_blockInput && (MouseR.pressed() || MouseM.pressed()))
+		{
+			const Vec2 delta=Cursor::DeltaF();
+			setDrivingLook(m_drivingLook+Vec2{delta.x,-delta.y}*.003);
+			Cursor::SetPos(m_dragAnchor);
+			Cursor::RequestStyle(CursorStyle::Hidden);
+		}
+		else
+		{
+			// 見回しボタンを離すと前方へ穏やかに戻す。
+			m_drivingLook*=Exp(-8*Clamp(dt,0.0,.1));
+		}
+		rebuildDriving();
+	}
 	else if (m_mode == CameraMode::FirstPerson)
 	{
-		handleFirstPersonInput(dt, world);
+		handleFirstPersonInput(Clamp(dt,0.0,.1), world);
 	}
 	else
 	{
@@ -42,14 +60,14 @@ void GameCamera::handleInput(double dt, const World& world)
 	// ─── WASD 移動 ─────────────────────────────────────────────────────────────
 	const Vec3   forward    = Vec3{ -Math::Sin(m_yaw), 0.0, -Math::Cos(m_yaw) };
 	const Vec3   right      = Vec3{  Math::Cos(m_yaw), 0.0, -Math::Sin(m_yaw) };
-	const double ctrlBoost  = KeyControl.pressed() ? 2.0 : 1.0;
+	const double ctrlBoost  = GameInput::pressed(KeyControl) ? 2.0 : 1.0;
 	const double speedScale = static_cast<double>(MOVE_SPEED) * dt * (m_distance / 300.0) * ctrlBoost;
 
 	Vec3 wasdDelta{ 0.0, 0.0, 0.0 };
-	if (KeyW.pressed()) wasdDelta += forward * speedScale;
-	if (KeyS.pressed()) wasdDelta -= forward * speedScale;
-	if (KeyA.pressed()) wasdDelta += right   * speedScale;
-	if (KeyD.pressed()) wasdDelta -= right   * speedScale;
+	if (!m_keyboardBlocked && GameInput::pressed(KeyW)) wasdDelta += forward * speedScale;
+	if (!m_keyboardBlocked && GameInput::pressed(KeyS)) wasdDelta -= forward * speedScale;
+	if (!m_keyboardBlocked && GameInput::pressed(KeyA)) wasdDelta += right   * speedScale;
+	if (!m_keyboardBlocked && GameInput::pressed(KeyD)) wasdDelta -= right   * speedScale;
 	m_focus += wasdDelta;
 
 	// ホイールドラッグ中も WASD が有効になるよう、ピボットも同量移動する
@@ -67,7 +85,7 @@ void GameCamera::handleInput(double dt, const World& world)
 		m_hasOrbitPivot = false;
 
 		// Shift パン中は回転ピボット計算不要
-		if (!KeyShift.pressed())
+		if (!GameInput::pressed(KeyShift))
 		{
 			const Ray    ray  = screenToRay(Vec2{ m_dragAnchor });
 			const Float3 orig = ray.origin.xyz();
@@ -76,8 +94,8 @@ void GameCamera::handleInput(double dt, const World& world)
 			// 下方向成分がなければ地形に当たらない（水平・上向きレイはスキップ）
 			if (dir.y < 0.0f)
 			{
-				constexpr float kStep    = 10.0f;
-				constexpr float kMaxDist = 8000.0f;
+				const float kStep = Max(10.0f, m_distance / 800.0f);
+				const float kMaxDist = Max(8000.0f, m_distance * 3.0f);
 				float tPrev = 0.0f;
 
 				for (float t = kStep; t < kMaxDist; t += kStep)
@@ -103,11 +121,11 @@ void GameCamera::handleInput(double dt, const World& world)
 		}
 	}
 
-	if (MouseM.pressed())
+	if (MouseM.pressed() && !m_blockInput)
 	{
 		const Vec2 delta = Cursor::DeltaF();
 
-		if (KeyShift.pressed())
+		if (GameInput::pressed(KeyShift))
 		{
 			// ─── Shift + ホイールドラッグ: パン（平行移動）────────────────────────
 			// 1 ピクセルあたりのワールド移動量: focus 平面における見かけ上のスケール
@@ -166,21 +184,24 @@ void GameCamera::handleInput(double dt, const World& world)
 
 	// ─── ホイールズーム（Ctrl 押下中はスキップ：地形編集ブラシサイズ変更に使用）───
 	const double wheel = Mouse::Wheel();
-	if (wheel != 0.0 && !KeyControl.pressed() && !m_blockInput)
+	if (wheel != 0.0 && !GameInput::pressed(KeyControl) && !m_blockInput)
 	{
-		m_distance = static_cast<float>(
-			Clamp(
-				static_cast<double>(m_distance) * (1.0 + wheel * ZOOM_SPEED),
-				static_cast<double>(MIN_DIST),
-				static_cast<double>(MAX_DIST)));
+		zoom(wheel);
 	}
 
 	// ─── Numpad0: 真上視点リセット ───────────────────────────────────────────
-	if (KeyNum0.down())
+	if (!m_keyboardBlocked && GameInput::down(KeyNum0))
 	{
 		m_pitch = static_cast<float>(Math::ToRadians(89.0));
 		m_yaw   = 0.0f;
 	}
+}
+
+void GameCamera::zoom(double notches)
+{
+	if (!IsFinite(notches)) { return; }
+	m_distance = static_cast<float>(Clamp(m_distance * Pow(1.0 + ZOOM_SPEED, Clamp(notches, -200.0, 200.0)),
+		static_cast<double>(MIN_DIST), static_cast<double>(MAX_DIST)));
 }
 
 void GameCamera::rebuild(const World* world)
@@ -192,22 +213,36 @@ void GameCamera::rebuild(const World* world)
 		Math::Cos(m_yaw)  * Math::Cos(m_pitch)
 	} * m_distance;
 
-	// 地形床クランプ: eye が地形面より低い場合は浮かせる
+	Vec3 target = m_focus;
 	if (world)
 	{
-		const float terrainY = world->sampleHeight(
-			static_cast<float>(eye.x), static_cast<float>(eye.z));
-		if (eye.y < terrainY + MIN_HEIGHT_ABOVE_TERRAIN)
-			eye.y = terrainY + MIN_HEIGHT_ABOVE_TERRAIN;
+		const double terrainY = world->sampleHeight(static_cast<float>(eye.x), static_cast<float>(eye.z));
+		if (m_mode == CameraMode::Overview)
+		{
+			// 地面からの高度を距離と俯角から決める。標高差で視線の俯角を変えない。
+			const double clearance = Max<double>(MIN_HEIGHT_ABOVE_TERRAIN, Sin(m_pitch) * m_distance);
+			const double lift = terrainY + clearance - eye.y;
+			eye.y += lift;
+			target.y += lift;
+			m_focus.y = world->sampleHeight(static_cast<float>(m_focus.x), static_cast<float>(m_focus.z));
+		}
+		else { eye.y = Max(eye.y, terrainY + MIN_HEIGHT_ABOVE_TERRAIN); }
 	}
 
-	m_camera = BasicCamera3D{ Scene::Size(), 40_deg, eye, m_focus };
+	m_camera = BasicCamera3D{ Scene::Size(), 40_deg, eye, target };
 }
 
 void GameCamera::setFocus(Vec3 focus)
 {
 	m_focus = focus;
-	rebuild();  // 初期化用：地形床クランプなし
+	if (m_mode == CameraMode::FirstPerson)
+	{
+		rebuildFirstPerson();
+	}
+	else
+	{
+		rebuild();  // 初期化用：地形床クランプなし
+	}
 }
 
 void GameCamera::setState(Vec3 focus, float distance, float yaw, float pitch)
@@ -285,9 +320,10 @@ void GameCamera::handleFirstPersonInput(double dt, const World& world)
 		Cursor::RequestStyle(CursorStyle::Hidden);
 	}
 
-	const Vec2 input{static_cast<double>(KeyD.pressed())-KeyA.pressed(),
-		static_cast<double>(KeyW.pressed())-KeyS.pressed()};
-	walk(input,30.0*dt*(KeyShift.pressed() ? 3.0 : 1.0),world);
+	const Vec2 input = m_keyboardBlocked ? Vec2{0,0} : Vec2{
+		static_cast<double>(GameInput::pressed(KeyD))-GameInput::pressed(KeyA),
+		static_cast<double>(GameInput::pressed(KeyW))-GameInput::pressed(KeyS)};
+	walk(input,walkingSpeed(GameInput::pressed(KeyShift),GameInput::pressed(KeyControl))*dt,world);
 }
 
 void GameCamera::walk(Vec2 input,double distance,const World& world)
@@ -296,8 +332,12 @@ void GameCamera::walk(Vec2 input,double distance,const World& world)
 	// Siv3D uses a left-handed view: up cross forward is screen right.
 	const Vec3 right=Vec3{0,1,0}.cross(forward);
 	if (input.lengthSq()>1) { input.normalize(); }
-	m_focus+=(right*input.x+forward*input.y)*distance;
-	m_focus.y=m_walkSurface ? m_walkSurface(m_focus) : world.sampleHeight(static_cast<float>(m_focus.x),static_cast<float>(m_focus.z));
+	const int steps=Max(1,static_cast<int>(std::ceil(Abs(distance)/.75)));
+	for (int step=0;step<steps;++step)
+	{
+		m_focus+=(right*input.x+forward*input.y)*(distance/steps);
+		m_focus.y=m_walkSurface ? m_walkSurface(m_focus) : world.sampleHeight(static_cast<float>(m_focus.x),static_cast<float>(m_focus.z));
+	}
 	rebuildFirstPerson();
 }
 
@@ -321,4 +361,27 @@ void GameCamera::rebuildFirstPerson()
 	};
 	const Vec3 target = eye + fwd * 10.0;
 	m_camera = BasicCamera3D{ Scene::Size(), 80_deg, eye, target };
+}
+
+void GameCamera::setDrivingState(Vec3 ground,float heading,float grade)
+{
+	if (m_mode!=CameraMode::Driving) { m_drivingLook={0,0}; }
+	m_mode=CameraMode::Driving;m_focus=ground;m_followHeading=heading;m_drivingGrade=grade;
+	rebuildDriving();
+}
+
+void GameCamera::setDrivingLook(Vec2 angles)
+{
+	m_drivingLook={Clamp(angles.x,-110_deg,110_deg),Clamp(angles.y,-35_deg,35_deg)};
+	if (m_mode==CameraMode::Driving) { rebuildDriving(); }
+}
+
+void GameCamera::rebuildDriving()
+{
+	constexpr double kSeatHeight=1.2,kSeatRight=.35;
+	const Vec3 right{Cos(m_followHeading),0,-Sin(m_followHeading)};
+	const Vec3 eye=m_focus+right*kSeatRight+Vec3{0,kSeatHeight,0};
+	const double heading=m_followHeading+m_drivingLook.x,pitch=m_drivingGrade+m_drivingLook.y;
+	const Vec3 forward{Sin(heading)*Cos(pitch),Sin(pitch),Cos(heading)*Cos(pitch)};
+	m_camera=BasicCamera3D{Scene::Size(),80_deg,eye,eye+forward*10};
 }

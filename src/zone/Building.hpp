@@ -1,4 +1,5 @@
-﻿
+﻿#include "../gen/GenerationSettings.hpp"
+
 #pragma once
 #include "ZoneTypes.hpp"
 
@@ -17,24 +18,47 @@ enum class BuildingType : uint8
 	ParkBuilding   = 9,   ///< 公園
 	PublicFacility = 10,  ///< 公共施設
 	Parking        = 11,  ///< 駐車場
+	UrbanConvenience = 12, ///< 街中のコンビニ（上階付き・徒歩来店）
+	RoadsideConvenience = 13, ///< 広い駐車場を持つコンビニ
+	UrbanFuelStation = 14, ///< 市街地の小規模給油所
+	RoadsideFuelStation = 15, ///< 郊外のセルフ給油所・洗車場
+	RuralHouse = 16, ///< 庭・附属屋を持つ田舎の民家
+	Count,
 };
+
+/// @brief 敷地内設備を含む専用モデルか。汎用の玄関装飾を重ねない。
+inline bool isCompleteSiteBuilding(BuildingType type)
+{
+	return type >= BuildingType::UrbanConvenience && type <= BuildingType::RuralHouse;
+}
+
+/// @brief 商業沿道サービス施設か。
+inline bool isRoadsideServiceBuilding(BuildingType type)
+{
+	return type >= BuildingType::UrbanConvenience && type <= BuildingType::RoadsideFuelStation;
+}
 
 /// @brief 建物占有幅 [m]
 inline float buildingFootprintXZ(BuildingType type = BuildingType::Detached)
 {
 	switch (type)
 	{
-	case BuildingType::Detached: return 9.0f;
-	case BuildingType::LowApartment: return 10.5f;
+	case BuildingType::Detached: return GenerationSettings::get().buildings_footprint_Detached;
+	case BuildingType::LowApartment: return GenerationSettings::get().buildings_footprint_LowApartment;
 	case BuildingType::MidApartment:
 	case BuildingType::HighApartment:
 	case BuildingType::Office:
-	return 13.5f;
-	case BuildingType::Shop: return 12.0f;
-	case BuildingType::Factory: return 11.0f;
-	case BuildingType::PublicFacility: return 12.0f;
-	case BuildingType::Parking: return 14.0f;
-	default: return 10.0f;
+	return GenerationSettings::get().buildings_footprint_Office;
+	case BuildingType::Shop: return GenerationSettings::get().buildings_footprint_Shop;
+	case BuildingType::Factory: return GenerationSettings::get().buildings_footprint_Factory;
+	case BuildingType::PublicFacility: return GenerationSettings::get().buildings_footprint_PublicFacility;
+	case BuildingType::Parking: return GenerationSettings::get().buildings_footprint_Parking;
+	case BuildingType::UrbanConvenience: return GenerationSettings::get().buildings_footprint_UrbanConvenience;
+	case BuildingType::RoadsideConvenience: return GenerationSettings::get().buildings_footprint_RoadsideConvenience;
+	case BuildingType::UrbanFuelStation: return GenerationSettings::get().buildings_footprint_UrbanFuelStation;
+	case BuildingType::RoadsideFuelStation: return GenerationSettings::get().buildings_footprint_RoadsideFuelStation;
+	case BuildingType::RuralHouse: return GenerationSettings::get().buildings_footprint_RuralHouse;
+	default: return GenerationSettings::get().buildings_footprint_default;
 	}
 }
 
@@ -44,7 +68,8 @@ inline bool isResidentialBuildingType(BuildingType t)
 	return t == BuildingType::Detached
 	    || t == BuildingType::LowApartment
 	    || t == BuildingType::MidApartment
-	    || t == BuildingType::HighApartment;
+	    || t == BuildingType::HighApartment
+	    || t == BuildingType::RuralHouse;
 }
 
 /// @brief 住宅タイプ + グローバルセル座標から OBJ インデックス（0..17）を返す
@@ -71,24 +96,25 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 {
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
-	if (isResidentialBuildingType(t)) return residentialModelIndex(t, gx, gz);
-	constexpr uint32 kShopVariantCount = 10;
-	constexpr uint32 kFacilityVariantCount = 4;
+	if (t == BuildingType::RuralHouse) { return static_cast<uint8>(h % GenerationSettings::get().buildings_ruralHouseVariants); }
+	if (isResidentialBuildingType(t)) { return residentialModelIndex(t, gx, gz); }
+	const uint32 kShopVariantCount = GenerationSettings::get().buildings_shopVariants;
+	const uint32 kFacilityVariantCount = GenerationSettings::get().buildings_factoryVariants;
 	if (t == BuildingType::Shop)
 	{
 		return static_cast<uint8>(h % kShopVariantCount);
 	}
 	if (t == BuildingType::PublicFacility)
 	{
-		constexpr uint32 kPublicVariantCount = 8;
+		const uint32 kPublicVariantCount = GenerationSettings::get().buildings_publicVariants;
 		return static_cast<uint8>(h % kPublicVariantCount);
 	}
 	if (t == BuildingType::Parking)
 	{
-		constexpr uint32 kParkingVariantCount = 2;
+		const uint32 kParkingVariantCount = GenerationSettings::get().buildings_parkingVariants;
 		return static_cast<uint8>(h % kParkingVariantCount);
 	}
-	if (t == BuildingType::Office) { return static_cast<uint8>(h % 6u); }
+	if (t == BuildingType::Office) { return static_cast<uint8>(h % GenerationSettings::get().buildings_officeVariants); }
 	if (t == BuildingType::Factory)
 	{
 		return static_cast<uint8>(h % kFacilityVariantCount);
@@ -104,44 +130,40 @@ inline bool isObjBuildingType(BuildingType t)
 	    || t == BuildingType::Office
 	    || t == BuildingType::PublicFacility
 	    || t == BuildingType::Factory
-	    || t == BuildingType::Parking;
+	    || t == BuildingType::Parking
+	    || isCompleteSiteBuilding(t);
 }
 
 /// @brief 建物タイプ + グローバルセル座標から OBJ ファイルの stem（拡張子なし）を返す
 /// @example "residential_001", "shop_001", "office_001"
-inline bool tryGetBuildingModelStem(BuildingType t, int gx, int gz, String& outStem)
+inline bool tryGetBuildingModelStemForVariant(BuildingType type, uint8 variant, String& outStem)
 {
-	if (isResidentialBuildingType(t))
+	StringView prefix;
+	switch (type)
 	{
-		outStem = U"residential_{:03d}"_fmt(residentialModelIndex(t, gx, gz) + 1);
-		return true;
+	case BuildingType::RuralHouse: prefix = U"rural_house"; break;
+	case BuildingType::UrbanConvenience: prefix = U"convenience_urban"; break;
+	case BuildingType::RoadsideConvenience: prefix = U"convenience_roadside"; break;
+	case BuildingType::UrbanFuelStation: prefix = U"fuel_urban"; break;
+	case BuildingType::RoadsideFuelStation: prefix = U"fuel_roadside"; break;
+	case BuildingType::Shop: prefix = U"shop"; break;
+	case BuildingType::Factory: prefix = U"factory"; break;
+	case BuildingType::PublicFacility: prefix = U"public"; break;
+	case BuildingType::Parking: prefix = U"parking"; break;
+	case BuildingType::Office: prefix = U"office"; break;
+	default:
+		if (!isResidentialBuildingType(type)) { return false; }
+		prefix = U"residential";
+		break;
 	}
-	if (t == BuildingType::Shop)
-	{
-		outStem = U"shop_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
-		return true;
-	}
-	if (t == BuildingType::Factory)
-	{
-		outStem = U"factory_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
-		return true;
-	}
-	if (t == BuildingType::PublicFacility)
-	{
-		outStem = U"public_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
-		return true;
-	}
-	if (t == BuildingType::Parking)
-	{
-		outStem = U"parking_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
-		return true;
-	}
-	if (t == BuildingType::Office)
-	{
-		outStem = U"office_{:03d}"_fmt(buildingModelVariant(t, gx, gz) + 1);
-		return true;
-	}
-	return false;
+	outStem = U"{}_{:03d}"_fmt(prefix, variant + 1);
+	return true;
+}
+
+/// @brief 座標ハッシュでモデルを選び、描画と配置に共通の名前を返す。
+inline bool tryGetBuildingModelStem(BuildingType type, int gx, int gz, String& outStem)
+{
+	return tryGetBuildingModelStemForVariant(type, buildingModelVariant(type, gx, gz), outStem);
 }
 
 /// @brief 建物の収容人口を返す（住宅系のみ正値、05_zoning_spec.md §1）
@@ -149,10 +171,11 @@ inline int buildingCapacity(BuildingType t)
 {
 	switch (t)
 	{
-	case BuildingType::Detached:      return 3;
-	case BuildingType::LowApartment:  return 20;
-	case BuildingType::MidApartment:  return 80;
-	case BuildingType::HighApartment: return 300;
+	case BuildingType::RuralHouse:    return GenerationSettings::get().buildings_capacity_RuralHouse;
+	case BuildingType::Detached:      return GenerationSettings::get().buildings_capacity_Detached;
+	case BuildingType::LowApartment:  return GenerationSettings::get().buildings_capacity_LowApartment;
+	case BuildingType::MidApartment:  return GenerationSettings::get().buildings_capacity_MidApartment;
+	case BuildingType::HighApartment: return GenerationSettings::get().buildings_capacity_HighApartment;
 	default:                          return 0;
 	}
 }
@@ -162,16 +185,21 @@ inline float buildingHeight(BuildingType type)
 {
 	switch (type)
 	{
-	case BuildingType::Detached:       return 4.0f;
-	case BuildingType::LowApartment:   return 10.0f;
-	case BuildingType::MidApartment:   return 24.0f;
-	case BuildingType::HighApartment:  return 48.0f;
-	case BuildingType::Shop:           return 4.0f;
-	case BuildingType::Office:         return 16.0f;
-	case BuildingType::Factory:        return 8.0f;
-	case BuildingType::ParkBuilding:   return 0.5f;
-	case BuildingType::PublicFacility: return 10.0f;
-	case BuildingType::Parking:        return 2.5f;
+	case BuildingType::Detached:       return GenerationSettings::get().buildings_height_Detached;
+	case BuildingType::LowApartment:   return GenerationSettings::get().buildings_height_LowApartment;
+	case BuildingType::MidApartment:   return GenerationSettings::get().buildings_height_MidApartment;
+	case BuildingType::HighApartment:  return GenerationSettings::get().buildings_height_HighApartment;
+	case BuildingType::Shop:           return GenerationSettings::get().buildings_height_Shop;
+	case BuildingType::Office:         return GenerationSettings::get().buildings_height_Office;
+	case BuildingType::Factory:        return GenerationSettings::get().buildings_height_Factory;
+	case BuildingType::ParkBuilding:   return GenerationSettings::get().buildings_height_ParkBuilding;
+	case BuildingType::PublicFacility: return GenerationSettings::get().buildings_height_PublicFacility;
+	case BuildingType::Parking:        return GenerationSettings::get().buildings_height_Parking;
+	case BuildingType::UrbanConvenience: return GenerationSettings::get().buildings_height_UrbanConvenience;
+	case BuildingType::RoadsideConvenience: return GenerationSettings::get().buildings_height_RoadsideConvenience;
+	case BuildingType::UrbanFuelStation:
+	case BuildingType::RoadsideFuelStation: return GenerationSettings::get().buildings_height_RoadsideFuelStation;
+	case BuildingType::RuralHouse: return GenerationSettings::get().buildings_height_RuralHouse;
 	default:                           return 0.0f;
 	}
 }

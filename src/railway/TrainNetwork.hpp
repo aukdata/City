@@ -43,7 +43,15 @@ public:
 	void releaseOccupy(int edgeId, int trainId);
 
 	/// @brief ダイヤを追加する
-	void addSchedule(TrainSchedule schedule);
+	int addSchedule(TrainSchedule schedule);
+	TrainSchedule* getSchedule(int id);
+	const TrainSchedule* getSchedule(int id) const;
+	/// @brief 検証済みの設定だけ置換し、運行中の状態を保持する。
+	bool applySchedule(const TrainSchedule& schedule, String& error);
+	Array<RailDepot>& depots() { return m_depots; }
+	const Array<RailDepot>& depots() const { return m_depots; }
+	JSON saveState() const;
+	bool restoreState(const JSON& state);
 	const Array<TrainSchedule>& schedules() const { return m_schedules; }
 	Array<TrainSchedule>&       schedules()       { return m_schedules; }
 
@@ -51,6 +59,7 @@ private:
 	Array<TrackNode>     m_nodes;
 	Array<TrackEdge>     m_edges;
 	Array<TrainSchedule> m_schedules;
+	Array<RailDepot> m_depots;
 	int m_nextNodeId = 0;
 	int m_nextEdgeId = 0;
 

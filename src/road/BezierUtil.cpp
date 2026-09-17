@@ -26,16 +26,11 @@ void CubicBezier::buildTable()
 
 Vec3 CubicBezier::evaluate(float t) const
 {
-	const float u  = 1.0f - t;
-	const float u2 = u * u;
-	const float u3 = u2 * u;
-	const float t2 = t * t;
-	const float t3 = t2 * t;
-
-	return u3 * p0
-		+ 3.0f * u2 * t * p1
-		+ 3.0f * u  * t2 * p2
-		+ t3 * p3;
+	// Work relative to p0: absolute 65km coordinates magnified float-weight rounding.
+	const double fraction = t, remaining = 1.0-fraction;
+	return p0 + (p1-p0)*(3*remaining*remaining*fraction)
+		+ (p2-p0)*(3*remaining*fraction*fraction)
+		+ (p3-p0)*(fraction*fraction*fraction);
 }
 
 Vec3 CubicBezier::tangent(float t) const
@@ -104,3 +99,21 @@ float CubicBezier::tFromArcLength(float s) const
 	const float alpha = (s - sLo) / denom;
 	return tLo + alpha * (tHi - tLo);
 }
+
+double CubicBezier::minimumHorizontalRadius(double from,double to) const
+	{
+		double maximumCurvature = 0;
+		for (int index = 0; index <= 128; ++index)
+		{
+			const double t = Math::Lerp(from,to,index / 128.0), u = 1-t;
+			const Vec3 velocity = (p1-p0)*(3*u*u)
+				+ (p2-p1)*(6*u*t) + (p3-p2)*(3*t*t);
+			const Vec3 acceleration = (p2-p1*2+p0)*(6*u)
+				+ (p3-p2*2+p1)*(6*t);
+			const double speed = Vec2{velocity.x, velocity.z}.length();
+			if (speed < 1e-8) { return 0; }
+			maximumCurvature = Max(maximumCurvature,
+				Abs(velocity.x*acceleration.z-velocity.z*acceleration.x)/(speed*speed*speed));
+		}
+		return maximumCurvature > 1e-10 ? 1/maximumCurvature : Math::Inf;
+	}

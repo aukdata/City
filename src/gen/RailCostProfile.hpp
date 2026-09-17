@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "GenerationSettings.hpp"
 #include <Siv3D.hpp>
 #include "../debug/DebugLog.hpp"
 
@@ -9,15 +10,17 @@ namespace RailCostProfile
 	struct Result { Array<double> heights; double cost=Math::Inf; bool feasible=false; };
 	inline double unitCost(double difference)
 	{
-		if (difference < -5) { return 28.0+Abs(difference)*.18; }
-		if (difference<0) { return 1.0+Square(difference)*1.8; }
-		if (difference<=3) { return 1.0+Square(difference)*.55; }
-		return 5.0+difference*.8+Square(difference)*.12;
+		if (difference < -GenerationSettings::get().railway_maximumCut) { return GenerationSettings::get().railway_tunnelCost+Abs(difference)*GenerationSettings::get().railway_tunnelDepthCost; }
+		if (difference<0) { return 1.0+Square(difference)*GenerationSettings::get().railway_cutCostSquared; }
+		if (difference<=GenerationSettings::get().railway_maximumFill) { return 1.0+Square(difference)*GenerationSettings::get().railway_fillCostSquared; }
+		return GenerationSettings::get().railway_viaductBaseCost+difference*GenerationSettings::get().railway_viaductHeightCost+Square(difference)*GenerationSettings::get().railway_viaductHeightSquaredCost;
 	}
-	inline Result solve(const Array<Sample>& samples,double start,double end,double grade=.018)
+	using ConstructionCost = std::function<double(const Sample&, double)>;
+	inline Result solve(const Array<Sample>& samples,double start,double end,double grade=GenerationSettings::get().railway_maximumGrade,
+		const ConstructionCost& constructionCost = {})
 	{
 		Result result; if (samples.size()<2) { return result; }
-		constexpr double step=.5;
+		const double step=GenerationSettings::get().railway_profileHeightStep;
 		double low=Min(start,end),high=Max(start,end);
 		for (const auto& sample : samples) { low=Min(low,sample.minimum); high=Max(high,sample.maximum); }
 		const int origin=static_cast<int>(std::floor(low/step)),count=static_cast<int>(std::ceil(high/step))-origin+1;
@@ -43,7 +46,9 @@ namespace RailCostProfile
 					const double previousHeight=i==1 ? start : (origin+from)*step;
 					const double slope=(elevation-previousHeight)/Max(.01,run);
 					if (Abs(slope)>grade+1e-8) { continue; }
-					const double cost=previous[from]+run*(unitCost(elevation-samples[i].ground)+Square(slope/grade)*.5);
+					const double cost = previous[from] + run * (constructionCost
+						? (constructionCost(samples[i-1], previousHeight) + constructionCost(samples[i], elevation)) * .5
+						: unitCost(elevation-samples[i].ground)+Square(slope/grade)*GenerationSettings::get().railway_gradeCost);
 					if (cost<next[level]) { next[level]=cost; parents[i*count+level]=from; }
 				}
 			}
@@ -64,7 +69,17 @@ namespace RailCostProfile
 				const double before=samples[i].position.distanceFrom(samples[i-1].position),after=samples[i].position.distanceFrom(samples[i+1].position);
 				const double minimum=Max(samples[i].minimum,Max(result.heights[i-1]-before*grade,result.heights[i+1]-after*grade));
 				const double maximum=Min(samples[i].maximum,Min(result.heights[i-1]+before*grade,result.heights[i+1]+after*grade));
-				if (minimum<=maximum) { const double proposed=Clamp(result.heights[i]*.6+(result.heights[i-1]*after+result.heights[i+1]*before)/Max(1.0,before+after)*.4,minimum,maximum); if (proposed>=samples[i].roadClearance || proposed<=samples[i].underpass) { result.heights[i]=proposed; } }
+				if (minimum<=maximum) { const double proposed=Clamp(result.heights[i]*.6+(result.heights[i-1]*after+result.heights[i+1]*before)/Max(1.0,before+after)*.4,minimum,maximum); if ((proposed>=samples[i].roadClearance || proposed<=samples[i].underpass)
+						&& (!constructionCost || constructionCost(samples[i], proposed) <= constructionCost(samples[i], result.heights[i]))) { result.heights[i]=proposed; } }
+			}
+		}
+		if (constructionCost)
+		{
+			result.cost = 0;
+			for (size_t i = 1; i < samples.size(); ++i)
+			{
+				result.cost += samples[i].position.distanceFrom(samples[i-1].position) * .5
+					* (constructionCost(samples[i-1], result.heights[i-1]) + constructionCost(samples[i], result.heights[i]));
 			}
 		}
 		return result;

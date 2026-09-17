@@ -33,6 +33,8 @@ struct CubicBezier
 
 	/// @brief パラメータ t (0-1) での正規化接線を返す
 	Vec3 tangent(float t) const;
+	/// @brief 指定したパラメータ区間の最小平面曲線半径。直線は無限大、尖点は0。
+	double minimumHorizontalRadius(double from=0,double to=1) const;
 
 	/// @brief 弧長 s から t を逆引きする（二分探索）
 	float tFromArcLength(float s) const;

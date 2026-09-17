@@ -7,13 +7,24 @@ class RoadPlanDraft
 public:
 	static constexpr double kMinimumSegment = 2.0;
 	bool place(Vec3 point, bool replaceEnd = false);
+	bool generate(const World& world, const RoadEdge& roadTemplate);
+	bool revise(Array<Vec3> points);
+	bool generated() const { return m_state.generated; }
 	bool undo();
 	bool redo();
 	void clear();
-	bool rebuild(const World& world, const RoadEdge& roadTemplate, bool followTerrain);
+	bool rebuild(const World& world, const RoadEdge& roadTemplate);
+	/// @brief 接続先の分割を含む仮の道路網。確定前の検査はこの中で行う。
+	struct Proposal
+	{
+		RoadNetwork network;
+		Array<int> edgeIds;
+	};
+	[[nodiscard]] Optional<Proposal> propose(const RoadNetwork& network, const World& world,
+		const RoadEdge& roadTemplate) const;
 	/// @brief 成功した計画全体だけを反映する。失敗時は道路網を変更しない。
-	Array<int> apply(RoadNetwork& network, const World& world, const RoadEdge& roadTemplate, bool followTerrain) const;
-	const Array<Vec3>& points() const { return m_points; }
+	Array<int> apply(RoadNetwork& network, const World& world, const RoadEdge& roadTemplate) const;
+	const Array<Vec3>& points() const { return m_state.points; }
 	const RoadNetwork& preview() const { return m_preview; }
 	bool canUndo() const { return !m_undo.isEmpty(); }
 	bool canRedo() const { return !m_redo.isEmpty(); }
@@ -23,9 +34,11 @@ public:
 	static Vec3 constrainAngle(Vec3 origin, Vec3 cursor);
 	static RoadEdge makeRoadTemplate(int preset);
 private:
-	Array<Vec3> m_points;
-	Array<Array<Vec3>> m_undo;
-	Array<Array<Vec3>> m_redo;
+	struct State { Array<Vec3> points; bool generated = false; Array<CubicBezier> curves; };
+	State m_state;
+	Array<State> m_undo, m_redo;
+	void remember();
+	void invalidate();
 	RoadNetwork m_preview;
 	Array<int> m_previewEdges;
 };
@@ -39,9 +52,12 @@ public:
 		Vec3 position;
 		bool connected = false;
 		bool node = false;
+		Optional<int> edgeId;
+		float curveT=0;
 	};
 	void rebuild(const RoadNetwork& network);
-	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0) const;
+	void appendEdge(const RoadNetwork& network,int edgeId);
+	Hit find(const RoadNetwork& network, Vec3 cursor, double radius = 12.0, double heightTolerance = 6.0, bool preferNodes = true) const;
 private:
 	static constexpr double kCellSize = 128.0;
 	HashTable<Point, Array<int>> m_nodes;

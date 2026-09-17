@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include "TunnelGeometry.hpp"
+#include "ModelBatch.hpp"
+#include "../railway/RailwaySite.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
 #include <Siv3D/ViewFrustum.hpp>
@@ -13,12 +15,16 @@ public:
 	/// @brief アクティブチャンクをカリングして描画する
 	/// @brief Load building GPU assets during the loading phase, before camera travel.
 	void preloadBuildingModels();
+	/// @brief 鉄道施設・軌道と高架道路の植生離隔を、交通網の変更時に更新する。
+	void setTransportSites(const TrainNetwork& network,const RoadNetwork& roads,const World& world);
 	void render(World& world, const RoadNetwork& network, const BasicCamera3D& camera);
 	/// @brief Draw cached opaque city geometry into the sun's depth target.
 	void renderShadowCasters(Vec3 focus, double radius) const;
 	[[nodiscard]] uint64 geometryRevision() const { return m_geometryRevision; }
 	[[nodiscard]] size_t buildingsConsidered() const { return m_buildingsConsidered; }
 	[[nodiscard]] size_t buildingsSubmitted() const { return m_buildingsSubmitted; }
+	[[nodiscard]] size_t buildingDrawCalls() const { return m_buildingDrawCalls; }
+	[[nodiscard]] size_t buildingTriangles() const { return m_buildingTriangles; }
 	/// @brief Build terrain booleans from immutable snapshots off the render thread.
 	void setAsyncTerrain(bool enabled) { m_asyncTerrain = enabled; }
 	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size(); }
@@ -64,6 +70,9 @@ public:
 private:
 	using Key = int64;
 	Array<TunnelGeometry::Opening> m_tunnelOpenings;
+	HashTable<Key,Array<Polygon>> m_transportSites;
+	size_t m_railwayNodeCount=0,m_railwayEdgeCount=0,m_railwayDepotCount=0;
+	bool m_transportSitesDirty=true;
 
 	/// @brief 建物種別ごとの描画バッチ（色 + マージ済みメッシュ）
 	struct BuildingBatch
@@ -88,6 +97,7 @@ private:
 	{
 		Model model;
 		Model distantModel;
+		Array<ModelMeshSource> farGeometry;
 		float scale = 1.0f;
 		Optional<float> frontWall; ///< 庇・バルコニーを除いた接道側の壁面 Z [モデル m]
 		std::array<Array<BuildingBatch>,6> frontages; ///< ロード時に生成・材質別に結合する入口設備
@@ -98,6 +108,7 @@ private:
 		Array<Vec2> footprint;
 		RectF       bounds;
 		float       bedBottomY = 0.0f;
+		Array<MeshBoolean::HalfSpace> cutPlanes;
 	};
 
 	struct TerrainMeshData
@@ -127,11 +138,14 @@ private:
 	};
 
 	/// @brief チャンクの地形メッシュデータを生成する
-	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees);
+	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,bool detailedTrees,const RiverNetwork& rivers,const Array<Polygon>& sites);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
 	void drawChunk(Chunk& chunk, const World& world, const RoadNetwork& network);
+	/// @brief 完成した地形ジョブを既存の時間枠内でアップロードし、完成した組だけを公開する。
+	void uploadCompletedTerrain();
+	void trimDistantTreeDetails();
 
 	/// @brief エッジ単位の subtraction 形状を必要時に構築して返す
 	const TerrainBooleanSubtractor* getTerrainSubtractor(const RoadNetwork& network, int edgeId);
@@ -152,7 +166,7 @@ private:
 	void rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world);
 
 	/// @brief キャッシュ済み建物バッチを描画する
-	void drawCachedBuildings(Key key) const;
+	void drawCachedBuildings(Key key);
 
 	/// @brief 建物 OBJ（種別+バリアント）を必要時にロードして返す
 	BuildingModelAsset& getBuildingModelAsset(BuildingType type, uint8 variant);
@@ -183,6 +197,7 @@ private:
 	bool m_asyncTerrain = false;
 	uint64 m_terrainEpoch = 0;
 
+	Array<TerrainMeshBatch> m_regionalTerrain;
 	HashTable<Key, Array<TerrainMeshBatch>>       m_meshCache;
 	HashTable<Key, Array<TerrainSubtractionQuad>> m_chunkSubtractorCache;
 	HashTable<int, TerrainBooleanSubtractor>      m_edgeSubtractorCache;
@@ -191,7 +206,16 @@ private:
 	HashTable<Key, Array<BuildingBatch>>          m_buildingMeshCache;
 	HashTable<Key, Array<BuildingBatch>>          m_landscapeMeshCache;
 	HashTable<Key, Array<BuildingModelInstance>>  m_buildingModelCache;
+	struct FarBuildings
+	{
+		Array<StaticModelBatch> batches;
+		Box bounds;
+		size_t count = 0;
+	};
+	HashTable<Key, FarBuildings> m_farBuildings;
+	size_t m_buildingDrawCalls = 0, m_buildingTriangles = 0;
 	HashTable<uint32, BuildingModelAsset>         m_buildingModels; ///< 建物 OBJ+TOML（遅延ロード）
+	Array<Chunk*> m_lastActiveOrder;
 	Array<Chunk*>                        m_sortedChunks;      ///< ソート済みチャンク（カメラ移動時のみ再ソート）
 	Point                                m_lastSortChunk{ 0x7FFFFFFF, 0x7FFFFFFF };
 	size_t                               m_lastActiveCount = 0;
@@ -200,10 +224,13 @@ private:
 	uint64 m_geometryRevision = 0;
 	PixelShader m_buildingShader;
 	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
+	PixelShader m_waterShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"River_PS"}};
 	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;
 	HashSet<Key> m_distantDetailChunks;
 	HashSet<Key> m_detailedTreeChunks;
+	HashTable<Key, Vec2> m_treeHeightRanges;
+	Vec3 m_lastSortEye{Math::Inf,0,0};
 	Vec3 m_buildingEye{ 0, 0, 0 };
-	mutable size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
+	size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
 };
