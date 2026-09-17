@@ -30,6 +30,7 @@
 - [01 ゲーム構想](01_overview_spec.md)、[02 技術設計](02_technical_spec.md)、[03 基礎生成](03_procedural_generation_spec.md)
 - [05 ゾーニング](05_zoning_spec.md)、[11 地名](11_placename_spec.md)、[13 音](13_sound_spec.md)
 - [描画改善計画](23_realistic_city_rendering_plan.md)、[初期実装計画](IMPLEMENTATION_PLAN.md)
+- [34 地形・水系・生活圏から街を成長させる生成案](34_terrain_settlement_algorithm.md) — 未実装の全体設計。回廊の共有、外縁の成長、自然な河道。
 - [旧UI案](unused/06_ui_proposal_2026-04.md)、[旧ゲームプレイ案](unused/04_gameplay_detail_proposal_2026-04.md)
 - [Siv3D API調査メモ](SIV3D_NOTES.md)、[デバッグ仕様](DEBUG_SPEC.md)、[標識参考資料](REFERENCE_SIGNS.md)
 
