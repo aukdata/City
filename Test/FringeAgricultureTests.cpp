@@ -150,7 +150,14 @@ void registerFringeAgricultureTests(TestRunner& runner)
 			settlement.plan=UrbanMorphology::makePlan(origin,0,UrbanMorphology::Site{},42,false);
 			RoadNetwork network; DistrictRoads::KaidoSegment kaido; kaido.passesThrough=true; kaido.dirAtCenter={1,0};
 			DistrictRoads::generateSettlement(42,0,settlement,kaido,world,network);
-			context.expect(settlement.plan.fringeStreets.size()>=24,U"Connected suburbs also develop around post, market and planned towns");
+			if (origin==UrbanMorphology::Origin::Planned)
+			{
+				context.expect(settlement.plan.fringeStreets.isEmpty() && settlement.plan.greenways.size()>=24,U"New towns preserve their planned green boundary and internal pedestrian network");
+			}
+			else
+			{
+				context.expect(settlement.plan.fringeStreets.size()>=24,U"Connected suburbs still develop around historic post and market towns");
+			}
 		}
 	});
 

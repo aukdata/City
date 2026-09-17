@@ -398,6 +398,24 @@ namespace
 				break;
 			default: building.type=BuildingType::None; break;
 			}
+			if (use.district==UrbanMorphology::District::Housing)
+			{
+				const double dense=UrbanMorphology::downtownIntensity(settlement.plan,local);
+				if (dense>0)
+				{
+					const double detached= Math::Lerp(GenerationSettings::get().development_context_Housing_58,
+						GenerationSettings::get().urbanFabric_downtownDetachedPercent,dense);
+					building.type=roll<detached ? BuildingType::Detached : (roll<GenerationSettings::get().development_context_Housing_84 ? BuildingType::LowApartment : BuildingType::MidApartment);
+				}
+			}
+			if (settlement.plan.origin==UrbanMorphology::Origin::Planned)
+			{
+				// 生活中心には公共施設も混ぜ、住宅と商店だけの団地にしない。
+				if (use.district==UrbanMorphology::District::OldTown && roll<GenerationSettings::get().development_choice_Commercial_13) { building.type=BuildingType::PublicFacility; }
+				// 住棟の高さを住区内で揃え、外周の戸建てと中心側の集合住宅を混ぜ散らさない。
+				if (use.district==UrbanMorphology::District::PlannedHousing) { building.type=roll<GenerationSettings::get().urbanFabric_newTownMidrisePercent ? BuildingType::MidApartment : BuildingType::LowApartment; }
+				if (use.district==UrbanMorphology::District::Housing) { building.type=roll<GenerationSettings::get().urbanFabric_newTownDetachedPercent ? BuildingType::Detached : BuildingType::LowApartment; }
+			}
 			if (building.type == BuildingType::Detached
 				&& (settlement.plan.scale == 2 || !UrbanMorphology::inCore(settlement.plan, local,GenerationSettings::get().development_ruralHouseCoreMargin))
 				&& (hash / 101u) % 100u < GenerationSettings::get().development_context_Housing_70)
@@ -550,6 +568,7 @@ namespace
 		Vec2  roadToCellDir{ 1.0f, 0.0f };
 		float centerDistSq = 0.0f;
 		Vec2 roadPosition{ 0, 0 };
+		double urbanIntensity=0; ///< 敷地の後退距離に適用する中心街の密度。
 	};
 	Vec2 roadsideBuildingOffset(const EdgeFacingSlot& slot, BuildingType type, int gx, int gz)
 	{
@@ -558,7 +577,8 @@ namespace
 			slot.chunkCoord.x * CHUNK_SIZE + (slot.col + 0.5f) * kCellSize,
 			slot.chunkCoord.y * CHUNK_SIZE + (slot.row + 0.5f) * kCellSize };
 		const float targetDistance = slot.halfWidth + buildingFootprintXZ(type) * 0.5f
-			+ Max(1.2f, setbackFromRoadByModel(type, gx, gz));
+			+ static_cast<float>(Math::Lerp(static_cast<double>(Max(1.2f, setbackFromRoadByModel(type, gx, gz))),
+				GenerationSettings::get().urbanFabric_downtownSetback,isCompleteSiteBuilding(type) ? 0.0 : slot.urbanIntensity));
 		return slot.roadPosition + slot.roadToCellDir * targetDistance - cellCenter;
 	}
 
@@ -651,7 +671,11 @@ namespace
 			if (!bez || bez->totalLength <= 1.0f) continue;
 			const float edgeHalfWidth = edge.totalWidth() * 0.5f;
 			const Vec3 middle=bez->positionAt(bez->totalLength*0.5f);
-			const float frontagePitch=Min(settlement.plan.scale<2 ? GenerationSettings::get().development_urbanFrontagePitch : GenerationSettings::get().development_ruralFrontagePitch,static_cast<float>(UrbanMorphology::sample(settlement.plan,planLocal(settlement,{middle.x,middle.z})).frontage));
+			const Vec2 localMiddle=planLocal(settlement,{middle.x,middle.z});
+			const auto use=UrbanMorphology::sample(settlement.plan,localMiddle);
+			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned ? static_cast<float>(use.frontage)
+				: static_cast<float>(Math::Lerp(static_cast<double>(Min(settlement.plan.scale<2 ? GenerationSettings::get().development_urbanFrontagePitch : GenerationSettings::get().development_ruralFrontagePitch,static_cast<float>(use.frontage))),
+				GenerationSettings::get().urbanFabric_downtownFrontagePitch,UrbanMorphology::downtownIntensity(settlement.plan,localMiddle)));
 			
 			const float startArc = edge.cutoffA + GenerationSettings::get().development_cornerSetback;
 			const float endArc = bez->totalLength - edge.cutoffB - GenerationSettings::get().development_cornerSetback;
@@ -710,6 +734,7 @@ namespace
 					slot.roadToCellDir = roadToCellDir;
 					slot.centerDistSq = centerDx * centerDx + centerDz * centerDz;
 					slot.roadPosition = projection.position;
+					slot.urbanIntensity=UrbanMorphology::downtownIntensity(settlement.plan,planLocal(settlement,slotPos));
 
 					const int64 key = zoneCellKey(cc, gx, gz);
 					const auto it = bestByCell.find(key);
@@ -750,6 +775,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	
 	int placed = 0;
 	int rejectedRoad = 0;
+	int rejectedGreen = 0;
 	int rejectedSlope = 0;
 	int rejectedDensity = 0, rejectedClearance = 0, rejectedNeighbor = 0, candidateSlots = 0;
 	ParcelRoadIndex roadIndex{ m_network,true };
@@ -761,6 +787,15 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		{
 			++rejectedRoad;
 			return false;
+		}
+		// セル中心から接道位置へ移した後の建物全体で確認し、緑道沿いの角地へのはみ出しを防ぐ。
+		for (const auto& district:m_districts)
+		{
+			if (district.plan.origin!=UrbanMorphology::Origin::Planned) { continue; }
+			for (const Vec2 corner:footprint)
+			{
+				if (UrbanMorphology::isNewTownGreen(district.plan,planLocal(district,corner))) { ++rejectedGreen; return false; }
+			}
 		}
 		float minHeight = Math::Inf, maxHeight = -Math::Inf;
 		for (const Vec2& corner : footprint)
@@ -924,6 +959,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			}
 		}
 	}
+	DBG_LOG(U"[NewTownGreenClearance] rejected={}"_fmt(rejectedGreen));
 	DebugLog::print(U"[UrbanMix] midrise={} towers={} offices={} detached={}"_fmt(midrise,towers,offices,detached));
 	DebugLog::print(U"[PlacementReview] slots={} placed={} density={} clearance={} neighbor={}"_fmt(candidateSlots, placed, rejectedDensity, rejectedClearance, rejectedNeighbor));
 	int infillPlaced = 0;
@@ -1016,7 +1052,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			}
 			if (within) { town=&candidate; break; }
 		}
-		if (!town) { continue; }
+		if (!town || (town->plan.origin==UrbanMorphology::Origin::Planned && UrbanMorphology::isNewTownGreen(town->plan,planLocal(*town,block.center)))) { continue; }
 		++blockCount; bool occupied=false;
 		Point lowChunk,highChunk; int lowX,lowZ,highX,highZ;
 		worldToZoneCell(static_cast<float>(block.bounds.x),static_cast<float>(block.bounds.y),lowChunk,lowX,lowZ);
@@ -1103,6 +1139,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	refreshBuildingAnglesFromEdges();
 	Validation result = validateGeneratedCityConstraints();
 	result.passed = result.passed && emptyAfter == 0;
+	result.summary+=U" emptyDevelopableBlocks={} generationPassed={}"_fmt(emptyAfter,result.passed);
 	return result;
 }
 
@@ -1223,8 +1260,14 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					const auto use=districtIndex>=0 ? UrbanMorphology::sample(m_districts[districtIndex].plan,planLocal(m_districts[districtIndex],sampleCenter)) : UrbanMorphology::LandUse{};
 					const float plotDepth=use.district==UrbanMorphology::District::Industry ? GenerationSettings::get().development_industrialPlotDepth
 						: (use.district==UrbanMorphology::District::OldTown ? GenerationSettings::get().development_merchantPlotDepth : GenerationSettings::get().development_residentialPlotDepth);
-					const float backOffset = Max(structuralOuter + plotDepth, projection.distance + buildingHalf + GenerationSettings::get().development_parcelBackMargin);
-					const float halfAlong = Max(buildingHalf + GenerationSettings::get().development_parcelSideMargin, Max(kCellSize * GenerationSettings::get().development_parcelCellHalfRatio,static_cast<float>(use.frontage)*GenerationSettings::get().development_parcelFrontageHalfRatio));
+					const double density=districtIndex>=0 && !isCompleteSiteBuilding(building.type)
+						? UrbanMorphology::downtownIntensity(m_districts[districtIndex].plan,planLocal(m_districts[districtIndex],sampleCenter)) : 0;
+					const auto& settings=GenerationSettings::get();
+					const double depth=Math::Lerp(static_cast<double>(plotDepth),settings.urbanFabric_downtownPlotDepth,density);
+					const double backMargin=Math::Lerp(static_cast<double>(settings.development_parcelBackMargin),settings.urbanFabric_downtownBackMargin,density);
+					const double backOffset=Max(structuralOuter+depth,projection.distance+buildingHalf+backMargin);
+					const double normalHalf=Max(buildingHalf+settings.development_parcelSideMargin,Max(kCellSize*settings.development_parcelCellHalfRatio,static_cast<float>(use.frontage)*settings.development_parcelFrontageHalfRatio));
+					const double halfAlong=Math::Lerp(normalHalf,buildingHalf+settings.urbanFabric_downtownSideMargin,density);
 					const Vec2 along = projection.tangent;
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);

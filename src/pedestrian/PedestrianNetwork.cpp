@@ -120,7 +120,7 @@ void PedestrianNetwork::rebuild(
 	HashTable<int, Array<Port>> junctions;
 	for (const auto& edge : roads.edges())
 	{
-		if (edge.id < 0 || !edge.hasRoadLanes() || !edge.isRoadbedBuilt() ||
+		if (edge.id < 0 || !edge.isRoadbedBuilt() ||
 			(edge.edgeState != EdgeState::Open && edge.edgeState != EdgeState::Existing) ||
 			edge.roadType == RoadType::Expressway || edge.roadType == RoadType::Highway)
 		{
@@ -150,7 +150,7 @@ void PedestrianNetwork::rebuild(
 				break;
 			}
 			// 歩道のない生活道路は路肩を歩く。広い幹線・高速道路へ無理に徒歩経路を作らない。
-			if (!available[side] && edge.roadType == RoadType::LocalRoad)
+			if (!available[side] && edge.hasRoadLanes() && edge.roadType == RoadType::LocalRoad)
 			{
 				double outerA = 0, outerB = 0;
 				for (const auto& part : edge.parts)
@@ -265,7 +265,7 @@ void PedestrianNetwork::rebuild(
 			}
 			const auto& a = ports[i];
 			const auto& b = ports[(i + 1) % ports.size()];
-			const bool crossing = a.edge == b.edge;
+			const bool crossing = a.edge == b.edge && roads.getEdge(a.edge)->hasRoadLanes();
 			addLink({a.walkNode, b.walkNode, -1, crossing ? node : -1, crossing ? a.edge : -1});
 		}
 	}

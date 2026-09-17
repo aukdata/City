@@ -39,7 +39,7 @@ namespace LandPlot
 		if (patch.type==LandPatchType::IrrigationDitch) { return U"用排水路"; }
 		if (patch.type==LandPatchType::PaddyField) { return U"水田"; }
 		if (patch.type==LandPatchType::FarmField) { return U"畑"; }
-		if (patch.type==LandPatchType::GardenSoil) { return U"庭・住宅敷地"; }
+		if (patch.type==LandPatchType::GardenSoil) { return patch.sourceParcelKey<0 ? U"公園・緑地" : U"庭・住宅敷地"; }
 		if (patch.type==LandPatchType::ParcelGravel) { return U"砂利の敷地"; }
 		return U"舗装された敷地";
 	}

@@ -145,6 +145,9 @@ namespace
 		bool facility=false;
 	};
 	template<class HeightSource>
+	void appendPublicGreen(HashTable<int, MeshData>& groups, const HeightSource& world,
+		const LandPatch& patch, const Array<LandRoadMask>& roadMasks, bool detailedTrees);
+	template<class HeightSource>
 	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
 		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks,bool detailedTrees);
 	template<class HeightSource>
@@ -262,6 +265,10 @@ namespace
 		const float cz = static_cast<float>(bounds.y + bounds.h * 0.5);
 		const float baseY = static_cast<float>(world.sampleHeight(cx, cz)) + patch.elevationOffset;
 
+		if (patch.type==LandPatchType::GardenSoil && patch.sourceParcelKey<0 && patch.polygon.size()>=3)
+		{
+			appendPublicGreen(groups,world,patch,roadMasks,detailedTrees);
+		}
 		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3)
 		{
 			appendParcelLandscape(groups, world, chunk, patch, roadMasks,detailedTrees);
@@ -463,6 +470,38 @@ namespace
 	{
 		const double scale=GenerationSettings::get().vegetation_parkScaleMinimum+(variation%11)*GenerationSettings::get().vegetation_parkScaleVariationStep;
 		appendLandscapeTree(groups,position,groundY,variation,4.8*scale,4.8*heightScale*scale,false,detailedTrees);
+	}
+	/// @brief 住区公園・緑道に植樹する。歩道との離隔を確保し、既存の樹木 LOD を共有する。
+	template<class HeightSource>
+	void appendPublicGreen(HashTable<int, MeshData>& groups, const HeightSource& world,
+		const LandPatch& patch, const Array<LandRoadMask>& roadMasks, bool detailedTrees)
+	{
+		const Polygon shape{patch.polygon};
+		const RectF bounds=shape.boundingRect();
+		const double step=GenerationSettings::get().urbanFabric_newTownParkTreeSpacing;
+		const double clearance=GenerationSettings::get().urbanFabric_newTownParkTreeClearance;
+		for (double z=Ceil(bounds.y/step)*step;z<bounds.y+bounds.h;z+=step)
+		{
+			for (double x=Ceil(bounds.x/step)*step;x<bounds.x+bounds.w;x+=step)
+			{
+				const Vec2 point{x,z};
+				if (!shape.contains(point)) { continue; }
+				bool clear=true;
+				for (size_t i=0;i<patch.polygon.size() && clear;++i)
+				{
+					const Vec2 a=patch.polygon[i],span=patch.polygon[(i+1)%patch.polygon.size()]-a;
+					const double t=Clamp((point-a).dot(span)/Max(1.0,span.lengthSq()),0.0,1.0);
+					clear=point.distanceFrom(a+span*t)>clearance;
+				}
+				for (const auto& road:roadMasks)
+				{
+					if (clear && Circle{point,clearance}.intersects(road.shape)) { clear=false; }
+				}
+				if (!clear) { continue; }
+				const uint32 hash=static_cast<uint32>(x/step)*73856093u ^ static_cast<uint32>(z/step)*19349663u;
+				appendParkTree(groups,point,world.sampleHeight(static_cast<float>(x),static_cast<float>(z)),hash,1,detailedTrees);
+			}
+		}
 	}
 	/// @brief Deterministic woodland batches follow undeveloped slopes, excluding roads and plots.
 	template<class HeightSource>

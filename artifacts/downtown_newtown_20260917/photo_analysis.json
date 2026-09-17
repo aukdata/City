@@ -1,0 +1,23 @@
+[
+  {
+    "source": "https://www.ur-net.go.jp/toshisaisei/comp/lrmhph000000uo20-img/i_knowlearn_housing_img2.jpg",
+    "width": 300,
+    "height": 228,
+    "greenHueFraction": 0.0431,
+    "note": "Color classification only; not vegetation area or semantic image review."
+  },
+  {
+    "source": "https://www.ur-net.go.jp/toshisaisei/comp/lrmhph000000uo20-img/i_knowlearn_housing_img4.jpg",
+    "width": 268,
+    "height": 171,
+    "greenHueFraction": 0.2705,
+    "note": "Color classification only; not vegetation area or semantic image review."
+  },
+  {
+    "source": "https://www.ur-net.go.jp/toshisaisei/comp/lrmhph000000uo20-img/i_knowlearn_housing_img5.jpg",
+    "width": 268,
+    "height": 171,
+    "greenHueFraction": 0.1678,
+    "note": "Color classification only; not vegetation area or semantic image review."
+  }
+]

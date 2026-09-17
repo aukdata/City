@@ -1,0 +1,54 @@
+﻿[
+  {
+    "apartments": 1263,
+    "buildings": 3127,
+    "coverage": 0.35658801558664954,
+    "detached": 1368,
+    "elevated": 0,
+    "footprintArea": 373040.25,
+    "meanSetback": 1.80001754373362,
+    "origin": 0,
+    "parcelArea": 1046137.9342384338,
+    "seed": 42,
+    "validation": "buildings=8853 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+  },
+  {
+    "apartments": 1256,
+    "buildings": 3134,
+    "coverage": 0.3569693156296141,
+    "detached": 1387,
+    "elevated": 0,
+    "footprintArea": 374552.25,
+    "meanSetback": 1.8000124649398945,
+    "origin": 0,
+    "parcelArea": 1049256.1506004333,
+    "seed": 130,
+    "validation": "buildings=8800 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+  },
+  {
+    "apartments": 1449,
+    "buildings": 2131,
+    "coverage": 0.3365800393880233,
+    "detached": 245,
+    "elevated": 0,
+    "footprintArea": 330564.75,
+    "meanSetback": 1.800001656304634,
+    "origin": 6,
+    "parcelArea": 982128.2052288055,
+    "seed": 42,
+    "validation": "buildings=5880 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+  },
+  {
+    "apartments": 1490,
+    "buildings": 2143,
+    "coverage": 0.3385606649393377,
+    "detached": 230,
+    "elevated": 0,
+    "footprintArea": 333696.75,
+    "meanSetback": 1.8000007591754814,
+    "origin": 6,
+    "parcelArea": 985633.549779892,
+    "seed": 130,
+    "validation": "buildings=5746 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+  }
+]

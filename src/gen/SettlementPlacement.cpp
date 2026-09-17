@@ -334,6 +334,58 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 	{
 		return settlement.kind != Kind::RegionalCity && !retainRuralSite(seed,settlement.center);
 	});
+	// 既成市街地の外に、地形と既存集落の余白から計画住宅地を選ぶ。
+	// 距離・造成量のコストで比較し、適地がなければ無理に造成しない。
+	Array<Settlement> newTowns;
+	const auto& fabric=GenerationSettings::get();
+	for (const auto& city:settlements)
+	{
+		if (city.kind!=Kind::RegionalCity) { continue; }
+		const double draw=(UrbanMorphology::mix(locationSalt(seed,city.center)^0x60EBD719ULL)%1000000)/1000000.0;
+		if (draw>=fabric.urbanFabric_newTownCityProbability) { continue; }
+		Optional<Settlement> best;
+		double bestCost=Math::Inf;
+		for (const auto& site:sites)
+		{
+			const double distance=site.center.distanceFrom(city.center);
+			if (distance<fabric.urbanFabric_newTownMinimumDistance || distance>fabric.urbanFabric_newTownMaximumDistance) { continue; }
+			if (settlements.any([&](const Settlement& other) { return site.center.distanceFrom(other.center)<fabric.urbanFabric_newTownSeparation; })
+				|| newTowns.any([&](const Settlement& other) { return site.center.distanceFrom(other.center)<fabric.urbanFabric_newTownSeparation; })) { continue; }
+			Settlement town; town.center=site.center; town.score=site.score; town.kind=Kind::LocalTown;
+			town.radius=GenerationSettings::get().placement_townRadius;
+			const auto terrain=UrbanMorphology::inspectSite(site.center,height);
+			town.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Planned,1,terrain,site.salt,true);
+			town.gridAxisX=terrain.contourAxis; town.gridAxisZ={-terrain.contourAxis.y,terrain.contourAxis.x};
+			bool fits=true;
+			double low=Math::Inf,high=-Math::Inf;
+			const auto extent=town.plan.halfExtent;
+			const int columns=Max(2,static_cast<int>(Ceil(2*extent.x/fabric.urbanFabric_newTownSampleSpacing)));
+			const int rows=Max(2,static_cast<int>(Ceil(2*extent.y/fabric.urbanFabric_newTownSampleSpacing)));
+			Grid<double> heights(columns+1,rows+1);
+			for (int row=0;row<=rows && fits;++row)
+			{
+				for (int col=0;col<=columns && fits;++col)
+				{
+					const Vec2 p=site.center+town.gridAxisX*(-extent.x+2*extent.x*col/columns)+town.gridAxisZ*(-extent.y+2*extent.y*row/rows);
+					const double h=height(p); heights[{col,row}]=h; low=Min(low,h); high=Max(high,h);
+					fits=bounds.stretched(-GenerationSettings::get().placement_settlementEdgeMargin).contains(p) && h>=water(p)+fabric.urbanFabric_newTownFreeboard;
+					if (col>0) { fits &= Abs(h-heights[{col-1,row}])<=2*extent.x/columns*fabric.urbanFabric_newTownMaximumGrade; }
+					if (row>0) { fits &= Abs(h-heights[{col,row-1}])<=2*extent.y/rows*fabric.urbanFabric_newTownMaximumGrade; }
+				}
+			}
+			if (!fits) { continue; }
+			const double cost=distance*fabric.urbanFabric_newTownDistanceWeight+(high-low)*fabric.urbanFabric_newTownReliefWeight;
+			if (cost<bestCost) { bestCost=cost; best=std::move(town); }
+		}
+		if (best) { newTowns << std::move(*best); }
+	}
+	// 中心地は農村より前にまとめ、既存の生活圏インデックス規則を維持する。
+	Array<Settlement> ordered;
+	for (const auto& town:settlements) { if (town.kind!=Kind::RuralSettlement) { ordered << town; } }
+	ordered.append(newTowns);
+	for (const auto& village:settlements) { if (village.kind==Kind::RuralSettlement) { ordered << village; } }
+	settlements=std::move(ordered);
+	DBG_LOG(U"[NewTownPlacement] districts={}"_fmt(newTowns.size()));
 	// 間引きで消えた町の番号を残さず、残存する中心地に生活圏を割り当て直す。
 	Array<Settlement> centers;
 	for (const auto& settlement : settlements) { if (settlement.kind != Kind::RuralSettlement) { centers << settlement; } }

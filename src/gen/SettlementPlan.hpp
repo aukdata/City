@@ -29,6 +29,8 @@ namespace UrbanMorphology
 		bool ready = false;
 		bool frontageRoads = false;
 		Array<Vec2> ruralHomes;
+		Array<Polygon> neighborhoodParks; ///< 車道から接道できない住区内街区を公共緑地として予約。
+		Array<Line> greenways; ///< 完成した歩行者専用路。沿道の緑地予約と徒歩経路の共通骨格。
 		Array<Line> fringeStreets; ///< 生成済み外縁街路の地区座標。沿道だけを住宅候補にする。
 		Vec2 halfExtent{GenerationSettings::get().settlements_defaultExtentX,GenerationSettings::get().settlements_defaultExtentZ};
 		Vec2 oldCore{0,0};
@@ -62,7 +64,7 @@ namespace UrbanMorphology
 		case Origin::Port: return U"港町";
 		case Origin::Market: return U"市場・在郷町";
 		case Origin::Industrial: return U"工業都市";
-		case Origin::Planned: return U"鉄道・計画市街地";
+		case Origin::Planned: return U"ニュータウン";
 		default: return U"農村";
 		}
 	}
@@ -113,7 +115,7 @@ namespace UrbanMorphology
 		if (site.elevation<GenerationSettings::get().settlements_portMaximumHeight && site.shoreDistance>GenerationSettings::get().settlements_portMinimumShoreDistance && site.shoreDistance<GenerationSettings::get().settlements_portMaximumShoreDistance) { return Origin::Port; }
 		if (site.relief>GenerationSettings::get().settlements_templeRelief && choice<GenerationSettings::get().settlements_templeChoiceThreshold) { return Origin::Temple; }
 		if (site.relief<GenerationSettings::get().settlements_industrialMaximumRelief && choice<GenerationSettings::get().settlements_industrialChoiceThreshold) { return Origin::Industrial; }
-		if (nearRegionalCity && choice<GenerationSettings::get().settlements_plannedChoiceThreshold) { return Origin::Planned; }
+		if (scale==1 && nearRegionalCity && choice<GenerationSettings::get().settlements_plannedChoiceThreshold) { return Origin::Planned; }
 		if (scale==0) { return choice<GenerationSettings::get().settlements_castleChoiceThreshold ? Origin::Castle : Origin::Market; }
 		return choice<GenerationSettings::get().settlements_postChoiceThreshold ? Origin::Post : (choice<GenerationSettings::get().settlements_marketChoiceThreshold ? Origin::Market : Origin::Temple);
 	}
@@ -187,6 +189,13 @@ namespace UrbanMorphology
 	{
 		plan.halfExtent*=factor; plan.oldCore*=factor;
 		if (plan.station) { *plan.station*=factor; }
+		for (auto& line:plan.greenways) { line.begin*=factor; line.end*=factor; }
+		for (auto& park:plan.neighborhoodParks)
+		{
+			Array<Vec2> boundary=park.outer();
+			for (auto& point:boundary) { point*=factor; }
+			park=Polygon{boundary};
+		}
 		const auto scaleRectangle=[&](RectF& area)
 		{
 			area.x*=factor; area.y*=factor; area.w*=factor; area.h*=factor;
@@ -227,6 +236,31 @@ namespace UrbanMorphology
 		return inCore(plan,point,margin) || fringeDistance(plan,point)<=GenerationSettings::get().settlements_fringeWidth+margin;
 	}
 
+	/// @brief 市の中心から外周へ連続的に弱める密度。計画住宅地・農村・工業地は別の町割りを保つ。
+	inline double downtownIntensity(const Plan& plan, Vec2 point)
+	{
+		if (plan.scale!=0 || plan.origin==Origin::Planned || plan.origin==Origin::Rural || plan.origin==Origin::Industrial) { return 0; }
+		const auto& settings=GenerationSettings::get();
+		const double extent=Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y);
+		return Clamp((settings.urbanFabric_downtownFullExtent+settings.urbanFabric_downtownFadeExtent-extent)
+			/settings.urbanFabric_downtownFadeExtent,0.0,1.0);
+	}
+
+	/// @brief 専用路の周囲を緑道として予約。実際に生成できた道だけを使う。
+	inline bool isNewTownGreen(const Plan& plan, Vec2 point)
+	{
+		if (plan.origin!=Origin::Planned || !inCore(plan,point)) { return false; }
+		if (Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y)>GenerationSettings::get().urbanFabric_newTownGreenBeltStart) { return true; }
+		if (plan.neighborhoodParks.any([&](const Polygon& park) { return park.contains(point); })) { return true; }
+		for (const auto& path:plan.greenways)
+		{
+			const Vec2 span=path.end-path.begin;
+			const double t=Clamp((point-path.begin).dot(span)/Max(1.0,span.lengthSq()),0.0,1.0);
+			if (point.distanceFrom(path.begin+span*t)<GenerationSettings::get().urbanFabric_newTownGreenHalfWidth) { return true; }
+		}
+		return false;
+	}
+
 	inline LandUse sample(const Plan& plan, Vec2 point)
 	{
 		if (!contains(plan,point,GenerationSettings::get().settlements_coreMargin)) { return {}; }
@@ -236,6 +270,7 @@ namespace UrbanMorphology
 			const double occupancy=GenerationSettings::get().settlements_fringeOccupancy*std::exp(-depth/(plan.scale==0 ? GenerationSettings::get().settlements_cityFringeDecayDistance : GenerationSettings::get().settlements_townFringeDecayDistance));
 			return fringeDistance(plan,point)<GenerationSettings::get().settlements_fringeWidth ? LandUse{District::Housing,Generation::Modern,occupancy,GenerationSettings::get().settlements_fringeFrontage} : LandUse{};
 		}
+		if (isNewTownGreen(plan,point)) { return {District::Civic,Generation::Modern,1,36}; }
 		if (plan.civic && plan.civic->contains(point)) { return {District::Civic,Generation::Historic,GenerationSettings::get().settlements_civicOccupancy,GenerationSettings::get().settlements_civicFrontage}; }
 		if (plan.industry.w>0 && plan.industry.contains(point)) { return {District::Industry,Generation::Modern,GenerationSettings::get().settlements_industryOccupancy,GenerationSettings::get().settlements_industryFrontage}; }
 		if (plan.origin==Origin::Rural)
@@ -276,12 +311,21 @@ namespace UrbanMorphology
 				return {District::OldTown,Generation::Railway,GenerationSettings::get().settlements_stationStreetOccupancy,GenerationSettings::get().settlements_stationStreetFrontage};
 			}
 		}
+		if (plan.origin==Origin::Planned)
+		{
+			const auto& settings=GenerationSettings::get();
+			const double extent=Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y);
+			if (extent<settings.urbanFabric_newTownCenterRatio) { return {District::OldTown,Generation::Modern,1,18}; }
+			const bool detached=extent>settings.urbanFabric_newTownOuterHousingStart;
+			return {detached ? District::Housing : District::PlannedHousing,Generation::Modern,
+				settings.settlements_plannedHomeOccupancy, detached ? settings.urbanFabric_newTownHouseFrontage : settings.urbanFabric_newTownApartmentFrontage};
+		}
 		const bool commercialAxis=Abs(point.y)<GenerationSettings::get().settlements_commercialAxisWidth && Abs(point.x)<plan.halfExtent.x*GenerationSettings::get().settlements_commercialAxisLengthRatio;
 		const bool marketCross=plan.origin==Origin::Market && Abs(point.x)<GenerationSettings::get().settlements_marketCrossWidth;
 		if (commercialAxis || marketCross) { return {District::OldTown,Generation::Historic,GenerationSettings::get().settlements_merchantStreetOccupancy,GenerationSettings::get().settlements_merchantStreetFrontage}; }
 		const double edge=Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y);
 		const double density=1.0-GenerationSettings::get().settlements_edgeDensityReduction*Clamp((edge-GenerationSettings::get().settlements_edgeDensityStart)/GenerationSettings::get().settlements_edgeDensityRange,0.0,1.0);
-		if (plan.origin==Origin::Planned || (point.x>plan.halfExtent.x*GenerationSettings::get().settlements_plannedHousingStartX && point.y<-plan.halfExtent.y*GenerationSettings::get().settlements_plannedHousingStartZ))
+		if (point.x>plan.halfExtent.x*GenerationSettings::get().settlements_plannedHousingStartX && point.y<-plan.halfExtent.y*GenerationSettings::get().settlements_plannedHousingStartZ && downtownIntensity(plan,point)<0.5)
 		{
 			return {District::PlannedHousing,Generation::Modern,GenerationSettings::get().settlements_plannedHomeOccupancy*density,GenerationSettings::get().settlements_plannedHomeFrontage};
 		}
@@ -299,7 +343,12 @@ namespace UrbanMorphology
 		{
 			spacing=plan.ruralForm==RuralForm::Dispersed ? (crossAxis ? GenerationSettings::get().settlements_dispersedSpacingCross : GenerationSettings::get().settlements_dispersedSpacingAlong) : (crossAxis ? GenerationSettings::get().settlements_villageSpacingCross : GenerationSettings::get().settlements_villageSpacingAlong);
 		}
-		const int cells=Max(2,static_cast<int>(std::round(2*extent/spacing/2))*2);
+		// 中心市街地は小街区へ。ニュータウンは幹線の間に緑道を通すため、4の倍数の区画数とする。
+		const bool denseCity=plan.scale==0 && plan.origin!=Origin::Industrial && plan.origin!=Origin::Planned && plan.origin!=Origin::Rural;
+		if (denseCity) { spacing*=GenerationSettings::get().urbanFabric_downtownStreetSpacingRatio; }
+		if (plan.origin==Origin::Planned) { spacing=crossAxis ? GenerationSettings::get().urbanFabric_newTownSpacingCross : GenerationSettings::get().urbanFabric_newTownSpacingAlong; }
+		const int multiple=plan.origin==Origin::Planned ? 4 : 2;
+		const int cells=Max(multiple,static_cast<int>(std::round(2*extent/spacing/multiple))*multiple);
 		Array<float> coordinates;
 		for (int cell=0;cell<=cells;++cell)
 		{

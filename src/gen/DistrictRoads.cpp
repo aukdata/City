@@ -3,6 +3,7 @@
 #include "RoadNodeIndex.hpp"
 #include "StreetProfile.hpp"
 #include "SettlementFringe.hpp"
+#include "NewTownLayout.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
 #include "../debug/DebugLog.hpp"
@@ -1471,7 +1472,7 @@ namespace DistrictRoads
 						if (coordinates[index]>=desired) { stationCorridor=index; break; }
 					}
 				}
-				const bool collector = plan.scale!=2 && !boulevard && ((!outerFrame && offset % 3 == 0) || (outerFrame && plan.origin!=UrbanMorphology::Origin::Castle) || corridor==stationCorridor);
+				const bool collector = plan.scale!=2 && !boulevard && ((!outerFrame && (plan.origin==UrbanMorphology::Origin::Planned ? offset % 4 == 0 : offset % 3 == 0)) || (outerFrame && plan.origin!=UrbanMorphology::Origin::Castle) || (corridor==stationCorridor && (plan.origin!=UrbanMorphology::Origin::Planned || corridor%2==0)));
 				const bool oneWay = plan.scale!=2 && plan.origin!=UrbanMorphology::Origin::Planned && !boulevard && !collector && rowA != rowB && offset < 3;
 				using Role=GeneratedStreet::Role;
 				const Role role=plan.scale==2 ? (offset==0 ? Role::Village : Role::FarmAccess)
@@ -1660,7 +1661,7 @@ namespace DistrictRoads
 			for (int col=0;col+1<n;++col)
 			{
 				const float width=coordsX[col+1]-coordsX[col],depth=coordsZ[row+1]-coordsZ[row];
-				if (Max(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockLength || Min(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockDepth) { continue; }
+				if (plan.origin==UrbanMorphology::Origin::Planned || Max(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockLength || Min(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockDepth) { continue; }
 				const int a=nodeIds[{col,row}],b=nodeIds[{col+1,row}],c=nodeIds[{col+1,row+1}],d=nodeIds[{col,row+1}];
 				if (!hasSide(a,b) || !hasSide(b,c) || !hasSide(c,d) || !hasSide(d,a)) { continue; }
 				const bool alongZ=width>=depth;
@@ -1678,7 +1679,8 @@ namespace DistrictRoads
 				}
 			}
 		}
-		SettlementFringe::generate(settlement,world,network);
+		if (plan.origin!=UrbanMorphology::Origin::Planned) { SettlementFringe::generate(settlement,world,network); }
+		NewTownLayout::finish(settlement,network);
 		DBG_LOG(U"[BlockAlleys] town={} alleys={}"_fmt(settlementIndex,alleyCount));
 		DBG_LOG(U"[SettlementPlan] index={} origin={} scale={} extent=({}, {}) nodes={} entrances={} connected={} station={}"_fmt(
 			settlementIndex,UrbanMorphology::originName(plan.origin),plan.scale,halfExtent.x,halfExtent.y,n*rows,arterialWorkNodes.size(),connectedOuterGridPoints.size(),plan.station.has_value()));

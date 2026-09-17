@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: urbanFabric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "downtownFullExtent",
+    "downtownFadeExtent",
+    "downtownStreetSpacingRatio",
+    "downtownPlotDepth",
+    "downtownBackMargin",
+    "downtownSideMargin",
+    "downtownSetback",
+    "downtownFrontagePitch",
+    "downtownDetachedPercent",
+    "newTownMinimumDistance",
+    "newTownMaximumDistance",
+    "newTownSeparation",
+    "newTownCityProbability",
+    "newTownMaximumGrade",
+    "newTownFreeboard",
+    "newTownSampleSpacing",
+    "newTownDistanceWeight",
+    "newTownReliefWeight",
+    "newTownGreenHalfWidth",
+    "newTownWalkwayWidth",
+    "newTownApartmentFrontage",
+    "newTownHouseFrontage",
+    "newTownOuterHousingStart",
+    "newTownGreenBeltStart",
+    "newTownCenterRatio",
+    "newTownSpacingAlong",
+    "newTownSpacingCross",
+    "newTownDetachedPercent",
+    "newTownMidrisePercent",
+    "newTownParkTreeSpacing",
+    "newTownParkTreeClearance"
+  ],
+  "properties": {
+    "downtownFullExtent": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "downtownFadeExtent": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1.0
+    },
+    "downtownStreetSpacingRatio": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1.0
+    },
+    "downtownPlotDepth": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 60.0
+    },
+    "downtownBackMargin": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 10.0
+    },
+    "downtownSideMargin": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 5.0
+    },
+    "downtownSetback": {
+      "type": "number",
+      "minimum": 1.05,
+      "maximum": 4.0
+    },
+    "downtownFrontagePitch": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 20.0
+    },
+    "downtownDetachedPercent": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "newTownMinimumDistance": {
+      "type": "number",
+      "minimum": 2000.0,
+      "maximum": 10000.0
+    },
+    "newTownMaximumDistance": {
+      "type": "number",
+      "minimum": 3000.0,
+      "maximum": 20000.0
+    },
+    "newTownSeparation": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 8000.0
+    },
+    "newTownCityProbability": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "newTownMaximumGrade": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.15
+    },
+    "newTownFreeboard": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "newTownSampleSpacing": {
+      "type": "number",
+      "minimum": 25.0,
+      "maximum": 250.0
+    },
+    "newTownDistanceWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "newTownReliefWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "newTownGreenHalfWidth": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 40.0
+    },
+    "newTownWalkwayWidth": {
+      "type": "number",
+      "minimum": 2.0,
+      "maximum": 10.0
+    },
+    "newTownApartmentFrontage": {
+      "type": "number",
+      "minimum": 16.0,
+      "maximum": 40.0
+    },
+    "newTownHouseFrontage": {
+      "type": "number",
+      "minimum": 12.0,
+      "maximum": 28.0
+    },
+    "newTownOuterHousingStart": {
+      "type": "number",
+      "minimum": 0.3,
+      "maximum": 0.95
+    },
+    "newTownGreenBeltStart": {
+      "type": "number",
+      "minimum": 0.85,
+      "maximum": 0.99
+    },
+    "newTownCenterRatio": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.4
+    },
+    "newTownSpacingAlong": {
+      "type": "number",
+      "minimum": 80.0,
+      "maximum": 200.0
+    },
+    "newTownSpacingCross": {
+      "type": "number",
+      "minimum": 70.0,
+      "maximum": 180.0
+    },
+    "newTownDetachedPercent": {
+      "type": "number",
+      "minimum": 60.0,
+      "maximum": 100.0
+    },
+    "newTownMidrisePercent": {
+      "type": "number",
+      "minimum": 60.0,
+      "maximum": 100.0
+    },
+    "newTownParkTreeSpacing": {
+      "type": "number",
+      "minimum": 12.0,
+      "maximum": 60.0
+    },
+    "newTownParkTreeClearance": {
+      "type": "number",
+      "minimum": 2.0,
+      "maximum": 10.0
+    }
+  }
+}

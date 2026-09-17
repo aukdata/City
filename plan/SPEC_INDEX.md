@@ -44,3 +44,5 @@
 - 現行操作: [コマンドパレット](28_commands.md)。時刻・日付・道路状態・カメラ・資金・FPSの変更。
 
 - 実装構成: [コード構成と所有権](29_code_architecture.md)。担当ファイル、非同期処理、共有計算の入口。
+
+- 写真調査: [ニュータウンと中心街の密度](research/2026-09_newtown_photo_study.md)。実装は24章、計測結果は `artifacts/downtown_newtown_20260917/REVIEW.md`。
