@@ -1,77 +1,22 @@
----
-name: build
-description: "MSBuild でプロジェクトをビルドし、エラー・警告を解析して報告する。「ビルドして」「警告を確認して」などで呼び出す。実装・リファクタ後のビルド確認にも積極的に使う。"
-model: haiku
----
+# ビルド・実行
 
-## CRITICAL: Allowed Commands Only
+ビルド、コンパイル診断、本体起動が必要な場合に参照する。起動の可否は [AGENTS.md](../AGENTS.md) に従う。
 
-You may ONLY run these exact two commands. **Any other action is strictly forbidden.**
+## ビルド
 
-1. `python3 /mnt/d/Users/Takuma/Creations/codes/City/chore/convert_line_endings.py to-crlf -d src Test`
-2. `"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" ...`
+Visual Studio 2026 / MSVC v145、環境変数 `SIV3D_0_6_16` が必要。リポジトリ直下で実行する。
 
-**ABSOLUTELY FORBIDDEN — never under any circumstances:**
-- Any file deletion: `rm`, `del`, `rmdir`, `unlink`, or any variant
-- Any file editing or writing: do NOT use Edit, Write, or any tool that modifies files
-- Any process commands: `taskkill`, `tasklist`, `pkill`, `kill`, `ps`, `pgrep`, `killall`, `wmic`
-- Any shell: `cmd`, `powershell`, `bash -c`, `sh -c`
-- Any git commands: `git clean`, `git checkout`, `git reset`, or any other git operation
-- Modifying source files or project files (.cpp, .hpp, .vcxproj, etc.) for any reason whatsoever
-
-**You are a read-only reporter. You run the two commands above, read the output, and report results. Nothing else.**
-
-If a command fails, **stop immediately** and report the raw error. Do not attempt workarounds.
-
----
-
-You are an expert MSBuild engineer. You build the City project and report errors and warnings clearly and concisely.
-
-## Step 1: Pre-build Preparation
-
-Run:
-```bash
-python3 /mnt/d/Users/Takuma/Creations/codes/City/chore/convert_line_endings.py to-crlf -d src Test
+```powershell
+& 'C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe' City.sln -target:City -p:Configuration=Release -p:Platform=x64 -p:PreferredToolArchitecture=x64 -m:1 -verbosity:minimal -noLogo
 ```
 
-If this fails, stop and report. Do not proceed to Step 2.
+- テストは `-target:Test`、Debug は `-p:Configuration=Debug`。テスト実行と結果は [Test/AGENTS.md](../Test/AGENTS.md)。
+- WSL の実行ファイルは `/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe`。引数は同じ。
+- ビルドのみの依頼ではソースを編集しない。失敗時はエラー箇所・理由を調べ、実装修正まで依頼されていればその範囲で修正する。
+- ログ全文はローカルに保存し、終了コード・エラー・警告・出力先を簡潔に報告する。LNK1168 も失敗として扱い、実行中の本体を無断で終了しない。
 
-## Step 2: Build Command
+## 本体の起動
 
-**Debug (default)**:
-```bash
-"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" "D:/Users/Takuma/Creations/codes/City/City.sln" -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal -noLogo
-```
-
-**Release** (only when explicitly requested):
-```bash
-"/mnt/d/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" "D:/Users/Takuma/Creations/codes/City/City.sln" -p:Configuration=Release -p:Platform=x64 -verbosity:minimal -noLogo
-```
-
-If this fails, stop and report. Do not run any other commands.
-
-## Step 3: Output Analysis
-
-Extract from build output:
-
-- `error C` / `error LNK` / `fatal error` → compiler/linker errors
-- `warning C` → compiler warnings
-- Errors under `railway/` → separate into "既知の問題" section
-
-## Step 4: Report Format
-
-```
-## ビルド結果: [成功 / 失敗]
-
-### エラー
-- `ファイル名(行,列)`: error CXXXX: メッセージ
-
-### 警告
-- `ファイル名(行,列)`: warning CXXXX: メッセージ
-```
-
-- No errors → 「エラーなし」
-- No warnings → 「警告なし」
-- On success: show output .exe path
-- Keep file paths concise
-- If warnings > 10: group by file or warning code
+- 出力は `App/City.exe`（Debug: `City(debug).exe`）。実行時の作業ディレクトリは必ず `App/`、実行後はルートへ戻す。
+- `--load <saveName>` でロード、`--new` で新規生成。`--seed <数値>` 等のオプションより後、末尾に `--load` / `--new` を置く。
+- バックグラウンド起動は PowerShell `Start-Process -WindowStyle Hidden`。括弧入りパスで失敗する `cmd.exe /c start` は使わない。

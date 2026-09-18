@@ -4,11 +4,7 @@
 
 ## 実行と結果
 
-リポジトリ直下でビルドする（Debug は Configuration を変更）。
-
-```powershell
-& 'C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe' City.sln -target:Test -p:Configuration=Release -p:Platform=x64 -p:PreferredToolArchitecture=x64 -m:1 -verbosity:minimal -noLogo
-```
+[ビルド手順](../.codex/build.md) のコマンドで `-target:Test` を指定する。
 
 - 作業ディレクトリ `Test/App/`、実行ファイル `Test.exe`（Debug: `Test(debug).exe`）。`--filter <名前の一部>` で関連ケースを選べる。引数なしで全件。
 - 成功時は終了コード0、失敗時は1。`Test/App/TestResults/results.json` / `results.xml` で合否と失敗理由を確認する。
@@ -21,4 +17,3 @@
 - スクリーンショットは `Test/App/Screenshot/` へ保存する。画像データを会話へ渡さない制約はルートと同じ。
 - `ScreenCapture::SaveCurrentFrame()` は次の `System::Update()` で保存される。フォント準備を2〜3フレーム待ち、保存完了後に終了する。
 - GPU readback と数値解析を使い、表示位置・色・裏面・重なり等を検証する。ユーザー操作待ちは入れない。
-- `.cpp` / `.hpp` / `.h` は UTF-8 BOM + CRLF。通常編集で一括変換を行わない。

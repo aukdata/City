@@ -1,57 +1,41 @@
 # AI 作業ガイド
 
-日本の街づくり・交通シミュレーション。目標は Cities: Skylines 風の遊びと、日本の街・山道・鉄道の自然な景観。C++ / Siv3D 0.6.16、Windows x64 専用。
+日本の街づくり・交通シミュレーション。Cities: Skylines 風の遊びと日本の街・山道・鉄道の自然な景観を目指す。C++ / Siv3D 0.6.16、Windows x64。
 
-## 優先順位とユーザー指定
+## 優先順位と境界
 
-- 新規生成した街のリアルさを優先する。既存セーブの互換性・移行対応には当分作業を割かない。
-- 街路・家並み・農地・農道・用排水路の関係を実在の街と照らして改善する。`reference/` の資料も活用する。
-- 道路は基本的に地上。勾配を合わせるために街全体を高架化しない。山道は道路種別の勾配・曲率制約と建設費の比較で経路を選び、必要なら九十九折りにする。
-- 1フレーム程度の遅延は低優先度。再現しない異常終了は再現待ちとし、景観改善より優先しない。
-- **画像データを会話に送らない**（2026-09-13 指定）。`view_image` 等の結果を画像として渡す確認も禁止。スクリーンショットはローカル保存し、ログ・GPU readback・画像の数値解析で検証する。報告はテキストと通常のファイルリンク。ユーザーが画像送信を明示的に再許可した場合のみ変更する。
+- 新規生成のリアルさを優先し、既存セーブの互換性・移行には当分取り組まない。街路・家並み・農地・農道・用排水路の関係を実景と照合する。資料は `reference/`。
+- 道路は基本的に地上。街全体の高架化で勾配を解消しない。山道は道路種別の勾配・曲率制約と建設費を比較し、必要なら九十九折りにする。
+- 1フレーム程度の遅延は低優先度。再現しない異常終了は再現待ちとし、景観改善を優先する。
+- **画像データを会話に送らない**（2026-09-13 指定）。`view_image` 等での画像受け渡しも禁止。スクリーンショットはローカル保存し、ログ・GPU readback・数値解析で検証する。報告はテキストと通常のファイルリンク。変更にはユーザーの明示的な再許可が必要。
+- 本体は明示的な起動・実プレイ確認の依頼がある場合のみ起動する。Test は自律実行できる。
 
-## 作業の進め方
+## 必要な情報だけ読む
 
-1. 作業ツリーの既存変更を確認し、今回と無関係な変更を保持する。
-2. [仕様の目次](plan/SPEC_INDEX.md)、[現在の実装](plan/00_current_implementation.md)から該当仕様を読む。[既知の問題](ISSUE.md)も確認する。
-3. バグ・性能問題は再現条件、座標・ID・状態、処理時間等を計測して原因を確かめる。「推測するな。計測せよ。」
-4. [コーディング規約](CODING_STYLE.md)に従い、必要な変更を実装する。
-5. 関連する常設テストとビルドを実行し、結果を記録する。新規 UI・レイアウト変更は **Test で表示を検証・レビューしてから本体へ反映**する。
-6. 適切な粒度で`git commit`をする。コミットメッセージは、内容がわかる程度に簡素なものでよい。
-7. 変更した仕様を更新する。`ISSUE.md` は未解決の問題のみ管理し、修正完了した項目を削除する。
+既に会話にある指示は再読せず、対象のパス・シンボルから検索する。資料は次の用途に応じて該当部分だけ読む。
 
-- memory システムは使わない。継続的なルールはこのファイルに集約する。コード規約・仕様・検証結果はそれぞれの専用文書へ置く。
-- コミットする場合は意味のある単位に分け、無関係な変更を混ぜない。
-- コンパイラ警告は基本的にすべて解決する。将来使用予定のパラメータに `[[maybe_unused]]` を付け、使用時に除去する。
+| 用途 | 参照先 |
+|---|---|
+| 仕様の所在／実装済み範囲 | [仕様目次](plan/SPEC_INDEX.md)／[現行実装](plan/00_current_implementation.md) |
+| 不具合・性能調査 | [既知の問題](ISSUE.md) の関連項目 |
+| コード編集 | [コーディング規約](CODING_STYLE.md)、`.editorconfig` |
+| ビルド・本体起動／テスト | [ビルド手順](.codex/build.md)／[Test 手順](Test/AGENTS.md) |
+| Siv3D API が不明 | [調査メモ](plan/SIV3D_NOTES.md)を検索し、未解決なら [siv3d-api](.codex/siv3d-api.md) Agent で対象ヘッダを調査 |
 
-## ファイル編集
+`.codex/` は必要な作業のガイドだけ参照する。`.claude/agents/` はその入口。軽微な文書修正で仕様一式を読まない。
 
-- `.editorconfig` に従い、タブ幅4、Doxygen コメントを使用する。
-- `.cpp` / `.hpp` / `.h` は **UTF-8 BOM + CRLF**。新規作成時も BOM を付ける。LF に変換してから編集しない。
-- PowerShell は `[IO.File]::ReadAllText()` / `WriteAllText()` と `[Text.UTF8Encoding]::new($true)` を使用し、CRLF を保持する。行単位の `Get-Content` / `Set-Content` による書き戻しを避ける。
-- `convert_line_endings.py` は破損修復時に限り `-d src Test` で使用する。通常の編集前後には実行しない。
+## 作業と完了条件
 
-## ビルド・実行
+- 既存変更を確認して保持する。バグ・性能問題は再現条件、ID・座標・状態・時間を計測して原因を確かめる。
+- コード変更は影響する常設テストとビルドで検証し、結果を記録する。成功後の再検証は追加変更・失敗・未解決の懸念がある場合に限る。文書だけなら差分・リンク・指示の整合性を確認する。
+- 新規 UI・レイアウトは **Test で表示を検証・レビューしてから本体へ反映**する。
+- 依頼された変更と関連検証・修正まで完了する。仕様は担当文書、検証結果は `artifacts/<作業名>/REVIEW.md` に記録する。`ISSUE.md` は未解決事項のみ残す。
+- 今回の変更だけを意味のある単位でコミットする。メッセージは簡潔に。無関係な変更を混ぜない。
+- memory システムは使わない。継続ルールの正本はこのファイルとし、詳細手順を参照先に重複させない。
 
-要件: Visual Studio 2026 / MSVC v145、環境変数 `SIV3D_0_6_16`。
-リポジトリ直下から PowerShell で実行する。
+## 編集と診断の必須事項
 
-```powershell
-& 'C:/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe' City.sln -target:City -p:Configuration=Release -p:Platform=x64 -p:PreferredToolArchitecture=x64 -m:1 -verbosity:minimal -noLogo
-```
-
-- `-target:Test` でテストをビルド。Debug は `-p:Configuration=Debug`。
-- WSL では実行ファイルを `/mnt/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe` として同じ引数を渡す。
-- 本体は `App/City.exe`（Debug: `City(debug).exe`）へ自動コピーされる。**実行時の作業ディレクトリは必ず `App/`**。
-- 本体の起動はユーザーが明示的に依頼した場合に行う。「実際に遊んで確認して」という依頼は、その作業に必要な起動を含む。依頼がなければ起動しない。Test は自律実行できる。
-- `--load <saveName>` で直接ロード、`--new` で新規生成。`--seed <数値>` 等を使う場合、`--load` / `--new` は最後に置く。
-- `cmd.exe /c start` は括弧入りパスで失敗するため使わない。PowerShell の `Start-Process` でバックグラウンド起動する場合は `-WindowStyle Hidden` を指定する。
-- 実行後はプロジェクトルートを作業ディレクトリに戻す。テスト手順・出力先は [Test/AGENTS.md](Test/AGENTS.md)。
-
-## デバッグ・SDK 調査
-
-- 本体は原則 `DebugLog::print(U"...")` / `DBG_LOG(U"...")` を使用する。`GameApp::run()` の initialize/shutdown を維持し、状態・ID・座標・時間・失敗理由を `App/debug.log` とオンスクリーンログへ出す。
-- ユーザーが「Console に出して」と指定した場合は `Console <<`。`Print` は明示的に指定された場合のみ。
-- Siv3D API に迷ったら、まず [SIV3D_NOTES.md](plan/SIV3D_NOTES.md) を検索する。追加調査は `siv3d-api` Agent 経由で SDK ヘッダを読む。既存 API を優先し、自前で再実装しない。
-- SDK ヘッダ: `D:/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`（WSL: `/mnt/d/Program Files/Siv3D/OpenSiv3D_0.6.16/include/Siv3D/`）。
-- 作業別ガイドは `.codex/`、Claude 用 Agent 定義は `.claude/agents/`。必要なものだけ参照する。ルールの正本はこのファイルとする。
+- `.cpp` / `.hpp` / `.h` は **UTF-8 BOM + CRLF**、タブ幅4、Doxygen。新規作成時も同じ。LF に変換してから編集しない。
+- PowerShell は `[IO.File]::ReadAllText()` / `WriteAllText()` と `[Text.UTF8Encoding]::new($true)` で CRLF を保持する。行単位の `Get-Content` / `Set-Content` による書き戻しを避ける。`convert_line_endings.py` は破損修復時のみ `-d src Test` で使う。
+- コンパイラ警告は基本的にすべて解決する。将来使う引数は `[[maybe_unused]]`、使用時に除去する。
+- 本体の診断は `DebugLog::print` / `DBG_LOG`。`GameApp::run()` の initialize/shutdown を維持し、状態・ID・座標・時間・失敗理由を `App/debug.log` と画面へ出す。`Console <<` / `Print` はユーザーの指定時のみ。

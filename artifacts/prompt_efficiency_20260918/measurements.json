@@ -1,0 +1,32 @@
+[
+  {
+    "scope": "AGENTS.md",
+    "before_chars": 3059,
+    "after_chars": 1970,
+    "reduction_percent": 35.6
+  },
+  {
+    "scope": "作業別ガイド9件",
+    "before_chars": 23040,
+    "after_chars": 4024,
+    "reduction_percent": 82.5
+  },
+  {
+    "scope": "共通指示と全作業ガイド・入口（参考合計）",
+    "before_chars": 52600,
+    "after_chars": 7953,
+    "reduction_percent": 84.9
+  },
+  {
+    "scope": "Claudeエージェント説明9件",
+    "before_chars": 2175,
+    "after_chars": 298,
+    "reduction_percent": 86.3
+  },
+  {
+    "scope": "ビルド作業で読むroot+ガイド",
+    "before_chars": 5742,
+    "after_chars": 3002,
+    "reduction_percent": 47.7
+  }
+]
