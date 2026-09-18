@@ -90,9 +90,7 @@ void registerRuralVisualTests(TestRunner& runner)
 		const Vec2 mountain{1400,1450};const Point chunk{32,32};
 		context.expect(TreeGeometry::nearTile(1128,chunk,{32768-500,1452,32800},mountain),U"Detailed trees appear 500 m ahead even on mountains above 900 m");
 		context.expect(!TreeGeometry::nearTile(1128,chunk,{32768-900,1452,32800},mountain),U"Distant crowns remain cheap outside the detail range");
-		context.expect(TreeGeometry::nearChunk(chunk,{32768-900,1452,32800},mountain,TreeGeometry::kPrepareDistance),U"Tree preparation starts before the display boundary");
 		context.expect(!TreeGeometry::nearTile(1128,chunk,{32800,2600,32800},mountain),U"High aerial cameras keep the inexpensive distant model");
-		context.expect(TreeGeometry::nearChunk(chunk,{32768-1250,1452,32800},mountain,TreeGeometry::kRetainDistance),U"Prepared trees survive small return trips across the preload boundary");
 	});
 
 	runner.add(U"RuralVisual.TrainSelection",[](TestContext& context)

@@ -16,6 +16,7 @@ using LandscapeMaterials::detailColorForKey;
 void WorldRenderer::preloadBuildingModels()
 {
 	const Stopwatch timer{StartImmediately::Yes};
+	TreeInstanceRenderer::preload();
 	HashSet<uint32> loaded;
 	for (int value = static_cast<int>(BuildingType::Detached); value < static_cast<int>(BuildingType::Count); ++value)
 	{
@@ -33,6 +34,15 @@ void WorldRenderer::preloadBuildingModels()
 
 namespace
 {
+	/// @brief 景観の面と植栽を独立して収集し、配置だけのジョブでは面を作らない。
+	struct LandscapeGeometry
+	{
+		HashTable<int, MeshData> meshes;
+		Array<TreeInstance> trees;
+		bool surfaces = true, planting = true;
+		size_t excludedTrees = 0;
+		MeshData& operator[](int material) { return meshes[material]; }
+	};
 	float buildingBaseHeight(const World& world,const Building& building,float x,float z)
 	{
 		float height=world.sampleHeight(x,z);
@@ -145,11 +155,11 @@ namespace
 		bool facility=false;
 	};
 	template<class HeightSource>
-	void appendPublicGreen(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const LandPatch& patch, const Array<LandRoadMask>& roadMasks, bool detailedTrees);
+	void appendPublicGreen(LandscapeGeometry& groups, const HeightSource& world,
+		const LandPatch& patch, const Array<LandRoadMask>& roadMasks);
 	template<class HeightSource>
-	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks,bool detailedTrees);
+	void appendParcelLandscape(LandscapeGeometry& groups, const HeightSource& world,
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks);
 	template<class HeightSource>
 	void appendLandPatchSurface(MeshData& dst, const HeightSource& world, const LandPatch& patch,
 		const Array<LandRoadMask>& roadMasks)
@@ -247,15 +257,15 @@ namespace
 	}
 
 	template<class HeightSource>
-	void appendLandPatchMesh(HashTable<int, MeshData>& groups, const HeightSource& world, const Chunk& chunk, const LandPatch& patch,
-		const Array<LandRoadMask>& roadMasks,bool detailedTrees=true)
+	void appendLandPatchMesh(LandscapeGeometry& groups, const HeightSource& world, const Chunk& chunk, const LandPatch& patch,
+		const Array<LandRoadMask>& roadMasks)
 	{
 		const bool drawSurface = (patch.type == LandPatchType::FarmField
 			|| patch.type == LandPatchType::PaddyField
 			|| patch.type == LandPatchType::FarmTrack || patch.type == LandPatchType::IrrigationDitch
 			|| patch.type == LandPatchType::Seawall || patch.type == LandPatchType::ParcelAsphalt
 			|| patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil);
-		if (drawSurface)
+		if (groups.surfaces && drawSurface)
 		{
 			MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
 			appendLandPatchSurface(surface, world, patch, roadMasks);
@@ -265,14 +275,17 @@ namespace
 		const float cz = static_cast<float>(bounds.y + bounds.h * 0.5);
 		const float baseY = static_cast<float>(world.sampleHeight(cx, cz)) + patch.elevationOffset;
 
-		if (patch.type==LandPatchType::GardenSoil && patch.sourceParcelKey<0 && patch.polygon.size()>=3)
+		if (groups.planting && patch.type==LandPatchType::GardenSoil && patch.sourceParcelKey<0 && patch.polygon.size()>=3)
 		{
-			appendPublicGreen(groups,world,patch,roadMasks,detailedTrees);
+			appendPublicGreen(groups,world,patch,roadMasks);
 		}
-		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3)
+		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3
+			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil))
 		{
-			appendParcelLandscape(groups, world, chunk, patch, roadMasks,detailedTrees);
+			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
 		}
+
+		if (!groups.surfaces) { return; }
 
 		if (patch.type == LandPatchType::FarmField || patch.type == LandPatchType::PaddyField)
 		{
@@ -445,36 +458,25 @@ namespace
 		}
 	}
 
-	void appendLandscapeTree(HashTable<int,MeshData>& groups,Vec2 position,float ground,uint32 variation,double width,double height,bool cedar,bool detailedTrees,bool woodland=false)
+	/// @brief 原型を参照する配置情報だけを保存する。距離で再生成しない。
+	void appendLandscapeTree(LandscapeGeometry& groups, Vec2 position, float ground, uint32 variation,
+		double width, double height, bool cedar, bool woodland = false)
 	{
-		static const std::array<TreeGeometry::Geometry,16> trees=[]
-		{
-			std::array<TreeGeometry::Geometry,16> result;
-			for (uint32 i=0;i<result.size();++i) { result[i]=TreeGeometry::build((i%8)*31,(i%8)>=4,i>=8); }
-			return result;
-		}();
-		const auto& tree=trees[(variation%4)+(cedar ? 4 : 0)+(woodland ? 8 : 0)];
-		const int leafKey=(variation&1u) ? 126 : 125;
-		for (const auto& entry : {std::pair<int,const MeshData*>{105,&tree.wood},{leafKey,&tree.leaves},{leafKey+3,&tree.distant}})
-		{
-			if (!detailedTrees && entry.first!=128 && entry.first!=129) { continue; }
-			MeshData mesh=*entry.second;
-			mesh.scale(width,height,width).rotate(Quaternion::RotateY((variation%97)*.065));
-			mesh.translate(Float3{static_cast<float>(position.x),ground,static_cast<float>(position.y)});
-			if (detailedTrees) { appendMeshData(groups[TreeGeometry::materialKey(entry.first,position)],mesh); }
-			// Fully distant chunks submit one merged crown batch per palette, not one per tile.
-			if (entry.first==128 || entry.first==129) { appendMeshData(groups[entry.first],mesh); }
-		}
+		const float angle = static_cast<float>((variation % 97) * .065);
+		groups.trees << TreeInstance{{Float4{static_cast<float>(position.x), ground, static_cast<float>(position.y), static_cast<float>(width)},
+			Float4{static_cast<float>(height), Cos(angle), Sin(angle), 0}},
+			static_cast<uint8>((variation % 4) + (cedar ? 4 : 0) + (woodland ? 8 : 0)), static_cast<uint8>(variation & 1u),
+			static_cast<uint8>(TreeGeometry::materialKey(0, position) / 1000 - 1)};
 	}
-	void appendParkTree(HashTable<int, MeshData>& groups, Vec2 position, float groundY, uint32 variation, double heightScale = 1.0,bool detailedTrees=true)
+	void appendParkTree(LandscapeGeometry& groups, Vec2 position, float groundY, uint32 variation, double heightScale = 1.0)
 	{
 		const double scale=GenerationSettings::get().vegetation_parkScaleMinimum+(variation%11)*GenerationSettings::get().vegetation_parkScaleVariationStep;
-		appendLandscapeTree(groups,position,groundY,variation,4.8*scale,4.8*heightScale*scale,false,detailedTrees);
+		appendLandscapeTree(groups,position,groundY,variation,4.8*scale,4.8*heightScale*scale,false);
 	}
 	/// @brief 住区公園・緑道に植樹する。歩道との離隔を確保し、既存の樹木 LOD を共有する。
 	template<class HeightSource>
-	void appendPublicGreen(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const LandPatch& patch, const Array<LandRoadMask>& roadMasks, bool detailedTrees)
+	void appendPublicGreen(LandscapeGeometry& groups, const HeightSource& world,
+		const LandPatch& patch, const Array<LandRoadMask>& roadMasks)
 	{
 		const Polygon shape{patch.polygon};
 		const RectF bounds=shape.boundingRect();
@@ -499,14 +501,14 @@ namespace
 				}
 				if (!clear) { continue; }
 				const uint32 hash=static_cast<uint32>(x/step)*73856093u ^ static_cast<uint32>(z/step)*19349663u;
-				appendParkTree(groups,point,world.sampleHeight(static_cast<float>(x),static_cast<float>(z)),hash,1,detailedTrees);
+				appendParkTree(groups,point,world.sampleHeight(static_cast<float>(x),static_cast<float>(z)),hash,1);
 			}
 		}
 	}
 	/// @brief Deterministic woodland batches follow undeveloped slopes, excluding roads and plots.
 	template<class HeightSource>
-	void appendWoodland(HashTable<int, MeshData>& groups, const Chunk& chunk,const HeightSource& world,
-		const Array<LandRoadMask>& roadMasks,const RiverNetwork& rivers,bool detailedTrees=true)
+	void appendWoodland(LandscapeGeometry& groups, const Chunk& chunk,const HeightSource& world,
+		const Array<LandRoadMask>& roadMasks,const RiverNetwork& rivers)
 	{
 		if (chunk.zoneMap.isEmpty() || chunk.heightMap.isEmpty()) { return; }
 		Grid<bool> blocked(ZONE_CELLS,ZONE_CELLS,false);
@@ -540,7 +542,6 @@ namespace
 			return VegetationProfile::habitat(world.sampleHeight(x,z),slope);
 		}};
 		int excludedByFacilities=0;
-		static const auto shrub=TreeGeometry::build(37,false);
 		for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
 		{
 			if (blocked[{col,row}]) { continue; }
@@ -569,22 +570,22 @@ namespace
 					if (!TreeGeometry::clearOfCorridor(position,treeWidth,road.shape)) { excludedByFacilities+=road.facility;clear=false;break; }
 				}
 				if (!clear) { continue; }
-				appendLandscapeTree(groups,position,ground,hash,treeWidth,(alpine ? GenerationSettings::get().vegetation_alpineHeight : cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar && !alpine,detailedTrees,true);
-				if (detailedTrees && candidate==0 && !alpine)
+				appendLandscapeTree(groups,position,ground,hash,treeWidth,(alpine ? GenerationSettings::get().vegetation_alpineHeight : cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar && !alpine,true);
+				if (candidate==0 && !alpine)
 				{
 					// 足元の低木を高木と別の高さで重ねる。路肩へはみ出す株は上の離隔で除外する。
-					MeshData leaves=shrub.leaves;
-					leaves.scale(3.5*scale,1.5*scale,3.5*scale).rotate(Quaternion::RotateY(hash%31));
-					leaves.translate(Float3{x,ground-.2f,z});
-					appendMeshData(groups[TreeGeometry::materialKey(126,position)],leaves);
+					const float angle = static_cast<float>(hash % 31);
+					groups.trees << TreeInstance{{Float4{x, ground - .2f, z, 3.5f * scale},
+						Float4{1.5f * scale, Cos(angle), Sin(angle), 0}}, TreeInstanceRenderer::kShrubModel, 1,
+						static_cast<uint8>(TreeGeometry::materialKey(0, position) / 1000 - 1)};
 				}
 			}
 		}
-		if (excludedByFacilities>0) { DBG_LOG(U"[RailLandscape] chunk=({}, {}) excludedTrees={}"_fmt(chunk.coord.x,chunk.coord.y,excludedByFacilities)); }
+		groups.excludedTrees += excludedByFacilities;
 	}
 	template<class HeightSource>
-	void appendParcelLandscape(HashTable<int, MeshData>& groups, const HeightSource& world,
-		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks,bool detailedTrees)
+	void appendParcelLandscape(LandscapeGeometry& groups, const HeightSource& world,
+		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks)
 	{
 		const int col = static_cast<int>(patch.sourceParcelKey & 255);
 		const int row = static_cast<int>((patch.sourceParcelKey >> 8) & 255);
@@ -627,7 +628,7 @@ namespace
 		if (patch.type == LandPatchType::GardenSoil)
 		{
 			// Side and rear boundaries leave the original model's street entrance unobstructed.
-			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			for (size_t side = 0; groups.surfaces && side < patch.polygon.size(); ++side)
 			{
 				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
 				const Vec2 midpoint = (a + b) * 0.5;
@@ -644,13 +645,13 @@ namespace
 						static_cast<float>(Atan2(b.y - a.y, b.x - a.x)));
 				}
 			}
-			for (int index = 0; index < 4; ++index)
+			for (int index = 0; groups.planting && index < 4; ++index)
 			{
 				const Vec2 position = center + inward * (half + 4.0 + (index / 2) * 5.0)
 					+ along * ((index % 2 == 0 ? -1 : 1) * (2.8 + (patch.materialVariant % 7) * 0.12));
 				if (fits(position, TreeGeometry::horizontalClearance(4.8*1.06)) && ((patch.materialVariant >> index) & 3u) != 0)
 				{
-					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, chunk.isUrbanizationArea ? 1.0 : 2.0,detailedTrees);
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, chunk.isUrbanizationArea ? 1.0 : 2.0);
 				}
 			}
 		}
@@ -669,7 +670,7 @@ namespace
 			}
 		}
 	}
-	void appendUrbanLotDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
 	                           int col, int row, const Building& building, float cx, float cz,
 	                           float cellSize,const Array<LandRoadMask>& roadMasks)
 	{
@@ -774,7 +775,7 @@ namespace
 
 
 	}
-	void appendFarmlandDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	void appendFarmlandDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
 	                           int col, int row, float cx, float cz, float cellSize)
 	{
 		const uint32 hash = cellVisualHash(chunk.coord, col, row, 0xA6B4C893u);
@@ -811,7 +812,7 @@ namespace
 			appendRotatedBox(groups[110], px, baseY + 0.05f, pz, 0.42f, 0.04f, fieldD, angle);
 		}
 	}
-	void appendBoxBuildingDetails(HashTable<int, MeshData>& groups, const Chunk& chunk, const World& world,
+	void appendBoxBuildingDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
 	                              int col, int row, BuildingType type, float cx, float cz,
 	                              float footprint, float height, float angle)
 	{
@@ -1121,9 +1122,11 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 }
 
 Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(const Chunk& chunk,
-	const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots, bool detailedTrees,
-	const RiverNetwork& rivers, const Array<Polygon>& sites, bool woodland)
+	const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,
+	const RiverNetwork& rivers, const Array<Polygon>& sites, LandscapeBuildStats& stats,
+	Array<TreeInstance>& trees, bool treesOnly, bool woodland)
 {
+	const Stopwatch timer{StartImmediately::Yes};
 	struct HeightSnapshot
 	{
 		const Array<Chunk>& chunks;
@@ -1161,14 +1164,25 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(cons
 		Array<Vec2> outline{a-direction*12-right*width,b+direction*12-right*width,b+direction*12+right*width,a-direction*12+right*width};
 		UrbanParcel::normalize(outline); masks<<LandRoadMask{reach.bounds,outline,Polygon{outline}};
 	}
-	HashTable<int,MeshData> groups;
-	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks,detailedTrees); }
-	if (woodland)
+	stats.masksMilliseconds = timer.msF();
+	LandscapeGeometry groups;
+	groups.surfaces = !treesOnly; groups.planting = treesOnly;
+	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks); }
+	stats.patchesMilliseconds = timer.msF() - stats.masksMilliseconds;
+	if (woodland && treesOnly)
 	{
-		appendWoodland(groups, chunk, heights, masks, rivers, detailedTrees);
+		appendWoodland(groups, chunk, heights, masks, rivers);
 	}
+	stats.woodlandMilliseconds = timer.msF() - stats.masksMilliseconds - stats.patchesMilliseconds;
+	trees = std::move(groups.trees);
+	stats.excludedTrees = groups.excludedTrees;
 	Array<TerrainMeshData> result;
-	for (auto& [key,mesh] : groups) { result << TerrainMeshData{key,std::move(mesh)}; }
+	for (auto& [key,mesh] : groups.meshes)
+	{
+		stats.vertices += mesh.vertices.size();
+		stats.triangles += mesh.indices.size();
+		result << TerrainMeshData{key,std::move(mesh)};
+	}
 	return result;
 }
 
@@ -1193,7 +1207,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	const Vec3 origin = chunk.worldOrigin();
 
 	// 建物種別ごとに MeshData を積み上げる（Box 描画用）
-	HashTable<int, MeshData> groups;
+	LandscapeGeometry groups;
 	// 住宅 OBJ インスタンス
 	Array<BuildingModelInstance> modelInstances;
 
@@ -1299,9 +1313,11 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		}
 	}
 
+	if (groups.excludedTrees) { DBG_LOG(U"[RailLandscape] key={} excludedTrees={}"_fmt(key, groups.excludedTrees)); }
+	m_lotTreeCache[key] = std::move(groups.trees);
 	auto& batches = m_buildingMeshCache[key];
 	batches.clear();
-	for (auto& [typeInt, meshData] : groups)
+	for (auto& [typeInt, meshData] : groups.meshes)
 	{
 		if (meshData.vertices.isEmpty()) continue;
 		const ColorF color = (typeInt >= 100)
@@ -1349,7 +1365,7 @@ bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
 	const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
 	const auto range=m_treeHeightRanges.find(key);
 	const Vec2 heights=range==m_treeHeightRanges.end() ? Vec2{} : range->second;
-	const bool closeChunk=TreeGeometry::nearChunk(coord,m_buildingEye,heights) && (!m_asyncTerrain || m_detailedTreeChunks.contains(key));
+	const bool closeChunk=TreeGeometry::nearChunk(coord,m_buildingEye,heights);
 	if (materialKey==128 || materialKey==129) { return !closeChunk; }
 	if (materialKey<1000) { return materialKey!=124; }
 	if (!closeChunk) { return false; }
@@ -1360,6 +1376,7 @@ bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
 
 void WorldRenderer::drawCachedBuildings(Key key)
 {
+	submitCachedTrees(key);
 	bool farDrawn = false;
 	if (const auto cached = m_farBuildings.find(key); cached != m_farBuildings.end())
 	{
@@ -1477,6 +1494,7 @@ void WorldRenderer::drawCachedBuildings(Key key)
 
 void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 {
+	m_treeRenderer.clear();
 	const double radiusSq = radius * radius;
 	for (const auto& [key, instances] : m_buildingModelCache)
 	{
@@ -1521,11 +1539,13 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 		{
 			continue;
 		}
+		submitCachedTrees(key);
 		for (const auto& batch : batches->second)
 		{
 			if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
 	}
+	m_treeRenderer.draw({}, true);
 }
 
 void WorldRenderer::drawFrontage(const BuildingModelAsset& asset, const BuildingModelInstance& instance, bool shadowPass) const

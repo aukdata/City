@@ -1,0 +1,738 @@
+{
+  "scenario": {
+    "mode": "navigation",
+    "seed": 42,
+    "forest_density_percent": 95,
+    "settings_sha256": "d30edbbe6835d441b8da785479e9004ca4007fc716f61a22f0a9e86fe0b85650"
+  },
+  "executable_sha256": "5f8064ce74f0f8a0e79d3924d63b50f7156c2672a33453741852b9a61ad34e7a",
+  "run": "artifacts/local_runs/checks/20260919-010248-playtest-lc5f5zyt",
+  "tree_preload": [
+    "[TreeModels] models=17 nearCapacity=64 farCapacity=1024 preloadMs=117.20"
+  ],
+  "tree_placement": {
+    "jobs": 57,
+    "unique_chunks": 57,
+    "total_instances": 269981,
+    "mean_ms": 9.48,
+    "max_ms": 135.98
+  },
+  "matching_previously_detailed_chunks": {
+    "count": 17,
+    "mean_placement_ms": 22.50470588235294,
+    "max_placement_ms": 135.98
+  },
+  "forest_17_46": {
+    "before": [
+      {
+        "key": 73014444078,
+        "detailed": true,
+        "worker_ms": 3839.81,
+        "upload_ms": 191.19,
+        "max_upload_ms": 9.55,
+        "upload_frames": 35,
+        "terrain_ms": 4.81,
+        "masks_ms": 0.0,
+        "patches_ms": 0.0,
+        "woodland_ms": 3834.99,
+        "landscape_vertices": 15580688,
+        "landscape_triangles": 14373600
+      }
+    ],
+    "after": [
+      {
+        "key": 73014444078,
+        "revision": 1,
+        "placement_ms": 5.03,
+        "masks_ms": 0.0,
+        "patches_ms": 0.0,
+        "woodland_ms": 5.03,
+        "instances": 7616,
+        "excluded_trees": 0
+      }
+    ]
+  },
+  "before_frame_cpu_ms": {
+    "samples": 2837,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 19.996,
+        "p95": 27.711,
+        "max": 8027.018
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 27.913,
+        "p95": 22.109,
+        "max": 8027.018
+      },
+      "1": {
+        "mean": 25.59,
+        "p95": 29.229,
+        "max": 190.382
+      },
+      "2": {
+        "mean": 9.402,
+        "p95": 11.162,
+        "max": 16.709
+      },
+      "3": {
+        "mean": 14.172,
+        "p95": 21.124,
+        "max": 126.438
+      },
+      "4": {
+        "mean": 10.976,
+        "p95": 12.384,
+        "max": 15.208
+      },
+      "5": {
+        "mean": 10.737,
+        "p95": 14.079,
+        "max": 24.46
+      }
+    }
+  },
+  "after_frame_cpu_ms": {
+    "samples": 1941,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 24.005,
+        "p95": 29.837,
+        "max": 7497.947
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 37.543,
+        "p95": 24.955,
+        "max": 7497.947
+      },
+      "1": {
+        "mean": 27.263,
+        "p95": 30.918,
+        "max": 193.679
+      },
+      "2": {
+        "mean": 10.957,
+        "p95": 12.081,
+        "max": 20.357
+      },
+      "3": {
+        "mean": 15.241,
+        "p95": 19.248,
+        "max": 94.256
+      },
+      "4": {
+        "mean": 12.858,
+        "p95": 14.546,
+        "max": 18.458
+      },
+      "5": {
+        "mean": 11.215,
+        "p95": 12.52,
+        "max": 20.341
+      }
+    },
+    "elapsed_seconds": 103.48
+  },
+  "notes": [
+    "Stopwatch elapsed times; these are not GPU timestamps.",
+    "Old jobs included terrain, surfaces and expanded tree vertices. New tree placement jobs exclude terrain/surfaces and reuse permanent GPU models.",
+    "Frame averages include the first expensive world frame; use phase results as well.",
+    "Matching chunk populations and full samples retained for audit."
+  ],
+  "placement_samples": [
+    {
+      "key": 85899345967,
+      "revision": 2,
+      "placement_ms": 44.22,
+      "masks_ms": 22.23,
+      "patches_ms": 12.77,
+      "woodland_ms": 7.48,
+      "instances": 1853,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378671,
+      "revision": 1,
+      "placement_ms": 22.66,
+      "masks_ms": 10.79,
+      "patches_ms": 5.61,
+      "woodland_ms": 4.93,
+      "instances": 1444,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378670,
+      "revision": 1,
+      "placement_ms": 66.18,
+      "masks_ms": 15.11,
+      "patches_ms": 13.17,
+      "woodland_ms": 33.61,
+      "instances": 1772,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345966,
+      "revision": 2,
+      "placement_ms": 135.98,
+      "masks_ms": 44.51,
+      "patches_ms": 15.12,
+      "woodland_ms": 59.75,
+      "instances": 1466,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345968,
+      "revision": 1,
+      "placement_ms": 13.7,
+      "masks_ms": 8.52,
+      "patches_ms": 2.33,
+      "woodland_ms": 2.28,
+      "instances": 1038,
+      "excluded_trees": 0
+    },
+    {
+      "key": 90194313263,
+      "revision": 1,
+      "placement_ms": 11.94,
+      "masks_ms": 5.98,
+      "patches_ms": 2.44,
+      "woodland_ms": 2.75,
+      "instances": 979,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378672,
+      "revision": 1,
+      "placement_ms": 9.76,
+      "masks_ms": 5.8,
+      "patches_ms": 0.62,
+      "woodland_ms": 2.91,
+      "instances": 948,
+      "excluded_trees": 0
+    },
+    {
+      "key": 90194313262,
+      "revision": 1,
+      "placement_ms": 9.69,
+      "masks_ms": 6.08,
+      "patches_ms": 1.64,
+      "woodland_ms": 1.49,
+      "instances": 727,
+      "excluded_trees": 0
+    },
+    {
+      "key": 90194313264,
+      "revision": 1,
+      "placement_ms": 5.42,
+      "masks_ms": 1.37,
+      "patches_ms": 0.2,
+      "woodland_ms": 3.77,
+      "instances": 1177,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345965,
+      "revision": 2,
+      "placement_ms": 20.0,
+      "masks_ms": 10.56,
+      "patches_ms": 3.92,
+      "woodland_ms": 4.44,
+      "instances": 1363,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411374,
+      "revision": 1,
+      "placement_ms": 2.09,
+      "masks_ms": 0.7,
+      "patches_ms": 0.09,
+      "woodland_ms": 1.21,
+      "instances": 752,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378669,
+      "revision": 2,
+      "placement_ms": 13.75,
+      "masks_ms": 7.6,
+      "patches_ms": 1.7,
+      "woodland_ms": 3.56,
+      "instances": 592,
+      "excluded_trees": 0
+    },
+    {
+      "key": 90194313261,
+      "revision": 1,
+      "placement_ms": 2.79,
+      "masks_ms": 1.18,
+      "patches_ms": 0.34,
+      "woodland_ms": 1.16,
+      "instances": 392,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411373,
+      "revision": 1,
+      "placement_ms": 3.05,
+      "masks_ms": 1.25,
+      "patches_ms": 0.02,
+      "woodland_ms": 1.66,
+      "instances": 673,
+      "excluded_trees": 0
+    },
+    {
+      "key": 94489280557,
+      "revision": 1,
+      "placement_ms": 1.94,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 1.94,
+      "instances": 4774,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345964,
+      "revision": 2,
+      "placement_ms": 2.8,
+      "masks_ms": 0.65,
+      "patches_ms": 0.02,
+      "woodland_ms": 2.12,
+      "instances": 3038,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378668,
+      "revision": 2,
+      "placement_ms": 3.52,
+      "masks_ms": 1.71,
+      "patches_ms": 0.03,
+      "woodland_ms": 1.68,
+      "instances": 1187,
+      "excluded_trees": 2
+    },
+    {
+      "key": 90194313260,
+      "revision": 1,
+      "placement_ms": 2.53,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.53,
+      "instances": 6416,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411372,
+      "revision": 2,
+      "placement_ms": 11.21,
+      "masks_ms": 6.15,
+      "patches_ms": 1.69,
+      "woodland_ms": 2.74,
+      "instances": 417,
+      "excluded_trees": 0
+    },
+    {
+      "key": 94489280556,
+      "revision": 1,
+      "placement_ms": 2.8,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.8,
+      "instances": 7702,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444076,
+      "revision": 1,
+      "placement_ms": 5.49,
+      "masks_ms": 2.96,
+      "patches_ms": 0.77,
+      "woodland_ms": 1.52,
+      "instances": 199,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345963,
+      "revision": 1,
+      "placement_ms": 3.03,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.03,
+      "instances": 7784,
+      "excluded_trees": 0
+    },
+    {
+      "key": 81604378667,
+      "revision": 2,
+      "placement_ms": 6.31,
+      "masks_ms": 1.36,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.69,
+      "instances": 6866,
+      "excluded_trees": 11
+    },
+    {
+      "key": 90194313259,
+      "revision": 1,
+      "placement_ms": 3.07,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.07,
+      "instances": 7796,
+      "excluded_trees": 0
+    },
+    {
+      "key": 98784247852,
+      "revision": 1,
+      "placement_ms": 3.08,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.08,
+      "instances": 7802,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411371,
+      "revision": 2,
+      "placement_ms": 5.43,
+      "masks_ms": 2.48,
+      "patches_ms": 0.34,
+      "woodland_ms": 2.42,
+      "instances": 1103,
+      "excluded_trees": 0
+    },
+    {
+      "key": 94489280555,
+      "revision": 1,
+      "placement_ms": 3.17,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.17,
+      "instances": 7756,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444075,
+      "revision": 1,
+      "placement_ms": 5.51,
+      "masks_ms": 2.72,
+      "patches_ms": 0.02,
+      "woodland_ms": 2.65,
+      "instances": 4002,
+      "excluded_trees": 0
+    },
+    {
+      "key": 98784247851,
+      "revision": 1,
+      "placement_ms": 2.78,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.77,
+      "instances": 7704,
+      "excluded_trees": 0
+    },
+    {
+      "key": 85899345962,
+      "revision": 2,
+      "placement_ms": 2.55,
+      "masks_ms": 0.04,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.5,
+      "instances": 7813,
+      "excluded_trees": 2
+    },
+    {
+      "key": 81604378666,
+      "revision": 2,
+      "placement_ms": 8.12,
+      "masks_ms": 2.23,
+      "patches_ms": 0.0,
+      "woodland_ms": 5.68,
+      "instances": 9109,
+      "excluded_trees": 46
+    },
+    {
+      "key": 90194313258,
+      "revision": 1,
+      "placement_ms": 2.97,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.97,
+      "instances": 7812,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411370,
+      "revision": 1,
+      "placement_ms": 3.52,
+      "masks_ms": 0.31,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.2,
+      "instances": 8174,
+      "excluded_trees": 0
+    },
+    {
+      "key": 94489280554,
+      "revision": 1,
+      "placement_ms": 2.77,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.76,
+      "instances": 7756,
+      "excluded_trees": 0
+    },
+    {
+      "key": 68719476779,
+      "revision": 1,
+      "placement_ms": 2.55,
+      "masks_ms": 0.58,
+      "patches_ms": 0.01,
+      "woodland_ms": 1.95,
+      "instances": 3510,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444074,
+      "revision": 1,
+      "placement_ms": 3.44,
+      "masks_ms": 0.29,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.14,
+      "instances": 7893,
+      "excluded_trees": 0
+    },
+    {
+      "key": 103079215147,
+      "revision": 1,
+      "placement_ms": 3.89,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.89,
+      "instances": 7812,
+      "excluded_trees": 0
+    },
+    {
+      "key": 98784247850,
+      "revision": 1,
+      "placement_ms": 2.71,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.71,
+      "instances": 7736,
+      "excluded_trees": 0
+    },
+    {
+      "key": 68719476778,
+      "revision": 1,
+      "placement_ms": 7.58,
+      "masks_ms": 1.84,
+      "patches_ms": 0.0,
+      "woodland_ms": 5.5,
+      "instances": 9310,
+      "excluded_trees": 0
+    },
+    {
+      "key": 103079215146,
+      "revision": 1,
+      "placement_ms": 2.35,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.35,
+      "instances": 7802,
+      "excluded_trees": 0
+    },
+    {
+      "key": 94489280558,
+      "revision": 1,
+      "placement_ms": 3.75,
+      "masks_ms": 0.04,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.71,
+      "instances": 5224,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444077,
+      "revision": 1,
+      "placement_ms": 3.78,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.78,
+      "instances": 4318,
+      "excluded_trees": 0
+    },
+    {
+      "key": 98784247853,
+      "revision": 1,
+      "placement_ms": 4.92,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.92,
+      "instances": 7784,
+      "excluded_trees": 0
+    },
+    {
+      "key": 68719476781,
+      "revision": 1,
+      "placement_ms": 2.55,
+      "masks_ms": 0.27,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.28,
+      "instances": 4209,
+      "excluded_trees": 0
+    },
+    {
+      "key": 103079215149,
+      "revision": 1,
+      "placement_ms": 4.45,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.44,
+      "instances": 7760,
+      "excluded_trees": 0
+    },
+    {
+      "key": 68719476780,
+      "revision": 1,
+      "placement_ms": 8.9,
+      "masks_ms": 5.4,
+      "patches_ms": 0.03,
+      "woodland_ms": 3.14,
+      "instances": 9,
+      "excluded_trees": 0
+    },
+    {
+      "key": 103079215148,
+      "revision": 1,
+      "placement_ms": 2.98,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.97,
+      "instances": 7798,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444078,
+      "revision": 1,
+      "placement_ms": 5.03,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 5.03,
+      "instances": 7616,
+      "excluded_trees": 0
+    },
+    {
+      "key": 77309411375,
+      "revision": 1,
+      "placement_ms": 4.12,
+      "masks_ms": 1.89,
+      "patches_ms": 0.04,
+      "woodland_ms": 2.17,
+      "instances": 1366,
+      "excluded_trees": 0
+    },
+    {
+      "key": 73014444079,
+      "revision": 1,
+      "placement_ms": 4.87,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.87,
+      "instances": 7766,
+      "excluded_trees": 0
+    },
+    {
+      "key": 64424509485,
+      "revision": 1,
+      "placement_ms": 3.87,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3.87,
+      "instances": 5388,
+      "excluded_trees": 0
+    },
+    {
+      "key": 64424509484,
+      "revision": 1,
+      "placement_ms": 2.84,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.84,
+      "instances": 1132,
+      "excluded_trees": 0
+    },
+    {
+      "key": 64424509483,
+      "revision": 1,
+      "placement_ms": 2.28,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2.28,
+      "instances": 4090,
+      "excluded_trees": 0
+    },
+    {
+      "key": 60129542188,
+      "revision": 1,
+      "placement_ms": 5.28,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 5.28,
+      "instances": 7746,
+      "excluded_trees": 0
+    },
+    {
+      "key": 64424509482,
+      "revision": 1,
+      "placement_ms": 5.46,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 5.46,
+      "instances": 7810,
+      "excluded_trees": 0
+    },
+    {
+      "key": 60129542187,
+      "revision": 1,
+      "placement_ms": 4.18,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.18,
+      "instances": 7778,
+      "excluded_trees": 0
+    },
+    {
+      "key": 60129542186,
+      "revision": 1,
+      "placement_ms": 4.75,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 4.75,
+      "instances": 7738,
+      "excluded_trees": 0
+    }
+  ],
+  "validation": {
+    "test_run": "artifacts/local_runs/checks/20260919-010533-test-t2ps3n8j",
+    "total": 299,
+    "passed": 299,
+    "failed": 0,
+    "gpu_readback": {
+      "far": {
+        "depthDifferences": 0,
+        "meanColorError": 2.9906094862132904e-05,
+        "pixels": 22292,
+        "silhouetteDifferences": 0
+      },
+      "near": {
+        "depthDifferences": 0,
+        "meanColorError": 0.0,
+        "pixels": 16673,
+        "silhouetteDifferences": 0
+      }
+    }
+  }
+}

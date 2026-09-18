@@ -10,7 +10,8 @@
 void WorldRenderer::render(World& world, const RoadNetwork& network, const BasicCamera3D& camera)
 {
 	m_buildingEye=camera.getEyePosition();
-	trimDistantTreeDetails();
+	m_treeRenderer.clear();
+	publishCompletedTrees();
 	uploadCompletedTerrain();
 	// アクティブチャンクを近傍優先で回し、地形本体と水面を分けて描画する。
 	// 地形メッシュを動的更新するため W100 警告を抑制する
@@ -39,6 +40,7 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 		// すでに用意済みの建物は地域LODでも残す。地形全域を同期で詳細化しない。
 		m_buildingFrustum=ViewFrustum{camera,160000};
 		for(const auto& [key,far]:m_farBuildings) { if(m_buildingFrustum->intersects(far.bounds)) { drawCachedBuildings(key); } }
+		m_treeRenderer.draw(m_foliageShader);
 		return;
 	}
 	m_buildingFrustum = ViewFrustum{ camera, 9000.0 };
@@ -112,6 +114,8 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 
 		drawChunk(*chunk, world, network);
 	}
+
+	m_treeRenderer.draw(m_foliageShader);
 
 	// ---- 水面（y=0 の半透明平面）----
 	{

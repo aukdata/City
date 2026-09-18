@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "TunnelGeometry.hpp"
 #include "ModelBatch.hpp"
+#include "TreeInstances.hpp"
 #include "../railway/RailwaySite.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
@@ -28,7 +29,11 @@ public:
 	[[nodiscard]] size_t buildingTriangles() const { return m_buildingTriangles; }
 	/// @brief Build terrain booleans from immutable snapshots off the render thread.
 	void setAsyncTerrain(bool enabled) { m_asyncTerrain = enabled; }
-	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size(); }
+	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size() + m_treeJobs.size(); }
+	/// @brief 配置生成と地形生成の開始回数。カメラのLOD変更では増加しない。
+	[[nodiscard]] uint64 treePlacementBuilds() const { return m_treePlacementBuilds; }
+	[[nodiscard]] uint64 terrainBuilds() const { return m_terrainBuilds; }
+	[[nodiscard]] size_t treeInstanceCount() const;
 	/// @brief The same terrain-following, road-clipped geometry is used for parcel selection.
 	MeshData landPatchSurface(const World& world,const RoadNetwork& network,Point coord,const LandPatch& patch);
 	void setBuildingShader(const PixelShader& shader) { m_buildingShader = shader; }
@@ -139,17 +144,31 @@ private:
 		Array<Key> touchedChunkKeys;
 	};
 
-	/// @brief チャンクの地形メッシュデータを生成する
+	/// @brief 地形待ちと植生生成の負荷を分離するジョブ単位の計測値。
+	struct LandscapeBuildStats
+	{
+		double masksMilliseconds = 0.0;
+		double patchesMilliseconds = 0.0;
+		double woodlandMilliseconds = 0.0;
+		size_t vertices = 0;
+		size_t triangles = 0;
+		size_t excludedTrees = 0;
+	};
+
+	/// @brief チャンクの景観メッシュデータを生成する。
 	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads,
-		const Array<Chunk>& heightSnapshots, bool detailedTrees, const RiverNetwork& rivers,
-		const Array<Polygon>& sites, bool woodland = true);
+		const Array<Chunk>& heightSnapshots, const RiverNetwork& rivers,
+		const Array<Polygon>& sites, LandscapeBuildStats& stats, Array<TreeInstance>& trees, bool treesOnly, bool woodland = true);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
 	void drawChunk(Chunk& chunk, const World& world, const RoadNetwork& network);
 	/// @brief 完成した地形ジョブを既存の時間枠内でアップロードし、完成した組だけを公開する。
 	void uploadCompletedTerrain();
-	void trimDistantTreeDetails();
+	/// @brief 配置を地形のGPU転送から独立して公開する。
+	void publishCompletedTrees();
+	void startStreamingJobs(Key key, const Chunk& chunk, const World& world, const RoadNetwork& network, bool terrainDirty);
+	void submitCachedTrees(Key key) const;
 
 	/// @brief エッジ単位の subtraction 形状を必要時に構築して返す
 	const TerrainBooleanSubtractor* getTerrainSubtractor(const RoadNetwork& network, int edgeId);
@@ -181,6 +200,8 @@ private:
 		Array<TerrainMeshData> batches;
 		Array<TerrainMeshData> landscape;
 		double milliseconds = 0.0;
+		double terrainMilliseconds = 0.0;
+		LandscapeBuildStats landscapeStats;
 	};
 	struct TerrainJob
 	{
@@ -194,8 +215,39 @@ private:
 		size_t terrainIndex=0,landscapeIndex=0;
 		double uploadTotalMilliseconds=0,maxUploadMilliseconds=0;
 		int uploadFrames=0;
-		bool detailedTrees=false;
 	};
+	/// @brief 地形と植栽のジョブで共有する不変の配置条件。
+	struct LandscapeSnapshot
+	{
+		Chunk chunk;
+		Array<Chunk> heights;
+		Array<TerrainSubtractionQuad> quads;
+		RiverNetwork rivers;
+		Array<Polygon> sites;
+		bool woodland = true;
+	};
+	struct TreeJobResult
+	{
+		Array<TreeInstance> instances;
+		LandscapeBuildStats stats;
+		double milliseconds = 0;
+	};
+	struct TreeJob
+	{
+		Key key;
+		uint64 epoch, revision;
+		std::future<TreeJobResult> future;
+	};
+	struct TreeChunk
+	{
+		Array<TreeInstance> instances;
+		uint64 revision = 0;
+	};
+	Array<TreeJob> m_treeJobs;
+	HashTable<Key, TreeChunk> m_treeCache;
+	HashTable<Key, Array<TreeInstance>> m_lotTreeCache;
+	mutable TreeInstanceRenderer m_treeRenderer;
+	uint64 m_treePlacementBuilds = 0, m_terrainBuilds = 0;
 	Array<TerrainJob> m_terrainJobs;
 	HashTable<Key, uint64> m_terrainRevisions;
 	bool m_asyncTerrain = false;
@@ -232,7 +284,6 @@ private:
 	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;
 	HashSet<Key> m_distantDetailChunks;
-	HashSet<Key> m_detailedTreeChunks;
 	HashTable<Key, Vec2> m_treeHeightRanges;
 	Vec3 m_lastSortEye{Math::Inf,0,0};
 	Vec3 m_buildingEye{ 0, 0, 0 };

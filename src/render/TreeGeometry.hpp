@@ -79,8 +79,6 @@ namespace TreeGeometry
 		return material+1000*(1+x+z*4);
 	}
 	static constexpr double kDetailDistance = 600;
-	static constexpr double kPrepareDistance = 1100;
-	static constexpr double kRetainDistance = 1500;
 	/// @brief 標高ではなく、地表の範囲までの距離で詳細度を決める。
 	inline double distanceSquared(Point coord, Vec3 eye, Vec2 heights, int tile = -1)
 	{

@@ -8,21 +8,119 @@
 
 using LandscapeMaterials::detailColorForKey;
 
-void WorldRenderer::trimDistantTreeDetails()
+size_t WorldRenderer::treeInstanceCount() const
 {
-	Array<Key> distantTrees;
-	for (const Key key : m_detailedTreeChunks)
+	size_t count = 0;
+	for (const auto& entry : m_treeCache) { count += entry.second.instances.size(); }
+	for (const auto& entry : m_lotTreeCache) { count += entry.second.size(); }
+	return count;
+}
+
+void WorldRenderer::submitCachedTrees(Key key) const
+{
+	const Point coord{static_cast<int>(key >> 32), static_cast<int>(static_cast<uint32>(key))};
+	const auto range = m_treeHeightRanges.find(key);
+	const Vec2 heights = range == m_treeHeightRanges.end() ? Vec2{} : range->second;
+	if (const auto found = m_treeCache.find(key); found != m_treeCache.end())
 	{
-		const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
-		const auto range=m_treeHeightRanges.find(key);
-		if (range!=m_treeHeightRanges.end() && TreeGeometry::nearChunk(coord,m_buildingEye,range->second,TreeGeometry::kRetainDistance)) { continue; }
-		if (auto cache=m_landscapeMeshCache.find(key);cache!=m_landscapeMeshCache.end())
-		{
-			cache->second.remove_if([](const BuildingBatch& batch){ return batch.materialKey>=1000; });
-		}
-		distantTrees << key;
+		m_treeRenderer.append(found->second.instances, coord, heights, m_buildingEye);
 	}
-	for (const Key key : distantTrees) { m_detailedTreeChunks.erase(key);++m_geometryRevision; }
+	if (const auto found = m_lotTreeCache.find(key); found != m_lotTreeCache.end())
+	{
+		m_treeRenderer.append(found->second, coord, heights, m_buildingEye);
+	}
+}
+
+void WorldRenderer::publishCompletedTrees()
+{
+	for (size_t index = 0; index < m_treeJobs.size();)
+	{
+		auto& job = m_treeJobs[index];
+		if (job.future.wait_for(std::chrono::seconds{0}) != std::future_status::ready) { ++index; continue; }
+		auto result = job.future.get();
+		if (job.epoch == m_terrainEpoch && job.revision == m_terrainRevisions[job.key])
+		{
+			DBG_LOG(U"[TreeStreaming] key={} revision={} placementMs={:.2f} masksMs={:.2f} patchesMs={:.2f} woodlandMs={:.2f} instances={} excludedTrees={}"_fmt(
+				job.key, job.revision, result.milliseconds, result.stats.masksMilliseconds,
+				result.stats.patchesMilliseconds, result.stats.woodlandMilliseconds, result.instances.size(), result.stats.excludedTrees));
+			m_treeCache[job.key] = TreeChunk{std::move(result.instances), job.revision};
+			++m_geometryRevision;
+		}
+		else
+		{
+			DBG_LOG(U"[TreeStreaming] discard key={} revision={} currentRevision={} reason=staleSnapshot"_fmt(
+				job.key, job.revision, m_terrainRevisions[job.key]));
+		}
+		m_treeJobs.erase(m_treeJobs.begin() + index);
+	}
+}
+
+void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World& world, const RoadNetwork& network, bool terrainDirty)
+{
+	const auto trees = m_treeCache.find(key);
+	const bool treesDirty = trees == m_treeCache.end() || trees->second.revision != m_terrainRevisions[key];
+	const bool startTrees = treesDirty && m_treeJobs.size() < 2
+		&& std::none_of(m_treeJobs.begin(), m_treeJobs.end(), [key](const TreeJob& job) { return job.key == key; });
+	const bool startTerrain = terrainDirty && m_terrainJobs.size() < 2
+		&& std::none_of(m_terrainJobs.begin(), m_terrainJobs.end(), [key](const TerrainJob& job) { return job.key == key; });
+	if (!startTrees && !startTerrain) { return; }
+	auto snapshot = std::make_shared<LandscapeSnapshot>();
+	snapshot->chunk.coord = chunk.coord;
+	snapshot->chunk.heightMap = chunk.heightMap;
+	snapshot->chunk.buildingGrid = chunk.buildingGrid;
+	snapshot->chunk.zoneMap = chunk.zoneMap;
+	snapshot->chunk.isUrbanizationArea = chunk.isUrbanizationArea;
+	snapshot->chunk.landPatches = chunk.landPatches;
+	for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+	{
+		if (const auto* neighbor = world.getChunk(chunk.coord + Point{dx, dz}))
+		{
+			Chunk heights;
+			heights.coord = neighbor->coord;
+			heights.heightMap = neighbor->heightMap;
+			heights.zoneMap = neighbor->zoneMap;
+			snapshot->heights << std::move(heights);
+		}
+	}
+	snapshot->quads = getChunkSubtractionQuads(network, chunk.coord);
+	if (const auto sites = m_transportSites.find(key); sites != m_transportSites.end()) { snapshot->sites = sites->second; }
+	snapshot->rivers = world.rivers().subset(RectF{chunk.coord.x * CHUNK_SIZE - 64, chunk.coord.y * CHUNK_SIZE - 64, CHUNK_SIZE + 128, CHUNK_SIZE + 128});
+	snapshot->woodland = m_woodlandEnabled;
+	// Placement has its own slots and can become visible during terrain work.
+	const std::shared_ptr<const LandscapeSnapshot> input = std::move(snapshot);
+	if (startTrees)
+	{
+		TreeJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+		job.future = std::async(std::launch::async, [input]
+		{
+			const Stopwatch timer{StartImmediately::Yes};
+			TreeJobResult result;
+			(void)buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
+				input->sites, result.stats, result.instances, true, input->woodland);
+			result.milliseconds = timer.msF();
+			return result;
+		});
+		m_treeJobs << std::move(job);
+		++m_treePlacementBuilds;
+	}
+	if (startTerrain)
+	{
+		TerrainJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+		job.future = std::async(std::launch::async, [input]
+		{
+			const Stopwatch timer{StartImmediately::Yes};
+			TerrainJobResult result;
+			result.batches = buildTerrainMeshData(input->chunk, input->quads);
+			result.terrainMilliseconds = timer.msF();
+			Array<TreeInstance> unusedTrees;
+			result.landscape = buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
+				input->sites, result.landscapeStats, unusedTrees, false, false);
+			result.milliseconds = timer.msF();
+			return result;
+		});
+		m_terrainJobs << std::move(job);
+		++m_terrainBuilds;
+	}
 }
 
 void WorldRenderer::uploadCompletedTerrain()
@@ -63,12 +161,14 @@ void WorldRenderer::uploadCompletedTerrain()
 		{
 			m_meshCache[job.key]=std::move(job.uploadedTerrain);
 			m_landscapeMeshCache[job.key]=std::move(job.uploadedLandscape);
-			if (job.detailedTrees) { m_detailedTreeChunks.insert(job.key); }
-			else { m_detailedTreeChunks.erase(job.key); }
 			m_pendingTerrainRebuildKeys.erase(job.key);
 			++m_geometryRevision;
-			DBG_LOG(U"[Streaming] terrain workerMs={:.2f} uploadTotalMs={:.2f} maxFrameUploadMs={:.2f} uploadFrames={} detailedTrees={}"_fmt(
-				result.milliseconds,job.uploadTotalMilliseconds,job.maxUploadMilliseconds,job.uploadFrames,job.detailedTrees));
+			DBG_LOG(U"[Streaming] terrain workerMs={:.2f} uploadTotalMs={:.2f} maxFrameUploadMs={:.2f} uploadFrames={}"_fmt(
+				result.milliseconds,job.uploadTotalMilliseconds,job.maxUploadMilliseconds,job.uploadFrames));
+			const auto& stats = result.landscapeStats;
+			DBG_LOG(U"[LandscapeStreaming] key={} terrainMs={:.2f} masksMs={:.2f} patchesMs={:.2f} woodlandMs={:.2f} landscapeVertices={} landscapeTriangles={}"_fmt(
+				job.key,result.terrainMilliseconds,stats.masksMilliseconds,
+				stats.patchesMilliseconds,stats.woodlandMilliseconds,stats.vertices,stats.triangles));
 			m_terrainJobs.erase(m_terrainJobs.begin()+index);
 		}
 		break;
@@ -87,9 +187,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 	else { m_distantDetailChunks.erase(key); }
 	const Vec2 treeHeights{chunk.heightMin,chunk.heightMax};
 	m_treeHeightRanges[key]=treeHeights;
-	const bool prepareTrees=TreeGeometry::nearChunk(chunk.coord,m_buildingEye,treeHeights,TreeGeometry::kPrepareDistance);
-	const bool needsTreeDetails=m_asyncTerrain && prepareTrees && !m_detailedTreeChunks.contains(key);
-	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key) || needsTreeDetails;
+	const bool terrainDirty = chunk.meshDirty || m_pendingTerrainRebuildKeys.contains(key);
 
 	auto rebuildTerrainBatches = [&]
 	{
@@ -130,50 +228,8 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 				++m_terrainRevisions[key];
 				chunk.meshDirty = false;
 			}
-			const bool running = std::any_of(m_terrainJobs.begin(), m_terrainJobs.end(), [key](const TerrainJob& job) { return job.key == key; });
-			if (!running && m_terrainJobs.size() < 2)
-			{
-				Chunk snapshot;
-				snapshot.coord = chunk.coord;
-				snapshot.heightMap = chunk.heightMap;
-				snapshot.buildingGrid = chunk.buildingGrid;
-				snapshot.zoneMap = chunk.zoneMap;
-				snapshot.isUrbanizationArea = chunk.isUrbanizationArea;
-				snapshot.landPatches = chunk.landPatches;
-				Array<Chunk> heightSnapshots;
-				for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
-				{
-					if (const auto* neighbor = world.getChunk(chunk.coord+Point{dx,dz}))
-					{
-						Chunk heights;
-						heights.coord = neighbor->coord;
-						heights.heightMap = neighbor->heightMap;
-						heights.zoneMap = neighbor->zoneMap;
-						heightSnapshots << std::move(heights);
-					}
-				}
-				auto quads = getChunkSubtractionQuads(network, chunk.coord);
-				const auto foundSites=m_transportSites.find(key);
-				auto sites=foundSites==m_transportSites.end() ? Array<Polygon>{} : foundSites->second;
-				auto rivers=world.rivers().subset(RectF{chunk.coord.x*CHUNK_SIZE-64,chunk.coord.y*CHUNK_SIZE-64,CHUNK_SIZE+128,CHUNK_SIZE+128});
-				TerrainJob job{ key, m_terrainEpoch, m_terrainRevisions[key], {} };
-				job.detailedTrees=prepareTrees || m_detailedTreeChunks.contains(key);
-				job.future = std::async(std::launch::async,
-					[snapshot = std::move(snapshot), quads = std::move(quads),
-						heightSnapshots = std::move(heightSnapshots), detailedTrees = job.detailedTrees,
-						rivers = std::move(rivers), sites = std::move(sites), woodland = m_woodlandEnabled]()
-				{
-					const Stopwatch timer{ StartImmediately::Yes };
-					TerrainJobResult result;
-					result.batches = buildTerrainMeshData(snapshot, quads);
-					result.landscape = buildLandscapeMeshData(
-						snapshot, quads, heightSnapshots, detailedTrees, rivers, sites, woodland);
-					result.milliseconds = timer.msF();
-					return result;
-				});
-				m_terrainJobs << std::move(job);
-			}
 		}
+		startStreamingJobs(key, chunk, world, network, absent || terrainDirty);
 	}
 	else
 	{

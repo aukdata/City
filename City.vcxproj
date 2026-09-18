@@ -155,6 +155,7 @@
     <ClCompile Include="src\debug\GameCommands.cpp" />
     <ClCompile Include="src\debug\CommandExecution.cpp" />
     <ClCompile Include="src\render\WorldRenderer.cpp" />
+    <ClCompile Include="src\render\TreeInstances.cpp" />
     <ClCompile Include="src\render\WorldRenderer_Buildings.cpp" />
     <ClCompile Include="src\render\WorldRenderer_Streaming.cpp" />
     <ClCompile Include="src\render\WorldRenderer_Terrain.cpp" />
@@ -501,6 +502,7 @@
     <ClInclude Include="src\render\TreeGeometry.hpp" />
     <ClInclude Include="src\render\FrontageGeometry.hpp" />
     <ClInclude Include="src\render\WorldRenderer.hpp" />
+    <ClInclude Include="src\render\TreeInstances.hpp" />
     <ClInclude Include="src\render\VegetationProfile.hpp" />
     <ClInclude Include="src\render\RegionalTerrain.hpp" />
     <ClInclude Include="src\render\LandscapeMaterials.hpp" />

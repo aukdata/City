@@ -869,7 +869,8 @@ void WorldRenderer::invalidateAllTerrain()
 	m_regionalTerrain.clear();
 	m_transportSitesDirty=true;
 	++m_terrainEpoch;
-	m_detailedTreeChunks.clear();
+	m_treeCache.clear();
+	// Lot trees have the same lifetime as m_buildingMeshCache; preserve both.
 	m_treeHeightRanges.clear();
 	m_meshCache.clear();
 	m_chunkSubtractorCache.clear();

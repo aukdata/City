@@ -144,6 +144,7 @@
     <ClCompile Include="ModelLodTests.cpp" />
     <ClCompile Include="GenerationSettingsTests.cpp" />
     <ClCompile Include="RuralVisualTests.cpp" />
+    <ClCompile Include="TreeStreamingTests.cpp" />
     <ClCompile Include="..\src\traffic\VehiclePopulation.cpp" />
     <ClCompile Include="..\src\traffic\VehiclePassengers.cpp" />
     <ClCompile Include="..\src\traffic\VehicleManager.cpp" />
@@ -228,6 +229,7 @@
     <ClCompile Include="..\src\gen\MapGenerator.cpp" />
     <ClCompile Include="..\src\gen\PlaceNameGenerator.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer.cpp" />
+    <ClCompile Include="..\src\render\TreeInstances.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer_Buildings.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer_Streaming.cpp" />
     <ClCompile Include="..\src\render\WorldRenderer_Terrain.cpp" />

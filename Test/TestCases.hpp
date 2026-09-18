@@ -38,4 +38,5 @@ void registerModelLodTests(TestRunner& runner);
 
 void registerGenerationSettingsTests(TestRunner& runner);
 void registerRuralVisualTests(TestRunner& runner);
+void registerTreeStreamingTests(TestRunner& runner);
 void registerComprehensiveTests(TestRunner& runner);

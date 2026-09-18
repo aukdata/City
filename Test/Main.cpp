@@ -33,6 +33,7 @@ void Main()
 	registerModelLodTests(runner);
 	registerGenerationSettingsTests(runner);
 	registerRuralVisualTests(runner);
+	registerTreeStreamingTests(runner);
 	registerComprehensiveTests(runner);
 	registerRefactoringTests(runner);
 	registerIntegrationRefactoringTests(runner);
