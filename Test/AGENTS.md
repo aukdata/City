@@ -4,7 +4,7 @@
 
 ## 実行と結果
 
-[ビルド手順](../.codex/build.md) のコマンドで `-target:Test` を指定する。
+通常は `python chore/run_check.py build --target Test` でビルドし、`python chore/run_check.py test --filter <名前の一部>` で実行する。全文ログは保存され、短い結果だけが返る。設定・制限時間は [共通コマンド](../chore/CHECKS.md)。以下は直接実行する場合の場所と、テスト追加時の注意。
 
 - 作業ディレクトリ `Test/App/`、実行ファイル `Test.exe`（Debug: `Test(debug).exe`）。`--filter <名前の一部>` で関連ケースを選べる。引数なしで全件。
 - 成功時は終了コード0、失敗時は1。`Test/App/TestResults/results.json` / `results.xml` で合否と失敗理由を確認する。

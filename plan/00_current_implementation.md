@@ -66,6 +66,8 @@
 
 ## 検証と再現
 
+ビルド・Test・自動終了する実プレイ計測は [共通コマンド](../chore/CHECKS.md) で実行すると、全文ログをローカル保存し、短い JSON 要約だけを返す。
+
 Releaseの `City.sln` は本体と常設Testをビルドする。Testは自動終了し、`Test/App/TestResults/results.json` に結果、`Test/App/Screenshot/` にGPU読み戻しを保存する。
 
 | 起動オプション | 用途 |
