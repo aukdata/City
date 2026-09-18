@@ -1,0 +1,276 @@
+{
+  "date": "2026-09-18",
+  "scope": "Investigation only; reused pre-existing instrumented Release binary and uncommitted instrumentation; no game source changes or rebuild in this investigation.",
+  "scenario": {
+    "seed": 42,
+    "mode": "navigation",
+    "completed_phases": 6,
+    "exit_code": 0,
+    "forest_density_percent": 95,
+    "settings_unchanged": true
+  },
+  "exe_sha256": "3a1dc654da61e1d752effc6a367dd79e0ba67781fa4777dbbb9ae09c271e6688",
+  "settings_sha256": "d30edbbe6835d441b8da785479e9004ca4007fc716f61a22f0a9e86fe0b85650",
+  "measurement_notes": [
+    "worker_ms and upload_ms are CPU-side stopwatch elapsed times, not CPU utilization or GPU timestamp timings.",
+    "Counts include repeated jobs; detailed and distant groups are not matched populations.",
+    "upload_frames counts frames in which upload was performed; it excludes other waiting.",
+    "landscape geometry counts include all landscape types, not only trees."
+  ],
+  "jobs": {
+    "false": {
+      "jobs": 46,
+      "worker_ms": {
+        "mean": 78.558,
+        "median": 20.545,
+        "max": 847.38
+      },
+      "terrain_ms": {
+        "mean": 56.866,
+        "median": 4.45,
+        "max": 731.55
+      },
+      "masks_ms": {
+        "mean": 0.804,
+        "median": 0.0,
+        "max": 9.09
+      },
+      "patches_ms": {
+        "mean": 7.848,
+        "median": 0.0,
+        "max": 99.61
+      },
+      "woodland_ms": {
+        "mean": 12.889,
+        "median": 14.43,
+        "max": 23.92
+      },
+      "upload_ms": {
+        "mean": 3.86,
+        "median": 3.15,
+        "max": 14.78
+      },
+      "max_upload_ms": {
+        "mean": 2.885,
+        "median": 2.68,
+        "max": 8.21
+      },
+      "upload_frames": {
+        "mean": 1.609,
+        "median": 1.0,
+        "max": 4
+      },
+      "landscape_vertices": {
+        "mean": 165916.152,
+        "median": 181430.5,
+        "max": 525100
+      },
+      "landscape_triangles": {
+        "mean": 148650.109,
+        "median": 154788.0,
+        "max": 340392
+      }
+    },
+    "true": {
+      "jobs": 23,
+      "worker_ms": {
+        "mean": 1542.544,
+        "median": 1186.97,
+        "max": 3839.81
+      },
+      "terrain_ms": {
+        "mean": 541.559,
+        "median": 373.06,
+        "max": 2129.95
+      },
+      "masks_ms": {
+        "mean": 8.668,
+        "median": 5.6,
+        "max": 35.65
+      },
+      "patches_ms": {
+        "mean": 574.632,
+        "median": 508.43,
+        "max": 1716.26
+      },
+      "woodland_ms": {
+        "mean": 416.116,
+        "median": 9.17,
+        "max": 3834.99
+      },
+      "upload_ms": {
+        "mean": 69.827,
+        "median": 52.03,
+        "max": 191.19
+      },
+      "max_upload_ms": {
+        "mean": 7.182,
+        "median": 6.05,
+        "max": 13.69
+      },
+      "upload_frames": {
+        "mean": 23.13,
+        "median": 22,
+        "max": 36
+      },
+      "landscape_vertices": {
+        "mean": 3767375.522,
+        "median": 2720356,
+        "max": 15580688
+      },
+      "landscape_triangles": {
+        "mean": 3400724.826,
+        "median": 2435590,
+        "max": 14373600
+      }
+    }
+  },
+  "frames": {
+    "samples": 2837,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 19.996,
+        "p95": 27.711,
+        "max": 8027.018
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 27.913,
+        "p95": 22.109,
+        "max": 8027.018
+      },
+      "1": {
+        "mean": 25.59,
+        "p95": 29.229,
+        "max": 190.382
+      },
+      "2": {
+        "mean": 9.402,
+        "p95": 11.162,
+        "max": 16.709
+      },
+      "3": {
+        "mean": 14.172,
+        "p95": 21.124,
+        "max": 126.438
+      },
+      "4": {
+        "mean": 10.976,
+        "p95": 12.384,
+        "max": 15.208
+      },
+      "5": {
+        "mean": 10.737,
+        "p95": 14.079,
+        "max": 24.46
+      }
+    }
+  },
+  "examples": [
+    {
+      "coord": [
+        17,
+        46
+      ],
+      "key": 73014444078,
+      "detailed": true,
+      "worker_ms": 3839.81,
+      "upload_ms": 191.19,
+      "max_upload_ms": 9.55,
+      "upload_frames": 35,
+      "terrain_ms": 4.81,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 3834.99,
+      "landscape_vertices": 15580688,
+      "landscape_triangles": 14373600
+    },
+    {
+      "coord": [
+        20,
+        47
+      ],
+      "key": 85899345967,
+      "detailed": true,
+      "worker_ms": 3603.83,
+      "upload_ms": 106.35,
+      "max_upload_ms": 13.57,
+      "upload_frames": 36,
+      "terrain_ms": 1849.28,
+      "masks_ms": 28.37,
+      "patches_ms": 1716.26,
+      "woodland_ms": 7.61,
+      "landscape_vertices": 5363284,
+      "landscape_triangles": 4705908
+    },
+    {
+      "coord": [
+        17,
+        45
+      ],
+      "key": 73014444077,
+      "detailed": false,
+      "worker_ms": 15.27,
+      "upload_ms": 1.89,
+      "max_upload_ms": 1.89,
+      "upload_frames": 1,
+      "terrain_ms": 3.68,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 11.59,
+      "landscape_vertices": 99032,
+      "landscape_triangles": 81384
+    },
+    {
+      "coord": [
+        17,
+        45
+      ],
+      "key": 73014444077,
+      "detailed": true,
+      "worker_ms": 2610.3,
+      "upload_ms": 116.07,
+      "max_upload_ms": 9.68,
+      "upload_frames": 27,
+      "terrain_ms": 6.7,
+      "masks_ms": 0.0,
+      "patches_ms": 0.0,
+      "woodland_ms": 2603.59,
+      "landscape_vertices": 8921164,
+      "landscape_triangles": 8238732
+    }
+  ],
+  "repeated_detailed_chunk_coords": [
+    [
+      20,
+      47
+    ],
+    [
+      20,
+      48
+    ],
+    [
+      21,
+      47
+    ],
+    [
+      19,
+      48
+    ],
+    [
+      21,
+      46
+    ],
+    [
+      21,
+      48
+    ]
+  ],
+  "raw_local_files": [
+    "summary.json",
+    "debug.log",
+    "frames.csv",
+    "run_audit.py"
+  ]
+}
