@@ -193,6 +193,10 @@ void registerMountainRoadTests(TestRunner& runner)
 
 	runner.add(U"MountainRoad.CurvedSurfaceGpu",[](TestContext& context)
 	{
+		const FilePath directory = FileSystem::CurrentDirectory();
+		struct Restore { FilePath path; ~Restore() { FileSystem::ChangeCurrentDirectory(path); } } restore{directory};
+		// 単独実行でも共有樹木シェーダーと地形材質を本体のアセットから解決する。
+		FileSystem::ChangeCurrentDirectory(directory + U"../../App/"); RegisterAssets();
 		for (const bool tunnel : {false,true})
 		{
 			World world;installMountain(world,74);RoadNetwork roads;TrainNetwork railway;
@@ -216,7 +220,7 @@ void registerMountainRoadTests(TestRunner& runner)
 					pavement.draw(ColorF{.9,.1,.6});
 				}
 				Graphics3D::Flush();Image capture;target.readAsImage(capture);
-				capture.save(U"Screenshot/mountain_curve_{}_{}.png"_fmt(tunnel,pass));images<<std::move(capture);
+				capture.save(directory + U"Screenshot/mountain_curve_{}_{}.png"_fmt(tunnel,pass));images<<std::move(capture);
 			}
 			int matched=0,checked=0;
 			for (float arc=6;arc<curve->totalLength-6;arc+=.5f) for (const double offset : {-2.9,0.0,2.9})
@@ -227,7 +231,7 @@ void registerMountainRoadTests(TestRunner& runner)
 				const auto first=images[0][pixel],second=images[1][pixel];
 				++checked;matched+=Abs(static_cast<int>(first.r)-second.r)+Abs(static_cast<int>(first.g)-second.g)+Abs(static_cast<int>(first.b)-second.b)<8;
 			}
-			TextWriter{U"TestResults/mountain_curve_{}.txt"_fmt(tunnel)}.write(U"visible={}/{}"_fmt(matched,checked));
+			TextWriter{directory + U"TestResults/mountain_curve_{}.txt"_fmt(tunnel)}.write(U"visible={}/{}"_fmt(matched,checked));
 			context.expect(matched>=checked*.99,U"Curved graded pavement remains visible, including both lane edges and the excavated approach");
 		}
 	});

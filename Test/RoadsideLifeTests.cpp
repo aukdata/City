@@ -266,6 +266,82 @@ void registerRoadsideLifeTests(TestRunner& runner)
 			context.expect(Abs(cost - result.cost) < .001 && cost < 1800, U"Reported cost matches final smoothed geometry and improves on the flat cutting-heavy profile");
 		}
 	});
+	runner.add(U"RoadDesign.TerrainContourCurveContinuity", [](TestContext& context)
+	{
+		// 円い山腹の等高線を粗い折れ線で与え、完成線形の方向と曲率を測る。
+		JSON report;
+		for (const int offset : {0, 32768})
+		{
+			World world;
+			world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+			const Vec2 center{offset + 2048, offset + 2048};
+			constexpr double radius = 1100;
+			for (int cz = 0; cz < 4; ++cz) for (int cx = 0; cx < 4; ++cx)
+			{
+				Grid<float> heights(65, 65);
+				for (int z = 0; z <= 64; ++z) for (int x = 0; x <= 64; ++x)
+				{
+					const Vec2 point{offset + cx * 1024 + x * 16, offset + cz * 1024 + z * 16};
+					heights[{x,z}] = static_cast<float>(250 + (point.distanceFrom(center) - radius) * .2);
+				}
+				world.installChunkDirect({offset / 1024 + cx, offset / 1024 + cz}, HeightMapResult{heights, 0, 650});
+			}
+			Array<Vec3> points;
+			for (int i = 0; i <= 10; ++i)
+			{
+				const double angle = -1.25 + i * .25;
+				const Vec2 point = center + Vec2{Cos(angle), Sin(angle)} * radius;
+				points << Vec3{point.x, world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.y)), point.y};
+			}
+			for (const RoadType type : {RoadType::LocalRoad, RoadType::Arterial})
+			{
+				const auto route = RoadAlignment::fitTerrain(world, points, type);
+				context.expect(route.has_value(), U"A contour road can be fitted to the hillside");
+				if (!route) { continue; }
+				const auto curvature = [](const CubicBezier& curve, bool end)
+				{
+					const Vec3 velocity = (end ? curve.p3 - curve.p2 : curve.p1 - curve.p0) * 3;
+					const Vec3 acceleration = (end ? curve.p3 - curve.p2 * 2 + curve.p1 : curve.p2 - curve.p1 * 2 + curve.p0) * 6;
+					const double speed = Vec2{velocity.x, velocity.z}.length();
+					return (velocity.x * acceleration.z - velocity.z * acceleration.x) / (speed * speed * speed);
+				};
+				double length = 0, straight = 0, curvatureJump = 0, earthwork = 0, radialDeviation = 0;
+				for (size_t i = 0; i < route->curves.size(); ++i)
+				{
+					const auto& curve = route->curves[i];
+					length += curve.totalLength;
+					if (curve.minimumHorizontalRadius() > 20000) { straight += curve.totalLength; }
+					context.expect(RoadAlignment::respectsLimits(curve, type), U"Every curved piece respects the grade and radius limits");
+					if (i > 0)
+					{
+						const auto& before = route->curves[i - 1];
+						context.expect(before.p3.distanceFrom(curve.p0) < .0001, U"The road surface has no gaps");
+						const Vec2 incoming{before.p3.x - before.p2.x, before.p3.z - before.p2.z};
+						const Vec2 outgoing{curve.p1.x - curve.p0.x, curve.p1.z - curve.p0.z};
+						context.expect(incoming.normalized().dot(outgoing.normalized()) > .999999, U"Heading is continuous at every join");
+						curvatureJump = Max(curvatureJump, Abs(curvature(before, true) - curvature(curve, false)));
+					}
+					for (int sample = 0; sample <= 8; ++sample)
+					{
+						const Vec3 point = curve.evaluate(sample / 8.0f);
+						earthwork = Max(earthwork, Abs(point.y - world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.z))));
+						radialDeviation = Max(radialDeviation, Abs(Vec2{point.x, point.z}.distanceFrom(center) - radius));
+					}
+				}
+				context.expect(route->curves.front().p0.distanceFrom(points.front()) < .0001
+					&& route->curves.back().p3.distanceFrom(points.back()) < .0001, U"Settlement connection positions and heights stay fixed");
+				context.expect(curvatureJump < .00001, U"Turning develops continuously instead of jumping from straights to minimum-radius corners");
+				context.expect(straight / length < .15, U"The hillside bend is curved throughout, not mostly straight chords");
+				context.expect(earthwork < 1 && radialDeviation < 50, U"Smoothing follows the contour without cutting across the mountain");
+				const String key = U"{}_{}"_fmt(offset, static_cast<int>(type));
+				report[key][U"curvatureJump"] = curvatureJump;
+				report[key][U"straightFraction"] = straight / length;
+				report[key][U"maximumEarthwork"] = earthwork;
+				report[key][U"radialDeviation"] = radialDeviation;
+			}
+		}
+		report.save(U"TestResults/terrain_contour_curves.json");
+	});
 	runner.add(U"RoadDesign.LongValleyDetour", [](TestContext& context)
 	{
 		World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);

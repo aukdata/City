@@ -23,7 +23,7 @@ namespace RoadAlignment
 	void repairSteepEdges(RoadNetwork& roads,const World& world);
 	/// @brief 編集点から接線を共有する曲線列を作る。高さは弦への射影で勾配上限を保つ。
 	Array<CubicBezier> fit(const Array<Vec3>& points);
-	/// @brief 粗い地形回廊を、地盤を再標本化した有効な設計曲線へ変換する。
+	/// @brief 地形回廊を曲率まで連続する曲線へ変換し、実地盤で勾配と土工を検証する。
 	Optional<Result> fitTerrain(const World& world, const Array<Vec3>& points, RoadType type, TransportMode mode = TransportMode::Road);
 	/// @brief 曲線全体の勾配・曲率を検証する。
 	bool respectsLimits(const CubicBezier& curve, RoadType type, TransportMode mode = TransportMode::Road);

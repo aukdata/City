@@ -27,6 +27,24 @@ namespace
 		return {a,first,second,b};
 	}
 
+	/// @brief 地形回廊をC2連続のBスプラインにする。端点を固定し、曲がりを区間全体へ配分する。
+	Array<CubicBezier> contourCurves(const Array<Vec3>& points)
+	{
+		Array<CubicBezier> curves;
+		for (size_t i = 0; i + 1 < points.size(); ++i)
+		{
+			Vec3 b = points[i], c = points[i + 1];
+			Vec3 a = i > 0 ? points[i - 1] : b * 2 - c;
+			Vec3 d = i + 2 < points.size() ? points[i + 2] : c * 2 - b;
+			a.y = b.y = c.y = d.y = 0;
+			// 外挿した端の制御点で始終点を通す。内部は接線だけでなく曲率も共有する。
+			const Vec3 start = i == 0 ? b : b + ((a - b) + (c - b)) / 6;
+			const Vec3 end = i + 2 == points.size() ? c : c + ((b - c) + (d - c)) / 6;
+			curves << CubicBezier{start, b.lerp(c, 1.0 / 3), b.lerp(c, 2.0 / 3), end};
+		}
+		return curves;
+	}
+
 	/// @brief 折れ線の各角だけを円弧で丸める。山を迂回する折り返し全体は縮めない。
 	Array<CubicBezier> roundCorridor(const Array<Vec3>& points,double radius)
 	{
@@ -163,16 +181,18 @@ double RoadAlignment::maximumClearance(const World& world,const Array<CubicBezie
 	return result;
 }
 
-/// @brief 平面回廊を少しずつ丸め、細分化した実地盤上で勾配の上下包絡線を解く。
-Optional<RoadAlignment::Result> RoadAlignment::fitTerrain(const World& world, const Array<Vec3>& input, RoadType type, TransportMode mode)
+/// @brief 回廊から離れ過ぎない範囲で平面を丸め、実地盤上で勾配の上下包絡線を解く。
+static Optional<RoadAlignment::Result> fitTerrainCorridor(const World& world, const Array<Vec3>& input, RoadType type, TransportMode mode, bool continuous)
 {
 	if (input.size() < 2) { return none; }
 	const auto limits = RoadDesignLimits::forType(type, mode);
 	const auto& settings = GenerationSettings::get();
 	const double grade = limits.maximumGrade * settings.routing_gradeReserve;
+	constexpr double kMaximumShiftRadiusRatio = .25;
+	const double maximumShift = Max(settings.routing_terrainProfileSpacing, limits.minimumRadius * kMaximumShiftRadiusRatio);
 	Array<Vec3> points = input;
 	int radiusPasses=0, profilePasses=0;
-	Optional<Result> best;
+	Optional<RoadAlignment::Result> best;
 	for (int pass = 0; pass <= settings.routing_terrainSmoothingPasses; ++pass)
 	{
 		if (pass > 0)
@@ -181,14 +201,20 @@ Optional<RoadAlignment::Result> RoadAlignment::fitTerrain(const World& world, co
 			for (size_t i=1; i+1<points.size(); ++i)
 			{
 				next[i] = points[i].lerp((points[i-1]+points[i+1])*.5, .25);
+				const Vec2 shift = horizontal(next[i] - input[i]);
+				if (continuous && shift.length() > maximumShift)
+				{
+					const Vec2 bounded = horizontal(input[i]) + shift.normalized() * maximumShift;
+					next[i].x = bounded.x; next[i].z = bounded.y;
+				}
 				// 高さまで隣接点で平均すると、谷を横切る空中道路に変わる。
 				next[i].y = world.sampleHeight(static_cast<float>(next[i].x), static_cast<float>(next[i].z));
 			}
 			points = std::move(next);
 		}
 		if (pass % 4 != 0) { continue; }
-		auto horizontalCurves = roundCorridor(points,limits.minimumRadius*1.02);
-		if (horizontalCurves.isEmpty()) { horizontalCurves=fit(points); }
+		auto horizontalCurves = continuous ? contourCurves(points) : roundCorridor(points,limits.minimumRadius*1.02);
+		if (!continuous && horizontalCurves.isEmpty()) { horizontalCurves=RoadAlignment::fit(points); }
 		bool radiusValid = !horizontalCurves.isEmpty();
 		for (const auto& curve : horizontalCurves) { radiusValid &= curve.minimumHorizontalRadius()+.001 >= limits.minimumRadius; }
 		if (!radiusValid) { continue; }
@@ -248,11 +274,27 @@ Optional<RoadAlignment::Result> RoadAlignment::fitTerrain(const World& world, co
 			c.p1.y=height(c.p1); c.p2.y=height(c.p2);
 			curves << CubicBezier{c.p0,c.p1,c.p2,c.p3};
 		}
-		const double cost=constructionCost(world,curves,type,mode);
-		if (std::isfinite(cost) && (!best || cost<best->cost)) { best=Result{curves,cost,0}; }
+		const double cost=RoadAlignment::constructionCost(world,curves,type,mode);
+		if (std::isfinite(cost) && (!best || cost<best->cost)) { best=RoadAlignment::Result{curves,cost,0}; }
 	}
-	if (!best) { DBG_LOG(U"[RoadTerrainFitRejected] points={} radiusPasses={} profilePasses={}"_fmt(points.size(),radiusPasses,profilePasses)); }
+	if (!best) { DBG_LOG(U"[RoadTerrainFitRejected] continuous={} points={} radiusPasses={} profilePasses={}"_fmt(continuous,points.size(),radiusPasses,profilePasses)); }
 	return best;
+}
+
+Optional<RoadAlignment::Result> RoadAlignment::fitTerrain(const World& world, const Array<Vec3>& input, RoadType type, TransportMode mode)
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	// 円弧と直線の安い組合せが、成立する緩やかな地形曲線を毎回置き換えないようにする。
+	auto result = fitTerrainCorridor(world, input, type, mode, true);
+	const bool continuous = result.has_value();
+	// 狭い峠・急な折り返しで連続曲率を確保できない場合も、地形検査済みの接続を残す。
+	if (!result) { result = fitTerrainCorridor(world, input, type, mode, false); }
+	if (result)
+	{
+		DBG_LOG(U"[RoadTerrainFit] continuous={} points={} curves={} cost={} from={} to={} elapsedMs={}"_fmt(
+			continuous, input.size(), result->curves.size(), result->cost, input.front(), input.back(), timer.msF()));
+	}
+	return result;
 }
 
 Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 start,Vec3 goal,RoadType type,int expansionLimit,TransportMode mode,double maximumViaductHeight)
