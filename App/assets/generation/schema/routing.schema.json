@@ -29,7 +29,8 @@
     "finalGradeReserve",
     "terrainSmoothingPasses",
     "terrainProfileSpacing",
-    "longDistanceMarginRatio"
+    "longDistanceMarginRatio",
+    "generatedExpansionLimit"
   ],
   "properties": {
     "gradeReserve": {
@@ -161,6 +162,11 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 2
+    },
+    "generatedExpansionLimit": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 60000
     }
   }
 }

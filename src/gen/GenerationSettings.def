@@ -976,3 +976,4 @@ GENERATION_SETTING(double, terrain_depositionRate, U"terrain", U"depositionRate"
 GENERATION_SETTING(double, rivers_sedimentCapacity, U"rivers", U"sedimentCapacity", 0, 20)
 GENERATION_SETTING(double, rivers_erosionRate, U"rivers", U"erosionRate", 0, 2)
 GENERATION_SETTING(double, rivers_depositionRate, U"rivers", U"depositionRate", 0, 2)
+GENERATION_SETTING(int, routing_generatedExpansionLimit, U"routing", U"generatedExpansionLimit", 1000, 60000)

@@ -267,7 +267,7 @@ void MapGenerator::buildRoadSegment(
 	// 距離による検証の省略をしない。成立しない粗い回廊は地形・方位・高さを再探索する。
 	if (!selected || selected->cost>distance*RoadConstructionCost::Earthwork())
 	{
-		if (const auto route=RoadAlignment::find(world,startPos,endPos,roadType,60000,TransportMode::Road,maximumHeight); route && (!selected || route->cost<selected->cost)) { selected=route; }
+		if (const auto route=RoadAlignment::find(world,startPos,endPos,roadType,GenerationSettings::get().routing_generatedExpansionLimit,TransportMode::Road,maximumHeight); route && (!selected || route->cost<selected->cost)) { selected=route; }
 	}
 	if (!selected)
 	{

@@ -24,5 +24,6 @@
   "finalGradeReserve": 0.995,
   "terrainSmoothingPasses": 32,
   "terrainProfileSpacing": 32,
-  "longDistanceMarginRatio": 0.75
+  "longDistanceMarginRatio": 0.75,
+  "generatedExpansionLimit": 6000
 }
