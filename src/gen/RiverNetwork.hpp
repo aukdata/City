@@ -8,11 +8,15 @@
 class RiverNetwork
 {
 public:
-	struct Reach { Vec3 start,end; double halfWidth=20; double endHalfWidth=20; double barSide=0; double catchment=0; RectF bounds; };
+	struct Reach { Vec3 start,end; double halfWidth=20; double endHalfWidth=20; double barSide=0; double catchment=0; double incision=0; double alluvium=0; RectF bounds; };
 	struct Sample { Vec2 center; double distance=1e30; double surface=0; double halfWidth=0; int reach=-1; };
+	/// @brief Generation diagnostics for unresolved outlets and escape routes.
+	struct Statistics { int sources=0, spillways=0, unresolved=0, selfIntersections=0, exhausted=0; };
 	Array<Reach> reaches;
+	const Statistics& statistics() const { return m_statistics; }
 	/// @brief 集水から水源を選び、連続地形の -grad f を追跡して河道と合流を形成する。
-	void generate(double width, double depth, const std::function<double(double, double)>& height);
+	void generate(double width, double depth, const std::function<double(double, double)>& height,
+		const std::function<bool(double, double)>& marine = {});
 	Sample nearest(Vec2 point) const
 	{
 		Sample result;
@@ -51,11 +55,17 @@ public:
 	{
 		const auto sample=nearest(point); if (sample.reach<0 || sample.distance>sample.halfWidth+GenerationSettings::get().rivers_carveExtent) { return original; }
 		const double bank=Max(0.0,sample.distance-sample.halfWidth);
-		const double target=sample.surface-GenerationSettings::get().rivers_bedDepth+bank*GenerationSettings::get().rivers_bankSlope;
-		const double blend=Clamp((sample.distance-sample.halfWidth-GenerationSettings::get().rivers_bankBlendStart)/GenerationSettings::get().rivers_bankBlendWidth,0.0,1.0);
-		return Math::Lerp(Min(original,target),original,blend*blend*(3-2*blend));
+		const auto& reach=reaches[sample.reach];
+		const double extent=GenerationSettings::get().rivers_carveExtent;
+		const double target=sample.surface-GenerationSettings::get().rivers_bedDepth-reach.incision+bank*GenerationSettings::get().rivers_bankSlope;
+		const double blend=Clamp((bank-GenerationSettings::get().rivers_bankBlendStart)/GenerationSettings::get().rivers_bankBlendWidth,0.0,1.0);
+		const double cut=Math::Lerp(Min(original,target),original,blend*blend*(3-2*blend));
+		const double lowland=Clamp((sample.surface+5-original)/5.0,0.0,1.0);
+		const double fan=Sin(Math::Pi*Clamp(bank/extent,0.0,1.0));
+		return cut+reach.alluvium*fan*lowland;
 	}
 private:
 	static int64 key(int x,int z) { return static_cast<int64>(x)*0x100000000LL+static_cast<uint32>(z); }
 	HashTable<int64,Array<int>> m_index;
+	Statistics m_statistics;
 };

@@ -169,7 +169,59 @@ void registerRiverGenerationTests(TestRunner& runner)
 			const double elapsed = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 			JSON result = surveyNetwork(world.rivers()); result[U"seed"] = seed;
 			result[U"generationMs"] = elapsed;
+			result[U"sourceCount"]=world.rivers().statistics().sources;
+			result[U"spillways"]=world.rivers().statistics().spillways;
+			result[U"unresolved"]=world.rivers().statistics().unresolved;
+			result[U"selfIntersections"]=world.rivers().statistics().selfIntersections;
+			result[U"exhausted"]=world.rivers().statistics().exhausted;
+			const auto key=[](const Vec3& point)
+			{
+				return Point{static_cast<int>(Round(point.x*1000)),static_cast<int>(Round(point.z*1000))};
+			};
+			HashSet<Point> starts;
+			int incised=0,alluvial=0,bars=0;
+			for (const auto& reach : world.rivers().reaches)
+			{
+				starts.insert(key(reach.start));
+				incised+=reach.incision>.01;
+				alluvial+=reach.alluvium>.01;
+				bars+=reach.barSide!=0;
+			}
+			result[U"incisedReaches"]=incised; result[U"alluvialReaches"]=alluvial; result[U"bars"]=bars;
+			context.expect(incised>0 && alluvial>0,U"Stream power erodes the channel and carried sediment settles downstream");
+			int raisedBanks=0;
+			for (const auto& reach : world.rivers().reaches)
+			{
+				if (reach.alluvium<.2) { continue; }
+				const Vec2 a{reach.start.x,reach.start.z},b{reach.end.x,reach.end.z},direction=b-a;
+				if (direction.lengthSq()<1) { continue; }
+				const Vec2 side=Vec2{-direction.y,direction.x}.normalized();
+				const Vec2 bank=(a+b)*.5+side*(reach.halfWidth+30);
+				const auto sample=world.rivers().nearest(bank);
+				if (sample.reach<0 || sample.distance<sample.halfWidth+10) { continue; }
+				const double original=sample.surface+2;
+				raisedBanks+=world.rivers().carveHeight(bank,original)>original+.01;
+			}
+			result[U"raisedBanks"]=raisedBanks;
+			context.expect(raisedBanks>0,U"Deposited sediment raises a low bank beside the channel");
+			int mouths=0,dryTerminals=0;
+			JSON dryExamples;
+			for (const auto& reach : world.rivers().reaches)
+			{
+				if (starts.contains(key(reach.end))) { continue; }
+				const auto& end=reach.end;
+				if (world.getBiome(static_cast<float>(end.x),static_cast<float>(end.z))==BiomeType::Ocean) { ++mouths; }
+				else
+				{
+					if (dryTerminals<5) { dryExamples[Format(dryTerminals)]=Array<double>{end.x,end.z,world.computeHeight(static_cast<float>(end.x),static_cast<float>(end.z))}; }
+					++dryTerminals;
+				}
+			}
+			result[U"dryExamples"]=dryExamples;
+			result[U"oceanMouths"]=mouths; result[U"dryTerminals"]=dryTerminals;
 			results[Format(seed)] = result;
+			context.expect(mouths>0,U"Each generated region has a river mouth in the sea");
+			context.expectEqual(dryTerminals,0,U"Every independent river channel drains to the sea");
 			context.expect(!world.rivers().reaches.isEmpty(), U"Generated region has rivers");
 			context.expectEqual(result[U"uphill"].get<int>(), 0, U"Every generated reach flows downstream");
 			context.expectEqual(result[U"unconnectedCrossings"].get<int>(), 0, U"Independent river channels must not cross without a confluence");

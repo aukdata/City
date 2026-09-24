@@ -92,7 +92,10 @@
     "interiorHillHeight",
     "interiorHillScale",
     "interiorHillThreshold",
-    "macroSampleStep"
+    "macroSampleStep",
+    "upliftRate",
+    "erosionRate",
+    "depositionRate"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -539,6 +542,21 @@
       "type": "number",
       "minimum": 16.0,
       "maximum": 128.0
+    },
+    "upliftRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.02
+    },
+    "erosionRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "depositionRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
     }
   }
 }

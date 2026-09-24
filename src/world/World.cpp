@@ -3,6 +3,7 @@
 #include <cmath>
 #include <thread>
 #include <atomic>
+#include <queue>
 
 void World::reserveChunks()
 {
@@ -327,6 +328,100 @@ void World::buildMacroTerrain()
 			value.y += static_cast<float>(hill * config.terrain_mountainDetail);
 		}
 	}
+	evolveMacroTerrain();
+}
+
+/// @brief Route rainfall to the sea, incise steep channels and lay transported sediment on lower gradients.
+void World::evolveMacroTerrain()
+{
+	const int columns=static_cast<int>(m_macroTerrain.width());
+	const int rows=static_cast<int>(m_macroTerrain.height());
+	const int count=columns*rows;
+	const auto& config=GenerationSettings::get();
+	m_terrainEvolution={};
+	Array<double> ground(count),filled(count),sediment(count,0),change(count,0);
+	Array<int> parent(count,-1),flow(count,1),order,coast;
+	Array<bool> ocean(count,false),visited(count,false);
+	for (int id=0; id<count; ++id)
+	{
+		const int x=id%columns,z=id/columns;
+		ground[id]=m_macroTerrain[{x,z}].x;
+		if ((x==0 || z==0 || x==columns-1 || z==rows-1) && ground[id]<=0)
+		{ ocean[id]=true; coast << id; }
+	}
+	for (size_t index=0; index<coast.size(); ++index)
+	{
+		const int id=coast[index],x=id%columns,z=id/columns;
+		for (const Point offset : {Point{-1,0},Point{1,0},Point{0,-1},Point{0,1}})
+		{
+			const int nx=x+offset.x,nz=z+offset.y;
+			if (nx<0 || nx>=columns || nz<0 || nz>=rows) { continue; }
+			const int next=nz*columns+nx;
+			if (!ocean[next] && ground[next]<=0) { ocean[next]=true; coast << next; }
+		}
+	}
+	m_macroOcean=Grid<uint8>(columns,rows,0);
+	for (int id=0; id<count; ++id) { m_macroOcean[{id%columns,id/columns}]=ocean[id] ? 1 : 0; }
+	using Entry=std::pair<double,int>;
+	std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> pending;
+	for (int id=0; id<count; ++id)
+	{
+		const int x=id%columns,z=id/columns;
+		const bool boundary=x==0 || z==0 || x==columns-1 || z==rows-1;
+		if (ocean[id] || (coast.isEmpty() && boundary))
+		{ visited[id]=true; filled[id]=Max(0.0,ground[id]); pending.emplace(filled[id],id); }
+	}
+	order.reserve(count);
+	const double spacing=Min(m_macroStepX,m_macroStepZ);
+	while (!pending.empty())
+	{
+		const auto [level,id]=pending.top(); pending.pop();
+		order << id;
+		const int x=id%columns,z=id/columns;
+		for (int dz=-1; dz<=1; ++dz) for (int dx=-1; dx<=1; ++dx)
+		{
+			const int nx=x+dx,nz=z+dz;
+			if ((dx==0 && dz==0) || nx<0 || nx>=columns || nz<0 || nz>=rows) { continue; }
+			const int next=nz*columns+nx;
+			if (visited[next]) { continue; }
+			visited[next]=true; parent[next]=id;
+			filled[next]=Max(ground[next],level+spacing*.0001);
+			pending.emplace(filled[next],next);
+		}
+	}
+	for (auto it=order.rbegin(); it!=order.rend(); ++it)
+	{
+		const int id=*it,next=parent[id];
+		if (next<0 || ocean[id]) { continue; }
+		flow[next]+=flow[id];
+		const int dx=id%columns-next%columns,dz=id/columns-next/columns;
+		const double run=std::sqrt(Square(dx*m_macroStepX)+Square(dz*m_macroStepZ));
+		const double grade=Max(.0001,(filled[id]-filled[next])/run);
+		const double capacity=1.3*std::sqrt(static_cast<double>(flow[id]))*std::sqrt(grade);
+		const double eroded=Min(6.0,Max(0.0,capacity-sediment[id])*config.terrain_erosionRate);
+		const double deposited=Min(3.0,Max(0.0,sediment[id]-capacity)*config.terrain_depositionRate);
+		sediment[next]+=sediment[id]+eroded-deposited;
+		const double uplifted=Min(3.0,Max(0.0,ground[id])*config.terrain_upliftRate);
+		change[id]=uplifted-eroded+deposited;
+		m_terrainEvolution.uplifted+=uplifted>.01;
+		m_terrainEvolution.eroded+=eroded>.01;
+		m_terrainEvolution.deposited+=deposited>.01;
+		m_terrainEvolution.upliftMetres+=uplifted;
+		m_terrainEvolution.erosionMetres+=eroded;
+		m_terrainEvolution.depositionMetres+=deposited;
+	}
+	for (int z=0; z<rows; ++z) for (int x=0; x<columns; ++x)
+	{
+		const int id=z*columns+x;
+		if (ground[id]<=0) { continue; }
+		double reshaping=change[id]*.5;
+		for (const Point offset : {Point{-1,0},Point{1,0},Point{0,-1},Point{0,1}})
+		{
+			const int nx=x+offset.x,nz=z+offset.y;
+			if (nx>=0 && nx<columns && nz>=0 && nz<rows) { reshaping+=change[nz*columns+nx]*.125; }
+		}
+		m_macroTerrain[{x,z}].x+=static_cast<float>(reshaping);
+	}
 }
 
 void World::computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const
@@ -350,6 +445,12 @@ BiomeType World::getBiome(float wx, float wz) const
 	float base, amplitude; computeBiomeParams(wx, wz, base, amplitude);
 	if (base < 0)
 	{
+		if (!m_macroOcean.isEmpty() && wx>=0 && wz>=0 && wx<=m_mapWidth && wz<=m_mapDepth)
+		{
+			const int x=Clamp(static_cast<int>(Round(wx/m_macroStepX)),0,static_cast<int>(m_macroOcean.width())-1);
+			const int z=Clamp(static_cast<int>(Round(wz/m_macroStepZ)),0,static_cast<int>(m_macroOcean.height())-1);
+			return m_macroOcean[{x,z}] ? BiomeType::Ocean : BiomeType::Lake;
+		}
 		const Vec2 point{wx-m_mapWidth*.5,wz-m_mapDepth*.5};
 		return lakeInfluence(point.dot(m_landAxis),point.dot(Vec2{-m_landAxis.y,m_landAxis.x}),Min(m_mapWidth,m_mapDepth))>0
 			? BiomeType::Lake : BiomeType::Ocean;
@@ -394,7 +495,9 @@ HeightMapResult World::buildHeightMap(Point chunkCoord) const
 
 void World::generateRivers()
 {
-	m_rivers.generate(m_mapWidth,m_mapDepth,[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); });
+	m_rivers.generate(m_mapWidth,m_mapDepth,
+		[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); },
+		[this](double x,double z) { return getBiome(static_cast<float>(x),static_cast<float>(z))==BiomeType::Ocean; });
 }
 
 float World::computeHeight(float wx,float wz) const

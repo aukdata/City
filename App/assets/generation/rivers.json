@@ -19,5 +19,8 @@
   "bankBlendWidth": 41,
   "gradientProbe": 6,
   "minimumTraceStep": 0.375,
-  "confluenceSnap": 1.5
+  "confluenceSnap": 1.5,
+  "sedimentCapacity": 3.0,
+  "erosionRate": 0.4,
+  "depositionRate": 0.3
 }

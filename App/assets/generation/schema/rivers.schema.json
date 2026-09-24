@@ -24,7 +24,10 @@
     "bankBlendWidth",
     "gradientProbe",
     "minimumTraceStep",
-    "confluenceSnap"
+    "confluenceSnap",
+    "sedimentCapacity",
+    "erosionRate",
+    "depositionRate"
   ],
   "properties": {
     "catchmentGrid": {
@@ -131,6 +134,21 @@
       "type": "number",
       "minimum": 0.01,
       "maximum": 4
+    },
+    "sedimentCapacity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 20
+    },
+    "erosionRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "depositionRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
     }
   }
 }

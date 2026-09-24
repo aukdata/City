@@ -9,23 +9,43 @@ namespace
 		double spacing;
 		int columns, rows;
 		Array<double> ground, filled;
+		Array<bool> ocean;
 		Array<int> parent, order, flow;
 
-		Drainage(double width, double depth, const std::function<double(double,double)>& height)
+		Drainage(double width, double depth, const std::function<double(double,double)>& height,
+			const std::function<bool(double,double)>& marine)
 			: spacing(GenerationSettings::get().rivers_catchmentGrid),
 			columns(static_cast<int>(width/spacing)+1), rows(static_cast<int>(depth/spacing)+1),
-			ground(columns*rows), filled(columns*rows), parent(columns*rows,-1), flow(columns*rows,1)
+			ground(columns*rows), filled(columns*rows), ocean(columns*rows,false), parent(columns*rows,-1), flow(columns*rows,1)
 		{
 			using Entry=std::pair<double,int>;
 			std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> pending;
 			Array<bool> visited(columns*rows,false);
+			Array<int> coast;
 			for (int id=0; id<columns*rows; ++id)
 			{
 				const Vec2 p=position(id); ground[id]=height(p.x,p.y);
-				if (id%columns==0 || id%columns==columns-1 || id/columns==0 || id/columns==rows-1 || ground[id]<=0)
+				if ((id%columns==0 || id%columns==columns-1 || id/columns==0 || id/columns==rows-1) && ground[id]<=0 && (!marine || marine(p.x,p.y)))
+				{ ocean[id]=true; coast << id; }
+			}
+			// Only water connected to the map's marine boundary is an outlet; inland lakes overflow.
+			for (size_t index=0; index<coast.size(); ++index)
+			{
+				const int id=coast[index];
+				for (const Point offset : {Point{-1,0},Point{1,0},Point{0,-1},Point{0,1}})
 				{
-					visited[id]=true; filled[id]=Max(0.0,ground[id]); pending.emplace(filled[id],id);
+					const int x=id%columns+offset.x,z=id/columns+offset.y;
+					if (x<0 || x>=columns || z<0 || z>=rows) { continue; }
+					const int next=z*columns+x;
+					if (!ocean[next] && ground[next]<=0 && (!marine || marine(position(next).x,position(next).y)))
+					{ ocean[next]=true; coast << next; }
 				}
+			}
+			for (int id=0; id<columns*rows; ++id)
+			{
+				const bool boundary=id%columns==0 || id%columns==columns-1 || id/columns==0 || id/columns==rows-1;
+				if (ocean[id] || (coast.isEmpty() && boundary))
+				{ visited[id]=true; filled[id]=Max(0.0,ground[id]); pending.emplace(filled[id],id); }
 			}
 			while (!pending.empty())
 			{
@@ -59,24 +79,26 @@ namespace
 		int cell(Vec2 p) const { return Clamp(static_cast<int>(Round(p.y/spacing)),0,rows-1)*columns+Clamp(static_cast<int>(Round(p.x/spacing)),0,columns-1); }
 	};
 
-	struct ChannelNode { Vec2 point; int parent=-1, owner=-1; double flow=1, water=0; };
+	struct ChannelNode { Vec2 point; int parent=-1, owner=-1; double flow=1, water=0, incision=0, alluvium=0; };
 	double cross(Vec2 a,Vec2 b) { return a.x*b.y-a.y*b.x; }
 }
 
-void RiverNetwork::generate(double width, double depth, const std::function<double(double,double)>& height)
+void RiverNetwork::generate(double width, double depth, const std::function<double(double,double)>& height,
+	const std::function<bool(double,double)>& marine)
 {
-	reaches.clear(); m_index.clear();
+	reaches.clear(); m_index.clear(); m_statistics={};
 	const auto& settings=GenerationSettings::get();
-	const Drainage drainage{width,depth,height};
+	const Drainage drainage{width,depth,height,marine};
 	const int threshold=settings.rivers_minimumCatchmentCells;
 	Array<bool> upstream(drainage.flow.size(),false);
 	for (const int id : drainage.order) { if (drainage.parent[id]>=0 && drainage.flow[id]>=threshold) { upstream[drainage.parent[id]]=true; } }
 	Array<int> sources;
 	for (const int id : drainage.order)
 	{
-		if (drainage.flow[id]>=threshold && !upstream[id] && drainage.ground[id]>settings.rivers_mouthAltitude) { sources << id; }
+		if (drainage.flow[id]>=threshold && !upstream[id] && !drainage.ocean[id] && drainage.ground[id]>settings.rivers_mouthAltitude) { sources << id; }
 	}
 	std::sort(sources.begin(),sources.end(),[&](int a,int b) { return drainage.flow[a]!=drainage.flow[b] ? drainage.flow[a]>drainage.flow[b] : a<b; });
+	m_statistics.sources=static_cast<int>(sources.size());
 	Array<ChannelNode> nodes;
 	HashTable<Point,Array<int>> segments;
 	const double step=settings.rivers_segmentLength, probe=settings.rivers_gradientProbe;
@@ -94,21 +116,24 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		for (int z=static_cast<int>(Floor(Min(a.y,b.y)/indexSize)); z<=static_cast<int>(Floor(Max(a.y,b.y)/indexSize)); ++z)
 			for (int x=static_cast<int>(Floor(Min(a.x,b.x)/indexSize)); x<=static_cast<int>(Floor(Max(a.x,b.x)/indexSize)); ++x) { segments[Point{x,z}] << id; }
 	};
-	int sinks=0,confluences=0;
+	int sinks=0,confluences=0,spillways=0;
 	for (const int source : sources)
 	{
-		int current=static_cast<int>(nodes.size());
+		const int sourceStart=static_cast<int>(nodes.size());
+		int current=sourceStart;
 		nodes << ChannelNode{drainage.position(source),-1,source,static_cast<double>(drainage.flow[source])};
+		bool rerouted=false;
+		Array<Vec2> escape;
+		size_t escapeIndex=0;
 		const int maximumSteps=static_cast<int>(Ceil((width+depth)*4/step));
 		for (int iteration=0; iteration<maximumSteps; ++iteration)
 		{
 			const Vec2 p=nodes[current].point; const double level=height(p.x,p.y);
-			if (level<=settings.rivers_mouthAltitude || p.x<step || p.y<step || p.x>width-step || p.y>depth-step) { break; }
+			if (drainage.ocean[drainage.cell(p)] && level<0 && (!marine || marine(p.x,p.y))) { break; }
 			const Vec2 g=gradient(p);
-			if (g.lengthSq()<1e-14) { ++sinks; break; }
 			Vec2 next=p; bool accepted=false;
 			// 通常は中点法で -grad f を積分する。谷底の折れ目だけ局所の方向微分を最小化する。
-			for (double run=step; run>=settings.rivers_minimumTraceStep && !accepted; run*=.5)
+			for (double run=step; !rerouted && escape.isEmpty() && g.lengthSq()>=1e-14 && run>=settings.rivers_minimumTraceStep && !accepted; run*=.5)
 			{
 				const Vec2 middle=p-g.normalized()*(run*.5);
 				if (!inside(middle)) { continue; }
@@ -140,7 +165,56 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 					accepted=height(midpoint.x,midpoint.y)<=level;
 				}
 			}
-			// 閉じた窪地は水の終端。丘を越える直線を追加して海へ強制接続しない。
+			// Priority flooding supplies the lowest spillway when fine relief traps a local gradient.
+			if (!accepted && escape.isEmpty())
+			{
+				Array<Vec2> controls{p};
+				int cell=drainage.cell(p);
+				for (size_t count=0; count<drainage.parent.size() && !drainage.ocean[cell] && drainage.parent[cell]>=0; ++count)
+				{
+					cell=drainage.parent[cell]; controls << drainage.position(cell);
+				}
+				if (!drainage.ocean[cell] || controls.size()<2) { ++sinks; break; }
+				// The grid supplies drainage topology; the continuous valley floor supplies channel position.
+				for (size_t i=1; i+1<controls.size(); ++i)
+				{
+					const Vec2 tangent=controls[i+1]-controls[i-1];
+					if (tangent.lengthSq()<1e-8 || drainage.ocean[drainage.cell(controls[i])]) { continue; }
+					const Vec2 normal=Vec2{-tangent.y,tangent.x}.normalized();
+					Vec2 best=controls[i];
+					double score=height(best.x,best.y);
+					for (int side=-4; side<=4; ++side)
+					{
+						const double offset=side*drainage.spacing*.1;
+						const Vec2 candidate=controls[i]+normal*offset;
+						if (!inside(candidate)) { continue; }
+						const double value=height(candidate.x,candidate.y)+offset*offset*.00005;
+						if (value<score) { score=value; best=candidate; }
+					}
+					controls[i]=best;
+				}
+				for (size_t i=0; i+1<controls.size(); ++i)
+				{
+					const Vec2 a=controls[i==0 ? i : i-1],b=controls[i],c=controls[i+1],d=controls[Min(i+2,controls.size()-1)];
+					const int pieces=Max(1,static_cast<int>(Ceil(b.distanceFrom(c)/(step*.5))));
+					for (int part=1; part<=pieces; ++part)
+					{
+						const double t=static_cast<double>(part)/pieces,t2=t*t,t3=t2*t;
+						const Vec2 point=(b*2+(c-a)*t+(a*2-b*5+c*4-d)*t2+(-a+b*3-c*3+d)*t3)*.5;
+						escape << Vec2{Clamp(point.x,0.0,width),Clamp(point.y,0.0,depth)};
+					}
+				}
+				++spillways;
+			}
+			if (!escape.isEmpty())
+			{
+				while (escapeIndex<escape.size() && p.distanceFromSq(escape[escapeIndex])<1e-8) { ++escapeIndex; }
+				if (escapeIndex>=escape.size()) { ++sinks; ++m_statistics.exhausted; break; }
+				const Vec2 toward=escape[escapeIndex]-p;
+				next=p+toward*Min(1.0,step/toward.length());
+				if (next.distanceFromSq(escape[escapeIndex])<1e-8) { ++escapeIndex; }
+				accepted=true;
+			}
 			if (!accepted) { ++sinks; break; }
 			int joined=-1; double alongBest=2; Vec2 meeting{0,0};
 			const Point cell{static_cast<int>(Floor(p.x/indexSize)),static_cast<int>(Floor(p.y/indexSize))};
@@ -186,7 +260,20 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 					if (crossing<0) { break; }
 					joined=crossing;meeting=point;
 				}
-				if (nodes[joined].owner==source) { ++sinks; break; }
+				if (nodes[joined].owner==source)
+				{
+					++m_statistics.selfIntersections;
+					if (rerouted) { ++sinks; break; }
+					// The local descent doubled back into its own upstream course. Rebuild this
+					// source from its drainage route so the eventual outlet remains acyclic.
+					nodes.resize(sourceStart);
+					segments.clear();
+					for (int id=0; id<sourceStart; ++id) { if (nodes[id].parent>=0) { indexSegment(id); } }
+					current=sourceStart;
+					nodes << ChannelNode{drainage.position(source),-1,source,static_cast<double>(drainage.flow[source])};
+					escape.clear(); escapeIndex=0; rerouted=true; iteration=-1;
+					continue;
+				}
 				int target=nodes[joined].parent;
 				if (meeting.distanceFromSq(nodes[joined].point)<1e-8) { target=joined; }
 				else if (meeting.distanceFromSq(nodes[target].point)>=1e-8)
@@ -220,6 +307,23 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		nodes[next].water=Min(nodes[next].water,Max(0.0,nodes[id].water-settings.rivers_minimumWaterGrade*nodes[id].point.distanceFrom(nodes[next].point)));
 		if (--children[next]==0) { queue << next; }
 	}
+	// Sediment load travels through the same directed confluence graph as water.
+	// High stream power cuts the bed; falling capacity deposits the carried load.
+	Array<double> sediment(nodes.size(),0);
+	Array<int> principalChild(nodes.size(),-1);
+	for (const int id : queue)
+	{
+		const int next=nodes[id].parent;
+		if (next<0) { continue; }
+		const double run=nodes[id].point.distanceFrom(nodes[next].point);
+		if (run<1e-6) { continue; }
+		const double grade=Max(settings.rivers_minimumWaterGrade,(nodes[id].water-nodes[next].water)/run);
+		const double capacity=settings.rivers_sedimentCapacity*std::sqrt(nodes[id].flow)*std::sqrt(grade);
+		nodes[id].incision=Min(4.0,Max(0.0,capacity-sediment[id])*settings.rivers_erosionRate);
+		nodes[id].alluvium=Min(2.0,Max(0.0,sediment[id]-capacity)*settings.rivers_depositionRate);
+		sediment[next]+=sediment[id]+nodes[id].incision-nodes[id].alluvium;
+		if (principalChild[next]<0 || nodes[id].flow>nodes[principalChild[next]].flow) { principalChild[next]=id; }
+	}
 	const auto halfWidth=[&](double flow)
 	{
 		return Clamp(settings.rivers_widthBase+std::sqrt(flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
@@ -231,6 +335,18 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		const auto& next=nodes[node.parent]; if (node.point.distanceFromSq(next.point)<1e-8) { continue; }
 		Reach reach; reach.start={node.point.x,node.water,node.point.y}; reach.end={next.point.x,next.water,next.point.y};
 		reach.halfWidth=halfWidth(node.flow); reach.endHalfWidth=halfWidth(next.flow); reach.catchment=node.flow*drainage.spacing*drainage.spacing;
+		reach.incision=(node.incision+next.incision)*.5;
+		reach.alluvium=(node.alluvium+next.alluvium)*.5;
+		const int mainChild=principalChild[id];
+		if (mainChild>=0 && reach.alluvium>.2 && id%4==0)
+		{
+			const Vec2 entering=node.point-nodes[mainChild].point,leaving=next.point-node.point;
+			if (entering.lengthSq()>1 && leaving.lengthSq()>1)
+			{
+				const double bend=cross(entering.normalized(),leaving.normalized());
+				if (Abs(bend)>.08) { reach.barSide=bend>0 ? -.7 : .7; }
+			}
+		}
 		const Vec2 lower{Min(node.point.x,next.point.x),Min(node.point.y,next.point.y)},upper{Max(node.point.x,next.point.x),Max(node.point.y,next.point.y)};
 		reach.bounds=RectF{lower,upper-lower}.stretched(Max(reach.halfWidth,reach.endHalfWidth)+80);
 		length+=node.point.distanceFrom(next.point);
@@ -238,5 +354,7 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		for (int z=static_cast<int>(Floor(reach.bounds.y/512)); z<=static_cast<int>(Floor(reach.bounds.br().y/512)); ++z)
 			for (int x=static_cast<int>(Floor(reach.bounds.x/512)); x<=static_cast<int>(Floor(reach.bounds.br().x/512)); ++x) { m_index[key(x,z)] << reachId; }
 	}
-	DBG_LOG(U"[RiverNetwork] reaches={} lengthKm={:.1f} confluences={} sinks={}"_fmt(reaches.size(),length/1000,confluences,sinks));
+	m_statistics.spillways=spillways;
+	m_statistics.unresolved=sinks;
+	DBG_LOG(U"[RiverNetwork] reaches={} lengthKm={:.1f} confluences={} spillways={} sinks={} self={} exhausted={}"_fmt(reaches.size(),length/1000,confluences,spillways,sinks,m_statistics.selfIntersections,m_statistics.exhausted));
 }

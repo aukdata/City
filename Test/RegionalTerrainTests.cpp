@@ -78,7 +78,14 @@ namespace
 			for (size_t i=1;i<crossings.size();i+=2) { shoreLength+=crossings[i-1].distanceFrom(crossings[i]); }
 		} }
 		relief.sort();
-		JSON result; result[U"seed"]=seed; result[U"coreDry"]=static_cast<double>(coreDry)/core;
+		JSON result; result[U"seed"]=seed;
+		result[U"upliftedCells"]=world.terrainEvolution().uplifted;
+		result[U"erodedCells"]=world.terrainEvolution().eroded;
+		result[U"depositedCells"]=world.terrainEvolution().deposited;
+		result[U"upliftMetres"]=world.terrainEvolution().upliftMetres;
+		result[U"erosionMetres"]=world.terrainEvolution().erosionMetres;
+		result[U"depositionMetres"]=world.terrainEvolution().depositionMetres;
+		result[U"coreDry"]=static_cast<double>(coreDry)/core;
 		result[U"coreWater"]=static_cast<double>(coreWater)/core; result[U"coreMountain"]=static_cast<double>(coreMountain)/core;
 		result[U"edgeBarrier"]=static_cast<double>(edgeBarrier)/edge;
 		result[U"plainRelief1024"]=relief.isEmpty() ? 0 : relief[relief.size()/2];
@@ -129,6 +136,8 @@ void registerRegionalTerrainTests(TestRunner& runner)
 		for (size_t i=0;i<seeds.size();++i)
 		{
 			const auto result=surveyRegion(seeds[i]); report[U"seeds"][i]=result;
+			context.expect(result[U"upliftedCells"].get<int>()>0 && result[U"erodedCells"].get<int>()>0
+				&& result[U"depositedCells"].get<int>()>0,U"Terrain receives uplift, stream erosion and downstream deposition");
 			central+=result[U"coreDry"].get<double>(); periphery+=result[U"edgeBarrier"].get<double>();
 			roughness+=result[U"plainRelief1024"].get<double>(); coast+=result[U"shoreSinuosity"].get<double>();
 			centralPlains+=result[U"coreDry"].get<double>()>.5;

@@ -20,6 +20,9 @@ public:
 	/// @brief 基本地形から流域を生成する。高さマップ生成前、または保存地形の復帰前に呼ぶ。
 	void generateRivers();
 	const RiverNetwork& rivers() const { return m_rivers; }
+	/// @brief Area counts and moved thickness from the terrain evolution pass.
+	struct TerrainEvolutionStats { int uplifted=0, eroded=0, deposited=0; double upliftMetres=0, erosionMetres=0, depositionMetres=0; };
+	const TerrainEvolutionStats& terrainEvolution() const { return m_terrainEvolution; }
 	double waterSurfaceHeight(double x,double z) const { return m_rivers.waterLevel({x,z}); }
 	/// @brief 共有格子点を隣接チャンクにも反映する（地形整形用）。
 	void setGridHeight(int x,int z,float height);
@@ -72,7 +75,10 @@ private:
 	void computeRawBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
 	/// @brief 広域地形を一度だけ計算し、平野面積の上限と内部の丘陵を反映する。
 	void buildMacroTerrain();
+	/// @brief Uplifted relief is reshaped by drainage, sediment transport and alluvial deposition.
+	void evolveMacroTerrain();
 	Grid<Float2> m_macroTerrain;
+	Grid<uint8> m_macroOcean; ///< Boundary-connected water, distinct from inland lakes.
 	double m_macroStepX = 64, m_macroStepZ = 64;
 
 	/// @brief 中央は平野を基本とし、一部の種では山・湾・湖を持つ。
@@ -90,6 +96,7 @@ private:
 	void rebuildActiveChunkCache();
 
 	RiverNetwork m_rivers;
+	TerrainEvolutionStats m_terrainEvolution;
 	float computeBaseHeight(float wx,float wz) const;
 	Array<Chunk>          m_chunks;
 	Point                 m_cameraChunk{ 0x7FFFFFFF, 0x7FFFFFFF };

@@ -87,5 +87,8 @@
   "interiorHillHeight": 6500,
   "interiorHillScale": 0.12,
   "interiorHillThreshold": 0.47,
-  "macroSampleStep": 64
+  "macroSampleStep": 64,
+  "upliftRate": 0.0015,
+  "erosionRate": 0.5,
+  "depositionRate": 0.35
 }
