@@ -25,5 +25,5 @@
   "terrainSmoothingPasses": 32,
   "terrainProfileSpacing": 32,
   "longDistanceMarginRatio": 0.75,
-  "generatedExpansionLimit": 6000
+  "generatedExpansionLimit": 1000
 }

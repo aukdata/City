@@ -581,7 +581,9 @@ void RoadAlignment::repairSteepEdges(RoadNetwork& roads,const World& world)
 		if (!oldCurves.isEmpty() && original.nodeA!=corridor.start) { const auto c=oldCurves.front();oldCurves.front()=CubicBezier{c.p3,c.p2,c.p1,c.p0}; }
 		const double limit=GenerationSettings::get().roads_maximumGeneratedViaductHeight;
 		const double oldCost = maximumClearance(world,oldCurves)>limit ? Math::Inf : constructionCost(world, oldCurves, original.roadType);
-		const auto alignment = find(world, a, b, original.roadType, std::isfinite(oldCost) ? 12000 : 60000,TransportMode::Road,limit);
+		const int expansionLimit = std::isfinite(oldCost)
+			? Min(12000, GenerationSettings::get().routing_generatedExpansionLimit * 3) : 60000;
+		const auto alignment = find(world, a, b, original.roadType, expansionLimit, TransportMode::Road, limit);
 		if (std::isfinite(oldCost) && (!alignment || alignment->cost >= oldCost * .995)) { continue; }
 		if (alignment && std::isfinite(oldCost)) { savedCost += oldCost - alignment->cost; }
 		if (!alignment)

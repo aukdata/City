@@ -40,5 +40,5 @@
   "waterTunnelCover": 10,
   "platformLevelMargin": 10,
   "minimumRadius": 300,
-  "smoothingPasses": 256
+  "smoothingPasses": 8
 }
