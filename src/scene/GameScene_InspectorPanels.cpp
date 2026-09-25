@@ -313,6 +313,18 @@ void GameScene::drawLandParcelPanel()
 	}
 	const auto area=m_panelManager.beginContent(U"land_info");
 	if (!area) { return; }
-	LandParcelPanel::draw(FontAsset(Asset::Panel14),*patch,{8,10});
-	m_panelManager.reportContentHeight(U"land_info",120);
+	const Font font=FontAsset(Asset::Panel14);
+	LandParcelPanel::draw(font,*patch,{8,10});
+	if (PanelWidget::button(font,m_landParcelEditing ? U"編集を終了" : U"形を編集",
+		m_landParcelEditing,8,112,118,25,U"敷地の頂点を追加・移動・削除"))
+	{
+		m_landParcelEditing=!m_landParcelEditing;
+		m_landParcelDragVertex=-1;
+	}
+	if (m_landParcelEditing)
+	{
+		font(U"頂点をドラッグ / 青い点で追加").draw(13,Vec2{8,145},Palette::White);
+		font(U"頂点を右クリックで削除（最低3点）").draw(13,Vec2{8,165},Palette::White);
+	}
+	m_panelManager.reportContentHeight(U"land_info",m_landParcelEditing ? 196 : 145);
 }

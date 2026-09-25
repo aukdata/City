@@ -6,6 +6,7 @@ void RegisterAssets()
 	// ---- テクスチャ ----
 	TextureAsset::Register(Asset::Grass,       U"assets/terrain/grass.png",  TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::Ground,      U"assets/terrain/ground.jpg", TextureDesc::MippedSRGB);
+	TextureAsset::Register(Asset::Gravel,      U"assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg", TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::SparseGrass, U"assets/third_party/polyhaven/sparse_grass/sparse_grass_diff_1k.jpg", TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::Sand,        U"assets/third_party/polyhaven/sand_01/sand_01_diff_1k.jpg", TextureDesc::MippedSRGB);
 	TextureAsset::Register(Asset::CoastSand,   U"assets/third_party/polyhaven/coast_sand_01/coast_sand_01_diff_1k.jpg", TextureDesc::MippedSRGB);

@@ -178,7 +178,7 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		}
 
 		// v2: useElevation
-		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0) | (e.farmAccess ? 8 : 0) | (!e.electrified ? 16 : 0) | (e.depotTrack ? 32 : 0)));
+		w.write(static_cast<uint8>((e.useElevation ? 1 : 0) | (e.tunnel ? 2 : 0) | (e.designGrade ? 4 : 0) | (e.farmAccess ? 8 : 0) | (!e.electrified ? 16 : 0) | (e.depotTrack ? 32 : 0) | (e.leveeRoad ? 64 : 0)));
 
 		// v3: parts（道路部品配列）
 		w.write(static_cast<uint32>(e.parts.size()));
@@ -355,6 +355,7 @@ bool RoadBinary::read(const FilePath& path,
 			e.farmAccess = (elev & 8) != 0;
 			e.electrified = (elev & 16) == 0;
 			e.depotTrack = (elev & 32) != 0;
+			e.leveeRoad = (elev & 64) != 0;
 			e.tunnel = (elev & 2) != 0;
 		}
 

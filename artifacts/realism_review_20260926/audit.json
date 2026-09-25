@@ -1,0 +1,268 @@
+{
+  "summary": {
+    "reviewedPhotos": 23,
+    "capturedPhotos": 38,
+    "nearestPairMeters": 114.5,
+    "nearestPair": [
+      7,
+      9
+    ],
+    "constraintValidation": true,
+    "visualIssuesRemaining": 23
+  },
+  "photos": [
+    {
+      "view": 1,
+      "label": "都市全景",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_01_overall.png",
+      "focusXZ": [
+        59308.0,
+        25396.0
+      ],
+      "buildingsSubmitted": 1968,
+      "visualIssue": "郊外まで格子状の街区が均一で、土地利用の境界が急"
+    },
+    {
+      "view": 3,
+      "label": "市街地近景",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_03_close.png",
+      "focusXZ": [
+        59119.7,
+        25171.5
+      ],
+      "buildingsSubmitted": 410,
+      "visualIssue": "街区の内部と住宅の間に広い草地が残る"
+    },
+    {
+      "view": 4,
+      "label": "田園境界",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_04_rural_fringe.png",
+      "focusXZ": [
+        59390.0,
+        25758.0
+      ],
+      "buildingsSubmitted": 1000,
+      "visualIssue": "住宅地と農地の境界が直線的で、畑の用途変化が単調"
+    },
+    {
+      "view": 7,
+      "label": "交差点B",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_07_intersection_zoom_b.png",
+      "focusXZ": [
+        59287.8,
+        25554.6
+      ],
+      "buildingsSubmitted": 124,
+      "visualIssue": "道路の先の区画に未利用の草地が目立つ"
+    },
+    {
+      "view": 8,
+      "label": "交差点C",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_08_intersection_zoom_c.png",
+      "focusXZ": [
+        59374.6,
+        25198.6
+      ],
+      "buildingsSubmitted": 155,
+      "visualIssue": "住宅の配置が同じ間隔で続く"
+    },
+    {
+      "view": 9,
+      "label": "交差点D",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_09_intersection_zoom_d.png",
+      "focusXZ": [
+        59307.0,
+        25667.5
+      ],
+      "buildingsSubmitted": 123,
+      "visualIssue": "建物の間の緑地が所有区画として読み取りにくい"
+    },
+    {
+      "view": 12,
+      "label": "交差点E",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_12_intersection_zoom_e.png",
+      "focusXZ": [
+        59172.2,
+        25428.9
+      ],
+      "buildingsSubmitted": 101,
+      "visualIssue": "商業区画と住宅区画の変化が急"
+    },
+    {
+      "view": 13,
+      "label": "交差点F",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_13_intersection_zoom_f.png",
+      "focusXZ": [
+        59496.2,
+        25366.0
+      ],
+      "buildingsSubmitted": 87,
+      "visualIssue": "空き区画がまとまって見える"
+    },
+    {
+      "view": 21,
+      "label": "海岸",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_21_coastal_buffer.png",
+      "focusXZ": [
+        41645.5,
+        33669.1
+      ],
+      "buildingsSubmitted": 0,
+      "visualIssue": "海岸の近くの畑と林が単調に切り替わる"
+    },
+    {
+      "view": 22,
+      "label": "田園の土地利用",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_22_rural_landuse.png",
+      "focusXZ": [
+        59240.0,
+        25886.0
+      ],
+      "buildingsSubmitted": 333,
+      "visualIssue": "畑の矩形と色の並びが反復的"
+    },
+    {
+      "view": 25,
+      "label": "里山",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_25_satoyama.png",
+      "focusXZ": [
+        58624.0,
+        26496.0
+      ],
+      "buildingsSubmitted": 1958,
+      "visualIssue": "斜面の植生密度と地形変化が弱い"
+    },
+    {
+      "view": 26,
+      "label": "地方の町",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_26_provincial_town.png",
+      "focusXZ": [
+        19556.0,
+        51116.0
+      ],
+      "buildingsSubmitted": 103,
+      "visualIssue": "幹線沿い一列に店舗が並び、背後の市街地が疎"
+    },
+    {
+      "view": 27,
+      "label": "旧市街から郊外",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_27_castle_transition.png",
+      "focusXZ": [
+        24252.0,
+        23772.0
+      ],
+      "buildingsSubmitted": 5135,
+      "visualIssue": "中心部の格子と郊外の境界が明瞭すぎる"
+    },
+    {
+      "view": 28,
+      "label": "郊外の街路",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_28_fringe_streets.png",
+      "focusXZ": [
+        25443.7,
+        23028.7
+      ],
+      "buildingsSubmitted": 251,
+      "visualIssue": "道路に囲まれた広い空白地が残る"
+    },
+    {
+      "view": 29,
+      "label": "農道",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_29_field_access.png",
+      "focusXZ": [
+        24190.0,
+        20167.2
+      ],
+      "buildingsSubmitted": 23,
+      "visualIssue": "道の行き先となる農地や施設が少ない"
+    },
+    {
+      "view": 31,
+      "label": "都市型コンビニ",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_31_urban_convenience.png",
+      "focusXZ": [
+        23631.9,
+        20146.5
+      ],
+      "buildingsSubmitted": 23,
+      "visualIssue": "駐車区画線や歩道から店舗への導線が弱い"
+    },
+    {
+      "view": 32,
+      "label": "郊外型コンビニ",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_32_roadside_convenience.png",
+      "focusXZ": [
+        49546.7,
+        18514.7
+      ],
+      "buildingsSubmitted": 8,
+      "visualIssue": "建物の周囲が広い空き地で、利用中の駐車場に見えにくい"
+    },
+    {
+      "view": 33,
+      "label": "都市型給油所",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_33_urban_fuel.png",
+      "focusXZ": [
+        24297.4,
+        23897.6
+      ],
+      "buildingsSubmitted": 127,
+      "visualIssue": "給油所周辺の敷地と建物の密度が低い"
+    },
+    {
+      "view": 34,
+      "label": "郊外型給油所",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_34_roadside_fuel.png",
+      "focusXZ": [
+        23540.6,
+        19639.0
+      ],
+      "buildingsSubmitted": 102,
+      "visualIssue": "道路沿いの施設が単独で孤立している"
+    },
+    {
+      "view": 35,
+      "label": "農家",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_35_rural_house.png",
+      "focusXZ": [
+        41078.3,
+        3238.9
+      ],
+      "buildingsSubmitted": 3,
+      "visualIssue": "一軒家が周囲の農地や集落と結び付いて見えにくい"
+    },
+    {
+      "view": 36,
+      "label": "山の中の川",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_36_mountain_river.png",
+      "focusXZ": [
+        14208.4,
+        49791.1
+      ],
+      "buildingsSubmitted": 22,
+      "visualIssue": "川面が均一で、瀬や岩など流れの変化が乏しい"
+    },
+    {
+      "view": 37,
+      "label": "山の集落",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_37_mountain_village.png",
+      "focusXZ": [
+        61374.9,
+        28309.7
+      ],
+      "buildingsSubmitted": 7,
+      "visualIssue": "家は写るが、山麓の集落としては周囲の斜面と家並みが弱い"
+    },
+    {
+      "view": 38,
+      "label": "堤防道路",
+      "file": "App/Screenshot/realism_review_20260926_round20/city_render_38_levee_road.png",
+      "focusXZ": [
+        19691.5,
+        24208.9
+      ],
+      "buildingsSubmitted": 0,
+      "visualIssue": "河原と堤防はあるが、堤防道の連続が画面内で分かりにくい"
+    }
+  ]
+}

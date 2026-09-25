@@ -328,8 +328,15 @@ namespace UrbanStructure
 		for (int i = 0; i <= count; ++i)
 		{
 			const double t = 2.0 * i / count - 1;
-			coordinates << static_cast<float>(
-				extent * ((1 - settings.cubicWeight) * t + settings.cubicWeight * t * t * t));
+			double position=extent*((1-settings.cubicWeight)*t+settings.cubicWeight*t*t*t);
+			// Historic street blocks vary in width while the outer boundary and main axis stay fixed.
+			if (plan.structure!=Type::PlannedGrid && i>0 && i<count && i!=count/2)
+			{
+				const double phase=static_cast<double>(plan.salt%1009u)*.013+(crossAxis ? 1.63 : 0.0);
+				const double irregular=Sin(i*1.91+phase)*.65+Sin(i*.83+phase*.37)*.35;
+				position+=Min(spacing*.13,12.0)*irregular*(1.0-Abs(t)*.35);
+			}
+			coordinates << static_cast<float>(position);
 		}
 		return coordinates;
 	}
@@ -375,16 +382,17 @@ namespace UrbanStructure
 		int rowA, int colB, int rowB)
 	{
 		const auto& settings = profile(plan.structure);
-		if (settings.staggerEvery == 0 || rowA != rowB || rowA == 0 || rowA + 1 == static_cast<int>(z.size()))
+		if (settings.staggerEvery == 0) { return true; }
+		if (streetRole(plan, x, z, colA, rowA, colB, rowB) != GeneratedStreet::Role::Local) { return true; }
+		if (rowA != rowB)
 		{
-			return true;
+			const int upper=Min(rowA,rowB);
+			if (colA==0 || colA+1==static_cast<int>(x.size()) || upper==0 || upper+2>=static_cast<int>(z.size())) { return true; }
+			// Occasional missing local links form T-junctions without cutting collectors.
+			return (plan.salt+static_cast<uint64>(colA*17+upper*11))%7u!=0u;
 		}
-		if (streetRole(plan, x, z, colA, rowA, colB, rowB) != GeneratedStreet::Role::Local)
-		{
-			return true;
-		}
-		// 通りごとに丁字路をずらす。縦の街路と全ての幹線は残すので分断を作らない。
-		return (rowA % 2 == 0 || colA % settings.staggerEvery != (rowA / 2) % settings.staggerEvery);
+		if (rowA==0 || rowA+1==static_cast<int>(z.size())) { return true; }
+		return (rowA%2==0 || colA%settings.staggerEvery!=(rowA/2)%settings.staggerEvery);
 	}
 	void adaptBuilding(Building& building, const UrbanMorphology::Plan& plan, Vec2 local, uint32 roll)
 	{

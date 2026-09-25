@@ -1,4 +1,4 @@
-//-----------------------------------------------
+﻿//-----------------------------------------------
 //
 //	This file is part of the Siv3D Engine.
 //
@@ -190,12 +190,16 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 	{
 		float2 rotatedUv = float2(-input.uv.y, input.uv.x) * 0.173 + float2(0.31, 0.67);
 		float3 broad = g_texture0.Sample(g_sampler0, rotatedUv).rgb;
-		albedo.rgb *= lerp(float3(0.80, 0.84, 0.77), float3(1.12, 1.10, 1.04), saturate(broad * 2));
+		// Mixing two scales breaks the repeating grass tile in aerial views.
+		albedo.rgb = lerp(albedo.rgb, g_diffuseColor.rgb * broad, .42);
 	}
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);
 	albedo.rgb = lerp(sand, albedo.rgb, dryLand);
 	float2 ground = input.worldPosition.xz;
+	float cover = sin(ground.x * .006 + sin(ground.y * .004)) * sin(ground.y * .005 + ground.x * .002);
+	float dryCover = smoothstep(.05, .72, cover) * .42;
+	albedo.rgb *= lerp(float3(1, 1, 1), float3(.96, .80, .69), dryCover);
 	float variation = sin(ground.x * .008 + sin(ground.y * .006)) * sin(ground.y * .009);
 	float altitude = input.worldPosition.y + variation * g_terrainVariation.x;
 	float alpine = smoothstep(g_altitudeBands.x, g_altitudeBands.y, altitude);
@@ -273,6 +277,10 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 		crop*=smoothstep(-.6,.2,cos(uv.y*7.4));
 		albedo=lerp(soil,green,lerp(.24,crop*.86,resolved));
 	}
+	// Keep broad crop variation visible when the individual rows become subpixel.
+	float2 broadUv=input.worldPosition.xz*.075;
+	float broad=sin(broadUv.x+sin(broadUv.y*.63))*cos(broadUv.y+sin(broadUv.x*.42));
+	albedo*=.91+.12*broad;
 	float3 across=ddx(input.worldPosition)*ddy(uv.y)-ddy(input.worldPosition)*ddx(uv.y);
 	across/=max(length(across),.000001);
 	input.normal=normalize(input.normal+across*sin(phase*6.2831853)*(paddy ? .12 : .48)*resolved);
@@ -296,12 +304,16 @@ float4 Foliage_PS(s3d::PSInput input) : SV_TARGET
 float4 River_PS(s3d::PSInput input) : SV_TARGET
 {
     float2 p = input.worldPosition.xz;
-    float detail = 1 - smoothstep(.15, 1.6, length(fwidth(p)));
-    float ripple = sin(p.x * 1.9 + sin(p.y * .37)) * cos(p.y * 2.4);
-    input.normal = normalize(input.normal + float3(ripple, 0, cos(p.x * .83 + p.y * 2.2)) * .065 * detail);
+    float2 phase = float2(dot(p, float2(.073, .119)), dot(p, float2(-.107, .061)));
+    float footprint = max(length(ddx(phase)), length(ddy(phase)));
+    float detail = 1 - smoothstep(.25, .9, footprint);
+    float ripple = sin(phase.x + sin(phase.y * .37)) * sin(phase.y + cos(phase.x * .41));
+    input.normal = normalize(input.normal);
     float fresnel = pow(1 - saturate(dot(normalize(g_eyePosition - input.worldPosition), input.normal)), 4);
     float3 water = lerp(float3(.028,.115,.13), float3(.28,.42,.49), fresnel * .75);
-    water += ripple * .007 * detail;
+    water = lerp(water, float3(.48,.57,.56), smoothstep(.08,.45,1-saturate(input.normal.y))*.65);
+    float streamTexture = ripple * .008 + sin(phase.x * 2.7 + sin(phase.y * 1.3) * 1.5) * .004;
+    water += streamTexture * detail;
     return shadeCity(input, float4(water, 1));
 }
 

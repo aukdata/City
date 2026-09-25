@@ -1462,7 +1462,7 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			}
 			else if (material == 120)
 			{
-				batch.mesh.draw(TextureAsset(Asset::Concrete), batch.color);
+				batch.mesh.draw(TextureAsset(Asset::Gravel), batch.color);
 			}
 			else if (material == 101 || material == 113)
 			{

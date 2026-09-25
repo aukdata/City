@@ -115,6 +115,7 @@ int RoadNetwork::splitEdgeAtParameter(int edgeId, float t, int existingNodeId)
 			ea->constructionStartTime = tmpl.constructionStartTime;
 			ea->useElevation          = tmpl.useElevation;
 			ea->designGrade = tmpl.designGrade;
+			ea->leveeRoad = tmpl.leveeRoad;
 		}
 		newEidA = *eidA;
 	}
@@ -128,6 +129,7 @@ int RoadNetwork::splitEdgeAtParameter(int edgeId, float t, int existingNodeId)
 			eb->constructionStartTime = tmpl.constructionStartTime;
 			eb->useElevation          = tmpl.useElevation;
 			eb->designGrade = tmpl.designGrade;
+			eb->leveeRoad = tmpl.leveeRoad;
 		}
 		newEidB = *eidB;
 	}

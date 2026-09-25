@@ -8,6 +8,7 @@ namespace Asset
 	// ---- テクスチャ ----
 	constexpr StringView Grass            = U"Tex_Grass";
 	constexpr StringView Ground           = U"Tex_Ground";
+	constexpr StringView Gravel           = U"Tex_Gravel";
 	constexpr StringView SparseGrass      = U"Tex_SparseGrass";
 	constexpr StringView Sand             = U"Tex_Sand";
 	constexpr StringView CoastSand        = U"Tex_CoastSand";

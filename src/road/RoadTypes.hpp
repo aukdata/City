@@ -454,6 +454,7 @@ struct RoadEdge
 	float     congestion = 0.0f;
 
 	bool      farmAccess = false; ///< 車で通行できる農道。農地の接道と生成で共有する。
+	bool      leveeRoad = false; ///< 川沿いの堤防上を走る生成道路。
 	bool      designGrade = false; ///< 地上区間も整地前に決めた設計縦断を保持する
 	[[nodiscard]] bool usesDesignHeight() const { return useElevation || designGrade; }
 

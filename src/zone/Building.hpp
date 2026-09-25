@@ -128,7 +128,9 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 	const uint32 kFacilityVariantCount = GenerationSettings::get().buildings_factoryVariants;
 	if (t == BuildingType::Shop)
 	{
-		return static_cast<uint8>(h % kShopVariantCount);
+		// These two assets are six-storey blocks; retail lots use the low-rise set.
+		const uint32 variant=h%kShopVariantCount;
+		return static_cast<uint8>((variant==6u || variant==7u) ? variant-6u : variant);
 	}
 	if (t == BuildingType::PublicFacility)
 	{

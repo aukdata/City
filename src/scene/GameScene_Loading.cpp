@@ -154,7 +154,7 @@ void GameScene::updateLoading()
 				}
 
 				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
-				m_riverRenderer.build(m_world);
+				m_riverRenderer.build(m_world,m_network);
 			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
 			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
 			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);
@@ -186,7 +186,7 @@ void GameScene::updateLoading()
 
 			startSimThread();
 
-			m_riverRenderer.build(m_world);
+			m_riverRenderer.build(m_world,m_network);
 			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
 			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
 			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);

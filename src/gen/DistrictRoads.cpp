@@ -1260,48 +1260,60 @@ namespace DistrictRoads
 				originalRoads << edge.id;
 			}
 			Array<int> backNodes;
-			int added=0;
+			int added=0,noAnchor=0,noTerrain=0,noConnection=0;
 			const bool clustered=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Clustered;
 			const bool dispersed=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Dispersed;
 			for (int index=-2;index<=2;++index)
 			{
 				const Vec2 desired=settlement.center+settlement.gridAxisX*(index*plannedExtent.x*GenerationSettings::get().districtRoads_ruralAnchorRatio);
-				Optional<int> bestEdge;
-				float bestArc=0;
+				int bestNode=-1;
+				Vec3 anchorPosition{},tangent{};
 				double bestDistance=Square(GenerationSettings::get().districtRoads_ruralAnchorSearchRadius);
 				for (const int id : originalRoads)
 				{
+					const auto* edge=network.getEdge(id);
 					const auto curve=network.getBezier(id);
-					if (!curve || curve->totalLength<100) { continue; }
-					for (int sample=1;sample<32;++sample)
+					if (!edge || !curve || curve->totalLength<3) { continue; }
+					for (const int nodeId : {edge->nodeA,edge->nodeB})
 					{
-						const float arc=Clamp(curve->totalLength*sample/32.0f,GenerationSettings::get().districtRoads_ruralJunctionSetback,curve->totalLength-GenerationSettings::get().districtRoads_ruralJunctionSetback);
-						const Vec3 p=curve->positionAt(arc);
-						const double distance=desired.distanceFromSq(Vec2{p.x,p.z});
-						if (distance<bestDistance) { bestDistance=distance; bestEdge=id; bestArc=arc; }
+						const auto* node=network.getNode(nodeId);
+						if (!node || node->attachments.size()>2) { continue; }
+						const double distance=desired.distanceFromSq(Vec2{node->position.x,node->position.z});
+						if (distance>=bestDistance) { continue; }
+						bestDistance=distance;bestNode=nodeId;anchorPosition=node->position;
+						tangent=curve->tangentAt(nodeId==edge->nodeA ? 0 : curve->totalLength);
 					}
 				}
-				if (!bestEdge) { continue; }
-				const auto curve=network.getBezier(*bestEdge);
-				const Vec3 anchorPosition=curve->positionAt(bestArc),tangent=curve->tangentAt(bestArc);
+				if (bestNode<0) { ++noAnchor;continue; }
 				Vec2 normal{-tangent.z,tangent.x};
 				if (normal.lengthSq()<.001) { continue; }
 				normal.normalize();
 				const double length=dispersed ? GenerationSettings::get().districtRoads_dispersedBranchLength : (clustered ? GenerationSettings::get().districtRoads_clusterBranchLength : GenerationSettings::get().districtRoads_valleyBranchLength);
-				const double side=dispersed ? (index%2==0 ? 1.0 : -1.0) : (settlement.plan.salt%2==0 ? 1.0 : -1.0);
-				const Vec2 end=Vec2{anchorPosition.x,anchorPosition.z}+normal*(length*side);
-				const Vec3 endPosition{end.x,world.sampleHeight(static_cast<float>(end.x),static_cast<float>(end.y)),end.y};
-				if (!segmentFitsTerrain(world,anchorPosition,endPosition)) { continue; }
-				const int anchor=network.splitEdgeAt(*bestEdge,bestArc);
-				if (anchor<0) { continue; }
-				for (const auto& attachment : network.getNode(anchor)->attachments) { originalRoads << attachment.edgeId; }
+				const double side=(index%2==0 ? 1.0 : -1.0)*(settlement.plan.salt%2==0 ? 1.0 : -1.0);
+				Vec2 end{};Vec3 endPosition{};bool terrainFits=false;
+				for (const double candidateSide : {side,-side})
+				{
+					for (const double fraction : {1.0,.75,.5})
+					{
+						const double reach=Max(GenerationSettings::get().districtRoads_minimumRuralBranchLength,length*fraction);
+						const Vec2 candidate=Vec2{anchorPosition.x,anchorPosition.z}+normal*(reach*candidateSide);
+						const Vec3 target{candidate.x,world.sampleHeight(static_cast<float>(candidate.x),static_cast<float>(candidate.y)),candidate.y};
+						if (!segmentFitsTerrain(world,anchorPosition,target)) { continue; }
+						end=candidate;endPosition=target;terrainFits=true;break;
+					}
+					if (terrainFits) { break; }
+				}
+				if (!terrainFits) { ++noTerrain;continue; }
+				const int anchor=bestNode;
 				const int endNode=network.addNode(endPosition,NodeType::Endpoint);
-				if (!tryAddLocalRoadEdge(network,anchor,endNode)) { network.removeNode(endNode); continue; }
+				if (!tryAddLocalRoadEdge(network,anchor,endNode)) { network.removeNode(endNode);++noConnection;continue; }
 				GeneratedStreet::apply(*network.getEdge(findEdgeBetweenNodes(network,anchor,endNode)),GeneratedStreet::describe(dispersed ? GeneratedStreet::Role::FarmAccess : GeneratedStreet::Role::Village));
 				if (clustered && !backNodes.isEmpty())
 				{
 					const Vec3 previous=network.getNode(backNodes.back())->position;
-					if (previous.distanceFrom(endPosition)>GenerationSettings::get().districtRoads_minimumRuralBranchLength && segmentFitsTerrain(world,previous,endPosition)
+					const double previousSide=Vec2{previous.x-settlement.center.x,previous.z-settlement.center.y}.dot(settlement.gridAxisZ);
+					const double currentSide=(end-settlement.center).dot(settlement.gridAxisZ);
+					if (previousSide*currentSide>0 && previous.distanceFrom(endPosition)>GenerationSettings::get().districtRoads_minimumRuralBranchLength && segmentFitsTerrain(world,previous,endPosition)
 						&& tryAddLocalRoadEdge(network,backNodes.back(),endNode))
 					{
 						GeneratedStreet::apply(*network.getEdge(findEdgeBetweenNodes(network,backNodes.back(),endNode)),GeneratedStreet::describe(GeneratedStreet::Role::Village));
@@ -1315,7 +1327,8 @@ namespace DistrictRoads
 				settlement.plan.halfExtent.y=Max(settlement.plan.halfExtent.y,Abs(local.y)+GenerationSettings::get().districtRoads_ruralPlanMargin);
 				++added;
 			}
-			DBG_LOG(U"[RuralFrontage] form={} accesses={} regionalRoadsPreserved=true"_fmt(static_cast<int>(settlement.plan.ruralForm),added));
+			DBG_LOG(U"[RuralFrontage] form={} accesses={} noAnchor={} noTerrain={} noConnection={} regionalRoadsPreserved=true"_fmt(
+				static_cast<int>(settlement.plan.ruralForm),added,noAnchor,noTerrain,noConnection));
 		}
 	}
 
@@ -1687,6 +1700,56 @@ namespace DistrictRoads
 		}
 		if (plan.origin!=UrbanMorphology::Origin::Planned) { SettlementFringe::generate(settlement,world,network); }
 		NewTownLayout::finish(settlement,network);
+		if (plan.scale==0)
+		{
+			HashSet<int> wide,reviewed;
+			for (const auto& edge:network.edges())
+			{
+				if (edge.id<0 || edge.designGrade || edge.lanes.size()<4) { continue; }
+				const auto* a=network.getNode(edge.nodeA);
+				const auto* b=network.getNode(edge.nodeB);
+				if (!a || !b) { continue; }
+				const Vec2 edgeMidpoint{(a->position.x+b->position.x)*.5-settlement.center.x,
+					(a->position.z+b->position.z)*.5-settlement.center.y};
+				if (Abs(edgeMidpoint.dot(axisX))<halfExtent.x+250 && Abs(edgeMidpoint.dot(axisZ))<halfExtent.y+250) { wide.insert(edge.id); }
+			}
+			int shortRuns=0,downgraded=0;
+			for (const int seedEdge:wide)
+			{
+				if (reviewed.contains(seedEdge)) { continue; }
+				Array<int> component{seedEdge};
+				reviewed.insert(seedEdge);
+				double length=0;
+				for (size_t cursor=0;cursor<component.size();++cursor)
+				{
+					const auto* edge=network.getEdge(component[cursor]);
+					if (!edge) { continue; }
+					if (const auto curve=network.getBezier(edge->id)) { length+=curve->totalLength; }
+					for (const int nodeId:{edge->nodeA,edge->nodeB})
+					{
+						const auto* node=network.getNode(nodeId);
+						if (!node) { continue; }
+						for (const auto& attachment:node->attachments)
+						{
+							if (!wide.contains(attachment.edgeId) || reviewed.contains(attachment.edgeId)) { continue; }
+							reviewed.insert(attachment.edgeId);
+							component << attachment.edgeId;
+						}
+					}
+				}
+				if (length>=240) { continue; }
+				++shortRuns;
+				for (const int id:component)
+				{
+					if (auto* edge=network.getEdge(id))
+					{
+						GeneratedStreet::apply(*edge,GeneratedStreet::describe(GeneratedStreet::Role::Local));
+						++downgraded;
+					}
+				}
+			}
+			DBG_LOG(U"[ShortArterialReview] town={} shortRuns={} downgraded={}"_fmt(settlementIndex,shortRuns,downgraded));
+		}
 		DBG_LOG(U"[BlockAlleys] town={} alleys={}"_fmt(settlementIndex,alleyCount));
 		DBG_LOG(U"[SettlementPlan] index={} origin={} scale={} extent=({}, {}) nodes={} entrances={} connected={} station={}"_fmt(
 			settlementIndex,UrbanMorphology::originName(plan.origin),plan.scale,halfExtent.x,halfExtent.y,n*rows,arterialWorkNodes.size(),connectedOuterGridPoints.size(),plan.station.has_value()));

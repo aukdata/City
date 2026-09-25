@@ -337,6 +337,16 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		reach.halfWidth=halfWidth(node.flow); reach.endHalfWidth=halfWidth(next.flow); reach.catchment=node.flow*drainage.spacing*drainage.spacing;
 		reach.incision=(node.incision+next.incision)*.5;
 		reach.alluvium=(node.alluvium+next.alluvium)*.5;
+		// A deep channel needs a broad valley shoulder rather than a cliff at the carve boundary.
+		const Vec2 flow=next.point-node.point;
+		const Vec2 across=Vec2{-flow.y,flow.x}.normalized();
+		const Vec2 middle=(node.point+next.point)*.5;
+		const double bankProbeDistance=Max(reach.halfWidth,reach.endHalfWidth)+settings.rivers_carveExtent;
+		const double bankHigh=Max(height(middle.x,middle.y),Max(height(middle.x+across.x*bankProbeDistance,middle.y+across.y*bankProbeDistance),
+			height(middle.x-across.x*bankProbeDistance,middle.y-across.y*bankProbeDistance)));
+		const double relief=Max(0.0,bankHigh-(node.water+next.water)*.5);
+		reach.bankExtent=reach.halfWidth<80 ? Clamp(settings.rivers_carveExtent+(relief-15)*2.2,settings.rivers_carveExtent,250.0)
+			: settings.rivers_carveExtent;
 		const int mainChild=principalChild[id];
 		if (mainChild>=0 && reach.alluvium>.2 && id%4==0)
 		{
@@ -348,7 +358,7 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 			}
 		}
 		const Vec2 lower{Min(node.point.x,next.point.x),Min(node.point.y,next.point.y)},upper{Max(node.point.x,next.point.x),Max(node.point.y,next.point.y)};
-		reach.bounds=RectF{lower,upper-lower}.stretched(Max(reach.halfWidth,reach.endHalfWidth)+80);
+		reach.bounds=RectF{lower,upper-lower}.stretched(Max(reach.halfWidth,reach.endHalfWidth)+reach.bankExtent+8);
 		length+=node.point.distanceFrom(next.point);
 		const int reachId=static_cast<int>(reaches.size()); reaches << reach;
 		for (int z=static_cast<int>(Floor(reach.bounds.y/512)); z<=static_cast<int>(Floor(reach.bounds.br().y/512)); ++z)

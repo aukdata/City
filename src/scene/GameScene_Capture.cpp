@@ -403,6 +403,9 @@ String GameScene::captureFileName(int index) const
 	case 32: return U"city_render_33_urban_fuel.png";
 	case 33: return U"city_render_34_roadside_fuel.png";
 	case 34: return U"city_render_35_rural_house.png";
+	case 35: return U"city_render_36_mountain_river.png";
+	case 36: return U"city_render_37_mountain_village.png";
+	case 37: return U"city_render_38_levee_road.png";
 	default: return U"city_render_done.png";
 	}
 }
@@ -453,7 +456,7 @@ void GameScene::updateStreamingBenchmark()
 
 void GameScene::updateCaptureCityRenders()
 {
-	const int kCaptureCount = getData().captureRoadRenders ? 6 : 35;
+	const int kCaptureCount = getData().captureRoadRenders ? 6 : 38;
 	const int warmupFrames = m_captureIndex == 22 ? 240 : 80;
 
 	m_clock.speed = TimeSpeed::Paused;
@@ -634,6 +637,150 @@ void GameScene::updateCaptureCityRenders()
 				break;
 			}
 			m_camera.setCaptureState(provincial,300.0f,static_cast<float>(-40.0_deg),static_cast<float>(35.0_deg));
+			Array<int> types(static_cast<size_t>(BuildingType::Count),0);
+			const int centerX=static_cast<int>(provincial.x/CHUNK_SIZE),centerZ=static_cast<int>(provincial.z/CHUNK_SIZE);
+			for (int z=Max(0,centerZ-1);z<=Min(WORLD_CHUNKS-1,centerZ+1);++z)
+			{
+				for (int x=Max(0,centerX-1);x<=Min(WORLD_CHUNKS-1,centerX+1);++x)
+				{
+					const Chunk* chunk=m_world.getChunk({x,z});if (!chunk) { continue; }
+					for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
+					{
+						const Vec2 point=cellCenterXZ({x,z},col,row);
+						if (point.distanceFromSq(Vec2{provincial.x,provincial.z})>350.0*350.0) { continue; }
+						++types[static_cast<size_t>(chunk->buildingGrid[{col,row}].type)];
+					}
+				}
+			}
+			DBG_LOG(U"[ProvincialBuildings] detached={} low={} mid={} high={} shop={} office={}"_fmt(
+				types[static_cast<size_t>(BuildingType::Detached)],types[static_cast<size_t>(BuildingType::LowApartment)],
+				types[static_cast<size_t>(BuildingType::MidApartment)],types[static_cast<size_t>(BuildingType::HighApartment)],
+				types[static_cast<size_t>(BuildingType::Shop)],types[static_cast<size_t>(BuildingType::Office)]));
+			break;
+		}
+		case 35:
+		{
+			Vec3 mountainRiver=fringeFocus;
+			Vec2 mountainFlow{0,1};
+			double best=-Math::Inf;
+			const auto& reaches=m_world.rivers().reaches;
+			HashTable<Point,Array<int>> touching;
+			const auto riverKey=[](Vec3 point) { return Point{static_cast<int>(Round(point.x)),static_cast<int>(Round(point.z))}; };
+			for (size_t index=0;index<reaches.size();++index)
+			{
+				touching[riverKey(reaches[index].start)] << static_cast<int>(index);
+				touching[riverKey(reaches[index].end)] << static_cast<int>(index);
+			}
+			for (size_t index=0;index<reaches.size();++index)
+			{
+				const auto& reach=reaches[index];
+				const Vec3 middle=reach.start;
+				if (middle.x<2500 || middle.z<2500 || middle.x>WORLD_SIZE-2500 || middle.z>WORLD_SIZE-2500
+					|| middle.y<100 || middle.y>850 || reach.halfWidth<4 || reach.halfWidth>24) { continue; }
+				const Vec2 along{reach.end.x-reach.start.x,reach.end.z-reach.start.z};
+				if (along.lengthSq()<4) { continue; }
+				double bend=0;
+				for (const int otherId:touching[riverKey(reach.start)])
+				{
+					if (otherId==static_cast<int>(index)) { continue; }
+					const auto& other=reaches[otherId];
+					if (other.end.distanceFromSq(reach.start)>.01) { continue; }
+					const Vec2 incoming{other.end.x-other.start.x,other.end.z-other.start.z};
+					if (incoming.lengthSq()<4) { continue; }
+					bend=Max(bend,Abs(incoming.normalized().cross(along.normalized())));
+				}
+				const Vec2 across=Vec2{-along.y,along.x}.normalized();
+				const Vec2 center{middle.x,middle.z};
+				const double sideDistance=reach.halfWidth+170;
+				const Vec2 left=center+across*sideDistance,right=center-across*sideDistance;
+				const double leftRelief=m_world.computeHeight(static_cast<float>(left.x),static_cast<float>(left.y))-middle.y;
+				const double rightRelief=m_world.computeHeight(static_cast<float>(right.x),static_cast<float>(right.y))-middle.y;
+				if (Min(leftRelief,rightRelief)<18 || Max(leftRelief,rightRelief)>320) { continue; }
+				const double score=Min(leftRelief,rightRelief)*.8+Min(150.0,Max(leftRelief,rightRelief))*.15
+					+Min(500.0,middle.y)*.04+bend*95.0-reach.halfWidth*.4;
+				if (score>best) { best=score;mountainRiver=middle;mountainFlow=along.normalized(); }
+			}
+			m_camera.setCaptureState(mountainRiver,350.0f,static_cast<float>(Atan2(-mountainFlow.x,-mountainFlow.y)+0.42),static_cast<float>(41.0_deg));
+			DBG_LOG(U"[PhotoReferenceCapture] mountainRiver=({}, {}, {}) score={}"_fmt(mountainRiver.x,mountainRiver.y,mountainRiver.z,best));
+			break;
+		}
+		case 36:
+		{
+			Vec3 mountainVillage=fringeFocus;
+			Vec2 mountainDirection{0,1};
+			double best=-Math::Inf;
+			int candidates=0,withHouses=0;
+			for (const auto& settlement:m_districts)
+			{
+				if (settlement.kind!=MapGenerator::SettlementKind::RuralSettlement
+					|| settlement.center.x<2500 || settlement.center.y<2500
+					|| settlement.center.x>WORLD_SIZE-2500 || settlement.center.y>WORLD_SIZE-2500) { continue; }
+				++candidates;
+				const double height=m_world.computeHeight(static_cast<float>(settlement.center.x),static_cast<float>(settlement.center.y));
+				if (height<50 || height>900) { continue; }
+				int buildings=0;
+				Vec2 houseCenter{0,0};
+				const int minX=Max(0,static_cast<int>((settlement.center.x-450)/16));
+				const int maxX=Min(static_cast<int>(WORLD_SIZE/16)-1,static_cast<int>((settlement.center.x+450)/16));
+				const int minZ=Max(0,static_cast<int>((settlement.center.y-450)/16));
+				const int maxZ=Min(static_cast<int>(WORLD_SIZE/16)-1,static_cast<int>((settlement.center.y+450)/16));
+				for (int z=minZ;z<=maxZ;++z) for (int x=minX;x<=maxX;++x)
+				{
+					const Chunk* chunk=m_world.getChunk({x/ZONE_CELLS,z/ZONE_CELLS});
+					if (!chunk) { continue; }
+					const BuildingType type=chunk->buildingGrid[{x%ZONE_CELLS,z%ZONE_CELLS}].type;
+					if (type==BuildingType::Detached || type==BuildingType::RuralHouse || type==BuildingType::LowApartment || type==BuildingType::Shop)
+					{
+						++buildings;houseCenter+=Vec2{(x+.5)*16.0,(z+.5)*16.0};
+					}
+				}
+				if (buildings<2) { continue; }
+				++withHouses;
+				houseCenter/=buildings;
+				double relief=0;
+				Vec2 uphill{0,1};
+				for (const Vec2 offset:{Vec2{550,0},Vec2{-550,0},Vec2{0,550},Vec2{0,-550},
+					Vec2{900,0},Vec2{-900,0},Vec2{0,900},Vec2{0,-900}})
+				{
+					const double ascent=m_world.computeHeight(static_cast<float>(settlement.center.x+offset.x),
+						static_cast<float>(settlement.center.y+offset.y))-height;
+					if (ascent>relief) { relief=ascent;uphill=offset.normalized(); }
+				}
+				const auto water=m_world.rivers().nearest(settlement.center);
+				if (water.reach>=0 && water.halfWidth>35 && water.distance-water.halfWidth<400) { continue; }
+				DBG_LOG(U"[MountainVillageCandidate] center=({}, {}) height={:.1f} houses={} relief={:.1f}"_fmt(
+					settlement.center.x,settlement.center.y,height,buildings,relief));
+				const double score=Min(30,buildings)*2.0+Min(220.0,relief)*1.4+height*.04
+					+(settlement.plan.ruralForm==UrbanMorphology::RuralForm::Valley ? 30.0 : 0.0);
+				if (score>best)
+				{
+					best=score;mountainVillage={houseCenter.x,m_world.computeHeight(static_cast<float>(houseCenter.x),static_cast<float>(houseCenter.y)),houseCenter.y};
+					mountainDirection=uphill;
+				}
+			}
+			const float yaw=static_cast<float>(Atan2(-mountainDirection.x,-mountainDirection.y));
+			m_camera.setCaptureState(mountainVillage,360.0f,yaw,static_cast<float>(48.0_deg));
+			DBG_LOG(U"[PhotoReferenceCapture] mountainVillage=({}, {}, {}) score={} candidates={} withHouses={}"_fmt(
+				mountainVillage.x,mountainVillage.y,mountainVillage.z,best,candidates,withHouses));
+			break;
+		}
+		case 37:
+		{
+			Vec3 leveeRoad=coastalFocus;
+			double best=-Math::Inf;
+			for (const auto& edge:m_network.edges())
+			{
+				if (!edge.leveeRoad) { continue; }
+				const auto curve=m_network.getBezier(edge.id);
+				if (!curve || curve->totalLength<45) { continue; }
+				const Vec3 middle=curve->positionAt(curve->totalLength*.5f);
+				const auto river=m_world.rivers().nearest({middle.x,middle.z});
+				if (river.reach<0 || river.halfWidth<40 || river.distance-river.halfWidth>115) { continue; }
+				const double score=river.halfWidth+Min(150.0,static_cast<double>(curve->totalLength))*.3;
+				if (score>best) { best=score;leveeRoad=middle; }
+			}
+			m_camera.setCaptureState(leveeRoad,280.0f,static_cast<float>(-48.0_deg),static_cast<float>(55.0_deg));
+			DBG_LOG(U"[PhotoReferenceCapture] leveeRoad=({}, {}, {}) score={}"_fmt(leveeRoad.x,leveeRoad.y,leveeRoad.z,best));
 			break;
 		}
 		case 30: case 31: case 32: case 33: case 34:

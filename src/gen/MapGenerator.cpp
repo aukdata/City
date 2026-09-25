@@ -10,6 +10,7 @@
 #include "../debug/DebugLog.hpp"
 #include "PlaceNameGenerator.hpp"
 #include "DistrictRoads.hpp"
+#include "LeveeRoad.hpp"
 #include <random>
 #include <queue>
 #include <limits>
@@ -799,6 +800,8 @@ void MapGenerator::generateDistrictRoads(
 		if (onProgress)
 			onProgress(static_cast<float>(si + 1) / settlements.size());
 	}
+
+	LeveeRoad::generate(seed,world,network);
 
 	Array<int> emptyNodes;
 	for (const auto& node : network.nodes())

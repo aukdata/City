@@ -589,6 +589,30 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 		RoadConstruction::Progress progress;progress.tunnel=true;progress.stage=RoadConstruction::Stage::BaseCourse;
 		context.expect(progress.name().includes(U"覆工"),U"Tunnel construction uses lining terminology");
 	});
+	runner.add(U"Rivers.LeveeRoadPersistence",[](TestContext& context)
+	{
+		RoadNetwork roads;
+		const int start=roads.addNode({100,20,100}),end=roads.addNode({400,20,100});
+		const int original=*roads.addEdge(start,end,{200,21,100},{300,21,100},RoadType::LocalRoad,2);
+		auto* edge=roads.getEdge(original);
+		edge->leveeRoad=true;edge->designGrade=true;edge->edgeState=EdgeState::Open;
+		const int joint=roads.splitEdgeAtParameter(original,.5f);
+		context.expect(joint>=0,U"A connected levee road can be divided at a new junction");
+		int segments=0;
+		for (const auto& part:roads.edges())
+		{
+			if (part.id<0) { continue; }
+			++segments;
+			context.expect(part.leveeRoad && part.designGrade,U"The earthwork role and designed height survive a split");
+		}
+		context.expect(segments==2,U"The new junction retains both road segments");
+		context.expect(RoadBinary::writeGlobal(U"TestResults/levee_road.bin",roads),U"Levee roads can be saved");
+		RoadNetwork loaded;
+		context.expect(RoadBinary::readGlobal(U"TestResults/levee_road.bin",loaded),U"Levee roads can be loaded");
+		int restored=0;
+		for (const auto& part:loaded.edges()) { if (part.id>=0 && part.leveeRoad) { ++restored; } }
+		context.expect(restored==2,U"Both connected levee segments remain marked after loading");
+	});
 	runner.add(U"Structures.UndersideAndTunnelReadback",[](TestContext& context)
 	{
 		const Size size{640,400}; const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};

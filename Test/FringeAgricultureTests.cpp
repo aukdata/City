@@ -4,6 +4,7 @@
 #include "src/gen/AgriculturalLayout.hpp"
 #include "src/gen/ParcelGeometry.hpp"
 #include "src/render/WorldRenderer.hpp"
+#include "src/world/LandPlot.hpp"
 
 namespace
 {
@@ -65,6 +66,31 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		report[U"nearDensity"]=nearDensity; report[U"farDensity"]=farDensity;
 		report[U"frontage"]=frontage; report[U"depthBands"]=static_cast<int>(depths.size()); report[U"connections"]=connections;
 		report.save(U"TestResults/castle_transition.json");
+	});
+	runner.add(U"Morphology.RuralFrontageShortSegments",[](TestContext& context)
+	{
+		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		for (int z=31;z<=33;++z) for (int x=31;x<=33;++x) { flatChunk(world,{x,z}); }
+		MapGenerator::Settlement settlement;settlement.center={32768,32768};settlement.kind=MapGenerator::SettlementKind::LocalTown;
+		settlement.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Post,1,UrbanMorphology::Site{},42,true);
+		RoadNetwork network;int previous=-1;
+		for (int i=0;i<=40;++i)
+		{
+			const Vec3 position{32368.0+i*20.0,20,32768};
+			const int node=network.addNode(position);
+			if (previous>=0)
+			{
+				const Vec3 from=network.getNode(previous)->position;
+				network.addEdge(previous,node,from+(position-from)/3,from+(position-from)*2/3,RoadType::Arterial,2);
+			}
+			previous=node;
+		}
+		DistrictRoads::KaidoSegment kaido;kaido.passesThrough=true;kaido.dirAtCenter={1,0};
+		DistrictRoads::generateSettlement(42,0,settlement,kaido,world,network);
+		int junctions=0;
+		for (const auto& node:network.nodes()) if (node.id>=0 && node.attachments.size()>=3) { ++junctions; }
+		context.expect(settlement.plan.frontageRoads && settlement.plan.ruralHomes.size()>=3,U"Short regional road segments support several rural side streets");
+		context.expect(junctions>=3,U"Rural side streets connect at existing regional road nodes");
 	});
 	runner.add(U"Morphology.AgriculturalAccess",[](TestContext& context)
 	{
@@ -204,6 +230,18 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		report[U"farDensity"] = farDensity;
 		report[U"connected"] = connected;
 		report.save(U"TestResults/farm_terrain_density.json");
+	});
+
+	runner.add(U"Morphology.ParcelVertexEditing",[](TestContext& context)
+	{
+		const Array<Vec2> plot{{100,100},{135,100},{135,135},{118,119},{100,135}};
+		context.expect(LandPlot::validEditablePolygon(plot),U"A concave five-vertex parcel remains editable");
+		const Array<Vec2> crossing{{100,100},{135,135},{135,100},{100,135}};
+		context.expect(!LandPlot::validEditablePolygon(crossing),U"Dragging a vertex across the opposite edge is rejected");
+		const Array<Vec2> tooFew{{100,100},{135,100}};
+		context.expect(!LandPlot::validEditablePolygon(tooFew),U"Deleting below three vertices is rejected");
+		const Array<Vec2> collapsed{{100,100},{100.1,100.1},{135,135},{100,135}};
+		context.expect(!LandPlot::validEditablePolygon(collapsed),U"Collapsed plot edges are rejected");
 	});
 
 }

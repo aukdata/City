@@ -78,7 +78,16 @@ namespace
 			road.distance=Sqrt(distanceAt(road.arc)); road.range=RoadGeometry::structuralRangeAt(edge,road.parameter);
 			if (road.distance<kRadius && road.range.valid) { result << std::move(road); }
 		}
-		result.sort_by([](const NearbyRoad& a,const NearbyRoad& b) { return a.distance<b.distance; });
+		result.sort_by([](const NearbyRoad& a,const NearbyRoad& b)
+		{
+			const auto frontage=[](const NearbyRoad& road)
+			{
+				const double outer=Max(Abs(road.range.left),Abs(road.range.right));
+				const double arterialBonus=road.edge->roadType==RoadType::Arterial || road.edge->totalWidth()>=18.0f ? 4.0 : 0.0;
+				return Max(0.0,road.distance-outer)-arterialBonus;
+			};
+			return frontage(a)<frontage(b);
+		});
 		return result;
 	}
 	bool overlapsBuildings(const World& world, Point coord, Point cell, const ParcelGeometry::Quad& footprint)

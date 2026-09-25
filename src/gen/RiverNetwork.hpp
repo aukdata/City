@@ -8,7 +8,7 @@
 class RiverNetwork
 {
 public:
-	struct Reach { Vec3 start,end; double halfWidth=20; double endHalfWidth=20; double barSide=0; double catchment=0; double incision=0; double alluvium=0; RectF bounds; };
+	struct Reach { Vec3 start,end; double halfWidth=20; double endHalfWidth=20; double barSide=0; double catchment=0; double incision=0; double alluvium=0; double bankExtent=65; RectF bounds; };
 	struct Sample { Vec2 center; double distance=1e30; double surface=0; double halfWidth=0; int reach=-1; };
 	/// @brief Generation diagnostics for unresolved outlets and escape routes.
 	struct Statistics { int sources=0, spillways=0, unresolved=0, selfIntersections=0, exhausted=0; };
@@ -53,12 +53,14 @@ public:
 	double waterLevel(Vec2 point) const { const auto sample=nearest(point); return sample.distance<=sample.halfWidth+GenerationSettings::get().rivers_waterEdgeMargin ? sample.surface : 0; }
 	double carveHeight(Vec2 point,double original) const
 	{
-		const auto sample=nearest(point); if (sample.reach<0 || sample.distance>sample.halfWidth+GenerationSettings::get().rivers_carveExtent) { return original; }
-		const double bank=Max(0.0,sample.distance-sample.halfWidth);
+		const auto sample=nearest(point); if (sample.reach<0) { return original; }
 		const auto& reach=reaches[sample.reach];
-		const double extent=GenerationSettings::get().rivers_carveExtent;
+		const double extent=reach.bankExtent;
+		if (sample.distance>sample.halfWidth+extent) { return original; }
+		const double bank=Max(0.0,sample.distance-sample.halfWidth);
 		const double target=sample.surface-GenerationSettings::get().rivers_bedDepth-reach.incision+bank*GenerationSettings::get().rivers_bankSlope;
-		const double blend=Clamp((bank-GenerationSettings::get().rivers_bankBlendStart)/GenerationSettings::get().rivers_bankBlendWidth,0.0,1.0);
+		const double blendStart=Min(GenerationSettings::get().rivers_bankBlendStart,extent*.3);
+		const double blend=Clamp((bank-blendStart)/Max(1.0,extent-blendStart),0.0,1.0);
 		const double cut=Math::Lerp(Min(original,target),original,blend*blend*(3-2*blend));
 		const double lowland=Clamp((sample.surface+5-original)/5.0,0.0,1.0);
 		const double fan=Sin(Math::Pi*Clamp(bank/extent,0.0,1.0));

@@ -394,7 +394,11 @@ namespace AgriculturalLayout
 				const Vec3 a=curve->positionAt(begin),b=curve->positionAt(end),n1=tangentToRight(curve->tangentAt(begin))*side,n2=tangentToRight(curve->tangentAt(end))*side;
 				const Vec2 center=horizontal((a+b)*.5+(n1+n2)*config.agriculture_plotWidth*.5);
 				const uint32 salt=hash(seed,center)&~kManagedField;
-				++stats.candidates;if (salt%10000/10000.0>density(center,frames) || !agricultural(world,center)) { continue; }
+				// Fields occur in contiguous farming districts rather than isolated random plots.
+				const Vec2 districtCell{Floor(center.x/bucketSize)*bucketSize,Floor(center.y/bucketSize)*bucketSize};
+				const double districtRoll=(hash(seed,districtCell)%10000)/10000.0;
+				const double plotRoll=(salt%10000)/10000.0;
+				++stats.candidates;if (districtRoll*.72+plotRoll*.28>density(center,frames) || !agricultural(world,center)) { continue; }
 				const double near=edge.totalWidth()*.5+config.agriculture_bundWidth+config.agriculture_drainWidth;
 				const double depth=config.agriculture_plotWidth*2*(1+config.agriculture_fieldShapeVariation*(static_cast<double>((salt>>8)%100)/50-1));
 				const Vec2 left=horizontal(a+n1*near),right=horizontal(b+n2*near),farLeft=horizontal(a+n1*(near+depth)),farRight=horizontal(b+n2*(near+depth*(.7+(salt%61)/100.0)));

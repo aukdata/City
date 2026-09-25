@@ -286,8 +286,13 @@ private:
 	Optional<LandParcelRef> m_selectedLandParcel;
 	Mesh m_landParcelOutline;
 	uint64 m_landParcelRevision=0;
+	bool m_landParcelEditing=false;
+	int m_landParcelDragVertex=-1;
 	void drawLandParcelPanel();
 	bool selectLandParcelAt(Vec2 position);
+	void refreshLandParcelMesh();
+	void handleLandParcelEditInput();
+	void renderLandParcelEditHandles();
 
 
 	/// @brief 道路路線選択（Edge/Node 選択と独立に保持）
@@ -321,6 +326,8 @@ private:
 		m_selectedRoadPlanId = none;
 		m_selectedBuilding = none;
 		m_selectedLandParcel = none;
+		m_landParcelEditing = false;
+		m_landParcelDragVertex = -1;
 		m_landParcelOutline = Mesh{};
 		m_panelManager.hide(U"land_info");
 	}

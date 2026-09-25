@@ -356,6 +356,12 @@ void GameScene::handleInput()
 		}
 	}
 
+	if (m_landParcelEditing && m_selectedLandParcel && m_mode==EditMode::None)
+	{
+		handleLandParcelEditInput();
+		return;
+	}
+
 	if (StartScreenControls::layerButton(Scene::Size(), m_frameRateGraph.visible).contains(Cursor::PosF()) ||
 		m_uiRenderer.isMouseOnHud() || NavigationHeader::placeBounds(Scene::Size()).contains(Cursor::PosF()))
 	{
@@ -1738,6 +1744,85 @@ Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
 		}
 	}
 	return best;
+}
+
+void GameScene::refreshLandParcelMesh()
+{
+	if (!m_selectedLandParcel) { return; }
+	const Chunk* chunk=m_world.getChunk(m_selectedLandParcel->chunkCoord);
+	if (!chunk) { return; }
+	for (const LandPatch& patch:chunk->landPatches)
+	{
+		if (patch.id!=m_selectedLandParcel->id) { continue; }
+		const MeshData surface=m_worldRenderer.landPatchSurface(m_world,m_network,chunk->coord,patch);
+		m_landParcelOutline=surface.indices.isEmpty() ? Mesh{} : Mesh{surface};
+		m_landParcelRevision=m_worldRenderer.geometryRevision();
+		return;
+	}
+}
+
+/// @brief Keep a selected plot valid while dragging, inserting, or removing its vertices.
+void GameScene::handleLandParcelEditInput()
+{
+	Chunk* chunk=m_world.getChunk(m_selectedLandParcel->chunkCoord);
+	if (!chunk) { clearSelection(); return; }
+	LandPatch* patch=nullptr;
+	for (LandPatch& candidate:chunk->landPatches)
+	{
+		if (candidate.id==m_selectedLandParcel->id) { patch=&candidate; break; }
+	}
+	if (!patch) { clearSelection(); return; }
+	if (MouseL.up()) { m_landParcelDragVertex=-1; }
+	const auto screenPoint=[&](Vec2 point)
+	{
+		return m_camera.camera3D().worldToScreenPoint(Vec3{point.x,
+			m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+.2,point.y});
+	};
+	const Vec2 cursor=Cursor::PosF();
+	int vertex=-1,edge=-1;
+	double vertexDistance=12.0*12.0,edgeDistance=9.0*9.0;
+	for (size_t index=0;index<patch->polygon.size();++index)
+	{
+		const Vec3 projected=screenPoint(patch->polygon[index]);
+		if (projected.z>0 && projected.z<1 && cursor.distanceFromSq(projected.xy())<vertexDistance)
+		{ vertex=static_cast<int>(index); vertexDistance=cursor.distanceFromSq(projected.xy()); }
+		const Vec2 midpoint=(patch->polygon[index]+patch->polygon[(index+1)%patch->polygon.size()])*.5;
+		const Vec3 middle=screenPoint(midpoint);
+		if (middle.z>0 && middle.z<1 && cursor.distanceFromSq(middle.xy())<edgeDistance)
+		{ edge=static_cast<int>(index); edgeDistance=cursor.distanceFromSq(middle.xy()); }
+	}
+	const auto apply=[&](Array<Vec2> vertices)
+	{
+		if (!LandPlot::validEditablePolygon(vertices)) { return false; }
+		patch->polygon=std::move(vertices);
+		chunk->meshDirty=true;
+		refreshLandParcelMesh();
+		return true;
+	};
+	if (MouseR.down() && vertex>=0 && patch->polygon.size()>3 && !m_panelManager.blocksMouseInput())
+	{
+		Array<Vec2> vertices=patch->polygon;
+		vertices.erase(vertices.begin()+vertex);
+		m_landParcelDragVertex=-1;
+		apply(std::move(vertices));
+		return;
+	}
+	if (MouseL.down() && !m_panelManager.blocksMouseInput())
+	{
+		if (vertex>=0) { m_landParcelDragVertex=vertex; }
+		else if (edge>=0)
+		{
+			Array<Vec2> vertices=patch->polygon;
+			vertices.insert(vertices.begin()+edge+1,(vertices[edge]+vertices[(edge+1)%vertices.size()])*.5);
+			if (apply(std::move(vertices))) { m_landParcelDragVertex=edge+1; }
+		}
+	}
+	if (m_landParcelDragVertex>=0 && MouseL.pressed() && m_cursorGroundPos)
+	{
+		Array<Vec2> vertices=patch->polygon;
+		vertices[m_landParcelDragVertex]={m_cursorGroundPos->x,m_cursorGroundPos->z};
+		apply(std::move(vertices));
+	}
 }
 
 bool GameScene::selectLandParcelAt(Vec2 position)

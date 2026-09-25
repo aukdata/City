@@ -11,12 +11,12 @@ namespace TerrainMaterials
 	{
 		switch (materialKey)
 		{
-		case 1: return ColorF{ 0.50, 0.62, 0.38 };
+		case 1: return ColorF{ 0.61, 0.66, 0.72 };
 		case 2: return ColorF{ 0.38, 0.54, 0.30 };
 		case 3: return ColorF{ 0.50, 0.45, 0.30 };
 		case 4: return ColorF{ 0.76, 0.70, 0.52 };
 		case 5: return ColorF{ 0.48, 0.58, 0.56 };
-		default: return ColorF{ 0.42, 0.57, 0.32 };
+		default: return ColorF{ 0.65, 0.69, 0.76 };
 		}
 	}
 
@@ -26,7 +26,7 @@ namespace TerrainMaterials
 		{
 		case 1:
 		case 2:
-			return Asset::SparseGrass;
+			return Asset::Grass;
 		case 4:
 			return Asset::Sand;
 		case 5:
@@ -34,8 +34,9 @@ namespace TerrainMaterials
 		case 100:
 		case 117:
 		case 119:
-		case 120:
 			return Asset::Concrete;
+		case 120:
+			return Asset::Gravel;
 		case 110:
 		case 111:
 		case 114:
@@ -44,7 +45,7 @@ namespace TerrainMaterials
 		case 113:
 			return Asset::SparseGrass;
 		default:
-			return Asset::SparseGrass;
+			return Asset::Grass;
 		}
 	}
 }

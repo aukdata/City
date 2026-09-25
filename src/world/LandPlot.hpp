@@ -4,6 +4,32 @@
 /// @brief Queries use the actual plot polygon, including concave boundaries.
 namespace LandPlot
 {
+	/// @brief Reject collapsed or self-intersecting outlines before applying an edit.
+	inline bool validEditablePolygon(const Array<Vec2>& vertices)
+	{
+		if (vertices.size()<3 || vertices.size()>128) { return false; }
+		double area=0;
+		for (size_t i=0;i<vertices.size();++i)
+		{
+			const Vec2 a=vertices[i],b=vertices[(i+1)%vertices.size()];
+			if (!IsFinite(a.x) || !IsFinite(a.y) || a.x<0 || a.y<0 || a.x>=WORLD_SIZE || a.y>=WORLD_SIZE
+				|| a.distanceFromSq(b)<1.0) { return false; }
+			area+=a.cross(b);
+		}
+		if (Abs(area)<8.0) { return false; }
+		const auto cross=[](Vec2 a,Vec2 b,Vec2 c) { return (b-a).cross(c-a); };
+		for (size_t i=0;i<vertices.size();++i)
+		{
+			const Vec2 a=vertices[i],b=vertices[(i+1)%vertices.size()];
+			for (size_t j=i+2;j<vertices.size();++j)
+			{
+				if (i==0 && j+1==vertices.size()) { continue; }
+				const Vec2 c=vertices[j],d=vertices[(j+1)%vertices.size()];
+				if (cross(a,b,c)*cross(a,b,d)<=0 && cross(c,d,a)*cross(c,d,b)<=0) { return false; }
+			}
+		}
+		return true;
+	}
 	inline bool selectable(const LandPatch& patch)
 	{
 		return patch.type != LandPatchType::Beach && patch.type != LandPatchType::Seawall && patch.polygon.size() >= 3;

@@ -431,11 +431,35 @@ namespace
 				if (use.district==UrbanMorphology::District::Housing) { building.type=roll<GenerationSettings::get().urbanFabric_newTownDetachedPercent ? BuildingType::Detached : BuildingType::LowApartment; }
 			}
 			UrbanStructure::adaptBuilding(building,settlement.plan,local,roll);
+			// Small local towns have only occasional mid-rise buildings near the station.
+			if (settlement.plan.scale==1)
+			{
+				const bool stationLandmark=use.district==UrbanMorphology::District::Station && (hash&7u)==0;
+				if (building.type==BuildingType::MidApartment && !stationLandmark) { building.type=BuildingType::LowApartment; }
+				if (building.type==BuildingType::LowApartment && !stationLandmark && (hash/29u)%5u!=0u)
+				{
+					building.type=use.district==UrbanMorphology::District::OldTown ? BuildingType::Shop : BuildingType::Detached;
+				}
+				if (building.type==BuildingType::HighApartment || building.type==BuildingType::OfficeTower) { building.type=BuildingType::LowApartment; }
+				if (building.type==BuildingType::Office && !stationLandmark) { building.type=BuildingType::Shop; }
+			}
 			if (building.type == BuildingType::Detached
 				&& (settlement.plan.scale == 2 || !UrbanMorphology::inCore(settlement.plan, local,GenerationSettings::get().development_ruralHouseCoreMargin))
 				&& (hash / 101u) % 100u < GenerationSettings::get().development_context_Housing_70)
 			{
 				building.type = BuildingType::RuralHouse;
+			}
+			if (settlement.plan.scale<=1 && UrbanMorphology::inCore(settlement.plan,local)
+				&& (use.district==UrbanMorphology::District::Housing || use.district==UrbanMorphology::District::PlannedHousing))
+			{
+				// Everyday shops, small parking lots and pocket parks punctuate residential streets.
+				const uint32 mix=(hash/151u)%1000u;
+				const uint32 shop=settlement.plan.scale==0 ? 25u : 18u;
+				const uint32 parking=settlement.plan.scale==0 ? 55u : 42u;
+				const uint32 park=settlement.plan.scale==0 ? 75u : 55u;
+				if (mix<shop) { building.type=BuildingType::Shop; }
+				else if (mix<parking) { building.type=BuildingType::Parking; }
+				else if (mix<park) { building.type=BuildingType::ParkBuilding; }
 			}
 		}
 
@@ -580,6 +604,7 @@ namespace
 		float angle = 0.0f;
 		float halfWidth = 0.0f;
 		float roadDist = 0.0f;
+		float frontageScore = 0.0f; ///< 道路端までの距離。近接する幹線を優先。
 		Vec2  roadToCellDir{ 1.0f, 0.0f };
 		float centerDistSq = 0.0f;
 		Vec2 roadPosition{ 0, 0 };
@@ -746,7 +771,9 @@ namespace
 					slot.edgeT = projection.edgeT;
 					slot.angle = static_cast<float>(std::atan2(-roadToCellDir.x, roadToCellDir.y));
 					slot.halfWidth = edgeHalfWidth;
-					slot.roadDist = projection.distance;
+					slot.roadDist = static_cast<float>(cellCenter.distanceFrom(projection.position));
+					slot.frontageScore = Max(0.0f,slot.roadDist-edgeHalfWidth)
+						- (edge.roadType==RoadType::Arterial || edge.totalWidth()>=18.0f ? 4.0f : 0.0f);
 					slot.roadToCellDir = roadToCellDir;
 					slot.centerDistSq = centerDx * centerDx + centerDz * centerDz;
 					slot.roadPosition = projection.position;
@@ -755,8 +782,8 @@ namespace
 					const int64 key = zoneCellKey(cc, gx, gz);
 					const auto it = bestByCell.find(key);
 					if (it == bestByCell.end()
-					 || slot.roadDist < it->second.roadDist
-					 || (Math::Abs(slot.roadDist - it->second.roadDist) < 1e-4f && slot.centerDistSq < it->second.centerDistSq))
+					 || slot.frontageScore < it->second.frontageScore
+					 || (Math::Abs(slot.frontageScore - it->second.frontageScore) < 1e-4f && slot.centerDistSq < it->second.centerDistSq))
 					{
 						bestByCell[key] = slot;
 					}
@@ -898,7 +925,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 
 			const int64 slotKey = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
 			const auto slotIt = edgeFacingSlotsByCell.find(slotKey);
-			if (slotIt == edgeFacingSlotsByCell.end() || slot.roadDist < slotIt->second.roadDist)
+			if (slotIt == edgeFacingSlotsByCell.end() || slot.frontageScore < slotIt->second.frontageScore)
 			{
 				edgeFacingSlotsByCell[slotKey] = slot;
 			}
@@ -1207,7 +1234,12 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 			return LandPatchType::ParcelAsphalt;
 		}
 		if (buildingType == BuildingType::Office || buildingType == BuildingType::MidApartment || buildingType == BuildingType::HighApartment) { return LandPatchType::ParcelAsphalt; }
-		if (buildingType == BuildingType::Parking || zone == ZoneType::Commercial || zone == ZoneType::Industrial)
+		if (buildingType == BuildingType::Parking) { return LandPatchType::ParcelAsphalt; }
+		if (buildingType == BuildingType::Shop || zone == ZoneType::Commercial)
+		{
+			return ((salt >> 5) % 5u)==0u ? LandPatchType::ParcelGravel : LandPatchType::ParcelAsphalt;
+		}
+		if (zone == ZoneType::Industrial)
 		{
 			return ((salt >> 5) & 1u) ? LandPatchType::ParcelAsphalt : LandPatchType::ParcelGravel;
 		}
@@ -1368,16 +1400,22 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					const double density=districtIndex>=0 && !isCompleteSiteBuilding(building.type)
 						? UrbanMorphology::downtownIntensity(m_districts[districtIndex].plan,planLocal(m_districts[districtIndex],sampleCenter)) : 0;
 					const auto& settings=GenerationSettings::get();
-					const double depth=Math::Lerp(static_cast<double>(plotDepth),settings.urbanFabric_downtownPlotDepth,density);
+					const double rawDepth=Math::Lerp(static_cast<double>(plotDepth),settings.urbanFabric_downtownPlotDepth,density);
+					const double depth=districtIndex>=0 && m_districts[districtIndex].plan.scale==1 && zone==ZoneType::Commercial
+						? Min(rawDepth,30.0) : rawDepth;
 					const double backMargin=Math::Lerp(static_cast<double>(settings.development_parcelBackMargin),settings.urbanFabric_downtownBackMargin,density);
-					const double backOffset=Max(structuralOuter+depth,projection.distance+buildingHalf+backMargin);
+					const bool completeSite=isCompleteSiteBuilding(building.type);
+					const double backOffset=completeSite
+						? Max(frontOffset+2.0,projection.distance+buildingHalf+1.0)
+						: Max(structuralOuter+depth,projection.distance+buildingHalf+backMargin);
 					const double normalHalf=Max(buildingHalf+settings.development_parcelSideMargin,Max(kCellSize*settings.development_parcelCellHalfRatio,static_cast<float>(use.frontage)*settings.development_parcelFrontageHalfRatio));
-					const double halfAlong=Math::Lerp(normalHalf,buildingHalf+settings.urbanFabric_downtownSideMargin,density);
+					const double halfAlong=completeSite ? buildingHalf+1.0 : Math::Lerp(normalHalf,buildingHalf+settings.urbanFabric_downtownSideMargin,density);
 					const Vec2 along = projection.tangent;
 					LandPatch patch;
 					patch.id = static_cast<int>(patchIndex++);
 					patch.sourceParcelKey = cellKey;
-					patch.type = parcelTypeFor(zone, building.type, salt);
+					patch.type = completeSite && building.type!=BuildingType::RuralHouse
+						? LandPatchType::ParcelAsphalt : parcelTypeFor(zone, building.type, salt);
 					patch.elevationOffset = GenerationSettings::get().development_parcelSurfaceLift;
 					patch.materialVariant = salt;
 					patch.polygon = {
@@ -1528,7 +1566,7 @@ void SettlementDevelopment::migrateLegacyBuildingFrontageReferences()
 		{
 			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
 			const auto it = edgeFacingSlotsByCell.find(key);
-			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
+			if (it == edgeFacingSlotsByCell.end() || slot.frontageScore < it->second.frontageScore)
 			{
 				edgeFacingSlotsByCell[key] = slot;
 			}
@@ -1594,7 +1632,7 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 		{
 			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
 			const auto it = edgeFacingSlotsByCell.find(key);
-			if (it == edgeFacingSlotsByCell.end() || slot.roadDist < it->second.roadDist)
+			if (it == edgeFacingSlotsByCell.end() || slot.frontageScore < it->second.frontageScore)
 			{
 				edgeFacingSlotsByCell[key] = slot;
 			}

@@ -1037,6 +1037,7 @@ void GameScene::render2DUI()
 
 	// 選択中エッジの 3D 編集ハンドル（パネルより後ろに描画）
 	renderEdgeHandles();
+	renderLandParcelEditHandles();
 	lap(m_renderTimings.uiEdgeHandles);
 
 	if (m_mode == EditMode::RoadPlan && m_panelManager.isVisible(U"draw_template"))
@@ -1105,6 +1106,40 @@ void GameScene::render2DUI()
 
 	m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
 	lap(m_renderTimings.uiPanels);
+}
+
+/// @brief Draw editable parcel vertices and insertion points over the world.
+void GameScene::renderLandParcelEditHandles()
+{
+	if (!m_landParcelEditing || !m_selectedLandParcel) { return; }
+	const Chunk* chunk=m_world.getChunk(m_selectedLandParcel->chunkCoord);
+	if (!chunk) { return; }
+	const LandPatch* patch=nullptr;
+	for (const LandPatch& candidate:chunk->landPatches)
+	{
+		if (candidate.id==m_selectedLandParcel->id) { patch=&candidate; break; }
+	}
+	if (!patch) { return; }
+	const auto screenPoint=[&](Vec2 point)
+	{
+		return m_camera.camera3D().worldToScreenPoint(Vec3{point.x,
+			m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))+.2,point.y});
+	};
+	for (size_t index=0;index<patch->polygon.size();++index)
+	{
+		const Vec3 a=screenPoint(patch->polygon[index]);
+		const Vec3 b=screenPoint(patch->polygon[(index+1)%patch->polygon.size()]);
+		if (a.z>0 && a.z<1 && b.z>0 && b.z<1)
+		{
+			Line{a.xy(),b.xy()}.draw(2.0,ColorF{1,.75,.15});
+			Circle{(a.xy()+b.xy())*.5,5}.draw(ColorF{.15,.75,1}).drawFrame(1,Palette::Black);
+		}
+		if (a.z>0 && a.z<1)
+		{
+			Circle{a.xy(),8}.draw(index==static_cast<size_t>(m_landParcelDragVertex)
+				? ColorF{1,.45,.2} : ColorF{1,.85,.25}).drawFrame(2,Palette::Black);
+		}
+	}
 }
 
 // =============================================================================
