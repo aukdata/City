@@ -217,14 +217,14 @@ void registerComprehensiveTests(TestRunner& runner)
 	{
 		MapGenerator::Settlement town;town.name=U"山里";town.reading=U"yamazato";
 		town.kind = MapGenerator::SettlementKind::RegionalCity;
-		context.expect(SettlementNames::name(town) == U"山里市" && SettlementNames::reading(town) == U"yamazato City",
+		context.expect(SettlementNames::name(town) == U"山里市" && SettlementNames::reading(town) == U"Yamazato City",
 			U"City labels have city suffixes and romanization");
 		town.kind=MapGenerator::SettlementKind::LocalTown;context.expect(SettlementNames::name(town)==U"山里町",U"Market towns use machi");
 		town.kind = MapGenerator::SettlementKind::RuralSettlement;
 		context.expect(SettlementNames::name(town) == U"山里村", U"Villages use mura");
 		town.name = U"松村";
 		town.reading = U"matsumura";
-		context.expect(SettlementNames::name(town) == U"松村" && SettlementNames::reading(town) == U"matsumura Vill.",
+		context.expect(SettlementNames::name(town) == U"松村" && SettlementNames::reading(town) == U"Matsumura Vill.",
 			U"Generated roots already ending in mura do not duplicate the suffix");
 	});
 

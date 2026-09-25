@@ -229,16 +229,33 @@ static Optional<RoadAlignment::Result> fitTerrainCorridor(const World& world, co
 			}
 			pieces << curve;
 		}
+		Array<double> requiredWater(pieces.size()+1,-Math::Inf);
+		for (size_t i=0;i<pieces.size();++i)
+		{
+			const auto& piece=pieces[i];
+			const int samples=Max(1,static_cast<int>(Ceil(piece.totalLength/settings.crossings_waterSampleStep)));
+			for (int sample=0;sample<samples;++sample)
+			{
+				const Vec3 p=piece.positionAt(piece.totalLength*(static_cast<float>(sample)+.5f)/samples);
+				const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
+				const double water=world.waterSurfaceHeight(p.x,p.z);
+				if (ground>=water+settings.crossings_waterBankMargin) { continue; }
+				const double safe=water+Max(5.5,settings.crossings_waterClearance)+1;
+				requiredWater[i]=Max(requiredWater[i],safe);
+				requiredWater[i+1]=Max(requiredWater[i+1],safe);
+			}
+		}
 		Array<double> levels, lower, upper, rises;
 		for (size_t i=0; i<=pieces.size(); ++i)
 		{
 			const Vec3 p=i<pieces.size() ? pieces[i].p0 : pieces.back().p3;
 			const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),water=world.waterSurfaceHeight(p.x,p.z);
 			const bool wet=ground<water+settings.crossings_waterBankMargin;
-			const double target=wet ? water+settings.crossings_waterClearance : ground;
+			const double target=Max(wet ? water+Max(5.5,settings.crossings_waterClearance)+1 : ground,requiredWater[i]);
 			levels << target;
-			lower << (wet ? target : ground-RoadConstructionCost::MaximumCut());
-			upper << Max(target,ground+RoadConstructionCost::MaximumFill());
+			// Keep short excavations and bridges available while following the sampled terrain.
+			lower << Max(wet ? target : ground-RoadConstructionCost::MaximumCut()*2,requiredWater[i]);
+			upper << Max(target,ground+RoadConstructionCost::MaximumFill()*2);
 			if (i>0) { rises << horizontal(p-pieces[i-1].p0).length()*grade; }
 		}
 		lower.front()=upper.front()=levels.front()=input.front().y;
@@ -308,6 +325,7 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 	const Landscape landscape{world,
 		{Max(0.0,Min(start.x,goal.x)-margin),Max(0.0,Min(start.z,goal.z)-margin)},
 		{Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.x,goal.x)+margin),Min(static_cast<double>(WORLD_SIZE)-.01,Max(start.z,goal.z)+margin)},type,grade,mode,maximumViaductHeight};
+	const bool requireTerrainCorridor = mode == TransportMode::Road && std::isfinite(maximumViaductHeight);
 	const Vec3 straight=Vec3{goal.x-start.x,0,goal.z-start.z}.normalized();
 	const CubicBezier direct=profile(start,goal,straight,straight,distance/3);
 	const auto directCost=landscape.cost(direct);
@@ -315,7 +333,8 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 	if (directCost && *directCost<=direct.totalLength*(1+1e-6)) { return Result{{direct},*directCost,0}; }
 
 	Optional<Result> incumbent;
-	if (directCost) { incumbent = Result{{direct}, *directCost, 0}; }
+	// 自動生成では、地形を検証していない直線を探索失敗時の代替経路にしない。
+	if (directCost && !requireTerrainCorridor) { incumbent = Result{{direct}, *directCost, 0}; }
 	// A cheap, terrain-following corridor gives the spatial search an early upper bound.
 	RoadPathfinder coarse;
 	const float coarseStep = static_cast<float>(Max(GenerationSettings::get().routing_coarseMinimumStep, Max(limits.minimumRadius * GenerationSettings::get().routing_coarseRadiusRatio, distance / GenerationSettings::get().routing_distanceStepDivisor)));
@@ -329,7 +348,7 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 		auto points = coarse.samplePath(path, 3); points.front() = start; points.back() = goal;
 		const auto curves = fit(points);
 		const double cost = constructionCost(world, curves, type, mode);
-		if (std::isfinite(cost) && maximumClearance(world,curves)<=maximumViaductHeight && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, 0}; }
+		if (!requireTerrainCorridor && std::isfinite(cost) && maximumClearance(world,curves)<=maximumViaductHeight && (!incumbent || cost < incumbent->cost)) { incumbent = Result{curves, cost, 0}; }
 		if (mode == TransportMode::Road)
 		{
 			if (const auto terrain = fitTerrain(world, points, type, mode); terrain && maximumClearance(world,terrain->curves)<=maximumViaductHeight && (!incumbent || terrain->cost < incumbent->cost)) { incumbent = terrain; }

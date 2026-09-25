@@ -193,9 +193,22 @@ void registerGenerationRevisionTests(TestRunner& runner)
 		MapGenerator::Settlement place;
 		place.name = U"山里";
 		place.reading = U"yamazato";
-		context.expect(SettlementNames::reading(place) == U"yamazato Vill.", U"村の英語接尾辞");
+		context.expect(SettlementNames::reading(place) == U"Yamazato Vill.", U"村の英語接尾辞");
 		place.kind = MapGenerator::SettlementKind::LocalTown;
-		context.expect(SettlementNames::reading(place) == U"yamazato Towm", U"町は指定されたTowm表記");
+		context.expect(SettlementNames::reading(place) == U"Yamazato Towm", U"町は指定されたTowm表記");
+	});
+	runner.add(U"GenerationRevision.CapitalizedPlaceReadings", [](TestContext& context)
+	{
+		PlaceNameGenerator generator;
+		context.expect(generator.load(U"../../App/assets/placenames/placenames.toml"), U"Place name dictionary loads");
+		const auto basic=generator.generate(8,42);
+		const auto biomes=generator.generateWithBiomes(8,Array<BiomeType>(8,BiomeType::Plain),42);
+		for (int i=0;i<8;++i)
+		{
+			const String a=basic.settlementReading(i),b=biomes.settlementReading(i);
+			context.expect(!a.isEmpty() && a[0]>=U'A' && a[0]<=U'Z' &&
+				!b.isEmpty() && b[0]>=U'A' && b[0]<=U'Z', U"Generated romanized names start with a capital");
+		}
 	});
 	runner.add(U"GenerationRevision.VillageShortcuts", [](TestContext& context)
 	{

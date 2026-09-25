@@ -151,7 +151,8 @@ namespace VillageConnections
 				continue;
 			}
 			++result.detours;
-			const auto alignment = RoadAlignment::find(world, from, to, RoadType::LocalRoad);
+			const auto alignment = RoadAlignment::find(world, from, to, RoadType::LocalRoad,
+				config.routing_generatedExpansionLimit, TransportMode::Road, config.roads_maximumGeneratedViaductHeight);
 			if (!alignment)
 			{
 				continue;

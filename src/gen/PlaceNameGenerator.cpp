@@ -63,7 +63,7 @@ PlaceNameDB PlaceNameGenerator::generate(int settlementCount, uint64 mapSeed) co
 		const auto [name, reading] = generateOne(cat, db, state);
 
 		db.settlementNames[i]    = name;
-		db.settlementReadings[i] = reading;
+		db.settlementReadings[i] = PlaceNameFormat::capitalizeReading(reading);
 	}
 
 	return db;
@@ -86,7 +86,7 @@ PlaceNameDB PlaceNameGenerator::generateWithBiomes(
 		const auto [name, reading] = generateOne(cat, db, state);
 
 		db.settlementNames[i]    = name;
-		db.settlementReadings[i] = reading;
+		db.settlementReadings[i] = PlaceNameFormat::capitalizeReading(reading);
 	}
 
 	return db;

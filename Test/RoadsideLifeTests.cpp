@@ -458,6 +458,22 @@ void registerRoadsideLifeTests(TestRunner& runner)
 		context.expect(manual.has_value() && !automatic,U"自動生成の高架上限は手動計画の高さ指定と分ける");
 	});
 
+
+	runner.add(U"RoadDesign.GeneratedRoadHasNoStraightTunnelFallback", [](TestContext& context)
+	{
+		World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+		Grid<float> terrain(65, 65, 20);
+		for (int z = 0; z <= 64; ++z) for (int x = 25; x <= 39; ++x) { terrain[{x, z}] = 100; }
+		world.installChunkDirect({0, 0}, HeightMapResult{terrain, 20, 100});
+		const Vec3 start{200, 20, 512}, goal{824, 20, 512};
+		const auto direct = RoadAlignment::fit({start, goal});
+		context.expect(std::isfinite(RoadAlignment::constructionCost(world, direct, RoadType::LocalRoad)),
+			U"長い直線トンネルは費用上は有限の候補である");
+		const auto route = RoadAlignment::find(world, start, goal, RoadType::LocalRoad, 0,
+			TransportMode::Road, GenerationSettings::get().roads_maximumGeneratedViaductHeight);
+		context.expect(!route, U"地形回廊が成立しない場合は直線トンネルにフォールバックしない");
+	});
+
 	runner.add(U"RoadDesign.SurfaceDetourBeatsTunnel", [](TestContext& context)
 	{
 		World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);

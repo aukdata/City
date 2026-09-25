@@ -17,7 +17,7 @@ namespace SettlementNames
 			return {};
 		}
 		// 語幹が「村」で終わる場合も英語の行政種別は省略しない。
-		return town.reading + (town.kind == MapGenerator::SettlementKind::RegionalCity	 ? U" City"
+		return PlaceNameFormat::capitalizeReading(town.reading) + (town.kind == MapGenerator::SettlementKind::RegionalCity	 ? U" City"
 								  : town.kind == MapGenerator::SettlementKind::LocalTown ? U" Towm"
 																						 : U" Vill.");
 	}

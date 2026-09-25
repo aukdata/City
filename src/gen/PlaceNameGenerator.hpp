@@ -1,6 +1,19 @@
 ﻿#pragma once
 #include "TerrainType.hpp"
 
+/// @brief ローマ字地名を表示用の頭大文字へ揃える。
+namespace PlaceNameFormat
+{
+	inline String capitalizeReading(String reading)
+	{
+		if (!reading.isEmpty() && reading[0] >= U'a' && reading[0] <= U'z')
+		{
+			reading[0] = reading[0] - U'a' + U'A';
+		}
+		return reading;
+	}
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 地名カテゴリ（11_placename_spec.md §2）
 // ─────────────────────────────────────────────────────────────────────────────

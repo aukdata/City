@@ -37,14 +37,14 @@ public:
 		{
 			const bool urban=town.kind!=MapGenerator::SettlementKind::RuralSettlement;
 			const int parent=at(town.center,0); if (parent<0) { continue; }
-			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban,town.reading+(urban ? U" Honmachi" : U""));
+			add(1,parent,urban ? town.name+U"本町" : U"大字"+town.name,town.center,urban,PlaceNameFormat::capitalizeReading(town.reading)+(urban ? U" Honmachi" : U""));
 			if (town.kind==MapGenerator::SettlementKind::RegionalCity)
 			{
 				const std::array<String,4> names{U"東町",U"西町",U"南町",U"北町"};
 				for (int i=0;i<4;++i)
 				{
 					const Vec2 p=town.center+(i<2 ? town.gridAxisX : town.gridAxisZ)*(i%2==0 ? 1.0 : -1.0)*Max(300.0,static_cast<double>(town.radius)*.45);
-					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true,town.reading+std::array<String,4>{U" Higashimachi",U" Nishimachi",U" Minamimachi",U" Kitamachi"}[i]); }
+					if (at(p,0)==parent) { add(1,parent,town.name+names[i],p,true,PlaceNameFormat::capitalizeReading(town.reading)+std::array<String,4>{U" Higashimachi",U" Nishimachi",U" Minamimachi",U" Kitamachi"}[i]); }
 				}
 			}
 		}

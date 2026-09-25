@@ -462,7 +462,7 @@ bool GameScene::loadGame()
 				s.score = dist[scoreKey].get<float>();
 			const String readingKey = U"reading_{}"_fmt(i);
 			if (dist.hasElement(readingKey))
-				s.reading = dist[readingKey].get<String>();
+				s.reading = PlaceNameFormat::capitalizeReading(dist[readingKey].get<String>());
 			const auto origin=static_cast<UrbanMorphology::Origin>(dist[U"origin_{}"_fmt(i)].getOr<int>(7));
 			UrbanMorphology::Site site;
 			const double halfZ=dist[U"halfZ_{}"_fmt(i)].getOr<double>(170);
