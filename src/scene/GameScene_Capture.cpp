@@ -687,9 +687,11 @@ void GameScene::updateCaptureCityRenders()
 	if (m_captureFrame == warmupFrames - 61 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
 	if (++m_captureFrame == warmupFrames)
 	{
-		FileSystem::CreateDirectories(U"Screenshot/city_generation");
-		const String fileName = U"city_generation/" + captureFileName(m_captureIndex);
+		const FilePath directory=U"Screenshot/"+getData().captureFolder;
+		FileSystem::CreateDirectories(directory);
+		const String fileName=getData().captureFolder+U"/"+captureFileName(m_captureIndex);
 		ScreenCapture::SaveCurrentFrame(fileName);
+		DebugLog::print(U"[CaptureLocation] view={} focus={} eye={}"_fmt(m_captureIndex,m_camera.focusPoint(),m_camera.eyePosition()));
 		DebugLog::print(U"[CapturePerf] view={} frameMs={:.2f} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f}"_fmt(
 			m_captureIndex, Scene::DeltaTime() * 1000.0, m_renderTimings.total,
 			m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds()));
@@ -729,7 +731,7 @@ void GameScene::updateCaptureCityRenders()
 		if (m_captureIndex >= kCaptureCount)
 		{
 			{
-				TextWriter writer{ U"Screenshot/city_generation/validation_report.txt" };
+				TextWriter writer{ U"Screenshot/"+getData().captureFolder+U"/validation_report.txt" };
 				if (writer)
 				{
 					writer << U"passed=" + String{ m_cityConstraintValidationPassed ? U"true" : U"false" };
@@ -739,7 +741,7 @@ void GameScene::updateCaptureCityRenders()
 			}
 			if (!m_cityConstraintValidationPassed)
 			{
-				TextWriter writer{ U"Screenshot/city_generation/constraint_validation_failed.txt" };
+				TextWriter writer{ U"Screenshot/"+getData().captureFolder+U"/constraint_validation_failed.txt" };
 				if (writer) writer << U"City constraint validation failed: " + m_cityConstraintValidationSummary;
 			}
 			System::Exit();

@@ -71,6 +71,7 @@ void GameApp::run()
 		}
 
 		if (args[i] == U"--audit-road-integrity") { manager.get()->auditRoadIntegrity = true; continue; }
+		if (args[i] == U"--capture-folder" && i+1<args.size()) { manager.get()->captureFolder=args[++i]; continue; }
 		if (args[i] == U"--capture-first-person") { manager.get()->captureFirstPerson = true; captureCityRenders = true; continue; }
 		if (args[i] == U"--capture-rail-signs") { manager.get()->captureTransportObjects=true; continue; }
 		if (args[i] == U"--capture-transport") { manager.get()->captureTransport=true; continue; }

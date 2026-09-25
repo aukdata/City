@@ -1055,7 +1055,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		}
 	}
 
-	int blockCount=0,emptyBefore=0,blockInfill=0,emptyAfter=0;
+	int blockCount=0,emptyBefore=0,blockInfill=0,emptyAfter=0,greenTrafficIslands=0;
 	const auto blocks=StreetBlocks::collect(m_network);
 	for (const auto& block : blocks)
 	{
@@ -1122,11 +1122,37 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		}
 		if (!occupied)
 		{
+			// A small street face with no legal building footprint is an open green island.
+			if (block.area<=GenerationSettings::get().parcels_narrowBlockArea*2 && tried>0
+				&& rejectedRoad-roadBefore==tried && rejectedSlope-slopeBefore==0)
+			{
+				int released=0;
+				for (int globalZ=lowChunk.y*ZONE_CELLS+lowZ;globalZ<=highChunk.y*ZONE_CELLS+highZ;++globalZ)
+				{
+					for (int globalX=lowChunk.x*ZONE_CELLS+lowX;globalX<=highChunk.x*ZONE_CELLS+highX;++globalX)
+					{
+						const Point coord{globalX/ZONE_CELLS,globalZ/ZONE_CELLS};
+						const int col=globalX%ZONE_CELLS,row=globalZ%ZONE_CELLS;
+						Chunk* chunk=m_world.getChunk(coord);
+						if (!chunk || !block.contains(cellCenterXZ(coord,col,row))
+							|| chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
+						chunk->zoneMap[{col,row}]=ZoneType::Unzoned;
+						chunk->meshDirty=true;
+						++released;
+					}
+				}
+				if (released>0)
+				{
+					++greenTrafficIslands;
+					DBG_LOG(U"[GreenTrafficIsland] center=({}, {}) area={} cells={}"_fmt(block.center.x,block.center.y,block.area,released));
+					continue;
+				}
+			}
 			++emptyAfter;
 			DBG_LOG(U"[EmptyBlock] center=({}, {}) area={} tried={} footprintRejected={} road={} slope={}"_fmt(block.center.x,block.center.y,block.area,tried,terrainFailures,rejectedRoad-roadBefore,rejectedSlope-slopeBefore));
 		}
 	}
-	DBG_LOG(U"[BlockCoverage] blocks={} emptyBefore={} infill={} emptyAfter={}"_fmt(blockCount,emptyBefore,blockInfill,emptyAfter));
+	DBG_LOG(U"[BlockCoverage] blocks={} emptyBefore={} infill={} greenIslands={} emptyAfter={}"_fmt(blockCount,emptyBefore,blockInfill,greenTrafficIslands,emptyAfter));
 	int fieldCells = 0;
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
@@ -1158,7 +1184,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	refreshBuildingAnglesFromEdges();
 	Validation result = validateGeneratedCityConstraints();
 	result.passed = result.passed && emptyAfter == 0;
-	result.summary+=U" emptyDevelopableBlocks={} generationPassed={}"_fmt(emptyAfter,result.passed);
+	result.summary+=U" greenTrafficIslands={} emptyDevelopableBlocks={} generationPassed={}"_fmt(greenTrafficIslands,emptyAfter,result.passed);
 	return result;
 }
 

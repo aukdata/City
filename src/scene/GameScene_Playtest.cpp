@@ -376,7 +376,7 @@ void GameScene::prepareFringeCapture(int variant)
 	};
 	if (variant==0)
 	{
-		m_camera.setCaptureState(position(town->center),static_cast<float>(town->plan.halfExtent.x*3.6+600),-.7f,1.28f);
+		m_camera.setCaptureState(position(town->center),static_cast<float>(Min(1800.0,town->plan.halfExtent.x*3.6+600)), -.7f,1.28f);
 		JSON report; report[U"halfExtent"]=Array<double>{town->plan.halfExtent.x,town->plan.halfExtent.y};
 		int roadIndex=0,houseIndex=0,fringeHouses=0;
 		const auto local=[&](Vec2 point)
@@ -420,7 +420,7 @@ void GameScene::prepareFringeCapture(int variant)
 			}
 		}
 		report[U"fringeHouses"]=fringeHouses;
-		report.save(U"Screenshot/city_generation/castle_layout.json");
+		report.save(U"Screenshot/"+getData().captureFolder+U"/castle_layout.json");
 		DBG_LOG(U"[FringeCapture] roads={} houses={} fringeHouses={} extent={}"_fmt(roadIndex,houseIndex,fringeHouses,town->plan.halfExtent));
 		return;
 	}
@@ -470,7 +470,7 @@ void GameScene::prepareRoadsideCapture(int variant)
 				for (int col = 0; col < ZONE_CELLS; ++col)
 				{
 					const auto& building = chunk->buildingGrid[{col,row}];
-					if (!isCompleteSiteBuilding(building.type)) { continue; }
+					if (!isRoadsideServiceBuilding(building.type) && building.type!=BuildingType::RuralHouse) { continue; }
 					const int category = static_cast<int>(building.type)-static_cast<int>(BuildingType::UrbanConvenience);
 					++counts[category];
 					const Vec3 point{x*CHUNK_SIZE+(col+.5)*16+building.offsetX,0,z*CHUNK_SIZE+(row+.5)*16+building.offsetZ};
@@ -486,7 +486,7 @@ void GameScene::prepareRoadsideCapture(int variant)
 		}
 	}
 	report[U"counts"] = counts; report[U"found"] = focused;
-	report.save(U"Screenshot/city_generation/roadside_{}.json"_fmt(variant));
+	report.save(U"Screenshot/"+getData().captureFolder+U"/roadside_{}.json"_fmt(variant));
 	DBG_LOG(U"[RoadsideCapture] variant={} found={} urbanShop={} ruralShop={} urbanFuel={} ruralFuel={} ruralHomes={}"_fmt(
 		variant,focused,counts[0],counts[1],counts[2],counts[3],counts[4]));
 }

@@ -20,6 +20,7 @@ struct SceneData
 	bool   captureConstruction = false; ///< 工事の実画面と自動撤去を検証
 	bool   captureRoadPlanUx = false; ///< 道路計画の入力状態を再現して実画面を撮影する
 	bool   captureCityRenders = false; ///< true: 提出用に実ゲームレンダを自動撮影して終了
+	String captureFolder = U"city_generation"; ///< Screenshot 下の撮影先。
 	bool   captureRoadRenders = false; ///< true: 幹線交差点を近景・上空から自動検証
 	bool   syncRoads = false; ///< Synchronous road-cache reference for controlled benchmarks.
 	bool   benchmarkNavigation = false; ///< Repeat walking transitions, turns and map jumps.
