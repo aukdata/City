@@ -7,12 +7,16 @@
     "downtownFullExtent",
     "downtownFadeExtent",
     "downtownStreetSpacingRatio",
+    "downtownAlleyMinimumBlockLength",
+    "downtownAlleyMinimumBlockDepth",
     "downtownPlotDepth",
     "downtownBackMargin",
     "downtownSideMargin",
     "downtownSetback",
     "downtownCornerSetback",
     "downtownFrontagePitch",
+    "structuredCityFrontagePitch",
+    "downtownRowHousePercent",
     "downtownDetachedPercent",
     "downtownLowApartmentPercent",
     "newTownMinimumDistance",
@@ -54,6 +58,16 @@
       "minimum": 0.5,
       "maximum": 1.0
     },
+    "downtownAlleyMinimumBlockLength": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
+    "downtownAlleyMinimumBlockDepth": {
+      "type": "number",
+      "minimum": 1e-05,
+      "maximum": 10000.0
+    },
     "downtownPlotDepth": {
       "type": "number",
       "minimum": 10.0,
@@ -81,8 +95,18 @@
     },
     "downtownFrontagePitch": {
       "type": "number",
-      "minimum": 10.0,
+      "minimum": 6.0,
       "maximum": 20.0
+    },
+    "structuredCityFrontagePitch": {
+      "type": "number",
+      "minimum": 6.0,
+      "maximum": 20.0
+    },
+    "downtownRowHousePercent": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
     },
     "downtownDetachedPercent": {
       "type": "number",

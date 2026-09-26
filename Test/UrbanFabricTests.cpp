@@ -158,8 +158,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 				SettlementDevelopment development{world, roads, trains, towns, seed};
 				development.applyZonesGlobal();
 				const auto validation = development.placeInitialBuildings(true);
-				int count = 0, apartments = 0, detached = 0, warehouses = 0, schools = 0, elevated = 0;
-				double footprintArea = 0, parcelArea = 0, setbacks = 0;
+				int count = 0, roofUnits = 0, apartments = 0, lowApartments = 0, urbanPairs = 0, detached = 0, warehouses = 0, schools = 0, elevated = 0;
+				double footprintArea = 0, roofArea = 0, parcelArea = 0, setbacks = 0;
 				int clippedBuildingCorners = 0;
 				HashTable<int64, ParcelGeometry::Quad> coreFootprints;
 				for (int z = 30; z <= 33; ++z)
@@ -195,8 +195,15 @@ void registerUrbanFabricTests(TestRunner& runner)
 								}
 								++count;
 								footprintArea += Square(buildingFootprintXZ(building.type));
+								if (building.type != BuildingType::Parking && building.type != BuildingType::ParkBuilding)
+								{
+									roofArea += Square(buildingFootprintXZ(building.type));
+									roofUnits += building.type == BuildingType::UrbanHousePair ? 2 : 1;
+								}
 								apartments += building.type == BuildingType::MidApartment ||
 											  building.type == BuildingType::LowApartment;
+								lowApartments += building.type == BuildingType::LowApartment;
+								urbanPairs += building.type == BuildingType::UrbanHousePair;
 								detached += building.type == BuildingType::Detached;
 								warehouses += building.type == BuildingType::IndustrialWarehouse;
 								schools += building.type == BuildingType::School;
@@ -241,12 +248,17 @@ void registerUrbanFabricTests(TestRunner& runner)
 				item[U"scale"] = static_cast<int>(town.kind);
 				item[U"seed"] = seed;
 				item[U"buildings"] = count;
+				item[U"roofUnits"] = roofUnits;
 				item[U"apartments"] = apartments;
+				item[U"lowApartments"] = lowApartments;
+				item[U"urbanPairs"] = urbanPairs;
 				item[U"detached"] = detached;
 				item[U"warehouses"] = warehouses;
 				item[U"schools"] = schools;
 				item[U"elevated"] = elevated;
 				item[U"footprintArea"] = footprintArea;
+				item[U"roofArea"] = roofArea;
+				item[U"roofFraction"] = roofArea / (4 * town.plan.halfExtent.x * town.plan.halfExtent.y * Square(.7));
 				item[U"parcelArea"] = parcelArea;
 				item[U"coverage"] = footprintArea / Max(1.0, parcelArea);
 				item[U"clippedBuildingCorners"] = clippedBuildingCorners;
@@ -308,6 +320,10 @@ void registerUrbanFabricTests(TestRunner& runner)
 				{
 					context.expect(count >= 2900 && footprintArea > 420000,
 						U"The central district retains its building count while filling more ground area");
+					context.expect(roofUnits >= 3900 && roofArea > 460000,
+						U"Dense city blocks contain closely spaced narrow rooftops");
+					context.expect(roofArea / (4 * town.plan.halfExtent.x * town.plan.halfExtent.y * Square(.7)) > .23,
+						U"Roofs cover a meaningful share of the central district");
 					context.expect(footprintArea / Max(1.0, parcelArea) > .84,
 						U"Central parcels closely follow the building footprint");
 					context.expectEqual(clippedBuildingCorners, 0,

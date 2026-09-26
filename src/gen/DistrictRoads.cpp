@@ -1718,7 +1718,15 @@ namespace DistrictRoads
 			for (int col=0;col+1<n;++col)
 			{
 				const float width=coordsX[col+1]-coordsX[col],depth=coordsZ[row+1]-coordsZ[row];
-				if (plan.origin==UrbanMorphology::Origin::Planned || Max(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockLength || Min(width,depth)<GenerationSettings::get().districtRoads_alleyMinimumBlockDepth) { continue; }
+				const Vec2 blockCenter{(coordsX[col]+coordsX[col+1])*.5,(coordsZ[row]+coordsZ[row+1])*.5};
+				const bool denseCity=plan.scale==0 && plan.origin!=UrbanMorphology::Origin::Planned
+					&& plan.origin!=UrbanMorphology::Origin::Industrial && plan.origin!=UrbanMorphology::Origin::Rural
+					&& UrbanMorphology::downtownIntensity(plan,blockCenter)>=.5;
+				const double minimumLength=denseCity ? GenerationSettings::get().urbanFabric_downtownAlleyMinimumBlockLength
+					: GenerationSettings::get().districtRoads_alleyMinimumBlockLength;
+				const double minimumDepth=denseCity ? GenerationSettings::get().urbanFabric_downtownAlleyMinimumBlockDepth
+					: GenerationSettings::get().districtRoads_alleyMinimumBlockDepth;
+				if (plan.origin==UrbanMorphology::Origin::Planned || Max(width,depth)<minimumLength || Min(width,depth)<minimumDepth) { continue; }
 				const int a=nodeIds[{col,row}],b=nodeIds[{col+1,row}],c=nodeIds[{col+1,row+1}],d=nodeIds[{col,row+1}];
 				if (!hasSide(a,b) || !hasSide(b,c) || !hasSide(c,d) || !hasSide(d,a)) { continue; }
 				const bool alongZ=width>=depth;

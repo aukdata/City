@@ -424,6 +424,11 @@ namespace
 					const double lowApartment=Math::Lerp(GenerationSettings::get().development_context_Housing_84,
 						GenerationSettings::get().urbanFabric_downtownLowApartmentPercent,dense);
 					building.type=roll<detached ? BuildingType::Detached : (roll<lowApartment ? BuildingType::LowApartment : BuildingType::MidApartment);
+					if (building.type==BuildingType::LowApartment
+						&& (hash/97u)%100u < static_cast<uint32>(GenerationSettings::get().urbanFabric_downtownRowHousePercent*dense))
+					{
+						building.type=BuildingType::UrbanHousePair;
+					}
 				}
 			}
 			if (settlement.plan.origin==UrbanMorphology::Origin::Planned)
@@ -739,7 +744,8 @@ namespace
 			const auto& settings=GenerationSettings::get();
 			const float baseFrontage=Min(settlement.plan.scale<2 ? settings.development_urbanFrontagePitch : settings.development_ruralFrontagePitch,static_cast<float>(use.frontage));
 			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned ? static_cast<float>(use.frontage)
-				: static_cast<float>(Math::Lerp(baseFrontage,settings.urbanFabric_downtownFrontagePitch,downtown));
+				: static_cast<float>(Math::Lerp(baseFrontage,settlement.plan.structure==UrbanStructure::Type::None
+					? settings.urbanFabric_downtownFrontagePitch : settings.urbanFabric_structuredCityFrontagePitch,downtown));
 			// Compact corners are still checked against every road polygon before placement.
 			const float cornerSetback=static_cast<float>(Math::Lerp(static_cast<double>(settings.development_cornerSetback),settings.urbanFabric_downtownCornerSetback,downtown));
 			const float startArc = edge.cutoffA + cornerSetback;
