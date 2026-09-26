@@ -451,14 +451,25 @@ namespace
 			{
 				building.type = BuildingType::RuralHouse;
 			}
+			// A dense city lot holds two narrow dwellings within one simulation cell.
+			if (building.type==BuildingType::Detached && settlement.plan.scale==0
+				&& settlement.plan.origin!=UrbanMorphology::Origin::Planned
+				&& use.district==UrbanMorphology::District::Housing)
+			{
+				const double dense=UrbanMorphology::downtownIntensity(settlement.plan,local);
+				if ((hash/67u)%100u < static_cast<uint32>(dense*90.0)) { building.type=BuildingType::UrbanHousePair; }
+			}
 			if (settlement.plan.scale<=1 && UrbanMorphology::inCore(settlement.plan,local)
 				&& (use.district==UrbanMorphology::District::Housing || use.district==UrbanMorphology::District::PlannedHousing))
 			{
 				// Everyday shops, small parking lots and pocket parks punctuate residential streets.
 				const uint32 mix=(hash/151u)%1000u;
 				const uint32 shop=settlement.plan.scale==0 ? 25u : 18u;
-				const uint32 parking=settlement.plan.scale==0 ? 55u : 42u;
-				const uint32 park=settlement.plan.scale==0 ? 75u : 55u;
+				const uint32 baseParking=settlement.plan.scale==0 ? 55u : 42u;
+				const uint32 basePark=settlement.plan.scale==0 ? 75u : 55u;
+				const double remainingOpenLots=1.0-UrbanMorphology::downtownIntensity(settlement.plan,local);
+				const uint32 parking=shop+static_cast<uint32>((baseParking-shop)*remainingOpenLots);
+				const uint32 park=parking+static_cast<uint32>((basePark-baseParking)*remainingOpenLots);
 				if (mix<shop) { building.type=BuildingType::Shop; }
 				else if (mix<parking) { building.type=BuildingType::Parking; }
 				else if (mix<park) { building.type=BuildingType::ParkBuilding; }
@@ -716,12 +727,15 @@ namespace
 			const Vec3 middle=bez->positionAt(bez->totalLength*0.5f);
 			const Vec2 localMiddle=planLocal(settlement,{middle.x,middle.z});
 			const auto use=UrbanMorphology::sample(settlement.plan,localMiddle);
-			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned || settlement.plan.structure!=UrbanStructure::Type::None ? static_cast<float>(use.frontage)
-				: static_cast<float>(Math::Lerp(static_cast<double>(Min(settlement.plan.scale<2 ? GenerationSettings::get().development_urbanFrontagePitch : GenerationSettings::get().development_ruralFrontagePitch,static_cast<float>(use.frontage))),
-				GenerationSettings::get().urbanFabric_downtownFrontagePitch,UrbanMorphology::downtownIntensity(settlement.plan,localMiddle)));
-			
-			const float startArc = edge.cutoffA + GenerationSettings::get().development_cornerSetback;
-			const float endArc = bez->totalLength - edge.cutoffB - GenerationSettings::get().development_cornerSetback;
+			const double downtown=UrbanMorphology::downtownIntensity(settlement.plan,localMiddle);
+			const auto& settings=GenerationSettings::get();
+			const float baseFrontage=Min(settlement.plan.scale<2 ? settings.development_urbanFrontagePitch : settings.development_ruralFrontagePitch,static_cast<float>(use.frontage));
+			const float frontagePitch=settlement.plan.origin==UrbanMorphology::Origin::Planned ? static_cast<float>(use.frontage)
+				: static_cast<float>(Math::Lerp(baseFrontage,settings.urbanFabric_downtownFrontagePitch,downtown));
+			// Compact corners are still checked against every road polygon before placement.
+			const float cornerSetback=static_cast<float>(Math::Lerp(static_cast<double>(settings.development_cornerSetback),settings.urbanFabric_downtownCornerSetback,downtown));
+			const float startArc = edge.cutoffA + cornerSetback;
+			const float endArc = bez->totalLength - edge.cutoffB - cornerSetback;
 			if (endArc < startArc) { continue; }
 			const int sampleCount = Max(1, static_cast<int>(Floor((endArc - startArc) / frontagePitch)) + 1);
 
@@ -956,8 +970,14 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			else if (slot.roadDist < GenerationSettings::get().development_farDist)  roadScore = 1.0f - (slot.roadDist - GenerationSettings::get().development_nearDist) / (GenerationSettings::get().development_farDist - GenerationSettings::get().development_nearDist);
 			else                                roadScore = 0.0f;
 
-			const float densityFactor=static_cast<float>(UrbanMorphology::sample(s.plan,planLocal(s,centerPos)).occupancy);
-			const float score = roadScore * densityFactor;
+			const auto landUse=UrbanMorphology::sample(s.plan,planLocal(s,centerPos));
+			const float densityFactor=static_cast<float>(landUse.occupancy);
+			const bool continuousFrontage=landUse.district==UrbanMorphology::District::Housing
+				|| landUse.district==UrbanMorphology::District::OldTown
+				|| landUse.district==UrbanMorphology::District::Station;
+			const double frontageDensity=continuousFrontage
+				? Math::Sqrt(slot.urbanIntensity) : 0.0;
+			const float score=static_cast<float>(Math::Lerp(static_cast<double>(roadScore*densityFactor),1.0,frontageDensity));
 			if (score < GenerationSettings::get().development_minimumBuildingScore) continue;
 
 			const float roll = (cellHash % 1000) / 1000.0f;

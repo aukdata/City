@@ -389,6 +389,35 @@ namespace
 		appendMeshData(dst, md);
 	}
 
+	/// @brief One compact urban lot carries two visibly separate narrow homes.
+	void appendUrbanHousePair(LandscapeGeometry& groups, const World& world,
+		const Building& building, float cx, float cz, uint32 hash)
+	{
+		const float footprint=buildingFootprintXZ(building.type);
+		const float gap=0.42f;
+		const float houseWidth=(footprint-gap)*0.5f;
+		const float baseY=buildingBaseHeight(world,building,cx,cz);
+		const float cosA=Math::Cos(building.angle), sinA=Math::Sin(building.angle);
+		for (int side=0;side<2;++side)
+		{
+			const float localX=(side==0 ? -1.0f : 1.0f)*(houseWidth+gap)*0.5f;
+			const float houseX=cx+localX*cosA, houseZ=cz+localX*sinA;
+			const float height=side==0 ? 5.7f : 6.3f;
+			const float depth=footprint-(side==0 ? 0.5f : 0.2f);
+			const int wallKey=side==0 ? static_cast<int>(BuildingType::UrbanHousePair) : 102;
+			const int roofKey=(hash&1u)==static_cast<uint32>(side) ? 103 : 108;
+			appendRotatedBox(groups[wallKey],houseX,baseY+height*0.5f,houseZ,
+				houseWidth,height,depth,building.angle);
+			appendGableRoof(groups[roofKey],houseX,baseY+height,houseZ,
+				houseWidth+0.18f,depth+0.18f,0.65f,building.angle,false);
+			const float frontZ=-depth*0.5f-0.06f;
+			const float frontX=houseX-frontZ*sinA, frontWorldZ=houseZ+frontZ*cosA;
+			appendRotatedBox(groups[116],frontX,baseY+1.04f,frontWorldZ,0.86f,2.08f,0.08f,building.angle);
+			appendRotatedBox(groups[116],frontX,baseY+height-1.35f,frontWorldZ,
+				houseWidth*0.48f,0.66f,0.08f,building.angle);
+		}
+	}
+
 	float targetBuildingModelFootprint(BuildingType type)
 	{
 		return buildingFootprintXZ(type);
@@ -1026,7 +1055,7 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return none;
 
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	const float footprint = buildingFootprintXZ();
+	const float footprint = buildingFootprintXZ(b.type);
 	const Vec3 origin = chunk.worldOrigin();
 	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize) + b.offsetX;
 	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize) + b.offsetZ;
@@ -1065,7 +1094,8 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	if (height <= 0.0f) return none;
 	const int gx = chunk.coord.x * ZONE_CELLS + col;
 	const int gz = chunk.coord.y * ZONE_CELLS + row;
-	const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
+	const float visualFootprint = b.type==BuildingType::UrbanHousePair
+		? footprint : footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ visualFootprint, height, visualFootprint },
 	                   Quaternion::RotateY(-b.angle) };
@@ -1079,7 +1109,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return;
 
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
-	const float footprint = buildingFootprintXZ();
+	const float footprint = buildingFootprintXZ(b.type);
 	const Vec3 origin = chunk.worldOrigin();
 	const float cx = static_cast<float>(origin.x + (col + 0.5) * cellSize) + b.offsetX;
 	const float cz = static_cast<float>(origin.z + (row + 0.5) * cellSize) + b.offsetZ;
@@ -1110,7 +1140,8 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	if (height <= 0.0f) return;
 	const int gx = chunk.coord.x * ZONE_CELLS + col;
 	const int gz = chunk.coord.y * ZONE_CELLS + row;
-	const float visualFootprint = footprint * boxBuildingFootprintScale(b.type, gx, gz);
+	const float visualFootprint = b.type==BuildingType::UrbanHousePair
+		? footprint : footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
 	// rebuildBuildingMeshes と同じパイプライン（MeshData::Box + 頂点手動回転）で描画する
@@ -1251,6 +1282,12 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 
 			if (b.type == BuildingType::Farmland)
 			{
+				continue;
+			}
+
+			if (b.type==BuildingType::UrbanHousePair)
+			{
+				appendUrbanHousePair(groups,world,b,cx,cz,cellVisualHash(chunk.coord,col,row,8841));
 				continue;
 			}
 

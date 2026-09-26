@@ -28,13 +28,14 @@ enum class BuildingType : uint8
 	ShoppingMall, ///< 郊外ショッピングモール
 	Hospital, ///< 総合病院
 	School, ///< 学校
+	UrbanHousePair, ///< 都心の狭小な連棟住宅（2戸）
 	Count,
 };
 
 /// @brief 敷地内設備を含む専用モデルか。汎用の玄関装飾を重ねない。
 inline bool isCompleteSiteBuilding(BuildingType type)
 {
-	return type >= BuildingType::UrbanConvenience && type < BuildingType::Count;
+	return type >= BuildingType::UrbanConvenience && type <= BuildingType::School;
 }
 
 /// @brief 商業沿道サービス施設か。
@@ -49,6 +50,7 @@ inline float buildingFootprintXZ(BuildingType type = BuildingType::Detached)
 	switch (type)
 	{
 	case BuildingType::Detached: return GenerationSettings::get().buildings_footprint_Detached;
+	case BuildingType::UrbanHousePair: return 11.5f;
 	case BuildingType::LowApartment: return GenerationSettings::get().buildings_footprint_LowApartment;
 	case BuildingType::MidApartment:
 	case BuildingType::HighApartment:
@@ -91,6 +93,7 @@ inline float maximumBuildingFootprint()
 inline bool isResidentialBuildingType(BuildingType t)
 {
 	return t == BuildingType::Detached
+	    || t == BuildingType::UrbanHousePair
 	    || t == BuildingType::LowApartment
 	    || t == BuildingType::MidApartment
 	    || t == BuildingType::HighApartment
@@ -153,7 +156,7 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 /// @brief OBJ で描画する建物種別かどうか
 inline bool isObjBuildingType(BuildingType t)
 {
-	return isResidentialBuildingType(t)
+	return (isResidentialBuildingType(t) && t != BuildingType::UrbanHousePair)
 	    || t == BuildingType::Shop
 	    || t == BuildingType::Office
 	    || t == BuildingType::PublicFacility
@@ -166,6 +169,7 @@ inline bool isObjBuildingType(BuildingType t)
 /// @example "residential_001", "shop_001", "office_001"
 inline bool tryGetBuildingModelStemForVariant(BuildingType type, uint8 variant, String& outStem)
 {
+	if (type == BuildingType::UrbanHousePair) { return false; }
 	StringView prefix;
 	switch (type)
 	{
@@ -206,6 +210,7 @@ inline int buildingCapacity(BuildingType t)
 	{
 	case BuildingType::RuralHouse:    return GenerationSettings::get().buildings_capacity_RuralHouse;
 	case BuildingType::Detached:      return GenerationSettings::get().buildings_capacity_Detached;
+	case BuildingType::UrbanHousePair: return GenerationSettings::get().buildings_capacity_Detached * 2;
 	case BuildingType::LowApartment:  return GenerationSettings::get().buildings_capacity_LowApartment;
 	case BuildingType::MidApartment:  return GenerationSettings::get().buildings_capacity_MidApartment;
 	case BuildingType::HighApartment: return GenerationSettings::get().buildings_capacity_HighApartment;
@@ -219,6 +224,7 @@ inline float buildingHeight(BuildingType type)
 	switch (type)
 	{
 	case BuildingType::Detached:       return GenerationSettings::get().buildings_height_Detached;
+	case BuildingType::UrbanHousePair: return 7.0f;
 	case BuildingType::LowApartment:   return GenerationSettings::get().buildings_height_LowApartment;
 	case BuildingType::MidApartment:   return GenerationSettings::get().buildings_height_MidApartment;
 	case BuildingType::HighApartment:  return GenerationSettings::get().buildings_height_HighApartment;
@@ -248,6 +254,7 @@ inline ColorF buildingColor(BuildingType type)
 	switch (type)
 	{
 	case BuildingType::Detached:       return ColorF{ 0.74, 0.68, 0.58 };
+	case BuildingType::UrbanHousePair: return ColorF{ 0.70, 0.67, 0.61 };
 	case BuildingType::LowApartment:   return ColorF{ 0.66, 0.67, 0.63 };
 	case BuildingType::MidApartment:   return ColorF{ 0.56, 0.59, 0.62 };
 	case BuildingType::HighApartment:  return ColorF{ 0.48, 0.53, 0.58 };

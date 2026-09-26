@@ -299,8 +299,10 @@ void registerUrbanStructureTests(TestRunner& runner)
 			SettlementDevelopment actualDevelopment{world, roads, trains, towns, 42};
 			actualDevelopment.applyZonesGlobal();
 			const auto validation = actualDevelopment.placeInitialBuildings(true);
-			int buildings = 0, high = 0, mid = 0, detached = 0, offices = 0, railEdges = 0;
-			double area = 0;
+			int buildings = 0, high = 0, mid = 0, detached = 0, pairedHomes = 0, offices = 0, railEdges = 0;
+			int centralBuildings = 0, centralDevelopableCells = 0, centralOccupiedCells = 0;
+			double area = 0, centralFootprintArea = 0;
+			const Vec2 centralLandmark = town.plan.centers.front().position;
 			for (int z = 30; z <= 33; ++z)
 				for (int x = 30; x <= 33; ++x)
 				{
@@ -309,6 +311,18 @@ void registerUrbanStructureTests(TestRunner& runner)
 						for (int col = 0; col < ZONE_CELLS; ++col)
 						{
 							const auto& building = chunk.buildingGrid[{col, row}];
+							const Vec2 cellPoint = ZoneGrid::cellCenterXZ({x, z}, col, row);
+							const Vec2 cellDelta = cellPoint - town.center;
+							const Vec2 cellLocal{cellDelta.dot(town.gridAxisX), cellDelta.dot(town.gridAxisZ)};
+							if (Abs(cellLocal.x - centralLandmark.x) < 300 && Abs(cellLocal.y - centralLandmark.y) < 300)
+							{
+								const ZoneType zone = chunk.zoneMap[{col, row}];
+								if (zone == ZoneType::Residential || zone == ZoneType::LowResidential || zone == ZoneType::Commercial)
+								{
+									++centralDevelopableCells;
+									centralOccupiedCells += building.type != BuildingType::None && building.type != BuildingType::Farmland;
+								}
+							}
 							if (building.type == BuildingType::None || building.type == BuildingType::Farmland)
 								continue;
 							const Vec2 point =
@@ -318,10 +332,17 @@ void registerUrbanStructureTests(TestRunner& runner)
 							if (!UrbanMorphology::inCore(town.plan, local))
 								continue;
 							++buildings;
-							area += Square(buildingFootprintXZ(building.type));
+							const double footprintArea = Square(buildingFootprintXZ(building.type));
+							area += footprintArea;
+							if (Abs(local.x - centralLandmark.x) < 300 && Abs(local.y - centralLandmark.y) < 300)
+							{
+								++centralBuildings;
+								centralFootprintArea += footprintArea;
+							}
 							high += building.type == BuildingType::HighApartment;
 							mid += building.type == BuildingType::MidApartment;
 							detached += building.type == BuildingType::Detached;
+							pairedHomes += building.type == BuildingType::UrbanHousePair;
 							offices += building.type == BuildingType::Office;
 							context.expect(roads.getEdge(building.edgeId) != nullptr,
 								U"Every building retains real road frontage");
@@ -344,8 +365,13 @@ void registerUrbanStructureTests(TestRunner& runner)
 			report[U"high"] = high;
 			report[U"mid"] = mid;
 			report[U"detached"] = detached;
+			report[U"pairedHomes"] = pairedHomes;
 			report[U"offices"] = offices;
 			report[U"footprintArea"] = area;
+			report[U"centralBuildings"] = centralBuildings;
+			report[U"centralDevelopableCells"] = centralDevelopableCells;
+			report[U"centralOccupiedCells"] = centralOccupiedCells;
+			report[U"central600mRoofFraction"] = centralFootprintArea / 360000.0;
 			report[U"roads"] = streetCount;
 			report[U"arterials"] = arterials;
 			report[U"threeWay"] = threeWay;
@@ -368,6 +394,9 @@ void registerUrbanStructureTests(TestRunner& runner)
 				context.expectEqual(
 					actualStations, stationPositions(town.plan).size(), U"All stations connect on the flat fixture");
 			}
+			if (type == Type::HistoricGrid)
+				context.expect(pairedHomes > 100 && centralFootprintArea / 360000.0 > 0.25,
+					U"Historic city retains compact narrow homes and continuous central roofs");
 			if (type == Type::HistoricGrid)
 				context.expectEqual(
 					high + offices, 0, U"Historic fine-grid districts preserve their low and medium skyline");

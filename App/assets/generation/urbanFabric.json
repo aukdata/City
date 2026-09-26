@@ -6,6 +6,7 @@
   "downtownBackMargin": 0.5,
   "downtownSideMargin": 0.35,
   "downtownSetback": 1.1,
+  "downtownCornerSetback": 3.0,
   "downtownFrontagePitch": 11.5,
   "downtownDetachedPercent": 8,
   "downtownLowApartmentPercent": 50,

@@ -11,6 +11,7 @@
     "downtownBackMargin",
     "downtownSideMargin",
     "downtownSetback",
+    "downtownCornerSetback",
     "downtownFrontagePitch",
     "downtownDetachedPercent",
     "downtownLowApartmentPercent",
@@ -72,6 +73,11 @@
       "type": "number",
       "minimum": 1.05,
       "maximum": 4.0
+    },
+    "downtownCornerSetback": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 6.5
     },
     "downtownFrontagePitch": {
       "type": "number",
