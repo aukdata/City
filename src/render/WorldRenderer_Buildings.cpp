@@ -418,6 +418,35 @@ namespace
 		}
 	}
 
+	/// @brief 工業団地の区画を埋める低層の大型倉庫。
+	void appendIndustrialWarehouse(LandscapeGeometry& groups, const World& world,
+		const Building& building, float cx, float cz)
+	{
+		const float baseY=buildingBaseHeight(world,building,cx,cz);
+		const float angle=building.angle;
+		const float cosA=Math::Cos(angle), sinA=Math::Sin(angle);
+		const auto worldOffset=[&](float x,float z)
+		{
+			return Vec2{cx+x*cosA-z*sinA,cz+x*sinA+z*cosA};
+		};
+		appendRotatedBox(groups[static_cast<int>(BuildingType::IndustrialWarehouse)],
+			cx,baseY+4.25f,cz,27.4f,8.5f,27.4f,angle);
+		appendRotatedBox(groups[107],
+			cx,baseY+8.65f,cz,27.8f,0.3f,27.8f,angle);
+		for (int bay=-1;bay<=1;++bay)
+		{
+			const Vec2 door=worldOffset(bay*8.0f,-13.75f);
+			appendRotatedBox(groups[116],static_cast<float>(door.x),baseY+2.35f,
+				static_cast<float>(door.y),5.2f,4.7f,0.12f,angle);
+		}
+		for (int vent=-1;vent<=1;++vent)
+		{
+			const Vec2 position=worldOffset(vent*7.5f,2.0f);
+			appendRotatedBox(groups[117],static_cast<float>(position.x),baseY+9.05f,
+				static_cast<float>(position.y),3.0f,0.6f,2.4f,angle);
+		}
+	}
+
 	float targetBuildingModelFootprint(BuildingType type)
 	{
 		return buildingFootprintXZ(type);
@@ -1094,7 +1123,7 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 	if (height <= 0.0f) return none;
 	const int gx = chunk.coord.x * ZONE_CELLS + col;
 	const int gz = chunk.coord.y * ZONE_CELLS + row;
-	const float visualFootprint = b.type==BuildingType::UrbanHousePair
+	const float visualFootprint = (b.type==BuildingType::UrbanHousePair || b.type==BuildingType::IndustrialWarehouse)
 		? footprint : footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 	return OrientedBox{ Vec3{ cx, cy, cz }, Vec3{ visualFootprint, height, visualFootprint },
@@ -1140,7 +1169,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	if (height <= 0.0f) return;
 	const int gx = chunk.coord.x * ZONE_CELLS + col;
 	const int gz = chunk.coord.y * ZONE_CELLS + row;
-	const float visualFootprint = b.type==BuildingType::UrbanHousePair
+	const float visualFootprint = (b.type==BuildingType::UrbanHousePair || b.type==BuildingType::IndustrialWarehouse)
 		? footprint : footprint * boxBuildingFootprintScale(b.type, gx, gz);
 	const float cy = world.sampleHeight(cx, cz) + height * 0.5f;
 
@@ -1288,6 +1317,11 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			if (b.type==BuildingType::UrbanHousePair)
 			{
 				appendUrbanHousePair(groups,world,b,cx,cz,cellVisualHash(chunk.coord,col,row,8841));
+				continue;
+			}
+			if (b.type==BuildingType::IndustrialWarehouse)
+			{
+				appendIndustrialWarehouse(groups,world,b,cx,cz);
 				continue;
 			}
 

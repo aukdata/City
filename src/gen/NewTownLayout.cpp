@@ -17,12 +17,13 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 		const Vec2 delta{position.x - settlement.center.x, position.z - settlement.center.y};
 		return Vec2{delta.dot(settlement.gridAxisX), delta.dot(settlement.gridAxisZ)};
 	};
-	const auto oddCorridor = [](const Array<float>& coordinates, double value)
+	const auto greenCorridor = [](const Array<float>& coordinates, double value)
 	{
 		constexpr double kCoordinateTolerance = 0.1;
-		for (size_t i = 1; i + 1 < coordinates.size(); i += 2)
+		const size_t first=coordinates.size()<8 ? 1 : (coordinates.size()<16 ? 3 : 2);
+		for (size_t i = first; i + 1 < coordinates.size(); i += 4)
 		{
-			if (Abs(value - coordinates[i]) < kCoordinateTolerance)
+			if (i != coordinates.size() / 2 && Abs(value - coordinates[i]) < kCoordinateTolerance)
 			{
 				return true;
 			}
@@ -49,10 +50,10 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 		{
 			continue;
 		}
-		// 幹線への入口・駅前道路は維持する。奇数番の住区内道路だけを緑道へ変更。
+		// 幹線への入口・駅前道路は維持する。4本ごとに1本の住区内道路を緑道へ変更。
 		const bool greenway =
-			edge.roadType == RoadType::LocalRoad && ((Abs(from.x - to.x) < 0.1 && oddCorridor(x, from.x)) ||
-														(Abs(from.y - to.y) < 0.1 && oddCorridor(z, from.y)));
+			edge.roadType == RoadType::LocalRoad && ((Abs(from.x - to.x) < 0.1 && greenCorridor(x, from.x)) ||
+														(Abs(from.y - to.y) < 0.1 && greenCorridor(z, from.y)));
 		if (!greenway)
 		{
 			edge.parts.remove_if([](const RoadPart& part) { return part.type == RoadPartType::UtilityPole; });
@@ -94,6 +95,8 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 	}
 	// 緑道だけに囲まれた街区や外周緑地の角地を、接道する宅地だと誤認しない。
 	// 車道から建物幅ぶん後退した位置を採れる面だけを住宅用に残す。
+	Optional<Polygon> plannedPark;
+	double parkScore=Math::Inf;
 	for (const auto& block:StreetBlocks::collect(network))
 	{
 		Array<Vec2> boundary;
@@ -104,6 +107,15 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 			inside &= UrbanMorphology::inCore(plan,p,.1);
 		}
 		if (!inside) { continue; }
+		const Vec2 center=local({block.center.x,0,block.center.y});
+		const double radius=Max(Abs(center.x)/plan.halfExtent.x,Abs(center.y)/plan.halfExtent.y);
+		if (block.area>1000 && block.area<20000 && radius>.35 && radius<.8
+			&& (!plan.civic || !plan.civic->contains(center))
+			&& !UrbanMorphology::isReservedGreen(plan,center))
+		{
+			const double score=center.distanceFrom(plan.civic ? plan.civic->center() : Vec2{0,0});
+			if (score<parkScore) { parkScore=score;plannedPark=Polygon{boundary}; }
+		}
 		bool frontage=false;
 		for (const int id:block.edges)
 		{
@@ -124,6 +136,8 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 		}
 		if (!frontage) { plan.neighborhoodParks << Polygon{boundary}; }
 	}
+	// 学校や緑道の近くに住区公園を1区画確保する。
+	if (plan.neighborhoodParks.isEmpty() && plannedPark) { plan.neighborhoodParks << *plannedPark; }
 	DBG_LOG(U"[NewTownLayout] center=({}, {}) carRoads={} greenways={} parks={}"_fmt(
 		settlement.center.x, settlement.center.y, carRoads, plan.greenways.size(),plan.neighborhoodParks.size()));
 }

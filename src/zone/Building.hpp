@@ -29,6 +29,8 @@ enum class BuildingType : uint8
 	Hospital, ///< 総合病院
 	School, ///< 学校
 	UrbanHousePair, ///< 都心の狭小な連棟住宅（2戸）
+	VillageHouse, ///< 古い村の小さな民家
+	IndustrialWarehouse, ///< 工業団地の大きな倉庫
 	Count,
 };
 
@@ -51,6 +53,8 @@ inline float buildingFootprintXZ(BuildingType type = BuildingType::Detached)
 	{
 	case BuildingType::Detached: return GenerationSettings::get().buildings_footprint_Detached;
 	case BuildingType::UrbanHousePair: return 11.5f;
+	case BuildingType::VillageHouse: return 14.0f;
+	case BuildingType::IndustrialWarehouse: return 28.0f;
 	case BuildingType::LowApartment: return GenerationSettings::get().buildings_footprint_LowApartment;
 	case BuildingType::MidApartment:
 	case BuildingType::HighApartment:
@@ -97,7 +101,8 @@ inline bool isResidentialBuildingType(BuildingType t)
 	    || t == BuildingType::LowApartment
 	    || t == BuildingType::MidApartment
 	    || t == BuildingType::HighApartment
-	    || t == BuildingType::RuralHouse;
+	    || t == BuildingType::RuralHouse
+	    || t == BuildingType::VillageHouse;
 }
 
 /// @brief 住宅タイプ + グローバルセル座標から OBJ インデックス（0..17）を返す
@@ -125,7 +130,7 @@ inline uint8 buildingModelVariant(BuildingType t, int gx, int gz)
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
 	if (t == BuildingType::OfficeTower) { return static_cast<uint8>(h % GenerationSettings::get().landmarks_towerVariants); }
-	if (t == BuildingType::RuralHouse) { return static_cast<uint8>(h % GenerationSettings::get().buildings_ruralHouseVariants); }
+	if (t == BuildingType::RuralHouse || t == BuildingType::VillageHouse) { return static_cast<uint8>(h % GenerationSettings::get().buildings_ruralHouseVariants); }
 	if (isResidentialBuildingType(t)) { return residentialModelIndex(t, gx, gz); }
 	const uint32 kShopVariantCount = GenerationSettings::get().buildings_shopVariants;
 	const uint32 kFacilityVariantCount = GenerationSettings::get().buildings_factoryVariants;
@@ -173,7 +178,8 @@ inline bool tryGetBuildingModelStemForVariant(BuildingType type, uint8 variant, 
 	StringView prefix;
 	switch (type)
 	{
-	case BuildingType::RuralHouse: prefix = U"rural_house"; break;
+	case BuildingType::RuralHouse:
+	case BuildingType::VillageHouse: prefix = U"rural_house"; break;
 	case BuildingType::UrbanConvenience: prefix = U"convenience_urban"; break;
 	case BuildingType::RoadsideConvenience: prefix = U"convenience_roadside"; break;
 	case BuildingType::UrbanFuelStation: prefix = U"fuel_urban"; break;
@@ -209,6 +215,7 @@ inline int buildingCapacity(BuildingType t)
 	switch (t)
 	{
 	case BuildingType::RuralHouse:    return GenerationSettings::get().buildings_capacity_RuralHouse;
+	case BuildingType::VillageHouse:  return GenerationSettings::get().buildings_capacity_RuralHouse;
 	case BuildingType::Detached:      return GenerationSettings::get().buildings_capacity_Detached;
 	case BuildingType::UrbanHousePair: return GenerationSettings::get().buildings_capacity_Detached * 2;
 	case BuildingType::LowApartment:  return GenerationSettings::get().buildings_capacity_LowApartment;
@@ -239,6 +246,8 @@ inline float buildingHeight(BuildingType type)
 	case BuildingType::UrbanFuelStation:
 	case BuildingType::RoadsideFuelStation: return GenerationSettings::get().buildings_height_RoadsideFuelStation;
 	case BuildingType::RuralHouse: return GenerationSettings::get().buildings_height_RuralHouse;
+	case BuildingType::VillageHouse: return 7.0f;
+	case BuildingType::IndustrialWarehouse: return 10.0f;
 	case BuildingType::OfficeTower: return static_cast<float>(GenerationSettings::get().landmarks_height_OfficeTower);
 	case BuildingType::CityHall: return static_cast<float>(GenerationSettings::get().landmarks_height_CityHall);
 	case BuildingType::ShoppingMall: return static_cast<float>(GenerationSettings::get().landmarks_height_ShoppingMall);
@@ -255,6 +264,8 @@ inline ColorF buildingColor(BuildingType type)
 	{
 	case BuildingType::Detached:       return ColorF{ 0.74, 0.68, 0.58 };
 	case BuildingType::UrbanHousePair: return ColorF{ 0.70, 0.67, 0.61 };
+	case BuildingType::VillageHouse: return ColorF{ 0.70, 0.65, 0.57 };
+	case BuildingType::IndustrialWarehouse: return ColorF{ 0.66, 0.68, 0.69 };
 	case BuildingType::LowApartment:   return ColorF{ 0.66, 0.67, 0.63 };
 	case BuildingType::MidApartment:   return ColorF{ 0.56, 0.59, 0.62 };
 	case BuildingType::HighApartment:  return ColorF{ 0.48, 0.53, 0.58 };

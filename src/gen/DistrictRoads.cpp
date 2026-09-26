@@ -1259,6 +1259,7 @@ namespace DistrictRoads
 					|| settlement.center.y<minZ-searchRadius || settlement.center.y>maxZ+searchRadius) { continue; }
 				originalRoads << edge.id;
 			}
+			Array<int> spineRoads=originalRoads;
 			Array<int> backNodes;
 			int added=0,noAnchor=0,noTerrain=0,noConnection=0;
 			const bool clustered=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Clustered;
@@ -1268,8 +1269,9 @@ namespace DistrictRoads
 				const Vec2 desired=settlement.center+settlement.gridAxisX*(index*plannedExtent.x*GenerationSettings::get().districtRoads_ruralAnchorRatio);
 				int bestNode=-1;
 				Vec3 anchorPosition{},tangent{};
-				double bestDistance=Square(GenerationSettings::get().districtRoads_ruralAnchorSearchRadius);
-				for (const int id : originalRoads)
+				const double anchorStep=plannedExtent.x*GenerationSettings::get().districtRoads_ruralAnchorRatio;
+				double bestDistance=Square(Min(GenerationSettings::get().districtRoads_ruralAnchorSearchRadius,Max(20.0,anchorStep*.4)));
+				for (const int id : spineRoads)
 				{
 					const auto* edge=network.getEdge(id);
 					const auto curve=network.getBezier(id);
@@ -1282,6 +1284,42 @@ namespace DistrictRoads
 						if (distance>=bestDistance) { continue; }
 						bestDistance=distance;bestNode=nodeId;anchorPosition=node->position;
 						tangent=curve->tangentAt(nodeId==edge->nodeA ? 0 : curve->totalLength);
+					}
+				}
+				if (bestNode<0)
+				{
+					// 交差点のない長い街道にも枝道の接続点を作る。
+					int bestEdge=-1;float bestArc=0;
+					double bestRoadDistance=Square(GenerationSettings::get().districtRoads_ruralAnchorSearchRadius);
+					for (const int id:spineRoads)
+					{
+						const auto curve=network.getBezier(id);
+						if (!curve) { continue; }
+						const int samples=Max(8,static_cast<int>(Ceil(curve->totalLength/16.0f)));
+						for (int sample=1;sample<samples;++sample)
+						{
+							const float arc=curve->totalLength*sample/samples;
+							if (arc<GenerationSettings::get().districtRoads_minimumRuralBranchLength
+								|| curve->totalLength-arc<GenerationSettings::get().districtRoads_minimumRuralBranchLength) { continue; }
+							const Vec3 point=curve->positionAt(arc);
+							const double distance=desired.distanceFromSq({point.x,point.z});
+							if (distance<bestRoadDistance) { bestRoadDistance=distance;bestEdge=id;bestArc=arc; }
+						}
+					}
+					if (bestEdge>=0)
+					{
+						const auto curve=network.getBezier(bestEdge);
+						tangent=curve->tangentAt(bestArc);
+						bestNode=network.splitEdgeAt(bestEdge,bestArc);
+						if (bestNode>=0)
+						{
+							anchorPosition=network.getNode(bestNode)->position;
+							spineRoads.remove_if([&](int id) { return id==bestEdge; });
+							for (const auto& attachment:network.getNode(bestNode)->attachments)
+							{
+								if (!spineRoads.contains(attachment.edgeId)) { spineRoads << attachment.edgeId; }
+							}
+						}
 					}
 				}
 				if (bestNode<0) { ++noAnchor;continue; }

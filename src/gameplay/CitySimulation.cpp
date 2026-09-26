@@ -50,7 +50,7 @@ CitySnapshot collectCitySnapshot(const World& world, const RoadNetwork& network,
 					snapshot.housingCapacity += buildingCapacity(type);
 					if (isResidentialBuildingType(type)) ++snapshot.residentialBuildings;
 					else if (type == BuildingType::Shop || type == BuildingType::Office || type == BuildingType::OfficeTower || type == BuildingType::ShoppingMall || isRoadsideServiceBuilding(type)) ++snapshot.commercialBuildings;
-					else if (type == BuildingType::Factory) ++snapshot.industrialBuildings;
+					else if (type == BuildingType::Factory || type == BuildingType::IndustrialWarehouse) ++snapshot.industrialBuildings;
 					else if (type == BuildingType::ParkBuilding) ++snapshot.parkBuildings;
 				}
 			}

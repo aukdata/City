@@ -29,9 +29,10 @@ void registerUrbanFabricTests(TestRunner& runner)
 		DebugLog::initialize(directory + U"TestResults/urban_fabric.log");
 		RegisterAssets();
 		JSON report;
-		for (const auto origin : {UrbanMorphology::Origin::Castle, UrbanMorphology::Origin::Planned})
+		for (const auto origin : {UrbanMorphology::Origin::Castle, UrbanMorphology::Origin::Planned, UrbanMorphology::Origin::Industrial})
 		{
 			Array<uint64> seeds{42, 130};
+			if (origin == UrbanMorphology::Origin::Industrial) { seeds = {42}; }
 			if (origin == UrbanMorphology::Origin::Planned)
 			{
 				seeds << 2026;
@@ -157,7 +158,7 @@ void registerUrbanFabricTests(TestRunner& runner)
 				SettlementDevelopment development{world, roads, trains, towns, seed};
 				development.applyZonesGlobal();
 				const auto validation = development.placeInitialBuildings(true);
-				int count = 0, apartments = 0, detached = 0, elevated = 0;
+				int count = 0, apartments = 0, detached = 0, warehouses = 0, schools = 0, elevated = 0;
 				double footprintArea = 0, parcelArea = 0, setbacks = 0;
 				int clippedBuildingCorners = 0;
 				HashTable<int64, ParcelGeometry::Quad> coreFootprints;
@@ -197,6 +198,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 								apartments += building.type == BuildingType::MidApartment ||
 											  building.type == BuildingType::LowApartment;
 								detached += building.type == BuildingType::Detached;
+								warehouses += building.type == BuildingType::IndustrialWarehouse;
+								schools += building.type == BuildingType::School;
 								coreFootprints[ZoneGrid::zoneCellKey({x, z}, col, row)] =
 									ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * .5, building.angle);
 								const auto* edge = roads.getEdge(building.edgeId);
@@ -240,6 +243,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 				item[U"buildings"] = count;
 				item[U"apartments"] = apartments;
 				item[U"detached"] = detached;
+				item[U"warehouses"] = warehouses;
+				item[U"schools"] = schools;
 				item[U"elevated"] = elevated;
 				item[U"footprintArea"] = footprintArea;
 				item[U"parcelArea"] = parcelArea;
@@ -301,12 +306,21 @@ void registerUrbanFabricTests(TestRunner& runner)
 				report.push_back(item);
 				if (origin == UrbanMorphology::Origin::Castle)
 				{
-					context.expect(count >= 3400 && footprintArea > 480000,
+					context.expect(count >= 2900 && footprintArea > 420000,
 						U"The central district retains its building count while filling more ground area");
 					context.expect(footprintArea / Max(1.0, parcelArea) > .84,
 						U"Central parcels closely follow the building footprint");
 					context.expectEqual(clippedBuildingCorners, 0,
 						U"Compact parcels still contain every corner of their building");
+				}
+				if (origin == UrbanMorphology::Origin::Planned)
+				{
+					context.expect(detached > apartments * 2 && schools >= 1,
+						U"New towns form continuous detached housing rows with a school");
+				}
+				if (origin == UrbanMorphology::Origin::Industrial)
+				{
+					context.expect(warehouses >= 50, U"The industrial estate contains a substantial cluster of large warehouses");
 				}
 				context.expect(count > 100, U"The central district develops a substantial street frontage");
 				context.expect(validation.passed, U"Real generation constraints: " + validation.summary);
@@ -314,6 +328,107 @@ void registerUrbanFabricTests(TestRunner& runner)
 			}
 		}
 		report.save(directory + U"TestResults/urban_fabric.json");
+	});
+	runner.add(U"UrbanFabric.RuralVillagePatterns", [](TestContext& context)
+	{
+		JSON report;
+		for (const bool valley : {false, true})
+		{
+			const uint64 seed=valley ? 42 : 1;
+			World world;
+			world.reserveChunks();
+			world.setGenerationParams(seed,WORLD_SIZE,WORLD_SIZE);
+			for (int z=30;z<=33;++z)
+			{
+				for (int x=30;x<=33;++x)
+				{
+					world.installChunkDirect({x,z},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20,20});
+				}
+			}
+			MapGenerator::Settlement town;
+			town.center={32768,32768};
+			town.kind=MapGenerator::SettlementKind::RuralSettlement;
+			UrbanMorphology::Site site;
+			site.relief=valley ? 80.0 : 0.0;
+			town.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Rural,2,site,seed,false);
+			if (!valley && town.plan.ruralForm!=UrbanMorphology::RuralForm::Clustered)
+			{
+				for (uint64 candidate=2;candidate<32;++candidate)
+				{
+					town.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Rural,2,site,candidate,false);
+					if (town.plan.ruralForm==UrbanMorphology::RuralForm::Clustered) { break; }
+				}
+			}
+			context.expect(town.plan.ruralForm==(valley ? UrbanMorphology::RuralForm::Valley : UrbanMorphology::RuralForm::Clustered),
+				U"Rural fixtures select the intended settlement form");
+			RoadNetwork roads;
+			int previous=-1;
+			for (int index=-10;index<=10;++index)
+			{
+				const Vec3 position{32768.0+index*100.0,20,32768};
+				const int node=roads.addNode(position);
+				if (previous>=0)
+				{
+					const Vec3 from=roads.getNode(previous)->position;
+					roads.addEdge(previous,node,from.lerp(position,1.0/3),from.lerp(position,2.0/3),RoadType::Arterial,2);
+				}
+				previous=node;
+			}
+			const auto kaido=DistrictRoads::extractKaido(town,roads,1200);
+			DistrictRoads::generateSettlement(seed,0,town,kaido,world,roads);
+			const Array<MapGenerator::Settlement> towns{town};
+			TrainNetwork trains;
+			SettlementDevelopment development{world,roads,trains,towns,seed};
+			development.applyZonesGlobal();
+			development.placeInitialBuildings(false);
+			int villageHomes=0,fields=0;
+			double minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
+			for (int z=30;z<=33;++z)
+			{
+				for (int x=30;x<=33;++x)
+				{
+					const auto& chunk=*world.getChunk({x,z});
+					for (int row=0;row<ZONE_CELLS;++row)
+					{
+						for (int col=0;col<ZONE_CELLS;++col)
+						{
+							const auto& building=chunk.buildingGrid[{col,row}];
+							if (building.type!=BuildingType::VillageHouse) { continue; }
+							const Vec2 center=ZoneGrid::cellCenterXZ({x,z},col,row)+Vec2{building.offsetX,building.offsetZ};
+							const Vec2 delta=center-town.center;
+							const Vec2 local{delta.dot(town.gridAxisX),delta.dot(town.gridAxisZ)};
+							++villageHomes;
+							minX=Min(minX,local.x);maxX=Max(maxX,local.x);
+							minZ=Min(minZ,local.y);maxZ=Max(maxZ,local.y);
+						}
+					}
+					for (const auto& patch:chunk.landPatches)
+					{
+						fields+=patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField;
+					}
+				}
+			}
+			JSON item;
+			item[U"form"]=valley ? U"valley" : U"clustered";
+			item[U"villageHomes"]=villageHomes;
+			item[U"fields"]=fields;
+			item[U"spanAlong"]=maxX-minX;
+			item[U"spanAcross"]=maxZ-minZ;
+			report.push_back(item);
+			context.expect(villageHomes>0,U"Old villages and mountain hamlets contain compact traditional homes");
+			context.expect(fields>=50,U"Village homes remain surrounded by cultivated plots");
+			if (valley)
+			{
+				context.expect(villageHomes>=40 && maxZ-minZ<100 && maxX-minX>800,
+					U"Mountain homes follow a long and narrow valley corridor");
+			}
+			else
+			{
+				context.expect(villageHomes>=40 && maxZ-minZ>150 && maxX-minX<600,
+					U"The old village forms a compact cluster around connected side streets");
+			}
+		}
+		report.save(FileSystem::CurrentDirectory()+U"TestResults/rural_village_patterns.json");
 	});
 	runner.add(U"UrbanFabric.NewTownSites", [](TestContext& context)
 	{

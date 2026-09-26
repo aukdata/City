@@ -81,7 +81,7 @@ void registerBuildingAssetTests(TestRunner& runner)
 		const ModelFamily families[] = {
 			{ BuildingType::Detached, 8 }, { BuildingType::LowApartment, 4 },
 			{ BuildingType::MidApartment, 3 }, { BuildingType::HighApartment, 3 },
-			{ BuildingType::Shop, 10 }, { BuildingType::Office, 6 },
+			{ BuildingType::Shop, 8 }, { BuildingType::Office, 6 },
 			{ BuildingType::Factory, 4 }, { BuildingType::PublicFacility, 8 }, { BuildingType::Parking, 2 }, { BuildingType::RuralHouse, 3 },
 			{ BuildingType::UrbanConvenience, 1 }, { BuildingType::RoadsideConvenience, 1 },
 			{ BuildingType::UrbanFuelStation, 1 }, { BuildingType::RoadsideFuelStation, 1 }

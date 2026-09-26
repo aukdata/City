@@ -390,7 +390,9 @@ namespace
 			{
 			case UrbanMorphology::District::Civic: building.type=BuildingType::None; break;
 			case UrbanMorphology::District::Industry:
-				building.type=roll<GenerationSettings::get().development_context_Industry_92 ? BuildingType::Factory : BuildingType::Parking; break;
+				building.type=settlement.plan.origin==UrbanMorphology::Origin::Industrial && roll<70
+					? BuildingType::IndustrialWarehouse
+					: (roll<GenerationSettings::get().development_context_Industry_92 ? BuildingType::Factory : BuildingType::Parking); break;
 			case UrbanMorphology::District::Station:
 				building.type=roll<GenerationSettings::get().development_context_Station_38 ? BuildingType::Office : (roll<GenerationSettings::get().development_context_Station_66 ? BuildingType::MidApartment
 					: (roll<GenerationSettings::get().development_context_Station_78 && settlement.plan.scale==0 ? BuildingType::HighApartment : BuildingType::Shop)); break;
@@ -444,6 +446,12 @@ namespace
 				}
 				if (building.type==BuildingType::HighApartment || building.type==BuildingType::OfficeTower) { building.type=BuildingType::LowApartment; }
 				if (building.type==BuildingType::Office && !stationLandmark) { building.type=BuildingType::Shop; }
+			}
+			if (building.type==BuildingType::Detached && settlement.plan.origin==UrbanMorphology::Origin::Rural
+				&& settlement.plan.ruralForm!=UrbanMorphology::RuralForm::Dispersed
+				&& UrbanMorphology::inCore(settlement.plan,local))
+			{
+				building.type=BuildingType::VillageHouse;
 			}
 			if (building.type == BuildingType::Detached
 				&& (settlement.plan.scale == 2 || !UrbanMorphology::inCore(settlement.plan, local,GenerationSettings::get().development_ruralHouseCoreMargin))
@@ -1251,7 +1259,8 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		{
 			return ((salt >> 3) & 1u) ? LandPatchType::PaddyField : LandPatchType::FarmField;
 		}
-		if (buildingType >= BuildingType::OfficeTower)
+		if (buildingType == BuildingType::IndustrialWarehouse ||
+			(buildingType >= BuildingType::OfficeTower && buildingType <= BuildingType::School))
 		{
 			return LandPatchType::ParcelAsphalt;
 		}
@@ -1284,7 +1293,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 				for (int col = 0; col < ZONE_CELLS; ++col)
 				{
 					const auto& building = chunk->buildingGrid[{col, row}];
-					if (building.type < BuildingType::OfficeTower)
+					if (building.type < BuildingType::OfficeTower || building.type > BuildingType::School)
 					{
 						continue;
 					}
@@ -1523,7 +1532,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 			const auto* chunk=m_world.getChunk({x,z});if (!chunk) { continue; }
 			for (int row=0;row<ZONE_CELLS;++row) { for (int col=0;col<ZONE_CELLS;++col)
 			{
-				const auto& home=chunk->buildingGrid[{col,row}];if (home.type==BuildingType::RuralHouse) { farmHomes << cellCenterXZ({x,z},col,row)+Vec2{home.offsetX,home.offsetZ}; }
+				const auto& home=chunk->buildingGrid[{col,row}];if (home.type==BuildingType::RuralHouse || home.type==BuildingType::VillageHouse) { farmHomes << cellCenterXZ({x,z},col,row)+Vec2{home.offsetX,home.offsetZ}; }
 			} }
 			for (const auto& patch:chunk->landPatches) { if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField) { farmPlots << &patch; } }
 		} }
@@ -1567,7 +1576,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					const double depth=Max(Abs(local.x)-plan.halfExtent.x,Abs(local.y)-plan.halfExtent.y);
 					const int belt=depth<=22 ? 0 : (depth<=250 ? 1 : (depth<=500 ? 2 : 3));
 					++buildings[belt];
-					lowRise[belt]+=building.type==BuildingType::Detached || building.type==BuildingType::RuralHouse || building.type==BuildingType::LowApartment;
+					lowRise[belt]+=building.type==BuildingType::Detached || building.type==BuildingType::RuralHouse || building.type==BuildingType::VillageHouse || building.type==BuildingType::LowApartment;
 				} }
 			} }
 			double maximumDepth=0;

@@ -254,6 +254,11 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 		const auto port=makePlan(Origin::Port,0,site,42,true);
 		context.expect(port.halfExtent.x>port.halfExtent.y*2,U"Waterfront settlement grows along the shore");
 		context.expect(sample(port,{0,port.halfExtent.y*.8}).district==District::Industry,U"Waterfront logistics occupy the water side");
+		const auto industrial=makePlan(Origin::Industrial,0,site,42,true);
+		context.expect(industrial.industry.h>industrial.industry.w*2.5
+			&& !industrial.industry.contains(industrial.oldCore)
+			&& industrial.station && !industrial.industry.contains(*industrial.station),
+			U"The industrial estate forms a long strip between the old town and the station");
 		const auto post=makePlan(Origin::Post,1,site,42,false);
 		context.expect(post.halfExtent.x>post.halfExtent.y*2.5,U"A post town follows its trade route");
 		context.expect(sample(post,{0,0}).frontage<sample(castle,{0,700}).frontage,U"Merchant plots have narrower frontages than residential quarters");

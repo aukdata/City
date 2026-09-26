@@ -108,17 +108,18 @@ namespace UrbanFacilities
 		}
 		for (const auto& town : districts)
 		{
-			if (town.plan.scale != 0 || !town.plan.ready)
+			const bool satelliteTown=town.plan.origin==UrbanMorphology::Origin::Planned && town.plan.scale==1;
+			if ((town.plan.scale != 0 && !satelliteTown) || !town.plan.ready)
 			{
 				continue;
 			}
 			const Vec2 civic = town.plan.civic ? town.plan.civic->center() : town.plan.oldCore;
 			const std::array<std::pair<BuildingType, int>, 5> requests{
-				{{BuildingType::CityHall, settings.landmarks_cityHallCount},
-					{BuildingType::ShoppingMall, settings.landmarks_mallCount},
-					{BuildingType::Hospital, settings.landmarks_hospitalCount},
-					{BuildingType::School, settings.landmarks_schoolCount},
-					{BuildingType::OfficeTower, towerCount(town.plan.structure)}}};
+				{{BuildingType::CityHall, satelliteTown ? 0 : settings.landmarks_cityHallCount},
+					{BuildingType::ShoppingMall, satelliteTown ? 0 : settings.landmarks_mallCount},
+					{BuildingType::Hospital, satelliteTown ? 0 : settings.landmarks_hospitalCount},
+					{BuildingType::School, satelliteTown ? 1 : settings.landmarks_schoolCount},
+					{BuildingType::OfficeTower, satelliteTown ? 0 : towerCount(town.plan.structure)}}};
 			for (const auto [type, wanted] : requests)
 			{
 				if (wanted <= 0)
@@ -185,7 +186,7 @@ namespace UrbanFacilities
 							{
 								continue;
 							}
-							double score = type == BuildingType::CityHall
+							double score = (type == BuildingType::CityHall || (satelliteTown && type == BuildingType::School))
 											   ? p.distanceFrom(civic)
 											   : p.distanceFrom(Vec2{0, town.plan.halfExtent.y * .60});
 							if (type == BuildingType::ShoppingMall)

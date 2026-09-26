@@ -70,7 +70,7 @@ namespace AgriculturalLayout
 						if (building.type==BuildingType::None || building.type==BuildingType::Farmland) { continue; }
 						const Vec2 center{(x*ZONE_CELLS+col+.5)*kCellSize+building.offsetX,(z*ZONE_CELLS+row+.5)*kCellSize+building.offsetZ};
 						occupied.add(ParcelGeometry::footprint(center,buildingFootprintXZ(building.type)*.5+3,building.angle));
-						if (building.type==BuildingType::RuralHouse) { homes << center; }
+						if (building.type==BuildingType::RuralHouse || building.type==BuildingType::VillageHouse) { homes << center; }
 					} }
 				} }
 			}

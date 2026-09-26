@@ -158,7 +158,7 @@ void registerUrbanFacilitiesTests(TestRunner& runner)
 					for (int col = 0; col < ZONE_CELLS; ++col)
 					{
 						const auto& building = chunk.buildingGrid[{col, row}];
-						if (building.type < BuildingType::OfficeTower)
+						if (building.type < BuildingType::OfficeTower || building.type > BuildingType::School)
 						{
 							continue;
 						}

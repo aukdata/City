@@ -569,12 +569,12 @@
     },
     "industrialZoneX": {
       "type": "number",
-      "minimum": 0.0,
+      "minimum": -1.0,
       "maximum": 100000.0
     },
     "industrialZoneZ": {
       "type": "number",
-      "minimum": 0.0,
+      "minimum": -1.0,
       "maximum": 100000.0
     },
     "industrialZoneWidth": {
