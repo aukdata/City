@@ -51,6 +51,7 @@
 - `centers` のx/zは半幅を1とする地区座標、`radius` は短い方の半幅に対する影響半径。`role` は0業務、1商業、2水際交流。`rail` がtrueなら駅候補。実際に線形制約を満たした候補だけ建設されます。
 - `greenAreas` は同じ地区座標で表す公園の矩形。x/zが左上、w/hが幅と奥行き。通過道路は保持し、建物を除外します。
 - `backgroundIntensity` は核の外に残る市街地密度。`outerOccupancy` は外縁の建物候補採用率。`coreFrontage` / `outerFrontage` は候補間隔[m]です。
+- `urbanFabric.json` の中心街設定は、沿道候補間隔・戸建てと低層集合住宅の比率・建物の周囲に残す敷地余白を調整します。
 - `coreHighShare` / `coreOfficeShare` / `coreMidShare` は中心部の高層住宅・業務・中層住宅の配分で、残りは店舗。核から遠ざかるほど高層・業務を減らします。`shoppingOfficeRatio` は商業核の業務配分倍率。
 - `innerDetachedShare` / `outerDetachedShare` は核周辺と外縁の戸建て率。残りの住宅に対する中層割合が `housingMidShare` です。
 - `coreRadiusRatio` は中心用途の範囲/影響半径。`edgeFadeEnd` / `edgeFadeWidth` は半幅に対する外縁減衰の終端と幅です。

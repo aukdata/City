@@ -13,6 +13,7 @@
     "downtownSetback",
     "downtownFrontagePitch",
     "downtownDetachedPercent",
+    "downtownLowApartmentPercent",
     "newTownMinimumDistance",
     "newTownMaximumDistance",
     "newTownSeparation",
@@ -78,6 +79,11 @@
       "maximum": 20.0
     },
     "downtownDetachedPercent": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "downtownLowApartmentPercent": {
       "type": "number",
       "minimum": 0.0,
       "maximum": 100.0

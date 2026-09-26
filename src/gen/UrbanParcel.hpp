@@ -18,13 +18,15 @@ namespace UrbanParcel
 		polygon = std::move(unique);
 	}
 
-	inline Array<Vec2> clipCloserTo(Array<Vec2> polygon, Vec2 center, Vec2 neighbor)
+	/// @brief Clip to the near side of a boundary between two site centers.
+	/// @param gapRatio Negative uses the configured gap; zero retains the full half-plane.
+	inline Array<Vec2> clipCloserTo(Array<Vec2> polygon, Vec2 center, Vec2 neighbor, double gapRatio = -1.0)
 	{
 		Array<Vec2> result;
 		const Vec2 normal = neighbor - center;
 		if (normal.lengthSq() < 0.001) { return polygon; }
 		const Vec2 midpoint = (center + neighbor) * 0.5;
-		const double gap = normal.length() * GenerationSettings::get().parcels_neighborGapRatio;
+		const double gap = normal.length() * (gapRatio >= 0.0 ? gapRatio : GenerationSettings::get().parcels_neighborGapRatio);
 		for (size_t index = 0; index < polygon.size(); ++index)
 		{
 			const Vec2 a = polygon[index], b = polygon[(index + 1) % polygon.size()];
@@ -37,10 +39,11 @@ namespace UrbanParcel
 	}
 
 	/// @brief 大きな駐車場と隣家の間は建物中心の中点でなく、両敷地の間の空地で分ける。
+	/// @param preserveFootprint 建物の占有範囲の外側で境界を分ける。
 	inline Array<Vec2> clipBetweenSites(Array<Vec2> polygon, Vec2 center, const Building& owner,
-		Vec2 neighbor, const Building& adjacent)
+		Vec2 neighbor, const Building& adjacent, bool preserveFootprint = false)
 	{
-		if (!isCompleteSiteBuilding(owner.type) && !isCompleteSiteBuilding(adjacent.type))
+		if (!preserveFootprint && !isCompleteSiteBuilding(owner.type) && !isCompleteSiteBuilding(adjacent.type))
 		{
 			return clipCloserTo(std::move(polygon), center, neighbor);
 		}
@@ -62,13 +65,20 @@ namespace UrbanParcel
 				boundary = center+normal*(ownerReach+gap*.5);
 			}
 		}
+		if (preserveFootprint && bestGap >= 0.0)
+		{
+			// Split the free space between footprints without trimming either building's lot.
+			return clipCloserTo(std::move(polygon), boundary-bestNormal, boundary+bestNormal, 0.0);
+		}
 		if (bestGap < GenerationSettings::get().parcels_minimumBuildingGap) { return clipCloserTo(std::move(polygon), center, neighbor); }
 		return clipCloserTo(std::move(polygon), boundary-bestNormal, boundary+bestNormal);
 	}
 
 
+	/// @brief 隣接する建物との境界で敷地を分割する。
+	/// @param preserveFootprint 建物の四隅が敷地から削られないようにする。
 	inline Array<Vec2> partition(const World& world, Point coord, int col, int row,
-		Vec2 center, Array<Vec2> polygon)
+		Vec2 center, Array<Vec2> polygon, bool preserveFootprint = false)
 	{
 		constexpr double kCellSize = static_cast<double>(CHUNK_SIZE) / ZONE_CELLS;
 		const int globalCol = coord.x * ZONE_CELLS + col;
@@ -88,7 +98,7 @@ namespace UrbanParcel
 				if (building.type == BuildingType::None || building.type == BuildingType::Farmland) { continue; }
 				const Vec2 neighbor{ (x + 0.5) * kCellSize + building.offsetX,
 					(z + 0.5) * kCellSize + building.offsetZ };
-				polygon = clipBetweenSites(std::move(polygon), center, owner, neighbor, building);
+				polygon = clipBetweenSites(std::move(polygon), center, owner, neighbor, building, preserveFootprint);
 				if (polygon.size() < 3) { return {}; }
 			}
 		}

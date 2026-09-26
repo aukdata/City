@@ -419,7 +419,9 @@ namespace
 				{
 					const double detached= Math::Lerp(GenerationSettings::get().development_context_Housing_58,
 						GenerationSettings::get().urbanFabric_downtownDetachedPercent,dense);
-					building.type=roll<detached ? BuildingType::Detached : (roll<GenerationSettings::get().development_context_Housing_84 ? BuildingType::LowApartment : BuildingType::MidApartment);
+					const double lowApartment=Math::Lerp(GenerationSettings::get().development_context_Housing_84,
+						GenerationSettings::get().urbanFabric_downtownLowApartmentPercent,dense);
+					building.type=roll<detached ? BuildingType::Detached : (roll<lowApartment ? BuildingType::LowApartment : BuildingType::MidApartment);
 				}
 			}
 			if (settlement.plan.origin==UrbanMorphology::Origin::Planned)
@@ -1392,7 +1394,6 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					const float structuralOuter = rightSide ? Max(0.0f, range.right) : Max(0.0f, -range.left);
 					constexpr float kCellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 					const float buildingHalf = buildingFootprintXZ(building.type) * 0.5f;
-					const float frontOffset = structuralOuter + GenerationSettings::get().development_parcelRoadGap;
 					const int districtIndex=nearestSettlementIndex(m_districts,static_cast<float>(sampleCenter.x),static_cast<float>(sampleCenter.y));
 					const auto use=districtIndex>=0 ? UrbanMorphology::sample(m_districts[districtIndex].plan,planLocal(m_districts[districtIndex],sampleCenter)) : UrbanMorphology::LandUse{};
 					const float plotDepth=use.district==UrbanMorphology::District::Industry ? GenerationSettings::get().development_industrialPlotDepth
@@ -1400,6 +1401,10 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					const double density=districtIndex>=0 && !isCompleteSiteBuilding(building.type)
 						? UrbanMorphology::downtownIntensity(m_districts[districtIndex].plan,planLocal(m_districts[districtIndex],sampleCenter)) : 0;
 					const auto& settings=GenerationSettings::get();
+					// Dense street lots follow the building outline; the road gap belongs to the street.
+					const double roadFront=structuralOuter+settings.development_parcelRoadGap;
+					const double buildingFront=projection.distance-buildingHalf-settings.development_footprintMargin;
+					const double frontOffset=Math::Lerp(roadFront,Max(roadFront,buildingFront),density);
 					const double rawDepth=Math::Lerp(static_cast<double>(plotDepth),settings.urbanFabric_downtownPlotDepth,density);
 					const double depth=districtIndex>=0 && m_districts[districtIndex].plan.scale==1 && zone==ZoneType::Commercial
 						? Min(rawDepth,30.0) : rawDepth;
@@ -1424,7 +1429,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 						projection.position + along * halfAlong + frontageDir * backOffset,
 						projection.position - along * halfAlong + frontageDir * backOffset
 					};
-					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon));
+					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon), density >= 0.5);
 					if (patch.polygon.size() >= 3) { chunk.landPatches << patch; }
 				}
 			}

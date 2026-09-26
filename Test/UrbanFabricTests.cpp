@@ -159,7 +159,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 				const auto validation = development.placeInitialBuildings(true);
 				int count = 0, apartments = 0, detached = 0, elevated = 0;
 				double footprintArea = 0, parcelArea = 0, setbacks = 0;
-				HashSet<int64> coreParcels;
+				int clippedBuildingCorners = 0;
+				HashTable<int64, ParcelGeometry::Quad> coreFootprints;
 				for (int z = 30; z <= 33; ++z)
 				{
 					for (int x = 30; x <= 33; ++x)
@@ -196,7 +197,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 								apartments += building.type == BuildingType::MidApartment ||
 											  building.type == BuildingType::LowApartment;
 								detached += building.type == BuildingType::Detached;
-								coreParcels.insert(ZoneGrid::zoneCellKey({x, z}, col, row));
+								coreFootprints[ZoneGrid::zoneCellKey({x, z}, col, row)] =
+									ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * .5, building.angle);
 								const auto* edge = roads.getEdge(building.edgeId);
 								context.expect(edge != nullptr, U"All buildings have road access");
 								if (edge)
@@ -215,9 +217,14 @@ void registerUrbanFabricTests(TestRunner& runner)
 					{
 						for (const auto& patch : world.getChunk({x, z})->landPatches)
 						{
-							if (coreParcels.contains(patch.sourceParcelKey))
+							if (const auto footprint = coreFootprints.find(patch.sourceParcelKey); footprint != coreFootprints.end())
 							{
-								parcelArea += Polygon{patch.polygon}.area();
+								const Polygon parcel{patch.polygon};
+								parcelArea += parcel.area();
+								for (const Vec2 corner : footprint->second)
+								{
+									clippedBuildingCorners += !parcel.contains(corner);
+								}
 							}
 						}
 					}
@@ -237,6 +244,7 @@ void registerUrbanFabricTests(TestRunner& runner)
 				item[U"footprintArea"] = footprintArea;
 				item[U"parcelArea"] = parcelArea;
 				item[U"coverage"] = footprintArea / Max(1.0, parcelArea);
+				item[U"clippedBuildingCorners"] = clippedBuildingCorners;
 				item[U"meanSetback"] = setbacks / Max(1, count);
 				item[U"validation"] = validation.summary;
 				if (seed == 42 || seed == 2026)
@@ -293,10 +301,12 @@ void registerUrbanFabricTests(TestRunner& runner)
 				report.push_back(item);
 				if (origin == UrbanMorphology::Origin::Castle)
 				{
-					context.expect(count >= 3400 && footprintArea > 420000,
-						U"The same measured central site has more buildings and occupied building area");
-					context.expect(footprintArea / Max(1.0, parcelArea) > .60,
-						U"Central parcels no longer devote most of their area to empty setbacks");
+					context.expect(count >= 3400 && footprintArea > 480000,
+						U"The central district retains its building count while filling more ground area");
+					context.expect(footprintArea / Max(1.0, parcelArea) > .84,
+						U"Central parcels closely follow the building footprint");
+					context.expectEqual(clippedBuildingCorners, 0,
+						U"Compact parcels still contain every corner of their building");
 				}
 				context.expect(count > 100, U"The central district develops a substantial street frontage");
 				context.expect(validation.passed, U"Real generation constraints: " + validation.summary);
