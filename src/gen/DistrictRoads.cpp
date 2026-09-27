@@ -66,7 +66,9 @@ namespace DistrictRoads
 			RoadNetwork::buildDefaultParts(edge);
 		}
 
-		bool tryAddLocalRoadEdge(RoadNetwork& network, int nodeIdA, int nodeIdB)
+		/// @param bendA 始点側制御点の横ずれ [m]（左が正）。自然発生的な市街地の生活道路を緩く曲げる。
+		/// @param bendB 終点側制御点の横ずれ [m]
+		bool tryAddLocalRoadEdge(RoadNetwork& network, int nodeIdA, int nodeIdB, double bendA = 0.0, double bendB = 0.0)
 		{
 			// 地区内道路として成立する勾配だけを通し、直線ベースの生活道路エッジを追加する。
 			if (nodeIdA < 0 || nodeIdB < 0) return false;
@@ -82,8 +84,9 @@ namespace DistrictRoads
 			if (dh / dist > GenerationSettings::get().districtRoads_maxSlope) return false;
 
 			const Vec3 dir = (nb->position - na->position);
-			const Vec3 ctrlA = na->position + dir * (1.0 / 3.0);
-			const Vec3 ctrlB = na->position + dir * (2.0 / 3.0);
+			const Vec2 left = Vec2{ -dir.z, dir.x }.normalized();
+			const Vec3 ctrlA = na->position + dir * (1.0 / 3.0) + Vec3{ left.x * bendA, 0.0, left.y * bendA };
+			const Vec3 ctrlB = na->position + dir * (2.0 / 3.0) + Vec3{ left.x * bendB, 0.0, left.y * bendB };
 			return static_cast<bool>(network.addEdge(nodeIdA, nodeIdB, ctrlA, ctrlB,
 			                                         RoadType::LocalRoad, 2));
 		}
@@ -1443,6 +1446,10 @@ namespace DistrictRoads
 
 		Grid<int> nodeIds(n, rows, -1);
 		HashSet<int> outerGridPointSet;
+		// 写真の郊外住宅地のように、自然発生的な町は曲がった生活道路と丁字路を持つ。
+		const bool organicStreets = plan.origin != UrbanMorphology::Origin::Castle && plan.origin != UrbanMorphology::Origin::Planned
+			&& plan.origin != UrbanMorphology::Origin::Industrial;
+		HashSet<int> plainLocalEdges;
 		HashTable<int, Array<GridAdjEdge>> gridGraph;
 
 		auto localToWorld = [&](float lx, float lz) -> Vec3
@@ -1508,7 +1515,18 @@ namespace DistrictRoads
 			int edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			if (edgeId < 0)
 			{
-				if (!tryAddLocalRoadEdge(network, nodeA, nodeB)) return;
+				// 城下町・計画市街地以外の生活道路は、外周を除いて緩く曲がる。
+				double bendA = 0.0, bendB = 0.0;
+				if (organicStreets && !outerFrame)
+				{
+					const uint64 hash = (seed + static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL)
+						^ (static_cast<uint64>(Min(nodeA, nodeB)) * 0xBF58476D1CE4E5B9ULL) ^ (static_cast<uint64>(Max(nodeA, nodeB)) * 0x94D049BB133111EBULL);
+					const double reach = Min(7.0, start.distanceFrom(end) * 0.08);
+					const double amount = (static_cast<double>((hash >> 8) % 2001u) / 1000.0 - 1.0) * reach;
+					bendA = amount;
+					bendB = ((hash >> 40) % 5u) < 2u ? -amount : amount;
+				}
+				if (!tryAddLocalRoadEdge(network, nodeA, nodeB, bendA, bendB)) return;
 				edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			}
 			if (RoadEdge* edge = network.getEdge(edgeId))
@@ -1537,6 +1555,7 @@ namespace DistrictRoads
 				GeneratedStreet::Profile profile=GeneratedStreet::describe(plan.structure==UrbanStructure::Type::None ? role
 					: UrbanStructure::streetRole(plan,coordsX,coordsZ,colA,rowA,colB,rowB));
 				if (corridor==stationCorridor) { profile.walkwayLeft=profile.walkwayRight=GenerationSettings::get().districtRoads_stationWalkwayWidth; }
+				if (!outerFrame && corridor!=stationCorridor && plan.structure==UrbanStructure::Type::None && role==Role::Local) { plainLocalEdges.insert(edgeId); }
 				if (outerFrame && plan.scale!=2)
 				{
 					// Only the developed side of the urban edge needs a raised walkway.
@@ -1563,6 +1582,43 @@ namespace DistrictRoads
 				tryAddGridEdge(col, row, col, row + 1);
 			}
 		}
+
+		// 生活道路の一部を抜いて丁字路と不整形な街区を作る。どの交差点も3方向以上を残し、格子全体の連結を保つ。
+		int removedForJunctions = 0;
+		if (plan.origin != UrbanMorphology::Origin::Planned)
+		{
+			const uint32 removalPerMille = organicStreets ? 150u : 80u;
+			Array<int> candidates(plainLocalEdges.begin(), plainLocalEdges.end());
+			candidates.sort();
+			for (const int edgeId : candidates)
+			{
+				const RoadEdge* edge = network.getEdge(edgeId);
+				if (!edge) { continue; }
+				const int a = edge->nodeA, b = edge->nodeB;
+				const uint64 hash = (seed ^ (static_cast<uint64>(settlementIndex) << 32)) + static_cast<uint64>(edgeId) * 0x9E3779B97F4A7C15ULL;
+				if (((hash >> 17) % 1000u) >= removalPerMille) { continue; }
+				if (!gridGraph.contains(a) || !gridGraph.contains(b) || gridGraph[a].size() < 4 || gridGraph[b].size() < 3) { continue; }
+				// 抜いた後も両端が格子内でつながるときだけ除く。
+				HashSet<int> seen{ a };
+				Array<int> pending{ a };
+				bool reachable = false;
+				for (size_t cursor = 0; cursor < pending.size() && !reachable; ++cursor)
+				{
+					for (const auto& adjacency : gridGraph[pending[cursor]])
+					{
+						if (adjacency.edgeId == edgeId || !seen.insert(adjacency.toNodeId).second) { continue; }
+						if (adjacency.toNodeId == b) { reachable = true; break; }
+						pending << adjacency.toNodeId;
+					}
+				}
+				if (!reachable) { continue; }
+				gridGraph[a].remove_if([&](const GridAdjEdge& adjacency) { return adjacency.edgeId == edgeId; });
+				gridGraph[b].remove_if([&](const GridAdjEdge& adjacency) { return adjacency.edgeId == edgeId; });
+				network.removeEdge(edgeId);
+				++removedForJunctions;
+			}
+		}
+		DBG_LOG(U"[SettlementPlan] organic={} removedForJunctions={}"_fmt(organicStreets, removedForJunctions));
 
 		// Removing civic/terrain blocks must not leave interior road stubs.
 		// Preserve boundary vertices because they may be regional gateways.
