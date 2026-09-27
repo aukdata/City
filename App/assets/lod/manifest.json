@@ -1,5 +1,31 @@
 [
   {
+    "source": "buildings/commercial/city_hall_001.obj",
+    "sourceTriangles": 1382,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/city_hall_001.lod1.obj",
+        "triangles": 418
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/city_hall_001.lod2.obj",
+        "triangles": 36
+      }
+    ],
+    "boundsMin": [
+      -21.9,
+      0.0,
+      -21.9
+    ],
+    "boundsMax": [
+      21.9,
+      23.0,
+      21.9
+    ]
+  },
+  {
     "source": "buildings/commercial/convenience_roadside_001.obj",
     "sourceTriangles": 14579,
     "levels": [
@@ -128,6 +154,32 @@
     ]
   },
   {
+    "source": "buildings/commercial/hospital_001.obj",
+    "sourceTriangles": 1386,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/hospital_001.lod1.obj",
+        "triangles": 374
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/hospital_001.lod2.obj",
+        "triangles": 36
+      }
+    ],
+    "boundsMin": [
+      -21.9,
+      0.0,
+      -21.9
+    ],
+    "boundsMax": [
+      21.9,
+      24.0,
+      21.9
+    ]
+  },
+  {
     "source": "buildings/commercial/office_001.obj",
     "sourceTriangles": 23910,
     "levels": [
@@ -221,6 +273,58 @@
         "path": "lod/buildings/commercial/office_006.lod2.obj",
         "triangles": 301
       }
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_tower_001.obj",
+    "sourceTriangles": 2504,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_tower_001.lod1.obj",
+        "triangles": 852
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_tower_001.lod2.obj",
+        "triangles": 60
+      }
+    ],
+    "boundsMin": [
+      -17.9,
+      0.0,
+      -17.9
+    ],
+    "boundsMax": [
+      17.9,
+      103.0,
+      17.9
+    ]
+  },
+  {
+    "source": "buildings/commercial/office_tower_002.obj",
+    "sourceTriangles": 3080,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/office_tower_002.lod1.obj",
+        "triangles": 1140
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/office_tower_002.lod2.obj",
+        "triangles": 60
+      }
+    ],
+    "boundsMin": [
+      -17.9,
+      0.0,
+      -17.9
+    ],
+    "boundsMax": [
+      17.9,
+      147.0,
+      17.9
     ]
   },
   {
@@ -384,6 +488,32 @@
     ]
   },
   {
+    "source": "buildings/commercial/school_001.obj",
+    "sourceTriangles": 1408,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/school_001.lod1.obj",
+        "triangles": 444
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/school_001.lod2.obj",
+        "triangles": 60
+      }
+    ],
+    "boundsMin": [
+      -25.9,
+      0.0,
+      -25.9
+    ],
+    "boundsMax": [
+      25.9,
+      11.04,
+      25.9
+    ]
+  },
+  {
     "source": "buildings/commercial/shop_001.obj",
     "sourceTriangles": 3812,
     "levels": [
@@ -544,18 +674,44 @@
     ]
   },
   {
+    "source": "buildings/commercial/shopping_mall_001.obj",
+    "sourceTriangles": 5380,
+    "levels": [
+      {
+        "level": 1,
+        "path": "lod/buildings/commercial/shopping_mall_001.lod1.obj",
+        "triangles": 1272
+      },
+      {
+        "level": 2,
+        "path": "lod/buildings/commercial/shopping_mall_001.lod2.obj",
+        "triangles": 96
+      }
+    ],
+    "boundsMin": [
+      -55.9,
+      0.0,
+      -55.9
+    ],
+    "boundsMax": [
+      55.9,
+      16.9,
+      55.9
+    ]
+  },
+  {
     "source": "buildings/residential/residential_001.obj",
     "sourceTriangles": 18483,
     "levels": [
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_001.lod1.obj",
-        "triangles": 8247
+        "triangles": 3327
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_001.lod2.obj",
-        "triangles": 8247
+        "triangles": 462
       }
     ]
   },
@@ -582,12 +738,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_003.lod1.obj",
-        "triangles": 8154
+        "triangles": 2932
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_003.lod2.obj",
-        "triangles": 8154
+        "triangles": 407
       }
     ]
   },
@@ -598,12 +754,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_004.lod1.obj",
-        "triangles": 1985
+        "triangles": 1989
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_004.lod2.obj",
-        "triangles": 684
+        "triangles": 683
       }
     ]
   },
@@ -614,12 +770,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_005.lod1.obj",
-        "triangles": 2866
+        "triangles": 2867
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_005.lod2.obj",
-        "triangles": 1387
+        "triangles": 1390
       }
     ]
   },
@@ -630,7 +786,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_006.lod1.obj",
-        "triangles": 4303
+        "triangles": 4304
       },
       {
         "level": 2,
@@ -646,7 +802,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_007.lod1.obj",
-        "triangles": 2750
+        "triangles": 2745
       },
       {
         "level": 2,
@@ -662,7 +818,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_008.lod1.obj",
-        "triangles": 2755
+        "triangles": 2748
       },
       {
         "level": 2,
@@ -678,7 +834,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_009.lod1.obj",
-        "triangles": 5472
+        "triangles": 5458
       },
       {
         "level": 2,
@@ -694,7 +850,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_010.lod1.obj",
-        "triangles": 5473
+        "triangles": 5456
       },
       {
         "level": 2,
@@ -710,12 +866,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_011.lod1.obj",
-        "triangles": 8261
+        "triangles": 3327
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_011.lod2.obj",
-        "triangles": 8261
+        "triangles": 459
       }
     ]
   },
@@ -731,7 +887,7 @@
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_012.lod2.obj",
-        "triangles": 739
+        "triangles": 735
       }
     ]
   },
@@ -742,12 +898,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_013.lod1.obj",
-        "triangles": 8173
+        "triangles": 2933
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_013.lod2.obj",
-        "triangles": 8173
+        "triangles": 407
       }
     ]
   },
@@ -758,12 +914,12 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_014.lod1.obj",
-        "triangles": 1985
+        "triangles": 1989
       },
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_014.lod2.obj",
-        "triangles": 693
+        "triangles": 694
       }
     ]
   },
@@ -779,7 +935,7 @@
       {
         "level": 2,
         "path": "lod/buildings/residential/residential_015.lod2.obj",
-        "triangles": 1387
+        "triangles": 1391
       }
     ]
   },
@@ -790,7 +946,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_016.lod1.obj",
-        "triangles": 4303
+        "triangles": 4305
       },
       {
         "level": 2,
@@ -806,7 +962,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_017.lod1.obj",
-        "triangles": 2757
+        "triangles": 2749
       },
       {
         "level": 2,
@@ -822,7 +978,7 @@
       {
         "level": 1,
         "path": "lod/buildings/residential/residential_018.lod1.obj",
-        "triangles": 5476
+        "triangles": 5456
       },
       {
         "level": 2,
@@ -843,7 +999,7 @@
       {
         "level": 2,
         "path": "lod/buildings/residential/rural_house_001.lod2.obj",
-        "triangles": 860
+        "triangles": 464
       }
     ]
   },
@@ -859,7 +1015,7 @@
       {
         "level": 2,
         "path": "lod/buildings/residential/rural_house_002.lod2.obj",
-        "triangles": 815
+        "triangles": 438
       }
     ]
   },
@@ -875,7 +1031,7 @@
       {
         "level": 2,
         "path": "lod/buildings/residential/rural_house_003.lod2.obj",
-        "triangles": 683
+        "triangles": 323
       }
     ]
   },
@@ -1405,162 +1561,6 @@
         "path": "lod/vehicles/sedan.lod2.obj",
         "triangles": 48
       }
-    ]
-  },
-  {
-    "source": "buildings/commercial/office_tower_001.obj",
-    "sourceTriangles": 2504,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/office_tower_001.lod1.obj",
-        "triangles": 852
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/office_tower_001.lod2.obj",
-        "triangles": 60
-      }
-    ],
-    "boundsMin": [
-      -17.9,
-      0.0,
-      -17.9
-    ],
-    "boundsMax": [
-      17.9,
-      103.0,
-      17.9
-    ]
-  },
-  {
-    "source": "buildings/commercial/office_tower_002.obj",
-    "sourceTriangles": 3080,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/office_tower_002.lod1.obj",
-        "triangles": 1140
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/office_tower_002.lod2.obj",
-        "triangles": 60
-      }
-    ],
-    "boundsMin": [
-      -17.9,
-      0.0,
-      -17.9
-    ],
-    "boundsMax": [
-      17.9,
-      147.0,
-      17.9
-    ]
-  },
-  {
-    "source": "buildings/commercial/city_hall_001.obj",
-    "sourceTriangles": 1382,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/city_hall_001.lod1.obj",
-        "triangles": 418
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/city_hall_001.lod2.obj",
-        "triangles": 36
-      }
-    ],
-    "boundsMin": [
-      -21.9,
-      0.0,
-      -21.9
-    ],
-    "boundsMax": [
-      21.9,
-      23.0,
-      21.9
-    ]
-  },
-  {
-    "source": "buildings/commercial/shopping_mall_001.obj",
-    "sourceTriangles": 5380,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/shopping_mall_001.lod1.obj",
-        "triangles": 1272
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/shopping_mall_001.lod2.obj",
-        "triangles": 96
-      }
-    ],
-    "boundsMin": [
-      -55.9,
-      0.0,
-      -55.9
-    ],
-    "boundsMax": [
-      55.9,
-      16.9,
-      55.9
-    ]
-  },
-  {
-    "source": "buildings/commercial/hospital_001.obj",
-    "sourceTriangles": 1386,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/hospital_001.lod1.obj",
-        "triangles": 374
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/hospital_001.lod2.obj",
-        "triangles": 36
-      }
-    ],
-    "boundsMin": [
-      -21.9,
-      0.0,
-      -21.9
-    ],
-    "boundsMax": [
-      21.9,
-      24.0,
-      21.9
-    ]
-  },
-  {
-    "source": "buildings/commercial/school_001.obj",
-    "sourceTriangles": 1408,
-    "levels": [
-      {
-        "level": 1,
-        "path": "lod/buildings/commercial/school_001.lod1.obj",
-        "triangles": 444
-      },
-      {
-        "level": 2,
-        "path": "lod/buildings/commercial/school_001.lod2.obj",
-        "triangles": 60
-      }
-    ],
-    "boundsMin": [
-      -25.9,
-      0.0,
-      -25.9
-    ],
-    "boundsMax": [
-      25.9,
-      11.04,
-      25.9
     ]
   }
 ]

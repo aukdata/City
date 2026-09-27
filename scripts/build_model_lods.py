@@ -13,6 +13,10 @@ from mathutils.kdtree import KDTree
 ASSETS = Path(__file__).resolve().parents[1] / 'App/assets'
 DEST = ASSETS / 'lod'
 SOURCES = sorted(p for p in ASSETS.rglob('*.obj') if 'lod' not in p.relative_to(ASSETS).parts)
+# Optional: `-- buildings/residential/ ...` rebuilds only sources whose path contains an argument.
+FILTERS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+if FILTERS:
+    SOURCES = [p for p in SOURCES if any(f in p.relative_to(ASSETS).as_posix() for f in FILTERS)]
 reports = []
 
 for source in SOURCES:
@@ -70,11 +74,31 @@ for source in SOURCES:
             original.select_set(True);bpy.context.view_layer.objects.active=original
             modifier=original.modifiers.new('Far triangles','TRIANGULATE');bpy.ops.object.modifier_apply(modifier=modifier.name)
         target = max(minimum, round(source_faces * ratio))
-        if target < source_faces and not far_vehicle:
+        def collapse(mesh):
+            original.data = mesh
             modifier = original.modifiers.new('Distance reduction', 'DECIMATE')
             modifier.ratio = target / source_faces
             modifier.use_collapse_triangulate = True
             bpy.ops.object.modifier_apply(modifier=modifier.name)
+            return original.data, sum(face.area for face in original.data.polygons)
+
+        if target < source_faces and not far_vehicle and source.relative_to(ASSETS).parts[0] == 'buildings':
+            # Buildings export as unwelded triangles, and tiled roofs share edges between 3+ faces.
+            # Collapse skips non-manifold edges and stalls after halving each tile row (a
+            # see-through roof), while splitting those edges can tear plain walls at far range.
+            # Reduce each preparation and keep the one that preserves the most surface.
+            def prepared(split):
+                mesh = original_mesh.copy()
+                work = bmesh.new(); work.from_mesh(mesh)
+                bmesh.ops.remove_doubles(work, verts=list(work.verts), dist=1e-4)
+                if split:
+                    bmesh.ops.split_edges(work, edges=[edge for edge in work.edges if len(edge.link_faces) > 2])
+                work.to_mesh(mesh); work.free()
+                return mesh
+            candidates = [collapse(mesh) for mesh in (original_mesh.copy(), prepared(False), prepared(True))]
+            original.data = max(candidates, key=lambda candidate: candidate[1])[0]
+        elif target < source_faces and not far_vehicle:
+            collapse(original.data)
         # Thin trim can extrapolate beyond the original shell during collapse.
         if not far_vehicle:
             for vertex in original.data.vertices:
@@ -105,9 +129,16 @@ for source in SOURCES:
     print('LOD', entry['source'], source_faces, [v['triangles'] for v in entry['levels']], flush=True)
 
 DEST.mkdir(parents=True, exist_ok=True)
+if FILTERS:
+    # A partial rebuild replaces only its own manifest entries.
+    rebuilt = {entry['source'] for entry in reports}
+    previous = json.loads((DEST / 'manifest.json').read_text(encoding='utf-8'))
+    reports = sorted([entry for entry in previous if entry['source'] not in rebuilt] + reports,
+                     key=lambda entry: entry['source'])
 (DEST / 'manifest.json').write_text(json.dumps(reports, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 print('COMPLETE', len(reports), flush=True)
 
 # Signal lamps keep independent names so their live colours still animate.
-import runpy
-runpy.run_path(str(Path(__file__).with_name("build_signal_lods.py")))
+if not FILTERS:
+    import runpy
+    runpy.run_path(str(Path(__file__).with_name("build_signal_lods.py")))
