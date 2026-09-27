@@ -110,7 +110,8 @@ inline uint8 residentialModelIndex(BuildingType t, int gx, int gz)
 {
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
-	static constexpr uint8 kDetachedVariants[] = { 0, 1, 2, 3, 10, 11, 12, 13 };
+	// residential_001/003/011/013 の中景・遠景LODは瓦屋根が格子状に欠けるため、LOD再生成まで使わない。
+	static constexpr uint8 kDetachedVariants[] = { 1, 3, 11, 13 };
 	static constexpr uint8 kLowApartmentVariants[] = { 4, 5, 14, 15 };
 	static constexpr uint8 kMidApartmentVariants[] = { 6, 7, 16 };
 	static constexpr uint8 kHighApartmentVariants[] = { 8, 9, 17 };

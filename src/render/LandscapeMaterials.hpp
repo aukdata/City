@@ -22,6 +22,14 @@ namespace LandscapeMaterials
 		case 132: return ColorF{.22,.34,.31}.removeSRGBCurve();
 		case 133: return ColorF{.39,.23,.17}.removeSRGBCurve();
 		case 135: return ColorF{.13,.21,.24}.removeSRGBCurve();
+		// 狭小住宅の外壁サイディングと屋根。
+		case 140: return ColorF{ 0.55, 0.49, 0.40 };
+		case 141: return ColorF{ 0.47, 0.47, 0.45 };
+		case 142: return ColorF{ 0.16, 0.19, 0.24 };
+		case 143: return ColorF{ 0.34, 0.26, 0.20 };
+		case 144: return ColorF{ 0.63, 0.61, 0.56 };
+		case 145: return ColorF{ 0.37, 0.38, 0.33 };
+		case 146: return ColorF{ 0.13, 0.13, 0.14 };
 		case 128: return ColorF{.30,.40,.22}.removeSRGBCurve();
 		case 129: return ColorF{.34,.44,.24}.removeSRGBCurve();
 		case 124:

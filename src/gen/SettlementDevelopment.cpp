@@ -1280,6 +1280,9 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		{
 			return ((salt >> 5) & 1u) ? LandPatchType::ParcelAsphalt : LandPatchType::ParcelGravel;
 		}
+		// 市街地の住宅敷地は駐車場・土間が大半を占め、芝生の庭は戸建ての一部だけに残す。
+		if (buildingType == BuildingType::UrbanHousePair || buildingType == BuildingType::LowApartment) { return LandPatchType::ParcelAsphalt; }
+		if (buildingType == BuildingType::Detached && ((salt >> 7) % 3u) == 0u) { return LandPatchType::ParcelGravel; }
 		return LandPatchType::GardenSoil;
 	};
 

@@ -398,23 +398,78 @@ namespace
 		const float houseWidth=(footprint-gap)*0.5f;
 		const float baseY=buildingBaseHeight(world,building,cx,cz);
 		const float cosA=Math::Cos(building.angle), sinA=Math::Sin(building.angle);
+		auto worldOffset=[&](float lx, float lz)
+		{
+			return Vec2{ cx+lx*cosA-lz*sinA, cz+lx*sinA+lz*cosA };
+		};
+		// 狭小住宅の外壁はサイディングの色幅を持たせ、隣り合う2戸を同色にしない。
+		constexpr int kSidingKeys[]={ 140, 141, 142, 143, 144, 145 };
+		constexpr int kRoofKeys[]={ 146, 108, 103 };
+		const uint32 firstSiding=hash%6u;
+		// 道路側に駐車・玄関アプローチのコンクリート土間を残す。
+		const float setback=1.6f;
+		const Vec2 apron=worldOffset(0.0f,-footprint*0.5f+setback*0.5f);
+		appendRotatedBox(groups[100],static_cast<float>(apron.x),baseY+0.03f,static_cast<float>(apron.y),
+			footprint-0.2f,0.04f,setback,building.angle);
 		for (int side=0;side<2;++side)
 		{
-			const float localX=(side==0 ? -1.0f : 1.0f)*(houseWidth+gap)*0.5f;
-			const float houseX=cx+localX*cosA, houseZ=cz+localX*sinA;
-			const float height=side==0 ? 5.7f : 6.3f;
-			const float depth=footprint-(side==0 ? 0.5f : 0.2f);
-			const int wallKey=side==0 ? static_cast<int>(BuildingType::UrbanHousePair) : 102;
-			const int roofKey=(hash&1u)==static_cast<uint32>(side) ? 103 : 108;
-			appendRotatedBox(groups[wallKey],houseX,baseY+height*0.5f,houseZ,
+			const uint32 local=hash>>(side*7+3);
+			const float lx=(side==0 ? -1.0f : 1.0f)*(houseWidth+gap)*0.5f;
+			const int floors=((local>>2)%3u)==0u ? 2 : 3;
+			const float height=static_cast<float>(floors)*2.75f+0.35f;
+			const float depth=footprint-setback-(side==0 ? 0.3f : 0.0f);
+			const float lz=setback*0.5f-(side==0 ? 0.0f : 0.15f);
+			const Vec2 house=worldOffset(lx,lz);
+			const int wallKey=kSidingKeys[(firstSiding+static_cast<uint32>(side)*(1u+(local&3u)))%6u];
+			const int roofKey=kRoofKeys[(local>>4)%3u];
+			appendRotatedBox(groups[wallKey],static_cast<float>(house.x),baseY+height*0.5f,static_cast<float>(house.y),
 				houseWidth,height,depth,building.angle);
-			appendGableRoof(groups[roofKey],houseX,baseY+height,houseZ,
-				houseWidth+0.18f,depth+0.18f,0.65f,building.angle,false);
-			const float frontZ=-depth*0.5f-0.06f;
-			const float frontX=houseX-frontZ*sinA, frontWorldZ=houseZ+frontZ*cosA;
-			appendRotatedBox(groups[116],frontX,baseY+1.04f,frontWorldZ,0.86f,2.08f,0.08f,building.angle);
-			appendRotatedBox(groups[116],frontX,baseY+height-1.35f,frontWorldZ,
-				houseWidth*0.48f,0.66f,0.08f,building.angle);
+			if (((local>>6)&3u)==0u)
+			{
+				// 3階建てに多い陸屋根とパラペット。
+				appendRotatedBox(groups[117],static_cast<float>(house.x),baseY+height+0.25f,static_cast<float>(house.y),
+					houseWidth+0.06f,0.50f,depth+0.06f,building.angle);
+			}
+			else
+			{
+				appendGableRoof(groups[roofKey],static_cast<float>(house.x),baseY+height,static_cast<float>(house.y),
+					houseWidth+0.36f,depth+0.36f,0.95f,building.angle,false);
+			}
+			const float frontZ=lz-depth*0.5f-0.05f;
+			const float sideX=lx+(side==0 ? -1.0f : 1.0f)*(houseWidth*0.5f+0.05f);
+			const float doorX=lx+(side==0 ? 1.0f : -1.0f)*houseWidth*0.26f;
+			const Vec2 door=worldOffset(doorX,frontZ);
+			appendRotatedBox(groups[105],static_cast<float>(door.x),baseY+1.05f,static_cast<float>(door.y),0.90f,2.10f,0.08f,building.angle);
+			const Vec2 canopy=worldOffset(doorX,frontZ-0.40f);
+			appendRotatedBox(groups[115],static_cast<float>(canopy.x),baseY+2.40f,static_cast<float>(canopy.y),1.40f,0.10f,0.80f,building.angle);
+			for (int floor=0;floor<floors;++floor)
+			{
+				const float y=baseY+1.55f+static_cast<float>(floor)*2.75f;
+				const float windowWidth=floor==0 ? houseWidth*0.34f : houseWidth*0.62f;
+				const float windowX=floor==0 ? lx-(side==0 ? 1.0f : -1.0f)*houseWidth*0.18f : lx;
+				const Vec2 window=worldOffset(windowX,frontZ);
+				appendRotatedBox(groups[116],static_cast<float>(window.x),y,static_cast<float>(window.y),
+					windowWidth,floor==0 ? 1.10f : 1.30f,0.08f,building.angle);
+				// 妻側の小窓で長い側壁を分節する。
+				for (int k=0;k<2;++k)
+				{
+					const Vec2 sideWindow=worldOffset(sideX,lz+(k==0 ? -1.0f : 1.0f)*depth*0.22f);
+					appendRotatedBox(groups[116],static_cast<float>(sideWindow.x),y+0.15f,static_cast<float>(sideWindow.y),
+						0.08f,0.85f,0.60f,building.angle);
+				}
+				if (floor==1)
+				{
+					const Vec2 balcony=worldOffset(lx,frontZ-0.45f);
+					appendRotatedBox(groups[117],static_cast<float>(balcony.x),y-0.85f,static_cast<float>(balcony.y),
+						houseWidth*0.86f,0.14f,0.90f,building.angle);
+					const Vec2 rail=worldOffset(lx,frontZ-0.88f);
+					appendRotatedBox(groups[102],static_cast<float>(rail.x),y-0.35f,static_cast<float>(rail.y),
+						houseWidth*0.86f,0.90f,0.06f,building.angle);
+				}
+			}
+			const Vec2 unit=worldOffset(sideX+(side==0 ? -0.22f : 0.22f),lz+depth*0.30f);
+			appendRotatedBox(groups[117],static_cast<float>(unit.x),baseY+0.35f,static_cast<float>(unit.y),
+				0.34f,0.60f,0.80f,building.angle);
 		}
 	}
 
@@ -827,8 +882,7 @@ namespace
 			const Vec2 tree = worldOffset(side * lotSize * 0.36f,
 				lotSize * (0.20f + static_cast<float>((hash >> 21) % 18u) * 0.012f));
 			for (const auto& road : roadMasks) { if (!TreeGeometry::clearOfCorridor(tree,3,road.shape)) { return; } }
-			appendRotatedBox(groups[105], static_cast<float>(tree.x), baseY + 0.80f, static_cast<float>(tree.y), 0.28f, 1.60f, 0.28f, angle);
-			appendRotatedBox(groups[106], static_cast<float>(tree.x), baseY + 1.82f, static_cast<float>(tree.y), 1.65f, 1.45f, 1.65f, angle + static_cast<float>(45.0_deg));
+			appendParkTree(groups, tree, world.sampleHeight(static_cast<float>(tree.x), static_cast<float>(tree.y)), hash, 0.6);
 		}
 
 
