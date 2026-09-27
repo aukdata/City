@@ -21,6 +21,20 @@ bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=Fals
 scene=bpy.context.scene
 scene.render.engine='CYCLES'
 scene.cycles.samples=16
+# Bake on the GPU when Cycles finds one; the CPU path gives the same image.
+try:
+    cycles=bpy.context.preferences.addons['cycles'].preferences
+    for backend in ('OPTIX','CUDA','HIP','ONEAPI','METAL'):
+        try:cycles.compute_device_type=backend
+        except TypeError:continue
+        cycles.get_devices()
+        gpus=[d for d in cycles.devices if d.type==backend]
+        if gpus:
+            for d in cycles.devices:d.use=d.type==backend
+            scene.cycles.device='GPU';break
+except Exception as error:
+    print('GPU bake unavailable:',error)
+print('CYCLES DEVICE',scene.cycles.device,flush=True)
 scene.cycles.use_denoising=True
 scene.render.bake.margin=8
 scene.render.bake.use_clear=True
@@ -118,6 +132,9 @@ def bake_model(item):
     uv=mesh.uv_layers.new(name='BakeUV');mesh.uv_layers.active=uv;uv.active_render=True
     bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(66),island_margin=.006,area_weight=.5)
+    # Smart project leaves most of the atlas empty; repacking raises texel density.
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.pack_islands(rotate=True,rotate_method='CARDINAL',scale=True,margin_method='FRACTION',margin=.002,shape_method='CONVEX')
     bpy.ops.object.mode_set(mode='OBJECT')
     folder=ROOT/'App/assets'/item['asset_dir'] if 'asset_dir' in item else ROOT/'App/assets/buildings'/item['folder']
     folder.mkdir(parents=True,exist_ok=True)
@@ -130,7 +147,7 @@ def bake_model(item):
     bpy.ops.object.bake(type='EMIT')
     baked.filepath_raw=str(folder/f"{item['stem']}_diffuse.png");baked.file_format='PNG';baked.save()
     final=bpy.data.materials.new(item['stem']+'_baked');final.use_nodes=True
-    nodes=final.node_tree.nodes;shader=nodes.get('Principled BSDF')
+    nodes=final.node_tree.nodes;shader=next(n for n in nodes if n.type=='BSDF_PRINCIPLED')
     texture=nodes.new('ShaderNodeTexImage');texture.image=baked
     final.node_tree.links.new(texture.outputs['Color'],shader.inputs['Base Color'])
     shader.inputs['Roughness'].default_value=.32 if item.get('kind') in ('vehicle','train','construction') else .67

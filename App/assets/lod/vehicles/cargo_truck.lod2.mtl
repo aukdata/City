@@ -1,7 +1,7 @@
 # Blender 4.5.0 MTL File: 'None'
 # www.blender.org
 
-newmtl body.001
+newmtl body
 Ns 360.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.680000 0.690000 0.700000
@@ -11,7 +11,7 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl glass.001
+newmtl glass
 Ns 360.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.055000 0.110000 0.150000
@@ -21,7 +21,7 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl tyres.001
+newmtl tyres
 Ns 360.000000
 Ka 1.000000 1.000000 1.000000
 Kd 0.025000 0.025000 0.030000

@@ -21,6 +21,20 @@ bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=Fals
 scene=bpy.context.scene
 scene.render.engine='CYCLES'
 scene.cycles.samples=16
+# Bake on the GPU when Cycles finds one; the CPU path gives the same image.
+try:
+    cycles=bpy.context.preferences.addons['cycles'].preferences
+    for backend in ('OPTIX','CUDA','HIP','ONEAPI','METAL'):
+        try:cycles.compute_device_type=backend
+        except TypeError:continue
+        cycles.get_devices()
+        gpus=[d for d in cycles.devices if d.type==backend]
+        if gpus:
+            for d in cycles.devices:d.use=d.type==backend
+            scene.cycles.device='GPU';break
+except Exception as error:
+    print('GPU bake unavailable:',error)
+print('CYCLES DEVICE',scene.cycles.device,flush=True)
 scene.cycles.use_denoising=True
 scene.render.bake.margin=8
 scene.render.bake.use_clear=True
@@ -34,8 +48,105 @@ scene.unit_settings.scale_length=1
 PHOTO={0:'grey_plaster_02',1:'brick_wall_11',3:'wood_planks_grey',6:'concrete',7:'grey_plaster_02',14:'wood_planks_grey'}
 TINT={0:(1.05,1.01,.9,1),1:(1,1,1,1),3:(.7,.49,.31,1),6:(.92,.93,.9,1),7:(1.3,1.28,1.2,1),14:(1.12,.94,.65,1)}
 
-def material(index):
-    mat=bpy.data.materials.new(f'Source_{index:02d}')
+# Source material groups for weathering. Indices follow the shared town atlas.
+WALLS={0,1,2,3,6,7,14}
+ROOFS={5}
+METALS={11,13}
+
+def mix(nodes,links,blend,a,b,factor):
+    node=nodes.new('ShaderNodeMixRGB');node.blend_type=blend
+    for socket,value in ((node.inputs[0],factor),(node.inputs[1],a),(node.inputs[2],b)):
+        if isinstance(value,(int,float)):socket.default_value=value
+        elif isinstance(value,tuple):socket.default_value=value
+        else:links.new(value,socket)
+    return node.outputs[0]
+
+def math_node(nodes,links,operation,a,b=None,clamp=False):
+    node=nodes.new('ShaderNodeMath');node.operation=operation;node.use_clamp=clamp
+    for socket,value in ((node.inputs[0],a),(node.inputs[1],b)):
+        if value is None:continue
+        if isinstance(value,(int,float)):socket.default_value=value
+        else:links.new(value,socket)
+    return node.outputs[0]
+
+def remap(nodes,links,value,from_min,from_max,to_min,to_max):
+    node=nodes.new('ShaderNodeMapRange');node.clamp=True
+    links.new(value,node.inputs['Value'])
+    for name,v in (('From Min',from_min),('From Max',from_max),('To Min',to_min),('To Max',to_max)):
+        node.inputs[name].default_value=v
+    return node.outputs['Result']
+
+def noise(nodes,links,vector,scale,detail=4,roughness=.55,stretch=None):
+    if stretch:
+        mapping=nodes.new('ShaderNodeMapping');mapping.inputs['Scale'].default_value=stretch
+        links.new(vector,mapping.inputs['Vector']);vector=mapping.outputs['Vector']
+    node=nodes.new('ShaderNodeTexNoise');node.inputs['Scale'].default_value=scale
+    node.inputs['Detail'].default_value=detail;node.inputs['Roughness'].default_value=roughness
+    links.new(vector,node.inputs['Vector'])
+    return node.outputs['Fac']
+
+def glass(nodes,links):
+    """Opaque window glass: reflected sky and neighbours, with lived-in rooms.
+
+    The engine has no reflection probes, so the pane albedo carries a soft
+    view-independent reflection and a per-window interior (curtains, blinds,
+    dark rooms) chosen by a Voronoi cell about one window wide.
+    """
+    coord=nodes.new('ShaderNodeTexCoord').outputs['Object']
+    cells=nodes.new('ShaderNodeTexVoronoi');cells.inputs['Scale'].default_value=.62
+    links.new(coord,cells.inputs['Vector'])
+    pick=nodes.new('ShaderNodeSeparateColor');links.new(cells.outputs['Color'],pick.inputs[0])
+    room=nodes.new('ShaderNodeValToRGB');ramp=room.color_ramp;ramp.interpolation='CONSTANT'
+    ramp.elements[0].color=(.035,.04,.045,1)
+    for position,color in ((.38,(.43,.40,.33,1)),(.55,(.10,.09,.08,1)),(.7,(.56,.55,.50,1)),(.84,(.045,.05,.055,1))):
+        element=ramp.elements.new(position);element.color=color
+    links.new(pick.outputs[0],room.inputs['Fac'])
+    reflect=noise(nodes,links,coord,.9,3,.5,(1,1,.35))
+    sky=nodes.new('ShaderNodeValToRGB');r=sky.color_ramp
+    r.elements[0].position=.3;r.elements[0].color=(.07,.085,.095,1)
+    r.elements[1].position=.72;r.elements[1].color=(.36,.42,.47,1)
+    links.new(reflect,sky.inputs['Fac'])
+    return mix(nodes,links,'MIX',room.outputs['Color'],sky.outputs['Color'],.58)
+
+def weather(nodes,links,surface,index):
+    """Bake-time ageing that reads at game distance: never a ruin, never new.
+
+    Colour variation across the facade, rain streaks on vertical faces, splash
+    grime at the wall foot, blotchy roofs and slightly worn arrises.
+    """
+    if index>=16:return surface
+    coord=nodes.new('ShaderNodeTexCoord').outputs['Object']
+    geometry=nodes.new('ShaderNodeNewGeometry')
+    normal=nodes.new('ShaderNodeSeparateXYZ');links.new(geometry.outputs['Normal'],normal.inputs[0])
+    position=nodes.new('ShaderNodeSeparateXYZ');links.new(coord,position.inputs[0])
+    up=math_node(nodes,links,'ABSOLUTE',normal.outputs['Z'])
+    vertical=math_node(nodes,links,'SUBTRACT',1,up,True)
+    macro=remap(nodes,links,noise(nodes,links,coord,.28,3,.5),.3,.7,.9,1.06)
+    surface=mix(nodes,links,'MULTIPLY',surface,macro,1)
+    streak_strength={0:.55,7:.6,6:.5,1:.35,2:.45,3:.3,14:.3,13:.35,11:.15}.get(index,0)
+    if streak_strength:
+        streak=remap(nodes,links,noise(nodes,links,coord,1.0,5,.62,(9,9,.22)),.5,.76,0,streak_strength)
+        streak=math_node(nodes,links,'MULTIPLY',streak,vertical)
+        surface=mix(nodes,links,'MULTIPLY',surface,(.6,.58,.54,1),streak)
+    if index in WALLS or index in METALS:
+        foot=remap(nodes,links,position.outputs['Z'],.05,.85,.5,0)
+        surface=mix(nodes,links,'MULTIPLY',surface,(.62,.58,.5,1),math_node(nodes,links,'MULTIPLY',foot,vertical))
+    if index in ROOFS or index in (6,7):
+        flat=remap(nodes,links,up,.6,.95,0,1)
+        blotch=remap(nodes,links,noise(nodes,links,coord,3.2,7,.68),.45,.72,0,.3 if index in ROOFS else .25)
+        stains=mix(nodes,links,'MULTIPLY',surface,(.66,.66,.62,1),math_node(nodes,links,'MULTIPLY',blotch,flat))
+        dust=remap(nodes,links,noise(nodes,links,coord,1.1,3,.5),.5,.8,0,.14 if index in ROOFS else .08)
+        surface=mix(nodes,links,'MIX',stains,(.47,.46,.43,1),math_node(nodes,links,'MULTIPLY',dust,flat))
+    if index in WALLS or index in METALS or index in ROOFS:
+        bevel=nodes.new('ShaderNodeBevel');bevel.samples=8;bevel.inputs['Radius'].default_value=.03
+        dot=nodes.new('ShaderNodeVectorMath');dot.operation='DOT_PRODUCT'
+        links.new(bevel.outputs['Normal'],dot.inputs[0]);links.new(geometry.outputs['Normal'],dot.inputs[1])
+        edge=remap(nodes,links,dot.outputs['Value'],.995,.9,0,.45)
+        surface=mix(nodes,links,'MULTIPLY',surface,(1.2,1.19,1.16,1),edge)
+    return surface
+
+def material(index,aged=True):
+    mat=bpy.data.materials.new(f'Source_{index:02d}'+('' if aged else '_clean'))
     mat.use_nodes=True
     nodes=mat.node_tree.nodes;nodes.clear();links=mat.node_tree.links
     out=nodes.new('ShaderNodeOutputMaterial')
@@ -75,6 +186,9 @@ def material(index):
             paint.inputs[0].default_value=.72
             paint.inputs[2].default_value=(.67,.65,.60,1) if index==0 else (.8,.8,.77,1)
             links.new(surface,paint.inputs[1]);surface=paint.outputs[0]
+        if aged:
+            if index==4:surface=glass(nodes,links)
+            surface=weather(nodes,links,surface,index)
     ao=nodes.new('ShaderNodeAmbientOcclusion');ao.samples=16;ao.inputs['Distance'].default_value=.48
     ao.only_local=True
     shade=nodes.new('ShaderNodeMath');shade.operation='MULTIPLY_ADD'
@@ -82,10 +196,22 @@ def material(index):
     links.new(ao.outputs['AO'],shade.inputs[0])
     multiply=nodes.new('ShaderNodeMixRGB');multiply.blend_type='MULTIPLY';multiply.inputs[0].default_value=1
     links.new(surface,multiply.inputs[1]);links.new(shade.outputs[0],multiply.inputs[2])
-    links.new(multiply.outputs[0],emit.inputs['Color']);links.new(emit.outputs[0],out.inputs['Surface'])
+    surface=multiply.outputs[0]
+    if aged and '--vehicle-paint' not in ARGS:
+        # Room-scale occlusion darkens wall feet, parapet corners and recesses
+        # that the 0.48 m pass cannot reach, as an overcast sky would.
+        wide=nodes.new('ShaderNodeAmbientOcclusion');wide.samples=16;wide.only_local=True
+        wide.inputs['Distance'].default_value=2.2
+        surface=mix(nodes,links,'MULTIPLY',surface,remap(nodes,links,wide.outputs['AO'],0,1,.72,1),1)
+    links.new(surface,emit.inputs['Color']);links.new(emit.outputs[0],out.inputs['Surface'])
     return mat
 
-materials={i:material(i) for i in range(32)}
+# Buildings age; vehicles and trains sharing a work folder stay factory clean.
+material_sets={}
+def materials_for(item):
+    aged=item.get('kind') not in ('vehicle','train')
+    if aged not in material_sets:material_sets[aged]={i:material(i,aged) for i in range(32)}
+    return material_sets[aged]
 
 def bake_model(item):
     source=json.loads((WORK/f"{item['stem']}.source.json").read_text())
@@ -97,6 +223,7 @@ def bake_model(item):
     mesh=bpy.data.meshes.new(item['stem']);mesh.from_pydata(vertices,[],triangles);mesh.update()
     obj=bpy.data.objects.new(item['stem'],mesh);scene.collection.objects.link(obj)
     bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);bpy.context.view_layer.objects.active=obj
+    materials=materials_for(item)
     for i in range(32):mesh.materials.append(materials[i])
     source_uv=mesh.uv_layers.new(name='SourceUV')
     for polygon,face in zip(mesh.polygons,source['faces']):
@@ -129,10 +256,14 @@ def bake_model(item):
     uv=mesh.uv_layers.new(name='BakeUV');mesh.uv_layers.active=uv;uv.active_render=True
     bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(66),island_margin=.006,area_weight=.5)
+    # Smart project leaves most of the atlas empty; repacking roughly doubles texel density.
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.pack_islands(rotate=True,rotate_method='CARDINAL',scale=True,margin_method='FRACTION',margin=.002,shape_method='CONVEX')
     bpy.ops.object.mode_set(mode='OBJECT')
     folder=ROOT/'App/assets'/item['asset_dir'] if 'asset_dir' in item else ROOT/'App/assets/buildings'/item['folder']
     folder.mkdir(parents=True,exist_ok=True)
-    resolution=2048 if item['stem'].startswith(('residential_017','residential_018','office_')) or item.get('kind') in ('train','station') else 1024
+    large=max(obj.dimensions)>14 and item.get('kind') not in ('vehicle',)
+    resolution=2048 if large or item['stem'].startswith(('residential_017','residential_018','office_')) or item.get('kind') in ('train','station') else 1024
     baked=bpy.data.images.new(item['stem']+'_albedo_ao',width=resolution,height=resolution,alpha=False)
     for mat in mesh.materials:
         nodes=mat.node_tree.nodes
@@ -141,7 +272,7 @@ def bake_model(item):
     bpy.ops.object.bake(type='EMIT')
     baked.filepath_raw=str(folder/f"{item['stem']}_diffuse.png");baked.file_format='PNG';baked.save()
     final=bpy.data.materials.new(item['stem']+'_baked');final.use_nodes=True
-    nodes=final.node_tree.nodes;shader=nodes.get('Principled BSDF')
+    nodes=final.node_tree.nodes;shader=next(n for n in nodes if n.type=='BSDF_PRINCIPLED')
     texture=nodes.new('ShaderNodeTexImage');texture.image=baked
     final.node_tree.links.new(texture.outputs['Color'],shader.inputs['Base Color'])
     shader.inputs['Roughness'].default_value=.32 if item.get('kind') in ('vehicle','train') else .67
@@ -168,7 +299,16 @@ def bake_model(item):
     bpy.ops.wm.obj_export(filepath=str(folder/f"{item['stem']}.obj"),export_selected_objects=True,
                           forward_axis='NEGATIVE_Z',up_axis='Y',export_materials=True,
                           export_uv=True,export_normals=True,export_triangulated_mesh=True,path_mode='STRIP')
-    (folder/f"{item['stem']}.toml").write_text('# Realistic pack; metres; Y up; front '+front+'\nsetback_from_road_m = 1.8\nscale = 1.0\n',encoding='utf-8')
+    if item.get('kind') not in ('vehicle','train'):
+        # Plaster, brick and roofing are matte; Blender's default Ks 0.5 gave the
+        # engine's Phong term a plastic sheen across whole buildings.
+        mtl=folder/f"{item['stem']}.mtl"
+        lines=['Ks 0.040000 0.040000 0.040000' if l.startswith('Ks ') else 'Ns 12.000000' if l.startswith('Ns ') else l
+               for l in mtl.read_text(encoding='utf-8').splitlines()]
+        mtl.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    toml=folder/f"{item['stem']}.toml"
+    # Keep hand-measured keys such as front_wall_z_m from earlier passes.
+    if not toml.exists():toml.write_text('# Realistic pack; metres; Y up; front '+front+'\nsetback_from_road_m = 1.8\nscale = 1.0\n',encoding='utf-8')
     # Remove baked target nodes from shared authoring materials before next bake.
     for mat in materials.values():
         for node in list(mat.node_tree.nodes):

@@ -1,12 +1,12 @@
 # Blender 4.5.0 MTL File: 'None'
 # www.blender.org
 
-newmtl TownAtlas.001
-Ns 23.999998
+newmtl office_006_baked
+Ns 12.000001
 Ka 1.000000 1.000000 1.000000
-Ks 0.080000 0.080000 0.080000
+Ks 0.040000 0.040000 0.040000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
-map_Kd ../../../buildings/commercial/japan_street_atlas.png
+map_Kd ../../../buildings/commercial/office_006_diffuse.png

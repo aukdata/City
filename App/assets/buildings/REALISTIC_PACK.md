@@ -70,3 +70,16 @@ Python 3、NumPy、Pillow、Blender 4.5を使用。旧 `generate_detailed_buildi
 ## 2026-09-12: 旧モデルの詳細化
 
 residential_001〜010 と office_001〜002 を、このパックの住宅・集合住宅・事務所の寸法バリエーションへ更新。元モデルのUV、ベイク済みPNG、素材の権利表記を引き継ぐ。新規の外部素材は使っていない。生成元とスケールは `scripts/refine_legacy_buildings.py` に記録し、元データは `artifacts/city_realism/legacy_asset_baseline/` に保存。
+
+## 2026-09-28: 経年表現と焼き込み解像度
+
+すべての焼き込みモデル（建物・駅・車両・鉄道・工事車両）を `finish_realistic_town_blender.py` / `finish_construction_models_blender.py` で焼き直した。
+
+- 焼き込みUVを `smart_project` 後に詰め直す。UV使用率は約6%から約60%になり、同じ画像サイズで実質の解像度が約3倍になる。形状・三角形数・画像サイズは変えていない。
+- 建物の拡散色に経年表現を焼き込む。外壁の大きな色むら、縦の雨だれ、壁の足元の泥はね、陸屋根と屋根材の染み、角の摩耗、2.2m範囲の広域AO。窓ガラスは空と周囲の映り込み、カーテン・ブラインド・暗い室内を窓ごとに変える。車両・鉄道は汚さない。
+- 建物のMTLは `Ks 0.04` / `Ns 12`。以前の `Ks 0.5` は壁全体にプラスチックのような光沢を出していた。車両・鉄道は光沢を残す。
+- 既存の `*.toml` は上書きしない（`front_wall_z_m` などの計測値を保持）。
+- Cycles が GPU を見つけた場合は GPU で焼く。
+- 地図アトラスのままだった市街地ビル（office_005/006、shop_007〜010）と大型施設（office_tower、city_hall、shopping_mall、hospital、school）も同じ工程で焼く。元データは `python scripts/build_downtown_bake_sources.py` で `artifacts/downtown_streets` / `artifacts/downtown_facilities` に書き出し、`-- --work downtown_streets` / `-- --work downtown_facilities` で仕上げる。距離LODは `build_model_lods.py` に対象パスを渡して作り直す。
+
+レンダラーは拡散色テクスチャ1枚とPhong光沢だけに対応しており、法線マップ、PBRの粗さ、反射プローブ、室内の視差表現はない。このため写真と見分けがつかない質感にはならない。上の焼き込みはその制約の範囲での改善である。
