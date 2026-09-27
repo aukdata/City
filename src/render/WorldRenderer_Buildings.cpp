@@ -280,7 +280,7 @@ namespace
 			appendPublicGreen(groups,world,patch,roadMasks);
 		}
 		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3
-			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil))
+			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil || patch.type == LandPatchType::ParcelGravel))
 		{
 			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
 		}
@@ -404,7 +404,7 @@ namespace
 		};
 		// 狭小住宅の外壁はサイディングの色幅を持たせ、隣り合う2戸を同色にしない。
 		constexpr int kSidingKeys[]={ 140, 141, 142, 143, 144, 145 };
-		constexpr int kRoofKeys[]={ 146, 108, 103 };
+		constexpr int kRoofKeys[]={ 146, 108, 103, 147, 148 };
 		const uint32 firstSiding=hash%6u;
 		// 道路側に駐車・玄関アプローチのコンクリート土間を残す。
 		const float setback=1.6f;
@@ -421,7 +421,7 @@ namespace
 			const float lz=setback*0.5f-(side==0 ? 0.0f : 0.15f);
 			const Vec2 house=worldOffset(lx,lz);
 			const int wallKey=kSidingKeys[(firstSiding+static_cast<uint32>(side)*(1u+(local&3u)))%6u];
-			const int roofKey=kRoofKeys[(local>>4)%3u];
+			const int roofKey=kRoofKeys[(local>>4)%std::size(kRoofKeys)];
 			appendRotatedBox(groups[wallKey],static_cast<float>(house.x),baseY+height*0.5f,static_cast<float>(house.y),
 				houseWidth,height,depth,building.angle);
 			if (((local>>6)&3u)==0u)
@@ -470,6 +470,73 @@ namespace
 			const Vec2 unit=worldOffset(sideX+(side==0 ? -0.22f : 0.22f),lz+depth*0.30f);
 			appendRotatedBox(groups[117],static_cast<float>(unit.x),baseY+0.35f,static_cast<float>(unit.y),
 				0.34f,0.60f,0.80f,building.angle);
+		}
+	}
+
+	/// @brief 戸建ての側方にカーポートか物置を置き、隣家との間の空地を生活の設備で埋める。
+	void appendHouseSideStructure(LandscapeGeometry& groups, const World& world, const Building& building,
+		Point chunkCoord, int col, int row, float cx, float cz, uint32 hash, const Array<LandRoadMask>& roadMasks)
+	{
+		const uint32 kind = hash % 10u;
+		if (kind >= 7u) { return; }
+		const float half = buildingFootprintXZ(building.type) * 0.5f;
+		const float cosA = Math::Cos(building.angle), sinA = Math::Sin(building.angle);
+		auto worldOffset = [&](float lx, float lz) { return Vec2{ cx + lx * cosA - lz * sinA, cz + lx * sinA + lz * cosA }; };
+		const float side = ((hash >> 5) & 1u) ? 1.0f : -1.0f;
+		const bool carport = kind < 5u;
+		const float width = carport ? 2.8f : 1.8f;
+		const float depth = carport ? 5.0f : 1.4f;
+		const float lx = side * (half + 0.25f + width * 0.5f);
+		const float lz = carport ? -half + depth * 0.5f : half - depth * 0.5f;
+		const Vec2 center = worldOffset(lx, lz);
+		const double reach = Max(width, depth) * 0.5;
+		for (const auto& road : roadMasks)
+		{
+			if (!TreeGeometry::clearOfCorridor(center, reach + 0.5, road.shape)) { return; }
+		}
+		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+		const int globalCol = chunkCoord.x * ZONE_CELLS + col, globalRow = chunkCoord.y * ZONE_CELLS + row;
+		for (int dz = -2; dz <= 2; ++dz)
+		{
+			for (int dx = -2; dx <= 2; ++dx)
+			{
+				const int x = globalCol + dx, z = globalRow + dz;
+				if ((dx == 0 && dz == 0) || x < 0 || z < 0) { continue; }
+				const Chunk* other = world.getChunk(Point{ x / ZONE_CELLS, z / ZONE_CELLS });
+				if (!other) { continue; }
+				const Building& neighbor = other->buildingGrid[{ x % ZONE_CELLS, z % ZONE_CELLS }];
+				if (neighbor.type == BuildingType::None || neighbor.type == BuildingType::Farmland) { continue; }
+				const Vec2 neighborCenter{ (x + 0.5) * cellSize + neighbor.offsetX, (z + 0.5) * cellSize + neighbor.offsetZ };
+				if (center.distanceFrom(neighborCenter) < buildingFootprintXZ(neighbor.type) * 0.72 + reach + 0.3) { return; }
+			}
+		}
+		const float baseY = world.sampleHeight(static_cast<float>(center.x), static_cast<float>(center.y));
+		if (carport)
+		{
+			appendRotatedBox(groups[100], static_cast<float>(center.x), baseY + 0.03f, static_cast<float>(center.y), width, 0.04f, depth, building.angle);
+			appendRotatedBox(groups[(hash >> 7) & 1u ? 108 : 117], static_cast<float>(center.x), baseY + 2.35f, static_cast<float>(center.y),
+				width + 0.2f, 0.08f, depth + 0.2f, building.angle);
+			for (const float px : { -1.0f, 1.0f })
+			{
+				for (const float pz : { -1.0f, 1.0f })
+				{
+					const Vec2 post = worldOffset(lx + px * (width * 0.5f - 0.1f), lz + pz * (depth * 0.5f - 0.1f));
+					appendRotatedBox(groups[115], static_cast<float>(post.x), baseY + 1.17f, static_cast<float>(post.y), 0.08f, 2.34f, 0.08f, building.angle);
+				}
+			}
+			if (((hash >> 9) % 3u) != 0u)
+			{
+				const Vec2 car = worldOffset(lx, lz - 0.2f);
+				appendRotatedBox(groups[((hash >> 11) & 1u) ? 107 : 108], static_cast<float>(car.x), baseY + 0.72f, static_cast<float>(car.y),
+					1.65f, 1.30f, 4.10f, building.angle);
+			}
+		}
+		else
+		{
+			appendRotatedBox(groups[(hash >> 7) & 1u ? 102 : 141], static_cast<float>(center.x), baseY + 1.0f, static_cast<float>(center.y),
+				width, 2.0f, depth, building.angle);
+			appendRotatedBox(groups[108], static_cast<float>(center.x), baseY + 2.05f, static_cast<float>(center.y),
+				width + 0.1f, 0.1f, depth + 0.1f, building.angle);
 		}
 	}
 
@@ -538,8 +605,10 @@ namespace
 		{
 			const float currentFootprint = localFootprint * scale;
 			const float targetFootprint = targetBuildingModelFootprint(type);
+			// 住宅も敷地幅まで拡大し、隣家との間が広すぎる疎な街並みにしない。
 			if (currentFootprint > targetFootprint || type == BuildingType::Office || type == BuildingType::Shop
-				|| type == BuildingType::MidApartment || type == BuildingType::HighApartment)
+				|| type == BuildingType::MidApartment || type == BuildingType::HighApartment
+				|| type == BuildingType::Detached || type == BuildingType::LowApartment)
 			{
 				scale *= targetFootprint / currentFootprint;
 			}
@@ -768,8 +837,22 @@ namespace
 				}
 			}
 		}
-		else if (building.type == BuildingType::Parking || building.type == BuildingType::Factory
-			|| (building.type == BuildingType::Shop && (patch.materialVariant % 5) == 0))
+		else if (patch.type == LandPatchType::ParcelGravel && isResidentialBuildingType(building.type))
+		{
+			// 砂利敷きの住宅地にも隣地境界沿いと裏庭に庭木を残す。
+			for (int index = 0; groups.planting && index < 4; ++index)
+			{
+				const double side = (index % 2 == 0 ? -1.0 : 1.0) * (half + 1.6);
+				const Vec2 position = center + along * side + inward * (index < 2 ? half * 0.4 : half + 2.4);
+				if (((patch.materialVariant >> (index * 3 + 2)) & 1u) == 0u
+					&& fits(position, TreeGeometry::horizontalClearance(3.2)))
+				{
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, 0.7);
+				}
+			}
+		}
+		else if (groups.surfaces && (building.type == BuildingType::Parking || building.type == BuildingType::Factory
+			|| (building.type == BuildingType::Shop && (patch.materialVariant % 5) == 0)))
 		{
 			// Real-size rear parking stalls occupy the commercial service yard.
 			for (int index = -2; index <= 2; ++index)
@@ -1388,6 +1471,10 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				{
 					const float width=buildingFootprintXZ(b.type)+.12f,height=(gy-ground)*2+.12f;
 					appendRotatedBox(groups[117],cx,gy-height*.5f,cz,width,height,width,b.angle);
+				}
+				if (b.type==BuildingType::Detached || b.type==BuildingType::LowApartment)
+				{
+					appendHouseSideStructure(groups,world,b,chunk.coord,col,row,cx,cz,cellVisualHash(chunk.coord,col,row,6113),roadMasks);
 				}
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;

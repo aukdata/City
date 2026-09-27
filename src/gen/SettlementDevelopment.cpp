@@ -718,6 +718,24 @@ namespace
 		return false;
 	}
 
+	/// @brief 旗竿地の住宅か。すぐ道路側の区画に同じ道路へ接道する建物がある。
+	bool hasFrontLotOnSameEdge(const World& world, Vec2 center, const Building& building, Point selfCoord, int selfCol, int selfRow)
+	{
+		const Vec2 inward{ -Math::Sin(building.angle), Math::Cos(building.angle) };
+		for (const double distance : { 8.0, 12.0, 16.0 })
+		{
+			const Vec2 point = center - inward * distance;
+			Point coord; int col = 0, row = 0;
+			worldToZoneCell(static_cast<float>(point.x), static_cast<float>(point.y), coord, col, row);
+			if (coord == selfCoord && col == selfCol && row == selfRow) { continue; }
+			const Chunk* chunk = world.getChunk(coord);
+			if (!chunk) { continue; }
+			const Building& front = chunk->buildingGrid[{ col, row }];
+			if (front.type != BuildingType::None && front.edgeId == building.edgeId) { return true; }
+		}
+		return false;
+	}
+
 	Array<EdgeFacingSlot> collectEdgeFacingSlots(
 		const MapGenerator::Settlement& settlement,
 		const World& world,
@@ -1118,6 +1136,82 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		}
 	}
 
+	// 街区の奥は旗竿地の住宅で埋める。前面の住宅と同じ道路へ路地状敷地で接道する。
+	int rearPlaced = 0;
+	{
+		constexpr double kRearGap = 1.2;
+		constexpr double kRearRoadClearance = 3.0;
+		struct FrontSite { Vec2 position; Building building; };
+		Array<FrontSite> fronts;
+		for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+		{
+			for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+			{
+				const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+				if (!chunk) continue;
+				for (int row = 0; row < ZONE_CELLS; ++row)
+				{
+					for (int col = 0; col < ZONE_CELLS; ++col)
+					{
+						const Building& building = chunk->buildingGrid[{ col, row }];
+						if (building.edgeId < 0 || !isResidentialBuildingType(building.type)
+							|| building.type == BuildingType::RuralHouse || building.type == BuildingType::VillageHouse) continue;
+						fronts << FrontSite{ cellCenterXZ(Point{ chunkX, chunkY }, col, row) + Vec2{ building.offsetX, building.offsetZ }, building };
+					}
+				}
+			}
+		}
+		// 深い街区は2列目の奥まで埋める。奥の列ほど空き地が残りやすい。
+		for (int depth = 0; depth < 2; ++depth)
+		{
+			Array<FrontSite> placedRears;
+			for (const auto& front : fronts)
+			{
+				const int si = nearestSettlementIndex(m_districts, static_cast<float>(front.position.x), static_cast<float>(front.position.y));
+				if (si < 0) continue;
+				const auto& settlement = m_districts[si];
+				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Planned
+					|| settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
+				const auto use = UrbanMorphology::sample(settlement.plan, planLocal(settlement, front.position));
+				if (use.district != UrbanMorphology::District::Housing && use.district != UrbanMorphology::District::OldTown) continue;
+				const Vec2 inward{ -Math::Sin(front.building.angle), Math::Cos(front.building.angle) };
+				const Vec2 frontCell = front.position + inward * static_cast<double>(buildingFootprintXZ(front.building.type));
+				const uint32 hash = settlementCellHash(m_seed ^ 0x5EA4F1A7ULL, si,
+					static_cast<int>(Floor(frontCell.x / 16.0)), static_cast<int>(Floor(frontCell.y / 16.0)));
+				const double intensity = Max({ UrbanMorphology::downtownIntensity(settlement.plan, planLocal(settlement, front.position)),
+					static_cast<double>(use.occupancy), depth == 0 ? 0.75 : 0.55 });
+				if ((hash % 1000u) >= static_cast<uint32>(Clamp(intensity, 0.0, 0.9) * 1000.0)) continue;
+				Building rear;
+				rear.type = (hash / 1000u) % 3u == 0u ? BuildingType::LowApartment
+					: (front.building.type == BuildingType::UrbanHousePair ? BuildingType::UrbanHousePair : BuildingType::Detached);
+				rear.angle = front.building.angle;
+				rear.edgeId = front.building.edgeId;
+				rear.edgeT = front.building.edgeT;
+				const Vec2 position = front.position + inward * (buildingFootprintXZ(front.building.type) * 0.5 + kRearGap + buildingFootprintXZ(rear.type) * 0.5);
+				Point coord; int col = 0, row = 0;
+				worldToZoneCell(static_cast<float>(position.x), static_cast<float>(position.y), coord, col, row);
+				Chunk* chunk = m_world.getChunk(coord);
+				if (!chunk || chunk->buildingGrid[{ col, row }].type != BuildingType::None) continue;
+				const ZoneType zone = chunk->zoneMap[{ col, row }];
+				if (zone != ZoneType::Residential && zone != ZoneType::LowResidential && zone != ZoneType::Commercial) continue;
+				const Vec2 cellCenter = cellCenterXZ(coord, col, row);
+				rear.offsetX = static_cast<float>(position.x - cellCenter.x);
+				rear.offsetZ = static_cast<float>(position.y - cellCenter.y);
+				if (!isBuildableFootprint(rear, position)) continue;
+				if (roadIndex.overlaps(ParcelGeometry::footprint(position, buildingFootprintXZ(rear.type) * 0.5 + kRearRoadClearance, rear.angle))) { ++rejectedClearance; continue; }
+				if (overlapsExistingBuilding(m_world, coord, col, row, static_cast<float>(position.x), static_cast<float>(position.y),
+					buildingFootprintXZ(rear.type) * 0.5f, rear.angle)) { ++rejectedNeighbor; continue; }
+				if (!hasFrontLotOnSameEdge(m_world, position, rear, coord, col, row)) continue;
+				chunk->buildingGrid[{ col, row }] = rear;
+				chunk->meshDirty = true;
+				placedRears << FrontSite{ position, rear };
+				++rearPlaced;
+			}
+			fronts = std::move(placedRears);
+		}
+	}
+	DebugLog::print(U"[RearLots] placed={}"_fmt(rearPlaced));
+
 	int blockCount=0,emptyBefore=0,blockInfill=0,emptyAfter=0,greenTrafficIslands=0;
 	const auto blocks=StreetBlocks::collect(m_network);
 	for (const auto& block : blocks)
@@ -1151,7 +1245,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			}
 		}
 		if (occupied) { continue; }
-		++emptyBefore; int tried=0,terrainFailures=0; const int roadBefore=rejectedRoad,slopeBefore=rejectedSlope;
+		++emptyBefore; int tried=0,terrainFailures=0,neighborOverlaps=0; const int roadBefore=rejectedRoad,slopeBefore=rejectedSlope;
 		for (const int edgeId : block.edges)
 		{
 			if (occupied) { break; }
@@ -1177,12 +1271,14 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					building.angle=static_cast<float>(std::atan2(-direction.x,direction.y)); building.edgeId=edgeId; building.edgeT=curve->tFromArcLength(arc);
 					building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y); ++tried;
 					if (!isBuildableFootprint(building,position,GenerationSettings::get().development_maximumSuburbanRelief)) { ++terrainFailures; continue; }
-					if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),half,building.angle)) { continue; }
+					if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),half,building.angle)) { ++neighborOverlaps; continue; }
 					chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=civic ? ZoneType::Residential : ZoneType::LowResidential; chunk->meshDirty=true;
 					++blockInfill; occupied=true; break;
 				}
 			}
 		}
+		// 隣の敷地の建物が街区へ張り出して全候補を塞いでいる場合は、既に建て込んだ街区とみなす。
+		if (!occupied && tried>0 && neighborOverlaps==tried) { continue; }
 		if (!occupied)
 		{
 			// A small street face with no legal building footprint is an open green island.
@@ -1282,7 +1378,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		}
 		// 市街地の住宅敷地は駐車場・土間が大半を占め、芝生の庭は戸建ての一部だけに残す。
 		if (buildingType == BuildingType::UrbanHousePair || buildingType == BuildingType::LowApartment) { return LandPatchType::ParcelAsphalt; }
-		if (buildingType == BuildingType::Detached && ((salt >> 7) % 3u) == 0u) { return LandPatchType::ParcelGravel; }
+		if (buildingType == BuildingType::Detached && ((salt >> 7) % 4u) != 0u) { return LandPatchType::ParcelGravel; }
 		return LandPatchType::GardenSoil;
 	};
 
@@ -1794,7 +1890,10 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 					{
 						++roadOverlapCount; DBG_LOG(U"[BuildingOverlap] coord=({}, {}) cell=({}, {}) type={} edge={} center=({}, {}) line={}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),building.edgeId,center.x,center.y,__LINE__));
 					}
-					if (projection.distance > maximumFrontageDistance)
+					// 旗竿地は前面の住宅と同じ道路へ接道し、その一区画奥までを許す。
+					if (projection.distance > maximumFrontageDistance
+						&& (projection.distance > maximumFrontageDistance + maximumBuildingFootprint()
+							|| !hasFrontLotOnSameEdge(m_world, center, building, chunkCoord, col, row)))
 					{
 						++frontageDistanceCount;
 					}

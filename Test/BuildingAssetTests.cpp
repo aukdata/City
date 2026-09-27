@@ -79,8 +79,7 @@ void registerBuildingAssetTests(TestRunner& runner)
 			int64 expectedCount;
 		};
 		const ModelFamily families[] = {
-			// 瓦屋根の戸建て4種はLODが欠けるため選択から外している（Building.hpp）。
-			{ BuildingType::Detached, 4 }, { BuildingType::LowApartment, 4 },
+			{ BuildingType::Detached, 8 }, { BuildingType::LowApartment, 4 },
 			{ BuildingType::MidApartment, 3 }, { BuildingType::HighApartment, 3 },
 			{ BuildingType::Shop, 8 }, { BuildingType::Office, 6 },
 			{ BuildingType::Factory, 4 }, { BuildingType::PublicFacility, 8 }, { BuildingType::Parking, 2 }, { BuildingType::RuralHouse, 3 },

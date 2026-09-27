@@ -30,6 +30,8 @@ namespace LandscapeMaterials
 		case 144: return ColorF{ 0.63, 0.61, 0.56 };
 		case 145: return ColorF{ 0.37, 0.38, 0.33 };
 		case 146: return ColorF{ 0.13, 0.13, 0.14 };
+		case 147: return ColorF{ 0.50, 0.25, 0.15 };
+		case 148: return ColorF{ 0.18, 0.28, 0.42 };
 		case 128: return ColorF{.30,.40,.22}.removeSRGBCurve();
 		case 129: return ColorF{.34,.44,.24}.removeSRGBCurve();
 		case 124:

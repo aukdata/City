@@ -3,7 +3,7 @@
   "downtownFadeExtent": 0.28,
   "downtownStreetSpacingRatio": 0.8,
   "downtownAlleyMinimumBlockLength": 82,
-  "downtownAlleyMinimumBlockDepth": 48,
+  "downtownAlleyMinimumBlockDepth": 38,
   "downtownPlotDepth": 10,
   "downtownBackMargin": 0.5,
   "downtownSideMargin": 0.35,

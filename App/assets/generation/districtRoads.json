@@ -52,7 +52,7 @@
   "gatewayCornerSetback": 45,
   "gatewayMaximumHandle": 60,
   "alleyMinimumBlockLength": 88,
-  "alleyMinimumBlockDepth": 56,
+  "alleyMinimumBlockDepth": 44,
   "alleyLaneWidth": 2.2,
   "alleyShoulderWidth": 0.15
 }

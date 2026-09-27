@@ -7,6 +7,8 @@ namespace TerrainMaterials
 {
 	/// @brief 全LODで同じ標高を同じ草地材質へ分類する。
 	inline int keyForHeight(float height) { return height>28.0f ? 1 : 0; }
+	/// @brief 市街地の建物間の土間・砂利。芝生にしない。
+	constexpr int kUrbanGround = 6;
 	inline ColorF color(int materialKey)
 	{
 		switch (materialKey)
@@ -16,6 +18,7 @@ namespace TerrainMaterials
 		case 3: return ColorF{ 0.50, 0.45, 0.30 };
 		case 4: return ColorF{ 0.76, 0.70, 0.52 };
 		case 5: return ColorF{ 0.48, 0.58, 0.56 };
+		case kUrbanGround: return ColorF{ 0.74, 0.72, 0.66 };
 		default: return ColorF{ 0.65, 0.69, 0.76 };
 		}
 	}
@@ -41,6 +44,8 @@ namespace TerrainMaterials
 		case 111:
 		case 114:
 			return Asset::Sand;
+		case kUrbanGround:
+			return Asset::Gravel;
 		case 101:
 		case 113:
 			return Asset::SparseGrass;
