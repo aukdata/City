@@ -18,7 +18,12 @@ namespace AgriculturalLayout
 			if (point.x<0 || point.y<0 || point.x>=WORLD_SIZE || point.y>=WORLD_SIZE) { return false; }
 			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
 			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
-			return chunk && chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]==ZoneType::Agriculture;
+			if (!chunk) { return false; }
+			const Point local{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS};
+			const ZoneType zone=chunk->zoneMap[local];
+			// 日本の平野では田畑が住宅のすぐ裏まで続く。未開発の郊外住宅用地と白地も耕作地にする。
+			return zone==ZoneType::Agriculture
+				|| ((zone==ZoneType::Unzoned || zone==ZoneType::LowResidential) && chunk->buildingGrid[local].type==BuildingType::None);
 		}
 		uint32 hash(uint64 seed,Vec2 point)
 		{
@@ -378,20 +383,26 @@ namespace AgriculturalLayout
 		Stats stats=prepareAccess ? prepare(world,roads,seed,inputFrames,railway) : Stats{};
 		const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
 		ParcelRoadIndex occupied{roads,true};if (railway) { occupied.addRailway(*railway); }Sites sites{world};
-		struct Candidate { Vec2 center; Array<Vec2> polygon; uint32 salt; };
-		Array<Candidate> candidates;HashTable<Point,Array<size_t>> buckets;
+		// 田畑は道路に平行な長方形の短冊。1列目から順に置き、重なる区画は奥行きを縮めるか見送る。
+		struct Candidate { Vec2 center; Vec2 left, right, normalLeft, normalRight; double depth; int tier; uint32 salt; };
+		Array<Candidate> candidates;
 		const double bucketSize=config.agriculture_plotLength*2;
 		const auto bucket=[&](Vec2 p){return Point{static_cast<int>(Floor(p.x/bucketSize)),static_cast<int>(Floor(p.y/bucketSize))};};
 		for (const auto& edge:roads.edges())
 		{
-			if (edge.id<0 || !edge.farmAccess) { continue; }
-			if (!prepareAccess) { ++stats.tracks;stats.drains+=2; }
+			if (edge.id<0) { continue; }
+			// 平野の田畑は農道だけでなく一般の生活道路・県道の両側にも連続して広がる。
+			if (!edge.farmAccess && (edge.roadType==RoadType::Expressway || edge.useElevation)) { continue; }
+			if (!prepareAccess && edge.farmAccess) { ++stats.tracks;stats.drains+=2; }
 			const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
 			const int count=Max(1,static_cast<int>(Round(curve->totalLength/(config.agriculture_plotLength*.5))));
-			for (int section=0;section<count;++section) { for (int side:{-1,1})
+			// 道路沿いの1列目の奥にも、畦道でつながる田畑が2列続く。
+			for (int tier=0;tier<3;++tier) for (int section=0;section<count;++section) { for (int side:{-1,1})
 			{
 				const float begin=curve->totalLength*section/count,end=curve->totalLength*(section+1)/count;
-				const Vec3 a=curve->positionAt(begin),b=curve->positionAt(end),n1=tangentToRight(curve->tangentAt(begin))*side,n2=tangentToRight(curve->tangentAt(end))*side;
+				const Vec3 a0=curve->positionAt(begin),b0=curve->positionAt(end),n1=tangentToRight(curve->tangentAt(begin))*side,n2=tangentToRight(curve->tangentAt(end))*side;
+				const double tierOffset=tier*config.agriculture_plotWidth*2;
+				const Vec3 a=a0+n1*tierOffset,b=b0+n2*tierOffset;
 				const Vec2 center=horizontal((a+b)*.5+(n1+n2)*config.agriculture_plotWidth*.5);
 				const uint32 salt=hash(seed,center)&~kManagedField;
 				// Fields occur in contiguous farming districts rather than isolated random plots.
@@ -399,47 +410,64 @@ namespace AgriculturalLayout
 				const double districtRoll=(hash(seed,districtCell)%10000)/10000.0;
 				const double plotRoll=(salt%10000)/10000.0;
 				++stats.candidates;if (districtRoll*.72+plotRoll*.28>density(center,frames) || !agricultural(world,center)) { continue; }
-				const double near=edge.totalWidth()*.5+config.agriculture_bundWidth+config.agriculture_drainWidth;
-				const double depth=config.agriculture_plotWidth*2*(1+config.agriculture_fieldShapeVariation*(static_cast<double>((salt>>8)%100)/50-1));
-				const Vec2 left=horizontal(a+n1*near),right=horizontal(b+n2*near),farLeft=horizontal(a+n1*(near+depth)),farRight=horizontal(b+n2*(near+depth*(.7+(salt%61)/100.0)));
-				Array<Vec2> polygon{left,right,farRight,farRight.lerp(farLeft,.5)+horizontal((n1+n2)*.5)*depth*.12,farLeft};
-				UrbanParcel::normalize(polygon);const size_t index=candidates.size();candidates << Candidate{center,std::move(polygon),salt};buckets[bucket(center)] << index;
+				const double near=(tier==0 ? edge.totalWidth()*.5+config.agriculture_drainWidth : 0.0)+config.agriculture_bundWidth;
+				const double depth=config.agriculture_plotWidth*2*(1+config.agriculture_fieldShapeVariation*(static_cast<double>((salt>>8)%100)/50-1))-config.agriculture_bundWidth;
+				candidates << Candidate{center,horizontal(a+n1*near),horizontal(b+n2*near),horizontal(n1),horizontal(n2),depth,tier,salt};
 			} }
 		}
-		for (size_t index=0;index<candidates.size();++index)
+		candidates.stable_sort_by([](const Candidate& x,const Candidate& y){ return x.tier<y.tier; });
+		HashTable<Point,Array<Polygon>> accepted;
+		const auto overlapsAccepted=[&](const Polygon& shape,Vec2 center)
 		{
-			const auto& candidate=candidates[index];auto polygon=candidate.polygon;const Point cell=bucket(candidate.center);
-			// A shared Voronoi boundary fills road gaps without overlapping independent plots.
+			const Point cell=bucket(center);
 			for (int dz=-1;dz<=1;++dz) { for (int dx=-1;dx<=1;++dx)
 			{
-				if (const auto found=buckets.find(cell+Point{dx,dz});found!=buckets.end())
+				if (const auto found=accepted.find(cell+Point{dx,dz});found!=accepted.end())
 				{
-					for (const size_t other:found->second) { if (other!=index) { polygon=UrbanParcel::clipCloserTo(std::move(polygon),candidate.center,candidates[other].center); } }
+					for (const auto& other:found->second) { if (other.intersects(shape)) { return true; } }
 				}
 			} }
-			UrbanParcel::normalize(polygon);if (polygon.size()<3 || Polygon{polygon}.area()<config.agriculture_minimumFieldArea) { continue; }
-			bool valid=true;double low=Math::Inf,high=-Math::Inf;const Vec2 center=Polygon{polygon}.centroid();
-			for (const Vec2 vertex:polygon)
+			return false;
+		};
+		for (const auto& candidate:candidates)
+		{
+			for (const double fraction:{1.0,.7,.45})
 			{
-				const int samples=Max(1,static_cast<int>(Ceil(vertex.distanceFrom(center)/config.agriculture_sampleStep)));
-				for (int i=0;i<=samples;++i)
+				const double depth=candidate.depth*fraction;
+				// 奥の畦は区画ごとにわずかに折れ、地形に沿った不整形さを残す。
+				const Vec2 farLeft=candidate.left+candidate.normalLeft*depth,farRight=candidate.right+candidate.normalRight*depth;
+				const double bend=depth*(static_cast<double>((candidate.salt>>12)%9)-4.0)*.012;
+				Array<Vec2> outline{candidate.left,candidate.right,farRight,farRight.lerp(farLeft,.5)+(candidate.normalLeft+candidate.normalRight)*.5*bend,farLeft};
+				UrbanParcel::normalize(outline);if (outline.size()<3 || Polygon{outline}.area()<config.agriculture_minimumFieldArea) { break; }
+				const Vec2 center=Polygon{outline}.centroid();
+				// 隣の田との間に畦の幅を残す。
+				Array<Vec2> polygon;for (const Vec2 vertex:outline) { polygon << center.lerp(vertex,.97); }
+				if (overlapsAccepted(Polygon{polygon},center)) { continue; }
+				bool valid=true;double low=Math::Inf,high=-Math::Inf;
+				for (const Vec2 vertex:polygon)
 				{
-					const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
-					valid &= agricultural(world,point) && ground.y>world.waterSurfaceHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
+					const int samples=Max(1,static_cast<int>(Ceil(vertex.distanceFrom(center)/config.agriculture_sampleStep)));
+					for (int i=0;i<=samples;++i)
+					{
+						const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
+						valid &= agricultural(world,point) && ground.y>world.waterSurfaceHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
+					}
 				}
+				for (size_t i=1;i+1<polygon.size();++i)
+				{
+					const ParcelGeometry::Quad triangle{polygon[0],polygon[i],polygon[i+1],polygon[i+1]};
+					valid &= !occupied.overlaps(triangle) && !sites.occupied.overlaps(triangle);
+				}
+				if (!valid || high-low>config.agriculture_maximumFieldRelief) { continue; }
+				if (!sites.served(polygon,config.agriculture_homeMaximumDistance)) { ++stats.disconnected;break; }
+				const Point coord{static_cast<int>(center.x/CHUNK_SIZE),static_cast<int>(center.y/CHUNK_SIZE)};auto* chunk=world.getChunk(coord);if (!chunk) { break; }
+				accepted[bucket(center)] << Polygon{polygon};
+				LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
+				const bool paddy=high-low<config.agriculture_paddyRelief && candidate.salt%config.agriculture_dryFieldDivisor!=0;
+				patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=candidate.salt|kManagedField;
+				chunk->landPatches << std::move(patch);chunk->meshDirty=true;++stats.fields;stats.paddies+=paddy;
+				break;
 			}
-			for (size_t i=1;i+1<polygon.size();++i)
-			{
-				const ParcelGeometry::Quad triangle{polygon[0],polygon[i],polygon[i+1],polygon[i+1]};
-				valid &= !occupied.overlaps(triangle) && !sites.occupied.overlaps(triangle);
-			}
-			if (!valid || high-low>config.agriculture_maximumFieldRelief) { continue; }
-			if (!sites.served(polygon,config.agriculture_homeMaximumDistance)) { ++stats.disconnected;continue; }
-			const Point coord{static_cast<int>(center.x/CHUNK_SIZE),static_cast<int>(center.y/CHUNK_SIZE)};auto* chunk=world.getChunk(coord);if (!chunk) { continue; }
-			LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
-			const bool paddy=high-low<config.agriculture_paddyRelief && candidate.salt%config.agriculture_dryFieldDivisor!=0;
-			patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=candidate.salt|kManagedField;
-			chunk->landPatches << std::move(patch);chunk->meshDirty=true;++stats.fields;stats.paddies+=paddy;
 		}
 		return stats;
 	}
