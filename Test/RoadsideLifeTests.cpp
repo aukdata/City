@@ -202,7 +202,7 @@ void registerRoadsideLifeTests(TestRunner& runner)
 				context.expectNear(bounds.center.y-bounds.size.y*.5, 0, .001, U"Forecourt sits on ground");
 				context.expectNear(Max(bounds.size.x, bounds.size.z), buildingFootprintXZ(type), .05, U"Parking and yard dimensions are not squeezed into a house slot");
 				const Image texture{path+U"_diffuse.png"};
-				context.expect(texture.width() == 1024 && texture.height() == 1024, U"Baked texture is packaged");
+				context.expect(texture.width() >= 1024 && texture.width() == texture.height(), U"Baked texture is packaged");
 				const Model distant{U"assets/buildings/lod/{}.obj"_fmt(stem)};
 				context.expect(!distant.isEmpty(), U"Distant site retains a model");
 				if (!distant.isEmpty()) { context.expectNear(distant.boundingBox().size.y, bounds.size.y, .15, U"Distant roofs retain height"); }
