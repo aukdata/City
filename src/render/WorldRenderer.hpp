@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "ShaderAsset.hpp"
 #include "TunnelGeometry.hpp"
 #include "ModelBatch.hpp"
 #include "TreeInstances.hpp"
@@ -280,7 +281,7 @@ private:
 	uint64 m_geometryRevision = 0;
 	PixelShader m_buildingShader;
 	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
-	PixelShader m_waterShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"River_PS"}};
+	PixelShader m_waterShader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"River_PS")};
 	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;
 	HashSet<Key> m_distantDetailChunks;

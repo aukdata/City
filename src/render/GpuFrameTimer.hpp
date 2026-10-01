@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#if SIV3D_PLATFORM(WINDOWS)
 #include <Siv3D/Windows/Windows.hpp>
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -103,3 +104,71 @@ private:
 	uint64 m_sequence = 0, m_lastResultSequence = 0;
 	double m_milliseconds = -1;
 };
+
+#else
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <GL/glext.h>
+
+/// @brief Nonblocking OpenGL timestamps matching the D3D11 timer's units.
+class GpuFrameTimer
+{
+public:
+	~GpuFrameTimer()
+	{
+		for (const auto& slot : m_slots)
+		{
+			if (slot.start != 0) { glDeleteQueries(1, &slot.start); }
+			if (slot.finish != 0) { glDeleteQueries(1, &slot.finish); }
+		}
+	}
+	void begin([[maybe_unused]] Texture& target)
+	{
+		m_active = -1;
+		for (size_t index = 0; index < m_slots.size(); ++index)
+		{
+			auto& slot = m_slots[index];
+			if (slot.pending)
+			{
+				GLint available = GL_FALSE;
+				glGetQueryObjectiv(slot.finish, GL_QUERY_RESULT_AVAILABLE, &available);
+				if (available == GL_TRUE)
+				{
+					GLuint64 first = 0, last = 0;
+					glGetQueryObjectui64v(slot.start, GL_QUERY_RESULT, &first);
+					glGetQueryObjectui64v(slot.finish, GL_QUERY_RESULT, &last);
+					if (last >= first && slot.sequence > m_lastResultSequence)
+					{
+						m_lastResultSequence = slot.sequence;
+						m_milliseconds = static_cast<double>(last - first) / 1000000.0;
+					}
+					slot.pending = false;
+				}
+			}
+			if (!slot.pending && m_active < 0) { m_active = static_cast<int>(index); }
+		}
+		if (m_active >= 0)
+		{
+			auto& slot = m_slots[m_active];
+			if (slot.start == 0) { glGenQueries(1, &slot.start); glGenQueries(1, &slot.finish); }
+			slot.sequence = ++m_sequence;
+			glQueryCounter(slot.start, GL_TIMESTAMP);
+		}
+	}
+	void end()
+	{
+		if (m_active < 0) { return; }
+		auto& slot = m_slots[m_active];
+		glQueryCounter(slot.finish, GL_TIMESTAMP);
+		slot.pending = true;
+		m_active = -1;
+	}
+	[[nodiscard]] double milliseconds() const { return m_milliseconds; }
+private:
+	struct Slot { GLuint start = 0, finish = 0; bool pending = false; uint64 sequence = 0; };
+	std::array<Slot, 8> m_slots;
+	int m_active = -1;
+	uint64 m_sequence = 0, m_lastResultSequence = 0;
+	double m_milliseconds = -1;
+};
+#endif

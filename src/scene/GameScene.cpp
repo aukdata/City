@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../render/ShaderAsset.hpp"
 #include "../ui/ZonePalette.hpp"
 
 // =============================================================================
@@ -17,7 +18,7 @@ GameScene::GameScene(const InitData& init)
 	});
 	m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
 	m_outlineMask   = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm,      HasDepth::Yes };
-	m_outlinePS     = HLSL{ U"shaders/hlsl/selection_outline.hlsl", U"PS" };
+	m_outlinePS     = ShaderAsset::pixel(U"shaders/hlsl/selection_outline.hlsl", U"PS");
 	if (not m_outlinePS)
 	{
 		DebugLog::print(U"[WARN] selection_outline.hlsl load failed");

@@ -87,3 +87,12 @@ __pycache__/
 /App/road_ground_audit.json
 /App/landscape_audit.json
 /Test/App/landscape_audit.json
+
+# Local Linux build and resources
+/build-linux/
+/App/City
+/App/resources/
+/App/CityShaderSmoke
+/Test/App/CityTests
+/Test/App/resources/
+/App/CityInputSmoke

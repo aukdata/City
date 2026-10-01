@@ -1,4 +1,5 @@
 ﻿#include "TestCases.hpp"
+#include "src/render/ShaderAsset.hpp"
 #include "TestRunner.hpp"
 #include "../src/render/TunnelRenderer.hpp"
 #include "../src/render/WorldRenderer.hpp"
@@ -43,8 +44,8 @@ void registerMountainRoadTests(TestRunner& runner)
 	{
 		const FilePath directory=FileSystem::CurrentDirectory();
 		const FilePath shaderPath=directory+U"../../App/shaders/hlsl/city_cable.hlsl";
-		const VertexShader vertexShader=VertexShader::HLSL(shaderPath,U"Cable_VS");
-		const PixelShader pixelShader=PixelShader::HLSL(shaderPath,U"Cable_PS");
+		const VertexShader vertexShader=ShaderAsset::vertex(shaderPath,U"Cable_VS");
+		const PixelShader pixelShader=ShaderAsset::pixel(shaderPath,U"Cable_PS");
 		context.expect(vertexShader && pixelShader,U"Production cable shaders load");
 		const Size size{800,600};
 		struct CableView { Float4 viewport; };

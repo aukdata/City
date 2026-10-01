@@ -1,4 +1,5 @@
 ﻿#include "TestCases.hpp"
+#include "src/render/ShaderAsset.hpp"
 #include "src/gen/RailCostProfile.hpp"
 #include "src/road/RoadGeometry.hpp"
 #include "src/ui/WalkSurface.hpp"
@@ -633,7 +634,7 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			int concrete=0;for (int y=60;y<330;++y) for (int x=100;x<540;++x) { const auto color=image[y][x];concrete+=color.r>70 && Abs(static_cast<int>(color.r)-color.b)<30; }
 			context.expect(concrete>3000,U"Concrete surfaces are visible with backface culling from underneath and inside");
 		}
-		const PixelShader water=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"River_PS"};context.expect(static_cast<bool>(water),U"River material compiles on the production graphics API");
+		const PixelShader water=ShaderAsset::pixel(U"../../App/shaders/hlsl/city_forward.hlsl", U"River_PS");context.expect(static_cast<bool>(water),U"River material compiles on the production graphics API");
 	});
 	runner.add(U"Districts.HierarchyCoverage",[](TestContext& context)
 	{

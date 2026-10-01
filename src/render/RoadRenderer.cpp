@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "ShaderAsset.hpp"
 #include "ModelLod.hpp"
 #include "../road/RoadEnvironment.hpp"
 #include "MountainRoadGeometry.hpp"
@@ -538,12 +539,12 @@ namespace
 
 bool RoadRenderer::loadAssets()
 {
-	m_asphaltPS = PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl", U"Asphalt_PS");
-	m_pavementPS = PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl", U"Pavement_PS");
+	m_asphaltPS = ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"Asphalt_PS");
+	m_pavementPS = ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"Pavement_PS");
 	m_asphaltNormal = Texture{U"assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg", TextureDesc::Mipped};
 	DBG_LOG(U"[StreetMaterials] asphalt={} pavement={}"_fmt(static_cast<bool>(m_asphaltPS), static_cast<bool>(m_pavementPS)));
-	m_constructionEarthPS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Earth_PS");
-	m_constructionAggregatePS=PixelShader::HLSL(U"shaders/hlsl/city_forward.hlsl",U"Aggregate_PS");
+	m_constructionEarthPS=ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl",U"Earth_PS");
+	m_constructionAggregatePS=ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl",U"Aggregate_PS");
 	m_constructionSoilNormal=Texture{U"assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg",TextureDesc::Mipped};
 	m_constructionGravelNormal=Texture{U"assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg",TextureDesc::Mipped};
 	if(!m_constructionEarthPS || !m_constructionAggregatePS || !m_constructionSoilNormal || !m_constructionGravelNormal) return false;
@@ -560,8 +561,8 @@ bool RoadRenderer::loadAssets()
 		Model::RegisterDiffuseTextures(m_constructionLodModels[i],TextureDesc::MippedSRGB);
 	}
 	m_arrowMarkingRegistry.load(U"assets/road_markings");
-	m_cableVS = VertexShader::HLSL(U"shaders/hlsl/city_cable.hlsl", U"Cable_VS");
-	m_cablePS = PixelShader::HLSL(U"shaders/hlsl/city_cable.hlsl", U"Cable_PS");
+	m_cableVS = ShaderAsset::vertex(U"shaders/hlsl/city_cable.hlsl", U"Cable_VS");
+	m_cablePS = ShaderAsset::pixel(U"shaders/hlsl/city_cable.hlsl", U"Cable_PS");
 	if (!m_cableVS || !m_cablePS) { return false; }
 	m_signalRegistry.load(U"assets/signals");
 	return m_partRegistry.load(U"assets/road_parts");

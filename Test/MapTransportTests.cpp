@@ -398,9 +398,16 @@ void registerMapTransportTests(TestRunner& runner)
 
 	runner.add(U"MapTransport.InheritedShaderIsolation",[](TestContext& context)
 	{
+#if SIV3D_PLATFORM(WINDOWS)
 		const FilePath path=U"TestResults/map_texture_probe.hlsl";
 		TextWriter{path}.write(U"Texture2D source : register(t0); SamplerState sampler0 : register(s0); struct Input { float4 position:SV_POSITION; float4 color:COLOR0; float2 uv:TEXCOORD0; }; float4 PS(Input input):SV_TARGET { return source.Sample(sampler0,input.uv)*input.color; }");
-		const PixelShader probe=PixelShader::HLSL(path,U"PS");context.expect(static_cast<bool>(probe),U"The texture-state probe compiles");
+		const PixelShader probe=PixelShader::HLSL(path,U"PS");
+#else
+		const FilePath path=U"TestResults/map_texture_probe.frag";
+		TextWriter{path}.write(U"#version 410\nuniform sampler2D Texture0; layout(location=0) in vec4 Color; layout(location=1) in vec2 UV; layout(location=0) out vec4 FragColor; void main(){ FragColor=texture(Texture0,UV)*Color; }");
+		const PixelShader probe=GLSL{path, {}};
+#endif
+		context.expect(static_cast<bool>(probe),U"The texture-state probe compiles");
 		const Size size{1000,600};const Font font{FontMethod::MSDF,14,Typeface::CJK_Regular_JP};
 		const Texture terrain{Image{8,8,Color{80,120,90}}};const RenderTexture target{size};Array<Image> frames;
 		for (int inherited=0;inherited<2;++inherited)

@@ -1,4 +1,5 @@
 ﻿#include "TreeInstances.hpp"
+#include "ShaderAsset.hpp"
 #include "TreeGeometry.hpp"
 #include "LandscapeMaterials.hpp"
 #include "../debug/DebugLog.hpp"
@@ -34,8 +35,8 @@ namespace
 	struct SharedTrees
 	{
 		std::array<SharedTree, TreeInstanceRenderer::kModelCount> models;
-		VertexShader nearShader{HLSL{U"shaders/hlsl/tree_instances.hlsl", U"NearVS"}};
-		VertexShader farShader{HLSL{U"shaders/hlsl/tree_instances.hlsl", U"FarVS"}};
+		VertexShader nearShader{ShaderAsset::vertex(U"shaders/hlsl/tree_instances.hlsl", U"NearVS")};
+		VertexShader farShader{ShaderAsset::vertex(U"shaders/hlsl/tree_instances.hlsl", U"FarVS")};
 		SharedTrees()
 		{
 			const Stopwatch timer{StartImmediately::Yes};

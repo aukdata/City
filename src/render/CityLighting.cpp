@@ -1,4 +1,5 @@
 ﻿#include "CityLighting.hpp"
+#include "ShaderAsset.hpp"
 #include "../gen/GenerationSettings.hpp"
 
 bool CityLighting::initialize(FilePathView shaderPath)
@@ -12,13 +13,13 @@ bool CityLighting::initialize(FilePathView shaderPath)
 		static_cast<float>(settings.vegetation_treeLine),static_cast<float>(settings.vegetation_snowStart),static_cast<float>(settings.vegetation_snowFull)};
 	m_parameters->terrainVariation = Float4{settings.vegetation_snowVariation,0,0,0};
 	m_attempted = true;
-	m_depthShader = PixelShader::HLSL(shaderPath, U"Depth_PS");
-	m_forwardShader = PixelShader::HLSL(shaderPath, U"Shading_PS");
-	m_buildingShader = PixelShader::HLSL(shaderPath, U"Building_PS");
-	m_terrainShader = PixelShader::HLSL(shaderPath, U"Terrain_PS");
-	m_fieldShader=PixelShader::HLSL(shaderPath,U"Field_PS");
-	m_paddyShader=PixelShader::HLSL(shaderPath,U"Paddy_PS");
-	m_foliageShader=PixelShader::HLSL(shaderPath,U"Foliage_PS");
+	m_depthShader = ShaderAsset::pixel(shaderPath, U"Depth_PS");
+	m_forwardShader = ShaderAsset::pixel(shaderPath, U"Shading_PS");
+	m_buildingShader = ShaderAsset::pixel(shaderPath, U"Building_PS");
+	m_terrainShader = ShaderAsset::pixel(shaderPath, U"Terrain_PS");
+	m_fieldShader=ShaderAsset::pixel(shaderPath,U"Field_PS");
+	m_paddyShader=ShaderAsset::pixel(shaderPath,U"Paddy_PS");
+	m_foliageShader=ShaderAsset::pixel(shaderPath,U"Foliage_PS");
 	if (!m_buildingShader || !m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
 	{
 		Logger << U"[CityLighting] Failed to compile " << shaderPath;

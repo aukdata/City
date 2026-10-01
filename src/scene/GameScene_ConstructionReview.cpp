@@ -41,7 +41,7 @@ void GameScene::updateConstructionReview()
 			const int edgeId=*m_network.addEdge(nodeA,nodeB,a+(b-a)/3,a+(b-a)*2/3,RoadType::Arterial,2);
 			m_network.applyEdgeTemplate(edgeId,RoadPlanDraft::makeRoadTemplate(1));
 			auto* edge=m_network.getEdge(edgeId);edge->edgeState=EdgeState::Planned;edge->useElevation=elevated!=0;
-			RoadPlan plan;plan.name=elevated ? U"高架工事の確認" : U"道路工事の確認";plan.edgeIds={edgeId};
+			RoadPlan plan;plan.name=elevated ? U"高架工事の確認" : U"道路工事の確認";plan.edgeIds << edgeId;
 			const int id=m_network.addPlan(plan);m_network.getPlan(id)->constructionDuration=100;planIds<<id;
 			m_network.getEdge(edgeId)->planId=id;
 			const auto affected=RoadConstruction::affectedCells(m_network,{edgeId},m_world);

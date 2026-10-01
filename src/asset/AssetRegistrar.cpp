@@ -34,7 +34,11 @@ void RegisterAssets()
 	// 案内標識の地名（YuGothB.ttc は msdfgen クラッシュのため CJK_Regular_JP を使用）
 	FontAsset::Register(Asset::CJK32Bold,   FontMethod::MSDF, 32, Typeface::CJK_Regular_JP);
 	// Arial Bold（国道標識の号数表示用）— Windows 標準フォントを直接読み込む
+#if SIV3D_PLATFORM(WINDOWS)
 	FontAsset::Register(Asset::Arial24,     FontMethod::MSDF, 24, U"C:/Windows/Fonts/arialbd.ttf");
+#else
+	FontAsset::Register(Asset::Arial24,     FontMethod::MSDF, 24, Typeface::Bold);
+#endif
 
 	// ---- フォント（TitleScene 用・非 MSDF）----
 	FontAsset::Register(Asset::TitleBold46, 46, Typeface::Bold);

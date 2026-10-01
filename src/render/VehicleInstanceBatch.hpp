@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "ShaderAsset.hpp"
 #include "ModelBatch.hpp"
 
 /// @brief 無テクスチャの遠景車両専用。頂点は不変、個体の変換行列だけGPUへ送る。
@@ -29,10 +30,10 @@ public:
 	uint32 draw()
 	{
 		if (m_transforms.isEmpty()) { return 0; }
-		static const VertexShader shader = VertexShader::HLSL(U"shaders/hlsl/vehicle_instances.hlsl", U"VS");
+		static const VertexShader shader = ShaderAsset::vertex(U"shaders/hlsl/vehicle_instances.hlsl", U"VS");
 		if (shader.isEmpty()) { throw Error{U"車両LODの頂点シェーダーを読み込めません"}; }
 		const ScopedCustomShader3D scope{shader};
-		static const PixelShader paintShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"VehicleInstance_PS"}};
+		static const PixelShader paintShader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"VehicleInstance_PS")};
 		Optional<ScopedCustomShader3D> paintScope;
 		if (m_hasPaint) { paintScope.emplace(paintShader); }
 		uint32 calls = 0;

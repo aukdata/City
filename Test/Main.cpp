@@ -1,5 +1,9 @@
 ﻿#include <Siv3D.hpp>
+#if SIV3D_PLATFORM(WINDOWS)
 #include <process.h>
+#else
+#include <unistd.h>
+#endif
 #include "TestCases.hpp"
 #include "TestRunner.hpp"
 

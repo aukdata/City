@@ -1,0 +1,120 @@
+diff --git a/Siv3D/include/Siv3D/SIMD.hpp b/Siv3D/include/Siv3D/SIMD.hpp
+index e040671..30e76cb 100644
+--- a/Siv3D/include/Siv3D/SIMD.hpp
++++ b/Siv3D/include/Siv3D/SIMD.hpp
+@@ -12,6 +12,13 @@
+ # pragma once
+ # include "Platform.hpp"
+ 
++# if defined(__GNUC__) && defined(__x86_64__)
++// Load compiler intrinsics before SIMDe defines native aliases. Newer Boost
++// versions include immintrin.h after this header, which otherwise redeclares
++// GCC 14 AVX-512 load intrinsics under their aliased SIMDe names.
++# include <immintrin.h>
++# endif
++
+ # define SIMDE_ENABLE_NATIVE_ALIASES
+ 
+ # if !SIV3D_INTRINSIC(SSE)
+diff --git a/Siv3D/src/Siv3D-Platform/macOS_Linux/Siv3D/Keyboard/CKeyboard.cpp b/Siv3D/src/Siv3D-Platform/macOS_Linux/Siv3D/Keyboard/CKeyboard.cpp
+index 47ab718..238d3e6 100644
+--- a/Siv3D/src/Siv3D-Platform/macOS_Linux/Siv3D/Keyboard/CKeyboard.cpp
++++ b/Siv3D/src/Siv3D-Platform/macOS_Linux/Siv3D/Keyboard/CKeyboard.cpp
+@@ -14,6 +14,7 @@
+ # include <Siv3D/Unicode.hpp>
+ # include <Siv3D/Char.hpp>
+ # include <Siv3D/UserAction.hpp>
++# include <Siv3D/Time.hpp>
+ # include <Siv3D/Window/IWindow.hpp>
+ # include <Siv3D/UserAction/IUserAction.hpp>
+ # include <Siv3D/Common/Siv3DEngine.hpp>
+@@ -158,6 +159,32 @@ namespace s3d
+ 			{ 0xE2, SIV3D_KEY_JIS_UNDERSCORE }, // _ (JIS)
+ 		};
+ 
++		Array<KeyEvent> KeyEvents;
++		uint32 KeyEventIndex = 0;
++		GLFWkeyfun PreviousKeyCallback = nullptr;
++		void CaptureKeyEvent(GLFWwindow* window, int key, int scanCode, int action, int modifiers)
++		{
++			if (action != GLFW_REPEAT)
++			{
++				for (auto [code, glfwKey] : KeyConversionTable)
++				{
++					if (glfwKey != 0 && glfwKey == key)
++					{
++						KeyEvents << KeyEvent{Time::GetMillisec(), ++KeyEventIndex, code, action == GLFW_PRESS, action == GLFW_RELEASE};
++					}
++				}
++				const uint8 modifierCode = ((key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT) ? 0x10
++					: (key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) ? 0x11
++					: (key == GLFW_KEY_LEFT_ALT || key == GLFW_KEY_RIGHT_ALT) ? 0x12 : 0);
++				if (modifierCode != 0)
++				{
++					KeyEvents << KeyEvent{Time::GetMillisec(), ++KeyEventIndex, modifierCode, action == GLFW_PRESS, action == GLFW_RELEASE};
++				}
++				while (KeyEvents.size() > 128) { KeyEvents.erase(KeyEvents.begin()); }
++			}
++			if (PreviousKeyCallback) { PreviousKeyCallback(window, key, scanCode, action, modifiers); }
++		}
++
+ 		[[nodiscard]]
+ 		static String GetKeyName(const uint32 index, const uint32 glfwKey)
+ 		{
+@@ -195,6 +222,8 @@ namespace s3d
+ 		LOG_SCOPED_TRACE(U"CKeyboard::init()");
+ 
+ 		m_window = static_cast<GLFWwindow*>(SIV3D_ENGINE(Window)->getHandle());
++		detail::KeyEvents.clear();
++		detail::PreviousKeyCallback = ::glfwSetKeyCallback(m_window, detail::CaptureKeyEvent);
+ 		
+ 		for (auto [index, glfwKey] : detail::KeyConversionTable)
+ 		{
+@@ -333,7 +362,11 @@ namespace s3d
+ 
+ 	Array<KeyEvent> CKeyboard::getEvents() const noexcept
+ 	{
+-		static const Array<KeyEvent> _empty;
+-		return _empty;
++		return detail::KeyEvents;
+ 	}
++	namespace Platform::Linux::Keyboard
++	{
++		Array<KeyEvent> GetEvents() { return detail::KeyEvents; }
++	}
++
+ }
+diff --git a/Siv3D/src/ThirdParty/GLFW/x11_window.c b/Siv3D/src/ThirdParty/GLFW/x11_window.c
+index befa748..27a20df 100644
+--- a/Siv3D/src/ThirdParty/GLFW/x11_window.c
++++ b/Siv3D/src/ThirdParty/GLFW/x11_window.c
+@@ -2025,7 +2025,7 @@ void _glfwCreateInputContextX11(_GLFWwindow* window)
+     callback.callback = (XIMProc) inputContextDestroyCallback;
+     callback.client_data = (XPointer) window;
+ 
+-    XVaNestedList preeditAttr = s3d_PreeditAttributes(window);
++    XVaNestedList preeditAttr = s3d_PreeditAttributes((XPointer) window);
+ 
+     window->x11.ic = XCreateIC(_glfw.x11.im,
+                                XNInputStyle,
+diff --git a/Siv3D/src/ThirdParty/box2d/b2_math.h b/Siv3D/src/ThirdParty/box2d/b2_math.h
+index 479e667..cf90ad4 100644
+--- a/Siv3D/src/ThirdParty/box2d/b2_math.h
++++ b/Siv3D/src/ThirdParty/box2d/b2_math.h
+@@ -24,6 +24,7 @@
+ #define B2_MATH_H
+ 
+ #include <math.h>
++#include <cmath>
+ 
+ #include "b2_api.h"
+ #include "b2_settings.h"
+@@ -31,7 +32,7 @@
+ /// This function is used to ensure that a floating point number is not a NaN or infinity.
+ inline bool b2IsValid(float x)
+ {
+-	return isfinite(x);
++	return std::isfinite(x);
+ }
+ 
+ #define	b2Sqrt(x)	sqrtf(x)

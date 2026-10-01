@@ -1,5 +1,8 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#if SIV3D_PLATFORM(LINUX)
+namespace s3d::Platform::Linux::Keyboard { Array<KeyEvent> GetEvents(); }
+#endif
 
 /// @brief Preserve short key taps that begin and end between two rendered frames.
 class KeyboardActionBuffer
@@ -37,7 +40,11 @@ namespace GameInput
 	inline void beginFrame()
 	{
 		textOwnedFrame = textInput != nullptr || !TextInput::GetEditingText().isEmpty();
+		#if SIV3D_PLATFORM(WINDOWS)
 		buffer.update(Platform::Windows::Keyboard::GetEvents(),Window::GetState().focused);
+#else
+		buffer.update(Platform::Linux::Keyboard::GetEvents(),Window::GetState().focused);
+#endif
 	}
 	inline bool down(const Input& key) { return !keyboardBlocked() && (key.down() || buffer.down(key.code())); }
 	inline bool pressed(const Input& key) { return !keyboardBlocked() && (key.pressed() || buffer.down(key.code())); }

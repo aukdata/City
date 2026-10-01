@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "ShaderAsset.hpp"
 #include "../world/World.hpp"
 #include "BridgeStructure.hpp"
 #include "../asset/AssetRegistrar.hpp"
@@ -116,7 +117,7 @@ public:
 			if (levees.contains(key) && !levees[key].indices.isEmpty()) { batch.levee=Mesh{levees[key]}; }
 			m_batches << std::move(batch);
 		}
-		m_shader=HLSL{U"shaders/hlsl/city_forward.hlsl",U"River_PS"};
+		m_shader=ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"River_PS");
 		DBG_LOG(U"[RiverRenderer] batches={} shader={}"_fmt(m_batches.size(),static_cast<bool>(m_shader)));
 	}
 	void draw(Vec3 eye) const

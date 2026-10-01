@@ -1,4 +1,5 @@
 ﻿#include "TestCases.hpp"
+#include "src/render/ShaderAsset.hpp"
 #include "TestRunner.hpp"
 #include "src/ui/Camera.hpp"
 #include "src/render/FrontageGeometry.hpp"
@@ -231,9 +232,9 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 	{
 		CityLighting lighting;
 		context.expect(lighting.initialize(U"../../App/shaders/hlsl/city_forward.hlsl"),U"All production city shaders including building glass compile");
-		const PixelShader asphalt=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"Asphalt_PS"};
-		const PixelShader pavement=HLSL{U"../../App/shaders/hlsl/city_forward.hlsl",U"Pavement_PS"};
-		context.expect(static_cast<bool>(asphalt) && static_cast<bool>(pavement),U"Asphalt and pavement shaders compile on Direct3D");
+		const PixelShader asphalt=ShaderAsset::pixel(U"../../App/shaders/hlsl/city_forward.hlsl", U"Asphalt_PS");
+		const PixelShader pavement=ShaderAsset::pixel(U"../../App/shaders/hlsl/city_forward.hlsl", U"Pavement_PS");
+		context.expect(static_cast<bool>(asphalt) && static_cast<bool>(pavement),U"Asphalt and pavement shaders compile on the production graphics API");
 		if (!lighting.ready() || !asphalt || !pavement) { return; }
 		const Size size{640,400};
 		const BasicCamera3D camera{size,50_deg,{0,5,-7},{0,0,0}};

@@ -1,4 +1,5 @@
 ﻿#include "TestCases.hpp"
+#include "src/render/ShaderAsset.hpp"
 #include "TestRunner.hpp"
 #include "src/render/TreeInstances.hpp"
 #include "src/render/TreeGeometry.hpp"
@@ -26,7 +27,7 @@ void registerTreeStreamingTests(TestRunner& runner)
 		GameAssets assets;
 		CityLighting lighting;
 		context.expect(lighting.initialize(), U"Tree and depth shaders compile");
-		const PixelShader depth{HLSL{U"shaders/hlsl/city_forward.hlsl", U"Depth_PS"}};
+		const PixelShader depth{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"Depth_PS")};
 		TreeInstanceRenderer::preload();
 		std::array<TreeGeometry::Geometry, 17> originals;
 		for (uint32 i = 0; i < originals.size(); ++i)

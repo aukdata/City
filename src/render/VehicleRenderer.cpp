@@ -1,4 +1,5 @@
 ﻿#include "VehicleRenderer.hpp"
+#include "ShaderAsset.hpp"
 #include "VehiclePaint.hpp"
 #include "RoadRenderer.hpp"   // kLodDistSq
 
@@ -172,7 +173,7 @@ void VehicleRenderer::drawVehicle(const Vehicle& v, int level)
 		Optional<ScopedCustomShader3D> paintScope;
 		if (v.type==VehicleType::PassengerCar || v.type==VehicleType::KeiCar)
 		{
-			static const PixelShader shader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"VehiclePaint_PS"}};
+			static const PixelShader shader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"VehiclePaint_PS")};
 			m_paint->color=VehiclePaint::color(v).toFloat4();
 			Graphics3D::SetPSConstantBuffer(5,m_paint);paintScope.emplace(shader);
 		}

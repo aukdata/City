@@ -15,7 +15,10 @@ public:
 		bool generateNodeMarkings = false;
 	};
 
-	static Array<RoadMarkingPlacement> collectEdge(const RoadNetwork& network, const RoadEdge& edge, const Options& options = Options{})
+	/// @brief Keep nested aggregate defaults portable across C++20 compilers.
+	static Options defaultOptions() { return {}; }
+
+	static Array<RoadMarkingPlacement> collectEdge(const RoadNetwork& network, const RoadEdge& edge, const Options& options = defaultOptions())
 	{
 		Array<RoadMarkingPlacement> placements;
 		if (options.generateArterialLaneLines && edge.roadType == RoadType::Arterial && edge.isRoadbedBuilt())
@@ -33,7 +36,7 @@ public:
 	}
 
 	/// @brief A seam may only continue markings that actually reach both edge mouths.
-	static bool hasLaneLinesAtNode(const RoadNetwork& network,const RoadEdge& edge,int nodeId,const Options& options=Options{})
+	static bool hasLaneLinesAtNode(const RoadNetwork& network,const RoadEdge& edge,int nodeId,const Options& options=defaultOptions())
 	{
 		const auto curve=network.getBezier(edge.id);
 		if (!curve || !edge.isRoadbedBuilt()) { return false; }
@@ -45,7 +48,7 @@ public:
 		return false;
 	}
 
-	static Array<RoadMarkingPlacement> collectNode(const RoadNetwork& network, int nodeId, bool isClose, const Options& options = Options{})
+	static Array<RoadMarkingPlacement> collectNode(const RoadNetwork& network, int nodeId, bool isClose, const Options& options = defaultOptions())
 	{
 		Array<RoadMarkingPlacement> placements;
 		const RoadNode* node = network.getNode(nodeId);
