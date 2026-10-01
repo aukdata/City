@@ -104,6 +104,19 @@ struct SimGraph
 		for (const int nid : dirtyNodeIds)
 		{
 			nodeIds.insert(nid);
+			// 削除・分割前の接続も集める。現在の attachments からは消えたエッジを追跡できない。
+			if (const auto previousNode = nodes.find(nid); previousNode != nodes.end())
+			{
+				for (const int edgeId : previousNode->second.edgeIds)
+				{
+					edgeIds.insert(edgeId);
+					if (const auto previousEdge = edges.find(edgeId); previousEdge != edges.end())
+					{
+						nodeIds.insert(previousEdge->second.nodeA);
+						nodeIds.insert(previousEdge->second.nodeB);
+					}
+				}
+			}
 			const RoadNode* rn = network.getNode(nid);
 			if (rn)
 			{
@@ -155,6 +168,8 @@ struct SimGraph
 				se.tangentAngleA = static_cast<float>(Math::Atan2(bez->tangentAt(0.0f).x, bez->tangentAt(0.0f).z));
 				se.tangentAngleB = static_cast<float>(Math::Atan2(bez->tangentAt(bez->totalLength).x, bez->tangentAt(bez->totalLength).z));
 			}
+			nodeIds.insert(re->nodeA);
+			nodeIds.insert(re->nodeB);
 			edges[eid] = std::move(se);
 		}
 

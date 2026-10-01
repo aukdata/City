@@ -600,6 +600,10 @@ void RoadNetwork::smoothCurveAt(int newEdgeId, int midNodeId)
 		newEdge->ctrlA = newCpn;
 	else
 		newEdge->ctrlB = newCpn;
+	if (const auto curve = getBezier(newEdgeId))
+	{
+		newEdge->length = curve->totalLength;
+	}
 }
 
 void RoadNetwork::smoothAllCurves()

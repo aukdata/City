@@ -126,6 +126,16 @@ void RoadNetwork::removeNode(int nodeId)
 {
 	const int idx = nodeIndex(nodeId);
 	if (idx < 0) return;
+	// 接続先・路線・沿道物の整合性を保ってからノードを解放する。
+	const Array<int> connectedEdgeIds = m_nodes[idx].edgeIds();
+	for (const int edgeId : connectedEdgeIds)
+	{
+		// ノード統合で既に付け替えたエッジは、旧 attachment に残っていても保持する。
+		if (const RoadEdge* edge = getEdge(edgeId); edge && (edge->nodeA == nodeId || edge->nodeB == nodeId))
+		{
+			removeEdge(edgeId);
+		}
+	}
 	m_nodes[idx].id = -1;
 	m_nodeIdToIdx.erase(nodeId);
 	m_freeNodeSlots << idx;

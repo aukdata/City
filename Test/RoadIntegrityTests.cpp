@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/road/RoadNetwork.hpp"
+#include "src/sim/SimGraph.hpp"
 #include "src/road/GuideSign.hpp"
 #include "src/road/JunctionGeometry.hpp"
 #include "src/render/RoadRenderer.hpp"
@@ -21,6 +22,97 @@ namespace
 
 void registerRoadIntegrityTests(TestRunner& runner)
 {
+	runner.add(U"RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0}), c=network.addNode({200,0,0});
+		const int edge=*network.addEdge(a,b,{30,0,0},{70,0,0});
+		SimGraph graph=SimGraph::build(network);
+		network.getEdge(edge)->nodeB=c;
+		network.getNode(c)->addEdge(edge);
+		network.removeNode(b);
+		graph.updateAround({b},network);
+		context.expect(graph.getNode(b)==nullptr,U"The removed endpoint leaves the snapshot");
+		context.expect(graph.getEdge(edge) && graph.getEdge(edge)->nodeB==c,U"The snapshot follows the retargeted road");
+		context.expect(graph.getNode(c)->edgeIds.contains(edge),U"The new endpoint receives the road attachment");
+	});
+
+	runner.add(U"RoadIntegrity.EditNodeDeletionPreservesRewiredEdges", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0}), c=network.addNode({200,0,0});
+		const int edge=*network.addEdge(a,b,{30,0,0},{70,0,0});
+		// Topology merges retarget roads before discarding the old node's attachments.
+		network.getEdge(edge)->nodeB=c;
+		network.getNode(c)->addEdge(edge);
+		network.removeNode(b);
+		context.expect(network.getNode(b)==nullptr,U"The replaced node is deleted");
+		context.expect(network.getEdge(edge)!=nullptr,U"A road retargeted to a live node survives");
+		context.expect(network.getNode(a)->getAttachment(edge) && network.getNode(c)->getAttachment(edge),U"Both retained endpoints stay connected");
+	});
+	runner.add(U"RoadIntegrity.EditSingleDirtyEndpointRefreshesNeighbors", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0});
+		const int edge=*network.addEdge(a,b,{30,0,0},{70,0,0});
+		SimGraph graph=SimGraph::build(network);
+		network.removeEdge(edge);
+		graph.updateAround({a},network);
+		context.expect(graph.getEdge(edge)==nullptr,U"Old connectivity identifies the removed road from one dirty endpoint");
+		context.expect(graph.getNode(b)->edgeIds.empty(),U"The former opposite endpoint is refreshed too");
+	});
+
+	runner.add(U"RoadIntegrity.EditRemovalUpdatesSnapshot", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0}), c=network.addNode({200,0,0});
+		const int removed=*network.addEdge(a,b,{30,0,0},{70,0,0});
+		network.addEdge(b,c,{130,0,0},{170,0,0});
+		SimGraph graph=SimGraph::build(network);
+		network.removeEdge(removed);
+		graph.updateAround({a,b},network);
+		context.expect(graph.getEdge(removed)==nullptr,U"The removed road is absent from the simulation snapshot");
+		context.expectEqual(graph.edges.size(),SimGraph::build(network).edges.size(),U"Incremental and full snapshots contain the same roads");
+	});
+	runner.add(U"RoadIntegrity.EditSplitUpdatesSnapshot", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0});
+		const int removed=*network.addEdge(a,b,{30,0,0},{70,0,0});
+		SimGraph graph=SimGraph::build(network);
+		const int split=network.splitEdgeAt(removed,50);
+		context.expect(split>=0,U"The road can be split");
+		graph.updateAround({a,b,split},network);
+		context.expect(graph.getEdge(removed)==nullptr,U"The original road is absent after splitting");
+		context.expectEqual(graph.edges.size(),SimGraph::build(network).edges.size(),U"Split snapshots contain only the replacement roads");
+	});
+	runner.add(U"RoadIntegrity.EditNodeDeletionDetachesEdges", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0}), c=network.addNode({200,0,0});
+		network.addEdge(a,b,{30,0,0},{70,0,0});
+		network.addEdge(b,c,{130,0,0},{170,0,0});
+		network.removeNode(b);
+		int dangling=0;
+		for (const auto& edge:network.edges())
+		{
+			if (edge.id>=0 && (!network.getNode(edge.nodeA) || !network.getNode(edge.nodeB))) { ++dangling; }
+		}
+		context.expectEqual(dangling,0,U"Deleting a connected node leaves no roads with missing endpoints");
+		context.expect(network.getNode(a)->attachments.empty() && network.getNode(c)->attachments.empty(),U"Surviving nodes detach the deleted roads");
+	});
+	runner.add(U"RoadIntegrity.EditSmoothingRefreshesLength", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}), b=network.addNode({100,0,0}), c=network.addNode({100,0,100});
+		network.addEdge(a,b,{30,0,0},{70,0,0});
+		const int edge=*network.addEdge(b,c,{100,0,30},{100,0,70});
+		network.smoothCurveAt(edge,b);
+		const auto curve=network.getBezier(edge);
+		context.expect(curve.has_value(),U"The smoothed road remains valid");
+		if (curve) { context.expectNear(network.getEdge(edge)->length,curve->totalLength,.01,U"Cached length follows the changed curve"); }
+	});
+
 	runner.add(U"Generation.CastleTownClipsRegionalRoads", [](TestContext& context)
 	{
 		World world;
