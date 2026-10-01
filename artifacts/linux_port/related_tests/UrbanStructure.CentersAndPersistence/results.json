@@ -1,0 +1,14 @@
+﻿{
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "UrbanStructure.CentersAndPersistence",
+      "status": "passed",
+      "durationMs": 0.996,
+      "failures": [
+      ]
+    }
+  ]
+}

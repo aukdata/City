@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="14" failures="0">
+  <testcase name="Planning.ConstructionTransactionPreservesTheCity" time="0.553258">
+  </testcase>
+  <testcase name="Construction.PlayableDuration" time="0.000072">
+  </testcase>
+  <testcase name="Construction.TrafficAdmission" time="0.000035">
+  </testcase>
+  <testcase name="Construction.StageClockAndResume" time="0.000289">
+  </testcase>
+  <testcase name="Construction.ClearanceAndPersistentTombstones" time="0.092511">
+  </testcase>
+  <testcase name="Construction.ElevatedClearance" time="0.090397">
+  </testcase>
+  <testcase name="Construction.ParcelKeysAcrossChunks" time="0.090638">
+  </testcase>
+  <testcase name="Construction.BridgeSurfaceNormals" time="0.000232">
+  </testcase>
+  <testcase name="Construction.StagesVisualReview" time="2.997751">
+  </testcase>
+  <testcase name="RoadDesign.ConstructionCostRatios" time="0.000099">
+  </testcase>
+  <testcase name="Comprehensive.AfterConstructionTerrain" time="0.904649">
+  </testcase>
+  <testcase name="Comprehensive.SandboxConstruction" time="0.332020">
+  </testcase>
+  <testcase name="Refactoring.ExistingConstructionAtomicBatch" time="0.000028">
+  </testcase>
+  <testcase name="Refactoring.ConstructionEntrancesAgree" time="0.000036">
+  </testcase>
+</testsuite>

@@ -1,0 +1,105 @@
+﻿{
+  "total": 14,
+  "passed": 14,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Planning.ConstructionTransactionPreservesTheCity",
+      "status": "passed",
+      "durationMs": 553.258,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.PlayableDuration",
+      "status": "passed",
+      "durationMs": 0.072,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.TrafficAdmission",
+      "status": "passed",
+      "durationMs": 0.035,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.StageClockAndResume",
+      "status": "passed",
+      "durationMs": 0.289,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ClearanceAndPersistentTombstones",
+      "status": "passed",
+      "durationMs": 92.511,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ElevatedClearance",
+      "status": "passed",
+      "durationMs": 90.397,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.ParcelKeysAcrossChunks",
+      "status": "passed",
+      "durationMs": 90.638,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.BridgeSurfaceNormals",
+      "status": "passed",
+      "durationMs": 0.232,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Construction.StagesVisualReview",
+      "status": "passed",
+      "durationMs": 2997.751,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadDesign.ConstructionCostRatios",
+      "status": "passed",
+      "durationMs": 0.099,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.AfterConstructionTerrain",
+      "status": "passed",
+      "durationMs": 904.649,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SandboxConstruction",
+      "status": "passed",
+      "durationMs": 332.020,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Refactoring.ExistingConstructionAtomicBatch",
+      "status": "passed",
+      "durationMs": 0.028,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Refactoring.ConstructionEntrancesAgree",
+      "status": "passed",
+      "durationMs": 0.036,
+      "failures": [
+      ]
+    }
+  ]
+}

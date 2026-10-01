@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="3" failures="0">
+  <testcase name="Input.TextFocusMustBlockAllActions" time="0.000056">
+  </testcase>
+  <testcase name="Input.SaveShortcutHonorsFocus" time="0.000009">
+  </testcase>
+  <testcase name="Input.ShortTapsAndFocus" time="0.000001">
+  </testcase>
+</testsuite>

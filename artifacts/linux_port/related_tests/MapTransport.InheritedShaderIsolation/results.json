@@ -1,0 +1,14 @@
+﻿{
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "MapTransport.InheritedShaderIsolation",
+      "status": "passed",
+      "durationMs": 294.258,
+      "failures": [
+      ]
+    }
+  ]
+}

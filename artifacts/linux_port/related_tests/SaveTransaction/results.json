@@ -1,0 +1,42 @@
+﻿{
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "SaveTransaction.RoundTrip",
+      "status": "passed",
+      "durationMs": 0.256,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.UnsupportedVersionRejected",
+      "status": "passed",
+      "durationMs": 0.172,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.CorruptionRejected",
+      "status": "passed",
+      "durationMs": 0.230,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.WriterFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 0.161,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SaveTransaction.VerificationFailurePreservesExistingSave",
+      "status": "passed",
+      "durationMs": 0.275,
+      "failures": [
+      ]
+    }
+  ]
+}

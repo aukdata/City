@@ -1,0 +1,471 @@
+OpenSiv3D for Linux
+0: [info]    ℹ️ 2026-10-02 03:38:46
+0: [info]    ℹ️ Siv3D Engine (0.6.16) Linux [Release build]
+1: [info]    ℹ️ OS: Debian GNU/Linux 13 (trixie) (13.0.0.0)
+1: [info]    ℹ️ CPU: GenuineIntel INTEL(R) XEON(R) PLATINUM 8573C 6.207.2 (CPU packages: 1, Physical CPUs: 9, Logical CPUs: 9)
+1: [info]    ℹ️ Memory: [Physical Available: 7.84GiB Total: 9.73GiB] [Virtual: Available: 32TiB Total: 32TiB]
+1: [info]    ℹ️ Connected displays: 0
+1: [info]    ⌛ Preparing for setup...
+102: [info]    soundfontCacheDirectory: /dev/shm/codex-orbit-desktop/runtime-mUkgAg/cache/Siv3D/0.6.16/soundfont/
+102: [info]    ℹ️ Engine font `GMGSx.sf2` found in the user cache directory
+102: [info]    libmpg123 is available
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix:0
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix:0,0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+Cannot connect to server socket err = No such file or directory
+Cannot connect to server request channel
+jack server is not running or cannot be started
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+120: [info]    🎧 Audio backend: NoSound (channel count: 2, sample rate: 44100, buffer size: 4096)
+122: [info]    ℹ️ SoundTouch is available
+124: [info]    renderer: llvmpipe (LLVM 19.1.7, 256 bits)
+124: [info]    vendor: Mesa
+124: [info]    version: 4.5 (Core Profile) Mesa 25.0.7-2+deb13u1
+124: [info]    glslVersion: 4.50
+124: [info]    GL_MAJOR_VERSION: 4
+124: [info]    GL_MINOR_VERSION: 5
+124: [info]    GL_MAX_UNIFORM_BLOCK_SIZE: 65536
+124: [info]    GL_MAX_UNIFORM_BUFFER_BINDINGS: 90
+129: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.vert` opened (size: 1.18KiB)
+135: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.vert` closed
+135: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/copy.frag` opened (size: 600B)
+135: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/copy.frag` closed
+135: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_5.frag` opened (size: 849B)
+136: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_5.frag` closed
+136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_9.frag` opened (size: 1.04KiB)
+136: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_9.frag` closed
+136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_13.frag` opened (size: 1.25KiB)
+137: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_13.frag` closed
+137: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/apply_srgb_curve.frag` opened (size: 2.32KiB)
+137: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/apply_srgb_curve.frag` closed
+137: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.frag` opened (size: 1.03KiB)
+137: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.frag` closed
+138: [info]    📦 Loading vertex shaders for CRenderer2D_GL4:
+138: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sprite.vert` opened (size: 827B)
+138: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sprite.vert` closed
+138: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.vert` opened (size: 449B)
+138: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.vert` closed
+138: [info]    📦 Loading pixel shaders for CRenderer2D_GL4:
+139: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/shape.frag` opened (size: 491B)
+139: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/shape.frag` closed
+139: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/square_dot.frag` opened (size: 695B)
+139: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/square_dot.frag` closed
+139: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/round_dot.frag` opened (size: 757B)
+139: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/round_dot.frag` closed
+139: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` opened (size: 625B)
+140: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` closed
+140: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.frag` opened (size: 367B)
+140: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.frag` closed
+141: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/256.png` opened (size: 5.51KiB)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/256.png` closed
+142: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/128.png` opened (size: 2.5KiB)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/128.png` closed
+142: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/64.png` opened (size: 1.34KiB)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/64.png` closed
+142: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/32.png` opened (size: 617B)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/32.png` closed
+142: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/16.png` opened (size: 263B)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/16.png` closed
+142: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/8.png` opened (size: 140B)
+142: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/8.png` closed
+143: [info]    📦 Loading vertex shaders for CRenderer3D_GL4:
+143: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.vert` opened (size: 968B)
+143: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.vert` closed
+143: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.vert` opened (size: 743B)
+143: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.vert` closed
+143: [info]    📦 Loading pixel shaders for CRenderer3D_GL4:
+143: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.frag` opened (size: 2.03KiB)
+144: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.frag` closed
+144: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.frag` opened (size: 349B)
+144: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.frag` closed
+145: [info]    Default Screenshot directory: "/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/"
+145: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/bitmapfont.frag` opened (size: 669B)
+145: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/bitmapfont.frag` closed
+145: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` opened (size: 625B)
+146: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` closed
+146: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont.frag` opened (size: 744B)
+146: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont.frag` closed
+146: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outline.frag` opened (size: 986B)
+146: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outline.frag` closed
+146: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_shadow.frag` opened (size: 1.15KiB)
+147: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_shadow.frag` closed
+147: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outlineshadow.frag` opened (size: 1.46KiB)
+148: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outlineshadow.frag` closed
+148: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont.frag` opened (size: 991B)
+148: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont.frag` closed
+148: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outline.frag` opened (size: 1.22KiB)
+148: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outline.frag` closed
+148: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_shadow.frag` opened (size: 1.41KiB)
+149: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_shadow.frag` closed
+149: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outlineshadow.frag` opened (size: 1.73KiB)
+149: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outlineshadow.frag` closed
+149: [info]    fontCacheDirectory: /dev/shm/codex-orbit-desktop/runtime-mUkgAg/cache/Siv3D/0.6.16/font/
+149: [info]    ℹ️ Engine font `noto-cjk/NotoSansCJK-Regular.ttc` found in the user cache directory
+149: [info]    ℹ️ Engine font `noto-emoji/NotoEmoji-Regular.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `noto-emoji/NotoColorEmoji.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-thin.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-light.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-regular.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-medium.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-bold.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-heavy.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `mplus/mplus-1p-black.ttf` found in the user cache directory
+149: [info]    ℹ️ Engine font `fontawesome/fontawesome-solid.otf` found in the user cache directory
+149: [info]    ℹ️ Engine font `fontawesome/fontawesome-brands.otf` found in the user cache directory
+149: [info]    ℹ️ Engine font `materialdesignicons/materialdesignicons-webfont.ttf` found in the user cache directory
+152: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdfprint.frag` opened (size: 1.21KiB)
+152: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdfprint.frag` closed
+153: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+153: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+706: [PASS] Planning.ConstructionTransactionPreservesTheCity (553.258 ms)
+706: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+706: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+706: [PASS] Construction.PlayableDuration (0.072 ms)
+707: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+707: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+707: [PASS] Construction.TrafficAdmission (0.035 ms)
+707: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+707: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+707: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` opened
+707: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` closed
+707: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` opened
+708: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` closed
+708: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` opened (size: 707B)
+708: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` closed
+708: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` opened (size: 707B)
+708: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_roads.bin` closed
+708: [PASS] Construction.StageClockAndResume (0.289 ms)
+708: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+708: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+798: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_clearance_timing.txt` opened
+798: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/construction_clearance_timing.txt` closed
+798: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance.json` opened
+798: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance.json` closed
+798: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance.json` opened (size: 99B)
+798: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance.json` closed
+800: [PASS] Construction.ClearanceAndPersistentTombstones (92.511 ms)
+800: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+800: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+891: [PASS] Construction.ElevatedClearance (90.397 ms)
+891: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+891: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+979: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_nonzero.json` opened
+979: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_nonzero.json` closed
+979: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_nonzero.json` opened (size: 99B)
+979: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_nonzero.json` closed
+980: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_invalid.json` opened
+980: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_invalid.json` closed
+980: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_invalid.json` opened (size: 55B)
+980: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/clearance_invalid.json` closed
+982: [PASS] Construction.ParcelKeysAcrossChunks (90.638 ms)
+982: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+982: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+982: [PASS] Construction.BridgeSurfaceNormals (0.232 ms)
+982: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+982: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+982: [fail]    ❌ TextureAsset::Register(): Image file `assets/signs/regulatory/yield.png` not found
+1074: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Asphalt_PS.frag` opened (size: 6.01KiB)
+1076: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Asphalt_PS.frag` closed
+1076: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Pavement_PS.frag` opened (size: 5.24KiB)
+1077: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Pavement_PS.frag` closed
+1077: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg` opened (size: 1.3MiB)
+1090: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg` closed
+1115: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Earth_PS.frag` opened (size: 5.17KiB)
+1116: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Earth_PS.frag` closed
+1116: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Aggregate_PS.frag` opened (size: 5.41KiB)
+1117: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Aggregate_PS.frag` closed
+1117: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg` opened (size: 1003KiB)
+1129: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg` closed
+1135: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg` opened (size: 1.27MiB)
+1151: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg` closed
+1157: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_diff_1k.jpg` opened (size: 490KiB)
+1165: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_diff_1k.jpg` closed
+1171: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` opened (size: 932KiB)
+1182: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` closed
+1188: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete_wall_001/concrete_wall_001_diff_1k.jpg` opened (size: 77.5KiB)
+1190: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete_wall_001/concrete_wall_001_diff_1k.jpg` closed
+1317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/left.toml` opened (size: 277B)
+1317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/left.toml` closed
+1317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightleft.toml` opened (size: 360B)
+1317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightleft.toml` closed
+1317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightright.toml` opened (size: 353B)
+1318: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightright.toml` closed
+1318: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straight.toml` opened (size: 191B)
+1318: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straight.toml` closed
+1318: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/right.toml` opened (size: 271B)
+1318: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/right.toml` closed
+1318: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_VS.vert` opened (size: 1.52KiB)
+1318: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_VS.vert` closed
+1318: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_PS.frag` opened (size: 545B)
+1318: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_PS.frag` closed
+1319: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.toml` opened (size: 947B)
+1319: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.toml` closed
+1319: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.obj` opened (size: 760KiB)
+1343: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.obj` closed
+[SignalRegistry] signal_3lamp: 6 meshes loaded
+1343: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod1.obj` opened (size: 111KiB)
+1346: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod1.obj` closed
+1346: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod2.obj` opened (size: 64.9KiB)
+1348: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod2.obj` closed
+1348: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.png` opened (size: 33.9KiB)
+1353: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.png` closed
+[SignalRegistry] Loaded 1 signal definitions from assets/signals
+1356: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.toml` opened (size: 317B)
+1356: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.toml` closed
+1357: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.obj` opened (size: 1.89KiB)
+1357: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.obj` closed
+[RoadPartRegistry] guardrail_steel: inner=8 center=28 outer=8 verts
+1357: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.toml` opened (size: 307B)
+1357: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.toml` closed
+1357: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.obj` opened (size: 1.45KiB)
+1357: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.obj` closed
+[RoadPartRegistry] sidewalk_tile: inner=8 center=4 outer=8 verts
+1357: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_ballast.toml` opened (size: 391B)
+1357: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_ballast.toml` closed
+1357: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` opened (size: 932KiB)
+1368: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` closed
+1374: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+1374: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_ballast: inner=4 center=4 outer=4 verts
+1374: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.toml` opened (size: 291B)
+1374: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.toml` closed
+1374: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` opened (size: 842B)
+1374: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` closed
+[RoadPartRegistry] curb_concrete: inner=4 center=12 outer=4 verts
+1374: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_slab.toml` opened (size: 369B)
+1374: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_slab.toml` closed
+1374: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete/concrete_diff_1k.jpg` opened (size: 531KiB)
+1382: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete/concrete_diff_1k.jpg` closed
+1387: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+1387: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_slab: inner=4 center=4 outer=4 verts
+1387: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/wall_concrete.toml` opened (size: 320B)
+1387: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/wall_concrete.toml` closed
+1388: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.toml` opened (size: 394B)
+1388: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.toml` closed
+1388: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_diff_1k.jpg` opened (size: 1.1MiB)
+1398: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_diff_1k.jpg` closed
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_asphalt: inner=4 center=4 outer=4 verts
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/utility_pole_concrete.toml` opened (size: 374B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/utility_pole_concrete.toml` closed
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadside_gutter_concrete.toml` opened (size: 349B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadside_gutter_concrete.toml` closed
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` opened (size: 842B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` closed
+[RoadPartRegistry] roadside_gutter_concrete: inner=4 center=12 outer=4 verts
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.toml` opened (size: 331B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.toml` closed
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.obj` opened (size: 851B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.obj` closed
+[RoadPartRegistry] slope_grass: inner=4 center=4 outer=4 verts
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.toml` opened (size: 325B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.toml` closed
+1404: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.obj` opened (size: 803B)
+1404: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.obj` closed
+[RoadPartRegistry] median_concrete: inner=4 center=4 outer=4 verts
+[RoadPartRegistry] Loaded 11 part definitions from assets/road_parts
+1406: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/excavator_diffuse.png` opened (size: 3.64MiB)
+1487: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/excavator_diffuse.png` closed
+1808: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_0.png` opened
+1842: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_0.png` closed
+1862: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_1.png` opened
+1894: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_1.png` closed
+1910: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_1.png` opened
+2018: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_1.png` closed
+2022: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/road_roller_diffuse.png` opened (size: 2.77MiB)
+2097: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/road_roller_diffuse.png` closed
+2261: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_2.png` opened
+2294: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_2.png` closed
+2323: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_2.png` opened
+2429: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_2.png` closed
+2434: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/asphalt_paver_diffuse.png` opened (size: 3.7MiB)
+2515: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/asphalt_paver_diffuse.png` closed
+2581: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_3.png` opened
+2610: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_3.png` closed
+2649: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_3.png` opened
+2745: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_3.png` closed
+2772: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_4.png` opened
+2797: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_4.png` closed
+2824: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_5.png` opened
+2855: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_0_5.png` closed
+2864: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_5.png` opened
+2953: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_0_5.png` closed
+3049: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Asphalt_PS.frag` opened (size: 6.01KiB)
+3051: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Asphalt_PS.frag` closed
+3051: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Pavement_PS.frag` opened (size: 5.24KiB)
+3052: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Pavement_PS.frag` closed
+3052: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg` opened (size: 1.3MiB)
+3067: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/asphalt_floor/asphalt_floor_nor_gl_1k.jpg` closed
+3071: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Earth_PS.frag` opened (size: 5.17KiB)
+3073: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Earth_PS.frag` closed
+3073: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Aggregate_PS.frag` opened (size: 5.41KiB)
+3074: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_forward_Aggregate_PS.frag` closed
+3074: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg` opened (size: 1003KiB)
+3086: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_nor_dx_1k.jpg` closed
+3090: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg` opened (size: 1.27MiB)
+3106: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg` closed
+3110: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_diff_1k.jpg` opened (size: 490KiB)
+3117: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/brown_mud/brown_mud_diff_1k.jpg` closed
+3121: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` opened (size: 932KiB)
+3133: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` closed
+3136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete_wall_001/concrete_wall_001_diff_1k.jpg` opened (size: 77.5KiB)
+3139: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/third_party/polyhaven/concrete_wall_001/concrete_wall_001_diff_1k.jpg` closed
+3259: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/left.toml` opened (size: 277B)
+3259: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/left.toml` closed
+3259: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightleft.toml` opened (size: 360B)
+3259: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightleft.toml` closed
+3259: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightright.toml` opened (size: 353B)
+3259: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straightright.toml` closed
+3259: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straight.toml` opened (size: 191B)
+3259: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/straight.toml` closed
+3260: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/right.toml` opened (size: 271B)
+3260: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_markings/right.toml` closed
+3260: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_VS.vert` opened (size: 1.52KiB)
+3260: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_VS.vert` closed
+3260: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_PS.frag` opened (size: 545B)
+3260: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/shaders/glsl/city_cable_Cable_PS.frag` closed
+3260: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.toml` opened (size: 947B)
+3261: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.toml` closed
+3261: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.obj` opened (size: 760KiB)
+3285: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.obj` closed
+[SignalRegistry] signal_3lamp: 6 meshes loaded
+3285: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod1.obj` opened (size: 111KiB)
+3289: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod1.obj` closed
+3289: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod2.obj` opened (size: 64.9KiB)
+3291: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/lod/signals/signal.lod2.obj` closed
+3291: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.png` opened (size: 33.9KiB)
+3296: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/signals/signal.png` closed
+[SignalRegistry] Loaded 1 signal definitions from assets/signals
+3315: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.toml` opened (size: 317B)
+3315: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.toml` closed
+3315: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.obj` opened (size: 1.89KiB)
+3315: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/guardrail_steel.obj` closed
+[RoadPartRegistry] guardrail_steel: inner=8 center=28 outer=8 verts
+3315: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.toml` opened (size: 307B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.toml` closed
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.obj` opened (size: 1.45KiB)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/sidewalk_tile.obj` closed
+[RoadPartRegistry] sidewalk_tile: inner=8 center=4 outer=8 verts
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_ballast.toml` opened (size: 391B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_ballast.toml` closed
+3316: [fail]    ❌ TextureAsset: Asset Name `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/../third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg` is already reserved. Use another name
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_ballast: inner=4 center=4 outer=4 verts
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.toml` opened (size: 291B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.toml` closed
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` opened (size: 842B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` closed
+[RoadPartRegistry] curb_concrete: inner=4 center=12 outer=4 verts
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_slab.toml` opened (size: 369B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_slab.toml` closed
+3316: [fail]    ❌ TextureAsset: Asset Name `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/../third_party/polyhaven/concrete/concrete_diff_1k.jpg` is already reserved. Use another name
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_slab: inner=4 center=4 outer=4 verts
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/wall_concrete.toml` opened (size: 320B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/wall_concrete.toml` closed
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.toml` opened (size: 394B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.toml` closed
+3316: [fail]    ❌ TextureAsset: Asset Name `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/../third_party/polyhaven/asphalt_floor/asphalt_floor_diff_1k.jpg` is already reserved. Use another name
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` opened (size: 640B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadbed_asphalt.obj` closed
+[RoadPartRegistry] roadbed_asphalt: inner=4 center=4 outer=4 verts
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/utility_pole_concrete.toml` opened (size: 374B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/utility_pole_concrete.toml` closed
+3316: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadside_gutter_concrete.toml` opened (size: 349B)
+3316: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/roadside_gutter_concrete.toml` closed
+3317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` opened (size: 842B)
+3317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/curb_concrete.obj` closed
+[RoadPartRegistry] roadside_gutter_concrete: inner=4 center=12 outer=4 verts
+3317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.toml` opened (size: 331B)
+3317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.toml` closed
+3317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.obj` opened (size: 851B)
+3317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/slope_grass.obj` closed
+[RoadPartRegistry] slope_grass: inner=4 center=4 outer=4 verts
+3317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.toml` opened (size: 325B)
+3317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.toml` closed
+3317: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.obj` opened (size: 803B)
+3317: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/road_parts/median_concrete.obj` closed
+[RoadPartRegistry] median_concrete: inner=4 center=4 outer=4 verts
+[RoadPartRegistry] Loaded 11 part definitions from assets/road_parts
+3325: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_0.png` opened
+3346: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_0.png` closed
+3347: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/mobile_crane_diffuse.png` opened (size: 3.34MiB)
+3424: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/App/assets/construction/mobile_crane_diffuse.png` closed
+3472: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_1.png` opened
+3495: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_1.png` closed
+3503: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_1.png` opened
+3532: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_1.png` closed
+3549: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_2.png` opened
+3577: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_2.png` closed
+3586: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_2.png` opened
+3652: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_2.png` closed
+3671: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_3.png` opened
+3702: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_3.png` closed
+3720: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_3.png` opened
+3807: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_3.png` closed
+3818: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_4.png` opened
+3843: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_4.png` closed
+3858: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_5.png` opened
+3888: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_1_5.png` closed
+3899: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_5.png` opened
+3977: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/construction_detail_1_5.png` closed
+3980: [PASS] Construction.StagesVisualReview (2997.751 ms)
+3980: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+3980: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+3980: [PASS] RoadDesign.ConstructionCostRatios (0.099 ms)
+3981: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+3981: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+4883: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/after_construction_routes.json` opened
+4883: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/after_construction_routes.json` closed
+4885: [PASS] Comprehensive.AfterConstructionTerrain (904.649 ms)
+4885: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+4885: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+5218: [PASS] Comprehensive.SandboxConstruction (332.020 ms)
+5218: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+5218: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+5218: [PASS] Refactoring.ExistingConstructionAtomicBatch (0.028 ms)
+5218: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+5218: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+5218: [PASS] Refactoring.ConstructionEntrancesAgree (0.036 ms)
+5218: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.json` opened
+5218: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.json` closed
+5218: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.xml` opened
+5219: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.xml` closed
+5219: [SUMMARY] total=14, passed=14, failed=0

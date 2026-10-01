@@ -1,0 +1,7 @@
+{
+  "method": "bidirectional vertex and quarter-segment point to polygon distances",
+  "max_polygon_boundary_delta_m": 0,
+  "changed_over_10cm": 0,
+  "examples_over_10cm": [],
+  "max_example": null
+}

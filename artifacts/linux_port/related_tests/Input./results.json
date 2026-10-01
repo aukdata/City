@@ -1,0 +1,21 @@
+﻿{
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Input.TextFocusMustBlockAllActions",
+      "status": "passed",
+      "durationMs": 0.089,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.ShortTapsAndFocus",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+OpenSiv3D for Linux
+0: [info]    ℹ️ 2026-10-02 03:56:07
+0: [info]    ℹ️ Siv3D Engine (0.6.16) Linux [Release build]
+0: [info]    ℹ️ OS: Debian GNU/Linux 13 (trixie) (13.0.0.0)
+0: [info]    ℹ️ CPU: GenuineIntel INTEL(R) XEON(R) PLATINUM 8573C 6.207.2 (CPU packages: 1, Physical CPUs: 9, Logical CPUs: 9)
+0: [info]    ℹ️ Memory: [Physical Available: 7.82GiB Total: 9.73GiB] [Virtual: Available: 32TiB Total: 32TiB]
+0: [info]    ℹ️ Connected displays: 0
+0: [info]    ⌛ Preparing for setup...
+94: [info]    soundfontCacheDirectory: /dev/shm/codex-orbit-desktop/runtime-mUkgAg/cache/Siv3D/0.6.16/soundfont/
+94: [info]    ℹ️ Engine font `GMGSx.sf2` found in the user cache directory
+94: [info]    libmpg123 is available
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix:0
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_id returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM dmix:0,0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+ALSA lib confmisc.c:165:(snd_config_get_card) Cannot get card index for 0
+Cannot connect to server socket err = No such file or directory
+Cannot connect to server request channel
+jack server is not running or cannot be started
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+JackShmReadWritePtr::~JackShmReadWritePtr - Init not done for -1, skipping unlock
+110: [info]    🎧 Audio backend: NoSound (channel count: 2, sample rate: 44100, buffer size: 4096)
+112: [info]    ℹ️ SoundTouch is available
+115: [info]    renderer: llvmpipe (LLVM 19.1.7, 256 bits)
+115: [info]    vendor: Mesa
+115: [info]    version: 4.5 (Core Profile) Mesa 25.0.7-2+deb13u1
+115: [info]    glslVersion: 4.50
+115: [info]    GL_MAJOR_VERSION: 4
+115: [info]    GL_MINOR_VERSION: 5
+115: [info]    GL_MAX_UNIFORM_BLOCK_SIZE: 65536
+115: [info]    GL_MAX_UNIFORM_BUFFER_BINDINGS: 90
+119: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.vert` opened (size: 1.18KiB)
+124: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.vert` closed
+124: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/copy.frag` opened (size: 600B)
+125: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/copy.frag` closed
+125: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_5.frag` opened (size: 849B)
+125: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_5.frag` closed
+125: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_9.frag` opened (size: 1.04KiB)
+126: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_9.frag` closed
+126: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_13.frag` opened (size: 1.25KiB)
+126: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/gaussian_blur_13.frag` closed
+126: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/apply_srgb_curve.frag` opened (size: 2.32KiB)
+126: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/apply_srgb_curve.frag` closed
+126: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.frag` opened (size: 1.03KiB)
+126: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/quad_warp.frag` closed
+127: [info]    📦 Loading vertex shaders for CRenderer2D_GL4:
+127: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sprite.vert` opened (size: 827B)
+127: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sprite.vert` closed
+127: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.vert` opened (size: 449B)
+127: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.vert` closed
+127: [info]    📦 Loading pixel shaders for CRenderer2D_GL4:
+127: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/shape.frag` opened (size: 491B)
+127: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/shape.frag` closed
+127: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/square_dot.frag` opened (size: 695B)
+128: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/square_dot.frag` closed
+128: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/round_dot.frag` opened (size: 757B)
+128: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/round_dot.frag` closed
+128: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` opened (size: 625B)
+128: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` closed
+128: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.frag` opened (size: 367B)
+129: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/fullscreen_triangle.frag` closed
+130: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/256.png` opened (size: 5.51KiB)
+130: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/256.png` closed
+130: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/128.png` opened (size: 2.5KiB)
+130: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/128.png` closed
+130: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/64.png` opened (size: 1.34KiB)
+131: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/64.png` closed
+131: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/32.png` opened (size: 617B)
+131: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/32.png` closed
+131: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/16.png` opened (size: 263B)
+131: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/16.png` closed
+131: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/8.png` opened (size: 140B)
+131: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/texture/box-shadow/8.png` closed
+131: [info]    📦 Loading vertex shaders for CRenderer3D_GL4:
+131: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.vert` opened (size: 968B)
+132: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.vert` closed
+132: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.vert` opened (size: 743B)
+132: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.vert` closed
+132: [info]    📦 Loading pixel shaders for CRenderer3D_GL4:
+132: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.frag` opened (size: 2.03KiB)
+132: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/forward3d.frag` closed
+132: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.frag` opened (size: 349B)
+133: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/line3d.frag` closed
+134: [info]    Default Screenshot directory: "/workspace/scratch/67b01c4a1273/City-latest/Test/App/Screenshot/"
+134: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/bitmapfont.frag` opened (size: 669B)
+134: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/bitmapfont.frag` closed
+134: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` opened (size: 625B)
+134: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/texture.frag` closed
+134: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont.frag` opened (size: 744B)
+135: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont.frag` closed
+135: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outline.frag` opened (size: 986B)
+135: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outline.frag` closed
+135: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_shadow.frag` opened (size: 1.15KiB)
+135: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_shadow.frag` closed
+136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outlineshadow.frag` opened (size: 1.46KiB)
+136: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/sdffont_outlineshadow.frag` closed
+136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont.frag` opened (size: 991B)
+136: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont.frag` closed
+136: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outline.frag` opened (size: 1.22KiB)
+137: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outline.frag` closed
+137: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_shadow.frag` opened (size: 1.41KiB)
+137: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_shadow.frag` closed
+137: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outlineshadow.frag` opened (size: 1.73KiB)
+138: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdffont_outlineshadow.frag` closed
+138: [info]    fontCacheDirectory: /dev/shm/codex-orbit-desktop/runtime-mUkgAg/cache/Siv3D/0.6.16/font/
+138: [info]    ℹ️ Engine font `noto-cjk/NotoSansCJK-Regular.ttc` found in the user cache directory
+138: [info]    ℹ️ Engine font `noto-emoji/NotoEmoji-Regular.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `noto-emoji/NotoColorEmoji.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-thin.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-light.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-regular.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-medium.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-bold.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-heavy.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `mplus/mplus-1p-black.ttf` found in the user cache directory
+138: [info]    ℹ️ Engine font `fontawesome/fontawesome-solid.otf` found in the user cache directory
+138: [info]    ℹ️ Engine font `fontawesome/fontawesome-brands.otf` found in the user cache directory
+138: [info]    ℹ️ Engine font `materialdesignicons/materialdesignicons-webfont.ttf` found in the user cache directory
+140: [info]    📤 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdfprint.frag` opened (size: 1.21KiB)
+140: [info]    📥 BinaryReader: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/resources/engine/shader/glsl/msdfprint.frag` closed
+141: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` opened
+141: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/running.txt` closed
+141: [PASS] Comprehensive.PaletteOwnsBufferedInput (0.197 ms)
+141: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.json` opened
+141: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.json` closed
+141: [info]    📤 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.xml` opened
+141: [info]    📥 BinaryWriter: File `/workspace/scratch/67b01c4a1273/City-latest/Test/App/TestResults/results.xml` closed
+142: [SUMMARY] total=1, passed=1, failed=0

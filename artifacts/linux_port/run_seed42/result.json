@@ -1,0 +1,8 @@
+{
+  "returncode": 0,
+  "elapsed_seconds": 944.6855563820009,
+  "maxrss_kb": 6380748,
+  "/sys/fs/cgroup/memory.events": "low 0\nhigh 0\nmax 32429\noom 1\noom_kill 1\noom_group_kill 0\n",
+  "/sys/fs/cgroup/memory.peak": "8589942784\n",
+  "/sys/fs/cgroup/memory.max": "8589934592\n"
+}

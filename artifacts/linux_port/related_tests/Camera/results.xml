@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="7" failures="0">
+  <testcase name="MapSigns.CameraHandedness" time="0.000012">
+  </testcase>
+  <testcase name="Camera.WalkingHeightAndWasd" time="0.556983">
+  </testcase>
+  <testcase name="Camera.TransportWalkingAndFastMap" time="0.352469">
+  </testcase>
+  <testcase name="Camera.ModalFocusAndWalkingPace" time="0.351637">
+  </testcase>
+  <testcase name="Camera.ImmediateModeChangesAndMapJump" time="0.000006">
+  </testcase>
+  <testcase name="MountainRoad.CablePassingCameraGpu" time="0.536361">
+  </testcase>
+  <testcase name="Driving.CameraAndInputOwnership" time="0.354213">
+  </testcase>
+</testsuite>

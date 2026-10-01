@@ -1,0 +1,56 @@
+﻿{
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "MapSigns.CameraHandedness",
+      "status": "passed",
+      "durationMs": 0.012,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Camera.WalkingHeightAndWasd",
+      "status": "passed",
+      "durationMs": 556.983,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Camera.TransportWalkingAndFastMap",
+      "status": "passed",
+      "durationMs": 352.469,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Camera.ModalFocusAndWalkingPace",
+      "status": "passed",
+      "durationMs": 351.637,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Camera.ImmediateModeChangesAndMapJump",
+      "status": "passed",
+      "durationMs": 0.006,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MountainRoad.CablePassingCameraGpu",
+      "status": "passed",
+      "durationMs": 536.361,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Driving.CameraAndInputOwnership",
+      "status": "passed",
+      "durationMs": 354.213,
+      "failures": [
+      ]
+    }
+  ]
+}

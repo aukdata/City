@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="1" failures="0">
+  <testcase name="StreetDetail.MaterialGpuReadback" time="0.371523">
+  </testcase>
+</testsuite>

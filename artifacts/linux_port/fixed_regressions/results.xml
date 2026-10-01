@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="7" failures="0">
+  <testcase name="RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint" time="0.000090">
+  </testcase>
+  <testcase name="RoadIntegrity.EditNodeDeletionPreservesRewiredEdges" time="0.000010">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSingleDirtyEndpointRefreshesNeighbors" time="0.000018">
+  </testcase>
+  <testcase name="RoadIntegrity.EditRemovalUpdatesSnapshot" time="0.000060">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSplitUpdatesSnapshot" time="0.000077">
+  </testcase>
+  <testcase name="RoadIntegrity.EditNodeDeletionDetachesEdges" time="0.000014">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSmoothingRefreshesLength" time="0.000025">
+  </testcase>
+</testsuite>

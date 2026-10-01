@@ -1,0 +1,56 @@
+﻿{
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "RoadPlan.ContinuousPlacementUndoRedo",
+      "status": "passed",
+      "durationMs": 0.058,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ShortRoadAndTransactionalFailure",
+      "status": "passed",
+      "durationMs": 0.085,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.SnapLongEdgeAndHeight",
+      "status": "passed",
+      "durationMs": 1.954,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.JoinPreservesExistingRouteAndPlan",
+      "status": "passed",
+      "durationMs": 0.268,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.HierarchyPresets",
+      "status": "passed",
+      "durationMs": 0.003,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadPlan.ToolbarVisualReview",
+      "status": "passed",
+      "durationMs": 301.453,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Tunnels.RoadPlanAndPersistence",
+      "status": "passed",
+      "durationMs": 579.207,
+      "failures": [
+      ]
+    }
+  ]
+}

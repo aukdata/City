@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="4" failures="4">
+  <testcase name="RoadIntegrity.EditRemovalUpdatesSnapshot" time="0.000081">
+    <failure message="The removed road is absent from the simulation snapshot"/>
+    <failure message="Incremental and full snapshots contain the same roads (actual=2, expected=1)"/>
+  </testcase>
+  <testcase name="RoadIntegrity.EditSplitUpdatesSnapshot" time="0.000042">
+    <failure message="The original road is absent after splitting"/>
+    <failure message="Split snapshots contain only the replacement roads (actual=3, expected=2)"/>
+  </testcase>
+  <testcase name="RoadIntegrity.EditNodeDeletionDetachesEdges" time="0.000017">
+    <failure message="Deleting a connected node leaves no roads with missing endpoints (actual=2, expected=0)"/>
+    <failure message="Surviving nodes detach the deleted roads"/>
+  </testcase>
+  <testcase name="RoadIntegrity.EditSmoothingRefreshesLength" time="0.000053">
+    <failure message="Cached length follows the changed curve (actual=99.99999237060547, expected=117.90055084228516, tolerance=0.01)"/>
+  </testcase>
+</testsuite>

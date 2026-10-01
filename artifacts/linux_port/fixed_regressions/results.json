@@ -1,0 +1,56 @@
+﻿{
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint",
+      "status": "passed",
+      "durationMs": 0.090,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditNodeDeletionPreservesRewiredEdges",
+      "status": "passed",
+      "durationMs": 0.010,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSingleDirtyEndpointRefreshesNeighbors",
+      "status": "passed",
+      "durationMs": 0.018,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditRemovalUpdatesSnapshot",
+      "status": "passed",
+      "durationMs": 0.060,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSplitUpdatesSnapshot",
+      "status": "passed",
+      "durationMs": 0.077,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditNodeDeletionDetachesEdges",
+      "status": "passed",
+      "durationMs": 0.014,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSmoothingRefreshesLength",
+      "status": "passed",
+      "durationMs": 0.025,
+      "failures": [
+      ]
+    }
+  ]
+}

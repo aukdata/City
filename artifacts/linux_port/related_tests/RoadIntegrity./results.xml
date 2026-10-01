@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="19" failures="0">
+  <testcase name="RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint" time="0.000121">
+  </testcase>
+  <testcase name="RoadIntegrity.EditNodeDeletionPreservesRewiredEdges" time="0.000006">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSingleDirtyEndpointRefreshesNeighbors" time="0.000015">
+  </testcase>
+  <testcase name="RoadIntegrity.EditRemovalUpdatesSnapshot" time="0.000056">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSplitUpdatesSnapshot" time="0.000043">
+  </testcase>
+  <testcase name="RoadIntegrity.EditNodeDeletionDetachesEdges" time="0.000015">
+  </testcase>
+  <testcase name="RoadIntegrity.EditSmoothingRefreshesLength" time="0.000029">
+  </testcase>
+  <testcase name="RoadIntegrity.RightAngleWidthTransition" time="0.000413">
+  </testcase>
+  <testcase name="RoadIntegrity.GuideSignsAvoidJunctions" time="0.000720">
+  </testcase>
+  <testcase name="RoadIntegrity.CurveControlPolygonIsNotPavement" time="0.000042">
+  </testcase>
+  <testcase name="RoadIntegrity.GradeSeparatedCrossing" time="0.000073">
+  </testcase>
+  <testcase name="RoadIntegrity.CrossingPreservesCurveAndProfile" time="0.000397">
+  </testcase>
+  <testcase name="RoadIntegrity.OverlappingCorridorsRetainBranchesAndRoutes" time="0.000546">
+  </testcase>
+  <testcase name="RoadIntegrity.PlannedAndSeparateParallelRoadsStaySeparate" time="0.000016">
+  </testcase>
+  <testcase name="RoadIntegrity.SplitTaperKeepsSharedCrossSection" time="0.000047">
+  </testcase>
+  <testcase name="RoadIntegrity.AcuteForkMouthsHaveSeparateEnvelopes" time="0.000044">
+  </testcase>
+  <testcase name="RoadIntegrity.SplitRetainsRoadObjects" time="0.000046">
+  </testcase>
+  <testcase name="RoadIntegrity.ShortOverlappingEndpoints" time="0.000215">
+  </testcase>
+  <testcase name="RoadIntegrity.MixedGradeJunctionVisibility" time="2.465704">
+  </testcase>
+</testsuite>

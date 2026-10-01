@@ -1,0 +1,89 @@
+{
+  "default_3d": {
+    "frames": 34,
+    "renderMs": {
+      "median": 11220.4635,
+      "p95": 12239.336,
+      "max": 12652.306
+    },
+    "shadowMs": {
+      "median": 7074.1720000000005,
+      "p95": 7894.536,
+      "max": 8542.13
+    },
+    "gpuMs": {
+      "median": 4127.266,
+      "p95": 4562.099,
+      "max": 4706.071
+    },
+    "frameMs": {
+      "median": 100.0,
+      "p95": 100.0,
+      "max": 100.0
+    }
+  },
+  "map": {
+    "frames": 21223,
+    "renderMs": {
+      "median": 0.23,
+      "p95": 0.387,
+      "max": 215.776
+    },
+    "frameMs": {
+      "median": 8.169,
+      "p95": 20.672,
+      "max": 100.0
+    }
+  },
+  "close_3d_150m": {
+    "frames": 97,
+    "renderMs": {
+      "median": 1246.243,
+      "p95": 2063.673,
+      "max": 2218.381
+    },
+    "shadowMs": {
+      "median": 10.707,
+      "p95": 822.426,
+      "max": 853.753
+    },
+    "gpuMs": {
+      "median": 1202.169,
+      "p95": 1238.105,
+      "max": 4402.334
+    },
+    "frameMs": {
+      "median": 100.0,
+      "p95": 100.0,
+      "max": 100.0
+    }
+  },
+  "walking_3d": {
+    "frames": 16,
+    "renderMs": {
+      "median": 8316.664499999999,
+      "p95": 8713.73,
+      "max": 8713.73
+    },
+    "shadowMs": {
+      "median": 500.02599999999995,
+      "p95": 514.781,
+      "max": 514.781
+    },
+    "gpuMs": {
+      "median": 7728.4735,
+      "p95": 8154.288,
+      "max": 8154.288
+    },
+    "frameMs": {
+      "median": 100.0,
+      "p95": 100.0,
+      "max": 100.0
+    }
+  },
+  "notes": [
+    "frameMs comes from Scene::DeltaTime and is clamped at 100 ms; use renderMs or the live FPS graph for slow-frame cost.",
+    "Map mode retains old shadow/GPU diagnostics; those stale values are excluded here.",
+    "This is Mesa llvmpipe software rendering under an 8 GiB container limit, not Windows GPU performance."
+  ]
+}

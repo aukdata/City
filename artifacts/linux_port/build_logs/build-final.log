@@ -1,0 +1,3 @@
+[0/2] Re-checking globbed directories...
+[1/3] Building CXX object CMakeFiles/City.dir/src/scene/GameScene_ConstructionReview.cpp.o
+[2/3] Linking CXX executable /workspace/scratch/67b01c4a1273/City-latest/App/City

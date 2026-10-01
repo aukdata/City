@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="7" failures="0">
+  <testcase name="RoadPlan.ContinuousPlacementUndoRedo" time="0.000058">
+  </testcase>
+  <testcase name="RoadPlan.ShortRoadAndTransactionalFailure" time="0.000085">
+  </testcase>
+  <testcase name="RoadPlan.SnapLongEdgeAndHeight" time="0.001954">
+  </testcase>
+  <testcase name="RoadPlan.JoinPreservesExistingRouteAndPlan" time="0.000268">
+  </testcase>
+  <testcase name="RoadPlan.HierarchyPresets" time="0.000003">
+  </testcase>
+  <testcase name="RoadPlan.ToolbarVisualReview" time="0.301453">
+  </testcase>
+  <testcase name="Tunnels.RoadPlanAndPersistence" time="0.579207">
+  </testcase>
+</testsuite>

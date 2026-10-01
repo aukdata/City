@@ -1,0 +1,42 @@
+﻿{
+  "total": 4,
+  "passed": 0,
+  "failed": 4,
+  "tests": [
+    {
+      "name": "RoadIntegrity.EditRemovalUpdatesSnapshot",
+      "status": "failed",
+      "durationMs": 0.081,
+      "failures": [
+        "The removed road is absent from the simulation snapshot",
+        "Incremental and full snapshots contain the same roads (actual=2, expected=1)"
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSplitUpdatesSnapshot",
+      "status": "failed",
+      "durationMs": 0.042,
+      "failures": [
+        "The original road is absent after splitting",
+        "Split snapshots contain only the replacement roads (actual=3, expected=2)"
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditNodeDeletionDetachesEdges",
+      "status": "failed",
+      "durationMs": 0.017,
+      "failures": [
+        "Deleting a connected node leaves no roads with missing endpoints (actual=2, expected=0)",
+        "Surviving nodes detach the deleted roads"
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSmoothingRefreshesLength",
+      "status": "failed",
+      "durationMs": 0.053,
+      "failures": [
+        "Cached length follows the changed curve (actual=99.99999237060547, expected=117.90055084228516, tolerance=0.01)"
+      ]
+    }
+  ]
+}

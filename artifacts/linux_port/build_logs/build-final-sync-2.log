@@ -1,0 +1,7 @@
+[0/2] Re-checking globbed directories...
+[1/7] Building CXX object CMakeFiles/CityTests.dir/Test/MapTransportTests.cpp.o
+[2/7] Building CXX object CMakeFiles/CityTests.dir/Test/PlayabilityTests.cpp.o
+[3/7] Building CXX object CMakeFiles/CityTests.dir/Test/RoadIntegrityTests.cpp.o
+[4/7] Linking CXX executable /workspace/scratch/67b01c4a1273/City-latest/App/City
+[5/7] Building CXX object CMakeFiles/CityTests.dir/Test/UrbanMorphologyTests.cpp.o
+[6/7] Linking CXX executable /workspace/scratch/67b01c4a1273/City-latest/Test/App/CityTests
