@@ -49,6 +49,29 @@ void registerPlayabilityTests(TestRunner& runner)
 		GameInput::textOwnedFrame = false;
 		GameInput::buffer = KeyboardActionBuffer{};
 	});
+	runner.add(U"Input.SaveShortcutHonorsFocus", [](TestContext& context)
+	{
+		GameInput::buffer = KeyboardActionBuffer{};
+		GameInput::textInput = nullptr;
+		GameInput::textOwnedFrame = false;
+		const Array<KeyEvent> chord{{0,0,KeyControl.code(),true,false},
+			{0,1,KeyShift.code(),true,false},{0,2,KeyS.code(),true,false}};
+		GameInput::buffer.update(chord,true);
+		context.expect(GameInput::saveShortcutActive(false),U"A buffered save chord is available independently of the active map or camera view");
+		context.expect(!GameInput::saveShortcutActive(true),U"The pause menu retains its own save action");
+		TextEditState text;
+		GameInput::textInput = &text;
+		context.expect(!GameInput::saveShortcutActive(false),U"Typing in a field cannot invoke global save");
+		GameInput::releaseTextFocus();
+		context.expect(!GameInput::saveShortcutActive(false),U"Closing text input cannot replay its keys as a save");
+		GameInput::textOwnedFrame = false;
+		GameInput::buffer.update(chord,true);
+		context.expect(!GameInput::saveShortcutActive(false),U"Retained input history cannot reactivate a released save chord");
+		GameInput::buffer = KeyboardActionBuffer{};
+		GameInput::buffer.update({{0,0,KeyS.code(),true,false}},true);
+		context.expect(!GameInput::saveShortcutActive(false),U"S without modifiers cannot save");
+		GameInput::buffer = KeyboardActionBuffer{};
+	});
 	runner.add(U"Input.ShortTapsAndFocus",[](TestContext& context)
 	{
 		KeyboardActionBuffer buffer;

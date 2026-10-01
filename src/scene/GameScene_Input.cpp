@@ -157,12 +157,6 @@ void GameScene::handleInput()
 	// ポーズメニュー表示中は他の入力をブロック
 	if (m_showPauseMenu) return;
 
-	if (GameInput::pressed(KeyControl) && GameInput::pressed(KeyShift) && GameInput::down(KeyS))
-	{
-		saveGame();
-		return;
-	}
-
 	// ---- F3 コマンド ----
 	if (GameInput::pressed(KeyF3) && GameInput::down(KeyR))
 	{
@@ -1852,6 +1846,14 @@ void GameScene::handleGlobalShortcuts()
 	if(m_commandPalette.visible)
 	{
 		if(const auto command=m_commandPalette.update()) { executeCommand(*command); }
+		return;
+	}
+	// The full-screen map consumes world input, but must not swallow the save shortcut.
+	if (GameInput::saveShortcutActive(m_showPauseMenu))
+	{
+		if (GameInput::down(KeyS)) { saveGame(); }
+		// Consume the held chord until release so S cannot also move the camera or pan the map.
+		GameInput::textOwnedFrame = true;
 		return;
 	}
 	if (!m_showPauseMenu && !GameInput::keyboardBlocked() && GameInput::down(KeyF3)) { m_frameRateGraph.visible=!m_frameRateGraph.visible; }

@@ -50,4 +50,9 @@ namespace GameInput
 	inline bool pressed(const Input& key) { return !keyboardBlocked() && (key.pressed() || buffer.down(key.code())); }
 	inline bool down(const InputGroup& keys) { return !keyboardBlocked() && keys.down(); }
 	inline bool pressed(const InputGroup& keys) { return !keyboardBlocked() && keys.pressed(); }
+	/// @brief Saving is available in every view while text entry and the pause menu retain focus.
+	inline bool saveShortcutActive(bool pauseMenuVisible)
+	{
+		return !pauseMenuVisible && pressed(KeyControl) && pressed(KeyShift) && pressed(KeyS);
+	}
 }
