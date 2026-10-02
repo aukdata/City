@@ -24,3 +24,11 @@
 - Runtime evidence: runtime_summary.json; original copies under the isolated precision-roundtrip run are retained
 
 Road-plan viaPoints remain float encoded. Signal connection identity and legacy-save precision recovery are outside this change. The fresh v19 run established that exact coordinate preservation alone does not remove the two overlap diagnostics. Loading and re-saving old v18 coordinates cannot recover precision already lost.
+
+## Bounded follow-up diagnosis
+
+The two affected shops are beside station 17681 (鵜池). Its incident rail edges were created as 24932 then 24933, while the serialized infrastructure array contains them in order 24933 then 24932. TrainNetwork::synchronize rebuilds cached station edge IDs in infrastructure order. Generation validates inside placeInitialBuildings before the subsequent synchronize call; restored railway state synchronizes before validation.
+
+RailwaySite::stationFrame uses stationPaths().front() to choose the station building's asymmetric footprint. Reversing the incident-edge order reverses the frame. An independent reconstruction from the saved station-adjacent directions and exact shop cells places both shops clear of the original east-facing station footprint and overlapping the west-facing footprint. See station_order_diagnostic.json.
+
+This is a concrete input-order discrepancy with matching geometry, not a new mutation of persisted houses or roads. It remains qualified until an in-engine order-reversal regression and fresh/load validation establish the complete path. No speculative railway source changes were made during this bounded investigation. A narrow candidate is canonical incident-edge ordering in stationPaths.

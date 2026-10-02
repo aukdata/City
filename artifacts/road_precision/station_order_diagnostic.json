@@ -1,0 +1,41 @@
+{
+  "station": 17681,
+  "creation_edge_order": [
+    24932,
+    24933
+  ],
+  "synchronized_edge_order": [
+    24933,
+    24932
+  ],
+  "shop_width": 12.0,
+  "shops": [
+    {
+      "cell": [
+        17,
+        38
+      ],
+      "center": [
+        58653.90886878967,
+        52836.327600717545
+      ],
+      "angle": -0.34844449162483215,
+      "east_frame_overlap": false,
+      "west_frame_overlap": true
+    },
+    {
+      "cell": [
+        15,
+        39
+      ],
+      "center": [
+        58609.62552404404,
+        52856.06511864066
+      ],
+      "angle": 1.2223519086837769,
+      "east_frame_overlap": false,
+      "west_frame_overlap": true
+    }
+  ],
+  "qualification": "Independent geometric reconstruction uses straight station-adjacent rail directions; full in-engine path sampling not rerun."
+}
