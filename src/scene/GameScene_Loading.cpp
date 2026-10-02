@@ -1,6 +1,7 @@
 ﻿#include <exception>
 #include "GameScene.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../ui/LoadingRecovery.hpp"
 
 /// @file
 /// @brief ロード状態の管理。生成処理の完了を確認してから通常更新へ遷移する。
@@ -109,6 +110,18 @@ void GameScene::startLoadingPhase(LoadingTask task, StringView title, StringView
 
 void GameScene::updateLoading()
 {
+	// Only consumed futures may leave this scene: the pipeline captures this.
+	if (m_loadingFailed && !m_generationFuture.valid())
+	{
+		drawLoadingScreen(Clamp(m_genProgress.load(), 0.0f, 1.0f));
+		if (LoadingRecovery::draw(FontAsset(Asset::UI20), Scene::Size(), m_loadingFailed, m_generationFuture.valid()))
+		{
+			DBG_LOG(U"[Loading] Return to title after failure: {}"_fmt(m_loadingError));
+			changeScene(SceneState::Title, 0s);
+		}
+		return;
+	}
+
 	// バックグラウンド生成の完了待ちと、成功時の最終初期化・失敗時の画面維持をここで分岐する。
 	if (m_generationFuture.valid())
 	{

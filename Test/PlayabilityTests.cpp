@@ -4,6 +4,7 @@
 #include "src/ui/CommandPalette.hpp"
 #include "src/ui/PanelWidget.hpp"
 #include "src/ui/PauseMenu.hpp"
+#include "src/ui/LoadingRecovery.hpp"
 #include "src/ui/NavigationHelp.hpp"
 #include "src/asset/AssetRegistrar.hpp"
 #include "src/ui/Camera.hpp"
@@ -516,6 +517,49 @@ void registerPlayabilityTests(TestRunner& runner)
 		context.expectNear(map.zoom, zoom, .001, U"Returning to the player preserves zoom");
 		context.expect(!map.contextWorld, U"Recentering dismisses the old jump menu");
 		GameInput::buffer = KeyboardActionBuffer{};
+	});
+	runner.add(U"UI.LoadingFailureRecovery", [](TestContext& context)
+	{
+		RegisterAssets();
+		const Font& font = FontAsset(Asset::UI20);
+		const Size size{1280, 768};
+		const auto button = LoadingRecovery::button(size);
+		context.expect(LoadingRecovery::requested(true, false, size, button.center(), true, false),
+			U"A failed load returns to the title through its visible button");
+		context.expect(!LoadingRecovery::requested(true, false, size, {0, 0}, true, false),
+			U"Clicks outside the button leave the error visible");
+		for (const bool failed : {false, true})
+		{
+			context.expect(!LoadingRecovery::requested(failed, true, size, button.center(), true, true),
+				U"An active background worker cannot be destroyed by recovery input");
+		}
+		context.expect(!LoadingRecovery::requested(false, false, size, button.center(), true, true),
+			U"Successful and ordinary loading screens do not acquire an exit action");
+		GameInput::buffer.update({{0, 1000, KeyEscape.code(), true, false}}, true);
+		const Color background{18, 28, 41};
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+		{
+			const ScopedRenderTarget2D scope{target.clear(background)};
+			context.expect(LoadingRecovery::draw(font, size, true, false),
+				U"A short buffered Escape tap invokes recovery after failure");
+		}
+		GameInput::buffer = KeyboardActionBuffer{};
+		Graphics2D::Flush();
+		Image image;
+		target.readAsImage(image);
+		int overflow = 0, textPixels = 0;
+		for (int y = 0; y < size.y; ++y)
+		{
+			for (int x = 0; x < size.x; ++x)
+			{
+				const bool inside = button.stretched(1).contains(Point{x, y});
+				overflow += !inside && image[y][x] != background;
+				textPixels += inside && image[y][x].r > 180;
+			}
+		}
+		context.expectEqual(overflow, 0, U"The recovery label fits its button below the error");
+		context.expect(textPixels > 100, U"The Japanese recovery label draws readable text pixels");
+		image.save(U"Screenshot/loading_failure_recovery.png");
 	});
 	runner.add(U"UI.PauseMenuAndControlHelp",[](TestContext& context)
 	{
