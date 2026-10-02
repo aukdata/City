@@ -1,0 +1,44 @@
+{
+  "new": {
+    "exit_code": 0,
+    "seconds": 370.51673412323,
+    "development_sha256": "2227433b38c699c5bf5823ffad15008e3a9f1d59bf36e0237b2aebd6f244abe9",
+    "peak_rss_kb": 5747288,
+    "constraint_log": [
+      "82045: [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+    ]
+  },
+  "load1": {
+    "exit_code": 0,
+    "seconds": 95.1946861743927,
+    "development_sha256": "2227433b38c699c5bf5823ffad15008e3a9f1d59bf36e0237b2aebd6f244abe9",
+    "peak_rss_kb": 5458024,
+    "constraint_log": [
+      "9373: [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=2 frontageDistance=0 coastal=0 passed=false"
+    ]
+  },
+  "load2": {
+    "exit_code": 0,
+    "seconds": 95.41044998168945,
+    "development_sha256": "2227433b38c699c5bf5823ffad15008e3a9f1d59bf36e0237b2aebd6f244abe9",
+    "peak_rss_kb": 5455256,
+    "constraint_log": [
+      "9184: [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=2 frontageDistance=0 coastal=0 passed=false"
+    ]
+  },
+  "comparison": {
+    "load1": {
+      "changed_files": [
+        "global/roads.bin"
+      ],
+      "development_exact": true
+    },
+    "load2": {
+      "changed_files": [
+        "global/roads.bin"
+      ],
+      "development_exact": true
+    }
+  },
+  "load1_load2_roads_exact": true
+}

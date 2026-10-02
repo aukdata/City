@@ -199,8 +199,10 @@
     <ClCompile Include="..\src\zone\ZoneDevelopment.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="SaveTransactionTests.cpp" />
+    <ClCompile Include="DevelopmentSnapshotTests.cpp" />
     <ClCompile Include="TestRunner.cpp" />
     <ClCompile Include="..\src\save\SaveTransaction.cpp" />
+    <ClCompile Include="..\src\save\DevelopmentSnapshot.cpp" />
     <ClCompile Include="..\src\save\SaveCatalog.cpp" />
     <ClCompile Include="..\src\road\RoadNetwork.cpp" />
     <ClCompile Include="..\src\road\RoadNetwork_Plans.cpp" />

@@ -12,6 +12,7 @@ void registerSoundEffectsTests(TestRunner& runner);
 
 void registerBezierBuildingFrontageTests(TestRunner& runner);
 void registerSaveTransactionTests(TestRunner& runner);
+void registerDevelopmentSnapshotTests(TestRunner& runner);
 void registerBuildingAssetTests(TestRunner& runner);
 void registerCityGenerationTests(TestRunner& runner);
 void registerRoadPlanUxTests(TestRunner& runner);

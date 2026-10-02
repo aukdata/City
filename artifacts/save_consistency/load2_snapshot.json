@@ -1,0 +1,32 @@
+{
+  "path": "build-tools/latest/snapshot-roundtrip/load2/save/global/development.bin",
+  "bytes": 13825666,
+  "sha256": "2227433b38c699c5bf5823ffad15008e3a9f1d59bf36e0237b2aebd6f244abe9",
+  "chunks": 4096,
+  "nondefault_zones": 2305927,
+  "building_records_by_type": {
+    "23": 1365,
+    "16": 2197,
+    "1": 20229,
+    "3": 959,
+    "5": 2492,
+    "2": 7229,
+    "11": 289,
+    "9": 209,
+    "12": 48,
+    "6": 114,
+    "14": 14,
+    "10": 42,
+    "21": 9,
+    "22": 2003,
+    "4": 40,
+    "17": 6,
+    "18": 4,
+    "20": 4,
+    "13": 19,
+    "15": 2
+  },
+  "buildings_excluding_fields": 37274,
+  "missing_parcels": 0,
+  "land_patches": 56075
+}

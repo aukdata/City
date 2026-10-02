@@ -12,6 +12,7 @@ void Main()
 	TestRunner runner;
 	registerBezierBuildingFrontageTests(runner);
 	registerSaveTransactionTests(runner);
+	registerDevelopmentSnapshotTests(runner);
 	registerBuildingAssetTests(runner);
 	registerCityGenerationTests(runner);
 	registerRoadPlanUxTests(runner);

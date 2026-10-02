@@ -1,0 +1,49 @@
+﻿{
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "DevelopmentSnapshot.GeneratedBaselineRoundTrip",
+      "status": "passed",
+      "durationMs": 1051.334,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.CorruptionLeavesWorldUntouched",
+      "status": "passed",
+      "durationMs": 392.587,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.ChunkSetAndSourceValidation",
+      "status": "passed",
+      "durationMs": 384.245,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.AuthoritativeWorldKeepsEdits",
+      "status": "passed",
+      "durationMs": 374.796,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.DevelopmentTimingRoundTrip",
+      "status": "passed",
+      "durationMs": 92.437,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.ReferenceValidation",
+      "status": "passed",
+      "durationMs": 364.454,
+      "failures": [
+      ]
+    }
+  ]
+}

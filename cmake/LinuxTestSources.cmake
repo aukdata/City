@@ -86,6 +86,8 @@ set(CITY_TEST_SOURCES
 	"Test/SaveTransactionTests.cpp"
 	"Test/TestRunner.cpp"
 	"src/save/SaveTransaction.cpp"
+	"src/save/DevelopmentSnapshot.cpp"
+	"Test/DevelopmentSnapshotTests.cpp"
 	"src/save/SaveCatalog.cpp"
 	"src/road/RoadNetwork.cpp"
 	"src/road/RoadNetwork_Plans.cpp"

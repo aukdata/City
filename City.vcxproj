@@ -246,6 +246,7 @@
     <ClCompile Include="src\gen\SettlementFringe.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
     <ClCompile Include="src\save\SaveTransaction.cpp" />
+    <ClCompile Include="src\save\DevelopmentSnapshot.cpp" />
     <ClCompile Include="src\save\SaveCatalog.cpp" />
     <ClCompile Include="src\scenario\ScenarioSystem.cpp" />
     <ClCompile Include="src\traffic\BusSystem.cpp" />

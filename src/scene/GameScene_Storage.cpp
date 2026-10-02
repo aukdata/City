@@ -3,6 +3,85 @@
 #include "../save/RoadBinary.hpp"
 #include "../save/GuideSignStorage.hpp"
 #include "../save/SaveTransaction.hpp"
+#include "../save/DevelopmentSnapshot.hpp"
+#include "../save/WorldSnapshotValidation.hpp"
+
+namespace
+{
+	/// @brief Reject missing or invalid required metadata before current-world restoration.
+	bool verifyCurrentMetadata(const FilePath& root, const JSON& meta)
+	{
+		const JSON economy = JSON::Load(root + U"/global/economy.json");
+		const JSON districts = JSON::Load(root + U"/global/districts.json");
+		if (!economy || !districts || !meta.contains(U"zoneDevelopment") || !meta.contains(U"railway")
+			|| meta[U"worldChunks"].getOr<int>(0) != WORLD_CHUNKS)
+		{
+			return false;
+		}
+		for (const String key : { U"funds", U"happiness" })
+		{
+			const auto value = economy[key].getOpt<double>();
+			if (!value || !IsFinite(*value)) { return false; }
+		}
+		const auto population = economy[U"population"].getOpt<int>();
+		const auto count = districts[U"count"].getOpt<int>();
+		constexpr int kMaxDistricts = WORLD_CHUNKS * WORLD_CHUNKS;
+		if (!population || *population < 0 || !count || *count < 0 || *count > kMaxDistricts) { return false; }
+		for (int index = 0; index < *count; ++index)
+		{
+			const auto kind = districts[U"type_{}"_fmt(index)].getOpt<int>();
+			if (!kind || *kind < 0 || *kind > static_cast<int>(MapGenerator::SettlementKind::RuralSettlement)
+				|| !districts[U"name_{}"_fmt(index)].getOpt<String>()) { return false; }
+			for (const String field : { U"cx", U"cy", U"radius", U"score" })
+			{
+				const auto value = districts[U"{}_{}"_fmt(field,index)].getOpt<double>();
+				if (!value || !IsFinite(*value)) { return false; }
+			}
+		}
+		for (const String key : { U"gameNow", U"cameraFocusX", U"cameraFocusY", U"cameraFocusZ",
+			U"cameraDistance", U"cameraYaw", U"cameraPitch" })
+		{
+			const auto value = meta[key].getOpt<double>();
+			if (!value || !IsFinite(*value)) { return false; }
+		}
+		RoadConstruction::ClearanceLedger clearance;
+		return clearance.load(root + U"/global/construction_clearance.json");
+	}
+	/// @brief Validate required terrain files; staged saves also compare every source sample.
+	bool verifyTerrainSnapshot(const FilePath& root, const World* source)
+	{
+		constexpr int kGridSize = HEIGHT_CELLS + 1;
+		constexpr size_t kSampleCount = kGridSize * kGridSize;
+		constexpr int64 kTerrainBytes = sizeof(int32) + kSampleCount * sizeof(float);
+		Array<float> heights(kSampleCount);
+		for (int y=0; y<WORLD_CHUNKS; ++y)
+		{
+			for (int x=0; x<WORLD_CHUNKS; ++x)
+			{
+				const FilePath path = U"{}/chunks/{}_{}/terrain.bin"_fmt(root,x,y);
+				BinaryReader reader{path};
+				int32 gridSize=0;
+				if (!reader || reader.size()!=kTerrainBytes || !reader.read(gridSize) || gridSize!=kGridSize
+					|| reader.read(heights.data(),kSampleCount*sizeof(float))!=static_cast<int64>(kSampleCount*sizeof(float)))
+				{
+					DBG_LOG(U"[Save/Load] Missing or corrupt terrain: {}"_fmt(path));
+					return false;
+				}
+				const Chunk* chunk = source ? source->getChunk({x,y}) : nullptr;
+				if (source && (!chunk || chunk->heightMap.num_elements()!=kSampleCount)) { return false; }
+				for (size_t index=0; index<kSampleCount; ++index)
+				{
+					if (!IsFinite(heights[index]) || (chunk && heights[index]!=chunk->heightMap.data()[index]))
+					{
+						DBG_LOG(U"[Save/Load] Invalid or changed terrain sample: {} index={}"_fmt(path,index));
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+}
 
 /// @file
 /// @brief ゲーム状態の保存と復元。書込み・再読込み検証・公開の順序を保存サービスと協調して守る。
@@ -43,7 +122,11 @@ void GameScene::saveGame()
 
 SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 {
-	constexpr int kSaveVersion = 3;
+	constexpr int kSaveVersion = 4;
+	if (!WorldSnapshotValidation::references(m_world,m_network))
+	{
+		return SaveResult::failed(SaveError::VerificationFailed,U"建物の道路・敷地参照が不正です。既存セーブは保持されます",saveRoot);
+	}
 	const FilePath globalDirectory = saveRoot + U"/global";
 	if (!FileSystem::CreateDirectories(globalDirectory))
 	{
@@ -208,12 +291,16 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 			}
 		}
 	}
+	if (!DevelopmentSnapshot::write(globalDirectory + U"/development.bin", m_world))
+	{
+		return SaveResult::failed(SaveError::WriteFailed, U"都市状態を保存できません", globalDirectory);
+	}
 	return SaveResult::succeeded(saveRoot);
 }
 
 SaveResult GameScene::verifyGameSnapshot(const FilePath& saveRoot) const
 {
-	constexpr int kSaveVersion = 3;
+	constexpr int kSaveVersion = 4;
 	const FilePath metaPath = saveRoot + U"/meta.json";
 	const FilePath economyPath = saveRoot + U"/global/economy.json";
 	const FilePath roadsPath = saveRoot + U"/global/roads.bin";
@@ -244,6 +331,11 @@ SaveResult GameScene::verifyGameSnapshot(const FilePath& saveRoot) const
 	{
 		return SaveResult::failed(SaveError::MissingData,
 			U"roads.bin が欠損しています", roadsPath);
+	}
+	if (version >= 4 && (!verifyCurrentMetadata(saveRoot, meta) || !verifyTerrainSnapshot(saveRoot, &m_world)
+		|| !DevelopmentSnapshot::matches(saveRoot + U"/global/development.bin", m_world)))
+	{
+		return SaveResult::failed(SaveError::VerificationFailed, U"都市状態の再読込み検証に失敗しました", saveRoot);
 	}
 	return SaveResult::succeeded(saveRoot);
 }
@@ -379,7 +471,23 @@ bool GameScene::loadGame()
 
 	// meta.json
 	const JSON meta = JSON::Load(U"{}/meta.json"_fmt(saveRoot));
-	if (!meta) return false;
+	if (!meta) { return false; }
+	const int saveVersion = meta[U"version"].getOr<int>(0);
+	if (saveVersion < 1 || saveVersion > 4)
+	{
+		DBG_LOG(U"[Load] Unsupported save version: {}"_fmt(saveVersion));
+		return false;
+	}
+	const bool restoreSnapshot = saveVersion >= 4;
+	if (restoreSnapshot)
+	{
+		if (!verifyCurrentMetadata(saveRoot, meta))
+		{
+			DBG_LOG(U"[Load] Missing required current-save metadata");
+			return false;
+		}
+		if (!verifyTerrainSnapshot(saveRoot, nullptr)) { return false; }
+	}
 
 	getData().seed    = meta[U"seed"].get<uint64>();
 	getData().generation = GenerationOptions::load(meta[U"generation"]);
@@ -420,6 +528,11 @@ bool GameScene::loadGame()
 	{
 		const String roadPath = U"{}/global/roads.bin"_fmt(saveRoot);
 		const bool roadOk = RoadBinary::readGlobal(roadPath, m_network);
+		if (!roadOk)
+		{
+			DBG_LOG(U"[Load] Invalid road snapshot: {}"_fmt(roadPath));
+			return false;
+		}
 		// 案内標識（独立 JSON。テクスチャは render 時に prepareGuideSignTextures で合成）
 		m_network.clearGuideSigns();
 		GuideSignStorage::readJson(U"{}/global/guide_signs.json"_fmt(saveRoot), m_network);
@@ -526,12 +639,33 @@ bool GameScene::loadGame()
 		const int id=m_districtHierarchy.at(point,0);
 		return id>=0 ? m_districtHierarchy.areas[id].name : U"";
 	});
-	applyZonesGlobal();
-	placeInitialBuildings(true);
+	if (restoreSnapshot)
+	{
+		if (!DevelopmentSnapshot::read(saveRoot + U"/global/development.bin", m_world))
+		{
+			DBG_LOG(U"[Load] Missing or corrupt required development snapshot");
+			return false;
+		}
+		if (!WorldSnapshotValidation::references(m_world,m_network))
+		{
+			DBG_LOG(U"[Load] Invalid building/road/parcel references");
+			return false;
+		}
+	}
+	else
+	{
+		applyZonesGlobal();
+		placeInitialBuildings(true);
+	}
 	const FilePath clearancePath = saveRoot + U"/global/construction_clearance.json";
-	if (FileSystem::IsFile(clearancePath) && m_clearanceLedger.load(clearancePath))
-		m_clearanceLedger.apply(m_world);
-	m_restoreConstructionSites = true;
+	if (FileSystem::IsFile(clearancePath))
+	{
+		if (!m_clearanceLedger.load(clearancePath)) { return false; }
+		if (!restoreSnapshot) { m_clearanceLedger.apply(m_world); }
+	}
+	else if (restoreSnapshot) { return false; }
+	// Current snapshots already contain cleared cells and fitted terrain.
+	m_restoreConstructionSites = !restoreSnapshot;
 	registerGuideDestinations();
 
 	m_roadRenderer.invalidateAllCaches();
@@ -544,16 +678,19 @@ bool GameScene::loadGame()
 
 
 	m_world.update(m_camera.focusPoint());
-	startSimThread();
 
 	Console << U"[Load] finish: {:.0f}ms"_fmt(step.msF());
 	m_genProgress.store(1.0f);
-	generateLandPatches(true);
-	m_clearanceLedger.apply(m_world);
-	migrateLegacyBuildingFrontageReferences();
-	refreshBuildingAnglesFromEdges();
-	if (meta.contains(U"zoneDevelopment")) { m_zoneManager.restoreState(meta[U"zoneDevelopment"],m_world); }
+	if (!restoreSnapshot)
+	{
+		generateLandPatches(true);
+		m_clearanceLedger.apply(m_world);
+		migrateLegacyBuildingFrontageReferences();
+		refreshBuildingAnglesFromEdges();
+	}
+	if (meta.contains(U"zoneDevelopment")) { m_zoneManager.restoreState(meta[U"zoneDevelopment"],m_world,restoreSnapshot); }
 	m_cityConstraintValidationPassed = validateGeneratedCityConstraints();
+	startSimThread();
 	Console << U"[Load] TOTAL: {:.0f}ms from {}"_fmt(loadTotal.msF(), saveRoot);
 	return true;
 }

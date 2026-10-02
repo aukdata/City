@@ -311,12 +311,14 @@ ZoneDevelopmentSummary ZoneManager::developmentSummary() const
 JSON ZoneManager::developmentSnapshot() const
 {
 	JSON result; result[U"count"]=m_development.size(); result[U"completed"]=m_completed;
+	result[U"time"]=m_developmentTime; result[U"cursor"]=m_developmentCursor;
 	for (size_t i=0;i<m_development.size();++i)
 	{
 		const auto& plot=m_development[i]; JSON item;
 		item[U"x"]=plot.chunk.x*ZONE_CELLS+plot.cell.x; item[U"z"]=plot.chunk.y*ZONE_CELLS+plot.cell.y;
 		item[U"zone"]=static_cast<int>(plot.zone); item[U"progress"]=plot.progress;
-		item[U"state"]=static_cast<int>(plot.state); result[U"plots"][i]=item;
+		item[U"state"]=static_cast<int>(plot.state);
+		item[U"checkedAt"]=plot.checkedAt; item[U"nextCheck"]=plot.nextCheck; result[U"plots"][i]=item;
 	}
 	return result;
 }
@@ -325,6 +327,8 @@ void ZoneManager::restoreDevelopment(const JSON& snapshot, const World& world)
 	m_development.clear(); m_developmentIndex.clear(); m_developmentCursor=0; m_developmentTime=0; m_completed=0;
 	if (!snapshot || !snapshot.contains(U"count")) { return; }
 	m_completed=Max(0,snapshot[U"completed"].getOr<int>(0));
+	const double time=snapshot[U"time"].getOr<double>(0);
+	m_developmentTime=IsFinite(time) ? Max(0.0,time) : 0;
 	const int count=snapshot[U"count"].getOr<int>(0);
 	if (count<=0 || !snapshot.contains(U"plots")) { return; }
 	for (int i=0;i<Min(count,static_cast<int>(snapshot[U"plots"].size()));++i)
@@ -339,7 +343,15 @@ void ZoneManager::restoreDevelopment(const JSON& snapshot, const World& world)
 		const int64 key=ZoneGrid::zoneCellKey(plot.chunk,plot.cell.x,plot.cell.y);
 		if (m_developmentIndex.contains(key)) { continue; }
 		plot.progress=Clamp(item[U"progress"].getOr<double>(0),0.0,1.0);
+		plot.state=static_cast<ZoneDevelopmentState>(Clamp(item[U"state"].getOr<int>(0),0,4));
+		const double checkedAt=item[U"checkedAt"].getOr<double>(0), nextCheck=item[U"nextCheck"].getOr<double>(0);
+		plot.checkedAt=IsFinite(checkedAt) ? Clamp(checkedAt,0.0,m_developmentTime) : 0;
+		plot.nextCheck=IsFinite(nextCheck) ? Max(0.0,nextCheck) : 0;
 		m_developmentIndex[key]=m_development.size(); m_development << plot;
+	}
+	if (!m_development.isEmpty())
+	{
+		m_developmentCursor=snapshot[U"cursor"].getOr<size_t>(0)%m_development.size();
 	}
 }
 
@@ -361,7 +373,7 @@ JSON ZoneManager::saveState(const World& world) const
 	}
 	return result;
 }
-void ZoneManager::restoreState(const JSON& snapshot, World& world)
+void ZoneManager::restoreState(const JSON& snapshot, World& world, bool preserveWorld)
 {
 	m_editedCells.clear();
 	if (snapshot && snapshot.contains(U"edited"))
@@ -374,6 +386,11 @@ void ZoneManager::restoreState(const JSON& snapshot, World& world)
 			auto* chunk=world.getChunk(coord); if (!chunk) { continue; }
 			const int zone=item[U"zone"].getOr<int>(0), type=item[U"building"].getOr<int>(0);
 			if (!InRange(zone,0,6) || type<0 || type>=static_cast<int>(BuildingType::Count)) { continue; }
+			if (preserveWorld)
+			{
+				m_editedCells.insert({x,z});
+				continue;
+			}
 			chunk->zoneMap[cell]=static_cast<ZoneType>(zone);
 			Building building; building.type=static_cast<BuildingType>(type);
 			building.builtAt=item[U"builtAt"].getOr<double>(0); building.angle=item[U"angle"].getOr<float>(0);

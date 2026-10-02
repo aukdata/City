@@ -58,7 +58,8 @@ public:
 	[[nodiscard]] ZoneDevelopmentSummary developmentSummary() const;
 	[[nodiscard]] JSON developmentSnapshot() const;
 	[[nodiscard]] JSON saveState(const World& world) const;
-	void restoreState(const JSON& snapshot, World& world);
+	/// @brief Restore bookkeeping only when the world is already an authoritative snapshot.
+	void restoreState(const JSON& snapshot, World& world, bool preserveWorld = false);
 	/// @brief 開発途中の区画と進捗を復元する。既存建物・ゾーンが一致する区画だけを採用。
 	void restoreDevelopment(const JSON& snapshot, const World& world);
 
