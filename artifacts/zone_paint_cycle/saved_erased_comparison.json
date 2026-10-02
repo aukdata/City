@@ -1,0 +1,60 @@
+{
+  "original": {
+    "path": "../build-tools/latest/road-lane-cycle/App/saves/lane_ui_review/global/development.bin",
+    "bytes": 13825657,
+    "sha256": "f8a91e9d9d7a68e0a4d09c08d76ee534859eae2d019320ae1f1efd13e9bcbad9",
+    "chunks": 4096,
+    "totals": {
+      "zones": 2305924,
+      "buildings": 37274,
+      "patches": 56075,
+      "vertices": 267554
+    },
+    "buildings_sha256": "5b2aaf353817d963112d4d7dc79bf378f6220fe2d0bbc364160bc8bd1f730146",
+    "patches_sha256": "f9f0eb91fbbfd7e644ecbf11aedc5f8a727de44983a1ce319f9f0b557638e97b"
+  },
+  "candidate": {
+    "path": "artifacts/zone_paint_cycle/saved_erased/global/development.bin",
+    "bytes": 13825654,
+    "sha256": "183462b6fece852c346727b1d510c16d9702de091646d543d94c2c295df1b37e",
+    "chunks": 4096,
+    "totals": {
+      "zones": 2305923,
+      "buildings": 37274,
+      "patches": 56075,
+      "vertices": 267554
+    },
+    "buildings_sha256": "5b2aaf353817d963112d4d7dc79bf378f6220fe2d0bbc364160bc8bd1f730146",
+    "patches_sha256": "f9f0eb91fbbfd7e644ecbf11aedc5f8a727de44983a1ce319f9f0b557638e97b"
+  },
+  "same_chunk_set": true,
+  "snapshot_bit_exact": false,
+  "urbanization_changes": [],
+  "zone_changes": [
+    {
+      "chunk": [
+        22,
+        25
+      ],
+      "cell": [
+        42,
+        59
+      ],
+      "global_cell": [
+        1450,
+        1659
+      ],
+      "center": [
+        23208.0,
+        26552.0
+      ],
+      "before": 6,
+      "after": 0
+    }
+  ],
+  "building_changed_chunks": [],
+  "parcel_changed_chunks": [],
+  "buildings_bit_exact": true,
+  "parcels_bit_exact": true,
+  "expectation_passed": true
+}

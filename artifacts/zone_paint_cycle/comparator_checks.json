@@ -1,0 +1,34 @@
+{
+  "syntax_valid": true,
+  "checks": [
+    {
+      "name": "identical_snapshot",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "passed": true
+    },
+    {
+      "name": "erased_snapshot",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "passed": true
+    },
+    {
+      "name": "restored_snapshot",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "passed": true
+    },
+    {
+      "name": "reject_changed_as_identical",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "passed": true
+    },
+    {
+      "name": "reject_truncated_snapshot",
+      "passed": true
+    }
+  ],
+  "all_passed": true
+}

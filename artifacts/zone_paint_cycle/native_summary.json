@@ -1,0 +1,185 @@
+{
+  "before": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 2,
+    "zoneBrush": 1,
+    "zonePalette": true,
+    "editMode": 3,
+    "development": {
+      "completed": 0,
+      "count": 0,
+      "cursor": 0,
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 6
+    }
+  },
+  "painted": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 2,
+    "zoneBrush": 0,
+    "zonePalette": true,
+    "editMode": 3,
+    "development": {
+      "completed": 0,
+      "count": 1,
+      "cursor": 0,
+      "plots": [
+        {
+          "checkedAt": 26.80000000000011,
+          "nextCheck": 0.0,
+          "progress": 0.0,
+          "state": 0,
+          "x": 1450,
+          "z": 1659,
+          "zone": 2
+        }
+      ],
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 2
+    }
+  },
+  "erased": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 0,
+    "zoneBrush": 0,
+    "zonePalette": true,
+    "editMode": 3,
+    "development": {
+      "completed": 0,
+      "count": 0,
+      "cursor": 0,
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 0
+    }
+  },
+  "reloaded": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 2,
+    "zoneBrush": 1,
+    "zonePalette": true,
+    "editMode": 3,
+    "development": {
+      "completed": 0,
+      "count": 0,
+      "cursor": 0,
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 0
+    }
+  },
+  "restored": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 6,
+    "zoneBrush": 0,
+    "zonePalette": true,
+    "editMode": 3,
+    "development": {
+      "completed": 0,
+      "count": 1,
+      "cursor": 0,
+      "plots": [
+        {
+          "checkedAt": 26.80000000000011,
+          "nextCheck": 0.0,
+          "progress": 0.0,
+          "state": 0,
+          "x": 1450,
+          "z": 1659,
+          "zone": 6
+        }
+      ],
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 6
+    }
+  },
+  "tool_closed": {
+    "timeSpeed": 0,
+    "gameHour": 12.444999694824219,
+    "zone": 6,
+    "zoneBrush": 0,
+    "zonePalette": false,
+    "editMode": 0,
+    "development": {
+      "completed": 0,
+      "count": 1,
+      "cursor": 0,
+      "plots": [
+        {
+          "checkedAt": 26.80000000000011,
+          "nextCheck": 0.0,
+          "progress": 0.0,
+          "state": 0,
+          "x": 1450,
+          "z": 1659,
+          "zone": 6
+        }
+      ],
+      "time": 26.80000000000011
+    },
+    "cell": {
+      "angle": 0.0,
+      "building": 0,
+      "builtAt": 0.0,
+      "edge": -1,
+      "offsetX": 0.0,
+      "offsetZ": 0.0,
+      "x": 23208.0,
+      "z": 26552.0,
+      "zone": 6
+    }
+  }
+}
