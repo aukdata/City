@@ -1,0 +1,48 @@
+{
+  "baseline": "f52fcbb",
+  "routeId": 4,
+  "edgeId": 616,
+  "originalName": "国道224号",
+  "temporaryName": "国道224号x",
+  "nativeShortBackspaceFixed": true,
+  "nativeReloadVerified": true,
+  "roadsByteExactRestored": true,
+  "filesDifferentAfterRestore": [
+    "meta.json"
+  ],
+  "original8199FilesUnchanged": true,
+  "focusedTests": [
+    {
+      "filter": "UI.PauseMenuAndControlHelp",
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "filter": "Railway.",
+      "total": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    {
+      "filter": "Settings.",
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "filter": "WorldSelection",
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "filter": "Input.",
+      "total": 29,
+      "passed": 29,
+      "failed": 0
+    }
+  ],
+  "focusedTotal": 49,
+  "exit": 0
+}

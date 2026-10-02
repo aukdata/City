@@ -1,0 +1,36 @@
+﻿{
+  "total": 3,
+  "passed": 0,
+  "failed": 3,
+  "tests": [
+    {
+      "name": "Input.PanelText.ShortBackspaceAndDelete",
+      "status": "failed",
+      "durationMs": 23.369,
+      "failures": [
+        "The production panel reports a short Backspace edit",
+        "A complete between-frame Backspace removes the route-name suffix exactly once",
+        "A later empty keyboard frame does not repeat the edit",
+        "The production panel reports a short forward Delete edit",
+        "Delete removes the codepoint after the caret without moving it"
+      ]
+    },
+    {
+      "name": "Input.PanelText.UnicodeAndBounds",
+      "status": "failed",
+      "durationMs": 3.725,
+      "failures": [
+        "Panel Backspace removes one non-BMP codepoint before an interior caret"
+      ]
+    },
+    {
+      "name": "Input.PanelText.FocusAndInactiveFields",
+      "status": "failed",
+      "durationMs": 13.947,
+      "failures": [
+        "The focused producer still receives its buffered edit",
+        "A fresh edit after focus transfer affects only the newly focused field"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+﻿{
+  "total": 29,
+  "passed": 29,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Zoning.RectangleInput.ValidRectangleAndBrushReplay",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.BlockedReleaseCancelsRectangleReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.UiPressCannotReuseCancelledRectangleReplay",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.MissedReleaseEdgeClearsRectangleReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.HeldRectangleCrossesUiReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.ShiftReleaseAndExplicitResetReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.WorldPaintEraseSnapshotRoundTrip",
+      "status": "passed",
+      "durationMs": 277.384,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.AcrossFrameRelease",
+      "status": "passed",
+      "durationMs": 0.009,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.SameBatchTap",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.HeldAcrossEmptyFrames",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.NonOverlappingTaps",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.SBeforeModifiers",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.FocusReset",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.TextAndPauseOwnership",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveChord.LeftAndRightModifiers",
+      "status": "passed",
+      "durationMs": 0.003,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.ShortBackspaceAndDelete",
+      "status": "passed",
+      "durationMs": 20.706,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.UnicodeAndBounds",
+      "status": "passed",
+      "durationMs": 3.354,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.FocusAndInactiveFields",
+      "status": "passed",
+      "durationMs": 13.653,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.NativeControlsAreAuthoritative",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.HeldKeysAndFocusReset",
+      "status": "passed",
+      "durationMs": 0.003,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.ImePreservation",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PaletteBufferedBackspaceRegression",
+      "status": "passed",
+      "durationMs": 0.016,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.BufferedEditing.UnicodeAndBounds",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.BufferedEditing.NativeControlsAreAuthoritative",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.BufferedEditing.PressCountsAndNoReplay",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.BufferedEditing.ImeAndHeldRepeat",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.TextFocusMustBlockAllActions",
+      "status": "passed",
+      "durationMs": 0.138,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.SaveShortcutHonorsFocus",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.ShortTapsAndFocus",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    }
+  ]
+}

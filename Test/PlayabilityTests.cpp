@@ -9,6 +9,7 @@
 #include "src/ui/FrameRateGraph.hpp"
 #include "SettingsStorageTests.hpp"
 #include "SaveChordTests.hpp"
+#include "PanelTextInputTests.hpp"
 #include "src/ui/LoadingRecovery.hpp"
 #include "src/ui/NavigationHelp.hpp"
 #include "src/asset/AssetRegistrar.hpp"
@@ -23,6 +24,7 @@ void registerPlayabilityTests(TestRunner& runner)
 {
 	registerSettingsStorageTests(runner);
 	registerSaveChordTests(runner);
+	registerPanelTextInputTests(runner);
 	runner.add(U"Settings.ModalAboveFrameRateGraph", [](TestContext& context)
 	{
 		RegisterAssets();

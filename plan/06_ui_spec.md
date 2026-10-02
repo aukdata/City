@@ -117,6 +117,8 @@ Escは「入力欄を離れる → 仮計画を破棄 → 編集モード・選�
 
 `KeyboardActions` は通常のキー状態に加え、Windowsのキーイベント番号から短い押下を一度だけ拾う。履歴の再読で同じ操作を繰り返さず、非フォーカス中のイベントを持ち越さない。文字入力とIMEはSiv3Dに任せる。入力欄にフォーカスがある間は `GameInput` 自体が他用途のキーを返さない。Enter・Esc・外部クリックで離れたフレームも入力欄が占有し、残った短い押下を移動や建設に流さない。IME変換のEnterでは欄を閉じず、同じ文字数の置換も路線名へ反映する。
 
+路線名・時刻表・数値欄で共通の `PanelWidget::textInput` は、Siv3D の文字入力に欠けた Backspace／Delete だけを物理キーから補完する。短い押下と押し続けを扱い、カーソル前／後のコードポイントを削除する。ネイティブの削除と二重適用せず、IME変換中の確定済み文字を補完で削らない。フォーカス取得・喪失で補完状態をリセットし、前の欄の押し続けを別の欄へ持ち越さない。常設テストは `Test/PanelTextInputTests.hpp`。
+
 ## 検証
 
 `Test/DrivingTests.cpp`、`PlayabilityTests.cpp`、`UrbanUsabilityTests.cpp`、`RoadPlanUxTests.cpp` と実ゲームの `--playtest` / `--capture-road-ux` で確認する。新しいUIはTestで描画・数値検証してから本体に使う。画像データは会話へ出さず、ローカル保存・GPU読み戻し・OCRで確認する。

@@ -1,0 +1,35 @@
+﻿{
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Settings.ModalAboveFrameRateGraph",
+      "status": "passed",
+      "durationMs": 394.812,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Settings.DistanceBufferedEditing",
+      "status": "passed",
+      "durationMs": 7.782,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Settings.PanelDraftAndPreview",
+      "status": "passed",
+      "durationMs": 43.719,
+      "failures": [
+      ]
+    },
+    {
+      "name": "GenerationSettings.RequiredValuesAndValidation",
+      "status": "passed",
+      "durationMs": 55.980,
+      "failures": [
+      ]
+    }
+  ]
+}

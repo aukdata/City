@@ -1,0 +1,91 @@
+﻿{
+  "total": 12,
+  "passed": 12,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Railway.DefaultDailyTimetable",
+      "status": "passed",
+      "durationMs": 0.120,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.OvernightAndNoDepartureBacklog",
+      "status": "passed",
+      "durationMs": 0.004,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.LiveEditKeepsCurrentService",
+      "status": "passed",
+      "durationMs": 0.673,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.InvalidEditsAreAtomic",
+      "status": "passed",
+      "durationMs": 0.200,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.TrackAndTimetableSaveRestore",
+      "status": "passed",
+      "durationMs": 0.763,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.EditorVisualReview",
+      "status": "passed",
+      "durationMs": 344.335,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.StationDepotGeometryAndStorage",
+      "status": "passed",
+      "durationMs": 557.262,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.DepotRejectsRoadAndTerrain",
+      "status": "passed",
+      "durationMs": 1093.173,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.StationAndDepotGpuReview",
+      "status": "passed",
+      "durationMs": 1089.342,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.BrakesBeforeLowerLimit",
+      "status": "passed",
+      "durationMs": 0.601,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.DepotSearchesBeyondStationFrontage",
+      "status": "passed",
+      "durationMs": 344.590,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Railway.DepotApproachVerticalClearance",
+      "status": "passed",
+      "durationMs": 671.710,
+      "failures": [
+      ]
+    }
+  ]
+}

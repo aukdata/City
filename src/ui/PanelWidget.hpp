@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
 #include "KeyboardActions.hpp"
+#include "BufferedTextEdit.hpp"
 
 /// @brief パネル内 UI ウィジェット（即時モード描画）
 /// @details 各関数はパネルの beginContent() ～ reportContentHeight() 間で呼ぶ。
@@ -148,12 +149,53 @@ namespace PanelWidget
 
 	inline TextEditState*& activeTextInput = GameInput::textInput;
 
+	/// @brief Keep missing physical edit controls scoped to the currently focused panel field.
+	class TextInputEditing
+	{
+	public:
+		/// @brief Apply after native text input; raw controls remain authoritative.
+		void update(TextEditState& state, StringView raw, bool composing,
+			const BufferedTextEditKey& backspace, const BufferedTextEditKey& forwardDelete,
+			bool focusGained = false)
+		{
+			if (m_owner != &state || focusGained)
+			{
+				m_editor = BufferedTextEdit{};
+				m_owner = &state;
+				// A key already held when focus changes belongs to its previous field.
+				// Seed ownership without editing; only a fresh press may override it.
+				(void)m_editor.update(state.text, state.cursorPos, U"", true,
+					{0, backspace.held, backspace.heldSeconds},
+					{0, forwardDelete.held, forwardDelete.heldSeconds});
+			}
+			// A focus click cannot replay buffered controls from the previous owner.
+			if (focusGained) { return; }
+			state.cursorPos = m_editor.update(state.text, state.cursorPos, raw, composing,
+				backspace, forwardDelete);
+		}
+
+		/// @brief Forget held-key state when the owning field loses focus, including external dismissal.
+		void releaseInactiveFocus(const TextEditState* active)
+		{
+			if (m_owner == active) { return; }
+			m_editor = BufferedTextEdit{};
+			m_owner = nullptr;
+		}
+	private:
+		TextEditState* m_owner = nullptr;
+		BufferedTextEdit m_editor;
+	};
+
+	inline TextInputEditing textInputEditing;
+
 	inline bool textInput(const Font& font, TextEditState& state,
 	                       int x, int y, int w, int h, size_t maxChars = 32)
 	{
 		const RectF rect{ static_cast<double>(x), static_cast<double>(y),
 		                  static_cast<double>(w), static_cast<double>(h) };
+		textInputEditing.releaseInactiveFocus(activeTextInput);
 		bool isActive = (activeTextInput == &state);
+		bool focusGained = false;
 		const bool hover    = rect.mouseOver();
 		bool changed = false;
 
@@ -168,6 +210,7 @@ namespace PanelWidget
 			activeTextInput = &state;
 			GameInput::textOwnedFrame = true;
 			isActive = true;
+			focusGained = true;
 			state.active = true;
 			state.cursorPos = state.text.size();
 		}
@@ -184,7 +227,14 @@ namespace PanelWidget
 		{
 			const String previous = state.text;
 			const bool composing = !TextInput::GetEditingText().isEmpty();
+			const String rawInput = TextInput::GetRawInput();
 			state.cursorPos = TextInput::UpdateText(state.text, state.cursorPos);
+			const auto editKey = [](const Input& key)
+			{
+				return BufferedTextEditKey{Max(GameInput::buffer.editPressCount(key.code()), key.down() ? size_t{1} : size_t{0}),
+					key.pressed(), key.pressedDuration().count()};
+			};
+			textInputEditing.update(state, rawInput, composing, editKey(KeyBackspace), editKey(KeyDelete), focusGained);
 			if (maxChars > 0 && state.text.size() > maxChars)
 				state.text = state.text.substr(0, maxChars);
 			state.text.remove(U'\n').remove(U'\r').remove(U'\t');
@@ -199,6 +249,8 @@ namespace PanelWidget
 				state.textChanged = true;
 			}
 		}
+
+		textInputEditing.releaseInactiveFocus(activeTextInput);
 
 		// テキスト描画
 		const double textX = x + 3.0;
