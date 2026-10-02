@@ -1,0 +1,16 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Comprehensive.GeneratedSignalSnapshotDiagnostics",
+      "status": "failed",
+      "durationMs": 1237.384,
+      "failures": [
+        "Every newly generated movement remains served after production snapshot load (actual=2206, expected=0)",
+        "Generated signal plans contain no references to absent loaded movements (actual=2671, expected=0)"
+      ]
+    }
+  ]
+}

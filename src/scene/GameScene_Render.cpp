@@ -191,6 +191,7 @@ void GameScene::renderWorld()
 		m_minimapRenderer.drawFullScreen(m_camera);
 		m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
 		if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
+		if (!m_commandPalette.visible) { m_saveStatusNotice.draw(FontAsset(Asset::CJK14), Scene::Size()); }
 		m_renderTimings.total=mapTimer.msF();
 		return;
 	}
@@ -367,6 +368,10 @@ void GameScene::renderWorld()
 			m_renderTimings.uiPanels += modalTimer.msF();
 		}
 	});
+	if (!m_settings.visible && !m_commandPalette.visible)
+	{
+		m_saveStatusNotice.draw(FontAsset(Asset::CJK14), Scene::Size(), m_showPauseMenu);
+	}
 
 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
 	constexpr int kPerfLogIntervalFrames = 120;

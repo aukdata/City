@@ -8,9 +8,112 @@
 #include "src/ui/PanelManager.hpp"
 #include "src/ui/RoadPlanToolbar.hpp"
 #include "src/ui/LocationTooltip.hpp"
+#include "src/ui/SaveStatusNotice.hpp"
+#include "src/ui/PauseMenu.hpp"
 
 void registerCityHudTests(TestRunner& runner)
 {
+
+	runner.add(U"CityHud.SaveStatusLifetime", [](TestContext& context)
+	{
+		SaveStatusNotice notice;
+		context.expect(!notice.visible(0), U"保存前には空の通知を表示しない");
+		notice.show(U"セーブしました", U"新しい街を保存しました", true, 100);
+		context.expect(notice.succeeded() && notice.visible(104.9) && !notice.visible(105), U"成功通知は実時間で5秒間表示する");
+		notice.show(U"セーブできません", U"信号の接続参照を復元できません", false, 110);
+		context.expect(!notice.succeeded() && notice.visible(127.9) && !notice.visible(128), U"失敗理由を読むため18秒間表示する");
+		notice.show(U"セーブしました", U"再試行で保存しました", true, 112);
+		context.expect(notice.succeeded() && notice.title() == U"セーブしました"
+			&& notice.message() == U"再試行で保存しました" && !notice.visible(117), U"次の結果で置換し、古い失敗通知を積み重ねない");
+	});
+
+	runner.add(U"CityHud.SaveStatusPreview", [](TestContext& context)
+	{
+		RegisterAssets();
+		const auto font = FontAsset(Asset::CJK14);
+		const String failure = U"信号の接続参照を復元できません。旧形式の街の場合は、新規生成するか、バックアップを残して対応する旧バージョンを使ってください。\n"
+			U"交差点 0 / フェーズ 1 / 接続 999999\n既存のセーブは保持されています";
+		const String success = U"現在の街を保存しました";
+		font.preload(failure + success + U"セーブしましたセーブできません…");
+		for (int frame = 0; frame < 3; ++frame) { System::Update(); }
+		JSON report;
+		for (const Size size : {Size{800,600}, Size{1280,800}, Size{1920,1080}})
+		{
+			for (const bool paused : {false, true})
+			{
+				for (const bool failed : {false, true})
+				{
+					SaveStatusNotice notice;
+					notice.show(failed ? U"セーブできません" : U"セーブしました", failed ? failure : success, !failed, 100);
+					const auto content = notice.layout(font, size, paused);
+					const auto bounds = content.bounds;
+					context.expect(!content.truncated, U"失敗理由・旧版の案内・元データ保持を省略せず表示する");
+					context.expect(bounds.x >= 0 && bounds.y >= 0 && bounds.br().x <= size.x && bounds.br().y <= size.y,
+						U"保存通知の全体が画面内に収まる");
+					for (const auto& line : content.lines)
+					{
+						context.expect(font(line).region(SaveStatusNotice::kBodySize).w <= bounds.w - 24,
+							U"固定14pxの本文は縮小せず背景内で折り返す");
+					}
+					if (paused)
+					{
+						for (int action = 0; action < PauseMenu::kActionCount; ++action)
+						{
+							context.expect(!bounds.intersects(PauseMenu::button(size, action)), U"ポーズ中の保存通知はメニューのボタンを覆わない");
+						}
+					}
+					else
+					{
+						const RectF editor{size.x - 384.0, 10, 374, size.y - 20.0};
+						const LocationTooltip::Content location{U"山手町", U"やまてちょう", U"山手通り", 1};
+						context.expect(!bounds.intersects(editor) && !bounds.intersects(LocationTooltip::bounds(size, location)),
+							U"通常時の通知は道路編集と下部の住所表示を避ける");
+						CityHud hud;
+						hud.updateLayout(size, false, false, true);
+						hud.interact(hud.tabBounds(CityHud::Tab::City).center(), true);
+						for (const auto& area : hud.bounds()) { context.expect(!bounds.intersects(area), U"保存通知は開いた街の詳細も覆わない"); }
+					}
+					const Color background{62,81,52};
+					const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+					{
+						const ScopedRenderTarget2D rt{target.clear(background)};
+						notice.draw(font, size, paused, 101);
+					}
+					Graphics2D::Flush();
+					Image image;
+					target.readAsImage(image);
+					int outside = 0, bright = 0, changed = 0;
+					for (int y = 0; y < size.y; ++y)
+					{
+						for (int x = 0; x < size.x; ++x)
+						{
+							const auto pixel = image[y][x];
+							if (pixel == background) { continue; }
+							++changed;
+							outside += !bounds.stretched(2).contains(Point{x,y});
+							bright += pixel.r > 180 && pixel.g > 180 && pixel.b > 180;
+						}
+					}
+					context.expectEqual(outside, 0, U"日本語の長い失敗理由がパネル外へはみ出さない");
+					context.expect(changed > 1000 && bright > 200, U"通常モードの保存通知が読み取れる文字画素を持つ");
+					const String key = U"{}_{}_{}"_fmt(size.x, paused ? U"paused" : U"normal", failed ? U"failed" : U"saved");
+					image.save(U"Screenshot/save_status_{}.png"_fmt(key));
+					report[key] = JSON{{U"outsidePixels", outside}, {U"textPixels", bright}, {U"drawnPixels", changed}, {U"lines", content.lines.size()}};
+				}
+			}
+		}
+		SaveStatusNotice oversized;
+		String longMessage;
+		for (int i = 0; i < 100; ++i) { longMessage += failure; }
+		oversized.show(U"セーブできません", longMessage, false, 100);
+		for (const bool paused : {false, true})
+		{
+			const auto content = oversized.layout(font, {800,600}, paused);
+			context.expect(content.truncated && content.lines.size() <= (paused ? 4 : 6)
+				&& content.lines.back().ends_with(U"…"), U"異常に長い診断も上限行数に収め、続きが省略されたことを示す");
+		}
+		report.save(U"TestResults/save_status_preview.json");
+	});
 	runner.add(U"CityHud.CompactLayoutAndInteraction", [](TestContext& context)
 	{
 		CityHud hud;

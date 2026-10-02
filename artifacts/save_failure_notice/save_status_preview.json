@@ -1,0 +1,74 @@
+﻿{
+  "1280_normal_failed": {
+    "drawnPixels": 49624,
+    "lines": 5,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "1280_normal_saved": {
+    "drawnPixels": 21472,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  },
+  "1280_paused_failed": {
+    "drawnPixels": 80736,
+    "lines": 4,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "1280_paused_saved": {
+    "drawnPixels": 40722,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  },
+  "1920_normal_failed": {
+    "drawnPixels": 49624,
+    "lines": 5,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "1920_normal_saved": {
+    "drawnPixels": 21472,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  },
+  "1920_paused_failed": {
+    "drawnPixels": 80736,
+    "lines": 4,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "1920_paused_saved": {
+    "drawnPixels": 40722,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  },
+  "800_normal_failed": {
+    "drawnPixels": 49624,
+    "lines": 5,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "800_normal_saved": {
+    "drawnPixels": 21472,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  },
+  "800_paused_failed": {
+    "drawnPixels": 80736,
+    "lines": 4,
+    "outsidePixels": 0,
+    "textPixels": 1798
+  },
+  "800_paused_saved": {
+    "drawnPixels": 40722,
+    "lines": 1,
+    "outsidePixels": 0,
+    "textPixels": 243
+  }
+}

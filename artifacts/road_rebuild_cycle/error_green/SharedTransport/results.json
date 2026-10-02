@@ -1,0 +1,70 @@
+﻿{
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "SharedTransport.GeometryAndTravelPermissions",
+      "status": "passed",
+      "durationMs": 0.268,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.OpposingTrainsUseDifferentLanes",
+      "status": "passed",
+      "durationMs": 0.095,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.DirectionalReturnRoute",
+      "status": "passed",
+      "durationMs": 0.030,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.SharedAndStandaloneStorage",
+      "status": "passed",
+      "durationMs": 0.434,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.EditingKeepsInfrastructureConsistent",
+      "status": "passed",
+      "durationMs": 0.116,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.GeneratedDoubleTrackLimits",
+      "status": "passed",
+      "durationMs": 551.474,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.EditorPreview",
+      "status": "passed",
+      "durationMs": 94.836,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.CommonRoadbedGpuReview",
+      "status": "passed",
+      "durationMs": 1234.442,
+      "failures": [
+      ]
+    },
+    {
+      "name": "SharedTransport.PlanningToolbarReview",
+      "status": "passed",
+      "durationMs": 209.651,
+      "failures": [
+      ]
+    }
+  ]
+}

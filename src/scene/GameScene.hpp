@@ -34,6 +34,7 @@
 #include "../save/SaveResult.hpp"
 #include "../ui/Camera.hpp"
 #include "../ui/PauseMenu.hpp"
+#include "../ui/SaveStatusNotice.hpp"
 #include "../ui/SettingsPanel.hpp"
 #include "../render/WorldRenderer.hpp"
 #include "../render/RoadRenderer.hpp"
@@ -184,6 +185,7 @@ private:
 	VehicleRenderer  m_vehicleRenderer;
 	UIRenderer       m_uiRenderer;
 	CityHudStats     m_hudStats;
+	SaveStatusNotice m_saveStatusNotice; ///< 通常画面・地図・ポーズで共有する直近の保存結果。
 	int              m_hudStatsRefreshCountdown = 0;
 	HousingCapacityCache m_housingCapacity;
 	DebugRenderer    m_debugRenderer;

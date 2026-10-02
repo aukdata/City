@@ -85,6 +85,9 @@ void registerComprehensiveTests(TestRunner& runner)
 			report[U"signals"]=signals; report[U"movements"]=movements;
 			report[U"unservedMovements"]=missing; report[U"staleGreenReferences"]=stale;
 			report[U"automaticPrograms"]=automaticPrograms;
+			String saveReason;
+			report[U"saveable"]=RoadBinary::writeGlobal(U"TestResults/generated_signal_resave.bin",roads,&saveReason);
+			report[U"saveFailureReason"]=saveReason;
 			report.save(U"TestResults/generated_signal_snapshot.json");
 			context.expect(signals>0 && movements>0,U"The generated snapshot actually contains signal-controlled movements");
 			context.expectEqual(missing,0,U"Every newly generated movement remains served after production snapshot load");
@@ -613,6 +616,24 @@ void registerComprehensiveTests(TestRunner& runner)
 		}
 		context.expect(trailer<originalBytes.size(),U"Current global snapshots have the required tagged identity trailer");
 		if (trailer==originalBytes.size()) { return; }
+		Array<uint8> legacyBytes=originalBytes; legacyBytes.resize(trailer); const uint16 legacyVersion=19;
+		std::memcpy(legacyBytes.data()+sizeof(uint32),&legacyVersion,sizeof(legacyVersion));
+		const FilePath legacyPath=U"TestResults/signal_identity_legacy.bin";
+		{ BinaryWriter writer{legacyPath}; writer.write(legacyBytes.data(),static_cast<int64>(legacyBytes.size())); }
+		RoadNetwork legacy; context.expect(RoadBinary::readGlobal(legacyPath,legacy,true),U"Legacy missing-identity fixture still loads for inspection");
+		String legacyReason;
+		context.expect(!RoadBinary::writeGlobal(path,legacy,&legacyReason),U"Legacy missing signal identities are refused rather than guessed or reset");
+		context.expect(legacyReason.contains(U"旧形式") && legacyReason.contains(U"新規生成"),U"Legacy refusal explains the supported recovery path");
+		context.expect(bytes(path)==originalBytes && bytes(legacyPath)==legacyBytes,U"Rejected legacy save preserves both original source and existing destination");
+		const auto* legacyNode=legacy.getNode(node);
+		context.expect(legacyNode && legacyNode->signalPlacement && legacyNode->signalPlacement->phases.size()==authored.phases.size(),U"Refusal does not replace legacy authored phases");
+		if (legacyNode && legacyNode->signalPlacement && legacyNode->signalPlacement->phases.size()==authored.phases.size())
+		{
+			for (size_t phase=0;phase<authored.phases.size();++phase)
+			{
+				context.expect(legacyNode->signalPlacement->phases[phase].duration==authored.phases[phase].duration && legacyNode->signalPlacement->phases[phase].greenConnectionIds==authored.phases[phase].greenConnectionIds,U"Rejected save leaves custom timings and raw legacy references untouched");
+			}
+		}
 		const FilePath malformed=U"TestResults/signal_identity_malformed.bin";
 		const auto reject=[&](const Array<uint8>& data)
 		{
@@ -642,10 +663,14 @@ void registerComprehensiveTests(TestRunner& runner)
 		context.expect(!RoadBinary::readGlobal(malformed,appended,true),U"A trailer cannot substitute an unrelated preexisting node for a saved empty node");
 		context.expectEqual(appended.getNode(unrelatedId)->nextConnectionId,51,U"Rejected identity trailer cannot overwrite an unrelated node counter");
 		original->signalPlacement->phases.front().greenConnectionIds << 999999;
-		context.expect(!RoadBinary::writeGlobal(path,source),U"Writer rejects stale green references before truncating the destination");
+		String reason;
+		context.expect(!RoadBinary::writeGlobal(path,source,&reason),U"Writer rejects stale green references before truncating the destination");
+		context.expect(reason.contains(U"交差点 0") && reason.contains(U"フェーズ 1") && reason.contains(U"接続 999999"),U"Failure identifies the exact node, phase and absent connection rather than a generic file error");
+		context.expect(reason.contains(U"旧形式") && reason.contains(U"新規生成"),U"Failure gives conditional legacy guidance without inventing a phase remap");
 		context.expect(bytes(path)==originalBytes,U"Rejected snapshot write leaves the previously valid file intact");
 		RoadNetwork empty; const FilePath emptyPath=U"TestResults/signal_identity_empty.bin";
-		context.expect(RoadBinary::writeGlobal(emptyPath,empty),U"Empty graphs still write the required v20 trailer");
+		context.expect(RoadBinary::writeGlobal(emptyPath,empty,&reason),U"Empty graphs still write the required v20 trailer");
+		context.expect(reason.isEmpty(),U"Successful retry clears a previous failure reason");
 		RoadNetwork emptyRestored; context.expect(RoadBinary::readGlobal(emptyPath,emptyRestored,true),U"Empty v20 snapshot loads with an empty identity table");
 		Array<uint8> truncatedEmpty=bytes(emptyPath); truncatedEmpty.pop_back(); reject(truncatedEmpty);
 	});

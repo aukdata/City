@@ -96,6 +96,7 @@ void GameScene::saveGame()
 		|| getData().saveName == U"." || getData().saveName == U"..")
 	{
 		DebugLog::print(U"[Save] Invalid save name: {}"_fmt(getData().saveName));
+		m_saveStatusNotice.show(U"セーブできません", U"保存先の名前が不正です。別の保存先を使用してください", false);
 		return;
 	}
 
@@ -113,10 +114,17 @@ void GameScene::saveGame()
 	if (result)
 	{
 		DebugLog::print(U"[Save] Saved atomically to {}"_fmt(result.path));
+		m_saveStatusNotice.show(U"セーブしました", U"現在の街を保存しました", true);
 	}
 	else
 	{
 		DebugLog::print(U"[Save] Failed: {} ({})"_fmt(result.message, result.path));
+		String message = result.message;
+		if (result.error == SaveError::WriteFailed || result.error == SaveError::VerificationFailed)
+		{
+			message += U"\n既存のセーブは変更していません";
+		}
+		m_saveStatusNotice.show(U"セーブできません", message, false);
 	}
 }
 
@@ -165,9 +173,10 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 	{
 		return SaveResult::failed(SaveError::WriteFailed, U"economy.json を保存できません", saveRoot);
 	}
-	if (!RoadBinary::writeGlobal(globalDirectory + U"/roads.bin", m_network))
+	String roadError;
+	if (!RoadBinary::writeGlobal(globalDirectory + U"/roads.bin", m_network, &roadError))
 	{
-		return SaveResult::failed(SaveError::WriteFailed, U"roads.bin を保存できません", saveRoot);
+		return SaveResult::failed(SaveError::WriteFailed, roadError, saveRoot);
 	}
 	if (!m_clearanceLedger.save(globalDirectory + U"/construction_clearance.json"))
 	{

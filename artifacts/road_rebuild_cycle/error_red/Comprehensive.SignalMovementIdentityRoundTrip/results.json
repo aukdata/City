@@ -1,0 +1,17 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Comprehensive.SignalMovementIdentityRoundTrip",
+      "status": "failed",
+      "durationMs": 17.765,
+      "failures": [
+        "Legacy refusal explains the supported recovery path",
+        "Failure identifies the exact node, phase and absent connection rather than a generic file error",
+        "Failure gives conditional legacy guidance without inventing a phase remap"
+      ]
+    }
+  ]
+}

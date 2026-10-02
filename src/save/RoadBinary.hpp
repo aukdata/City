@@ -28,7 +28,8 @@ public:
 
 	/// @brief RoadNetwork 全体を単一ファイルに書き出す
 	/// @details v20 requires the global identity trailer; standalone read/write remain base-record APIs.
-	static bool writeGlobal(const FilePath& path, const RoadNetwork& network);
+	/// @param error Optional precise failure reason; cleared on success.
+	static bool writeGlobal(const FilePath& path, const RoadNetwork& network, String* error = nullptr);
 
 	/// @brief 単一ファイルから RoadNetwork を復元する
 	/// @param preserveSnapshot Keep persisted cutoff/type/sign state; rebuild only derived connection paths.

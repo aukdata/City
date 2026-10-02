@@ -1,0 +1,21 @@
+﻿{
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "CityHud.SaveStatusLifetime",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.SaveStatusPreview",
+      "status": "passed",
+      "durationMs": 672.639,
+      "failures": [
+      ]
+    }
+  ]
+}

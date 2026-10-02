@@ -1,0 +1,171 @@
+﻿{
+  "automaticPrograms": 0,
+  "examples": [
+    {
+      "connection": 1,
+      "fromEdge": 23197,
+      "fromLane": 0,
+      "node": 302,
+      "toEdge": 22016,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 447,
+      "fromLane": 0,
+      "node": 508,
+      "toEdge": 26412,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 448,
+      "fromLane": 1,
+      "node": 508,
+      "toEdge": 447,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 448,
+      "fromLane": 1,
+      "node": 508,
+      "toEdge": 26412,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 457,
+      "fromLane": 0,
+      "node": 518,
+      "toEdge": 26426,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 458,
+      "fromLane": 1,
+      "node": 518,
+      "toEdge": 457,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 458,
+      "fromLane": 1,
+      "node": 518,
+      "toEdge": 26426,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 462,
+      "fromLane": 0,
+      "node": 523,
+      "toEdge": 26440,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 463,
+      "fromLane": 1,
+      "node": 523,
+      "toEdge": 462,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 463,
+      "fromLane": 1,
+      "node": 523,
+      "toEdge": 26440,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 467,
+      "fromLane": 0,
+      "node": 528,
+      "toEdge": 26454,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 468,
+      "fromLane": 1,
+      "node": 528,
+      "toEdge": 467,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 468,
+      "fromLane": 1,
+      "node": 528,
+      "toEdge": 26454,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 469,
+      "fromLane": 0,
+      "node": 530,
+      "toEdge": 26466,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 470,
+      "fromLane": 1,
+      "node": 530,
+      "toEdge": 469,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 470,
+      "fromLane": 1,
+      "node": 530,
+      "toEdge": 26466,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 474,
+      "fromLane": 0,
+      "node": 535,
+      "toEdge": 26478,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 475,
+      "fromLane": 1,
+      "node": 535,
+      "toEdge": 474,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 475,
+      "fromLane": 1,
+      "node": 535,
+      "toEdge": 26478,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 488,
+      "fromLane": 0,
+      "node": 549,
+      "toEdge": 26490,
+      "toLane": 0
+    }
+  ],
+  "movements": 16737,
+  "saveFailureReason": "信号の接続参照が不正です。旧形式の街の場合は、新規生成するか、バックアップを残して対応する旧バージョンを使ってください。\n交差点 15668 / フェーズ 1 / 接続 2",
+  "saveable": false,
+  "signals": 1453,
+  "staleGreenReferences": 2671,
+  "unservedMovements": 2206
+}
