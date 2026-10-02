@@ -1,0 +1,194 @@
+{
+  "binaryCommit": "feea6aa",
+  "save": "growth_review (disposable copy, v20 road geometry, seed42)",
+  "targetCell": [
+    1451,
+    1658
+  ],
+  "paintWorldXZ": [
+    23224,
+    26536
+  ],
+  "brush": "Native ordinary single-cell brush, LowResidential/key2; no injected zoning or world mutations",
+  "stages": {
+    "before": {
+      "frame": 60,
+      "timeSpeed": 0,
+      "population": 233146,
+      "funds": 30.0,
+      "buildingsSubmitted": 0,
+      "development": {
+        "completed": 0,
+        "count": 0,
+        "cursor": 0,
+        "time": 26.80000000000011
+      },
+      "targetCellState": {
+        "angle": 0.0,
+        "building": 0,
+        "builtAt": 0.0,
+        "edge": -1,
+        "offsetX": 0.0,
+        "offsetZ": 0.0,
+        "x": 23224.0,
+        "z": 26536.0,
+        "zone": 6
+      }
+    },
+    "painted": {
+      "frame": 705,
+      "timeSpeed": 0,
+      "population": 233146,
+      "funds": 30.0,
+      "buildingsSubmitted": 0,
+      "development": {
+        "completed": 0,
+        "count": 1,
+        "cursor": 0,
+        "plots": [
+          {
+            "checkedAt": 26.80000000000011,
+            "nextCheck": 0.0,
+            "progress": 0.0,
+            "state": 0,
+            "x": 1451,
+            "z": 1658,
+            "zone": 2
+          }
+        ],
+        "time": 26.80000000000011
+      },
+      "targetCellState": {
+        "angle": 0.0,
+        "building": 0,
+        "builtAt": 0.0,
+        "edge": -1,
+        "offsetX": 0.0,
+        "offsetZ": 0.0,
+        "x": 23224.0,
+        "z": 26536.0,
+        "zone": 2
+      }
+    },
+    "developing": {
+      "frame": 780,
+      "timeSpeed": 2,
+      "population": 233146,
+      "funds": 30.0,
+      "buildingsSubmitted": 0,
+      "development": {
+        "completed": 0,
+        "count": 1,
+        "cursor": 1,
+        "plots": [
+          {
+            "checkedAt": 32.20000000000015,
+            "nextCheck": 33.20000000000015,
+            "progress": 0.18000000000000138,
+            "state": 1,
+            "x": 1451,
+            "z": 1658,
+            "zone": 2
+          }
+        ],
+        "time": 32.20000000000015
+      },
+      "targetCellState": {
+        "angle": 0.0,
+        "building": 0,
+        "builtAt": 0.0,
+        "edge": -1,
+        "offsetX": 0.0,
+        "offsetZ": 0.0,
+        "x": 23224.0,
+        "z": 26536.0,
+        "zone": 2
+      }
+    },
+    "completed": {
+      "frame": 945,
+      "timeSpeed": 0,
+      "population": 233148,
+      "funds": 30.0,
+      "buildingsSubmitted": 1,
+      "development": {
+        "completed": 1,
+        "count": 0,
+        "cursor": 1,
+        "time": 82.00000000000041
+      },
+      "targetCellState": {
+        "angle": -3.138303279876709,
+        "building": 1,
+        "builtAt": 297.0999786376959,
+        "edge": 26508,
+        "offsetX": -0.008264868520200253,
+        "offsetZ": 2.5125198364257812,
+        "x": 23224.0,
+        "z": 26536.0,
+        "zone": 2
+      }
+    },
+    "reloaded": {
+      "frame": 90,
+      "timeSpeed": 0,
+      "population": 233148,
+      "funds": 30.0,
+      "buildingsSubmitted": 1,
+      "development": {
+        "completed": 1,
+        "count": 0,
+        "cursor": 0,
+        "time": 82.00000000000041
+      },
+      "targetCellState": {
+        "angle": -3.138303279876709,
+        "building": 1,
+        "builtAt": 297.0999786376959,
+        "edge": 26508,
+        "offsetX": -0.008264868520200253,
+        "offsetZ": 2.5125198364257812,
+        "x": 23224.0,
+        "z": 26536.0,
+        "zone": 2
+      }
+    }
+  },
+  "completion": {
+    "buildingType": 1,
+    "buildingTypeName": "Detached",
+    "housingAdded": 3,
+    "residentsAdded": 2,
+    "startGameNow": 266.6999786376968,
+    "builtAt": 297.0999786376959,
+    "elapsedSimulationSecondsAtBuild": 30.399999999999125,
+    "expectedDurationSimulationSeconds": 30,
+    "durationNote": "~1s recheck cadence allows the observed30.4s completion; final pausedcapture occurs later",
+    "fundsBefore": 30,
+    "fundsAfter": 30
+  },
+  "nativeVisualReview": {
+    "reviewedBy": "Native UI playthrough reviewer",
+    "before": "No house at target",
+    "completed": "House, garden, roadside wall and access visible; no observed road/building overlap",
+    "reloaded": "Same visible house and parcel present after load",
+    "images": "Local captures only, excluded from commit and not sent to chat"
+  },
+  "saveVerification": {
+    "firstSaveLog": "[146.948s] [Save] Saved atomically to saves/growth_review",
+    "reloadedSaveLog": "[37.3492s] [Save] Saved atomically to saves/growth_review",
+    "completedDiff": "completed_save_diff.json",
+    "reloadedDiff": "reloaded_save_diff.json",
+    "worldBytesEqualAfterReload": true,
+    "allFilesAfterReload": {
+      "count": 8199,
+      "byteIdentical": 8198,
+      "onlyChangedField": "meta.json zoneDevelopment.cursor:1→0, empty queue count0"
+    },
+    "originalSaveFilesUnchanged": 8199,
+    "exitCodes": [
+      0,
+      0
+    ]
+  }
+}

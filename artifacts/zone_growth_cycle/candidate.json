@@ -1,0 +1,199 @@
+{
+  "decision": "Paint LowResidential (key 2), one cell at world X=23224,Z=26536; runtime development state is definitive.",
+  "candidate": {
+    "cell": [
+      1451,
+      1658
+    ],
+    "paintCenter": [
+      23224.0,
+      26536.0
+    ],
+    "road": 26508,
+    "parameter": 0.845965194794071,
+    "distance": 12.082533341214278,
+    "maxDistance": 17.369999885559082,
+    "roadArcApprox": 60.909539204588725,
+    "roadLength": 72.00005340576172,
+    "buildingCenter": [
+      23223.991735133284,
+      26538.512519862164
+    ],
+    "offset": [
+      -0.008264866715762764,
+      2.5125198621644813
+    ],
+    "angle": -3.138303192268863,
+    "footprint": [
+      [
+        23219.226135918983,
+        26543.246869250273
+      ],
+      [
+        23228.726084521393,
+        26543.278119076465
+      ],
+      [
+        23228.757334347585,
+        26533.778170474056
+      ],
+      [
+        23219.257385745175,
+        26533.746920647864
+      ]
+    ],
+    "heightRange": [
+      29.77197624044493,
+      29.818120655603707
+    ],
+    "heightSpread": 0.04614441515877843,
+    "roadY": 29.782733277831227,
+    "roadHeightDifference": 0.012315170193090808,
+    "hashMod5": 2
+  },
+  "buildingType": {
+    "id": 1,
+    "name": "Detached",
+    "footprintWidthM": 9,
+    "eligibilityFootprintWidthM": 9.5,
+    "capacity": 3
+  },
+  "originalCell": {
+    "file": "/workspace/scratch/67b01c4a1273/build-tools/latest/road-lane-cycle/App/saves/lane_ui_review/global/development.bin",
+    "header": {
+      "magic": 827737412,
+      "version": 1,
+      "worldChunks": 64,
+      "chunkSize": 1024,
+      "heightCells": 64,
+      "zoneCells": 64,
+      "chunkCount": 4096
+    },
+    "buildingRecordCount": 37274,
+    "targetZone": 6,
+    "targetBuilding": [],
+    "buildingRecordsIn11x11EligibilityNeighborhood": [],
+    "targetPatches": []
+  },
+  "sourceSave": "/workspace/scratch/67b01c4a1273/build-tools/latest/road-lane-cycle/App/saves/lane_ui_review",
+  "sourceHashes": {
+    "global/roads.bin": "bbae3b9ae2ffd48b23012aee2b2073817b1c3c19cfcf2375cf192eab95c58dd2",
+    "global/development.bin": "f8a91e9d9d7a68e0a4d09c08d76ee534859eae2d019320ae1f1efd13e9bcbad9",
+    "chunks/22_25/terrain.bin": "6f72a33a03677521d86186b5c7778600ce72af8475f7eaa70cdd52550842c227"
+  },
+  "road": {
+    "id": 26508,
+    "state": 0,
+    "stateName": "Existing",
+    "type": 0,
+    "typeName": "LocalRoad",
+    "farmTrack": true,
+    "useElevation": false,
+    "tunnel": false,
+    "structuralWidthM": 5.739999771118164,
+    "source": "Parsed v20 roads.bin with existing audit_network.py reader; source geometry in ZoneDevelopment.cpp / RoadGeometry.cpp"
+  },
+  "cost": {
+    "paint": 0,
+    "currency": "game funds",
+    "durationSimulationSeconds": "12 + 20*(1-demandResidential)",
+    "rangeForDemand01To1": [
+      12,
+      30
+    ],
+    "pause": "Development does not advance when simulationSeconds <= 0"
+  },
+  "validation": {
+    "readOnly": true,
+    "noAppSourceChanges": true,
+    "noWorldGeneration": true,
+    "noSaveMutations": true,
+    "terrainSampling": "9 samples, saved 65x65 heightmap, same piecewise triangular interpolation as Chunk.hpp; approximate double geometry differs slightly from live float arc inversion",
+    "buildingClearance": "No buildings in authoritative saved 11x11-cell neighborhood used by production overlap check",
+    "railwayClearance": "No saved road-network railway-lane edge has control-hull bounding box within50m of painted cell",
+    "water": "Native runtime Developing and successful completion establish production dry-site and railway eligibility checks passed",
+    "confidence": "High, native updateDevelopment response remains authoritative",
+    "nativeResult": "Confirmed Developing state1 at progress0.18, then completed Detached in saved_completed; full whole-world diff completed_save_diff.json"
+  },
+  "sourceFiles": [
+    "src/zone/ZoneDevelopment.cpp",
+    "src/world/Chunk.hpp",
+    "src/save/DevelopmentSnapshot.cpp",
+    "src/road/RoadGeometry.cpp",
+    "plan/05_zoning_spec.md"
+  ],
+  "excludedAlternatives": [
+    {
+      "cell": [
+        1450,
+        1658
+      ],
+      "reason": "Frontage near shared road endpoint, arc~5.05m < detached half+3m=7.5m"
+    },
+    {
+      "cell": [
+        1450,
+        1660
+      ],
+      "reason": "On custom road41610 roadbed"
+    },
+    {
+      "cell": [
+        1450,
+        1661
+      ],
+      "reason": "Too far for Detached; Residential selects LowApartment and is geometrically/terrain viable",
+      "calculation": {
+        "cell": [
+          1450,
+          1661
+        ],
+        "paintCenter": [
+          23208.0,
+          26584.0
+        ],
+        "road": 41610,
+        "parameter": 0.5003474324670979,
+        "distance": 18.234134459534737,
+        "maxDistance": 18.820000171661377,
+        "roadArcApprox": 18.995310523837816,
+        "roadLength": 37.96424102783203,
+        "buildingCenter": [
+          23208.440384927424,
+          26579.01943164732
+        ],
+        "offset": [
+          0.44038492742402013,
+          -4.980568352679256
+        ],
+        "angle": 0.0881912618787379,
+        "footprint": [
+          [
+            23214.403433535535,
+            26574.025229879542
+          ],
+          [
+            23203.446183159645,
+            26573.05638303921
+          ],
+          [
+            23202.477336319313,
+            26584.0136334151
+          ],
+          [
+            23213.434586695203,
+            26584.982480255432
+          ]
+        ],
+        "heightRange": [
+          29.775234019383788,
+          29.834009543061256
+        ],
+        "heightSpread": 0.0587755236774683,
+        "roadY": 29.818559198750663,
+        "roadHeightDifference": 0.013937417528140372,
+        "hashMod5": 4
+      }
+    }
+  ]
+}

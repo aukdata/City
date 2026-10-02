@@ -1,0 +1,266 @@
+{
+  "before": "/workspace/scratch/67b01c4a1273/build-tools/latest/road-lane-cycle/App/saves/lane_ui_review",
+  "after": "artifacts/zone_growth_cycle/saved_completed",
+  "headerEqual": true,
+  "chunks": {
+    "beforeCount": 4096,
+    "afterCount": 4096,
+    "changedCount": 0,
+    "changes": []
+  },
+  "zones": {
+    "beforeCount": 2305924,
+    "afterCount": 2305924,
+    "changedCount": 1,
+    "changes": [
+      {
+        "key": "1451,1658",
+        "before": 6,
+        "after": 2
+      }
+    ]
+  },
+  "buildings": {
+    "beforeCount": 37274,
+    "afterCount": 37275,
+    "changedCount": 1,
+    "changes": [
+      {
+        "key": "1451,1658",
+        "before": null,
+        "after": {
+          "type": 1,
+          "builtAt": 297.0999786376959,
+          "angle": -3.138303279876709,
+          "edge": 26508,
+          "edgeT": 0.8459645509719849,
+          "offsetX": -0.008264868520200253,
+          "offsetZ": 2.5125198364257812
+        }
+      }
+    ]
+  },
+  "patches": {
+    "beforeCount": 56075,
+    "afterCount": 56076,
+    "changedCount": 1,
+    "changes": [
+      {
+        "key": "22,25:13",
+        "before": null,
+        "after": {
+          "id": 13,
+          "type": 2,
+          "elevationOffset": 0.012000000104308128,
+          "materialVariant": 2343800537,
+          "sourceParcelKey": 6192449489287723,
+          "polygon": [
+            [
+              23218.90989911456,
+              26532.995773538743
+            ],
+            [
+              23229.10984392975,
+              26533.02932599059
+            ],
+            [
+              23229.069909933143,
+              26545.169260309845
+            ],
+            [
+              23218.869965117952,
+              26545.135707858
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "roadNetworkBytesEqual": true,
+  "terrain": {
+    "beforeCount": 4096,
+    "afterCount": 4096,
+    "changedCount": 0,
+    "changedFiles": []
+  },
+  "sha256": {
+    "global/development.bin": {
+      "before": "f8a91e9d9d7a68e0a4d09c08d76ee534859eae2d019320ae1f1efd13e9bcbad9",
+      "after": "051742a56940ea1126ee00932d9cafabe95c610ff325f1e4f8eb75d240be5df6"
+    },
+    "global/roads.bin": {
+      "before": "bbae3b9ae2ffd48b23012aee2b2073817b1c3c19cfcf2375cf192eab95c58dd2",
+      "after": "bbae3b9ae2ffd48b23012aee2b2073817b1c3c19cfcf2375cf192eab95c58dd2"
+    }
+  },
+  "allSaveFiles": {
+    "beforeCount": 8199,
+    "afterCount": 8199,
+    "changedCount": 4,
+    "changes": [
+      {
+        "path": "chunks/22_25/land_patches.bin",
+        "beforeSha256": "5c3ab16b3f66a5d4699c453815f484dbea4c84108fd6d4307369749b62c24dae",
+        "afterSha256": "735678eec6cf9026e245fee01c528fdfbb99d1f5064a133f93d8865272d7edc3"
+      },
+      {
+        "path": "global/development.bin",
+        "beforeSha256": "f8a91e9d9d7a68e0a4d09c08d76ee534859eae2d019320ae1f1efd13e9bcbad9",
+        "afterSha256": "051742a56940ea1126ee00932d9cafabe95c610ff325f1e4f8eb75d240be5df6"
+      },
+      {
+        "path": "global/economy.json",
+        "beforeSha256": "b459cac3948e6474c0ffcbfad4b20e6af9081866a7b39790ecbd546e7782ef49",
+        "afterSha256": "61ca057a231dbaba0cf51e65705915cc51caf39cab48589e2c46d565c96b104e",
+        "changedTopLevelFields": [
+          {
+            "field": "population",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/population",
+                "before": 233146,
+                "after": 233148
+              }
+            ],
+            "truncated": false
+          }
+        ]
+      },
+      {
+        "path": "meta.json",
+        "beforeSha256": "9dfe53e78154ab0bec5f141d02d761af6cc1b43aa4478891348c1cfb72ba99fd",
+        "afterSha256": "a3759243dd13755a01d1b3bd9cf2a0e232a103cfc93c9f69b2f2b1b496caf3e7",
+        "changedTopLevelFields": [
+          {
+            "field": "cameraDistance",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/cameraDistance",
+                "before": 150.0,
+                "after": 100.0
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "cameraFocusX",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/cameraFocusX",
+                "before": 23216.494382022473,
+                "after": 23224.0
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "cameraFocusY",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/cameraFocusY",
+                "before": 29.82750129699707,
+                "after": 29.797870635986328
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "cameraFocusZ",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/cameraFocusZ",
+                "before": 26533.34831460674,
+                "after": 26536.0
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "gameNow",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/gameNow",
+                "before": 266.6999786376968,
+                "after": 321.8999786376945
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "railway",
+            "leafDifferenceCount": 4,
+            "firstDifferences": [
+              {
+                "path": "/railway/schedules/0/lastSpawn",
+                "before": 0.1,
+                "after": 270.09997863769746
+              },
+              {
+                "path": "/railway/schedules/0/reverse",
+                "before": true,
+                "after": false
+              },
+              {
+                "path": "/railway/schedules/5/lastSpawn",
+                "before": 240.0999786376953,
+                "after": 300.29997863769574
+              },
+              {
+                "path": "/railway/schedules/5/reverse",
+                "before": false,
+                "after": true
+              }
+            ],
+            "truncated": false
+          },
+          {
+            "field": "zoneDevelopment",
+            "leafDifferenceCount": 4,
+            "firstDifferences": [
+              {
+                "path": "/zoneDevelopment/completed",
+                "before": 0,
+                "after": 1
+              },
+              {
+                "path": "/zoneDevelopment/cursor",
+                "before": 0,
+                "after": 1
+              },
+              {
+                "path": "/zoneDevelopment/edited",
+                "before": null,
+                "after": [
+                  {
+                    "angle": -3.138303279876709,
+                    "building": 1,
+                    "builtAt": 297.0999786376959,
+                    "edge": 26508,
+                    "offsetX": -0.008264868520200253,
+                    "offsetZ": 2.5125198364257812,
+                    "t": 0.8459645509719849,
+                    "x": 1451,
+                    "z": 1658,
+                    "zone": 2
+                  }
+                ]
+              },
+              {
+                "path": "/zoneDevelopment/time",
+                "before": 26.80000000000011,
+                "after": 82.00000000000041
+              }
+            ],
+            "truncated": false
+          }
+        ]
+      }
+    ]
+  }
+}

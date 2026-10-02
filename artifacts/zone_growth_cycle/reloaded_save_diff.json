@@ -1,0 +1,72 @@
+{
+  "before": "artifacts/zone_growth_cycle/saved_completed",
+  "after": "artifacts/zone_growth_cycle/saved_reloaded",
+  "headerEqual": true,
+  "chunks": {
+    "beforeCount": 4096,
+    "afterCount": 4096,
+    "changedCount": 0,
+    "changes": []
+  },
+  "zones": {
+    "beforeCount": 2305924,
+    "afterCount": 2305924,
+    "changedCount": 0,
+    "changes": []
+  },
+  "buildings": {
+    "beforeCount": 37275,
+    "afterCount": 37275,
+    "changedCount": 0,
+    "changes": []
+  },
+  "patches": {
+    "beforeCount": 56076,
+    "afterCount": 56076,
+    "changedCount": 0,
+    "changes": []
+  },
+  "roadNetworkBytesEqual": true,
+  "terrain": {
+    "beforeCount": 4096,
+    "afterCount": 4096,
+    "changedCount": 0,
+    "changedFiles": []
+  },
+  "sha256": {
+    "global/development.bin": {
+      "before": "051742a56940ea1126ee00932d9cafabe95c610ff325f1e4f8eb75d240be5df6",
+      "after": "051742a56940ea1126ee00932d9cafabe95c610ff325f1e4f8eb75d240be5df6"
+    },
+    "global/roads.bin": {
+      "before": "bbae3b9ae2ffd48b23012aee2b2073817b1c3c19cfcf2375cf192eab95c58dd2",
+      "after": "bbae3b9ae2ffd48b23012aee2b2073817b1c3c19cfcf2375cf192eab95c58dd2"
+    }
+  },
+  "allSaveFiles": {
+    "beforeCount": 8199,
+    "afterCount": 8199,
+    "changedCount": 1,
+    "changes": [
+      {
+        "path": "meta.json",
+        "beforeSha256": "a3759243dd13755a01d1b3bd9cf2a0e232a103cfc93c9f69b2f2b1b496caf3e7",
+        "afterSha256": "7a0600abc56c56a54105a11e43f1c8322f11858c2207c40381b97ebe76e2774b",
+        "changedTopLevelFields": [
+          {
+            "field": "zoneDevelopment",
+            "leafDifferenceCount": 1,
+            "firstDifferences": [
+              {
+                "path": "/zoneDevelopment/cursor",
+                "before": 1,
+                "after": 0
+              }
+            ],
+            "truncated": false
+          }
+        ]
+      }
+    ]
+  }
+}
