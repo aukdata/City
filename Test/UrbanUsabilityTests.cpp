@@ -2,6 +2,7 @@
 #include "src/render/ShaderAsset.hpp"
 #include "TestRunner.hpp"
 #include "src/ui/Camera.hpp"
+#include "src/scene/RoadSelection.hpp"
 #include "src/render/FrontageGeometry.hpp"
 #include "src/ui/WorldMapView.hpp"
 #include "src/ui/CollapsibleHudPanel.hpp"
@@ -15,6 +16,55 @@
 
 void registerUrbanUsabilityTests(TestRunner& runner)
 {
+	runner.add(U"RoadSelection.ShortRoadBodyAndHandles", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const Vec3 a{0, 20, 0}, b{38.333, 20, 0}, middle = a.lerp(b, 0.5);
+		const int from = network.addNode(a), to = network.addNode(b);
+		const auto edge = network.addEdge(from, to, a.lerp(b, 1.0 / 3), a.lerp(b, 2.0 / 3));
+		const auto nearbyNode = network.findNodeNear(middle, 20.0f);
+		const auto nearbyEdge = network.findEdgeNear(middle, 15.0f);
+		context.expect(edge && nearbyNode && nearbyEdge == edge,
+			U"The 38.333 m road center is inside the old node radius and on the actual road");
+		if (!edge || !nearbyNode) { return; }
+		for (const double distance : {100.0, 1000.0})
+		{
+			const BasicCamera3D camera{Size{1280, 720}, 40_deg,
+				middle + Vec3{0, distance, -distance}, middle};
+			const Vec2 nodePixel = camera.worldToScreenPoint(network.getNode(*nearbyNode)->position).xy();
+			const Vec2 centerPixel = camera.worldToScreenPoint(middle).xy();
+			context.expect(nodePixel.distanceFrom(centerPixel) > 12,
+				U"The road body remains outside the endpoint handle at close and far zoom");
+			context.expect(RoadSelection::choose(nodePixel, centerPixel, nearbyEdge.has_value()) == RoadSelection::Target::Edge,
+				U"A body click selects the short edge even though a node is less than 20 m away");
+			context.expect(RoadSelection::choose(nodePixel, nodePixel + Vec2{11, 0}, true) == RoadSelection::Target::Node,
+				U"An endpoint remains easy to select within its 12 px handle at both zoom levels");
+			context.expect(RoadSelection::choose(nodePixel, nodePixel + Vec2{13, 0}, true) == RoadSelection::Target::Edge,
+				U"The node handle does not expand with the world-space search radius");
+		}
+	});
+	runner.add(U"RoadSelection.NodeFallbackWithoutEdge", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const Vec3 a{0, 20, 0}, b{38.333, 20, 0}, offRoad{0, 20, 16};
+		const int from = network.addNode(a), to = network.addNode(b);
+		network.addEdge(from, to, a.lerp(b, 1.0 / 3), a.lerp(b, 2.0 / 3));
+		const auto nearbyNode = network.findNodeNear(offRoad, 20.0f);
+		const auto nearbyEdge = network.findEdgeNear(offRoad, 15.0f);
+		context.expect(nearbyNode && *nearbyNode == from && !nearbyEdge,
+			U"An off-road click can be within the forgiving node radius without an edge candidate");
+		const BasicCamera3D camera{Size{1280, 720}, 40_deg, Vec3{0, 120, -100}, a};
+		const Vec2 nodePixel = camera.worldToScreenPoint(a).xy();
+		const Vec2 cursor = camera.worldToScreenPoint(offRoad).xy();
+		context.expect(nodePixel.distanceFrom(cursor) > 12,
+			U"The fallback is exercised outside the precise endpoint handle");
+		context.expect(RoadSelection::choose(nodePixel, cursor, nearbyEdge.has_value()) == RoadSelection::Target::Node,
+			U"A nearby node remains selectable when no road edge competes");
+		context.expect(RoadSelection::choose(none, cursor, true) == RoadSelection::Target::Edge,
+			U"A road without a nearby node is still selectable");
+		context.expect(RoadSelection::choose(none, cursor, false) == RoadSelection::Target::None,
+			U"Empty ground does not create a selection");
+	});
 	runner.add(U"UI.FullScreenMap", [](TestContext& context)
 	{
 		WorldMapView map; const Size size{1000,600}; map.open({32768,32768});

@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "WorldSelection.hpp"
+#include "RoadSelection.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../railway/TrainConsist.hpp"
 #include "../ui/NavigationHeader.hpp"
@@ -908,9 +909,18 @@ void GameScene::handleSelectionClick()
 
 	// 地上カーソルで検索（ノード・エッジ）
 	auto hitNode = visibleNodeNear(*m_cursorGroundPos, 20.0f);
-	Optional<int> hitEdge;
-	if (!hitNode)
-		hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+	auto hitEdge = m_network.findEdgeNear(*m_cursorGroundPos, 15.0f);
+	Optional<Vec2> nodeScreenPosition;
+	if (hitNode)
+	{
+		if (const auto* node = m_network.getNode(*hitNode))
+		{
+			nodeScreenPosition = m_camera.camera3D().worldToScreenPoint(node->position).xy();
+		}
+	}
+	const auto roadTarget = RoadSelection::choose(nodeScreenPosition, Cursor::PosF(), hitEdge.has_value());
+	if (roadTarget != RoadSelection::Target::Node) { hitNode = none; }
+	if (roadTarget != RoadSelection::Target::Edge) { hitEdge = none; }
 
 	bool hitElevated=false;
 	// 高架面とのレイ交差で追加検索
