@@ -1,0 +1,7 @@
+{
+  "routes": 2,
+  "adjacencyGaps": 2,
+  "orderedWalkViolations": 2,
+  "duplicateEdges": 0,
+  "missingEdges": 0
+}

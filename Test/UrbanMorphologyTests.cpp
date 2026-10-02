@@ -338,6 +338,117 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			}
 		}
 	});
+	runner.add(U"Morphology.OrderedRouteReplacement", [](TestContext& context)
+	{
+		for (const bool reverse : {false, true})
+		{
+			World world; world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+			for (int z=30; z<=33; ++z) for (int x=30; x<=33; ++x)
+			{
+				world.installChunkDirect(Point{x,z}, HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20,20});
+			}
+			MapGenerator::Settlement settlement;
+			settlement.center={32768,32768}; settlement.kind=MapGenerator::SettlementKind::RegionalCity;
+			settlement.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Castle,0,UrbanMorphology::Site{},42,false);
+			RoadNetwork network; Array<int> nodes,edges;
+			for (const double offset : {-1400.0,-1100.0,0.0,1100.0,1400.0})
+			{
+				nodes << network.addNode({32768+offset,20,32768});
+			}
+			for (size_t i=1; i<nodes.size(); ++i)
+			{
+				const Vec3 a=network.getNode(nodes[i-1])->position,b=network.getNode(nodes[i])->position;
+				edges << *network.addEdge(nodes[i-1],nodes[i],a+(b-a)/3,b-(b-a)/3,RoadType::Arterial,2);
+			}
+			if (reverse) { edges.reverse(); }
+			const int routeId=network.addRoute(RoadRouteKind::NationalRoute,U"Replacement route",edges,314);
+			Array<int> opposite=edges; opposite.reverse();
+			const int sharedId=network.addRoute(RoadRouteKind::PrefectureRoute,U"Shared opposite route",opposite,27);
+			network.getRoute(sharedId)->color=ColorF{.2,.4,.6};
+			DistrictRoads::KaidoSegment kaido; kaido.passesThrough=true; kaido.dirAtCenter={1,0};
+			DistrictRoads::generateSettlement(42,0,settlement,kaido,world,network);
+			const auto* route=network.getRoute(routeId);
+			context.expect(route && route->name==U"Replacement route" && route->number==314,U"Replacement preserves the original route identity and name");
+			int activeRoutes=0;
+			for (const auto& candidate : network.routes()) { if (candidate.id>=0) { ++activeRoutes; } }
+			context.expectEqual(activeRoutes,2,U"Reconnected shared routes do not leave separate route fragments");
+			int current=reverse ? nodes.back() : nodes.front(); HashSet<int> traversed;
+			if (route) for (const int id : route->edgeIds)
+			{
+				const auto* edge=network.getEdge(id);
+				context.expect(edge && traversed.insert(id).second,U"The replacement route contains live unique edges");
+				if (!edge) { continue; }
+				const bool connected=edge->nodeA==current || edge->nodeB==current;
+				context.expect(connected,U"Every replacement route edge continues from the previous endpoint without branches or jumps");
+				if (connected) { current=edge->nodeA==current ? edge->nodeB : edge->nodeA; }
+			}
+			context.expectEqual(current,reverse ? nodes.front() : nodes.back(),U"The ordered replacement reaches the original opposite regional approach");
+			const auto* shared=network.getRoute(sharedId);
+			context.expect(shared && shared->name==U"Shared opposite route" && shared->number==27 && shared->color==ColorF{.2,.4,.6},U"Overlapping opposite route keeps its own identity and styling");
+			int sharedNode=reverse ? nodes.front() : nodes.back(); HashSet<int> sharedEdges;
+			if (shared) for (const int id : shared->edgeIds)
+			{
+				const auto* edge=network.getEdge(id);
+				const bool connected=edge && (edge->nodeA==sharedNode || edge->nodeB==sharedNode);
+				context.expect(connected && sharedEdges.insert(id).second,U"Oppositely ordered shared membership remains a live continuous unique path");
+				if (connected) { sharedNode=edge->nodeA==sharedNode ? edge->nodeB : edge->nodeA; }
+				context.expect(edge && edge->routeIds.contains(sharedId),U"Shared route reverse membership is rebuilt");
+			}
+			context.expectEqual(sharedNode,reverse ? nodes.back() : nodes.front(),U"Opposite shared route reaches its own original endpoint");
+			for (const auto& edge : network.edges()) if (edge.id>=0 && edge.routeIds.contains(routeId))
+			{
+				context.expect(traversed.contains(edge.id),U"Route reverse membership contains no neighboring side branch");
+			}
+		}
+	});
+	runner.add(U"Morphology.UnbridgeableRouteReplacement", [](TestContext& context)
+	{
+		for (const bool reverse : {false,true})
+		{
+			World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+			for (int z=30; z<=33; ++z) for (int x=30; x<=33; ++x)
+			{
+				world.installChunkDirect(Point{x,z},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20,20});
+			}
+			MapGenerator::Settlement settlement;
+			settlement.center={32768,32768}; settlement.kind=MapGenerator::SettlementKind::RegionalCity;
+			settlement.plan=UrbanMorphology::makePlan(UrbanMorphology::Origin::Castle,0,UrbanMorphology::Site{},42,false);
+			// A civic reservation deliberately leaves no eligible replacement corridor.
+			settlement.plan.civic=RectF{-2000,-2000,4000,4000};
+			RoadNetwork network; Array<int> nodes,edges;
+			for (const double offset : {-1400.0,-1100.0,0.0,1100.0,1400.0})
+			{
+				nodes << network.addNode({32768+offset,20,32768});
+			}
+			for (size_t i=1; i<nodes.size(); ++i)
+			{
+				const Vec3 a=network.getNode(nodes[i-1])->position,b=network.getNode(nodes[i])->position;
+				edges << *network.addEdge(nodes[i-1],nodes[i],a+(b-a)/3,b-(b-a)/3,RoadType::Arterial,2);
+			}
+			if (reverse) { edges.reverse(); }
+			const int firstOutside=edges.front(),lastOutside=edges.back();
+			const int routeId=network.addRoute(RoadRouteKind::NationalRoute,U"Unbridgeable route",edges,314);
+			network.getRoute(routeId)->color=ColorF{.3,.5,.7};
+			DistrictRoads::KaidoSegment kaido; kaido.passesThrough=true; kaido.dirAtCenter={1,0};
+			DistrictRoads::generateSettlement(42,0,settlement,kaido,world,network);
+			const auto* original=network.getRoute(routeId);
+			context.expect(original && original->edgeIds.size()==1 && original->edgeIds.front()==firstOutside,U"Unbridgeable fallback retains the first outside fragment under the original ID");
+			HashSet<int> retained; int fragments=0;
+			for (const auto& route : network.routes()) if (route.id>=0)
+			{
+				++fragments;
+				context.expect(route.name==U"Unbridgeable route" && route.number==314 && route.kind==RoadRouteKind::NationalRoute && route.color==ColorF{.3,.5,.7},U"Fallback fragments retain route name, number, kind, and color");
+				context.expectEqual(route.edgeIds.size(),size_t{1},U"No route fragment invents a crossing of the missing corridor");
+				for (const int id : route.edgeIds)
+				{
+					const auto* edge=network.getEdge(id);
+					context.expect(edge && edge->routeIds.contains(route.id) && retained.insert(id).second,U"Every surviving outside edge has exact live reverse membership");
+				}
+			}
+			context.expectEqual(fragments,2,U"An unbridgeable span becomes exactly two surviving fragments");
+			context.expect(retained.contains(firstOutside) && retained.contains(lastOutside) && retained.size()==2,U"Both original outside edges survive without route-data loss");
+		}
+	});
 	runner.add(U"Morphology.CompactTempleGateway",[](TestContext& context)
 	{
 		World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);

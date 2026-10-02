@@ -258,11 +258,18 @@ namespace DistrictRoads
 			return out;
 		}
 
+		/// @brief Ordered membership retained while an interior regional span is replaced.
+		struct ClippedRoute
+		{
+			RoadRoute route;
+			Array<bool> reversed;
+			Array<bool> joinsPrevious;
+		};
+
 		/// @brief Clip the old regional network to the actual rotated town boundary.
 		Array<int> cutCastleApproaches(const Vec2& center, const Vec2& axisX, const Vec2& axisZ,
-			Vec2 halfExtent, RoadNetwork& network)
+			Vec2 halfExtent, RoadNetwork& network, Array<ClippedRoute>& clippedRoutes)
 		{
-			
 			const Vec2 boundary = halfExtent + Vec2{GenerationSettings::get().districtRoads_approachMargin,GenerationSettings::get().districtRoads_approachMargin};
 			const auto signedDistance = [&](const Vec3& p)
 			{
@@ -274,7 +281,7 @@ namespace DistrictRoads
 			{
 				if (edge.id >= 0 && (edge.roadType == RoadType::Arterial || edge.roadType == RoadType::LocalRoad)) { originalEdges << edge.id; }
 			}
-			HashSet<int> entrances;
+			HashSet<int> entrances, removedEdges;
 			int removed = 0;
 			for (const int id : originalEdges)
 			{
@@ -329,11 +336,35 @@ namespace DistrictRoads
 					const auto curve = network.getBezier(piece);
 					if (curve && signedDistance(curve->evaluate(0.5f)) < -0.01)
 					{
-						network.removeEdge(piece);
-						++removed;
+						removedEdges.insert(piece);
 					}
 				}
 			}
+			// Splitting preserves route order. Snapshot only after every boundary split,
+			// then defer route fragmentation until the replacement path is known.
+			for (const auto& route : network.routes())
+			{
+				if (route.id<0 || !route.edgeIds.any([&](int id) { return removedEdges.contains(id); })) { continue; }
+				ClippedRoute saved; saved.route=route;
+				int previousExit=-1;
+				for (size_t i=0; i<route.edgeIds.size(); ++i)
+				{
+					const auto* edge=network.getEdge(route.edgeIds[i]);
+					bool reversed=edge && edge->nodeB==previousExit;
+					const bool joined=edge && (edge->nodeA==previousExit || edge->nodeB==previousExit);
+					if (edge && !joined && i+1<route.edgeIds.size())
+					{
+						const auto* next=network.getEdge(route.edgeIds[i+1]);
+						reversed=next && (next->nodeA==edge->nodeA || next->nodeB==edge->nodeA);
+					}
+					saved.reversed << reversed; saved.joinsPrevious << joined;
+					previousExit=edge ? (reversed ? edge->nodeA : edge->nodeB) : -1;
+				}
+				clippedRoutes << std::move(saved);
+			}
+			for (const auto& saved : clippedRoutes) { network.getRoute(saved.route.id)->edgeIds.clear(); }
+			network.rebuildEdgeRouteIndex();
+			for (const int id : removedEdges) { if (network.getEdge(id)) { network.removeEdge(id); ++removed; } }
 			Array<int> result;
 			for (const int id : entrances)
 			{
@@ -574,50 +605,6 @@ namespace DistrictRoads
 
 
 
-		void reattachRoutesFromNeighbors(RoadNetwork& network, int edgeId)
-		{
-			RoadEdge* edge = network.getEdge(edgeId);
-			if (!edge || edge->id < 0) return;
-
-			HashTable<int, int> routeCounts;
-			const int ends[2] = { edge->nodeA, edge->nodeB };
-			for (const int nodeId : ends)
-			{
-				const RoadNode* node = network.getNode(nodeId);
-				if (!node) continue;
-				for (const auto& att : node->attachments)
-				{
-					if (att.edgeId == edgeId) continue;
-					const RoadEdge* nbr = network.getEdge(att.edgeId);
-					if (!nbr || nbr->id < 0) continue;
-					for (const int rid : nbr->routeIds)
-					{
-						++routeCounts[rid];
-					}
-				}
-			}
-			if (routeCounts.empty()) return;
-
-			int bestCount = 0;
-			for (const auto& [rid, count] : routeCounts) bestCount = Max(bestCount, count);
-
-			for (const auto& [rid, count] : routeCounts)
-			{
-				if (count < bestCount) continue;
-				if (!edge->routeIds.contains(rid))
-				{
-					edge->routeIds << rid;
-				}
-				if (RoadRoute* route = network.getRoute(rid))
-				{
-					if (!route->edgeIds.contains(edgeId))
-					{
-						route->edgeIds << edgeId;
-					}
-				}
-			}
-		}
-
 		struct GridAdjEdge
 		{
 			int   toNodeId = -1;
@@ -742,6 +729,61 @@ namespace DistrictRoads
 			}
 			edgePath.reverse();
 			return edgePath;
+		}
+
+		/// @brief Replace clipped spans only through the generated arterial corridor.
+		void restoreClippedRoutes(RoadNetwork& network, const Array<ClippedRoute>& savedRoutes,
+			const Array<int>& eligibleEdges)
+		{
+			HashTable<int,Array<GridAdjEdge>> graph;
+			HashSet<int> eligible;
+			for (const int id : eligibleEdges)
+			{
+				const auto* edge=network.getEdge(id);
+				if (!edge || !eligible.insert(id).second) { continue; }
+				graph[edge->nodeA] << GridAdjEdge{edge->nodeB,id,edge->length};
+				graph[edge->nodeB] << GridAdjEdge{edge->nodeA,id,edge->length};
+			}
+			for (const auto& saved : savedRoutes)
+			{
+				Array<Array<int>> fragments; Array<int> current; HashSet<int> used;
+				int previousExit=-1; bool removed=false, originalGap=false;
+				for (size_t i=0; i<saved.route.edgeIds.size(); ++i)
+				{
+					if (i>0 && !saved.joinsPrevious[i]) { originalGap=true; }
+					const int id=saved.route.edgeIds[i];
+					const auto* edge=network.getEdge(id);
+					if (!edge) { removed=true; continue; }
+					const int entry=saved.reversed[i] ? edge->nodeB : edge->nodeA;
+					const int exit=saved.reversed[i] ? edge->nodeA : edge->nodeB;
+					Array<int> replacement;
+					if (!current.isEmpty() && previousExit!=entry && removed && !originalGap)
+					{
+						replacement=findGridPathTurnPenalty(network,previousExit,entry,graph,GenerationSettings::get().districtRoads_turnPenalty);
+						if (replacement.any([&](int member) { return used.contains(member); })) { replacement.clear(); }
+					}
+					if (!current.isEmpty() && (originalGap || (previousExit!=entry && replacement.isEmpty())))
+					{
+						fragments << std::move(current); current.clear();
+					}
+					for (const int member : replacement) { current << member; used.insert(member); }
+					if (!used.insert(id).second)
+					{
+						if (!current.isEmpty()) { fragments << std::move(current); current.clear(); }
+						previousExit=-1; removed=false; originalGap=true; continue;
+					}
+					current << id; previousExit=exit; removed=false; originalGap=false;
+				}
+				if (!current.isEmpty()) { fragments << std::move(current); }
+				if (fragments.isEmpty()) { network.removeRoute(saved.route.id); continue; }
+				if (auto* route=network.getRoute(saved.route.id)) { route->edgeIds=std::move(fragments.front()); }
+				for (size_t i=1; i<fragments.size(); ++i)
+				{
+					const int id=network.addRoute(saved.route.kind,saved.route.name,std::move(fragments[i]),saved.route.number);
+					network.getRoute(id)->color=saved.route.color;
+				}
+			}
+			network.rebuildEdgeRouteIndex();
 		}
 
 		void pruneCastleGridEdges(uint64 localSeed, const Array<int>& gridEdgeIds, RoadNetwork& network)
@@ -1436,7 +1478,8 @@ namespace DistrictRoads
 			halfExtent=plan.halfExtent;
 
 			// Regional roads stop outside the complete rotated grid, including its corners.
-			const Array<int> arterialWorkNodes = cutCastleApproaches(settlement.center, axisX, axisZ, halfExtent, network);
+			Array<ClippedRoute> clippedRoutes;
+			const Array<int> arterialWorkNodes = cutCastleApproaches(settlement.center, axisX, axisZ, halfExtent, network, clippedRoutes);
 
 			// 4) 街路ごとの間隔で町人地・住宅地の街区を構築
 			const Array<float> coordsX=UrbanMorphology::streetCoordinates(plan,false);
@@ -1645,7 +1688,7 @@ namespace DistrictRoads
 		Array<int> outerGridPoints;
 		outerGridPoints.reserve(outerGridPointSet.size());
 		for (const int nid : outerGridPointSet) outerGridPoints << nid;
-		if (outerGridPoints.isEmpty()) return;
+		if (outerGridPoints.isEmpty()) { restoreClippedRoutes(network,clippedRoutes,{}); return; }
 
 			// 5) 矩形外側の街道端を、同じ辺の城下口へ接続
 			// 6) 接続した格子点リストを保持
@@ -1749,13 +1792,8 @@ namespace DistrictRoads
 			}
 		}
 
-		// Route 再付与: 新規幹線辺に隣接 Route を継承
-		HashSet<int> uniqueArterialEdges;
-		for (const int eid : newlyAddedArterials) uniqueArterialEdges.insert(eid);
-		for (const int eid : uniqueArterialEdges)
-		{
-			reattachRoutesFromNeighbors(network, eid);
-		}
+		// Keep each original route ordered; neighboring branches do not inherit it.
+		restoreClippedRoutes(network,clippedRoutes,newlyAddedArterials);
 
 		// Split deep blocks with a 4.4 m access lane. Shared midpoints preserve topology.
 		HashTable<int64,int> midpoints;

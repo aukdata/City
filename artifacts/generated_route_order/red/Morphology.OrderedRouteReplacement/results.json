@@ -1,0 +1,18 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Morphology.OrderedRouteReplacement",
+      "status": "failed",
+      "durationMs": 2198.660,
+      "failures": [
+        "A reconnected interior replacement does not leave separate route fragments (actual=2, expected=1)",
+        "The ordered replacement reaches the original opposite regional approach (actual=381, expected=4)",
+        "A reconnected interior replacement does not leave separate route fragments (actual=2, expected=1)",
+        "The ordered replacement reaches the original opposite regional approach (actual=404, expected=0)"
+      ]
+    }
+  ]
+}

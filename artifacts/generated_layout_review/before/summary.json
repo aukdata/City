@@ -1,0 +1,63 @@
+{
+  "save": "/workspace/scratch/67b01c4a1273/build-tools/latest/signal-generation-seed7-v20/App/road_integrity_snapshot",
+  "version": 20,
+  "nodes": 31967,
+  "edges": 33350,
+  "signals": 1554,
+  "incomingSignalViolations": 0,
+  "junctionViolations": 0,
+  "components": [
+    {
+      "nodes": 25757,
+      "edges": 29180,
+      "railEdges": 0,
+      "farmEdges": 12276
+    },
+    {
+      "nodes": 2797,
+      "edges": 3624,
+      "railEdges": 0,
+      "farmEdges": 639
+    },
+    {
+      "nodes": 388,
+      "edges": 387,
+      "railEdges": 387,
+      "farmEdges": 0
+    },
+    {
+      "nodes": 84,
+      "edges": 83,
+      "railEdges": 83,
+      "farmEdges": 0
+    },
+    {
+      "nodes": 73,
+      "edges": 72,
+      "railEdges": 72,
+      "farmEdges": 0
+    },
+    {
+      "nodes": 3,
+      "edges": 2,
+      "railEdges": 2,
+      "farmEdges": 0
+    },
+    {
+      "nodes": 3,
+      "edges": 2,
+      "railEdges": 2,
+      "farmEdges": 0
+    }
+  ],
+  "signalPhaseCountHistogram": {
+    "3": 5,
+    "2": 799,
+    "4": 346,
+    "0": 2,
+    "5": 327,
+    "6": 41,
+    "1": 34
+  },
+  "maxSignalCycleDuration": 110.0
+}
