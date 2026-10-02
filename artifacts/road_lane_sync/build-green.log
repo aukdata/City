@@ -1,0 +1,6 @@
+[0/2] Re-checking globbed directories...
+[1/6] Building CXX object CMakeFiles/City.dir/src/scene/GameScene_Panels.cpp.o
+[2/6] Building CXX object CMakeFiles/City.dir/src/scene/GameScene_Playtest.cpp.o
+[3/6] Building CXX object CMakeFiles/CityTests.dir/Test/RoadIntegrityTests.cpp.o
+[4/6] Linking CXX executable /workspace/scratch/67b01c4a1273/City-latest/App/City
+[5/6] Linking CXX executable /workspace/scratch/67b01c4a1273/City-latest/Test/App/CityTests

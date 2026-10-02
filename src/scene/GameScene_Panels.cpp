@@ -903,7 +903,13 @@ void GameScene::drawEdgePanel()
 	// 断面編集（Parts + Lanes 共通関数）
 	static SectionEditState edgeSectionState;
 	int y = ui.height();
-	dirty |= drawRoadSections(*edge, edgeSectionState, pFont, pBold, 6, y);
+	dirty |= RoadInspectorEdit::editSections(m_network, *edge, [&](RoadEdge& editedEdge)
+	{
+		return drawRoadSections(editedEdge, edgeSectionState, pFont, pBold, 6, y);
+	}, [this](int nodeA, int nodeB)
+	{
+		notifyNetworkChanged({nodeA, nodeB});
+	});
 	EdgeSectionState::selectedPart = edgeSectionState.selectedPart;
 	EdgeSectionState::selectedLane = edgeSectionState.selectedLane;
 

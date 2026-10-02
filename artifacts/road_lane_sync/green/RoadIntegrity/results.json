@@ -1,0 +1,161 @@
+﻿{
+  "total": 22,
+  "passed": 22,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "RoadIntegrity.InspectorSpeedRefreshesSimulation",
+      "status": "passed",
+      "durationMs": 0.066,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.InspectorLaneEditsRefreshSimulation",
+      "status": "passed",
+      "durationMs": 0.047,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.InspectorLaneEditPreservesSignalSnapshot",
+      "status": "passed",
+      "durationMs": 0.525,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint",
+      "status": "passed",
+      "durationMs": 0.009,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditNodeDeletionPreservesRewiredEdges",
+      "status": "passed",
+      "durationMs": 0.004,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSingleDirtyEndpointRefreshesNeighbors",
+      "status": "passed",
+      "durationMs": 0.007,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditRemovalUpdatesSnapshot",
+      "status": "passed",
+      "durationMs": 0.019,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSplitUpdatesSnapshot",
+      "status": "passed",
+      "durationMs": 0.052,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditNodeDeletionDetachesEdges",
+      "status": "passed",
+      "durationMs": 0.011,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.EditSmoothingRefreshesLength",
+      "status": "passed",
+      "durationMs": 0.022,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.RightAngleWidthTransition",
+      "status": "passed",
+      "durationMs": 0.272,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.GuideSignsAvoidJunctions",
+      "status": "passed",
+      "durationMs": 0.578,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.CurveControlPolygonIsNotPavement",
+      "status": "passed",
+      "durationMs": 0.024,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.GradeSeparatedCrossing",
+      "status": "passed",
+      "durationMs": 0.071,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.CrossingPreservesCurveAndProfile",
+      "status": "passed",
+      "durationMs": 0.316,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.OverlappingCorridorsRetainBranchesAndRoutes",
+      "status": "passed",
+      "durationMs": 0.554,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.PlannedAndSeparateParallelRoadsStaySeparate",
+      "status": "passed",
+      "durationMs": 0.016,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.SplitTaperKeepsSharedCrossSection",
+      "status": "passed",
+      "durationMs": 0.076,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.AcuteForkMouthsHaveSeparateEnvelopes",
+      "status": "passed",
+      "durationMs": 0.055,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.SplitRetainsRoadObjects",
+      "status": "passed",
+      "durationMs": 0.056,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.ShortOverlappingEndpoints",
+      "status": "passed",
+      "durationMs": 0.133,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadIntegrity.MixedGradeJunctionVisibility",
+      "status": "passed",
+      "durationMs": 1606.227,
+      "failures": [
+      ]
+    }
+  ]
+}

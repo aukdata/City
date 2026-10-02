@@ -4,6 +4,8 @@
 #include "src/sim/SimGraph.hpp"
 #include "src/traffic/TrafficGraph.hpp"
 #include "src/ui/RoadInspectorEdit.hpp"
+#include "src/traffic/TrafficSpawn.hpp"
+#include "src/save/RoadBinary.hpp"
 #include "src/road/GuideSign.hpp"
 #include "src/road/JunctionGeometry.hpp"
 #include "src/render/RoadRenderer.hpp"
@@ -83,6 +85,192 @@ void registerRoadIntegrityTests(TestRunner& runner)
 		context.expectEqual(notifications, 1, U"Repeated input does not redundantly refresh the simulation");
 		context.expectNear(network.getEdge(unrelatedId)->speedLimit, 50, .001, U"The inspector leaves an unrelated road unchanged");
 		context.expectNear(graph.getEdge(unrelatedId)->speedLimit, 50, .001, U"The unrelated simulation speed is preserved");
+	});
+
+	runner.add(U"RoadIntegrity.InspectorLaneEditsRefreshSimulation", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int id = addRoad(network, {0, 0, 0}, {30, 0, 0}, {70, 0, 0}, {100, 0, 0});
+		const int unrelatedId = addRoad(network, {0, 0, 100}, {30, 0, 100}, {70, 0, 100}, {100, 0, 100});
+		auto* edge = network.getEdge(id);
+		const auto originalLanes = edge->lanes;
+		SimGraph graph = SimGraph::build(network);
+		TrafficGraph routes; routes.rebuild(graph, 0, {});
+		int notifications = 0;
+		const auto notify = [&](int nodeA, int nodeB)
+		{
+			++notifications;
+			context.expect(nodeA == edge->nodeA && nodeB == edge->nodeB, U"Section edits notify exactly the edited endpoints");
+			graph.updateAround({nodeA, nodeB}, network);
+			routes.rebuild(graph, 0, {});
+		};
+		const auto edit = [&](auto&& apply)
+		{
+			return RoadInspectorEdit::editSections(network, *edge, [&](RoadEdge& value)
+			{
+				context.expect(&value == edge, U"Section widgets retain the actual road field identities");
+				return apply(value);
+			}, notify);
+		};
+		context.expect(!edit([](RoadEdge&) { return false; }), U"An unchanged section is not dirty");
+		context.expectEqual(notifications, 0, U"An unchanged section does not refresh the network");
+		context.expect(edit([](RoadEdge& value) { value.lanes[0].op = OpState::Closed; return true; }), U"Closing a lane marks its section dirty");
+		context.expectEqual(notifications, 1, U"Closing a lane refreshes the live network once");
+		context.expect(graph.getEdge(id)->lanes[0].op == OpState::Closed, U"The live snapshot receives lane closure before reload");
+		context.expect(!TrafficSpawn::laneOpen(*graph.getEdge(id), 0), U"Automatic traffic cannot spawn on the closed lane");
+		context.expect(routes.entryNodeId(id, 0) < 0 && routes.exitNodeId(id, 0) < 0, U"Routing removes both nodes of the closed lane");
+		context.expect(edit([](RoadEdge& value) { value.lanes[0].op = OpState::Open; return true; }), U"Reopening a lane marks its section dirty");
+		context.expect(TrafficSpawn::laneOpen(*graph.getEdge(id), 0) && routes.entryNodeId(id, 0) >= 0, U"Reopening restores traffic eligibility and routing");
+		context.expectEqual(notifications, 2, U"Reopening sends one additional update");
+		context.expect(edit([](RoadEdge& value) { value.lanes[0].dir = LaneDir::Backward; return true; }), U"Direction changes use the section edit path");
+		context.expect(graph.getEdge(id)->lanes[0].dir == LaneDir::Backward, U"The live snapshot receives the reversed direction");
+		const auto* entry = routes.getLaneNode(routes.entryNodeId(id, 0));
+		const auto* exit = routes.getLaneNode(routes.exitNodeId(id, 0));
+		context.expect(entry && exit, U"The reversed lane remains represented in routing");
+		if (entry && exit)
+		{
+			context.expectNear(entry->arcPos, edge->length, .001, U"A reversed lane enters at endpoint B");
+			context.expectNear(exit->arcPos, 0, .001, U"A reversed lane exits at endpoint A");
+		}
+		const int appendedLane = static_cast<int>(edge->lanes.size());
+		context.expect(edit([](RoadEdge& value) { Lane lane; lane.op = OpState::Open; value.lanes << lane; return true; }), U"Adding a lane uses the section edit path");
+		context.expectEqual(graph.getEdge(id)->lanes.size(), edge->lanes.size(), U"The live snapshot receives the added lane count");
+		context.expect(routes.entryNodeId(id, appendedLane) >= 0, U"The newly added open lane is immediately routable");
+		context.expect(edit([&](RoadEdge& value) { value.lanes.remove_at(appendedLane); return true; }), U"Removing a lane uses the section edit path");
+		context.expectEqual(graph.getEdge(id)->lanes.size(), edge->lanes.size(), U"The live snapshot removes the deleted lane");
+		context.expect(routes.entryNodeId(id, appendedLane) < 0, U"The deleted lane is absent from routing");
+		context.expect(edit([&](RoadEdge& value) { value.lanes = originalLanes; return true; }), U"The original lane structure can be restored");
+		context.expectEqual(notifications, 6, U"Every changed section sends exactly one notification");
+		context.expect(!edit([](RoadEdge&) { return false; }), U"Repeated idle frames do not mark the section dirty");
+		context.expectEqual(notifications, 6, U"Idle frames do not send additional notifications");
+		context.expect(graph.getEdge(id)->lanes[0].dir == originalLanes[0].dir, U"The restored direction reaches the live snapshot");
+		context.expect(network.getEdge(unrelatedId)->lanes[0].op == OpState::Open
+			&& graph.getEdge(unrelatedId)->lanes[0].dir == originalLanes[0].dir
+			&& graph.getEdge(unrelatedId)->lanes.size() == originalLanes.size(), U"An unrelated road retains its lane state");
+	});
+
+	runner.add(U"RoadIntegrity.InspectorLaneEditPreservesSignalSnapshot", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const Vec3 center{500, 0, 500};
+		const int junction = network.addNode(center);
+		Array<int> arms;
+		for (int arm = 0; arm < 2; ++arm)
+		{
+			const double angle = arm * Math::Pi;
+			const Vec3 end = center + Vec3{Cos(angle) * 100, 0, Sin(angle) * 100};
+			const int id = *network.addEdge(junction, network.addNode(end), center.lerp(end, 1.0 / 3), center.lerp(end, 2.0 / 3), RoadType::Arterial, 2);
+			network.getEdge(id)->edgeState = EdgeState::Open;
+			arms << id;
+		}
+		network.rebuildNodeConnectivity(junction, junction);
+		auto* edge = network.getEdge(arms.front());
+		auto* node = network.getNode(junction);
+		context.expectEqual(node->laneConnections.size(), 2, U"The inspector fixture starts with two opposing joint movements");
+		if (node->laneConnections.size() != 2) { return; }
+		constexpr int kFirstMovementId = 2000;
+		constexpr int kNextMovementId = 10000;
+		constexpr float kAuthoredSeconds = 37;
+		constexpr float kAllRedSeconds = 19;
+		SignalPlacement authored{U"signal_3lamp"}; authored.yawOffset = .75f;
+		SignalPhaseDef served, allRed; served.duration = kAuthoredSeconds; allRed.duration = kAllRedSeconds;
+		for (size_t index = 0; index < node->laneConnections.size(); ++index)
+		{
+			node->laneConnections[index].id = kFirstMovementId + static_cast<int>(index) * 3;
+			served.greenConnectionIds << node->laneConnections[index].id;
+		}
+		served.greenConnectionIds.reverse(); authored.phases = {served, allRed};
+		node->signalPlacement = authored; node->nextConnectionId = kNextMovementId;
+		node->getAttachment(edge->id)->control = TrafficControl::Stop;
+		SimGraph graph = SimGraph::build(network);
+		TrafficGraph routes; routes.rebuild(graph, 0, {});
+		int notifications = 0;
+		const auto notify = [&](int nodeA, int nodeB)
+		{
+			++notifications;
+			graph.updateAround({nodeA, nodeB}, network);
+			routes.rebuild(graph, 0, {});
+		};
+		const auto originalConnections = node->laneConnections;
+		const auto touchesClosedLane = [&](const LaneConnection& connection)
+		{
+			return (connection.fromEdgeId == edge->id && connection.fromLaneIndex == 0)
+				|| (connection.toEdgeId == edge->id && connection.toLaneIndex == 0);
+		};
+		context.expect(originalConnections.any(touchesClosedLane), U"The edited lane initially participates in the junction");
+		context.expect(RoadInspectorEdit::editSections(network, *edge, [](RoadEdge& value)
+		{
+			value.lanes[0].op = OpState::Closed; return true;
+		}, notify), U"Closing an inspector lane updates a connected road");
+		context.expectEqual(notifications, 1, U"Connected lane closure notifies after rebuilding connectivity");
+		context.expect(!node->laneConnections.any(touchesClosedLane), U"Closed lane movements are removed from the authored network");
+		context.expect(!graph.getNode(junction)->laneConnections.any(touchesClosedLane), U"The live snapshot receives rebuilt junction connectivity");
+		Array<int> expectedSurvivors;
+		for (const int id : served.greenConnectionIds)
+		{
+			const auto it = std::find_if(originalConnections.begin(), originalConnections.end(), [&](const LaneConnection& connection) { return connection.id == id; });
+			if (it != originalConnections.end() && !touchesClosedLane(*it)) { expectedSurvivors << id; }
+		}
+		context.expect(!expectedSurvivors.isEmpty(), U"Some authored green movements survive the closure");
+		const auto verifyAuthored = [&]
+		{
+			context.expect(node->signalPlacement && node->signalPlacement->phases.size() >= 2, U"The authored green and all-red phases remain available");
+			if (!node->signalPlacement || node->signalPlacement->phases.size() < 2) { return; }
+			const auto& current = *node->signalPlacement;
+			context.expectNear(current.yawOffset, authored.yawOffset, .001, U"Lane editing retains authored signal placement");
+			context.expect(current.phases[0].duration == kAuthoredSeconds && current.phases[0].greenConnectionIds == expectedSurvivors, U"Surviving authored movements keep their IDs, order and timing");
+			context.expect(current.phases[1].duration == kAllRedSeconds && current.phases[1].greenConnectionIds.isEmpty(), U"An intentional all-red phase retains its duration and position");
+			context.expect(node->getAttachment(edge->id)->control == TrafficControl::Stop, U"Lane editing does not reset an authored approach control");
+		};
+		verifyAuthored();
+		const auto roundTrip = [&](StringView suffix)
+		{
+			const FilePath path = U"TestResults/inspector_lanes_{}.bin"_fmt(suffix);
+			const bool written = RoadBinary::writeGlobal(path, network);
+			context.expect(written, U"The edited connected road saves with valid movement references");
+			if (!written) { return; }
+			RoadNetwork restored;
+			const bool loaded = RoadBinary::readGlobal(path, restored, true);
+			context.expect(loaded, U"Current v20 inspector edits reload without stale movement identities");
+			if (!loaded) { return; }
+			const auto* restoredNode = restored.getNode(junction);
+			context.expect(restored.getEdge(edge->id)->lanes[0].op == edge->lanes[0].op, U"Reload retains the edited lane operation");
+			context.expectEqual(restoredNode->nextConnectionId, node->nextConnectionId, U"Reload retains the movement allocation history");
+			context.expectEqual(restoredNode->laneConnections.size(), node->laneConnections.size(), U"Reload retains the exact movement count");
+			context.expect(restoredNode->signalPlacement && restoredNode->signalPlacement->phases.size() == node->signalPlacement->phases.size(), U"Reload retains the complete authored program");
+			if (!restoredNode->signalPlacement) { return; }
+			for (size_t phase = 0; phase < Min(restoredNode->signalPlacement->phases.size(), node->signalPlacement->phases.size()); ++phase)
+			{
+				const auto& before = node->signalPlacement->phases[phase];
+				const auto& after = restoredNode->signalPlacement->phases[phase];
+				context.expect(before.duration == after.duration && before.greenConnectionIds == after.greenConnectionIds, U"Reload retains exact phase timings and selected movement IDs");
+			}
+		};
+		roundTrip(U"closed");
+		context.expect(RoadInspectorEdit::editSections(network, *edge, [](RoadEdge& value)
+		{
+			value.lanes[0].op = OpState::Open; return true;
+		}, notify), U"Reopening uses the same connected inspector edit path");
+		verifyAuthored();
+		context.expect(node->laneConnections.any(touchesClosedLane), U"Reopening restores the lane's junction movements");
+		for (const auto& connection : node->laneConnections)
+		{
+			if (touchesClosedLane(connection))
+			{
+				context.expect(connection.id >= kNextMovementId, U"Reopened movements receive fresh IDs instead of retired authored identities");
+			}
+		}
+		if (node->signalPlacement)
+		{
+			for (size_t phase = 2; phase < node->signalPlacement->phases.size(); ++phase)
+			{
+				for (const int id : node->signalPlacement->phases[phase].greenConnectionIds)
+				{
+					context.expect(id >= kNextMovementId, U"Additional green groups contain only newly created movements");
+				}
+			}
+		}
+		roundTrip(U"reopened");
 	});
 
 	runner.add(U"RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint", [](TestContext& context)

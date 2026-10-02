@@ -1,0 +1,40 @@
+﻿{
+  "total": 2,
+  "passed": 0,
+  "failed": 2,
+  "tests": [
+    {
+      "name": "RoadIntegrity.InspectorLaneEditsRefreshSimulation",
+      "status": "failed",
+      "durationMs": 0.074,
+      "failures": [
+        "Closing a lane refreshes the live network once (actual=0, expected=1)",
+        "The live snapshot receives lane closure before reload",
+        "Automatic traffic cannot spawn on the closed lane",
+        "Routing removes both nodes of the closed lane",
+        "Reopening sends one additional update (actual=0, expected=2)",
+        "The live snapshot receives the reversed direction",
+        "A reversed lane enters at endpoint B (actual=0, expected=99.99999237060547, tolerance=0.001)",
+        "A reversed lane exits at endpoint A (actual=99.99999237060547, expected=0, tolerance=0.001)",
+        "The live snapshot receives the added lane count (actual=4, expected=5)",
+        "The newly added open lane is immediately routable",
+        "Every changed section sends exactly one notification (actual=0, expected=6)",
+        "Idle frames do not send additional notifications (actual=0, expected=6)"
+      ]
+    },
+    {
+      "name": "RoadIntegrity.InspectorLaneEditPreservesSignalSnapshot",
+      "status": "failed",
+      "durationMs": 0.585,
+      "failures": [
+        "Connected lane closure notifies after rebuilding connectivity (actual=0, expected=1)",
+        "Closed lane movements are removed from the authored network",
+        "The live snapshot receives rebuilt junction connectivity",
+        "Surviving authored movements keep their IDs, order and timing",
+        "Current v20 inspector edits reload without stale movement identities",
+        "Surviving authored movements keep their IDs, order and timing",
+        "Reopened movements receive fresh IDs instead of retired authored identities"
+      ]
+    }
+  ]
+}

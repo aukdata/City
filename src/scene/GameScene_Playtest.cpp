@@ -36,13 +36,33 @@ void GameScene::recordPlaytestFrame()
 		state[U"selectionKind"]=static_cast<int>(m_selection.kind);state[U"selectionId"]=m_selection.id;
 		if (const auto selected = selectedEdgeId())
 		{
+			const auto describeLanes = [](const Array<Lane>& lanes)
+			{
+				Array<JSON> result;
+				for (size_t index = 0; index < lanes.size(); ++index)
+				{
+					const auto& lane = lanes[index];
+					JSON item;
+					item[U"index"] = index;
+					item[U"dir"] = static_cast<int>(lane.dir);
+					item[U"op"] = static_cast<int>(lane.op);
+					item[U"type"] = static_cast<int>(lane.type);
+					item[U"offsetA_L"] = lane.offsetA_L; item[U"offsetA_R"] = lane.offsetA_R;
+					item[U"offsetB_L"] = lane.offsetB_L; item[U"offsetB_R"] = lane.offsetB_R;
+					item[U"nominalWidth"] = lane.nominalWidth;
+					result << std::move(item);
+				}
+				return result;
+			};
 			if (const auto* edge = m_network.getEdge(*selected))
 			{
 				state[U"selectedEdgeSpeedLimit"] = edge->speedLimit;
+				state[U"selectedEdgeLanes"] = describeLanes(edge->lanes);
 			}
 			if (const auto* edge = m_simGraph ? m_simGraph->getEdge(*selected) : nullptr)
 			{
 				state[U"selectedEdgeSimulationSpeedLimit"] = edge->speedLimit;
+				state[U"selectedEdgeSimulationLanes"] = describeLanes(edge->lanes);
 			}
 		}
 		state[U"townLabels"] = Array<JSON>{};

@@ -1,0 +1,338 @@
+{
+  "before": {
+    "frame": 165,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  },
+  "closed": {
+    "frame": 345,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  },
+  "reversed_closed": {
+    "frame": 435,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  },
+  "reloaded": {
+    "frame": 165,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 2,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  },
+  "open_reversed": {
+    "frame": 390,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 1,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  },
+  "restored": {
+    "frame": 480,
+    "timeSpeed": 0,
+    "selectionId": 41610,
+    "selectedEdgeLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "selectedEdgeSimulationLanes": [
+      {
+        "dir": 0,
+        "index": 0,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": -3.1500000953674316,
+        "offsetA_R": 0.0,
+        "offsetB_L": -3.1500000953674316,
+        "offsetB_R": 0.0,
+        "op": 0,
+        "type": 0
+      },
+      {
+        "dir": 1,
+        "index": 1,
+        "nominalWidth": 3.1500000953674316,
+        "offsetA_L": 0.0,
+        "offsetA_R": 3.1500000953674316,
+        "offsetB_L": 0.0,
+        "offsetB_R": 3.1500000953674316,
+        "op": 0,
+        "type": 0
+      }
+    ],
+    "renderQuality": "light",
+    "renderDistance": null,
+    "arraysEqual": true
+  }
+}
