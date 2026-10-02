@@ -1,0 +1,20 @@
+{
+  "sourceHead": "42ad097",
+  "scheduleId": 0,
+  "name": "汐淵・鵜池線",
+  "suspendedReloaded": true,
+  "restoredRailwayMetadataExact": true,
+  "restoredBinaryDifferences": [
+    "meta.json"
+  ],
+  "restoredMetadataDifferences": [
+    "/zoneDevelopment/cursor"
+  ],
+  "sourceFileCount": 8199,
+  "originalUnchanged": true,
+  "originalFiles": 8199,
+  "runtimeExits": [
+    0,
+    0
+  ]
+}
