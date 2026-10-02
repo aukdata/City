@@ -1,6 +1,7 @@
 ﻿#include "GameScene.hpp"
 #include "../road/RoadPlanConstruction.hpp"
 #include "../ui/KeyboardActions.hpp"
+#include "../ui/RoadPlanInput.hpp"
 
 namespace
 {
@@ -97,84 +98,49 @@ void GameScene::handleRoadPlan()
 	if (GameInput::down(KeyEnter)) { commitDraftRoadPlan(); return; }
 	const bool redo = GameInput::pressed(KeyControl) && (GameInput::down(KeyY) || (GameInput::pressed(KeyShift) && GameInput::down(KeyZ)));
 	const bool undo = GameInput::down(KeyBackspace) || (GameInput::pressed(KeyControl) && !GameInput::pressed(KeyShift) && GameInput::down(KeyZ));
-	if (redo || undo || (!m_panelManager.blocksMouseInput() && MouseR.down()))
+	RoadPlanInput::Frame frame;
+	frame.down = MouseL.down();
+	frame.pressed = MouseL.pressed();
+	frame.screenCursor = Cursor::PosF();
+	frame.history = redo ? RoadPlanInput::History::Redo
+		: (undo || (!m_panelManager.blocksMouseInput() && MouseR.down()))
+			? RoadPlanInput::History::Undo : RoadPlanInput::History::None;
+	if (frame.history == RoadPlanInput::History::None)
 	{
-		m_draftRoadPlan.draggedPoint = none;
-		m_draftRoadPlan.dragPoints.clear();
-		if (redo ? m_draftRoadPlan.editor.redo() : m_draftRoadPlan.editor.undo()) { rebuildDraftRoadPlan(); }
-		return;
-	}
-	m_roadPlanCursor = none;
-	const auto& points = m_draftRoadPlan.editor.points();
-	const bool onGround = !m_panelManager.blocksMouseInput() && m_cursorGroundPos.has_value();
-	if (onGround)
-	{
-		Vec3 point = *m_cursorGroundPos;
-		point.y += m_drawElevation;
-		m_roadPlanCursor =
-			m_draftRoadPlan.snapping && !GameInput::pressed(KeyAlt) && Abs(m_drawElevation) < .1f
-				? m_roadPlanSnapIndex.find(m_network, point, 12, 6, !m_underground,
-					  [&](const RoadEdge& edge) { return !m_underground || m_subsurface.containsEdge(edge.id); })
-				: RoadPlanSnapIndex::Hit{point};
-		if (m_underground && !SubsurfaceView::below(m_roadPlanCursor->position, m_world))
+		m_roadPlanCursor = none;
+		const bool onGround = !m_panelManager.blocksMouseInput() && m_cursorGroundPos.has_value();
+		if (onGround)
 		{
-			m_roadPlanCursor = RoadPlanSnapIndex::Hit{point};
-		}
-	}
-	if (m_draftRoadPlan.draggedPoint)
-	{
-		if (onGround) { m_draftRoadPlan.dragPoints[*m_draftRoadPlan.draggedPoint] = m_roadPlanCursor->position; }
-		if (!MouseL.pressed())
-		{
-			if (onGround && m_draftRoadPlan.editor.revise(std::move(m_draftRoadPlan.dragPoints))) { rebuildDraftRoadPlan(); }
-			m_draftRoadPlan.draggedPoint = none;
-			m_draftRoadPlan.dragPoints.clear();
-		}
-		return;
-	}
-	if (!onGround || !MouseL.down()) { return; }
-	const auto screen = [&](Vec3 point) { return m_camera.camera3D().worldToScreenPoint(point+Vec3{0,1,0}).xy(); };
-	constexpr double kHandleRadius = 12;
-	Optional<size_t> selected;
-	double nearest = kHandleRadius;
-	for (size_t index = 0; index < points.size(); ++index)
-	{
-		const double distance = screen(points[index]).distanceFrom(Cursor::PosF());
-		if (distance < nearest) { selected = index; nearest = distance; }
-	}
-	Array<Vec3> edited = points;
-	if (!selected && m_draftRoadPlan.editor.generated())
-	{
-		// 曲線そのものを拾い、途中に新しい調整点を挿入する。
-		size_t index = 0;
-		for (const auto& edge : m_draftRoadPlan.editor.preview().edges())
-		{
-			if (edge.id < 0) { continue; }
-			const auto curve = m_draftRoadPlan.editor.preview().getBezier(edge.id);
-			++index;
-			if (!curve) { continue; }
-			for (int sample = 1; sample < 32; ++sample)
+			Vec3 point = *m_cursorGroundPos;
+			point.y += m_drawElevation;
+			m_roadPlanCursor =
+				m_draftRoadPlan.snapping && !GameInput::pressed(KeyAlt) && Abs(m_drawElevation) < .1f
+					? m_roadPlanSnapIndex.find(m_network, point, 12, 6, !m_underground,
+						  [&](const RoadEdge& edge) { return !m_underground || m_subsurface.containsEdge(edge.id); })
+					: RoadPlanSnapIndex::Hit{point};
+			if (m_underground && !SubsurfaceView::below(m_roadPlanCursor->position, m_world))
 			{
-				const Vec3 point = curve->evaluate(sample/32.0f);
-				const double distance = screen(point).distanceFrom(Cursor::PosF());
-				if (distance < nearest) { selected = index; nearest = distance; }
+				m_roadPlanCursor = RoadPlanSnapIndex::Hit{point};
 			}
+			frame.groundPoint = m_roadPlanCursor->position;
 		}
-		if (selected) { edited.insert(edited.begin()+*selected,m_roadPlanCursor->position); }
 	}
-	if (selected)
+	const auto screen = [&](Vec3 point) { return m_camera.camera3D().worldToScreenPoint(point+Vec3{0,1,0}).xy(); };
+	const auto result = RoadPlanInput::update(m_draftRoadPlan.editor, m_draftRoadPlan.draggedPoint,
+		m_draftRoadPlan.dragPoints, frame, screen);
+	if (result == RoadPlanInput::Result::Changed)
 	{
-		m_draftRoadPlan.draggedPoint = selected;
-		m_draftRoadPlan.dragPoints = std::move(edited);
+		rebuildDraftRoadPlan();
 	}
-	else if (points.size() < 2)
+	else if (result == RoadPlanInput::Result::PlacementRejected)
 	{
-		if (!m_draftRoadPlan.editor.place(m_roadPlanCursor->position))
-		{
-			m_draftRoadPlan.error = true;
-			m_draftRoadPlan.message = U"始点から2m以上離して指定してください";
-		}
-		else { m_soundEffects.play(SoundEffects::Cue::Select);m_draftRoadPlan.message.clear(); m_draftRoadPlan.error = false; }
+		m_draftRoadPlan.error = true;
+		m_draftRoadPlan.message = U"始点から2m以上離して指定してください";
+	}
+	else if (result == RoadPlanInput::Result::Placed)
+	{
+		m_soundEffects.play(SoundEffects::Cue::Select);
+		m_draftRoadPlan.message.clear();
+		m_draftRoadPlan.error = false;
 	}
 }
-

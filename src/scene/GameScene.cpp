@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/RoadPlanInput.hpp"
 #include "../render/ShaderAsset.hpp"
 #include "../render/RenderQuality.hpp"
 #include "../ui/ZonePalette.hpp"
@@ -362,12 +363,13 @@ void GameScene::update()
 		m_trackingVehicle = false;
 	}
 
-	if (!mapInput)
+	RoadPlanInput::dispatchFrame(!mapInput, MouseL.pressed(), m_draftRoadPlan.draggedPoint,
+		m_draftRoadPlan.dragPoints, [&]
 	{
 		if (!m_driving.active()) { updateCursor(); }
 		handleInput();
 		if (!m_driving.active()) { m_debugRenderer.handleInput(); }
-	}
+	});
 	updateDriving(dt,mapInput);
 
 	if (getData().playtest && !getData().playtestCommands.isEmpty() && m_playtestFrame%15==0) { processPlaytestCommand(); }
