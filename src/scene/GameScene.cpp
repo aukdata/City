@@ -312,7 +312,9 @@ void GameScene::update()
 	handleGlobalShortcuts();
 	if (!m_showPauseMenu && (!GameInput::keyboardBlocked()))
 	{
-		if (const auto target=m_minimapRenderer.update(m_camera,m_network,m_trainNetwork,m_districts))
+		// Capture visible-panel ownership before a closing click can hide its panel.
+		if (const auto target=m_minimapRenderer.update(m_camera,m_network,m_trainNetwork,m_districts,
+			m_panelManager.isMouseOnAnyPanel()))
 		{
 			jumpToMapPosition(*target);
 		}

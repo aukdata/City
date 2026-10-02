@@ -1,0 +1,38 @@
+﻿{
+  "total": 3,
+  "passed": 1,
+  "failed": 2,
+  "tests": [
+    {
+      "name": "MapTransport.PanelOcclusionClickAndWheel",
+      "status": "failed",
+      "durationMs": 2.171,
+      "failures": [
+        "A blank foreground panel click cannot open or be consumed by the hidden minimap",
+        "Scrolling the foreground panel cannot zoom the hidden minimap (actual=1000, expected=2000, tolerance=0)",
+        "The foreground panel retains its wheel input",
+        "Hiding the panel restores the exposed minimap wheel",
+        "A blank foreground panel click cannot open or be consumed by the hidden minimap",
+        "Scrolling the foreground panel cannot zoom the hidden minimap (actual=1000, expected=2000, tolerance=0)",
+        "The foreground panel retains its wheel input",
+        "Hiding the panel restores the exposed minimap wheel"
+      ]
+    },
+    {
+      "name": "MapTransport.PanelOcclusionClosingClick",
+      "status": "failed",
+      "durationMs": 0.102,
+      "failures": [
+        "The closing click cannot fall through into the map",
+        "The actual panel handler closes the panel and consumes the click"
+      ]
+    },
+    {
+      "name": "MapTransport.PanelOcclusionKeyboardAndFullMap",
+      "status": "passed",
+      "durationMs": 0.045,
+      "failures": [
+      ]
+    }
+  ]
+}

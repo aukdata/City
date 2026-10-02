@@ -91,21 +91,26 @@ void MinimapRenderer::refreshMap(const RoadNetwork& roads,const TrainNetwork& ra
 		m_mapDirty=false;
 	}
 }
-Optional<Vec2> MinimapRenderer::update(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements)
+Optional<Vec2> MinimapRenderer::update(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements, bool pointerBlocked)
 {
 	refreshMap(roads,railway,settlements);
 	const Vec3 focus=camera.focusPoint();
 	const Vec3 direction=camera.camera3D().getFocusPosition()-camera.eyePosition();
 	m_local.follow({focus.x,focus.z},{direction.x,direction.z});
+	return updateInput({focus.x,focus.z}, Cursor::PosF(), MouseL.down(), Mouse::Wheel(), GameInput::down(KeyM), pointerBlocked);
+}
+
+Optional<Vec2> MinimapRenderer::updateInput(Vec2 focus, Vec2 cursor, bool clicked, double wheel, bool mapShortcut, bool pointerBlocked)
+{
 	m_consumedInput=m_map.visible;
-	if (m_map.visible) { return m_map.update(Scene::Size(),Vec2{focus.x,focus.z}); }
-	bool open=GameInput::down(KeyM);
-	if (m_smallVisible && smallRect().contains(Cursor::PosF()))
+	if (m_map.visible) { return m_map.update(Scene::Size(),focus); }
+	bool open=mapShortcut;
+	if (!pointerBlocked && m_smallVisible && smallRect().contains(cursor))
 	{
-		m_consumedInput=MouseL.down() || Mouse::Wheel()!=0;
-		open|=m_local.interact(smallRect(),Cursor::PosF(),MouseL.down(),Mouse::Wheel())==LocalMapView::Action::OpenFullScreen;
+		m_consumedInput=clicked || wheel!=0;
+		open|=m_local.interact(smallRect(),cursor,clicked,wheel)==LocalMapView::Action::OpenFullScreen;
 	}
-	if (open) { openFullScreen(camera,roads,railway,settlements); }
+	if (open) { m_map.open(focus); m_consumedInput=true; }
 	return none;
 }
 void MinimapRenderer::openFullScreen(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements)

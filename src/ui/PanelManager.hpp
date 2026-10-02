@@ -46,7 +46,8 @@ public:
 
 	/// @brief 入力処理（閉じる・ドラッグ・Z オーダー・スクロール）
 	/// @return いずれかのパネルが入力を消費したら true
-	bool handleInput();
+	bool handleInput(Vec2 cursor = Cursor::PosF(), bool clicked = MouseL.down(),
+		bool held = MouseL.pressed(), double wheel = Mouse::Wheel());
 
 	/// @brief 全パネルの背景・タイトルバーを描画（zOrder 昇順）
 	void drawBackgrounds();
@@ -65,7 +66,7 @@ public:
 	void reportContentHeight(StringView id, double height);
 
 	/// @brief マウスがいずれかの表示中パネル上にあるか
-	[[nodiscard]] bool isMouseOnAnyPanel() const;
+	[[nodiscard]] bool isMouseOnAnyPanel(Vec2 cursor = Cursor::PosF()) const;
 
 	/// @brief 直前の handleInput() でクリックが消費されたか
 	[[nodiscard]] bool consumedInput() const { return m_consumedInput; }

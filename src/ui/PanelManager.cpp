@@ -60,7 +60,7 @@ bool PanelManager::isVisible(StringView id) const
 	return p && p->visible;
 }
 
-bool PanelManager::handleInput()
+bool PanelManager::handleInput(Vec2 cursor, bool clicked, bool held, double wheel)
 {
 	// 入力処理はドラッグ継続、最前面パネル判定、閉じる・前面化・スクロールの順に処理する。
 	m_consumedInput = false;
@@ -69,10 +69,10 @@ bool PanelManager::handleInput()
 	// ドラッグ中の処理（パネル移動）
 	if (!m_draggingId.isEmpty())
 	{
-		if (MouseL.pressed())
+		if (held)
 		{
 			if (auto* p = find(m_draggingId))
-				p->pos = Cursor::PosF() - m_dragOffset;
+				p->pos = cursor - m_dragOffset;
 			m_consumedInput = true;
 			m_mouseOwner = m_draggingId;
 			return true;
@@ -87,7 +87,7 @@ bool PanelManager::handleInput()
 	for (auto* p : panels)
 	{
 		const RectF panelRect{ p->pos, p->size };
-		if (!panelRect.mouseOver()) continue;
+		if (!panelRect.contains(cursor)) continue;
 
 		// このパネルがカーソルの最前面オーナー
 		m_mouseOwner = p->id;
@@ -95,7 +95,7 @@ bool PanelManager::handleInput()
 		// 閉じるボタン判定
 		const RectF closeRect{ p->pos.x + p->size.x - kTitleBarH, p->pos.y,
 		                       static_cast<double>(kTitleBarH), static_cast<double>(kTitleBarH) };
-		if (closeRect.mouseOver() && MouseL.down())
+		if (closeRect.contains(cursor) && clicked)
 		{
 			p->visible = false;
 			m_consumedInput = true;
@@ -104,16 +104,16 @@ bool PanelManager::handleInput()
 
 		// タイトルバードラッグ開始
 		const RectF titleRect{ p->pos.x, p->pos.y, p->size.x - kTitleBarH, static_cast<double>(kTitleBarH) };
-		if (p->movable && titleRect.mouseOver() && MouseL.down())
+		if (p->movable && titleRect.contains(cursor) && clicked)
 		{
 			m_draggingId = p->id;
-			m_dragOffset = Cursor::PosF() - p->pos;
+			m_dragOffset = cursor - p->pos;
 			p->zOrder = m_nextZOrder++;
 			return true;
 		}
 
 		// クリック → 最前面に移動
-		if (MouseL.down())
+		if (clicked)
 		{
 			p->zOrder = m_nextZOrder++;
 			// クリックは消費するが、コンテンツ側のボタン処理は
@@ -122,7 +122,6 @@ bool PanelManager::handleInput()
 		}
 
 		// ホイール → スクロール
-		const double wheel = Mouse::Wheel();
 		if (p->scrollable && wheel != 0.0)
 		{
 			p->scrollOffset += wheel * 40.0;
@@ -248,11 +247,11 @@ void PanelManager::reportContentHeight(StringView id, double height)
 	}
 }
 
-bool PanelManager::isMouseOnAnyPanel() const
+bool PanelManager::isMouseOnAnyPanel(Vec2 cursor) const
 {
 	for (const auto& [k, v] : m_panels)
 	{
-		if (v.visible && RectF{ v.pos, v.size }.mouseOver())
+		if (v.visible && RectF{ v.pos, v.size }.contains(cursor))
 			return true;
 	}
 	return false;

@@ -2,6 +2,9 @@
 #include "TestRunner.hpp"
 #include "../src/ui/WorldMapView.hpp"
 #include "../src/ui/LocalMapView.hpp"
+#include "../src/ui/CityHud.hpp"
+#include "../src/ui/PanelManager.hpp"
+#include "../src/render/MinimapRenderer.hpp"
 #include "../src/ui/NavigationHeader.hpp"
 #include "../src/ui/TownBillboards.hpp"
 #include "../src/ui/MapTerrainLayer.hpp"
@@ -254,6 +257,88 @@ void registerMapTransportTests(TestRunner& runner)
 		}
 		context.expectEqual(worstWhite,0,U"Panning with newly cached MSDF glyphs must not place the font atlas over blank terrain");
 	});
+	/// @brief Exercise the actual minimap input producer against foreground panel ownership.
+	runner.add(U"MapTransport.PanelOcclusionClickAndWheel", [](TestContext& context)
+	{
+		RegisterAssets();
+		CityHud hud; hud.updateLayout({1280,768},false,false,false);
+		const RectF minimap = *hud.minimapBounds();
+		MinimapRenderer renderer; renderer.setSmallBounds(minimap);
+		PanelManager panels; panels.registerPanel(U"signal",{700,550},true,true);
+		const Vec2 focus{32768,32768}, cursor = minimap.center();
+		for (int repeat = 0; repeat < 2; ++repeat)
+		{
+			panels.show(U"signal",U"Signal",{570,10});
+			context.expect(panels.isMouseOnAnyPanel(cursor),U"The signal panel covers the minimap body");
+			renderer.updateInput(focus,cursor,true,0,false,panels.isMouseOnAnyPanel(cursor));
+			context.expect(!renderer.fullScreen() && !renderer.consumedInput(),U"A blank foreground panel click cannot open or be consumed by the hidden minimap");
+			renderer.mapView().close();
+			const double span = renderer.localView().span();
+			renderer.updateInput(focus,cursor,false,-1,false,panels.isMouseOnAnyPanel(cursor));
+			context.expectNear(renderer.localView().span(),span,0,U"Scrolling the foreground panel cannot zoom the hidden minimap");
+			context.expect(!renderer.consumedInput(),U"The foreground panel retains its wheel input");
+			panels.hide(U"signal");
+			renderer.updateInput(focus,cursor,false,1,false,panels.isMouseOnAnyPanel(cursor));
+			context.expect(renderer.localView().span()>span,U"Hiding the panel restores the exposed minimap wheel");
+			renderer.localView().zoomIndex = 2;
+		}
+		panels.show(U"signal",U"Signal",{10,250});
+		context.expect(!panels.isMouseOnAnyPanel(cursor),U"A visible panel elsewhere does not own the minimap");
+		renderer.updateInput(focus,{800,600},true,0,false,panels.isMouseOnAnyPanel({800,600}));
+		context.expect(!renderer.fullScreen() && !renderer.consumedInput(),U"A click outside both surfaces does not activate the map");
+		renderer.updateInput(focus,cursor,true,0,false,panels.isMouseOnAnyPanel(cursor));
+		context.expect(renderer.fullScreen() && renderer.consumedInput(),U"An uncovered minimap opens even with a panel elsewhere");
+	});
+
+	runner.add(U"MapTransport.PanelOcclusionClosingClick", [](TestContext& context)
+	{
+		RegisterAssets();
+		CityHud hud; hud.updateLayout({1280,768},false,false,false);
+		const RectF minimap = *hud.minimapBounds();
+		MinimapRenderer renderer; renderer.setSmallBounds(minimap);
+		PanelManager panels; panels.registerPanel(U"signal",{700,550},true,true);
+		panels.show(U"signal",U"Signal",{570,88});
+		const Vec2 cursor{1258,100}, focus{32768,32768};
+		context.expect(renderer.localView().body(minimap).contains(cursor),U"The moved panel close button overlaps the minimap body");
+		renderer.updateInput(focus,cursor,true,0,false,panels.isMouseOnAnyPanel(cursor));
+		if (!renderer.consumedInput()) { panels.handleInput(cursor,true,true,0); }
+		context.expect(!renderer.fullScreen(),U"The closing click cannot fall through into the map");
+		context.expect(!panels.isVisible(U"signal") && panels.consumedInput(),U"The actual panel handler closes the panel and consumes the click");
+		renderer.mapView().close();
+		panels.hide(U"signal");
+		renderer.updateInput(focus,cursor,false,0,false,panels.isMouseOnAnyPanel(cursor));
+		context.expect(!renderer.fullScreen() && !renderer.consumedInput(),U"The held button after closing cannot replay the close as a map click");
+		renderer.updateInput(focus,cursor,true,0,false,panels.isMouseOnAnyPanel(cursor));
+		context.expect(renderer.fullScreen(),U"A fresh click after dismissal can open the exposed map");
+	});
+
+	runner.add(U"MapTransport.PanelOcclusionKeyboardAndFullMap", [](TestContext& context)
+	{
+		RegisterAssets();
+		GameInput::buffer = KeyboardActionBuffer{};
+		GameInput::textInput = nullptr; GameInput::textOwnedFrame = false;
+		CityHud hud; hud.updateLayout({1280,768},false,false,false);
+		const RectF minimap = *hud.minimapBounds();
+		MinimapRenderer renderer; renderer.setSmallBounds(minimap);
+		PanelManager panels; panels.registerPanel(U"signal",{700,550},true,true);
+		panels.show(U"signal",U"Signal",{570,10});
+		const Vec2 focus{32768,32768}, cursor = minimap.center();
+		GameInput::buffer.update({{0,9000,KeyM.code(),true,false}},true);
+		renderer.updateInput(focus,cursor,false,0,GameInput::down(KeyM),panels.isMouseOnAnyPanel(cursor));
+		context.expect(renderer.fullScreen() && renderer.consumedInput(),U"Keyboard M opens the map even while a panel owns the pointer");
+		renderer.mapView().center = {30000,30000};
+		renderer.mapView().showContext({100,100},Scene::Size());
+		GameInput::buffer.update({{0,9001,KeyHome.code(),true,false}},true);
+		renderer.updateInput(focus,cursor,false,0,false,panels.isMouseOnAnyPanel(cursor));
+		context.expectNear(renderer.mapView().center.distanceFrom(focus),0,1e-6,U"The full map retains Home even over the underlying panel");
+		context.expect(renderer.fullScreen() && !renderer.mapView().contextWorld,U"Full-map input clears its context without exposing the panel");
+		GameInput::buffer.update({{0,9002,KeyEscape.code(),true,false}},true);
+		renderer.updateInput(focus,cursor,false,0,false,panels.isMouseOnAnyPanel(cursor));
+		context.expect(!renderer.fullScreen() && renderer.consumedInput(),U"Full-map Escape closes only the map and owns the closing frame");
+		context.expect(panels.isVisible(U"signal"),U"Closing the map preserves the underlying signal panel");
+		GameInput::buffer = KeyboardActionBuffer{};
+	});
+
 	runner.add(U"MapTransport.LocalMapFollowAndControls",[](TestContext& context)
 	{
 		LocalMapView local; const RectF rect{20,20,240,240}; local.follow({30000,30000},{1,0});

@@ -17,7 +17,9 @@ public:
 	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world;m_districts=&districts;m_mapDirty=true; }
 	void updateRoadOverlay(const RoadNetwork& roads,const World& world);
 	void updateRoadOverlayAround(const Array<int>& nodes,const RoadNetwork& roads);
-	Optional<Vec2> update(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
+	Optional<Vec2> update(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements, bool pointerBlocked = false);
+	/// @brief Shared input stage; front panels own small-map pointer input, while full-map input remains modal.
+	Optional<Vec2> updateInput(Vec2 focus, Vec2 cursor, bool clicked, double wheel, bool mapShortcut, bool pointerBlocked);
 	void openFullScreen(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 	WorldMapView& mapView() { return m_map; }
 	LocalMapView& localView() { return m_local; }

@@ -1,0 +1,56 @@
+﻿{
+  "total": 7,
+  "passed": 7,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "CityHud.SaveStatusLifetime",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.SaveStatusPreview",
+      "status": "passed",
+      "durationMs": 642.548,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.CompactLayoutAndInteraction",
+      "status": "passed",
+      "durationMs": 0.004,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.ProductionAdapter",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.NavigationHelpEditorInteraction",
+      "status": "passed",
+      "durationMs": 0.007,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.NavigationHelpEditorPreview",
+      "status": "passed",
+      "durationMs": 867.377,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityHud.GpuReview",
+      "status": "passed",
+      "durationMs": 1129.426,
+      "failures": [
+      ]
+    }
+  ]
+}
