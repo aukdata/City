@@ -1,4 +1,5 @@
 ﻿#include "GameApp.hpp"
+#include "GameLaunchOptions.hpp"
 #include "ui/KeyboardActions.hpp"
 #include "ui/AppSettings.hpp"
 #include "asset/AssetRegistrar.hpp"
@@ -61,99 +62,12 @@ void GameApp::run()
 
 	// コマンドライン指定があればタイトル画面を介さず、開始条件だけ SceneData へ直接流し込む。
 	const auto args = System::GetCommandLineArgs();
-	bool directStart = false;
-	bool captureCityRenders = false;
-	bool captureRoadRenders = false;
-	bool uncapped = false;
-	Optional<uint64> seedOverride;
-	for (size_t i = 0; i < args.size(); ++i)
-	{
-		if (args[i] == U"--seed" && i + 1 < args.size())
-		{
-			seedOverride = ParseOpt<uint64>(args[i + 1]);
-			++i;
-			continue;
-		}
-
-		if (args[i] == U"--audit-road-integrity") { manager.get()->auditRoadIntegrity = true; continue; }
-		if (args[i] == U"--capture-folder" && i+1<args.size()) { manager.get()->captureFolder=args[++i]; continue; }
-		if (args[i] == U"--capture-first-person") { manager.get()->captureFirstPerson = true; captureCityRenders = true; continue; }
-		if (args[i] == U"--capture-rail-signs") { manager.get()->captureTransportObjects=true; continue; }
-		if (args[i] == U"--capture-transport") { manager.get()->captureTransport=true; continue; }
-		if (args[i] == U"--capture-construction") { manager.get()->captureConstruction = true; continue; }
-		if (args[i] == U"--capture-road-ux") { manager.get()->captureRoadPlanUx = true; continue; }
-		if (args[i] == U"--benchmark-streaming") { manager.get()->benchmarkStreaming = true; continue; }
-		if (args[i] == U"--benchmark-navigation") { manager.get()->benchmarkNavigation = true; continue; }
-		if (args[i] == U"--playtest-commands" && i+1<args.size()) { manager.get()->playtestCommands=args[++i];manager.get()->playtest=true;continue; }
-		if (args[i] == U"--playtest") { manager.get()->playtest = true; continue; }
-		if (args[i] == U"--sync-roads") { manager.get()->syncRoads = true; continue; }
-		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
-
-		if (args[i] == U"--render-distance")
-		{
-			if (i + 1 < args.size())
-			{
-				if (const auto meters = RenderDistance::parse(args[i + 1]))
-				{
-					manager.get()->renderDistance = *meters;
-					++i;
-					continue;
-				}
-			}
-			DebugLog::print(U"[RenderDistance] --render-distance requires 0 (default) or 100–20000 meters; unchanged");
-			continue;
-		}
-
-		if (args[i] == U"--low-spec") { manager.get()->lowSpec = true; continue; }
-
-		if (args[i] == U"--uncapped") { uncapped = true; continue; }
-
-		if (args[i] == U"--capture-roads")
-		{
-			captureRoadRenders = captureCityRenders = true;
-			continue;
-		}
-
-		if (args[i] == U"--capture-node" && i+1 < args.size())
-		{
-			manager.get()->captureNode = ParseOpt<int>(args[++i]).value_or(-1);
-			captureRoadRenders = captureCityRenders = true;
-			continue;
-		}
-
-		if (args[i] == U"--capture-city")
-		{
-			captureCityRenders = true;
-			continue;
-		}
-
-		if (args[i] == U"--inspect-node" && i + 1 < args.size())
-		{
-			manager.get()->inspectNode = ParseOpt<int>(args[++i]).value_or(-1);
-			continue;
-		}
-
-		if (args[i] == U"--new")
-		{
-			auto data = manager.get();
-			data->isNewGame = true;
-			data->saveName.clear();
-			directStart = true;
-			DebugLog::print(U"[GameApp] direct start: new game");
-			break;
-		}
-
-		if (args[i] == U"--load" && i + 1 < args.size())
-		{
-			auto data = manager.get();
-			data->isNewGame   = false;
-			data->saveName    = args[i + 1];
-			data->sandboxMode = true;
-			directStart = true;
-			DebugLog::print(U"[GameApp] direct start: load '{}'"_fmt(data->saveName));
-			break;
-		}
-	}
+	const auto options = GameLaunch::parseCommandLine(args, *manager.get());
+	bool directStart = options.directStart;
+	const bool captureCityRenders = options.captureCityRenders;
+	const bool captureRoadRenders = options.captureRoadRenders;
+	const bool uncapped = options.uncapped;
+	const auto seedOverride = options.seedOverride;
 
 	if (captureCityRenders)
 	{

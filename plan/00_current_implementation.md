@@ -82,7 +82,7 @@ Releaseの `City.sln` は本体と常設Testをビルドする。Testは自動�
 | `--capture-transport --seed 42 --new` | 街、川、橋、坑口、地図、徒歩を14視点で検証 |
 | `--audit-road-integrity --seed 7 --new` | 生成ログと道路スナップショットを保存して終了 |
 
-`--new` は引数末尾に置く。計測は本体を一つだけ起動し、同じシード・経路・解像度・時刻で比較する。CPU時間とフレーム間隔を混同しない。通常プレイで起きた不具合の再現値と修正結果は [プレイテスト記録](../artifacts/playtest_refinement/REVIEW.md)、未解決事項は [ISSUE.md](../ISSUE.md)。
+`--new` / `--load <saveName>` は引数の前後どちらでも指定できる。開始対象が複数ある場合は最初の指定を採用し、後続の描画・診断オプションも解析する。計測は本体を一つだけ起動し、同じシード・経路・解像度・時刻で比較する。CPU時間とフレーム間隔を混同しない。通常プレイで起きた不具合の再現値と修正結果は [プレイテスト記録](../artifacts/playtest_refinement/REVIEW.md)、未解決事項は [ISSUE.md](../ISSUE.md)。
 
 ### 2026-09-15 集落の生活圏
 

@@ -53,12 +53,12 @@ represent Windows GPU performance, and the current cloud audio backend is NoSoun
 ## Opt-in low-spec rendering
 
 Start `./City --low-spec` from `App/` (Windows: `City.exe --low-spec`).
-The option also works with playtests or saved worlds; put it before the final
-`--new` or `--load <saveName>` argument, for example:
+The option also works with playtests or saved worlds, before or after
+`--new` or `--load <saveName>`, for example:
 
 ```sh
 ./City --low-spec --playtest --seed 42 --new
-./City --low-spec --load my_city
+./City --load my_city --low-spec
 ```
 
 This profile renders only the 3D world at two-thirds width and height, without
@@ -75,7 +75,9 @@ Measured comparisons and limitations are recorded in `artifacts/low_spec/REVIEW.
 ## Adjustable scenery distance
 
 Use `./City --render-distance 1500 --load my_city` or combine it with
-`--low-spec`. Place these options before the final `--new` / `--load` argument.
+`--low-spec`. These options also work after `--new` / `--load <saveName>`.
+If more than one startup target is supplied, the first `--new` or complete
+`--load <saveName>` wins; subsequent rendering and diagnostic flags still apply.
 At runtime press `/`, enter `/render distance 1500`, and press Enter. Query the
 current setting with `/render distance`; reset with `/render distance 0`.
 
