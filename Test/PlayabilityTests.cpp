@@ -1,5 +1,6 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
+#include "SaveChordTests.hpp"
 #include "src/ui/KeyboardActions.hpp"
 #include "src/ui/CommandPalette.hpp"
 #include "src/ui/PanelWidget.hpp"
@@ -16,6 +17,7 @@
 
 void registerPlayabilityTests(TestRunner& runner)
 {
+	registerSaveChordTests(runner);
 	runner.add(U"WorldSelection.RoofOccludesGroundSignal", [](TestContext& context)
 	{
 		const Size native{1280, 768};
