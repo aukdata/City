@@ -23,11 +23,11 @@ void WorldRenderer::submitCachedTrees(Key key) const
 	const Vec2 heights = range == m_treeHeightRanges.end() ? Vec2{} : range->second;
 	if (const auto found = m_treeCache.find(key); found != m_treeCache.end())
 	{
-		m_treeRenderer.append(found->second.instances, coord, heights, m_buildingEye);
+		m_treeRenderer.append(found->second.instances, coord, heights, m_buildingEye, m_renderDistance);
 	}
 	if (const auto found = m_lotTreeCache.find(key); found != m_lotTreeCache.end())
 	{
-		m_treeRenderer.append(found->second, coord, heights, m_buildingEye);
+		m_treeRenderer.append(found->second, coord, heights, m_buildingEye, m_renderDistance);
 	}
 }
 

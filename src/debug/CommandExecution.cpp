@@ -1,4 +1,5 @@
 ﻿#include "CommandExecution.hpp"
+#include "../render/RenderDistance.hpp"
 
 CommandExecution::Result CommandExecution::execute(const GameCommands::Command& command,Context context)
 {
@@ -7,7 +8,7 @@ CommandExecution::Result CommandExecution::execute(const GameCommands::Command& 
 	switch(command.kind)
 	{
 	case Kind::Help:
-		result.message=U"/time /day /road /camera /money /speed /fps  ·  説明書: plan/28_commands.md";break;
+		result.message=U"/time /day /road /camera /money /speed /fps /render  ·  説明書: plan/28_commands.md";break;
 	case Kind::Time:
 	case Kind::Day:
 	{
@@ -55,6 +56,16 @@ CommandExecution::Result CommandExecution::execute(const GameCommands::Command& 
 	case Kind::Speed:
 		context.clock.speed=n[0]==0 ? TimeSpeed::Paused : n[0]==1 ? TimeSpeed::x1 : n[0]==2 ? TimeSpeed::x2 : TimeSpeed::x4;
 		result.message=U"時間速度 {}"_fmt(context.clock.speedString());break;
+	case Kind::RenderDistance:
+		if (!n.isEmpty())
+		{
+			if (!RenderDistance::valid(n[0])) { return {false,U"描画距離は 0 または 100～20000 m です",{},false}; }
+			context.renderDistance=n[0];
+		}
+		result.message=(context.renderDistance==RenderDistance::kDefault
+			? U"描画距離: 既定（追加制限なし）" : U"描画距離: {} m"_fmt(context.renderDistance))
+			+ U" · /render distance 100～20000 · 0:既定へ戻す";
+		break;
 	case Kind::Fps: context.fps=command.argument==U"on";result.message=context.fps ? U"FPSグラフを表示" : U"FPSグラフを非表示";break;
 	}
 	return result;

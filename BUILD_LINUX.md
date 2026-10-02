@@ -71,3 +71,20 @@ restore normal rendering on the next launch. No save-data change is involved.
 This is a rendering fallback, not a guarantee for a particular minimum GPU or
 RAM size. Large-world geometry and simulation memory are not capped by it.
 Measured comparisons and limitations are recorded in `artifacts/low_spec/REVIEW.md`.
+
+## Adjustable scenery distance
+
+Use `./City --render-distance 1500 --load my_city` or combine it with
+`--low-spec`. Place these options before the final `--new` / `--load` argument.
+At runtime press `/`, enter `/render distance 1500`, and press Enter. Query the
+current setting with `/render distance`; reset with `/render distance 0`.
+
+The allowed finite range is 100–20000 meters, measured in 3D from the camera eye.
+The default 0 adds no distance cutoff and retains existing frustum/LOD behavior.
+This controls buildings, trees and their associated scenery and shadows. Ground,
+fields, roads, transport and simulation retain their existing behavior. Large
+objects and already-merged batches use conservative geometry bounds, so a batch
+straddling the range can remain partly visible beyond it. It is a draw-submission
+setting, not a world-streaming or memory cap; geometry caches are reused when the
+range increases. The setting lasts for the current process and is not saved in
+city data.

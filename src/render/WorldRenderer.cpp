@@ -7,9 +7,22 @@
 #include <Siv3D/Profiler.hpp>
 #include <algorithm>
 
+bool WorldRenderer::setRenderDistance(double meters)
+{
+	if (!RenderDistance::valid(meters)) { return false; }
+	if (meters != m_renderDistance) { m_renderDistance = meters; ++m_visibilityRevision; }
+	return true;
+}
+
+void WorldRenderer::prepareView(Vec3 eye)
+{
+	if (m_renderDistance != RenderDistance::kDefault && eye != m_buildingEye) { ++m_visibilityRevision; }
+	m_buildingEye = eye;
+}
+
 void WorldRenderer::render(World& world, const RoadNetwork& network, const BasicCamera3D& camera)
 {
-	m_buildingEye=camera.getEyePosition();
+	prepareView(camera.getEyePosition());
 	m_treeRenderer.clear();
 	publishCompletedTrees();
 	uploadCompletedTerrain();

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include "RenderDistance.hpp"
 
 /// @brief 全LODで共有する、木一本の位置・非一様スケール・Y回転。
 struct TreeTransform
@@ -27,7 +28,9 @@ public:
 	static void preload();
 	void clear();
 	/// @brief 配置済みの木を256mタイルの距離で振り分ける。配置生成は行わない。
-	void append(const Array<TreeInstance>& trees, Point chunk, Vec2 heights, Vec3 eye);
+	void append(const Array<TreeInstance>& trees, Point chunk, Vec2 heights, Vec3 eye, double renderDistance = RenderDistance::kDefault);
+	/// @brief 全原型・LOD の枝葉を含む保守的な境界。GPU生成は行わない。
+	[[nodiscard]] static Box bounds(const TreeInstance& tree);
 	/// @brief 影描画では呼び出し元の深度ピクセルシェーダーを保持する。
 	void draw(const PixelShader& foliage, bool shadowPass = false);
 	[[nodiscard]] size_t nearInstances() const { return m_nearInstances; }

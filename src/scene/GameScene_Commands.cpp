@@ -14,9 +14,10 @@ void GameScene::executeCommand(StringView input)
 		m_trackingVehicle = false;
 		m_trackingTrain = false;
 	}
-	const auto result=CommandExecution::execute(*parsed.command,{m_clock,m_network,m_world,m_camera,m_economy.funds,m_frameRateGraph.visible});
+	const auto result=CommandExecution::execute(*parsed.command,{m_clock,m_network,m_world,m_camera,m_economy.funds,m_frameRateGraph.visible,getData().renderDistance});
 	m_commandPalette.report(result.message,!result.success);
 	if(!result.success) { return; }
+	(void)m_worldRenderer.setRenderDistance(getData().renderDistance);
 	if(!result.changedEdges.isEmpty())
 	{
 		Array<int> nodes;

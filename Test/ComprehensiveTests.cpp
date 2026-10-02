@@ -21,6 +21,7 @@
 #include "src/render/CityLighting.hpp"
 #include "src/render/RegionalTerrain.hpp"
 #include "src/render/WorldRenderer.hpp"
+#include "src/render/RenderDistance.hpp"
 #include "src/render/MinimapRenderer.hpp"
 #include "src/asset/AssetRegistrar.hpp"
 
@@ -191,14 +192,46 @@ void registerComprehensiveTests(TestRunner& runner)
 		context.expect(glyphs>150 && stray==0,U"Command text, suggestions and result stay inside the bottom-left palette");palette.close();GameInput::textOwnedFrame=false;
 	});
 
+	runner.add(U"RenderDistance.CommandPaletteReadback",[](TestContext& context)
+	{
+		for (const String line : {U"/render distance",U"/render distance 0",U"/render distance 100",U"/render distance 20000"})
+		{
+			context.expect(GameCommands::parse(line).command.has_value(),U"Distance command parses: "+line);
+		}
+		for (const String line : {U"/render distance -1",U"/render distance 99",U"/render distance 20001",U"/render distance nan",U"/render distance 500m",U"/render distance 1e3m",U"/render distance 500e",U"/render distance inf",U"/render distance 500 extra"})
+		{
+			context.expect(!GameCommands::parse(line).command,U"Invalid distance command is rejected: "+line);
+		}
+		const auto suggestions=GameCommands::suggest(U"/render d");
+		context.expect(!suggestions.isEmpty() && suggestions.front().completion==U"/render distance",U"Tab completion discovers the runtime distance query");
+		CommandPalette palette;palette.open();palette.input=U"/render distance";
+		palette.report(U"描画距離: 1500 m · /render distance 100～20000 · 0:既定へ戻す",false);
+		const Size size{800,600};const Font font{16};const RenderTexture target{size};
+		{const ScopedRenderTarget2D scope{target.clear(ColorF{.3})};palette.draw(size,font);}Graphics2D::Flush();Image pixels;target.readAsImage(pixels);
+		int glyphs=0,stray=0;
+		for (int y=0;y<size.y;++y)
+		{
+			for (int x=0;x<size.x;++x)
+			{
+				if (pixels[y][x].r>160) { if (palette.bounds(size).contains(Vec2{x,y})) { ++glyphs; } else { ++stray; } }
+			}
+		}
+		context.expect(glyphs>150 && stray==0,U"Distance settings, units, range and reset guidance remain inside the existing palette");
+		pixels.save(U"Screenshot/render_distance_palette.png");palette.close();GameInput::textOwnedFrame=false;
+	});
+
 	runner.add(U"Comprehensive.CommandExecution",[](TestContext& context)
 	{
-		World world;flatWorld(world);RoadNetwork roads;GameClock clock;GameCamera camera;double funds=0;bool fps=false;
+		World world;flatWorld(world);RoadNetwork roads;GameClock clock;GameCamera camera;double funds=0,renderDistance=RenderDistance::kDefault;bool fps=false;
 		const auto run=[&](StringView line)
 		{
 			const auto parsed=GameCommands::parse(line);if(!parsed.command) { return CommandExecution::Result{false,parsed.message,{},false}; }
-			return CommandExecution::execute(*parsed.command,{clock,roads,world,camera,funds,fps});
+			return CommandExecution::execute(*parsed.command,{clock,roads,world,camera,funds,fps,renderDistance});
 		};
+		context.expect(run(U"/render distance").success && renderDistance==0,U"Querying render distance reports the default without mutation");
+		context.expect(run(U"/render distance 1500").success && renderDistance==1500,U"The runtime command changes the shared setting");
+		context.expect(!run(U"/render distance 99").success && renderDistance==1500,U"A bad runtime value leaves the setting unchanged");
+		context.expect(run(U"/render distance 0").success && renderDistance==0,U"Zero restores the existing draw range");
 		context.expect(run(U"/time set 13 46").success && clock.timeString().ends_with(U"13:46"),U"Time command sets hour and minute");
 		context.expect(run(U"/day set 1 4 2").success && clock.day==2 && clock.month==4 && clock.timeString().ends_with(U"13:46"),U"Date command preserves time of day");
 		context.expect(run(U"/day set 1 1 1").success && clock.day==1 && clock.month==1,U"Calendar dates before the initial April date work");

@@ -1237,18 +1237,8 @@ Optional<OrientedBox> WorldRenderer::buildingHitBox(const Chunk& chunk, const Wo
 		const float yaw = -b.angle;
 
 		const Box& lb = asset.model.boundingBox();
-		const Vec3 localCenter = lb.center;
 		const float modelScale = normalizedObjScale(b.type, lb, asset.scale);
-		const Vec3 size = lb.size * modelScale;
-		// drawCachedBuildings と同じ Mat4x4::RotateY → translate 変換を再現
-		const double cosA = Math::Cos(yaw);
-		const double sinA = Math::Sin(yaw);
-		const Vec3 worldCenter{
-			cx + localCenter.x * modelScale * cosA + localCenter.z * modelScale * sinA,
-			gy + localCenter.y * modelScale,
-			cz - localCenter.x * modelScale * sinA + localCenter.z * modelScale * cosA
-		};
-		return OrientedBox{ worldCenter, size, Quaternion::RotateY(yaw) };
+		return RenderDistance::transformBox(lb, modelScale, yaw, Vec3{cx,gy,cz});
 	}
 
 	if (b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding)
@@ -1271,6 +1261,11 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
                                             int col, int row, const ColorF& color)
 {
 	if (col < 0 || col >= ZONE_CELLS || row < 0 || row >= ZONE_CELLS) return;
+	if (m_renderDistance != RenderDistance::kDefault)
+	{
+		const auto bounds = buildingHitBox(chunk,world,col,row);
+		if (!bounds || !buildingWithinRenderDistance(chunk,col,row,*bounds,m_buildingEye)) { return; }
+	}
 	const Building& b = chunk.buildingGrid[{ col, row }];
 	if (b.type == BuildingType::None || b.type == BuildingType::Farmland) return;
 
@@ -1403,6 +1398,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 
 	const Vec3 origin = chunk.worldOrigin();
 
+	m_buildingDetailBounds.erase(key);
 	// 建物種別ごとに MeshData を積み上げる（Box 描画用）
 	LandscapeGeometry groups;
 	// 住宅 OBJ インスタンス
@@ -1540,6 +1536,13 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			color,
 			Mesh{ meshData }
 		});
+		if (RenderDistance::limitedMaterial(typeInt))
+		{
+			const Box bounds = batches.back().mesh.boundingBox();
+			const auto previous = m_buildingDetailBounds.find(key);
+			m_buildingDetailBounds[key] = previous == m_buildingDetailBounds.end()
+				? bounds : RenderDistance::merge(previous->second, bounds);
+		}
 	}
 
 	// The far tier is baked once per edited chunk, grouped by asset material.
@@ -1547,9 +1550,11 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	HashTable<uint64, MeshData> merged;
 	HashTable<uint64, Material> materials;
 	float highest = chunk.heightMax;
-	for (const auto& instance : modelInstances)
+	for (auto& instance : modelInstances)
 	{
 		auto& asset = getBuildingModelAsset(instance.type, instance.modelVariant);
+		instance.distanceBounds = RenderDistance::buildingSphere(RenderDistance::transformBox(
+			asset.model.boundingBox(), instance.scale, -instance.angle, Vec3{instance.pos}));
 		highest = Max(highest, instance.pos.y + static_cast<float>(asset.model.boundingBox().size.y * instance.scale));
 		const uint32 assetId = (static_cast<uint32>(instance.type) << 8) | instance.modelVariant;
 		for (size_t part = 0; part < asset.farGeometry.size(); ++part)
@@ -1565,10 +1570,14 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	}
 	far.bounds = Box{Vec3{origin.x + CHUNK_SIZE * .5, (chunk.heightMin + highest) * .5, origin.z + CHUNK_SIZE * .5},
 		Vec3{CHUNK_SIZE + 100, Max(1.0f, highest - chunk.heightMin), CHUNK_SIZE + 100}};
+	Optional<Box> farBounds;
 	for (const auto& [materialId, geometry] : merged)
 	{
 		far.batches << StaticModelBatch{Mesh{geometry}, materials[materialId], static_cast<uint32>(geometry.indices.size())};
+		const Box bounds = far.batches.back().mesh.boundingBox();
+		farBounds = farBounds ? RenderDistance::merge(*farBounds,bounds) : bounds;
 	}
+	far.distanceBounds = farBounds.value_or(far.bounds);
 	m_buildingModelCache[key] = std::move(modelInstances);
 }
 
@@ -1586,6 +1595,33 @@ bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
 	return (material==128 || material==129) ? !near : near;
 }
 
+bool WorldRenderer::useFarBuildings(Key key, Vec3 eye) const
+{
+	const auto cached = m_farBuildings.find(key);
+	const auto instances = m_buildingModelCache.find(key);
+	if (cached == m_farBuildings.end() || instances == m_buildingModelCache.end()) { return false; }
+	const auto& far = cached->second;
+	constexpr double kFarDistance = 850;
+	return !RenderDistance::contains(eye, far.bounds, kFarDistance) && !far.batches.isEmpty()
+		&& far.count == instances->second.size();
+}
+
+bool WorldRenderer::detailWithinRenderDistance(Key key, Vec3 eye) const
+{
+	const auto bounds = m_buildingDetailBounds.find(key);
+	return bounds == m_buildingDetailBounds.end() || RenderDistance::contains(eye, bounds->second, m_renderDistance);
+}
+
+bool WorldRenderer::buildingWithinRenderDistance(const Chunk& chunk, int col, int row, const OrientedBox& bounds, Vec3 eye) const
+{
+	if (m_renderDistance == RenderDistance::kDefault) { return true; }
+	if (col < 0 || row < 0 || col >= ZONE_CELLS || row >= ZONE_CELLS) { return false; }
+	const Key key = chunkCoordToKey(chunk.coord);
+	if (!isObjBuildingType(chunk.buildingGrid[{col,row}].type)) { return detailWithinRenderDistance(key,eye); }
+	if (useFarBuildings(key,eye)) { return RenderDistance::contains(eye,m_farBuildings.at(key).distanceBounds,m_renderDistance); }
+	return RenderDistance::contains(eye,RenderDistance::buildingSphere(bounds),m_renderDistance);
+}
+
 void WorldRenderer::drawCachedBuildings(Key key)
 {
 	submitCachedTrees(key);
@@ -1593,20 +1629,20 @@ void WorldRenderer::drawCachedBuildings(Key key)
 	if (const auto cached = m_farBuildings.find(key); cached != m_farBuildings.end())
 	{
 		const auto& far = cached->second;
-		const Vec3 delta = m_buildingEye - far.bounds.center;
-		const Vec3 outside{Max(0.0, Abs(delta.x) - far.bounds.size.x * .5), Max(0.0, Abs(delta.y) - far.bounds.size.y * .5), Max(0.0, Abs(delta.z) - far.bounds.size.z * .5)};
-		constexpr double kFarDistance = 850;
-		const auto instances=m_buildingModelCache.find(key);
-		if (outside.lengthSq() > kFarDistance * kFarDistance && !far.batches.isEmpty()
-			&& instances!=m_buildingModelCache.end() && far.count==instances->second.size())
+		if (useFarBuildings(key,m_buildingEye))
 		{
-			const ScopedCustomShader3D shader{m_buildingShader};
-			for (const auto& batch : far.batches)
+			m_buildingsConsidered += far.count;
+			farDrawn = true;
+			if (RenderDistance::contains(m_buildingEye,far.distanceBounds,m_renderDistance))
 			{
-				if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
-				batch.draw(); ++m_buildingDrawCalls; m_buildingTriangles += batch.triangles;
+				const ScopedCustomShader3D shader{m_buildingShader};
+				for (const auto& batch : far.batches)
+				{
+					if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
+					batch.draw(); ++m_buildingDrawCalls; m_buildingTriangles += batch.triangles;
+				}
+				m_buildingsSubmitted += far.count;
 			}
-			m_buildingsConsidered += far.count; m_buildingsSubmitted += far.count; farDrawn = true;
 		}
 	}
 	if (const auto it = m_buildingModelCache.find(key); !farDrawn && it != m_buildingModelCache.end())
@@ -1615,11 +1651,13 @@ void WorldRenderer::drawCachedBuildings(Key key)
 		for (const auto& inst : it->second)
 		{
 			++m_buildingsConsidered;
+			if (!RenderDistance::contains(m_buildingEye,inst.distanceBounds,m_renderDistance)) { continue; }
 			BuildingModelAsset& asset = getBuildingModelAsset(inst.type, inst.modelVariant);
 			const double modelHeight = asset.model.boundingBox().size.y * inst.scale;
 			const Vec3 center = Vec3{ inst.pos } + Vec3{ 0, modelHeight * 0.5, 0 };
 			const double radius = Max(12.0, modelHeight * 0.55);
-			if (m_buildingFrustum && !m_buildingFrustum->intersects(Sphere{ center, radius }))
+			const Sphere frustumBounds = m_renderDistance == RenderDistance::kDefault ? Sphere{center,radius} : inst.distanceBounds;
+			if (m_buildingFrustum && !m_buildingFrustum->intersects(frustumBounds))
 			{
 				continue;
 			}
@@ -1649,6 +1687,9 @@ void WorldRenderer::drawCachedBuildings(Key key)
 		for (const auto& batch : it->second)
 		{
 			if (!drawLandscapeBatch(batch.materialKey,key)) { continue; }
+			if (RenderDistance::limitedMaterial(batch.materialKey)
+				&& (cache == &m_buildingMeshCache ? !detailWithinRenderDistance(key,m_buildingEye)
+					: !RenderDistance::contains(m_buildingEye,batch.mesh.boundingBox(),m_renderDistance))) { continue; }
 			const int material=batch.materialKey%1000;
 			const bool distant=m_distantDetailChunks.contains(key);
 			if (distant && material==123) { continue; }
@@ -1710,8 +1751,11 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 	const double radiusSq = radius * radius;
 	for (const auto& [key, instances] : m_buildingModelCache)
 	{
+		const bool farTier = useFarBuildings(key,m_buildingEye);
+		const bool modelsVisible = !farTier || RenderDistance::contains(m_buildingEye,m_farBuildings.at(key).distanceBounds,m_renderDistance);
 		for (const auto& instance : instances)
 		{
+			if (!modelsVisible || (!farTier && !RenderDistance::contains(m_buildingEye,instance.distanceBounds,m_renderDistance))) { continue; }
 			const double dx = instance.pos.x - focus.x;
 			const double dz = instance.pos.z - focus.z;
 			if (dx * dx + dz * dz > radiusSq)
@@ -1737,7 +1781,12 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 			const Point coord{static_cast<int>(key>>32),static_cast<int>(static_cast<uint32>(key))};
 			if (Vec2{(coord.x+.5)*CHUNK_SIZE,(coord.y+.5)*CHUNK_SIZE}.distanceFrom(Vec2{focus.x,focus.z}) < radius+CHUNK_SIZE)
 			{
-				for (const auto& batch : landscape->second) { if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{1.0}); } }
+				for (const auto& batch : landscape->second)
+				{
+					if (RenderDistance::limitedMaterial(batch.materialKey)
+						&& !RenderDistance::contains(m_buildingEye,batch.mesh.boundingBox(),m_renderDistance)) { continue; }
+					if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{1.0}); }
+				}
 			}
 		}
 		const auto batches = m_buildingMeshCache.find(key);
@@ -1754,6 +1803,7 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 		submitCachedTrees(key);
 		for (const auto& batch : batches->second)
 		{
+			if (RenderDistance::limitedMaterial(batch.materialKey) && !detailWithinRenderDistance(key,m_buildingEye)) { continue; }
 			if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
 	}

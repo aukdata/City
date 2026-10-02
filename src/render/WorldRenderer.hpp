@@ -3,6 +3,7 @@
 #include "TunnelGeometry.hpp"
 #include "ModelBatch.hpp"
 #include "TreeInstances.hpp"
+#include "RenderDistance.hpp"
 #include "../railway/RailwaySite.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
@@ -14,6 +15,14 @@
 class WorldRenderer
 {
 public:
+	/// @brief 実行中の描画設定。無効値は拒否し、設定変更は影キャッシュだけを更新する。
+	bool setRenderDistance(double meters);
+	[[nodiscard]] double renderDistance() const { return m_renderDistance; }
+	/// @brief 影描画より前に現在の目位置を渡す。距離の境界が動けば影を更新する。
+	void prepareView(Vec3 eye);
+	[[nodiscard]] size_t treesSubmitted() const { return m_treeRenderer.nearInstances() + m_treeRenderer.farInstances(); }
+	/// @brief 選択だけに使う可視性。建設・撤去用の buildingHitBox は変えない。
+	[[nodiscard]] bool buildingWithinRenderDistance(const Chunk& chunk, int col, int row, const OrientedBox& bounds, Vec3 eye) const;
 	void setWoodlandEnabled(bool enabled) { m_woodlandEnabled = enabled; }
 	/// @brief アクティブチャンクをカリングして描画する
 	/// @brief Load building GPU assets during the loading phase, before camera travel.
@@ -24,6 +33,7 @@ public:
 	/// @brief Draw cached opaque city geometry into the sun's depth target.
 	void renderShadowCasters(Vec3 focus, double radius) const;
 	[[nodiscard]] uint64 geometryRevision() const { return m_geometryRevision; }
+	[[nodiscard]] uint64 shadowRevision() const { return m_geometryRevision + m_visibilityRevision; }
 	[[nodiscard]] size_t buildingsConsidered() const { return m_buildingsConsidered; }
 	[[nodiscard]] size_t buildingsSubmitted() const { return m_buildingsSubmitted; }
 	[[nodiscard]] size_t buildingDrawCalls() const { return m_buildingDrawCalls; }
@@ -75,6 +85,8 @@ public:
 	                                     int col, int row);
 
 private:
+	double m_renderDistance = RenderDistance::kDefault;
+	uint64 m_visibilityRevision = 0; ///< 影専用。カメラ移動で地形・選択のキャッシュを壊さない。
 	bool m_woodlandEnabled = true;
 	using Key = int64;
 	Array<TunnelGeometry::Opening> m_tunnelOpenings;
@@ -99,6 +111,7 @@ private:
 		float  angle;     ///< Y 軸回転 [rad]
 		float  scale;     ///< TOML 指定スケール
 		uint8 frontageVariant = 0;
+		Sphere distanceBounds{}; ///< モデルの実外接箱から作った保守的な距離境界。
 	};
 
 	struct BuildingModelAsset
@@ -191,6 +204,8 @@ private:
 
 	/// @brief キャッシュ済み建物バッチを描画する
 	void drawCachedBuildings(Key key);
+	[[nodiscard]] bool useFarBuildings(Key key, Vec3 eye) const;
+	[[nodiscard]] bool detailWithinRenderDistance(Key key, Vec3 eye) const;
 
 	/// @brief 建物 OBJ（種別+バリアント）を必要時にロードして返す
 	BuildingModelAsset& getBuildingModelAsset(BuildingType type, uint8 variant);
@@ -267,9 +282,11 @@ private:
 	{
 		Array<StaticModelBatch> batches;
 		Box bounds;
+		Box distanceBounds; ///< 全遠景メッシュの実ジオメトリ境界。
 		size_t count = 0;
 	};
 	HashTable<Key, FarBuildings> m_farBuildings;
+	HashTable<Key, Box> m_buildingDetailBounds;
 	size_t m_buildingDrawCalls = 0, m_buildingTriangles = 0;
 	HashTable<uint32, BuildingModelAsset>         m_buildingModels; ///< 建物 OBJ+TOML（遅延ロード）
 	Array<Chunk*> m_lastActiveOrder;

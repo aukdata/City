@@ -7,13 +7,14 @@ void GameScene::recordPlaytestFrame()
 	if (m_playtestFrame == 0)
 	{
 		m_playtestFrames.open(U"playtest_frames.csv");
-		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs");
+		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs,renderDistanceMeters,buildingsSubmitted,treesSubmitted");
 	}
-	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f}"_fmt(
+	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f},{},{},{}"_fmt(
 		m_playtestFrame,static_cast<int>(m_camera.mode()),m_minimapRenderer.fullScreen() ? 1 : 0,
 		Scene::DeltaTime()*1000,m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
 		m_vehicleManager.vehicleCount(),m_vehicleManager.lastStats().total(),m_renderTimings.vehicle,m_vehicleRenderer.drawCalls(),
-		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds()));
+		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds(),
+		getData().renderDistance,m_worldRenderer.buildingsSubmitted(),m_worldRenderer.treesSubmitted()));
 	if(m_renderTimings.total>40)
 	{
 		const auto& cache=m_roadRenderer.cacheBuildStats();
@@ -90,6 +91,9 @@ void GameScene::recordPlaytestFrame()
 		state[U"commandPalette"]=m_commandPalette.visible;
 		state[U"commandInput"]=m_commandPalette.input;
 		state[U"commandMessage"]=m_commandPalette.message;
+		state[U"renderDistanceMeters"]=getData().renderDistance;
+		state[U"buildingsSubmitted"]=m_worldRenderer.buildingsSubmitted();
+		state[U"treesSubmitted"]=m_worldRenderer.treesSubmitted();
 		state[U"zoneBrush"]=m_zoneBrushRadius;
 		int zoneIndex=0;
 		for (int gy=static_cast<int>(Floor(focus.z/16))-8;gy<=static_cast<int>(Floor(focus.z/16))+8;++gy)

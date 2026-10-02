@@ -211,6 +211,7 @@ void GameScene::renderWorld()
 	lap(dbgGuideSign);
 
 	prepareVehicleRenderData();
+	m_worldRenderer.prepareView(m_camera.eyePosition());
 	const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), Max(0.18, sky.sinTime * 0.72), 0.45 }.normalized();
 	if (m_cityLighting.initialize(U"shaders/hlsl/city_forward.hlsl", !getData().lowSpec))
 	{
@@ -227,7 +228,7 @@ void GameScene::renderWorld()
 			DebugLog::print(U"[GeometryRevision] world={} roads={}"_fmt(m_worldRenderer.geometryRevision(), m_roadRenderer.geometryRevision()));
 		}
 		m_cityLighting.update(m_camera.camera3D(), m_camera.focusPoint(), sunDir, sky.dayFactor,
-			m_worldRenderer.geometryRevision() + m_roadRenderer.geometryRevision(), [this](Vec3 focus, double radius)
+			m_worldRenderer.shadowRevision() + m_roadRenderer.geometryRevision(), [this](Vec3 focus, double radius)
 		{
 			if (m_underground)
 			{

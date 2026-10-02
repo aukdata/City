@@ -1,0 +1,423 @@
+{
+  "binary_sha256": "c8422f1f923a03adc655bc59b522fa54f8d25f397b7bd03cc531f1ce5a094b50",
+  "matched_state": {
+    "focusX": 24252.0,
+    "focusY": 32.575355529785156,
+    "focusZ": 23772.0,
+    "eyeY": 131.48305571079254,
+    "cameraMode": 3,
+    "gameHour": 12.0,
+    "timeSpeed": 0,
+    "population": 233146,
+    "funds": 30.0
+  },
+  "same_input_save": true,
+  "profiles": {
+    "normal": {
+      "0": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 1147.3055,
+            "p95": 1197.621,
+            "min": 1121.657,
+            "max": 1203.642
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 1131.897,
+            "p95": 1181.996,
+            "min": 1106.689,
+            "max": 1190.046
+          },
+          "buildingDrawCalls": {
+            "median": 97.0,
+            "p95": 97.0,
+            "min": 97.0,
+            "max": 97.0
+          },
+          "buildingsSubmitted": {
+            "median": 1443.0,
+            "p95": 1443.0,
+            "min": 1443.0,
+            "max": 1443.0
+          },
+          "treesSubmitted": {
+            "median": 14042.0,
+            "p95": 14042.0,
+            "min": 14042.0,
+            "max": 14042.0
+          },
+          "renderDistanceMeters": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.014,
+            "p95": 0.017,
+            "min": 0.012,
+            "max": 0.039
+          }
+        }
+      },
+      "1": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 1114.0165,
+            "p95": 1141.905,
+            "min": 1094.277,
+            "max": 1164.54
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 1100.024,
+            "p95": 1127.47,
+            "min": 1079.757,
+            "max": 1149.704
+          },
+          "buildingDrawCalls": {
+            "median": 94.0,
+            "p95": 94.0,
+            "min": 94.0,
+            "max": 94.0
+          },
+          "buildingsSubmitted": {
+            "median": 94.0,
+            "p95": 94.0,
+            "min": 94.0,
+            "max": 94.0
+          },
+          "treesSubmitted": {
+            "median": 145.0,
+            "p95": 145.0,
+            "min": 145.0,
+            "max": 145.0
+          },
+          "renderDistanceMeters": {
+            "median": 500.0,
+            "p95": 500.0,
+            "min": 500.0,
+            "max": 500.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.014,
+            "p95": 0.031,
+            "min": 0.012,
+            "max": 0.101
+          }
+        }
+      },
+      "2": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 1153.8995,
+            "p95": 1193.293,
+            "min": 1121.052,
+            "max": 1196.166
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 1139.1905000000002,
+            "p95": 1176.212,
+            "min": 1106.02,
+            "max": 1180.733
+          },
+          "buildingDrawCalls": {
+            "median": 97.0,
+            "p95": 97.0,
+            "min": 97.0,
+            "max": 97.0
+          },
+          "buildingsSubmitted": {
+            "median": 1443.0,
+            "p95": 1443.0,
+            "min": 1443.0,
+            "max": 1443.0
+          },
+          "treesSubmitted": {
+            "median": 14042.0,
+            "p95": 14042.0,
+            "min": 14042.0,
+            "max": 14042.0
+          },
+          "renderDistanceMeters": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.015,
+            "p95": 0.045,
+            "min": 0.011,
+            "max": 0.069
+          }
+        }
+      },
+      "save_unchanged": true,
+      "reset_counts_match": true
+    },
+    "low-spec": {
+      "0": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 505.86850000000004,
+            "p95": 524.558,
+            "min": 489.397,
+            "max": 529.304
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 489.55600000000004,
+            "p95": 509.686,
+            "min": 473.431,
+            "max": 511.522
+          },
+          "buildingDrawCalls": {
+            "median": 97.0,
+            "p95": 97.0,
+            "min": 97.0,
+            "max": 97.0
+          },
+          "buildingsSubmitted": {
+            "median": 1443.0,
+            "p95": 1443.0,
+            "min": 1443.0,
+            "max": 1443.0
+          },
+          "treesSubmitted": {
+            "median": 14042.0,
+            "p95": 14042.0,
+            "min": 14042.0,
+            "max": 14042.0
+          },
+          "renderDistanceMeters": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.013,
+            "p95": 0.035,
+            "min": 0.01,
+            "max": 0.063
+          }
+        }
+      },
+      "1": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 466.647,
+            "p95": 522.783,
+            "min": 442.008,
+            "max": 623.438
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 451.086,
+            "p95": 507.161,
+            "min": 426.392,
+            "max": 600.73
+          },
+          "buildingDrawCalls": {
+            "median": 94.0,
+            "p95": 94.0,
+            "min": 94.0,
+            "max": 94.0
+          },
+          "buildingsSubmitted": {
+            "median": 94.0,
+            "p95": 94.0,
+            "min": 94.0,
+            "max": 94.0
+          },
+          "treesSubmitted": {
+            "median": 145.0,
+            "p95": 145.0,
+            "min": 145.0,
+            "max": 145.0
+          },
+          "renderDistanceMeters": {
+            "median": 500.0,
+            "p95": 500.0,
+            "min": 500.0,
+            "max": 500.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.012,
+            "p95": 0.017,
+            "min": 0.01,
+            "max": 0.033
+          }
+        }
+      },
+      "2": {
+        "frames": 30,
+        "metrics": {
+          "renderMs": {
+            "median": 501.53999999999996,
+            "p95": 510.874,
+            "min": 484.698,
+            "max": 513.189
+          },
+          "shadowMs": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "gpuMs": {
+            "median": 484.99350000000004,
+            "p95": 494.561,
+            "min": 468.464,
+            "max": 497.187
+          },
+          "buildingDrawCalls": {
+            "median": 97.0,
+            "p95": 97.0,
+            "min": 97.0,
+            "max": 97.0
+          },
+          "buildingsSubmitted": {
+            "median": 1443.0,
+            "p95": 1443.0,
+            "min": 1443.0,
+            "max": 1443.0
+          },
+          "treesSubmitted": {
+            "median": 14042.0,
+            "p95": 14042.0,
+            "min": 14042.0,
+            "max": 14042.0
+          },
+          "renderDistanceMeters": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "cars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "visibleCars": {
+            "median": 0.0,
+            "p95": 0.0,
+            "min": 0.0,
+            "max": 0.0
+          },
+          "logicMs": {
+            "median": 0.013,
+            "p95": 0.04,
+            "min": 0.011,
+            "max": 0.097
+          }
+        }
+      },
+      "save_unchanged": true,
+      "reset_counts_match": true
+    }
+  },
+  "validation_scope": "Bounded0\u2192500\u21920 correctness verification, no far-view or CPU-playability pursuit",
+  "native_ui": {
+    "query_feedback": true,
+    "change500_feedback_and_state": true,
+    "reset0_feedback_and_state": true,
+    "building_picking": "inconclusive: clicking a visible roof selected nearby signalN12873 (kind4); not established as low-spec regression",
+    "text_editing": "Ctrl+A/short repeated Backspace did not edit existing command text; Escape/reopen allowed reset; existing Linux input behavior not investigated here"
+  }
+}

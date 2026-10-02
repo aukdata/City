@@ -1726,6 +1726,7 @@ Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
 			{
 				const auto obox = m_worldRenderer.buildingHitBox(*chunk, m_world, col, row);
 				if (!obox) continue;
+				if (!m_worldRenderer.buildingWithinRenderDistance(*chunk,col,row,*obox,m_camera.eyePosition())) { continue; }
 				if (const auto d = obox->intersects(ray))
 				{
 					if (*d < bestDist)

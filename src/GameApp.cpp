@@ -84,6 +84,21 @@ void GameApp::run()
 		if (args[i] == U"--sync-roads") { manager.get()->syncRoads = true; continue; }
 		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
 
+		if (args[i] == U"--render-distance")
+		{
+			if (i + 1 < args.size())
+			{
+				if (const auto meters = RenderDistance::parse(args[i + 1]))
+				{
+					manager.get()->renderDistance = *meters;
+					++i;
+					continue;
+				}
+			}
+			DebugLog::print(U"[RenderDistance] --render-distance requires 0 (default) or 100–20000 meters; unchanged");
+			continue;
+		}
+
 		if (args[i] == U"--low-spec") { manager.get()->lowSpec = true; continue; }
 
 		if (args[i] == U"--uncapped") { uncapped = true; continue; }

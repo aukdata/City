@@ -1,4 +1,5 @@
 ﻿#include "GameCommands.hpp"
+#include "../render/RenderDistance.hpp"
 
 namespace
 {
@@ -20,7 +21,9 @@ namespace
 			{Kind::Money,U"/money set <amount>",U"資金を設定（億円）"},
 			{Kind::Speed,U"/speed set <speed>",U"時間速度を設定（0・1・2・4）"},
 			{Kind::Fps,U"/fps on",U"FPSグラフを表示"},
-			{Kind::Fps,U"/fps off",U"FPSグラフを非表示"}
+			{Kind::Fps,U"/fps off",U"FPSグラフを非表示"},
+			{Kind::RenderDistance,U"/render distance",U"建物・木の描画距離と設定方法を表示"},
+			{Kind::RenderDistance,U"/render distance <meters>",U"描画距離（100～20000 m、0:既定へ戻す）"}
 		};
 		return values;
 	}
@@ -72,7 +75,7 @@ GameCommands::ParseResult GameCommands::parse(StringView input)
 		for(size_t i=0;i<typed.size();++i)
 		{
 			if (!placeholder(pattern[i])) { matches &= typed[i]==pattern[i];continue; }
-			const auto number=ParseOpt<double>(typed[i]);
+			const auto number=definition.kind==Kind::RenderDistance ? RenderDistance::parse(typed[i]) : ParseOpt<double>(typed[i]);
 			if (!number || !IsFinite(*number)) { matches=false;break; }command.numbers << *number;
 		}
 		if (!matches) { continue; }
@@ -85,6 +88,7 @@ GameCommands::ParseResult GameCommands::parse(StringView input)
 		case Kind::RoadInspect: valid=integer(n[0]) && InRange(n[0],0.0,2147483646.0);break;
 		case Kind::CameraGoto: valid=InRange(n[0],0.0,65535.0) && InRange(n[1],0.0,65535.0);break;
 		case Kind::CameraZoom: valid=InRange(n[0],5.0,60000.0);break;
+		case Kind::RenderDistance: valid=n.isEmpty() || RenderDistance::valid(n[0]);break;
 		case Kind::Money: valid=InRange(n[0],0.0,1e9);break;
 		case Kind::Speed: valid=n[0]==0 || n[0]==1 || n[0]==2 || n[0]==4;break;
 		default: break;

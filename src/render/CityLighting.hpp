@@ -19,6 +19,8 @@ public:
 	[[nodiscard]] const PixelShader& paddyShader() const { return m_paddyShader; }
 	[[nodiscard]] const PixelShader& foliageShader() const { return m_foliageShader; }
 	[[nodiscard]] double shadowMilliseconds() const { return m_shadowMilliseconds; }
+	/// @brief 診断用: キャッシュ済みの実シャドウ深度を読み戻す。通常描画では呼ばない。
+	void readStaticShadowDepth(Grid<float>& depth) const { m_shadowMap.read(depth); }
 	[[nodiscard]] bool ready() const { return static_cast<bool>(m_forwardShader); }
 
 private:

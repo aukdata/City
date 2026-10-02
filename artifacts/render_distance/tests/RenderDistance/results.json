@@ -1,0 +1,35 @@
+﻿{
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "RenderDistance.SettingsAndBounds",
+      "status": "passed",
+      "durationMs": 1.742,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RenderDistance.TreeBoundsAndSubmission",
+      "status": "passed",
+      "durationMs": 2.744,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RenderDistance.BatchedShadowReadback",
+      "status": "passed",
+      "durationMs": 556.699,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RenderDistance.CommandPaletteReadback",
+      "status": "passed",
+      "durationMs": 25.621,
+      "failures": [
+      ]
+    }
+  ]
+}

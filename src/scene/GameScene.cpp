@@ -17,6 +17,7 @@ GameScene::GameScene(const InitData& init)
 	{
 		return m_walkSurface.resolve(point,m_world,m_network,m_trainNetwork);
 	});
+	(void)m_worldRenderer.setRenderDistance(getData().renderDistance);
 	const Size renderSize = RenderQuality::targetSize(Scene::Size(), getData().lowSpec);
 	if (getData().lowSpec)
 	{

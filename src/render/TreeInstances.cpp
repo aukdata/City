@@ -78,7 +78,17 @@ void TreeInstanceRenderer::clear()
 	m_nearInstances = m_farInstances = 0;
 }
 
-void TreeInstanceRenderer::append(const Array<TreeInstance>& trees, Point chunk, Vec2 heights, Vec3 eye)
+Box TreeInstanceRenderer::bounds(const TreeInstance& tree)
+{
+	const auto& position = tree.transform.positionWidth;
+	const double width = Abs(position.w), height = Abs(tree.transform.heightRotation.x);
+	// 原型は半径 .6、Y=-.1～1.1 に収まる。風・丸め誤差へ 1 m の余裕を残す。
+	constexpr double kExtent = .6, kMargin = 1.0;
+	return Box{Vec3{position.x,position.y + height * .5,position.z},
+		Vec3{2 * (width * kExtent + kMargin), 2 * (height * kExtent + kMargin), 2 * (width * kExtent + kMargin)}};
+}
+
+void TreeInstanceRenderer::append(const Array<TreeInstance>& trees, Point chunk, Vec2 heights, Vec3 eye, double renderDistance)
 {
 	std::array<bool, 16> near;
 	for (int tile = 0; tile < 16; ++tile)
@@ -87,6 +97,7 @@ void TreeInstanceRenderer::append(const Array<TreeInstance>& trees, Point chunk,
 	}
 	for (const auto& tree : trees)
 	{
+		if (renderDistance != RenderDistance::kDefault && !RenderDistance::contains(eye,bounds(tree),renderDistance)) { continue; }
 		const bool detailed = near[tree.tile];
 		if (!detailed && tree.model == kShrubModel) { continue; }
 		const size_t bucket = (tree.model * 2 + tree.palette) * 2 + (detailed ? 1 : 0);
