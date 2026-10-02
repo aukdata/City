@@ -2,6 +2,8 @@
 #include "TestRunner.hpp"
 #include "src/road/RoadNetwork.hpp"
 #include "src/sim/SimGraph.hpp"
+#include "src/traffic/TrafficGraph.hpp"
+#include "src/ui/RoadInspectorEdit.hpp"
 #include "src/road/GuideSign.hpp"
 #include "src/road/JunctionGeometry.hpp"
 #include "src/render/RoadRenderer.hpp"
@@ -22,6 +24,67 @@ namespace
 
 void registerRoadIntegrityTests(TestRunner& runner)
 {
+	runner.add(U"RoadIntegrity.InspectorSpeedRefreshesSimulation", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a = network.addNode({0, 0, 0}), b = network.addNode({100, 0, 0});
+		const int id = *network.addEdge(a, b, {100.0 / 3, 0, 0}, {200.0 / 3, 0, 0});
+		const int unrelatedId = addRoad(network, {0, 0, 100}, {30, 0, 100}, {70, 0, 100}, {100, 0, 100});
+		auto* edge = network.getEdge(id);
+		edge->edgeState = EdgeState::Open;
+		edge->speedLimit = 30;
+		network.getEdge(unrelatedId)->speedLimit = 50;
+		SimGraph graph = SimGraph::build(network);
+		TrafficGraph routes;
+		routes.rebuild(graph, 0, {});
+		int notifications = 0;
+		// Refresh only when the production inspector helper invokes the same notification seam as GameScene.
+		const auto notify = [&](int nodeA, int nodeB)
+		{
+			++notifications;
+			context.expect(nodeA == a && nodeB == b, U"The inspector notifies the edited road's endpoints");
+			graph = SimGraph::build(network);
+			routes.rebuild(graph, 0, {});
+		};
+		const auto editSpeed = [&](float requestedSpeed)
+		{
+			return RoadInspectorEdit::editSpeedLimit(*edge, [&](float& value)
+			{
+				context.expect(&value == &edge->speedLimit, U"The numeric widget retains the road field's stable identity");
+				value = requestedSpeed;
+			}, notify);
+		};
+		const auto expectForwardCost = [&](double expected)
+		{
+			bool found = false;
+			for (int lane = 0; lane < static_cast<int>(edge->lanes.size()); ++lane)
+			{
+				const auto* outgoing = routes.outgoingEdges(routes.entryNodeId(id, lane));
+				if (!outgoing) { continue; }
+				for (const auto& connection : *outgoing)
+				{
+					if (connection.type != GraphEdgeType::Forward) { continue; }
+					found = true;
+					context.expectNear(connection.cost, expected, .001, U"The 100m routing cost follows the inspector speed");
+				}
+			}
+			context.expect(found, U"The production routing graph contains the edited road's forward cost");
+		};
+		context.expectNear(edge->length, 100, .001, U"The fixture is a 100m road");
+		expectForwardCost(12);
+		context.expect(!editSpeed(30), U"An unchanged inspector value is not dirty");
+		context.expectEqual(notifications, 0, U"An unchanged value does not notify the network");
+		context.expect(editSpeed(40), U"A changed speed invalidates the road display");
+		context.expectNear(edge->speedLimit, 40, .001, U"The inspector commits the requested speed to the road");
+		context.expectEqual(notifications, 1, U"A changed speed notifies the simulation exactly once");
+		context.expectNear(graph.getEdge(id)->speedLimit, 40, .001, U"Live vehicle physics receives the new speed without a reload");
+		expectForwardCost(9);
+		context.expect(!editSpeed(40), U"Repeated input at the current speed is not dirty");
+		context.expectEqual(notifications, 1, U"Repeated input does not redundantly refresh the simulation");
+		context.expectNear(network.getEdge(unrelatedId)->speedLimit, 50, .001, U"The inspector leaves an unrelated road unchanged");
+		context.expectNear(graph.getEdge(unrelatedId)->speedLimit, 50, .001, U"The unrelated simulation speed is preserved");
+	});
+
 	runner.add(U"RoadIntegrity.EditRewiredSnapshotRefreshesNewEndpoint", [](TestContext& context)
 	{
 		RoadNetwork network;

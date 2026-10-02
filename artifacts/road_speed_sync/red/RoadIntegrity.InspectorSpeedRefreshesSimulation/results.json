@@ -1,0 +1,19 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "RoadIntegrity.InspectorSpeedRefreshesSimulation",
+      "status": "failed",
+      "durationMs": 0.061,
+      "failures": [
+        "A changed speed notifies the simulation exactly once (actual=0, expected=1)",
+        "Live vehicle physics receives the new speed without a reload (actual=30, expected=40, tolerance=0.001)",
+        "The 100m routing cost follows the inspector speed (actual=12.000004768371582, expected=9, tolerance=0.001)",
+        "The 100m routing cost follows the inspector speed (actual=12.000004768371582, expected=9, tolerance=0.001)",
+        "Repeated input does not redundantly refresh the simulation (actual=0, expected=1)"
+      ]
+    }
+  ]
+}

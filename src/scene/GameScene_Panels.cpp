@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "../ui/TransportSectionControls.hpp"
+#include "../ui/RoadInspectorEdit.hpp"
 #include "../ui/RoadDiagramStyle.hpp"
 #include "../ui/LandParcelPanel.hpp"
 #include "../ui/ConstructionStatus.hpp"
@@ -814,7 +815,13 @@ void GameScene::drawEdgePanel()
 	{
 		ui.row(4, [&] {
 			ui.label(U"速度制限", ColorF{ 0.6 });
-			if (ui.numberInput(edge->speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44)) { dirty = true; }
+			dirty |= RoadInspectorEdit::editSpeedLimit(*edge, [&](float& speedLimit)
+			{
+				ui.numberInput(speedLimit, 10.0f, 10.0f, 200.0f, U"{:.0f}", 44);
+			}, [this](int nodeA, int nodeB)
+			{
+				notifyNetworkChanged({nodeA, nodeB});
+			});
 			ui.label(U"km/h", ColorF{ 0.5 });
 			ui.label(U"W:{:.1f}m"_fmt(edge->totalWidth()));
 			// デバッグ: 車両スポーン

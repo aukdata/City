@@ -34,6 +34,17 @@ void GameScene::recordPlaytestFrame()
 		state[U"commandId"]=m_playtestCommandId;
 		state[U"fpsGraph"]=m_frameRateGraph.visible;state[U"fps"]=m_frameRateGraph.latest();
 		state[U"selectionKind"]=static_cast<int>(m_selection.kind);state[U"selectionId"]=m_selection.id;
+		if (const auto selected = selectedEdgeId())
+		{
+			if (const auto* edge = m_network.getEdge(*selected))
+			{
+				state[U"selectedEdgeSpeedLimit"] = edge->speedLimit;
+			}
+			if (const auto* edge = m_simGraph ? m_simGraph->getEdge(*selected) : nullptr)
+			{
+				state[U"selectedEdgeSimulationSpeedLimit"] = edge->speedLimit;
+			}
+		}
 		state[U"townLabels"] = Array<JSON>{};
 		int labelIndex = 0;
 		for (const auto& label : m_placeNameRenderer.labels())

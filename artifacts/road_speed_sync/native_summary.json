@@ -1,0 +1,36 @@
+{
+  "selectedEdgeId": 41610,
+  "interaction": "Native inspector mouse wheel; no reload or unrelated edit",
+  "states": [
+    {
+      "phase": "before",
+      "frame": 210,
+      "selectionKind": 1,
+      "selectionId": 41610,
+      "roadSpeedLimit": 30.0,
+      "simulationSpeedLimit": 30.0,
+      "source": "native_before.json"
+    },
+    {
+      "phase": "changed",
+      "frame": 375,
+      "selectionKind": 1,
+      "selectionId": 41610,
+      "roadSpeedLimit": 40.0,
+      "simulationSpeedLimit": 40.0,
+      "source": "native_changed.json"
+    },
+    {
+      "phase": "restored",
+      "frame": 510,
+      "selectionKind": 1,
+      "selectionId": 41610,
+      "roadSpeedLimit": 30.0,
+      "simulationSpeedLimit": 30.0,
+      "source": "native_restored.json"
+    }
+  ],
+  "savedDuringRetest": false,
+  "exitCode": 0,
+  "actualVehicleTrajectoryBenchmark": false
+}
