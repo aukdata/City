@@ -257,6 +257,8 @@ bool RoadBinary::read(const FilePath& path,
 		if (!r.read(px) || !r.read(py) || !r.read(pz)) return false;
 		n.position = Vec3{ px, py, pz };
 		if (!r.read(type) || !r.read(edgeCnt)) return false;
+		if (type > static_cast<uint8>(NodeType::Diverge)) { return false; }
+		n.type = static_cast<NodeType>(type);
 		if (!validateCount(edgeCnt, kMaxAttachmentPerNode, U"node.edgeCnt")) return false;
 
 		// attachment の全フィールドを読む
@@ -536,12 +538,22 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network)
 	}	return true;
 }
 
-bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
+bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot)
 {
 	// 基本道路を復元した後、付帯情報を順に読み足して RoadNetwork 全体を再生する。
 	Array<RoadNode> nodes;
 	Array<RoadEdge> edges;
 	if (!read(path, nodes, edges)) return false;
+	if (preserveSnapshot)
+	{
+		for (const auto& edge : edges)
+		{
+			if (!IsFinite(edge.cutoffA) || !IsFinite(edge.cutoffB) || edge.cutoffA < 0 || edge.cutoffB < 0)
+			{
+				return false;
+			}
+		}
+	}
 
 	// attachment 情報を退避（addEdgeRaw がデフォルト attachment で上書きするため）
 	HashTable<int, Array<EdgeAttachment>> savedAttachments;
@@ -559,6 +571,11 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 	{
 		RoadNode* node = network.getNode(nid);
 		if (!node) continue;
+		if (preserveSnapshot)
+		{
+			node->attachments = atts;
+			continue;
+		}
 		for (const auto& saved : atts)
 		{
 			if (auto* att = node->getAttachment(saved.edgeId))
@@ -567,6 +584,29 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 				att->isThrough     = saved.isThrough;
 				att->control       = saved.control;
 			}
+		}
+	}
+
+	if (preserveSnapshot)
+	{
+		// addEdgeRaw rebuilds topology incrementally and overwrites persisted end geometry.
+		// Restore every cutoff before updating paths so both ends see the complete snapshot.
+		for (const auto& saved : edges)
+		{
+			if (RoadEdge* edge = network.getEdge(saved.id))
+			{
+				edge->cutoffA = saved.cutoffA;
+				edge->cutoffB = saved.cutoffB;
+			}
+		}
+		for (const auto& saved : nodes)
+		{
+			if (RoadNode* node = network.getNode(saved.id))
+			{
+				node->type = saved.type;
+				node->signalPlacement = saved.signalPlacement;
+			}
+			network.updateLaneConnectionPaths(saved.id);
 		}
 	}
 
@@ -636,7 +676,7 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network)
 	}
 
 	// 自動生成 signs を再計算
-	network.recomputeAllAutoSigns();
+	if (!preserveSnapshot) { network.recomputeAllAutoSigns(); }
 
 	// 末尾追記領域から道路オブジェクトと路線を読み戻し、最後に逆引きインデックスを張り直す。
 	// RoadObject を読み込み

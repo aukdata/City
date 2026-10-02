@@ -3,6 +3,8 @@
 #include "src/save/DevelopmentSnapshot.hpp"
 #include "src/save/WorldSnapshotValidation.hpp"
 #include "src/save/SaveTransaction.hpp"
+#include "src/save/RoadBinary.hpp"
+#include <limits>
 #include "src/zone/ZoneManager.hpp"
 #include <fstream>
 #include <iterator>
@@ -59,6 +61,82 @@ namespace
 
 void registerDevelopmentSnapshotTests(TestRunner& runner)
 {
+	runner.add(U"DevelopmentSnapshot.RoadGeometryAndSignsRoundTrip",[](TestContext& context)
+	{
+		RoadNetwork source;
+		const int center = source.addNode({0,0,0});
+		Array<int> edges;
+		for (const Vec3 end : { Vec3{-100,0,0}, Vec3{100,0,0}, Vec3{0,0,100}, Vec3{0,0,-100} })
+		{
+			const int endpoint = source.addNode(end);
+			const auto edge = source.addEdge(center,endpoint,end/3,end*2/3,RoadType::Arterial,4);
+			context.expect(edge.has_value(),U"Fixture edge created");
+			if (!edge) { return; }
+			edges << *edge;
+			source.getEdge(*edge)->edgeState = EdgeState::Open;
+			for (auto& part : source.getEdge(*edge)->parts) { part.build = BuildState::Built; }
+		}
+		source.getNode(center)->getAttachment(edges[0])->isThrough = true;
+		source.getNode(center)->getAttachment(edges[1])->isThrough = true;
+		source.rebuildLaneConnections(center);
+		source.updateNodeCutoffs(center);
+		source.getNode(center)->signalPlacement.reset();
+		for (auto& attachment : source.getNode(center)->attachments) { attachment.control = TrafficControl::None; }
+		source.getNode(center)->getAttachment(edges[0])->control = TrafficControl::Stop;
+		for (const int id : edges)
+		{
+			auto* edge = source.getEdge(id);
+			edge->cutoffA = 17.125f + id;
+			edge->cutoffB = 3.5f + id;
+			edge->signs.clear();
+		}
+		source.getNode(center)->attachments.reverse();
+		for (const auto& node : source.nodes()) { source.updateLaneConnectionPaths(node.id); }
+		const FilePath first = U"TestResults/authoritative_roads.bin", second = U"TestResults/authoritative_roads_again.bin";
+		context.expect(RoadBinary::writeGlobal(first,source),U"Persist custom end geometry and deliberately absent automatic signs");
+		RoadNetwork loaded;
+		const bool restored = RoadBinary::readGlobal(first,loaded,true);
+		context.expect(restored,U"Restore authoritative road state");
+		if (!restored || !loaded.getNode(center)) { return; }
+		context.expect(loaded.getNode(center)->type == NodeType::Diverge,U"Saved node classification survives topology reconstruction");
+		context.expect(!loaded.getNode(center)->signalPlacement,U"Load preserves deliberately absent signal placement");
+		for (const int id : edges)
+		{
+			const auto* before = source.getEdge(id);
+			const auto* after = loaded.getEdge(id);
+			context.expect(after != nullptr,U"Saved edge retained");
+			if (!after) { return; }
+			context.expectNear(after->cutoffA,before->cutoffA,0,U"Start cutoff restored exactly");
+			context.expectNear(after->cutoffB,before->cutoffB,0,U"End cutoff restored exactly");
+			context.expect(after->signs.isEmpty(),U"Load does not regenerate deliberately absent signs");
+		}
+		const auto paths = loaded.getNode(center)->laneConnections;
+		context.expect(paths.size()>8,U"Fixture exercises derived paths and automatic signal threshold");
+		loaded.updateLaneConnectionPaths(center);
+		const auto& refreshed = loaded.getNode(center)->laneConnections;
+		context.expectEqual(paths.size(),refreshed.size(),U"Path refresh preserves connections");
+		for (size_t index = 0; index < paths.size(); ++index)
+		{
+			context.expectEqual(paths[index].id,refreshed[index].id,U"Path restoration preserves logical IDs");
+			context.expectNear((paths[index].path.p0-refreshed[index].path.p0).length(),0,0,U"Restored entry path already uses persisted cutoff");
+			context.expectNear((paths[index].path.p3-refreshed[index].path.p3).length(),0,0,U"Restored exit path already uses persisted cutoff");
+		}
+		context.expect(RoadBinary::writeGlobal(second,loaded),U"Re-save restored road snapshot");
+		auto fileBytes=[](const char* path)
+		{
+			std::ifstream input{path,std::ios::binary};
+			return std::vector<char>{std::istreambuf_iterator<char>{input},std::istreambuf_iterator<char>{}};
+		};
+		context.expect(fileBytes("TestResults/authoritative_roads.bin")==fileBytes("TestResults/authoritative_roads_again.bin"),U"All persisted road fields remain byte stable");
+		RoadNetwork legacy;
+		context.expect(RoadBinary::readGlobal(first,legacy),U"Default legacy road restoration remains available");
+		context.expect(legacy.getEdge(edges[0]) && legacy.getEdge(edges[0])->cutoffA != source.getEdge(edges[0])->cutoffA,U"Legacy path continues its original cutoff recalculation");
+		source.getEdge(edges[0])->cutoffA = std::numeric_limits<float>::infinity();
+		context.expect(RoadBinary::writeGlobal(second,source),U"Create malformed-cutoff fixture");
+		RoadNetwork rejected;
+		context.expect(!RoadBinary::readGlobal(second,rejected,true),U"Reject nonfinite authoritative cutoff before installing roads");
+		context.expect(rejected.nodes().isEmpty() && rejected.edges().isEmpty(),U"Malformed cutoff leaves target network untouched");
+	});
 	runner.add(U"DevelopmentSnapshot.GeneratedBaselineRoundTrip",[](TestContext& context)
 	{
 		World source; prepareWorld(source); populate(source);

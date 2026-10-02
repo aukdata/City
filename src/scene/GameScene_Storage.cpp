@@ -527,7 +527,7 @@ bool GameScene::loadGame()
 	// 道路ネットワーク
 	{
 		const String roadPath = U"{}/global/roads.bin"_fmt(saveRoot);
-		const bool roadOk = RoadBinary::readGlobal(roadPath, m_network);
+		const bool roadOk = RoadBinary::readGlobal(roadPath, m_network, restoreSnapshot);
 		if (!roadOk)
 		{
 			DBG_LOG(U"[Load] Invalid road snapshot: {}"_fmt(roadPath));
@@ -633,7 +633,7 @@ bool GameScene::loadGame()
 		MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts, &m_network);
 	}
 	m_districtHierarchy.generate(m_world,m_districts);
-	m_network.recomputeAllAutoSigns();
+	if (!restoreSnapshot) { m_network.recomputeAllAutoSigns(); }
 	m_roadRenderer.setMunicipalityLookup([this](Vec2 point)
 	{
 		const int id=m_districtHierarchy.at(point,0);

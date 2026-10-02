@@ -1,0 +1,36 @@
+{
+  "comparison": {
+    "load1": {
+      "changed_files": [],
+      "roads_exact": true,
+      "development_exact": true
+    },
+    "load2": {
+      "changed_files": [],
+      "roads_exact": true,
+      "development_exact": true
+    }
+  },
+  "runs": {
+    "load1": {
+      "exit_code": 0,
+      "seconds": 18.487727165222168,
+      "roads_sha256": "ec74e4c0e96ba7ad14e1f9cba841e5eb0597f37744059f97cee663ca6183cac6",
+      "diagnostics": [
+        "[8.34573s] [BuildingOverlap] coord=(57, 51) cell=(17, 38) type=5 edge=17575 center=(58653.90886878967, 52836.327600717545) line=1840",
+        "[8.34573s] [BuildingOverlap] coord=(57, 51) cell=(15, 39) type=5 edge=17763 center=(58609.62552404404, 52856.06511864066) line=1840",
+        "[8.46462s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=2 frontageDistance=0 coastal=0 passed=false"
+      ]
+    },
+    "load2": {
+      "exit_code": 0,
+      "seconds": 20.38776659965515,
+      "roads_sha256": "ec74e4c0e96ba7ad14e1f9cba841e5eb0597f37744059f97cee663ca6183cac6",
+      "diagnostics": [
+        "[8.2295s] [BuildingOverlap] coord=(57, 51) cell=(17, 38) type=5 edge=17575 center=(58653.90886878967, 52836.327600717545) line=1840",
+        "[8.2295s] [BuildingOverlap] coord=(57, 51) cell=(15, 39) type=5 edge=17763 center=(58609.62552404404, 52856.06511864066) line=1840",
+        "[8.34148s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=2 frontageDistance=0 coastal=0 passed=false"
+      ]
+    }
+  }
+}

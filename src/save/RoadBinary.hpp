@@ -30,5 +30,6 @@ public:
 	static bool writeGlobal(const FilePath& path, const RoadNetwork& network);
 
 	/// @brief 単一ファイルから RoadNetwork を復元する
-	static bool readGlobal(const FilePath& path, RoadNetwork& network);
+	/// @param preserveSnapshot Keep persisted cutoff/type/sign state; rebuild only derived connection paths.
+	static bool readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot = false);
 };

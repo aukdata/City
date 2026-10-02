@@ -1,11 +1,11 @@
 # セーブ・ロード仕様書
 
-将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-09-14）** は
+将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-10-02）** は
 `JSON + 独自バイナリ` の簡易構成で保存している。
 
 ---
 
-## 0. 現行実装（2026-09-14）
+## 0. 現行実装（2026-10-02）
 
 ### 0.1 ディレクトリ構造
 
@@ -17,10 +17,13 @@ saves/
     │   ├── economy.json
     │   ├── districts.json
     │   ├── roads.bin
+    │   ├── development.bin
+    │   ├── construction_clearance.json
     │   └── guide_signs.json
     └── chunks/
         └── {cx}_{cy}/
-            └── terrain.bin
+            ├── terrain.bin
+            └── land_patches.bin
 ```
 
 ### 0.2 保存している内容
@@ -31,7 +34,7 @@ saves/
   - `gameNow`, `timeScale`
   - `nextNodeId`, `nextEdgeId`
   - `cameraFocusX/Y/Z`, `cameraDistance`, `cameraYaw`, `cameraPitch`
-  - `zoneDevelopment`: プレイヤーが編集したセルの用途・建物・開発進捗。基礎街の再生成後に復元する
+  - `zoneDevelopment`: 編集セルの記録、開発進捗・状態・時刻・再試行時刻。v4は記録のみ復元し、完全復元済みのセルへ編集ペイロードを重ねない
   - `railway`: 線路・駅・車庫のグラフ、路線名・停車駅・運行時間帯・間隔・種別、直前発車と次便の方向
 - `global/economy.json`
   - `funds`, `population`, `happiness`
@@ -40,6 +43,12 @@ saves/
 - `global/roads.bin`
   - 道路ノード、道路エッジ、レーン、断面部品、道路標識
   - 末尾追記で `RoadObject` と `RoadRoute`
+- `global/development.bin`（meta v4、独立スキーマ v1）
+  - 全生成済みチャンクの全用途・建物・市街化フラグ。省略セルは明示的な既定値
+  - Buildingの全7フィールドと、敷地ID・参照キー・材質・高さ・double頂点座標
+  - 固定幅リトルエンディアン。重複座標・不正列挙・非有限値・切詰め・余剰データを拒否
+- `global/construction_clearance.json`
+  - 撤去済みセルの記録。v4は地形・セルへ再適用しない
 - `global/guide_signs.json`
   - **手動編集された案内標識のみ**
   - 自動生成案内標識はロード後に再計算
@@ -49,11 +58,9 @@ saves/
 ### 0.3 ロード時に再構築している内容
 
 - `NamedDestination` と自動案内標識
-- 自動道路標識 (`recomputeAllAutoSigns`)
-- 建物配置
-  - `districts.json` と道路ネットワークから再生成
-- ゾーン
-  - 地区情報から `applyZonesGlobal()` で再適用
+- v4の道路は保存したcutoff・ノード種別・接続順序・信号配置・道路標識を維持し、レーン接続パス等の派生情報だけを再構築
+- v1–v3の自動道路標識・建物・ゾーンは従来の再生成経路を維持
+- v4の建物・ゾーン・敷地は `development.bin` から復元し、初期生成・敷地生成・角度移行・施工地形再適用を実行しない
 - 鉄道
   - `meta.railway` がある場合は保存したグラフとダイヤを復元し、再生成しない。保存前の形式で鉄道欄がない場合だけ生成する
 
@@ -61,11 +68,15 @@ saves/
 
 - 車両の現在位置・経路
 - 走行中の列車の位置・停車状態（ロード後は保存ダイヤの次便から再開）
-- 全セルの `zoneMap`（プレイヤーが塗ったセルは保存済み）
-- 全セルの `buildingGrid`（プレイヤーが塗った区画の建物は保存済み）
 - 各種 UI 状態
 
-### 0.5 一覧と削除
+### 0.5 保存検証と互換性
+
+meta v4の必須メタデータ・地形・開発スナップショットが欠損/破損した場合は再生成で補わず失敗を表示する。書込みは一時スロットを再読込み検証してから公開する。DevelopmentSnapshot単体の失敗時非変更はテスト済みだが、全GameSceneの部分ロードまで汎用トランザクション化したわけではない。
+
+旧保存は従来経路で読むため、以前のロードで失われた生成建物は復旧できない。新形式は古い実行ファイルで開かない。旧バイナリの安全な拒否は保証しない。検証は [保存](../artifacts/save_consistency/REVIEW.md) と [道路復元](../artifacts/road_snapshot/REVIEW.md)。
+
+### 0.6 一覧と削除
 
 タイトルの保存一覧はmeta.jsonを持つセーブを列挙し、ロードと名前指定の削除に対応する。削除前に対象名を確認する。一覧を再取得しても確認対象を番号で取り違えない。失敗理由を画面に表示する。ロード時は生成選択を復元し、無効にした農地・建物や自動交通を勝手に生成しない。詳しくは [33](33_generation_and_underground.md)。
 
