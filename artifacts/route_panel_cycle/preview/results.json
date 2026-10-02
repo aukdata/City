@@ -1,0 +1,28 @@
+﻿{
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "RoadInspectorPanels.ExclusiveSwitchAndInput",
+      "status": "passed",
+      "durationMs": 0.916,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadInspectorPanels.HiddenRouteNameFocus",
+      "status": "passed",
+      "durationMs": 0.242,
+      "failures": [
+      ]
+    },
+    {
+      "name": "RoadInspectorPanels.ExclusivePreview",
+      "status": "passed",
+      "durationMs": 311.131,
+      "failures": [
+      ]
+    }
+  ]
+}

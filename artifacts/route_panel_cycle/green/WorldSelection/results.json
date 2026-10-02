@@ -1,0 +1,28 @@
+﻿{
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "WorldSelection.RoofOccludesGroundSignal",
+      "status": "passed",
+      "durationMs": 0.014,
+      "failures": [
+      ]
+    },
+    {
+      "name": "WorldSelection.VisibleSignalAndEasyGroundPick",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "WorldSelection.NativeRayAcrossRasterProfiles",
+      "status": "passed",
+      "durationMs": 7.666,
+      "failures": [
+      ]
+    }
+  ]
+}

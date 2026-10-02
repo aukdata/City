@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "LaunchOptionsTests.hpp"
+#include "RoadInspectorPanelTests.hpp"
 #include "src/ui/CityHud.hpp"
 #include "src/render/UIRenderer.hpp"
 #include "src/asset/AssetRegistrar.hpp"
@@ -16,6 +17,7 @@
 void registerCityHudTests(TestRunner& runner)
 {
 	registerLaunchOptionsTests(runner);
+	registerRoadInspectorPanelTests(runner);
 
 	runner.add(U"CityHud.SaveStatusLifetime", [](TestContext& context)
 	{

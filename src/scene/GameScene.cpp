@@ -4,6 +4,7 @@
 #include "../render/ShaderAsset.hpp"
 #include "../render/RenderQuality.hpp"
 #include "../ui/ZonePalette.hpp"
+#include "../ui/RoadInspectorPanels.hpp"
 
 // =============================================================================
 // 初期化
@@ -62,7 +63,7 @@ void GameScene::initScene()
 	// 初回の地図・入力判定も、描画を待たず確定したHUD領域を使う。
 	m_uiRenderer.updateLayout();
 	// シーン全体で使う UI パネルと、編集系の初期テンプレートをここでまとめて準備する。
-	m_panelManager.registerPanel(U"edge_info", Vec2{374, static_cast<double>(Scene::Height() - 20)}, true, true);
+	RoadInspectorPanels::registerPanels(m_panelManager, Scene::Height());
 	m_panelManager.registerPanel(U"node_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 	m_panelManager.registerPanel(U"name_list", Vec2{250, static_cast<double>(Scene::Height() - 20)}, false, true);
 	m_panelManager.registerPanel(U"vehicle_info", Vec2{280, static_cast<double>(Scene::Height() - 20)}, true, true);
@@ -76,7 +77,6 @@ void GameScene::initScene()
 	m_panelManager.registerPanel(U"signal_edit", Vec2{700, 550}, true, true);
 	m_panelManager.registerPanel(U"guide_sign_edit", Vec2{360, 600}, true, true);
 	m_panelManager.registerPanel(U"guide_sign_editor", Vec2{500, 600}, true, true);
-	m_panelManager.registerPanel(U"route_info", Vec2{312, static_cast<double>(Scene::Height() - 20)}, true, true);
 
 	// 道路設置テンプレートの初期値（LocalRoad, 2車線）
 	m_drawTemplate = RoadPlanDraft::makeRoadTemplate(0);
@@ -334,7 +334,10 @@ void GameScene::update()
 		GameInput::textOwnedFrame = true;
 	}
 	if (!m_showPauseMenu && !mapInput)
+	{
 		m_panelManager.handleInput();
+	}
+	RoadInspectorPanels::releaseHiddenRouteNameFocus(m_panelManager, m_routeNameEditState);
 	m_uiRenderer.updateLayout(m_camera.mode() == CameraMode::FirstPerson,m_driving.active(),!modeString().isEmpty());
 	const auto hudAction = m_uiRenderer.handleInput(!m_showPauseMenu && !mapInput
 		&& !m_panelManager.blocksMouseInput() && !GameInput::keyboardBlocked());

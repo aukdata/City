@@ -24,10 +24,11 @@ Array<PanelState*> PanelManager::sortedPanels()
 	return result;
 }
 
-void PanelManager::registerPanel(StringView id, Vec2 size, bool movable, bool scrollable)
+void PanelManager::registerPanel(StringView id, Vec2 size, bool movable, bool scrollable, StringView exclusiveGroup)
 {
 	PanelState p;
 	p.id         = String{ id };
+	p.exclusiveGroup = String{ exclusiveGroup };
 	p.size       = size;
 	p.movable    = movable;
 	p.scrollable = scrollable;
@@ -38,6 +39,16 @@ void PanelManager::show(StringView id, StringView title, Vec2 pos)
 {
 	if (auto* p = find(id))
 	{
+		if (!p->exclusiveGroup.isEmpty())
+		{
+			for (auto& [otherId, other] : m_panels)
+			{
+				if (otherId != id && other.visible && other.exclusiveGroup == p->exclusiveGroup)
+				{
+					hide(otherId);
+				}
+			}
+		}
 		p->title   = String{ title };
 		if (!p->visible) p->pos = pos;  // 再表示時のみ位置リセット
 		p->visible = true;
@@ -51,6 +62,7 @@ void PanelManager::hide(StringView id)
 	{
 		p->visible = false;
 		p->scrollOffset = 0.0;
+		if (m_draggingId == id) { m_draggingId.clear(); }
 	}
 }
 

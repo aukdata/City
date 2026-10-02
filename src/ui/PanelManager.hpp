@@ -8,6 +8,7 @@ struct PanelState
 	// パネルの表示状態と入力補助情報を 1 レコードにまとめ、ID で直接引けるようにする。
 	String id;
 	String title;
+	String exclusiveGroup;  ///< 同じ非空グループのパネルは1枚だけ表示する
 	Vec2   pos;
 	Vec2   size;
 	bool   visible    = false;
@@ -33,7 +34,8 @@ public:
 	static constexpr int kTitleBarH = 24;
 
 	/// @brief パネルを登録する（初回のみ）
-	void registerPanel(StringView id, Vec2 size, bool movable, bool scrollable = false);
+	void registerPanel(StringView id, Vec2 size, bool movable, bool scrollable = false,
+		StringView exclusiveGroup = U"");
 
 	/// @brief パネルを表示する（最前面に配置）
 	void show(StringView id, StringView title, Vec2 pos);

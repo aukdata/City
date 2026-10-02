@@ -1,0 +1,49 @@
+﻿{
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Input.PanelText.ShortBackspaceAndDelete",
+      "status": "passed",
+      "durationMs": 21.880,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.UnicodeAndBounds",
+      "status": "passed",
+      "durationMs": 3.281,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.FocusAndInactiveFields",
+      "status": "passed",
+      "durationMs": 13.572,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.NativeControlsAreAuthoritative",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.HeldKeysAndFocusReset",
+      "status": "passed",
+      "durationMs": 0.003,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Input.PanelText.ImePreservation",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    }
+  ]
+}

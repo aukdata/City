@@ -1,0 +1,97 @@
+{
+  "baseline": "62f1bc0",
+  "focusedTests": [
+    {
+      "filter": "RoadInspectorPanels",
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "filter": "MapTransport",
+      "total": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "filter": "Input.PanelText",
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    },
+    {
+      "filter": "UI.PauseMenuAndControlHelp",
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "filter": "WorldSelection",
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    }
+  ],
+  "focusedTotal": 26,
+  "nativeStages": {
+    "edge": {
+      "frame": 150,
+      "selectionId": 616,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "route": {
+      "frame": 255,
+      "selectionId": 616,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "member": {
+      "frame": 420,
+      "selectionId": 22886,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "reopened": {
+      "frame": 585,
+      "selectionId": 22886,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "focused": {
+      "frame": 690,
+      "selectionId": 22886,
+      "selectionKind": 1,
+      "textInput": true,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "closed_focused": {
+      "frame": 780,
+      "selectionId": 22886,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": false
+    },
+    "shortcut": {
+      "frame": 900,
+      "selectionId": 22886,
+      "selectionKind": 1,
+      "textInput": false,
+      "timeSpeed": 0,
+      "timetableVisible": true
+    }
+  },
+  "original8199FilesUnchanged": true,
+  "disposable8199FilesUnchanged": true,
+  "exit": 0
+}

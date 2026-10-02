@@ -1,0 +1,98 @@
+﻿{
+  "total": 13,
+  "passed": 13,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "MapTransport.CartographySurvivesFontAtlasUpdates",
+      "status": "passed",
+      "durationMs": 2020.531,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.PanelOcclusionClickAndWheel",
+      "status": "passed",
+      "durationMs": 1.810,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.PanelOcclusionClosingClick",
+      "status": "passed",
+      "durationMs": 0.108,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.PanelOcclusionKeyboardAndFullMap",
+      "status": "passed",
+      "durationMs": 0.081,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.LocalMapFollowAndControls",
+      "status": "passed",
+      "durationMs": 22.173,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.StationAndDepotCurveLimits",
+      "status": "passed",
+      "durationMs": 534.613,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.GeneratedStationApproaches",
+      "status": "passed",
+      "durationMs": 537.608,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.VegetationClearance",
+      "status": "passed",
+      "durationMs": 522.862,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.TunnelJunctionPassage",
+      "status": "passed",
+      "durationMs": 555.998,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.SeparatedTunnelsRemainSeparate",
+      "status": "passed",
+      "durationMs": 0.254,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.InheritedShaderIsolation",
+      "status": "passed",
+      "durationMs": 257.470,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.PlannedTunnelCrossings",
+      "status": "passed",
+      "durationMs": 342.261,
+      "failures": [
+      ]
+    },
+    {
+      "name": "MapTransport.BridgeTreeClearance",
+      "status": "passed",
+      "durationMs": 336.775,
+      "failures": [
+      ]
+    }
+  ]
+}
