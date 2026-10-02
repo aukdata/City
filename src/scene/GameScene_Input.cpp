@@ -5,6 +5,7 @@
 #include "../railway/TrainConsist.hpp"
 #include "../ui/NavigationHeader.hpp"
 #include "../ui/KeyboardActions.hpp"
+#include "../ui/ZonePaintInput.hpp"
 #include "../gen/RoadTerrainFit.hpp"
 #include "../gen/RoadAlignment.hpp"
 #include "EdgeSectionState.hpp"
@@ -1200,25 +1201,12 @@ void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 
 void GameScene::handleZonePaint()
 {
-	if (!m_cursorGroundPos) return;
-	if (m_panelManager.blocksMouseInput()) return;
-
-	if (GameInput::pressed(KeyShift))
-	{
-		if (MouseL.down())
-			m_rectStart = m_cursorGroundPos;
-		if (MouseL.up() && m_rectStart)
-		{
-			m_zoneManager.paintZoneRect(m_world, *m_rectStart, *m_cursorGroundPos, m_paintZone);
-			m_rectStart = none;
-		}
-	}
-	else
-	{
-		m_rectStart = none;
-		if (MouseL.pressed())
-			m_zoneManager.paintZone(m_world, *m_cursorGroundPos, m_paintZone, m_zoneBrushRadius);
-	}
+	const ZonePaintInput::Frame frame{
+		m_panelManager.blocksMouseInput() ? none : m_cursorGroundPos,
+		GameInput::pressed(KeyShift), MouseL.down(), MouseL.pressed(), MouseL.up()};
+	ZonePaintInput::update(m_rectStart, frame,
+		[&](Vec3 point) { m_zoneManager.paintZone(m_world, point, m_paintZone, m_zoneBrushRadius); },
+		[&](Vec3 start, Vec3 end) { m_zoneManager.paintZoneRect(m_world, start, end, m_paintZone); });
 }
 
 void GameScene::handleBusRouteDraw()

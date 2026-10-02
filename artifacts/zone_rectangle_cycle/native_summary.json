@@ -1,0 +1,326 @@
+{
+  "runtimeRevision": "846ccbb",
+  "nativeRectangleVerification": "inconclusive: native Shift drag sampled as ordinary brush; no sustained-Shift rectangle success or stale-state reproduction claimed",
+  "modifierAttempt": {
+    "brushRadius": 1,
+    "pendingPlots": 9,
+    "changedCells": [
+      {
+        "x": 23192.0,
+        "z": 26520.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23208.0,
+        "z": 26520.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23224.0,
+        "z": 26520.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23192.0,
+        "z": 26536.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23208.0,
+        "z": 26536.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23224.0,
+        "z": 26536.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23192.0,
+        "z": 26552.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23208.0,
+        "z": 26552.0,
+        "from": 6,
+        "to": 2
+      },
+      {
+        "x": 23224.0,
+        "z": 26552.0,
+        "from": 6,
+        "to": 2
+      }
+    ],
+    "saved": false,
+    "preservation": {
+      "files": 8199,
+      "identical": true,
+      "runtimeExit": 0,
+      "unsavedModifierAttemptDiscarded": true
+    }
+  },
+  "growth": {
+    "worldCenter": [
+      23208,
+      26552
+    ],
+    "globalCell": [
+      1450,
+      1659
+    ],
+    "paintedPaused": {
+      "frame": 90,
+      "editMode": 3,
+      "zone": 2,
+      "brushRadius": 0,
+      "paused": true,
+      "population": 233146,
+      "development": {
+        "completed": 0,
+        "count": 1,
+        "cursor": 0,
+        "plots": [
+          {
+            "checkedAt": 26.80000000000011,
+            "nextCheck": 0.0,
+            "progress": 0.0,
+            "state": 0,
+            "x": 1450,
+            "z": 1659,
+            "zone": 2
+          }
+        ],
+        "time": 26.80000000000011
+      },
+      "targetCell": {
+        "angle": 0.0,
+        "building": 0,
+        "builtAt": 0.0,
+        "edge": -1,
+        "offsetX": 0.0,
+        "offsetZ": 0.0,
+        "x": 23208.0,
+        "z": 26552.0,
+        "zone": 2
+      }
+    },
+    "afterResumeThenPause": {
+      "frame": 240,
+      "editMode": 3,
+      "zone": 2,
+      "brushRadius": 0,
+      "paused": true,
+      "population": 233146,
+      "development": {
+        "completed": 0,
+        "count": 1,
+        "cursor": 1,
+        "plots": [
+          {
+            "checkedAt": 36.900000000000254,
+            "nextCheck": 37.900000000000254,
+            "progress": 0.0,
+            "state": 3,
+            "x": 1450,
+            "z": 1659,
+            "zone": 2
+          }
+        ],
+        "time": 37.40000000000026
+      },
+      "targetCell": {
+        "angle": 0.0,
+        "building": 0,
+        "builtAt": 0.0,
+        "edge": -1,
+        "offsetX": 0.0,
+        "offsetZ": 0.0,
+        "x": 23208.0,
+        "z": 26552.0,
+        "zone": 2
+      }
+    },
+    "elapsedSimulationSeconds": 10.6,
+    "state3Meaning": "NeedsSpace: insufficient placement clearance; exact failing geometric condition is not exported",
+    "completedBuildingObserved": false,
+    "saved": false
+  },
+  "sourceStateSHA256": {
+    "before.json": "824553dece6fca4a52a9700c6fa4c5533be96fd2757ca1a7b4a0d4030b4dc75a",
+    "native_modifier_attempt.json": "bb89d6bd2529f391494c773a6add72a9dcde8252c31d157253ed75ee8bf271ef",
+    "growth_painted.json": "d52e40d1074afd977c32e0ff843a0b63b82b943d3e409305f6474379d0a867cf",
+    "growth_rejected.json": "31b748f3e6316be54d1389dc20221e72788c746d212f495e6059a3ab5aed1327",
+    "final_before.json": "e8515c5d3a4be37e9d78ce7b0c82418dbb2fc07b3d673621e3aa45b88790a5d6",
+    "final_escape.json": "da465f4cf003539097659a2dc18c15ba288a27062b065906d8c9155bbd0590c7",
+    "final_painted.json": "4648cbf59465741205d62d8c0064b8a8e8482f2c1b3b79a603be2d7e95c719b0",
+    "final_eraser_selected.json": "15ddc112d1b80e8a7fe0c4d2c8f593f237b47ac1aedae6b0a837e4722fa5d7db",
+    "final_erased.json": "9127043d04c121e7d5a75f66234958777856232b4a12d7c6dacdab1d7c73d470",
+    "final_closed.json": "a87ff7958d77c55a8c291dde1de01056201c0b811124c34062b6a57b0013b49e"
+  },
+  "finalNativeSmoke": {
+    "runtime": "rebuilt final City binary",
+    "states": {
+      "before": {
+        "frame": 45,
+        "editMode": 0,
+        "timeSpeed": 0,
+        "zone": 2,
+        "zoneBrush": 1,
+        "zonePalette": false,
+        "development": {
+          "count": 0,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 6
+        }
+      },
+      "escape": {
+        "frame": 135,
+        "editMode": 0,
+        "timeSpeed": 0,
+        "zone": 2,
+        "zoneBrush": 1,
+        "zonePalette": false,
+        "development": {
+          "count": 0,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 6
+        }
+      },
+      "painted": {
+        "frame": 255,
+        "editMode": 3,
+        "timeSpeed": 0,
+        "zone": 2,
+        "zoneBrush": 1,
+        "zonePalette": true,
+        "development": {
+          "count": 18,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 2
+        }
+      },
+      "eraser_selected": {
+        "frame": 315,
+        "editMode": 3,
+        "timeSpeed": 0,
+        "zone": 0,
+        "zoneBrush": 0,
+        "zonePalette": true,
+        "development": {
+          "count": 18,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 2
+        }
+      },
+      "erased": {
+        "frame": 360,
+        "editMode": 3,
+        "timeSpeed": 0,
+        "zone": 0,
+        "zoneBrush": 0,
+        "zonePalette": true,
+        "development": {
+          "count": 17,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 0
+        }
+      },
+      "closed": {
+        "frame": 420,
+        "editMode": 0,
+        "timeSpeed": 0,
+        "zone": 0,
+        "zoneBrush": 0,
+        "zonePalette": false,
+        "development": {
+          "count": 17,
+          "completed": 0,
+          "time": 26.80000000000011
+        },
+        "targetCell": {
+          "angle": 0.0,
+          "building": 0,
+          "builtAt": 0.0,
+          "edge": -1,
+          "offsetX": 0.0,
+          "offsetZ": 0.0,
+          "x": 23208.0,
+          "z": 26552.0,
+          "zone": 0
+        }
+      }
+    },
+    "batchedClickDrag": "Click selecting a smaller brush and following drag did not establish radius0 before painting; observed radius1 painted18cells. No application defect or one-cell paint success is inferred. Separate selection verified radius0 before one-cell erase.",
+    "saved": false,
+    "preservation": {
+      "files": 8199,
+      "identical": true,
+      "runtimeExit": 0,
+      "noSavesMade": true
+    }
+  }
+}

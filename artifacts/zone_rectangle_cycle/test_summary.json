@@ -1,0 +1,274 @@
+{
+  "builds": {
+    "red": {
+      "targets": [
+        "CityTests"
+      ],
+      "exitCode": 0,
+      "sha256": "bc90d853cc15c3cea567924feccade43c4efcfe788512a0e9eade42dea9aacaf",
+      "warningOrErrorLines": []
+    },
+    "green": {
+      "targets": [
+        "City",
+        "CityTests"
+      ],
+      "exitCode": 0,
+      "sha256": "919ed82bd76731a52c5a94b479ec0b7c81c8c5d56e445122825d1fdab35a921d",
+      "warningOrErrorLines": []
+    }
+  },
+  "red": {
+    "path": "red/Zoning.RectangleInput/results.json",
+    "sha256": "171b642b09aff016c454fd4b54c5375f4e8008b984f16c89a484782045b404d6",
+    "exitCode": 1,
+    "total": 6,
+    "passed": 3,
+    "failed": 3,
+    "tests": [
+      {
+        "name": "Zoning.RectangleInput.ValidRectangleAndBrushReplay",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "Zoning.RectangleInput.BlockedReleaseCancelsRectangleReplay",
+        "status": "failed",
+        "failures": [
+          "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+          "Returning to the world after a blocked release leaves no stale preview or paint",
+          "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+          "Returning to the world after a blocked release leaves no stale preview or paint",
+          "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+          "Returning to the world after a blocked release leaves no stale preview or paint"
+        ]
+      },
+      {
+        "name": "Zoning.RectangleInput.UiPressCannotReuseCancelledRectangleReplay",
+        "status": "failed",
+        "failures": [
+          "A later UI press and world release cannot paint from an earlier cancelled anchor",
+          "A later UI press and world release cannot paint from an earlier cancelled anchor",
+          "A later UI press and world release cannot paint from an earlier cancelled anchor"
+        ]
+      },
+      {
+        "name": "Zoning.RectangleInput.MissedReleaseEdgeClearsRectangleReplay",
+        "status": "failed",
+        "failures": [
+          "An idle pointer without a sampled release edge cancels capture rather than painting"
+        ]
+      },
+      {
+        "name": "Zoning.RectangleInput.HeldRectangleCrossesUiReplay",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "Zoning.RectangleInput.ShiftReleaseAndExplicitResetReplay",
+        "status": "passed",
+        "failures": []
+      }
+    ]
+  },
+  "green": [
+    {
+      "path": "green/Zoning/results.json",
+      "sha256": "79e95501c7badd10bec18c2ff22c4a5a75bc17375117ab6ea415a20d8b7560b5",
+      "exitCode": 0,
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Zoning.RectangleInput.ValidRectangleAndBrushReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.BlockedReleaseCancelsRectangleReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.UiPressCannotReuseCancelledRectangleReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.MissedReleaseEdgeClearsRectangleReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.HeldRectangleCrossesUiReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.ShiftReleaseAndExplicitResetReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RectangleInput.WorldPaintEraseSnapshotRoundTrip",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RoadsideGrowthAndRepeatedBrush",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.PauseCancelAndPreserveBuildings",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RoadOpeningAndNoElevatedAccess",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.WaterSlopeRoadAndNeighbourClearance",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.SaveResumeAndFieldAccess",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.EditedCitySurvivesRegeneration",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.RailwayCorridor",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.NewHomePartitionsOldGarden",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Zoning.PaletteVisualReview",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "path": "green/RoadPlan/results.json",
+      "sha256": "8eadfe05f65876c987060ab3343ef197a3b9890db4212eda65277f22b5e04e0b",
+      "exitCode": 0,
+      "total": 14,
+      "passed": 14,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "RoadPlan.SkippedReleaseCancelsDragReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.SkippedHeldFramePreservesDragReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.EndpointPressHoldMoveReleaseReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.PanelReleaseCancelsDragReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.UndoDuringHeldDragReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.UnchangedAndInvalidDragReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.ScreenHandleHitReplay",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.ContinuousPlacementUndoRedo",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.ShortRoadAndTransactionalFailure",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.SnapLongEdgeAndHeight",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.JoinPreservesExistingRouteAndPlan",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.HierarchyPresets",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "RoadPlan.ToolbarVisualReview",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "Tunnels.RoadPlanAndPersistence",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "path": "green/MapTransport.PanelOcclusion/results.json",
+      "sha256": "fd8d3042322e75087d493345c6286cfeb44949b2fd1202d781ecde9775dda669",
+      "exitCode": 0,
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MapTransport.PanelOcclusionClickAndWheel",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "MapTransport.PanelOcclusionClosingClick",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "MapTransport.PanelOcclusionKeyboardAndFullMap",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    }
+  ],
+  "greenTotal": 33,
+  "greenPassed": 33,
+  "greenFailed": 0
+}

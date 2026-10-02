@@ -3,6 +3,8 @@
 #include "src/zone/ZoneManager.hpp"
 #include "src/road/RoadPlanDraft.hpp"
 #include "src/ui/ZonePalette.hpp"
+#include "ZonePaintInputTests.hpp"
+#include "src/save/DevelopmentSnapshot.hpp"
 
 namespace
 {
@@ -30,6 +32,66 @@ namespace
 }
 void registerZoneDevelopmentTests(TestRunner& runner)
 {
+	ZonePaintInputTests::registerTests(runner);
+	runner.add(U"Zoning.RectangleInput.WorldPaintEraseSnapshotRoundTrip", [](TestContext& context)
+	{
+		World world;
+		flatWorld(world);
+		// Keep the existing two-chunk fixture, omitting the ungenerated placeholder terrain.
+		for (int y = 0; y < WORLD_CHUNKS; ++y)
+		{
+			for (int x = 0; x < WORLD_CHUNKS; ++x)
+			{
+				if (y != 0 || x > 1) { world.getChunk({x,y})->heightMap.clear(); }
+			}
+		}
+		ZoneManager manager;
+		Optional<Vec3> rectangleStart;
+		ZoneType zone = ZoneType::LowResidential;
+		const auto input = [&](const ZonePaintInput::Frame& frame)
+		{
+			ZonePaintInput::dispatchFrame(true, frame.pressed, rectangleStart, [&]
+			{
+				ZonePaintInput::update(rectangleStart, frame,
+					[&](Vec3 point) { manager.paintZone(world, point, zone, 0); },
+					[&](Vec3 start, Vec3 end) { manager.paintZoneRect(world, start, end, zone); });
+			});
+		};
+		const Vec3 start{1016,10,520}, end{1048,10,552}, erased{1032,10,536};
+		input({start, true, true, true, false});
+		input({end, true, false, false, true});
+		context.expectEqual(manager.developmentSummary().checking, 9, U"The shared rectangle handler paints nine inclusive cells across a chunk boundary");
+		context.expect(manager.getZone(world, {1000,10,520}) == ZoneType::Unzoned
+			&& manager.getZone(world, {1064,10,552}) == ZoneType::Unzoned, U"Rectangle painting does not touch outside cells");
+		zone = ZoneType::Unzoned;
+		input({erased, true, true, true, false});
+		input({erased, true, false, false, true});
+		context.expectEqual(manager.developmentSummary().checking, 8, U"Rectangle erasure cancels only the selected empty plot");
+		const JSON bookkeeping = manager.saveState(world);
+		const FilePath path = U"TestResults/zoning_rectangle_roundtrip.bin";
+		const bool saved = DevelopmentSnapshot::write(path, world);
+		context.expect(saved, U"The rectangle edits save through the actual authoritative development snapshot");
+		if (!saved) { return; }
+		zone = ZoneType::Agriculture;
+		input({start, true, true, true, false});
+		input({end, true, false, false, true});
+		context.expect(manager.getZone(world, erased) == ZoneType::Agriculture, U"A later edit makes the in-memory city differ from the saved snapshot");
+		const bool restored = DevelopmentSnapshot::read(path, world);
+		context.expect(restored && DevelopmentSnapshot::matches(path, world), U"Reload restores the exact authoritative zone, building and parcel fields");
+		if (!restored) { return; }
+		ZoneManager loaded;
+		loaded.restoreState(bookkeeping, world, true);
+		context.expectEqual(loaded.developmentSummary().checking, 8, U"Bookkeeping resumes only the eight remaining empty plots");
+		for (int gz = 32; gz <= 34; ++gz)
+		{
+			for (int gx = 63; gx <= 65; ++gx)
+			{
+				const Vec3 center{(gx+.5)*16,10,(gz+.5)*16};
+				const ZoneType expected = gx == 64 && gz == 33 ? ZoneType::Unzoned : ZoneType::LowResidential;
+				context.expect(loaded.getZone(world, center) == expected, U"All nine saved rectangle cells, including the erased center, survive reload");
+			}
+		}
+	});
 	runner.add(U"Zoning.RoadsideGrowthAndRepeatedBrush",[](TestContext& context)
 	{
 		World world;flatWorld(world);RoadNetwork network;const int id=road(network);ZoneManager manager;

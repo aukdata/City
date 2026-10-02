@@ -1,0 +1,59 @@
+﻿{
+  "total": 6,
+  "passed": 3,
+  "failed": 3,
+  "tests": [
+    {
+      "name": "Zoning.RectangleInput.ValidRectangleAndBrushReplay",
+      "status": "passed",
+      "durationMs": 0.002,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.BlockedReleaseCancelsRectangleReplay",
+      "status": "failed",
+      "durationMs": 0.002,
+      "failures": [
+        "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+        "Returning to the world after a blocked release leaves no stale preview or paint",
+        "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+        "Returning to the world after a blocked release leaves no stale preview or paint",
+        "A release blocked by terrain/UI/outer gates clears the rectangle capture",
+        "Returning to the world after a blocked release leaves no stale preview or paint"
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.UiPressCannotReuseCancelledRectangleReplay",
+      "status": "failed",
+      "durationMs": 0.001,
+      "failures": [
+        "A later UI press and world release cannot paint from an earlier cancelled anchor",
+        "A later UI press and world release cannot paint from an earlier cancelled anchor",
+        "A later UI press and world release cannot paint from an earlier cancelled anchor"
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.MissedReleaseEdgeClearsRectangleReplay",
+      "status": "failed",
+      "durationMs": 0.001,
+      "failures": [
+        "An idle pointer without a sampled release edge cancels capture rather than painting"
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.HeldRectangleCrossesUiReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Zoning.RectangleInput.ShiftReleaseAndExplicitResetReplay",
+      "status": "passed",
+      "durationMs": 0.001,
+      "failures": [
+      ]
+    }
+  ]
+}
