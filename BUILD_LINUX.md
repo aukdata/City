@@ -65,8 +65,8 @@ This profile renders only the 3D world at two-thirds width and height, without
 MSAA or cast shadows. At the default window size the 3D target is 853×512 instead
 of 1280×768. Text, HUD, maps, selection outlines and input coordinates remain at
 native resolution. Lighting, fog, world geometry, traffic and simulation rules
-are unchanged. Expect softer 3D edges and no cast shadows; omit the option to
-restore normal rendering on the next launch. No save-data change is involved.
+are unchanged. Expect softer 3D edges and no cast shadows; select 標準 in Settings to
+restore normal rendering. No city save-data change is involved.
 
 This is a rendering fallback, not a guarantee for a particular minimum GPU or
 RAM size. Large-world geometry and simulation memory are not capped by it.
@@ -86,5 +86,27 @@ fields, roads, transport and simulation retain their existing behavior. Large
 objects and already-merged batches use conservative geometry bounds, so a batch
 straddling the range can remain partly visible beyond it. It is a draw-submission
 setting, not a world-streaming or memory cap; geometry caches are reused when the
-range increases. The setting lasts for the current process and is not saved in
-city data.
+range increases. CLI/command changes last for the current process unless applied
+in Settings; preferences are never stored in city data.
+
+## Settings screen
+
+Use **設定** at the top-right of the title screen, or **Esc → 設定** while
+playing. The screen groups rendering quality (標準 / 軽量), building/tree draw
+distance (0, or 100–20000 m), and effect volume. 0 means no additional distance
+limit; existing visibility/LOD behavior still applies. Terrain and roads are
+not affected by that distance limit. HUD, maps, camera input and picking remain
+at native resolution in either quality profile.
+
+Edits are staged: **適用して戻る** prepares rendering resources and saves the
+settings before updating the active values; **キャンセル** or Esc discards the
+draft. **初期値に戻す** only changes the draft until Apply is clicked. Applying
+from the pause menu returns to that menu and keeps the city paused.
+
+Settings are stored locally in `App/settings.json`, separately from city saves.
+Startup precedence is built-in defaults, then a valid settings file, then
+explicit CLI options (`--low-spec`, `--render-distance`). CLI overrides and
+`/render distance` commands remain session-only unless explicitly saved with
+Apply in the settings screen. Invalid/corrupt settings files fall back safely
+to defaults. A failed write leaves both the previous file and active settings
+unchanged and shows an error.

@@ -92,6 +92,12 @@ void GameScene::recordPlaytestFrame()
 		state[U"commandInput"]=m_commandPalette.input;
 		state[U"commandMessage"]=m_commandPalette.message;
 		state[U"renderDistanceMeters"]=getData().renderDistance;
+		state[U"renderQuality"]=getData().lowSpec ? U"light" : U"standard";
+		state[U"settingsVisible"]=m_settings.visible;
+		state[U"settingsError"]=m_settings.error;
+		state[U"effectVolume"]=getData().effectVolume;
+		state[U"renderTargetWidth"]=getData().lowSpec ? m_lowSpecRenderTexture.width() : m_renderTexture.width();
+		state[U"renderTargetHeight"]=getData().lowSpec ? m_lowSpecRenderTexture.height() : m_renderTexture.height();
 		state[U"buildingsSubmitted"]=m_worldRenderer.buildingsSubmitted();
 		state[U"treesSubmitted"]=m_worldRenderer.treesSubmitted();
 		state[U"zoneBrush"]=m_zoneBrushRadius;

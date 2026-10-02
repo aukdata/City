@@ -96,3 +96,7 @@ __pycache__/
 /Test/App/CityTests
 /Test/App/resources/
 /App/CityInputSmoke
+
+# Local user preferences (separate from city saves)
+/App/settings.json
+/App/settings.json.pending/

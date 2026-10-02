@@ -11,7 +11,7 @@ struct SceneData
 	GenerationOptions generation; ///< 生成前に選んだ要素。ロード時は保存側の設定で復元する。
 	// タイトル画面で決めた開始条件をここへ集約し、GameScene への遷移時にまとめて引き渡す。
 	uint64 seed        = 20260316ULL;
-	double effectVolume = .6; ///< 起動中はシーンを切り替えても効果音の設定を保持する。
+	double effectVolume = .6; ///< ローカル設定から復元する効果音音量。都市セーブとは独立。
 	double renderDistance = RenderDistance::kDefault; ///< 建物・木の追加描画距離 [m]。0 は従来の表示。
 	bool   lowSpec = false; ///< Opt-in reduced-resolution 3D without MSAA or cast shadows.
 	bool   sandboxMode = true;   ///< サンドボックスモード（道路形状を自由に編集）

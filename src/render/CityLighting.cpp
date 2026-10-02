@@ -32,6 +32,11 @@ bool CityLighting::initialize(FilePathView shaderPath, bool shadowsEnabled)
 	const int shadowResolution = m_shadowsEnabled ? kShadowResolution : 1;
 	m_shadowMap = RenderTexture{ Size{ shadowResolution, shadowResolution }, TextureFormat::R32_Float, HasDepth::Yes };
 	m_dynamicShadowMap = RenderTexture{ m_shadowMap.size(), TextureFormat::R32_Float, HasDepth::Yes };
+	if (!m_shadowMap || !m_dynamicShadowMap)
+	{
+		m_forwardShader = PixelShader{};
+		return false;
+	}
 	return true;
 }
 

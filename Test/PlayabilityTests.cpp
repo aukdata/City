@@ -1,10 +1,14 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
-#include "SaveChordTests.hpp"
 #include "src/ui/KeyboardActions.hpp"
 #include "src/ui/CommandPalette.hpp"
 #include "src/ui/PanelWidget.hpp"
 #include "src/ui/PauseMenu.hpp"
+#include "src/ui/SettingsPanel.hpp"
+#include "src/ui/ModalLayer.hpp"
+#include "src/ui/FrameRateGraph.hpp"
+#include "SettingsStorageTests.hpp"
+#include "SaveChordTests.hpp"
 #include "src/ui/LoadingRecovery.hpp"
 #include "src/ui/NavigationHelp.hpp"
 #include "src/asset/AssetRegistrar.hpp"
@@ -17,7 +21,115 @@
 
 void registerPlayabilityTests(TestRunner& runner)
 {
+	registerSettingsStorageTests(runner);
 	registerSaveChordTests(runner);
+	runner.add(U"Settings.ModalAboveFrameRateGraph", [](TestContext& context)
+	{
+		RegisterAssets();
+		const Font& font = FontAsset(Asset::CJK14);
+		const Size size{1280, 768};
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+		SettingsPanel panel; panel.open({});
+		FrameRateGraph graph; graph.visible = true; graph.sample(.1);
+		{
+			const ScopedRenderTarget2D rt{target.clear(ColorF{.4, .5, .3})};
+			ModalLayer::draw([&] { graph.draw(font, size); }, [&] { panel.draw(font, size); });
+		}
+		Graphics2D::Flush();
+		Image image; target.readAsImage(image);
+		// The one-pixel frame lies just outside the panel (x=319), not on its interior x=320.
+		// Compare a border strip with an intentionally reversed baseline, away from the F3 caption.
+		{
+			const ScopedRenderTarget2D rt{target.clear(ColorF{.4, .5, .3})};
+			panel.draw(font, size);
+			graph.draw(font, size);
+		}
+		Graphics2D::Flush();
+		Image reversed; target.readAsImage(reversed);
+		int visibleBorder = 0, obscuredBorder = 0;
+		for (int y = 620; y < 634; ++y)
+		{
+			for (int x = 319; x < 322; ++x)
+			{
+				const Point point{x, y};
+				context.expect(graph.bounds(size).contains(point), U"The sampled border overlaps the diagnostic graph");
+				visibleBorder += image[point].r > 70 && image[point].b > 100;
+				obscuredBorder += reversed[point].r > 70 && reversed[point].b > 100;
+			}
+		}
+		context.expect(visibleBorder >= 14 && visibleBorder > obscuredBorder + 10,
+			U"The production ordering restores the border that a diagnostic-last baseline obscures");
+		image.save(U"Screenshot/settings_fps_layering.png");
+		reversed.save(U"Screenshot/settings_fps_layering_reverse.png");
+	});
+	runner.add(U"Settings.DistanceBufferedEditing", [](TestContext& context)
+	{
+		RegisterAssets();
+		const Font& font = FontAsset(Asset::CJK14);
+		const Size size{1280, 768};
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+		SettingsPanel panel;
+		panel.open({false, 1200, .6});
+		panel.distanceText.active = true;
+		panel.distanceText.cursorPos = 3;
+		GameInput::buffer.update({{0, 6000, KeyBackspace.code(), true, false}, {0, 6001, KeyBackspace.code(), false, false}}, true);
+		{ const ScopedRenderTarget2D rt{target}; panel.draw(font, size); }
+		context.expect(panel.distanceText.text == U"120" && panel.distanceText.cursorPos == 2, U"A complete short Backspace deletes before the cursor");
+		GameInput::buffer.update({}, true);
+		{ const ScopedRenderTarget2D rt{target}; panel.draw(font, size); }
+		context.expect(panel.distanceText.text == U"120", U"No edit is repeated without a fresh event");
+		GameInput::buffer.update({{0, 6002, KeyDelete.code(), true, false}, {0, 6003, KeyDelete.code(), false, false}}, true);
+		{ const ScopedRenderTarget2D rt{target}; panel.draw(font, size); }
+		context.expect(panel.distanceText.text == U"12" && panel.distanceText.cursorPos == 2, U"Forward Delete remains cursor-aware");
+		panel.close(); panel.open({false, 900, .6});
+		GameInput::buffer.update({}, true);
+		{ const ScopedRenderTarget2D rt{target}; panel.draw(font, size); }
+		context.expect(panel.distanceText.text == U"900" && !panel.distanceText.active, U"Reopening resets edit focus and fallback state");
+		GameInput::buffer = KeyboardActionBuffer{};
+		Graphics2D::Flush();
+	});
+	runner.add(U"Settings.PanelDraftAndPreview", [](TestContext& context)
+	{
+		RegisterAssets();
+		const Font& font = FontAsset(Asset::CJK14);
+		const Size size{1280, 768};
+		SettingsPanel panel;
+		AppSettings current;
+		current.renderDistance = 750;
+		for (int repeat = 0; repeat < 3; ++repeat)
+		{
+			panel.open(current);
+			panel.interact(size, SettingsPanel::button(size, 1).center(), true);
+			context.expect(panel.draft.lowSpec && !current.lowSpec, U"Quality only changes the draft");
+			panel.distanceText.text = U"99";
+			context.expect(panel.interact(size, SettingsPanel::button(size, 4).center(), true) == SettingsPanel::Action::None && !panel.error.isEmpty(), U"Invalid distance cannot apply");
+			panel.distanceText.text = U"1200";
+			context.expect(panel.interact(size, SettingsPanel::button(size, 4).center(), true) == SettingsPanel::Action::Apply && panel.value()->renderDistance == 1200, U"Valid settings are returned for atomic application");
+			panel.interact(size, {}, false, true);
+			panel.open(current);
+			context.expect(!panel.draft.lowSpec && panel.value()->renderDistance == 750, U"Escape/reopen discards pending edits");
+			panel.defaults();
+			context.expect(panel.value()->renderDistance == 0 && panel.draft.effectVolume == .6, U"Restore defaults is staged until Apply");
+			panel.interact(size, SettingsPanel::button(size, 3).center(), true);
+			context.expect(!panel.visible && current.renderDistance == 750, U"Cancel does not change active settings");
+		}
+		panel.open(current);
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+		for (int frame = 0; frame < 3; ++frame)
+		{
+			const ScopedRenderTarget2D rt{target.clear(ColorF{.4, .5, .3})};
+			panel.draw(font, size);
+		}
+		Graphics2D::Flush();
+		Image image; target.readAsImage(image); image.save(U"Screenshot/settings_panel_preview.png");
+		for (int index = 0; index < 5; ++index)
+		{
+			const auto b = SettingsPanel::button(size, index);
+			context.expect(SettingsPanel::panel(size).contains(b.pos) && SettingsPanel::panel(size).contains(b.br()), U"All settings buttons fit the panel");
+			context.expect(image[b.center().asPoint()].r > 20, U"Settings controls actually render");
+		}
+	});
+
 	runner.add(U"WorldSelection.RoofOccludesGroundSignal", [](TestContext& context)
 	{
 		const Size native{1280, 768};

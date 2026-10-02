@@ -1,5 +1,6 @@
 ﻿#include "GameApp.hpp"
 #include "ui/KeyboardActions.hpp"
+#include "ui/AppSettings.hpp"
 #include "asset/AssetRegistrar.hpp"
 #include "debug/DebugLog.hpp"
 
@@ -51,6 +52,10 @@ void GameApp::run()
 	DebugLog::print(U"[GameApp] started");
 
 	App manager;
+	const auto preferences = AppSettings::load();
+	manager.get()->lowSpec = preferences.lowSpec;
+	manager.get()->renderDistance = preferences.renderDistance;
+	manager.get()->effectVolume = preferences.effectVolume;
 	manager.add<TitleScene>(SceneState::Title);
 	manager.add<GameScene>(SceneState::Game);
 

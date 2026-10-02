@@ -6,12 +6,12 @@
 class PauseMenu
 {
 public:
-	enum class Action { Resume, Save, Title, Quit, Volume };
+	enum class Action { Resume, Save, Title, Quit, Settings };
 	static constexpr int kActionCount = 5;
 	int selected=0;
 	static RectF panel(Size size) { return {(size.x-340)*.5,(size.y-410)*.5,340,410}; }
 	static RectF button(Size size,int index) { const auto p=panel(size);return {p.x+40,p.y+92+index*54,260,42}; }
-	Optional<Action> draw(const Font& font,Size size,double effectVolume=0.6)
+	Optional<Action> draw(const Font& font,Size size)
 	{
 		if (GameInput::down(KeyUp)) { selected=(selected+kActionCount-1)%kActionCount; }
 		if (GameInput::down(KeyDown)) { selected=(selected+1)%kActionCount; }
@@ -20,7 +20,7 @@ public:
 		font(U"一時停止").drawAt(26,Vec2{bounds.center().x,bounds.y+36},ColorF{.95});
 		font(U"↑ ↓ で選択  /  Enter で決定  /  Esc で戻る").drawAt(12,Vec2{bounds.center().x,bounds.y+67},ColorF{.68,.76,.82});
 		const std::array<String,kActionCount> labels{U"ゲームに戻る",U"セーブ",U"タイトルに戻る",U"ゲーム終了",
-			effectVolume>0 ? U"効果音：{}%"_fmt(Round(effectVolume*100)) : U"効果音：消音"};
+			U"設定"};
 		for (int index=0;index<kActionCount;++index)
 		{
 			const auto area=button(size,index);

@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../ui/ModalLayer.hpp"
 #include "../render/RenderQuality.hpp"
 #include "../ui/LocationTooltip.hpp"
 #include "../gen/SettlementNames.hpp"
@@ -348,14 +349,24 @@ void GameScene::renderWorld()
 
 	pushPerfStats();
 
-	m_debugRenderer.renderProfiler(m_renderTimings.total, m_logicMs,
-	                               m_renderTimings.sky, m_renderTimings.terrain,
-	                               m_renderTimings.road, m_renderTimings.zone,
-	                               m_renderTimings.vehicle, m_renderTimings.train,
-	                               m_renderTimings.debug, m_renderTimings.ui, m_network);
-
-	m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
-	if(!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14),Scene::Size()); }
+	ModalLayer::draw([&]
+	{
+		m_debugRenderer.renderProfiler(m_renderTimings.total, m_logicMs,
+		                               m_renderTimings.sky, m_renderTimings.terrain,
+		                               m_renderTimings.road, m_renderTimings.zone,
+		                               m_renderTimings.vehicle, m_renderTimings.train,
+		                               m_renderTimings.debug, m_renderTimings.ui, m_network);
+		m_debugRenderer.renderPerfGraph(m_mainPerfHistory, m_simPerfHistory);
+		if (!m_commandPalette.visible) { m_frameRateGraph.draw(FontAsset(Asset::CJK14), Scene::Size()); }
+	}, [&]
+	{
+		if (m_showPauseMenu)
+		{
+			const Stopwatch modalTimer{StartImmediately::Yes};
+			drawPauseMenu();
+			m_renderTimings.uiPanels += modalTimer.msF();
+		}
+	});
 
 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）
 	constexpr int kPerfLogIntervalFrames = 120;
@@ -1039,6 +1050,13 @@ void GameScene::render2DUI()
 	m_minimapRenderer.render(m_camera, m_districts);
 	lap(m_renderTimings.uiMinimap);
 
+	// Modal controls own every pointer click; background inspectors must not process it.
+	if (m_showPauseMenu)
+	{
+		lap(m_renderTimings.uiPanels);
+		return;
+	}
+
 	// 選択中エッジの 3D 編集ハンドル（パネルより後ろに描画）
 	renderEdgeHandles();
 	renderLandParcelEditHandles();
@@ -1104,9 +1122,6 @@ void GameScene::render2DUI()
 		else if (panelId == U"route_info")   { drawRoutePanel(); }
 
 	}
-
-	if (m_showPauseMenu)
-		drawPauseMenu();
 
 	m_commandPalette.draw(Scene::Size(),FontAsset(Asset::CJK14));
 	lap(m_renderTimings.uiPanels);

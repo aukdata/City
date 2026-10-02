@@ -112,9 +112,57 @@ void GameScene::startSimThread()
 // 毎フレーム更新
 // =============================================================================
 
+/// @brief Prepare GPU resources before persisting or changing active settings, between rendered frames.
+void GameScene::applyPendingSettings()
+{
+	if (!m_pendingSettings) { return; }
+	const AppSettings desired = *m_pendingSettings;
+	m_pendingSettings.reset();
+	if (!desired.valid()) { return; }
+	const bool qualityChanged = desired.lowSpec != getData().lowSpec;
+	MSRenderTexture standardTarget;
+	RenderTexture lightTarget;
+	Optional<CityLighting> lighting;
+	if (qualityChanged)
+	{
+		const Size size = RenderQuality::targetSize(Scene::Size(), desired.lowSpec);
+		if (desired.lowSpec) { lightTarget = RenderTexture{size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes}; }
+		else { standardTarget = MSRenderTexture{size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes}; }
+		lighting.emplace();
+		if ((desired.lowSpec ? !lightTarget : !standardTarget) || !lighting->initialize(U"shaders/hlsl/city_forward.hlsl", !desired.lowSpec))
+		{
+			m_settings.error = U"描画設定を変更できません。現在の設定を維持します";
+			DBG_LOG(U"[Settings] render resource preparation failed; active settings preserved");
+			return;
+		}
+	}
+	if (!desired.save())
+	{
+		m_settings.error = U"設定を保存できません。保存先の空き容量・権限を確認してください";
+		DBG_LOG(U"[Settings] local settings write failed; active settings preserved");
+		return;
+	}
+	if (qualityChanged)
+	{
+		m_renderTexture = std::move(standardTarget);
+		m_lowSpecRenderTexture = std::move(lightTarget);
+		m_cityLighting = std::move(*lighting);
+	}
+	getData().lowSpec = desired.lowSpec;
+	getData().renderDistance = desired.renderDistance;
+	getData().effectVolume = desired.effectVolume;
+	(void)m_worldRenderer.setRenderDistance(desired.renderDistance);
+	m_soundEffects.setVolume(desired.effectVolume);
+	m_settings.close();
+	DBG_LOG(U"[Settings] applied quality={} renderDistance={} effectVolume={} target={} native={}"_fmt(
+		desired.lowSpec ? U"light" : U"standard", desired.renderDistance, desired.effectVolume,
+		RenderQuality::targetSize(Scene::Size(), desired.lowSpec), Scene::Size()));
+}
+
 void GameScene::update()
 {
 	m_frameRateGraph.sampleNow();
+	applyPendingSettings();
 	// シミュレーション応答、時間進行、入力、カメラ、描画準備を毎フレームここで順に同期させる。
 	if (m_phase == GamePhase::Loading)
 	{
@@ -368,7 +416,7 @@ void GameScene::update()
 	{
 		if (!m_driving.active()) { updateCursor(); }
 		handleInput();
-		if (!m_driving.active()) { m_debugRenderer.handleInput(); }
+		if (!m_driving.active() && !m_showPauseMenu) { m_debugRenderer.handleInput(); }
 	});
 	updateDriving(dt,mapInput);
 

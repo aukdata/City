@@ -6,7 +6,7 @@
 class CityLighting
 {
 public:
-	/// @brief Select shadow allocation once, before the first rendered frame.
+	/// @brief Select shadow allocation once per instance; replace the instance to switch quality safely.
 	bool initialize(FilePathView shaderPath = U"shaders/hlsl/city_forward.hlsl", bool shadowsEnabled = true);
 	void update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirection,
 		double daylight, uint64 geometryRevision, const std::function<void(Vec3, double)>& drawCasters,

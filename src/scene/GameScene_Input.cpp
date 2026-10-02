@@ -88,6 +88,7 @@ GameScene::ElevatedHitResult GameScene::raycastElevated(Vec2 screenPos) const
 
 void GameScene::handleInput()
 {
+	if (m_settings.visible) { return; }
 	// ゲーム内入力の仲裁をここに集約し、UI フォーカス・一時停止・編集モードの優先順位を先に確定する。
 	// テキスト入力フォーカス中はゲーム入力を抑制（ESC のみ通す）
 	if (GameInput::keyboardBlocked())

@@ -34,6 +34,7 @@
 #include "../save/SaveResult.hpp"
 #include "../ui/Camera.hpp"
 #include "../ui/PauseMenu.hpp"
+#include "../ui/SettingsPanel.hpp"
 #include "../render/WorldRenderer.hpp"
 #include "../render/RoadRenderer.hpp"
 #include "../render/VehicleRenderer.hpp"
@@ -368,6 +369,9 @@ private:
 	// ポーズメニュー
 	bool            m_showPauseMenu = false;
 	PauseMenu m_pauseMenu;
+	SettingsPanel m_settings;
+	Optional<AppSettings> m_pendingSettings;
+	void applyPendingSettings();
 	TimeSpeed m_pauseResumeSpeed=TimeSpeed::Paused;
 	void resumeFromPauseMenu();
 

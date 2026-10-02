@@ -272,12 +272,21 @@ void GameScene::drawBuildingPanel()
 void GameScene::resumeFromPauseMenu()
 {
 	m_showPauseMenu=false;
+	m_settings.close();
 	m_clock.speed=m_pauseResumeSpeed;
 }
 
 void GameScene::drawPauseMenu()
 {
-	const auto action=m_pauseMenu.draw(FontAsset(Asset::UI20),Scene::Size(),getData().effectVolume);
+	if (m_settings.visible)
+	{
+		if (m_settings.draw(FontAsset(Asset::CJK14), Scene::Size()) == SettingsPanel::Action::Apply)
+		{
+			m_pendingSettings = m_settings.value();
+		}
+		return;
+	}
+	const auto action=m_pauseMenu.draw(FontAsset(Asset::UI20),Scene::Size());
 	if (!action) { return; }
 	switch (*action)
 	{
@@ -288,10 +297,8 @@ void GameScene::drawPauseMenu()
 		changeScene(SceneState::Title,0s);
 		break;
 	case PauseMenu::Action::Quit: System::Exit(); break;
-	case PauseMenu::Action::Volume:
-		getData().effectVolume=getData().effectVolume>.6 ? .6 : (getData().effectVolume>.3 ? .3 : (getData().effectVolume>0 ? 0 : 1));
-		m_soundEffects.setVolume(getData().effectVolume);
-		m_soundEffects.play(SoundEffects::Cue::Select);
+	case PauseMenu::Action::Settings:
+		m_settings.open({getData().lowSpec, getData().renderDistance, getData().effectVolume});
 		break;
 	}
 }

@@ -32,6 +32,19 @@ void TitleScene::scanSaves() const
 
 void TitleScene::update()
 {
+	if (m_pendingSettings)
+	{
+		if (m_pendingSettings->save())
+		{
+			getData().lowSpec = m_pendingSettings->lowSpec;
+			getData().renderDistance = m_pendingSettings->renderDistance;
+			getData().effectVolume = m_pendingSettings->effectVolume;
+			m_settings.close();
+		}
+		else { m_settings.error = U"設定を保存できません。保存先の空き容量・権限を確認してください"; }
+		m_pendingSettings.reset();
+	}
+	if (m_settings.visible) { return; }
 	if (m_deleteRequested)
 	{
 		m_deleteRequested = false;
@@ -64,6 +77,15 @@ void TitleScene::draw() const
 	const auto& title = FontAsset(Asset::TitleBold46);
 	const auto& font = FontAsset(Asset::Small16);
 	const int width = Scene::Width();
+	if (m_settings.visible)
+	{
+		Scene::Rect().draw(ColorF{.07, .11, .16});
+		if (m_settings.draw(FontAsset(Asset::CJK14), Scene::Size()) == SettingsPanel::Action::Apply)
+		{
+			m_pendingSettings = m_settings.value();
+		}
+		return;
+	}
 	const double left = Max(24, width / 2 - 370), right = width / 2 + 24;
 	Scene::Rect().draw(ColorF{.07, .11, .16});
 	title(U"Pavecity").drawAt(width * .5, 60, ColorF{.9, .95, 1});
@@ -103,4 +125,9 @@ void TitleScene::draw() const
 	m_loadRequested = action == StartScreenControls::Action::Load;
 	m_deleteRequested = action == StartScreenControls::Action::Delete;
 	StartScreenControls::drawSaves(saves, m_saves, font);
+	if (SimpleGUI::Button(U"設定", {width - 150.0, 24}, 120))
+	{
+		m_seedTextState.active = false;
+		m_settings.open({getData().lowSpec, getData().renderDistance, getData().effectVolume});
+	}
 }
