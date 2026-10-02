@@ -6,7 +6,8 @@
 class CityLighting
 {
 public:
-	bool initialize(FilePathView shaderPath = U"shaders/hlsl/city_forward.hlsl");
+	/// @brief Select shadow allocation once, before the first rendered frame.
+	bool initialize(FilePathView shaderPath = U"shaders/hlsl/city_forward.hlsl", bool shadowsEnabled = true);
 	void update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirection,
 		double daylight, uint64 geometryRevision, const std::function<void(Vec3, double)>& drawCasters,
 		const std::function<void(Vec3, double)>& drawDynamicCasters = {});
@@ -40,4 +41,5 @@ private:
 	uint64 m_previousRevision = 0;
 	double m_shadowMilliseconds = 0.0;
 	bool m_attempted = false;
+	bool m_shadowsEnabled = true;
 };

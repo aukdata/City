@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "../render/ShaderAsset.hpp"
+#include "../render/RenderQuality.hpp"
 #include "../ui/ZonePalette.hpp"
 
 // =============================================================================
@@ -16,7 +17,17 @@ GameScene::GameScene(const InitData& init)
 	{
 		return m_walkSurface.resolve(point,m_world,m_network,m_trainNetwork);
 	});
-	m_renderTexture = MSRenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+	const Size renderSize = RenderQuality::targetSize(Scene::Size(), getData().lowSpec);
+	if (getData().lowSpec)
+	{
+		m_lowSpecRenderTexture = RenderTexture{ renderSize, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+	}
+	else
+	{
+		m_renderTexture = MSRenderTexture{ renderSize, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+	}
+	DebugLog::print(U"[RenderQuality] profile={} target={} native={} msaa={} shadows={}"_fmt(
+		getData().lowSpec ? U"low-spec" : U"normal", renderSize, Scene::Size(), !getData().lowSpec, !getData().lowSpec));
 	m_outlineMask   = RenderTexture{ Scene::Size(), TextureFormat::R8G8B8A8_Unorm,      HasDepth::Yes };
 	m_outlinePS     = ShaderAsset::pixel(U"shaders/hlsl/selection_outline.hlsl", U"PS");
 	if (not m_outlinePS)

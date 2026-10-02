@@ -84,6 +84,8 @@ void GameApp::run()
 		if (args[i] == U"--sync-roads") { manager.get()->syncRoads = true; continue; }
 		if (args[i] == U"--sync-terrain") { manager.get()->syncTerrain = true; continue; }
 
+		if (args[i] == U"--low-spec") { manager.get()->lowSpec = true; continue; }
+
 		if (args[i] == U"--uncapped") { uncapped = true; continue; }
 
 		if (args[i] == U"--capture-roads")

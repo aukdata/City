@@ -49,3 +49,25 @@ The Linux test source list mirrors `Test/Test.vcxproj`. Results remain in
 
 The cloud computer uses Mesa llvmpipe software rendering. Its frame times do not
 represent Windows GPU performance, and the current cloud audio backend is NoSound.
+
+## Opt-in low-spec rendering
+
+Start `./City --low-spec` from `App/` (Windows: `City.exe --low-spec`).
+The option also works with playtests or saved worlds; put it before the final
+`--new` or `--load <saveName>` argument, for example:
+
+```sh
+./City --low-spec --playtest --seed 42 --new
+./City --low-spec --load my_city
+```
+
+This profile renders only the 3D world at two-thirds width and height, without
+MSAA or cast shadows. At the default window size the 3D target is 853×512 instead
+of 1280×768. Text, HUD, maps, selection outlines and input coordinates remain at
+native resolution. Lighting, fog, world geometry, traffic and simulation rules
+are unchanged. Expect softer 3D edges and no cast shadows; omit the option to
+restore normal rendering on the next launch. No save-data change is involved.
+
+This is a rendering fallback, not a guarantee for a particular minimum GPU or
+RAM size. Large-world geometry and simulation memory are not capped by it.
+Measured comparisons and limitations are recorded in `artifacts/low_spec/REVIEW.md`.

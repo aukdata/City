@@ -1,0 +1,28 @@
+﻿{
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "CityLighting.LowSpecSkipsShadowsPreservesLight",
+      "status": "passed",
+      "durationMs": 62.338,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.ShadowsAndMaterialReadback",
+      "status": "passed",
+      "durationMs": 416.548,
+      "failures": [
+      ]
+    },
+    {
+      "name": "CityLighting.MovingVehicleShadowClearsWithoutStaticRebuild",
+      "status": "passed",
+      "durationMs": 347.526,
+      "failures": [
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 #include "ShaderAsset.hpp"
 #include "../gen/GenerationSettings.hpp"
 
-bool CityLighting::initialize(FilePathView shaderPath)
+bool CityLighting::initialize(FilePathView shaderPath, bool shadowsEnabled)
 {
 	if (m_attempted)
 	{
@@ -13,6 +13,7 @@ bool CityLighting::initialize(FilePathView shaderPath)
 		static_cast<float>(settings.vegetation_treeLine),static_cast<float>(settings.vegetation_snowStart),static_cast<float>(settings.vegetation_snowFull)};
 	m_parameters->terrainVariation = Float4{settings.vegetation_snowVariation,0,0,0};
 	m_attempted = true;
+	m_shadowsEnabled = shadowsEnabled;
 	m_depthShader = ShaderAsset::pixel(shaderPath, U"Depth_PS");
 	m_forwardShader = ShaderAsset::pixel(shaderPath, U"Shading_PS");
 	m_buildingShader = ShaderAsset::pixel(shaderPath, U"Building_PS");
@@ -27,7 +28,9 @@ bool CityLighting::initialize(FilePathView shaderPath)
 		return false;
 	}
 	constexpr int kShadowResolution = 2048;
-	m_shadowMap = RenderTexture{ Size{ kShadowResolution, kShadowResolution }, TextureFormat::R32_Float, HasDepth::Yes };
+	// Valid tiny bindings keep all material shaders usable without allocating full depth maps.
+	const int shadowResolution = m_shadowsEnabled ? kShadowResolution : 1;
+	m_shadowMap = RenderTexture{ Size{ shadowResolution, shadowResolution }, TextureFormat::R32_Float, HasDepth::Yes };
 	m_dynamicShadowMap = RenderTexture{ m_shadowMap.size(), TextureFormat::R32_Float, HasDepth::Yes };
 	return true;
 }
@@ -56,6 +59,14 @@ void CityLighting::update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirec
 	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
 	constexpr float kFogDensity = 0.00004f;
 	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), kFogDensity };
+	if (!m_shadowsEnabled)
+	{
+		// Preserve the daylight-dependent fog and direct lighting; skip only cast shadows.
+		// shadowVisibility already returns fully lit before reading either depth texture.
+		m_parameters->shadowParameters.w = 0.0f;
+		m_parameters->dynamicShadow.x = 0.0f;
+		return;
+	}
 	if (changed)
 	{
 		const Stopwatch timer{ StartImmediately::Yes };

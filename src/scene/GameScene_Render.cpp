@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "../render/RenderQuality.hpp"
 #include "../ui/LocationTooltip.hpp"
 #include "../gen/SettlementNames.hpp"
 #include "EdgeSectionState.hpp"
@@ -211,7 +212,7 @@ void GameScene::renderWorld()
 
 	prepareVehicleRenderData();
 	const Vec3 sunDir = Vec3{ Math::Cos(sky.timeAngle), Max(0.18, sky.sinTime * 0.72), 0.45 }.normalized();
-	if (m_cityLighting.initialize())
+	if (m_cityLighting.initialize(U"shaders/hlsl/city_forward.hlsl", !getData().lowSpec))
 	{
 		std::function<void(Vec3, double)> dynamicCasters;
 		if (!m_renderVehicles.isEmpty())
@@ -241,9 +242,11 @@ void GameScene::renderWorld()
 		m_worldRenderer.setTerrainShader(m_cityLighting.terrainShader());
 		m_worldRenderer.setLandscapeShaders(m_cityLighting.fieldShader(),m_cityLighting.paddyShader(),m_cityLighting.foliageShader());
 	}
+	// Keep the camera and UI in native coordinates; only the 3D raster target changes.
+	RenderTexture& sceneTarget = getData().lowSpec ? m_lowSpecRenderTexture : static_cast<RenderTexture&>(m_renderTexture);
 	// 3D シーン描画
 	{
-		const ScopedRenderTarget3D target{ m_renderTexture.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
+		const ScopedRenderTarget3D target{ sceneTarget.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
 		const ScopedRenderStates3D depthState{ DepthStencilState::DepthTestWrite };
 		lap(dbgRtSetup);
 
@@ -323,11 +326,11 @@ void GameScene::renderWorld()
 		lap(m_renderTimings.debug);
 	}
 
-	m_gpuTimer.begin(m_renderTexture);
+	m_gpuTimer.begin(sceneTarget);
 	Graphics3D::Flush();
-	m_renderTexture.resolve();
+	if (!getData().lowSpec) { m_renderTexture.resolve(); }
 	m_gpuTimer.end();
-	Shader::LinearToScreen(m_renderTexture);
+	RenderQuality::present(sceneTarget, Scene::Size());
 
 	if (!getData().captureCityRenders)
 	{

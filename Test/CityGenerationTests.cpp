@@ -9,6 +9,7 @@
 #include "src/gen/UrbanParcel.hpp"
 #include "src/render/VehicleRenderer.hpp"
 #include "src/render/CityLighting.hpp"
+#include "src/render/RenderQuality.hpp"
 #include "src/gen/DistrictRoads.hpp"
 #include "src/render/WorldRenderer.hpp"
 #include "src/render/RoadRenderer.hpp"
@@ -481,6 +482,87 @@ void registerCityGenerationTests(TestRunner& runner)
 				U"Dense-town roads must remain visible through the terrain");
 		}
 		DebugLog::shutdown();
+	});
+	runner.add(U"RenderQuality.LowSpecTargetAndNativeOverlay", [](TestContext& context)
+	{
+		for (const Size size : {Size{800,600}, Size{1280,768}, Size{1920,1080}, Size{1,1}})
+		{
+			context.expect(RenderQuality::targetSize(size, false) == size, U"Normal quality keeps the original resolution");
+			const Size reduced = RenderQuality::targetSize(size, true);
+			context.expect(reduced.x > 0 && reduced.y > 0 && reduced.x <= size.x && reduced.y <= size.y,
+				U"Low-spec dimensions stay positive and do not exceed the window");
+		}
+		context.expect(RenderQuality::targetSize({1280,768}, true) == Size{853,512}, U"Low-spec rasterizes about 44 percent as many pixels");
+		const Size size{320,240};
+		const RenderTexture scene{RenderQuality::targetSize(size, true), ColorF{0.1,0.5,0.2}};
+		const RenderTexture composed{size};
+		{
+			const ScopedRenderTarget2D target{composed.clear(ColorF{0})};
+			RenderQuality::present(scene, size);
+			Rect{101,11,1,21}.draw(Palette::Red);
+		}
+		Graphics2D::Flush();
+		Image result;
+		composed.readAsImage(result);
+		context.expect(result.size() == size, U"The composite retains native dimensions");
+		if (result.size() == size)
+		{
+			context.expect(result[20][101].r > 240 && result[20][101].g < 10,
+				U"A one-pixel HUD mark remains crisp at its native coordinate");
+			context.expect(result[20][100].g > result[20][100].r && result[20][102].g > result[20][102].r,
+				U"Upscaling the scene does not enlarge or blur subsequent HUD geometry");
+		}
+	});
+	runner.add(U"CityLighting.LowSpecSkipsShadowsPreservesLight", [](TestContext& context)
+	{
+		CityLighting normal, low;
+		const FilePath shaderPath = U"../../App/shaders/hlsl/city_forward.hlsl";
+		context.expect(normal.initialize(shaderPath) && low.initialize(shaderPath, false), U"Both lighting profiles initialize");
+		if (!normal.ready() || !low.ready()) { return; }
+		const Size size{320,240};
+		const Vec3 focus{0,0,0}, sun = Vec3{1,1,1}.normalized();
+		const BasicCamera3D camera{size, 40_deg, Vec3{0,55,-60}, focus};
+		int staticCalls = 0, dynamicCalls = 0;
+		for (uint64 revision : {1ULL,2ULL})
+		{
+			low.update(camera, focus, sun, 1.0, revision,
+				[&](Vec3, double) { ++staticCalls; }, [&](Vec3, double) { ++dynamicCalls; });
+		}
+		context.expectEqual(staticCalls, 0, U"Low-spec never submits static shadow geometry");
+		context.expectEqual(dynamicCalls, 0, U"Low-spec never submits dynamic shadow geometry");
+		context.expect(low.shadowMilliseconds() == 0.0, U"Disabled shadows have no measured render work");
+		normal.update(camera, focus, sun, 1.0, 1, [](Vec3, double) {});
+		auto render = [&](CityLighting& lighting)
+		{
+			const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes};
+			{
+				const ScopedRenderTarget3D scope{target.clear(ColorF{0.1})};
+				const ScopedRenderStates3D states{DepthStencilState::DepthTestWrite, RasterizerState::SolidCullNone};
+				Graphics3D::SetCameraTransform(camera);
+				Graphics3D::SetSunDirection(sun);
+				Graphics3D::SetSunColor(ColorF{0.9});
+				Graphics3D::SetGlobalAmbientColor(ColorF{0.32});
+				lighting.bind();
+				const ScopedCustomShader3D shader{lighting.shader()};
+				Box{0,-0.5,0,100,1,100}.draw(ColorF{0.55});
+			}
+			Graphics3D::Flush();
+			Image result; target.readAsImage(result); return result;
+		};
+		const Image expected = render(normal), actual = render(low);
+		context.expect(actual.size() == size && expected.size() == size, U"Both profiles produce a readable GPU image");
+		if (actual.size() != size || expected.size() != size) { return; }
+		int changed = 0;
+		for (int y = 0; y < size.y; ++y)
+		{
+			for (int x = 0; x < size.x; ++x)
+			{
+				const Color a = actual[y][x], b = expected[y][x];
+				changed += Abs(static_cast<int>(a.r)-b.r) > 1 || Abs(static_cast<int>(a.g)-b.g) > 1 || Abs(static_cast<int>(a.b)-b.b) > 1;
+			}
+		}
+		context.expectEqual(changed, 0, U"Disabling cast shadows preserves unoccluded daylight and fog");
+		context.expect(actual[size.y/2][size.x/2].r > 80, U"The unshadowed ground is lit, not black");
 	});
 	runner.add(U"CityLighting.ShadowsAndMaterialReadback", [](TestContext& context)
 	{

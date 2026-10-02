@@ -1,0 +1,128 @@
+{
+  "environment": "Mesa llvmpipe software renderer; not user GPU",
+  "binary_sha256": "4fddd881d8da8a2b298bc0f18d86501de82f11bdc848e10e60095b056d04c9de",
+  "camera_distance_m": 150,
+  "matched_state": {
+    "focusX": 24252.0,
+    "focusY": 32.575355529785156,
+    "focusZ": 23772.0,
+    "eyeY": 131.48305571079254,
+    "cameraMode": 3,
+    "gameHour": 12.0,
+    "timeSpeed": 0,
+    "population": 233146,
+    "funds": 30.0
+  },
+  "same_input_save": true,
+  "save_unchanged": true,
+  "normal": {
+    "frames": 30,
+    "metrics": {
+      "renderMs": {
+        "median": 1134.9185,
+        "p95": 1489.804,
+        "min": 1101.412,
+        "max": 1886.702
+      },
+      "shadowMs": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuMs": {
+        "median": 1120.219,
+        "p95": 1463.625,
+        "min": 1086.771,
+        "max": 1870.607
+      },
+      "buildingDrawCalls": {
+        "median": 97.0,
+        "p95": 97.0,
+        "min": 97.0,
+        "max": 97.0
+      },
+      "cars": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "visibleCars": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "logicMs": {
+        "median": 0.014,
+        "p95": 0.018,
+        "min": 0.011,
+        "max": 0.091
+      }
+    }
+  },
+  "low_spec": {
+    "frames": 30,
+    "metrics": {
+      "renderMs": {
+        "median": 501.52750000000003,
+        "p95": 532.526,
+        "min": 483.937,
+        "max": 537.414
+      },
+      "shadowMs": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuMs": {
+        "median": 483.89649999999995,
+        "p95": 516.019,
+        "min": 467.723,
+        "max": 520.424
+      },
+      "buildingDrawCalls": {
+        "median": 97.0,
+        "p95": 97.0,
+        "min": 97.0,
+        "max": 97.0
+      },
+      "cars": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "visibleCars": {
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "logicMs": {
+        "median": 0.014,
+        "p95": 0.028,
+        "min": 0.01,
+        "max": 0.028
+      }
+    }
+  },
+  "render_time_reduction_percent": 55.809381907158965,
+  "render_time_ratio": 2.2629237678890988,
+  "normal_near_rss_kb": 5467544,
+  "low_spec_near_peak_rss_kb": 5359100,
+  "memory_note": "Normal near RSS sampled through near phase-end artifact timestamp; excludes subsequent far-view warmup. Low run never enters far view. Savings do not cap world/cache memory.",
+  "far_view": "3000m normal cold/warming17frames21.44\u201322.99seconds; intentionally ended; no stable A/B or speedup claim",
+  "sample_road_cache_builds": {
+    "normal_edges_nodes": [
+      0,
+      0
+    ],
+    "low_spec_edges_nodes": [
+      0,
+      0
+    ]
+  }
+}

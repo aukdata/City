@@ -149,6 +149,7 @@ private:
 
 	// ---- レンダリングターゲット（深度バッファ付きテクスチャ）----
 	MSRenderTexture  m_renderTexture;
+	RenderTexture    m_lowSpecRenderTexture; ///< Single-sample 3D target, allocated only in low-spec mode.
 
 	// ---- 選択オブジェクトのアウトライン描画 ----
 	RenderTexture    m_outlineMask;        ///< 選択対象をソリッド白で描画するマスク
