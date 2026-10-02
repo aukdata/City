@@ -1,0 +1,525 @@
+{
+  "case_count": 48,
+  "repaired_count": 0,
+  "pavement_samples_visible": 378,
+  "pavement_samples_expected": 378,
+  "painted_center_cases_passed": 21,
+  "cases": [
+    {
+      "variant": 0,
+      "angle_degrees": 10,
+      "cutoff_m": 95.2203,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.300000190733374,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 20,
+      "cutoff_m": 54.274166,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.300000190741495,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 25,
+      "cutoff_m": 43.16748,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.300000190742199,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 30,
+      "cutoff_m": 35.71573,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.3000001907350915,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 45,
+      "cutoff_m": 23.104025,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.300000190724077,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 90,
+      "cutoff_m": 9.57,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.3000001907394765,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 135,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 6.300000190728831,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 0,
+      "angle_degrees": 180,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 8
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 10,
+      "cutoff_m": 142.1837,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.69999980927294,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 8
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 20,
+      "cutoff_m": 81.04262,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.699999809255825,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 25,
+      "cutoff_m": 64.45802,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.699999809262955,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 30,
+      "cutoff_m": 53.331005,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.699999809257644,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 45,
+      "cutoff_m": 34.49911,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.6999998092665,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 13
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 90,
+      "cutoff_m": 14.29,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.699999809268032,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 14
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 135,
+      "cutoff_m": 5.9191117,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 7.699999809267892,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 12
+    },
+    {
+      "variant": 1,
+      "angle_degrees": 180,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 8
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 10,
+      "cutoff_m": 180.4907,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.399999618544612,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 9
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 20,
+      "cutoff_m": 102.87705,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.399999618527245,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 25,
+      "cutoff_m": 81.82425,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.399999618533014,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 10
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 30,
+      "cutoff_m": 67.6994,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.39999961853311,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 45,
+      "cutoff_m": 43.79383,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.399999618542505,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 90,
+      "cutoff_m": 18.14,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.399999618528346,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 14
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 135,
+      "cutoff_m": 7.513834,
+      "repaired": false,
+      "triangles": 24,
+      "middle_width_m": 15.39999961852767,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 12
+    },
+    {
+      "variant": 2,
+      "angle_degrees": 180,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 8
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 10,
+      "cutoff_m": 180.4907,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 11.549941867940648,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 20,
+      "cutoff_m": 102.87705,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 11.550006258597119,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 25,
+      "cutoff_m": 81.82425,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 11.54998086804478,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 30,
+      "cutoff_m": 67.6994,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 11.550017598691758,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 45,
+      "cutoff_m": 43.79383,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 11.549997077276352,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 90,
+      "cutoff_m": 18.14,
+      "repaired": false,
+      "triangles": 28,
+      "middle_width_m": 11.626231938788273,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 135,
+      "cutoff_m": 7.699999,
+      "repaired": false,
+      "triangles": 32,
+      "middle_width_m": 12.393359702763608,
+      "pavement_samples_visible": 9
+    },
+    {
+      "variant": 3,
+      "angle_degrees": 180,
+      "cutoff_m": 7.699999,
+      "repaired": false,
+      "triangles": 12
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 10,
+      "cutoff_m": 95.2203,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190726125,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 20,
+      "cutoff_m": 54.274166,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190733066,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 25,
+      "cutoff_m": 43.16748,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190735095,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 30,
+      "cutoff_m": 35.71573,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190744003,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 45,
+      "cutoff_m": 23.104025,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190736369,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 90,
+      "cutoff_m": 9.57,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190744622,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 135,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 6.300000190734977,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 0
+    },
+    {
+      "variant": 4,
+      "angle_degrees": 180,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 8
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 10,
+      "cutoff_m": 142.1837,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.699999809265058,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 10
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 20,
+      "cutoff_m": 81.04262,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.69999980926299,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 25,
+      "cutoff_m": 64.45802,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.699999809254277,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 10
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 30,
+      "cutoff_m": 53.331005,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.699999809273583,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 11
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 45,
+      "cutoff_m": 34.49911,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.6999998092597775,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 10
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 90,
+      "cutoff_m": 14.29,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.699999809262887,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 13
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 135,
+      "cutoff_m": 5.9191117,
+      "repaired": false,
+      "triangles": 26,
+      "middle_width_m": 7.6999998092665,
+      "pavement_samples_visible": 9,
+      "yellow_center_pixels": 12
+    },
+    {
+      "variant": 5,
+      "angle_degrees": 180,
+      "cutoff_m": 5.0,
+      "repaired": false,
+      "triangles": 8
+    }
+  ],
+  "focused_tests": {
+    "acute_bend_sweep": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "road_integrity": {
+      "total": 19,
+      "passed": 19,
+      "failed": 0
+    },
+    "sloped_junctions": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "live_replay": {
+    "exit_code": 0,
+    "camera_and_time": {
+      "cameraMode": {
+        "before": 3,
+        "after": 3,
+        "same": true
+      },
+      "focusX": {
+        "before": 23000.0,
+        "after": 23000.0,
+        "same": true
+      },
+      "focusY": {
+        "before": 32.176536560058594,
+        "after": 32.176536560058594,
+        "same": true
+      },
+      "focusZ": {
+        "before": 26783.35,
+        "after": 26783.35,
+        "same": true
+      },
+      "eyeY": {
+        "before": 125.38044476509094,
+        "after": 125.38044476509094,
+        "same": true
+      },
+      "gameHour": {
+        "before": 12.0,
+        "after": 12.0,
+        "same": true
+      }
+    },
+    "before_image": "artifacts/acute_corner_live/baseline-close.png",
+    "after_image": "artifacts/acute_corner_live/fixed-matched-close.png",
+    "visual_result": "No triangular hole, crescent tongue, or overlapping back wedge; a continuous rounded bend.",
+    "save_integrity": {
+      "saveFiles": 8199,
+      "saveUnchanged": true,
+      "sameCameraEyeY": 125.38044476509094,
+      "liveVisual": "rounded continuous pavement; former hole crescent and backwards wedge absent"
+    }
+  }
+}

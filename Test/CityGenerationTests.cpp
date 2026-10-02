@@ -18,6 +18,136 @@
 
 void registerCityGenerationTests(TestRunner& runner)
 {
+	runner.add(U"RoadRendering.AcuteBendSweep", [](TestContext& context)
+	{
+		const FilePath directory = FileSystem::CurrentDirectory();
+		struct RestoreDirectory
+		{
+			FilePath path;
+			~RestoreDirectory() { FileSystem::ChangeCurrentDirectory(path); }
+		} restore{ directory };
+		FileSystem::ChangeCurrentDirectory(directory + U"../../App/");
+		RegisterAssets();
+		TextWriter report{ directory + U"TestResults/acute_bend_diagnostics.txt" };
+		for (const int variant : {0,1,2,3,4,5})
+		{
+			for (const int angle : {10,20,25,30,45,90,135,180})
+			{
+				World world;
+				world.reserveChunks();
+				world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+				for (int z=31;z<=32;++z)
+				{
+					for (int x=31;x<=32;++x)
+					{
+						world.installChunkDirect({x,z},HeightMapResult{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f),20.0f,20.0f});
+					}
+				}
+				const Vec3 origin{32768,20,32768};
+				RoadNetwork network;
+				const int center=network.addNode(origin);
+				for (const int degrees : {0,angle})
+				{
+					const double radians=Math::ToRadians(degrees);
+					Vec3 end=origin+Vec3{Cos(radians)*600,0,Sin(radians)*600};
+					if (variant>=4) { end.y += (end.x-origin.x)*.06+(end.z-origin.z)*.04; }
+					const int endpoint=network.addNode(end);
+					const bool reversed=variant>0 && degrees==0;
+					const Vec3 from=reversed?end:origin, to=reversed?origin:end;
+					const RoadType type=(variant==0 || variant==4)?RoadType::LocalRoad:RoadType::Arterial;
+					const int lanes=(variant==2 || (variant==3 && degrees!=0))?4:2;
+					const int id=*network.addEdge(reversed?endpoint:center,reversed?center:endpoint,from+(to-from)/3,from+(to-from)*2/3,type,lanes);
+					network.getEdge(id)->designGrade=variant>=4;
+					network.getEdge(id)->edgeState=EdgeState::Open;
+				}
+				network.rebuildNodeConnectivity(center,0);
+				const auto layout=JunctionGeometry::build(network,center);
+				report << U"variant={} angle={} cutoff={} repaired={} triangles={}"_fmt(variant,angle,Max(network.edges()[0].cutoffA,network.edges()[0].cutoffB),layout.repaired,layout.asphalt.indices.size());
+				Vec3 inside=origin, outside=origin;
+				for (size_t i=0;i<layout.corners.size();++i)
+				{
+					for (const auto& section:layout.corners[i].sections)
+					{
+						report << U"corner={} fraction={} position={} outward={}"_fmt(i,section.fraction,section.position-origin,section.outward);
+					}
+				}
+				if (angle < 180 && layout.corners.size()==2)
+				{
+					const Vec3 bisector{Cos(Math::ToRadians(angle*.5)),0,Sin(Math::ToRadians(angle*.5))};
+					auto middle = [](const JunctionGeometry::Corner& corner)
+					{
+						for (size_t i=1;i<corner.sections.size();++i)
+						{
+							const auto& a=corner.sections[i-1]; const auto& b=corner.sections[i];
+							if (b.fraction>=.5) { return a.position.lerp(b.position,(.5-a.fraction)/(b.fraction-a.fraction)); }
+						}
+						return corner.sections.back().position;
+					};
+					inside=middle(layout.corners[0]); outside=middle(layout.corners[1]);
+					const double width=(inside-outside).dot(bisector);
+					report << U"middleSignedWidth={}"_fmt(width);
+					const double expectedWidth=(variant==0 || variant==4)?6.3:(variant==2?15.4:7.7);
+					context.expect(width > expectedWidth*.95 && (variant==3 || width < expectedWidth*1.05),U"The bend retains its carriageway width without folding or pinching");
+				}
+				context.expect(!layout.asphalt.indices.isEmpty(),U"A two-edge bend has asphalt");
+				context.expect(!layout.repaired,U"A simple two-edge bend must not need self-intersection repair");
+				context.expectEqual(layout.corners.size(),2,U"Ordinary bends retain two sides");
+				RoadRenderer roads;
+				context.expect(roads.loadAssets(),U"Bend road assets load");
+				roads.setCacheBuildBudget(10000.0);
+				const Size size{1000,800};
+				const Vec3 focus=(inside+outside)*.5;
+				const BasicCamera3D camera{size,40_deg,focus+Vec3{0,120,-.1},focus};
+				const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
+				{
+					const ScopedRenderTarget3D renderTarget{target.clear(ColorF{.25,.45,.22})};
+					const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
+					Graphics3D::SetCameraTransform(camera);
+					Graphics3D::SetSunDirection(Vec3{1,2,-1}.normalized());
+					Graphics3D::SetGlobalAmbientColor(ColorF{.5});
+					roads.render(network,world,ViewFrustum{camera,24000.0},camera.getEyePosition());
+				}
+				Graphics3D::Flush();
+				Image image;
+				target.readAsImage(image);
+				context.expect(image.save(directory+U"Screenshot/acute_bend_{}_{}.png"_fmt(variant,angle)),U"Save actual bend renderer review");
+				if (angle<180)
+				{
+					int covered=0;
+					for (int sample=1;sample<=9;++sample)
+					{
+						const Float3 projected=camera.worldToScreenPoint(Float3{outside.lerp(inside,sample*.1)});
+						const Point pixel{static_cast<int>(Round(projected.x)),static_cast<int>(Round(projected.y))};
+						if (image.inBounds(pixel))
+						{
+							const Color color=image[pixel];
+							covered += color.g<140 || (color.r>180 && color.b>160) || (color.r>120 && color.g>100 && color.r>color.g*1.1 && color.b<color.g*.8);
+						}
+					}
+					report << U"pavementSamples={}/9"_fmt(covered);
+					context.expectEqual(covered,9,U"GPU readback shows uninterrupted asphalt across the bend");
+					if (variant!=3)
+					{
+						const Float3 projected=camera.worldToScreenPoint(Float3{focus});
+						const Point pixel{static_cast<int>(Round(projected.x)),static_cast<int>(Round(projected.y))};
+						int yellow=0;
+						for (int y=-3;y<=3;++y)
+						{
+							for (int x=-3;x<=3;++x)
+							{
+								if (!image.inBounds(pixel+Point{x,y})) { continue; }
+								const Color color=image[pixel+Point{x,y}];
+								yellow += color.r>120 && color.g>100 && color.r>color.g*1.1 && color.b<color.g*.8;
+							}
+						}
+						report << U"centerLineYellowPixels={}"_fmt(yellow);
+						const bool expectedPaint=RoadMarkingGenerator::hasLaneLinesAtNode(network,network.edges()[0],center);
+						context.expect(expectedPaint ? yellow>0 : yellow==0,U"The visible bend follows its road marking policy");
+					}
+				}
+			}
+		}
+	});
 	runner.add(U"RoadNetwork.ShortConnectorPreservesTangents", [](TestContext& context)
 	{
 		RoadNetwork network;

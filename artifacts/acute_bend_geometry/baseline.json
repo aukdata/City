@@ -1,0 +1,61 @@
+{
+  "baseline": [
+    {
+      "angle": 10,
+      "cutoff": 95.2203,
+      "repaired": true,
+      "signed_middle_width": -10.754348896010658
+    },
+    {
+      "angle": 20,
+      "cutoff": 54.274166,
+      "repaired": true,
+      "signed_middle_width": -9.469266245175492
+    },
+    {
+      "angle": 25,
+      "cutoff": 43.16748,
+      "repaired": true,
+      "signed_middle_width": -6.278715187050368
+    },
+    {
+      "angle": 30,
+      "cutoff": 35.71573,
+      "repaired": true,
+      "signed_middle_width": -4.039933352280146
+    },
+    {
+      "angle": 45,
+      "cutoff": 23.104025,
+      "repaired": false,
+      "signed_middle_width": 0.04727872967355564
+    },
+    {
+      "angle": 90,
+      "cutoff": 9.57,
+      "repaired": false,
+      "signed_middle_width": 4.797712626638901
+    },
+    {
+      "angle": 135,
+      "cutoff": 5.0,
+      "repaired": false,
+      "signed_middle_width": 5.871035420745951
+    }
+  ],
+  "offscreen_node_baseline": {
+    "image": "artifacts/acute_corner_live/test_expanded_initial/acute_bend_1_10.png",
+    "angle": 10,
+    "variant": "arterial_2",
+    "cutoff_m": 142.1837,
+    "fixed_cull_radius_m": 30,
+    "center_pixel_rgb": [
+      137,
+      179,
+      129,
+      255
+    ],
+    "previous_false_positive_yellow": true,
+    "strict_yellow": false
+  }
+}

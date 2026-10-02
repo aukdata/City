@@ -145,7 +145,11 @@ namespace JunctionGeometry
 			if (gap <= 0.0) { gap += Math::TwoPi; }
 			const double denominator = cross(da, db);
 			bool rounded = false;
-			if (Abs(denominator) > 1e-5 && gap < Math::Pi - 0.01)
+			// A bend's two boundaries must follow the same tangent-fitted turn.
+			// A fixed inner fillet and a shallow outer chord cross at acute angles.
+			const bool blendBend = approaches.size() == 2 && node->transition == NodeTransition::Blend;
+			const double turnGap = blendBend ? Min(gap, Math::TwoPi - gap) : gap;
+			if (Abs(denominator) > 1e-5 && turnGap < Math::Pi - 0.01)
 			{
 				const double alongA = cross(p0 - p3, db) / denominator;
 				const double alongB = cross(p0 - p3, da) / denominator;
@@ -153,12 +157,13 @@ namespace JunctionGeometry
 				{
 					double roadsideWidth = 0.0;
 					for (const auto& band : corner.bands) { roadsideWidth = Max(roadsideWidth, Max(band.farStart, band.farEnd)); }
-					const double radius = Min(Max(4.0, roadsideWidth + 2.0), Min(alongA, alongB) * Math::Tan(gap * 0.5) * 0.9);
-					const double trim = radius / Math::Tan(gap * 0.5);
+					const double fittedRadius = Min(alongA, alongB) * Math::Tan(turnGap * 0.5);
+					const double radius = blendBend ? fittedRadius : Min(Max(4.0, roadsideWidth + 2.0), fittedRadius * 0.9);
+					const double trim = radius / Math::Tan(turnGap * 0.5);
 					const Vec2 intersection = p0 - da * alongA;
 					const Vec2 q0 = intersection + da * trim, q3 = intersection + db * trim;
 					appendLine(p0, q0);
-					const double handle = radius * (4.0 / 3.0) * Math::Tan((Math::Pi - gap) * 0.25);
+					const double handle = radius * (4.0 / 3.0) * Math::Tan((Math::Pi - turnGap) * 0.25);
 					const Vec2 q1 = q0 - da * handle, q2 = q3 - db * handle;
 					for (int i = 0; i < 12; ++i)
 					{

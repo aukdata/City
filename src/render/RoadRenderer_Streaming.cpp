@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "RoadNodeBounds.hpp"
 #include "../road/RoadSign.hpp"
 #include "../debug/DebugLog.hpp"
 #include <bit>
@@ -42,7 +43,6 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 	// ---- エッジ描画（端をノード半幅分カット）----
 	const float camX = static_cast<float>(cameraPos.x);
 	const float camZ = static_cast<float>(cameraPos.z);
-	constexpr float kDrawMaxDistSqF = static_cast<float>(kDrawMaxDistSq);
 	constexpr float kLodDistSqF     = static_cast<float>(kLodDistSq);
 
 
@@ -87,10 +87,12 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 		const float nodeDx = static_cast<float>(node.position.x) - camX;
 		const float nodeDz = static_cast<float>(node.position.z) - camZ;
 		const float nodeDistSq = nodeDx * nodeDx + nodeDz * nodeDz;
-		if (nodeDistSq > kDrawMaxDistSqF) continue;
+		const double capRadius = RoadNodeBounds::radius(network, node);
+		const double drawDistance = kDrawMaxDist + capRadius;
+		if (nodeDistSq > drawDistance * drawDistance) { continue; }
 
 		// 視錐台カリング
-		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
+		if (!frustum.intersects(Sphere{ node.position, capRadius })) { continue; }
 
 		const bool isClose = nodeDistSq < kLodDistSqF;
 		m_visibleRoads << VisibleRoad{node.id, nodeDistSq, true, isClose};

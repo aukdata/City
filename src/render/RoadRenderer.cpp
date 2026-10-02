@@ -1,4 +1,5 @@
 ﻿#include "RoadRenderer.hpp"
+#include "RoadNodeBounds.hpp"
 #include "ShaderAsset.hpp"
 #include "../scene/WorldSelection.hpp"
 #include "ModelLod.hpp"
@@ -461,12 +462,22 @@ namespace
 	void appendBezierLine(Array<RoadRenderer::LaneLineBatch>& out,
 	                      const Vec3& from, const Vec3& to,
 	                      const Vec3& tanFrom, const Vec3& tanTo,
-	                      float lineWidth, const ColorF& color, [[maybe_unused]] const World& world, const MeshData* surface = nullptr)
+	                      float lineWidth, const ColorF& color, [[maybe_unused]] const World& world, const MeshData* surface = nullptr, bool roundBend = false)
 	{
 		const Vec3 diff = to - from;
 		if (diff.lengthSq() < 0.01) return;
 		const double dist = diff.length();
-		const double ctrlLen = dist * 0.4;
+		double ctrlLen = dist * 0.4;
+		if (roundBend)
+		{
+			const Vec2 a{tanFrom.x,tanFrom.z}, b{tanTo.x,tanTo.z};
+			if (a.lengthSq() > 1e-8 && b.lengthSq() > 1e-8)
+			{
+				const double cosine = Clamp(a.normalized().dot(b.normalized()),-1.0,1.0);
+				// Circular-arc cubic handles match the two tangent-fitted road boundaries.
+				ctrlLen = dist * (2.0 / 3.0) / (1.0 + Sqrt((1.0-cosine)*0.5));
+			}
+		}
 
 		// XZ 平面でベジェ曲線を構築（Y は線形補間）
 		// tanFrom = from の出発方向（ノード内向き）
@@ -1914,13 +1925,13 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 		{
 			const auto lineStyle = lineStyleFor(l.lineLeft);
 			appendBezierLine(batches, l.leftPos, targetPos, l.leftTan, targetTan,
-			                 lineStyle.lineWidth, lineStyle.color, world, &surface);
+			                 lineStyle.lineWidth, lineStyle.color, world, &surface, true);
 		}
 		if (l.lineRight != LineType::None)
 		{
 			const auto lineStyle = lineStyleFor(l.lineRight);
 			appendBezierLine(batches, l.rightPos, targetPos, l.rightTan, targetTan,
-			                 lineStyle.lineWidth, lineStyle.color, world, &surface);
+			                 lineStyle.lineWidth, lineStyle.color, world, &surface, true);
 		}
 	};
 
@@ -1973,13 +1984,13 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildJointBlendLaneLines(
 			{
 				const auto lineStyle = lineStyleFor(lineL);
 				appendBezierLine(batches, lA.leftPos, lB.leftPos, lA.leftTan, lB.leftTan,
-				                 lineStyle.lineWidth, lineStyle.color, world, &surface);
+				                 lineStyle.lineWidth, lineStyle.color, world, &surface, true);
 			}
 			if (lineR != LineType::None)
 			{
 				const auto lineStyle = lineStyleFor(lineR);
 				appendBezierLine(batches, lA.rightPos, lB.rightPos, lA.rightTan, lB.rightTan,
-				                 lineStyle.lineWidth, lineStyle.color, world, &surface);
+				                 lineStyle.lineWidth, lineStyle.color, world, &surface, true);
 			}
 		}
 
@@ -2379,8 +2390,10 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 		if (node.id < 0) continue;
 		const float ndx = static_cast<float>(node.position.x) - camX;
 		const float ndz = static_cast<float>(node.position.z) - camZ;
-		if (ndx * ndx + ndz * ndz > kDrawMaxDistSqF) continue;
-		if (!frustum.intersects(Sphere{ node.position, 30.0 })) continue;
+		const double capRadius = RoadNodeBounds::radius(network, node);
+		const double drawDistance = kDrawMaxDist + capRadius;
+		if (ndx * ndx + ndz * ndz > drawDistance * drawDistance) { continue; }
+		if (!frustum.intersects(Sphere{ node.position, capRadius })) { continue; }
 		drawNodeCapWireframe(network, node.id, world);
 	}
 }
