@@ -1,4 +1,5 @@
 ﻿#include "GameScene.hpp"
+#include "WorldSelection.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../railway/TrainConsist.hpp"
 #include "../ui/NavigationHeader.hpp"
@@ -849,7 +850,26 @@ void GameScene::handleSelectionClick()
 
 	// ── 付帯設備（看板・信号）のヒットテスト（ノード/エッジより優先） ──
 	constexpr float kInfraHitRadius = 10.0f;
-	if (const auto hitGuideSignId = findGuideSignAt(*m_cursorGroundPos, kInfraHitRadius))
+	Optional<double> buildingDistance;
+	const Ray surfaceRay = m_camera.screenToRay(Vec2{Cursor::Pos()});
+	const auto hitBuilding = findBuildingAt(surfaceRay, &buildingDistance);
+	const auto hitGuideSignId = findGuideSignAt(*m_cursorGroundPos, kInfraHitRadius);
+	const auto hitSignalNodeId = findSignalAt(*m_cursorGroundPos, kInfraHitRadius);
+	const Optional<double> guideDistance = buildingDistance && hitGuideSignId
+		? m_roadRenderer.guideSignHitDistance(*hitGuideSignId, m_network, m_world, surfaceRay) : none;
+	const Optional<double> signalDistance = buildingDistance && hitSignalNodeId
+		? m_roadRenderer.signalHitDistance(*hitSignalNodeId, m_network, m_world, surfaceRay, m_camera.eyePosition()) : none;
+	const auto surface = WorldSelection::choose(buildingDistance, hitGuideSignId.has_value(), guideDistance,
+		hitSignalNodeId.has_value(), signalDistance);
+	if (getData().playtest)
+	{
+		const String buildingCell = hitBuilding ? U"{},{},{},{}"_fmt(hitBuilding->chunkX, hitBuilding->chunkZ, hitBuilding->col, hitBuilding->row) : U"none";
+		DBG_LOG(U"[PickDepth] frame={} lowSpec={} native={} cursor={} eye={} ray={} ground={} buildingCell={} buildingT={} guideId={} guideT={} signalId={} signalT={} kind={}"_fmt(
+			m_playtestFrame, getData().lowSpec, Scene::Size(), Cursor::Pos(), m_camera.eyePosition(), Vec3{surfaceRay.direction.xyz()}, *m_cursorGroundPos,
+			buildingCell, buildingDistance.value_or(-1), hitGuideSignId.value_or(-1), guideDistance.value_or(-1),
+			hitSignalNodeId.value_or(-1), signalDistance.value_or(-1), static_cast<int>(surface)));
+	}
+	if (surface == WorldSelection::Surface::GuideSign && hitGuideSignId)
 	{
 		selectGuideSign(*hitGuideSignId);
 		m_guideSignEditor.open(*hitGuideSignId, m_network);
@@ -860,7 +880,7 @@ void GameScene::handleSelectionClick()
 		m_panelManager.hide(U"signal_edit");
 		return;
 	}
-	if (const auto hitSignalNodeId = findSignalAt(*m_cursorGroundPos, kInfraHitRadius))
+	if (surface == WorldSelection::Surface::Signal && hitSignalNodeId)
 	{
 		selectSignal(*hitSignalNodeId);
 		m_panelManager.show(U"signal_edit",
@@ -874,8 +894,7 @@ void GameScene::handleSelectionClick()
 
 	// ── 建物のヒットテスト（道路より先に判定） ──
 	{
-		const Ray ray = m_camera.screenToRay(Vec2{ Cursor::Pos() });
-		if (const auto hitBuilding = findBuildingAt(ray))
+		if (surface == WorldSelection::Surface::Building && hitBuilding)
 		{
 			selectBuilding(*hitBuilding);
 			m_panelManager.show(U"building_info", U"建物", panelRightPos(U"building_info"));
@@ -1702,7 +1721,7 @@ Optional<int> GameScene::findSignalAt(Vec3 pos, float radius) const
 	return best;
 }
 
-Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
+Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray, Optional<double>* hitDistance)
 {
 	Optional<BuildingRef> best;
 	double bestDist = 1e9;
@@ -1738,6 +1757,7 @@ Optional<GameScene::BuildingRef> GameScene::findBuildingAt(const Ray& ray)
 			}
 		}
 	}
+	if (hitDistance) { *hitDistance = best ? Optional<double>{bestDist} : none; }
 	return best;
 }
 

@@ -10,9 +10,82 @@
 #include "src/ui/WorldMapView.hpp"
 #include "src/economy/Economy.hpp"
 #include "src/render/RoadRenderer.hpp"
+#include "src/scene/WorldSelection.hpp"
+#include "src/render/RenderQuality.hpp"
 
 void registerPlayabilityTests(TestRunner& runner)
 {
+	runner.add(U"WorldSelection.RoofOccludesGroundSignal", [](TestContext& context)
+	{
+		const Size native{1280, 768};
+		const BasicCamera3D camera{native, 40_deg, Vec3{0, 20, -30}, Vec3{0, 6, 0}};
+		const Ray ray = camera.screenToRay(Vec2{640, 384});
+		const auto roofHit = Box{Vec3{0, 3, 0}, Vec3{8, 6, 8}}.intersects(ray);
+		const Optional<double> roofDistance = roofHit ? Optional<double>{static_cast<double>(*roofHit)} : none;
+		const auto ground = ray.intersectsAt(InfinitePlane{Float3{0, 0, 0}, Float3{0, 1, 0}});
+		context.expect(roofDistance.has_value() && ground.has_value(), U"The fixture ray hits the roof before flat terrain");
+		if (!roofDistance || !ground) { return; }
+		context.expectNear(*roofDistance, Sqrt(1096.0), .001, U"The roof center has the expected ray depth");
+		context.expectNear(ground->z, 90.0 / 7.0, .001, U"The terrain cursor lies behind the roof");
+		const Vec3 signalAnchor{0, 0, 90.0 / 7.0};
+		context.expect(Vec2{ground->x - signalAnchor.x, ground->z - signalAnchor.z}.length() < 10,
+			U"The existing ten-meter signal proximity search accepts this hidden signal");
+		const MeshData signal = MeshData::Box(Float3{0, 3, 0}, Float3{.4f, 6, .4f});
+		const auto signalDistance = WorldSelection::meshDistance(ray, signal.vertices, signal.indices, Mat4x4::Translate(signalAnchor));
+		context.expect(signalDistance && *signalDistance > *roofDistance,
+			U"The actual signal mesh is hit only behind the roof");
+		context.expect(WorldSelection::choose(*roofDistance, false, none, true, signalDistance) == WorldSelection::Surface::Building,
+			U"A roof ray selects the near building instead of infrastructure reached through the roof");
+		context.expect(WorldSelection::choose(*roofDistance, true, signalDistance, false, none) == WorldSelection::Surface::Building,
+			U"A hidden guide sign follows the same visible-depth rule");
+	});
+	runner.add(U"WorldSelection.VisibleSignalAndEasyGroundPick", [](TestContext& context)
+	{
+		const BasicCamera3D camera{Size{1280, 768}, 40_deg, Vec3{0, 20, -30}, Vec3{0, 6, 0}};
+		const Ray ray = camera.screenToRay(Vec2{640, 384});
+		const auto roofHit = Box{Vec3{0, 3, 0}, Vec3{8, 6, 8}}.intersects(ray);
+		const Optional<double> roofDistance = roofHit ? Optional<double>{static_cast<double>(*roofHit)} : none;
+		const MeshData lamp = MeshData::Box(Float3{0, 0, 0}, Float3{1, 1, 1});
+		const auto foregroundSignal = WorldSelection::meshDistance(ray, lamp.vertices, lamp.indices, Mat4x4::Translate(Vec3{0, 7.4, -3}));
+		context.expect(roofDistance && foregroundSignal && *foregroundSignal < *roofDistance,
+			U"A foreground signal fixture has a genuine earlier mesh hit");
+		context.expect(WorldSelection::choose(roofDistance, false, none, true, foregroundSignal) == WorldSelection::Surface::Signal,
+			U"A directly hit foreground signal keeps priority over a building behind it");
+		context.expect(WorldSelection::choose(none, false, none, true, none) == WorldSelection::Surface::Signal,
+			U"Unobstructed ground retains the forgiving ten-meter signal selection");
+		context.expect(WorldSelection::choose(none, true, none, true, none) == WorldSelection::Surface::GuideSign,
+			U"Unobstructed guide/sign priority remains unchanged");
+		context.expect(WorldSelection::choose(roofDistance, false, none, true, none) == WorldSelection::Surface::Building,
+			U"An off-ray proximity signal cannot steal a roof click");
+		context.expect(WorldSelection::choose(none, false, none, false, none) == WorldSelection::Surface::None,
+			U"An empty click still falls through to road and parcel selection");
+	});
+	runner.add(U"WorldSelection.NativeRayAcrossRasterProfiles", [](TestContext& context)
+	{
+		const Size native{1280, 768};
+		const BasicCamera3D camera{native, 40_deg, Vec3{0, 20, -30}, Vec3{0, 6, 0}};
+		const Box building{Vec3{0, 3, 0}, Vec3{8, 6, 8}};
+		for (const Vec2 cursor : {Vec2{640, 384}, Vec2{655, 379}})
+		{
+			const Ray expected = camera.screenToRay(cursor);
+			for (const bool lowSpec : {false, true})
+			{
+				const Size targetSize = RenderQuality::targetSize(native, lowSpec);
+				const RenderTexture target{targetSize, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes};
+				const ScopedRenderTarget3D scope{target};
+				Graphics3D::SetCameraTransform(camera);
+				const Ray actual = camera.screenToRay(cursor);
+				context.expectNear(Vec3{actual.getOrigin()}.distanceFrom(Vec3{expected.getOrigin()}), 0, .000001,
+					U"Raster target size never changes the native ray origin");
+				context.expectNear(Vec3{actual.direction.xyz()}.distanceFrom(Vec3{expected.direction.xyz()}), 0, .000001,
+					U"Off-center picking retains native coordinates in both raster profiles");
+				const auto expectedHit = building.intersects(expected), actualHit = building.intersects(actual);
+				context.expect(expectedHit && actualHit && Abs(*expectedHit - *actualHit) < .0001,
+					U"The same building is hit at the same depth under both raster profiles");
+			}
+		}
+	});
+
 	runner.add(U"Input.PaletteBufferedBackspaceRegression", [](TestContext& context)
 	{
 		GameInput::buffer = KeyboardActionBuffer{};

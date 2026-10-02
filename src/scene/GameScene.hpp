@@ -497,7 +497,7 @@ private:
 	Optional<int> findSignalAt(Vec3 pos, float radius) const;
 
 	/// @brief カメラからのレイに最も近い建物セルを返す（OBB レイキャスト）
-	Optional<BuildingRef> findBuildingAt(const Ray& ray);
+	Optional<BuildingRef> findBuildingAt(const Ray& ray, Optional<double>* hitDistance = nullptr);
 
 	/// @brief RoadNetwork 変更後に SimGraph を差分更新して通知する
 	void notifyNetworkChanged(const NetworkChangeContext& context)

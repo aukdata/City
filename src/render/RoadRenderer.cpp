@@ -1,5 +1,6 @@
 ﻿#include "RoadRenderer.hpp"
 #include "ShaderAsset.hpp"
+#include "../scene/WorldSelection.hpp"
 #include "ModelLod.hpp"
 #include "../road/RoadEnvironment.hpp"
 #include "MountainRoadGeometry.hpp"
@@ -2448,4 +2449,74 @@ void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const 
 	prepareFallbackNode(nodeId,network,world);
 	const auto& entry = m_fallbackNodes.at(nodeId);
 	if (entry.meshPair.detail) { drawSurface(entry, entry.meshPair.detail); }
+}
+
+/// @brief Query only an existing proximity candidate, without widening the normal selection area.
+Optional<double> RoadRenderer::signalHitDistance(int nodeId, const RoadNetwork& network,
+	const World& world, const Ray& ray, Vec3 eye)
+{
+	const RoadNode* node = network.getNode(nodeId);
+	if (!node || !node->signalPlacement || node->position.distanceFromSq(eye) > 500.0 * 500.0) { return none; }
+	const auto& id = node->signalPlacement->signalDefId;
+	const SignalDef* definition = m_signalRegistry.getDef(id);
+	const SignalModel* model = m_signalRegistry.getModel(id);
+	if (!definition || !model || !model->texture) { return none; }
+	const double distanceSquared = node->position.distanceFromSq(eye);
+	const int lod = distanceSquared < 80 * 80 ? 0 : (distanceSquared < 200 * 200 ? 1 : 2);
+	const auto& meshes = lod == 0 ? model->meshes : model->lodMeshes[lod - 1];
+	auto& geometry = m_signalAttachGeomCache[nodeId];
+	ensureSignalAttachGeomCache(*node, network, world, network.nodeUsesDesignHeight(nodeId), geometry);
+	Optional<double> nearest;
+	const auto consider = [&](const String& name, const Mat4x4& transform)
+	{
+		const auto mesh = meshes.find(name);
+		if (mesh == meshes.end()) { return; }
+		const auto hit = WorldSelection::meshDistance(ray, mesh->second.vertices, mesh->second.indices, transform);
+		if (hit && (!nearest || *hit < *nearest)) { nearest = *hit; }
+	};
+	for (size_t index = 0; index < node->attachments.size(); ++index)
+	{
+		const auto& attachment = node->attachments[index];
+		if (attachment.control != TrafficControl::Signal || index >= geometry.size() || !geometry[index].valid) { continue; }
+		const Mat4x4& transform = geometry[index].baseMat;
+		consider(definition->bodyMeshName, transform);
+		for (const auto& lamp : definition->lamps) { consider(lamp.meshName, transform); }
+		if (!definition->subLamp) { continue; }
+		const auto summary = m_signalSummaryCache.find(nodeId);
+		if (summary == m_signalSummaryCache.end()) { continue; }
+		const auto edgeSummary = summary->second.summaries.find(attachment.edgeId);
+		if (edgeSummary == summary->second.summaries.end()) { continue; }
+		const auto& sub = *definition->subLamp;
+		const auto& directions = edgeSummary->second;
+		for (int slot = 0; slot < 3; ++slot)
+		{
+			const bool present = slot == 0 ? directions.hasLeft : (slot == 1 ? directions.hasStraight : directions.hasRight);
+			if (!present || sub.cols <= 0) { continue; }
+			const Float3 offset = sub.colStride * static_cast<float>(slot % sub.cols) + sub.rowStride * static_cast<float>(slot / sub.cols);
+			const Mat4x4 subTransform = Mat4x4::Translate(offset) * transform;
+			consider(sub.bodyMeshName, subTransform);
+			consider(sub.meshName, subTransform);
+		}
+	}
+	return nearest;
+}
+
+/// @brief Reuse the production guide-sign placement and CPU geometry for occlusion arbitration.
+Optional<double> RoadRenderer::guideSignHitDistance(int signId, const RoadNetwork& network,
+	const World& world, const Ray& ray) const
+{
+	for (const auto& sign : network.guideSigns())
+	{
+		if (sign.id != signId || sign.elements.isEmpty()) { continue; }
+		const auto draw = buildGuideSignDraw(sign, network, world);
+		if (!draw) { return none; }
+		const MeshData pole = GuideSign::CreatePoleMesh();
+		const auto size = GuideSign::computeBoardSizeFor(sign);
+		const MeshData board = GuideSign::CreateBoardMesh(size.width, size.height);
+		const auto poleHit = WorldSelection::meshDistance(ray, pole.vertices, pole.indices, draw->poleMat);
+		const auto boardHit = WorldSelection::meshDistance(ray, board.vertices, board.indices, draw->boardMat);
+		if (!poleHit) { return boardHit; }
+		return boardHit ? Optional<double>{Min(*poleHit, *boardHit)} : poleHit;
+	}
+	return none;
 }

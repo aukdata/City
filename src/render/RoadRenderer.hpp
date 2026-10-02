@@ -113,6 +113,13 @@ public:
 	void drawGuideSignSilhouette(int signId, const RoadNetwork& network, const World& world,
 	                              const ColorF& color);
 
+	/// @brief Visible signal mesh depth for resolving an overlapping building pick.
+	[[nodiscard]] Optional<double> signalHitDistance(int nodeId, const RoadNetwork& network,
+		const World& world, const Ray& ray, Vec3 eye);
+	/// @brief Visible guide sign mesh depth, using the rendering transforms and geometry.
+	[[nodiscard]] Optional<double> guideSignHitDistance(int signId, const RoadNetwork& network,
+		const World& world, const Ray& ray) const;
+
 	void invalidateEdgeCache(int edgeId, int nodeA = -1, int nodeB = -1);
 	void invalidateAllCaches();
 	void invalidateRouteSigns(int routeId) { m_routeSignCache.erase(routeId); }
