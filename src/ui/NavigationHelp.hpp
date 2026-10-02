@@ -16,11 +16,19 @@ namespace NavigationHelp
 		U"Space:停止/再開  1-3:速度  Esc:閉じる\n"
 		U"G:地形  B:バス  N:地名  Tab:用途表示\n"
 		U"地形:Ctrl＋ホイールで範囲  バス:Bで確定";
-	inline RectF bounds(Size size) { return {size.x-418,size.y-124,410,116}; }
+	/// @brief 左上のHUDの下に置き、右側の374px編集パネルと下部の住所表示を避ける。
+	inline RectF bounds(Size size)
+	{
+		constexpr double kLeft = 10, kTop = 178, kWidth = 410, kHeight = 116;
+		constexpr double kEditorSpace = 394;
+		return {kLeft, kTop, Min(kWidth, Max(0.0, size.x - kLeft - kEditorSpace)), kHeight};
+	}
 	inline void draw(const Font& font, Size size, bool walking = false)
 	{
 		const auto area = bounds(size);
 		area.rounded(4).draw(ColorF{.04,.06,.08,.70});
-		font(walking ? kWalkingText : kOverviewText).draw(12, area.pos+Vec2{10,5}, ColorF{.94});
+		constexpr double kFontSize = 12, kTextWidth = 390;
+		const double fontSize = kFontSize * Min(1.0, Max(0.0, area.w - 20) / kTextWidth);
+		font(walking ? kWalkingText : kOverviewText).draw(fontSize, area.pos+Vec2{10,5}, ColorF{.94});
 	}
 }

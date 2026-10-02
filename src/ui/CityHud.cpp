@@ -35,9 +35,9 @@ void CityHud::updateLayout(Size size, bool walking, bool driving, bool hasMode)
 	m_mode = {m_summary.x,m_summary.br().y+5,m_summary.w,26};
 	m_details = {m_summary.x,m_summary.br().y+(hasMode && !streetView ? 39 : 8),m_summary.w,238};
 	m_mapHeader = {size.x-210.0,10,200,30};
-	// 最小ウィンドウでも地名ヘッダ・下部の住所表示・運転計器に重ねない。
-	m_helpButton = {size.x-94.0,size.y-38.0,84,28};
-	m_helpArea = NavigationHelp::bounds({size.x,size.y-40});
+	// 右側の編集パネルと下部の住所表示を避け、説明のすぐ上で開閉する。
+	m_helpArea = NavigationHelp::bounds(size);
+	m_helpButton = {m_helpArea.x,m_helpArea.y-34,84,28};
 	if (streetView) { m_tab = Tab::None; }
 	if (driving) { m_helpOpen = false; }
 }
@@ -70,7 +70,7 @@ Array<RectF> CityHud::bounds() const
 	if (const auto map = minimapBounds()) { areas << *map; }
 	if (m_tab != Tab::None) { areas << m_details; }
 	if (m_hasMode && !m_driving) { areas << m_mode; }
-	if (!m_driving) { areas << m_helpButton; }
+	if (!m_driving && m_tab == Tab::None) { areas << m_helpButton; }
 	if (m_helpOpen) { areas << m_helpArea; }
 	return areas;
 }
@@ -90,7 +90,7 @@ CityHud::Action CityHud::interact(Vec2 point, bool clicked, bool enabled)
 	if (pauseBounds().contains(point)) { return Action::TogglePause; }
 	if (!m_walking && !m_driving && speedBounds().contains(point)) { return Action::NextSpeed; }
 	if (m_mapHeader.contains(point)) { m_mapOpen = !m_mapOpen; }
-	if (!m_driving && m_helpButton.contains(point)) { m_helpOpen = !m_helpOpen; m_tab = Tab::None; }
+	if (!m_driving && m_tab == Tab::None && m_helpButton.contains(point)) { m_helpOpen = !m_helpOpen; m_tab = Tab::None; }
 	if (!m_walking && !m_driving)
 	{
 		for (const auto tab : {Tab::City,Tab::Traffic,Tab::Notices})
@@ -133,8 +133,8 @@ void CityHud::draw(const GameClock& clock, int vehicleCount, StringView mode, co
 	}
 
 	button(font,m_mapOpen ? U"周辺地図   −" : U"周辺地図   ＋",m_mapHeader);
-	if (!m_driving) { button(font,m_helpOpen ? U"閉じる ?" : U"操作 ?",m_helpButton,m_helpOpen); }
-	if (m_helpOpen) { NavigationHelp::draw(font,{m_size.x,m_size.y-40},m_walking); }
+	if (!m_driving && m_tab == Tab::None) { button(font,m_helpOpen ? U"閉じる ?" : U"操作 ?",m_helpButton,m_helpOpen); }
+	if (m_helpOpen) { NavigationHelp::draw(font,m_size,m_walking); }
 	if (m_tab == Tab::None) { return; }
 
 	m_details.rounded(5).draw(panelColor);
