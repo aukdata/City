@@ -32,3 +32,7 @@ The two affected shops are beside station 17681 (鵜池). Its incident rail edge
 RailwaySite::stationFrame uses stationPaths().front() to choose the station building's asymmetric footprint. Reversing the incident-edge order reverses the frame. An independent reconstruction from the saved station-adjacent directions and exact shop cells places both shops clear of the original east-facing station footprint and overlapping the west-facing footprint. See station_order_diagnostic.json.
 
 This is a concrete input-order discrepancy with matching geometry, not a new mutation of persisted houses or roads. It remains qualified until an in-engine order-reversal regression and fresh/load validation establish the complete path. No speculative railway source changes were made during this bounded investigation. A narrow candidate is canonical incident-edge ordering in stationPaths.
+
+## Resolution in the station-order follow-up
+
+The targeted canonical station-path order fix is now validated in engine: all three stages report zero overlap and passed=true, while all saved files remain byte-identical. See [station-order verification](../station_order/REVIEW.md). Precision/timing fixes and their earlier evidence remain separate from the proven station-order cause.

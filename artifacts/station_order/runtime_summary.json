@@ -1,0 +1,40 @@
+{
+  "comparison": {
+    "load1": {
+      "changed_files": [],
+      "roads_exact": true,
+      "development_exact": true
+    },
+    "load2": {
+      "changed_files": [],
+      "roads_exact": true,
+      "development_exact": true
+    }
+  },
+  "runs": {
+    "new": {
+      "exit_code": 0,
+      "seconds": 85.35838031768799,
+      "roads_sha256": "f6b4b53bc16ad7044518f626260782704f1fe099e590351241109ea0746f648f",
+      "diagnostics": [
+        "[61.7859s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+      ]
+    },
+    "load1": {
+      "exit_code": 0,
+      "seconds": 19.963633060455322,
+      "roads_sha256": "f6b4b53bc16ad7044518f626260782704f1fe099e590351241109ea0746f648f",
+      "diagnostics": [
+        "[8.3538s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+      ]
+    },
+    "load2": {
+      "exit_code": 0,
+      "seconds": 20.36275601387024,
+      "roads_sha256": "f6b4b53bc16ad7044518f626260782704f1fe099e590351241109ea0746f648f",
+      "diagnostics": [
+        "[8.60622s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true"
+      ]
+    }
+  }
+}

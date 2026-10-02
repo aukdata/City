@@ -36,7 +36,10 @@ namespace RailwaySite
 	{
 		Array<Array<Vec3>> paths;
 		const auto* node = network.getNode(station); if (!node) { return paths; }
-		for (const int first : node->edgeIds)
+		// Storage slots can reorder incident edges during synchronize. Keep station-facing geometry stable.
+		Array<int> incidentEdges = node->edgeIds;
+		incidentEdges.sort();
+		for (const int first : incidentEdges)
 		{
 			const auto* edge = network.getEdge(first); if (!edge || edge->depotTrack) { continue; }
 			const int firstLane = TransportCrossSection::railLane(*edge,edge->nodeA == station);

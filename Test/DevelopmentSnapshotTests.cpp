@@ -4,6 +4,7 @@
 #include "src/save/WorldSnapshotValidation.hpp"
 #include "src/save/SaveTransaction.hpp"
 #include "src/save/RoadBinary.hpp"
+#include "src/railway/RailwaySite.hpp"
 #include <limits>
 #include "src/zone/ZoneManager.hpp"
 #include <fstream>
@@ -61,6 +62,41 @@ namespace
 
 void registerDevelopmentSnapshotTests(TestRunner& runner)
 {
+	runner.add(U"DevelopmentSnapshot.StationFootprintsIgnoreIncidentOrder",[](TestContext& context)
+	{
+		RoadNetwork roads;
+		const int a = roads.addNode({0,0,0}), b = roads.addNode({100,0,0}), c = roads.addNode({200,0,0});
+		const auto holeA = roads.addEdge(a,b,{30,0,0},{70,0,0});
+		const auto holeB = roads.addEdge(b,c,{130,0,0},{170,0,0});
+		context.expect(holeA.has_value() && holeB.has_value(),U"Two reusable road slots created");
+		if (!holeA || !holeB) { return; }
+		roads.removeEdge(*holeA); roads.removeEdge(*holeB);
+		TrainNetwork railway; railway.bind(&roads);
+		const int west = railway.addNode({900,10,1000});
+		const int station = railway.addStation({1000,10,1000},U"Order regression");
+		const int east = railway.addNode({1100,10,1000});
+		const int first = railway.addEdge(west,station,{930,10,1000},{970,10,1000});
+		const int second = railway.addEdge(station,east,{1030,10,1000},{1070,10,1000});
+		context.expect(first >= 0 && second >= 0,U"Station rail edges created in reusable slots");
+		if (first < 0 || second < 0) { return; }
+		const auto beforeOrder = railway.getNode(station)->edgeIds;
+		const auto beforeFrame = RailwaySite::stationFrame(railway,station);
+		const auto beforeFootprints = RailwaySite::footprints(railway);
+		railway.synchronize();
+		context.expect(beforeOrder != railway.getNode(station)->edgeIds,U"Fixture reproduces actual slot-order reversal during synchronize");
+		const auto afterFrame = RailwaySite::stationFrame(railway,station);
+		const auto afterFootprints = RailwaySite::footprints(railway);
+		context.expect(beforeFrame.has_value() && afterFrame.has_value(),U"Station frame available in both orders");
+		if (beforeFrame && afterFrame)
+		{
+			context.expect(beforeFrame->origin == afterFrame->origin && beforeFrame->along == afterFrame->along
+				&& beforeFrame->right == afterFrame->right,U"Station building cannot flip after derived railway synchronization");
+		}
+		context.expect(!beforeFootprints.isEmpty(),U"Fixture exercises station and platform exclusion geometry");
+		context.expect(beforeFootprints == afterFootprints,U"All ordered exclusion quads stay exact after cache rebuild");
+		railway.getNode(station)->edgeIds.reverse();
+		context.expect(RailwaySite::footprints(railway) == beforeFootprints,U"Explicit reversed incident order cannot flip the footprint");
+	});
 	runner.add(U"DevelopmentSnapshot.DoublePrecisionRoadCoordinates",[](TestContext& context)
 	{
 		RoadNetwork source;
