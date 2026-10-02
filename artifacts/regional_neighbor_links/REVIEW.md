@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation installed on 2026-10-02. The sole shared build owner completed the combined stage4 compile cleanly and ran fresh focused checks against the unchanged frozen regional source. All eight focused checks passed (six new regional cases, the retained rural shortcut case and settings validation). No desktop or main-game execution was performed by this task.
+Implementation installed on 2026-10-02. The sole shared build owner completed the combined stage4 compile cleanly and ran fresh focused checks against the unchanged frozen regional source. All eight focused checks passed (six new regional cases, the retained rural shortcut case and settings validation), and all eight passed again in stage5 after the shared topology integration. No desktop or main-game execution was performed by this task.
 
 Static checks completed:
 - The six owned implementation/test/settings files have no CR-aware whitespace errors
@@ -54,7 +54,18 @@ Verified fresh runtime results (2026-10-02, stage4):
 - [Terrain measurements](../realism_stage4/GenerationRevision.Regional/regional_terrain_connections.json): components **3 → 2**, **one** affordable valley connection, **two** rejected ridge corridors, **three** alignment trials. Two nearby pairs remain unreachable rather than being forced through unsuitable terrain
 - The combined six-case regional process exited 0 with fresh result artifacts. Its test durations were approximately 90–289 ms per case; this is fixture runtime, not a claim about full-map generation performance
 
-The source hashes tested were unchanged from the 13:19 UTC freeze. No focused failure required a code edit after the shared build. A later coordinated change to shared `RoadNetwork_Topology.cpp` adds endpoint-to-interior joins and preserves authored road metadata; regional routing tests are queued to rerun against that subsequent build before final integration is declared verified. The overall terrain/urban batch was still in progress when these focused results were recorded. These results establish the regional regression fixtures, not a new full-map playtest or a guarantee that every real-world candidate is feasible.
+The source hashes tested were unchanged from the 13:19 UTC freeze. No focused failure required a code edit after the shared build. A later coordinated change to shared `RoadNetwork_Topology.cpp` adds endpoint-to-interior joins and preserves authored road metadata; the stage5 rerun below verifies this integration. The overall terrain/urban batch was still in progress when these focused results were recorded. These results establish the regional regression fixtures, not a new full-map playtest or a guarantee that every real-world candidate is feasible.
+
+## Post-topology integration rerun
+
+Fresh stage5 checks on 2026-10-02 14:17 UTC passed against source commit `1dc4300` plus the coordinated shared topology changes:
+
+- [Regional: 6/6](../realism_stage5/GenerationRevision.Regional/results.json), [valid process result](../realism_stage5/GenerationRevision.Regional/status.json)
+- [VillageShortcuts: 1/1](../realism_stage5/GenerationRevision.VillageShortcuts/results.json)
+- [Required settings: 1/1](../realism_stage5/GenerationSettings.RequiredValuesAndValidation/results.json)
+- [Town-loop metrics](../realism_stage5/GenerationRevision.Regional/regional_town_loop.json) and [terrain metrics](../realism_stage5/GenerationRevision.Regional/regional_terrain_connections.json) reproduce the stage4 values exactly
+
+All three processes exited 0 with `validResults=true` and fresh artifacts. No regional source edits were needed after the original source freeze. This completes the regional implementation's focused integration validation; broader game/visual acceptance remains with the combined task.
 
 ## Scope not changed
 
