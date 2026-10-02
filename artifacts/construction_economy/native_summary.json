@@ -1,0 +1,16 @@
+{
+  "funds": {
+    "before": 30.0,
+    "drafted": 30.0,
+    "started": 29.984586268424987,
+    "repeated_enter": 29.984586268424987,
+    "cancelled": 29.984586268424987,
+    "reloaded": 29.984586268424987
+  },
+  "lengthMeters": 30.827463150024414,
+  "expectedDebit": 0.015413731575012208,
+  "actualDebit": 0.01541373157501269,
+  "repeatCharge": 0.0,
+  "refund": 0.0,
+  "reloadExact": true
+}
