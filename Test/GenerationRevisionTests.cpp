@@ -4,6 +4,7 @@
 #include "src/gen/SettlementPlacement.hpp"
 #include "src/gen/SettlementNames.hpp"
 #include "src/gen/VillageConnections.hpp"
+#include "src/gen/RoadAlignment.hpp"
 #include "src/ui/StartScreenControls.hpp"
 #include "src/ui/RailInfoPanel.hpp"
 #include "src/ui/FrameRateGraph.hpp"
@@ -239,10 +240,256 @@ void registerGenerationRevisionTests(TestRunner& runner)
 		villages[1].center = {32500, 32000};
 		const auto result = VillageConnections::improve(42, villages, world, roads);
 		context.expect(
-			result.trials >= 12 && result.trials <= 19 && result.connected > 0, U"十数回の試行で3倍以上の迂回を接続");
+			result.trials > 0 && result.trials <= GenerationSettings::get().network_regionalRoutingAttemptLimit && result.connected > 0, U"有限候補の探索で遠回りを接続");
 		context.expect(VillageConnections::shortestDistance(roads, a, b) < 750, U"追加道路は実際のネットワークを短絡");
+		context.expect(result.before.cycles == 0 && result.after.cycles == 1, U"Two settlements retain their distinct direct and indirect regional corridors");
 		const auto again = VillageConnections::improve(42, villages, world, roads);
 		context.expect(again.connected == 0, U"既に短い経路には重複道路を作らない");
+	});
+
+	runner.add(U"GenerationRevision.RegionalTownLoop", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		for (int z = 30; z <= 34; ++z) for (int x = 30; x <= 34; ++x)
+		{
+			world.installChunkDirect({x,z}, {Grid<float>(HEIGHT_CELLS+1, HEIGHT_CELLS+1, 30), 30, 30});
+		}
+		RoadNetwork roads;
+		const auto join = [&](int a, int b)
+		{
+			const Vec3 p = roads.getNode(a)->position, q = roads.getNode(b)->position;
+			const int id = *roads.addEdge(a, b, p.lerp(q, 1.0/3), p.lerp(q, 2.0/3), RoadType::LocalRoad, 2);
+			roads.getEdge(id)->edgeState = EdgeState::Existing; return id;
+		};
+		const int a = roads.addNode({32000,30,32000}), b = roads.addNode({32500,30,32000}),
+			c = roads.addNode({32000,30,33500}), d = roads.addNode({32500,30,33500});
+		const Array<int> trunk{join(a,c), join(c,d), join(d,b)};
+		const int national = roads.addRoute(RoadRouteKind::NationalRoute, U"既存国道", trunk, 42);
+		// 市街地内の小さな環状街路は地域道路の代替経路として数えない。
+		const int localA = roads.addNode({31950,30,32000}), localB = roads.addNode({31950,30,31950}), localC = roads.addNode({32000,30,31950});
+		join(a,localA); join(localA,localB); join(localB,localC); join(localC,a);
+		// 削除スロットと横断道路により、新道のIDと交差点分割を検証する。
+		const int disposable = join(roads.addNode({33000,30,32000}), roads.addNode({33100,30,32000}));
+		roads.removeEdge(disposable);
+		join(roads.addNode({32250,30,31900}), roads.addNode({32250,30,32100}));
+		Array<MapGenerator::Settlement> places(4);
+		const Array<int> nodes{a,b,c,d};
+		for (size_t i = 0; i < places.size(); ++i)
+		{
+			const auto p = roads.getNode(nodes[i])->position; places[i].center = {p.x,p.z};
+			places[i].kind = i == 0 ? MapGenerator::SettlementKind::RegionalCity : MapGenerator::SettlementKind::LocalTown;
+		}
+		const auto before = VillageConnections::measure(places, world, roads);
+		context.expect(before.links == 3 && before.cycles == 0 && before.components == 1,
+			U"Settlement compression ignores the dense town's internal street cycle");
+		const auto result = VillageConnections::improve(42, places, world, roads);
+		context.expect(result.connected == 1 && result.after.cycles == 1 && result.after.links == 4,
+			U"A useful missing town-to-town road closes one regional loop without diagonals");
+		context.expect(VillageConnections::shortestDistance(roads,a,b) < 750 && VillageConnections::shortestDistance(roads,b,a) < 750,
+			U"Neighboring towns become reachable in both directions without the 3.5km detour");
+		context.expect(result.after.maximumDetour < 1.8 && result.after.unreachablePairs == 0,
+			U"Nearby settlement pairs have finite, useful road distances");
+		const auto* retained = roads.getRoute(national);
+		context.expect(retained && retained->name == U"既存国道" && retained->number == 42 && retained->edgeIds == trunk,
+			U"Adding an alternative preserves the original national route identity and membership");
+		int prefectural = 0;
+		for (const auto& route : roads.routes())
+		{
+			if (route.id < 0 || route.kind != RoadRouteKind::PrefectureRoute) { continue; }
+			++prefectural;
+			context.expect(route.edgeIds.size() >= 2, U"The new prefectural route tracks its crossing-induced splits");
+			for (const int id : route.edgeIds)
+			{
+				const auto* edge = roads.getEdge(id);
+				context.expect(edge && edge->routeIds.contains(route.id), U"Every route reference is live and reciprocal after slot reuse");
+				if (const auto curve = roads.getBezier(id))
+				{
+					context.expect(RoadAlignment::respectsLimits(*curve, edge->roadType), U"The completed regional geometry obeys its own design limits");
+				}
+			}
+		}
+		context.expectEqual(prefectural, 1, U"The useful alternative receives one prefectural route");
+		const auto repeated = VillageConnections::improve(42, places, world, roads);
+		context.expect(repeated.connected == 0 && repeated.trials == 0, U"A second pass does not add a redundant web");
+		JSON report;
+		report[U"beforeLinks"] = before.links; report[U"afterLinks"] = result.after.links;
+		report[U"beforeCycles"] = before.cycles; report[U"afterCycles"] = result.after.cycles;
+		report[U"beforeMaximumDetour"] = before.maximumDetour; report[U"afterMaximumDetour"] = result.after.maximumDetour;
+		report[U"reachablePairs"] = result.after.reachablePairs; report[U"unreachablePairs"] = result.after.unreachablePairs;
+		report[U"trials"] = result.trials; report[U"connected"] = result.connected;
+		report.save(U"TestResults/regional_town_loop.json");
+	});
+
+	runner.add(U"GenerationRevision.RegionalDisconnectedTowns", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		for (int z = 30; z <= 32; ++z) for (int x = 30; x <= 32; ++x)
+		{
+			world.installChunkDirect({x,z}, {Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,30),30,30});
+		}
+		for (const bool isolated : {false, true})
+		{
+			RoadNetwork roads;
+			const int a = roads.addNode({32000,30,32000}), b = roads.addNode({32500,30,32000});
+			if (!isolated)
+			{
+				const int c = roads.addNode({31900,30,32000}), d = roads.addNode({32600,30,32000});
+				for (const auto pair : {std::pair{a,c}, std::pair{b,d}})
+				{
+					const Vec3 p = roads.getNode(pair.first)->position, q = roads.getNode(pair.second)->position;
+					roads.addEdge(pair.first,pair.second,p.lerp(q,1.0/3),p.lerp(q,2.0/3),RoadType::LocalRoad,2);
+				}
+			}
+			Array<MapGenerator::Settlement> places(2);
+			places[0].center = {32000,32000}; places[1].center = {32500,32000};
+			for (auto& place : places) { place.kind = MapGenerator::SettlementKind::LocalTown; }
+			const auto result = VillageConnections::improve(42, places, world, roads);
+			context.expect(result.before.components == 2 && result.after.components == 1 && result.repairedComponents == 1,
+				U"Disconnected nearby towns, including empty anchors, are joined before optional shortcuts");
+			context.expect(result.before.unreachablePairs == 1 && result.after.unreachablePairs == 0 && result.after.accessNodes == 2,
+				U"The repaired connection is actually reachable in both directions");
+			const auto from = roads.findNodeNear({32000,30,32000},.5f), to = roads.findNodeNear({32500,30,32000},.5f);
+			context.expect(from && to && VillageConnections::shortestDistance(roads,*from,*to) < 750
+				&& VillageConnections::shortestDistance(roads,*to,*from) < 750, U"Original isolated node IDs stay usable after the repair");
+		}
+	});
+
+	runner.add(U"GenerationRevision.RegionalDirectionAndTurns", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		for (int z = 30; z <= 34; ++z) for (int x = 30; x <= 34; ++x)
+		{
+			world.installChunkDirect({x,z}, {Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,30),30,30});
+		}
+		RoadNetwork roads;
+		const int a = roads.addNode({32000,30,32000}), c = roads.addNode({32000,30,33500}),
+			d = roads.addNode({32500,30,33500}), b = roads.addNode({32500,30,32000});
+		Array<int> edges;
+		for (const auto pair : {std::pair{a,c},std::pair{c,d},std::pair{d,b}})
+		{
+			const Vec3 p = roads.getNode(pair.first)->position, q = roads.getNode(pair.second)->position;
+			edges << *roads.addEdge(pair.first,pair.second,p.lerp(q,1.0/3),p.lerp(q,2.0/3),RoadType::LocalRoad,1);
+		}
+		context.expectNear(VillageConnections::shortestDistance(roads,a,b),3500,1,U"Forward-only road distance follows the existing lane chain");
+		context.expect(!std::isfinite(VillageConnections::shortestDistance(roads,b,a)),U"One-way roads do not falsely connect the reverse direction");
+		roads.getNode(c)->laneConnections.clear();
+		context.expect(!std::isfinite(VillageConnections::shortestDistance(roads,a,b)),U"An absent turn connection is not bypassed by a node-only path");
+		roads.rebuildLaneConnections(c);
+		roads.getEdge(edges[1])->lanes[0].op = OpState::Closed;
+		context.expect(!std::isfinite(VillageConnections::shortestDistance(roads,a,b)),U"Closed lanes are excluded from generation distance audits");
+		roads.getEdge(edges[1])->lanes[0].op = OpState::Open;
+		Array<MapGenerator::Settlement> places(2);
+		places[0].center = {32000,32000}; places[1].center = {32500,32000};
+		for (auto& place : places) { place.kind = MapGenerator::SettlementKind::LocalTown; }
+		const auto result = VillageConnections::improve(42,places,world,roads);
+		context.expect(result.connected == 1 && result.before.unreachablePairs == 1 && result.after.unreachablePairs == 0,
+			U"The missing reverse journey triggers a real two-way alternative");
+		context.expect(VillageConnections::shortestDistance(roads,a,b) < 750 && VillageConnections::shortestDistance(roads,b,a) < 750,
+			U"Both journeys are verified after intersection insertion");
+	});
+
+	runner.add(U"GenerationRevision.RegionalTerrainCostAndFailure", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		Grid<float> terrain(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20);
+		for (int z = 0; z <= HEIGHT_CELLS; ++z) for (int x = 25; x <= 39; ++x) { terrain[{x,z}] = 100; }
+		world.installChunkDirect({0,0},{terrain,20,100});
+		RoadNetwork roads;
+		Array<MapGenerator::Settlement> places(3);
+		places[0].center = {200,512}; places[1].center = {824,512}; places[2].center = {200,912};
+		for (auto& place : places) { place.kind = MapGenerator::SettlementKind::LocalTown; }
+		const auto result = VillageConnections::improve(42,places,world,roads);
+		context.expect(result.connected == 1 && result.failed > 0 && result.after.components == 2,
+			U"An affordable valley neighbor connects while the blocked ridge corridor is reported honestly");
+		context.expect(result.trials <= GenerationSettings::get().network_regionalRoutingAttemptLimit,
+			U"Terrain failures cannot exhaust an unbounded number of route searches");
+		const auto a = roads.findNodeNear({200,20,512},.5f), c = roads.findNodeNear({200,20,912},.5f);
+		context.expect(a && c && std::isfinite(VillageConnections::shortestDistance(roads,*a,*c)),U"The accepted valley route is a functioning road");
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id < 0) { continue; }
+			const auto curve = roads.getBezier(edge.id);
+			context.expect(curve && RoadAlignment::respectsLimits(*curve,edge.roadType),U"No forced ridge geometry violates the road's grade or curvature");
+			if (curve)
+			{
+				context.expect(RoadAlignment::maximumClearance(world,{*curve}) <= GenerationSettings::get().roads_maximumGeneratedViaductHeight,
+					U"Generated alternatives retain the bridge-height limit");
+			}
+		}
+		RoadNetwork blocked;
+		Array<MapGenerator::Settlement> ridge{places[0],places[1]};
+		const int nextNode = blocked.nextNodeId(), nextEdge = blocked.nextEdgeId();
+		const auto failed = VillageConnections::improve(42,ridge,world,blocked);
+		context.expect(failed.connected == 0 && failed.failed > 0 && blocked.nextNodeId() == nextNode && blocked.nextEdgeId() == nextEdge,
+			U"Rejected terrain proposals leave no phantom anchors, partial roads or consumed IDs");
+		JSON report;
+		report[U"trials"] = result.trials; report[U"connected"] = result.connected; report[U"failed"] = result.failed;
+		report[U"beforeComponents"] = result.before.components; report[U"afterComponents"] = result.after.components;
+		report[U"reachablePairs"] = result.after.reachablePairs; report[U"unreachablePairs"] = result.after.unreachablePairs;
+		report.save(U"TestResults/regional_terrain_connections.json");
+	});
+
+	runner.add(U"GenerationRevision.RegionalCrossingRollback", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		for (int z = 30; z <= 32; ++z) for (int x = 30; x <= 32; ++x)
+		{
+			world.installChunkDirect({x,z},{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,30),30,30});
+		}
+		RoadNetwork roads;
+		const auto join = [&](Vec3 p, Vec3 q)
+		{
+			const int a = roads.addNode(p), b = roads.addNode(q);
+			return *roads.addEdge(a,b,p.lerp(q,1.0/3),p.lerp(q,2.0/3),RoadType::LocalRoad,2);
+		};
+		join({32000,30,32000},{31900,30,32000}); join({32500,30,32000},{32600,30,32000});
+		const int existing = join({32250,30.9,31999},{32250,30.9,32100});
+		const int national = roads.addRoute(RoadRouteKind::NationalRoute,U"高さを保つ国道",{existing},42);
+		const int nextNode = roads.nextNodeId(), nextEdge = roads.nextEdgeId();
+		Array<MapGenerator::Settlement> places(2);
+		places[0].center = {32000,32000}; places[1].center = {32500,32000};
+		for (auto& place : places) { place.kind = MapGenerator::SettlementKind::LocalTown; }
+		const auto result = VillageConnections::improve(42,places,world,roads);
+		context.expect(result.connected == 0 && result.failed > 0,
+			U"A crossing that would tilt a short existing road child is rejected, even when the new road itself is legal");
+		context.expect(roads.nextNodeId() == nextNode && roads.nextEdgeId() == nextEdge && roads.getEdge(existing),
+			U"Rejected intersection proposals preserve all original road IDs");
+		const auto* route = roads.getRoute(national);
+		context.expect(route && route->edgeIds == Array<int>{existing},U"Rollback preserves the national route's original membership");
+	});
+
+	runner.add(U"GenerationRevision.RegionalTownCandidateCoverage", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		for (int z = 30; z <= 32; ++z) for (int x = 30; x <= 32; ++x)
+		{
+			world.installChunkDirect({x,z},{Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,30),30,30});
+		}
+		RoadNetwork roads;
+		Array<MapGenerator::Settlement> places(2);
+		places[0].center = {32000,32000}; places[1].center = {32500,32000};
+		Array<int> towns;
+		for (int i = 0; i < 2; ++i)
+		{
+			places[i].kind = MapGenerator::SettlementKind::LocalTown;
+			const Vec3 center{places[i].center.x,30,places[i].center.y};
+			const int town = roads.addNode(center); towns << town;
+			for (int village = 0; village < 5; ++village)
+			{
+				const double angle = .2 + village * Math::TwoPi / 5;
+				const Vec3 point = center + Vec3{100*Cos(angle),0,100*Sin(angle)};
+				const int node = roads.addNode(point);
+				roads.addEdge(town,node,center.lerp(point,1.0/3),center.lerp(point,2.0/3),RoadType::LocalRoad,2);
+				MapGenerator::Settlement place; place.center = {point.x,point.z}; places << place;
+			}
+		}
+		context.expect(!std::isfinite(VillageConnections::shortestDistance(roads,towns[0],towns[1])),U"The two dense village clusters start disconnected");
+		const auto result = VillageConnections::improve(42,places,world,roads);
+		context.expect(result.repairedComponents >= 1 && result.before.components == 2 && result.after.components == 1,
+			U"Closer village peers cannot consume every candidate slot and hide the nearby disconnected town");
+		context.expect(VillageConnections::shortestDistance(roads,towns[0],towns[1]) < 750
+			&& VillageConnections::shortestDistance(roads,towns[1],towns[0]) < 750,U"Reserved town-peer candidates create a useful bidirectional connection");
+		context.expect(result.before.nearbyPairs == result.after.nearbyPairs,U"Before and after audit exactly the same bounded neighbor pairs");
 	});
 
 	runner.add(U"GenerationRevision.SaveDelete", [](TestContext& context)

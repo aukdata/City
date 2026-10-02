@@ -17,7 +17,15 @@
   "mountainRoadRelief": 12,
   "minimumKaidoSearchRadius": 180,
   "kaidoSearchRadiusScale": 1.6,
-  "villageShortcutMinimumTrials": 12,
-  "villageShortcutMaximumTrials": 19,
-  "villageDetourRatio": 3
+  "regionalNeighbors": 4,
+  "regionalNeighborRadius": 10000,
+  "regionalCandidateLimit": 192,
+  "regionalRoutingAttemptLimit": 48,
+  "regionalExtraLinks": 2,
+  "regionalAccessRadius": 1000,
+  "regionalCorridorMergeDistance": 250,
+  "regionalDetourRatio": 1.8,
+  "regionalMinimumSavedDistance": 100,
+  "regionalMinimumSavingRatio": 0.2,
+  "regionalMaximumCostRatio": 8
 }

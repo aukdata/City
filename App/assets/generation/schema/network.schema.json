@@ -22,9 +22,17 @@
     "mountainRoadRelief",
     "minimumKaidoSearchRadius",
     "kaidoSearchRadiusScale",
-    "villageShortcutMinimumTrials",
-    "villageShortcutMaximumTrials",
-    "villageDetourRatio"
+    "regionalNeighbors",
+    "regionalNeighborRadius",
+    "regionalCandidateLimit",
+    "regionalRoutingAttemptLimit",
+    "regionalExtraLinks",
+    "regionalAccessRadius",
+    "regionalCorridorMergeDistance",
+    "regionalDetourRatio",
+    "regionalMinimumSavedDistance",
+    "regionalMinimumSavingRatio",
+    "regionalMaximumCostRatio"
   ],
   "properties": {
     "localRoutingCell": {
@@ -117,20 +125,60 @@
       "minimum": 0.1,
       "maximum": 10.0
     },
-    "villageShortcutMinimumTrials": {
+    "regionalNeighbors": {
       "type": "integer",
-      "minimum": 10.0,
-      "maximum": 19.0
+      "minimum": 1,
+      "maximum": 8
     },
-    "villageShortcutMaximumTrials": {
-      "type": "integer",
-      "minimum": 10.0,
-      "maximum": 19.0
-    },
-    "villageDetourRatio": {
+    "regionalNeighborRadius": {
       "type": "number",
-      "minimum": 3.0,
-      "maximum": 3.0
+      "minimum": 500,
+      "maximum": 15000
+    },
+    "regionalCandidateLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "regionalRoutingAttemptLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "regionalExtraLinks": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "regionalAccessRadius": {
+      "type": "number",
+      "minimum": 100,
+      "maximum": 2000
+    },
+    "regionalCorridorMergeDistance": {
+      "type": "number",
+      "minimum": 50,
+      "maximum": 1000
+    },
+    "regionalDetourRatio": {
+      "type": "number",
+      "minimum": 1.1,
+      "maximum": 5
+    },
+    "regionalMinimumSavedDistance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "regionalMinimumSavingRatio": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.8
+    },
+    "regionalMaximumCostRatio": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 64
     }
   }
 }
