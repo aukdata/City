@@ -1,6 +1,6 @@
 # Exact road junctions and designed-route preservation
 
-2026-10-02. Independently validated shared topology checkpoint. Intracity mosaic and parcel classification remain separate, uncommitted work.
+2026-10-02. Separately scoped shared topology checkpoint. Intracity mosaic and parcel classification remain separate, uncommitted work.
 
 ## Changes
 
@@ -18,7 +18,7 @@ Fresh diagnostic7 results:
 - regional connectivity and legacy shortcuts: **7/7**, exit0
 - ordered and unbridgeable route-replacement regressions: **2/2**, exit0
 
-Preserved results are under `../realism_diagnostic7/`.
+Preserved results are under `../realism_diagnostic7/`. These tests used the shared working tree, including uncommitted terrain/urban sources. No isolated build of this committed tree has yet been recorded; the local checkpoint is not standalone publication acceptance.
 
 The inherited-hamlet integration test is still failing on its separate empty-face/land-development requirement. Its route-identity and physical-curve checks now pass at seeds7/42/130. Diagnostic6 previously measured zero invalid inherited curves through generation, smoothing, constraints and exact intersection joining, followed by32/22/30 curvature failures at the first approximate consolidation. Diagnostic7 measures zero at every stage, including both consolidation passes.
 

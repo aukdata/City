@@ -223,7 +223,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			if (chunk.meshDirty || !m_buildingMeshCache.contains(key))
 			{
 				const Stopwatch timer{ StartImmediately::Yes };
-				rebuildBuildingMeshes(key, chunk, world);
+				rebuildBuildingMeshes(key, chunk, world, network);
 				DBG_LOG(U"[Streaming] buildings chunk=({}, {}) ms={:.2f}"_fmt(chunk.coord.x,chunk.coord.y,timer.msF()));
 				++m_terrainRevisions[key];
 				chunk.meshDirty = false;
@@ -241,7 +241,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			rebuildTerrainBatches();
 			m_pendingTerrainRebuildKeys.erase(key);
 			chunk.meshDirty = false;
-			rebuildBuildingMeshes(key, chunk, world);
+			rebuildBuildingMeshes(key, chunk, world, network);
 		}
 		else if (terrainDirty && m_terrainRebuildBudget > 0)
 		{
@@ -252,7 +252,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			m_pendingTerrainRebuildKeys.erase(key);
 			chunk.meshDirty = false;
 			--m_terrainRebuildBudget;
-			rebuildBuildingMeshes(key, chunk, world);
+			rebuildBuildingMeshes(key, chunk, world, network);
 		}
 
 	}

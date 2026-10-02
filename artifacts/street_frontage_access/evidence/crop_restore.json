@@ -1,0 +1,72 @@
+﻿{
+  "fixture": "cropped actual generated regional-hub street",
+  "judgedDistanceMeters": 150,
+  "omittedBuildingsWithinRetainedChunks": 3054,
+  "originalActiveChunks": 81,
+  "originalFingerprint": "4931658372741426078",
+  "productionRoadNetworkUnchanged": true,
+  "requiredObjTypeVariantCount": 36,
+  "restoredFingerprint": "4931658372741426078",
+  "retainedActiveChunks": 2,
+  "retainedBuildingTypes": [
+    {
+      "count": 16,
+      "type": 9
+    },
+    {
+      "count": 587,
+      "type": 1
+    },
+    {
+      "count": 1,
+      "type": 17
+    },
+    {
+      "count": 456,
+      "type": 2
+    },
+    {
+      "count": 1,
+      "type": 18
+    },
+    {
+      "count": 151,
+      "type": 3
+    },
+    {
+      "count": 10,
+      "type": 11
+    },
+    {
+      "count": 19,
+      "type": 4
+    },
+    {
+      "count": 191,
+      "type": 22
+    },
+    {
+      "count": 126,
+      "type": 5
+    },
+    {
+      "count": 12,
+      "type": 6
+    },
+    {
+      "count": 1,
+      "type": 12
+    }
+  ],
+  "retainedBuildings": 1571,
+  "retainedGeometryRect": [
+    31756.420338516804,
+    32757.408790364738,
+    700.0,
+    700.0
+  ],
+  "seed": 42,
+  "shadowPassEnabled": false,
+  "sourceWorld": "RegionalHub generation on the existing flat20m Test terrain",
+  "terrainValuesCopiedExactly": true
+}

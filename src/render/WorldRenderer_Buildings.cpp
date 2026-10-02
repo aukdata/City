@@ -6,6 +6,10 @@
 #include "VegetationProfile.hpp"
 #include "TransportLandscape.hpp"
 #include "FrontageGeometry.hpp"
+#include "ResidentialParcelAccess.hpp"
+#include "../gen/ParcelGeometry.hpp"
+#include "../road/RoadGeometry.hpp"
+#include "../world/ZoneGrid.hpp"
 #include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
@@ -394,7 +398,7 @@ namespace
 		const Building& building, float cx, float cz, uint32 hash)
 	{
 		const float footprint=buildingFootprintXZ(building.type);
-		const float gap=0.42f;
+		const float gap=FrontageGeometry::kPairedGap;
 		const float houseWidth=(footprint-gap)*0.5f;
 		const float baseY=buildingBaseHeight(world,building,cx,cz);
 		const float cosA=Math::Cos(building.angle), sinA=Math::Sin(building.angle);
@@ -407,10 +411,10 @@ namespace
 		constexpr int kRoofKeys[]={ 146, 108, 103, 147, 148 };
 		const uint32 firstSiding=hash%6u;
 		// 道路側に駐車・玄関アプローチのコンクリート土間を残す。
-		const float setback=1.6f;
+		const float setback=FrontageGeometry::kPairedApronDepth;
 		const Vec2 apron=worldOffset(0.0f,-footprint*0.5f+setback*0.5f);
-		appendRotatedBox(groups[100],static_cast<float>(apron.x),baseY+0.03f,static_cast<float>(apron.y),
-			footprint-0.2f,0.04f,setback,building.angle);
+		appendRotatedBox(groups[100],static_cast<float>(apron.x),baseY+FrontageGeometry::kPairedApronTop-FrontageGeometry::kPairedApronThickness*.5f,static_cast<float>(apron.y),
+			footprint-0.2f,FrontageGeometry::kPairedApronThickness,setback,building.angle);
 		for (int side=0;side<2;++side)
 		{
 			const uint32 local=hash>>(side*7+3);
@@ -866,6 +870,143 @@ namespace
 			}
 		}
 	}
+	/// @brief Build a bounded per-chunk index once; each entry path queries only intersecting32m cells.
+	struct ResidentialAccessIndex
+	{
+		struct Item { int64 owner=-1; RectF bounds; Array<Vec2> outline; };
+		Array<Item> items;
+		HashTable<Point,Array<size_t>> cells;
+		HashTable<int64,Array<const LandPatch*>> parcels;
+		ResidentialAccessIndex(const World& world,const Chunk& chunk,const Array<LandRoadMask>& masks)
+		{
+			const RectF region{chunk.coord.x*CHUNK_SIZE-32,chunk.coord.y*CHUNK_SIZE-32,CHUNK_SIZE+64,CHUNK_SIZE+64};
+			const auto add=[&](int64 owner,Array<Vec2> outline)
+			{
+				if (outline.size()<3) { return; } const RectF bounds=boundsOfPolygon(outline);
+				if (!bounds.intersects(region)) { return; }
+				const size_t id=items.size(); items << Item{owner,bounds,std::move(outline)};
+				const int x0=static_cast<int>(Floor(Max(bounds.x,region.x)/32)),x1=static_cast<int>(Floor(Min(bounds.x+bounds.w,region.x+region.w)/32));
+				const int z0=static_cast<int>(Floor(Max(bounds.y,region.y)/32)),z1=static_cast<int>(Floor(Min(bounds.y+bounds.h,region.y+region.h)/32));
+				for (int z=z0;z<=z1;++z) for (int x=x0;x<=x1;++x) { cells[{x,z}] << id; }
+			};
+			for (const auto& mask : masks) { add(-1,mask.footprint); }
+			for (int z=Max(0,chunk.coord.y-1);z<=Min(WORLD_CHUNKS-1,chunk.coord.y+1);++z)
+				for (int x=Max(0,chunk.coord.x-1);x<=Min(WORLD_CHUNKS-1,chunk.coord.x+1);++x)
+				{
+					const auto* source=world.getChunk({x,z}); if (!source) { continue; }
+					for (const auto& patch : source->landPatches)
+					{
+						if (source==&chunk && patch.sourceParcelKey>=0 && patch.polygon.size()>=3) { parcels[patch.sourceParcelKey] << &patch; }
+						add(patch.sourceParcelKey,patch.polygon);
+					}
+					for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
+					{
+						const auto& building=source->buildingGrid[{col,row}];
+						if (building.type==BuildingType::None || building.type==BuildingType::Farmland) { continue; }
+						const Vec2 center{x*CHUNK_SIZE+(col+.5)*16+building.offsetX,z*CHUNK_SIZE+(row+.5)*16+building.offsetZ};
+						const auto footprint=ParcelGeometry::footprint(center,buildingFootprintXZ(building.type)*.5+.1,building.angle);
+						add(ZoneGrid::zoneCellKey({x,z},col,row),Array<Vec2>{footprint.begin(),footprint.end()});
+					}
+				}
+		}
+		Array<Array<Vec2>> query(RectF bounds,int64 owner) const
+		{
+			Array<Array<Vec2>> result; HashSet<size_t> seen;
+			for (int z=static_cast<int>(Floor(bounds.y/32));z<=static_cast<int>(Floor((bounds.y+bounds.h)/32));++z)
+				for (int x=static_cast<int>(Floor(bounds.x/32));x<=static_cast<int>(Floor((bounds.x+bounds.w)/32));++x)
+				{
+					const auto found=cells.find({x,z}); if (found==cells.end()) { continue; }
+					for (const auto id : found->second)
+					{
+						if (!seen.insert(id).second) { continue; } const auto& item=items[id];
+						if (item.owner!=owner && item.bounds.intersects(bounds)) { result << item.outline; }
+					}
+				}
+			return result;
+		}
+	};
+
+	/// @brief Join a verified residential doorway to its assigned street without changing ownership.
+	int appendResidentialAccess(LandscapeGeometry& groups,const World& world,const RoadNetwork& roads,
+		const Chunk& chunk,int col,int row,const Building& building,Vec2 center,
+		const Array<ResidentialParcelAccess::Entry>& entrances,const ResidentialAccessIndex& index,Array<WorldRenderer::ResidentialAccessRecord>& acceptedEntries)
+	{
+		const auto* edge=roads.getEdge(building.edgeId); const auto curve=roads.getBezier(building.edgeId);
+		if (!edge || !curve || edge->tunnel || edge->useElevation || !edge->hasRoadLanes() || curve->totalLength<.1f) { return 0; }
+		const int64 key=ZoneGrid::zoneCellKey(chunk.coord,col,row);
+		const auto owned=index.parcels.find(key); if (owned==index.parcels.end()) { return 0; }
+		const auto& own=owned->second;
+		int built=0;
+		const Vec2 outward{Sin(building.angle),-Cos(building.angle)};
+		for (const auto& entry : entrances)
+		{
+			const Vec2 entrance=entry.point;
+			// Search only the assigned edge; a nearby unrelated road is never an access substitute.
+			const auto distance=[&](float arc) { const Vec3 p=curve->positionAt(arc); return entrance.distanceFromSq(Vec2{p.x,p.z}); };
+			int best=0; double minimum=distance(0);
+			for (int sample=1;sample<=32;++sample) { const double value=distance(curve->totalLength*sample/32); if (value<minimum) { minimum=value;best=sample; } }
+			float low=curve->totalLength*Max(0,best-1)/32,high=curve->totalLength*Min(32,best+1)/32;
+			for (int iteration=0;iteration<18;++iteration) { const float a=low+(high-low)/3,b=high-(high-low)/3; if (distance(a)<distance(b)) { high=b; } else { low=a; } }
+			const float arc=(low+high)*.5f; const Vec3 point=curve->positionAt(arc);
+			const Vec2 roadPoint{point.x,point.z}; const Vec3 tangent=curve->tangentAt(arc);
+			const Vec2 right=Vec2{tangent.z,-tangent.x}.normalized();
+			const auto range=RoadGeometry::structuralRangeAt(*edge,arc/curve->totalLength); if (!range.valid) { continue; }
+			const bool onRight=(center-roadPoint).dot(right)>=0;
+			bool covered=false;
+			for (const auto& part : edge->parts)
+			{
+				if (!RoadGeometry::isStructuralStrip(part) || part.type!=RoadPartType::RoadsideGutter || part.defId!=U"roadside_gutter_covered_concrete") { continue; }
+				const float outer=RoadGeometry::partOffsetAt(part,arc/curve->totalLength,!onRight);
+				covered |= Abs(outer-(onRight ? range.right : range.left))<.001;
+			}
+			if (!covered) { continue; } // Proper raised sidewalks and unknown asset profiles keep their existing treatment.
+			const double roadTop=RoadGeometry::surfaceY(*edge,point,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)))+.010;
+			const Vec2 roadEnd=roadPoint+right*(onRight ? range.right+.01 : range.left-.01);
+			const Vec2 approach=roadEnd-entrance;
+			if (approach.lengthSq()<.04 || approach.normalized().dot(outward)<Cos(35_deg)) { continue; }
+			if (Abs(world.sampleHeight(static_cast<float>(roadEnd.x),static_cast<float>(roadEnd.y))-point.y)>.15) { continue; }
+			const RectF bounds{Min(entrance.x,roadEnd.x)-1,Min(entrance.y,roadEnd.y)-1,Abs(entrance.x-roadEnd.x)+2,Abs(entrance.y-roadEnd.y)+2};
+			if (!ResidentialParcelAccess::insideMaskDomain(bounds,RectF{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE})) { continue; }
+			const auto obstacles=index.query(bounds,key);
+			// A continuous dry walking surface follows the same sampled terrain as the parcel.
+			bool terrainSafe=true; std::array<float,3> previous{};
+			const Vec2 lateral=Vec2{-approach.y,approach.x}.normalized();
+			const int samples=Max(1,static_cast<int>(Ceil(approach.length()/.5)));
+			for (int sample=0;sample<=samples && terrainSafe;++sample)
+			{
+				for (int side=0;side<3;++side)
+				{
+					const Vec2 p=entrance.lerp(roadEnd,static_cast<double>(sample)/samples)+lateral*((side-1)*ResidentialParcelAccess::kWidth*.5);
+					const float height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.y));
+					terrainSafe &= height>=world.waterSurfaceHeight(p.x,p.y)+GenerationSettings::get().development_buildingFreeboard;
+					if (sample>0 && Abs(height-previous[side])>approach.length()/samples*.12) { terrainSafe=false; }
+					previous[side]=height;
+				}
+			}
+			if (!terrainSafe) { continue; }
+			for (const auto* parcel : own)
+			{
+				const auto outline=ResidentialParcelAccess::create(parcel->polygon,roadEnd,entrance,obstacles);
+				if (!outline) { continue; }
+				const auto mesh=ResidentialParcelAccess::ramp(roadEnd,entry,roadTop,[&](Vec2 point)
+				{
+					return static_cast<double>(world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)));
+				},parcel->elevationOffset,ResidentialParcelAccess::kWidth,parcel->polygon);
+				if (!mesh) { continue; }
+				appendMeshData(groups[117],*mesh);
+				const size_t finalTop=mesh->vertices.size()-12;
+				const Vec3 emittedRoad=(Vec3{mesh->vertices[0].pos}+Vec3{mesh->vertices[3].pos})*.5;
+				const Vec3 emittedEntry=(Vec3{mesh->vertices[finalTop+1].pos}+Vec3{mesh->vertices[finalTop+2].pos})*.5;
+				const Vec2 boundary=roadPoint+right*(onRight ? range.right : range.left);
+				acceptedEntries << WorldRenderer::ResidentialAccessRecord{edge->id,key,building.type,
+					{boundary.x,roadTop-.010,boundary.y},emittedRoad,emittedEntry,{entry.point.x,entry.height,entry.point.y}};
+				++built;
+				break;
+			}
+		}
+		return built;
+	}
+
 	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
 	                           int col, int row, const Building& building, float cx, float cz,
 	                           float cellSize,const Array<LandRoadMask>& roadMasks)
@@ -1391,7 +1532,7 @@ MeshData WorldRenderer::landPatchSurface(const World& world,const RoadNetwork& n
 	return surface;
 }
 
-void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
+void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world,const RoadNetwork& roads)
 {
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	const float footprint = buildingFootprintXZ();
@@ -1403,6 +1544,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	LandscapeGeometry groups;
 	// 住宅 OBJ インスタンス
 	Array<BuildingModelInstance> modelInstances;
+	int accessPaths=0; m_residentialAccessEntries[key].clear();
 
 	Array<LandRoadMask> roadMasks;
 	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end())
@@ -1417,6 +1559,16 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	if (const auto sites=m_transportSites.find(key); sites!=m_transportSites.end())
 	{
 		for (const auto& site : sites->second) { roadMasks << LandRoadMask{site.boundingRect(),site.outer(),site,0,true}; }
+	}
+	Optional<ResidentialAccessIndex> accessIndex;
+	for (const auto& building : chunk.buildingGrid)
+	{
+		if (building.type==BuildingType::None) { continue; }
+		const auto* assigned=roads.getEdge(building.edgeId); if (!assigned) { continue; }
+		if (assigned->parts.any([](const RoadPart& part) { return part.defId==U"roadside_gutter_covered_concrete"; }))
+		{
+			accessIndex.emplace(world,chunk,roadMasks); break;
+		}
 	}
 	if (!m_asyncTerrain)
 	{
@@ -1450,6 +1602,9 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			if (b.type==BuildingType::UrbanHousePair)
 			{
 				appendUrbanHousePair(groups,world,b,cx,cz,cellVisualHash(chunk.coord,col,row,8841));
+				Array<ResidentialParcelAccess::Entry> entries; const Vec2 along{Cos(b.angle),Sin(b.angle)},inward{-along.y,along.x};
+				for (const auto local : FrontageGeometry::pairedGroundEntries(buildingFootprintXZ(b.type))) { entries << ResidentialParcelAccess::Entry{Vec2{cx,cz}+along*local.x+inward*local.y,buildingBaseHeight(world,b,cx,cz)+FrontageGeometry::kPairedApronTop}; }
+				if (accessIndex) { accessPaths+=appendResidentialAccess(groups,world,roads,chunk,col,row,b,{cx,cz},entries,*accessIndex,m_residentialAccessEntries[key]); }
 				continue;
 			}
 			if (b.type==BuildingType::IndustrialWarehouse)
@@ -1477,6 +1632,13 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				const uint8 variant = buildingModelVariant(b.type, gx, gz);
 				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
 				const float modelScale = normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale);
+				if ((b.type==BuildingType::Detached || b.type==BuildingType::LowApartment || b.type==BuildingType::VillageHouse) && asset.frontWall && !asset.model.isEmpty() && accessIndex)
+				{
+					const Vec2 local=FrontageGeometry::groundEntry(*asset.frontWall*modelScale);
+					const Vec2 along{Cos(b.angle),Sin(b.angle)},inward{-along.y,along.x};
+					const Vec2 entrance=Vec2{cx,cz}+along*local.x+inward*local.y;
+					accessPaths+=appendResidentialAccess(groups,world,roads,chunk,col,row,b,{cx,cz},{{entrance,gy+FrontageGeometry::kStepHeight}},*accessIndex,m_residentialAccessEntries[key]);
+				}
 				modelInstances.push_back({
 					b.type,
 					variant,
@@ -1545,6 +1707,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		}
 	}
 
+	DBG_LOG(U"[ResidentialAccess] chunk=({}, {}) paths={}"_fmt(chunk.coord.x,chunk.coord.y,accessPaths));
 	// The far tier is baked once per edited chunk, grouped by asset material.
 	auto& far = m_farBuildings[key]; far = FarBuildings{};
 	HashTable<uint64, MeshData> merged;
@@ -1853,7 +2016,7 @@ void WorldRenderer::setTransportSites(const TrainNetwork& network,const RoadNetw
 			const Key key=chunkCoordToKey({x,z}); m_transportSites[key]<<site; changed.insert(key);
 		}
 	}
-	for (const Key key : changed) { m_landscapeMeshCache.erase(key); m_buildingMeshCache.erase(key); }
+	for (const Key key : changed) { m_landscapeMeshCache.erase(key); m_buildingMeshCache.erase(key); m_residentialAccessEntries.erase(key); }
 	invalidateTerrainChunkKeys(changed);
 	m_transportSitesDirty=false;
 }

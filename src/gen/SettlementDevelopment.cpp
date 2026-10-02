@@ -3,6 +3,7 @@
 #include "AgriculturalLayout.hpp"
 #include "UrbanFacilities.hpp"
 #include "StreetBlocks.hpp"
+#include "UrbanPocketGreen.hpp"
 #include "ParcelGeometry.hpp"
 #include "UrbanParcel.hpp"
 #include "ParcelRoadIndex.hpp"
@@ -506,7 +507,7 @@ namespace
 			return BuildingType::Farmland;
 		}
 	}
-	
+
 
 	String buildingTomlPathFromStem(const String& stem)
 	{
@@ -681,10 +682,12 @@ namespace
 		Point cc,
 		int gx,
 		int gz,
-		float wx,
-		float wz,
+		double wx,
+		double wz,
 		float halfBuilding,
-		float angle)
+		float angle,
+		float clearancePadding = ParcelGeometry::kPlacementNeighborClearance,
+		bool ignoreSelf = false)
 	{
 		constexpr float cellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 		const int checkRange =
@@ -705,10 +708,11 @@ namespace
 				if (!nchunk) continue;
 				const Building& nb = nchunk->buildingGrid[{ nx, nz }];
 				if (nb.type == BuildingType::None) continue;
+				if (ignoreSelf && ((ncc == cc && nx == gx && nz == gz) || nb.type == BuildingType::Farmland)) { continue; }
 
 				const Vec2 ncenter = cellCenterXZ(ncc, nx, nz) + Vec2{ nb.offsetX, nb.offsetZ };
-				const float nHalf = buildingFootprintXZ(nb.type) * 0.5f + 0.25f;
-				if (ParcelGeometry::overlaps(ParcelGeometry::footprint(Vec2{ wx, wz }, halfBuilding + 0.25f, angle),
+				const float nHalf = buildingFootprintXZ(nb.type) * 0.5f + clearancePadding;
+				if (ParcelGeometry::overlaps(ParcelGeometry::footprint(Vec2{ wx, wz }, halfBuilding + clearancePadding, angle),
 					ParcelGeometry::footprint(ncenter, nHalf, nb.angle)))
 				{
 					return true;
@@ -899,7 +903,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			minHeight = Min(minHeight, height);
 			maxHeight = Max(maxHeight, height);
 		}
-		
+
 		if (minHeight < GenerationSettings::get().development_coastalBuildHeight || maxHeight - minHeight > maximumRelief)
 		{
 			++rejectedSlope;
@@ -1212,7 +1216,8 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	}
 	DebugLog::print(U"[RearLots] placed={}"_fmt(rearPlaced));
 
-	int blockCount=0,emptyBefore=0,blockInfill=0,emptyAfter=0,greenTrafficIslands=0;
+	int blockCount=0,emptyBefore=0,blockInfill=0,emptyAfter=0,greenTrafficIslands=0,unbuildablePockets=0,transportCoveredFaces=0,fineFrontageCandidates=0,fineFrontageInfill=0,refinedPocketInfill=0,parkingOccupiedFaces=0;
+	JSON unfilledBlocks; Array<StreetBlocks::Block> unresolvedFaces;
 	const auto blocks=StreetBlocks::collect(m_network);
 	for (const auto& block : blocks)
 	{
@@ -1229,7 +1234,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			if (within) { town=&candidate; break; }
 		}
 		if (!town || UrbanMorphology::isReservedGreen(town->plan,planLocal(*town,block.center))) { continue; }
-		++blockCount; bool occupied=false;
+		++blockCount; bool occupied=false,parkingOccupied=false;
 		Point lowChunk,highChunk; int lowX,lowZ,highX,highZ;
 		worldToZoneCell(static_cast<float>(block.bounds.x),static_cast<float>(block.bounds.y),lowChunk,lowX,lowZ);
 		worldToZoneCell(static_cast<float>(block.bounds.x+block.bounds.w),static_cast<float>(block.bounds.y+block.bounds.h),highChunk,highX,highZ);
@@ -1240,40 +1245,55 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 				const Point coord{globalX/ZONE_CELLS,globalZ/ZONE_CELLS}; const int col=globalX%ZONE_CELLS,row=globalZ%ZONE_CELLS;
 				const Chunk* chunk=m_world.getChunk(coord); if (!chunk) { continue; }
 				const auto& building=chunk->buildingGrid[{col,row}];
-				if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland && building.type!=BuildingType::Parking
-					&& block.contains(cellCenterXZ(coord,col,row)+Vec2{building.offsetX,building.offsetZ})) { occupied=true; break; }
+				if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland
+					&& block.contains(cellCenterXZ(coord,col,row)+Vec2{building.offsetX,building.offsetZ}))
+				{
+					if (building.type==BuildingType::Parking) { parkingOccupied=true; }
+					else { occupied=true; break; }
+				}
 			}
 		}
 		if (occupied) { continue; }
-		++emptyBefore; int tried=0,terrainFailures=0,neighborOverlaps=0; const int roadBefore=rejectedRoad,slopeBefore=rejectedSlope;
-		for (const int edgeId : block.edges)
+		// Parking is developed land, counted separately from roof/building coverage.
+		// The final site validator still checks its road access, parcel and clearances.
+		if (parkingOccupied) { ++parkingOccupiedFaces; continue; }
+		++emptyBefore; int tried=0,terrainFailures=0,neighborOverlaps=0,sampledPositions=0,outsideFace=0,storageBusy=0,shortEdges=0; const int roadBefore=rejectedRoad,slopeBefore=rejectedSlope;
+		// Retry only unresolved faces; continuous fitted pieces share their frontage.
+		for (int detailPass=0;detailPass<StreetBlocks::kFrontagePassCount && !occupied;++detailPass)
 		{
-			if (occupied) { break; }
-			const auto* edge=m_network.getEdge(edgeId); const auto curve=m_network.getBezier(edgeId);
-			for (float arc=edge->cutoffA+9;arc<curve->totalLength-edge->cutoffB-9 && !occupied;arc+=6)
+			for (const int edgeId : block.edges)
 			{
-				const float fraction=arc/curve->totalLength;
-				const auto range=RoadGeometry::structuralRangeAt(*edge,fraction);
-				const Vec3 point=curve->positionAt(arc),right=tangentToRight(curve->tangentAt(arc));
-				for (const int side : {-1,1})
+				if (occupied) { break; }
+				const auto* edge=m_network.getEdge(edgeId); const auto curve=m_network.getBezier(edgeId);
+				shortEdges+=detailPass==0 && curve->totalLength<=edge->cutoffA+edge->cutoffB+18;
+				const auto sampling=StreetBlocks::frontageSampling(m_network,edgeId,detailPass);
+				for (float arc=static_cast<float>(sampling.span.x);arc<sampling.span.y && !occupied;arc+=sampling.arcStep)
 				{
-					const Vec2 direction{right.x*side,right.z*side};
-					const double outer=side<0 ? -range.left : range.right;
-					const bool civic=town->plan.civic && town->plan.civic->contains(planLocal(*town,block.center));
-					Building building=InitialBuilding::spawn(ZoneType::LowResidential,town->kind,0,static_cast<uint32>(edgeId));
-					building.type=civic ? BuildingType::PublicFacility : BuildingType::Detached;
-					const float half=buildingFootprintXZ(building.type)*.5f;
-					const Vec2 position=Vec2{point.x,point.z}+direction*(outer+half+GenerationSettings::get().development_suburbanSetback);
-					if (!block.contains(position)) { continue; }
-					Point coord; int col,row; worldToZoneCell(static_cast<float>(position.x),static_cast<float>(position.y),coord,col,row);
-					Chunk* chunk=m_world.getChunk(coord); if (!chunk || chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
-					const Vec2 cell=cellCenterXZ(coord,col,row);
-					building.angle=static_cast<float>(std::atan2(-direction.x,direction.y)); building.edgeId=edgeId; building.edgeT=curve->tFromArcLength(arc);
-					building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y); ++tried;
-					if (!isBuildableFootprint(building,position,GenerationSettings::get().development_maximumSuburbanRelief)) { ++terrainFailures; continue; }
-					if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),half,building.angle)) { ++neighborOverlaps; continue; }
-					chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=civic ? ZoneType::Residential : ZoneType::LowResidential; chunk->meshDirty=true;
-					++blockInfill; occupied=true; break;
+					const float fraction=arc/curve->totalLength;
+					const auto range=RoadGeometry::structuralRangeAt(*edge,fraction);
+					const Vec3 point=curve->positionAt(arc),right=tangentToRight(curve->tangentAt(arc));
+					for (const int side : {-1,1})
+					for (double setback=sampling.firstSetback;setback<=sampling.lastSetback && !occupied;setback+=StreetBlocks::FrontageSampling::kSetbackStep)
+					{
+						const Vec2 direction{right.x*side,right.z*side};
+						const double outer=side<0 ? -range.left : range.right;
+						const bool civic=town->plan.civic && town->plan.civic->contains(planLocal(*town,block.center));
+						Building building=InitialBuilding::spawn(ZoneType::LowResidential,town->kind,0,static_cast<uint32>(edgeId));
+						building.type=civic ? BuildingType::PublicFacility : BuildingType::Detached;
+						const float half=buildingFootprintXZ(building.type)*.5f;
+						const Vec2 position=Vec2{point.x,point.z}+direction*(outer+half+setback);
+						++sampledPositions; fineFrontageCandidates+=detailPass>0;
+						if (!block.contains(position)) { ++outsideFace; continue; }
+						Point coord; int col,row; worldToZoneCell(static_cast<float>(position.x),static_cast<float>(position.y),coord,col,row);
+						Chunk* chunk=m_world.getChunk(coord); if (!chunk || chunk->buildingGrid[{col,row}].type!=BuildingType::None) { ++storageBusy; continue; }
+						const Vec2 cell=cellCenterXZ(coord,col,row);
+						building.angle=static_cast<float>(std::atan2(-direction.x,direction.y)); building.edgeId=edgeId; building.edgeT=curve->tFromArcLength(arc);
+						building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y); ++tried;
+						if (!isBuildableFootprint(building,position,GenerationSettings::get().development_maximumSuburbanRelief)) { ++terrainFailures; continue; }
+						if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),half,building.angle)) { ++neighborOverlaps; continue; }
+						chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=civic ? ZoneType::Residential : ZoneType::LowResidential; chunk->meshDirty=true;
+						++blockInfill; fineFrontageInfill+=detailPass>0; refinedPocketInfill+=detailPass==2; occupied=true; break;
+					}
 				}
 			}
 		}
@@ -1281,32 +1301,64 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		if (!occupied && tried>0 && neighborOverlaps==tried) { continue; }
 		if (!occupied)
 		{
-			// A small street face with no legal building footprint is an open green island.
-			if (block.area<=GenerationSettings::get().parcels_narrowBlockArea*2 && tried>0
-				&& rejectedRoad-roadBefore==tried && rejectedSlope-slopeBefore==0)
+			// Older/modern street seams can enclose courts narrower than the smallest home.
+			// Prove the lack of any footprint center geometrically; a missed cell or failed
+			// sampled placement alone must not exempt genuinely developable empty land.
+			const double requiredCenterRadius=buildingFootprintXZ(BuildingType::Detached)*.5
+				+GenerationSettings::get().development_footprintMargin;
+			const auto centerArea=StreetBlocks::freeCenterArea(m_network,block,requiredCenterRadius,&roadIndex);
+			if (centerArea && *centerArea==0.0 && rejectedSlope==slopeBefore)
 			{
-				int released=0;
-				for (int globalZ=lowChunk.y*ZONE_CELLS+lowZ;globalZ<=highChunk.y*ZONE_CELLS+highZ;++globalZ)
+				const auto openArea=StreetBlocks::freeCenterArea(m_network,block,0,&roadIndex);
+				if (openArea)
 				{
+					for (int globalZ=lowChunk.y*ZONE_CELLS+lowZ;globalZ<=highChunk.y*ZONE_CELLS+highZ;++globalZ)
 					for (int globalX=lowChunk.x*ZONE_CELLS+lowX;globalX<=highChunk.x*ZONE_CELLS+highX;++globalX)
 					{
 						const Point coord{globalX/ZONE_CELLS,globalZ/ZONE_CELLS};
 						const int col=globalX%ZONE_CELLS,row=globalZ%ZONE_CELLS;
 						Chunk* chunk=m_world.getChunk(coord);
-						if (!chunk || !block.contains(cellCenterXZ(coord,col,row))
-							|| chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
-						chunk->zoneMap[{col,row}]=ZoneType::Unzoned;
-						chunk->meshDirty=true;
-						++released;
+						if (!chunk || !block.contains(cellCenterXZ(coord,col,row)) || chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
+						chunk->zoneMap[{col,row}]=ZoneType::Unzoned; chunk->meshDirty=true;
 					}
-				}
-				if (released>0)
-				{
-					++greenTrafficIslands;
-					DBG_LOG(U"[GreenTrafficIsland] center=({}, {}) area={} cells={}"_fmt(block.center.x,block.center.y,block.area,released));
+					if (*openArea>0.0) { ++unbuildablePockets; } else { ++transportCoveredFaces; }
+					DBG_LOG(U"[UnbuildableStreetFace] center=({}, {}) area={} openArea={} centerArea={}"_fmt(block.center.x,block.center.y,block.area,*openArea,*centerArea));
 					continue;
 				}
 			}
+			JSON unfilled; unfilled[U"area"]=block.area; unfilled[U"center"]=Array<double>{block.center.x,block.center.y};
+			unfilled[U"tried"]=tried; unfilled[U"sampledPositions"]=sampledPositions; unfilled[U"outsideFace"]=outsideFace;
+			unfilled[U"storageBusy"]=storageBusy; unfilled[U"shortEdges"]=shortEdges; unfilled[U"neighborOverlaps"]=neighborOverlaps;
+			unfilled[U"terrainFailures"]=terrainFailures; unfilled[U"roadFailures"]=rejectedRoad-roadBefore; unfilled[U"slopeFailures"]=rejectedSlope-slopeBefore;
+			unfilled[U"requiredCenterRadius"]=requiredCenterRadius;
+			unfilled[U"centerAreaKnown"]=centerArea.has_value(); if (centerArea) { unfilled[U"centerArea"]=*centerArea; }
+			for (const Vec2 point : block.outline) { unfilled[U"outline"].push_back(Array<double>{point.x,point.y}); }
+			for (const int id : block.edges)
+			{
+				const auto* edge=m_network.getEdge(id); const auto curve=m_network.getBezier(id);
+				JSON boundary; boundary[U"id"]=id; boundary[U"length"]=curve->totalLength; boundary[U"cutoffA"]=edge->cutoffA; boundary[U"cutoffB"]=edge->cutoffB;
+				boundary[U"width"]=RoadGeometry::structuralWidth(*edge); boundary[U"degreeA"]=m_network.getNode(edge->nodeA)->attachments.size(); boundary[U"degreeB"]=m_network.getNode(edge->nodeB)->attachments.size();
+				unfilled[U"boundaries"].push_back(boundary);
+			}
+			int offsetOccupants=0;
+			const int padding=static_cast<int>(Ceil(maximumBuildingFootprint()/16.0))+2;
+			for (int z=lowChunk.y*ZONE_CELLS+lowZ-padding;z<=highChunk.y*ZONE_CELLS+highZ+padding;++z)
+			for (int x=lowChunk.x*ZONE_CELLS+lowX-padding;x<=highChunk.x*ZONE_CELLS+highX+padding;++x)
+			{
+				if (x<0 || z<0) { continue; }
+				const Point coord{x/ZONE_CELLS,z/ZONE_CELLS}; const int col=x%ZONE_CELLS,row=z%ZONE_CELLS;
+				const auto* chunk=m_world.getChunk(coord); if (!chunk) { continue; }
+				const auto& building=chunk->buildingGrid[{col,row}];
+				if (building.type==BuildingType::None || building.type==BuildingType::Farmland || building.type==BuildingType::Parking) { continue; }
+				const Vec2 actual=cellCenterXZ(coord,col,row)+Vec2{building.offsetX,building.offsetZ};
+				if (block.contains(actual))
+				{
+					++offsetOccupants;
+					unfilled[U"offsetOccupants"].push_back(Array<double>{actual.x,actual.y,static_cast<double>(x),static_cast<double>(z)});
+				}
+			}
+			unfilled[U"offsetOccupantCount"]=offsetOccupants;
+			unfilledBlocks.push_back(unfilled); unresolvedFaces << block;
 			++emptyAfter;
 			DBG_LOG(U"[EmptyBlock] center=({}, {}) area={} tried={} footprintRejected={} road={} slope={}"_fmt(block.center.x,block.center.y,block.area,tried,terrainFailures,rejectedRoad-roadBefore,rejectedSlope-slopeBefore));
 		}
@@ -1337,13 +1389,33 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			if (changed) chunk->meshDirty = true;
 		}
 	}
+	refreshBuildingAnglesFromEdges();
 	generateLandPatches(preserveLandPatches);
+	JSON remainingBlocks,landscapedPockets; int landscapedPocketCount=0;
+	for (size_t index=0;index<unresolvedFaces.size();++index)
+	{
+		const auto patches=UrbanPocketGreen::create(m_world,m_network,m_trainNetwork,unresolvedFaces[index]);
+		if (!patches) { remainingBlocks.push_back(unfilledBlocks[index]); continue; }
+		JSON report=unfilledBlocks[index]; report[U"landscapedPocket"]=true;
+		for (auto patch : *patches)
+		{
+			const RectF bounds=Polygon{patch.polygon}.boundingRect();
+			const Point coord{static_cast<int>(Floor(bounds.center().x/CHUNK_SIZE)),static_cast<int>(Floor(bounds.center().y/CHUNK_SIZE))};
+			auto* chunk=m_world.getChunk(coord); patch.id=0;
+			for (const auto& existing : chunk->landPatches) { patch.id=Max(patch.id,existing.id+1); }
+			JSON outline; for (const Vec2 point : patch.polygon) { outline.push_back(Array<double>{point.x,point.y}); }
+			report[U"publicGround"].push_back(outline);
+			chunk->landPatches << std::move(patch); chunk->meshDirty=true;
+		}
+		landscapedPockets.push_back(report); ++landscapedPocketCount; --emptyAfter;
+	}
+	unfilledBlocks=std::move(remainingBlocks);
 	Logger << U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF());
 	DebugLog::print(U"[placeInitialBuildings] placed={} infill={} fields={} rejectedRoad={} rejectedSlope={} elapsedMs={:.1f}"_fmt(placed, infillPlaced, fieldCells, rejectedRoad, rejectedSlope, sw.msF()));
-	refreshBuildingAnglesFromEdges();
 	Validation result = validateGeneratedCityConstraints();
+	result.unfilledBlocks=std::move(unfilledBlocks); result.landscapedPockets=std::move(landscapedPockets);
 	result.passed = result.passed && emptyAfter == 0;
-	result.summary+=U" greenTrafficIslands={} emptyDevelopableBlocks={} generationPassed={}"_fmt(greenTrafficIslands,emptyAfter,result.passed);
+	result.summary+=U" greenTrafficIslands={} unbuildablePockets={} transportCoveredFaces={} fineFrontageCandidates={} fineFrontageInfill={} refinedPocketInfill={} parkingOccupiedFaces={} landscapedPockets={} emptyDevelopableBlocks={} generationPassed={}"_fmt(greenTrafficIslands,unbuildablePockets,transportCoveredFaces,fineFrontageCandidates,fineFrontageInfill,refinedPocketInfill,parkingOccupiedFaces,landscapedPocketCount,emptyAfter,result.passed);
 	return result;
 }
 
@@ -1806,6 +1878,7 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 	int noFrontageCount = 0;
 	int missingEdgeCount = 0;
 	int roadOverlapCount = 0;
+	int buildingOverlapCount = 0;
 	int frontageDistanceCount = 0;
 	int coastalBuildingCount = 0;
 	int missingParcelCount = 0;
@@ -1835,6 +1908,14 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 					}
 
 					const Vec2 center = cellCenterXZ(chunkCoord, col, row) + Vec2{ building.offsetX, building.offsetZ };
+					// Count intersecting occupied sites, not touching party walls or internal paired homes.
+					constexpr float kContactTolerance = 0.001f;
+					if (overlapsExistingBuilding(m_world, chunkCoord, col, row, center.x,
+						center.y, buildingFootprintXZ(building.type) * .5f,
+						building.angle, -kContactTolerance, true))
+					{
+						++buildingOverlapCount;
+					}
 					if (roadIndex.overlaps(ParcelGeometry::footprint(center, buildingFootprintXZ(building.type) * 0.5, building.angle)))
 					{
 						++roadOverlapCount; DBG_LOG(U"[BuildingOverlap] coord=({}, {}) cell=({}, {}) type={} edge={} center=({}, {}) line={}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),building.edgeId,center.x,center.y,__LINE__));
@@ -1903,9 +1984,9 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 	}
 	const bool parcelsValid = parcelFailures.size() == 1 && parcelFailures.contains(static_cast<int>(PolygonFailureType::OK));
 	const bool passed = (parcelsValid && noFrontageCount == 0 && missingEdgeCount == 0 && missingParcelCount == 0 && roadOverlapCount == 0
-		&& frontageDistanceCount == 0 && coastalBuildingCount == 0);
-	const String summary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
-		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
+		&& frontageDistanceCount == 0 && coastalBuildingCount == 0 && buildingOverlapCount == 0);
+	const String summary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} buildingOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
+		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, buildingOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
 	Logger << U"[CityConstraintValidation] " + summary;
 	DebugLog::print(U"[CityConstraintValidation] " + summary);
 	return Validation{ passed, summary };

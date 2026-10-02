@@ -659,6 +659,70 @@ void registerRoadIntegrityTests(TestRunner& runner)
 		context.expect(network.getRoute(route)->edgeIds==Array<int>{second},U"Designed route identity is not fragmented");
 		if (const auto after=network.getBezier(second)) { context.expect(before.p0==after->p0 && before.p1==after->p1 && before.p2==after->p2 && before.p3==after->p3,U"The validated curve is unchanged"); }
 	});
+	runner.add(U"RoadIntegrity.ProtectedTriangleReuseIsAtomic", [](TestContext& context)
+	{
+		for (int mode=0;mode<4;++mode)
+		{
+			RoadNetwork network; const int a=network.addNode({0,0,0}),b=network.addNode({20,0,0}),c=network.addNode({40,0,0});
+			const auto road=[&](int from,int to)
+			{
+				const Vec3 first=network.getNode(from)->position,last=network.getNode(to)->position;
+				const int id=*network.addEdge(from,to,first.lerp(last,1.0/3),first.lerp(last,2.0/3),RoadType::Arterial,2);
+				network.getEdge(id)->edgeState=EdgeState::Open; return id;
+			};
+			const int ab=road(a,b),ac=road(a,c),bc=road(b,c),protectedId=mode==3 ? ac : bc;
+			if (mode==0 || mode==3) { network.getEdge(protectedId)->designGrade=true; }
+			if (mode==2) { network.getEdge(protectedId)->planId=17; network.getEdge(protectedId)->edgeState=EdgeState::Planned; }
+			network.getEdge(protectedId)->parts.front().defId=U"protected_third_side";
+			const int route=network.addRoute(mode==1 ? RoadRouteKind::CityRoute : RoadRouteKind::Named,U"Protected triangle side",{protectedId},0);
+			const auto before=*network.getBezier(protectedId); const int nextEdge=network.nextEdgeId(),nextNode=network.nextNodeId();
+			context.expectEqual(network.splitEdgeAtParameter(ac,.5f,b),-1,U"A split cannot take over a protected child or reuse a protected source on an existing corridor");
+			context.expectEqual(network.nextEdgeId(),nextEdge,U"Refusal does not consume edge IDs"); context.expectEqual(network.nextNodeId(),nextNode,U"Refusal does not consume node IDs");
+			network.consolidateOverlappingRoads();
+			context.expect(network.getEdge(ab) && network.getEdge(ac) && network.getEdge(bc),U"Approximate fork cleanup leaves protected triangle identities intact");
+			const auto* kept=network.getEdge(protectedId);
+			context.expect(kept && kept->parts.front().defId==U"protected_third_side" && kept->designGrade==(mode==0 || mode==3),U"Protected flags and road profile are not overwritten by ordinary templates");
+			context.expect(network.getRoute(route)->edgeIds==Array<int>{protectedId},U"Protected ordered route membership survives indirect repair");
+			if (const auto after=network.getBezier(protectedId)) { context.expect(after->p0==before.p0 && after->p1==before.p1 && after->p2==before.p2 && after->p3==before.p3,U"Protected control points are unchanged"); }
+		}
+	});
+	runner.add(U"RoadIntegrity.ProtectedDestinationMergeIsAtomic", [](TestContext& context)
+	{
+		for (const bool designed : {false,true})
+		{
+			RoadNetwork roads;
+			const int p=roads.addNode({0,0,0}),q=roads.addNode({0,0,.5}),r=roads.addNode({4,0,0}),s=roads.addNode({-40,0,0});
+			const auto add=[&](int a,int b)
+			{
+				const Vec3 start=roads.getNode(a)->position,end=roads.getNode(b)->position;
+				const int id=*roads.addEdge(a,b,start.lerp(end,1.0/3),start.lerp(end,2.0/3),RoadType::Arterial,2);
+				roads.getEdge(id)->edgeState=EdgeState::Open; return id;
+			};
+			add(p,s); const int moved=add(q,r),protectedId=add(p,r);
+			roads.getEdge(protectedId)->designGrade=designed;
+			const int route=roads.addRoute(designed ? RoadRouteKind::Named : RoadRouteKind::CityRoute,U"Protected destination side",{protectedId},0);
+			const auto before=*roads.getBezier(moved); const int nextNode=roads.nextNodeId(),nextEdge=roads.nextEdgeId();
+			context.expectEqual(roads.consolidateOverlappingRoads(),0,U"A node merge cannot redirect an ordinary arm onto an existing protected corridor");
+			context.expect(roads.getNode(q) && roads.getEdge(moved)->nodeA==q,U"Refusal retains the source node and incidence");
+			const auto after=*roads.getBezier(moved);
+			context.expect(before.p0==after.p0 && before.p1==after.p1 && before.p2==after.p2 && before.p3==after.p3,U"Refusal leaves all redirected geometry untouched");
+			context.expectEqual(roads.nextNodeId(),nextNode,U"Refusal does not allocate nodes"); context.expectEqual(roads.nextEdgeId(),nextEdge,U"Refusal does not allocate edges");
+			context.expect(roads.getRoute(route)->edgeIds==Array<int>{protectedId},U"Protected destination route identity is unchanged");
+		}
+	});
+	runner.add(U"RoadIntegrity.ProtectedDuplicatesAreNotRetemplated", [](TestContext& context)
+	{
+		for (const bool designed : {false,true})
+		{
+			RoadNetwork network; const int original=addRoad(network,{0,0,0},{20,0,0},{40,0,0},{60,0,0});
+			RoadEdge protectedEdge=*network.getEdge(original); protectedEdge.id=network.nextEdgeId(); protectedEdge.designGrade=designed;
+			protectedEdge.parts.front().defId=U"protected_duplicate_profile"; network.addEdgeRaw(protectedEdge);
+			const int route=network.addRoute(designed ? RoadRouteKind::Named : RoadRouteKind::CityRoute,U"Protected duplicate",{protectedEdge.id},0);
+			context.expect(!network.removeDuplicateEdges(42),U"Approximate duplicate repair does not replace protected geometry with an ordinary survivor");
+			context.expect(network.getEdge(original) && network.getEdge(protectedEdge.id),U"Protected duplicate pairs remain available for an explicit validated repair");
+			context.expect(network.getRoute(route)->edgeIds==Array<int>{protectedEdge.id},U"City-route identity is not silently transferred");
+		}
+	});
 	runner.add(U"RoadIntegrity.OverlappingCorridorsRetainBranchesAndRoutes", [](TestContext& context)
 	{
 		RoadNetwork network;

@@ -6,13 +6,38 @@
 #include "../railway/TrainNetwork.hpp"
 #include "../railway/RailwaySite.hpp"
 
+/// @brief Canonical road-clearance quads shared by placement and developability diagnostics.
+namespace ParcelRoadGeometry
+{
+	template <class Visitor>
+	inline void forEachRibbon(const RoadEdge& edge,const CubicBezier& bezier,Visitor&& visit)
+	{
+		constexpr float kSampleLength=4.0f;
+		const int count=Max(1,static_cast<int>(Ceil(bezier.totalLength/kSampleLength)));
+		Vec2 previousLeft{0,0},previousRight{0,0}; bool hasPrevious=false;
+		for (int sample=0;sample<=count;++sample)
+		{
+			const float fraction=static_cast<float>(sample)/count;
+			const float arc=bezier.totalLength*fraction;
+			const Vec3 position=bezier.positionAt(arc),right3=tangentToRight(bezier.tangentAt(arc));
+			const Vec2 right{right3.x,right3.z};
+			const auto range=RoadGeometry::structuralRangeAt(edge,fraction);
+			if (!range.valid) { hasPrevious=false; continue; }
+			const float margin=GenerationSettings::get().parcels_roadMargin;
+			const Vec2 center{position.x,position.z};
+			const Vec2 leftPoint=center+right*(range.left-margin),rightPoint=center+right*(range.right+margin);
+			if (hasPrevious) { visit(ParcelGeometry::Quad{previousLeft,leftPoint,rightPoint,previousRight}); }
+			previousLeft=leftPoint; previousRight=rightPoint; hasPrevious=true;
+		}
+	}
+}
+
 /// @brief Spatial index of ground-level road ribbons used to protect every side of a lot.
 class ParcelRoadIndex
 {
 public:
 	explicit ParcelRoadIndex(const RoadNetwork& network,bool includeElevated=false,bool includeRailway=true)
 	{
-		constexpr float kSampleLength = 4.0f;
 		for (const RoadEdge& edge : network.edges())
 		{
 			if ((!includeRailway && !edge.hasRoadLanes()) || edge.id < 0 || !edge.isRoadbedBuilt() || (edge.useElevation && !includeElevated))
@@ -24,35 +49,10 @@ public:
 			{
 				continue;
 			}
-			const int count = Max(1, static_cast<int>(Ceil(bezier->totalLength / kSampleLength)));
-			Vec2 previousLeft{ 0, 0 }, previousRight{ 0, 0 };
-			bool hasPrevious = false;
-			for (int sample = 0; sample <= count; ++sample)
+			ParcelRoadGeometry::forEachRibbon(edge,*bezier,[&](const ParcelGeometry::Quad& quad)
 			{
-				const float fraction = static_cast<float>(sample) / count;
-				const float arc = bezier->totalLength * fraction;
-				const Vec3 position = bezier->positionAt(arc);
-				const Vec3 right3 = tangentToRight(bezier->tangentAt(arc));
-				const Vec2 right{ right3.x, right3.z };
-				const auto range = RoadGeometry::structuralRangeAt(edge, fraction);
-				if (!range.valid)
-				{
-					hasPrevious = false;
-					continue;
-				}
-				const float kRoadMargin = GenerationSettings::get().parcels_roadMargin;
-				const Vec2 center{ position.x, position.z };
-				const Vec2 leftPoint = center + right * (range.left - kRoadMargin);
-				const Vec2 rightPoint = center + right * (range.right + kRoadMargin);
-				if (hasPrevious)
-				{
-					const ParcelGeometry::Quad quad{ previousLeft, leftPoint, rightPoint, previousRight };
-					visitBuckets(quad, [&](int64 key) { m_buckets[key] << quad; });
-				}
-				previousLeft = leftPoint;
-				previousRight = rightPoint;
-				hasPrevious = true;
-			}
+				visitBuckets(quad,[&](int64 key) { m_buckets[key] << quad; });
+			});
 		}
 	}
 
@@ -105,6 +105,22 @@ public:
 		return collision;
 	}
 
+	/// @brief Visit the exact registered validator obstacles near a query, without bucket duplicates.
+	template <class Visitor>
+	void forEachNearby(const RectF& bounds,Visitor&& visitor) const
+	{
+		Array<ParcelGeometry::Quad> visited;
+		const ParcelGeometry::Quad query{bounds.tl(),bounds.tr(),bounds.br(),bounds.bl()};
+		visitBuckets(query,[&](int64 key)
+		{
+			const auto bucket=m_buckets.find(key); if (bucket==m_buckets.end()) { return; }
+			for (const auto& quad : bucket->second)
+			{
+				if (visited.contains(quad)) { continue; }
+				visited << quad; visitor(quad);
+			}
+		});
+	}
 	/// @brief 生成中に追加した接道面・敷地を同じ空間索引へ登録する。
 	void add(const ParcelGeometry::Quad& quad) { visitBuckets(quad,[&](int64 key){m_buckets[key] << quad;}); }
 

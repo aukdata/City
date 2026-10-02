@@ -4,6 +4,7 @@
 #include "StreetProfile.hpp"
 #include "SettlementFringe.hpp"
 #include "NewTownLayout.hpp"
+#include "UrbanMosaic.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
 #include "../debug/DebugLog.hpp"
@@ -1486,6 +1487,11 @@ namespace DistrictRoads
 			const Array<float> coordsZ=UrbanMorphology::streetCoordinates(plan,true);
 			const int n = static_cast<int>(coordsX.size());
 			const int rows=static_cast<int>(coordsZ.size());
+			const bool useMosaic=UrbanMosaic::enabled(plan);
+			UrbanMosaic::Layout inherited;
+			bool collectorPhase=useMosaic;
+			int reservedInfill=0;
+			const int firstUrbanEdge=network.nextEdgeId();
 
 		Grid<int> nodeIds(n, rows, -1);
 		HashSet<int> outerGridPointSet;
@@ -1544,6 +1550,18 @@ namespace DistrictRoads
 			const int nodeA = nodeIds[{ colA, rowA }];
 			const int nodeB = nodeIds[{ colB, rowB }];
 			if (nodeA < 0 || nodeB < 0 || nodeA == nodeB) return;
+			if (useMosaic)
+			{
+				const bool localStreet=!outerFrame && UrbanStructure::streetRole(plan,coordsX,coordsZ,colA,rowA,colB,rowB)==GeneratedStreet::Role::Local;
+				if ((collectorPhase && localStreet) || (!collectorPhase && !localStreet)) { return; }
+				const Vec2 from{coordsX[colA],coordsZ[rowA]},to{coordsX[colB],coordsZ[rowB]};
+				if (localStreet && inherited.reserves(from,to))
+				{
+					++reservedInfill;
+					UrbanMosaic::connectInfill(inherited,settlement,world,network,nodeA,nodeB,from,to);
+					return;
+				}
+			}
 
 			const Vec3 start=network.getNode(nodeA)->position, end=network.getNode(nodeB)->position;
 			const int samples=Max(2,static_cast<int>(Ceil(start.distanceFrom(end)/GenerationSettings::get().districtRoads_terrainSampleStep)));
@@ -1555,12 +1573,17 @@ namespace DistrictRoads
 				if (height<GenerationSettings::get().districtRoads_minimumConnectorHeight || Abs(height-previous)>start.distanceFrom(end)/samples*GenerationSettings::get().districtRoads_maximumConnectorSlope) { return; }
 				previous=height;
 			}
+			const bool crossingInfill=useMosaic && !collectorPhase
+				&& inherited.crossesInherited({coordsX[colA],coordsZ[rowA]},{coordsX[colB],coordsZ[rowB]});
+			Optional<RoadNetwork> beforeCrossing;
+			if (crossingInfill) { ++inherited.transactionCopies; beforeCrossing=network; }
+			const int firstCandidate=network.nextEdgeId();
 			int edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			if (edgeId < 0)
 			{
 				// 城下町・計画市街地以外の生活道路は、外周を除いて緩く曲がる。
 				double bendA = 0.0, bendB = 0.0;
-				if (organicStreets && !outerFrame)
+				if (organicStreets && !outerFrame && !useMosaic)
 				{
 					const uint64 hash = (seed + static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL)
 						^ (static_cast<uint64>(Min(nodeA, nodeB)) * 0xBF58476D1CE4E5B9ULL) ^ (static_cast<uint64>(Max(nodeA, nodeB)) * 0x94D049BB133111EBULL);
@@ -1569,7 +1592,11 @@ namespace DistrictRoads
 					bendA = amount;
 					bendB = ((hash >> 40) % 5u) < 2u ? -amount : amount;
 				}
-				if (!tryAddLocalRoadEdge(network, nodeA, nodeB, bendA, bendB)) return;
+				if (!tryAddLocalRoadEdge(network, nodeA, nodeB, bendA, bendB))
+				{
+					if (beforeCrossing) { network=std::move(*beforeCrossing); }
+					return;
+				}
 				edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			}
 			if (RoadEdge* edge = network.getEdge(edgeId))
@@ -1608,6 +1635,16 @@ namespace DistrictRoads
 				}
 				GeneratedStreet::apply(*edge,profile,(corridor%2)!=0);
 			}
+			if (beforeCrossing)
+			{
+				// A seam intersection may shift a fitted endpoint. Validate all descendants
+				// before accepting the local insertion; never discard the older corridor.
+				network.resolveIntersections(firstCandidate);
+				if (!UrbanMosaic::validNewGeometry(network,firstCandidate))
+				{
+					network=std::move(*beforeCrossing); return;
+				}
+			}
 			registerGridEdge(edgeId, nodeA, nodeB);
 		};
 
@@ -1624,6 +1661,35 @@ namespace DistrictRoads
 			{
 				tryAddGridEdge(col, row, col, row + 1);
 			}
+		}
+
+		if (useMosaic)
+		{
+			// Inherited lanes precede ordinary local infill, so the latter cannot erase them.
+			inherited=UrbanMosaic::build(settlement,world,network);
+			collectorPhase=false;
+			for (int row=0;row<rows;++row)
+			{
+				for (int col=0;col+1<n;++col) { tryAddGridEdge(col,row,col+1,row); }
+			}
+			for (int col=0;col<n;++col)
+			{
+				for (int row=0;row+1<rows;++row) { tryAddGridEdge(col,row,col,row+1); }
+			}
+			// Splitting keeps route identity but replaces edge IDs: use the actual completed graph.
+			gridGraph.clear();
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id<0 || !edge.hasRoadLanes()) { continue; }
+				const auto inside=[&](int id)
+				{
+					const auto* node=network.getNode(id); if (!node) { return false; }
+					const Vec2 delta{node->position.x-settlement.center.x,node->position.z-settlement.center.y};
+					return UrbanMorphology::inCore(plan,{delta.dot(axisX),delta.dot(axisZ)},.5);
+				};
+				if (inside(edge.nodeA) && inside(edge.nodeB)) { registerGridEdge(edge.id,edge.nodeA,edge.nodeB); }
+			}
+			DBG_LOG(U"[UrbanMosaicInfill] cores={} reservedLocalEdges={} seamConnections={} transactionCopies={}"_fmt(inherited.cores.size(),reservedInfill,inherited.seamConnections,inherited.transactionCopies));
 		}
 
 		// 生活道路の一部を抜いて丁字路と不整形な街区を作る。どの交差点も3方向以上を残し、格子全体の連結を保つ。
@@ -1792,6 +1858,21 @@ namespace DistrictRoads
 			}
 		}
 
+		if (useMosaic)
+		{
+			// Collector segments split by inherited diagonals still belong to the eligible backbone.
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id<firstUrbanEdge || edge.roadType!=RoadType::Arterial) { continue; }
+				const auto inside=[&](int id)
+				{
+					const auto* node=network.getNode(id); if (!node) { return false; }
+					const Vec2 delta{node->position.x-settlement.center.x,node->position.z-settlement.center.y};
+					return UrbanMorphology::inCore(plan,{delta.dot(axisX),delta.dot(axisZ)},.5);
+				};
+				if (inside(edge.nodeA) && inside(edge.nodeB) && !newlyAddedArterials.contains(edge.id)) { newlyAddedArterials << edge.id; }
+			}
+		}
 		// Keep each original route ordered; neighboring branches do not inherit it.
 		restoreClippedRoutes(network,clippedRoutes,newlyAddedArterials);
 
@@ -1913,7 +1994,7 @@ namespace DistrictRoads
 
 		for (const auto& edge : network.edges())
 		{
-			if (edge.id < 0) continue;
+			if (edge.id < 0 || edge.designGrade) continue;
 			const RoadNode* nodeA = network.getNode(edge.nodeA);
 			const RoadNode* nodeB = network.getNode(edge.nodeB);
 			if (!nodeA || !nodeB) continue;

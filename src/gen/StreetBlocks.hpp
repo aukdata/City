@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "GenerationSettings.hpp"
 #include "../road/RoadNetwork.hpp"
+#include "../road/RoadGeometry.hpp"
+#include "ParcelRoadIndex.hpp"
 
 /// @brief Actual enclosed street faces, including merged civic grounds and new alley subdivisions.
 namespace StreetBlocks
@@ -20,7 +22,7 @@ namespace StreetBlocks
 			return inside;
 		}
 	};
-	inline Array<Block> collect(const RoadNetwork& network)
+	inline Array<Block> collect(const RoadNetwork& network,double minimumArea=-1)
 	{
 		Array<Block> blocks; HashSet<int64> visited;
 		for (const auto& initial : network.edges())
@@ -72,10 +74,125 @@ namespace StreetBlocks
 					lower.x=Min(lower.x,a.x); lower.y=Min(lower.y,a.y); upper.x=Max(upper.x,a.x); upper.y=Max(upper.y,a.y);
 				}
 				block.center/=static_cast<double>(block.outline.size()); block.bounds={lower,upper-lower};
-				if (block.area>GenerationSettings::get().parcels_minimumBlockArea) { blocks << std::move(block); }
+				if (block.area>(minimumArea>=0 ? minimumArea : GenerationSettings::get().parcels_minimumBlockArea)) { blocks << std::move(block); }
 			}
 		}
 		return blocks;
+	}
+	/// @brief Continuous fitted pieces share frontage while retaining distant junction exclusions.
+	inline Vec2 frontageSpan(const RoadNetwork& network,int edgeId)
+	{
+		const auto* edge=network.getEdge(edgeId); const auto curve=network.getBezier(edgeId);
+		if (!edge || !curve) { return {1,0}; }
+		const auto continuation=[&](int current,int nodeId)->Optional<int>
+		{
+			const auto* first=network.getEdge(current); const auto* node=network.getNode(nodeId);
+			if (!first || !node || node->attachments.size()!=2) { return none; }
+			const int otherId=node->attachments.front().edgeId==current ? node->attachments.back().edgeId : node->attachments.front().edgeId;
+			const auto* other=network.getEdge(otherId);
+			if (!other || !other->hasRoadLanes() || other->roadType!=first->roadType
+				|| Abs(RoadGeometry::structuralWidth(*first)-RoadGeometry::structuralWidth(*other))>.1) { return none; }
+			const Vec3 firstDirection=(first->nodeA==nodeId ? first->ctrlA : first->ctrlB)-node->position;
+			const Vec3 secondDirection=(other->nodeA==nodeId ? other->ctrlA : other->ctrlB)-node->position;
+			const Vec2 a{firstDirection.x,firstDirection.z},b{secondDirection.x,secondDirection.z};
+			if (a.lengthSq()<=1e-12 || b.lengthSq()<=1e-12 || a.normalized().dot(b.normalized())>=-Cos(10_deg)) { return none; }
+			return otherId;
+		};
+		const auto exclusion=[&](int endpoint)
+		{
+			int current=edgeId,nodeId=endpoint; double distance=0; HashSet<int> visited{edgeId};
+			for (;;)
+			{
+				const auto* currentEdge=network.getEdge(current);
+				const auto next=continuation(current,nodeId);
+				if (!next)
+				{
+					const double cutoff=currentEdge->nodeA==nodeId ? currentEdge->cutoffA : currentEdge->cutoffB;
+					return Max(.25,cutoff+9.0-distance);
+				}
+				if (!visited.insert(*next).second) { return .25; }
+				current=*next; currentEdge=network.getEdge(current);
+				const auto nextCurve=network.getBezier(current);
+				if (!currentEdge || !nextCurve) { return Math::Inf; }
+				distance+=nextCurve->totalLength;
+				nodeId=currentEdge->nodeA==nodeId ? currentEdge->nodeB : currentEdge->nodeA;
+			}
+		};
+		return {exclusion(edge->nodeA),curve->totalLength-exclusion(edge->nodeB)};
+	}
+	/// @brief Shared bounded search schedule for coarse, fine, and refined frontage passes.
+	struct FrontageSampling
+	{
+		Vec2 span{1,0};
+		float arcStep=6;
+		double firstSetback=0,lastSetback=0;
+		static constexpr double kSetbackStep=.25;
+	};
+	inline constexpr int kFrontagePassCount=3;
+	inline FrontageSampling frontageSampling(const RoadNetwork& network,int edgeId,int pass)
+	{
+		FrontageSampling result;
+		const auto* edge=network.getEdge(edgeId); const auto curve=network.getBezier(edgeId);
+		if (!edge || !curve || pass<0 || pass>=kFrontagePassCount) { return result; }
+		result.span=pass==0 ? Vec2{edge->cutoffA+9.0,curve->totalLength-edge->cutoffB-9.0} : frontageSpan(network,edgeId);
+		result.arcStep=pass==0 ? 6.0f : pass==1 ? 1.5f : .5f;
+		result.firstSetback=pass==0 ? GenerationSettings::get().development_suburbanSetback : GenerationSettings::get().development_minimumRoadSetback;
+		result.lastSetback=pass==2 ? Max(result.firstSetback,6.0) : result.firstSetback;
+		return result;
+	}
+	/// @brief Available-center superset using the placement validator's exact road ribbons.
+	/// @details Every rotated square of half-size r contains a disk of radius r. Only empty
+	/// subtraction proves that no square can fit; a surviving center never proves a fit.
+	inline Optional<double> freeCenterArea(const RoadNetwork& network,const Block& block,double footprintRadius,const ParcelRoadIndex* obstacleIndex=nullptr)
+	{
+		if (block.outline.size()<3) { return none; }
+		const Vec2 origin=block.outline.front(); Array<Vec2> outline;
+		for (const Vec2 point : block.outline) { outline << point-origin; }
+		const Polygon face{outline}; if (!face) { return none; }
+		Array<Polygon> regions{face};
+		for (const int id : block.edges)
+		{
+			const auto* edge=network.getEdge(id); const auto curve=network.getBezier(id);
+			if (!edge || !curve || !edge->isRoadbedBuilt() || edge->tunnel || edge->useElevation) { return none; }
+			if (Vec2{curve->p1.x-curve->p0.x,curve->p1.z-curve->p0.z}.lengthSq()<1e-12
+				|| Vec2{curve->p2.x-curve->p3.x,curve->p2.z-curve->p3.z}.lengthSq()<1e-12) { return none; }
+			Array<Vec2> controls;
+			for (const Vec3 point : {curve->p0,curve->p1,curve->p2,curve->p3}) { controls << Vec2{point.x-origin.x,point.z-origin.y}; }
+			// The curved/chord boundary difference lies in this edge's convex hull.
+			// Add only those local hulls, not a hull spanning concave corners of the whole face.
+			const Polygon controlHull=Geometry2D::ConvexHull(controls);
+			if (controlHull) { regions << controlHull; }
+		}
+		Optional<ParcelRoadIndex> ownedIndex;
+		if (!obstacleIndex) { ownedIndex.emplace(network,true); obstacleIndex=&*ownedIndex; }
+		Vec2 low=regions.front().boundingRect().tl(),high=regions.front().boundingRect().br();
+		for (const auto& region : regions)
+		{
+			const auto bounds=region.boundingRect(); low.x=Min(low.x,bounds.x); low.y=Min(low.y,bounds.y);
+			high.x=Max(high.x,bounds.x+bounds.w); high.y=Max(high.y,bounds.y+bounds.h);
+		}
+		bool unsupported=false;
+		const RectF query=RectF{low+origin,high-low}.stretched(footprintRadius+.001);
+		obstacleIndex->forEachNearby(query,[&](const ParcelGeometry::Quad& quad)
+		{
+			if (unsupported || regions.isEmpty()) { return; }
+			Array<Vec2> points; for (const Vec2 point : quad) { points << point-origin; }
+			const Polygon ribbon=Geometry2D::ConvexHull(points);
+			if (!ribbon) { unsupported=true; return; }
+			// Use the exact road, track and site quads already registered by placement.
+			// A slightly smaller inscribed disk keeps legal touching conservative.
+			const double radius=Max(0.0,footprintRadius-.001);
+			const Polygon obstacle=radius>0 ? ribbon.calculateRoundBuffer(radius) : ribbon;
+			if (!obstacle) { unsupported=true; return; }
+			Array<Polygon> remaining;
+			for (const auto& region : regions) { remaining.append(Geometry2D::Subtract(region,obstacle)); }
+			regions=std::move(remaining);
+		});
+		if (unsupported) { return none; }
+		if (regions.isEmpty()) { return 0.0; }
+		double area=0; for (const auto& region : regions) { area+=region.area(); }
+		// A tiny nonempty region is unresolved, never a geometric impossibility.
+		return Max(area,1e-12);
 	}
 	/// @brief 河川迂回と町割の間に生じた、住宅幅を確保できない細長い面を隣接街区へ統合する。
 	inline int mergeNarrowFaces(RoadNetwork& network)
@@ -113,6 +230,7 @@ namespace StreetBlocks
 				for (const int id : block.edges)
 				{
 					const auto* edge=network.getEdge(id);
+					if (!edge->routeIds.isEmpty()) { continue; }
 					if (edge->tunnel || edge->useElevation || network.getNode(edge->nodeA)->attachments.size()<3 || network.getNode(edge->nodeB)->attachments.size()<3) { continue; }
 					const double score=edge->totalWidth()*GenerationSettings::get().parcels_roadWidthPreservationWeight+edge->length;
 					if (score<best) { best=score;selected=id; }

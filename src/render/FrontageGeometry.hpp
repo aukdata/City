@@ -5,6 +5,16 @@
 /// @brief 接道面の玄関・店先設備。メートル単位で作り、チャンクの材質別バッチへ結合する。
 namespace FrontageGeometry
 {
+	inline constexpr double kDoorFrontOffset=.34, kStepCenterOffset=.19, kStepDepth=.40, kStepHeight=.14;
+	inline constexpr float kPairedGap=.42f, kPairedApronDepth=1.6f, kPairedApronTop=.05f, kPairedApronThickness=.04f;
+	/// @brief Ground connection is the front edge of the exact existing entrance step.
+	inline Vec2 groundEntry(double front) { return {0,front-kDoorFrontOffset-kStepCenterOffset-kStepDepth*.5}; }
+	/// @brief Both narrow houses connect through their existing concrete entrance apron.
+	inline Array<Vec2> pairedGroundEntries(double footprint)
+	{
+		const double width=(footprint-kPairedGap)*.5;
+		return {{-(width+kPairedGap)*.5+width*.26,-footprint*.5+.02},{(width+kPairedGap)*.5-width*.26,-footprint*.5+.02}};
+	}
 	struct Part { int material; MeshData mesh; };
 	inline Array<Part> build(double width, double front, bool commercial, uint32 seed)
 	{
@@ -32,7 +42,7 @@ namespace FrontageGeometry
 			}
 		};
 		const double signWidth=Min(4.5,width*.62);
-		const double entryFront = front - .34;
+		const double entryFront = front - kDoorFrontOffset;
 		for (const double side : {-1.0,1.0})
 		{
 			box(kConcrete,{side*.60,1.13,front-.20},{.16,2.26,.46});
@@ -41,7 +51,7 @@ namespace FrontageGeometry
 		// A shallow entrance surround joins the structural facade across projecting sills.
 		box(kDark,{0,1.03,entryFront-.025},{1.06,2.06,.075});
 		box(commercial ? kMetal : kTimber,{0,1.04,entryFront-.070},{.90,1.98,.065});
-		box(kConcrete,{0,.07,entryFront-.19},{1.25,.14,.40});
+		box(kConcrete,{0,.07,entryFront-kStepCenterOffset},{1.25,kStepHeight,kStepDepth});
 		for (const double side : {-1.0,1.0})
 		{
 			box(kMetal,{side*.515,1.07,entryFront-.09},{.045,2.12,.085});

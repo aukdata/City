@@ -5,6 +5,17 @@
 
 namespace
 {
+	/// @brief Approximate repair must not replace designed, planned, or classified route geometry.
+	bool protectedTopologyGeometry(const RoadNetwork& network,const RoadEdge& edge)
+	{
+		if (edge.designGrade || edge.planId>=0 || edge.edgeState==EdgeState::Planned || edge.edgeState==EdgeState::UnderConstruction) { return true; }
+		for (const int id : edge.routeIds)
+		{
+			const auto* route=network.getRoute(id);
+			if (route && route->kind!=RoadRouteKind::Named) { return true; }
+		}
+		return false;
+	}
 	/// @brief XZ 平面での 2D 線分交差判定
 	/// @param a1,a2  線分1の端点 (x = world-X, y = world-Z)
 	/// @param b1,b2  線分2の端点
@@ -50,6 +61,15 @@ int RoadNetwork::splitEdgeAtParameter(int edgeId, float t, int existingNodeId)
 			if (candidate->nodeA==edge->nodeB || candidate->nodeB==edge->nodeB) reuseB=id;
 		}
 		if (existing->attachments.size()+(reuseA<0?1:0)+(reuseB<0?1:0)>6) return -1;
+	}
+
+	if (reuseA>=0 || reuseB>=0)
+	{
+		// Reusing a third side can overwrite its profile/flags, even when the two
+		// corridors selected by approximate consolidation were ordinary roads.
+		if (protectedTopologyGeometry(*this,*edge)
+			|| (reuseA>=0 && protectedTopologyGeometry(*this,*getEdge(reuseA)))
+			|| (reuseB>=0 && protectedTopologyGeometry(*this,*getEdge(reuseB)))) { return -1; }
 	}
 
 	const auto [bezA, bezB] = bez.split(t);
@@ -647,6 +667,7 @@ bool RoadNetwork::removeDuplicateEdges(uint64 seed)
 		// 重複検出: 既存エッジと比較して道幅が小さい方を削除
 		const RoadEdge* e1 = getEdge(it->second);
 		if (!e1) { it->second = e.id; continue; }
+		if (protectedTopologyGeometry(*this,*e1) || protectedTopologyGeometry(*this,e)) { continue; }
 
 		int toRemove;
 		const float w1 = e1->totalWidth(), w2 = e.totalWidth();
@@ -754,11 +775,24 @@ int RoadNetwork::consolidateOverlappingRoads()
 	};
 	// Approximate overlap repair may move endpoints by metres. Designed geometry has
 	// already passed physical limits and must only be joined by exact intersection splits.
-	const auto eligible=[](const RoadEdge& edge) { return edge.id>=0 && !edge.designGrade && edge.planId<0 && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing); };
+	const auto eligible=[&](const RoadEdge& edge) { return edge.id>=0 && !protectedTopologyGeometry(*this,edge) && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing); };
 	const auto joinNodeInto=[&](int nodeId,int endpoint)
 	{
 		const Vec3 shift=getNode(endpoint)->position-getNode(nodeId)->position;
 		const auto attachments=getNode(nodeId)->attachments;
+		// Check every redirected arm before mutating any endpoint or metadata.
+		for (const auto& attachment : attachments)
+		{
+			const auto* moved=getEdge(attachment.edgeId); if (!moved) { continue; }
+			if (protectedTopologyGeometry(*this,*moved)) { return false; }
+			const int other=moved->nodeA==nodeId ? moved->nodeB : moved->nodeA;
+			for (const auto& target : getNode(endpoint)->attachments)
+			{
+				const auto* existing=getEdge(target.edgeId);
+				if (existing && (existing->nodeA==other || existing->nodeB==other)
+					&& protectedTopologyGeometry(*this,*existing)) { return false; }
+			}
+		}
 		for (const auto& attachment : attachments)
 		{
 			auto* neighbor=getEdge(attachment.edgeId);if (!neighbor) continue;
@@ -775,6 +809,7 @@ int RoadNetwork::consolidateOverlappingRoads()
 		}
 		removeNode(nodeId);
 		rebuildNodeConnectivity(endpoint,endpoint);
+		return true;
 	};
 	for (int pass=0;pass<32;++pass)
 	{
@@ -849,7 +884,7 @@ int RoadNetwork::consolidateOverlappingRoads()
 			if (horizontal(position-curve.p3).length()<8 && (1-bestT)*curve.totalLength<2) endpoint=edge.nodeB;
 			if (endpoint>=0)
 			{
-				joinNodeInto(nodeId,endpoint);
+				if (!joinNodeInto(nodeId,endpoint)) { continue; }
 			}
 			else
 			{
@@ -902,7 +937,7 @@ int RoadNetwork::consolidateOverlappingRoads()
 					bool editable=true;
 					for (const int id : getNode(secondNode)->edgeIds()) if (!eligible(*getEdge(id))) editable=false;
 					if (!editable) continue;
-					joinNodeInto(secondNode,firstNode);
+					if (!joinNodeInto(secondNode,firstNode)) { continue; }
 					++changed;merged=true;continue;
 				}
 				if (joint>=0 && getNode(joint)->attachments.size()>=6) continue;

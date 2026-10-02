@@ -54,6 +54,8 @@ namespace UrbanStructure
 	void apply(UrbanMorphology::Plan& plan, Type type);
 	/// @brief 地形による縮小後も、駅を道路交差点の直上へ戻さない。
 	void alignCenters(UrbanMorphology::Plan& plan);
+	/// @brief 核を動かさず、街路計画と同じ集散道路から商業軸を再構成する。
+	void rebuildCommercialStreets(UrbanMorphology::Plan& plan);
 	double intensity(const UrbanMorphology::Plan& plan, Vec2 point);
 	UrbanMorphology::LandUse sample(const UrbanMorphology::Plan& plan, Vec2 point);
 	Array<float> streetCoordinates(const UrbanMorphology::Plan& plan, bool crossAxis);

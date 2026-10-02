@@ -1,0 +1,11 @@
+{
+  "gutter_before.png": "artifacts/realism_gutter_physical_preview/UrbanStructure.GroundGutterPreview/mosaic_ground_before_seed42.png",
+  "gutter_after.png": "artifacts/realism_gutter_physical_preview/UrbanStructure.GroundGutterPreview/mosaic_ground_after_seed42.png",
+  "entry_wide.png": "artifacts/realism_residential_entry_preview/UrbanStructure.GroundPreview/mosaic_ground_after_seed42.png",
+  "entry_closeup.png": "artifacts/realism_residential_entry_closeup/UrbanStructure.GroundPreview/residential_access_closeup_seed42.png",
+  "gutter_before.json": "artifacts/realism_gutter_physical_preview/UrbanStructure.GroundGutterPreview/mosaic_ground_before_seed42.json",
+  "gutter_after.json": "artifacts/realism_gutter_physical_preview/UrbanStructure.GroundGutterPreview/mosaic_ground_after_seed42.json",
+  "entry_wide.json": "artifacts/realism_residential_entry_preview/UrbanStructure.GroundPreview/mosaic_ground_after_seed42.json",
+  "entry_closeup.json": "artifacts/realism_residential_entry_closeup/UrbanStructure.GroundPreview/residential_access_closeup_seed42.json",
+  "crop_restore.json": "artifacts/realism_residential_entry_closeup/UrbanStructure.GroundPreview/mosaic_ground_crop_seed42.json"
+}

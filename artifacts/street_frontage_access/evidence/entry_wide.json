@@ -1,0 +1,19 @@
+﻿{
+  "buildingsSubmitted": 32,
+  "bulkAssetPreload": false,
+  "changedGutterParts": 0,
+  "coveredGutterCandidate": false,
+  "drawDistanceMeters": 150,
+  "eye": [
+    32106.420338516804,
+    21.5,
+    33107.40879036474
+  ],
+  "eyeHeightMeters": 1.5,
+  "publicPocketCount": 0,
+  "publicPocketTreatmentEnabled": true,
+  "publicPocketsVisibleInWorld": false,
+  "residentialAccessNearEye": 19,
+  "sameGeneratedRoadsAndBuildings": true,
+  "viewEdge": 675
+}

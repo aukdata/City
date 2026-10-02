@@ -36,6 +36,34 @@ public:
 	[[nodiscard]] uint64 shadowRevision() const { return m_geometryRevision + m_visibilityRevision; }
 	[[nodiscard]] size_t buildingsConsidered() const { return m_buildingsConsidered; }
 	[[nodiscard]] size_t buildingsSubmitted() const { return m_buildingsSubmitted; }
+	struct ResidentialAccessRecord
+	{
+		int edgeId=-1;
+		int64 parcelKey=-1;
+		BuildingType type=BuildingType::None;
+		Vec3 assignedRoadBoundary,emittedRoadEnd,emittedEntrance,targetEntrance;
+	};
+	/// @brief Exact accepted source identity and emitted endpoints for first-person regression views.
+	[[nodiscard]] Array<ResidentialAccessRecord> residentialAccessRecords(Vec3 eye,double radius=150) const
+	{
+		Array<ResidentialAccessRecord> result; const Vec2 point{eye.x,eye.z};
+		for (const auto& item : m_residentialAccessEntries)
+		{
+			for (const auto& record : item.second)
+			{
+				if (Vec2{record.emittedEntrance.x,record.emittedEntrance.z}.distanceFromSq(point)<=radius*radius) { result << record; }
+			}
+		}
+		return result;
+	}
+	/// @brief Count accepted entry strips near the camera; used by bounded visual regression evidence.
+	[[nodiscard]] size_t residentialAccessNearby(Vec3 eye,double radius=150) const
+	{
+		size_t count=0; const Vec2 point{eye.x,eye.z};
+		for (const auto& [key,entries] : m_residentialAccessEntries) { for (const auto entry : entries) { count+=Vec2{entry.emittedEntrance.x,entry.emittedEntrance.z}.distanceFromSq(point)<=radius*radius; } }
+		return count;
+	}
+
 	[[nodiscard]] size_t buildingDrawCalls() const { return m_buildingDrawCalls; }
 	[[nodiscard]] size_t buildingTriangles() const { return m_buildingTriangles; }
 	/// @brief Build terrain booleans from immutable snapshots off the render thread.
@@ -200,7 +228,7 @@ private:
 	void primeAllChunkSubtractorCaches(const RoadNetwork& network);
 
 	/// @brief 建物メッシュキャッシュを再構築する
-	void rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world);
+	void rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world,const RoadNetwork& network);
 
 	/// @brief キャッシュ済み建物バッチを描画する
 	void drawCachedBuildings(Key key);
@@ -306,4 +334,5 @@ private:
 	Vec3 m_lastSortEye{Math::Inf,0,0};
 	Vec3 m_buildingEye{ 0, 0, 0 };
 	size_t m_buildingsConsidered = 0, m_buildingsSubmitted = 0;
+	HashTable<Key,Array<ResidentialAccessRecord>> m_residentialAccessEntries;
 };

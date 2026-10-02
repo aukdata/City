@@ -1,0 +1,891 @@
+{
+  "comparisons": [
+    {
+      "type": "coastal_hubs",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_coastal_hubs_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_coastal_hubs_seed7.json",
+      "valid": {
+        "before": false,
+        "after": false
+      },
+      "buildings": {
+        "before": 7787,
+        "after": 7646
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 10,
+        "after": 16
+      },
+      "inheritedRoadMeters": {
+        "before": 3458.9583741128445,
+        "after": 6149.303563505411
+      },
+      "totalRoadMeters": {
+        "before": 138078.13559803367,
+        "after": 137418.4090065062
+      },
+      "centralDevelopableCells": {
+        "before": 1360,
+        "after": 1357
+      },
+      "centralOccupiedCells": {
+        "before": 691,
+        "after": 654
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1651672.0830875076,
+        "after": 1620382.2381119975
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 47.146162242105504,
+        "after": 47.18639725962933
+      },
+      "unfilledBlocks": {
+        "before": 2,
+        "after": 3
+      },
+      "landscapedPockets": {
+        "before": 3,
+        "after": 2
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "coastal_hubs",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_coastal_hubs_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_coastal_hubs_seed130.json",
+      "valid": {
+        "before": false,
+        "after": true
+      },
+      "buildings": {
+        "before": 7855,
+        "after": 7689
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 9,
+        "after": 16
+      },
+      "inheritedRoadMeters": {
+        "before": 2981.7884752079844,
+        "after": 6525.610165990889
+      },
+      "totalRoadMeters": {
+        "before": 135798.3001288101,
+        "after": 136022.67252389342
+      },
+      "centralDevelopableCells": {
+        "before": 1363,
+        "after": 1360
+      },
+      "centralOccupiedCells": {
+        "before": 700,
+        "after": 637
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1666646.3459750873,
+        "after": 1634479.9938760244
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 47.13057463552268,
+        "after": 47.04248463614546
+      },
+      "unfilledBlocks": {
+        "before": 1,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "constrained_linear",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_constrained_linear_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_constrained_linear_seed7.json",
+      "valid": {
+        "before": false,
+        "after": false
+      },
+      "buildings": {
+        "before": 4917,
+        "after": 4801
+      },
+      "oldCoreGroups": {
+        "before": 1,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 4,
+        "after": 15
+      },
+      "inheritedRoadMeters": {
+        "before": 999.8221540898085,
+        "after": 3831.4011195153
+      },
+      "totalRoadMeters": {
+        "before": 97533.03587971628,
+        "after": 97236.22623752058
+      },
+      "centralDevelopableCells": {
+        "before": 1401,
+        "after": 1400
+      },
+      "centralOccupiedCells": {
+        "before": 752,
+        "after": 707
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1109117.9347918686,
+        "after": 1085214.2795104964
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 44.33252628741144,
+        "after": 44.24011083014471
+      },
+      "unfilledBlocks": {
+        "before": 1,
+        "after": 1
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "constrained_linear",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_constrained_linear_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_constrained_linear_seed130.json",
+      "valid": {
+        "before": true,
+        "after": false
+      },
+      "buildings": {
+        "before": 4790,
+        "after": 4713
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 9,
+        "after": 15
+      },
+      "inheritedRoadMeters": {
+        "before": 2099.4269981384277,
+        "after": 3889.3308659493923
+      },
+      "totalRoadMeters": {
+        "before": 99341.02223481238,
+        "after": 100233.72720511258
+      },
+      "centralDevelopableCells": {
+        "before": 1349,
+        "after": 1348
+      },
+      "centralOccupiedCells": {
+        "before": 769,
+        "after": 734
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1080163.3448154815,
+        "after": 1067681.8529833604
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 44.34514486156953,
+        "after": 44.14236307220866
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 1
+      },
+      "landscapedPockets": {
+        "before": 1,
+        "after": 2
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "historic_grid",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_historic_grid_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_historic_grid_seed7.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 10320,
+        "after": 10320
+      },
+      "oldCoreGroups": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoutes": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoadMeters": {
+        "before": 0.0,
+        "after": 0.0
+      },
+      "totalRoadMeters": {
+        "before": 185630.7053375244,
+        "after": 185630.7053375244
+      },
+      "centralDevelopableCells": {
+        "before": 1444,
+        "after": 1444
+      },
+      "centralOccupiedCells": {
+        "before": 791,
+        "after": 791
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1839747.0059420639,
+        "after": 1839747.0059420639
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 56.09466935762466,
+        "after": 56.09466935762466
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "historic_grid",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_historic_grid_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_historic_grid_seed130.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 10445,
+        "after": 10445
+      },
+      "oldCoreGroups": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoutes": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoadMeters": {
+        "before": 0.0,
+        "after": 0.0
+      },
+      "totalRoadMeters": {
+        "before": 187012.6740398407,
+        "after": 187012.6740398407
+      },
+      "centralDevelopableCells": {
+        "before": 1444,
+        "after": 1444
+      },
+      "centralOccupiedCells": {
+        "before": 752,
+        "after": 752
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1847093.7469489062,
+        "after": 1847093.7469489062
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 56.54829386571968,
+        "after": 56.54829386571968
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_metropolitan_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_metropolitan_seed7.json",
+      "valid": {
+        "before": false,
+        "after": false
+      },
+      "buildings": {
+        "before": 11734,
+        "after": 11442
+      },
+      "oldCoreGroups": {
+        "before": 1,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 6,
+        "after": 17
+      },
+      "inheritedRoadMeters": {
+        "before": 3575.436931371689,
+        "after": 8636.288036037236
+      },
+      "totalRoadMeters": {
+        "before": 206362.77623921633,
+        "after": 203717.4672753699
+      },
+      "centralDevelopableCells": {
+        "before": 1387,
+        "after": 1380
+      },
+      "centralOccupiedCells": {
+        "before": 521,
+        "after": 512
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 2487099.6908097113,
+        "after": 2429079.721702117
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 47.179451806291794,
+        "after": 47.104258858915934
+      },
+      "unfilledBlocks": {
+        "before": 1,
+        "after": 5
+      },
+      "landscapedPockets": {
+        "before": 5,
+        "after": 1
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "metropolitan",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_metropolitan_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_metropolitan_seed130.json",
+      "valid": {
+        "before": false,
+        "after": false
+      },
+      "buildings": {
+        "before": 11423,
+        "after": 11178
+      },
+      "oldCoreGroups": {
+        "before": 1,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 6,
+        "after": 16
+      },
+      "inheritedRoadMeters": {
+        "before": 3563.329302728176,
+        "after": 8403.8694383502
+      },
+      "totalRoadMeters": {
+        "before": 205521.07666754723,
+        "after": 203053.64409011602
+      },
+      "centralDevelopableCells": {
+        "before": 1380,
+        "after": 1385
+      },
+      "centralOccupiedCells": {
+        "before": 464,
+        "after": 480
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 2450240.458960268,
+        "after": 2391612.1331218034
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 46.61991421383688,
+        "after": 46.73834793357235
+      },
+      "unfilledBlocks": {
+        "before": 3,
+        "after": 4
+      },
+      "landscapedPockets": {
+        "before": 4,
+        "after": 5
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "planned_grid",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_planned_grid_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_planned_grid_seed7.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 10064,
+        "after": 10064
+      },
+      "oldCoreGroups": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoutes": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoadMeters": {
+        "before": 0.0,
+        "after": 0.0
+      },
+      "totalRoadMeters": {
+        "before": 158509.53233337402,
+        "after": 158509.53233337402
+      },
+      "centralDevelopableCells": {
+        "before": 1406,
+        "after": 1406
+      },
+      "centralOccupiedCells": {
+        "before": 736,
+        "after": 736
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 2074081.5370130464,
+        "after": 2074081.5370130464
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 48.52268254840887,
+        "after": 48.52268254840887
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "planned_grid",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_planned_grid_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_planned_grid_seed130.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 10074,
+        "after": 10074
+      },
+      "oldCoreGroups": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoutes": {
+        "before": 0,
+        "after": 0
+      },
+      "inheritedRoadMeters": {
+        "before": 0.0,
+        "after": 0.0
+      },
+      "totalRoadMeters": {
+        "before": 158872.0044555664,
+        "after": 158872.0044555664
+      },
+      "centralDevelopableCells": {
+        "before": 1406,
+        "after": 1406
+      },
+      "centralOccupiedCells": {
+        "before": 734,
+        "after": 734
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 2077419.1193705532,
+        "after": 2077419.1193705532
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 48.49286263935208,
+        "after": 48.49286263935208
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 0,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "regional_hub",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_regional_hub_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_regional_hub_seed7.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 8391,
+        "after": 8161
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 11,
+        "after": 17
+      },
+      "inheritedRoadMeters": {
+        "before": 4826.632134139538,
+        "after": 7178.183131575584
+      },
+      "totalRoadMeters": {
+        "before": 151156.60224169493,
+        "after": 151607.00257128477
+      },
+      "centralDevelopableCells": {
+        "before": 1402,
+        "after": 1402
+      },
+      "centralOccupiedCells": {
+        "before": 642,
+        "after": 632
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1809816.1497512267,
+        "after": 1764599.496965544
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 46.363825414826856,
+        "after": 46.24845475720632
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 4,
+        "after": 3
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "regional_hub",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_regional_hub_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_regional_hub_seed130.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 8597,
+        "after": 8603
+      },
+      "oldCoreGroups": {
+        "before": 3,
+        "after": 3
+      },
+      "inheritedRoutes": {
+        "before": 15,
+        "after": 16
+      },
+      "inheritedRoadMeters": {
+        "before": 6430.589171215892,
+        "after": 6956.667452201247
+      },
+      "totalRoadMeters": {
+        "before": 150175.7432407178,
+        "after": 150625.64558134973
+      },
+      "centralDevelopableCells": {
+        "before": 1440,
+        "after": 1440
+      },
+      "centralOccupiedCells": {
+        "before": 742,
+        "after": 745
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1812723.3176010281,
+        "after": 1813533.8479697048
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 47.42588080886682,
+        "after": 47.437769135829846
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 4,
+        "after": 3
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "transit_corridor",
+      "seed": 7,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_transit_corridor_seed7.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_transit_corridor_seed7.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 7176,
+        "after": 7170
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 2
+      },
+      "inheritedRoutes": {
+        "before": 9,
+        "after": 10
+      },
+      "inheritedRoadMeters": {
+        "before": 3635.799438074231,
+        "after": 3836.6976589262486
+      },
+      "totalRoadMeters": {
+        "before": 121263.41150788032,
+        "after": 121530.49368249439
+      },
+      "centralDevelopableCells": {
+        "before": 1369,
+        "after": 1369
+      },
+      "centralOccupiedCells": {
+        "before": 687,
+        "after": 687
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1742400.8965207746,
+        "after": 1740953.930160386
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 41.184551811979865,
+        "after": 41.18431783740229
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 1,
+        "after": 0
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    },
+    {
+      "type": "transit_corridor",
+      "seed": 130,
+      "beforePath": "artifacts/realism_urban_gateway_matrix/UrbanStructure.Generated/urban_structure_transit_corridor_seed130.json",
+      "afterPath": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/urban_structure_transit_corridor_seed130.json",
+      "valid": {
+        "before": true,
+        "after": true
+      },
+      "buildings": {
+        "before": 7039,
+        "after": 7037
+      },
+      "oldCoreGroups": {
+        "before": 2,
+        "after": 2
+      },
+      "inheritedRoutes": {
+        "before": 9,
+        "after": 9
+      },
+      "inheritedRoadMeters": {
+        "before": 3764.8550684452057,
+        "after": 3820.2891652584076
+      },
+      "totalRoadMeters": {
+        "before": 121381.00486207008,
+        "after": 121489.97438549995
+      },
+      "centralDevelopableCells": {
+        "before": 1398,
+        "after": 1398
+      },
+      "centralOccupiedCells": {
+        "before": 742,
+        "after": 742
+      },
+      "occupiedSiteParcelAreaSumM2": {
+        "before": 1735628.4174145034,
+        "after": 1735313.8434523519
+      },
+      "occupiedSitesPerAssignedParcelHectare": {
+        "before": 40.55591582491901,
+        "after": 40.55174242141763
+      },
+      "unfilledBlocks": {
+        "before": 0,
+        "after": 0
+      },
+      "landscapedPockets": {
+        "before": 1,
+        "after": 2
+      },
+      "safetyCounters": {
+        "noFrontage": 0,
+        "missingEdge": 0,
+        "missingParcel": 0,
+        "roadOverlap": 0,
+        "buildingOverlap": 0,
+        "frontageDistance": 0,
+        "coastal": 0
+      }
+    }
+  ],
+  "beforeCount": 14,
+  "afterCount": 14,
+  "afterPassing": 9,
+  "afterUnresolvedFaces": 14,
+  "parcelDenominator": "sum of assigned occupied-site parcels, not union of total usable city land"
+}

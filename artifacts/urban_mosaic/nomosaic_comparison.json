@@ -1,0 +1,473 @@
+[
+  {
+    "type": "coastal_hubs",
+    "seed": 42,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 2,
+    "currentUnfilled": 4,
+    "baselineBuildings": 8138,
+    "currentBuildings": 7769,
+    "baselineCenters": [
+      [
+        33198.844566233354,
+        32744.820295218728
+      ],
+      [
+        32335.919830206363,
+        32744.820295218728
+      ]
+    ],
+    "currentCenters": [
+      [
+        33198.844566233354,
+        32744.820295218728
+      ],
+      [
+        32351.728543550955,
+        32547.148517693873
+      ],
+      [
+        32335.919830206363,
+        32744.820295218728
+      ],
+      [
+        33091.01156778416,
+        32747.30315417474
+      ]
+    ]
+  },
+  {
+    "type": "coastal_hubs",
+    "seed": 130,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 4,
+    "baselineBuildings": 8052,
+    "currentBuildings": 7620,
+    "baselineCenters": [
+      [
+        33202.50068654079,
+        32741.0019491762
+      ]
+    ],
+    "currentCenters": [
+      [
+        32984.3642644611,
+        32732.679764382618
+      ],
+      [
+        33202.50068654079,
+        32741.0019491762
+      ],
+      [
+        32349.663077303663,
+        32530.977286940662
+      ],
+      [
+        32905.23548246919,
+        32834.25933937033
+      ]
+    ]
+  },
+  {
+    "type": "coastal_hubs",
+    "seed": 7,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 3,
+    "currentUnfilled": 4,
+    "baselineBuildings": 7972,
+    "currentBuildings": 7655,
+    "baselineCenters": [
+      [
+        33141.5964050293,
+        32745.846225644207
+      ],
+      [
+        33197.91641224266,
+        32745.846225628487
+      ],
+      [
+        32334.118453863135,
+        32745.846225628484
+      ]
+    ],
+    "currentCenters": [
+      [
+        33141.5964050293,
+        32745.846225644207
+      ],
+      [
+        33197.91641224266,
+        32745.846225628487
+      ],
+      [
+        32334.118453863135,
+        32745.846225628484
+      ],
+      [
+        33091.72864556509,
+        32745.52341121776
+      ]
+    ]
+  },
+  {
+    "type": "constrained_linear",
+    "seed": 42,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 2,
+    "baselineBuildings": 4967,
+    "currentBuildings": 4790,
+    "baselineCenters": [
+      [
+        32703.241386321668,
+        32690.07236289978
+      ]
+    ],
+    "currentCenters": [
+      [
+        32012.127104601623,
+        32500.225464122268
+      ],
+      [
+        32703.241386321668,
+        32690.07236289978
+      ]
+    ]
+  },
+  {
+    "type": "constrained_linear",
+    "seed": 130,
+    "baselineValid": true,
+    "currentValid": false,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 2,
+    "baselineBuildings": 4885,
+    "currentBuildings": 4683,
+    "baselineCenters": [],
+    "currentCenters": [
+      [
+        32016.521813690506,
+        32503.832880213733
+      ],
+      [
+        33249.40892631373,
+        32937.605904169024
+      ]
+    ]
+  },
+  {
+    "type": "constrained_linear",
+    "seed": 7,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 2,
+    "baselineBuildings": 4966,
+    "currentBuildings": 4799,
+    "baselineCenters": [
+      [
+        32700.71407880771,
+        32688.590419769287
+      ]
+    ],
+    "currentCenters": [
+      [
+        32012.587234426777,
+        32498.998337239867
+      ],
+      [
+        32700.71407880771,
+        32688.590419769287
+      ]
+    ]
+  },
+  {
+    "type": "historic_grid",
+    "seed": 42,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10118,
+    "currentBuildings": 10118,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "historic_grid",
+    "seed": 130,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10445,
+    "currentBuildings": 10445,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "historic_grid",
+    "seed": 7,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10320,
+    "currentBuildings": 10320,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "metropolitan",
+    "seed": 42,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 4,
+    "baselineBuildings": 11903,
+    "currentBuildings": 11317,
+    "baselineCenters": [
+      [
+        32846.7238732494,
+        33116.70298780734
+      ]
+    ],
+    "currentCenters": [
+      [
+        32846.7238732494,
+        33116.70298780734
+      ],
+      [
+        32528.72104492213,
+        32951.429235334595
+      ],
+      [
+        32899.82285565978,
+        33007.21243900687
+      ],
+      [
+        32958.12233912258,
+        33010.92111375237
+      ]
+    ]
+  },
+  {
+    "type": "metropolitan",
+    "seed": 130,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 6,
+    "currentUnfilled": 6,
+    "baselineBuildings": 11616,
+    "currentBuildings": 11117,
+    "baselineCenters": [
+      [
+        33545.737075913436,
+        33118.87130749045
+      ],
+      [
+        32848.748438006645,
+        33118.87130749045
+      ],
+      [
+        32795.77308096376,
+        33118.87130749045
+      ],
+      [
+        31949.888763562576,
+        33118.87130749045
+      ],
+      [
+        33591.08551037138,
+        33118.87130749045
+      ],
+      [
+        31998.842926133704,
+        33118.87130749045
+      ]
+    ],
+    "currentCenters": [
+      [
+        33545.737075913436,
+        33118.87130749045
+      ],
+      [
+        32848.748438006645,
+        33118.87130749045
+      ],
+      [
+        32795.77308096376,
+        33118.87130749045
+      ],
+      [
+        33591.08551037138,
+        33118.87130749045
+      ],
+      [
+        31992.149950295294,
+        33122.35331773085
+      ],
+      [
+        32569.21859138354,
+        32373.263655928036
+      ]
+    ]
+  },
+  {
+    "type": "metropolitan",
+    "seed": 7,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 4,
+    "baselineBuildings": 12019,
+    "currentBuildings": 11416,
+    "baselineCenters": [
+      [
+        32845.62589275267,
+        33116.80583205414
+      ]
+    ],
+    "currentCenters": [
+      [
+        32845.62589275267,
+        33116.80583205414
+      ],
+      [
+        32240.39997528591,
+        32463.709045293737
+      ],
+      [
+        32901.1543435143,
+        33006.11444766182
+      ],
+      [
+        32957.31806770671,
+        33010.8387519163
+      ]
+    ]
+  },
+  {
+    "type": "planned_grid",
+    "seed": 42,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10053,
+    "currentBuildings": 10053,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "planned_grid",
+    "seed": 130,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10074,
+    "currentBuildings": 10074,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "planned_grid",
+    "seed": 7,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 10064,
+    "currentBuildings": 10064,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "regional_hub",
+    "seed": 42,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 8879,
+    "currentBuildings": 8391,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "regional_hub",
+    "seed": 130,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 9013,
+    "currentBuildings": 8578,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "regional_hub",
+    "seed": 7,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 8628,
+    "currentBuildings": 8232,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "transit_corridor",
+    "seed": 42,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 6974,
+    "currentBuildings": 6744,
+    "baselineCenters": [],
+    "currentCenters": []
+  },
+  {
+    "type": "transit_corridor",
+    "seed": 130,
+    "baselineValid": false,
+    "currentValid": false,
+    "baselineUnfilled": 1,
+    "currentUnfilled": 1,
+    "baselineBuildings": 7320,
+    "currentBuildings": 7055,
+    "baselineCenters": [
+      [
+        32833.746393297035,
+        32940.208755493164
+      ]
+    ],
+    "currentCenters": [
+      [
+        32833.746393297035,
+        32940.208755493164
+      ]
+    ]
+  },
+  {
+    "type": "transit_corridor",
+    "seed": 7,
+    "baselineValid": true,
+    "currentValid": true,
+    "baselineUnfilled": 0,
+    "currentUnfilled": 0,
+    "baselineBuildings": 7378,
+    "currentBuildings": 7144,
+    "baselineCenters": [],
+    "currentCenters": []
+  }
+]

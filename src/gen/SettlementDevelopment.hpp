@@ -11,6 +11,8 @@ public:
 	{
 		bool passed;
 		String summary;
+		JSON unfilledBlocks{}; ///< Geometry and candidate failures for unresolved developable street faces.
+		JSON landscapedPockets{}; ///< Explicit small public ground, separate from housing occupancy.
 	};
 
 	SettlementDevelopment(World& world, RoadNetwork& network, const TrainNetwork& trains,

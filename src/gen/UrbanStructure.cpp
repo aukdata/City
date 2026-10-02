@@ -171,6 +171,22 @@ namespace UrbanStructure
 		}
 		return candidates.back().first;
 	}
+	void rebuildCommercialStreets(UrbanMorphology::Plan& plan)
+	{
+		plan.commercialStreets.clear();
+		if (plan.structure == Type::None || !plan.station) { return; }
+		const auto x = UrbanStructure::streetCoordinates(plan, false), z = UrbanStructure::streetCoordinates(plan, true);
+		const Vec2 start{x[nearestIndex(x, plan.station->x)], z[nearestIndex(z, plan.station->y)]};
+		for (const auto& center : plan.centers)
+		{
+			const Vec2 end{x[nearestIndex(x, center.position.x)], z[nearestIndex(z, center.position.y)]};
+			const Vec2 corner{end.x, start.y};
+			for (const Line segment : {Line{start, corner}, Line{corner, end}})
+			{
+				if (segment.begin.distanceFromSq(segment.end) > .01) { plan.commercialStreets << segment; }
+			}
+		}
+	}
 	void alignCenters(UrbanMorphology::Plan& plan)
 	{
 		if (plan.structure == Type::None)
@@ -225,6 +241,7 @@ namespace UrbanStructure
 				plan.station = center.position;
 			}
 		}
+		rebuildCommercialStreets(plan);
 	}
 
 	void apply(UrbanMorphology::Plan& plan, Type type)
@@ -297,17 +314,11 @@ namespace UrbanStructure
 			}
 		}
 		// 商業地は拠点を結ぶ実際の直交街路の沿道へ。全面を商業用途にはしない。
-		if (plan.station)
+		for (const auto& street : plan.commercialStreets)
 		{
-			for (const auto& center : plan.centers)
+			if (segmentDistance(point, street.begin, street.end) < GenerationSettings::get().settlements_stationStreetRadius)
 			{
-				const Vec2 corner{center.position.x, plan.station->y};
-				const double distance =
-					Min(segmentDistance(point, *plan.station, corner), segmentDistance(point, corner, center.position));
-				if (distance < GenerationSettings::get().settlements_stationStreetRadius)
-				{
-					return {District::OldTown, Generation::Railway, 1, settings.coreFrontage};
-				}
+				return {District::OldTown, Generation::Railway, 1, settings.coreFrontage};
 			}
 		}
 		if (plan.industry.w > 0 && plan.industry.contains(point))
@@ -516,5 +527,6 @@ namespace UrbanStructure
 				plan.neighborhoodParks << Polygon{points};
 			}
 		}
+		rebuildCommercialStreets(plan);
 	}
 } // namespace UrbanStructure

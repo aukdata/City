@@ -1,0 +1,170 @@
+{
+  "caveat": "Developable-zone cells are a zoning denominator, not exact clipped usable parcel area.",
+  "cases": [
+    {
+      "case": "urban_structure_coastal_hubs",
+      "buildingsBefore": 8138,
+      "buildingsAfter": 7769,
+      "centralDevelopableZoneCellsBefore": 1369,
+      "centralDevelopableZoneCellsAfter": 1364,
+      "centralOccupiedCellFractionBefore": 0.5025566106647188,
+      "centralOccupiedCellFractionAfter": 0.4464809384164223,
+      "central600mRoofFractionBefore": 0.25897430555555556,
+      "central600mRoofFractionAfter": 0.22657222222222223
+    },
+    {
+      "case": "urban_structure_coastal_hubs_seed130",
+      "buildingsBefore": 8052,
+      "buildingsAfter": 7620,
+      "centralDevelopableZoneCellsBefore": 1369,
+      "centralDevelopableZoneCellsAfter": 1369,
+      "centralOccupiedCellFractionBefore": 0.5113221329437546,
+      "centralOccupiedCellFractionAfter": 0.4587289992695398,
+      "central600mRoofFractionBefore": 0.25635277777777776,
+      "central600mRoofFractionAfter": 0.2342701388888889
+    },
+    {
+      "case": "urban_structure_coastal_hubs_seed7",
+      "buildingsBefore": 7972,
+      "buildingsAfter": 7655,
+      "centralDevelopableZoneCellsBefore": 1369,
+      "centralDevelopableZoneCellsAfter": 1367,
+      "centralOccupiedCellFractionBefore": 0.5164353542731921,
+      "centralOccupiedCellFractionAfter": 0.47329919531821507,
+      "central600mRoofFractionBefore": 0.2674270833333333,
+      "central600mRoofFractionAfter": 0.24267569444444445
+    },
+    {
+      "case": "urban_structure_constrained_linear",
+      "buildingsBefore": 4967,
+      "buildingsAfter": 4790,
+      "centralDevelopableZoneCellsBefore": 1385,
+      "centralDevelopableZoneCellsAfter": 1384,
+      "centralOccupiedCellFractionBefore": 0.5227436823104693,
+      "centralOccupiedCellFractionAfter": 0.49710982658959535,
+      "central600mRoofFractionBefore": 0.23761527777777777,
+      "central600mRoofFractionAfter": 0.22737916666666666
+    },
+    {
+      "case": "urban_structure_constrained_linear_seed130",
+      "buildingsBefore": 4885,
+      "buildingsAfter": 4683,
+      "centralDevelopableZoneCellsBefore": 1349,
+      "centralDevelopableZoneCellsAfter": 1347,
+      "centralOccupiedCellFractionBefore": 0.5700518902891031,
+      "centralOccupiedCellFractionAfter": 0.5412026726057907,
+      "central600mRoofFractionBefore": 0.2555673611111111,
+      "central600mRoofFractionAfter": 0.25086458333333334
+    },
+    {
+      "case": "urban_structure_constrained_linear_seed7",
+      "buildingsBefore": 4966,
+      "buildingsAfter": 4799,
+      "centralDevelopableZoneCellsBefore": 1413,
+      "centralDevelopableZoneCellsAfter": 1411,
+      "centralOccupiedCellFractionBefore": 0.5322009907997169,
+      "centralOccupiedCellFractionAfter": 0.49255846917080087,
+      "central600mRoofFractionBefore": 0.24341805555555557,
+      "central600mRoofFractionAfter": 0.22967361111111112
+    },
+    {
+      "case": "urban_structure_metropolitan",
+      "buildingsBefore": 11903,
+      "buildingsAfter": 11317,
+      "centralDevelopableZoneCellsBefore": 1444,
+      "centralDevelopableZoneCellsAfter": 1444,
+      "centralOccupiedCellFractionBefore": 0.3732686980609418,
+      "centralOccupiedCellFractionAfter": 0.35526315789473684,
+      "central600mRoofFractionBefore": 0.23455694444444444,
+      "central600mRoofFractionAfter": 0.22307083333333333
+    },
+    {
+      "case": "urban_structure_metropolitan_seed130",
+      "buildingsBefore": 11616,
+      "buildingsAfter": 11117,
+      "centralDevelopableZoneCellsBefore": 1406,
+      "centralDevelopableZoneCellsAfter": 1406,
+      "centralOccupiedCellFractionBefore": 0.33926031294452347,
+      "centralOccupiedCellFractionAfter": 0.33926031294452347,
+      "central600mRoofFractionBefore": 0.20838541666666666,
+      "central600mRoofFractionAfter": 0.20838541666666666
+    },
+    {
+      "case": "urban_structure_metropolitan_seed7",
+      "buildingsBefore": 12019,
+      "buildingsAfter": 11416,
+      "centralDevelopableZoneCellsBefore": 1406,
+      "centralDevelopableZoneCellsAfter": 1405,
+      "centralOccupiedCellFractionBefore": 0.3890469416785206,
+      "centralOccupiedCellFractionAfter": 0.3665480427046263,
+      "central600mRoofFractionBefore": 0.23840763888888888,
+      "central600mRoofFractionAfter": 0.22387847222222224
+    },
+    {
+      "case": "urban_structure_regional_hub",
+      "buildingsBefore": 8879,
+      "buildingsAfter": 8391,
+      "centralDevelopableZoneCellsBefore": 1406,
+      "centralDevelopableZoneCellsAfter": 1406,
+      "centralOccupiedCellFractionBefore": 0.5227596017069701,
+      "centralOccupiedCellFractionAfter": 0.46870554765291605,
+      "central600mRoofFractionBefore": 0.2788625,
+      "central600mRoofFractionAfter": 0.24473055555555556
+    },
+    {
+      "case": "urban_structure_regional_hub_seed130",
+      "buildingsBefore": 9013,
+      "buildingsAfter": 8578,
+      "centralDevelopableZoneCellsBefore": 1444,
+      "centralDevelopableZoneCellsAfter": 1436,
+      "centralOccupiedCellFractionBefore": 0.5560941828254847,
+      "centralOccupiedCellFractionAfter": 0.5174094707520891,
+      "central600mRoofFractionBefore": 0.28979375,
+      "central600mRoofFractionAfter": 0.26590694444444446
+    },
+    {
+      "case": "urban_structure_regional_hub_seed7",
+      "buildingsBefore": 8628,
+      "buildingsAfter": 8232,
+      "centralDevelopableZoneCellsBefore": 1406,
+      "centralDevelopableZoneCellsAfter": 1401,
+      "centralOccupiedCellFractionBefore": 0.5085348506401138,
+      "centralOccupiedCellFractionAfter": 0.4596716630977873,
+      "central600mRoofFractionBefore": 0.26108472222222223,
+      "central600mRoofFractionAfter": 0.2334048611111111
+    },
+    {
+      "case": "urban_structure_transit_corridor",
+      "buildingsBefore": 6974,
+      "buildingsAfter": 6744,
+      "centralDevelopableZoneCellsBefore": 1369,
+      "centralDevelopableZoneCellsAfter": 1369,
+      "centralOccupiedCellFractionBefore": 0.48940832724616506,
+      "centralOccupiedCellFractionAfter": 0.49013878743608474,
+      "central600mRoofFractionBefore": 0.2263263888888889,
+      "central600mRoofFractionAfter": 0.22683263888888888
+    },
+    {
+      "case": "urban_structure_transit_corridor_seed130",
+      "buildingsBefore": 7320,
+      "buildingsAfter": 7055,
+      "centralDevelopableZoneCellsBefore": 1406,
+      "centralDevelopableZoneCellsAfter": 1406,
+      "centralOccupiedCellFractionBefore": 0.5298719772403983,
+      "centralOccupiedCellFractionAfter": 0.5256045519203414,
+      "central600mRoofFractionBefore": 0.24227222222222222,
+      "central600mRoofFractionAfter": 0.24067847222222222
+    },
+    {
+      "case": "urban_structure_transit_corridor_seed7",
+      "buildingsBefore": 7378,
+      "buildingsAfter": 7144,
+      "centralDevelopableZoneCellsBefore": 1369,
+      "centralDevelopableZoneCellsAfter": 1369,
+      "centralOccupiedCellFractionBefore": 0.5076698319941563,
+      "centralOccupiedCellFractionAfter": 0.5018261504747992,
+      "central600mRoofFractionBefore": 0.235725,
+      "central600mRoofFractionAfter": 0.2336
+    }
+  ]
+}

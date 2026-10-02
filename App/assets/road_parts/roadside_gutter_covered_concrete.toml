@@ -1,0 +1,18 @@
+id = "roadside_gutter_covered_concrete"
+name = "Village Covered Concrete Gutter"
+type = "RoadsideGutter"
+tiling = "CrossSection"
+placement = "Strip"
+envelope_role = "Structural"
+model = "roadside_gutter_covered_concrete.obj"
+model_unit_width = 0.32
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = false
+
+[material]
+color = [0.52, 0.53, 0.50]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [800.0]

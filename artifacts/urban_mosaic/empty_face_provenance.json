@@ -1,0 +1,563 @@
+[
+  {
+    "case": "coastal_hubs",
+    "seed": 130,
+    "face": 0,
+    "commonBaseline": false,
+    "area": 859.6217887401581,
+    "road": 1465,
+    "rail": 889,
+    "both": 889,
+    "other": 0,
+    "tested": 1465,
+    "witness": false,
+    "center": [
+      32984.3642644611,
+      32732.679764382618
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 130,
+    "face": 1,
+    "commonBaseline": true,
+    "area": 2276.663684606552,
+    "road": 0,
+    "rail": 1380,
+    "both": 0,
+    "other": 0,
+    "tested": 1380,
+    "witness": false,
+    "center": [
+      33202.50068654079,
+      32741.0019491762
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 130,
+    "face": 2,
+    "commonBaseline": false,
+    "area": 1062.6765489578247,
+    "road": 2579,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 2579,
+    "witness": false,
+    "center": [
+      32349.663077303663,
+      32530.977286940662
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 130,
+    "face": 3,
+    "commonBaseline": false,
+    "area": 600.2774916887283,
+    "road": 1079,
+    "rail": 83,
+    "both": 83,
+    "other": 0,
+    "tested": 1079,
+    "witness": false,
+    "center": [
+      32905.23548246919,
+      32834.25933937033
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 42,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 2087.9609904289246,
+    "road": 0,
+    "rail": 920,
+    "both": 0,
+    "other": 0,
+    "tested": 920,
+    "witness": false,
+    "center": [
+      33198.844566233354,
+      32744.820295218728
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 42,
+    "face": 1,
+    "commonBaseline": false,
+    "area": 1233.612792313099,
+    "road": 2706,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 2706,
+    "witness": false,
+    "center": [
+      32351.728543550955,
+      32547.148517693873
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 42,
+    "face": 2,
+    "commonBaseline": true,
+    "area": 2163.547568321228,
+    "road": 0,
+    "rail": 1040,
+    "both": 0,
+    "other": 0,
+    "tested": 1040,
+    "witness": false,
+    "center": [
+      32335.919830206363,
+      32744.820295218728
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 42,
+    "face": 3,
+    "commonBaseline": false,
+    "area": 1080.1852815151215,
+    "road": 593,
+    "rail": 736,
+    "both": 589,
+    "other": 0,
+    "tested": 740,
+    "witness": false,
+    "center": [
+      33091.01156778416,
+      32747.30315417474
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 7,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 3013.091784477234,
+    "road": 0,
+    "rail": 2600,
+    "both": 0,
+    "other": 0,
+    "tested": 2600,
+    "witness": false,
+    "center": [
+      33141.5964050293,
+      32745.846225644207
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 7,
+    "face": 1,
+    "commonBaseline": true,
+    "area": 1977.711130142212,
+    "road": 0,
+    "rail": 720,
+    "both": 0,
+    "other": 0,
+    "tested": 720,
+    "witness": false,
+    "center": [
+      33197.91641224266,
+      32745.846225628487
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 7,
+    "face": 2,
+    "commonBaseline": true,
+    "area": 2075.9360216856003,
+    "road": 0,
+    "rail": 920,
+    "both": 0,
+    "other": 0,
+    "tested": 920,
+    "witness": false,
+    "center": [
+      32334.118453863135,
+      32745.846225628484
+    ]
+  },
+  {
+    "case": "coastal_hubs",
+    "seed": 7,
+    "face": 3,
+    "commonBaseline": false,
+    "area": 1298.8939385414124,
+    "road": 180,
+    "rail": 600,
+    "both": 180,
+    "other": 0,
+    "tested": 600,
+    "witness": false,
+    "center": [
+      33091.72864556509,
+      32745.52341121776
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 130,
+    "face": 0,
+    "commonBaseline": false,
+    "area": 1400.7280661463737,
+    "road": 3341,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 3341,
+    "witness": false,
+    "center": [
+      32016.521813690506,
+      32503.832880213733
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 130,
+    "face": 1,
+    "commonBaseline": false,
+    "area": 946.6418423652649,
+    "road": 2005,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 2005,
+    "witness": false,
+    "center": [
+      33249.40892631373,
+      32937.605904169024
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 42,
+    "face": 0,
+    "commonBaseline": false,
+    "area": 1286.4045727849007,
+    "road": 2744,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 2744,
+    "witness": false,
+    "center": [
+      32012.127104601623,
+      32500.225464122268
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 42,
+    "face": 1,
+    "commonBaseline": true,
+    "area": 2626.3000864982605,
+    "road": 0,
+    "rail": 2660,
+    "both": 0,
+    "other": 0,
+    "tested": 2660,
+    "witness": false,
+    "center": [
+      32703.241386321668,
+      32690.07236289978
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 7,
+    "face": 0,
+    "commonBaseline": false,
+    "area": 1211.4691585302353,
+    "road": 2496,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 2496,
+    "witness": false,
+    "center": [
+      32012.587234426777,
+      32498.998337239867
+    ]
+  },
+  {
+    "case": "constrained_linear",
+    "seed": 7,
+    "face": 1,
+    "commonBaseline": true,
+    "area": 2693.862255334854,
+    "road": 0,
+    "rail": 2740,
+    "both": 0,
+    "other": 0,
+    "tested": 2740,
+    "witness": false,
+    "center": [
+      32700.71407880771,
+      32688.590419769287
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 2051.4577338695526,
+    "road": 0,
+    "rail": 1460,
+    "both": 0,
+    "other": 0,
+    "tested": 1460,
+    "witness": false,
+    "center": [
+      33545.737075913436,
+      33118.87130749045
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 1,
+    "commonBaseline": true,
+    "area": 2382.814919233322,
+    "road": 0,
+    "rail": 2020,
+    "both": 0,
+    "other": 0,
+    "tested": 2020,
+    "witness": false,
+    "center": [
+      32848.748438006645,
+      33118.87130749045
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 2,
+    "commonBaseline": true,
+    "area": 2625.878342628479,
+    "road": 0,
+    "rail": 1780,
+    "both": 0,
+    "other": 0,
+    "tested": 1780,
+    "witness": false,
+    "center": [
+      32795.77308096376,
+      33118.87130749045
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 3,
+    "commonBaseline": true,
+    "area": 2236.12824344635,
+    "road": 0,
+    "rail": 1780,
+    "both": 0,
+    "other": 0,
+    "tested": 1780,
+    "witness": false,
+    "center": [
+      33591.08551037138,
+      33118.87130749045
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 4,
+    "commonBaseline": false,
+    "area": 1076.0195637345314,
+    "road": 63,
+    "rail": 600,
+    "both": 63,
+    "other": 0,
+    "tested": 600,
+    "witness": false,
+    "center": [
+      31992.149950295294,
+      33122.35331773085
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 130,
+    "face": 5,
+    "commonBaseline": false,
+    "area": 769.7946820855141,
+    "road": 1273,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 1273,
+    "witness": false,
+    "center": [
+      32569.21859138354,
+      32373.263655928036
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 42,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 2454.9997918605804,
+    "road": 0,
+    "rail": 2140,
+    "both": 0,
+    "other": 0,
+    "tested": 2140,
+    "witness": false,
+    "center": [
+      32846.7238732494,
+      33116.70298780734
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 42,
+    "face": 1,
+    "commonBaseline": false,
+    "area": 982.3697148561478,
+    "road": 1660,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 1660,
+    "witness": false,
+    "center": [
+      32528.72104492213,
+      32951.429235334595
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 42,
+    "face": 2,
+    "commonBaseline": false,
+    "area": 1319.5487971305847,
+    "road": 1436,
+    "rail": 2200,
+    "both": 1436,
+    "other": 0,
+    "tested": 2200,
+    "witness": false,
+    "center": [
+      32899.82285565978,
+      33007.21243900687
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 42,
+    "face": 3,
+    "commonBaseline": false,
+    "area": 1960.462448835373,
+    "road": 0,
+    "rail": 2560,
+    "both": 0,
+    "other": 0,
+    "tested": 2560,
+    "witness": false,
+    "center": [
+      32958.12233912258,
+      33010.92111375237
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 7,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 2667.947319507599,
+    "road": 0,
+    "rail": 2540,
+    "both": 0,
+    "other": 0,
+    "tested": 2540,
+    "witness": false,
+    "center": [
+      32845.62589275267,
+      33116.80583205414
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 7,
+    "face": 1,
+    "commonBaseline": false,
+    "area": 937.0999229550362,
+    "road": 880,
+    "rail": 0,
+    "both": 0,
+    "other": 0,
+    "tested": 880,
+    "witness": false,
+    "center": [
+      32240.39997528591,
+      32463.709045293737
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 7,
+    "face": 2,
+    "commonBaseline": false,
+    "area": 1165.0944685935974,
+    "road": 2413,
+    "rail": 2408,
+    "both": 2401,
+    "other": 0,
+    "tested": 2420,
+    "witness": false,
+    "center": [
+      32901.1543435143,
+      33006.11444766182
+    ]
+  },
+  {
+    "case": "metropolitan",
+    "seed": 7,
+    "face": 3,
+    "commonBaseline": false,
+    "area": 1618.8290922641754,
+    "road": 0,
+    "rail": 2160,
+    "both": 0,
+    "other": 0,
+    "tested": 2160,
+    "witness": false,
+    "center": [
+      32957.31806770671,
+      33010.8387519163
+    ]
+  },
+  {
+    "case": "transit_corridor",
+    "seed": 130,
+    "face": 0,
+    "commonBaseline": true,
+    "area": 2801.1171102523804,
+    "road": 0,
+    "rail": 2820,
+    "both": 0,
+    "other": 0,
+    "tested": 2820,
+    "witness": false,
+    "center": [
+      32833.746393297035,
+      32940.208755493164
+    ]
+  }
+]

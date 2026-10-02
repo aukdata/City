@@ -16,6 +16,7 @@ namespace GeneratedStreet
 		LineType center=LineType::None;
 		bool edgeLines=false;
 		bool arterial=false;
+		bool coveredGutter=false; ///< Village access without a raised sidewalk uses a flush covered drain.
 	};
 
 	inline Profile describe(Role role)
@@ -30,6 +31,7 @@ namespace GeneratedStreet
 			result.walkwayLeft=result.walkwayRight=config.streetProfiles_farmAccess_walkway; result.shoulder=config.streetProfiles_farmAccess_shoulder;
 			result.center=markings[config.streetProfiles_farmAccess_center]; result.edgeLines=config.streetProfiles_farmAccess_edgeLines!=0; result.arterial=config.streetProfiles_farmAccess_arterial!=0; break;
 		case Role::Village:
+			result.coveredGutter=true;
 			result.lanes=config.streetProfiles_village_lanes; result.laneWidth=config.streetProfiles_village_laneWidth; result.speed=config.streetProfiles_village_speed;
 			result.walkwayLeft=result.walkwayRight=config.streetProfiles_village_walkway; result.shoulder=config.streetProfiles_village_shoulder;
 			result.center=markings[config.streetProfiles_village_center]; result.edgeLines=config.streetProfiles_village_edgeLines!=0; result.arterial=config.streetProfiles_village_arterial!=0; break;
@@ -102,7 +104,8 @@ namespace GeneratedStreet
 				part(type,side<0 ? -distance-width : distance,width,definition); distance+=width;
 			};
 			strip(RoadPartType::Shoulder,profile.shoulder,U"roadbed_asphalt");
-			strip(RoadPartType::RoadsideGutter,GenerationSettings::get().streetProfiles_gutterWidth,U"roadside_gutter_concrete");
+			strip(RoadPartType::RoadsideGutter,GenerationSettings::get().streetProfiles_gutterWidth,
+				profile.coveredGutter && walkway<=0 ? U"roadside_gutter_covered_concrete" : U"roadside_gutter_concrete");
 			if (walkway>0)
 			{
 				strip(RoadPartType::Curb,GenerationSettings::get().streetProfiles_curbWidth,U"curb_concrete");

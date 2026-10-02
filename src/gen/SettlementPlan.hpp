@@ -26,6 +26,7 @@ namespace UrbanMorphology
 		Origin origin = Origin::Rural;
 		UrbanStructure::Type structure = UrbanStructure::Type::None;
 		Array<UrbanStructure::Center> centers; ///< 生成済みの現代拠点。起源とは独立。
+		Array<Line> commercialStreets; ///< 実際の集散道路座標に合わせた派生商業軸。核の位置は変更しない。
 		RuralForm ruralForm = RuralForm::Clustered;
 		uint8 scale = 2;
 		uint64 salt = 0;
@@ -206,6 +207,7 @@ namespace UrbanMorphology
 		};
 		if (plan.civic) { scaleRectangle(*plan.civic); }
 		scaleRectangle(plan.industry);
+		UrbanStructure::rebuildCommercialStreets(plan);
 	}
 
 	inline bool inCore(const Plan& plan, Vec2 point, double margin=0)

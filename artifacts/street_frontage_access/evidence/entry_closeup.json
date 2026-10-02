@@ -1,0 +1,50 @@
+﻿{
+  "assignedRoadBoundary": [
+    32071.961158964747,
+    20.006,
+    33112.18889783317
+  ],
+  "buildingCell": [
+    31,
+    32,
+    20,
+    21
+  ],
+  "buildingType": 1,
+  "edgeId": 738,
+  "emittedEntrance": [
+    32070.7880859375,
+    20.18000030517578,
+    33113.681640625
+  ],
+  "emittedRoadEnd": [
+    32071.955078125,
+    20.016000747680664,
+    33112.1953125
+  ],
+  "entranceJoinErrorMeters": 0.0007173416196372449,
+  "eye": [
+    32076.39160237915,
+    21.506,
+    33110.59304768346
+  ],
+  "eyeAboveAssignedStreetMeters": 1.5,
+  "lookAt": [
+    32070.7880859375,
+    20.980000305175782,
+    33113.681640625
+  ],
+  "modelStem": "residential_014",
+  "parcelKey": "8725724280132884",
+  "pathKey": "8725724280132884:32070.78871:33113.68128",
+  "sameCroppedWorld": true,
+  "sameProductionGeometryAndMaterials": true,
+  "seed": 42,
+  "streetBoundaryHeightBasis": "covered-gutter nominal top; authored joints may recess4mm",
+  "streetSeamHeightMeters": 0.010000747680663835,
+  "targetEntrance": [
+    32070.788707196363,
+    20.180000915527344,
+    33113.6812819942
+  ]
+}

@@ -5,6 +5,8 @@
 /// @brief Shared XZ footprint geometry used by placement and its regression tests.
 namespace ParcelGeometry
 {
+	/// @brief Placement clearance applied to each of two neighboring building footprints.
+	inline constexpr float kPlacementNeighborClearance=.25f;
 	using Quad = std::array<Vec2, 4>;
 	inline Quad footprint(Vec2 center, double halfSize, double angle)
 	{

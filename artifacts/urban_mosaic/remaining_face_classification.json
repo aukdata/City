@@ -1,0 +1,399 @@
+{
+  "matrixPassed": 14,
+  "matrixCases": 21,
+  "unresolvedFaces": 16,
+  "knownBaselineCenters": 1,
+  "note": "These are conservative unresolved faces, not proven legal vacancies or certified unbuildable land. Gross area is between centerlines, not usable land. No further acceptance exemption is applied.",
+  "faces": [
+    {
+      "type": "coastal_hubs",
+      "seed": 42,
+      "face": 0,
+      "grossCenterlineAreaM2": 1167.1231311559677,
+      "boundingBoxMeters": [
+        23.829573805513064,
+        76.00340442579181
+      ],
+      "necessaryCenterAreaM2": 6.812748189786362,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 2732,
+      "roadRejected": 2732,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_coastal_hubs_seed42_0.json"
+    },
+    {
+      "type": "coastal_hubs",
+      "seed": 7,
+      "face": 0,
+      "grossCenterlineAreaM2": 3013.091784477234,
+      "boundingBoxMeters": [
+        68.0040283203125,
+        44.30754852294922
+      ],
+      "necessaryCenterAreaM2": 11.915827468037605,
+      "sameCenterAsNoMosaicBaseline": true,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 2600,
+      "roadRejected": 0,
+      "railRejected": 2600,
+      "bothRejected": 0,
+      "roles": [],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_coastal_hubs_seed7_0.json"
+    },
+    {
+      "type": "coastal_hubs",
+      "seed": 7,
+      "face": 1,
+      "grossCenterlineAreaM2": 1080.1982160806656,
+      "boundingBoxMeters": [
+        22.28264298958311,
+        76.64029026589196
+      ],
+      "necessaryCenterAreaM2": 0.23390274868415872,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 2361,
+      "roadRejected": 2361,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_coastal_hubs_seed7_1.json"
+    },
+    {
+      "type": "coastal_hubs",
+      "seed": 7,
+      "face": 2,
+      "grossCenterlineAreaM2": 1084.813086271286,
+      "boundingBoxMeters": [
+        33.377623361295264,
+        44.307548792348825
+      ],
+      "necessaryCenterAreaM2": 2.595164187368937e-05,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1080,
+      "roadRejected": 850,
+      "railRejected": 946,
+      "bothRejected": 716,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_coastal_hubs_seed7_2.json"
+    },
+    {
+      "type": "constrained_linear",
+      "seed": 130,
+      "face": 0,
+      "grossCenterlineAreaM2": 1051.139357149601,
+      "boundingBoxMeters": [
+        79.69349973649878,
+        23.080267579392967
+      ],
+      "necessaryCenterAreaM2": 4.301821573397319,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 2228,
+      "roadRejected": 2228,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90536-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90536-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90536-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90536-3"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_constrained_linear_seed130_0.json"
+    },
+    {
+      "type": "constrained_linear",
+      "seed": 42,
+      "face": 0,
+      "grossCenterlineAreaM2": 852.3652997612953,
+      "boundingBoxMeters": [
+        48.20638978185161,
+        48.70382964063174
+      ],
+      "necessaryCenterAreaM2": 0.7308316959934018,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1638,
+      "roadRejected": 1621,
+      "railRejected": 920,
+      "bothRejected": 903,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_constrained_linear_seed42_0.json"
+    },
+    {
+      "type": "constrained_linear",
+      "seed": 7,
+      "face": 0,
+      "grossCenterlineAreaM2": 817.7231567502022,
+      "boundingBoxMeters": [
+        47.311370694096695,
+        47.004656817422074
+      ],
+      "necessaryCenterAreaM2": 0.7290690857862501,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1555,
+      "roadRejected": 1547,
+      "railRejected": 839,
+      "bothRejected": 831,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_constrained_linear_seed7_0.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 130,
+      "face": 0,
+      "grossCenterlineAreaM2": 915.8805978894234,
+      "boundingBoxMeters": [
+        21.828180203519878,
+        58.44791550208174
+      ],
+      "necessaryCenterAreaM2": 0.0004674485535360873,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1924,
+      "roadRejected": 1924,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90535-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90535-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90535-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90535-5",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90535-5"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed130_0.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 130,
+      "face": 1,
+      "grossCenterlineAreaM2": 991.2237011194229,
+      "boundingBoxMeters": [
+        68.3719482421875,
+        25.999814557890204
+      ],
+      "necessaryCenterAreaM2": 8.608619302511215,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1917,
+      "roadRejected": 1917,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-1"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed130_1.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 130,
+      "face": 2,
+      "grossCenterlineAreaM2": 770.6417189836502,
+      "boundingBoxMeters": [
+        49.363531229078944,
+        23.664205783701618
+      ],
+      "necessaryCenterAreaM2": 7.113973259925842,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1419,
+      "roadRejected": 1419,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90531-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90531-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90531-1",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90531-5",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90531-5"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed130_2.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 130,
+      "face": 3,
+      "grossCenterlineAreaM2": 994.2067746520042,
+      "boundingBoxMeters": [
+        67.44899248208822,
+        29.480261153446918
+      ],
+      "necessaryCenterAreaM2": 7.767988443374634,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1660,
+      "roadRejected": 1660,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90532"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed130_3.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "face": 0,
+      "grossCenterlineAreaM2": 1030.5342384576797,
+      "boundingBoxMeters": [
+        65.81253101055336,
+        26.106035517150303
+      ],
+      "necessaryCenterAreaM2": 12.071144580841064,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 2068,
+      "roadRejected": 2068,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-5",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-5",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-5"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed7_0.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "face": 1,
+      "grossCenterlineAreaM2": 568.3022623062134,
+      "boundingBoxMeters": [
+        28.547223232228134,
+        34.94331928251631
+      ],
+      "necessaryCenterAreaM2": 2.6629263758659363,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 220,
+      "roadRejected": 220,
+      "railRejected": 5,
+      "bothRejected": 5,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-3",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90533-3"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed7_1.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "face": 2,
+      "grossCenterlineAreaM2": 965.6243619918823,
+      "boundingBoxMeters": [
+        24.821047178131266,
+        47.955322265625
+      ],
+      "necessaryCenterAreaM2": 1.7628057599067688,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1420,
+      "roadRejected": 1420,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90531",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90531",
+        "\u691c\u8a3c\u5e02\u65e7\u96c6\u843d\u9023\u7d61\u90531"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed7_2.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "face": 3,
+      "grossCenterlineAreaM2": 834.1688348054886,
+      "boundingBoxMeters": [
+        24.103880259233847,
+        52.260654839948984
+      ],
+      "necessaryCenterAreaM2": 0.07581224292516708,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1630,
+      "roadRejected": 1630,
+      "railRejected": 1630,
+      "bothRejected": 1630,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90532-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed7_3.json"
+    },
+    {
+      "type": "metropolitan",
+      "seed": 7,
+      "face": 4,
+      "grossCenterlineAreaM2": 1209.755117893219,
+      "boundingBoxMeters": [
+        28.391766519565863,
+        66.44968019954467
+      ],
+      "necessaryCenterAreaM2": 10.68971906465822,
+      "sameCenterAsNoMosaicBaseline": false,
+      "classification": "transport-clearance constrained; legal house fit unresolved",
+      "hasSampledLegalWitness": false,
+      "tested": 1971,
+      "roadRejected": 1971,
+      "railRejected": 0,
+      "bothRejected": 0,
+      "roles": [
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-4",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-4",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-4",
+        "\u691c\u8a3c\u5e02\u65e7\u6751\u90534-2"
+      ],
+      "source": "artifacts/realism_urban_rejoined_matrix/UrbanStructure.Generated/empty_face_metropolitan_seed7_4.json"
+    }
+  ]
+}
