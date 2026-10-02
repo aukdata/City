@@ -4,7 +4,7 @@
 void CommandPalette::open()
 {
 	GameInput::releaseTextFocus();visible=true;input=U"/";m_cursor=1;m_choice=0;
-	m_historyIndex=m_history.size();m_justOpened=true;GameInput::textOwnedFrame=true;
+	m_historyIndex=m_history.size();m_textEdit=BufferedTextEdit{};m_justOpened=true;GameInput::textOwnedFrame=true;
 }
 void CommandPalette::close() { visible=false;GameInput::textOwnedFrame=true; }
 namespace
@@ -13,6 +13,13 @@ namespace
 	bool pressedOnce(const Input& key)
 	{
 		return key.down() || GameInput::buffer.down(key.code());
+	}
+
+	/// @brief Include complete short taps while keeping native key hold timing for fallback repeats.
+	BufferedTextEditKey editKeyState(const Input& key)
+	{
+		return {Max(GameInput::buffer.editPressCount(key.code()), key.down() ? size_t{1} : size_t{0}),
+			key.pressed(), key.pressedDuration().count()};
 	}
 }
 
@@ -37,7 +44,11 @@ Optional<String> CommandPalette::update()
 	{
 		m_historyIndex=Min(m_history.size(),m_historyIndex+1);input=m_historyIndex<m_history.size() ? m_history[m_historyIndex] : U"/";m_cursor=input.size();return none;
 	}
-	m_cursor=TextInput::UpdateText(input,m_cursor);input.remove(U'\n').remove(U'\r').remove(U'\t');
+	const String rawInput = TextInput::GetRawInput();
+	m_cursor = TextInput::UpdateText(input, m_cursor);
+	m_cursor = m_textEdit.update(input, m_cursor, rawInput, composing,
+		editKeyState(KeyBackspace), editKeyState(KeyDelete));
+	input.remove(U'\n').remove(U'\r').remove(U'\t');
 	if (input.size()>256) { input.resize(256); }m_cursor=Min(m_cursor,input.size());
 	if (!composing && pressedOnce(KeyEnter) && !input.trimmed().isEmpty())
 	{

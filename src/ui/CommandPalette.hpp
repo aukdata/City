@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "KeyboardActions.hpp"
+#include "BufferedTextEdit.hpp"
 #include "../debug/GameCommands.hpp"
 
 /// @brief 左下のコマンド入力。開いている間はゲームへのキー入力を遮断する。
@@ -17,6 +18,7 @@ public:
 	void report(String text,bool failed) { message=std::move(text);error=failed; }
 private:
 	Array<String> m_history;
+	BufferedTextEdit m_textEdit;
 	size_t m_cursor=0,m_historyIndex=0,m_choice=0;
 	bool m_justOpened=false;
 };

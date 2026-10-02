@@ -11,16 +11,30 @@ public:
 	void update(const Array<KeyEvent>& events, bool focused)
 	{
 		m_down.fill(false);
+		m_editPresses.fill(0);
 		for (const auto& event : events)
 		{
 			if (m_lastEvent && static_cast<int32>(event.eventIndex-*m_lastEvent)<=0) { continue; }
 			m_lastEvent=event.eventIndex;
-			if (focused && event.down) { m_down[event.code]=true; }
+			if (focused && event.down)
+			{
+				m_down[event.code] = true;
+				if (event.code == KeyBackspace.code()) { ++m_editPresses[0]; }
+				if (event.code == KeyDelete.code()) { ++m_editPresses[1]; }
+			}
 		}
 	}
 	[[nodiscard]] bool down(uint8 code) const { return m_down[code]; }
+	/// @brief Count fresh edit-key taps; gameplay actions keep their existing one-per-frame semantics.
+	[[nodiscard]] size_t editPressCount(uint8 code) const
+	{
+		if (code == KeyBackspace.code()) { return m_editPresses[0]; }
+		if (code == KeyDelete.code()) { return m_editPresses[1]; }
+		return 0;
+	}
 private:
 	std::array<bool,256> m_down{};
+	std::array<size_t,2> m_editPresses{};
 	Optional<uint32> m_lastEvent;
 };
 

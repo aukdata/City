@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/ui/KeyboardActions.hpp"
+#include "src/ui/CommandPalette.hpp"
 #include "src/ui/PanelWidget.hpp"
 #include "src/ui/PauseMenu.hpp"
 #include "src/ui/NavigationHelp.hpp"
@@ -12,6 +13,112 @@
 
 void registerPlayabilityTests(TestRunner& runner)
 {
+	runner.add(U"Input.PaletteBufferedBackspaceRegression", [](TestContext& context)
+	{
+		GameInput::buffer = KeyboardActionBuffer{};
+		GameInput::textInput = nullptr;
+		GameInput::textOwnedFrame = false;
+		CommandPalette palette;
+		palette.open();
+		(void)palette.update();
+		GameInput::buffer.update({{0,0,KeyBackspace.code(),true,false},
+			{1,1,KeyBackspace.code(),false,true}}, true);
+		(void)palette.update();
+		context.expect(palette.input.isEmpty(), U"A complete buffered Backspace tap deletes the initial slash");
+		palette.open();
+		(void)palette.update();
+		GameInput::buffer.update({{0,0,KeyBackspace.code(),true,false},
+			{1,1,KeyBackspace.code(),false,true}}, true);
+		(void)palette.update();
+		context.expect(palette.input == U"/", U"Retained input history cannot replay palette deletion after reopening");
+		palette.close();
+		GameInput::buffer = KeyboardActionBuffer{};
+		GameInput::textOwnedFrame = false;
+	});
+	runner.add(U"Input.BufferedEditing.UnicodeAndBounds", [](TestContext& context)
+	{
+		BufferedTextEdit editor;
+		String text = U"/日本🚉駅";
+		size_t cursor = editor.update(text, 4, U"", false, {1,false,0}, {});
+		context.expect(text == U"/日本駅" && cursor == 3,
+			U"Backspace deletes a whole non-BMP Unicode codepoint before the caret");
+		cursor = editor.update(text, cursor, U"", false, {}, {1,false,0});
+		context.expect(text == U"/日本" && cursor == 3, U"Delete removes the codepoint after the caret");
+		cursor = editor.update(text, 99, U"", false, {}, {1,false,0});
+		context.expect(text == U"/日本" && cursor == 3, U"A stale caret clamps to the end and Delete is bounded");
+		cursor = editor.update(text, 0, U"", false, {4,false,0}, {});
+		context.expect(text == U"/日本" && cursor == 0, U"Backspace at the beginning is bounded");
+		cursor = editor.update(text, 0, U"", false, {}, {40,false,0});
+		context.expect(text.isEmpty() && cursor == 0, U"Repeated Delete cannot cross the end of the string");
+	});
+	runner.add(U"Input.BufferedEditing.NativeControlsAreAuthoritative", [](TestContext& context)
+	{
+		BufferedTextEdit editor;
+		// These strings are the result already produced by Siv3D's raw text update.
+		String text = U"/日本";
+		size_t cursor = editor.update(text, 3, U"\b", false, {1,false,0}, {});
+		context.expect(text == U"/日本" && cursor == 3, U"Native plus buffered Backspace cannot delete twice");
+		cursor = editor.update(text, 1, U"\x7F", false, {}, {1,false,0});
+		context.expect(text == U"/日本" && cursor == 1, U"Native plus buffered Delete cannot delete twice");
+		cursor = editor.update(text, 3, U"\b\b\b", false, {0,true,.5}, {});
+		context.expect(text == U"/日本" && cursor == 3, U"Native repeated Backspaces do not receive an extra held-key edit");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.7}, {});
+		context.expect(text == U"/日本" && cursor == 3,
+			U"Fallback does not add repeats between native repeat events during the same hold");
+		cursor = editor.update(text, 3, U"\x7F", false, {1,false,0}, {1,false,0});
+		context.expect(text == U"/日" && cursor == 2, U"A native Delete does not suppress a missing Backspace");
+	});
+	runner.add(U"Input.BufferedEditing.PressCountsAndNoReplay", [](TestContext& context)
+	{
+		KeyboardActionBuffer buffer;
+		const Array<KeyEvent> events{{0,0,KeyBackspace.code(),true,false},
+			{1,1,KeyBackspace.code(),false,true},{2,2,KeyBackspace.code(),true,false},
+			{3,3,KeyBackspace.code(),false,true},{4,4,KeyDelete.code(),true,false},
+			{5,5,KeyDelete.code(),false,true},{6,6,KeyR.code(),true,false}};
+		buffer.update(events, true);
+		context.expect(buffer.down(KeyR.code()) && buffer.editPressCount(KeyR.code()) == 0,
+			U"Gameplay key actions retain their previous boolean semantics");
+		BufferedTextEdit editor;
+		String text = U"/日本駅前";
+		size_t cursor = editor.update(text, 3, U"", false,
+			{buffer.editPressCount(KeyBackspace.code()),false,0},
+			{buffer.editPressCount(KeyDelete.code()),false,0});
+		context.expect(text == U"/前" && cursor == 1, U"All short edit taps received between two frames are preserved");
+		buffer.update(events, true);
+		cursor = editor.update(text, cursor, U"", false,
+			{buffer.editPressCount(KeyBackspace.code()),false,0},
+			{buffer.editPressCount(KeyDelete.code()),false,0});
+		context.expect(text == U"/前" && cursor == 1, U"Retained key events cannot replay editing");
+		const Array<KeyEvent> unfocused{{7,7,KeyBackspace.code(),true,false}};
+		buffer.update(unfocused, false);
+		buffer.update(unfocused, true);
+		context.expect(buffer.editPressCount(KeyBackspace.code()) == 0,
+			U"Edit presses received without focus cannot replay after focus returns");
+	});
+	runner.add(U"Input.BufferedEditing.ImeAndHeldRepeat", [](TestContext& context)
+	{
+		BufferedTextEdit editor;
+		String text = U"/日本駅前通り";
+		size_t cursor = editor.update(text, text.size(), U"", false, {1,true,0}, {});
+		context.expect(text == U"/日本駅前通", U"A held Backspace starts with one edit");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.32}, {});
+		context.expect(text == U"/日本駅前通", U"Held fallback respects its initial repeat delay");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.34}, {});
+		context.expect(text == U"/日本駅前", U"Held Backspace repeats when native controls are absent");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.36}, {});
+		context.expect(text == U"/日本駅前", U"Held fallback respects its repeat interval");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.41}, {});
+		context.expect(text == U"/日本駅", U"Held Backspace continues repeating");
+		cursor = editor.update(text, cursor, U"", true, {1,true,.5}, {1,true,.5});
+		context.expect(text == U"/日本駅", U"IME composition owns both edit keys");
+		cursor = editor.update(text, cursor, U"", false, {0,true,.8}, {0,true,.8});
+		context.expect(text == U"/日本駅", U"An IME-owned held key cannot delete committed text before release");
+		cursor = editor.update(text, cursor, U"", false, {}, {});
+		cursor = editor.update(text, 1, U"", false, {}, {1,true,0});
+		context.expect(text == U"/本駅" && cursor == 1, U"Fresh Delete works after IME-owned keys are released");
+		cursor = editor.update(text, cursor, U"", false, {}, {0,true,.34});
+		context.expect(text == U"/駅" && cursor == 1, U"Held Delete also repeats when native controls are absent");
+	});
 	runner.add(U"Clock.TwentyFourMinuteDayAndCalendarBoundaries",[](TestContext& context)
 	{
 		GameClock clock;
