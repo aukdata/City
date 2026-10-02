@@ -481,6 +481,134 @@ void registerRoadIntegrityTests(TestRunner& runner)
 		}
 	});
 
+	runner.add(U"RoadIntegrity.InheritedEndpointJoins", [](TestContext& context)
+	{
+		for (const bool reverse : {false,true})
+		{
+			RoadNetwork network;
+			const int host=addRoad(network,{-100,0,0},{-100.0/3,0,0},{100.0/3,0,0},{100,0,0});
+			network.getEdge(host)->designGrade=true;
+			network.getEdge(host)->speedLimit=37;
+			network.getEdge(host)->parts.front().defId=U"inherited_host_profile";
+			const int route=network.addRoute(RoadRouteKind::NationalRoute,U"Endpoint host",{host},314);
+			const int lane=reverse ? addRoad(network,{0,0,100},{0,0,200.0/3},{0,0,100.0/3},{0,0,0})
+				: addRoad(network,{0,0,0},{0,0,100.0/3},{0,0,200.0/3},{0,0,100});
+			const int endpoint=reverse ? network.getEdge(lane)->nodeB : network.getEdge(lane)->nodeA;
+			Array<int> tracked{host};
+			context.expect(network.resolveIntersections(-1,&tracked),U"An exact piece endpoint splits its intersected host");
+			context.expectEqual(network.getNode(endpoint)->attachments.size(),size_t{3},U"The original endpoint is a shared T junction");
+			context.expectEqual(tracked.size(),size_t{2},U"Tracked ownership follows both host descendants");
+			const auto* saved=network.getRoute(route);
+			context.expect(saved && saved->number==314 && saved->edgeIds.size()==2,U"Host route identity and order survive splitting");
+			if (saved) for (const int id : saved->edgeIds)
+			{
+				const auto* edge=network.getEdge(id);
+				context.expect(edge && edge->routeIds.contains(route) && edge->designGrade && edge->parts.front().defId==U"inherited_host_profile",U"Both descendants retain route/profile/design attributes");
+				if (edge) { context.expectNear(edge->speedLimit,37,.001,U"Host speed remains unchanged"); }
+			}
+			context.expect(!network.resolveIntersections(),U"A resolved T junction is stable");
+		}
+	});
+	runner.add(U"RoadIntegrity.CoincidentEndpoints", [](TestContext& context)
+	{
+		for (const bool parallel : {false,true})
+		{
+			RoadNetwork network;
+			const int first=addRoad(network,{-100,0,0},{-200.0/3,0,0},{-100.0/3,0,0},{0,0,0});
+			const int second=parallel ? addRoad(network,{0,0,0},{100.0/3,0,0},{200.0/3,0,0},{100,0,0})
+				: addRoad(network,{0,0,0},{0,0,100.0/3},{0,0,200.0/3},{0,0,100});
+			const int route=network.addRoute(RoadRouteKind::CityRoute,U"Joined old lane",{first,second},0);
+			context.expect(network.resolveIntersections(),U"Coincident perpendicular and collinear endpoints are joined");
+			context.expect(network.getEdge(first) && network.getEdge(second),U"Joining endpoints preserves edge identities");
+			context.expectEqual(network.getEdge(first)->nodeB,network.getEdge(second)->nodeA,U"Duplicate endpoints become one real node");
+			context.expect(network.getRoute(route)->edgeIds==Array<int>{first,second},U"Endpoint joining retains the route edge order");
+			context.expect(!network.resolveIntersections(),U"Coincident endpoint repair is stable");
+		}
+	});
+	runner.add(U"RoadIntegrity.GradeSeparatedEndpoints", [](TestContext& context)
+	{
+		for (const double height : {-8.0,8.0})
+		{
+			RoadNetwork network;
+			addRoad(network,{-100,0,0},{-100.0/3,0,0},{100.0/3,0,0},{100,0,0});
+			const int grade=addRoad(network,{0,height,0},{0,height,100.0/3},{0,height,200.0/3},{0,height,100});
+			network.getEdge(grade)->useElevation=true;
+			context.expect(!network.resolveIntersections(),U"A bridge or tunnel endpoint above/below the host remains grade separated");
+			context.expectEqual(network.getNode(network.getEdge(grade)->nodeA)->attachments.size(),size_t{1},U"Grade separation never creates a false junction");
+		}
+	});
+	runner.add(U"RoadIntegrity.DesignedAcuteRouteSurvivesCleanup", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int junction=network.addNode({0,0,0}),wideEnd=network.addNode({200,0,0}),oldEnd=network.addNode({180,0,80});
+		const int wide=*network.addEdge(junction,wideEnd,{200.0/3,0,0},{400.0/3,0,0},RoadType::Arterial,4);
+		const int lane=*network.addEdge(junction,oldEnd,{60,0,80.0/3},{120,0,160.0/3},RoadType::LocalRoad,2);
+		network.getEdge(lane)->designGrade=true;
+		const int route=network.addRoute(RoadRouteKind::CityRoute,U"Old access lane",{lane},0);
+		const auto original=*network.getBezier(lane);
+		network.fixSharpAngles(45.0f);
+		context.expect(network.getEdge(wide) && network.getEdge(lane),U"Sharp-angle cleanup does not erase designed route geometry");
+		context.expect(network.getRoute(route)->edgeIds==Array<int>{lane},U"The older route keeps its edge reference");
+		if (const auto curve=network.getBezier(lane)) { context.expect(curve->p1==original.p1 && curve->p2==original.p2,U"Validated old-lane control points remain unchanged"); }
+	});
+	runner.add(U"RoadIntegrity.EndpointCapacityAndRouteOnlyGuard", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int host=addRoad(network,{-100,0,0},{-100.0/3,0,0},{100.0/3,0,0},{100,0,0});
+		const int center=network.addNode({0,0,0});
+		for (int i=0;i<5;++i)
+		{
+			const Vec3 end{-80.0+40*i,0,100}; const int node=network.addNode(end);
+			network.addEdge(center,node,end/3,end*2/3,RoadType::LocalRoad,2);
+		}
+		context.expect(!network.resolveIntersections(),U"A T split exceeding six arms is refused atomically");
+		context.expect(network.getEdge(host) && network.getNode(center)->attachments.size()==5,U"Capacity refusal preserves the host and five original arms");
+		RoadNetwork routed;
+		const int start=routed.addNode({0,0,0}),wide=routed.addNode({200,0,0}),end=routed.addNode({180,0,80});
+		routed.addEdge(start,wide,{200.0/3,0,0},{400.0/3,0,0},RoadType::Arterial,4);
+		const int lane=*routed.addEdge(start,end,{60,0,80.0/3},{120,0,160.0/3},RoadType::LocalRoad,2);
+		const int route=routed.addRoute(RoadRouteKind::CityRoute,U"Routed ordinary lane",{lane},0);
+		routed.fixSharpAngles(45.0f);
+		context.expect(routed.getEdge(lane) && routed.getRoute(route)->edgeIds==Array<int>{lane},U"Route identity alone protects an ordinary lane from destructive cleanup");
+	});
+	runner.add(U"RoadIntegrity.EndpointJoinPreservesMetadata", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int first=addRoad(network,{-100,0,0},{-200.0/3,0,0},{-100.0/3,0,0},{0,0,0});
+		const int second=addRoad(network,{0,0,0},{0,0,100.0/3},{0,0,200.0/3},{0,0,100});
+		const int removed=network.getEdge(second)->nodeA,kept=network.getEdge(first)->nodeB;
+		RoadSignPlacement sign; sign.nodeEndId=removed; network.getEdge(second)->signs << sign;
+		RoadMarkingPlacement marking; marking.nodeId=removed; marking.nodeEndId=removed; marking.edgeId=second;
+		network.addManualMarking(marking); network.addNamedDestination(removed,U"Old core",U"Old core",2);
+		context.expect(network.resolveIntersections(),U"A metadata-bearing duplicate endpoint can be joined safely");
+		context.expectEqual(network.getEdge(second)->signs.front().nodeEndId,kept,U"Road-sign endpoint references follow the merge");
+		context.expectEqual(network.manualMarkings().front().nodeId,kept,U"Manual marking node follows the merge");
+		context.expectEqual(network.manualMarkings().front().nodeEndId,kept,U"Manual marking end follows the merge");
+		context.expectEqual(network.namedDestinations().front().nodeId,kept,U"Named destination follows the merge");
+	});
+	runner.add(U"RoadIntegrity.AmbiguousEndpointJoinsAreAtomic", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int a=network.addNode({0,0,0}),b=network.addNode({0,0,0}),c=network.addNode({100,0,0});
+		const int first=*network.addEdge(a,c,{100.0/3,0,0},{200.0/3,0,0},RoadType::LocalRoad,2);
+		const int second=*network.addEdge(b,c,{100.0/3,0,30},{200.0/3,0,30},RoadType::LocalRoad,2);
+		const int d=network.addNode({0,0,-100});
+		const int probe=*network.addEdge(a,d,{0,0,-100.0/3},{0,0,-200.0/3},RoadType::LocalRoad,2);
+		const int route=network.addRoute(RoadRouteKind::CityRoute,U"Keep both old arms",{first,second},0);
+		Array<int> tracked{probe};
+		context.expect(!network.resolveIntersections(0,&tracked),U"A duplicate common-neighbor corridor is refused");
+		context.expect(network.getNode(a) && network.getNode(b) && network.getEdge(first) && network.getEdge(second),U"Refusal preserves both original endpoints and arms");
+		context.expect(network.getRoute(route)->edgeIds==Array<int>{first,second} && tracked==Array<int>{probe},U"Refusal preserves route and ownership references");
+		RoadNetwork bowed;
+		const int host=addRoad(bowed,{-100,0,0},{-100.0/3,0,0},{100.0/3,0,0},{100,0,0});
+		const int end=bowed.addNode({0,0,0}),far=bowed.addNode({0,0,100});
+		const int old=*bowed.addEdge(bowed.getEdge(host)->nodeA,end,{-80,0,-40},{-20,0,-40},RoadType::LocalRoad,2);
+		const int spur=*bowed.addEdge(end,far,{0,0,100.0/3},{0,0,200.0/3},RoadType::LocalRoad,2);
+		const auto before=*bowed.getBezier(old);
+		context.expect(!bowed.resolveIntersections(),U"A bowed old arm is not silently substituted for a straight host descendant");
+		context.expect(bowed.getEdge(host) && bowed.getEdge(old) && bowed.getEdge(spur),U"Ambiguous host split changes no edge IDs");
+		context.expect(bowed.getBezier(old)->p1==before.p1 && bowed.getBezier(old)->p2==before.p2,U"Refusal preserves the distinct old geometry");
+	});
 	runner.add(U"RoadIntegrity.CurveControlPolygonIsNotPavement", [](TestContext& context)
 	{
 		RoadNetwork network;
@@ -517,6 +645,19 @@ void registerRoadIntegrityTests(TestRunner& runner)
 			context.expect(Abs(curve->evaluate(.5f).z-56.25)<.01,U"Both child curves retain the original shape");
 		}
 		context.expectEqual(customPieces,2,U"Both pieces retain the custom road cross section");
+	});
+	runner.add(U"RoadIntegrity.DesignedCorridorsRejectApproximateConsolidation", [](TestContext& context)
+	{
+		RoadNetwork network;
+		const int first=addRoad(network,{0,0,0},{100,0,0},{200,0,0},{300,0,0});
+		const int second=addRoad(network,{0,0,2},{100,0,2},{200,0,2},{300,0,2});
+		network.getEdge(first)->designGrade=true; network.getEdge(second)->designGrade=true;
+		const int route=network.addRoute(RoadRouteKind::CityRoute,U"Validated older corridor",{second},0);
+		const auto before=*network.getBezier(second);
+		context.expectEqual(network.consolidateOverlappingRoads(),0,U"Approximate saved-corridor repair does not shift physically designed geometry");
+		context.expect(network.getEdge(first) && network.getEdge(second),U"Designed road identities survive the repair pass");
+		context.expect(network.getRoute(route)->edgeIds==Array<int>{second},U"Designed route identity is not fragmented");
+		if (const auto after=network.getBezier(second)) { context.expect(before.p0==after->p0 && before.p1==after->p1 && before.p2==after->p2 && before.p3==after->p3,U"The validated curve is unchanged"); }
 	});
 	runner.add(U"RoadIntegrity.OverlappingCorridorsRetainBranchesAndRoutes", [](TestContext& context)
 	{

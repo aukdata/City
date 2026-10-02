@@ -752,7 +752,9 @@ int RoadNetwork::consolidateOverlappingRoads()
 		}
 		return (low+high)*.5f;
 	};
-	const auto eligible=[](const RoadEdge& edge) { return edge.id>=0 && edge.planId<0 && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing); };
+	// Approximate overlap repair may move endpoints by metres. Designed geometry has
+	// already passed physical limits and must only be joined by exact intersection splits.
+	const auto eligible=[](const RoadEdge& edge) { return edge.id>=0 && !edge.designGrade && edge.planId<0 && (edge.edgeState==EdgeState::Open || edge.edgeState==EdgeState::Existing); };
 	const auto joinNodeInto=[&](int nodeId,int endpoint)
 	{
 		const Vec3 shift=getNode(endpoint)->position-getNode(nodeId)->position;
@@ -948,6 +950,72 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId, Array<int>* trackedEdges
 		}
 		*trackedEdges=std::move(updated);return joint;
 	};
+	// Do not reuse a geometrically different existing arm merely because its nodes match.
+	const auto canSplitAtExisting=[&](int host,int endpoint)
+	{
+		const auto* edge=getEdge(host); const auto* node=getNode(endpoint);
+		if (!edge || !node || node->attachments.size()+2>6) { return false; }
+		for (const auto& arm : node->attachments)
+		{
+			const auto* attached=getEdge(arm.edgeId);
+			if (attached && (attached->nodeA==edge->nodeA || attached->nodeB==edge->nodeA
+				|| attached->nodeA==edge->nodeB || attached->nodeB==edge->nodeB)) { return false; }
+		}
+		return true;
+	};
+	// Coincident road-piece endpoints are one junction, without replacing their edge IDs/profiles.
+	const auto joinEndpoints=[&](int first,int second)->Optional<int>
+	{
+		const auto* a=getNode(first); const auto* b=getNode(second);
+		if (!a || !b || first==second || Vec2{a->position.x-b->position.x,a->position.z-b->position.z}.length()>.0001
+			|| Abs(a->position.y-b->position.y)>.0001 || (a->signalPlacement && b->signalPlacement)) { return none; }
+		const int keep=a->signalPlacement ? first : b->signalPlacement ? second : Min(first,second);
+		const int removed=keep==first ? second : first;
+		// Conflicting named destinations require an explicit user-level reconciliation.
+		if (m_destByNode.contains(keep) && m_destByNode.contains(removed)) { return none; }
+		const auto attachments=getNode(removed)->attachments;
+		if (getNode(keep)->attachments.size()+attachments.size()>6) { return none; }
+		for (const auto& attachment : attachments)
+		{
+			const auto* edge=getEdge(attachment.edgeId);
+			if (!edge || edge->nodeA==keep || edge->nodeB==keep) { return none; }
+			const int other=edge->nodeA==removed ? edge->nodeB : edge->nodeA;
+			for (const auto& kept : getNode(keep)->attachments)
+			{
+				const auto* neighbor=getEdge(kept.edgeId);
+				if (neighbor && (neighbor->nodeA==other || neighbor->nodeB==other)) { return none; }
+			}
+		}
+		const Vec3 shift=getNode(keep)->position-getNode(removed)->position;
+		for (const auto& attachment : attachments)
+		{
+			auto* edge=getEdge(attachment.edgeId);
+			if (edge->nodeA==removed) { edge->nodeA=keep; edge->ctrlA+=shift; }
+			if (edge->nodeB==removed) { edge->nodeB=keep; edge->ctrlB+=shift; }
+			for (auto& sign : edge->signs) { if (sign.nodeEndId==removed) { sign.nodeEndId=keep; } }
+			getNode(keep)->attachments << attachment;
+			edge->length=getBezier(edge->id)->totalLength;
+		}
+		for (auto& sign : m_guideSigns)
+		{
+			if (sign.nodeEndId==removed) { sign.nodeEndId=keep; }
+			if (sign.sourceNodeId==removed) { sign.sourceNodeId=keep; }
+		}
+		for (auto& marking : m_manualMarkings)
+		{
+			if (marking.nodeId==removed) { marking.nodeId=keep; }
+			if (marking.nodeEndId==removed) { marking.nodeEndId=keep; }
+		}
+		if (const auto destination=m_destByNode.find(removed); destination!=m_destByNode.end())
+		{
+			const int index=destination->second;
+			m_namedDestinations[index].nodeId=keep;
+			m_destByNode.erase(removed); m_destByNode[keep]=index;
+		}
+		removeNode(removed);
+		rebuildNodeConnectivity(keep,keep);
+		return keep;
+	};
 	// ---- 空間グリッド（AABB オーバーラップを高速化）----
 	constexpr float CELL_SIZE = 256.0f;
 	constexpr float INV_CELL  = 1.0f / CELL_SIZE;
@@ -1062,7 +1130,16 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId, Array<int>* trackedEdges
 				const CubicBezier first{na1->position,e1->ctrlA,e1->ctrlB,nb1->position};
 				const CubicBezier second{na2->position,e2->ctrlA,e2->ctrlB,nb2->position};
 				float firstT = 0, secondT = 0;
+				int firstEndpoint=-1,secondEndpoint=-1;
 				bool hit = false;
+				for (const int firstNode : {e1->nodeA,e1->nodeB}) for (const int secondNode : {e2->nodeA,e2->nodeB})
+				{
+					const Vec3 p=getNode(firstNode)->position,q=getNode(secondNode)->position;
+					if ((p-q).length()<.0001)
+					{
+						firstEndpoint=firstNode; secondEndpoint=secondNode; hit=true;
+					}
+				}
 				// Adaptive sampling bounds each chord to about 4m, followed by Newton refinement.
 				const int firstSteps = Clamp(static_cast<int>(Ceil(first.totalLength/4)),8,512);
 				const int secondSteps = Clamp(static_cast<int>(Ceil(second.totalLength/4)),8,512);
@@ -1093,17 +1170,48 @@ bool RoadNetwork::resolveIntersections(int sinceEdgeId, Array<int>* trackedEdges
 							secondT=Clamp(secondT+static_cast<float>((u.x*delta.z-u.z*delta.x)/determinant),0.0f,1.0f);
 						}
 						const Vec3 p=first.evaluate(firstT),q=second.evaluate(secondT);
-						hit=firstT*first.totalLength>0.5f && (1-firstT)*first.totalLength>0.5f
-							&& secondT*second.totalLength>0.5f && (1-secondT)*second.totalLength>0.5f
+						const auto atEndpoint=[](Vec3 point,const CubicBezier& curve,int start,int end)
+						{
+							constexpr double kExactEndpoint=.0001;
+							if (Vec2{point.x-curve.p0.x,point.z-curve.p0.z}.length()<kExactEndpoint) { return start; }
+							if (Vec2{point.x-curve.p3.x,point.z-curve.p3.z}.length()<kExactEndpoint) { return end; }
+							return -1;
+						};
+						firstEndpoint=atEndpoint(p,first,e1->nodeA,e1->nodeB);
+						secondEndpoint=atEndpoint(q,second,e2->nodeA,e2->nodeB);
+						const bool firstInterior=firstT>.00001f && firstT<.99999f;
+						const bool secondInterior=secondT>.00001f && secondT<.99999f;
+						hit=(firstInterior || firstEndpoint>=0) && (secondInterior || secondEndpoint>=0)
 							&& Vec2{p.x-q.x,p.z-q.z}.length()<.02
 							&& (!(e1->usesDesignHeight() || e2->usesDesignHeight()) || Abs(p.y-q.y)<1.0);
 					}
 				}
 				if (!hit) continue;
-				const int splitNodeId=splitTracked(dirtyId,firstT);
-				if (splitNodeId<0) continue;
-				if (splitTracked(otherId,secondT,splitNodeId)<0) continue;
-				getNode(splitNodeId)->type=NodeType::Intersection;
+				int splitNodeId=-1;
+				if (firstEndpoint>=0 && secondEndpoint>=0)
+				{
+					const auto joined=joinEndpoints(firstEndpoint,secondEndpoint);
+					if (!joined) { continue; }
+					splitNodeId=*joined;
+				}
+				else if (firstEndpoint>=0)
+				{
+					splitNodeId=firstEndpoint;
+					if (!canSplitAtExisting(otherId,splitNodeId)) { continue; }
+					if (splitTracked(otherId,secondT,splitNodeId)<0) { continue; }
+				}
+				else if (secondEndpoint>=0)
+				{
+					splitNodeId=secondEndpoint;
+					if (!canSplitAtExisting(dirtyId,splitNodeId)) { continue; }
+					if (splitTracked(dirtyId,firstT,splitNodeId)<0) { continue; }
+				}
+				else
+				{
+					splitNodeId=splitTracked(dirtyId,firstT);
+					if (splitNodeId<0 || splitTracked(otherId,secondT,splitNodeId)<0) { continue; }
+				}
+				getNode(splitNodeId)->type=getNode(splitNodeId)->attachments.size()>2 ? NodeType::Intersection : NodeType::Joint;
 				for (const int id : getNode(splitNodeId)->edgeIds()) dirtyEdges.insert(id);
 
 				// 削除済みエッジをセットから除去
@@ -1171,6 +1279,9 @@ bool RoadNetwork::fixSharpAngles(float minAngleDeg)
 
 				// 幅が狭い方を付け替える（同幅なら e2 を選択）
 				const RoadEdge* narrower = (e1->totalWidth() < e2->totalWidth()) ? e1 : e2;
+				// A designed/routed corridor is not an expendable shortcut. Its planner validates
+				// grade/radius; deleting and recreating it here loses geometry and route identity.
+				if (narrower->designGrade || !narrower->routeIds.isEmpty()) { continue; }
 				const int  narrowerId      = narrower->id;
 				const int  narrowerOtherId = (narrower->nodeA == nodeId)
 					? narrower->nodeB : narrower->nodeA;
