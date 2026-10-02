@@ -1,0 +1,850 @@
+{
+  "dateUtc": "2026-10-02",
+  "scope": "Native walking/driving interruption cycle and driving-only save-notice layout correction",
+  "nativeStages": {
+    "walking": {
+      "cameraMode": 2,
+      "driving": false,
+      "timeSpeed": 0,
+      "focusX": 23224.0,
+      "focusY": 29.776742935180664,
+      "focusZ": 26548.0,
+      "eyeY": 31.276742935180664,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false
+    },
+    "walked": {
+      "cameraMode": 2,
+      "driving": false,
+      "timeSpeed": 0,
+      "focusX": 23224.096632650493,
+      "focusY": 29.782412963867188,
+      "focusZ": 26547.88527366817,
+      "eyeY": 31.282412963867188,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false
+    },
+    "entered": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.87337315227,
+      "focusY": 29.790105431039,
+      "focusZ": 26546.97230777894,
+      "eyeY": 30.990105431038998,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.0,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023835424799472094,
+        "position": [
+          23220.87337315227,
+          29.790105431039,
+          26546.97230777894
+        ],
+        "speed": 0.0
+      }
+    },
+    "throttled": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.791283126,
+      "focusY": 29.790301042801318,
+      "focusZ": 26546.972037742427,
+      "eyeY": 30.990301042801317,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.08209070347270206,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.002383481478318572,
+        "position": [
+          23220.791283126,
+          29.790301042801318,
+          26546.972037742427
+        ],
+        "speed": 0.28708750009536743
+      }
+    },
+    "map_open": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": true,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "map_throttle_blocked": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": true,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "map_closed": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "paused": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": false,
+      "pauseMenu": true,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "settings_open": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": false,
+      "pauseMenu": true,
+      "settingsVisible": true,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "settings_throttle_blocked": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": false,
+      "pauseMenu": true,
+      "settingsVisible": true,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "settings_cancelled": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.790622577721724,
+      "focusZ": 26546.971593872546,
+      "eyeY": 30.990622577721723,
+      "map": false,
+      "pauseMenu": true,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.21702649411717415,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023833808954805136,
+        "position": [
+          23220.6563484485,
+          29.790622577721724,
+          26546.971593872546
+        ],
+        "speed": 0.0
+      }
+    },
+    "exited_walking": {
+      "cameraMode": 2,
+      "driving": false,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.79062028503418,
+      "focusZ": 26546.971593872546,
+      "eyeY": 31.29062028503418,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false
+    },
+    "recovered_overview": {
+      "cameraMode": 0,
+      "driving": false,
+      "timeSpeed": 0,
+      "focusX": 23220.6563484485,
+      "focusY": 29.785995483398438,
+      "focusZ": 26546.971593872546,
+      "eyeY": 95.9669303894043,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false
+    },
+    "final_entered": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 1,
+      "focusX": 23220.87337315227,
+      "focusY": 29.790105431039,
+      "focusZ": 26546.97230777894,
+      "eyeY": 30.990105431038998,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.0,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023835424799472094,
+        "position": [
+          23220.87337315227,
+          29.790105431039,
+          26546.97230777894
+        ],
+        "speed": 0.0
+      }
+    },
+    "final_p_paused": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.87337315227,
+      "focusY": 29.790105431039,
+      "focusZ": 26546.97230777894,
+      "eyeY": 30.990105431038998,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.0,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023835424799472094,
+        "position": [
+          23220.87337315227,
+          29.790105431039,
+          26546.97230777894
+        ],
+        "speed": 0.0
+      }
+    },
+    "final_saved": {
+      "cameraMode": 4,
+      "driving": true,
+      "timeSpeed": 0,
+      "focusX": 23220.87337315227,
+      "focusY": 29.790105431039,
+      "focusZ": 26546.97230777894,
+      "eyeY": 30.990105431038998,
+      "map": false,
+      "pauseMenu": false,
+      "settingsVisible": false,
+      "car": {
+        "blocked": false,
+        "distance": 0.0,
+        "edge": 26508,
+        "heading": -1.5740858316421509,
+        "pitch": 0.0023835424799472094,
+        "position": [
+          23220.87337315227,
+          29.790105431039,
+          26546.97230777894
+        ],
+        "speed": 0.0
+      }
+    }
+  },
+  "nativeChecks": {
+    "walkingEyeHeight": 1.5,
+    "walkingStepMetres": 0.1500000011888848,
+    "drivingEyeHeight": 1.1999999999999993,
+    "mapAndSettingsHeldCarExactly": true,
+    "postFixPausedSaveHeldCarExactly": true,
+    "liveBefore": "Integration owner inspected live_notice_before.png: success notice obscured C/Esc instruction row",
+    "liveAfter": "Integration owner inspected live_notice_after.png: notice is above the P-resume status; status and all driving instructions are readable",
+    "saveCaptureMethod": "Existing rail_save_review plus capture=1 saved and captured the same rendered frame; entry and pause used native C/P keys",
+    "nativeControlsExit": 0,
+    "liveBaselineExit": 0,
+    "liveFinalExit": 0
+  },
+  "red": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "failedAssertions": 38,
+    "compositions": {
+      "1280_blocked_car_failed": {
+        "baselineTextPixels": 670,
+        "changedHudPixels": 17753,
+        "changedTextPixels": 432,
+        "noticeBounds": [
+          12.0,
+          612.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1798,
+        "overlapsInstructions": true,
+        "overlapsStatus": true
+      },
+      "1280_blocked_car_saved": {
+        "baselineTextPixels": 670,
+        "changedHudPixels": 6559,
+        "changedTextPixels": 150,
+        "noticeBounds": [
+          12.0,
+          684.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "1280_paused_car_failed": {
+        "baselineTextPixels": 518,
+        "changedHudPixels": 17753,
+        "changedTextPixels": 280,
+        "noticeBounds": [
+          12.0,
+          612.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1798,
+        "overlapsInstructions": true,
+        "overlapsStatus": true
+      },
+      "1280_paused_car_saved": {
+        "baselineTextPixels": 518,
+        "changedHudPixels": 6559,
+        "changedTextPixels": 150,
+        "noticeBounds": [
+          12.0,
+          684.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "1920_blocked_car_failed": {
+        "baselineTextPixels": 1735,
+        "changedHudPixels": 21613,
+        "changedTextPixels": 684,
+        "noticeBounds": [
+          12.0,
+          892.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1801,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "1920_blocked_car_saved": {
+        "baselineTextPixels": 1735,
+        "changedHudPixels": 21218,
+        "changedTextPixels": 684,
+        "noticeBounds": [
+          12.0,
+          964.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "1920_paused_car_failed": {
+        "baselineTextPixels": 1553,
+        "changedHudPixels": 21613,
+        "changedTextPixels": 684,
+        "noticeBounds": [
+          12.0,
+          892.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1801,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "1920_paused_car_saved": {
+        "baselineTextPixels": 1553,
+        "changedHudPixels": 21218,
+        "changedTextPixels": 684,
+        "noticeBounds": [
+          12.0,
+          964.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": true,
+        "overlapsStatus": false
+      },
+      "800_blocked_car_failed": {
+        "baselineTextPixels": 468,
+        "changedHudPixels": 11194,
+        "changedTextPixels": 292,
+        "noticeBounds": [
+          12.0,
+          412.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1799,
+        "overlapsInstructions": false,
+        "overlapsStatus": true
+      },
+      "800_blocked_car_saved": {
+        "baselineTextPixels": 468,
+        "changedHudPixels": 11194,
+        "changedTextPixels": 292,
+        "noticeBounds": [
+          12.0,
+          484.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": false,
+        "overlapsStatus": true
+      },
+      "800_paused_car_failed": {
+        "baselineTextPixels": 300,
+        "changedHudPixels": 11194,
+        "changedTextPixels": 124,
+        "noticeBounds": [
+          12.0,
+          412.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1798,
+        "overlapsInstructions": false,
+        "overlapsStatus": true
+      },
+      "800_paused_car_saved": {
+        "baselineTextPixels": 300,
+        "changedHudPixels": 11194,
+        "changedTextPixels": 124,
+        "noticeBounds": [
+          12.0,
+          484.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": false,
+        "overlapsStatus": true
+      }
+    }
+  },
+  "testFirstPreview": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "compositionCount": 12,
+    "changedHudPixels": 0,
+    "changedTextPixels": 0,
+    "minimumNoticeTextPixels": 154,
+    "compositions": {
+      "1280_blocked_car_failed": {
+        "baselineTextPixels": 670,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          507.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1798,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1280_blocked_car_saved": {
+        "baselineTextPixels": 670,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          579.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1280_paused_car_failed": {
+        "baselineTextPixels": 518,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          507.0,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1798,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1280_paused_car_saved": {
+        "baselineTextPixels": 518,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          579.0,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 243,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1920_blocked_car_failed": {
+        "baselineTextPixels": 1735,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          709.5,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1122,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1920_blocked_car_saved": {
+        "baselineTextPixels": 1735,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          781.5,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 154,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1920_paused_car_failed": {
+        "baselineTextPixels": 1553,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          709.5,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1122,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "1920_paused_car_saved": {
+        "baselineTextPixels": 1553,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          781.5,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 154,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "800_blocked_car_failed": {
+        "baselineTextPixels": 468,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          365.125,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1623,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "800_blocked_car_saved": {
+        "baselineTextPixels": 468,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          437.125,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 212,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "800_paused_car_failed": {
+        "baselineTextPixels": 300,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          365.125,
+          390.0,
+          126.0
+        ],
+        "noticeTextPixels": 1623,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      },
+      "800_paused_car_saved": {
+        "baselineTextPixels": 300,
+        "changedHudPixels": 0,
+        "changedTextPixels": 0,
+        "noticeBounds": [
+          12.0,
+          437.125,
+          390.0,
+          54.0
+        ],
+        "noticeTextPixels": 212,
+        "overlapsInstructions": false,
+        "overlapsStatus": false
+      }
+    }
+  },
+  "finalBuild": {
+    "targets": [
+      "City",
+      "CityTests"
+    ],
+    "exit": 0,
+    "warnings": 0,
+    "errors": 0,
+    "source": "Coordinated build owner report, 2026-10-02 10:20 UTC"
+  },
+  "finalFocusedTests": [
+    {
+      "filter": "Camera.ModalFocusAndWalkingPace",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "tests": [
+        {
+          "name": "Camera.ModalFocusAndWalkingPace",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "filter": "Camera.WalkingHeightAndWasd",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "tests": [
+        {
+          "name": "Camera.WalkingHeightAndWasd",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "filter": "CityHud",
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "exit": 0,
+      "tests": [
+        {
+          "name": "CityHud.SaveStatusLifetime",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.SaveStatusPreview",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.SaveStatusDrivingComposition",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.CompactLayoutAndInteraction",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.ProductionAdapter",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.NavigationHelpEditorInteraction",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.NavigationHelpEditorPreview",
+          "status": "passed",
+          "failures": []
+        },
+        {
+          "name": "CityHud.GpuReview",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "filter": "Driving.CameraAndInputOwnership",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "tests": [
+        {
+          "name": "Driving.CameraAndInputOwnership",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    },
+    {
+      "filter": "UI.PauseMenuAndControlHelp",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "exit": 0,
+      "tests": [
+        {
+          "name": "UI.PauseMenuAndControlHelp",
+          "status": "passed",
+          "failures": []
+        }
+      ]
+    }
+  ],
+  "finalFocusedTotals": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0
+  },
+  "preservation": {
+    "originalFiles": 8199,
+    "originalUnchanged": true,
+    "grownWorldUnchanged": true,
+    "runtimeExit": 0
+  }
+}

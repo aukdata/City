@@ -33,8 +33,8 @@ public:
 	[[nodiscard]] const String& title() const { return m_title; }
 	[[nodiscard]] const String& message() const { return m_message; }
 
-	/// @brief 通常時は編集パネル・住所表示を避け、ポーズ時はメニューのボタンより下へ置く。
-	[[nodiscard]] Layout layout(const Font& font, Size size, bool paused = false) const
+	/// @brief 通常は住所表示、運転中は操作・復帰案内を避け、ポーズメニュー中はボタンより下へ置く。
+	[[nodiscard]] Layout layout(const Font& font, Size size, bool paused = false, bool driving = false) const
 	{
 		constexpr double kMargin = 12, kWidth = 390, kPauseWidth = 740;
 		constexpr double kTextInset = 12, kTitleArea = 36, kLocationInset = 62;
@@ -71,16 +71,19 @@ public:
 		}
 		const double height = kTitleArea + result.lines.size() * kLineHeight;
 		const double left = paused ? (size.x - width) * .5 : kMargin;
-		const double bottomInset = paused ? kMargin : kLocationInset;
+		// DrivingHud's highest lower-screen content is the pause/reverse-recovery panel.
+		constexpr double kDrivingStatusTop = 155;
+		const double drivingInset = kDrivingStatusTop * Clamp(size.x / 1280.0, .625, 1.5) + kMargin;
+		const double bottomInset = paused ? kMargin : (driving ? Max(kLocationInset, drivingInset) : kLocationInset);
 		result.bounds = {left, Max(kMargin, size.y - bottomInset - height), width, height};
 		return result;
 	}
 
 	/// @brief 不透明に近い背景と固定14pxの折返しで、失敗理由と対処方法を読める時間だけ残す。
-	void draw(const Font& font, Size size, bool paused = false, double nowSeconds = currentSeconds()) const
+	void draw(const Font& font, Size size, bool paused = false, bool driving = false, double nowSeconds = currentSeconds()) const
 	{
 		if (!visible(nowSeconds)) { return; }
-		const auto content = layout(font, size, paused);
+		const auto content = layout(font, size, paused, driving);
 		const auto area = content.bounds;
 		const ColorF accent = m_success ? ColorF{.48, .92, .65} : ColorF{1.0, .69, .42};
 		area.rounded(5).draw(ColorF{.055, .075, .09, .97}).drawFrame(1, accent);

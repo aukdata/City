@@ -370,7 +370,7 @@ void GameScene::renderWorld()
 	});
 	if (!m_settings.visible && !m_commandPalette.visible)
 	{
-		m_saveStatusNotice.draw(FontAsset(Asset::CJK14), Scene::Size(), m_showPauseMenu);
+		m_saveStatusNotice.draw(FontAsset(Asset::CJK14), Scene::Size(), m_showPauseMenu, m_driving.active());
 	}
 
 	// perf.log に 120 フレームごとの各フェーズ計測値を追記する（std::flush で即反映）

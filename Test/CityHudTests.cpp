@@ -11,6 +11,7 @@
 #include "src/ui/LocationTooltip.hpp"
 #include "src/ui/SaveStatusNotice.hpp"
 #include "src/ui/PauseMenu.hpp"
+#include "src/ui/DrivingHud.hpp"
 
 void registerCityHudTests(TestRunner& runner)
 {
@@ -59,6 +60,8 @@ void registerCityHudTests(TestRunner& runner)
 					}
 					if (paused)
 					{
+						context.expect(notice.layout(font, size, true, true).bounds == bounds,
+							U"A driving session does not move the pause-menu save notice");
 						for (int action = 0; action < PauseMenu::kActionCount; ++action)
 						{
 							context.expect(!bounds.intersects(PauseMenu::button(size, action)), U"ポーズ中の保存通知はメニューのボタンを覆わない");
@@ -79,7 +82,7 @@ void registerCityHudTests(TestRunner& runner)
 					const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
 					{
 						const ScopedRenderTarget2D rt{target.clear(background)};
-						notice.draw(font, size, paused, 101);
+						notice.draw(font, size, paused, false, 101);
 					}
 					Graphics2D::Flush();
 					Image image;
@@ -115,6 +118,90 @@ void registerCityHudTests(TestRunner& runner)
 				&& content.lines.back().ends_with(U"…"), U"異常に長い診断も上限行数に収め、続きが省略されたことを示す");
 		}
 		report.save(U"TestResults/save_status_preview.json");
+	});
+	/// @brief Compose the real driving HUD and save notice in the game's draw order at a fixed time.
+	runner.add(U"CityHud.SaveStatusDrivingComposition", [](TestContext& context)
+	{
+		RegisterAssets();
+		const Font font = FontAsset(Asset::CJK14);
+		const String success = U"現在の街を保存しました";
+		const String failure = U"信号の接続参照を復元できません。旧形式の街の場合は、新規生成するか、バックアップを残して対応する旧バージョンを使ってください。\n"
+			U"交差点 0 / フェーズ 1 / 接続 999999\n既存のセーブは保持されています";
+		font.preload(success + failure + U"セーブしましたセーブできません…運転   C：降りる   Esc：メニュー"
+			U"W：アクセル  S：ブレーキ・後退A/D：ハンドル  Space：強ブレーキ  P：停止"
+			U"停止中  Pで再開路肩・車両に接近  後退して戻れますD0123456789km/h.");
+		for (int frame = 0; frame < 3; ++frame) { System::Update(); }
+		constexpr double kShownAt = 100, kDrawnAt = 101;
+		const Color background{102,140,166};
+		JSON report;
+		for (const Size size : {Size{800,600}, Size{1280,800}, Size{1920,1080}})
+		{
+			// Contract regions cover the visible instructions and the optional recovery/pause message.
+			const double scale = Clamp(size.x / 1280.0, .625, 1.5);
+			const RectF instructions{16, size.y - 79 * scale, Min(550.0, size.x * .57), 79 * scale};
+			const RectF status{16, size.y - 155 * scale, Min(390.0, size.x * .5), 29};
+			const RectF instrument = DrivingHud::instrumentBounds(size);
+			for (const bool paused : {false, true})
+			{
+				for (const bool failed : {false, true})
+				{
+					SaveStatusNotice notice;
+					notice.show(failed ? U"セーブできません" : U"セーブしました", failed ? failure : success, !failed, kShownAt);
+					const auto content = notice.layout(font, size, false, true);
+					const String key = U"{}_{}_{}"_fmt(size.x, paused ? U"paused_car" : U"blocked_car", failed ? U"failed" : U"saved");
+					context.expect(notice.visible(kDrawnAt), U"A fixed real-time instant keeps the save notice visible: " + key);
+					context.expect(!content.bounds.intersects(instructions), U"Save feedback must not cover the driving instructions: " + key);
+					context.expect(!content.bounds.intersects(status), U"Save feedback must not cover pause or reverse-recovery guidance: " + key);
+					context.expect(!content.bounds.intersects(instrument), U"Save feedback must not cover speed and gear: " + key);
+					const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm};
+					{
+						const ScopedRenderTarget2D rt{target.clear(background)};
+						DrivingHud::draw(font, size, {0, 0, 1250, 50, paused, !paused});
+					}
+					Graphics2D::Flush();
+					Image baseline;
+					target.readAsImage(baseline);
+					{
+						const ScopedRenderTarget2D rt{target};
+						// No pause menu is open: P pauses the car but retains the normal driving layout.
+						notice.draw(font, size, false, true, kDrawnAt);
+					}
+					Graphics2D::Flush();
+					Image composed;
+					target.readAsImage(composed);
+					int changedHudPixels = 0, baselineTextPixels = 0, changedTextPixels = 0, noticeTextPixels = 0;
+					for (int y = 0; y < size.y; ++y)
+					{
+						for (int x = 0; x < size.x; ++x)
+						{
+							const Point point{x,y};
+							const auto before = baseline[y][x], after = composed[y][x];
+							if (instructions.contains(point) || status.contains(point) || instrument.contains(point))
+							{
+								const bool text = before.r > 170 && before.g > 140;
+								baselineTextPixels += text;
+								changedHudPixels += before != after;
+								changedTextPixels += text && before != after;
+							}
+							if (content.bounds.contains(point))
+							{
+								noticeTextPixels += after.r > 180 && after.g > 180 && after.b > 180;
+							}
+						}
+					}
+					context.expect(baselineTextPixels > 200, U"The real HUD has readable instruction/status/instrument pixels: " + key);
+					context.expectEqual(changedHudPixels, 0, U"The save notice leaves every protected HUD pixel unchanged: " + key);
+					context.expectEqual(changedTextPixels, 0, U"Save feedback does not erase actual driving text: " + key);
+					context.expect(noticeTextPixels > 100, U"Save feedback itself remains readable: " + key);
+					composed.save(U"Screenshot/save_status_driving_{}.png"_fmt(key));
+					report[key] = JSON{{U"changedHudPixels", changedHudPixels}, {U"baselineTextPixels", baselineTextPixels},
+						{U"changedTextPixels", changedTextPixels}, {U"noticeTextPixels", noticeTextPixels},
+						{U"overlapsInstructions", content.bounds.intersects(instructions)}, {U"overlapsStatus", content.bounds.intersects(status)},
+						{U"noticeBounds", Array<double>{content.bounds.x, content.bounds.y, content.bounds.w, content.bounds.h}}};
+				}
+			}
+		}
+		report.save(U"TestResults/save_status_driving_composition.json");
 	});
 	runner.add(U"CityHud.CompactLayoutAndInteraction", [](TestContext& context)
 	{
