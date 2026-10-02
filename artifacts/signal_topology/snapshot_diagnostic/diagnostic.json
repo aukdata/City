@@ -1,0 +1,169 @@
+﻿{
+  "automaticPrograms": 0,
+  "examples": [
+    {
+      "connection": 0,
+      "fromEdge": 1129,
+      "fromLane": 0,
+      "node": 4,
+      "toEdge": 24561,
+      "toLane": 0
+    },
+    {
+      "connection": 3,
+      "fromEdge": 24561,
+      "fromLane": 1,
+      "node": 4,
+      "toEdge": 4225,
+      "toLane": 0
+    },
+    {
+      "connection": 4,
+      "fromEdge": 4225,
+      "fromLane": 1,
+      "node": 4,
+      "toEdge": 24561,
+      "toLane": 0
+    },
+    {
+      "connection": 5,
+      "fromEdge": 4225,
+      "fromLane": 1,
+      "node": 4,
+      "toEdge": 1129,
+      "toLane": 1
+    },
+    {
+      "connection": 0,
+      "fromEdge": 13926,
+      "fromLane": 0,
+      "node": 102,
+      "toEdge": 48,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 13926,
+      "fromLane": 0,
+      "node": 102,
+      "toEdge": 27631,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 48,
+      "fromLane": 1,
+      "node": 102,
+      "toEdge": 13926,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 48,
+      "fromLane": 1,
+      "node": 102,
+      "toEdge": 27631,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 53,
+      "fromLane": 0,
+      "node": 108,
+      "toEdge": 27633,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 54,
+      "fromLane": 1,
+      "node": 108,
+      "toEdge": 53,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 54,
+      "fromLane": 1,
+      "node": 108,
+      "toEdge": 27633,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 63,
+      "fromLane": 0,
+      "node": 118,
+      "toEdge": 27646,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 64,
+      "fromLane": 1,
+      "node": 118,
+      "toEdge": 63,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 64,
+      "fromLane": 1,
+      "node": 118,
+      "toEdge": 27646,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 66,
+      "fromLane": 0,
+      "node": 121,
+      "toEdge": 27659,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 67,
+      "fromLane": 1,
+      "node": 121,
+      "toEdge": 66,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 67,
+      "fromLane": 1,
+      "node": 121,
+      "toEdge": 27659,
+      "toLane": 0
+    },
+    {
+      "connection": 2,
+      "fromEdge": 189,
+      "fromLane": 0,
+      "node": 244,
+      "toEdge": 27668,
+      "toLane": 0
+    },
+    {
+      "connection": 1,
+      "fromEdge": 190,
+      "fromLane": 1,
+      "node": 244,
+      "toEdge": 189,
+      "toLane": 1
+    },
+    {
+      "connection": 3,
+      "fromEdge": 190,
+      "fromLane": 1,
+      "node": 244,
+      "toEdge": 27668,
+      "toLane": 0
+    }
+  ],
+  "movements": 18932,
+  "signals": 1554,
+  "staleGreenReferences": 6439,
+  "unservedMovements": 6435
+}

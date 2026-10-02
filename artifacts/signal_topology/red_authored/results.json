@@ -1,0 +1,26 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Comprehensive.SignalAuthoredApproachControls",
+      "status": "failed",
+      "durationMs": 1.352,
+      "failures": [
+        "An unchanged rebuild preserves the deliberately authored approach control",
+        "Changing an existing approach to outgoing-only preserves its authored control",
+        "An outgoing-only edge is still recognized when switched to incoming-only",
+        "Adding a new arm preserves existing authored approach controls",
+        "An unchanged rebuild preserves the deliberately authored approach control",
+        "Changing an existing approach to outgoing-only preserves its authored control",
+        "An outgoing-only edge is still recognized when switched to incoming-only",
+        "Adding a new arm preserves existing authored approach controls",
+        "An unchanged rebuild preserves the deliberately authored approach control",
+        "Changing an existing approach to outgoing-only preserves its authored control",
+        "An outgoing-only edge is still recognized when switched to incoming-only",
+        "Adding a new arm preserves existing authored approach controls"
+      ]
+    }
+  ]
+}

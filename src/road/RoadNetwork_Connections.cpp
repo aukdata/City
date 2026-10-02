@@ -1,4 +1,8 @@
 ﻿#include "RoadNetwork.hpp"
+#include <array>
+#include <map>
+#include <limits>
+#include <stdexcept>
 #include "RoadGeometry.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../world/World.hpp"
@@ -112,20 +116,35 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 {
 	RoadNode* node = getNode(nodeId);
 	if (!node) return;
+	const bool hadSignalPlacement = node->signalPlacement.has_value();
 
 	// 旧接続の論理キー → ID マッピングを保持（信号フェーズの greenConnectionIds を維持するため）
-	auto packKey = [](int fe, int fl, int te, int tl) -> int64 {
-		return (static_cast<int64>(fe) << 48) | (static_cast<int64>(fl & 0xFFFF) << 32)
-			 | (static_cast<int64>(te & 0xFFFF) << 16) | static_cast<int64>(tl & 0xFFFF);
+	const auto makeKey = [](int fromEdge, int fromLane, int toEdge, int toLane)
+	{
+		return std::array<int,4>{fromEdge,fromLane,toEdge,toLane};
 	};
-	HashTable<int64, int> oldKeyToId;
+	std::map<std::array<int,4>, int> oldKeyToId;
+	HashSet<int> previousConnectionIds, previousEdgeIds;
 	for (const auto& conn : node->laneConnections)
-		oldKeyToId[packKey(conn.fromEdgeId, conn.fromLaneIndex, conn.toEdgeId, conn.toLaneIndex)] = conn.id;
+	{
+		oldKeyToId[makeKey(conn.fromEdgeId, conn.fromLaneIndex, conn.toEdgeId, conn.toLaneIndex)] = conn.id;
+		previousConnectionIds.insert(conn.id);
+		previousEdgeIds.insert(conn.fromEdgeId);
+		previousEdgeIds.insert(conn.toEdgeId);
+	}
 
 	node->laneConnections.clear();
 
 	const auto allEdgeIds = node->edgeIds();
-	if (allEdgeIds.size() < 2) return;
+	if (allEdgeIds.size() < 2)
+	{
+		// All movements vanished; retain only intentionally empty all-red phases.
+		if (node->signalPlacement)
+		{
+			node->signalPlacement->phases.remove_if([](const SignalPhaseDef& phase) { return !phase.greenConnectionIds.isEmpty(); });
+		}
+		return;
+	}
 
 	// ── エッジ方向マップ・直進ペア構築 ──
 	const auto edgeDirs = buildEdgeDirs(nodeId);
@@ -204,11 +223,17 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		const Vec3 p2 = entryPt.worldPos - (entryPt.tangent * entryPt.dirSign).normalized() * handle;
 
 		LaneConnection conn;
-		const int64 key = packKey(from.edgeId, from.laneIndex, to.edgeId, to.laneIndex);
+		const auto key = makeKey(from.edgeId, from.laneIndex, to.edgeId, to.laneIndex);
 		if (const auto it = oldKeyToId.find(key); it != oldKeyToId.end())
 			conn.id = it->second;
 		else
+		{
+			if (node->nextConnectionId == std::numeric_limits<int>::max())
+			{
+				throw std::overflow_error("Road lane connection IDs exhausted");
+			}
 			conn.id = node->nextConnectionId++;
+		}
 		conn.fromEdgeId    = from.edgeId;
 		conn.fromLaneIndex = from.laneIndex;
 		conn.toEdgeId      = to.edgeId;
@@ -436,8 +461,49 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			sp.signalDefId = U"signal_3lamp";
 			sp.phases = buildDefaultSignalPhases(nodeId);
 			node->signalPlacement = sp;
-			for (auto& att : node->attachments)
-				att.control = TrafficControl::Signal;
+		}
+	}
+
+	// Signal newly attached roads; retain authored controls on existing approaches.
+	// Both source and destination refs count, including a previously outgoing-only arm.
+	if (node->signalPlacement)
+	{
+		for (auto& attachment : node->attachments)
+		{
+			const RoadEdge* edge = getEdge(attachment.edgeId);
+			if ((!hadSignalPlacement || !previousEdgeIds.contains(attachment.edgeId))
+				&& edge && edge->lanes.any([](const Lane& lane) { return lane.allows(TransportMode::Road); }))
+			{
+				attachment.control = TrafficControl::Signal;
+			}
+		}
+
+		// Preserve authored timing and surviving movement IDs. New movements receive
+		// separate default groups, rather than sharing a potentially conflicting phase.
+		auto& phases = node->signalPlacement->phases;
+		if (!phases.isEmpty())
+		{
+			HashSet<int> currentIds, coveredIds;
+			for (const auto& connection : node->laneConnections) { currentIds.insert(connection.id); }
+			for (size_t index = phases.size(); index > 0; --index)
+			{
+				auto& phase = phases[index - 1];
+				const bool hadMovements = !phase.greenConnectionIds.isEmpty();
+				phase.greenConnectionIds.remove_if([&](int id) { return !currentIds.contains(id); });
+				if (hadMovements && phase.greenConnectionIds.isEmpty()) { phases.remove_at(index - 1); }
+			}
+			for (const auto& phase : phases)
+			{
+				for (const int id : phase.greenConnectionIds) { coveredIds.insert(id); }
+			}
+			for (auto phase : buildDefaultSignalPhases(nodeId))
+			{
+				phase.greenConnectionIds.remove_if([&](int id)
+				{
+					return previousConnectionIds.contains(id) || coveredIds.contains(id);
+				});
+				if (!phase.greenConnectionIds.isEmpty()) { phases << std::move(phase); }
+			}
 		}
 	}
 }

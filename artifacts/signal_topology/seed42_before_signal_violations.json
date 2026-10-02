@@ -1,0 +1,10978 @@
+[
+  {
+    "node": 302,
+    "position": [
+      19422.563224841004,
+      53.200531005859375,
+      36855.525799548304
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22016,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 23197,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 416,
+    "position": [
+      19852.528778815056,
+      84.9779052734375,
+      33366.10902330818
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22337,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 22886,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 835,
+    "position": [
+      25751.047831319767,
+      31.541994094848633,
+      23064.777659551255
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 23198,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 1008,
+    "position": [
+      30807.963061589096,
+      44.526973724365234,
+      22779.83401528728
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 26874,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 26877,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 1635,
+    "position": [
+      44285.28188017393,
+      35.04456329345703,
+      29901.810219813946
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37730,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 1764,
+    "position": [
+      47208.91308579552,
+      32.65583419799805,
+      32328.959295305922
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 23330,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 27385,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2203,
+    "position": [
+      54869.22036639166,
+      42.316219329833984,
+      42269.225508374344
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 27834,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2556,
+    "position": [
+      59759.50758932136,
+      32.037716698653874,
+      50399.20184514501
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 24796,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2587,
+    "position": [
+      60430.74454101846,
+      35.878440856933594,
+      51070.7390492592
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 28346,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2650,
+    "position": [
+      61758.25847745641,
+      37.853206634521484,
+      52414.802001261
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 28485,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2788,
+    "position": [
+      17493.05310922091,
+      44.48003387451172,
+      31605.910256850675
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 28701,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 2805,
+    "position": [
+      16941.02938918182,
+      47.03394317626953,
+      31605.545825412493
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 28749,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 28752,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 15444,
+    "position": [
+      19448.86348188791,
+      55.756758178080446,
+      36798.14824118511
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22017,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 15363,
+    "position": [
+      19613.34471370629,
+      88.47934978951555,
+      34038.76985697854
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 15348,
+    "position": [
+      19757.496952868252,
+      91.37457155714343,
+      33740.67603818684
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22335,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11746,
+    "position": [
+      62541.101547528444,
+      41.04741287231445,
+      52580.299411093714
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37081,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11755,
+    "position": [
+      62723.66558030304,
+      44.23780059814453,
+      53184.87131062279
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37032,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11758,
+    "position": [
+      62796.82777404632,
+      42.93153381347656,
+      53427.15236551002
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37114,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11763,
+    "position": [
+      62444.06389413593,
+      41.70037841796875,
+      52609.60210502991
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12245,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12248,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12295,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11769,
+    "position": [
+      62572.07682722251,
+      45.12769317626953,
+      53033.524719710535
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 12264,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11772,
+    "position": [
+      62626.62792691052,
+      44.26197814941406,
+      53214.17400455898
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12272,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12315,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11775,
+    "position": [
+      62699.79012065381,
+      42.18555450439453,
+      53456.45505944621
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12280,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12284,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12322,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11780,
+    "position": [
+      62355.43815554613,
+      42.48881149291992,
+      52636.36463279076
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12293,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12297,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11781,
+    "position": [
+      62384.48449062046,
+      43.58376693725586,
+      52732.55333821845
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12298,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12301,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11782,
+    "position": [
+      62408.70944587766,
+      44.45128631591797,
+      52812.775751107074
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12303,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11783,
+    "position": [
+      62426.65596449669,
+      45.2140007019043,
+      52872.20673916394
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12306,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11784,
+    "position": [
+      62447.044709513546,
+      45.38151168823242,
+      52939.72530849284
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12308,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11787,
+    "position": [
+      62500.29317288769,
+      44.921932220458984,
+      53116.060833951204
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12311,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11788,
+    "position": [
+      62520.97394857403,
+      44.99860763549805,
+      53184.54648060574
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12313,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11789,
+    "position": [
+      62538.00218832072,
+      44.86537170410156,
+      53240.936532319836
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12316,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11790,
+    "position": [
+      62556.75599166155,
+      44.12480163574219,
+      53303.040892838435
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12319,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12335,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11791,
+    "position": [
+      62583.17809119223,
+      42.8104248046875,
+      53390.53928263644
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12323,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12336,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11792,
+    "position": [
+      62611.16438206401,
+      41.51616668701172,
+      53483.217587207066
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12324,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12326,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11814,
+    "position": [
+      62222.280496357525,
+      43.39259338378906,
+      52676.57457188193
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12345,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12365,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11826,
+    "position": [
+      62478.006722875405,
+      40.99186325073242,
+      53523.427526298234
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12353,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12373,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11830,
+    "position": [
+      62134.59772457818,
+      42.49268341064453,
+      52596.04364446524
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12362,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12366,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11831,
+    "position": [
+      62164.211041575254,
+      43.62887954711914,
+      52694.10994501841
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12367,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12389,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11841,
+    "position": [
+      62365.528877690675,
+      43.548370361328125,
+      53360.786205066084
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12369,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11842,
+    "position": [
+      62391.95097722136,
+      42.414119720458984,
+      53448.28459486409
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12370,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12374,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11843,
+    "position": [
+      62419.937268093134,
+      40.85609436035156,
+      53540.962899434715
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12375,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12377,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11844,
+    "position": [
+      62449.878649269835,
+      39.192466735839844,
+      53640.11560447421
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12378,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12380,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11847,
+    "position": [
+      62073.41294569873,
+      42.725196838378906,
+      52614.51975952344
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12384,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12386,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11848,
+    "position": [
+      62103.0262626958,
+      44.10237121582031,
+      52712.58606007662
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12387,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12391,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11849,
+    "position": [
+      62132.07259777013,
+      45.51805877685547,
+      52808.774765504306
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12392,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11859,
+    "position": [
+      62330.7661983419,
+      42.13508224487305,
+      53466.760709922295
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12395,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12397,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11860,
+    "position": [
+      62358.75248921368,
+      40.72355651855469,
+      53559.43901449292
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12398,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12400,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11861,
+    "position": [
+      62388.69387039038,
+      38.84120178222656,
+      53658.591719532415
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12401,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12403,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11865,
+    "position": [
+      62058.14267462708,
+      44.42235565185547,
+      52726.1396652799
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12410,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12412,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11877,
+    "position": [
+      62313.86890114496,
+      40.67324447631836,
+      53572.992619696204
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12416,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12418,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11881,
+    "position": [
+      61982.37374991635,
+      43.06503677368164,
+      52642.0110847662
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12012,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12422,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 12424,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11882,
+    "position": [
+      62011.98706691342,
+      44.61513137817383,
+      52740.077385319375
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12027,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12425,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 12427,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11883,
+    "position": [
+      62041.03340198775,
+      46.15879440307617,
+      52836.26609074706
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12042,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12428,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 12439,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11884,
+    "position": [
+      62065.25835724495,
+      46.52405548095703,
+      52916.488503635686
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12056,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12440,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11885,
+    "position": [
+      62083.20487586398,
+      46.69346618652344,
+      52975.919491692555
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12071,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11888,
+    "position": [
+      62140.0,
+      45.626712799072266,
+      53164.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12115,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11889,
+    "position": [
+      62156.842084254975,
+      45.090396881103516,
+      53219.773586479816
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12130,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11890,
+    "position": [
+      62177.52285994132,
+      44.38684844970703,
+      53288.259233134355
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12144,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11891,
+    "position": [
+      62194.55109968801,
+      43.67889404296875,
+      53344.64928484845
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12159,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11892,
+    "position": [
+      62213.30490302884,
+      42.849815368652344,
+      53406.75364536705
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12174,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11893,
+    "position": [
+      62239.72700255952,
+      41.986759185791016,
+      53494.25203516505
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 12444,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11894,
+    "position": [
+      62267.7132934313,
+      40.54648971557617,
+      53586.93033973568
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12203,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12430,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 12445,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11895,
+    "position": [
+      62297.654674608,
+      38.22469711303711,
+      53686.08304477517
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12218,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12431,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 12452,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11899,
+    "position": [
+      61958.88365024139,
+      44.72689437866211,
+      52756.11315196567
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12434,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12436,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11911,
+    "position": [
+      62214.60987675927,
+      40.18452453613281,
+      53602.96610638197
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12447,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12449,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11916,
+    "position": [
+      61914.32047363915,
+      44.45261764526367,
+      52769.57000174663
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12457,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12472,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11928,
+    "position": [
+      62170.04670015703,
+      39.936553955078125,
+      53616.42295616293
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12464,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12490,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11931,
+    "position": [
+      61803.91323728931,
+      40.62577438354492,
+      52559.823072190644
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12468,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11932,
+    "position": [
+      61841.571162242326,
+      42.605926513671875,
+      52684.52958132698
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12469,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12473,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11933,
+    "position": [
+      61871.1844792394,
+      43.98525619506836,
+      52782.59588188015
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12474,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12476,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11935,
+    "position": [
+      61924.45576957093,
+      46.24004364013672,
+      52959.00700019646
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12480,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11943,
+    "position": [
+      62072.50231535482,
+      42.02033233642578,
+      53449.272141927824
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12484,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11944,
+    "position": [
+      62098.9244148855,
+      41.116233825683594,
+      53536.77053172583
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12485,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12487,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11945,
+    "position": [
+      62126.91070575728,
+      39.640682220458984,
+      53629.448836296455
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12488,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12492,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11946,
+    "position": [
+      62156.85208693398,
+      37.55324172973633,
+      53728.60154133595
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12493,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12497,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11950,
+    "position": [
+      61808.18432509502,
+      42.98012161254883,
+      52801.62019017992
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12504,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11962,
+    "position": [
+      62063.9105516129,
+      38.77128982543945,
+      53648.473144596224
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12510,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12512,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11983,
+    "position": [
+      61641.086413720644,
+      40.68439483642578,
+      52745.07044375943
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12534,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12536,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11984,
+    "position": [
+      61670.699730717715,
+      41.5465202331543,
+      52843.13674431261
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12537,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12551,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11985,
+    "position": [
+      61699.746065792046,
+      43.124996185302734,
+      52939.325449740296
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12552,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11986,
+    "position": [
+      61723.97102104925,
+      43.856868743896484,
+      53019.54786262892
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12556,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11987,
+    "position": [
+      61741.91753966828,
+      43.97400665283203,
+      53078.97885068579
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12558,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11990,
+    "position": [
+      61798.7126638043,
+      43.14194869995117,
+      53267.05935899323
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12561,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11991,
+    "position": [
+      61815.55474805927,
+      42.52385330200195,
+      53322.83294547305
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12563,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11992,
+    "position": [
+      61836.235523745614,
+      41.851200103759766,
+      53391.31859212759
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12566,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11993,
+    "position": [
+      61853.26376349231,
+      41.07797622680664,
+      53447.70864384168
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12569,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11996,
+    "position": [
+      61926.425957235595,
+      37.280574798583984,
+      53689.98969872891
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12540,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12572,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 11997,
+    "position": [
+      61956.367338412296,
+      36.14017105102539,
+      53789.142403768405
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12542,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12573,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12001,
+    "position": [
+      61581.119082696125,
+      40.65717697143555,
+      52870.18762837473
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12549,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12553,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12582,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12004,
+    "position": [
+      61652.336891646686,
+      42.641807556152344,
+      53106.02973474791
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12559,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12590,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12007,
+    "position": [
+      61709.13201578271,
+      41.979862213134766,
+      53294.11024305536
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 12599,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12013,
+    "position": [
+      61836.845309214004,
+      36.682464599609375,
+      53717.040582791036
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12574,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 12615,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12030,
+    "position": [
+      61738.59881281627,
+      35.885536193847656,
+      53746.70831396134
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 24795,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12100,
+    "position": [
+      61995.63747203031,
+      43.840084075927734,
+      52691.510159259415
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12435,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12101,
+    "position": [
+      62023.99228289139,
+      45.386962890625,
+      52788.93208993071
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12438,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12102,
+    "position": [
+      62282.68398401965,
+      39.38559341430664,
+      53636.506692255425
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 12451,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12253,
+    "position": [
+      23380.296816062364,
+      45.705074310302734,
+      23608.513167945533
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37283,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12273,
+    "position": [
+      23124.25771057908,
+      35.94066619873047,
+      24109.879706224805
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13512,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13516,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12282,
+    "position": [
+      23681.269757710063,
+      45.9569091796875,
+      23423.113693780822
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13538,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13598,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12288,
+    "position": [
+      24008.39889648725,
+      45.45457458496094,
+      23019.780991464217
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13554,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13614,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12298,
+    "position": [
+      23212.95446091662,
+      33.81755447387695,
+      24181.818558154246
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13578,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13580,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12303,
+    "position": [
+      23559.836510540736,
+      37.7653923034668,
+      23754.131575016643
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13589,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13645,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12307,
+    "position": [
+      23769.9665080476,
+      41.24282455444336,
+      23495.052545710263
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13599,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13659,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12308,
+    "position": [
+      23825.74562196513,
+      41.79335021972656,
+      23426.279886590757
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13602,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13661,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12313,
+    "position": [
+      24097.09564682479,
+      40.329227447509766,
+      23091.719843393657
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13615,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13677,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12317,
+    "position": [
+      24354.92005208756,
+      37.15791320800781,
+      22773.836164530578
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13623,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13683,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13687,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12318,
+    "position": [
+      24437.467831684877,
+      37.287010192871094,
+      22672.059174747043
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13625,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13688,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12333,
+    "position": [
+      23897.1765216508,
+      38.40650177001953,
+      23484.21500705592
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13662,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13708,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12342,
+    "position": [
+      24426.35095177323,
+      35.71116256713867,
+      22831.77128499574
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13685,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13689,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12346,
+    "position": [
+      23172.11563628851,
+      33.57358932495117,
+      24505.60112719561
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37236,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12347,
+    "position": [
+      23263.035746580434,
+      33.93110656738281,
+      24393.501502209456
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13696,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13729,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12348,
+    "position": [
+      23346.725950368767,
+      33.820735931396484,
+      24290.315964603258
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13698,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13730,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12349,
+    "position": [
+      23429.221480034215,
+      34.92593002319336,
+      24188.603396186456
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13699,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13701,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12350,
+    "position": [
+      23497.08249199019,
+      35.077762603759766,
+      24104.934404067764
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13702,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13737,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12351,
+    "position": [
+      23561.132526943344,
+      35.40826416015625,
+      24025.96414242218
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13738,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12353,
+    "position": [
+      23693.607999992884,
+      35.763668060302734,
+      23862.628981465656
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13743,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13747,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12354,
+    "position": [
+      23746.109646582612,
+      36.28208541870117,
+      23797.897263972493
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13704,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13749,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12355,
+    "position": [
+      23806.297165876826,
+      37.03223419189453,
+      23723.689277201855
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13705,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13752,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12356,
+    "position": [
+      23861.50082407395,
+      37.06214904785156,
+      23655.62612415582
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13754,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12357,
+    "position": [
+      23903.73799749975,
+      37.11899185180664,
+      23603.549952159276
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13709,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13757,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12358,
+    "position": [
+      23959.517111417277,
+      36.91480255126953,
+      23534.77729303977
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13710,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13760,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12361,
+    "position": [
+      24113.40711715834,
+      37.96892166137695,
+      23345.039160548502
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13712,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12362,
+    "position": [
+      24176.520555742605,
+      37.719974517822266,
+      23267.223672048032
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13713,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13768,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12363,
+    "position": [
+      24230.86713627694,
+      36.736392974853516,
+      23200.21724984267
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13770,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12364,
+    "position": [
+      24284.420182985792,
+      36.136474609375,
+      23134.189212330915
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13717,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12365,
+    "position": [
+      24352.319027122016,
+      35.40822219848633,
+      23050.47357516082
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13718,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13776,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12367,
+    "position": [
+      24488.69154153971,
+      35.08253479003906,
+      22882.33357097959
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13720,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12368,
+    "position": [
+      24571.239321137025,
+      34.4336051940918,
+      22780.556581196055
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13721,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13784,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12369,
+    "position": [
+      24660.63445622829,
+      34.33113098144531,
+      22670.337168932463
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13723,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13785,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12370,
+    "position": [
+      24746.918586546046,
+      34.498008728027344,
+      22563.95345888393
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37239,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12378,
+    "position": [
+      23764.446592852,
+      34.44374084472656,
+      23920.083702446846
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13745,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13748,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12393,
+    "position": [
+      24642.07791399614,
+      33.23208999633789,
+      22838.011302177245
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13782,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13786,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12398,
+    "position": [
+      23480.345298263506,
+      32.405784606933594,
+      24398.68997432207
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13821,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13825,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12399,
+    "position": [
+      23562.840827928954,
+      32.34205627441406,
+      24296.97740590527
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13789,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13826,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12400,
+    "position": [
+      23630.70183988493,
+      32.676727294921875,
+      24213.308413786577
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13790,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13792,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12401,
+    "position": [
+      23694.751874838083,
+      32.56220626831055,
+      24134.338152140994
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13793,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13833,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12402,
+    "position": [
+      23765.76418437743,
+      32.959354400634766,
+      24046.783778931353
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13795,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13834,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12403,
+    "position": [
+      23827.227347887623,
+      32.98255920410156,
+      23971.00299118447
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13796,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12406,
+    "position": [
+      23995.12017196869,
+      34.48888397216797,
+      23764.000133874633
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13801,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12407,
+    "position": [
+      24037.35734539449,
+      34.97721862792969,
+      23711.92396187809
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13838,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12408,
+    "position": [
+      24093.136459312016,
+      35.160972595214844,
+      23643.151302758582
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13805,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13839,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12409,
+    "position": [
+      24146.888528664225,
+      35.571388244628906,
+      23576.877880990112
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13806,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12414,
+    "position": [
+      24418.03953088053,
+      33.334686279296875,
+      23242.56322204973
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13808,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12415,
+    "position": [
+      24485.938375016754,
+      33.18135452270508,
+      23158.847584879633
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13809,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13811,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12416,
+    "position": [
+      24554.63980732648,
+      32.859535217285156,
+      23074.14239948991
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13812,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13846,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12417,
+    "position": [
+      24622.310889434448,
+      33.031349182128906,
+      22990.707580698403
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13814,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13847,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12418,
+    "position": [
+      24704.858669031764,
+      33.00141906738281,
+      22888.930590914868
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13815,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13817,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12423,
+    "position": [
+      23530.030538072835,
+      32.50352096557617,
+      24438.98794573726
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13823,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13827,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12432,
+    "position": [
+      24087.042585203817,
+      34.287845611572266,
+      23752.221933293276
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13840,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12448,
+    "position": [
+      23588.844804616125,
+      32.78565979003906,
+      24486.690153496784
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13852,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13892,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12453,
+    "position": [
+      23935.72685424024,
+      31.386804580688477,
+      24059.00317035918
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13901,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12457,
+    "position": [
+      24145.856851747107,
+      33.06888198852539,
+      23799.9241410528
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13865,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12458,
+    "position": [
+      24201.635965664635,
+      33.708740234375,
+      23731.151481933295
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13866,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13916,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12467,
+    "position": [
+      24730.810395787066,
+      32.44140625,
+      23078.707759873116
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13872,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13932,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12468,
+    "position": [
+      24813.358175384383,
+      33.44071578979492,
+      22976.93077008958
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13876,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13933,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12472,
+    "position": [
+      23555.518635163156,
+      34.05039978027344,
+      24630.724209169686
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13137,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13887,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13889,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12473,
+    "position": [
+      23639.20883895149,
+      33.0605354309082,
+      24527.53867156349
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13154,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13890,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13894,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12474,
+    "position": [
+      23721.704368616938,
+      31.73731231689453,
+      24425.826103146686
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13171,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13895,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13952,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12475,
+    "position": [
+      23789.565380572913,
+      30.911602020263672,
+      24342.157111027995
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 13953,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12476,
+    "position": [
+      23853.615415526066,
+      30.76186180114746,
+      24263.18684938241
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 13897,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12477,
+    "position": [
+      23924.627725065413,
+      30.580106735229492,
+      24175.63247617277
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13209,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13898,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13902,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12478,
+    "position": [
+      23986.090888575607,
+      30.641605377197266,
+      24099.851688425886
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13222,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13903,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12479,
+    "position": [
+      24038.592535165335,
+      30.843997955322266,
+      24035.119970932723
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13235,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13905,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12480,
+    "position": [
+      24098.78005445955,
+      31.195940017700195,
+      23960.911984162085
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13248,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13906,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13910,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12481,
+    "position": [
+      24153.983712656674,
+      31.640602111816406,
+      23892.84883111605
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13264,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13911,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12482,
+    "position": [
+      24196.220886082472,
+      32.32489013671875,
+      23840.772659119506
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13281,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13913,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12483,
+    "position": [
+      24252.0,
+      32.633399963378906,
+      23772.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13299,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13914,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13918,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12484,
+    "position": [
+      24305.75206935221,
+      32.47974395751953,
+      23705.72657823153
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13316,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13919,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12485,
+    "position": [
+      24353.188721350572,
+      32.60722732543945,
+      23647.239727714732
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13332,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12486,
+    "position": [
+      24405.89000574106,
+      32.33069610595703,
+      23582.261867508732
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13348,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13923,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12487,
+    "position": [
+      24469.003444325328,
+      31.602983474731445,
+      23504.446379008263
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13364,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13924,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12488,
+    "position": [
+      24523.35002485966,
+      30.917158126831055,
+      23437.4399568029
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13381,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12490,
+    "position": [
+      24644.80191570474,
+      30.942249298095703,
+      23287.69628212105
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 13926,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12491,
+    "position": [
+      24713.503348014463,
+      31.716407775878906,
+      23202.991096731326
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13428,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13927,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13929,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12492,
+    "position": [
+      24781.17443012243,
+      32.04604721069336,
+      23119.55627793982
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13445,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13930,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13934,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12493,
+    "position": [
+      24863.72220971975,
+      33.3554801940918,
+      23017.779288156285
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13463,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13935,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13937,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12494,
+    "position": [
+      24953.117344811013,
+      33.936771392822266,
+      22907.559875892694
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13480,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13938,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 13940,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12496,
+    "position": [
+      23513.88874236418,
+      33.918785095214844,
+      24782.801416697486
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13943,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12498,
+    "position": [
+      23688.499056444438,
+      33.33029556274414,
+      24567.516254105136
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13947,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13949,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12503,
+    "position": [
+      24035.381106068555,
+      29.992887496948242,
+      24139.829270967533
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13958,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12507,
+    "position": [
+      24245.51110357542,
+      31.575298309326172,
+      23880.750241661153
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13963,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12508,
+    "position": [
+      24301.290217492948,
+      31.674489974975586,
+      23811.977582541647
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13964,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13966,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12517,
+    "position": [
+      24830.46464761538,
+      31.7915096282959,
+      23159.533860481468
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13973,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13975,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12518,
+    "position": [
+      24913.012427212696,
+      33.15423583984375,
+      23057.756870697933
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13976,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 13978,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12543,
+    "position": [
+      24964.48572436323,
+      32.7258415222168,
+      23099.505073286422
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14007,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14009,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12548,
+    "position": [
+      23803.804115497733,
+      32.961448669433594,
+      24661.036180578016
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14016,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14035,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12557,
+    "position": [
+      24360.816162628715,
+      29.23970603942871,
+      23974.270168134033
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14040,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12558,
+    "position": [
+      24416.595276546243,
+      28.86449432373047,
+      23905.497509014527
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14041,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12567,
+    "position": [
+      24945.769706668674,
+      30.956920623779297,
+      23253.053786954348
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14029,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14049,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12568,
+    "position": [
+      25028.31748626599,
+      32.32714080810547,
+      23151.276797170813
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14030,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14032,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12573,
+    "position": [
+      23859.63152258437,
+      32.66539764404297,
+      24706.31585042755
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14037,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14062,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12582,
+    "position": [
+      24416.64356971535,
+      28.07465934753418,
+      24019.549837983566
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14042,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12597,
+    "position": [
+      23837.315422149295,
+      33.384334564208984,
+      24859.279790473858
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14063,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14079,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12598,
+    "position": [
+      23921.00562593763,
+      33.042110443115234,
+      24756.09425286766
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14064,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14066,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12607,
+    "position": [
+      24478.017673068614,
+      27.161462783813477,
+      24069.328240423678
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14069,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14083,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12608,
+    "position": [
+      24533.79678698614,
+      26.859130859375,
+      24000.555581304172
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14070,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14085,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12609,
+    "position": [
+      24587.548856338348,
+      26.4138126373291,
+      23934.2821595357
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14088,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12610,
+    "position": [
+      24634.985508336715,
+      26.738710403442383,
+      23875.795309018904
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14091,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12611,
+    "position": [
+      24687.686792727203,
+      27.384172439575195,
+      23810.817448812904
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14093,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14096,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12613,
+    "position": [
+      24805.1468118458,
+      28.188682556152344,
+      23665.995538107072
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14101,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12614,
+    "position": [
+      24858.699858554653,
+      28.975008010864258,
+      23599.967500595318
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14103,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14106,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12615,
+    "position": [
+      24926.598702690877,
+      29.869354248046875,
+      23516.251863425223
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14072,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14107,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12616,
+    "position": [
+      24995.3001350006,
+      30.297760009765625,
+      23431.5466780355
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14073,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14075,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12617,
+    "position": [
+      25062.97121710857,
+      30.522960662841797,
+      23348.111859243993
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14076,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14114,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12618,
+    "position": [
+      25145.51899670589,
+      32.05880355834961,
+      23246.334869460457
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14115,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12621,
+    "position": [
+      23824.084232992744,
+      32.57057189941406,
+      25034.390199652746
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14080,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12633,
+    "position": [
+      24611.485708121512,
+      26.139728546142578,
+      24063.566365496907
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14086,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14152,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12642,
+    "position": [
+      25140.660138243944,
+      31.187368392944336,
+      23411.122643436727
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14112,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14116,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12647,
+    "position": [
+      23989.99557821018,
+      33.2012825012207,
+      24983.113359320843
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14178,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12648,
+    "position": [
+      24073.685781998513,
+      32.50077438354492,
+      24879.927821714646
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14129,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14179,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12649,
+    "position": [
+      24156.18131166396,
+      31.632219314575195,
+      24778.215253297843
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14183,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12652,
+    "position": [
+      24359.104668112435,
+      28.319080352783203,
+      24528.021626323927
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14139,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14188,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12653,
+    "position": [
+      24420.56783162263,
+      27.941970825195312,
+      24452.240838577043
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14140,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14190,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12654,
+    "position": [
+      24473.069478212357,
+      27.76935577392578,
+      24387.50912108388
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14143,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14193,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12655,
+    "position": [
+      24533.25699750657,
+      27.128189086914062,
+      24313.301134313242
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14145,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14196,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12656,
+    "position": [
+      24588.460655703697,
+      26.173887252807617,
+      24245.237981267208
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14148,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14198,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12657,
+    "position": [
+      24630.697829129494,
+      26.180923461914062,
+      24193.161809270663
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14151,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14201,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12658,
+    "position": [
+      24686.476943047022,
+      26.058391571044922,
+      24124.389150151157
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14153,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14204,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12659,
+    "position": [
+      24740.22901239923,
+      25.761837005615234,
+      24058.115728382687
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14156,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14206,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12660,
+    "position": [
+      24787.665664397595,
+      25.7358341217041,
+      23999.62887786589
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14159,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14209,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12661,
+    "position": [
+      24840.366948788083,
+      26.122426986694336,
+      23934.65101765989
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14161,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14163,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12662,
+    "position": [
+      24903.48038737235,
+      27.048070907592773,
+      23856.83552915942
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14215,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12663,
+    "position": [
+      24957.826967906683,
+      28.37248992919922,
+      23789.829106954057
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14217,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12667,
+    "position": [
+      25215.651373169454,
+      31.96794319152832,
+      23471.945428090978
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14167,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14169,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12668,
+    "position": [
+      25298.19915276677,
+      33.45692443847656,
+      23370.168438307443
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14170,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14223,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12669,
+    "position": [
+      25387.594287858035,
+      33.365379333496094,
+      23259.94902604385
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14224,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12678,
+    "position": [
+      24496.49554654109,
+      27.678152084350586,
+      24513.823169610292
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14191,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14244,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12693,
+    "position": [
+      25374.12686768523,
+      33.70442581176758,
+      23431.75076934069
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14221,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14225,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12703,
+    "position": [
+      24591.88496108885,
+      28.228796005249023,
+      24591.19020890624
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12863,
+    "position": [
+      23510.058580017194,
+      34.001760482788086,
+      24686.774021662764
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13945,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12864,
+    "position": [
+      23597.363737057327,
+      33.55546760559082,
+      24579.131440366586
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13948,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12866,
+    "position": [
+      23680.456603784212,
+      32.39892387390137,
+      24476.682387355086
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13951,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12869,
+    "position": [
+      23955.359306820512,
+      30.61085605621338,
+      24137.742082299326
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13959,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12870,
+    "position": [
+      24068.68629481244,
+      31.01996898651123,
+      23998.015977547406
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13962,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12873,
+    "position": [
+      24224.110443041234,
+      32.47914505004883,
+      23806.38632955975
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13965,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12875,
+    "position": [
+      24278.876034676105,
+      32.55657196044922,
+      23738.863289115765
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13968,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12877,
+    "position": [
+      24437.446725033195,
+      31.96683979034424,
+      23543.354123258498
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13971,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12879,
+    "position": [
+      24747.338889068447,
+      31.881227493286133,
+      23161.27368733557
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13974,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12881,
+    "position": [
+      24822.448319921088,
+      32.70076370239258,
+      23068.66778304805
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13977,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12882,
+    "position": [
+      24908.419777265382,
+      33.64612579345703,
+      22962.66958202449
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13980,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12883,
+    "position": [
+      24996.25940996989,
+      34.406471252441406,
+      22854.368020868427
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 13983,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12950,
+    "position": [
+      23944.535523064216,
+      32.93052291870117,
+      25039.16317181392
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14177,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12965,
+    "position": [
+      24871.923668080217,
+      26.585248947143555,
+      23895.743273409655
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14214,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 12967,
+    "position": [
+      25256.92526296811,
+      32.71243381500244,
+      23421.05693319921
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14222,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13086,
+    "position": [
+      16919.87104916434,
+      38.61528778076172,
+      43781.974973187316
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14555,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14559,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13088,
+    "position": [
+      17020.50266738156,
+      36.773841857910156,
+      43198.09897481899
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37407,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13089,
+    "position": [
+      16979.094743157464,
+      37.04843521118164,
+      43316.53340860719
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14535,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14538,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13090,
+    "position": [
+      16950.63971659822,
+      37.2636604309082,
+      43397.9201243656
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14540,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13091,
+    "position": [
+      16924.788037760445,
+      37.98238754272461,
+      43471.8607771029
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14543,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13092,
+    "position": [
+      16904.120110503965,
+      38.66120529174805,
+      43530.97492754786
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14546,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13093,
+    "position": [
+      16883.3504970196,
+      39.05363464355469,
+      43590.379919686755
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14549,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13094,
+    "position": [
+      16860.82946013028,
+      38.70882034301758,
+      43654.79431143156
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14552,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14556,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13095,
+    "position": [
+      16827.638107435596,
+      39.4022102355957,
+      43749.72780874442
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14557,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14561,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13096,
+    "position": [
+      16787.73755362637,
+      40.31071472167969,
+      43863.85088027673
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37410,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13098,
+    "position": [
+      16905.518730025095,
+      37.29634475708008,
+      43290.80921776971
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14565,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14576,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13099,
+    "position": [
+      16877.06370346585,
+      38.0507698059082,
+      43372.19593352812
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14577,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13104,
+    "position": [
+      16754.062094303226,
+      39.9041862487793,
+      43724.00361790694
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14568,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14570,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13107,
+    "position": [
+      16840.258017326443,
+      38.00736618041992,
+      43267.9922838781
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14574,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14578,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13108,
+    "position": [
+      16811.8029907672,
+      39.10501480102539,
+      43349.37899963651
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14579,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13112,
+    "position": [
+      16721.99273429926,
+      39.72307586669922,
+      43606.253186702466
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14581,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13113,
+    "position": [
+      16688.801381604575,
+      40.49948501586914,
+      43701.18668401533
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14582,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14584,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13116,
+    "position": [
+      16798.9746326535,
+      39.057735443115234,
+      43253.55848105933
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14473,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14587,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14594,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13117,
+    "position": [
+      16770.519606094254,
+      39.818782806396484,
+      43334.94519681774
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14481,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14588,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13118,
+    "position": [
+      16744.66792725648,
+      40.106197357177734,
+      43408.88584955504
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14488,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13119,
+    "position": [
+      16724.0,
+      40.33232498168945,
+      43468.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14496,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13121,
+    "position": [
+      16680.709349626315,
+      40.19485092163086,
+      43591.819383883696
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14511,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14590,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13122,
+    "position": [
+      16647.51799693163,
+      40.84295654296875,
+      43686.75288119656
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14518,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14591,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 14601,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13125,
+    "position": [
+      16754.87705715308,
+      40.068634033203125,
+      43238.14075999306
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14596,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14598,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13133,
+    "position": [
+      16733.637886477663,
+      40.503231048583984,
+      43097.803184732526
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14606,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 22968,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13134,
+    "position": [
+      16692.22996225357,
+      40.70362091064453,
+      43216.237618520725
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14607,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14609,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13135,
+    "position": [
+      16663.774935694324,
+      40.85359191894531,
+      43297.624334279135
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14610,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13140,
+    "position": [
+      16540.7733265317,
+      41.278175354003906,
+      43649.43201865796
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14612,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14619,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13141,
+    "position": [
+      16500.872772722476,
+      41.66239547729492,
+      43763.55509019027
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37414,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13143,
+    "position": [
+      16621.801757351837,
+      40.77599334716797,
+      43191.61398771902
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14616,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14629,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13144,
+    "position": [
+      16593.346730792593,
+      41.56013870239258,
+      43273.00070347743
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14631,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13145,
+    "position": [
+      16567.49505195482,
+      42.762908935546875,
+      43346.94135621473
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14634,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13146,
+    "position": [
+      16546.82712469834,
+      42.07963943481445,
+      43406.05550665969
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14637,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13147,
+    "position": [
+      16526.057511213974,
+      41.86992263793945,
+      43465.46049879859
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14640,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13148,
+    "position": [
+      16503.536474324654,
+      41.638031005859375,
+      43529.87489054339
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14620,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14643,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13149,
+    "position": [
+      16470.34512162997,
+      41.56608581542969,
+      43624.808387856254
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14621,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14623,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 14646,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13165,
+    "position": [
+      16950.891539944885,
+      37.72479248046875,
+      43545.22520533249
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14550,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13180,
+    "position": [
+      16781.88545096837,
+      39.43825912475586,
+      43293.25132122844
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14600,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13198,
+    "position": [
+      16497.622164821845,
+      42.74437713623047,
+      43394.03554261255
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 14642,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13253,
+    "position": [
+      45359.062434380954,
+      36.25959014892578,
+      29809.790880271423
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15368,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13260,
+    "position": [
+      45764.03721927541,
+      40.74260711669922,
+      30136.507965786055
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15404,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13261,
+    "position": [
+      45829.181751679396,
+      40.97140121459961,
+      30189.063908916665
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15372,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15405,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13266,
+    "position": [
+      45141.93708570348,
+      34.48490905761719,
+      29727.514569107163
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15386,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15388,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13267,
+    "position": [
+      45235.0692338981,
+      35.47376251220703,
+      29802.64977544796
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15389,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15391,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13268,
+    "position": [
+      45313.66725838237,
+      36.339725494384766,
+      29866.05944549297
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15392,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13269,
+    "position": [
+      45375.113898657815,
+      37.30461883544922,
+      29915.63208056627
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15396,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13270,
+    "position": [
+      45441.797708246035,
+      37.75542449951172,
+      29969.42984954429
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15397,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13273,
+    "position": [
+      45598.770645510114,
+      39.333229064941406,
+      30096.069192240546
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15401,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13274,
+    "position": [
+      45662.61853634139,
+      40.119136810302734,
+      30147.57905800685
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15402,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13275,
+    "position": [
+      45718.64204327682,
+      40.88322830200195,
+      30192.7765310076
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15406,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13276,
+    "position": [
+      45783.78657568081,
+      40.944435119628906,
+      30245.332474138213
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15407,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15409,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13277,
+    "position": [
+      45869.233857534484,
+      40.01205825805664,
+      30314.267844767906
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15410,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15412,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13278,
+    "position": [
+      45955.78022609828,
+      39.16896438598633,
+      30384.08991358241
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15413,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15415,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13280,
+    "position": [
+      45010.56654027142,
+      34.330955505371094,
+      29698.042999357804
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37721,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13281,
+    "position": [
+      45104.546030783196,
+      34.516212463378906,
+      29773.861806808145
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15419,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15421,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13282,
+    "position": [
+      45197.67817897782,
+      35.58623504638672,
+      29848.997013148943
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15422,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15424,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13283,
+    "position": [
+      45276.27620346208,
+      36.37842559814453,
+      29912.406683193953
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15425,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13284,
+    "position": [
+      45337.72284373753,
+      37.07991027832031,
+      29961.97931826725
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15427,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13285,
+    "position": [
+      45404.40665332575,
+      37.65995788574219,
+      30015.77708724527
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15428,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13288,
+    "position": [
+      45561.37959058983,
+      39.19023513793945,
+      30142.416429941528
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15430,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13289,
+    "position": [
+      45625.227481421105,
+      40.092952728271484,
+      30193.92629570783
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15431,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13290,
+    "position": [
+      45681.250988356536,
+      40.555973052978516,
+      30239.12376870858
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15433,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13291,
+    "position": [
+      45746.395520760525,
+      40.65526580810547,
+      30291.679711839195
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15434,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15436,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13292,
+    "position": [
+      45831.8428026142,
+      40.09946823120117,
+      30360.61508246889
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15437,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15439,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13293,
+    "position": [
+      45918.389171177994,
+      39.328453063964844,
+      30430.437151283393
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15440,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15442,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13298,
+    "position": [
+      45237.9982587379,
+      36.345333099365234,
+      29959.853245122176
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15452,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13305,
+    "position": [
+      45642.97304363235,
+      40.249755859375,
+      30286.570330636805
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15460,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13306,
+    "position": [
+      45708.11757603634,
+      40.64393997192383,
+      30339.12627376742
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15461,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15463,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13313,
+    "position": [
+      45201.05829432132,
+      36.45166778564453,
+      30005.641343776544
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15479,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13320,
+    "position": [
+      45606.03307921578,
+      40.4286994934082,
+      30332.358429291173
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15487,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13321,
+    "position": [
+      45671.177611619765,
+      40.824920654296875,
+      30384.914372421787
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15488,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15490,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13328,
+    "position": [
+      45173.56645413408,
+      36.48819351196289,
+      30039.718233415308
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15506,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13335,
+    "position": [
+      45578.541239028535,
+      40.48495101928711,
+      30366.435318929936
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15514,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13336,
+    "position": [
+      45643.68577143252,
+      40.856781005859375,
+      30418.99126206055
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15515,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15517,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13341,
+    "position": [
+      44974.912361931856,
+      35.781856536865234,
+      29934.54629343503
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15527,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15529,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13342,
+    "position": [
+      45068.04451012648,
+      36.231082916259766,
+      30009.681499775827
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15530,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15532,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13343,
+    "position": [
+      45146.64253461074,
+      36.496070861816406,
+      30073.091169820837
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15533,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13344,
+    "position": [
+      45208.08917488619,
+      37.023563385009766,
+      30122.663804894135
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15535,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13345,
+    "position": [
+      45274.77298447441,
+      37.62936782836914,
+      30176.461573872155
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15536,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13348,
+    "position": [
+      45431.74592173849,
+      39.062705993652344,
+      30303.10091656841
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15538,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13349,
+    "position": [
+      45495.593812569765,
+      40.09749221801758,
+      30354.610782334716
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15539,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13350,
+    "position": [
+      45551.617319505196,
+      40.66123580932617,
+      30399.808255335465
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15541,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13351,
+    "position": [
+      45616.761851909185,
+      40.8045768737793,
+      30452.36419846608
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15542,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15544,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13352,
+    "position": [
+      45702.20913376286,
+      40.328826904296875,
+      30521.299569095772
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15545,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15547,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13353,
+    "position": [
+      45788.755502326654,
+      39.25172424316406,
+      30591.121637910277
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15548,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15550,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13358,
+    "position": [
+      45115.75430829979,
+      36.68244552612305,
+      30111.377973176543
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15560,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13365,
+    "position": [
+      45520.72909319424,
+      40.77958679199219,
+      30438.09505869117
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15568,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13366,
+    "position": [
+      45585.87362559823,
+      40.720985412597656,
+      30490.651001821785
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15569,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15571,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13373,
+    "position": [
+      45091.02018780371,
+      36.951904296875,
+      30142.036593651424
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15587,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13380,
+    "position": [
+      45495.994972698165,
+      40.72289276123047,
+      30468.753679166053
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15595,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13381,
+    "position": [
+      45561.13950510215,
+      40.69209671020508,
+      30521.309622296667
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15596,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15598,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13388,
+    "position": [
+      45068.00822952262,
+      37.241973876953125,
+      30170.560546845383
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15618,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13395,
+    "position": [
+      45472.98301441707,
+      40.52473068237305,
+      30497.277632360012
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15632,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13396,
+    "position": [
+      45538.12754682106,
+      40.68227767944336,
+      30549.833575490626
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15633,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15637,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13401,
+    "position": [
+      44868.10985874861,
+      37.00917434692383,
+      30066.93092426844
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15056,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15610,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 15614,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13402,
+    "position": [
+      44961.242006943234,
+      37.14247512817383,
+      30142.066130609237
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15078,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15615,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 15619,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13403,
+    "position": [
+      45039.8400314275,
+      37.64217758178711,
+      30205.475800654247
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15100,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15620,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13404,
+    "position": [
+      45101.28667170295,
+      37.96831130981445,
+      30255.048435727545
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15122,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15624,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13405,
+    "position": [
+      45167.970481291166,
+      38.00288391113281,
+      30308.846204705565
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15144,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15625,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13406,
+    "position": [
+      45230.08297705418,
+      38.32997512817383,
+      30358.956024740462
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15166,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13407,
+    "position": [
+      45276.0,
+      38.49241638183594,
+      30396.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15188,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13408,
+    "position": [
+      45324.943418555245,
+      38.855438232421875,
+      30435.485547401822
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15210,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15629,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13409,
+    "position": [
+      45388.79130938652,
+      39.62117385864258,
+      30486.995413168126
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15232,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15630,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13410,
+    "position": [
+      45444.81481632195,
+      40.12227249145508,
+      30532.192886168876
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15254,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15634,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13411,
+    "position": [
+      45509.95934872594,
+      40.49469757080078,
+      30584.74882929949
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15276,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15635,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 15639,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13412,
+    "position": [
+      45595.406630579615,
+      40.33891677856445,
+      30653.684199929183
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15298,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15640,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 15644,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13413,
+    "position": [
+      45681.95299914341,
+      39.30406951904297,
+      30723.506268743688
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15320,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15645,
+        "incomingLanes": 2,
+        "control": 0
+      },
+      {
+        "edge": 15649,
+        "incomingLanes": 2,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13418,
+    "position": [
+      45011.3735973781,
+      38.1187629699707,
+      30240.760726104993
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15659,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13425,
+    "position": [
+      45416.348382272554,
+      39.65387725830078,
+      30567.47781161962
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15667,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13426,
+    "position": [
+      45481.49291467654,
+      39.954444885253906,
+      30620.033754750235
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15668,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15670,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13433,
+    "position": [
+      44990.63368103841,
+      38.45682144165039,
+      30266.468421021415
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15690,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13440,
+    "position": [
+      45395.60846593286,
+      39.353302001953125,
+      30593.185506536043
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15704,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13441,
+    "position": [
+      45460.75299833685,
+      39.57306671142578,
+      30645.741449666657
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15705,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15709,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13444,
+    "position": [
+      45728.66328137407,
+      38.3427734375,
+      30861.88050354907
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15720,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 23265,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13448,
+    "position": [
+      44963.21086204799,
+      38.732051849365234,
+      30300.45975699441
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15692,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13455,
+    "position": [
+      45368.185646942446,
+      38.90670394897461,
+      30627.176842509038
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15706,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13456,
+    "position": [
+      45433.330179346434,
+      39.172359466552734,
+      30679.73278563965
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15707,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15711,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13460,
+    "position": [
+      44668.31840162419,
+      37.83620834350586,
+      30122.26895041534
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15724,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13461,
+    "position": [
+      44762.29789213596,
+      38.104393005371094,
+      30198.08775786568
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15725,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15727,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13462,
+    "position": [
+      44855.43004033058,
+      38.44968032836914,
+      30273.222964206478
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15728,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15730,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13463,
+    "position": [
+      44934.02806481485,
+      38.89630889892578,
+      30336.632634251488
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15731,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13464,
+    "position": [
+      44995.474705090295,
+      38.97003936767578,
+      30386.205269324786
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15733,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13465,
+    "position": [
+      45062.158514678515,
+      38.998023986816406,
+      30440.003038302806
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15734,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13468,
+    "position": [
+      45219.131451942594,
+      38.75969314575195,
+      30566.642380999063
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15736,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13469,
+    "position": [
+      45282.97934277387,
+      38.5219841003418,
+      30618.152246765367
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15737,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13470,
+    "position": [
+      45339.0028497093,
+      38.54574966430664,
+      30663.349719766116
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15739,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13471,
+    "position": [
+      45404.14738211329,
+      38.73566818237305,
+      30715.90566289673
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15740,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15742,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13472,
+    "position": [
+      45489.594663966964,
+      38.9345588684082,
+      30784.841033526423
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15743,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15745,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13473,
+    "position": [
+      45576.14103253076,
+      38.423187255859375,
+      30854.663102340928
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15746,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15748,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13478,
+    "position": [
+      44908.970927225455,
+      38.86637878417969,
+      30367.69164326949
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15758,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13485,
+    "position": [
+      45313.94571211991,
+      38.37358474731445,
+      30694.408728784118
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15766,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13486,
+    "position": [
+      45379.0902445239,
+      38.444698333740234,
+      30746.96467191473
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15767,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15769,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13493,
+    "position": [
+      44877.34813391705,
+      38.66971206665039,
+      30406.888962557707
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15785,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13500,
+    "position": [
+      45282.3229188115,
+      38.219242095947266,
+      30733.606048072335
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15793,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13501,
+    "position": [
+      45347.46745121549,
+      38.12679672241211,
+      30786.16199120295
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15794,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15796,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13508,
+    "position": [
+      44839.15264288801,
+      38.588836669921875,
+      30454.233320870215
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15812,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13515,
+    "position": [
+      45244.12742778246,
+      38.07053756713867,
+      30780.950406384844
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15820,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13516,
+    "position": [
+      45309.27196018645,
+      37.72676086425781,
+      30833.506349515457
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15821,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15823,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13520,
+    "position": [
+      44538.214461198055,
+      37.96894836425781,
+      30283.536351552313
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 27334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13521,
+    "position": [
+      44632.19395170983,
+      38.30629348754883,
+      30359.355159002655
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15833,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15835,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13522,
+    "position": [
+      44725.32609990445,
+      38.49983596801758,
+      30434.490365343452
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15836,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15838,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13523,
+    "position": [
+      44803.924124388715,
+      38.696739196777344,
+      30497.900035388462
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15839,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13524,
+    "position": [
+      44865.37076466416,
+      38.35849380493164,
+      30547.47267046176
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15841,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13525,
+    "position": [
+      44932.05457425238,
+      37.96755599975586,
+      30601.27043943978
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15842,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13528,
+    "position": [
+      45089.02751151646,
+      37.51518249511719,
+      30727.909782136037
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15844,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13529,
+    "position": [
+      45152.87540234774,
+      37.890872955322266,
+      30779.41964790234
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15845,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13530,
+    "position": [
+      45208.89890928317,
+      37.70488739013672,
+      30824.61712090309
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15847,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13531,
+    "position": [
+      45274.04344168716,
+      37.41028594970703,
+      30877.173064033705
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15848,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15850,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13532,
+    "position": [
+      45359.49072354083,
+      36.68155288696289,
+      30946.108434663398
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15851,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15853,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13533,
+    "position": [
+      45446.03709210463,
+      36.36353302001953,
+      31015.930503477903
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15854,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15856,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13538,
+    "position": [
+      44765.71849670973,
+      38.410247802734375,
+      30545.256958356495
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15866,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13545,
+    "position": [
+      45170.69328160418,
+      37.26366424560547,
+      30871.974043871123
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15874,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13546,
+    "position": [
+      45235.83781400817,
+      36.8563232421875,
+      30924.529987001737
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15875,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15877,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13553,
+    "position": [
+      44719.45611018796,
+      38.11659240722656,
+      30602.600454797303
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15893,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13560,
+    "position": [
+      45124.43089508241,
+      36.60087966918945,
+      30929.31754031193
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15901,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13561,
+    "position": [
+      45189.5754274864,
+      36.445587158203125,
+      30981.873483442545
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15902,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 15904,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13568,
+    "position": [
+      44673.512884425276,
+      38.328529357910156,
+      30659.548342726983
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37665,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13571,
+    "position": [
+      44863.75583005196,
+      37.2978630065918,
+      30813.0285668132
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37696,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13668,
+    "position": [
+      44821.120113492725,
+      36.95884704589844,
+      30029.02152054327
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15654,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13670,
+    "position": [
+      44914.675932845916,
+      37.07582473754883,
+      30104.49852743884
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15657,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13672,
+    "position": [
+      45000.54101918536,
+      37.39232635498047,
+      30173.770965631742
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15660,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13674,
+    "position": [
+      45135.35161857098,
+      37.98559761047363,
+      30281.051089742727
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15663,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13676,
+    "position": [
+      45356.86736397089,
+      39.23830604553223,
+      30461.240480284974
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15666,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13678,
+    "position": [
+      45475.12610346986,
+      40.30848503112793,
+      30561.273403259565
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15669,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13680,
+    "position": [
+      45552.68298965278,
+      40.41680717468262,
+      30619.216514614334
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15672,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13682,
+    "position": [
+      45635.78222515213,
+      39.82149314880371,
+      30692.18687622262
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15675,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13684,
+    "position": [
+      45728.32242098238,
+      38.90586853027344,
+      30764.166554221207
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 15678,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13875,
+    "position": [
+      15731.497692193041,
+      48.497528076171875,
+      31826.848499296153
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37781,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13876,
+    "position": [
+      15628.500515772927,
+      48.84119415283203,
+      31862.01746610822
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37822,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13879,
+    "position": [
+      16249.013327277606,
+      47.487159729003906,
+      31547.375976542236
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16245,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 37743,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13880,
+    "position": [
+      16112.061032674092,
+      46.994598388671875,
+      31594.13910997127
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16246,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16250,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13882,
+    "position": [
+      15892.484644112654,
+      46.535362243652344,
+      31669.11470629765
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16260,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13883,
+    "position": [
+      15796.278485553144,
+      47.31231689453125,
+      31701.9648417586
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16261,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16265,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13886,
+    "position": [
+      15480.495938432197,
+      48.57126235961914,
+      31809.790573545928
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16276,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16280,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13888,
+    "position": [
+      16221.511025772841,
+      47.47648620605469,
+      31466.831688301354
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37761,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13889,
+    "position": [
+      16084.558731169327,
+      46.9103889465332,
+      31513.59482173039
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16284,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16286,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13890,
+    "position": [
+      15967.979519028004,
+      46.4787712097168,
+      31553.4014512447
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16287,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16289,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13891,
+    "position": [
+      15864.98234260789,
+      46.49340057373047,
+      31588.570418056766
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16290,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16292,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13892,
+    "position": [
+      15768.77618404838,
+      46.984134674072266,
+      31621.420553517717
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16293,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16295,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13893,
+    "position": [
+      15672.57002548887,
+      47.00715637207031,
+      31654.270688978668
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16296,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16298,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13894,
+    "position": [
+      15569.572849068756,
+      47.132530212402344,
+      31689.439655790735
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16299,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16301,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13895,
+    "position": [
+      15452.993636927433,
+      47.41656494140625,
+      31729.246285305046
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16302,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16304,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13898,
+    "position": [
+      16059.998726202875,
+      46.767555236816406,
+      31441.66745525625
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16308,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16310,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13900,
+    "position": [
+      15840.422337641437,
+      46.566917419433594,
+      31516.64305158263
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16316,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13901,
+    "position": [
+      15744.216179081928,
+      46.804542541503906,
+      31549.49318704358
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16317,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16319,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13904,
+    "position": [
+      15428.433631960981,
+      46.74404525756836,
+      31657.318918830908
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16326,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16328,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13907,
+    "position": [
+      16037.400253083746,
+      46.61255645751953,
+      31375.48470569997
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16332,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13909,
+    "position": [
+      15817.823864522308,
+      46.25701904296875,
+      31450.46030202635
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16340,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13910,
+    "position": [
+      15721.617705962799,
+      46.482215881347656,
+      31483.3104374873
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16341,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16343,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13913,
+    "position": [
+      15405.835158841852,
+      46.09970474243164,
+      31591.13616927463
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 16349,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13916,
+    "position": [
+      16015.782547120947,
+      46.68790817260742,
+      31312.17426821267
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16353,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16355,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13917,
+    "position": [
+      15899.203334979624,
+      46.367218017578125,
+      31351.980897726982
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16356,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16358,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13918,
+    "position": [
+      15796.20615855951,
+      46.08494567871094,
+      31387.14986453905
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16359,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16361,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13919,
+    "position": [
+      15700.0,
+      46.263648986816406,
+      31420.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16362,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16364,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13920,
+    "position": [
+      15603.79384144049,
+      46.207191467285156,
+      31452.85013546095
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16365,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16367,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13921,
+    "position": [
+      15500.796665020376,
+      45.92805862426758,
+      31488.019102273018
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16368,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16385,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13922,
+    "position": [
+      15384.217452879053,
+      45.77165985107422,
+      31527.82573178733
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16370,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16386,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13924,
+    "position": [
+      16131.117135761662,
+      46.50261688232422,
+      31202.100697296337
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37765,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13925,
+    "position": [
+      15994.164841158148,
+      46.5551643371582,
+      31248.86383072537
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16374,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16376,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13928,
+    "position": [
+      15678.382294037201,
+      45.783451080322266,
+      31356.6895625127
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16380,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16382,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13931,
+    "position": [
+      15362.599746916254,
+      45.2554817199707,
+      31464.51529430003
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16388,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16390,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13933,
+    "position": [
+      16108.518662642533,
+      46.453346252441406,
+      31135.917947740058
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37770,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13934,
+    "position": [
+      15971.566368039019,
+      46.60103225708008,
+      31182.681081169092
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16394,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16396,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13936,
+    "position": [
+      15751.989979477581,
+      45.626705169677734,
+      31257.65667749547
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16418,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13937,
+    "position": [
+      15655.783820918072,
+      45.110294342041016,
+      31290.50681295642
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16400,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16402,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13940,
+    "position": [
+      15340.001273797125,
+      44.42502975463867,
+      31398.33254474375
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16406,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16408,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13943,
+    "position": [
+      15947.006363072567,
+      46.496002197265625,
+      31110.753714694954
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16412,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16414,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13944,
+    "position": [
+      15830.427150931244,
+      46.10020446777344,
+      31150.560344209265
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16415,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16419,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13945,
+    "position": [
+      15727.42997451113,
+      45.37677764892578,
+      31185.729311021332
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16420,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16422,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13946,
+    "position": [
+      15631.22381595162,
+      44.799312591552734,
+      31218.579446482283
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16423,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16425,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13947,
+    "position": [
+      15535.01765739211,
+      43.839073181152344,
+      31251.429581943234
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16426,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16430,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13948,
+    "position": [
+      15432.020480971996,
+      43.453125,
+      31286.5985487553
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16431,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16433,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13949,
+    "position": [
+      15315.441268830673,
+      43.259971618652344,
+      31326.40517826961
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16434,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16436,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13952,
+    "position": [
+      15919.504061567803,
+      45.70960235595703,
+      31030.209426454072
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16440,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16442,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13954,
+    "position": [
+      15699.927673006365,
+      45.012115478515625,
+      31105.18502278045
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16448,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13955,
+    "position": [
+      15603.721514446856,
+      44.34452438354492,
+      31138.0351582414
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16449,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16451,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13958,
+    "position": [
+      15287.938967325908,
+      42.11417007446289,
+      31245.86089002873
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16458,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16460,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13963,
+    "position": [
+      15668.502307806959,
+      44.51182556152344,
+      31013.151500703847
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16470,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16472,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 13983,
+    "position": [
+      15443.445156329846,
+      50.048627853393555,
+      31925.20566233705
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37819,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14047,
+    "position": [
+      15829.789090297734,
+      44.66481971740723,
+      30958.079219134626
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37740,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14050,
+    "position": [
+      15524.193069967696,
+      43.534048080444336,
+      31062.426703895275
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37844,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14053,
+    "position": [
+      15188.037454824746,
+      40.252586364746094,
+      31177.208934666647
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37847,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14101,
+    "position": [
+      59075.3091426803,
+      41.43209457397461,
+      25013.44728270565
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37920,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14105,
+    "position": [
+      59495.616018861154,
+      38.68061065673828,
+      24989.439000817638
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37924,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14108,
+    "position": [
+      58813.38715005186,
+      41.822235107421875,
+      25125.8178362758
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37884,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14109,
+    "position": [
+      58957.86764064327,
+      42.23075485229492,
+      25117.564989268023
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16736,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16740,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14112,
+    "position": [
+      59291.008589178135,
+      40.76667404174805,
+      25098.53569839955
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16751,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16755,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14115,
+    "position": [
+      59624.149537713,
+      38.24530029296875,
+      25079.50640753108
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16766,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16770,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14116,
+    "position": [
+      59768.63002830441,
+      37.96560287475586,
+      25071.253560523302
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37898,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14118,
+    "position": [
+      58962.72129928497,
+      42.31753921508789,
+      25202.536754896842
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16774,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16776,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14119,
+    "position": [
+      59085.7088097294,
+      42.03176498413086,
+      25195.511604972377
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16777,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16779,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14120,
+    "position": [
+      59194.36768705446,
+      41.81464767456055,
+      25189.30491860988
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16780,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16782,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14121,
+    "position": [
+      59295.86224781983,
+      41.17189025878906,
+      25183.50746402837
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16783,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16785,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14122,
+    "position": [
+      59397.3568085852,
+      40.78229522705078,
+      25177.710009446862
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16786,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16788,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14123,
+    "position": [
+      59506.01568591026,
+      39.36516571044922,
+      25171.503323084366
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16789,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16791,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14124,
+    "position": [
+      59629.00319635469,
+      38.68678665161133,
+      25164.4781731599
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16792,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16794,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14127,
+    "position": [
+      58967.055695819916,
+      42.10776138305664,
+      25278.417931077336
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 16798,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14130,
+    "position": [
+      59300.19664435478,
+      41.3978271484375,
+      25259.388640208865
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 16804,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14133,
+    "position": [
+      59633.33759288964,
+      39.28327178955078,
+      25240.359349340393
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 16810,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14136,
+    "position": [
+      58971.043917472016,
+      42.12043380737305,
+      25348.238711753285
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16813,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16824,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14139,
+    "position": [
+      59304.18486600688,
+      41.37550735473633,
+      25329.209420884814
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16816,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16832,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14142,
+    "position": [
+      59637.32581454174,
+      39.7933349609375,
+      25310.180130016342
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16819,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16840,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14143,
+    "position": [
+      59781.806305133156,
+      39.828548431396484,
+      25301.927283008565
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37904,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14145,
+    "position": [
+      58974.85905146514,
+      42.261199951171875,
+      25415.02929086847
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16822,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16826,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14146,
+    "position": [
+      59097.84656190957,
+      42.11094665527344,
+      25408.004140944005
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16827,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16851,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14147,
+    "position": [
+      59206.50543923463,
+      41.93565368652344,
+      25401.79745458151
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16829,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16852,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14148,
+    "position": [
+      59308.0,
+      41.526695251464844,
+      25396.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16830,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16834,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14149,
+    "position": [
+      59409.49456076537,
+      41.03528594970703,
+      25390.20254541849
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16835,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16862,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14150,
+    "position": [
+      59518.15343809043,
+      40.29855728149414,
+      25383.995859055995
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16837,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16863,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14151,
+    "position": [
+      59641.14094853486,
+      39.69220733642578,
+      25376.97070913153
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16838,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16842,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14153,
+    "position": [
+      58834.193694866844,
+      42.06736373901367,
+      25490.072716991435
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37908,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14154,
+    "position": [
+      58978.67418545826,
+      42.31035614013672,
+      25481.819869983658
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16846,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16848,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14157,
+    "position": [
+      59311.81513399312,
+      41.75455093383789,
+      25462.790579115186
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16857,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16859,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14160,
+    "position": [
+      59644.956082527984,
+      39.603023529052734,
+      25443.761288246715
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16868,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16870,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14161,
+    "position": [
+      59789.4365731194,
+      40.107688903808594,
+      25435.508441238937
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37911,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14163,
+    "position": [
+      58982.66240711036,
+      42.62155532836914,
+      25551.640650659607
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16874,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16876,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14166,
+    "position": [
+      59315.80335564522,
+      41.95939636230469,
+      25532.611359791135
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16883,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16885,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14169,
+    "position": [
+      59648.944304180084,
+      39.231136322021484,
+      25513.582068922664
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16892,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16894,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14171,
+    "position": [
+      58842.51631305389,
+      42.68425750732422,
+      25635.774673847878
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16897,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14172,
+    "position": [
+      58986.99680364531,
+      43.068538665771484,
+      25627.5218268401
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16898,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16900,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14173,
+    "position": [
+      59109.98431408974,
+      42.830135345458984,
+      25620.496676915634
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16901,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16903,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14174,
+    "position": [
+      59218.6431914148,
+      42.309139251708984,
+      25614.289990553138
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16904,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16906,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14175,
+    "position": [
+      59320.13775218017,
+      41.59067153930664,
+      25608.49253597163
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16907,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16909,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14176,
+    "position": [
+      59421.63231294554,
+      40.1898307800293,
+      25602.69508139012
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16910,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16912,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14177,
+    "position": [
+      59530.2911902706,
+      39.50584030151367,
+      25596.488395027623
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16913,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16915,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14178,
+    "position": [
+      59653.27870071503,
+      39.13041305541992,
+      25589.463245103158
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16916,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16918,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14179,
+    "position": [
+      59797.759191306446,
+      39.787803649902344,
+      25581.21039809538
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16919,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14181,
+    "position": [
+      58991.850462287,
+      43.22552490234375,
+      25712.49359246892
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16922,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16924,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14184,
+    "position": [
+      59324.991410821865,
+      41.53134536743164,
+      25693.46430160045
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16931,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16933,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14187,
+    "position": [
+      59658.13235935673,
+      39.056182861328125,
+      25674.435010731977
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 16940,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 16942,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14192,
+    "position": [
+      59229.0428584639,
+      42.910945892333984,
+      25796.354312819865
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37996,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14194,
+    "position": [
+      59432.031979994645,
+      40.5047492980957,
+      25784.759403656848
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37926,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14195,
+    "position": [
+      59540.6908573197,
+      39.85314178466797,
+      25778.55271729435
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38003,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14274,
+    "position": [
+      59058.89022591662,
+      43.59188652038574,
+      25806.073574144597
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37993,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14277,
+    "position": [
+      59381.28469961196,
+      41.12658882141113,
+      25787.658130947602
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 37999,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14326,
+    "position": [
+      53901.84045339658,
+      37.629974365234375,
+      51519.63039431698
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38110,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14330,
+    "position": [
+      53481.2143164811,
+      40.009666442871094,
+      51502.08272473699
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38080,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14334,
+    "position": [
+      54028.97496519709,
+      37.8292236328125,
+      51427.59877404564
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 17216,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14337,
+    "position": [
+      53695.58096626028,
+      40.57086181640625,
+      51413.690252392196
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 17226,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14340,
+    "position": [
+      53362.18696732346,
+      40.6946907043457,
+      51399.78173073875
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17236,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17240,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14341,
+    "position": [
+      53217.596730853074,
+      38.781463623046875,
+      51393.749719241125
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38058,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14342,
+    "position": [
+      54177.11274407371,
+      36.58763122558594,
+      51348.59447624445
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17243,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14343,
+    "position": [
+      54032.522507603324,
+      38.20779800415039,
+      51342.56246474682
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17244,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17264,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14344,
+    "position": [
+      53909.44157712425,
+      39.24092483520508,
+      51337.42777788337
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17246,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17265,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14345,
+    "position": [
+      53800.700163645335,
+      40.25615692138672,
+      51332.89130659468
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17247,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17249,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14346,
+    "position": [
+      53699.12850866651,
+      40.83539962768555,
+      51328.65394309338
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17250,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17275,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14347,
+    "position": [
+      53597.55685368768,
+      41.624664306640625,
+      51324.41657959207
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17252,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17276,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14348,
+    "position": [
+      53488.81544020877,
+      42.39055252075195,
+      51319.88010830338
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17253,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17255,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14349,
+    "position": [
+      53365.73450972969,
+      42.01344299316406,
+      51314.74542143993
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17256,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17258,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14352,
+    "position": [
+      54035.690520982156,
+      38.26667404174805,
+      51266.623650013586
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17262,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17266,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14355,
+    "position": [
+      53702.29652204534,
+      41.13972091674805,
+      51252.71512836014
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17273,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17277,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14358,
+    "position": [
+      53368.902523108525,
+      42.87971496582031,
+      51238.8066067067
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17284,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17286,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14359,
+    "position": [
+      53224.31228663814,
+      41.09904479980469,
+      51232.77459520907
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38062,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14360,
+    "position": [
+      54183.19575137378,
+      37.51957702636719,
+      51202.78184569596
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 30832,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14361,
+    "position": [
+      54038.60551490339,
+      38.633731842041016,
+      51196.74983419833
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17290,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17292,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14364,
+    "position": [
+      53705.21151596658,
+      41.61688232421875,
+      51182.841312544886
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17299,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17301,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14367,
+    "position": [
+      53371.81751702976,
+      43.09025955200195,
+      51168.93279089144
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17308,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17310,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14370,
+    "position": [
+      54041.393998936815,
+      38.76179885864258,
+      51129.908521653444
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17314,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17316,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14371,
+    "position": [
+      53918.31306845774,
+      39.84054183959961,
+      51124.773834789994
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17317,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17319,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14372,
+    "position": [
+      53809.57165497883,
+      41.16448211669922,
+      51120.23736350131
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17320,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17322,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14373,
+    "position": [
+      53708.0,
+      42.079124450683594,
+      51116.0
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17323,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17325,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14374,
+    "position": [
+      53606.42834502117,
+      42.57296371459961,
+      51111.76263649869
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17326,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17328,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14375,
+    "position": [
+      53497.68693154226,
+      42.7438850402832,
+      51107.226165210006
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17329,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17331,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14376,
+    "position": [
+      53374.606001063185,
+      43.34745407104492,
+      51102.091478346556
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17332,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14378,
+    "position": [
+      54188.772719440625,
+      37.755741119384766,
+      51069.099220606186
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38065,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14379,
+    "position": [
+      54044.18248297024,
+      38.54428482055664,
+      51063.06720910856
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17338,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17340,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14382,
+    "position": [
+      53710.78848403342,
+      42.27703857421875,
+      51049.158687455114
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17344,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17346,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14385,
+    "position": [
+      53377.39448509661,
+      43.329769134521484,
+      51035.25016580167
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17350,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17352,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14386,
+    "position": [
+      53232.80424862622,
+      42.174110412597656,
+      51029.21815430404
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38068,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14387,
+    "position": [
+      54191.68771336186,
+      37.57054138183594,
+      50999.22540479093
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38070,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14388,
+    "position": [
+      54047.097476891475,
+      38.300880432128906,
+      50993.1933932933
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 17356,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14391,
+    "position": [
+      53713.70347795466,
+      42.08148193359375,
+      50979.28487163986
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 17358,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14394,
+    "position": [
+      53380.309479017844,
+      43.02027893066406,
+      50965.376349986414
+    ],
+    "degree": 3,
+    "bad": [
+      {
+        "edge": 17362,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14397,
+    "position": [
+      54050.26549027031,
+      38.55268096923828,
+      50917.25457856007
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17365,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17386,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14398,
+    "position": [
+      53927.18455979123,
+      40.009552001953125,
+      50912.11989169662
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17369,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17387,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14399,
+    "position": [
+      53818.44314631232,
+      41.1281623840332,
+      50907.58342040793
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17370,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17394,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14400,
+    "position": [
+      53716.87149133349,
+      42.09196472167969,
+      50903.34605690662
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17372,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17395,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14401,
+    "position": [
+      53615.299836354665,
+      42.823787689208984,
+      50899.10869340532
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17373,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17377,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14402,
+    "position": [
+      53506.55842287575,
+      43.2220344543457,
+      50894.57222211663
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17378,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17380,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14403,
+    "position": [
+      53383.477492396676,
+      42.44293975830078,
+      50889.43753525318
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17381,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17408,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14406,
+    "position": [
+      54053.81303267654,
+      38.6782341003418,
+      50832.21826926125
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17384,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17388,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14409,
+    "position": [
+      53720.41903373972,
+      42.063079833984375,
+      50818.309747607804
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17397,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17399,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14412,
+    "position": [
+      53387.02503480291,
+      41.741390228271484,
+      50804.40122595436
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 17406,
+        "incomingLanes": 1,
+        "control": 0
+      },
+      {
+        "edge": 17410,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14413,
+    "position": [
+      53242.43479833252,
+      41.567405700683594,
+      50798.36921445673
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38078,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14417,
+    "position": [
+      53826.04427003999,
+      40.7414665222168,
+      50725.38080397432
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38084,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14420,
+    "position": [
+      53514.15954660342,
+      42.00927734375,
+      50712.36960568302
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38087,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14427,
+    "position": [
+      53742.31321242826,
+      39.270761489868164,
+      51512.97524127763
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38113,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14554,
+    "position": [
+      58970.03745043399,
+      35.81871795654297,
+      53075.00046377749
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38280,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14556,
+    "position": [
+      58813.63727065972,
+      35.385929107666016,
+      53131.815441867126
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38291,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14709,
+    "position": [
+      58764.16263945314,
+      32.20282745361328,
+      52264.59204717769
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38341,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 14884,
+    "position": [
+      23960.931824551186,
+      39.20084762573242,
+      19721.98046166736
+    ],
+    "degree": 4,
+    "bad": [
+      {
+        "edge": 38458,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 15672,
+    "position": [
+      19630.1635630468,
+      89.35747795347439,
+      34008.149643569646
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 22334,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  },
+  {
+    "node": 15716,
+    "position": [
+      19534.735172699966,
+      79.5176613482143,
+      36145.79336573723
+    ],
+    "degree": 2,
+    "bad": [
+      {
+        "edge": 20773,
+        "incomingLanes": 1,
+        "control": 0
+      }
+    ]
+  }
+]

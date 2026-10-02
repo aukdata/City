@@ -1,0 +1,46 @@
+﻿{
+  "gradeViolations": 0,
+  "radiusViolations": 0,
+  "towns": [
+    {
+      "center": [
+        1604.0,
+        7868.0
+      ],
+      "elevated": 0,
+      "largestClearanceM": 0.024967193603515625,
+      "streets": 379,
+      "tunnels": 0
+    },
+    {
+      "center": [
+        6244.0,
+        62140.0
+      ],
+      "elevated": 0,
+      "largestClearanceM": 0.011664390563964844,
+      "streets": 46,
+      "tunnels": 0
+    },
+    {
+      "center": [
+        22084.0,
+        19916.0
+      ],
+      "elevated": 0,
+      "largestClearanceM": 0.044216156005859375,
+      "streets": 942,
+      "tunnels": 0
+    },
+    {
+      "center": [
+        60092.0,
+        62564.0
+      ],
+      "elevated": 0,
+      "largestClearanceM": 0.03669929504394531,
+      "streets": 307,
+      "tunnels": 0
+    }
+  ]
+}

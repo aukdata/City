@@ -1,0 +1,3 @@
+[179.277s] [AgriculturalLayout] candidates=211944 fields=15556 paddies=5869 tracks=12915 drains=25830 disconnected=159
+[184.161s] [CityConstraintValidation] buildings=46249 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[184.281s] [PlaytestCommand] id=1 action=benchmark_view

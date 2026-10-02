@@ -1,0 +1,12 @@
+Fri Oct  2 05:02:50 UTC 2026
+1830834176
+8589934592
+8591040512
+low 0
+high 0
+max 169752
+oom 8
+oom_kill 3
+oom_group_kill 0
+18792 [City] <defunct>
+22336 [City] <defunct>

@@ -1,0 +1,23 @@
+{
+  "save": "/workspace/scratch/67b01c4a1273/build-tools/latest/station-order-roundtrip/new/save",
+  "version": 19,
+  "nodes": 31278,
+  "edges": 33331,
+  "signals": 1453,
+  "incomingSignalViolations": 576,
+  "junctionViolations": 569,
+  "components": [
+    {
+      "nodes": 28268,
+      "edges": 32062,
+      "railEdges": 0,
+      "farmEdges": 14012
+    },
+    {
+      "nodes": 1270,
+      "edges": 1269,
+      "railEdges": 1269,
+      "farmEdges": 0
+    }
+  ]
+}

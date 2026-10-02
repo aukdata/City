@@ -7,7 +7,7 @@ class RoadBinary
 {
 public:
 	static constexpr uint32 kMagic   = 0x004E4452u;  ///< "RDN\0"（リトルエンディアン）
-	static constexpr uint16 kVersion = 19; ///< 現行フォーマット版
+	static constexpr uint16 kVersion = 20; ///< 現行フォーマット版
 
 	/// @brief roads.bin を書き出す
 	/// @param path     出力ファイルパス
@@ -27,9 +27,11 @@ public:
 	                 Array<RoadEdge>& outEdges);
 
 	/// @brief RoadNetwork 全体を単一ファイルに書き出す
+	/// @details v20 requires the global identity trailer; standalone read/write remain base-record APIs.
 	static bool writeGlobal(const FilePath& path, const RoadNetwork& network);
 
 	/// @brief 単一ファイルから RoadNetwork を復元する
 	/// @param preserveSnapshot Keep persisted cutoff/type/sign state; rebuild only derived connection paths.
+	/// @note v20 restores exact movement IDs and authored signal programs in both modes. Failed loads may have appended graph data.
 	static bool readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot = false);
 };

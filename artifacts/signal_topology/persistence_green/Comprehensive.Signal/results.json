@@ -1,0 +1,42 @@
+﻿{
+  "total": 5,
+  "passed": 5,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Comprehensive.SignalTopologyGrowth",
+      "status": "passed",
+      "durationMs": 1.908,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SignalAuthoredApproachControls",
+      "status": "passed",
+      "durationMs": 1.070,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SignalMovementIdentityRoundTrip",
+      "status": "passed",
+      "durationMs": 19.799,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SignalDeadEndSave",
+      "status": "passed",
+      "durationMs": 0.579,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Comprehensive.SignalHighEdgeIdentity",
+      "status": "passed",
+      "durationMs": 0.193,
+      "failures": [
+      ]
+    }
+  ]
+}

@@ -1,4 +1,8 @@
 ﻿#include "RoadBinary.hpp"
+#include <array>
+#include <map>
+#include <set>
+#include <limits>
 
 namespace
 {
@@ -94,6 +98,122 @@ namespace
 			if (!r.read(gCnt)) return false;
 			if (!validateCount(gCnt, kMaxConnPerSignalPhase, U"skip.signal.greenCnt")) return false;
 			r.skip(gCnt * sizeof(int32));
+		}
+		return true;
+	}
+
+	constexpr uint32 kConnectionIdentityMagic = 0x4449434Cu; // LCID
+	constexpr uint16 kConnectionIdentitySchema = 1;
+	constexpr uint32 kMaxConnectionsPerNode = 262144;
+	using MovementKey = std::array<int, 4>;
+
+	/// @brief Full-width topology identity; no edge or lane bits are truncated.
+	MovementKey movementKey(const LaneConnection& connection)
+	{
+		return {connection.fromEdgeId, connection.fromLaneIndex, connection.toEdgeId, connection.toLaneIndex};
+	}
+
+	/// @brief Validate identities without requiring authored phases to serve every movement.
+	bool validConnectionIdentity(const RoadNetwork& network, const RoadNode& node)
+	{
+		if (node.nextConnectionId < 0 || node.nextConnectionId == std::numeric_limits<int>::max()
+			|| node.laneConnections.size() > kMaxConnectionsPerNode) { return false; }
+		HashSet<int> ids;
+		std::set<MovementKey> keys;
+		for (const auto& connection : node.laneConnections)
+		{
+			const auto* from = network.getEdge(connection.fromEdgeId);
+			const auto* to = network.getEdge(connection.toEdgeId);
+			if (connection.id < 0 || connection.id >= node.nextConnectionId || !ids.insert(connection.id).second
+				|| !keys.insert(movementKey(connection)).second || !from || !to
+				|| (from->nodeA != node.id && from->nodeB != node.id)
+				|| (to->nodeA != node.id && to->nodeB != node.id)
+				|| connection.fromLaneIndex < 0 || connection.toLaneIndex < 0
+				|| connection.fromLaneIndex >= static_cast<int>(from->lanes.size())
+				|| connection.toLaneIndex >= static_cast<int>(to->lanes.size())) { return false; }
+		}
+		if (node.signalPlacement)
+		{
+			for (const auto& phase : node.signalPlacement->phases)
+			{
+				for (const int id : phase.greenConnectionIds) { if (!ids.contains(id)) { return false; } }
+			}
+		}
+		return true;
+	}
+
+	/// @brief Required v20 global trailer preserves allocation history and logical movement IDs.
+	bool writeConnectionIdentities(BinaryWriter& writer, const RoadNetwork& network)
+	{
+		uint32 count = 0;
+		for (const auto& node : network.nodes()) { count += (node.id >= 0); }
+		if (!writer.write(kConnectionIdentityMagic) || !writer.write(kConnectionIdentitySchema) || !writer.write(count)) { return false; }
+		for (const auto& node : network.nodes())
+		{
+			if (node.id < 0) { continue; }
+			if (!writer.write(static_cast<int32>(node.id)) || !writer.write(static_cast<int32>(node.nextConnectionId))
+				|| !writer.write(static_cast<uint32>(node.laneConnections.size()))) { return false; }
+			for (const auto& connection : node.laneConnections)
+			{
+				if (!writer.write(static_cast<int32>(connection.id))) { return false; }
+				for (const int component : movementKey(connection))
+				{
+					if (!writer.write(static_cast<int32>(component))) { return false; }
+				}
+			}
+		}
+		writer.flush();
+		return true;
+	}
+
+	/// @brief Validate the entire identity trailer, then restore IDs/order without changing paths.
+	bool readConnectionIdentities(BinaryReader& reader, RoadNetwork& network, const HashSet<int>& expectedNodes)
+	{
+		uint32 magic = 0, count = 0; uint16 schema = 0;
+		if (!reader.read(magic) || magic != kConnectionIdentityMagic || !reader.read(schema)
+			|| schema != kConnectionIdentitySchema || !reader.read(count) || count != expectedNodes.size()) { return false; }
+		struct RestoredIdentity
+		{
+			int nodeId, nextId;
+			Array<LaneConnection> connections;
+		};
+		Array<RestoredIdentity> restored;
+		HashSet<int> seenNodes;
+		for (uint32 index = 0; index < count; ++index)
+		{
+			int32 nodeId = -1, nextId = -1; uint32 connectionCount = 0;
+			if (!reader.read(nodeId) || !reader.read(nextId) || !reader.read(connectionCount)
+				|| !expectedNodes.contains(nodeId) || !seenNodes.insert(nodeId).second || connectionCount > kMaxConnectionsPerNode) { return false; }
+			const auto* node = network.getNode(nodeId);
+			if (!node || connectionCount != node->laneConnections.size()
+				|| reader.size() - reader.getPos() < static_cast<int64>(connectionCount) * 20) { return false; }
+			std::map<MovementKey, LaneConnection> current;
+			for (const auto& connection : node->laneConnections)
+			{
+				if (!current.emplace(movementKey(connection), connection).second) { return false; }
+			}
+			RestoredIdentity entry{nodeId, nextId, {}};
+			for (uint32 movement = 0; movement < connectionCount; ++movement)
+			{
+				int32 id = -1; MovementKey key;
+				if (!reader.read(id)) { return false; }
+				for (int& component : key) { if (!reader.read(component)) { return false; } }
+				const auto it = current.find(key);
+				if (it == current.end()) { return false; }
+				auto connection = it->second; connection.id = id;
+				entry.connections << std::move(connection);
+				current.erase(it);
+			}
+			RoadNode candidate = *node;
+			candidate.laneConnections = entry.connections; candidate.nextConnectionId = nextId;
+			if (!current.empty() || !validConnectionIdentity(network, candidate)) { return false; }
+			restored << std::move(entry);
+		}
+		if (reader.getPos() != reader.size()) { return false; }
+		for (auto& entry : restored)
+		{
+			auto* node = network.getNode(entry.nodeId);
+			node->laneConnections = std::move(entry.connections); node->nextConnectionId = entry.nextId;
 		}
 		return true;
 	}
@@ -457,6 +577,11 @@ bool RoadBinary::read(const FilePath& path,
 
 bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network)
 {
+	// Reject invalid authored references before opening or truncating the destination.
+	for (const auto& node : network.nodes())
+	{
+		if (node.id >= 0 && !validConnectionIdentity(network, node)) { return false; }
+	}
 	// 基本道路スナップショットの後ろに、グローバル管理の道路オブジェクトと路線情報を追記する。
 	if (!write(path, 0, 0, network.nodes(), network.edges()))
 		return false;
@@ -559,7 +684,8 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network)
 		w.write(marking.length);
 		w.write(marking.angleOffset);
 		w.write(static_cast<uint8>(marking.autoGenerated ? 1 : 0));
-	}	return true;
+	}
+	return writeConnectionIdentities(w, network);
 }
 
 bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot)
@@ -568,6 +694,11 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	Array<RoadNode> nodes;
 	Array<RoadEdge> edges;
 	if (!read(path, nodes, edges)) return false;
+	HashSet<int> savedNodeIds;
+	for (const auto& node : nodes)
+	{
+		if (node.id < 0 || !savedNodeIds.insert(node.id).second) { return false; }
+	}
 	if (preserveSnapshot)
 	{
 		for (const auto& edge : edges)
@@ -637,7 +768,7 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	// RoadObject を読み込む
 	// read() 後にファイルを再度開いてノード+エッジをスキップする
 	BinaryReader r{ path };
-	if (!r) return true;
+	if (!r) return false;
 
 	// ヘッダーをスキップ
 	r.setPos(0);
@@ -863,6 +994,21 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 			marking.autoGenerated = (autoGenerated != 0);
 			network.addManualMarking(marking);
 		}
+	}
+	if (ver2 >= 20)
+	{
+		// Pairing depends on attachment order. Reconstruct once with the complete saved
+		// ordering before matching stable identities; restore authored state afterwards.
+		for (const auto& saved : nodes)
+		{
+			RoadNode* node = network.getNode(saved.id);
+			if (!node) { return false; }
+			if (const auto it = savedAttachments.find(saved.id); it != savedAttachments.end()) { node->attachments = it->second; }
+			network.rebuildLaneConnections(saved.id);
+			if (const auto it = savedAttachments.find(saved.id); it != savedAttachments.end()) { node->attachments = it->second; }
+			node->signalPlacement = saved.signalPlacement;
+		}
+		if (!readConnectionIdentities(r, network, savedNodeIds)) { return false; }
 	}
 	network.rebuildEdgeRouteIndex();
 	network.rebuildPlanEdgeLinks();

@@ -1,0 +1,70 @@
+﻿{
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "DevelopmentSnapshot.StationFootprintsIgnoreIncidentOrder",
+      "status": "passed",
+      "durationMs": 0.107,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.DoublePrecisionRoadCoordinates",
+      "status": "passed",
+      "durationMs": 1.507,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.RoadGeometryAndSignsRoundTrip",
+      "status": "passed",
+      "durationMs": 2.370,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.GeneratedBaselineRoundTrip",
+      "status": "passed",
+      "durationMs": 833.847,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.CorruptionLeavesWorldUntouched",
+      "status": "passed",
+      "durationMs": 434.852,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.ChunkSetAndSourceValidation",
+      "status": "passed",
+      "durationMs": 424.660,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.AuthoritativeWorldKeepsEdits",
+      "status": "passed",
+      "durationMs": 228.804,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.DevelopmentTimingRoundTrip",
+      "status": "passed",
+      "durationMs": 283.750,
+      "failures": [
+      ]
+    },
+    {
+      "name": "DevelopmentSnapshot.ReferenceValidation",
+      "status": "passed",
+      "durationMs": 536.763,
+      "failures": [
+      ]
+    }
+  ]
+}

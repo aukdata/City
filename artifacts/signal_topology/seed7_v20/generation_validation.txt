@@ -1,0 +1,4 @@
+[178.14s] [AgriculturalLayout] candidates=211944 fields=15556 paddies=5869 tracks=12915 drains=25830 disconnected=159
+[182.971s] [CityConstraintValidation] buildings=46249 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[183.091s] [RoadIntegrityAudit] snapshot success=true path=road_integrity_snapshot
+[183.091s] [GameApp] stopped

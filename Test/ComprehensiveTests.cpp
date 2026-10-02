@@ -1,6 +1,8 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/road/RoadPlanConstruction.hpp"
+#include "src/save/RoadBinary.hpp"
+#include <cstring>
 #include "src/gen/AgriculturalLayout.hpp"
 #include "src/ui/Camera.hpp"
 #include "src/gen/RoadTerrainFit.hpp"
@@ -36,6 +38,60 @@ namespace
 
 void registerComprehensiveTests(TestRunner& runner)
 {
+	// Opt-in diagnostic for a freshly generated, unauthored snapshot, never a normal-suite fixture.
+	const auto arguments = System::GetCommandLineArgs();
+	for (size_t argument = 0; argument + 1 < arguments.size(); ++argument)
+	{
+		if (arguments[argument] != U"--generated-signal-snapshot") { continue; }
+		const FilePath snapshot = arguments[argument + 1];
+		runner.add(U"Comprehensive.GeneratedSignalSnapshotDiagnostics",[snapshot](TestContext& context)
+		{
+			RoadNetwork roads;
+			const bool loaded = RoadBinary::readGlobal(snapshot,roads,true);
+			context.expect(loaded,U"Load the actual newly generated road snapshot through production code");
+			if (!loaded) { return; }
+			int signals=0, movements=0, missing=0, stale=0, automaticPrograms=0;
+			JSON report; report[U"examples"] = Array<JSON>{};
+			for (const auto& node : roads.nodes())
+			{
+				if (node.id<0 || !node.signalPlacement) { continue; }
+				++signals;
+				const bool automatic=node.signalPlacement->phases.isEmpty();
+				automaticPrograms+=automatic;
+				const auto phases=automatic ? roads.buildDefaultSignalPhases(node.id) : node.signalPlacement->phases;
+				HashSet<int> currentIds, greenIds;
+				for (const auto& connection:node.laneConnections) { currentIds.insert(connection.id); }
+				for (const auto& phase:phases)
+				{
+					for (const int id:phase.greenConnectionIds)
+					{
+						greenIds.insert(id); stale+=!currentIds.contains(id);
+					}
+				}
+				for (const auto& connection:node.laneConnections)
+				{
+					++movements;
+					if (greenIds.contains(connection.id)) { continue; }
+					++missing;
+					if (report[U"examples"].size()<20)
+					{
+						JSON example; example[U"node"]=node.id; example[U"connection"]=connection.id;
+						example[U"fromEdge"]=connection.fromEdgeId; example[U"toEdge"]=connection.toEdgeId;
+						example[U"fromLane"]=connection.fromLaneIndex; example[U"toLane"]=connection.toLaneIndex;
+						report[U"examples"].push_back(example);
+					}
+				}
+			}
+			report[U"signals"]=signals; report[U"movements"]=movements;
+			report[U"unservedMovements"]=missing; report[U"staleGreenReferences"]=stale;
+			report[U"automaticPrograms"]=automaticPrograms;
+			report.save(U"TestResults/generated_signal_snapshot.json");
+			context.expect(signals>0 && movements>0,U"The generated snapshot actually contains signal-controlled movements");
+			context.expectEqual(missing,0,U"Every newly generated movement remains served after production snapshot load");
+			context.expectEqual(stale,0,U"Generated signal plans contain no references to absent loaded movements");
+		});
+		break;
+	}
 	runner.add(U"Comprehensive.RepeatedRoadGeneration",[](TestContext& context)
 	{
 		World world;flatWorld(world);RoadNetwork network;RoadPlanDraft draft;const auto road=RoadPlanDraft::makeRoadTemplate(0);int attempts=0,failed=0;JSON report;report[U"failures"]=Array<JSON>{};
@@ -383,6 +439,260 @@ void registerComprehensiveTests(TestRunner& runner)
 				roads.getNode(node)->signalPlacement=SignalPlacement{U"signal_3lamp"};roads.rebuildNodeConnectivity(node,node);
 				context.expect(roads.getNode(node)->signalPlacement.has_value(),U"An explicitly placed player signal is preserved");
 			}
+		}
+	});
+
+	runner.add(U"Comprehensive.SignalTopologyGrowth",[](TestContext& context)
+	{
+		for (const bool authored : { false, true })
+		for (const int direction : { -1, 0, 1 })
+		{
+			RoadNetwork roads; const Vec3 center{500,30,500}; const int node=roads.addNode(center);
+			const auto addArm=[&](int arm)
+			{
+				const double angle=arm*Math::HalfPi; const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+				return *roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+			};
+			for (int arm=0;arm<3;++arm) { addArm(arm); }
+			auto* crossing=roads.getNode(node);
+			context.expect(crossing->signalPlacement.has_value(),U"Three major approaches install a signal before the fourth exists");
+			if (!crossing->signalPlacement) { continue; }
+			if (authored)
+			{
+				crossing->signalPlacement->phases=roads.buildDefaultSignalPhases(node);
+				for (auto& phase:crossing->signalPlacement->phases) { phase.duration=37; }
+				crossing->signalPlacement->yawOffset=.25f;
+			}
+			const auto before=crossing->signalPlacement->phases;
+			roads.rebuildNodeConnectivity(node,node); crossing=roads.getNode(node);
+			context.expect(crossing->signalPlacement->phases.size()==before.size(),U"Unchanged topology retains the authored phase count");
+			for (size_t i=0;i<before.size();++i)
+			{
+				context.expect(crossing->signalPlacement->phases[i].duration==before[i].duration && crossing->signalPlacement->phases[i].greenConnectionIds==before[i].greenConnectionIds,U"Unchanged topology retains phase durations and movement IDs");
+			}
+			const int fourth=addArm(3);
+			if (direction>=0)
+			{
+				for (auto& lane:roads.getEdge(fourth)->lanes) { lane.dir=direction==0 ? LaneDir::Forward : LaneDir::Backward; }
+				roads.rebuildNodeConnectivity(node,node);
+			}
+			crossing=roads.getNode(node);
+			for (const auto& att:crossing->attachments) { context.expect(att.control==TrafficControl::Signal,U"Every approach including the new arm obeys the existing signal"); }
+			const auto phases=crossing->signalPlacement->phases.isEmpty() ? roads.buildDefaultSignalPhases(node) : crossing->signalPlacement->phases;
+			HashSet<int> covered; for (const auto& phase:phases) { for (const int id:phase.greenConnectionIds) { covered.insert(id); } }
+			int newIncoming=0,newOutgoing=0;
+			for (const auto& conn:crossing->laneConnections)
+			{
+				newIncoming+=conn.fromEdgeId==fourth; newOutgoing+=conn.toEdgeId==fourth;
+				context.expect(covered.contains(conn.id),U"All current movements receive a green phase after adding the fourth arm");
+			}
+			context.expect((direction==0 ? newIncoming==0 : newIncoming>0) && (direction==1 ? newOutgoing==0 : newOutgoing>0),U"Endpoint direction distinguishes incoming-only, outgoing-only, and bidirectional new arms");
+			if (authored)
+			{
+				context.expect(crossing->signalPlacement->yawOffset==.25f,U"Authored placement survives topology change");
+				for (size_t i=0;i<before.size();++i) { context.expect(crossing->signalPlacement->phases[i].duration==37,U"Compatible authored timing survives topology growth"); }
+			}
+			roads.removeEdge(fourth); crossing=roads.getNode(node);
+			HashSet<int> surviving;
+			for (const auto& connection:crossing->laneConnections) { surviving.insert(connection.id); }
+			for (const auto& phase:crossing->signalPlacement->phases)
+			{
+				for (const int id:phase.greenConnectionIds) { context.expect(surviving.contains(id),U"Removing an arm leaves no deleted movement IDs in the signal plan"); }
+			}
+		}
+	});
+
+	runner.add(U"Comprehensive.SignalAuthoredApproachControls",[](TestContext& context)
+	{
+		RoadNetwork roads; const Vec3 center{500,30,500}; const int node=roads.addNode(center);
+		const auto addArm=[&](int arm)
+		{
+			const double angle=arm*Math::HalfPi; const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+			return *roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+		};
+		const int controlled=addArm(0); addArm(1); addArm(2);
+		const auto originalLanes=roads.getEdge(controlled)->lanes;
+		context.expect(roads.getNode(node)->signalPlacement.has_value(),U"Authored control fixture starts with a signal");
+		for (const auto control:{TrafficControl::None,TrafficControl::Yield,TrafficControl::Stop})
+		{
+			roads.getNode(node)->getAttachment(controlled)->control=control;
+			roads.rebuildNodeConnectivity(node,node);
+			context.expect(roads.getNode(node)->getAttachment(controlled)->control==control,U"An unchanged rebuild preserves the deliberately authored approach control");
+			for (auto& lane:roads.getEdge(controlled)->lanes) { lane.dir=LaneDir::Forward; }
+			roads.rebuildNodeConnectivity(node,node);
+			context.expect(roads.getNode(node)->getAttachment(controlled)->control==control,U"Changing an existing approach to outgoing-only preserves its authored control");
+			for (auto& lane:roads.getEdge(controlled)->lanes) { lane.dir=LaneDir::Backward; }
+			roads.rebuildNodeConnectivity(node,node);
+			context.expect(roads.getNode(node)->getAttachment(controlled)->control==control,U"An outgoing-only edge is still recognized when switched to incoming-only");
+			roads.getEdge(controlled)->lanes=originalLanes; roads.rebuildNodeConnectivity(node,node);
+			const int added=addArm(3);
+			context.expect(roads.getNode(node)->getAttachment(controlled)->control==control,U"Adding a new arm preserves existing authored approach controls");
+			context.expect(roads.getNode(node)->getAttachment(added)->control==TrafficControl::Signal,U"The genuinely new arm obeys the existing signal");
+			roads.removeEdge(added);
+		}
+	});
+
+	runner.add(U"Comprehensive.SignalMovementIdentityRoundTrip",[](TestContext& context)
+	{
+		RoadNetwork source; const Vec3 center{500,30,500}; const int node=source.addNode(center);
+		for (const double angle:{0.0,.32,Math::Pi,Math::Pi+.21,Math::HalfPi})
+		{
+			const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+			source.addEdge(node,source.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+		}
+		const int retired=source.addNode({900,30,900}); source.getNode(retired)->nextConnectionId=97;
+		auto* original=source.getNode(node); original->attachments.reverse(); source.rebuildLaneConnections(node);
+		context.expect(original->laneConnections.size()>4,U"Roundtrip fixture has several distinct logical movements");
+		if (original->laneConnections.size()<5) { return; }
+		SignalPlacement authored{U"signal_3lamp"}; authored.yawOffset=.75f;
+		SignalPhaseDef first,second; first.duration=37; second.duration=11;
+		for (size_t index=0;index<original->laneConnections.size();++index)
+		{
+			original->laneConnections[index].id=2000+static_cast<int>(index)*3;
+			if (index+1<original->laneConnections.size())
+			{
+				(index%2==0 ? first : second).greenConnectionIds << original->laneConnections[index].id;
+			}
+		}
+		SignalPhaseDef allRed; allRed.duration=19; first.greenConnectionIds.reverse();
+		second.greenConnectionIds << first.greenConnectionIds.front();
+		authored.phases={second,allRed,first}; original->signalPlacement=authored; original->nextConnectionId=10000;
+		original->attachments.front().control=TrafficControl::Stop;
+		const int omitted=original->laneConnections.back().id;
+		const FilePath path=U"TestResults/signal_movement_identity.bin";
+		context.expect(RoadBinary::writeGlobal(path,source),U"Write authored movement identities and retired-ID counter");
+		const auto bytes=[](const FilePath& file)
+		{
+			BinaryReader reader{file}; Array<uint8> result(static_cast<size_t>(reader.size()));
+			reader.read(result.data(),reader.size()); return result;
+		};
+		const auto originalBytes=bytes(path);
+		for (const bool preserve:{false,true})
+		{
+			RoadNetwork restored; const bool loaded=RoadBinary::readGlobal(path,restored,preserve);
+			context.expect(loaded,U"Load a signal snapshot in both global-load modes"); if (!loaded) { continue; }
+			const auto* current=restored.getNode(node);
+			context.expect(current && current->signalPlacement.has_value(),U"Authored signal is retained"); if (!current || !current->signalPlacement) { continue; }
+			context.expectEqual(current->nextConnectionId,10000,U"Retired movement IDs are never reused after load");
+			context.expectEqual(restored.getNode(retired)->nextConnectionId,97,U"Zero-connection nodes also retain retired-ID history");
+			context.expectEqual(current->laneConnections.size(),original->laneConnections.size(),U"Saved attachment ordering reconstructs the same movement set");
+			for (const auto& before:original->laneConnections)
+			{
+				const auto it=std::find_if(current->laneConnections.begin(),current->laneConnections.end(),[&](const LaneConnection& after)
+				{
+					return before.fromEdgeId==after.fromEdgeId && before.fromLaneIndex==after.fromLaneIndex && before.toEdgeId==after.toEdgeId && before.toLaneIndex==after.toLaneIndex;
+				});
+				context.expect(it!=current->laneConnections.end() && it->id==before.id,U"Each full logical movement retains its exact persisted ID");
+			}
+			const auto& signal=*current->signalPlacement;
+			context.expect(signal.yawOffset==authored.yawOffset && signal.phases.size()==authored.phases.size(),U"Placement and authored phase count survive without defaults replacing them");
+			for (size_t phase=0;phase<Min(signal.phases.size(),authored.phases.size());++phase)
+			{
+				context.expect(signal.phases[phase].duration==authored.phases[phase].duration && signal.phases[phase].greenConnectionIds==authored.phases[phase].greenConnectionIds,U"Custom timings and selected movements remain exact");
+				context.expect(!signal.phases[phase].greenConnectionIds.includes(omitted),U"An intentionally unserved movement is not silently assigned green");
+			}
+			context.expect(current->attachments.front().control==TrafficControl::Stop,U"Authored approach control survives identity restoration");
+			if (preserve)
+			{
+				const FilePath again=U"TestResults/signal_movement_identity_again.bin";
+				context.expect(RoadBinary::writeGlobal(again,restored),U"Re-save the exact restored signal snapshot");
+				context.expect(bytes(again)==originalBytes,U"Movement ordering, allocation history, phases and road state re-save byte exactly");
+			}
+			const Vec3 end{400,30,430}; const int newEndpoint=restored.addNode(end);
+			restored.addEdge(node,newEndpoint,center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+			HashSet<int> originalIds; for (const auto& connection:original->laneConnections) { originalIds.insert(connection.id); }
+			for (const auto& connection:restored.getNode(node)->laneConnections)
+			{
+				context.expect(originalIds.contains(connection.id) || connection.id>=10000,U"Post-load edits cannot reuse retired movement IDs");
+			}
+		}
+		const uint32 magic=0x4449434Cu; size_t trailer=originalBytes.size();
+		for (size_t index=0;index+sizeof(magic)<=originalBytes.size();++index)
+		{
+			uint32 value=0; std::memcpy(&value,originalBytes.data()+index,sizeof(value)); if (value==magic) { trailer=index; }
+		}
+		context.expect(trailer<originalBytes.size(),U"Current global snapshots have the required tagged identity trailer");
+		if (trailer==originalBytes.size()) { return; }
+		const FilePath malformed=U"TestResults/signal_identity_malformed.bin";
+		const auto reject=[&](const Array<uint8>& data)
+		{
+			{ BinaryWriter writer{malformed}; writer.write(data.data(),static_cast<int64>(data.size())); }
+			RoadNetwork rejected; context.expect(!RoadBinary::readGlobal(malformed,rejected,true),U"Malformed identity trailer fails rather than silently defaulting or remapping");
+		};
+		for (const size_t length:{trailer,trailer+4,trailer+6,trailer+10,trailer+14,trailer+18,trailer+22,originalBytes.size()-1})
+		{
+			Array<uint8> truncated=originalBytes; truncated.resize(length); reject(truncated);
+		}
+		const auto corrupt=[&](size_t offset,int32 value)
+		{
+			Array<uint8> data=originalBytes; std::memcpy(data.data()+offset,&value,sizeof(value)); reject(data);
+		};
+		corrupt(trailer,0); corrupt(trailer+4,99); corrupt(trailer+6,0); corrupt(trailer+14,0); corrupt(trailer+18,0);
+		const size_t firstMovement=trailer+22;
+		for (const size_t offset:{size_t{0},size_t{4},size_t{8},size_t{12},size_t{16}}) { corrupt(firstMovement+offset,-1); }
+		int32 firstId=0; std::memcpy(&firstId,originalBytes.data()+firstMovement,sizeof(firstId)); corrupt(firstMovement+20,firstId);
+		Array<uint8> duplicateKey=originalBytes; std::memcpy(duplicateKey.data()+firstMovement+24,duplicateKey.data()+firstMovement+4,16); reject(duplicateKey);
+		Array<uint8> trailing=originalBytes; trailing << uint8{1}; reject(trailing);
+		corrupt(30,-1); corrupt(30,1);
+		Array<uint8> substituted=originalBytes; const int32 unrelatedId=999;
+		std::memcpy(substituted.data()+substituted.size()-12,&unrelatedId,sizeof(unrelatedId));
+		{ BinaryWriter writer{malformed}; writer.write(substituted.data(),static_cast<int64>(substituted.size())); }
+		RoadNetwork appended; RoadNode unrelated; unrelated.id=unrelatedId; unrelated.position={1000,30,1000}; unrelated.nextConnectionId=51;
+		appended.addNodeRaw(unrelated);
+		context.expect(!RoadBinary::readGlobal(malformed,appended,true),U"A trailer cannot substitute an unrelated preexisting node for a saved empty node");
+		context.expectEqual(appended.getNode(unrelatedId)->nextConnectionId,51,U"Rejected identity trailer cannot overwrite an unrelated node counter");
+		original->signalPlacement->phases.front().greenConnectionIds << 999999;
+		context.expect(!RoadBinary::writeGlobal(path,source),U"Writer rejects stale green references before truncating the destination");
+		context.expect(bytes(path)==originalBytes,U"Rejected snapshot write leaves the previously valid file intact");
+		RoadNetwork empty; const FilePath emptyPath=U"TestResults/signal_identity_empty.bin";
+		context.expect(RoadBinary::writeGlobal(emptyPath,empty),U"Empty graphs still write the required v20 trailer");
+		RoadNetwork emptyRestored; context.expect(RoadBinary::readGlobal(emptyPath,emptyRestored,true),U"Empty v20 snapshot loads with an empty identity table");
+		Array<uint8> truncatedEmpty=bytes(emptyPath); truncatedEmpty.pop_back(); reject(truncatedEmpty);
+	});
+
+	runner.add(U"Comprehensive.SignalDeadEndSave",[](TestContext& context)
+	{
+		RoadNetwork roads; const Vec3 center{500,30,500}; const int node=roads.addNode(center); Array<int> edges;
+		for (int arm=0;arm<4;++arm)
+		{
+			const double angle=arm*Math::HalfPi; const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+			edges << *roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+		}
+		context.expect(roads.getNode(node)->signalPlacement.has_value(),U"Deletion fixture begins with a signal");
+		SignalPhaseDef allRed; allRed.duration=23; roads.getNode(node)->signalPlacement->phases << allRed;
+		for (const int edge:edges)
+		{
+			roads.removeEdge(edge);
+			context.expect(RoadBinary::writeGlobal(U"TestResults/signal_dead_end.bin",roads),U"Deleting signal approaches down to one or zero roads remains saveable");
+		}
+		const auto* empty=roads.getNode(node);
+		context.expect(empty->laneConnections.isEmpty(),U"The junction no longer has movements");
+		context.expect(empty->signalPlacement->phases.size()==1 && empty->signalPlacement->phases.front().greenConnectionIds.isEmpty() && empty->signalPlacement->phases.front().duration==23,U"Intentional empty all-red phase and its timing are retained");
+	});
+
+	runner.add(U"Comprehensive.SignalHighEdgeIdentity",[](TestContext& context)
+	{
+		RoadNetwork roads; const Vec3 center{500,30,500}; const int node=roads.addNode(center); int first=-1;
+		for (int arm=0;arm<3;++arm)
+		{
+			const double angle=arm*Math::HalfPi; const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+			const int edge=*roads.addEdge(node,roads.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+			if (arm==0) { first=edge; }
+		}
+		RoadEdge high=*roads.getEdge(first); const Vec3 end=center+Vec3{0,0,-100};
+		high.id=first+65536; high.nodeB=roads.addNode(end); high.ctrlA=center.lerp(end,1.0/3); high.ctrlB=center.lerp(end,2.0/3);
+		roads.addEdgeRaw(high);
+		const auto before=roads.getNode(node)->laneConnections; roads.rebuildLaneConnections(node);
+		const auto& after=roads.getNode(node)->laneConnections; HashSet<int> ids;
+		for (const auto& connection:after) { ids.insert(connection.id); }
+		context.expectEqual(ids.size(),after.size(),U"Edges separated by65536 cannot alias distinct movement IDs");
+		for (const auto& original:before)
+		{
+			const auto it=std::find_if(after.begin(),after.end(),[&](const LaneConnection& current)
+			{
+				return current.fromEdgeId==original.fromEdgeId && current.fromLaneIndex==original.fromLaneIndex && current.toEdgeId==original.toEdgeId && current.toLaneIndex==original.toLaneIndex;
+			});
+			context.expect(it!=after.end() && it->id==original.id,U"Full-width edge identity survives unchanged connectivity rebuild");
 		}
 	});
 

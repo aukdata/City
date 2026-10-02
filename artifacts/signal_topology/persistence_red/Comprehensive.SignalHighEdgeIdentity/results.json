@@ -1,0 +1,15 @@
+﻿{
+  "total": 1,
+  "passed": 0,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Comprehensive.SignalHighEdgeIdentity",
+      "status": "failed",
+      "durationMs": 0.266,
+      "failures": [
+        "Edges separated by65536 cannot alias distinct movement IDs (actual=20, expected=24)"
+      ]
+    }
+  ]
+}
