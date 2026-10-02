@@ -61,6 +61,74 @@ namespace
 
 void registerDevelopmentSnapshotTests(TestRunner& runner)
 {
+	runner.add(U"DevelopmentSnapshot.DoublePrecisionRoadCoordinates",[](TestContext& context)
+	{
+		RoadNetwork source;
+		const Vec3 first{58653.90886878967,12.123456789,52836.327600717545};
+		const Vec3 last = first + Vec3{100.000000123,1.0000000123,40.0000000123};
+		const int a = source.addNode(first), b = source.addNode(last);
+		const Vec3 controlA = first + Vec3{30.000000123,2.123456789,0.000000123};
+		const Vec3 controlB = last - Vec3{30.000000123,2.123456789,0.000000123};
+		const auto edge = source.addEdge(a,b,controlA,controlB);
+		context.expect(edge.has_value(),U"High-coordinate precision fixture created");
+		if (!edge) { return; }
+		RoadObject object;
+		object.type = RoadObjectType::Pier; object.parentEdgeId = *edge; object.arcPos = 17.25f;
+		const int objectId = source.addObject(object);
+		const FilePath path = U"TestResults/double_precision_roads.bin";
+		context.expect(RoadBinary::writeGlobal(path,source),U"Write current road format");
+		RoadNetwork restored;
+		const bool loaded = RoadBinary::readGlobal(path,restored,true);
+		context.expect(loaded,U"Read current coordinate width including extended road data");
+		if (!loaded) { return; }
+		context.expect(restored.getNode(a)->position == first && restored.getNode(b)->position == last,U"Node doubles survive exactly at large map coordinates");
+		context.expect(restored.getEdge(*edge)->ctrlA == controlA && restored.getEdge(*edge)->ctrlB == controlB,U"Bezier control-point doubles survive exactly");
+		const auto* restoredObject = restored.getObject(objectId);
+		context.expect(restoredObject && restoredObject->arcPos == object.arcPos,U"Nonempty trailing object survives version-aware record skipping");
+		const auto originalCurve = source.getBezier(*edge), restoredCurve = restored.getBezier(*edge);
+		context.expect(originalCurve.has_value() && restoredCurve.has_value(),U"Restored geometry provides Bezier samples");
+		if (originalCurve && restoredCurve)
+		{
+			for (const float t : {0.0f,.125f,.5f,.875f,1.0f})
+			{
+				context.expect(originalCurve->evaluate(t) == restoredCurve->evaluate(t),U"Reconstructed Bezier is exactly unchanged");
+			}
+		}
+		source.getEdge(*edge)->ctrlA.x = std::numeric_limits<double>::infinity();
+		context.expect(!RoadBinary::writeGlobal(path,source),U"Nonfinite road geometry is rejected before writing");
+		std::ifstream input{"TestResults/double_precision_roads.bin",std::ios::binary};
+		const std::vector<char> valid{std::istreambuf_iterator<char>{input},std::istreambuf_iterator<char>{}};
+		input.close();
+		// Two single-attachment nodes occupy 44 bytes each after the 30-byte header.
+		constexpr size_t kControlOffset = 30 + 2 * 44 + 12;
+		for (const size_t length : {size_t{34},size_t{38},size_t{44},size_t{50},kControlOffset+4,kControlOffset+28})
+		{
+			std::ofstream output{"TestResults/double_precision_roads.bin",std::ios::binary|std::ios::trunc};
+			output.write(valid.data(),static_cast<std::streamsize>(length)); output.close();
+			RoadNetwork rejected;
+			context.expect(!RoadBinary::readGlobal(path,rejected,true),U"Reject truncated double coordinates");
+			context.expect(rejected.nodes().isEmpty(),U"Coordinate decode failure cannot install a partial graph");
+		}
+		RoadNetwork legacy;
+		context.expect(RoadBinary::readGlobal(U"../fixtures/road_v18.bin",legacy,true),U"Retained v18 float-coordinate fixture and extended state still decode");
+		context.expectEqual(legacy.nodes().size(),size_t{2},U"Legacy node count");
+		context.expectEqual(legacy.edges().size(),size_t{1},U"Legacy edge count");
+		if (!legacy.edges().isEmpty())
+		{
+			context.expect(legacy.edges().front().ctrlA == Vec3{480,0,506} && legacy.edges().front().ctrlB == Vec3{544,0,518},U"Legacy control triples widen correctly");
+		}
+		context.expectEqual(legacy.plans().size(),size_t{1},U"Legacy trailing construction plan restored");
+		if (!legacy.plans().isEmpty())
+		{
+			context.expect(legacy.plans().front().constructionStart == Optional<GameTime>{1000},U"Legacy construction clock remains aligned");
+			context.expectNear(legacy.plans().front().constructionDuration,100,0,U"Legacy construction duration remains aligned");
+		}
+
+		if (!legacy.nodes().isEmpty())
+		{
+			context.expect(legacy.nodes().front().position == Vec3{432,0,512},U"Legacy float coordinates widen correctly");
+		}
+	});
 	runner.add(U"DevelopmentSnapshot.RoadGeometryAndSignsRoundTrip",[](TestContext& context)
 	{
 		RoadNetwork source;

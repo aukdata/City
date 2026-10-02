@@ -25,6 +25,28 @@ namespace
 		return false;
 	}
 
+	/// @brief Coordinates retain the double precision used by the live road graph.
+	bool validPosition(const Vec3& position)
+	{
+		return IsFinite(position.x) && IsFinite(position.y) && IsFinite(position.z);
+	}
+
+	/// @brief Version 19 stores doubles; existing versions 13-18 retain their float layout.
+	bool readPosition(BinaryReader& reader, uint16 version, Vec3& position)
+	{
+		if (version >= 19)
+		{
+			if (!reader.read(position.x) || !reader.read(position.y) || !reader.read(position.z)) { return false; }
+		}
+		else
+		{
+			float x = 0, y = 0, z = 0;
+			if (!reader.read(x) || !reader.read(y) || !reader.read(z)) { return false; }
+			position = Vec3{x,y,z};
+		}
+		return validPosition(position);
+	}
+
 	/// @brief 文字列を uint16 長さ + UTF-8 バイト列で書き出す
 	void writeString(BinaryWriter& w, const String& s)
 	{
@@ -88,6 +110,14 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 	Array<RoadEdge> ve;
 	for (const auto& n : nodes) if (n.id >= 0) vn << n;
 	for (const auto& e : edges) if (e.id >= 0) ve << e;
+	for (const auto& node : vn)
+	{
+		if (!validPosition(node.position)) { return false; }
+	}
+	for (const auto& edge : ve)
+	{
+		if (!validPosition(edge.ctrlA) || !validPosition(edge.ctrlB)) { return false; }
+	}
 
 	BinaryWriter w{ path };
 	if (!w) return false;
@@ -106,9 +136,9 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 	for (const auto& n : vn)
 	{
 		w.write(n.id);
-		w.write(static_cast<float>(n.position.x));
-		w.write(static_cast<float>(n.position.y));
-		w.write(static_cast<float>(n.position.z));
+		w.write(n.position.x);
+		w.write(n.position.y);
+		w.write(n.position.z);
 		w.write(static_cast<uint8>(n.type));
 		w.write(static_cast<uint32>(n.attachments.size()));
 		for (const auto& att : n.attachments)
@@ -144,12 +174,12 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		w.write(e.id);
 		w.write(e.nodeA);
 		w.write(e.nodeB);
-		w.write(static_cast<float>(e.ctrlA.x));
-		w.write(static_cast<float>(e.ctrlA.y));
-		w.write(static_cast<float>(e.ctrlA.z));
-		w.write(static_cast<float>(e.ctrlB.x));
-		w.write(static_cast<float>(e.ctrlB.y));
-		w.write(static_cast<float>(e.ctrlB.z));
+		w.write(e.ctrlA.x);
+		w.write(e.ctrlA.y);
+		w.write(e.ctrlA.z);
+		w.write(e.ctrlB.x);
+		w.write(e.ctrlB.y);
+		w.write(e.ctrlB.z);
 		w.write(static_cast<uint8>(e.roadType));
 		w.write(e.speedLimit);
 		w.write(e.length);
@@ -249,13 +279,11 @@ bool RoadBinary::read(const FilePath& path,
 	for (uint32 i = 0; i < nodeCount; ++i)
 	{
 		RoadNode n;
-		float px, py, pz;
 		uint8 type;
 		uint32 edgeCnt;
 
 		if (!r.read(n.id)) return false;
-		if (!r.read(px) || !r.read(py) || !r.read(pz)) return false;
-		n.position = Vec3{ px, py, pz };
+		if (!readPosition(r, version, n.position)) { return false; }
 		if (!r.read(type) || !r.read(edgeCnt)) return false;
 		if (type > static_cast<uint8>(NodeType::Diverge)) { return false; }
 		n.type = static_cast<NodeType>(type);
@@ -312,16 +340,12 @@ bool RoadBinary::read(const FilePath& path,
 	for (uint32 i = 0; i < edgeCount; ++i)
 	{
 		RoadEdge e;
-		float x, y, z;
 		uint8 rt, es;
 		uint32 laneCnt;
 
 		if (!r.read(e.id)) return false;
 		if (!r.read(e.nodeA) || !r.read(e.nodeB)) return false;
-		if (!r.read(x) || !r.read(y) || !r.read(z)) return false;
-		e.ctrlA = Vec3{ x, y, z };
-		if (!r.read(x) || !r.read(y) || !r.read(z)) return false;
-		e.ctrlB = Vec3{ x, y, z };
+		if (!readPosition(r, version, e.ctrlA) || !readPosition(r, version, e.ctrlB)) { return false; }
 		if (!r.read(rt)) return false;
 		e.roadType = static_cast<RoadType>(rt);
 		if (!r.read(e.speedLimit) || !r.read(e.length) || !r.read(e.planId) || !r.read(e.cutoffA) || !r.read(e.cutoffB)) return false;
@@ -627,10 +651,11 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	if (!validateCount(nc2, kMaxNodeCount, U"skip.nodeCount")) return false;
 	if (!validateCount(ec2, kMaxEdgeCount, U"skip.edgeCount")) return false;
 
+	const size_t coordinateBytes = (ver2 >= 19) ? sizeof(double) : sizeof(float);
 	// ノードをスキップ
 	for (uint32 i = 0; i < nc2; ++i)
 	{
-		r.skip(sizeof(int32) + sizeof(float) * 3 + sizeof(uint8));
+		r.skip(sizeof(int32) + coordinateBytes * 3 + sizeof(uint8));
 		uint32 attCnt;
 		if (!r.read(attCnt)) return false;
 		if (!validateCount(attCnt, kMaxAttachmentPerNode, U"skip.node.attCnt")) return false;
@@ -642,9 +667,7 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	for (uint32 i = 0; i < ec2; ++i)
 	{
 		// id + nodeA + nodeB + ctrlA.xyz + ctrlB.xyz + roadType + speedLimit + length + planId + cutoffA + cutoffB + edgeState
-		r.skip(sizeof(int32) * 3 + sizeof(float) * 6 + sizeof(uint8) +
-		       sizeof(float) * 3 + sizeof(float) * 2 +
-		       sizeof(uint8));
+		r.skip(sizeof(int32) * 4 + coordinateBytes * 6 + sizeof(float) * 4 + sizeof(uint8) * 2);
 		r.skip(sizeof(double)); // constructionStartTime
 		r.skip(sizeof(int32) * 2);  // borderNodeA, borderNodeB
 		uint32 laneCnt;
@@ -843,7 +866,8 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	}
 	network.rebuildEdgeRouteIndex();
 	network.rebuildPlanEdgeLinks();
-	network.rebuildAllPlanStats();
+	// Current snapshots retain authored construction timing and financial estimates.
+	if (!preserveSnapshot) { network.rebuildAllPlanStats(); }
 
 	return true;
 }
