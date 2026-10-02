@@ -3,6 +3,7 @@
 #include "src/road/RoadConstruction.hpp"
 #include "src/road/RoadPlanDraft.hpp"
 #include "src/render/RoadRenderer.hpp"
+#include "src/render/CityLighting.hpp"
 #include "src/render/BridgeStructure.hpp"
 #include "src/ui/ConstructionStatus.hpp"
 #include "src/asset/AssetRegistrar.hpp"
@@ -162,6 +163,98 @@ void registerRoadConstructionTests(TestRunner& runner)
 			if(v.normal.y<-.9f && v.pos.y<10.85f) bottomFaces=true;
 		}
 		context.expect(topFaces && bottomFaces,U"Girder flange exteriors face above and below the bridge");
+	});
+	runner.add(U"Construction.CancelledShadowClearsWhilePaused", [](TestContext& context)
+	{
+		const FilePath testDirectory = FileSystem::CurrentDirectory();
+		struct RestoreDirectory
+		{
+			FilePath path;
+			~RestoreDirectory() { FileSystem::ChangeCurrentDirectory(path); }
+		} restore{testDirectory};
+		FileSystem::ChangeCurrentDirectory(testDirectory + U"../../App/");
+		RegisterAssets();
+		World world;
+		flatWorld(world);
+		RoadNetwork network;
+		const int edgeId = makeRoad(network, false);
+		RoadPlan plan;
+		plan.edgeIds = {edgeId};
+		const int planId = network.addPlan(plan);
+		constexpr GameTime kPausedTime = 6;
+		network.getPlan(planId)->constructionDuration = 100;
+		context.expect(network.startPlanConstruction(planId, 0), U"The isolated road enters construction");
+		const int nodeA = network.getEdge(edgeId)->nodeA;
+		const int nodeB = network.getEdge(edgeId)->nodeB;
+		RoadRenderer renderer;
+		CityLighting lighting;
+		const bool assetsReady = renderer.loadAssets();
+		const bool lightingReady = lighting.initialize();
+		context.expect(assetsReady && lightingReady, U"Production construction models and shadow shaders load");
+		if (!assetsReady || !lightingReady) { return; }
+		renderer.setConstructionTime(kPausedTime);
+		const Size size{480, 320};
+		const Vec3 focus{512, 0, 512};
+		const Vec3 sun = Vec3{1, 1, 1}.normalized();
+		const BasicCamera3D camera{size, 40_deg, Vec3{555, 95, 375}, focus};
+		const RenderTexture colorTarget{size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes};
+		{
+			const ScopedRenderTarget3D target{colorTarget.clear(ColorF{0})};
+			const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
+			Graphics3D::SetCameraTransform(camera);
+			renderer.render(network, world, ViewFrustum{camera, 24000}, camera.getEyePosition());
+		}
+		Graphics3D::Flush();
+		int shadowBuilds = 0;
+		const auto occupiedShadowPixels = [&](const BasicCamera3D& view)
+		{
+			lighting.update(view, focus, sun, 1.0, renderer.geometryRevision(), [&](Vec3 center, double radius)
+			{
+				++shadowBuilds;
+				renderer.renderShadowCasters(center, radius);
+			});
+			Grid<float> depth;
+			lighting.readStaticShadowDepth(depth);
+			int64 occupied = 0;
+			for (const float value : depth) { occupied += value > 0.0f; }
+			return occupied;
+		};
+		const int64 beforePixels = occupiedShadowPixels(camera);
+		context.expect(beforePixels > 100, U"The real paused construction site casts measurable shadow depth");
+		context.expectEqual(occupiedShadowPixels(camera), beforePixels, U"An unchanged paused view preserves its shadow texture");
+		context.expectEqual(shadowBuilds, 1, U"An unchanged paused view reuses the static shadow cache");
+		const uint64 beforeRevision = renderer.geometryRevision();
+		// Cancellation must invalidate the edge itself before its node attachments are removed.
+		renderer.invalidateEdgeCache(edgeId, nodeA, nodeB);
+		network.removeEdge(edgeId);
+		network.removePlan(planId);
+		renderer.invalidateCachesAroundNode(nodeA, network);
+		renderer.invalidateCachesAroundNode(nodeB, network);
+		const uint64 cancelledRevision = renderer.geometryRevision();
+		const int64 cancelledPixels = occupiedShadowPixels(camera);
+		const int cancelledBuilds = shadowBuilds;
+		context.expect(!network.getEdge(edgeId) && !network.getPlan(planId), U"Cancellation removes the construction edge and its plan");
+		context.expect(cancelledRevision > beforeRevision, U"Removing construction-only geometry invalidates the static shadow revision");
+		context.expectEqual(cancelledPixels, 0, U"Cancellation clears real shadow depth without advancing the clock, sun, or camera");
+		context.expectEqual(cancelledBuilds, 2, U"Cancellation rebuilds the static shadow texture exactly once");
+		renderer.invalidateEdgeCache(edgeId, nodeA, nodeB);
+		context.expect(renderer.geometryRevision() == cancelledRevision, U"Repeated invalidation of the removed edge does not dirty the shadow cache");
+		context.expectEqual(occupiedShadowPixels(camera), 0, U"The next paused frame stays free of the cancelled construction shadow");
+		context.expectEqual(shadowBuilds, cancelledBuilds, U"The cleared static shadow texture is reused while paused");
+		const BasicCamera3D movedCamera{size, 40_deg, Vec3{555, 130, 330}, focus};
+		const int64 movedPixels = occupiedShadowPixels(movedCamera);
+		context.expectEqual(movedPixels, 0, U"Moving the camera cannot recast deleted construction geometry");
+		context.expectEqual(shadowBuilds, cancelledBuilds + 1, U"A changed camera rebuilds once without retaining removed casters");
+		JSON report;
+		report[U"pausedTime"] = kPausedTime;
+		report[U"beforeRevision"] = beforeRevision;
+		report[U"cancelledRevision"] = cancelledRevision;
+		report[U"beforeShadowPixels"] = beforePixels;
+		report[U"cancelledShadowPixels"] = cancelledPixels;
+		report[U"movedShadowPixels"] = movedPixels;
+		report[U"cancelledShadowBuilds"] = cancelledBuilds;
+		report[U"totalShadowBuilds"] = shadowBuilds;
+		context.expect(report.save(testDirectory + U"TestResults/construction_cancelled_shadow.json"), U"Construction shadow readback measurements save");
 	});
 	runner.add(U"Construction.StagesVisualReview",[](TestContext& context)
 	{

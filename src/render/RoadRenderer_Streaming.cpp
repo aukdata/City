@@ -204,14 +204,14 @@ void RoadRenderer::renderShadowCasters(Vec3 focus, double radius)
 
 void RoadRenderer::eraseEdgeCaches(int edgeId)
 {
-	m_constructionCache.erase(edgeId);
 	m_fallbackEdges.erase(edgeId);
 	m_drawnFallbackEdges.erase(edgeId);
-	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
+	if (m_constructionCache.contains(edgeId) || m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
 		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
 	{
 		++m_geometryRevision;
 	}
+	m_constructionCache.erase(edgeId);
 	m_partMeshCache.erase(edgeId);
 	m_partLodBatchCache.erase(edgeId);
 	m_markingCacheByEdge.erase(edgeId);

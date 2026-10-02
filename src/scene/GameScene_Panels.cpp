@@ -1137,6 +1137,7 @@ void GameScene::drawRoadPlanPanel()
 					{
 						if (const RoadEdge* edge = m_network.getEdge(eid))
 						{
+							m_roadRenderer.invalidateEdgeCache(eid, edge->nodeA, edge->nodeB);
 							m_worldRenderer.invalidateTerrainForNode(edge->nodeA);
 							m_worldRenderer.invalidateTerrainForNode(edge->nodeB);
 						}
