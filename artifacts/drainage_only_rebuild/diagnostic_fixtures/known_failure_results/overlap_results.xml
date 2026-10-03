@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="1" failures="1">
+  <testcase name="Rivers.BaselineCarving.OverlappingBanksStayContinuous" time="0.000461">
+    <failure message="Switching between overlapping river shoulders cannot jump to another water datum"/>
+  </testcase>
+</testsuite>

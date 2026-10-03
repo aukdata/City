@@ -406,6 +406,32 @@ void registerRiverGenerationTests(TestRunner& runner)
 		context.expect(maximumCut<20,U"The opposite catchment is not excavated through the mountain divide to reach this map's sea");
 	});
 
+	runner.add(U"Rivers.BaselineCarving.OverlappingBanksStayContinuous",[](TestContext& context)
+	{
+		RiverNetwork source;
+		for (const Vec2 river : {Vec2{100,100},Vec2{250,20}})
+		{
+			RiverNetwork::Reach reach;
+			reach.start={river.x,river.y,0}; reach.end={river.x,river.y,1000};
+			reach.halfWidth=reach.endHalfWidth=40; reach.bankExtent=300; reach.alluvium=2;
+			reach.bounds=RectF{river.x-340,-340,680,1680}; source.reaches << reach;
+		}
+		const auto rivers=source.subset(RectF{0,0,500,1000});
+		double previous=rivers.carveHeight({0,500},200),maximumJump=0;
+		for (int step=1;step<=5000;++step)
+		{
+			const double height=rivers.carveHeight({step*.1,500},200);
+			maximumJump=Max(maximumJump,Abs(height-previous)); previous=height;
+		}
+		context.expect(maximumJump<1,U"Switching between overlapping river shoulders cannot jump to another water datum");
+		for (const double edge : {142.0,208.0,292.0})
+		{
+			const double left=rivers.carveHeight({edge-.0001,500},102);
+			const double right=rivers.carveHeight({edge+.0001,500},102);
+			context.expect(Abs(right-left)<.002,U"Deposited sediment fades continuously at every overlapping wet boundary");
+		}
+	});
+
 	runner.add(U"Rivers.GeneratedRegionCourseAudit", [](TestContext& context)
 	{
 		JSON results;

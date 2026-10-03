@@ -1,0 +1,49 @@
+﻿{
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Rivers.Foundation.NonGridBoundaryOutflows",
+      "status": "passed",
+      "durationMs": 6.845,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.Foundation.MarineMouthStaysAtSea",
+      "status": "passed",
+      "durationMs": 1.710,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.Foundation.LocalSpillwayBesideMarineCell",
+      "status": "passed",
+      "durationMs": 1.650,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.Foundation.ZeroHeightMarineFlat",
+      "status": "passed",
+      "durationMs": 1.559,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.Foundation.GeneratedTopology",
+      "status": "passed",
+      "durationMs": 4864.137,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Rivers.Foundation.InlandBoundaryIsAnOutlet",
+      "status": "passed",
+      "durationMs": 7.056,
+      "failures": [
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "purpose": "complete opt-in prospective quality diagnostics, not default checkpoint regressions",
+  "production_base": "validated drainage-only River8608d60e with exact21151eb World",
+  "files": [
+    {
+      "path": "Test/RiverGenerationTests.cpp",
+      "sha256": "861cad252a76812de579604b182bb580e1335e25a6446fce99cc79c4777e940f"
+    },
+    {
+      "path": "Test/RegionalTerrainTests.cpp",
+      "sha256": "76e9c73831b80409668e2cbc5357e4a644babb882fdeeafe213256966fcf1ca5"
+    },
+    {
+      "path": "Test/TerrainFoundationMap.hpp",
+      "sha256": "7838b0fa91c16695e82f1964f6fad14cec582525603c6068217a219976944633"
+    },
+    {
+      "path": "Test/TerrainFoundationProbe.hpp",
+      "sha256": "f0b32a89db39cdcc9d6b7923903e488191774469ee35bf9cbe89d9a24d4fd5a0"
+    },
+    {
+      "path": "Test/fixtures/terrain_foundation_probe_points.csv",
+      "sha256": "a48f4eb2b7c50e78d0e0142d837346cd86e3905159da02aa9118cc8196bdf3b0"
+    }
+  ],
+  "expected_known_results": {
+    "Rivers.BaselineCarving.OverlappingBanksStayContinuous": "1 failed on inherited carving; no passing claim",
+    "Terrain.Foundation.PostRiverUsableRegion.": "pure21151eb2/4, drainage3/4; seed130 connected-plain retention44.87%\u219256.95%, still below65%"
+  },
+  "generation_inputs": [
+    {
+      "path": "src/world/World.cpp",
+      "sha256": "4658fb4211111372cb6a847599a3d6fa6c423696a309cf2ebb714272d6aa9a4b"
+    },
+    {
+      "path": "src/gen/RiverNetwork.cpp",
+      "sha256": "8608d60ed3fdc262b4301b3d34a2b95fb15d6a58ff8a4e582ca1f8a347ec1ce1"
+    },
+    {
+      "path": "src/gen/RiverNetwork.hpp",
+      "sha256": "9502dfb28b31d3bbdbaa9aa893afc0001674dfa8ed39d14ae276a1bc9be9aa20"
+    },
+    {
+      "path": "App/assets/generation/rivers.json",
+      "sha256": "2599def6c96254395e98e8326e93d788b7916d3f9dd227de15ec10f7b646f9ce"
+    },
+    {
+      "path": "App/assets/generation/terrain.json",
+      "sha256": "58c23c199ee658a4d61e45bb50d71b76e032446192ab3897913ef2e334d0ca8c"
+    }
+  ]
+}

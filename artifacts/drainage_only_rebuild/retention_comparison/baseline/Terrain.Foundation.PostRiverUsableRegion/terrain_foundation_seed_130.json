@@ -1,0 +1,54 @@
+﻿{
+  "afterRivers": {
+    "buildableFraction": 0.2264228073097246,
+    "foothillFraction": 0.2052567033565989,
+    "largestPlainKm2": 426.63936,
+    "largestPlainShare": 0.4353059177532598,
+    "largestPlainToSeaManhattanMetres": 512.0,
+    "maximumAbsoluteLocalGrade": 32.513505935668945,
+    "maximumHeight": 2143.372314453125,
+    "minimumHeight": -249.62205505371094,
+    "mountainFraction": 0.2806855516359067,
+    "nonfinite": 0,
+    "openBaySamples": 651,
+    "openOceanFraction": 0.13912398370906448
+  },
+  "bankSections": {
+    "maximumCarvedGrade": 43.073970794677734,
+    "maximumCutMetres": 1192.0132598876953,
+    "maximumIntroducedGrade": 43.05158615112305,
+    "maximumOriginalGrade": 0.6700286865234375,
+    "nonfinite": 0,
+    "samples": 5029,
+    "worstIntroducedGrade": {
+      "carvedGrade": 43.073970794677734,
+      "cutMetres": 490.92303466796875,
+      "introducedGrade": 43.05158615112305,
+      "originalGrade": 0.0223846435546875,
+      "point": [
+        62267.44833485575,
+        56737.853094723854
+      ],
+      "reach": 147323
+    }
+  },
+  "beforeRivers": {
+    "buildableFraction": 0.23584005813865463,
+    "foothillFraction": 0.20531726445517723,
+    "largestPlainKm2": 950.796288,
+    "largestPlainShare": 0.9313731784040573,
+    "largestPlainToSeaManhattanMetres": 512.0,
+    "maximumAbsoluteLocalGrade": 7.730018615722656,
+    "maximumHeight": 2143.372314453125,
+    "minimumHeight": -249.62205505371094,
+    "mountainFraction": 0.2822752804735878,
+    "nonfinite": 0,
+    "openBaySamples": 651,
+    "openOceanFraction": 0.13912398370906448
+  },
+  "buildableRetention": 0.9534570199653335,
+  "foothillRetention": 0.9985251825086645,
+  "largestConnectedPlainRetention": 0.44871794871794873,
+  "mountainRetention": 0.9943681613387685,
+  "seed": 130
+}

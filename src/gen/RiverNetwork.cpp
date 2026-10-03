@@ -6,7 +6,7 @@ namespace
 	/// @brief 集水格子は水源と流量の推定にだけ使い、河道の方位は連続地形から求める。
 	struct Drainage
 	{
-		double spacing;
+		double spacing, mapWidth, mapDepth;
 		int columns, rows;
 		Array<double> ground, filled;
 		Array<bool> ocean;
@@ -14,8 +14,8 @@ namespace
 
 		Drainage(double width, double depth, const std::function<double(double,double)>& height,
 			const std::function<bool(double,double)>& marine)
-			: spacing(GenerationSettings::get().rivers_catchmentGrid),
-			columns(static_cast<int>(width/spacing)+1), rows(static_cast<int>(depth/spacing)+1),
+			: spacing(GenerationSettings::get().rivers_catchmentGrid), mapWidth(width), mapDepth(depth),
+			columns(static_cast<int>(Ceil(width/spacing))+1), rows(static_cast<int>(Ceil(depth/spacing))+1),
 			ground(columns*rows), filled(columns*rows), ocean(columns*rows,false), parent(columns*rows,-1), flow(columns*rows,1)
 		{
 			using Entry=std::pair<double,int>;
@@ -28,7 +28,7 @@ namespace
 				if ((id%columns==0 || id%columns==columns-1 || id/columns==0 || id/columns==rows-1) && ground[id]<=0 && (!marine || marine(p.x,p.y)))
 				{ ocean[id]=true; coast << id; }
 			}
-			// Only water connected to the map's marine boundary is an outlet; inland lakes overflow.
+			// Marine cells are sea-level outlets; land-boundary catchments may continue beyond the map.
 			for (size_t index=0; index<coast.size(); ++index)
 			{
 				const int id=coast[index];
@@ -44,7 +44,7 @@ namespace
 			for (int id=0; id<columns*rows; ++id)
 			{
 				const bool boundary=id%columns==0 || id%columns==columns-1 || id/columns==0 || id/columns==rows-1;
-				if (ocean[id] || (coast.isEmpty() && boundary))
+				if (ocean[id] || boundary)
 				{ visited[id]=true; filled[id]=Max(0.0,ground[id]); pending.emplace(filled[id],id); }
 			}
 			while (!pending.empty())
@@ -75,11 +75,19 @@ namespace
 			}
 			for (auto it=order.rbegin(); it!=order.rend(); ++it) { if (parent[*it]>=0) { flow[parent[*it]]+=flow[*it]; } }
 		}
-		Vec2 position(int id) const { return {(id%columns)*spacing,(id/columns)*spacing}; }
-		int cell(Vec2 p) const { return Clamp(static_cast<int>(Round(p.y/spacing)),0,rows-1)*columns+Clamp(static_cast<int>(Round(p.x/spacing)),0,columns-1); }
+		Vec2 position(int id) const { return {Min((id%columns)*spacing,mapWidth),Min((id/columns)*spacing,mapDepth)}; }
+		int cell(Vec2 p) const
+		{
+			const auto nearest=[&](double value,double extent,int count)
+			{
+				if (value>=((count-2)*spacing+extent)*.5) { return count-1; }
+				return Clamp(static_cast<int>(Round(value/spacing)),0,count-2);
+			};
+			return nearest(p.y,mapDepth,rows)*columns+nearest(p.x,mapWidth,columns);
+		}
 	};
 
-	struct ChannelNode { Vec2 point; int parent=-1, owner=-1; double flow=1, water=0, incision=0, alluvium=0; };
+	struct ChannelNode { Vec2 point; int parent=-1, owner=-1; double flow=1, water=0, incision=0, alluvium=0, ground=0; };
 	double cross(Vec2 a,Vec2 b) { return a.x*b.y-a.y*b.x; }
 }
 
@@ -104,6 +112,18 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 	const double step=settings.rivers_segmentLength, probe=settings.rivers_gradientProbe;
 	const double indexSize=Max(32.0,step*4);
 	const auto inside=[&](Vec2 p) { return p.x>=0 && p.y>=0 && p.x<=width && p.y<=depth; };
+	const auto clipToBoundary=[&](Vec2 from,Vec2 to)
+	{
+		if (inside(to)) { return to; }
+		const Vec2 move=to-from;
+		const double toX=move.x>0 ? (width-from.x)/move.x : (move.x<0 ? -from.x/move.x : Math::Inf);
+		const double toZ=move.y>0 ? (depth-from.y)/move.y : (move.y<0 ? -from.y/move.y : Math::Inf);
+		Vec2 point=from+move*Min(toX,toZ);
+		// Assign the intersected coordinate exactly; its original ground is sampled later.
+		if (toX<=toZ) { point.x=move.x>0 ? width : 0; }
+		if (toZ<=toX) { point.y=move.y>0 ? depth : 0; }
+		return Vec2{Clamp(point.x,0.0,width),Clamp(point.y,0.0,depth)};
+	};
 	const auto gradient=[&](Vec2 p)
 	{
 		const double left=Max(0.0,p.x-probe),right=Min(width,p.x+probe),top=Max(0.0,p.y-probe),bottom=Min(depth,p.y+probe);
@@ -116,7 +136,18 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		for (int z=static_cast<int>(Floor(Min(a.y,b.y)/indexSize)); z<=static_cast<int>(Floor(Max(a.y,b.y)/indexSize)); ++z)
 			for (int x=static_cast<int>(Floor(Min(a.x,b.x)/indexSize)); x<=static_cast<int>(Floor(Max(a.x,b.x)/indexSize)); ++x) { segments[Point{x,z}] << id; }
 	};
-	int sinks=0,confluences=0,spillways=0;
+	int sinks=0,confluences=0,spillways=0,boundaryFallbackSingletons=0;
+	constexpr int kTerminalExamples=8;
+	const auto recordSink=[&](StringView reason,int id)
+	{
+		if (sinks<kTerminalExamples)
+		{
+			const auto& node=nodes[id];
+			DBG_LOG(U"[RiverNetwork] sink reason={} id={} owner={} point=({:.17g},{:.17g}) ground={:.17g}"_fmt(
+				reason,id,node.owner,node.point.x,node.point.y,height(node.point.x,node.point.y)));
+		}
+		++sinks;
+	};
 	for (const int source : sources)
 	{
 		const int sourceStart=static_cast<int>(nodes.size());
@@ -129,18 +160,21 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		for (int iteration=0; iteration<maximumSteps; ++iteration)
 		{
 			const Vec2 p=nodes[current].point; const double level=height(p.x,p.y);
-			if (drainage.ocean[drainage.cell(p)] && level<0 && (!marine || marine(p.x,p.y))) { break; }
+			if (drainage.ocean[drainage.cell(p)] && level<=0 && (!marine || marine(p.x,p.y))) { break; }
 			const Vec2 g=gradient(p);
+			// A region is a window into a larger landscape: do not route a stream back over
+			// a mountain divide merely because its natural outlet lies outside this map.
+			if ((p.x==0 && g.x>0) || (p.x==width && g.x<0)
+				|| (p.y==0 && g.y>0) || (p.y==depth && g.y<0)) { break; }
 			Vec2 next=p; bool accepted=false;
 			// 通常は中点法で -grad f を積分する。谷底の折れ目だけ局所の方向微分を最小化する。
 			for (double run=step; !rerouted && escape.isEmpty() && g.lengthSq()>=1e-14 && run>=settings.rivers_minimumTraceStep && !accepted; run*=.5)
 			{
-				const Vec2 middle=p-g.normalized()*(run*.5);
-				if (!inside(middle)) { continue; }
+				const Vec2 middle=clipToBoundary(p,p-g.normalized()*(run*.5));
 				const Vec2 midGradient=gradient(middle);
 				if (midGradient.lengthSq()>1e-14)
 				{
-					next=p-midGradient.normalized()*run;
+					next=clipToBoundary(p,p-midGradient.normalized()*run);
 					if (inside(next) && height(next.x,next.y)<level-1e-8 && midGradient.normalized().dot(g.normalized())>.9) { accepted=true;break; }
 				}
 				// 刻みを極端に小さくする前に谷底に沿う降下方向を求め、細かな往復を避ける。
@@ -174,7 +208,29 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 				{
 					cell=drainage.parent[cell]; controls << drainage.position(cell);
 				}
-				if (!drainage.ocean[cell] || controls.size()<2) { ++sinks; break; }
+				const Vec2 outlet=drainage.position(cell);
+				const bool boundaryOutlet=outlet.x==0 || outlet.y==0 || outlet.x==width || outlet.y==depth;
+				if (boundaryOutlet && controls.size()==1 && p==outlet)
+				{
+					if (boundaryFallbackSingletons<kTerminalExamples)
+					{
+						DBG_LOG(U"[RiverNetwork] boundary fallback singleton id={} owner={} point=({:.17g},{:.17g}) gradient=({:.17g},{:.17g})"_fmt(
+							current,source,p.x,p.y,g.x,g.y));
+					}
+					++boundaryFallbackSingletons;
+					// This fallback has already reached its exact land-boundary outlet.
+					break;
+				}
+				if (boundaryOutlet && controls.size()==1 && p!=outlet) { controls << outlet; }
+				if ((!drainage.ocean[cell] && !boundaryOutlet) || controls.size()<2)
+				{
+					if (sinks<kTerminalExamples)
+					{
+						DBG_LOG(U"[RiverNetwork] escape failure controls={} cell={} ocean={} boundary={} outlet=({:.17g},{:.17g})"_fmt(
+							controls.size(),cell,drainage.ocean[cell],boundaryOutlet,outlet.x,outlet.y));
+					}
+					recordSink(U"escape-target",current); break;
+				}
 				// The grid supplies drainage topology; the continuous valley floor supplies channel position.
 				for (size_t i=1; i+1<controls.size(); ++i)
 				{
@@ -200,7 +256,8 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 					for (int part=1; part<=pieces; ++part)
 					{
 						const double t=static_cast<double>(part)/pieces,t2=t*t,t3=t2*t;
-						const Vec2 point=(b*2+(c-a)*t+(a*2-b*5+c*4-d)*t2+(-a+b*3-c*3+d)*t3)*.5;
+						// A spline knot keeps its authored identity instead of reevaluating t=1.
+						const Vec2 point=part==pieces ? c : (b*2+(c-a)*t+(a*2-b*5+c*4-d)*t2+(-a+b*3-c*3+d)*t3)*.5;
 						escape << Vec2{Clamp(point.x,0.0,width),Clamp(point.y,0.0,depth)};
 					}
 				}
@@ -208,14 +265,20 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 			}
 			if (!escape.isEmpty())
 			{
-				while (escapeIndex<escape.size() && p.distanceFromSq(escape[escapeIndex])<1e-8) { ++escapeIndex; }
-				if (escapeIndex>=escape.size()) { ++sinks; ++m_statistics.exhausted; break; }
+				while (escapeIndex<escape.size() && p==escape[escapeIndex]) { ++escapeIndex; }
+				if (escapeIndex>=escape.size())
+				{
+					if (!(p.x==0 || p.y==0 || p.x==width || p.y==depth))
+					{ recordSink(U"escape-exhausted",current); ++m_statistics.exhausted; }
+					break;
+				}
 				const Vec2 toward=escape[escapeIndex]-p;
-				next=p+toward*Min(1.0,step/toward.length());
-				if (next.distanceFromSq(escape[escapeIndex])<1e-8) { ++escapeIndex; }
+				const double remaining=toward.length();
+				if (remaining<=step) { next=escape[escapeIndex++]; }
+				else { next=p+toward*(step/remaining); }
 				accepted=true;
 			}
-			if (!accepted) { ++sinks; break; }
+			if (!accepted) { recordSink(U"trace-unaccepted",current); break; }
 			int joined=-1; double alongBest=2; Vec2 meeting{0,0};
 			const Point cell{static_cast<int>(Floor(p.x/indexSize)),static_cast<int>(Floor(p.y/indexSize))};
 			HashSet<int> candidates;
@@ -263,7 +326,7 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 				if (nodes[joined].owner==source)
 				{
 					++m_statistics.selfIntersections;
-					if (rerouted) { ++sinks; break; }
+					if (rerouted) { recordSink(U"rerouted-self-intersection",current); break; }
 					// The local descent doubled back into its own upstream course. Rebuild this
 					// source from its drainage route so the eventual outlet remains acyclic.
 					nodes.resize(sourceStart);
@@ -289,13 +352,44 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 			nodes[current].parent=nextId; indexSegment(current); current=nextId;
 		}
 	}
+	// Independently traced outlets can have one exact boundary position but separate node IDs.
+	HashTable<Vec2,int> boundaryTerminals;
+	int duplicateBoundaryTerminals=0,canonicalizedBoundaryLinks=0;
+	for (size_t id=0; id<nodes.size(); ++id)
+	{
+		const auto& node=nodes[id];
+		if (node.parent>=0 || !(node.point.x==0 || node.point.y==0 || node.point.x==width || node.point.y==depth)) { continue; }
+		const Vec2 point{node.point.x==0 ? 0 : node.point.x,node.point.y==0 ? 0 : node.point.y};
+		const auto found=boundaryTerminals.find(point);
+		if (found==boundaryTerminals.end()) { boundaryTerminals.emplace(point,static_cast<int>(id)); continue; }
+		if (duplicateBoundaryTerminals<kTerminalExamples)
+		{
+			DBG_LOG(U"[RiverNetwork] duplicate boundary terminal id={} canonical={} owner={} canonicalOwner={} point=({:.17g},{:.17g})"_fmt(
+				id,found->second,node.owner,nodes[found->second].owner,point.x,point.y));
+		}
+		++duplicateBoundaryTerminals;
+	}
+	// Redirect only incoming terminal edges before solving shared flow, water and sediment.
+	// A canonical terminal has no downstream edge, so this identity correction cannot add a cycle.
+	for (auto& node : nodes)
+	{
+		if (node.parent<0 || nodes[node.parent].parent>=0) { continue; }
+		const auto& terminal=nodes[node.parent];
+		const Vec2 point{terminal.point.x==0 ? 0 : terminal.point.x,terminal.point.y==0 ? 0 : terminal.point.y};
+		const auto found=boundaryTerminals.find(point);
+		if (found==boundaryTerminals.end() || found->second==node.parent) { continue; }
+		nodes[found->second].flow=Max(nodes[found->second].flow,terminal.flow);
+		node.parent=found->second;
+		++canonicalizedBoundaryLinks;
+	}
 	// 合流後の流量と水位はグラフ全体で確定し、支流を跨いでも逆流・川幅の縮小を作らない。
 	Array<int> children(nodes.size(),0),queue;
 	for (const auto& node : nodes) { if (node.parent>=0) { ++children[node.parent]; } }
 	Array<double> incoming(nodes.size(),0);
 	for (size_t id=0; id<nodes.size(); ++id)
 	{
-		nodes[id].water=Max(0.0,height(nodes[id].point.x,nodes[id].point.y)-settings.rivers_valleyWaterDepth);
+		nodes[id].ground=height(nodes[id].point.x,nodes[id].point.y);
+		nodes[id].water=Max(0.0,nodes[id].ground-settings.rivers_valleyWaterDepth);
 		if (children[id]==0) { queue << static_cast<int>(id); }
 	}
 	for (size_t index=0; index<queue.size(); ++index)
@@ -306,6 +400,23 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		incoming[next]+=nodes[id].flow;
 		nodes[next].water=Min(nodes[next].water,Max(0.0,nodes[id].water-settings.rivers_minimumWaterGrade*nodes[id].point.distanceFrom(nodes[next].point)));
 		if (--children[next]==0) { queue << next; }
+	}
+	// Grade tributary approaches upstream from each shared confluence. A low trunk must not
+	// create an instantaneous vertical water step at the final, very short joining segment.
+	// Steep natural headwaters retain the original terrain grade instead of being forced flat.
+	constexpr double kHeadwaterApproachGrade=.06, kTrunkApproachGrade=.008, kNaturalGradeAllowance=.002;
+	for (auto it=queue.rbegin();it!=queue.rend();++it)
+	{
+		auto& node=nodes[*it];
+		if (node.parent<0) { continue; }
+		const auto& next=nodes[node.parent];
+		const double run=node.point.distanceFrom(next.point);
+		if (run<1e-8) { continue; }
+		const double channelWidth=settings.rivers_widthBase+Sqrt(node.flow)*settings.rivers_widthFlowScale;
+		const double trunk=Clamp((channelWidth-30)/70.0,0.0,1.0);
+		const double naturalGrade=Max(0.0,(node.ground-next.ground)/run);
+		const double maximumGrade=Max(Math::Lerp(kHeadwaterApproachGrade,kTrunkApproachGrade,trunk),naturalGrade+kNaturalGradeAllowance);
+		node.water=Min(node.water,next.water+maximumGrade*run);
 	}
 	// Sediment load travels through the same directed confluence graph as water.
 	// High stream power cuts the bed; falling capacity deposits the carried load.
@@ -328,11 +439,29 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 	{
 		return Clamp(settings.rivers_widthBase+std::sqrt(flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
 	};
-	double length=0;
+	double length=0,maximumOmittedLength=0;
+	int omittedDistinct=0,omittedCoincident=0;
+	constexpr int kOmittedLinkExamples=8;
 	for (const int id : queue)
 	{
 		const auto& node=nodes[id]; if (node.parent<0) { continue; }
-		const auto& next=nodes[node.parent]; if (node.point.distanceFromSq(next.point)<1e-8) { continue; }
+		const auto& next=nodes[node.parent];
+		if (node.point.distanceFromSq(next.point)<1e-8)
+		{
+			if (node.point==next.point) { ++omittedCoincident; }
+			else
+			{
+				const double run=node.point.distanceFrom(next.point);
+				maximumOmittedLength=Max(maximumOmittedLength,run);
+				if (omittedDistinct<kOmittedLinkExamples)
+				{
+					DBG_LOG(U"[RiverNetwork] omitted distinct id={} parent={} owner={} nextOwner={} start=({:.17g},{:.17g}) end=({:.17g},{:.17g}) run={:.17g} water=({:.17g},{:.17g})"_fmt(
+						id,node.parent,node.owner,next.owner,node.point.x,node.point.y,next.point.x,next.point.y,run,node.water,next.water));
+				}
+				++omittedDistinct;
+			}
+			continue;
+		}
 		Reach reach; reach.start={node.point.x,node.water,node.point.y}; reach.end={next.point.x,next.water,next.point.y};
 		reach.halfWidth=halfWidth(node.flow); reach.endHalfWidth=halfWidth(next.flow); reach.catchment=node.flow*drainage.spacing*drainage.spacing;
 		reach.incision=(node.incision+next.incision)*.5;
@@ -364,6 +493,9 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		for (int z=static_cast<int>(Floor(reach.bounds.y/512)); z<=static_cast<int>(Floor(reach.bounds.br().y/512)); ++z)
 			for (int x=static_cast<int>(Floor(reach.bounds.x/512)); x<=static_cast<int>(Floor(reach.bounds.br().x/512)); ++x) { m_index[key(x,z)] << reachId; }
 	}
+	DBG_LOG(U"[RiverNetwork] omittedDistinct={} omittedCoincident={} maximumOmittedLength={:.17g}"_fmt(omittedDistinct,omittedCoincident,maximumOmittedLength));
+	DBG_LOG(U"[RiverNetwork] duplicateBoundaryTerminals={} canonicalizedBoundaryLinks={} boundaryFallbackSingletons={}"_fmt(
+		duplicateBoundaryTerminals,canonicalizedBoundaryLinks,boundaryFallbackSingletons));
 	m_statistics.spillways=spillways;
 	m_statistics.unresolved=sinks;
 	DBG_LOG(U"[RiverNetwork] reaches={} lengthKm={:.1f} confluences={} spillways={} sinks={} self={} exhausted={}"_fmt(reaches.size(),length/1000,confluences,spillways,sinks,m_statistics.selfIntersections,m_statistics.exhausted));

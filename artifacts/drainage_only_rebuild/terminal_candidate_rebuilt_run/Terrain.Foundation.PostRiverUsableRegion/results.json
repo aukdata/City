@@ -1,0 +1,36 @@
+﻿{
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "tests": [
+    {
+      "name": "Terrain.Foundation.PostRiverUsableRegion.Seed7",
+      "status": "passed",
+      "durationMs": 1841.158,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.Foundation.PostRiverUsableRegion.Seed42",
+      "status": "passed",
+      "durationMs": 1622.852,
+      "failures": [
+      ]
+    },
+    {
+      "name": "Terrain.Foundation.PostRiverUsableRegion.Seed130",
+      "status": "failed",
+      "durationMs": 1923.761,
+      "failures": [
+        "Rivers retain 80% of buildable samples and 65% of the largest connected plain"
+      ]
+    },
+    {
+      "name": "Terrain.Foundation.PostRiverUsableRegion.Seed2026",
+      "status": "passed",
+      "durationMs": 1671.447,
+      "failures": [
+      ]
+    }
+  ]
+}

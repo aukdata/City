@@ -1,0 +1,6 @@
+﻿===== DebugLog started 2026-10-03 01:28:16 =====
+[0s] [RiverNetwork] duplicate boundary terminal id=96132 canonical=19313 owner=900 canonicalOwner=390 point=(33792,0)
+[0s] [RiverNetwork] omittedDistinct=0 omittedCoincident=0 maximumOmittedLength=0
+[0s] [RiverNetwork] duplicateBoundaryTerminals=1 canonicalizedBoundaryLinks=1 boundaryFallbackSingletons=0
+[0s] [RiverNetwork] reaches=131505 lengthKm=838.3 confluences=122 spillways=168 sinks=0 self=92 exhausted=0
+===== DebugLog closed 2026-10-03 01:28:17 =====

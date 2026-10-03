@@ -1,0 +1,68 @@
+[
+  {
+    "filter": "Rivers.Foundation.",
+    "exit": 0,
+    "validResults": true,
+    "started": 1791005295.765197,
+    "counts": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0
+    }
+  },
+  {
+    "filter": "Rivers.FollowsNegativeGradient",
+    "exit": 0,
+    "validResults": true,
+    "started": 1791005301.10324,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  {
+    "filter": "Rivers.LowlandAndMountainCourse",
+    "exit": 0,
+    "validResults": true,
+    "started": 1791005301.563627,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  {
+    "filter": "Rivers.CurvedValleyAndRepeatability",
+    "exit": 0,
+    "validResults": true,
+    "started": 1791005302.020816,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  {
+    "filter": "Rivers.GeneratedRegionCourseAudit",
+    "exit": 0,
+    "validResults": true,
+    "started": 1791005302.4787402,
+    "counts": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  {
+    "filter": "Terrain.Foundation.PostRiverUsableRegion.",
+    "exit": 1,
+    "validResults": true,
+    "started": 1791005331.4053977,
+    "counts": {
+      "total": 4,
+      "passed": 3,
+      "failed": 1
+    }
+  }
+]

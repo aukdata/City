@@ -1,0 +1,233 @@
+{
+  "scope": "bounded audit of reconstructed content-changing installs; no code/test rerun",
+  "stages": [
+    {
+      "stage": "foundation",
+      "expected_changed_units": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp",
+        "Test/RegionalTerrainTests.cpp",
+        "Test/RiverGenerationTests.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RegionalTerrainTests.cpp",
+        "Test/RiverGenerationTests.cpp",
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/foundation-build/runtime.log",
+          "sha256": "e4c866f6c3a2efae475d2bc5aca7c9abf6a6933e0d9cd3cfc2f1e1f2102a6a10"
+        },
+        {
+          "path": "build-tools-recovery/logs/foundation-build-resume/runtime.log",
+          "sha256": "248060e1df0c8171000bc3177ba728c49ddc373188b125fe7e257a88a9bfcd2f"
+        }
+      ]
+    },
+    {
+      "stage": "endpoint",
+      "expected_changed_units": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/foundation-endpoint-build/runtime.log",
+          "sha256": "732bb077227a41b0b1cebf30d3eda1b2b8a571ff533ceb0e20c13db5d285da67"
+        }
+      ]
+    },
+    {
+      "stage": "log_capture",
+      "expected_changed_units": [
+        "Test/RiverGenerationTests.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RiverGenerationTests.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/foundation-log-build/runtime.log",
+          "sha256": "bcb5a44ffadead44d165fdf699a3cdeffaaf95b6a98b6bff9cd1ec67a3d8d6df"
+        }
+      ]
+    },
+    {
+      "stage": "map_baseline",
+      "expected_changed_units": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp",
+        "Test/RegionalTerrainTests.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RegionalTerrainTests.cpp",
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/map-baseline-build/runtime.log",
+          "sha256": "138d9ab70e525d5a70881270931a68864f8a5cd26181041420a3d8cbdc4447bb"
+        }
+      ]
+    },
+    {
+      "stage": "map_candidate",
+      "expected_changed_units": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/map-candidate-build/runtime.log",
+          "sha256": "a45ab8897027f5b6fc872cd9163ae4bd280a0eb97fc280aeeee8999bced95e39"
+        }
+      ]
+    },
+    {
+      "stage": "probe_baseline",
+      "expected_changed_units": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp",
+        "Test/RegionalTerrainTests.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RegionalTerrainTests.cpp",
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/probe-baseline-build/runtime.log",
+          "sha256": "138d9ab70e525d5a70881270931a68864f8a5cd26181041420a3d8cbdc4447bb"
+        }
+      ]
+    },
+    {
+      "stage": "probe_candidate",
+      "expected_changed_units": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "src/world/World.cpp",
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/probe-candidate-build/runtime.log",
+          "sha256": "a45ab8897027f5b6fc872cd9163ae4bd280a0eb97fc280aeeee8999bced95e39"
+        }
+      ]
+    },
+    {
+      "stage": "drainage_branch",
+      "expected_changed_units": [
+        "src/world/World.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "src/world/World.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/drainage-only-build/runtime.log",
+          "sha256": "fac3de439e5cf7450084d54bd844d2036c6c3e15cbe50bf9a7e378e6a07c4787"
+        }
+      ]
+    },
+    {
+      "stage": "exact_cell_initial",
+      "expected_changed_units": [
+        "Test/RiverExactCell.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RiverExactCell.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/exact-cell-build/runtime.log",
+          "sha256": "d6e4d74d2adc5e75403e88513952fc7986bdd332a90a5b17115a4d645cbb5508"
+        }
+      ]
+    },
+    {
+      "stage": "exact_cell_type_fix",
+      "expected_changed_units": [
+        "Test/RiverExactCellTests.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "Test/RiverExactCellTests.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/exact-cell-build-qualified/runtime.log",
+          "sha256": "380e078c6517b15d7182765e3cb643efe510e08b50a29e453ee40c2f2dce7616"
+        }
+      ]
+    },
+    {
+      "stage": "terminal_diagnostic",
+      "expected_changed_units": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "missing_required_compile": [],
+      "observed_compiles": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "no_work": false,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/drainage-terminal-diagnostic-build/runtime.log",
+          "sha256": "732bb077227a41b0b1cebf30d3eda1b2b8a571ff533ceb0e20c13db5d285da67"
+        }
+      ]
+    },
+    {
+      "stage": "terminal_candidate_STALE",
+      "expected_changed_units": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "missing_required_compile": [
+        "src/gen/RiverNetwork.cpp"
+      ],
+      "observed_compiles": [],
+      "no_work": true,
+      "logs": [
+        {
+          "path": "build-tools-recovery/logs/drainage-terminal-green-build/runtime.log",
+          "sha256": "c2ed93ffd93c840755c0e91392ae593b1b52de9b7aaf6c208123feaceb1dde2e"
+        }
+      ]
+    }
+  ],
+  "unchanged_reuse": "Drainage branch selected River/Test bytes were identical to already compiled candidate inputs; World alone changed and compiled. Exact-cell initial compile stopped on test type ambiguity; qualified rerun compiled the changed test.",
+  "finding": "Only terminal_candidate_STALE lacks its required RiverNetwork compile. copy2 retained staged old mtime; rejected runtime, timestamp-only forced compile queued. Future live installs write fresh mtime."
+}

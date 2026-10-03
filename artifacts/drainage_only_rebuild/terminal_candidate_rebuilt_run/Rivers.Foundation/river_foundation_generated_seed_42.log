@@ -1,0 +1,5 @@
+﻿===== DebugLog started 2026-10-03 01:28:17 =====
+[0s] [RiverNetwork] omittedDistinct=0 omittedCoincident=0 maximumOmittedLength=0
+[0s] [RiverNetwork] duplicateBoundaryTerminals=0 canonicalizedBoundaryLinks=0 boundaryFallbackSingletons=0
+[0s] [RiverNetwork] reaches=123123 lengthKm=773.4 confluences=89 spillways=172 sinks=0 self=94 exhausted=0
+===== DebugLog closed 2026-10-03 01:28:18 =====

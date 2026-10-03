@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="6" failures="0">
+  <testcase name="Rivers.Foundation.NonGridBoundaryOutflows" time="0.006845">
+  </testcase>
+  <testcase name="Rivers.Foundation.MarineMouthStaysAtSea" time="0.001710">
+  </testcase>
+  <testcase name="Rivers.Foundation.LocalSpillwayBesideMarineCell" time="0.001650">
+  </testcase>
+  <testcase name="Rivers.Foundation.ZeroHeightMarineFlat" time="0.001559">
+  </testcase>
+  <testcase name="Rivers.Foundation.GeneratedTopology" time="4.864137">
+  </testcase>
+  <testcase name="Rivers.Foundation.InlandBoundaryIsAnOutlet" time="0.007056">
+  </testcase>
+</testsuite>

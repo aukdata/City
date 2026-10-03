@@ -1,0 +1,72 @@
+{
+  "source_candidate": {
+    "src/gen/RiverNetwork.cpp": "8608d60ed3fdc262b4301b3d34a2b95fb15d6a58ff8a4e582ca1f8a347ec1ce1"
+  },
+  "source_baseline": {
+    "src/gen/RiverNetwork.cpp": "392d6191e5afc8aa5f36f2a96338ddfca261221aae9351b23a0d5370bf9a5fd3"
+  },
+  "pinned_inputs": {
+    "src/world/World.cpp": "4658fb4211111372cb6a847599a3d6fa6c423696a309cf2ebb714272d6aa9a4b",
+    "Test/RegionalTerrainTests.cpp": "76e9c73831b80409668e2cbc5357e4a644babb882fdeeafe213256966fcf1ca5",
+    "src/gen/RiverNetwork.hpp": "9502dfb28b31d3bbdbaa9aa893afc0001674dfa8ed39d14ae276a1bc9be9aa20",
+    "App/assets/generation/rivers.json": "2599def6c96254395e98e8326e93d788b7916d3f9dd227de15ec10f7b646f9ce",
+    "App/assets/generation/terrain.json": "58c23c199ee658a4d61e45bb50d71b76e032446192ab3897913ef2e334d0ca8c"
+  },
+  "registration_sha256": "76e9c73831b80409668e2cbc5357e4a644babb882fdeeafe213256966fcf1ca5",
+  "source_restored": true,
+  "runs": {
+    "baseline": {
+      "build_exit": 0,
+      "build_started": 1791005909.1879237,
+      "binary_sha256": "c03eadb548a59fad42fa4240775a85b42187be3dbb64026046ea94a15daa98c5",
+      "binary_mtime": 1791005923.295628,
+      "test_exit": 1,
+      "metric_reports": {
+        "7": {
+          "sha256": "52a3b89c2557899f15a8538f8d8b88835ca0ab08490593a1a96dd9c723713c97",
+          "mtime": 1791005925.5957198
+        },
+        "42": {
+          "sha256": "7752b1e1358cd7e14dd2e8bdfbaba1e27d22f33cbeebaeb50610a62cc02cf897",
+          "mtime": 1791005927.3433506
+        },
+        "130": {
+          "sha256": "56b5f0c92fa3cdaed7ca9347844e2b1e78b902c76d706b2c479e730c53f6b699",
+          "mtime": 1791005929.2893174
+        },
+        "2026": {
+          "sha256": "031365d0ae0a5e5f56830b15eda735cd521b371f5744e4a7eaad8555c541b82f",
+          "mtime": 1791005930.9906511
+        }
+      }
+    },
+    "candidate": {
+      "build_exit": 0,
+      "build_started": 1791005931.0634272,
+      "binary_sha256": "b9ce706783b98e2d7a2c6ee63685ff2f98eb968209c8ebff06512247df9482e4",
+      "binary_mtime": 1791005943.7954226,
+      "test_exit": 1,
+      "metric_reports": {
+        "7": {
+          "sha256": "a4b035067f111c78cfe49491d18edb065c8a63784f37d3ebffa6bd4b5823414f",
+          "mtime": 1791005946.260744
+        },
+        "42": {
+          "sha256": "5f5efbd89477fc1ccbe36343e98ffd193f019c46593ed90afc25741b7a7d710d",
+          "mtime": 1791005947.9130323
+        },
+        "130": {
+          "sha256": "b4c31d8bd04b597440882f7fdda91c8fcf91ef1bf67c029225dffdf39206fd7f",
+          "mtime": 1791005949.8671465
+        },
+        "2026": {
+          "sha256": "a35b5fe413f843b969ce696757502b31dabf627bf264fc8dce224c76f132686d",
+          "mtime": 1791005951.5364656
+        }
+      }
+    }
+  },
+  "final_source_hashes": {
+    "src/gen/RiverNetwork.cpp": "8608d60ed3fdc262b4301b3d34a2b95fb15d6a58ff8a4e582ca1f8a347ec1ce1"
+  }
+}

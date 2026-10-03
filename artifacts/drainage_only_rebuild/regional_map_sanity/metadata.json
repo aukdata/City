@@ -1,0 +1,65 @@
+{
+  "axis": "x increases right, z increases down; full [0,WORLD_SIZE] extent",
+  "coordinateQueries": "x,z = float32(index * (double(WORLD_SIZE)/511)), including both extent endpoints",
+  "elevationBreaksMetres": [
+    0.0,
+    50.0,
+    150.0,
+    600.0,
+    1500.0,
+    3000.0
+  ],
+  "elevationRgbNormalizedDirectToColor": [
+    [
+      0.43,
+      0.66,
+      0.43
+    ],
+    [
+      0.62,
+      0.75,
+      0.49
+    ],
+    [
+      0.77,
+      0.76,
+      0.56
+    ],
+    [
+      0.64,
+      0.53,
+      0.4
+    ],
+    [
+      0.69,
+      0.67,
+      0.63
+    ],
+    [
+      0.95,
+      0.94,
+      0.91
+    ]
+  ],
+  "extentMetres": 65536.0,
+  "heightPixels": 512,
+  "hillshade": "normal=(-dh/dx,1,-dh/dz), light=(-1,2,-1)/sqrt(6), multiplier=.65+.35*clamp(dot,0,1); one-pixel centered differences",
+  "maximumHeight": 2415.442626953125,
+  "minimumHeight": -249.9930419921875,
+  "rawExpectedBytes": 1048576,
+  "rawHeightFormat": "512x512 native little-endian float32, x fastest then increasing z; Linux x86-64",
+  "reachCount": 123123,
+  "riverOverlay": "Uniform1px cyan centerline, schematic; does not depict physical width or bank appearance",
+  "sampleSpacingMetres": 128.2504892367906,
+  "scaleBarLengthPixels": 77.972412109375,
+  "scaleBarMetres": 10000,
+  "scaleBarStartPixel": [
+    20,
+    490
+  ],
+  "scope": "CPU terrain/routing sanity before exact terminal identity correction; World matches21151eb and no rejected macro shaping is present",
+  "seed": 42,
+  "waterColor": "RGB(31,87,135) below zero",
+  "widthPixels": 512,
+  "full_metadata_sha256": "cc5aa72287a251585db73badeadf69b381fdd9fe5adae9711a322dcabf5a0b0c"
+}

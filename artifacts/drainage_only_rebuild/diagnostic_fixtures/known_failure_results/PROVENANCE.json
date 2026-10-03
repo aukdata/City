@@ -1,0 +1,8 @@
+{
+  "source_experiment_commit": "37b977e82ae8d767e23dfc018a20d217cb974520",
+  "filter": "Rivers.BaselineCarving.OverlappingBanksStayContinuous",
+  "scope": "standalone manually constructed reaches; does not invoke World terrain generation",
+  "carving_header_sha256": "9502dfb28b31d3bbdbaa9aa893afc0001674dfa8ed39d14ae276a1bc9be9aa20",
+  "carving_header_byte_identical_to_21151eb": true,
+  "result": "known failed, retained unchanged; not counted among10 checkpoint passes"
+}

@@ -1,0 +1,17 @@
+{
+  "files": {
+    "src/world/World.cpp": "4658fb4211111372cb6a847599a3d6fa6c423696a309cf2ebb714272d6aa9a4b",
+    "src/gen/RiverNetwork.cpp": "8608d60ed3fdc262b4301b3d34a2b95fb15d6a58ff8a4e582ca1f8a347ec1ce1",
+    "Test/RiverGenerationTests.cpp": "861cad252a76812de579604b182bb580e1335e25a6446fce99cc79c4777e940f",
+    "Test/RegionalTerrainTests.cpp": "76e9c73831b80409668e2cbc5357e4a644babb882fdeeafe213256966fcf1ca5"
+  },
+  "binary_sha256": "b9ce706783b98e2d7a2c6ee63685ff2f98eb968209c8ebff06512247df9482e4",
+  "prior_stale_binary_sha256": "0b2ac32dd4af0e655313e56dbf13a0f76cea4f81671fe7dcff13c6d9088827c7",
+  "actual_river_tu_compile": true,
+  "build_status": {
+    "exit": 0,
+    "guard": null,
+    "elapsed": 13.655141592025757
+  },
+  "compiler_warning_lines": 0
+}

@@ -1,0 +1,7 @@
+﻿===== DebugLog started 2026-10-03 01:28:18 =====
+[0s] [RiverNetwork] boundary fallback singleton id=33286 owner=87 point=(22272,0) gradient=(0.0032110214233398438,-0.004123687744140625)
+[0s] [RiverNetwork] duplicate boundary terminal id=125994 canonical=75815 owner=57073 canonicalOwner=57826 point=(0,57344)
+[0s] [RiverNetwork] omittedDistinct=0 omittedCoincident=0 maximumOmittedLength=0
+[0s] [RiverNetwork] duplicateBoundaryTerminals=1 canonicalizedBoundaryLinks=1 boundaryFallbackSingletons=1
+[0s] [RiverNetwork] reaches=149497 lengthKm=930.2 confluences=115 spillways=185 sinks=0 self=111 exhausted=0
+===== DebugLog closed 2026-10-03 01:28:19 =====

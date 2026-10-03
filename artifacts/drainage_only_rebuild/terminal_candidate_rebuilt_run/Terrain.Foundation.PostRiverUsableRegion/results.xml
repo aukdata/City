@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="City.Test" tests="4" failures="1">
+  <testcase name="Terrain.Foundation.PostRiverUsableRegion.Seed7" time="1.841158">
+  </testcase>
+  <testcase name="Terrain.Foundation.PostRiverUsableRegion.Seed42" time="1.622852">
+  </testcase>
+  <testcase name="Terrain.Foundation.PostRiverUsableRegion.Seed130" time="1.923761">
+    <failure message="Rivers retain 80% of buildable samples and 65% of the largest connected plain"/>
+  </testcase>
+  <testcase name="Terrain.Foundation.PostRiverUsableRegion.Seed2026" time="1.671447">
+  </testcase>
+</testsuite>
