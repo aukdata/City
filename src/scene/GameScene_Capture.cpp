@@ -437,8 +437,8 @@ void GameScene::updateStreamingBenchmark()
 		m_captureFrameTimes << Scene::DeltaTime() * 1000.0;
 		if (cpuMs > 40.0)
 		{
-			DebugLog::print(U"[FlightSpike] frame={} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f} hudMs={:.2f}"_fmt(
-				flightFrame, cpuMs, m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds(),m_renderTimings.uiRenderer));
+			DebugLog::print(U"[FlightSpike] frame={} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f} hudMs={:.2f} hudStatsMs={:.2f} hudDrawMs={:.2f}"_fmt(
+				flightFrame, cpuMs, m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds(),m_renderTimings.uiRenderer,m_renderTimings.hudStats,m_renderTimings.hudDraw));
 		}
 	}
 	if (++m_captureFrame >= 840)

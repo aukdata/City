@@ -17,6 +17,8 @@ public:
 	/// @brief アクティブチャンクをカリングして描画する
 	/// @brief Load building GPU assets during the loading phase, before camera travel.
 	void preloadBuildingModels();
+	/// @brief Prepare initial road cuts and distant city proxies during loading.
+	void prepareWorld(const World& world, const RoadNetwork& roads);
 	/// @brief 鉄道施設・軌道と高架道路の植生離隔を、交通網の変更時に更新する。
 	void setTransportSites(const TrainNetwork& network,const RoadNetwork& roads,const World& world);
 	void render(World& world, const RoadNetwork& network, const BasicCamera3D& camera);
@@ -29,7 +31,7 @@ public:
 	[[nodiscard]] size_t buildingTriangles() const { return m_buildingTriangles; }
 	/// @brief Build terrain booleans from immutable snapshots off the render thread.
 	void setAsyncTerrain(bool enabled) { m_asyncTerrain = enabled; }
-	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size() + m_treeJobs.size(); }
+	[[nodiscard]] size_t pendingTerrainJobs() const { return m_terrainJobs.size() + m_treeJobs.size() + m_buildingJobs.size(); }
 	/// @brief 配置生成と地形生成の開始回数。カメラのLOD変更では増加しない。
 	[[nodiscard]] uint64 treePlacementBuilds() const { return m_treePlacementBuilds; }
 	[[nodiscard]] uint64 terrainBuilds() const { return m_terrainBuilds; }
@@ -159,6 +161,8 @@ private:
 	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads,
 		const Array<Chunk>& heightSnapshots, const RiverNetwork& rivers,
 		const Array<Polygon>& sites, LandscapeBuildStats& stats, Array<TreeInstance>& trees, bool treesOnly, bool woodland = true);
+	/// @brief Temporary uncut grid without per-triangle polygon allocation.
+	static Array<TerrainMeshData> buildCoarseTerrainMeshData(const Chunk& chunk);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
@@ -185,8 +189,19 @@ private:
 	/// @brief edge/node subtractor から chunk subtractor cache を一括構築する
 	void primeAllChunkSubtractorCaches(const RoadNetwork& network);
 
+	struct LandscapeSnapshot;
 	/// @brief 建物メッシュキャッシュを再構築する
 	void rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world);
+	/// @brief Capture chunk content and neighboring heights before launching CPU-only work.
+	void startBuildingJob(Key key, const Chunk& chunk, const World& world, const RoadNetwork& roads);
+	/// @brief Publish only current complete building snapshots, uploading at most one timed slice.
+	void uploadCompletedBuildings();
+	/// @brief Preserve position, rotation and extents with a cheap distant silhouette.
+	void rebuildBuildingProxy(Key key, const Chunk& chunk, const World& world);
+	/// @brief Cull material batches conservatively with their actual geometry bounds.
+	void drawBuildingProxy(Key key);
+	/// @brief Copy the nine-chunk neighborhood needed for height and carport clearance.
+	LandscapeSnapshot buildingSnapshot(Key key, const Chunk& chunk, const World& world) const;
 
 	/// @brief キャッシュ済み建物バッチを描画する
 	void drawCachedBuildings(Key key);
@@ -243,6 +258,41 @@ private:
 		Array<TreeInstance> instances;
 		uint64 revision = 0;
 	};
+	/// @brief Immutable CPU assets; workers never access graphics resources.
+	struct BuildingCpuAsset
+	{
+		Box bounds;
+		float scale = 1;
+		Array<ModelMeshSource> farGeometry;
+	};
+	struct FarBuildingMeshData { MeshData geometry; Material material; };
+	struct BuildingJobResult
+	{
+		Array<TerrainMeshData> batches;
+		Array<FarBuildingMeshData> farBatches;
+		Array<BuildingModelInstance> instances;
+		Array<TreeInstance> trees;
+		Box bounds;
+		size_t farCount = 0, excludedTrees = 0;
+		double milliseconds = 0;
+	};
+	struct BuildingJob
+	{
+		Key key;
+		uint64 epoch, revision;
+		std::future<BuildingJobResult> future;
+		Optional<BuildingJobResult> result;
+		Array<BuildingBatch> uploaded;
+		Array<StaticModelBatch> uploadedFar;
+		size_t index = 0, farIndex = 0;
+	};
+	static BuildingJobResult buildBuildingMeshData(const LandscapeSnapshot& input,
+		const HashTable<uint32, BuildingCpuAsset>& models, bool includeLandscape);
+	std::shared_ptr<const HashTable<uint32, BuildingCpuAsset>> m_cpuBuildingAssets;
+	Array<BuildingJob> m_buildingJobs;
+	HashTable<Key, Array<BuildingBatch>> m_buildingProxyCache;
+	bool m_regionalView = false;
+	HashTable<Key, uint64> m_proxyRevisions;
 	Array<TreeJob> m_treeJobs;
 	HashTable<Key, TreeChunk> m_treeCache;
 	HashTable<Key, Array<TreeInstance>> m_lotTreeCache;

@@ -122,7 +122,7 @@ namespace AgriculturalLayout
 						if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland) { continue; }
 						building.type=BuildingType::RuralHouse;building.angle=static_cast<float>(angle);building.edgeId=edge.id;building.edgeT=curve->tFromArcLength(arc);
 						building.offsetX=static_cast<float>(point.x-(cell.x+.5)*kCellSize);building.offsetZ=static_cast<float>(point.y-(cell.y+.5)*kCellSize);
-						chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]=ZoneType::LowResidential;chunk->meshDirty=true;
+						chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]=ZoneType::LowResidential;chunk->markMeshDirty();
 						sites.occupied.add(footprint);sites.homes << point;++placed;break;
 					}
 				}
@@ -465,7 +465,7 @@ namespace AgriculturalLayout
 				LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
 				const bool paddy=high-low<config.agriculture_paddyRelief && candidate.salt%config.agriculture_dryFieldDivisor!=0;
 				patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=candidate.salt|kManagedField;
-				chunk->landPatches << std::move(patch);chunk->meshDirty=true;++stats.fields;stats.paddies+=paddy;
+				chunk->landPatches << std::move(patch);chunk->markMeshDirty();++stats.fields;stats.paddies+=paddy;
 				break;
 			}
 		}

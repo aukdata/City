@@ -6,14 +6,17 @@ void GameScene::recordPlaytestFrame()
 {
 	if (m_playtestFrame == 0)
 	{
+		m_playtestIntervalTimer.restart();
 		m_playtestFrames.open(U"playtest_frames.csv");
-		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs");
+		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs,commandId,distance,terrainOnlyMs,hudStatsMs,hudDrawMs");
 	}
-	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f}"_fmt(
+	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f},{},{:.3f},{:.3f},{:.3f},{:.3f}"_fmt(
 		m_playtestFrame,static_cast<int>(m_camera.mode()),m_minimapRenderer.fullScreen() ? 1 : 0,
-		Scene::DeltaTime()*1000,m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
+		m_playtestIntervalTimer.msF(),m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
 		m_vehicleManager.vehicleCount(),m_vehicleManager.lastStats().total(),m_renderTimings.vehicle,m_vehicleRenderer.drawCalls(),
-		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds()));
+		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds(),m_playtestCommandId,m_camera.distance(),
+		m_renderTimings.terrainOnly,m_renderTimings.hudStats,m_renderTimings.hudDraw));
+	m_playtestIntervalTimer.restart();
 	if(m_renderTimings.total>40)
 	{
 		const auto& cache=m_roadRenderer.cacheBuildStats();

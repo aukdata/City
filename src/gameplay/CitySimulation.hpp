@@ -68,16 +68,19 @@ MonthlyCityOutcome calculateMonthlyCityOutcome(int population, double currentHap
 	const CitySnapshot& snapshot);
 
 
-/// @brief Recounts a bounded number of chunks per frame, keeping HUD reads constant-time.
+/// @brief Recounts only revised chunks, with bounded revision checks each frame.
 class HousingCapacityCache
 {
 public:
 	void update(const World& world, int chunkBudget = 32);
 	[[nodiscard]] int64 capacity() const { return m_capacity; }
+	[[nodiscard]] int lastRecountedChunks() const { return m_lastRecountedChunks; }
 	[[nodiscard]] bool initialized() const { return m_initialized; }
 private:
 	std::array<int64,WORLD_CHUNKS*WORLD_CHUNKS> m_chunks{};
+	std::array<uint64, WORLD_CHUNKS*WORLD_CHUNKS> m_revisions{};
 	int m_cursor = 0;
 	int64 m_capacity = 0;
 	bool m_initialized = false;
+	int m_lastRecountedChunks = 0;
 };

@@ -73,7 +73,7 @@ namespace RoadConstruction
 				chunk->zoneMap[cell.cell] = ZoneType::Unzoned;
 				const int64 parcelKey = (chunkCoordToKey(cell.chunk) << 16) ^ (static_cast<int64>(cell.cell.y) << 8) ^ cell.cell.x;
 				chunk->landPatches.remove_if([&](const LandPatch& patch) { return patch.sourceParcelKey == parcelKey; });
-				chunk->meshDirty = true;
+				chunk->markMeshDirty();
 			}
 		}
 	}

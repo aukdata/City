@@ -2,6 +2,7 @@
 #include "../debug/DebugLog.hpp"
 #include "GameScene.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "../gen/SettlementNames.hpp"
 
 /// @file
 /// @brief ロード状態の管理。生成処理の完了を確認してから通常更新へ遷移する。
@@ -193,8 +194,24 @@ void GameScene::updateLoading()
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
 			DebugLog::print(U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF()));
+			for (const auto name : {Asset::Grass, Asset::Ground, Asset::Gravel, Asset::SparseGrass, Asset::Sand, Asset::CoastSand, Asset::Asphalt, Asset::Concrete})
+			{
+				(void)TextureAsset{name}.size();
+			}
 			m_worldRenderer.preloadBuildingModels();
+			m_worldRenderer.setTransportSites(m_trainNetwork, m_network, m_world);
+			m_worldRenderer.prepareWorld(m_world, m_network);
 			m_roadRenderer.preloadFallbacks(m_network,m_world);
+			FontAsset(Asset::Small16).preload(U"街の情報交通通知停止再開操作速度人口資金周辺地図混雑平均最大住宅充足率月次収支幸福度道路工事中同じタブを押すと閉じます0123456789×億円年月日時分−＋?…/.: ");
+			String placeGlyphs=U"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,-()";
+			for(const auto& town:m_districts) { placeGlyphs+=SettlementNames::name(town)+SettlementNames::reading(town); }
+			for(const auto& area:m_districtHierarchy.areas) { placeGlyphs+=area.name+area.reading; }
+			FontAsset(Asset::CJK24).preload(placeGlyphs);
+			FontAsset(Asset::CJK14).preload(placeGlyphs);
+			(void)m_cityLighting.initialize();
+			m_roadRenderer.prepareSignTextures();
+			m_roadRenderer.prepareGuideSignTextures(m_network);
+			m_trainRenderer.prepareFacilityTextures();
 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
 			if (m_loadingTask == LoadingTask::NewGame)
 			{

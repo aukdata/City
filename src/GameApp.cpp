@@ -71,6 +71,13 @@ void GameApp::run()
 	Optional<uint64> seedOverride;
 	for (size_t i = 0; i < args.size(); ++i)
 	{
+		if (args[i] == U"--window-size" && i + 2 < args.size())
+		{
+			const int width = ParseOpt<int>(args[++i]).value_or(kWindowWidth);
+			const int height = ParseOpt<int>(args[++i]).value_or(kWindowHeight);
+			Window::Resize(Clamp(width, 640, 3840), Clamp(height, 480, 2160));
+			continue;
+		}
 		if (args[i] == U"--seed" && i + 1 < args.size())
 		{
 			seedOverride = ParseOpt<uint64>(args[i + 1]);

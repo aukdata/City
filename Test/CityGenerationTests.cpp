@@ -43,10 +43,42 @@ void registerCityGenerationTests(TestRunner& runner)
 		context.expectEqual(cache.capacity(),int64{83},U"Initial capacity includes distant sleeping chunks");
 		first->buildingGrid[{0,0}].type = BuildingType::HighApartment;
 		last->buildingGrid[{0,0}].type = BuildingType::None;
+		first->markMeshDirty(); last->markMeshDirty();
+		first->meshDirty = false; last->meshDirty = false;
 		cache.update(world,1);
 		context.expectEqual(cache.capacity(),int64{380},U"Only the budgeted chunk changes its cached contribution");
 		cache.update(world,4096);
 		context.expectEqual(cache.capacity(),int64{300},U"Demolition is reflected after a complete refresh without double counting");
+		cache.update(world,4096);
+		context.expectEqual(cache.lastRecountedChunks(),0,U"Unchanged chunks never touch their building grids after initialization");
+		last->buildingGrid[{0,0}].type = BuildingType::Detached;
+		last->markMeshDirty(); last->meshDirty = false;
+		cache.update(world,4096);
+		context.expectEqual(cache.lastRecountedChunks(),1,U"Only the changed sleeping chunk is rescanned even after rendering clears meshDirty");
+		context.expectEqual(cache.capacity(),int64{303},U"Revised sleeping chunk contributes the new housing count");
+	});
+
+	runner.add(U"Performance.OverviewRoadDeletionReadback", [](TestContext& context)
+	{
+		const FilePath directory = FileSystem::CurrentDirectory();
+		struct Restore { FilePath path; ~Restore() { FileSystem::ChangeCurrentDirectory(path); } } restore{directory};
+		FileSystem::ChangeCurrentDirectory(directory + U"../../App/"); RegisterAssets();
+		World world; world.reserveChunks(); RoadNetwork roads;
+		const int a = roads.addNode({400, 0, 400}), b = roads.addNode({900, 0, 400});
+		const int edge = *roads.addEdge(a, b, {550, 0, 400}, {750, 0, 400}); roads.getEdge(edge)->edgeState = EdgeState::Existing;
+		RoadRenderer renderer; context.expect(renderer.loadAssets(), U"Production road assets load"); renderer.preloadFallbacks(roads, world);
+		const Size size{640,480}; const BasicCamera3D camera{size, 45_deg, Vec3{650, 2600, -400}, Vec3{650, 0, 400}};
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm, HasDepth::Yes};
+		auto render = [&]
+		{
+			{ const ScopedRenderTarget3D scope{target.clear(ColorF{0,0,0,0})}; const ScopedRenderStates3D states{DepthStencilState::DepthTestWrite};
+			Graphics3D::SetCameraTransform(camera); renderer.render(roads, world, ViewFrustum{camera, 8000}, camera.getEyePosition()); }
+			Graphics3D::Flush(); Image image; target.readAsImage(image);
+			size_t occupied = 0; for (const auto color : image) { occupied += color.a > 0; } return occupied;
+		};
+		context.expect(render() > 20 && renderer.overviewDrawCalls() > 0, U"Distant roads use a visible real GPU batch");
+		roads.removeEdge(edge); renderer.invalidateEdgeCache(edge);
+		context.expectEqual(render(), size_t{0}, U"Deleting a road invalidates its batched surface and both node caps without ghosts");
 	});
 
 	runner.add(U"RoadRendering.SlopedArterialJunctions", [](TestContext& context)

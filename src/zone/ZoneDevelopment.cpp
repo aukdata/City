@@ -123,7 +123,7 @@ namespace
 				UrbanParcel::normalize(clipped);
 				if (clipped!=parcel.polygon)
 				{
-					parcel.polygon=std::move(clipped); chunk->meshDirty=true;
+					parcel.polygon=std::move(clipped); chunk->markMeshDirty();
 				}
 			}
 		}
@@ -282,7 +282,7 @@ ZoneDevelopmentResult ZoneManager::updateDevelopment(World& world, const RoadNet
 		patch.polygon=UrbanParcel::partition(world,plot.chunk,plot.cell.x,plot.cell.y,center,site.parcel);
 		trimNeighborParcels(world,plot.chunk,plot.cell,center,building);
 		if (patch.polygon.size()>=3) { chunk->landPatches << std::move(patch); }
-		chunk->meshDirty=true;
+		chunk->markMeshDirty();
 		++result.buildings; result.housing+=buildingCapacity(building.type);
 		if (isResidentialBuildingType(building.type)) { ++result.residential; }
 		if (plot.zone==ZoneType::Commercial) { ++result.commercial; }
@@ -379,7 +379,7 @@ void ZoneManager::restoreState(const JSON& snapshot, World& world)
 			building.builtAt=item[U"builtAt"].getOr<double>(0); building.angle=item[U"angle"].getOr<float>(0);
 			building.edgeId=item[U"edge"].getOr<int>(-1); building.edgeT=item[U"t"].getOr<float>(0);
 			building.offsetX=item[U"offsetX"].getOr<float>(0); building.offsetZ=item[U"offsetZ"].getOr<float>(0);
-			chunk->buildingGrid[cell]=building; chunk->meshDirty=true;
+			chunk->buildingGrid[cell]=building; chunk->markMeshDirty();
 			if (building.type==BuildingType::None)
 			{
 				const int64 key=ZoneGrid::zoneCellKey(coord,cell.x,cell.y);

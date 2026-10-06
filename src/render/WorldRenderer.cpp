@@ -9,10 +9,24 @@
 
 void WorldRenderer::render(World& world, const RoadNetwork& network, const BasicCamera3D& camera)
 {
+	Stopwatch stageTimer{StartImmediately::Yes};
+	auto stage=[&](StringView name) { const double ms=stageTimer.msF(); if(ms>20) { DBG_LOG(U"[WorldStage] stage={} ms={:.2f} eye={}"_fmt(name,ms,camera.getEyePosition())); } stageTimer.restart(); };
+	if (!m_cpuBuildingAssets) { preloadBuildingModels(); }
 	m_buildingEye=camera.getEyePosition();
 	m_treeRenderer.clear();
 	publishCompletedTrees();
+	stage(U"trees");
 	uploadCompletedTerrain();
+	stage(U"terrainUpload");
+	uploadCompletedBuildings();
+	stage(U"buildingUpload");
+	m_regionalView = false;
+	for (const auto* chunk : world.getActiveChunks())
+	{
+		const Key key = chunkCoordToKey(chunk->coord);
+		if (!m_proxyRevisions.contains(key) || m_proxyRevisions[key] != chunk->contentRevision) { rebuildBuildingProxy(key, *chunk, world); }
+	}
+	stage(U"proxies");
 	// アクティブチャンクを近傍優先で回し、地形本体と水面を分けて描画する。
 	// 地形メッシュを動的更新するため W100 警告を抑制する
 	Profiler::EnableAssetCreationWarning(false);
@@ -21,6 +35,7 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 	const auto regionalEye=camera.getEyePosition();
 	if(regionalEye.y-world.sampleHeight(static_cast<float>(regionalEye.x),static_cast<float>(regionalEye.z))>RegionalTerrain::kMinimumClearance)
 	{
+		m_regionalView = true;
 		m_buildingsConsidered=m_buildingsSubmitted=m_buildingDrawCalls=m_buildingTriangles=0;
 		if(m_regionalTerrain.isEmpty())
 		{
@@ -39,7 +54,7 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 		{const ScopedCustomShader3D shader{m_waterShader};Box{Vec3{WORLD_SIZE*.5,0,WORLD_SIZE*.5},Vec3{WORLD_SIZE,.04,WORLD_SIZE}}.draw(ColorF{1});}
 		// すでに用意済みの建物は地域LODでも残す。地形全域を同期で詳細化しない。
 		m_buildingFrustum=ViewFrustum{camera,160000};
-		for(const auto& [key,far]:m_farBuildings) { if(m_buildingFrustum->intersects(far.bounds)) { drawCachedBuildings(key); } }
+		for(const auto& [key, batches]:m_buildingProxyCache) { drawBuildingProxy(key); }
 		m_treeRenderer.draw(m_foliageShader);
 		return;
 	}
@@ -113,6 +128,7 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 		if (!anyVisible && !isNearCamera) continue;
 
 		drawChunk(*chunk, world, network);
+		stage(U"chunk");
 	}
 
 	m_treeRenderer.draw(m_foliageShader);

@@ -106,6 +106,9 @@ struct Chunk
 	bool              isUrbanizationArea = false;    ///< 市街化区域か
 	ChunkState        state = ChunkState::Sleeping;
 	bool              meshDirty = false;              ///< メッシュ再生成が必要か
+	uint64 contentRevision = 0; ///< Terrain/development changes, independent of renderer clearing meshDirty.
+	/// @brief Invalidate rendering and cached housing counts after editing chunk content.
+	void markMeshDirty() { meshDirty = true; ++contentRevision; }
 	float             heightMin = 0.0f;              ///< heightMap の最小高さ
 	float             heightMax = 0.0f;              ///< heightMap の最大高さ
 

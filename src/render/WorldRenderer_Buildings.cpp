@@ -10,6 +10,8 @@
 #include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
+#include "RegionalTerrain.hpp"
+#include <algorithm>
 
 using namespace TerrainSurfaceGeometry;
 using LandscapeMaterials::detailColorForKey;
@@ -30,6 +32,12 @@ void WorldRenderer::preloadBuildingModels()
 			if (loaded.insert(key).second) { getBuildingModelAsset(type,variant); }
 		}
 	}
+	auto cpuAssets = std::make_shared<HashTable<uint32, BuildingCpuAsset>>();
+	for (const auto& [key, asset] : m_buildingModels)
+	{
+		cpuAssets->emplace(key, BuildingCpuAsset{asset.model.boundingBox(), asset.scale, asset.farGeometry});
+	}
+	m_cpuBuildingAssets = std::move(cpuAssets);
 	DBG_LOG(U"[BuildingPreload] assets={} ms={:.2f}"_fmt(loaded.size(),timer.msF()));
 }
 
@@ -47,7 +55,23 @@ namespace
 		size_t excludedTrees = 0;
 		MeshData& operator[](int material) { return meshes[material]; }
 	};
-	float buildingBaseHeight(const World& world,const Building& building,float x,float z)
+	/// @brief Worker-owned immutable heights and neighboring buildings.
+	struct BuildingHeightSnapshot
+	{
+		const Array<Chunk>& chunks;
+		const Chunk* getChunk(Point coord) const
+		{
+			for (const auto& chunk : chunks) { if (chunk.coord == coord) { return &chunk; } }
+			return nullptr;
+		}
+		float sampleHeight(float x, float z) const
+		{
+			const auto* chunk = getChunk({static_cast<int>(Floor(x / CHUNK_SIZE)), static_cast<int>(Floor(z / CHUNK_SIZE))});
+			return chunk ? chunk->getHeight(x, z) : 0.0f;
+		}
+	};
+	template<class HeightSource>
+	float buildingBaseHeight(const HeightSource& world,const Building& building,float x,float z)
 	{
 		float height=world.sampleHeight(x,z);
 		if (building.type==BuildingType::Parking) { return height; }
@@ -364,7 +388,8 @@ namespace
 	}
 
 	/// @brief One compact urban lot carries two visibly separate narrow homes.
-	void appendUrbanHousePair(LandscapeGeometry& groups, const World& world,
+	template<class HeightSource>
+	void appendUrbanHousePair(LandscapeGeometry& groups, const HeightSource& world,
 		const Building& building, float cx, float cz, uint32 hash)
 	{
 		const float footprint=buildingFootprintXZ(building.type);
@@ -448,7 +473,8 @@ namespace
 	}
 
 	/// @brief 戸建ての側方にカーポートか物置を置き、隣家との間の空地を生活の設備で埋める。
-	void appendHouseSideStructure(LandscapeGeometry& groups, const World& world, const Building& building,
+	template<class HeightSource>
+	void appendHouseSideStructure(LandscapeGeometry& groups, const HeightSource& world, const Building& building,
 		Point chunkCoord, int col, int row, float cx, float cz, uint32 hash, const Array<LandRoadMask>& roadMasks)
 	{
 		const uint32 kind = hash % 10u;
@@ -515,7 +541,8 @@ namespace
 	}
 
 	/// @brief 工業団地の区画を埋める低層の大型倉庫。
-	void appendIndustrialWarehouse(LandscapeGeometry& groups, const World& world,
+	template<class HeightSource>
+	void appendIndustrialWarehouse(LandscapeGeometry& groups, const HeightSource& world,
 		const Building& building, float cx, float cz)
 	{
 		const float baseY=buildingBaseHeight(world,building,cx,cz);
@@ -840,7 +867,8 @@ namespace
 			}
 		}
 	}
-	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                           int col, int row, const Building& building, float cx, float cz,
 	                           float cellSize,const Array<LandRoadMask>& roadMasks)
 	{
@@ -944,7 +972,8 @@ namespace
 
 
 	}
-	void appendFarmlandDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendFarmlandDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                           int col, int row, float cx, float cz, float cellSize)
 	{
 		const uint32 hash = cellVisualHash(chunk.coord, col, row, 0xA6B4C893u);
@@ -981,7 +1010,8 @@ namespace
 			appendRotatedBox(groups[110], px, baseY + 0.05f, pz, 0.42f, 0.04f, fieldD, angle);
 		}
 	}
-	void appendBoxBuildingDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendBoxBuildingDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                              int col, int row, BuildingType type, float cx, float cz,
 	                              float footprint, float height, float angle)
 	{
@@ -1145,18 +1175,33 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	{
 		asset.distantModel = Model{ distantPath };
 		Model::RegisterDiffuseTextures(asset.distantModel, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : asset.distantModel.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 	}
 	const String farPath = modelLodPath(path, 2);
 	if (FileSystem::IsFile(farPath))
 	{
 		const Model farModel{farPath};
 		Model::RegisterDiffuseTextures(farModel, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : farModel.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 		asset.farGeometry = loadModelMeshSource(farPath, farModel);
 	}
 	asset.model = Model{ path };
 	if (!asset.model.isEmpty())
 	{
 		Model::RegisterDiffuseTextures(asset.model, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : asset.model.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 		if (type != BuildingType::Parking && type != BuildingType::Factory && !isCompleteSiteBuilding(type))
 		{
 			const auto& bounds = asset.model.boundingBox();
@@ -1369,8 +1414,13 @@ MeshData WorldRenderer::landPatchSurface(const World& world,const RoadNetwork& n
 	return surface;
 }
 
-void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
+WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const LandscapeSnapshot& input,
+	const HashTable<uint32, BuildingCpuAsset>& models, bool includeLandscape)
 {
+	const Stopwatch timer{StartImmediately::Yes};
+	const auto& chunk = input.chunk;
+	const BuildingHeightSnapshot world{input.heights};
+	BuildingJobResult result;
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	const float footprint = buildingFootprintXZ();
 
@@ -1382,25 +1432,19 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 	Array<BuildingModelInstance> modelInstances;
 
 	Array<LandRoadMask> roadMasks;
-	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end())
+	for (const auto& mask : input.quads)
 	{
-		for (const auto& mask : masks->second)
-		{
-			Array<Vec2> outline = mask.footprint;
-			UrbanParcel::normalize(outline);
-			roadMasks << LandRoadMask{ mask.bounds, mask.footprint, Polygon{ outline }, mask.bedBottomY };
-		}
+		Array<Vec2> outline = mask.footprint;
+		UrbanParcel::normalize(outline);
+		roadMasks << LandRoadMask{mask.bounds, mask.footprint, Polygon{outline}, mask.bedBottomY};
 	}
-	if (const auto sites=m_transportSites.find(key); sites!=m_transportSites.end())
-	{
-		for (const auto& site : sites->second) { roadMasks << LandRoadMask{site.boundingRect(),site.outer(),site,0,true}; }
-	}
-	if (!m_asyncTerrain)
+	for (const auto& site : input.sites) { roadMasks << LandRoadMask{site.boundingRect(), site.outer(), site, 0, true}; }
+	if (includeLandscape)
 	{
 		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
-		if (m_woodlandEnabled)
+		if (input.woodland)
 		{
-			appendWoodland(groups, chunk, world, roadMasks, world.rivers());
+			appendWoodland(groups, chunk, world, roadMasks, input.rivers);
 		}
 	}
 
@@ -1452,8 +1496,8 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
 				const uint8 variant = buildingModelVariant(b.type, gx, gz);
-				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
-				const float modelScale = normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale);
+				const auto& asset = models.at((static_cast<uint32>(b.type) << 8) | variant);
+				const float modelScale = normalizedObjScale(b.type, asset.bounds, asset.scale);
 				modelInstances.push_back({
 					b.type,
 					variant,
@@ -1498,32 +1542,24 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		}
 	}
 
-	if (groups.excludedTrees) { DBG_LOG(U"[RailLandscape] key={} excludedTrees={}"_fmt(key, groups.excludedTrees)); }
-	m_lotTreeCache[key] = std::move(groups.trees);
-	auto& batches = m_buildingMeshCache[key];
-	batches.clear();
+	result.excludedTrees = groups.excludedTrees;
+	result.trees = std::move(groups.trees);
+	auto& batches = result.batches;
 	for (auto& [typeInt, meshData] : groups.meshes)
 	{
 		if (meshData.vertices.isEmpty()) continue;
-		const ColorF color = (typeInt >= 100)
-			? detailColorForKey(typeInt)
-			: buildingColor(static_cast<BuildingType>(typeInt));
-		batches.push_back({
-			typeInt,
-			color,
-			Mesh{ meshData }
-		});
+		batches << TerrainMeshData{typeInt, std::move(meshData)};
 	}
 
 	// The far tier is baked once per edited chunk, grouped by asset material.
-	auto& far = m_farBuildings[key]; far = FarBuildings{};
+	auto& far = result;
 	HashTable<uint64, MeshData> merged;
 	HashTable<uint64, Material> materials;
 	float highest = chunk.heightMax;
 	for (const auto& instance : modelInstances)
 	{
-		auto& asset = getBuildingModelAsset(instance.type, instance.modelVariant);
-		highest = Max(highest, instance.pos.y + static_cast<float>(asset.model.boundingBox().size.y * instance.scale));
+		const auto& asset = models.at((static_cast<uint32>(instance.type) << 8) | instance.modelVariant);
+		highest = Max(highest, instance.pos.y + static_cast<float>(asset.bounds.size.y * instance.scale));
 		const uint32 assetId = (static_cast<uint32>(instance.type) << 8) | instance.modelVariant;
 		for (size_t part = 0; part < asset.farGeometry.size(); ++part)
 		{
@@ -1534,15 +1570,17 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			appendMeshData(merged[materialId], geometry);
 			materials[materialId] = source.material;
 		}
-		if (!asset.farGeometry.isEmpty()) { ++far.count; }
+		if (!asset.farGeometry.isEmpty()) { ++far.farCount; }
 	}
 	far.bounds = Box{Vec3{origin.x + CHUNK_SIZE * .5, (chunk.heightMin + highest) * .5, origin.z + CHUNK_SIZE * .5},
 		Vec3{CHUNK_SIZE + 100, Max(1.0f, highest - chunk.heightMin), CHUNK_SIZE + 100}};
-	for (const auto& [materialId, geometry] : merged)
+	for (auto& [materialId, geometry] : merged)
 	{
-		far.batches << StaticModelBatch{Mesh{geometry}, materials[materialId], static_cast<uint32>(geometry.indices.size())};
+		far.farBatches << FarBuildingMeshData{std::move(geometry), materials[materialId]};
 	}
-	m_buildingModelCache[key] = std::move(modelInstances);
+	result.instances = std::move(modelInstances);
+	result.milliseconds = timer.msF();
+	return result;
 }
 
 bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
@@ -1561,14 +1599,19 @@ bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
 
 void WorldRenderer::drawCachedBuildings(Key key)
 {
-	submitCachedTrees(key);
-	bool farDrawn = false;
-	if (const auto cached = m_farBuildings.find(key); cached != m_farBuildings.end())
+	const Point coord{static_cast<int>(key >> 32), static_cast<int>(static_cast<uint32>(key))};
+	const auto heights = m_treeHeightRanges.find(key);
+	const double distance = TreeGeometry::distanceSquared(coord, m_buildingEye, heights == m_treeHeightRanges.end() ? Vec2{} : heights->second);
+	const bool proxy = m_regionalView || distance > 1600 * 1600 || !m_buildingMeshCache.contains(key);
+	if (proxy) { drawBuildingProxy(key); }
+	else { submitCachedTrees(key); }
+	bool farDrawn = proxy;
+	if (const auto cached = m_farBuildings.find(key); !proxy && cached != m_farBuildings.end())
 	{
 		const auto& far = cached->second;
 		const Vec3 delta = m_buildingEye - far.bounds.center;
 		const Vec3 outside{Max(0.0, Abs(delta.x) - far.bounds.size.x * .5), Max(0.0, Abs(delta.y) - far.bounds.size.y * .5), Max(0.0, Abs(delta.z) - far.bounds.size.z * .5)};
-		constexpr double kFarDistance = 850;
+		constexpr double kFarDistance = 450;
 		const auto instances=m_buildingModelCache.find(key);
 		if (outside.lengthSq() > kFarDistance * kFarDistance && !far.batches.isEmpty()
 			&& instances!=m_buildingModelCache.end() && far.count==instances->second.size())
@@ -1617,6 +1660,7 @@ void WorldRenderer::drawCachedBuildings(Key key)
 
 	for (const auto* cache : { &m_buildingMeshCache, &m_landscapeMeshCache })
 	{
+		if (proxy && cache == &m_buildingMeshCache) { continue; }
 		const auto it = cache->find(key);
 		if (it == cache->end()) { continue; }
 		for (const auto& batch : it->second)
@@ -1624,7 +1668,7 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			if (!drawLandscapeBatch(batch.materialKey,key)) { continue; }
 			const int material=batch.materialKey%1000;
 			const bool distant=m_distantDetailChunks.contains(key);
-			if (distant && material==123) { continue; }
+			if (distant && (material==123 || material==112 || material==114 || material==116 || material==118)) { continue; }
 			if ((material==130 && m_fieldShader) || (material==131 && m_paddyShader))
 			{
 				const ScopedCustomShader3D shader{material==131 ? m_paddyShader : m_fieldShader};
@@ -1779,4 +1823,157 @@ void WorldRenderer::setTransportSites(const TrainNetwork& network,const RoadNetw
 	for (const Key key : changed) { m_landscapeMeshCache.erase(key); m_buildingMeshCache.erase(key); }
 	invalidateTerrainChunkKeys(changed);
 	m_transportSitesDirty=false;
+}
+
+WorldRenderer::LandscapeSnapshot WorldRenderer::buildingSnapshot(Key key, const Chunk& chunk, const World& world) const
+{
+	LandscapeSnapshot input;
+	input.chunk = chunk;
+	input.woodland = m_woodlandEnabled;
+	input.rivers = world.rivers().subset(RectF{chunk.coord.x * CHUNK_SIZE - 64, chunk.coord.y * CHUNK_SIZE - 64, CHUNK_SIZE + 128, CHUNK_SIZE + 128});
+	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end()) { input.quads = masks->second; }
+	if (const auto sites = m_transportSites.find(key); sites != m_transportSites.end()) { input.sites = sites->second; }
+	for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+	{
+		if (const auto* neighbor = world.getChunk(chunk.coord + Point{dx, dz}))
+		{
+			Chunk copy;
+			copy.coord = neighbor->coord;
+			copy.heightMap = neighbor->heightMap;
+			copy.zoneMap = neighbor->zoneMap;
+			copy.buildingGrid = neighbor->buildingGrid;
+			input.heights << std::move(copy);
+		}
+	}
+	return input;
+}
+
+void WorldRenderer::startBuildingJob(Key key, const Chunk& chunk, const World& world, const RoadNetwork& roads)
+{
+	if (m_buildingJobs.size() >= 2 || !m_cpuBuildingAssets
+		|| std::any_of(m_buildingJobs.begin(), m_buildingJobs.end(), [key](const BuildingJob& job) { return job.key == key; })) { return; }
+	(void)getChunkSubtractionQuads(roads, chunk.coord);
+	auto input = buildingSnapshot(key, chunk, world);
+	BuildingJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+	job.future = std::async(std::launch::async, [input = std::move(input), models = m_cpuBuildingAssets]
+	{
+		return buildBuildingMeshData(input, *models, false);
+	});
+	m_buildingJobs << std::move(job);
+}
+
+void WorldRenderer::uploadCompletedBuildings()
+{
+	const Stopwatch upload{StartImmediately::Yes};
+	for (size_t i = 0; i < m_buildingJobs.size();)
+	{
+		auto& job = m_buildingJobs[i];
+		if (!job.result)
+		{
+			if (job.future.wait_for(std::chrono::seconds{0}) != std::future_status::ready) { ++i; continue; }
+			job.result = job.future.get();
+		}
+		if (job.epoch != m_terrainEpoch || job.revision != m_terrainRevisions[job.key])
+		{
+			m_buildingJobs.erase(m_buildingJobs.begin() + i);
+			continue;
+		}
+		auto& result = *job.result;
+		while (job.index < result.batches.size() && upload.msF() < 2.0)
+		{
+			auto& batch = result.batches[job.index++];
+			const auto color = batch.materialKey >= 100 ? detailColorForKey(batch.materialKey) : buildingColor(static_cast<BuildingType>(batch.materialKey));
+			job.uploaded << BuildingBatch{batch.materialKey, color, Mesh{batch.meshData}};
+			batch.meshData = {};
+		}
+		while (job.index == result.batches.size() && job.farIndex < result.farBatches.size() && upload.msF() < 2.0)
+		{
+			auto& batch = result.farBatches[job.farIndex++];
+			job.uploadedFar << StaticModelBatch{Mesh{batch.geometry}, batch.material, static_cast<uint32>(batch.geometry.indices.size())};
+			batch.geometry = {};
+		}
+		if (job.index == result.batches.size() && job.farIndex == result.farBatches.size())
+		{
+			m_buildingMeshCache[job.key] = std::move(job.uploaded);
+			m_farBuildings[job.key] = FarBuildings{std::move(job.uploadedFar), result.bounds, result.farCount};
+			m_buildingModelCache[job.key] = std::move(result.instances);
+			m_lotTreeCache[job.key] = std::move(result.trees);
+			++m_geometryRevision;
+			DBG_LOG(U"[BuildingStreaming] key={} workerMs={:.2f} uploadMs={:.2f} excludedTrees={}"_fmt(job.key, result.milliseconds, upload.msF(), result.excludedTrees));
+			m_buildingJobs.erase(m_buildingJobs.begin() + i);
+		}
+		break;
+	}
+}
+
+void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world)
+{
+	if (!m_cpuBuildingAssets) { preloadBuildingModels(); }
+	BuildingJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+	job.result = buildBuildingMeshData(buildingSnapshot(key, chunk, world), *m_cpuBuildingAssets, !m_asyncTerrain);
+	m_buildingJobs << std::move(job);
+	while (!m_buildingJobs.isEmpty()) { uploadCompletedBuildings(); }
+}
+
+void WorldRenderer::rebuildBuildingProxy(Key key, const Chunk& chunk, const World& world)
+{
+	HashTable<int, MeshData> groups;
+	const auto origin = chunk.worldOrigin();
+	if (!chunk.buildingGrid.isEmpty()) for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
+	{
+		const auto& b = chunk.buildingGrid[{col, row}];
+		if (b.type == BuildingType::None || b.type == BuildingType::Farmland || b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding) { continue; }
+		const float x = static_cast<float>(origin.x + (col + .5) * CHUNK_SIZE / ZONE_CELLS) + b.offsetX;
+		const float z = static_cast<float>(origin.z + (row + .5) * CHUNK_SIZE / ZONE_CELLS) + b.offsetZ;
+		float width = buildingFootprintXZ(b.type), depth = width, height = buildingHeight(b.type);
+		float centerX = x, centerZ = z;
+		float ground = buildingBaseHeight(world, b, x, z);
+		if (isObjBuildingType(b.type))
+		{
+			const uint8 variant = buildingModelVariant(b.type, chunk.coord.x * ZONE_CELLS + col, chunk.coord.y * ZONE_CELLS + row);
+			const auto& asset = m_cpuBuildingAssets->at((static_cast<uint32>(b.type) << 8) | variant);
+			const float scale = normalizedObjScale(b.type, asset.bounds, asset.scale);
+			width = static_cast<float>(asset.bounds.size.x * scale); depth = static_cast<float>(asset.bounds.size.z * scale);
+			height = static_cast<float>(asset.bounds.size.y * scale);
+			const double cosine = Cos(b.angle), sine = Sin(b.angle);
+			centerX += static_cast<float>((asset.bounds.center.x * cosine - asset.bounds.center.z * sine) * scale);
+			centerZ += static_cast<float>((asset.bounds.center.x * sine + asset.bounds.center.z * cosine) * scale);
+			ground += static_cast<float>((asset.bounds.center.y - asset.bounds.size.y * .5) * scale);
+		}
+		if (height > 0 && width > 0 && depth > 0) { appendRotatedBox(groups[static_cast<int>(b.type)], centerX, ground + height * .5f, centerZ, width, height, depth, b.angle); }
+	}
+	Array<BuildingBatch> batches;
+	for (const auto& [type, geometry] : groups) { batches << BuildingBatch{type, buildingColor(static_cast<BuildingType>(type)), Mesh{geometry}}; }
+	m_buildingProxyCache[key] = std::move(batches);
+	m_proxyRevisions[key] = chunk.contentRevision;
+}
+
+void WorldRenderer::drawBuildingProxy(Key key)
+{
+	if (const auto found = m_buildingProxyCache.find(key); found != m_buildingProxyCache.end())
+	{
+		const ScopedCustomShader3D shader{m_buildingShader};
+		for (const auto& batch : found->second)
+		{
+			if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
+			batch.mesh.draw(batch.color); ++m_buildingDrawCalls;
+		}
+	}
+}
+
+void WorldRenderer::prepareWorld(const World& world, const RoadNetwork& roads)
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	primeAllChunkSubtractorCaches(roads);
+	m_buildingProxyCache.clear();
+	for (int z = 0; z < WORLD_CHUNKS; ++z) for (int x = 0; x < WORLD_CHUNKS; ++x)
+	{
+		if (const auto* chunk = world.getChunk({x, z})) { rebuildBuildingProxy(chunkCoordToKey(chunk->coord), *chunk, world); }
+	}
+	m_regionalTerrain.clear();
+	for (const auto& batch : RegionalTerrain::batches(RegionalTerrain::build(world)))
+	{
+		if (!batch.data.indices.isEmpty()) { m_regionalTerrain << TerrainMeshBatch{batch.materialKey, DynamicMesh{batch.data}}; }
+	}
+	DBG_LOG(U"[WorldPreload] proxies={} totalMs={:.2f}"_fmt(m_buildingProxyCache.size(), timer.msF()));
 }

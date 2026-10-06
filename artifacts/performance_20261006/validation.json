@@ -1,0 +1,761 @@
+{
+  "city_build": {
+    "action": "build",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161511-build-kilfk48g",
+    "target": "City",
+    "configuration": "Release",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 0,
+    "elapsed_seconds": 10.89
+  },
+  "test_build": {
+    "action": "build",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161537-build-km6z694t",
+    "target": "Test",
+    "configuration": "Release",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 0,
+    "elapsed_seconds": 17.73
+  },
+  "full_tests": {
+    "action": "test",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161750-test-ipv4bn32",
+    "filter": "(all)",
+    "configuration": "Release",
+    "exit_code": 0,
+    "total": 326,
+    "passed": 326,
+    "failed": 0,
+    "failure_details": [],
+    "elapsed_seconds": 292.39
+  },
+  "save_retry": {
+    "action": "test",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-155125-test-9yby1j_5",
+    "filter": "SaveTransaction.RoundTrip",
+    "configuration": "Release",
+    "exit_code": 0,
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "failure_details": [],
+    "elapsed_seconds": 0.52
+  },
+  "initial_full_tests": {
+    "action": "test",
+    "status": "failed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-154319-test-01mjpzof",
+    "filter": "(all)",
+    "configuration": "Release",
+    "exit_code": 1,
+    "total": 326,
+    "passed": 325,
+    "failed": 1,
+    "failure_details": [
+      {
+        "name": "SaveTransaction.RoundTrip",
+        "reasons": [
+          "正常な一時セーブはコミットできます: error=9 一時セーブを正式保存先へ移動できません: Access is denied. path=D:\\Users\\Takuma\\Creations\\codes\\City\\Test\\App\\TestArtifacts\\round_trip\\slot",
+          "コミット後のセーブを読み戻せます: fixture.binがありません",
+          "読み戻したペイロードが一致します"
+        ]
+      }
+    ],
+    "elapsed_seconds": 292.64
+  },
+  "comparison_conditions": {
+    "resolution": [
+      1920,
+      1080
+    ],
+    "seed": 42,
+    "save": "refactoring_20261006",
+    "save_format": 4,
+    "hour": 13,
+    "paused": true,
+    "cars": 0,
+    "vsync": true,
+    "distances_metres": [
+      650,
+      3000,
+      6000,
+      12000
+    ],
+    "yaw": -0.7,
+    "pitch": 0.72,
+    "warmup_frames": 240,
+    "measurement_frames": 240,
+    "baseline_commit": "05c4688",
+    "baseline_build": "20261006-152336-build-40iu4fnc"
+  },
+  "wide_baseline": {
+    "650.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.826,
+        "p95": 27.343,
+        "max": 40.519
+      },
+      "renderMs": {
+        "mean": 12.799,
+        "p95": 14.731,
+        "max": 18.786
+      },
+      "terrainOnlyMs": {
+        "mean": 1.829,
+        "p95": 2.002,
+        "max": 2.699
+      },
+      "roadMs": {
+        "mean": 4.881,
+        "p95": 5.957,
+        "max": 7.303
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.426,
+        "p95": 0.559,
+        "max": 1.918
+      },
+      "hudDrawMs": {
+        "mean": 0.079,
+        "p95": 0.098,
+        "max": 0.145
+      },
+      "buildingDrawCalls": {
+        "mean": 1560.0,
+        "p95": 1560.0,
+        "max": 1560.0
+      },
+      "gpuMs": {
+        "mean": 4.909,
+        "p95": 8.376,
+        "max": 22.078
+      },
+      "cold_max_renderMs": 4073.011,
+      "over_100ms_render_frames": 2
+    },
+    "3000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 42.318,
+        "p95": 53.065,
+        "max": 63.216
+      },
+      "renderMs": {
+        "mean": 40.577,
+        "p95": 44.113,
+        "max": 62.278
+      },
+      "terrainOnlyMs": {
+        "mean": 0.962,
+        "p95": 1.118,
+        "max": 2.806
+      },
+      "roadMs": {
+        "mean": 14.104,
+        "p95": 16.153,
+        "max": 22.865
+      },
+      "shadowMs": {
+        "mean": 13.321,
+        "p95": 14.966,
+        "max": 22.328
+      },
+      "hudStatsMs": {
+        "mean": 0.46,
+        "p95": 0.553,
+        "max": 2.075
+      },
+      "hudDrawMs": {
+        "mean": 0.095,
+        "p95": 0.12,
+        "max": 0.166
+      },
+      "buildingDrawCalls": {
+        "mean": 386.0,
+        "p95": 386.0,
+        "max": 386.0
+      },
+      "gpuMs": {
+        "mean": 12.281,
+        "p95": 20.956,
+        "max": 25.096
+      },
+      "cold_max_renderMs": 490.055,
+      "over_100ms_render_frames": 1
+    },
+    "6000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 30.108,
+        "p95": 39.741,
+        "max": 41.71
+      },
+      "renderMs": {
+        "mean": 28.116,
+        "p95": 30.539,
+        "max": 31.781
+      },
+      "terrainOnlyMs": {
+        "mean": 1.861,
+        "p95": 2.097,
+        "max": 2.656
+      },
+      "roadMs": {
+        "mean": 11.765,
+        "p95": 12.982,
+        "max": 14.91
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.462,
+        "p95": 0.547,
+        "max": 2.358
+      },
+      "hudDrawMs": {
+        "mean": 0.1,
+        "p95": 0.12,
+        "max": 0.741
+      },
+      "buildingDrawCalls": {
+        "mean": 421.0,
+        "p95": 421.0,
+        "max": 421.0
+      },
+      "gpuMs": {
+        "mean": 14.518,
+        "p95": 23.297,
+        "max": 27.306
+      },
+      "cold_max_renderMs": 114.293,
+      "over_100ms_render_frames": 1
+    },
+    "12000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.663,
+        "p95": 27.661,
+        "max": 29.375
+      },
+      "renderMs": {
+        "mean": 9.685,
+        "p95": 11.358,
+        "max": 12.93
+      },
+      "terrainOnlyMs": {
+        "mean": 1.657,
+        "p95": 1.91,
+        "max": 2.205
+      },
+      "roadMs": {
+        "mean": 3.074,
+        "p95": 3.932,
+        "max": 4.634
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.408,
+        "p95": 0.505,
+        "max": 1.869
+      },
+      "hudDrawMs": {
+        "mean": 0.082,
+        "p95": 0.097,
+        "max": 0.156
+      },
+      "buildingDrawCalls": {
+        "mean": 435.0,
+        "p95": 435.0,
+        "max": 435.0
+      },
+      "gpuMs": {
+        "mean": 4.011,
+        "p95": 5.153,
+        "max": 10.874
+      },
+      "cold_max_renderMs": 103.002,
+      "over_100ms_render_frames": 1
+    }
+  },
+  "wide_final": {
+    "650.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.656,
+        "p95": 28.021,
+        "max": 29.732
+      },
+      "renderMs": {
+        "mean": 12.133,
+        "p95": 14.117,
+        "max": 15.485
+      },
+      "terrainOnlyMs": {
+        "mean": 0.854,
+        "p95": 0.988,
+        "max": 1.14
+      },
+      "roadMs": {
+        "mean": 5.738,
+        "p95": 6.807,
+        "max": 8.006
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.027,
+        "p95": 0.002,
+        "max": 1.809
+      },
+      "hudDrawMs": {
+        "mean": 0.07,
+        "p95": 0.079,
+        "max": 0.339
+      },
+      "buildingDrawCalls": {
+        "mean": 656.0,
+        "p95": 656.0,
+        "max": 656.0
+      },
+      "gpuMs": {
+        "mean": 4.245,
+        "p95": 5.299,
+        "max": 14.046
+      },
+      "cold_max_renderMs": 106.403,
+      "over_100ms_render_frames": 1
+    },
+    "3000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.662,
+        "p95": 27.666,
+        "max": 31.744
+      },
+      "renderMs": {
+        "mean": 6.25,
+        "p95": 7.256,
+        "max": 9.944
+      },
+      "terrainOnlyMs": {
+        "mean": 0.163,
+        "p95": 0.202,
+        "max": 0.234
+      },
+      "roadMs": {
+        "mean": 3.425,
+        "p95": 4.145,
+        "max": 5.171
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.018,
+        "p95": 0.001,
+        "max": 1.389
+      },
+      "hudDrawMs": {
+        "mean": 0.062,
+        "p95": 0.073,
+        "max": 0.089
+      },
+      "buildingDrawCalls": {
+        "mean": 104.0,
+        "p95": 104.0,
+        "max": 104.0
+      },
+      "gpuMs": {
+        "mean": 1.634,
+        "p95": 1.985,
+        "max": 2.26
+      },
+      "cold_max_renderMs": 16.031,
+      "over_100ms_render_frames": 0
+    },
+    "6000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.66,
+        "p95": 27.318,
+        "max": 28.312
+      },
+      "renderMs": {
+        "mean": 5.995,
+        "p95": 7.049,
+        "max": 7.862
+      },
+      "terrainOnlyMs": {
+        "mean": 0.197,
+        "p95": 0.249,
+        "max": 0.355
+      },
+      "roadMs": {
+        "mean": 3.325,
+        "p95": 4.024,
+        "max": 4.573
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.017,
+        "p95": 0.001,
+        "max": 1.051
+      },
+      "hudDrawMs": {
+        "mean": 0.063,
+        "p95": 0.071,
+        "max": 0.113
+      },
+      "buildingDrawCalls": {
+        "mean": 118.0,
+        "p95": 118.0,
+        "max": 118.0
+      },
+      "gpuMs": {
+        "mean": 1.689,
+        "p95": 2.103,
+        "max": 2.39
+      },
+      "cold_max_renderMs": 8.979,
+      "over_100ms_render_frames": 0
+    },
+    "12000.000": {
+      "samples": 240,
+      "warmup_frames": 240,
+      "frameMs": {
+        "mean": 16.711,
+        "p95": 27.555,
+        "max": 28.628
+      },
+      "renderMs": {
+        "mean": 5.709,
+        "p95": 6.775,
+        "max": 10.464
+      },
+      "terrainOnlyMs": {
+        "mean": 0.524,
+        "p95": 0.609,
+        "max": 0.856
+      },
+      "roadMs": {
+        "mean": 2.802,
+        "p95": 3.495,
+        "max": 4.323
+      },
+      "shadowMs": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "hudStatsMs": {
+        "mean": 0.017,
+        "p95": 0.002,
+        "max": 1.077
+      },
+      "hudDrawMs": {
+        "mean": 0.064,
+        "p95": 0.074,
+        "max": 0.124
+      },
+      "buildingDrawCalls": {
+        "mean": 189.0,
+        "p95": 189.0,
+        "max": 189.0
+      },
+      "gpuMs": {
+        "mean": 1.158,
+        "p95": 2.895,
+        "max": 3.163
+      },
+      "cold_max_renderMs": 10.464,
+      "over_100ms_render_frames": 0
+    }
+  },
+  "streaming_final": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161329-playtest-kptx5mfm",
+    "mode": "streaming",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 720,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 7.58,
+        "p95": 15.715,
+        "max": 25.092
+      },
+      "frameMs": {
+        "mean": 16.741,
+        "p95": 26.752,
+        "max": 26.956
+      }
+    },
+    "elapsed_seconds": 91.34
+  },
+  "streaming_baseline": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-142621-playtest-mddljaky",
+    "mode": "streaming",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 720,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 10.974,
+        "p95": 18.558,
+        "max": 1492.438
+      },
+      "frameMs": {
+        "mean": 17.049,
+        "p95": 26.766,
+        "max": 100.0
+      }
+    },
+    "elapsed_seconds": 93.34
+  },
+  "navigation_baseline": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-142845-playtest-yl37b5ev",
+    "mode": "navigation",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 1865,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 26.957,
+        "p95": 34.565,
+        "max": 6293.734
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 40.168,
+        "p95": 28.362,
+        "max": 6293.734
+      },
+      "1": {
+        "mean": 32.752,
+        "p95": 35.706,
+        "max": 404.191
+      },
+      "2": {
+        "mean": 12.715,
+        "p95": 14.136,
+        "max": 27.65
+      },
+      "3": {
+        "mean": 16.18,
+        "p95": 24.413,
+        "max": 112.224
+      },
+      "4": {
+        "mean": 14.32,
+        "p95": 18.17,
+        "max": 29.919
+      },
+      "5": {
+        "mean": 12.958,
+        "p95": 15.041,
+        "max": 23.867
+      }
+    },
+    "elapsed_seconds": 124.49
+  },
+  "navigation_interim": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-160028-playtest-aykrd209",
+    "mode": "navigation",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 1502,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 16.919,
+        "p95": 26.642,
+        "max": 1020.152
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 26.014,
+        "p95": 29.493,
+        "max": 1020.152
+      },
+      "1": {
+        "mean": 23.091,
+        "p95": 28.567,
+        "max": 298.67
+      },
+      "2": {
+        "mean": 10.73,
+        "p95": 12.107,
+        "max": 22.715
+      },
+      "3": {
+        "mean": 6.812,
+        "p95": 11.095,
+        "max": 19.831
+      },
+      "4": {
+        "mean": 6.382,
+        "p95": 7.626,
+        "max": 11.101
+      },
+      "5": {
+        "mean": 10.555,
+        "p95": 11.874,
+        "max": 22.803
+      }
+    },
+    "elapsed_seconds": 114.0
+  },
+  "navigation_diagnostic": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-160723-playtest-_97b5itl",
+    "mode": "navigation",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 1490,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 14.955,
+        "p95": 25.545,
+        "max": 269.681
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 19.545,
+        "p95": 28.187,
+        "max": 269.681
+      },
+      "1": {
+        "mean": 22.156,
+        "p95": 26.089,
+        "max": 68.417
+      },
+      "2": {
+        "mean": 10.542,
+        "p95": 12.068,
+        "max": 21.756
+      },
+      "3": {
+        "mean": 6.782,
+        "p95": 12.503,
+        "max": 19.211
+      },
+      "4": {
+        "mean": 6.188,
+        "p95": 7.113,
+        "max": 10.919
+      },
+      "5": {
+        "mean": 10.999,
+        "p95": 12.97,
+        "max": 22.194
+      }
+    },
+    "elapsed_seconds": 106.27
+  },
+  "navigation_final": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161017-playtest-k3gzwld4",
+    "mode": "navigation",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 1489,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 14.638,
+        "p95": 25.212,
+        "max": 180.887
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 19.092,
+        "p95": 26.702,
+        "max": 180.887
+      },
+      "1": {
+        "mean": 21.859,
+        "p95": 26.137,
+        "max": 69.378
+      },
+      "2": {
+        "mean": 10.454,
+        "p95": 12.101,
+        "max": 22.536
+      },
+      "3": {
+        "mean": 6.724,
+        "p95": 11.942,
+        "max": 21.441
+      },
+      "4": {
+        "mean": 6.162,
+        "p95": 7.132,
+        "max": 11.001
+      },
+      "5": {
+        "mean": 10.278,
+        "p95": 11.391,
+        "max": 21.332
+      }
+    },
+    "elapsed_seconds": 105.09
+  },
+  "benchmark_builds": {
+    "wide_final": "20261006-161511-build-kilfk48g",
+    "navigation_final": "20261006-160952-build-qvzzs7xc",
+    "streaming_final": "20261006-160952-build-qvzzs7xc",
+    "later_change": "The later CityLighting change updates fog before returning for views beyond 1800m; navigation and streaming use closer views."
+  }
+}

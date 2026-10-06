@@ -956,7 +956,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					static_cast<float>(position.x), static_cast<float>(position.y), buildingFootprintXZ(building.type) * .5f, building.angle)) { continue; }
 			chunk->buildingGrid[{slot.col, slot.row}] = building;
 			chunk->zoneMap[{slot.col, slot.row}] = ZoneType::Commercial;
-			chunk->meshDirty = true;
+			chunk->markMeshDirty();
 			sites << position;
 			++placed;
 		}
@@ -1036,7 +1036,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			}
 
 			chunk->buildingGrid[{ slot.col, slot.row }] = b;
-			chunk->meshDirty = true;
+			chunk->markMeshDirty();
 			++placed;
 		}
 	}
@@ -1131,7 +1131,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					changed = true;
 				}
 			}
-			if (changed) chunk->meshDirty = true;
+			if (changed) chunk->markMeshDirty();
 		}
 	}
 
@@ -1202,7 +1202,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					buildingFootprintXZ(rear.type) * 0.5f, rear.angle)) { ++rejectedNeighbor; continue; }
 				if (!hasFrontLotOnSameEdge(m_world, position, rear, coord, col, row)) continue;
 				chunk->buildingGrid[{ col, row }] = rear;
-				chunk->meshDirty = true;
+				chunk->markMeshDirty();
 				placedRears << FrontSite{ position, rear };
 				++rearPlaced;
 			}
@@ -1271,7 +1271,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y); ++tried;
 					if (!isBuildableFootprint(building,position,GenerationSettings::get().development_maximumSuburbanRelief)) { ++terrainFailures; continue; }
 					if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),half,building.angle)) { ++neighborOverlaps; continue; }
-					chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=civic ? ZoneType::Residential : ZoneType::LowResidential; chunk->meshDirty=true;
+					chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=civic ? ZoneType::Residential : ZoneType::LowResidential; chunk->markMeshDirty();
 					++blockInfill; occupied=true; break;
 				}
 			}
@@ -1295,7 +1295,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 						if (!chunk || !block.contains(cellCenterXZ(coord,col,row))
 							|| chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
 						chunk->zoneMap[{col,row}]=ZoneType::Unzoned;
-						chunk->meshDirty=true;
+						chunk->markMeshDirty();
 						++released;
 					}
 				}
@@ -1333,7 +1333,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					++fieldCells;
 				}
 			}
-			if (changed) chunk->meshDirty = true;
+			if (changed) chunk->markMeshDirty();
 		}
 	}
 	generateLandPatches(preserveLandPatches);
@@ -1875,7 +1875,7 @@ void SettlementDevelopment::refreshBuildingAnglesFromEdges()
 				++updated;
 			}
 		}
-		if (chunkChanged) chunk->meshDirty = true;
+		if (chunkChanged) chunk->markMeshDirty();
 	}
 
 	if (updated > 0)

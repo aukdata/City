@@ -1269,7 +1269,7 @@ void GameScene::handleTerrainEdit()
 
 		if (modified)
 		{
-			chunk->meshDirty = true;
+			chunk->markMeshDirty();
 			chunk->updateHeightBounds();
 			m_subsurface.invalidate();
 			m_tunnelRenderer.dirty = true;
@@ -1796,7 +1796,7 @@ void GameScene::handleLandParcelEditInput()
 	{
 		if (!LandPlot::validEditablePolygon(vertices)) { return false; }
 		patch->polygon=std::move(vertices);
-		chunk->meshDirty=true;
+		chunk->markMeshDirty();
 		refreshLandParcelMesh();
 		return true;
 	};

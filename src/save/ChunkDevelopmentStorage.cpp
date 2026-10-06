@@ -124,6 +124,6 @@ bool ChunkDevelopmentStorage::read(const FilePath& path, Chunk& chunk)
 	if (reader.read(trailing)) { return false; }
 	chunk.zoneMap = std::move(zones); chunk.buildingGrid = std::move(buildings);
 	chunk.landPatches = std::move(patches);
-	chunk.isUrbanizationArea = urban != 0; chunk.meshDirty = true;
+	chunk.isUrbanizationArea = urban != 0; chunk.markMeshDirty();
 	return true;
 }

@@ -1021,12 +1021,15 @@ void GameScene::render2DUI()
 	}
 	--m_hudStatsRefreshCountdown;
 
+	m_renderTimings.hudStats = housingTimer.msF();
+	const Stopwatch hudTimer{StartImmediately::Yes};
 	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy, m_hudStats, m_camera.mode() == CameraMode::FirstPerson, m_driving.active());
 	if (m_driving.active())
 	{
 		DrivingHud::draw(FontAsset(Asset::CJK14),Scene::Size(),{m_driving.vehicle().speed,m_driving.steering(),m_driving.distance(),
 			m_driving.speedLimit(),m_clock.speed==TimeSpeed::Paused,m_driving.blocked()});
 	}
+	m_renderTimings.hudDraw = hudTimer.msF();
 	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる

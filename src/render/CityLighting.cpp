@@ -56,6 +56,12 @@ void CityLighting::update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirec
 	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
 	constexpr float kFogDensity = 0.00004f;
 	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), kFogDensity };
+	if (camera.getEyePosition().distanceFrom(focus) > 1800)
+	{
+		m_parameters->shadowParameters.w = 0;
+		m_parameters->dynamicShadow.x = 0;
+		return;
+	}
 	if (changed)
 	{
 		const Stopwatch timer{ StartImmediately::Yes };

@@ -16,13 +16,17 @@ namespace
 void RoadRenderer::preloadFallbacks(const RoadNetwork& network,const World& world)
 {
 	const Stopwatch timer{StartImmediately::Yes};
-	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt()) { prepareFallbackEdge(edge,network,world); } }
+	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt()) { prepareFallbackEdge(edge,network,world); m_boundsCache[edge.id]=edgeBounds(network,edge.id); } }
 	for(const auto& node:network.nodes()) { if(node.id>=0 && !node.attachments.isEmpty()) { prepareFallbackNode(node.id,network,world); } }
 	for(int z=0;z<WORLD_CHUNKS;++z) { for(int x=0;x<WORLD_CHUNKS;++x)
 	{
 		if(const auto* chunk=world.getChunk({x,z});chunk && !chunk->heightMap.isEmpty()) { m_preloadedHeights[chunkCoordToKey(chunk->coord)]=terrainSignature(*chunk); }
 	} }
 	DBG_LOG(U"[RoadFallback] preload edges={} nodes={} ms={:.2f}"_fmt(m_fallbackEdges.size(),m_fallbackNodes.size(),timer.msF()));
+	HashSet<int64> overviewKeys;
+	for (const auto& [owner, source] : m_overviewSources) { overviewKeys.insert(source.chunk); }
+	for (int64 key : overviewKeys) { rebuildOverview(key); }
+	DBG_LOG(U"[RoadOverview] batches={} sources={}"_fmt(m_overviewBatches.size(), m_overviewSources.size()));
 	m_cacheBuildStats={};
 }
 
@@ -39,6 +43,7 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 	Profiler::EnableAssetCreationWarning(false);
 
 	synchronizeTerrainChanges(world, network);
+	drawOverview(frustum, cameraPos);
 	// ---- エッジ描画（端をノード半幅分カット）----
 	const float camX = static_cast<float>(cameraPos.x);
 	const float camZ = static_cast<float>(cameraPos.z);
@@ -60,6 +65,12 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 
 		const double coarseDistance=Max(0.0,Vec3{bounds.center}.distanceFrom(cameraPos)-Sqrt(bounds.radiusSq));
 		if (coarseDistance>kDrawMaxDist) { continue; }
+		const auto overview = m_overviewSources.find(static_cast<int64>(edge.id) * 2);
+		if (overview != m_overviewSources.end() && m_overviewDrawn.contains(overview->second.chunk))
+		{
+			if (frustum.intersects(Sphere{Vec3{bounds.center}, Sqrt(bounds.radiusSq)})) { m_visibleEdges.insert(edge.id); }
+			continue;
+		}
 		double distSq=Math::Inf;
 		for (size_t i=1;i<bounds.samples.size();++i)
 		{
@@ -82,6 +93,8 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 	for (const RoadNode& node : network.nodes())
 	{
 		if (node.id < 0) continue;
+		const auto overview = m_overviewSources.find(static_cast<int64>(node.id) * 2 + 1);
+		if (overview != m_overviewSources.end() && m_overviewDrawn.contains(overview->second.chunk)) { continue; }
 
 		// 距離チェック（float 演算のみ）
 		const float nodeDx = static_cast<float>(node.position.x) - camX;
@@ -203,6 +216,7 @@ void RoadRenderer::renderShadowCasters(Vec3 focus, double radius)
 void RoadRenderer::eraseEdgeCaches(int edgeId)
 {
 	m_constructionCache.erase(edgeId);
+	invalidateOverview(static_cast<int64>(edgeId) * 2);
 	m_fallbackEdges.erase(edgeId);
 	m_drawnFallbackEdges.erase(edgeId);
 	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
@@ -224,6 +238,7 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 
 void RoadRenderer::eraseNodeCaches(int nodeId)
 {
+	invalidateOverview(static_cast<int64>(nodeId) * 2 + 1);
 	if (m_nodeCapCache.contains(nodeId) || m_signalAttachGeomCache.contains(nodeId)) { ++m_geometryRevision; }
 	m_nodeCapCache.erase(nodeId);
 	m_fallbackNodes.erase(nodeId);
@@ -238,6 +253,12 @@ void RoadRenderer::eraseNodeCaches(int nodeId)
 
 void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 {
+	// A deleted edge no longer exposes its endpoints through RoadNetwork.
+	if (const auto source = m_overviewSources.find(static_cast<int64>(edgeId) * 2); source != m_overviewSources.end())
+	{
+		if (nodeA < 0) { nodeA = source->second.nodeA; }
+		if (nodeB < 0) { nodeB = source->second.nodeB; }
+	}
 	eraseEdgeCaches(edgeId);
 	// route は複数エッジを跨ぐため、どのエッジ変更でも全 route 描画情報を再計算
 	m_routeSignCache.clear();
@@ -248,6 +269,9 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 	}
 	else
 	{
+		Array<int64> nodeOwners;
+		for (const auto& [owner, source] : m_overviewSources) { if (owner % 2 != 0) { nodeOwners << owner; } }
+		for (int64 owner : nodeOwners) { invalidateOverview(owner); }
 		m_nodeCapCache.clear();
 		m_fallbackNodes.clear();
 		m_nodeCapWireCache.clear();
@@ -259,6 +283,10 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 
 void RoadRenderer::invalidateAllCaches()
 {
+	m_overviewDirty.clear();
+	m_overviewSources.clear();
+	m_overviewBatches.clear();
+	m_overviewDrawn.clear();
 	m_preloadedHeights.clear();
 	m_constructionCache.clear();
 	m_fallbackEdges.clear();

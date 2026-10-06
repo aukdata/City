@@ -4,6 +4,7 @@
 #include "BridgeStructure.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../road/JunctionGeometry.hpp"
+#include "MeshGeometry.hpp"
 
 using namespace RoadRenderDetail;
 
@@ -159,6 +160,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 			if (!bez) return;
 			const Stopwatch cacheTimer{StartImmediately::Yes};
 			m_streetFurnitureCache[edge.id] = buildStreetFurnitureBatches(edge, *bez, world, marginA, marginB);
+			if(cacheTimer.msF()>20) { DBG_LOG(U"[RoadCacheCost] edge={} length={} stage=furniture ms={:.2f}"_fmt(edge.id,edge.length,cacheTimer.msF())); }
 			m_cacheBuildStats.furnitureMs += cacheTimer.msF();
 			++m_cacheBuildStats.furniture;
 			++m_geometryRevision;
@@ -183,11 +185,13 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	{
 		if(!m_signCache.contains(edge.id) && canBuildCache())
 		{
-			const Stopwatch timer{StartImmediately::Yes};m_signCache[edge.id]=buildEdgeSignMeshes(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
+			const Stopwatch timer{StartImmediately::Yes};m_signCache[edge.id]=buildEdgeSignMeshes(network,edge.id,world);
+			if(timer.msF()>20) { DBG_LOG(U"[RoadCacheCost] edge={} stage=sign ms={:.2f}"_fmt(edge.id,timer.msF())); }m_cacheBuildStats.furnitureMs+=timer.msF();
 		}
 		if(!m_guideSignCache.contains(edge.id) && canBuildCache())
 		{
-			const Stopwatch timer{StartImmediately::Yes};m_guideSignCache[edge.id]=buildEdgeGuideSignDraws(network,edge.id,world);m_cacheBuildStats.furnitureMs+=timer.msF();
+			const Stopwatch timer{StartImmediately::Yes};m_guideSignCache[edge.id]=buildEdgeGuideSignDraws(network,edge.id,world);
+			if(timer.msF()>20) { DBG_LOG(U"[RoadCacheCost] edge={} stage=guideSign ms={:.2f}"_fmt(edge.id,timer.msF())); }m_cacheBuildStats.furnitureMs+=timer.msF();
 		}
 		if(const auto found=m_signCache.find(edge.id);isClose && found!=m_signCache.end()) { drawSigns(found->second); }
 		if(const auto found=m_guideSignCache.find(edge.id);isClose && found!=m_guideSignCache.end()) { drawGuideSigns(found->second); }
@@ -561,8 +565,12 @@ void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& 
 	{
 		const Stopwatch timer{StartImmediately::Yes};
 		Array<PartMeshEntry> entries;
+		OverviewSource overview{};
+		overview.nodeA = edge.nodeA; overview.nodeB = edge.nodeB;
 		if (const auto bezier = network.getBezier(edge.id))
 		{
+			const Vec3 middle = bezier->positionAt(bezier->totalLength * .5f);
+			overview.chunk = chunkCoordToKey({static_cast<int>(Floor(middle.x / CHUNK_SIZE)), static_cast<int>(Floor(middle.z / CHUNK_SIZE))});
 			StripRange range;
 			if (calcStripRange(bezier->totalLength, edge.cutoffA, edge.cutoffB, range))
 			{
@@ -576,9 +584,12 @@ void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& 
 					orientRoadFaces(data);
 					const Mesh mesh{data};
 					entries << PartMeshEntry{{mesh, mesh}, color, texture, part.type, part.asphalt()};
+					overview.parts << OverviewPart{std::move(data), entries.back()};
 				}
 			}
 		}
+		m_overviewDirty.insert(overview.chunk);
+		m_overviewSources[static_cast<int64>(edge.id) * 2] = std::move(overview);
 		m_fallbackEdges.emplace(edge.id, std::move(entries));
 		++m_geometryRevision;
 		m_cacheBuildStats.fallbackMs += timer.msF();
@@ -609,6 +620,12 @@ void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, c
 		const Mesh mesh = data.indices.isEmpty() ? Mesh{} : Mesh{data};
 		m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, ColorF{.29, .30, .32},
 			definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
+		if (const auto* node = network.getNode(nodeId))
+		{
+			const int64 key = chunkCoordToKey({static_cast<int>(Floor(node->position.x / CHUNK_SIZE)), static_cast<int>(Floor(node->position.z / CHUNK_SIZE))});
+			m_overviewDirty.insert(key);
+			m_overviewSources[static_cast<int64>(nodeId) * 2 + 1] = OverviewSource{key, {{std::move(data), m_fallbackNodes.at(nodeId)}}};
+		}
 		m_cacheBuildStats.fallbackMs += timer.msF();
 	}
 }
@@ -618,4 +635,69 @@ void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const 
 	prepareFallbackNode(nodeId,network,world);
 	const auto& entry = m_fallbackNodes.at(nodeId);
 	if (entry.meshPair.detail) { drawSurface(entry, entry.meshPair.detail); }
+}
+
+void RoadRenderer::rebuildOverview(int64 chunk)
+{
+	Array<OverviewPart> groups;
+	for (const auto& [owner, source] : m_overviewSources)
+	{
+		if (source.chunk != chunk) { continue; }
+		for (const auto& part : source.parts)
+		{
+			auto group = std::find_if(groups.begin(), groups.end(), [&](const OverviewPart& candidate)
+			{
+				return candidate.visual.materialType == part.visual.materialType && candidate.visual.asphalt == part.visual.asphalt
+					&& candidate.visual.texture == part.visual.texture && candidate.visual.color == part.visual.color;
+			});
+			if (group == groups.end()) { groups << OverviewPart{{}, part.visual}; group = groups.end() - 1; }
+			MeshGeometry::appendMeshData(group->data, part.data);
+		}
+	}
+	Array<PartMeshEntry> batches;
+	for (const auto& group : groups)
+	{
+		if (group.data.indices.isEmpty()) { continue; }
+		auto entry = group.visual; const Mesh mesh{group.data}; entry.meshPair = {mesh, mesh}; batches << std::move(entry);
+	}
+	m_overviewBatches[chunk] = std::move(batches);
+	m_overviewDirty.erase(chunk);
+}
+
+void RoadRenderer::invalidateOverview(int64 owner)
+{
+	if (const auto source = m_overviewSources.find(owner); source != m_overviewSources.end())
+	{
+		m_overviewDirty.insert(source->second.chunk);
+		m_overviewBatches.erase(source->second.chunk);
+		m_overviewSources.erase(source);
+	}
+}
+
+void RoadRenderer::drawOverview(const ViewFrustum& frustum, Vec3 cameraPos)
+{
+	m_overviewDrawn.clear();
+	m_overviewDrawCalls = 0;
+	if (!m_overviewEnabled) { return; }
+	if (!m_overviewDirty.empty()) { rebuildOverview(*m_overviewDirty.begin()); }
+	for (const auto& [key, batches] : m_overviewBatches)
+	{
+		if (m_overviewDirty.contains(key)) { continue; }
+		bool distant = !batches.isEmpty();
+		for (const auto& entry : batches)
+		{
+			const auto sphere = entry.meshPair.detail.boundingSphere();
+			if (cameraPos.distanceFrom(sphere.center) - sphere.r < 1600) { distant = false; break; }
+		}
+		if (!distant) { continue; }
+		m_overviewDrawn.insert(key);
+		for (const auto& entry : batches)
+		{
+			const auto sphere = entry.meshPair.detail.boundingSphere();
+			if (cameraPos.distanceFrom(sphere.center) - sphere.r <= kDrawMaxDist && frustum.intersects(sphere))
+			{
+				drawSurface(entry, entry.meshPair.detail); ++m_overviewDrawCalls;
+			}
+		}
+	}
 }

@@ -81,6 +81,7 @@ private:
 	void prepareFringeCapture(int variant);
 	void prepareRoadsideCapture(int variant);
 	TextWriter m_playtestFrames;
+	Stopwatch m_playtestIntervalTimer{StartImmediately::Yes}; ///< DeltaTimeの上限を含まない実フレーム間隔。
 	int m_playtestFrame = 0;
 
 	// ---- ゲームフェーズ ----
@@ -402,6 +403,7 @@ private:
 		// render2DUI 内訳
 		double uiPlaceNames = 0, uiRouteSigns = 0, uiRenderer = 0;
 		double uiMinimap = 0, uiEdgeHandles = 0, uiPanels = 0;
+		double hudStats = 0, hudDraw = 0; ///< 集計とフォント・HUD描画の停止を区別する。
 	};
 	RenderTimings m_renderTimings;
 

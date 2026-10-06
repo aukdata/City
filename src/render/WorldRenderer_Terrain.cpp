@@ -649,6 +649,7 @@ void WorldRenderer::invalidateTerrainChunkKeys(const std::unordered_set<Key>& ch
 	for (const Key key : chunkKeys)
 	{
 		++m_terrainRevisions[key];
+		m_buildingMeshCache.erase(key);
 		m_chunkSubtractorCache.erase(key);
 		if (rebuildImmediately)
 		{

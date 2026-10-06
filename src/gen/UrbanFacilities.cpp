@@ -285,7 +285,7 @@ namespace UrbanFacilities
 						(type == BuildingType::OfficeTower || type == BuildingType::ShoppingMall)
 							? ZoneType::Commercial
 							: ZoneType::UrbanControl;
-					chunk->meshDirty = true;
+					chunk->markMeshDirty();
 					selected << candidate.center;
 					occupied << Site{candidate.center, candidate.building.angle, (half + .5) * 1.415, footprint};
 					++result.placed;

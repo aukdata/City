@@ -52,6 +52,9 @@ public:
 
 	/// @brief Limit new detailed caches per render call; infinity is the synchronous reference.
 	/// @details Existing geometry always draws. A single build cannot be interrupted.
+	/// @brief Controlled reference path for overview rendering verification.
+	void setOverviewEnabled(bool enabled) { m_overviewEnabled = enabled; }
+	[[nodiscard]] size_t overviewDrawCalls() const { return m_overviewDrawCalls; }
 	void setCacheBuildBudget(double milliseconds) { m_cacheBuildBudgetMs = Max(0.01, milliseconds); }
 
 	/// @brief 道路部品アセットをロードする
@@ -162,6 +165,18 @@ private:
 		uint64 texKey = 0;   ///< m_guideSignTexCache のキー
 	};
 
+	/// @brief Source strips stay indexed by owner so edits invalidate only their batch.
+	struct OverviewPart { MeshData data; PartMeshEntry visual; };
+	struct OverviewSource { int64 chunk; Array<OverviewPart> parts; int nodeA = -1, nodeB = -1; };
+	HashTable<int64, OverviewSource> m_overviewSources;
+	HashTable<int64, Array<PartMeshEntry>> m_overviewBatches;
+	HashSet<int64> m_overviewDrawn;
+	HashSet<int64> m_overviewDirty;
+	bool m_overviewEnabled = true;
+	size_t m_overviewDrawCalls = 0;
+	void rebuildOverview(int64 chunk);
+	void invalidateOverview(int64 owner);
+	void drawOverview(const ViewFrustum& frustum, Vec3 cameraPos);
 	CacheBuildStats m_cacheBuildStats;
 	double m_cacheBuildBudgetMs = Math::Inf;
 	struct VisibleRoad

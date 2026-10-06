@@ -257,7 +257,7 @@ void GameScene::drawBuildingPanel()
 	if (ui.buttonDanger(U"建物を削除", 120, U"この建物を削除して空き地に戻す"))
 	{
 		chunk->buildingGrid[{ ref.col, ref.row }] = Building{};
-		chunk->meshDirty = true;
+		chunk->markMeshDirty();
 		clearSelection();
 		m_panelManager.hide(U"building_info");
 		ui.flush();
