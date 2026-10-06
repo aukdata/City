@@ -1,4 +1,5 @@
 ﻿#include "RoadPartRegistry.hpp"
+#include "../debug/DebugLog.hpp"
 
 namespace
 {
@@ -78,7 +79,7 @@ bool RoadPartRegistry::load(FilePathView dirPath)
 		}
 	}
 
-	Console << U"[RoadPartRegistry] Loaded " << count << U" part definitions from " << dirPath;
+	DebugLog::print(Format(U"[RoadPartRegistry] Loaded ", count, U" part definitions from ", dirPath));
 	return count > 0;
 }
 
@@ -111,7 +112,7 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 	const TOMLReader toml{ tomlPath };
 	if (!toml)
 	{
-		Console << U"[RoadPartRegistry] Failed to parse TOML: " << tomlPath;
+		DebugLog::print(Format(U"[RoadPartRegistry] Failed to parse TOML: ", tomlPath));
 		return none;
 	}
 
@@ -123,7 +124,7 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 
 	if (def.id.isEmpty())
 	{
-		Console << U"[RoadPartRegistry] Missing 'id' in " << tomlPath;
+		DebugLog::print(Format(U"[RoadPartRegistry] Missing 'id' in ", tomlPath));
 		return none;
 	}
 
@@ -189,10 +190,7 @@ Optional<RoadPartRegistry::Entry> RoadPartRegistry::loadEntry(FilePathView tomlP
 	{
 		const auto meshes = ObjParser::parse(def.modelPath);
 		model = ObjParser::buildModel(meshes, def.symmetric);
-		Console << U"[RoadPartRegistry] " << def.id
-		        << U": inner=" << model.inner.vertices.size()
-		        << U" center=" << model.center.vertices.size()
-		        << U" outer=" << model.outer.vertices.size() << U" verts";
+		DebugLog::print(Format(U"[RoadPartRegistry] ", def.id, U": inner=", model.inner.vertices.size(), U" center=", model.center.vertices.size(), U" outer=", model.outer.vertices.size(), U" verts"));
 	}
 
 	return Entry{ std::move(def), std::move(model) };

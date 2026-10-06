@@ -33,6 +33,9 @@ void TrainNetwork::synchronize()
 			node.position = infrastructure().getNode(id)->position; node.edgeIds << edge.id;
 		}
 	}
+	// Slot reuse must not reverse station orientation when rebuilding rail references.
+	m_edgeIds.sort();
+	for (auto& node : m_nodes) { node.edgeIds.sort(); }
 }
 
 int TrainNetwork::addNode(Vec3 pos, TrackNodeType type, const String& name)

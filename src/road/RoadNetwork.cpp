@@ -29,7 +29,7 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	RoadType rt, int numLanes)
 {
 	// 自己ループ禁止
-	if (nodeA == nodeB) return none;
+	if (nodeA == nodeB || !getNode(nodeA) || !getNode(nodeB)) { return none; }
 
 	// 同一ノードペア間の重複エッジ禁止
 	const RoadNode* chkA = getNode(nodeA);
@@ -47,7 +47,6 @@ Optional<int> RoadNetwork::addEdge(int nodeA, int nodeB,
 	}
 
 	// 1ノードあたりのエッジ上限
-	constexpr int kMaxEdgesPerNode = 6;
 	if ((chkA && static_cast<int>(chkA->attachments.size()) >= kMaxEdgesPerNode) ||
 	    (chkB && static_cast<int>(chkB->attachments.size()) >= kMaxEdgesPerNode))
 		return none;
@@ -126,6 +125,13 @@ void RoadNetwork::removeNode(int nodeId)
 {
 	const int idx = nodeIndex(nodeId);
 	if (idx < 0) return;
+	// 移し替え済みの接続は保持し、このノードを端点に持つ辺だけを撤去する。
+	const auto attachments = m_nodes[idx].attachments;
+	for (const auto& attachment : attachments)
+	{
+		const auto* edge = getEdge(attachment.edgeId);
+		if (edge && (edge->nodeA == nodeId || edge->nodeB == nodeId)) { removeEdge(edge->id); }
+	}
 	m_nodes[idx].id = -1;
 	m_nodeIdToIdx.erase(nodeId);
 	m_freeNodeSlots << idx;

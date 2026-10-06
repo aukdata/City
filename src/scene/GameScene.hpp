@@ -466,7 +466,6 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings(bool preserveLandPatches=false);
 	void generateLandPatches(bool preserveExisting = false);
-	void migrateLegacyBuildingFrontageReferences();
 	bool validateGeneratedCityConstraints();
 	void refreshBuildingAnglesFromEdges();
 	void updateCaptureCityRenders();

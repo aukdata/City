@@ -77,7 +77,7 @@ bool TrainNetwork::restoreState(const JSON& state)
 		for (const auto& item : state[U"nodes"].arrayView())
 		{
 			const int id = item[U"id"].get<int>(), type = item[U"type"].get<int>();
-			if (id < 0 || !InRange(type,0,3) || restored.getNode(id)) { return false; }
+			if (id < 0 || id == std::numeric_limits<int>::max() || !InRange(type,0,3) || restored.getNode(id)) { return false; }
 			if (shared)
 			{
 				if (!restored.infrastructure().getNode(id)) { return false; }
@@ -86,7 +86,10 @@ bool TrainNetwork::restoreState(const JSON& state)
 			else
 			{
 				const Vec3 point = readVector(item[U"position"]);
-				if (!finite(point) || restored.addNode(point) != id) { return false; }
+				if (!finite(point)) { return false; }
+				RoadNode node; node.id = id; node.position = point;
+				restored.infrastructure().addNodeRaw(node);
+				restored.registerNode(id);
 			}
 			auto* node = restored.getNode(id); node->type = static_cast<TrackNodeType>(type); node->name = item[U"name"].get<String>();
 			const int kind=item[U"stationKind"].getOr<int>(0);
@@ -99,9 +102,12 @@ bool TrainNetwork::restoreState(const JSON& state)
 				node->entrance=entrance;
 			}
 		}
+		HashSet<int> edgeIds;
+		HashSet<uint64> nodePairs;
 		for (const auto& item : state[U"edges"].arrayView())
 		{
 			const int id = item[U"id"].get<int>();
+			if (id < 0 || id == std::numeric_limits<int>::max() || !edgeIds.insert(id).second) { return false; }
 			if (shared)
 			{
 				const auto* edge = restored.getEdge(id);
@@ -112,12 +118,20 @@ bool TrainNetwork::restoreState(const JSON& state)
 			const Vec3 ctrlA = readVector(item[U"ctrlA"]), ctrlB = readVector(item[U"ctrlB"]);
 			const float speed = item[U"speed"].get<float>();
 			if (!restored.getNode(a) || !restored.getNode(b) || a == b || !finite(ctrlA) || !finite(ctrlB) || !std::isfinite(speed) || speed <= 0) { return false; }
-			if (restored.addEdge(a,b,ctrlA,ctrlB,speed) != id) { return false; }
-			auto* edge = restored.getEdge(id); edge->electrified = item[U"electric"].get<bool>(); edge->depotTrack = item[U"depot"].get<bool>();
-			edge->parts.clear(); edge->lanes.clear();
-			for (const auto& part : item[U"parts"].arrayView()) { edge->parts << RoadSectionJson::partFromJson(part); }
-			for (const auto& lane : item[U"lanes"].arrayView()) { edge->lanes << RoadSectionJson::laneFromJson(lane); }
-			if (!edge->hasRailLanes() || !edge->isRoadbedBuilt()) { return false; }
+			const uint64 pair = (static_cast<uint64>(Min(a, b)) << 32) | static_cast<uint32>(Max(a, b));
+			if (!nodePairs.insert(pair).second || restored.infrastructure().getNode(a)->attachments.size() >= static_cast<size_t>(RoadNetwork::kMaxEdgesPerNode)
+				|| restored.infrastructure().getNode(b)->attachments.size() >= static_cast<size_t>(RoadNetwork::kMaxEdgesPerNode)) { return false; }
+			// 撤去で欠番になった ID も保存時の値のまま復元する。
+			RoadEdge edge; edge.id = id; edge.nodeA = a; edge.nodeB = b;
+			edge.ctrlA = ctrlA; edge.ctrlB = ctrlB; edge.speedLimit = speed;
+			edge.length = CubicBezier{restored.getNode(a)->position, ctrlA, ctrlB, restored.getNode(b)->position}.totalLength;
+			edge.edgeState = EdgeState::Existing; edge.designGrade = true;
+			edge.electrified = item[U"electric"].get<bool>(); edge.depotTrack = item[U"depot"].get<bool>();
+			for (const auto& part : item[U"parts"].arrayView()) { edge.parts << RoadSectionJson::partFromJson(part); }
+			for (const auto& lane : item[U"lanes"].arrayView()) { edge.lanes << RoadSectionJson::laneFromJson(lane); }
+			if (!edge.hasRailLanes() || !edge.isRoadbedBuilt()) { return false; }
+			edge.laneVehicles.resize(edge.lanes.size());
+			restored.infrastructure().addEdgeRaw(edge);
 		}
 		restored.synchronize();
 		for (const auto& item : state[U"schedules"].arrayView())

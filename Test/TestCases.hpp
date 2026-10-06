@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 class TestRunner;
+void registerCoreRefactoringTests(TestRunner& runner);
 void registerTransportPlanningTests(TestRunner& runner);
 void registerRefactoringTests(TestRunner& runner);
 void registerIntegrationRefactoringTests(TestRunner& runner);

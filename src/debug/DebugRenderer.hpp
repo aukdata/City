@@ -66,7 +66,7 @@ private:
 	                         const RingBuffer<TStats, kPerfHistorySize>& history,
 	                         StringView title, FSegments getSegments);
 
-	/// @brief 直近の計測値を Console に出力する
-	void dumpPerfToConsole(const MainPerfHistory& mainHistory,
+	/// @brief 直近の計測値を 診断ログに出力する
+	void dumpPerfToLog(const MainPerfHistory& mainHistory,
 	                       const SimPerfHistory& simHistory);
 };

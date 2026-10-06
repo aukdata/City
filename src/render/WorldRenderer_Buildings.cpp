@@ -1,5 +1,6 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "WorldRenderer.hpp"
+#include "MeshGeometry.hpp"
 #include "TerrainSurfaceGeometry.hpp"
 #include "LandscapeMaterials.hpp"
 #include "TreeGeometry.hpp"
@@ -31,6 +32,9 @@ void WorldRenderer::preloadBuildingModels()
 	}
 	DBG_LOG(U"[BuildingPreload] assets={} ms={:.2f}"_fmt(loaded.size(),timer.msF()));
 }
+
+using MeshGeometry::appendMeshData;
+using MeshGeometry::rotateMeshY;
 
 namespace
 {
@@ -77,36 +81,6 @@ namespace
 		return static_cast<float>(Max(0.001, s));
 	}
 
-	/// @brief 建物 Box メッシュの頂点を中心 (cx, cz) まわりに角度 angle で Y 軸回転する
-	/// @details rebuildBuildingMeshes と drawBuildingSilhouette で同じ変換を適用するための共通処理
-	void rotateBoxVerticesY(MeshData& box, float cx, float cz, float angle)
-	{
-		if (angle == 0.0f) return;
-		const float cosA = Math::Cos(angle);
-		const float sinA = Math::Sin(angle);
-		for (auto& v : box.vertices)
-		{
-			const float dx = v.pos.x - cx;
-			const float dz = v.pos.z - cz;
-			v.pos.x = cx + dx * cosA - dz * sinA;
-			v.pos.z = cz + dx * sinA + dz * cosA;
-			const float nx = v.normal.x;
-			const float nz = v.normal.z;
-			v.normal.x = nx * cosA - nz * sinA;
-			v.normal.z = nx * sinA + nz * cosA;
-		}
-	}
-
-	void appendMeshData(MeshData& dst, const MeshData& src)
-	{
-		const uint32 offset = static_cast<uint32>(dst.vertices.size());
-		dst.vertices.append(src.vertices);
-		for (const auto& tri : src.indices)
-		{
-			dst.indices << TriangleIndex32{ tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
-		}
-	}
-
 	uint32 cellVisualHash(Point chunkCoord, int col, int row, uint32 salt)
 	{
 		uint32 value = static_cast<uint32>(chunkCoord.x * 73856093)
@@ -125,7 +99,7 @@ namespace
 	void appendRotatedBox(MeshData& dst, float cx, float cy, float cz, float sx, float sy, float sz, float angle)
 	{
 		MeshData box = MeshData::Box(Float3{ cx, cy, cz }, Float3{ sx, sy, sz });
-		rotateBoxVerticesY(box, cx, cz, angle);
+		rotateMeshY(box, cx, cz, angle);
 		appendMeshData(dst, box);
 	}
 
@@ -1163,8 +1137,7 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	}
 	else
 	{
-		Console << U"[WorldRenderer] building TOML load failed: " << tomlPath
-		        << U" (scale fallback=" << kDefaultModelScale << U")";
+		DebugLog::print(Format(U"[WorldRenderer] building TOML load failed: ", tomlPath, U" (scale fallback=", kDefaultModelScale, U")"));
 	}
 
 	const String distantPath = modelLodPath(path, 1);
@@ -1206,7 +1179,7 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	}
 	else
 	{
-		Console << U"[WorldRenderer] building model load failed: " << path;
+		DebugLog::print(Format(U"[WorldRenderer] building model load failed: ", path));
 	}
 
 	auto [inserted, _] = m_buildingModels.emplace(key, std::move(asset));
@@ -1314,7 +1287,7 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	MeshData box = MeshData::Box(
 		Float3{ cx, cy, cz },
 		Float3{ visualFootprint, height, visualFootprint });
-	rotateBoxVerticesY(box, cx, cz, b.angle);
+	rotateMeshY(box, cx, cz, b.angle);
 	Mesh{ box }.draw(color);
 }
 
@@ -1510,7 +1483,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				Float3{ visualFootprint, height, visualFootprint });
 
 			// 最近傍道路の向きに合わせてY軸回転
-			rotateBoxVerticesY(box, cx, cz, b.angle);
+			rotateMeshY(box, cx, cz, b.angle);
 
 			auto& dst = groups[static_cast<int>(b.type)];
 			const uint32 offset = static_cast<uint32>(dst.vertices.size());

@@ -35,6 +35,7 @@ void Main()
 	registerRuralVisualTests(runner);
 	registerTreeStreamingTests(runner);
 	registerComprehensiveTests(runner);
+	registerCoreRefactoringTests(runner);
 	registerRefactoringTests(runner);
 	registerIntegrationRefactoringTests(runner);
 	registerCityHudTests(runner);

@@ -36,10 +36,9 @@ GameScene::GameScene(const InitData& init)
 GameScene::~GameScene()
 {
 	GameInput::releaseTextFocus();
+	// ロードタスク自身も経路サービスを開始するため、開始・終了を並行させない。
+	if (m_generationFuture.valid()) { m_generationFuture.wait(); }
 	m_simThread.stop();
-
-	if (m_generationFuture.valid())
-		m_generationFuture.wait();
 }
 
 void GameScene::initScene()

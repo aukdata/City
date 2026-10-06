@@ -1,4 +1,5 @@
 ﻿#include <exception>
+#include "../debug/DebugLog.hpp"
 #include "GameScene.hpp"
 #include "../asset/AssetRegistrar.hpp"
 
@@ -57,14 +58,14 @@ void GameScene::initNewGame()
 			const int id = m_districtHierarchy.at(point, 0);
 			return id >= 0 ? m_districtHierarchy.areas[id].name : U"";
 		});
+		m_trainNetwork.synchronize();
 		if (options.enabled(Element::Buildings))
 		{
 			applyZonesGlobal();
 			placeInitialBuildings();
 		}
-		m_trainNetwork.synchronize();
 	});
-	Logger << U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks);
+	DebugLog::print(U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks));
 }
 
 void GameScene::setLoadingTitleAndStatus(StringView title, StringView status)
@@ -114,25 +115,30 @@ void GameScene::updateLoading()
 	{
 		if (m_generationFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 		{
+			const auto failLoading = [this](const String& reason)
+			{
+				m_loadingFailed = true;
+				m_loadingError = reason;
+				setLoadingStatus(U"ロード/生成中に例外が発生しました");
+				DBG_LOG(U"[Loading] Exception task={} elapsed={:.1f}s reason={}"_fmt(
+					m_loadingTask == LoadingTask::LoadGame ? U"load" : U"generate", m_loadingTimer.sF(), reason));
+				if (getData().auditRoadIntegrity) { System::Exit(); }
+			};
 			try
 			{
 				m_generationFuture.get();
 			}
-			catch (const std::exception& e)
+			catch (const Error& error)
 			{
-				m_loadingFailed = true;
-				m_loadingError = Unicode::Widen(e.what());
-				setLoadingStatus(U"ロード/生成中に例外が発生しました");
-				Logger << U"[Loading] Exception: " << m_loadingError;
-				DBG_LOG(U"[Loading] Exception: {}"_fmt(m_loadingError));
-				if (getData().auditRoadIntegrity) System::Exit();
+				failLoading(error.what());
+			}
+			catch (const std::exception& error)
+			{
+				failLoading(Unicode::FromUTF8(error.what()));
 			}
 			catch (...)
 			{
-				m_loadingFailed = true;
-				m_loadingError = U"unknown exception";
-				setLoadingStatus(U"ロード/生成中に例外が発生しました");
-				Logger << U"[Loading] Unknown exception";
+				failLoading(U"unknown exception");
 			}
 
 			if (m_loadingFailed)
@@ -148,43 +154,36 @@ void GameScene::updateLoading()
 					m_loadingFailed = true;
 					m_loadingError = U"loadGame() returned false";
 					setLoadingStatus(U"ロードに失敗しました。セーブデータの整合性を確認してください");
-					Logger << U"[Load] Failed ({:.1f}秒)"_fmt(m_loadingTimer.sF());
+					DebugLog::print(U"[Load] Failed ({:.1f}秒)"_fmt(m_loadingTimer.sF()));
 					drawLoadingScreen(Clamp(m_genProgress.load(), 0.0f, 1.0f));
 					return;
 				}
 
-				Logger << U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
-				m_riverRenderer.build(m_world,m_network);
-			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
-			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
-			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);
-			m_minimapRenderer.buildTerrainTexture(m_world);
-				m_minimapRenderer.updateRoadOverlay(m_network, m_world);
-				m_worldRenderer.preloadBuildingModels();
-			m_roadRenderer.preloadFallbacks(m_network,m_world);
-			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
-			m_phase = GamePhase::Playing;
-				return;
+				DebugLog::print(U"[Load] 完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF()));
 			}
-
-			Logger << U"[Loading] 全パイプライン完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF());
-			setLoadingStatus(U"初期化中...");
-
-			m_roadRenderer.invalidateAllCaches();
-
-			Vec3 cameraFocus{WORLD_SIZE*.5,0,WORLD_SIZE*.5}; double bestArea=0;
-			for (const auto& town : m_districts)
+			else
 			{
-				const double area=town.plan.halfExtent.x*town.plan.halfExtent.y;
-				if (!town.plan.frontageRoads && town.plan.scale==0 && area>bestArea)
-				{
-					bestArea=area; cameraFocus={town.center.x,m_world.sampleHeight(static_cast<float>(town.center.x),static_cast<float>(town.center.y)),town.center.y};
-				}
-			}
-			m_camera.setFocus(cameraFocus);
-			m_world.update(m_camera.focusPoint());
 
-			startSimThread();
+				DebugLog::print(U"[Loading] 全パイプライン完了 ({:.1f}秒)"_fmt(m_loadingTimer.sF()));
+				setLoadingStatus(U"初期化中...");
+
+				m_roadRenderer.invalidateAllCaches();
+
+				Vec3 cameraFocus{WORLD_SIZE*.5,0,WORLD_SIZE*.5}; double bestArea=0;
+				for (const auto& town : m_districts)
+				{
+					const double area=town.plan.halfExtent.x*town.plan.halfExtent.y;
+					if (!town.plan.frontageRoads && town.plan.scale==0 && area>bestArea)
+					{
+						bestArea=area; cameraFocus={town.center.x,m_world.sampleHeight(static_cast<float>(town.center.x),static_cast<float>(town.center.y)),town.center.y};
+					}
+				}
+				m_camera.setFocus(cameraFocus);
+				m_world.update(m_camera.focusPoint());
+
+				startSimThread();
+
+			}
 
 			m_riverRenderer.build(m_world,m_network);
 			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
@@ -193,13 +192,16 @@ void GameScene::updateLoading()
 			m_minimapRenderer.buildTerrainTexture(m_world);
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
-			Logger << U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF());
+			DebugLog::print(U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF()));
 			m_worldRenderer.preloadBuildingModels();
 			m_roadRenderer.preloadFallbacks(m_network,m_world);
 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
-			m_economy.initializeGeneratedCity(m_housingCapacity.capacity());
-			DBG_LOG(U"[InitialEconomy] housing={} population={} grant={:.3f} maintenance={:.3f}"_fmt(
-				m_housingCapacity.capacity(),m_economy.population,m_economy.monthlyGrant(),m_economy.roadMaintenanceCost(m_network)));
+			if (m_loadingTask == LoadingTask::NewGame)
+			{
+				m_economy.initializeGeneratedCity(m_housingCapacity.capacity());
+				DBG_LOG(U"[InitialEconomy] housing={} population={} grant={:.3f} maintenance={:.3f}"_fmt(
+					m_housingCapacity.capacity(),m_economy.population,m_economy.monthlyGrant(),m_economy.roadMaintenanceCost(m_network)));
+			}
 			m_phase = GamePhase::Playing;
 			return;
 		}

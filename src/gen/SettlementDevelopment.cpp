@@ -293,7 +293,7 @@ void SettlementDevelopment::applyZonesGlobal()
 		}
 	}
 
-	Logger << U"[applyZonesGlobal] realistic land-use {:.0f}ms"_fmt(sw.msF());
+	DebugLog::print(U"[applyZonesGlobal] realistic land-use {:.0f}ms"_fmt(sw.msF()));
 }
 // =============================================================================
 // 初期建物配置
@@ -521,8 +521,7 @@ namespace
 		const TOMLReader toml{ tomlPath };
 		if (!toml)
 		{
-			Console << U"[BuildingSetback] TOML not found/invalid: " << tomlPath
-			        << U" (fallback=" << GenerationSettings::get().development_defaultBuildingSetbackM << U"m)";
+			DebugLog::print(Format(U"[BuildingSetback] TOML not found/invalid: ", tomlPath, U" (fallback=", GenerationSettings::get().development_defaultBuildingSetbackM, U"m)"));
 			return GenerationSettings::get().development_defaultBuildingSetbackM;
 		}
 
@@ -1338,7 +1337,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		}
 	}
 	generateLandPatches(preserveLandPatches);
-	Logger << U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF());
+	DebugLog::print(U"[placeInitialBuildings] {} 棟配置, インフィル{}棟, 農地{}セル ({:.0f}ms)"_fmt(placed, infillPlaced, fieldCells, sw.msF()));
 	DebugLog::print(U"[placeInitialBuildings] placed={} infill={} fields={} rejectedRoad={} rejectedSlope={} elapsedMs={:.1f}"_fmt(placed, infillPlaced, fieldCells, rejectedRoad, rejectedSlope, sw.msF()));
 	refreshBuildingAnglesFromEdges();
 	Validation result = validateGeneratedCityConstraints();
@@ -1695,70 +1694,6 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 		report.save(U"landscape_audit.json");
 	}
 }
-void SettlementDevelopment::migrateLegacyBuildingFrontageReferences()
-{
-	HashTable<int64, EdgeFacingSlot> edgeFacingSlotsByCell;
-	for (const auto& settlement : m_districts)
-	{
-		const Array<EdgeFacingSlot> slots = collectEdgeFacingSlots(settlement, m_world, m_network);
-		for (const EdgeFacingSlot& slot : slots)
-		{
-			const int64 key = zoneCellKey(slot.chunkCoord, slot.col, slot.row);
-			const auto it = edgeFacingSlotsByCell.find(key);
-			if (it == edgeFacingSlotsByCell.end() || slot.frontageScore < it->second.frontageScore)
-			{
-				edgeFacingSlotsByCell[key] = slot;
-			}
-		}
-	}
-
-	int assigned = 0;
-	int unresolved = 0;
-	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
-	{
-		for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
-		{
-			Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
-			if (!chunk) continue;
-			bool changed = false;
-			for (int row = 0; row < ZONE_CELLS; ++row)
-			{
-				for (int col = 0; col < ZONE_CELLS; ++col)
-				{
-					Building& building = chunk->buildingGrid[{ col, row }];
-					if (building.type == BuildingType::None || building.type == BuildingType::Farmland) continue;
-					if (building.edgeId >= 0 && m_network.getEdge(building.edgeId)) continue;
-
-					const int64 key = zoneCellKey(Point{ chunkX, chunkY }, col, row);
-					const auto slotIt = edgeFacingSlotsByCell.find(key);
-					if (slotIt == edgeFacingSlotsByCell.end())
-					{
-						++unresolved;
-						continue;
-					}
-
-					const EdgeFacingSlot& slot = slotIt->second;
-					const int globalGX = chunkX * ZONE_CELLS + col;
-					const int globalGZ = chunkY * ZONE_CELLS + row;
-					const Vec2 roadOffset = roadsideBuildingOffset(slot, building.type, globalGX, globalGZ);
-					building.offsetX = static_cast<float>(roadOffset.x);
-					building.offsetZ = static_cast<float>(roadOffset.y);
-					building.angle = slot.angle;
-					building.edgeId = slot.edgeId;
-					building.edgeT = slot.edgeT;
-					changed = true;
-					++assigned;
-				}
-			}
-			if (changed) chunk->meshDirty = true;
-		}
-	}
-
-	if (assigned > 0 || unresolved > 0)
-	{
-		Logger << U"[migrateLegacyBuildingFrontageReferences] assigned={} unresolved={}"_fmt(assigned, unresolved);
-	}
-}
 SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityConstraints() const
 {
 	ParcelRoadIndex roadIndex{ m_network,true };
@@ -1906,7 +1841,7 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 		&& frontageDistanceCount == 0 && coastalBuildingCount == 0);
 	const String summary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
 		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
-	Logger << U"[CityConstraintValidation] " + summary;
+	DebugLog::print(U"[CityConstraintValidation] " + summary);
 	DebugLog::print(U"[CityConstraintValidation] " + summary);
 	return Validation{ passed, summary };
 }
@@ -1945,7 +1880,7 @@ void SettlementDevelopment::refreshBuildingAnglesFromEdges()
 
 	if (updated > 0)
 	{
-		Logger << U"[refreshBuildingAnglesFromEdges] {} buildings"_fmt(updated);
+		DebugLog::print(U"[refreshBuildingAnglesFromEdges] {} buildings"_fmt(updated));
 	}
 }
 

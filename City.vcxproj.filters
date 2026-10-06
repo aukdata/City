@@ -279,6 +279,9 @@
     <ClCompile Include="src\road\RoadPartRegistry.cpp">
       <Filter>Source Files\road</Filter>
     </ClCompile>
+    <ClCompile Include="src\save\ChunkDevelopmentStorage.cpp">
+      <Filter>Source Files\save</Filter>
+    </ClCompile>
     <ClCompile Include="src\save\RoadBinary.cpp">
       <Filter>Source Files\save</Filter>
     </ClCompile>
@@ -1133,6 +1136,9 @@
     <ClInclude Include="src\traffic\VehicleManager.hpp">
       <Filter>Source Files\traffic</Filter>
     </ClInclude>
+    <ClInclude Include="src\save\ChunkDevelopmentStorage.hpp">
+      <Filter>Source Files\save</Filter>
+    </ClInclude>
     <ClInclude Include="src\save\RoadBinary.hpp">
       <Filter>Source Files\save</Filter>
     </ClInclude>
@@ -1693,6 +1699,26 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\gen\VillageConnections.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\render\RoadRenderer_Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\RoadRenderer_Markings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\RoadRenderer_Furniture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClInclude Include="src\render\MeshGeometry.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\RoadRenderDetail.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sim\ParallelJobs.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

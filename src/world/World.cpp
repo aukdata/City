@@ -1,8 +1,7 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "World.hpp"
 #include <cmath>
-#include <thread>
-#include <atomic>
+#include "../sim/ParallelJobs.hpp"
 #include <queue>
 
 void World::reserveChunks()
@@ -265,30 +264,18 @@ void World::buildMacroTerrain()
 	const double relief = Min(1.0, Min(m_mapWidth, m_mapDepth) / config.terrain_fullReliefMapSize);
 	const double hillHeight = config.terrain_interiorHillHeight * relief;
 	const double scale = Min(m_mapWidth, m_mapDepth) * config.terrain_interiorHillScale;
-	std::atomic<int> nextRow{0};
-	Array<std::thread> workers;
-	const unsigned count = Min(8u, Max(1u, std::thread::hardware_concurrency()));
-	for (unsigned i = 0; i < count; ++i)
+	const unsigned concurrency = Min(8u, Max(1u, std::thread::hardware_concurrency()));
+	ParallelJobs::run(rows + 1, [&](int z)
 	{
-		workers.emplace_back([&]()
+		for (int x = 0; x <= columns; ++x)
 		{
-			for (int z = nextRow.fetch_add(1); z <= rows; z = nextRow.fetch_add(1))
-			{
-				for (int x = 0; x <= columns; ++x)
-				{
-					float base, amplitude;
-					const float wx = static_cast<float>(x * m_macroStepX), wz = static_cast<float>(z * m_macroStepZ);
-					computeRawBiomeParams(wx, wz, base, amplitude);
-					m_macroTerrain[{x, z}] = {base, amplitude};
-					noise[{x, z}] = static_cast<float>(m_perlin.noise2D0_1(wx / scale + 171.0, wz / scale + 513.0));
-				}
-			}
-		});
-	}
-	for (auto& worker : workers)
-	{
-		worker.join();
-	}
+			float base, amplitude;
+			const float wx = static_cast<float>(x * m_macroStepX), wz = static_cast<float>(z * m_macroStepZ);
+			computeRawBiomeParams(wx, wz, base, amplitude);
+			m_macroTerrain[{x, z}] = {base, amplitude};
+			noise[{x, z}] = static_cast<float>(m_perlin.noise2D0_1(wx / scale + 171.0, wz / scale + 513.0));
+		}
+	}, concurrency);
 	// 平野になる格子の「丘陵へ変わる閾値」を順位付けする。一律の環状山地は作らない。
 	Array<double> thresholds;
 	for (int z = 0; z < rows; ++z)

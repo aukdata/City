@@ -46,8 +46,16 @@ void GameApp::run()
 	Graphics::SetVSyncEnabled(true);
 	Window::SetTitle(U"Pavecity");
 
-	RegisterAssets();
 	DebugLog::initialize(U"debug.log");
+	struct LogSession
+	{
+		~LogSession()
+		{
+			DebugLog::print(U"[GameApp] stopped");
+			DebugLog::shutdown();
+		}
+	} logSession;
+	RegisterAssets();
 	DebugLog::print(U"[GameApp] started");
 
 	App manager;
@@ -178,6 +186,4 @@ void GameApp::run()
 		}
 	}
 
-	DebugLog::print(U"[GameApp] stopped");
-	DebugLog::shutdown();
 }

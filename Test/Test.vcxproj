@@ -176,6 +176,7 @@
     <ClCompile Include="..\src\ui\CommandPalette.cpp" />
     <ClCompile Include="..\src\debug\GameCommands.cpp" />
     <ClCompile Include="..\src\debug\CommandExecution.cpp" />
+    <ClCompile Include="..\src\save\ChunkDevelopmentStorage.cpp" />
     <ClCompile Include="..\src\save\RoadBinary.cpp" />
     <ClCompile Include="..\src\road\RoadPlanDraft.cpp" />
     <ClCompile Include="..\src\road\RoadPlanConstruction.cpp" />
@@ -568,5 +569,16 @@
     <ClInclude Include="..\src\render\MeshLod.hpp" />
     <ClInclude Include="..\src\render\VehicleInstanceBatch.hpp" />
     <ClCompile Include="ComprehensiveTests.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\render\RoadRenderer_Mesh.cpp" />
+    <ClCompile Include="..\src\render\RoadRenderer_Markings.cpp" />
+    <ClCompile Include="..\src\render\RoadRenderer_Furniture.cpp" />
+    <ClCompile Include="..\src\sim\SimThread.cpp" />
+    <ClCompile Include="CoreRefactoringTests.cpp" />
+    <ClInclude Include="..\src\render\MeshGeometry.hpp" />
+    <ClInclude Include="..\src\render\RoadRenderDetail.hpp" />
+    <ClInclude Include="..\src\save\ChunkDevelopmentStorage.hpp" />
+    <ClInclude Include="..\src\sim\ParallelJobs.hpp" />
   </ItemGroup>
 </Project>

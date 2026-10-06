@@ -502,7 +502,7 @@ bool RoadNetwork::spreadIntersectionTangents()
 		++adjustedNodes;
 	}
 
-	Logger << U"[spreadIntersectionTangents] {} node(s) adjusted"_fmt(adjustedNodes);
+	DebugLog::print(U"[spreadIntersectionTangents] {} node(s) adjusted"_fmt(adjustedNodes));
 	return adjustedNodes > 0;
 }
 

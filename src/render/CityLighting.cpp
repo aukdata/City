@@ -1,4 +1,5 @@
 ﻿#include "CityLighting.hpp"
+#include "../debug/DebugLog.hpp"
 #include "../gen/GenerationSettings.hpp"
 
 bool CityLighting::initialize(FilePathView shaderPath)
@@ -21,7 +22,7 @@ bool CityLighting::initialize(FilePathView shaderPath)
 	m_foliageShader=PixelShader::HLSL(shaderPath,U"Foliage_PS");
 	if (!m_buildingShader || !m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
 	{
-		Logger << U"[CityLighting] Failed to compile " << shaderPath;
+		DebugLog::print(Format(U"[CityLighting] Failed to compile ", shaderPath));
 		m_forwardShader = PixelShader{};
 		return false;
 	}
