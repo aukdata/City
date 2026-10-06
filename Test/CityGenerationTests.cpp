@@ -12,6 +12,9 @@
 #include "src/gen/DistrictRoads.hpp"
 #include "src/render/WorldRenderer.hpp"
 #include "src/render/RoadRenderer.hpp"
+#include "src/render/MeshUploadSlices.hpp"
+#include "src/ui/MapTerrainLayer.hpp"
+#include <thread>
 #include "src/debug/DebugLog.hpp"
 #include "src/asset/AssetRegistrar.hpp"
 
@@ -56,6 +59,157 @@ void registerCityGenerationTests(TestRunner& runner)
 		cache.update(world,4096);
 		context.expectEqual(cache.lastRecountedChunks(),1,U"Only the changed sleeping chunk is rescanned even after rendering clears meshDirty");
 		context.expectEqual(cache.capacity(),int64{303},U"Revised sleeping chunk contributes the new housing count");
+	});
+
+	runner.add(U"Performance.MeshUploadSlices", [](TestContext& context)
+	{
+		MeshData source = MeshData::Cylinder(Float3{0,0,0}, 24, 24, 64);
+		for (size_t i = 0; i < source.vertices.size(); ++i)
+		{
+			source.vertices[i].pos.y = static_cast<float>(i) * .125f;
+			source.vertices[i].normal = Float3{.1f, .9f, .2f};
+		}
+		const auto slices = MeshUploadSlices::split(source, 19, 11);
+		context.expect(slices.size() > 1, U"Large meshes are split into bounded uploads");
+		size_t triangle = 0;
+		for (const auto& slice : slices)
+		{
+			context.expect(slice.vertices.size() <= 19 && slice.indices.size() <= 11, U"Both native upload limits hold");
+			for (const auto face : slice.indices)
+			{
+				const auto original = source.indices[triangle++];
+				const std::array<uint32, 3> local{face.i0, face.i1, face.i2}, indices{original.i0, original.i1, original.i2};
+				for (size_t i = 0; i < 3; ++i)
+				{
+					const auto& actual = slice.vertices[local[i]]; const auto& expected = source.vertices[indices[i]];
+					context.expect(actual.pos == expected.pos && actual.normal == expected.normal && actual.tex == expected.tex, U"Triangle order, positions, normals and UVs survive remapping");
+				}
+			}
+		}
+		context.expectEqual(triangle, source.indices.size(), U"No triangles are lost or duplicated");
+		context.expect(MeshUploadSlices::split(MeshData{}).isEmpty(), U"Empty geometry does not allocate GPU uploads");
+	});
+
+	runner.add(U"Performance.HeightSnapshotIsolation", [](TestContext& context)
+	{
+		World world; world.reserveChunks();
+		auto* chunk = world.getChunk({1,1});
+		for (int y = 0; y <= HEIGHT_CELLS; ++y) { for (int x = 0; x <= HEIGHT_CELLS; ++x) { chunk->heightMap[{x,y}] = static_cast<float>(x * y + x); } }
+		HeightSnapshot snapshot{world, RectF{1100,1100,200,200}};
+		for (const Vec2 point : {Vec2{1120,1120}, Vec2{1121,1122}, Vec2{1129,1130}})
+		{
+			context.expectNear(snapshot.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.y)), world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.y)), 1e-6, U"Worker heights use the same triangular interpolation as rendered terrain");
+		}
+		const float oldHeight = snapshot.sampleHeight(1121,1122);
+		chunk->heightMap.fill(1000);
+		context.expectNear(snapshot.sampleHeight(1121,1122), oldHeight, 1e-6, U"Editing live world cannot mutate worker heights");
+		context.expect(snapshot.sampleHeight(-1,-1) == 0 && snapshot.sampleHeight(30000,30000) == 0, U"Missing and out-of-world heights have a safe ground fallback");
+	});
+
+	runner.add(U"Performance.ProgressiveMapTerrainReadback", [](TestContext& context)
+	{
+		MapTerrainLayer reference, progressive;
+		const RectF first{30000,30000,500,500}; const Size size{128,128};
+		const auto sample = [](Vec2 point) { return static_cast<float>(90 + 60 * Sin(point.x / 18) * Cos(point.y / 28)); };
+		reference.update(first, size, sample); progressive.update(first, size, sample);
+		const RectF second{32000,31000,250,250};
+		const RectF previousBounds = progressive.bounds;
+		const Stopwatch wait{StartImmediately::Yes};
+		context.expect(!progressive.update(second, size, sample, .001) && progressive.bounds == previousBounds, U"Partial tiles never replace the complete visible texture or its coordinates");
+		while (progressive.bounds == previousBounds && wait.sF() < 10) { progressive.update(second, size, sample, .1); }
+		context.expect(progressive.bounds != previousBounds, U"Incremental row work eventually publishes");
+		reference.update(second, size, sample);
+		const RenderTexture target{size};
+		auto readback = [&](const MapTerrainLayer& tile)
+		{
+			{ const ScopedRenderTarget2D scope{target.clear(Palette::Black)}; tile.texture.draw(); }
+			Graphics2D::Flush(); Image image; target.readAsImage(image); return image;
+		};
+		const Image expected = readback(reference), actual = readback(progressive);
+		size_t mismatches = 0; for (size_t i = 0; i < actual.num_pixels(); ++i) { mismatches += actual.data()[i] != expected.data()[i]; }
+		context.expect(mismatches == 0 && reference.bounds == progressive.bounds, U"Progressive terrain retains exact synchronous shading and spatial registration");
+		progressive.update(first, size, sample, .001); progressive.invalidate();
+		context.expect(progressive.update(second, size, sample), U"Invalidation cancels a partially sampled obsolete tile");
+	});
+
+	runner.add(U"Performance.RoadSpatialAndAsyncReadback", [](TestContext& context)
+	{
+		const FilePath directory = FileSystem::CurrentDirectory();
+		struct Restore { FilePath path; ~Restore() { FileSystem::ChangeCurrentDirectory(path); } } restore{directory};
+		FileSystem::ChangeCurrentDirectory(directory + U"../../App/"); RegisterAssets();
+		World world; world.reserveChunks(); RoadNetwork roads;
+		const int a = roads.addNode({100, 0, 400}), b = roads.addNode({2300, 0, 400});
+		const int edge = *roads.addEdge(a, b, {830, 0, 400}, {1570, 0, 400}); roads.getEdge(edge)->edgeState = EdgeState::Existing;
+		RoadPart pole; pole.type = RoadPartType::UtilityPole; pole.placement = RoadPartPlacement::RepeatAlongEdge;
+		pole.build = BuildState::Built; pole.offsetA_L = pole.offsetB_L = 6; pole.offsetA_R = pole.offsetB_R = 6.3f;
+		pole.repeatSpacing = 25; pole.useDefinitionRepeatSpacing = false; pole.useDefinitionRepeatJitter = false;
+		roads.getEdge(edge)->parts << pole;
+		for (int i = 0; i < 100; ++i)
+		{
+			const double x = 20000.0 + i * 40;
+			const int c = roads.addNode({x, 0, 20000}), d = roads.addNode({x+20, 0, 20000});
+			roads.getEdge(*roads.addEdge(c, d, {x+7, 0, 20000}, {x+13, 0, 20000}))->edgeState = EdgeState::Existing;
+		}
+		RoadRenderer reference, indexed;
+		context.expect(reference.loadAssets() && indexed.loadAssets(), U"Production road assets load");
+		reference.setOverviewEnabled(false); reference.setSpatialQueryEnabled(false);
+		indexed.setOverviewEnabled(false); indexed.setAsyncDetails(true);
+		reference.preloadFallbacks(roads, world); indexed.preloadFallbacks(roads, world);
+		const Size size{640,480}; const BasicCamera3D camera{size, 45_deg, Vec3{1200, 550, -400}, Vec3{1200, 0, 400}};
+		const RenderTexture target{size, TextureFormat::R8G8B8A8_Unorm, HasDepth::Yes};
+		auto render = [&](RoadRenderer& renderer)
+		{
+			{ const ScopedRenderTarget3D scope{target.clear(ColorF{0,0,0,0})}; const ScopedRenderStates3D states{DepthStencilState::DepthTestWrite};
+			Graphics3D::SetCameraTransform(camera); renderer.render(roads, world, ViewFrustum{camera, 8000}, camera.getEyePosition());
+			renderer.renderWireframes(roads, world, ViewFrustum{camera, 8000}, camera.getEyePosition()); }
+			Graphics3D::Flush(); Image image; target.readAsImage(image); return image;
+		};
+		auto settle = [&]
+		{
+			const Stopwatch wait{StartImmediately::Yes};
+			while (wait.sF() < 15)
+			{
+				render(indexed);
+				if (indexed.pendingDetailJobs() == 0 && indexed.hasPublishedDetails(edge)) { return true; }
+				std::this_thread::sleep_for(std::chrono::milliseconds{1});
+			}
+			return false;
+		};
+		indexed.preloadDetails(roads, world, camera.getEyePosition());
+		context.expect(indexed.hasPublishedDetails(edge) && indexed.pendingDetailJobs() == 0, U"Initial nearby equipment is prepared before entering play");
+		const Image expected = render(reference);
+		context.expect(settle(), U"Worker CPU generation and incremental GPU publication finish");
+		const Image actual = render(indexed);
+		size_t occupied = 0, mismatches = 0;
+		for (size_t i = 0; i < actual.num_pixels(); ++i) { occupied += actual.data()[i].a > 0; mismatches += actual.data()[i] != expected.data()[i]; }
+		context.expect(occupied > 100 && mismatches == 0, U"Indexed async output exactly matches synchronous full scan on real GPU");
+		context.expect(indexed.cacheBuildStats().candidateEdges < reference.cacheBuildStats().candidateEdges / 2, U"Distant roads are excluded before per-edge visibility work");
+		const int c = roads.addNode({-100,0,650}), d = roads.addNode({2500,0,650});
+		const int planned = *roads.addEdge(c, d, {770,0,650}, {1630,0,650});
+		roads.getEdge(planned)->edgeState = EdgeState::Planned;
+		const Image wireExpected = render(reference), wireActual = render(indexed);
+		mismatches = 0;
+		for (size_t i = 0; i < wireActual.num_pixels(); ++i) { mismatches += wireActual.data()[i] != wireExpected.data()[i]; }
+		context.expect(mismatches == 0, U"Appended planned roads across negative and positive cells match full-scan wire rendering");
+		roads.removeEdge(planned); indexed.invalidateEdgeCache(planned, c, d); reference.invalidateEdgeCache(planned, c, d);
+		// Editing the middle chunk must invalidate equipment although neither endpoint lies in it.
+		world.update({1200,0,400});
+		world.getChunk({1,0})->meshDirty = false; indexed.synchronizeTerrainChanges(world, roads);
+		world.getChunk({1,0})->heightMap[{32,25}] += 30; world.getChunk({1,0})->markMeshDirty();
+		indexed.synchronizeTerrainChanges(world, roads);
+		context.expect(!indexed.hasPublishedDetails(edge), U"Cross-chunk terrain changes discard the published height snapshot");
+		context.expect(settle(), U"Edited heights produce a replacement snapshot");
+		// A second edit while meshDirty remains true must be noticed through contentRevision.
+		world.getChunk({1,0})->heightMap[{32,25}] += 5; world.getChunk({1,0})->markMeshDirty();
+		indexed.synchronizeTerrainChanges(world, roads);
+		context.expect(!indexed.hasPublishedDetails(edge), U"Repeated edits are detected before the renderer clears meshDirty");
+		render(indexed); context.expect(indexed.pendingDetailJobs() > 0, U"Replacement snapshot is running");
+		roads.removeEdge(edge); indexed.invalidateEdgeCache(edge, a, b);
+		const Stopwatch wait{StartImmediately::Yes};
+		while (indexed.pendingDetailJobs() > 0 && wait.sF() < 15) { render(indexed); std::this_thread::sleep_for(std::chrono::milliseconds{1}); }
+		context.expect(indexed.pendingDetailJobs() == 0 && !indexed.hasPublishedDetails(edge), U"Deleted-edge worker results cannot resurrect equipment");
+		const Image deleted = render(indexed); occupied = 0; for (const auto color : deleted) { occupied += color.a > 0; }
+		context.expectEqual(occupied, size_t{0}, U"Deleting the indexed crossing road leaves no rendered ghosts");
 	});
 
 	runner.add(U"Performance.OverviewRoadDeletionReadback", [](TestContext& context)

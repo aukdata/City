@@ -12,6 +12,8 @@ public:
 		uint32 drawCalls = 0;
 		size_t triangles = 0;
 	};
+	/// @brief Prepare instance geometry and shaders while the loading screen is active.
+	void preload();
 	void render(const Array<Pedestrian>& people, double now, const BasicCamera3D& camera,
 		const std::function<bool(Vec3)>& visible = {});
 	[[nodiscard]] const Stats& stats() const { return m_stats; }

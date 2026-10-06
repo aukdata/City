@@ -181,7 +181,11 @@ void GameApp::run()
 		const Stopwatch systemTimer{ StartImmediately::Yes };
 		if (!System::Update()) { break; }
 		GameInput::beginFrame();
-		if (captureCityRenders) { systemTimes << systemTimer.msF(); }
+		manager.get()->systemUpdateMs = systemTimer.msF();
+		if (captureCityRenders || manager.get()->playtest || manager.get()->benchmarkNavigation || manager.get()->benchmarkStreaming)
+		{
+			systemTimes << manager.get()->systemUpdateMs;
+		}
 		if (!manager.update()) { break; }
 		if (systemTimes.size() >= 120)
 		{

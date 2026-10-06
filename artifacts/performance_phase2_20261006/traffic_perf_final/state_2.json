@@ -1,0 +1,14 @@
+﻿{
+    "commandId":  2,
+    "focused":  true,
+    "fps":  65.63217851952558,
+    "frame":  4815,
+    "renderMs":  6.689,
+    "traffic":  {
+                    "cars":  3202,
+                    "completed":  840,
+                    "routeFailures":  0,
+                    "spawned":  3789,
+                    "updateMs":  2.2559
+                }
+}

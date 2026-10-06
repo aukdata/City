@@ -119,7 +119,7 @@ void MinimapRenderer::drawFullScreen(const GameCamera& camera) const
 	const Size size=Scene::Size(); const Vec2 a=m_map.toWorld(m_map.body(size).tl(),size),b=m_map.toWorld(m_map.body(size).br(),size);
 	const RectF visible{Vec2{Min(a.x,b.x),Min(a.y,b.y)},Vec2{Abs(b.x-a.x),Abs(b.y-a.y)}};
 	const Stopwatch timer{StartImmediately::Yes};
-	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);})) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
+	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);},1.0)) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
 	const Vec3 focus=camera.focusPoint();m_map.draw(size,m_fullTerrain.texture,m_font,{focus.x,focus.z},m_fullTerrain.bounds);
 }
 void MinimapRenderer::render([[maybe_unused]] const GameCamera& camera,[[maybe_unused]] const Array<MapGenerator::Settlement>& settlements) const
@@ -128,10 +128,22 @@ void MinimapRenderer::render([[maybe_unused]] const GameCamera& camera,[[maybe_u
 	const RectF area=m_local.body(smallRect());
 	const double diameter=m_local.span()*area.size.length()/Min(area.w,area.h);
 	const Stopwatch timer{StartImmediately::Yes};
-	if (m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point){return terrainHeight(point);})) { DBG_LOG(U"[MapTerrain] local {} px step={:.2f}m build={:.1f}ms"_fmt(m_localTerrain.texture.size(),m_localTerrain.metersPerPixel,timer.msF())); }
+	if (m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point){return terrainHeight(point);},1.0)) { DBG_LOG(U"[MapTerrain] local {} px step={:.2f}m build={:.1f}ms"_fmt(m_localTerrain.texture.size(),m_localTerrain.metersPerPixel,timer.msF())); }
 	m_local.draw(smallRect(),m_localTerrain.texture,m_font,m_map,m_localTerrain.bounds);
 }
 RectF MinimapRenderer::smallRect() const
 {
 	return m_smallBounds.value_or(RectF{Scene::Width()-kDisplaySize-kMargin,kMargin,kDisplaySize,kDisplaySize});
+}
+
+void MinimapRenderer::preload(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements)
+{
+	refreshMap(roads,railway,settlements);
+	String glyphs = U"北が上進行方向駅街の地図閉じる移動拡大現在地右クリックここへジャンプWASDHomeEsc0123456789 kmN−＋: /";
+	for (const auto& label : m_map.labels) { glyphs += label.text + label.reading; }
+	m_font.preload(glyphs);
+	const Vec3 focus=camera.focusPoint(),direction=camera.camera3D().getFocusPosition()-camera.eyePosition();
+	m_local.follow({focus.x,focus.z},{direction.x,direction.z});
+	const auto area=m_local.body(smallRect());const double diameter=m_local.span()*area.size.length()/Min(area.w,area.h);
+	(void)m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point) { return terrainHeight(point); });
 }

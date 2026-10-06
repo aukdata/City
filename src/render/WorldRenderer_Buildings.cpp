@@ -1,5 +1,6 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "WorldRenderer.hpp"
+#include "MeshUploadSlices.hpp"
 #include "MeshGeometry.hpp"
 #include "TerrainSurfaceGeometry.hpp"
 #include "LandscapeMaterials.hpp"
@@ -1548,7 +1549,7 @@ WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const Land
 	for (auto& [typeInt, meshData] : groups.meshes)
 	{
 		if (meshData.vertices.isEmpty()) continue;
-		batches << TerrainMeshData{typeInt, std::move(meshData)};
+		for(auto& mesh:MeshUploadSlices::split(std::move(meshData))) { batches << TerrainMeshData{typeInt,std::move(mesh)}; }
 	}
 
 	// The far tier is baked once per edited chunk, grouped by asset material.
@@ -1576,7 +1577,7 @@ WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const Land
 		Vec3{CHUNK_SIZE + 100, Max(1.0f, highest - chunk.heightMin), CHUNK_SIZE + 100}};
 	for (auto& [materialId, geometry] : merged)
 	{
-		far.farBatches << FarBuildingMeshData{std::move(geometry), materials[materialId]};
+		for(auto& mesh:MeshUploadSlices::split(std::move(geometry))) { far.farBatches << FarBuildingMeshData{std::move(mesh),materials[materialId]}; }
 	}
 	result.instances = std::move(modelInstances);
 	result.milliseconds = timer.msF();

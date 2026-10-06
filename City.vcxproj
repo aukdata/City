@@ -232,6 +232,7 @@
     <ClCompile Include="src\road\RoadConstruction.cpp" />
     <ClCompile Include="src\render\RoadRenderer_Construction.cpp" />
     <ClCompile Include="src\render\RoadRenderer_Streaming.cpp" />
+    <ClCompile Include="src\render\RoadRenderer_Async.cpp" />
     <ClCompile Include="src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="src\ui\ZonePalette.cpp" />
     <ClCompile Include="src\ui\TrainTimetableEditor.cpp" />
@@ -706,6 +707,8 @@
     <ClCompile Include="src\render\RoadRenderer_Furniture.cpp" />
     <ClInclude Include="src\save\ChunkDevelopmentStorage.hpp" />
     <ClInclude Include="src\render\MeshGeometry.hpp" />
+    <ClInclude Include="src\render\MeshUploadSlices.hpp" />
+    <ClInclude Include="src\world\HeightSnapshot.hpp" />
     <ClInclude Include="src\render\RoadRenderDetail.hpp" />
     <ClInclude Include="src\sim\ParallelJobs.hpp" />
   </ItemGroup>

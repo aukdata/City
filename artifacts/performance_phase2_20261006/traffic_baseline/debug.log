@@ -1,0 +1,423 @@
+﻿===== DebugLog started 2026-10-06 19:18:24 =====
+[0.0009793s] [GameApp] started
+[0.0100172s] [GameApp] direct start: load 'refactoring_20261006'
+[0.147423s] [StreetMaterials] asphalt=true pavement=true
+[0.44452s] [SignalRegistry] signal_3lamp: 6 meshes loaded
+[0.461197s] [SignalRegistry] Loaded 1 signal definitions from assets/signals
+[0.462102s] [RoadPartRegistry] curb_concrete: inner=4 center=12 outer=4 verts
+[0.462701s] [RoadPartRegistry] guardrail_steel: inner=8 center=28 outer=8 verts
+[0.463195s] [RoadPartRegistry] median_concrete: inner=4 center=4 outer=4 verts
+[0.473339s] [RoadPartRegistry] roadbed_asphalt: inner=4 center=4 outer=4 verts
+[0.483791s] [RoadPartRegistry] roadbed_ballast: inner=4 center=4 outer=4 verts
+[0.492048s] [RoadPartRegistry] roadbed_slab: inner=4 center=4 outer=4 verts
+[0.492623s] [RoadPartRegistry] roadside_gutter_concrete: inner=4 center=12 outer=4 verts
+[0.493171s] [RoadPartRegistry] sidewalk_tile: inner=8 center=4 outer=8 verts
+[0.49365s] [RoadPartRegistry] slope_grass: inner=4 center=4 outer=4 verts
+[0.494091s] [RoadPartRegistry] Loaded 11 part definitions from assets/road_parts
+[1.43393s] [RiverNetwork] reaches=146822 lengthKm=913.9 confluences=114 spillways=160 sinks=0 self=90 exhausted=0
+[1.60777s] [Load] meta+init: 1114ms
+[2.30433s] [Load] terrain: 697ms
+[3.25744s] [Load] roads: OK nodes=31278 edges=33331
+[3.25747s] [Load] economy+roads: 953ms
+[3.45334s] [DistrictHierarchy] areas=422 boundaries=16955 uncoveredCells=0
+[17.7753s] [GuideSignClearance] generated=177 exclusionViolations=0 clearanceM=30
+[17.7755s] [GuideSign] 61 地区を登録, 案内標識自動生成完了
+[17.7756s] [Load] finish: 14518ms
+[19.583s] [ParcelValidation] failure=0 count=37274
+[20.0959s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[20.096s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[20.6759s] [Load] TOTAL: 20182ms from saves/refactoring_20261006
+[20.6859s] [Load] 完了 (20.2秒)
+[21.6378s] [RiverRenderer] leveeRoads=29
+[21.9531s] [RiverRenderer] batches=957 shader=true
+[22.0069s] [TunnelJunction] rooms=0 roadSections=15
+[22.0917s] [TunnelRenderer] roadSections=15 railSections=267 mouthOpenings=6426
+[22.0938s] [Phase] 全体 21.6秒 → Playing へ遷移
+[22.3971s] [TreeModels] models=17 nearCapacity=64 farCapacity=1024 preloadMs=74.49
+[26.6312s] [BuildingPreload] assets=62 ms=4409.26
+[26.6933s] [JunctionGeometry] repaired node=26 approaches=4 regions=1 sourceFailure=6
+[26.6944s] [JunctionGeometry] repaired node=42 approaches=2 regions=1 sourceFailure=6
+[26.7047s] [JunctionGeometry] repaired node=15619 approaches=3 regions=1 sourceFailure=6
+[26.7048s] [JunctionGeometry] repaired node=15618 approaches=3 regions=1 sourceFailure=6
+[26.707s] [JunctionGeometry] repaired node=15816 approaches=3 regions=1 sourceFailure=6
+[26.7257s] [JunctionGeometry] repaired node=15533 approaches=3 regions=1 sourceFailure=6
+[26.7452s] [JunctionGeometry] repaired node=2552 approaches=3 regions=1 sourceFailure=6
+[26.7564s] [JunctionGeometry] repaired node=15421 approaches=3 regions=1 sourceFailure=6
+[26.7702s] [JunctionGeometry] repaired node=3594 approaches=4 regions=1 sourceFailure=6
+[26.7804s] [JunctionGeometry] repaired node=15810 approaches=3 regions=1 sourceFailure=6
+[26.7811s] [JunctionGeometry] repaired node=15809 approaches=3 regions=1 sourceFailure=6
+[26.7815s] [JunctionGeometry] repaired node=15807 approaches=3 regions=1 sourceFailure=6
+[26.7992s] [JunctionGeometry] repaired node=15294 approaches=3 regions=1 sourceFailure=6
+[26.7994s] [JunctionGeometry] repaired node=15293 approaches=3 regions=1 sourceFailure=6
+[26.8557s] [JunctionGeometry] repaired node=15808 approaches=4 regions=1 sourceFailure=6
+[26.8562s] [JunctionGeometry] repaired node=6711 approaches=3 regions=1 sourceFailure=6
+[26.8568s] [JunctionGeometry] repaired node=6724 approaches=5 regions=1 sourceFailure=6
+[26.8588s] [JunctionGeometry] repaired node=6895 approaches=3 regions=1 sourceFailure=6
+[26.9134s] [JunctionGeometry] repaired node=9330 approaches=2 regions=1 sourceFailure=6
+[26.9196s] [JunctionGeometry] repaired node=15814 approaches=3 regions=1 sourceFailure=6
+[26.9205s] [JunctionGeometry] repaired node=15813 approaches=3 regions=1 sourceFailure=6
+[26.9343s] [JunctionGeometry] repaired node=10360 approaches=3 regions=1 sourceFailure=6
+[27.2102s] [JunctionGeometry] repaired node=15190 approaches=3 regions=1 sourceFailure=6
+[27.2296s] [JunctionGeometry] repaired node=15804 approaches=3 regions=1 sourceFailure=6
+[27.2304s] [JunctionGeometry] repaired node=15715 approaches=3 regions=1 sourceFailure=6
+[27.231s] [JunctionGeometry] repaired node=15736 approaches=3 regions=1 sourceFailure=6
+[27.2876s] [JunctionGeometry] repaired node=17672 approaches=4 regions=1 sourceFailure=6
+[27.288s] [JunctionGeometry] repaired node=17673 approaches=4 regions=1 sourceFailure=6
+[27.2882s] [JunctionGeometry] repaired node=17674 approaches=4 regions=1 sourceFailure=6
+[27.2884s] [JunctionGeometry] repaired node=17675 approaches=4 regions=1 sourceFailure=6
+[27.2887s] [JunctionGeometry] repaired node=17676 approaches=4 regions=1 sourceFailure=6
+[27.289s] [JunctionGeometry] repaired node=17677 approaches=4 regions=1 sourceFailure=6
+[27.2905s] [JunctionGeometry] repaired node=18975 approaches=3 regions=1 sourceFailure=6
+[27.2977s] [JunctionGeometry] repaired node=19196 approaches=2 regions=1 sourceFailure=6
+[27.3023s] [JunctionGeometry] repaired node=19346 approaches=3 regions=1 sourceFailure=6
+[27.3033s] [JunctionGeometry] repaired node=19368 approaches=2 regions=1 sourceFailure=6
+[27.3041s] [JunctionGeometry] repaired node=19381 approaches=3 regions=1 sourceFailure=6
+[27.3044s] [JunctionGeometry] repaired node=19384 approaches=3 regions=1 sourceFailure=6
+[27.3051s] [JunctionGeometry] repaired node=19400 approaches=3 regions=1 sourceFailure=6
+[27.307s] [JunctionGeometry] repaired node=19459 approaches=3 regions=1 sourceFailure=6
+[27.3075s] [JunctionGeometry] repaired node=19471 approaches=3 regions=1 sourceFailure=6
+[27.3082s] [JunctionGeometry] repaired node=19490 approaches=3 regions=1 sourceFailure=6
+[27.3086s] [JunctionGeometry] repaired node=19500 approaches=3 regions=1 sourceFailure=6
+[27.3088s] [JunctionGeometry] repaired node=19502 approaches=3 regions=1 sourceFailure=6
+[27.3092s] [JunctionGeometry] repaired node=19507 approaches=3 regions=1 sourceFailure=6
+[27.3121s] [JunctionGeometry] repaired node=19599 approaches=3 regions=1 sourceFailure=6
+[27.3174s] [JunctionGeometry] repaired node=19767 approaches=3 regions=1 sourceFailure=6
+[27.3195s] [JunctionGeometry] repaired node=19827 approaches=3 regions=1 sourceFailure=6
+[27.3202s] [JunctionGeometry] repaired node=19842 approaches=3 regions=1 sourceFailure=6
+[27.3211s] [JunctionGeometry] repaired node=19866 approaches=3 regions=1 sourceFailure=6
+[27.3217s] [JunctionGeometry] repaired node=19879 approaches=2 regions=1 sourceFailure=6
+[27.3224s] [JunctionGeometry] repaired node=19890 approaches=3 regions=1 sourceFailure=6
+[27.323s] [JunctionGeometry] repaired node=19904 approaches=3 regions=1 sourceFailure=6
+[27.3284s] [JunctionGeometry] repaired node=20064 approaches=3 regions=1 sourceFailure=6
+[27.3301s] [JunctionGeometry] repaired node=20107 approaches=3 regions=1 sourceFailure=6
+[27.3339s] [JunctionGeometry] repaired node=20245 approaches=3 regions=1 sourceFailure=6
+[27.334s] [JunctionGeometry] repaired node=20246 approaches=3 regions=1 sourceFailure=6
+[27.3347s] [JunctionGeometry] repaired node=20261 approaches=3 regions=1 sourceFailure=6
+[27.336s] [JunctionGeometry] repaired node=20293 approaches=3 regions=1 sourceFailure=6
+[27.3369s] [JunctionGeometry] repaired node=20317 approaches=3 regions=1 sourceFailure=6
+[27.3392s] [JunctionGeometry] repaired node=20371 approaches=3 regions=1 sourceFailure=6
+[27.3396s] [JunctionGeometry] repaired node=20380 approaches=3 regions=1 sourceFailure=6
+[27.3405s] [JunctionGeometry] repaired node=20400 approaches=3 regions=1 sourceFailure=6
+[27.3428s] [JunctionGeometry] repaired node=20465 approaches=3 regions=1 sourceFailure=6
+[27.347s] [JunctionGeometry] repaired node=20570 approaches=3 regions=1 sourceFailure=6
+[27.3476s] [JunctionGeometry] repaired node=20582 approaches=3 regions=1 sourceFailure=6
+[27.3478s] [JunctionGeometry] repaired node=20584 approaches=3 regions=1 sourceFailure=6
+[27.3505s] [JunctionGeometry] repaired node=20656 approaches=2 regions=1 sourceFailure=6
+[27.3535s] [JunctionGeometry] repaired node=20755 approaches=3 regions=1 sourceFailure=6
+[27.3586s] [JunctionGeometry] repaired node=20918 approaches=3 regions=1 sourceFailure=6
+[27.3589s] [JunctionGeometry] repaired node=20921 approaches=3 regions=1 sourceFailure=6
+[27.3594s] [JunctionGeometry] repaired node=20933 approaches=3 regions=1 sourceFailure=6
+[27.3607s] [JunctionGeometry] repaired node=20967 approaches=3 regions=1 sourceFailure=6
+[27.3662s] [JunctionGeometry] repaired node=21127 approaches=3 regions=1 sourceFailure=6
+[27.3679s] [JunctionGeometry] repaired node=21176 approaches=3 regions=1 sourceFailure=6
+[27.3691s] [JunctionGeometry] repaired node=21209 approaches=3 regions=1 sourceFailure=6
+[27.3746s] [JunctionGeometry] repaired node=21371 approaches=3 regions=1 sourceFailure=6
+[27.3785s] [JunctionGeometry] repaired node=21472 approaches=3 regions=1 sourceFailure=6
+[27.3795s] [JunctionGeometry] repaired node=21490 approaches=3 regions=1 sourceFailure=6
+[27.3803s] [JunctionGeometry] repaired node=21513 approaches=3 regions=1 sourceFailure=6
+[27.3806s] [JunctionGeometry] repaired node=21516 approaches=3 regions=1 sourceFailure=6
+[27.3809s] [JunctionGeometry] repaired node=21519 approaches=3 regions=1 sourceFailure=6
+[27.3828s] [JunctionGeometry] repaired node=21568 approaches=3 regions=1 sourceFailure=6
+[27.3876s] [JunctionGeometry] repaired node=21709 approaches=3 regions=1 sourceFailure=6
+[27.3935s] [JunctionGeometry] repaired node=21859 approaches=2 regions=2 sourceFailure=6
+[27.3938s] [JunctionGeometry] repaired node=21861 approaches=3 regions=1 sourceFailure=6
+[27.3987s] [JunctionGeometry] repaired node=21995 approaches=3 regions=1 sourceFailure=6
+[27.4034s] [JunctionGeometry] repaired node=22145 approaches=3 regions=1 sourceFailure=6
+[27.4047s] [JunctionGeometry] repaired node=22179 approaches=3 regions=1 sourceFailure=6
+[27.4061s] [JunctionGeometry] repaired node=22222 approaches=3 regions=1 sourceFailure=6
+[27.4091s] [JunctionGeometry] repaired node=22298 approaches=3 regions=1 sourceFailure=6
+[27.4106s] [JunctionGeometry] repaired node=22340 approaches=3 regions=1 sourceFailure=6
+[27.4124s] [JunctionGeometry] repaired node=22391 approaches=3 regions=1 sourceFailure=6
+[27.4153s] [JunctionGeometry] repaired node=22477 approaches=3 regions=1 sourceFailure=6
+[27.4163s] [JunctionGeometry] repaired node=22501 approaches=3 regions=1 sourceFailure=6
+[27.4224s] [JunctionGeometry] repaired node=22689 approaches=3 regions=1 sourceFailure=6
+[27.4241s] [JunctionGeometry] repaired node=22740 approaches=3 regions=1 sourceFailure=6
+[27.4243s] [JunctionGeometry] repaired node=22743 approaches=3 regions=1 sourceFailure=6
+[27.4277s] [JunctionGeometry] repaired node=22833 approaches=3 regions=1 sourceFailure=6
+[27.4281s] [JunctionGeometry] repaired node=22840 approaches=3 regions=1 sourceFailure=6
+[27.4335s] [JunctionGeometry] repaired node=22982 approaches=3 regions=1 sourceFailure=6
+[27.4342s] [JunctionGeometry] repaired node=22996 approaches=3 regions=1 sourceFailure=6
+[27.4351s] [JunctionGeometry] repaired node=23015 approaches=3 regions=1 sourceFailure=6
+[27.4383s] [JunctionGeometry] repaired node=23100 approaches=3 regions=1 sourceFailure=6
+[27.4394s] [JunctionGeometry] repaired node=23119 approaches=3 regions=1 sourceFailure=6
+[27.4396s] [JunctionGeometry] repaired node=23121 approaches=3 regions=1 sourceFailure=6
+[27.4408s] [JunctionGeometry] repaired node=23151 approaches=3 regions=1 sourceFailure=6
+[27.4432s] [JunctionGeometry] repaired node=23208 approaches=3 regions=1 sourceFailure=6
+[27.4444s] [JunctionGeometry] repaired node=23235 approaches=3 regions=1 sourceFailure=6
+[27.4481s] [JunctionGeometry] repaired node=23343 approaches=3 regions=1 sourceFailure=6
+[27.4508s] [JunctionGeometry] repaired node=23430 approaches=3 regions=1 sourceFailure=6
+[27.4517s] [JunctionGeometry] repaired node=23458 approaches=3 regions=1 sourceFailure=6
+[27.4532s] [JunctionGeometry] repaired node=23499 approaches=3 regions=1 sourceFailure=6
+[27.4539s] [JunctionGeometry] repaired node=23518 approaches=3 regions=1 sourceFailure=6
+[27.4552s] [JunctionGeometry] repaired node=23556 approaches=3 regions=1 sourceFailure=6
+[27.4561s] [JunctionGeometry] repaired node=23574 approaches=3 regions=1 sourceFailure=6
+[27.4589s] [JunctionGeometry] repaired node=23644 approaches=3 regions=1 sourceFailure=6
+[27.4593s] [JunctionGeometry] repaired node=23654 approaches=3 regions=1 sourceFailure=6
+[27.46s] [JunctionGeometry] repaired node=23672 approaches=3 regions=1 sourceFailure=6
+[27.4607s] [JunctionGeometry] repaired node=23691 approaches=3 regions=1 sourceFailure=6
+[27.4623s] [JunctionGeometry] repaired node=23732 approaches=3 regions=1 sourceFailure=6
+[27.4667s] [JunctionGeometry] repaired node=23843 approaches=3 regions=1 sourceFailure=6
+[27.4668s] [JunctionGeometry] repaired node=23844 approaches=3 regions=1 sourceFailure=6
+[27.468s] [JunctionGeometry] repaired node=23869 approaches=3 regions=1 sourceFailure=6
+[27.4693s] [JunctionGeometry] repaired node=23901 approaches=3 regions=1 sourceFailure=6
+[27.47s] [JunctionGeometry] repaired node=23920 approaches=3 regions=1 sourceFailure=6
+[27.4733s] [JunctionGeometry] repaired node=23992 approaches=3 regions=1 sourceFailure=6
+[27.4751s] [JunctionGeometry] repaired node=24047 approaches=3 regions=1 sourceFailure=6
+[27.4763s] [JunctionGeometry] repaired node=24078 approaches=3 regions=1 sourceFailure=6
+[27.4773s] [JunctionGeometry] repaired node=24103 approaches=3 regions=1 sourceFailure=6
+[27.4778s] [JunctionGeometry] repaired node=24115 approaches=3 regions=1 sourceFailure=6
+[27.4812s] [JunctionGeometry] repaired node=24208 approaches=3 regions=1 sourceFailure=6
+[27.4814s] [JunctionGeometry] repaired node=24210 approaches=3 regions=1 sourceFailure=6
+[27.4852s] [JunctionGeometry] repaired node=24324 approaches=3 regions=1 sourceFailure=6
+[27.4863s] [JunctionGeometry] repaired node=24352 approaches=3 regions=1 sourceFailure=6
+[27.4883s] [JunctionGeometry] repaired node=24398 approaches=3 regions=1 sourceFailure=6
+[27.4902s] [JunctionGeometry] repaired node=24446 approaches=3 regions=1 sourceFailure=6
+[27.4907s] [JunctionGeometry] repaired node=24452 approaches=3 regions=1 sourceFailure=6
+[27.4916s] [JunctionGeometry] repaired node=24473 approaches=3 regions=1 sourceFailure=6
+[27.4922s] [JunctionGeometry] repaired node=24489 approaches=3 regions=1 sourceFailure=6
+[27.4947s] [JunctionGeometry] repaired node=24548 approaches=3 regions=1 sourceFailure=6
+[27.497s] [JunctionGeometry] repaired node=24623 approaches=3 regions=1 sourceFailure=6
+[27.4983s] [JunctionGeometry] repaired node=24660 approaches=3 regions=1 sourceFailure=6
+[27.499s] [JunctionGeometry] repaired node=24675 approaches=3 regions=1 sourceFailure=6
+[27.502s] [JunctionGeometry] repaired node=24755 approaches=3 regions=1 sourceFailure=6
+[27.5048s] [JunctionGeometry] repaired node=24821 approaches=3 regions=1 sourceFailure=6
+[27.5073s] [JunctionGeometry] repaired node=24896 approaches=3 regions=1 sourceFailure=6
+[27.5089s] [JunctionGeometry] repaired node=24935 approaches=3 regions=1 sourceFailure=6
+[27.5096s] [JunctionGeometry] repaired node=24953 approaches=3 regions=1 sourceFailure=6
+[27.5137s] [JunctionGeometry] repaired node=25067 approaches=3 regions=1 sourceFailure=6
+[27.5219s] [JunctionGeometry] repaired node=25336 approaches=3 regions=1 sourceFailure=6
+[27.5239s] [JunctionGeometry] repaired node=25390 approaches=3 regions=1 sourceFailure=6
+[27.525s] [JunctionGeometry] repaired node=25416 approaches=3 regions=1 sourceFailure=6
+[27.5294s] [JunctionGeometry] repaired node=25551 approaches=3 regions=1 sourceFailure=6
+[27.5299s] [JunctionGeometry] repaired node=25561 approaches=3 regions=1 sourceFailure=6
+[27.5302s] [JunctionGeometry] repaired node=25565 approaches=3 regions=1 sourceFailure=6
+[27.5357s] [JunctionGeometry] repaired node=25725 approaches=3 regions=1 sourceFailure=6
+[27.5378s] [JunctionGeometry] repaired node=25783 approaches=2 regions=2 sourceFailure=6
+[27.5414s] [JunctionGeometry] repaired node=25892 approaches=3 regions=1 sourceFailure=6
+[27.5421s] [JunctionGeometry] repaired node=25907 approaches=3 regions=1 sourceFailure=6
+[27.5443s] [JunctionGeometry] repaired node=25961 approaches=3 regions=1 sourceFailure=6
+[27.5471s] [JunctionGeometry] repaired node=26044 approaches=3 regions=1 sourceFailure=6
+[27.5478s] [JunctionGeometry] repaired node=26059 approaches=3 regions=1 sourceFailure=6
+[27.5526s] [JunctionGeometry] repaired node=26180 approaches=2 regions=2 sourceFailure=6
+[27.5643s] [JunctionGeometry] repaired node=26526 approaches=3 regions=1 sourceFailure=6
+[27.5646s] [JunctionGeometry] repaired node=26536 approaches=3 regions=1 sourceFailure=6
+[27.5657s] [JunctionGeometry] repaired node=26567 approaches=3 regions=1 sourceFailure=6
+[27.5688s] [JunctionGeometry] repaired node=26647 approaches=3 regions=1 sourceFailure=6
+[27.5722s] [JunctionGeometry] repaired node=26737 approaches=3 regions=1 sourceFailure=6
+[27.5726s] [JunctionGeometry] repaired node=26744 approaches=3 regions=1 sourceFailure=6
+[27.5728s] [JunctionGeometry] repaired node=26745 approaches=3 regions=1 sourceFailure=6
+[27.5745s] [JunctionGeometry] repaired node=26789 approaches=2 regions=2 sourceFailure=6
+[27.5759s] [JunctionGeometry] repaired node=26825 approaches=3 regions=1 sourceFailure=6
+[27.5763s] [JunctionGeometry] repaired node=26830 approaches=3 regions=1 sourceFailure=6
+[27.578s] [JunctionGeometry] repaired node=26869 approaches=3 regions=1 sourceFailure=6
+[27.5923s] [JunctionGeometry] repaired node=27283 approaches=3 regions=1 sourceFailure=6
+[27.5955s] [JunctionGeometry] repaired node=27369 approaches=3 regions=1 sourceFailure=6
+[27.6078s] [JunctionGeometry] repaired node=27726 approaches=3 regions=1 sourceFailure=6
+[27.6178s] [JunctionGeometry] repaired node=28093 approaches=3 regions=1 sourceFailure=6
+[27.624s] [JunctionGeometry] repaired node=28300 approaches=3 regions=1 sourceFailure=6
+[27.6247s] [JunctionGeometry] repaired node=28320 approaches=3 regions=1 sourceFailure=6
+[27.6264s] [JunctionGeometry] repaired node=28380 approaches=3 regions=1 sourceFailure=6
+[27.6276s] [JunctionGeometry] repaired node=28402 approaches=3 regions=1 sourceFailure=6
+[27.631s] [JunctionGeometry] repaired node=28488 approaches=3 regions=1 sourceFailure=6
+[27.6427s] [JunctionGeometry] repaired node=28769 approaches=3 regions=1 sourceFailure=6
+[27.6479s] [JunctionGeometry] repaired node=28904 approaches=3 regions=1 sourceFailure=6
+[27.6501s] [JunctionGeometry] repaired node=28951 approaches=3 regions=1 sourceFailure=6
+[27.6518s] [JunctionGeometry] repaired node=28977 approaches=3 regions=1 sourceFailure=6
+[27.6528s] [JunctionGeometry] repaired node=29002 approaches=3 regions=1 sourceFailure=6
+[27.6627s] [JunctionGeometry] repaired node=29235 approaches=3 regions=1 sourceFailure=6
+[27.6653s] [JunctionGeometry] repaired node=29311 approaches=3 regions=1 sourceFailure=6
+[27.6674s] [JunctionGeometry] repaired node=29369 approaches=3 regions=1 sourceFailure=6
+[27.6798s] [JunctionGeometry] repaired node=29688 approaches=3 regions=1 sourceFailure=6
+[27.6819s] [JunctionGeometry] repaired node=29752 approaches=3 regions=1 sourceFailure=6
+[27.6851s] [JunctionGeometry] repaired node=29843 approaches=3 regions=1 sourceFailure=6
+[27.6868s] [JunctionGeometry] repaired node=29893 approaches=3 regions=1 sourceFailure=6
+[27.6882s] [JunctionGeometry] repaired node=29926 approaches=3 regions=1 sourceFailure=6
+[27.6906s] [JunctionGeometry] repaired node=29989 approaches=3 regions=1 sourceFailure=6
+[27.6923s] [JunctionGeometry] repaired node=30035 approaches=3 regions=1 sourceFailure=6
+[27.6949s] [JunctionGeometry] repaired node=30101 approaches=2 regions=2 sourceFailure=6
+[27.6982s] [JunctionGeometry] repaired node=30196 approaches=3 regions=1 sourceFailure=6
+[27.7s] [JunctionGeometry] repaired node=30249 approaches=3 regions=1 sourceFailure=6
+[27.7028s] [JunctionGeometry] repaired node=30334 approaches=3 regions=1 sourceFailure=6
+[27.7034s] [JunctionGeometry] repaired node=30351 approaches=3 regions=1 sourceFailure=6
+[27.7049s] [JunctionGeometry] repaired node=30390 approaches=3 regions=1 sourceFailure=6
+[27.71s] [JunctionGeometry] repaired node=30505 approaches=2 regions=2 sourceFailure=6
+[27.7112s] [JunctionGeometry] repaired node=30536 approaches=3 regions=1 sourceFailure=6
+[27.712s] [JunctionGeometry] repaired node=30560 approaches=3 regions=1 sourceFailure=6
+[27.7147s] [JunctionGeometry] repaired node=30630 approaches=3 regions=1 sourceFailure=6
+[27.717s] [JunctionGeometry] repaired node=30690 approaches=3 regions=1 sourceFailure=6
+[27.7222s] [JunctionGeometry] repaired node=30840 approaches=2 regions=2 sourceFailure=6
+[27.7232s] [JunctionGeometry] repaired node=30863 approaches=3 regions=1 sourceFailure=6
+[27.728s] [JunctionGeometry] repaired node=31002 approaches=3 regions=1 sourceFailure=6
+[27.729s] [JunctionGeometry] repaired node=31028 approaches=3 regions=1 sourceFailure=6
+[27.7304s] [JunctionGeometry] repaired node=31071 approaches=3 regions=1 sourceFailure=6
+[27.7308s] [JunctionGeometry] repaired node=31080 approaches=2 regions=1 sourceFailure=6
+[27.7317s] [JunctionGeometry] repaired node=31104 approaches=3 regions=1 sourceFailure=6
+[27.7333s] [JunctionGeometry] repaired node=31152 approaches=3 regions=1 sourceFailure=6
+[27.7403s] [JunctionGeometry] repaired node=31397 approaches=3 regions=1 sourceFailure=6
+[27.7409s] [JunctionGeometry] repaired node=31411 approaches=3 regions=1 sourceFailure=6
+[27.7425s] [JunctionGeometry] repaired node=31450 approaches=2 regions=1 sourceFailure=6
+[27.7435s] [JunctionGeometry] repaired node=31474 approaches=2 regions=2 sourceFailure=6
+[27.7437s] [JunctionGeometry] repaired node=31477 approaches=3 regions=1 sourceFailure=6
+[27.7535s] [JunctionGeometry] repaired node=31755 approaches=3 regions=1 sourceFailure=6
+[28.0424s] [WorldPreload] proxies=4096 totalMs=1392.75
+[43.9275s] [RoadFallback] preload edges=33331 nodes=29538 ms=15885.09
+[44.2452s] [RoadOverview] batches=622 sources=62869
+[45.13s] [PlaytestCommand] id=1 action=benchmark_view
+[45.196s] [HudStats] updateMs=3.11 housing=323815
+[45.2127s] [MapTerrain] local (512, 512) px step=8.99m build=16.1ms
+[45.2286s] [RenderCost] total=98.62 pre3D=2.31 train=18.41 flush=3.39 resolve=0.01 screen=0.06 ui=37.99 place=0.26 hudStats=3.18 hudDraw=0.53 minimap=32.00 panels=0.01
+[45.2299s] [TravelCost] frame=0 total=98.62 terrain=8.66 road=10.66 parts=0.00 node=4.97 marks=0.01 furniture=0.00 fallback=0.00 edges=0 nodes=5
+[45.2704s] [TreeStreaming] key=98784247831 revision=2 placementMs=33.75 masksMs=15.64 patchesMs=12.77 woodlandMs=4.45 instances=193 excludedTrees=0
+[45.2704s] [TreeStreaming] key=94489280535 revision=2 placementMs=14.99 masksMs=7.14 patchesMs=4.99 woodlandMs=2.52 instances=324 excludedTrees=0
+[45.4035s] [RenderCost] total=149.98 pre3D=16.85 train=0.45 flush=1.67 resolve=0.00 screen=0.03 ui=1.37 place=0.20 hudStats=0.00 hudDraw=0.07 minimap=1.06 panels=0.00
+[45.4035s] [TravelCost] frame=1 total=149.98 terrain=5.13 road=12.65 parts=0.00 node=4.04 marks=0.00 furniture=0.00 fallback=0.00 edges=0 nodes=5
+[45.4085s] [TreeStreaming] key=98784247832 revision=1 placementMs=14.74 masksMs=7.41 patchesMs=4.38 woodlandMs=2.57 instances=258 excludedTrees=0
+[45.4086s] [TreeStreaming] key=98784247830 revision=2 placementMs=24.80 masksMs=12.01 patchesMs=8.65 woodlandMs=3.64 instances=350 excludedTrees=0
+[45.4331s] [TreeStreaming] key=94489280536 revision=2 placementMs=8.13 masksMs=3.85 patchesMs=0.72 woodlandMs=3.41 instances=100 excludedTrees=0
+[45.4333s] [TreeStreaming] key=103079215127 revision=1 placementMs=18.83 masksMs=8.03 patchesMs=5.27 woodlandMs=4.85 instances=233 excludedTrees=0
+[45.4563s] [TreeStreaming] key=94489280534 revision=1 placementMs=2.86 masksMs=1.13 patchesMs=0.53 woodlandMs=1.16 instances=4620 excludedTrees=0
+[45.4564s] [TreeStreaming] key=103079215128 revision=1 placementMs=6.43 masksMs=2.43 patchesMs=0.59 woodlandMs=3.30 instances=140 excludedTrees=0
+[45.4811s] [TreeStreaming] key=98784247829 revision=2 placementMs=6.04 masksMs=3.43 patchesMs=0.84 woodlandMs=1.63 instances=266 excludedTrees=0
+[45.5043s] [TreeStreaming] key=103079215126 revision=2 placementMs=25.60 masksMs=11.38 patchesMs=9.14 woodlandMs=4.35 instances=259 excludedTrees=0
+[45.5043s] [TreeStreaming] key=107374182423 revision=1 placementMs=2.51 masksMs=0.57 patchesMs=0.00 woodlandMs=1.92 instances=14 excludedTrees=0
+[45.5289s] [TreeStreaming] key=103079215125 revision=2 placementMs=4.23 masksMs=2.48 patchesMs=0.52 woodlandMs=1.13 instances=124 excludedTrees=0
+[45.5289s] [TreeStreaming] key=107374182422 revision=2 placementMs=7.53 masksMs=2.45 patchesMs=0.26 woodlandMs=4.72 instances=61 excludedTrees=0
+[45.5492s] [TreeStreaming] key=107374182421 revision=2 placementMs=3.55 masksMs=0.93 patchesMs=0.00 woodlandMs=2.56 instances=0 excludedTrees=0
+[45.7967s] [BuildingStreaming] key=98784247831 workerMs=208.88 uploadMs=1.73 excludedTrees=0
+[46.0128s] [Streaming] terrain workerMs=791.25 uploadTotalMs=9.07 maxFrameUploadMs=5.63 uploadFrames=3
+[46.0128s] [LandscapeStreaming] key=94489280535 terrainMs=682.59 masksMs=7.42 patchesMs=100.92 woodlandMs=0.00 landscapeVertices=219360 landscapeTriangles=87098
+[46.1311s] [BuildingStreaming] key=94489280535 workerMs=135.24 uploadMs=0.37 excludedTrees=0
+[46.4022s] [BuildingStreaming] key=98784247832 workerMs=99.70 uploadMs=2.44 excludedTrees=0
+[46.7803s] [BuildingStreaming] key=98784247830 workerMs=192.12 uploadMs=0.22 excludedTrees=0
+[46.8502s] [RenderCost] total=47.92 pre3D=6.27 train=0.56 flush=3.33 resolve=0.01 screen=0.19 ui=1.80 place=0.24 hudStats=0.00 hudDraw=0.09 minimap=1.43 panels=0.00
+[46.8502s] [TravelCost] frame=55 total=47.92 terrain=22.62 road=12.15 parts=2.73 node=0.00 marks=0.10 furniture=1.34 fallback=0.00 edges=5 nodes=0
+[46.8977s] [Streaming] terrain workerMs=1658.95 uploadTotalMs=21.39 maxFrameUploadMs=18.02 uploadFrames=3
+[46.8978s] [LandscapeStreaming] key=98784247831 terrainMs=1465.97 masksMs=14.13 patchesMs=177.97 woodlandMs=0.00 landscapeVertices=303753 landscapeTriangles=114215
+[46.9293s] [BuildingStreaming] key=94489280536 workerMs=15.38 uploadMs=0.44 excludedTrees=0
+[47.0089s] [HudStats] updateMs=1.36 housing=323815
+[47.0291s] [Streaming] terrain workerMs=784.86 uploadTotalMs=10.58 maxFrameUploadMs=4.72 uploadFrames=4
+[47.0291s] [LandscapeStreaming] key=98784247832 terrainMs=663.68 masksMs=6.71 patchesMs=114.19 woodlandMs=0.00 landscapeVertices=238486 landscapeTriangles=96672
+[47.3142s] [BuildingStreaming] key=103079215127 workerMs=106.15 uploadMs=0.09 excludedTrees=0
+[47.4039s] [BuildingStreaming] key=94489280534 workerMs=11.59 uploadMs=1.97 excludedTrees=0
+[47.4752s] [Streaming] terrain workerMs=357.18 uploadTotalMs=6.37 maxFrameUploadMs=3.26 uploadFrames=3
+[47.4752s] [LandscapeStreaming] key=94489280536 terrainMs=319.31 masksMs=3.53 patchesMs=34.19 woodlandMs=0.00 landscapeVertices=71243 landscapeTriangles=31785
+[47.5785s] [BuildingStreaming] key=103079215128 workerMs=15.68 uploadMs=0.71 excludedTrees=0
+[48.0315s] [BuildingStreaming] key=103079215126 workerMs=191.73 uploadMs=0.91 excludedTrees=0
+[48.397s] [Streaming] terrain workerMs=1393.79 uploadTotalMs=14.08 maxFrameUploadMs=10.27 uploadFrames=3
+[48.397s] [LandscapeStreaming] key=98784247830 terrainMs=1227.94 masksMs=10.43 patchesMs=154.92 woodlandMs=0.00 landscapeVertices=316317 landscapeTriangles=124891
+[48.4916s] [Streaming] terrain workerMs=898.92 uploadTotalMs=9.21 maxFrameUploadMs=6.42 uploadFrames=3
+[48.4916s] [LandscapeStreaming] key=103079215127 terrainMs=710.19 masksMs=9.08 patchesMs=179.25 woodlandMs=0.00 landscapeVertices=241579 landscapeTriangles=98063
+[48.5779s] [Streaming] terrain workerMs=124.25 uploadTotalMs=3.40 maxFrameUploadMs=2.38 uploadFrames=2
+[48.578s] [LandscapeStreaming] key=94489280534 terrainMs=101.41 masksMs=1.11 patchesMs=21.66 woodlandMs=0.00 landscapeVertices=50988 landscapeTriangles=19768
+[48.7518s] [Streaming] terrain workerMs=204.96 uploadTotalMs=3.65 maxFrameUploadMs=2.23 uploadFrames=2
+[48.7518s] [LandscapeStreaming] key=103079215128 terrainMs=154.15 masksMs=2.38 patchesMs=48.26 woodlandMs=0.00 landscapeVertices=83149 landscapeTriangles=37055
+[48.8348s] [HudStats] updateMs=1.54 housing=323815
+[49.2918s] [Streaming] terrain workerMs=480.72 uploadTotalMs=7.91 maxFrameUploadMs=4.19 uploadFrames=3
+[49.2919s] [LandscapeStreaming] key=98784247829 terrainMs=448.51 masksMs=3.37 patchesMs=28.66 woodlandMs=0.00 landscapeVertices=69684 landscapeTriangles=29796
+[49.3212s] [Streaming] terrain workerMs=1.91 uploadTotalMs=0.24 maxFrameUploadMs=0.24 uploadFrames=1
+[49.3212s] [LandscapeStreaming] key=107374182423 terrainMs=1.29 masksMs=0.60 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[49.5249s] [Streaming] terrain workerMs=173.34 uploadTotalMs=3.33 maxFrameUploadMs=2.18 uploadFrames=2
+[49.5249s] [LandscapeStreaming] key=103079215125 terrainMs=141.88 masksMs=2.26 patchesMs=29.00 woodlandMs=0.00 landscapeVertices=61931 landscapeTriangles=27313
+[49.7101s] [Streaming] terrain workerMs=162.32 uploadTotalMs=4.14 maxFrameUploadMs=2.42 uploadFrames=2
+[49.7101s] [LandscapeStreaming] key=107374182422 terrainMs=110.18 masksMs=2.51 patchesMs=49.41 woodlandMs=0.00 landscapeVertices=40421 landscapeTriangles=17441
+[49.7358s] [Streaming] terrain workerMs=6.44 uploadTotalMs=1.22 maxFrameUploadMs=1.22 uploadFrames=1
+[49.7358s] [LandscapeStreaming] key=107374182421 terrainMs=4.24 masksMs=0.90 patchesMs=1.26 woodlandMs=0.00 landscapeVertices=4664 landscapeTriangles=2334
+[50.0186s] [Streaming] terrain workerMs=1388.93 uploadTotalMs=13.31 maxFrameUploadMs=9.07 uploadFrames=3
+[50.0187s] [LandscapeStreaming] key=103079215126 terrainMs=1176.76 masksMs=18.50 patchesMs=193.02 woodlandMs=0.00 landscapeVertices=319956 landscapeTriangles=126112
+[50.1147s] [HudStats] updateMs=1.39 housing=323815
+[51.1078s] [HudStats] updateMs=1.40 housing=323815
+[52.1594s] [HudStats] updateMs=1.40 housing=323815
+[53.2106s] [HudStats] updateMs=1.46 housing=323815
+[54.2795s] [HudStats] updateMs=1.41 housing=323815
+[55.4015s] [HudStats] updateMs=1.40 housing=323815
+[56.5181s] [HudStats] updateMs=1.42 housing=323815
+[57.6539s] [HudStats] updateMs=1.43 housing=323815
+[58.7717s] [HudStats] updateMs=1.45 housing=323815
+[59.8954s] [HudStats] updateMs=1.63 housing=323815
+[61.0047s] [HudStats] updateMs=1.43 housing=323815
+[62.1519s] [HudStats] updateMs=1.61 housing=323815
+[63.281s] [HudStats] updateMs=1.51 housing=323815
+[64.4107s] [HudStats] updateMs=1.57 housing=323815
+[65.5419s] [HudStats] updateMs=1.62 housing=323815
+[66.6664s] [HudStats] updateMs=1.47 housing=323815
+[67.7921s] [HudStats] updateMs=1.65 housing=323815
+[68.9092s] [HudStats] updateMs=1.69 housing=323815
+[70.0241s] [HudStats] updateMs=1.52 housing=323815
+[71.1454s] [HudStats] updateMs=1.47 housing=323815
+[72.2733s] [HudStats] updateMs=1.50 housing=323815
+[73.392s] [HudStats] updateMs=1.59 housing=323815
+[74.5147s] [HudStats] updateMs=1.40 housing=323815
+[75.638s] [HudStats] updateMs=1.52 housing=323815
+[76.7645s] [HudStats] updateMs=1.47 housing=323815
+[77.8963s] [HudStats] updateMs=1.55 housing=323815
+[79.0237s] [HudStats] updateMs=1.46 housing=323815
+[80.1522s] [HudStats] updateMs=1.54 housing=323815
+[81.2759s] [HudStats] updateMs=1.44 housing=323815
+[82.4037s] [HudStats] updateMs=1.45 housing=323815
+[83.5283s] [HudStats] updateMs=1.40 housing=323815
+[84.6486s] [HudStats] updateMs=1.45 housing=323815
+[85.7778s] [HudStats] updateMs=1.47 housing=323815
+[86.9163s] [HudStats] updateMs=1.54 housing=323815
+[88.0401s] [HudStats] updateMs=1.43 housing=323815
+[89.1564s] [HudStats] updateMs=1.53 housing=323815
+[90.2778s] [HudStats] updateMs=1.50 housing=323815
+[91.402s] [HudStats] updateMs=1.45 housing=323815
+[91.9474s] [PlaytestCommand] id=2 action=benchmark_view
+[91.9803s] [TreeStreaming] key=94489280537 revision=2 placementMs=4.27 masksMs=1.75 patchesMs=0.04 woodlandMs=2.40 instances=3 excludedTrees=0
+[91.9804s] [TreeStreaming] key=90194313240 revision=1 placementMs=4.63 masksMs=0.99 patchesMs=0.01 woodlandMs=3.57 instances=19 excludedTrees=0
+[91.9986s] [TreeStreaming] key=90194313241 revision=2 placementMs=0.85 masksMs=0.18 patchesMs=0.00 woodlandMs=0.67 instances=977 excludedTrees=0
+[91.9987s] [TreeStreaming] key=98784247833 revision=1 placementMs=4.32 masksMs=1.20 patchesMs=0.02 woodlandMs=3.03 instances=3 excludedTrees=0
+[91.9999s] [Streaming] terrain workerMs=33.07 uploadTotalMs=1.27 maxFrameUploadMs=1.27 uploadFrames=1
+[92s] [LandscapeStreaming] key=90194313240 terrainMs=25.00 masksMs=0.93 patchesMs=7.08 woodlandMs=0.00 landscapeVertices=8852 landscapeTriangles=4450
+[92.0158s] [TreeStreaming] key=90194313239 revision=1 placementMs=2.59 masksMs=1.40 patchesMs=0.01 woodlandMs=1.13 instances=1904 excludedTrees=0
+[92.0167s] [Streaming] terrain workerMs=2.74 uploadTotalMs=0.85 maxFrameUploadMs=0.85 uploadFrames=1
+[92.0167s] [LandscapeStreaming] key=90194313241 terrainMs=2.60 masksMs=0.14 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[92.0452s] [Streaming] terrain workerMs=78.98 uploadTotalMs=2.31 maxFrameUploadMs=2.07 uploadFrames=2
+[92.0453s] [LandscapeStreaming] key=94489280537 terrainMs=74.74 masksMs=1.64 patchesMs=2.53 woodlandMs=0.00 landscapeVertices=6797 landscapeTriangles=3237
+[92.0746s] [Streaming] terrain workerMs=37.32 uploadTotalMs=2.81 maxFrameUploadMs=2.02 uploadFrames=2
+[92.0747s] [LandscapeStreaming] key=98784247833 terrainMs=33.53 masksMs=1.27 patchesMs=2.46 woodlandMs=0.00 landscapeVertices=8644 landscapeTriangles=4172
+[92.185s] [Streaming] terrain workerMs=108.26 uploadTotalMs=2.93 maxFrameUploadMs=2.71 uploadFrames=2
+[92.185s] [LandscapeStreaming] key=90194313239 terrainMs=106.18 masksMs=1.29 patchesMs=0.73 woodlandMs=0.00 landscapeVertices=3475 landscapeTriangles=1723
+[92.4577s] [HudStats] updateMs=1.25 housing=323815
+[93.4578s] [HudStats] updateMs=1.03 housing=323815
+[94.4587s] [HudStats] updateMs=1.08 housing=323815
+[95.4628s] [HudStats] updateMs=1.08 housing=323815
+[96.4642s] [HudStats] updateMs=1.46 housing=323815
+[97.4608s] [HudStats] updateMs=1.38 housing=323815
+[98.4597s] [HudStats] updateMs=1.21 housing=323815
+[99.4575s] [HudStats] updateMs=1.05 housing=323815
+[100.457s] [HudStats] updateMs=1.00 housing=323815
+[101.459s] [HudStats] updateMs=1.25 housing=323815
+[102.457s] [HudStats] updateMs=0.99 housing=323815
+[103.458s] [HudStats] updateMs=1.06 housing=323815
+[104.459s] [HudStats] updateMs=1.12 housing=323815
+[105.458s] [HudStats] updateMs=1.07 housing=323815
+[106.458s] [HudStats] updateMs=1.24 housing=323815
+[107.458s] [HudStats] updateMs=1.08 housing=323815
+[108.471s] [HudStats] updateMs=1.04 housing=323815
+[109.473s] [HudStats] updateMs=1.17 housing=323815
+[110.472s] [HudStats] updateMs=1.15 housing=323815
+[111.472s] [HudStats] updateMs=1.05 housing=323815
+[112.472s] [HudStats] updateMs=1.17 housing=323815
+[113.472s] [HudStats] updateMs=1.24 housing=323815
+[114.47s] [HudStats] updateMs=1.11 housing=323815
+[115.471s] [HudStats] updateMs=1.14 housing=323815
+[116.47s] [HudStats] updateMs=1.03 housing=323815
+[117.47s] [HudStats] updateMs=1.02 housing=323815
+[118.471s] [HudStats] updateMs=1.10 housing=323815
+[119.471s] [HudStats] updateMs=1.02 housing=323815
+[120.471s] [HudStats] updateMs=1.12 housing=323815
+[121.472s] [HudStats] updateMs=1.10 housing=323815
+[122.471s] [HudStats] updateMs=1.02 housing=323815
+[123.471s] [HudStats] updateMs=1.02 housing=323815
+[124.485s] [HudStats] updateMs=1.14 housing=323815
+[125.484s] [HudStats] updateMs=1.02 housing=323815
+[126.484s] [HudStats] updateMs=1.02 housing=323815
+[127.484s] [HudStats] updateMs=1.10 housing=323815
+[128.483s] [HudStats] updateMs=1.02 housing=323815
+[129.486s] [HudStats] updateMs=1.20 housing=323815
+[130.484s] [HudStats] updateMs=1.03 housing=323815
+[131.484s] [HudStats] updateMs=1.01 housing=323815
+[132.223s] [PlaytestCommand] id=3 action=exit
+[132.935s] [GameApp] stopped
+===== DebugLog closed 2026-10-06 19:20:37 =====

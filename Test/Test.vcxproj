@@ -184,6 +184,7 @@
     <ClCompile Include="..\src\road\RoadConstruction.cpp" />
     <ClCompile Include="..\src\render\RoadRenderer_Construction.cpp" />
     <ClCompile Include="..\src\render\RoadRenderer_Streaming.cpp" />
+    <ClCompile Include="..\src\render\RoadRenderer_Async.cpp" />
     <ClCompile Include="..\src\gen\RoadAutoPlace.cpp" />
     <ClCompile Include="..\src\gen\RoadAlignment.cpp" />
     <ClCompile Include="..\src\ui\RoadPlanToolbar.cpp" />
@@ -577,6 +578,8 @@
     <ClCompile Include="..\src\sim\SimThread.cpp" />
     <ClCompile Include="CoreRefactoringTests.cpp" />
     <ClInclude Include="..\src\render\MeshGeometry.hpp" />
+    <ClInclude Include="..\src\render\MeshUploadSlices.hpp" />
+    <ClInclude Include="..\src\world\HeightSnapshot.hpp" />
     <ClInclude Include="..\src\render\RoadRenderDetail.hpp" />
     <ClInclude Include="..\src\save\ChunkDevelopmentStorage.hpp" />
     <ClInclude Include="..\src\sim\ParallelJobs.hpp" />

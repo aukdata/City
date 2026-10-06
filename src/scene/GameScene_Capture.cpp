@@ -429,7 +429,7 @@ void GameScene::updateStreamingBenchmark()
 		DBG_LOG(U"[StreamingProgress] frame={} pending={} signalsMs={:.3f}"_fmt(
 			m_captureFrame, m_worldRenderer.pendingTerrainJobs(), m_renderTimings.signals));
 	}
-	if (m_captureFrame == 60 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
+	if (m_captureFrame == 60 && (m_worldRenderer.pendingTerrainJobs() > 0 || m_roadRenderer.pendingDetailJobs()>0)) { return; }
 	if (m_captureFrame >= 120)
 	{
 		const double cpuMs = timer.msF();

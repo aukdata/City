@@ -1057,6 +1057,9 @@
     <ClCompile Include="..\src\render\RoadRenderer_Streaming.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\render\RoadRenderer_Async.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\gen\RoadAutoPlace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1254,6 +1257,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClInclude Include="..\src\render\MeshGeometry.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\render\MeshUploadSlices.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\world\HeightSnapshot.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\render\RoadRenderDetail.hpp">

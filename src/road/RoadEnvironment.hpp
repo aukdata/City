@@ -10,7 +10,8 @@ namespace RoadEnvironment
 	inline constexpr double kMinimumCover = 1.0;
 	inline constexpr float kSectionStep = 3.0f;
 
-	[[nodiscard]] inline bool coveredAt(const World& world, Vec3 position, bool tunnelCandidate,
+	template<class Heights>
+	[[nodiscard]] inline bool coveredAt(const Heights& world, Vec3 position, bool tunnelCandidate,
 		double crown = kRoadTunnelCrown)
 	{
 		return tunnelCandidate && world.sampleHeight(static_cast<float>(position.x),static_cast<float>(position.z))
@@ -18,7 +19,8 @@ namespace RoadEnvironment
 	}
 
 	/// @brief 両端が屋外でも、短いトンネルを架空線が横切らないよう区間全体を調べる。
-	[[nodiscard]] inline bool outdoorSpan(const World& world,const CubicBezier& curve,
+	template<class Heights>
+	[[nodiscard]] inline bool outdoorSpan(const Heights& world,const CubicBezier& curve,
 		float start,float end,bool tunnelCandidate)
 	{
 		if (!tunnelCandidate) { return true; }

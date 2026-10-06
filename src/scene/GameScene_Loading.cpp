@@ -186,6 +186,15 @@ void GameScene::updateLoading()
 
 			}
 
+			// Apply an explicitly supplied initial benchmark view before preparing its assets.
+			if (getData().playtest && !getData().playtestCommands.isEmpty())
+			{
+				const JSON command = JSON::Load(getData().playtestCommands);
+				if (command && command.contains(U"action") && command[U"action"].getOr<String>(U"") == U"benchmark_view")
+				{
+					processPlaytestCommand(); m_world.update(m_camera.focusPoint());
+				}
+			}
 			m_riverRenderer.build(m_world,m_network);
 			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
 			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
@@ -193,7 +202,6 @@ void GameScene::updateLoading()
 			m_minimapRenderer.buildTerrainTexture(m_world);
 			m_minimapRenderer.updateRoadOverlay(m_network, m_world);
 
-			DebugLog::print(U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF()));
 			for (const auto name : {Asset::Grass, Asset::Ground, Asset::Gravel, Asset::SparseGrass, Asset::Sand, Asset::CoastSand, Asset::Asphalt, Asset::Concrete})
 			{
 				(void)TextureAsset{name}.size();
@@ -202,6 +210,7 @@ void GameScene::updateLoading()
 			m_worldRenderer.setTransportSites(m_trainNetwork, m_network, m_world);
 			m_worldRenderer.prepareWorld(m_world, m_network);
 			m_roadRenderer.preloadFallbacks(m_network,m_world);
+			m_roadRenderer.preloadDetails(m_network,m_world,m_camera.eyePosition());
 			FontAsset(Asset::Small16).preload(U"街の情報交通通知停止再開操作速度人口資金周辺地図混雑平均最大住宅充足率月次収支幸福度道路工事中同じタブを押すと閉じます0123456789×億円年月日時分−＋?…/.: ");
 			String placeGlyphs=U"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,-()";
 			for(const auto& town:m_districts) { placeGlyphs+=SettlementNames::name(town)+SettlementNames::reading(town); }
@@ -211,7 +220,14 @@ void GameScene::updateLoading()
 			(void)m_cityLighting.initialize();
 			m_roadRenderer.prepareSignTextures();
 			m_roadRenderer.prepareGuideSignTextures(m_network);
+			m_trainRenderer.preloadGeometry(m_trainNetwork,m_world);
+			m_vehicleRenderer.preload();
+			m_pedestrianRenderer.preload();
+			m_minimapRenderer.preload(m_camera,m_network,m_trainNetwork,m_districts);
 			m_trainRenderer.prepareFacilityTextures();
+			String debugGlyphs = U"全体秒へ遷移ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]{}()=:_.,+-/<> ";
+			for (const auto& entry : DebugLog::entries()) { debugGlyphs += entry.text; }
+			FontAsset(Asset::Small16).preload(debugGlyphs);
 			m_housingCapacity.update(m_world,WORLD_CHUNKS*WORLD_CHUNKS);
 			if (m_loadingTask == LoadingTask::NewGame)
 			{
@@ -219,6 +235,7 @@ void GameScene::updateLoading()
 				DBG_LOG(U"[InitialEconomy] housing={} population={} grant={:.3f} maintenance={:.3f}"_fmt(
 					m_housingCapacity.capacity(),m_economy.population,m_economy.monthlyGrant(),m_economy.roadMaintenanceCost(m_network)));
 			}
+			DebugLog::print(U"[Phase] 全体 {:.1f}秒 → Playing へ遷移"_fmt(m_loadingTimer.sF()));
 			m_phase = GamePhase::Playing;
 			return;
 		}

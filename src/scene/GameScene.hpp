@@ -378,6 +378,8 @@ private:
 	Array<Vehicle>  m_renderVehicles;
 
 	// 描画プロファイリング
+	bool m_playtestPerformanceOnly = false; ///< Explicit benchmark snapshots omit expensive interactive inspection data.
+	double          m_updateMs = 0.0, m_playtestDiagnosticsMs = 0.0; ///< CPU update before drawing and previous opt-in diagnostics cost.
 	double          m_logicMs = 0.0;
 	double          m_lockWaitMs = 0.0;
 	MainPerfHistory m_mainPerfHistory;
@@ -403,6 +405,7 @@ private:
 		// render2DUI 内訳
 		double uiPlaceNames = 0, uiRouteSigns = 0, uiRenderer = 0;
 		double uiMinimap = 0, uiEdgeHandles = 0, uiPanels = 0;
+		double pre3D=0, flush=0, resolve=0, screen=0; ///< 初回生成とGPU送出・待機を切り分ける。
 		double hudStats = 0, hudDraw = 0; ///< 集計とフォント・HUD描画の停止を区別する。
 	};
 	RenderTimings m_renderTimings;

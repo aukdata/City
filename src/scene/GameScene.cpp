@@ -8,6 +8,7 @@
 GameScene::GameScene(const InitData& init)
 	: IScene{ init }
 {
+	m_roadRenderer.setAsyncDetails(!getData().syncRoads);
 	m_worldRenderer.setAsyncTerrain(!getData().syncTerrain);
 	constexpr double kRoadCacheBuildBudgetMs = 4.0;
 	m_roadRenderer.setCacheBuildBudget(getData().syncRoads ? Math::Inf : kRoadCacheBuildBudgetMs);
@@ -99,6 +100,7 @@ void GameScene::startSimThread()
 
 void GameScene::update()
 {
+	const Stopwatch updateTime{StartImmediately::Yes};
 	m_frameRateGraph.sampleNow();
 	// シミュレーション応答、時間進行、入力、カメラ、描画準備を毎フレームここで順に同期させる。
 	if (m_phase == GamePhase::Loading)
@@ -357,6 +359,7 @@ void GameScene::update()
 	updateDriving(dt,mapInput);
 
 	if (getData().playtest && !getData().playtestCommands.isEmpty() && m_playtestFrame%15==0) { processPlaytestCommand(); }
+	m_updateMs = updateTime.msF();
 	renderWorld();
 	if (getData().playtest) { recordPlaytestFrame(); }
 }

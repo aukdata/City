@@ -9,6 +9,10 @@
 #include "../traffic/TrafficLight.hpp"
 #include "../world/World.hpp"
 #include <Siv3D/ViewFrustum.hpp>
+#include "../world/HeightSnapshot.hpp"
+#include "../road/LocationSigns.hpp"
+#include "../road/RoadSign.hpp"
+#include <future>
 
 /// @brief 通常 / LOD の2段メッシュペア
 struct LodMeshPair { Mesh detail; Mesh lod; };
@@ -45,22 +49,27 @@ public:
 	struct CacheBuildStats
 	{
 		int edges = 0, nodes = 0, markings = 0, furniture = 0, deferred = 0;
+		size_t candidateEdges=0,candidateNodes=0;
 		double partsMs = 0, nodesMs = 0, markingsMs = 0, furnitureMs = 0, fallbackMs = 0;
 		[[nodiscard]] double buildMilliseconds() const { return partsMs + nodesMs + markingsMs + furnitureMs; }
 	};
 	[[nodiscard]] const CacheBuildStats& cacheBuildStats() const { return m_cacheBuildStats; }
 
-	/// @brief Limit new detailed caches per render call; infinity is the synchronous reference.
-	/// @details Existing geometry always draws. A single build cannot be interrupted.
+	/// @brief Full-scan reference path for conservative index readback tests.
+	void setSpatialQueryEnabled(bool enabled) { m_spatialQuery = enabled; }
 	/// @brief Controlled reference path for overview rendering verification.
 	void setOverviewEnabled(bool enabled) { m_overviewEnabled = enabled; }
 	[[nodiscard]] size_t overviewDrawCalls() const { return m_overviewDrawCalls; }
+	/// @brief Limit new detailed caches per render call; infinity is the synchronous reference.
+	/// @details Existing geometry always draws. A single build cannot be interrupted.
 	void setCacheBuildBudget(double milliseconds) { m_cacheBuildBudgetMs = Max(0.01, milliseconds); }
 
 	/// @brief 道路部品アセットをロードする
 	bool loadAssets();
 	/// @brief 読み込み中に地域全体の簡略路面を準備し、視点移動時の一斉生成を避ける。
 	void preloadFallbacks(const RoadNetwork& network,const World& world);
+	/// @brief Prepare the initial nearby equipment before play; later visits use frame-bounded streaming.
+	void preloadDetails(const RoadNetwork& network, const World& world, Vec3 eye);
 	/// @brief Construction uses the paused/resumed game clock, never wall time.
 	void setConstructionTime(GameTime now) { m_constructionNow = now; }
 
@@ -133,10 +142,20 @@ public:
 	                      const ViewFrustum& frustum, Vec3 cameraPos);
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; bool cable = false; };
+	/// @brief CPU-only equipment geometry, safe to construct on workers.
+	struct LaneLineMeshData { ColorF color; MeshData mesh; bool cable=false; };
+	void setAsyncDetails(bool enabled) { m_asyncDetails=enabled; }
+	[[nodiscard]] size_t pendingDetailJobs() const { return m_detailJobs.size(); }
+	/// @brief Whether a complete, current equipment snapshot has been published.
+	[[nodiscard]] bool hasPublishedDetails(int edgeId) const
+	{
+		return m_streetFurnitureCache.contains(edgeId) && m_signCache.contains(edgeId) && m_guideSignCache.contains(edgeId);
+	}
 
 	/// @brief 市町村名の参照元を変更し、境界標識の位置を再生成する。
 	void setMunicipalityLookup(std::function<String(Vec2)> lookup)
 	{
+		++m_detailEpoch;
 		m_municipalityLookup = std::move(lookup);
 		m_signCache.clear();
 	}
@@ -165,10 +184,49 @@ private:
 		uint64 texKey = 0;   ///< m_guideSignTexCache のキー
 	};
 
+	/// @brief Captured metadata and CPU geometry only; no graphics assets enter workers.
+	struct GuideSignMeshData { Mat4x4 poleMat,boardMat; Vec3 poleTop; MeshData board,back; uint64 texKey=0; };
+	struct DetailInput
+	{
+		RoadEdge edge; CubicBezier curve; HeightSnapshot heights;
+		Array<LocationSigns::Boundary> boundaries;
+		Array<GuideSignPlacement> guides;
+		RoadSign::PoleMetadata signMeta; GuideSign::PoleMetadata guideMeta;
+		float marginA,marginB;
+	};
+	struct DetailResult { Array<LaneLineMeshData> furniture; Array<SignDraw> signs; Array<GuideSignMeshData> guides; double milliseconds=0; };
+	struct DetailJob
+	{
+		int edge; uint64 epoch,revision; std::future<DetailResult> future;
+		Optional<DetailResult> result; Array<LaneLineBatch> uploaded; Array<GuideSignDraw> uploadedGuides;
+		size_t furnitureIndex=0,guideIndex=0;
+	};
+	Array<DetailJob> m_detailJobs;
+	HashTable<int,uint64> m_detailRevisions;
+	uint64 m_detailEpoch=0;
+	bool m_asyncDetails=false;
+	void startDetailJob(const RoadEdge& edge,const RoadNetwork& network,const World& world,float marginA,float marginB);
+	void uploadCompletedDetails();
+	static Array<LaneLineMeshData> buildFurnitureMeshData(const RoadEdge& edge,const CubicBezier& curve,const HeightSnapshot& heights,float marginA,float marginB);
+	static Array<SignDraw> buildSnapshotSigns(const DetailInput& input);
+	static Array<GuideSignMeshData> buildSnapshotGuides(const DetailInput& input);
+
+	/// @brief Every cell touched by an edge bound is indexed, including long cross-cell roads.
+	HashTable<int64,HashSet<int>> m_spatialEdges,m_spatialNodes;
+	HashTable<int,Array<int64>> m_edgeCells,m_nodeCells;
+	HashTable<int64,Vec2> m_spatialHeights;
+	HashSet<int> m_dirtySpatialEdges,m_dirtySpatialNodes;
+	const RoadNetwork* m_spatialNetwork=nullptr;
+	size_t m_indexedEdges=0,m_indexedNodes=0;
+	bool m_spatialQuery=true;
+	void synchronizeSpatialIndex(const RoadNetwork& network);
+	Array<int> querySpatial(Vec3 eye,const ViewFrustum& frustum,bool nodes) const;
+	Array<int> queryNearbyNodes(const RoadNetwork& network, Vec3 eye, double radius);
 	/// @brief Source strips stay indexed by owner so edits invalidate only their batch.
 	struct OverviewPart { MeshData data; PartMeshEntry visual; };
 	struct OverviewSource { int64 chunk; Array<OverviewPart> parts; int nodeA = -1, nodeB = -1; };
 	HashTable<int64, OverviewSource> m_overviewSources;
+	HashTable<int64,HashSet<int64>> m_overviewOwners;
 	HashTable<int64, Array<PartMeshEntry>> m_overviewBatches;
 	HashSet<int64> m_overviewDrawn;
 	HashSet<int64> m_overviewDirty;
@@ -444,7 +502,7 @@ private:
 	HashTable<int, Array<LaneLineBatch>>      m_markingCacheByEdge; ///< エッジ ID → 統合道路標示
 	HashTable<int, Array<LaneLineBatch>>      m_streetFurnitureCache;
 	uint64 m_geometryRevision = 0;
-	HashSet<int64> m_dirtyTerrainObserved;
+	HashTable<int64,uint64> m_dirtyTerrainObserved;
 	VertexShader m_cableVS;
 	PixelShader m_cablePS;
 	struct CableView { Float4 viewport{ 1, 1, 1, 1 }; };

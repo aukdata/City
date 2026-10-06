@@ -151,10 +151,11 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		}
 	}
 
+	if(m_asyncDetails && (isClose || prepareDetail)) { startDetailJob(edge,network,world,marginA,marginB); }
 	// ---- 道路沿い設備（近距離のみ） ----
 	if (isClose || prepareDetail)
 	{
-		if (!m_streetFurnitureCache.contains(edge.id) && canBuildCache())
+		if (!m_asyncDetails && !m_streetFurnitureCache.contains(edge.id) && canBuildCache())
 		{
 			const auto bez = network.getBezier(edge.id);
 			if (!bez) return;
@@ -183,12 +184,12 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 	// 規制標識・案内板も接近前に準備し、初回描画で予算外の作業を集中させない。
 	if(isClose || prepareDetail)
 	{
-		if(!m_signCache.contains(edge.id) && canBuildCache())
+		if(!m_asyncDetails && !m_signCache.contains(edge.id) && canBuildCache())
 		{
 			const Stopwatch timer{StartImmediately::Yes};m_signCache[edge.id]=buildEdgeSignMeshes(network,edge.id,world);
 			if(timer.msF()>20) { DBG_LOG(U"[RoadCacheCost] edge={} stage=sign ms={:.2f}"_fmt(edge.id,timer.msF())); }m_cacheBuildStats.furnitureMs+=timer.msF();
 		}
-		if(!m_guideSignCache.contains(edge.id) && canBuildCache())
+		if(!m_asyncDetails && !m_guideSignCache.contains(edge.id) && canBuildCache())
 		{
 			const Stopwatch timer{StartImmediately::Yes};m_guideSignCache[edge.id]=buildEdgeGuideSignDraws(network,edge.id,world);
 			if(timer.msF()>20) { DBG_LOG(U"[RoadCacheCost] edge={} stage=guideSign ms={:.2f}"_fmt(edge.id,timer.msF())); }m_cacheBuildStats.furnitureMs+=timer.msF();
@@ -515,6 +516,17 @@ void RoadRenderer::drawNodeCapWireframe(const RoadNetwork& network, int nodeId, 
 void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& world,
                                      const ViewFrustum& frustum, Vec3 cameraPos)
 {
+	synchronizeSpatialIndex(network);
+	Array<int> edgeCandidates, nodeCandidates;
+	if (m_spatialQuery)
+	{
+		edgeCandidates = querySpatial(cameraPos, frustum, false); nodeCandidates = querySpatial(cameraPos, frustum, true);
+	}
+	else
+	{
+		for (const auto& edge : network.edges()) { if (edge.id >= 0) { edgeCandidates << edge.id; } }
+		for (const auto& node : network.nodes()) { if (node.id >= 0) { nodeCandidates << node.id; } }
+	}
 	const float camX = static_cast<float>(cameraPos.x);
 	const float camZ = static_cast<float>(cameraPos.z);
 	constexpr float kDrawMaxDistSqF = static_cast<float>(kDrawMaxDistSq);
@@ -522,8 +534,9 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 	const ColorF wirePlanned        = ColorF{ 1.0, 1.0, 1.0, 1.0 };
 	const ColorF wireUnderConstruct = ColorF{ 1.0, 0.8, 0.2, 1.0 };
 
-	for (const RoadEdge& edge : network.edges())
+	for (int id : edgeCandidates)
 	{
+		const auto* source = network.getEdge(id); if (!source) { continue; } const RoadEdge& edge = *source;
 		if (edge.id < 0) continue;
 		if (edge.edgeState != EdgeState::Planned) continue;
 
@@ -547,8 +560,9 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 	}
 
 	// ワイヤーノードキャップ（交差点）
-	for (const RoadNode& node : network.nodes())
+	for (int id : nodeCandidates)
 	{
+		const auto* source = network.getNode(id); if (!source) { continue; } const RoadNode& node = *source;
 		if (node.id < 0) continue;
 		const float ndx = static_cast<float>(node.position.x) - camX;
 		const float ndz = static_cast<float>(node.position.z) - camZ;
@@ -590,6 +604,7 @@ void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& 
 		}
 		m_overviewDirty.insert(overview.chunk);
 		m_overviewSources[static_cast<int64>(edge.id) * 2] = std::move(overview);
+		m_overviewOwners[m_overviewSources.at(static_cast<int64>(edge.id)*2).chunk].insert(static_cast<int64>(edge.id)*2);
 		m_fallbackEdges.emplace(edge.id, std::move(entries));
 		++m_geometryRevision;
 		m_cacheBuildStats.fallbackMs += timer.msF();
@@ -625,6 +640,7 @@ void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, c
 			const int64 key = chunkCoordToKey({static_cast<int>(Floor(node->position.x / CHUNK_SIZE)), static_cast<int>(Floor(node->position.z / CHUNK_SIZE))});
 			m_overviewDirty.insert(key);
 			m_overviewSources[static_cast<int64>(nodeId) * 2 + 1] = OverviewSource{key, {{std::move(data), m_fallbackNodes.at(nodeId)}}};
+			m_overviewOwners[key].insert(static_cast<int64>(nodeId)*2+1);
 		}
 		m_cacheBuildStats.fallbackMs += timer.msF();
 	}
@@ -640,9 +656,10 @@ void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const 
 void RoadRenderer::rebuildOverview(int64 chunk)
 {
 	Array<OverviewPart> groups;
-	for (const auto& [owner, source] : m_overviewSources)
+	for (int64 owner : m_overviewOwners[chunk])
 	{
-		if (source.chunk != chunk) { continue; }
+		const auto found=m_overviewSources.find(owner);if(found==m_overviewSources.end()) { continue; }
+		const auto& source=found->second;
 		for (const auto& part : source.parts)
 		{
 			auto group = std::find_if(groups.begin(), groups.end(), [&](const OverviewPart& candidate)
@@ -668,6 +685,7 @@ void RoadRenderer::invalidateOverview(int64 owner)
 {
 	if (const auto source = m_overviewSources.find(owner); source != m_overviewSources.end())
 	{
+		m_overviewOwners[source->second.chunk].erase(owner);
 		m_overviewDirty.insert(source->second.chunk);
 		m_overviewBatches.erase(source->second.chunk);
 		m_overviewSources.erase(source);

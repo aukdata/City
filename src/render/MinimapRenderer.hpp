@@ -12,6 +12,8 @@
 class MinimapRenderer
 {
 public:
+	/// @brief Warm initial cartography and local terrain without consuming player input.
+	void preload(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 	void setSmallBounds(Optional<RectF> bounds) { m_smallBounds=bounds;m_smallVisible=bounds.has_value(); }
 	void buildTerrainTexture(const World& world);
 	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world;m_districts=&districts;m_mapDirty=true; }

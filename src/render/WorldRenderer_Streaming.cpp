@@ -1,4 +1,5 @@
 ﻿#include "WorldRenderer.hpp"
+#include "MeshUploadSlices.hpp"
 #include "LandscapeMaterials.hpp"
 #include "TerrainMaterials.hpp"
 #include "TreeGeometry.hpp"
@@ -115,6 +116,13 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 			Array<TreeInstance> unusedTrees;
 			result.landscape = buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
 				input->sites, result.landscapeStats, unusedTrees, false, false);
+			auto partition=[](Array<TerrainMeshData>& batches)
+			{
+				Array<TerrainMeshData> slices;
+				for(auto& batch:batches) { for(auto& mesh:MeshUploadSlices::split(std::move(batch.meshData))) { slices << TerrainMeshData{batch.materialKey,std::move(mesh)}; } }
+				batches=std::move(slices);
+			};
+			partition(result.batches);partition(result.landscape);
 			result.milliseconds = timer.msF();
 			return result;
 		});

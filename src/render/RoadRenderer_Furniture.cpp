@@ -23,10 +23,10 @@ namespace
 
 }
 
-Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
+Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 	const RoadEdge& edge, const CubicBezier& bezier,
-	const World& world,
-	float marginA, float marginB) const
+	const HeightSnapshot& world,
+	float marginA, float marginB)
 {
 	StripRange range;
 	if (!calcStripRange(bezier.totalLength, marginA, marginB, range)) return {};
@@ -49,12 +49,6 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 		const float offset = (part.offsetL() + part.offsetR()) * 0.5f;
 		float spacing = part.repeatSpacing;
 		float jitter = part.repeatJitter;
-		if (!part.defId.isEmpty())
-		{
-			const RoadPartDef& def = m_partRegistry.get(part.defId);
-			if (part.useDefinitionRepeatSpacing) spacing = def.repeatSpacing;
-			if (part.useDefinitionRepeatJitter) jitter = def.repeatJitter;
-		}
 		spacing = Max(spacing, 4.0f);
 		jitter = Max(jitter, 0.0f);
 		const float objectHalfDepth = (part.type == RoadPartType::UtilityPole) ? 0.12f : 0.35f;
@@ -205,17 +199,34 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(
 			}
 		}
 	}
-	Array<LaneLineBatch> batches;
+	Array<LaneLineMeshData> batches;
 	for (const auto& item : {std::pair<const MeshData*,ColorF>{&mountain.wall,ColorF{.43,.45,.40}},
 		{&mountain.moss,ColorF{.24,.34,.16}},{&mountain.rail,ColorF{.48,.49,.43}},
 		{&mountain.posts,ColorF{.82,.81,.69}},{&mountain.reflectors,ColorF{1,.36,.07}}})
 	{
-		if (!item.first->indices.isEmpty()) { batches<<LaneLineBatch{item.second.removeSRGBCurve(),Mesh{*item.first}}; }
+		if (!item.first->indices.isEmpty()) { batches<<LaneLineMeshData{item.second.removeSRGBCurve(),*item.first}; }
 	}
-	if (!poleMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.57, 0.57, 0.53 }.removeSRGBCurve(), Mesh{ poleMd } };
-	if (!cableMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.05, 0.05, 0.045 }.removeSRGBCurve(), Mesh{ cableMd }, true };
-	if (!markerMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), Mesh{ markerMd } };
-	if (!ironMd.vertices.isEmpty()) { batches << LaneLineBatch{ColorF{.43,.44,.43}.removeSRGBCurve(),Mesh{ironMd}}; }
-	if (!roadsideMd.vertices.isEmpty()) batches << LaneLineBatch{ ColorF{ 0.30, 0.33, 0.33 }.removeSRGBCurve(), Mesh{ roadsideMd } };
+	if (!poleMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.57, 0.57, 0.53 }.removeSRGBCurve(), std::move(poleMd) };
+	if (!cableMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.05, 0.05, 0.045 }.removeSRGBCurve(), std::move(cableMd), true };
+	if (!markerMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), std::move(markerMd) };
+	if (!ironMd.vertices.isEmpty()) { batches << LaneLineMeshData{ColorF{.43,.44,.43}.removeSRGBCurve(),std::move(ironMd)}; }
+	if (!roadsideMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.30, 0.33, 0.33 }.removeSRGBCurve(), std::move(roadsideMd) };
+	return batches;
+}
+
+Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildStreetFurnitureBatches(const RoadEdge& edge,const CubicBezier& curve,const World& world,float marginA,float marginB) const
+{
+	RoadEdge resolved=edge;
+	for(auto& part:resolved.parts) if(!part.defId.isEmpty())
+	{
+		const auto& def=m_partRegistry.get(part.defId);
+		if(part.useDefinitionRepeatSpacing) { part.repeatSpacing=def.repeatSpacing; }
+		if(part.useDefinitionRepeatJitter) { part.repeatJitter=def.repeatJitter; }
+	}
+	Vec2 lower{Math::Inf,Math::Inf},upper{-Math::Inf,-Math::Inf};
+	for(const auto p:{curve.p0,curve.p1,curve.p2,curve.p3}) { lower.x=Min(lower.x,p.x);lower.y=Min(lower.y,p.z);upper.x=Max(upper.x,p.x);upper.y=Max(upper.y,p.z); }
+	HeightSnapshot heights{world,RectF{lower,upper-lower}.stretched(equipmentPadding(edge))};
+	Array<LaneLineBatch> batches;
+	for(auto& data:buildFurnitureMeshData(resolved,curve,heights,marginA,marginB)) { batches << LaneLineBatch{data.color,Mesh{data.mesh},data.cable}; }
 	return batches;
 }

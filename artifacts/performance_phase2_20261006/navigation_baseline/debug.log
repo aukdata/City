@@ -1,0 +1,1085 @@
+﻿===== DebugLog started 2026-10-06 19:14:28 =====
+[0.0058969s] [GameApp] started
+[0.0059729s] [GameApp] direct start: new game
+[0.161798s] [StreetMaterials] asphalt=true pavement=true
+[0.463376s] [SignalRegistry] signal_3lamp: 6 meshes loaded
+[0.479869s] [SignalRegistry] Loaded 1 signal definitions from assets/signals
+[0.480891s] [RoadPartRegistry] curb_concrete: inner=4 center=12 outer=4 verts
+[0.481522s] [RoadPartRegistry] guardrail_steel: inner=8 center=28 outer=8 verts
+[0.482066s] [RoadPartRegistry] median_concrete: inner=4 center=4 outer=4 verts
+[0.498526s] [RoadPartRegistry] roadbed_asphalt: inner=4 center=4 outer=4 verts
+[0.508706s] [RoadPartRegistry] roadbed_ballast: inner=4 center=4 outer=4 verts
+[0.520723s] [RoadPartRegistry] roadbed_slab: inner=4 center=4 outer=4 verts
+[0.521331s] [RoadPartRegistry] roadside_gutter_concrete: inner=4 center=12 outer=4 verts
+[0.52185s] [RoadPartRegistry] sidewalk_tile: inner=8 center=4 outer=8 verts
+[0.522674s] [RoadPartRegistry] slope_grass: inner=4 center=4 outer=4 verts
+[0.523224s] [RoadPartRegistry] Loaded 11 part definitions from assets/road_parts
+[0.926357s] [Loading] 4096 チャンク生成開始
+[1.68532s] [RiverNetwork] reaches=146822 lengthKm=913.9 confluences=114 spillways=160 sinks=0 self=90 exhausted=0
+[1.88963s] [Phase1] 地形生成完了: 4096 チャンク (0.2秒)
+[2.10339s] [NewTownPlacement] districts=3
+[2.16895s] [SettlementHierarchy] cities=4 towns=10 villages=47 catchmentVillages=28 candidates=1372
+[2.17183s] [SettlementPlacement] total=61 elapsedMs=282.1
+[2.17358s] [Roads] ノード作成: 61 (城下町=4, 宿場町=10, 農村=47)
+[2.26139s] [RoadTerrainFit] continuous=true points=116 curves=903 cost=188072.06194767528 from=(16724, 40.33232498168945, 43468) to=(24252, 32.633399963378906, 23772) elapsedMs=50.066
+[2.30633s] [RoadTerrainFit] continuous=true points=38 curves=714 cost=113743.986826026 from=(16724, 40.33232498168945, 43468) to=(24252, 32.633399963378906, 23772) elapsedMs=34.39
+[2.30911s] [RoadGroundCorridor] cells=50 step=250 margin=15814.21196266194
+[2.34586s] [RoadTerrainFit] continuous=true points=22 curves=680 cost=169834.99806679145 from=(16724, 40.33232498168945, 43468) to=(24252, 32.633399963378906, 23772) elapsedMs=36.704
+[2.62982s] [RoadTerrainFitRejected] continuous=true points=105 radiusPasses=0 profilePasses=0
+[2.67663s] [RoadTerrainFit] continuous=false points=105 curves=906 cost=219680.92975867132 from=(24252, 32.633399963378906, 23772) to=(45276, 38.49241638183594, 30396) elapsedMs=49.304
+[2.74336s] [RoadTerrainFit] continuous=true points=39 curves=906 cost=289067.6325723247 from=(24252, 32.633399963378906, 23772) to=(45276, 38.49241638183594, 30396) elapsedMs=53.86
+[2.7511s] [RoadGroundCorridor] cells=71 step=250 margin=16532.115654083722
+[2.79511s] [RoadTerrainFit] continuous=true points=36 curves=774 cost=322309.110485852 from=(24252, 32.633399963378906, 23772) to=(45276, 38.49241638183594, 30396) elapsedMs=43.982
+[3.03494s] [RoadTerrainFitRejected] continuous=true points=105 radiusPasses=0 profilePasses=0
+[3.08309s] [RoadTerrainFit] continuous=false points=105 curves=1006 cost=167087.70590220706 from=(45276, 38.49241638183594, 30396) to=(62140, 45.626712799072266, 53164) elapsedMs=50.323
+[3.13773s] [RoadTerrainFitRejected] continuous=true points=231 radiusPasses=0 profilePasses=0
+[3.14526s] [RoadTerrainFitRejected] continuous=false points=231 radiusPasses=0 profilePasses=0
+[3.15764s] [RoadTerrainFitRejected] continuous=true points=155 radiusPasses=0 profilePasses=0
+[3.2018s] [RoadTerrainEnvelope] points=155 pass=32 excess=510.08349114712996 index=635 first=(16724, 40.33232498168945, 43468) last=(10, 880.4038696289062, 43468)
+[3.20221s] [RoadTerrainFitRejected] continuous=false points=155 radiusPasses=4 profilePasses=0
+[3.239s] [RoadGroundCorridor] cells=0 step=250 margin=12535.5
+[3.3379s] [RoadAlignmentSearch] nearest=14557.042692695713 highest=172.7737263788758 goals=0 fitFailures=0 nodes=12015
+[3.33797s] [RoadAlignmentBlocked] from=(16724, 40.33232498168945, 43468) to=(10, 880.4038696289062, 43468) expanded=1000 limit=1000
+[3.33946s] [RoadGeneration] no legal alignment from=2 to=2684 distance=16714
+[3.34147s] [RoadGeneration] no feasible coarse path from=0 to=2685
+[3.34175s] [Roads] Layer1 国道指定: main=1 branches=0
+[3.3421s] [Roads] Layer1 幹線街道: 1168ms (nodes=2686, edges=2626)
+[3.34841s] [RoadTerrainFitRejected] continuous=true points=35 radiusPasses=0 profilePasses=0
+[3.35779s] [RoadTerrainFit] continuous=false points=35 curves=193 cost=71629.80050344992 from=(19852.528778815056, 84.9779052734375, 33366.10902330818) to=(15700, 46.263648986816406, 31420) elapsedMs=9.775
+[3.35902s] [RoadTerrainFitRejected] continuous=true points=13 radiusPasses=0 profilePasses=0
+[3.3671s] [RoadTerrainFit] continuous=false points=13 curves=156 cost=128433.99747889265 from=(19852.528778815056, 84.9779052734375, 33366.10902330818) to=(15700, 46.263648986816406, 31420) elapsedMs=8.208
+[3.36751s] [RoadGroundCorridor] cells=16 step=250 margin=3439.4541745875076
+[3.37813s] [RoadTerrainFit] continuous=true points=9 curves=162 cost=19291.639852270717 from=(19852.528778815056, 84.9779052734375, 33366.10902330818) to=(15700, 46.263648986816406, 31420) elapsedMs=10.599
+[3.43144s] [RoadTerrainFit] continuous=true points=11 curves=80 cost=2274.2947483062744 from=(60430.74454101846, 35.878440856933594, 51070.7390492592) to=(58828, 33.564971923828125, 52684) elapsedMs=2.2
+[3.44321s] [RoadTerrainFit] continuous=true points=27 curves=129 cost=3642.473906993866 from=(25751.047831319767, 31.541994094848633, 23064.777659551255) to=(23652, 46.489646911621094, 20156) elapsedMs=5.433
+[3.44694s] [RoadTerrainFit] continuous=true points=13 curves=65 cost=1788.895393371582 from=(47208.91308579552, 32.65583419799805, 32328.959295305922) to=(48468, 48.29328918457031, 31060) elapsedMs=1.766
+[3.46896s] [RoadTerrainFit] continuous=true points=45 curves=286 cost=37185.187825881665 from=(16724, 40.33232498168945, 43468) to=(19556, 36.261295318603516, 51116) elapsedMs=15.458
+[3.51262s] [RoadTerrainFit] continuous=true points=48 curves=342 cost=92888.85081728666 from=(19422.563224841004, 53.200531005859375, 36855.525799548304) to=(27324, 37.610145568847656, 40636) elapsedMs=34.77
+[3.53114s] [RoadTerrainEnvelope] points=52 pass=0 excess=0.872124335132682 index=250 first=(19422.563224841004, 53.200531005859375, 36855.525799548304) last=(27324, 37.610145568847656, 40636)
+[3.54736s] [RoadTerrainEnvelope] points=52 pass=32 excess=2.0280330243346896 index=247 first=(19422.563224841004, 53.200531005859375, 36855.525799548304) last=(27324, 37.610145568847656, 40636)
+[3.54746s] [RoadTerrainFitRejected] continuous=true points=52 radiusPasses=9 profilePasses=0
+[3.5497s] [RoadTerrainEnvelope] points=52 pass=0 excess=3.583411772173079 index=268 first=(19422.563224841004, 53.200531005859375, 36855.525799548304) last=(27324, 37.610145568847656, 40636)
+[3.57254s] [RoadTerrainEnvelope] points=52 pass=32 excess=3.8399826756534594 index=287 first=(19422.563224841004, 53.200531005859375, 36855.525799548304) last=(27324, 37.610145568847656, 40636)
+[3.57269s] [RoadTerrainFit] continuous=false points=52 curves=392 cost=329870.72016090254 from=(19422.563224841004, 53.200531005859375, 36855.525799548304) to=(27324, 37.610145568847656, 40636) elapsedMs=43.499
+[3.58153s] [RoadGroundCorridor] cells=79 step=87.59263 margin=6569.4472495267955
+[3.61669s] [RoadTerrainFit] continuous=true points=34 curves=330 cost=96207.44360295708 from=(19422.563224841004, 53.200531005859375, 36855.525799548304) to=(27324, 37.610145568847656, 40636) elapsedMs=35.138
+[3.69428s] [RoadTerrainFit] continuous=true points=37 curves=256 cost=74491.15909669896 from=(30520.99974646726, 45.980072021484375, 22779.83585565867) to=(30516, 38.93406677246094, 30036) elapsedMs=15.882
+[3.72896s] [RoadTerrainFit] continuous=true points=45 curves=250 cost=92604.19520397548 from=(30520.99974646726, 45.980072021484375, 22779.83585565867) to=(30516, 38.93406677246094, 30036) elapsedMs=17.047
+[3.79816s] [RoadGroundCorridor] cells=90 step=72.56166 margin=5442.124400129771
+[3.81409s] [RoadTerrainFit] continuous=true points=36 curves=246 cost=74791.93689358121 from=(30520.99974646726, 45.980072021484375, 22779.83585565867) to=(30516, 38.93406677246094, 30036) elapsedMs=15.896
+[3.87554s] [RoadTerrainFit] continuous=true points=22 curves=168 cost=5032.160720825195 from=(29118.06797701573, 45.269195556640625, 22779.844853029965) to=(29132, 41.86102294921875, 17748) elapsedMs=9.268
+[3.90949s] [RoadTerrainFit] continuous=true points=78 curves=429 cost=12350.350463867188 from=(48468, 48.29328918457031, 31060) to=(59308, 41.526695251464844, 25396) elapsedMs=20.331
+[3.92586s] [RoadTerrainFit] continuous=true points=28 curves=188 cost=38200.524997314365 from=(58828, 33.564971923828125, 52684) to=(53708, 42.079124450683594, 51116) elapsedMs=10.563
+[3.92722s] [Roads] Layer2 地方道: 585ms (宿場町接続=10/10)
+[3.9292s] [RoadTerrainEnvelope] points=8 pass=32 excess=0.9406065422382177 index=17 first=(59694.62108341596, 35.4203466593828, 50334.108135953735) last=(59308, 27.191022872924805, 50636)
+[3.92921s] [RoadTerrainFit] continuous=true points=8 curves=20 cost=7815.337989940583 from=(59694.62108341596, 35.4203466593828, 50334.108135953735) to=(59308, 27.191022872924805, 50636) elapsedMs=1.193
+[3.9311s] [RoadTerrainFit] continuous=true points=6 curves=19 cost=38475.44971342792 from=(59694.62108341596, 35.4203466593828, 50334.108135953735) to=(59308, 27.191022872924805, 50636) elapsedMs=1.619
+[3.93126s] [RoadGroundCorridor] cells=7 step=48 margin=240
+[3.93135s] [RoadTerrainEnvelope] points=4 pass=0 excess=2.673570996165445 index=15 first=(59694.62108341596, 35.4203466593828, 50334.108135953735) last=(59308, 27.191022872924805, 50636)
+[3.932s] [RoadTerrainEnvelope] points=4 pass=32 excess=2.5753301331304392 index=16 first=(59694.62108341596, 35.4203466593828, 50334.108135953735) last=(59308, 27.191022872924805, 50636)
+[3.93201s] [RoadTerrainFitRejected] continuous=true points=4 radiusPasses=9 profilePasses=0
+[3.9321s] [RoadTerrainEnvelope] points=4 pass=0 excess=1.0018275704277038 index=17 first=(59694.62108341596, 35.4203466593828, 50334.108135953735) last=(59308, 27.191022872924805, 50636)
+[3.93279s] [RoadTerrainEnvelope] points=4 pass=32 excess=3.596720224495357 index=18 first=(59694.62108341596, 35.4203466593828, 50334.108135953735) last=(59308, 27.191022872924805, 50636)
+[3.9328s] [RoadTerrainFitRejected] continuous=false points=4 radiusPasses=9 profilePasses=0
+[4.00761s] [RoadTerrainFit] continuous=true points=23 curves=98 cost=2740.1076893806458 from=(59308, 41.526695251464844, 25396) to=(61780, 48.74073791503906, 26420) elapsedMs=5.052
+[4.01037s] [RoadTerrainFit] continuous=true points=24 curves=48 cost=1173.8456630706787 from=(55558.841403075625, 31.28361701965332, 51479.9609375) to=(55996, 26.319427490234375, 52564) elapsedMs=1.35
+[4.01147s] [RoadTerrainFit] continuous=true points=10 curves=18 cost=396.83445739746094 from=(56741.960936538875, 32.073612213134766, 51479.9609375) to=(56900, 34.02714538574219, 51116) elapsedMs=0.502
+[4.02146s] [RoadTerrainFit] continuous=true points=26 curves=103 cost=17726.72859974341 from=(15747.205345867967, 46.23427963256836, 31404.70534787031) to=(14916, 42.34165954589844, 28588) elapsedMs=6.358
+[4.02983s] [RoadTerrainFit] continuous=true points=26 curves=114 cost=3260.9551696777344 from=(58255.60307564019, 40.49919891357422, 25876.33167456263) to=(56420, 33.96415710449219, 23228) elapsedMs=5.278
+[4.03261s] [RoadTerrainFitRejected] continuous=true points=21 radiusPasses=0 profilePasses=0
+[4.03794s] [RoadTerrainFit] continuous=false points=21 curves=106 cost=26249.89498236217 from=(19556, 36.261295318603516, 51116) to=(17204, 32.283287048339844, 51420) elapsedMs=5.543
+[4.04729s] [RoadTerrainFit] continuous=true points=23 curves=88 cost=24707.835934868115 from=(19556, 36.261295318603516, 51116) to=(17204, 32.283287048339844, 51420) elapsedMs=3.894
+[4.04825s] [RoadGroundCorridor] cells=44 step=48 margin=1778.673663154655
+[4.05193s] [RoadTerrainFit] continuous=true points=19 curves=86 cost=22213.032339424397 from=(19556, 36.261295318603516, 51116) to=(17204, 32.283287048339844, 51420) elapsedMs=3.676
+[4.09404s] [RoadTerrainFit] continuous=true points=24 curves=133 cost=3934.6521706581116 from=(27324, 37.610145568847656, 40636) to=(30396, 20.719627380371094, 42924) elapsedMs=7.611
+[4.10016s] [RoadTerrainFit] continuous=true points=16 curves=86 cost=19959.674373933343 from=(15026.59339527111, 40.06491470336914, 28852.092985162257) to=(12868, 46.62201690673828, 29132) elapsedMs=3.657
+[4.10688s] [RoadTerrainFit] continuous=true points=18 curves=77 cost=18158.601721097344 from=(15026.59339527111, 40.06491470336914, 28852.092985162257) to=(12868, 46.62201690673828, 29132) elapsedMs=3.48
+[4.10761s] [RoadGroundCorridor] cells=40 step=48 margin=1632.49924287063
+[4.1109s] [RoadTerrainFit] continuous=true points=16 curves=77 cost=19160.46572950439 from=(15026.59339527111, 40.06491470336914, 28852.092985162257) to=(12868, 46.62201690673828, 29132) elapsedMs=3.278
+[4.15096s] [RoadTerrainFit] continuous=true points=19 curves=85 cost=37889.8397706661 from=(30516, 38.93406677246094, 30036) to=(28348, 28.564598083496094, 29492) elapsedMs=7.227
+[4.1665s] [RoadTerrainFit] continuous=true points=25 curves=89 cost=31078.260401388558 from=(30516, 38.93406677246094, 30036) to=(28348, 28.564598083496094, 29492) elapsedMs=7.554
+[4.16792s] [RoadGroundCorridor] cells=39 step=48 margin=1676.4068718542048
+[4.17411s] [RoadTerrainFit] continuous=true points=17 curves=80 cost=39261.485049308576 from=(30516, 38.93406677246094, 30036) to=(28348, 28.564598083496094, 29492) elapsedMs=6.177
+[4.20375s] [RoadTerrainFit] continuous=true points=10 curves=18 cost=399.8592538833618 from=(29124.098426346398, 61.23236846923828, 21023.934416502074) to=(29492, 72.1936264038086, 21180) elapsedMs=0.554
+[4.2178s] [RoadTerrainFit] continuous=true points=32 curves=148 cost=4346.405555725098 from=(29479.593128145796, 34.323265075683594, 29991.593128145796) to=(26964, 43.03321075439453, 33468) elapsedMs=8.812
+[4.21976s] [RoadTerrainFit] continuous=true points=8 curves=20 cost=1174.3932790756226 from=(20484.949996564395, 101.18118286132812, 32406.243282421383) to=(20276, 61.68285369873047, 31964) elapsedMs=0.518
+[4.22687s] [RoadTerrainFit] continuous=true points=17 curves=105 cost=3193.8957748413086 from=(27337.456720588452, 39.26960372924805, 32694.357947834935) to=(29492, 35.619895935058594, 35036) elapsedMs=4.95
+[4.23149s] [RoadTerrainFit] continuous=true points=25 curves=65 cost=1727.5201420783997 from=(22843.115236386657, 28.95194435119629, 40416.3144535179) to=(21844, 34.81381607055664, 41780) elapsedMs=2.165
+[4.24295s] [RoadTerrainFit] continuous=true points=28 curves=145 cost=29617.940089541826 from=(57574.185693850624, 100.03596496582031, 46103.65775013175) to=(53708, 25.186893463134766, 45996) elapsedMs=7.581
+[4.25801s] [RoadTerrainFit] continuous=true points=39 curves=181 cost=20793.024120764672 from=(55864.01558843996, 41.40643310546875, 26956.89818578013) to=(57140, 40.26054382324219, 31540) elapsedMs=11.081
+[4.26233s] [RoadTerrainFit] continuous=true points=21 curves=85 cost=2373.312880039215 from=(49861.009061031626, 92.42156982421875, 29697.3000072911) to=(48588, 138.7598114013672, 27748) elapsedMs=2.444
+[4.2782s] [RoadTerrainFit] continuous=true points=26 curves=189 cost=36057.269029136674 from=(29433.23880299357, 24.77996826171875, 42483.64302939807) to=(29012, 32.62958908081055, 48044) elapsedMs=13.54
+[4.28095s] [RoadTerrainFit] continuous=true points=15 curves=37 cost=1020.0885524749756 from=(59107.0056751191, 121.74560546875, 47955.14674995266) to=(60092, 47.14870834350586, 47804) elapsedMs=1.073
+[4.29173s] [RoadTerrainFit] continuous=true points=26 curves=131 cost=3765.4523758888245 from=(27651.36658375361, 39.592899322509766, 22779.854259372638) to=(27748, 42.36118698120117, 26540) elapsedMs=5.978
+[4.29925s] [RoadTerrainFit] continuous=true points=26 curves=78 cost=36320.44624107957 from=(61780, 48.74073791503906, 26420) to=(61356, 84.4712905883789, 28348) elapsedMs=4.102
+[4.30565s] [RoadTerrainFit] continuous=true points=22 curves=78 cost=38963.119404533296 from=(61780, 48.74073791503906, 26420) to=(61356, 84.4712905883789, 28348) elapsedMs=4.687
+[4.30996s] [RoadGroundCorridor] cells=29 step=48 margin=592.221580153915
+[4.31427s] [RoadTerrainFit] continuous=true points=17 curves=82 cost=35902.84818583206 from=(61780, 48.74073791503906, 26420) to=(61356, 84.4712905883789, 28348) elapsedMs=4.292
+[4.37118s] [RoadTerrainFit] continuous=true points=9 curves=23 cost=602.2787494659424 from=(54869.22036639166, 42.316219329833984, 42269.225508374344) to=(55212, 42.29303741455078, 41780) elapsedMs=0.662
+[4.40293s] [RoadTerrainFit] continuous=true points=59 curves=307 cost=71113.3637684588 from=(19556, 36.261295318603516, 51116) to=(19796, 36.25970458984375, 54972) elapsedMs=27.241
+[4.4466s] [RoadTerrainFit] continuous=true points=94 curves=396 cost=83211.33543460991 from=(19556, 36.261295318603516, 51116) to=(19796, 36.25970458984375, 54972) elapsedMs=31.807
+[4.47581s] [RoadGroundCorridor] cells=91 step=48 margin=2897.5962451659825
+[4.49905s] [RoadTerrainFit] continuous=true points=42 curves=280 cost=97059.81574900146 from=(19556, 36.261295318603516, 51116) to=(19796, 36.25970458984375, 54972) elapsedMs=23.223
+[4.55848s] [RoadTerrainFit] continuous=true points=22 curves=118 cost=3428.033920764923 from=(57140, 40.26054382324219, 31540) to=(55212, 111.75205993652344, 34252) elapsedMs=5.601
+[4.58296s] [RoadTerrainFit] continuous=true points=36 curves=179 cost=106898.55558123415 from=(29132, 41.86102294921875, 17748) to=(25516, 48.081329345703125, 17084) elapsedMs=17.998
+[4.62668s] [RoadTerrainFit] continuous=true points=74 curves=310 cost=127640.02315772949 from=(29132, 41.86102294921875, 17748) to=(25516, 48.081329345703125, 17084) elapsedMs=28.013
+[4.6294s] [RoadGroundCorridor] cells=80 step=48 margin=2757.344374574928
+[4.64513s] [RoadTerrainFit] continuous=true points=31 curves=143 cost=98341.8774101394 from=(29132, 41.86102294921875, 17748) to=(25516, 48.081329345703125, 17084) elapsedMs=15.709
+[4.80546s] [RoadTerrainFit] continuous=true points=24 curves=177 cost=34952.49237639865 from=(23826.45470400473, 33.40650939941406, 24832.78803733806) to=(18892, 37.332923889160156, 24012) elapsedMs=14.914
+[4.80843s] [RoadTerrainFit] continuous=true points=11 curves=42 cost=1150.0672812461853 from=(53209.27934824083, 35.67842102050781, 40009.868431972005) to=(54068, 30.387996673583984, 39252) elapsedMs=1.139
+[4.8309s] [RoadTerrainFit] continuous=true points=40 curves=304 cost=43612.895893496076 from=(55212, 42.29303741455078, 41780) to=(64068, 27.979902267456055, 40876) elapsedMs=16.731
+[4.83711s] [RoadTerrainFit] continuous=true points=15 curves=79 cost=2289.8685784339905 from=(37029.854726857615, 26.92973518371582, 24679.439823589248) to=(38828, 30.66752815246582, 23348) elapsedMs=3.1
+[4.84707s] [RoadTerrainFit] continuous=true points=24 curves=98 cost=20417.864305922245 from=(51389.88179225983, 40.80631637573242, 38189.89052843176) to=(50516, 33.2924919128418, 39732) elapsedMs=7.462
+[4.85137s] [RoadTerrainFit] continuous=true points=23 curves=67 cost=16730.779433552707 from=(51389.88179225983, 40.80631637573242, 38189.89052843176) to=(50516, 33.2924919128418, 39732) elapsedMs=3.075
+[4.85165s] [RoadGroundCorridor] cells=19 step=48 margin=531.7512490092865
+[4.85462s] [RoadTerrainFit] continuous=true points=12 curves=60 cost=18200.01932510057 from=(51389.88179225983, 40.80631637573242, 38189.89052843176) to=(50516, 33.2924919128418, 39732) elapsedMs=2.961
+[4.92667s] [RoadTerrainFit] continuous=true points=44 curves=349 cost=69522.51021510002 from=(56420, 33.96415710449219, 23228) to=(47804, 34.935855865478516, 18348) elapsedMs=20.594
+[4.94457s] [RoadTerrainFit] continuous=true points=32 curves=150 cost=23689.661451857366 from=(50516, 33.2924919128418, 39732) to=(48588, 46.026859283447266, 43228) elapsedMs=10.233
+[4.95138s] [RoadTerrainFit] continuous=true points=18 curves=63 cost=17922.912268093627 from=(37978.965517463395, 28.05490493774414, 23787.59054249162) to=(36780, 29.938743591308594, 22988) elapsedMs=3.866
+[4.95619s] [RoadTerrainFit] continuous=true points=14 curves=58 cost=18552.885606034313 from=(37978.965517463395, 28.05490493774414, 23787.59054249162) to=(36780, 29.938743591308594, 22988) elapsedMs=3.601
+[4.95648s] [RoadGroundCorridor] cells=17 step=48 margin=432.3397984152603
+[4.95984s] [RoadTerrainFit] continuous=true points=12 curves=50 cost=19588.978716352907 from=(37978.965517463395, 28.05490493774414, 23787.59054249162) to=(36780, 29.938743591308594, 22988) elapsedMs=3.344
+[5.06497s] [RoadTerrainFit] continuous=true points=30 curves=222 cost=21336.970796142796 from=(63816.66898456055, 28.269433975219727, 40859.70105231077) to=(63828, 35.06674575805664, 34252) elapsedMs=14.282
+[5.08602s] [RoadTerrainFit] continuous=true points=29 curves=224 cost=6693.662516593933 from=(38828, 30.66752815246582, 23348) to=(43828, 49.702396392822266, 19916) elapsedMs=13.484
+[5.10767s] [RoadTerrainFit] continuous=true points=35 curves=178 cost=104209.92012425006 from=(63828, 35.06674575805664, 34252) to=(60996, 44.36787414550781, 34012) elapsedMs=17.153
+[5.12278s] [RoadTerrainFit] continuous=true points=23 curves=103 cost=68143.32128802147 from=(63828, 35.06674575805664, 34252) to=(60996, 44.36787414550781, 34012) elapsedMs=8.459
+[5.14757s] [RoadGroundCorridor] cells=57 step=48 margin=2131.6134734045945
+[5.15895s] [RoadTerrainFit] continuous=true points=23 curves=147 cost=76491.0495501136 from=(63828, 35.06674575805664, 34252) to=(60996, 44.36787414550781, 34012) elapsedMs=11.354
+[5.20699s] [RoadTerrainFit] continuous=true points=5 curves=15 cost=381.1629900932312 from=(49686.911545568415, 38.26466369628906, 18903.10752424978) to=(49612, 38.847694396972656, 18532) elapsedMs=0.406
+[5.2186s] [RoadTerrainFit] continuous=true points=24 curves=188 cost=7950.123790740967 from=(48588, 46.026859283447266, 43228) to=(44492, 37.03783416748047, 47020) elapsedMs=8.548
+[5.22079s] [RoadTerrainFit] continuous=true points=10 curves=23 cost=638.7558422088623 from=(40802.15300078359, 64.48649597167969, 21332.47290802342) to=(41180, 90.11158752441406, 21844) elapsedMs=0.668
+[5.27037s] [RoadTerrainFit] continuous=true points=77 curves=559 cost=188958.7970144006 from=(18892, 37.332923889160156, 24012) to=(12084, 181.5836181640625, 17988) elapsedMs=38.211
+[5.3121s] [RoadTerrainEnvelope] points=69 pass=32 excess=0.7307709702068337 index=433 first=(18892, 37.332923889160156, 24012) last=(12084, 181.5836181640625, 17988)
+[5.3122s] [RoadTerrainFitRejected] continuous=true points=69 radiusPasses=8 profilePasses=0
+[5.34673s] [RoadTerrainFit] continuous=false points=69 curves=570 cost=148858.52759551347 from=(18892, 37.332923889160156, 24012) to=(12084, 181.5836181640625, 17988) elapsedMs=51.172
+[5.37769s] [RoadGroundCorridor] cells=111 step=90.905136 margin=6817.885302643335
+[5.39672s] [RoadTerrainEnvelope] points=57 pass=32 excess=0.10515596628133039 index=413 first=(18892, 37.332923889160156, 24012) last=(12084, 181.5836181640625, 17988)
+[5.39682s] [RoadTerrainFit] continuous=true points=57 curves=496 cost=135101.1365707889 from=(18892, 37.332923889160156, 24012) to=(12084, 181.5836181640625, 17988) elapsedMs=19.103
+[5.47857s] [RoadTerrainFit] continuous=true points=33 curves=76 cost=76490.74861458423 from=(16306.96462410036, 316.449951171875, 19031.354008545255) to=(17084, 164.54757690429688, 17508) elapsedMs=2.546
+[5.4806s] [RoadTerrainFit] continuous=true points=30 curves=75 cost=214692.84936594917 from=(16306.96462410036, 316.449951171875, 19031.354008545255) to=(17084, 164.54757690429688, 17508) elapsedMs=0.601
+[5.48139s] [RoadGroundCorridor] cells=39 step=48 margin=550.370921259341
+[5.48763s] [RoadTerrainFit] continuous=true points=25 curves=109 cost=3116.354241371155 from=(16306.96462410036, 316.449951171875, 19031.354008545255) to=(17084, 164.54757690429688, 17508) elapsedMs=6.23
+[5.53365s] [RoadTerrainEnvelope] points=55 pass=32 excess=52.5813962797335 index=233 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[5.53372s] [RoadTerrainFitRejected] continuous=true points=55 radiusPasses=8 profilePasses=0
+[5.54101s] [RoadTerrainEnvelope] points=55 pass=32 excess=150.95392868096286 index=291 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[5.54113s] [RoadTerrainFitRejected] continuous=false points=55 radiusPasses=8 profilePasses=0
+[5.55808s] [RoadTerrainFitRejected] continuous=true points=104 radiusPasses=0 profilePasses=0
+[5.56756s] [RoadTerrainEnvelope] points=104 pass=32 excess=75.77111632120705 index=304 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[5.56769s] [RoadTerrainFitRejected] continuous=false points=104 radiusPasses=7 profilePasses=0
+[5.65508s] [RoadGroundCorridor] cells=0 step=59.3341 margin=4450.05744958389
+[5.69435s] [RoadAlignmentSearch] nearest=4710.085355823518 highest=260.63567744190397 goals=0 fitFailures=0 nodes=9302
+[5.69438s] [RoadAlignmentBlocked] from=(16838.788789047503, 31.529129028320312, 40091.36554702448) to=(11364, 679.85205078125, 37804) expanded=1000 limit=1000
+[5.69471s] [RoadGeneration] no legal alignment from=168 to=60 distance=5933.409932778521
+[5.69481s] [Roads] Layer3 集落道: 1768ms (接続=42, 街道沿い=1, 計=47)
+[5.69874s] [RoadTerrainFit] continuous=true points=2 curves=1 cost=21.113157749176025 from=(57258.07812219823, 48.404205322265625, 26321.024665304107) to=(57260, 48.21648406982422, 26300) elapsedMs=0.032
+[5.79645s] [RoadTerrainFit] continuous=true points=76 curves=606 cost=169227.57225169006 from=(47804, 34.935855865478516, 18348) to=(41060, 347.521484375, 3412) elapsedMs=50.213
+[5.82743s] [RoadTerrainFit] continuous=true points=47 curves=665 cost=220203.43547121482 from=(47804, 34.935855865478516, 18348) to=(41060, 347.521484375, 3412) elapsedMs=6.729
+[5.89716s] [RoadGroundCorridor] cells=78 step=163.87971 margin=12290.979131053798
+[5.94005s] [RoadTerrainFit] continuous=true points=36 curves=600 cost=333602.0760669778 from=(47804, 34.935855865478516, 18348) to=(41060, 347.521484375, 3412) elapsedMs=42.849
+[6.07915s] [RoadTerrainFit] continuous=true points=13 curves=22 cost=2678.510685443878 from=(41429.95668097597, 410.63616943359375, 7740.967379914419) to=(41060, 367.79730224609375, 7748) elapsedMs=1.623
+[6.10209s] [RoadTerrainEnvelope] points=71 pass=32 excess=6.86702641865088 index=388 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63828, 738.0718994140625, 14556)
+[6.10218s] [RoadTerrainFitRejected] continuous=true points=71 radiusPasses=8 profilePasses=0
+[6.11548s] [RoadTerrainEnvelope] points=71 pass=32 excess=21.70045429821414 index=202 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63828, 738.0718994140625, 14556)
+[6.11566s] [RoadTerrainFitRejected] continuous=false points=71 radiusPasses=8 profilePasses=0
+[6.12876s] [RoadTerrainFitRejected] continuous=true points=68 radiusPasses=0 profilePasses=0
+[6.14264s] [RoadTerrainEnvelope] points=68 pass=32 excess=80.85351275155818 index=172 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63828, 738.0718994140625, 14556)
+[6.14281s] [RoadTerrainFitRejected] continuous=false points=68 radiusPasses=8 profilePasses=0
+[6.22202s] [RoadGroundCorridor] cells=228 step=113.931206 margin=8544.840612258324
+[6.28201s] [RoadTerrainFit] continuous=true points=122 curves=1185 cost=365043.4116114923 from=(56037.91829474277, 37.66496658325195, 22869.713307616363) to=(63828, 738.0718994140625, 14556) elapsedMs=59.961
+[6.36321s] [RoadTerrainEnvelope] points=55 pass=32 excess=52.5813962797335 index=233 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[6.36329s] [RoadTerrainFitRejected] continuous=true points=55 radiusPasses=8 profilePasses=0
+[6.36992s] [RoadTerrainEnvelope] points=55 pass=32 excess=150.95392868096286 index=291 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[6.37003s] [RoadTerrainFitRejected] continuous=false points=55 radiusPasses=8 profilePasses=0
+[6.3866s] [RoadTerrainFitRejected] continuous=true points=104 radiusPasses=0 profilePasses=0
+[6.39471s] [RoadTerrainEnvelope] points=104 pass=32 excess=75.77111632120705 index=304 first=(16838.788789047503, 31.529129028320312, 40091.36554702448) last=(11364, 679.85205078125, 37804)
+[6.39483s] [RoadTerrainFitRejected] continuous=false points=104 radiusPasses=7 profilePasses=0
+[6.48082s] [RoadGroundCorridor] cells=0 step=59.3341 margin=4450.05744958389
+[6.52057s] [RoadAlignmentSearch] nearest=4710.085355823518 highest=260.63567744190397 goals=0 fitFailures=0 nodes=9302
+[6.52059s] [RoadAlignmentBlocked] from=(16838.788789047503, 31.529129028320312, 40091.36554702448) to=(11364, 679.85205078125, 37804) expanded=1000 limit=1000
+[6.52104s] [RoadGeneration] no legal alignment from=168 to=60 distance=5933.409932778521
+[6.52119s] [Roads] 未接続強制接続: 826ms (4地区)
+[6.5212s] [Roads] 合計: nodes=11743, edges=11739 (4348ms)
+[6.54872s] [SettlementPlan] mergedGateways=0
+[6.54874s] [SettlementPlan] clippedInteriorRoads=33 boundaryEntrances=1
+[6.56122s] [SettlementPlan] organic=true removedForJunctions=0
+[6.56125s] [SettlementPlan] prunedInteriorStubs=0
+[7.38761s] [SettlementFringe] neighborhoods=36 frontageSegments=151
+[7.38774s] [ShortArterialReview] town=0 shortRuns=1 downgraded=1
+[7.38777s] [BlockAlleys] town=0 alleys=103
+[7.38781s] [SettlementPlan] index=0 origin=市場・在郷町 scale=0 extent=(675.5375, 552.7125) nodes=289 entrances=1 connected=1 station=true
+[7.40357s] [SettlementPlan] mergedGateways=0
+[7.40359s] [SettlementPlan] clippedInteriorRoads=119 boundaryEntrances=3
+[7.42287s] [SettlementPlan] organic=false removedForJunctions=0
+[7.42291s] [SettlementPlan] prunedInteriorStubs=3
+[8.37468s] [SettlementFringe] neighborhoods=33 frontageSegments=255
+[8.37481s] [ShortArterialReview] town=1 shortRuns=3 downgraded=3
+[8.37482s] [BlockAlleys] town=1 alleys=199
+[8.37483s] [SettlementPlan] index=1 origin=城下町 scale=0 extent=(1250, 780) nodes=475 entrances=3 connected=3 station=true
+[8.39127s] [SettlementPlan] mergedGateways=0
+[8.39129s] [SettlementPlan] clippedInteriorRoads=34 boundaryEntrances=2
+[8.39529s] [SettlementPlan] organic=true removedForJunctions=0
+[8.3953s] [SettlementPlan] prunedInteriorStubs=0
+[8.80547s] [SettlementFringe] neighborhoods=15 frontageSegments=84
+[8.80557s] [ShortArterialReview] town=2 shortRuns=0 downgraded=0
+[8.80558s] [BlockAlleys] town=2 alleys=34
+[8.80559s] [SettlementPlan] index=2 origin=市場・在郷町 scale=0 extent=(352.6347971093749, 288.51937945312494) nodes=81 entrances=2 connected=2 station=true
+[8.82354s] [SettlementPlan] mergedGateways=0
+[8.82356s] [SettlementPlan] clippedInteriorRoads=55 boundaryEntrances=2
+[8.8412s] [SettlementPlan] organic=true removedForJunctions=0
+[8.84122s] [SettlementPlan] prunedInteriorStubs=0
+[9.93437s] [SettlementFringe] neighborhoods=40 frontageSegments=195
+[9.93452s] [ShortArterialReview] town=3 shortRuns=0 downgraded=0
+[9.93454s] [BlockAlleys] town=3 alleys=174
+[9.93454s] [SettlementPlan] index=3 origin=市場・在郷町 scale=0 extent=(644.83125, 583.4187499999999) nodes=345 entrances=2 connected=2 station=true
+[9.93571s] [RuralFrontage] form=0 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[9.93632s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[9.93694s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[9.95445s] [SettlementPlan] mergedGateways=0
+[9.95447s] [SettlementPlan] clippedInteriorRoads=41 boundaryEntrances=2
+[9.95834s] [SettlementPlan] organic=true removedForJunctions=3
+[9.95835s] [SettlementPlan] prunedInteriorStubs=0
+[10.5393s] [SettlementFringe] neighborhoods=19 frontageSegments=82
+[10.5393s] [BlockAlleys] town=7 alleys=74
+[10.5393s] [SettlementPlan] index=7 origin=市場・在郷町 scale=1 extent=(478.40000000000003, 395.2) nodes=99 entrances=2 connected=2 station=false
+[10.54s] [RuralFrontage] form=0 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[10.558s] [SettlementPlan] mergedGateways=0
+[10.558s] [SettlementPlan] clippedInteriorRoads=45 boundaryEntrances=2
+[10.5631s] [SettlementPlan] organic=true removedForJunctions=5
+[10.5631s] [SettlementPlan] prunedInteriorStubs=0
+[11.1885s] [SettlementFringe] neighborhoods=21 frontageSegments=67
+[11.1885s] [BlockAlleys] town=9 alleys=70
+[11.1885s] [SettlementPlan] index=9 origin=市場・在郷町 scale=1 extent=(478.40000000000003, 395.2) nodes=99 entrances=2 connected=2 station=false
+[11.2065s] [SettlementPlan] mergedGateways=0
+[11.2065s] [SettlementPlan] clippedInteriorRoads=22 boundaryEntrances=1
+[11.2114s] [SettlementPlan] organic=true removedForJunctions=7
+[11.2114s] [SettlementPlan] prunedInteriorStubs=0
+[11.8542s] [SettlementFringe] neighborhoods=22 frontageSegments=68
+[11.8543s] [BlockAlleys] town=10 alleys=66
+[11.8543s] [SettlementPlan] index=10 origin=市場・在郷町 scale=1 extent=(478.40000000000003, 395.2) nodes=99 entrances=1 connected=1 station=false
+[11.8729s] [SettlementPlan] mergedGateways=0
+[11.873s] [SettlementPlan] clippedInteriorRoads=50 boundaryEntrances=2
+[11.8806s] [SettlementPlan] organic=false removedForJunctions=0
+[11.8806s] [SettlementPlan] prunedInteriorStubs=0
+[11.9509s] [NewTownLayout] center=(58828, 52684) carRoads=231 greenways=69 parks=1
+[11.9509s] [BlockAlleys] town=11 alleys=0
+[11.9509s] [SettlementPlan] index=11 origin=ニュータウン scale=1 extent=(499.20000000000005, 416) nodes=169 entrances=2 connected=2 station=true
+[11.9692s] [SettlementPlan] mergedGateways=0
+[11.9692s] [SettlementPlan] clippedInteriorRoads=21 boundaryEntrances=1
+[11.9764s] [SettlementPlan] organic=false removedForJunctions=0
+[11.9764s] [SettlementPlan] prunedInteriorStubs=0
+[12.0487s] [NewTownLayout] center=(23652, 20156) carRoads=231 greenways=69 parks=1
+[12.0487s] [BlockAlleys] town=12 alleys=0
+[12.0487s] [SettlementPlan] index=12 origin=ニュータウン scale=1 extent=(499.20000000000005, 416) nodes=169 entrances=1 connected=1 station=true
+[12.0677s] [SettlementPlan] mergedGateways=0
+[12.0677s] [SettlementPlan] clippedInteriorRoads=43 boundaryEntrances=2
+[12.0746s] [SettlementPlan] organic=false removedForJunctions=0
+[12.0746s] [SettlementPlan] prunedInteriorStubs=0
+[12.1491s] [NewTownLayout] center=(48468, 31060) carRoads=231 greenways=69 parks=1
+[12.1492s] [BlockAlleys] town=13 alleys=0
+[12.1492s] [SettlementPlan] index=13 origin=ニュータウン scale=1 extent=(499.20000000000005, 416) nodes=169 entrances=2 connected=2 station=true
+[12.15s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1506s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1511s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1518s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1523s] [RuralFrontage] form=0 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.153s] [RuralFrontage] form=1 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1536s] [RuralFrontage] form=0 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1541s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1547s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1551s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1556s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1561s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1569s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1573s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1579s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1585s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.159s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1596s] [RuralFrontage] form=0 accesses=5 noAnchor=0 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1602s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1608s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1612s] [RuralFrontage] form=0 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1617s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1624s] [RuralFrontage] form=2 accesses=2 noAnchor=3 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1629s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1636s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1641s] [RuralFrontage] form=1 accesses=3 noAnchor=2 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1647s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1654s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1659s] [RuralFrontage] form=0 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1664s] [RuralFrontage] form=0 accesses=2 noAnchor=3 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.167s] [RuralFrontage] form=1 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1675s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.168s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1684s] [RuralFrontage] form=0 accesses=2 noAnchor=3 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1689s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1694s] [RuralFrontage] form=2 accesses=2 noAnchor=3 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1701s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1706s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1712s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1717s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1723s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1727s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1733s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1739s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1747s] [RuralFrontage] form=2 accesses=1 noAnchor=4 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1752s] [RuralFrontage] form=2 accesses=1 noAnchor=2 noTerrain=2 noConnection=0 regionalRoadsPreserved=true
+[12.1756s] [RuralFrontage] form=2 accesses=0 noAnchor=5 noTerrain=0 noConnection=0 regionalRoadsPreserved=true
+[12.1807s] [LeveeRoadRoute] start=(59767.58686028947, 50344.19007611769) end=(59230.46063641795, 50623.20054766389) river=(59694.31063624642, 50273.39818286466) length=563
+[12.1817s] [LeveeRoadRoute] start=(21871.721406810786, 50255.75978368971) end=(22103.21973340411, 50755.23919592678) river=(21768.27259961469, 50268.24209160225) length=566
+[12.1823s] [LeveeRoadRoute] start=(61762.134699826514, 27651.019941210052) end=(62184.628758555606, 27499.548363031907) river=(61706.96338740715, 27558.0500925647) length=561
+[12.1834s] [LeveeRoadRoute] start=(19352.550733966415, 23992.03724341285) end=(19695.820669075125, 24257.482209628135) river=(19260.313971248488, 24094.63043257324) length=564
+[12.1834s] [LeveeRoad] routes=4 connectedSegments=32 candidates=186 paths=271 starts=11 both=4
+[12.1836s] [DistrictRoads] 完了: districts=61 (5662ms)
+[12.1926s] [VillageShortcuts] trials=15 detours=0 connected=0
+[12.1926s] [PostProcess] 開始 (nodes=15181, edges=17130)
+[12.576s] [PostProcess] fixSharpAngles: 257 回, 383ms
+[12.5764s] [PostProcess] smoothAllCurves: 0ms
+[12.5768s] [straighten] target=4419 (LocalRoad=3005)
+[12.5768s] [straighten] frame axisX=(0.289,0.957)
+[12.7853s] [RoadDesignChains] repaired=3
+[13.4562s] [RoadIntegrity] consolidatedNodes=1341 elapsedMs=467.32
+[13.5971s] [RoadIntegrity] consolidatedNodes=0 elapsedMs=103.09
+[13.598s] [PostProcess] reconcileRoadGeometry: 1022ms
+[13.6011s] [RoadHeightStage] stage=terrain raisedDryNodes=23 maximumGap=11.537694938101723
+[13.6734s] [RoadVerticalAlignment] tunnelSections=0
+[13.6764s] [RoadHeightStage] stage=vertical raisedDryNodes=23 maximumGap=11.537694938101723
+[16.3395s] [RoadAlignmentRepairStart] corridors=37
+[16.3584s] [RoadTerrainFit] continuous=true points=11 curves=230 cost=43130.085174103544 from=(16733.637886477663, 40.503231048583984, 43097.803184732526) to=(19422.563224841004, 53.200531005859375, 36855.525799548304) elapsedMs=16.111
+[16.3589s] [RoadGroundCorridor] cells=15 step=250 margin=5097.592065499362
+[16.3803s] [RoadTerrainFit] continuous=true points=8 curves=218 cost=141491.60950182087 from=(16733.637886477663, 40.503231048583984, 43097.803184732526) to=(19422.563224841004, 53.200531005859375, 36855.525799548304) elapsedMs=21.407
+[16.8272s] [RoadTerrainFit] continuous=true points=21 curves=269 cost=65164.036839658875 from=(20500.589611294017, 101.12292070266018, 32388.039021698696) to=(23737.748005437752, 31.3481189141927, 25093.12250954884) elapsedMs=15.885
+[16.8277s] [RoadGroundCorridor] cells=18 step=250 margin=5985.686116123754
+[16.844s] [RoadTerrainFit] continuous=true points=8 curves=254 cost=66178.83086480362 from=(20500.589611294017, 101.12292070266018, 32388.039021698696) to=(23737.748005437752, 31.3481189141927, 25093.12250954884) elapsedMs=16.28
+[16.9765s] [RoadTerrainFit] continuous=true points=9 curves=76 cost=72497.7155555814 from=(25751.047831319767, 31.541994094848633, 23064.777659551255) to=(27651.36658375361, 39.592899322509766, 22779.854259372638) elapsedMs=5.456
+[16.9767s] [RoadGroundCorridor] cells=5 step=250 margin=576.4679899473131
+[16.9808s] [RoadTerrainFit] continuous=true points=4 curves=67 cost=71443.95625597792 from=(25751.047831319767, 31.541994094848633, 23064.777659551255) to=(27651.36658375361, 39.592899322509766, 22779.854259372638) elapsedMs=4.094
+[17.2893s] [RoadTerrainFit] continuous=true points=19 curves=232 cost=149256.87774207143 from=(30520.99974646726, 45.980072021484375, 22779.83585565867) to=(37029.854726857615, 26.92973518371582, 24679.439823589248) elapsedMs=15.899
+[17.2898s] [RoadGroundCorridor] cells=20 step=250 margin=5085.292491075177
+[17.3058s] [RoadTerrainFit] continuous=true points=12 curves=219 cost=164657.35187073605 from=(30520.99974646726, 45.980072021484375, 22779.83585565867) to=(37029.854726857615, 26.92973518371582, 24679.439823589248) elapsedMs=15.95
+[17.5182s] [RoadTerrainFit] continuous=true points=46 curves=257 cost=74927.09767320257 from=(30522.604961995592, 45.38417434692383, 22812.0644221773) to=(30526.878376002514, 38.820109279451344, 30002.301607164747) elapsedMs=16.686
+[17.5891s] [RoadGroundCorridor] cells=78 step=71.90238 margin=5392.678841181298
+[17.6059s] [RoadTerrainFit] continuous=true points=31 curves=250 cost=72194.24250666774 from=(30522.604961995592, 45.38417434692383, 22812.0644221773) to=(30526.878376002514, 38.820109279451344, 30002.301607164747) elapsedMs=16.798
+[17.7335s] [RoadTerrainFit] continuous=true points=3 curves=66 cost=16685.08849420962 from=(45728.66328137407, 38.3427734375, 30861.88050354907) to=(47208.91308579552, 32.65583419799805, 32328.959295305922) elapsedMs=2.969
+[17.7337s] [RoadGroundCorridor] cells=7 step=250 margin=1563.0726347168786
+[17.7368s] [RoadTerrainFit] continuous=true points=3 curves=66 cost=16685.08849420962 from=(45728.66328137407, 38.3427734375, 30861.88050354907) to=(47208.91308579552, 32.65583419799805, 32328.959295305922) elapsedMs=3.03
+[17.9975s] [RoadTerrainFit] continuous=true points=9 curves=127 cost=72148.69796593608 from=(53209.27934824083, 35.67842102050781, 40009.868431972005) to=(54869.22036639166, 42.316219329833984, 42269.225508374344) elapsedMs=7.643
+[17.9977s] [RoadGroundCorridor] cells=8 step=250 margin=2102.690051485543
+[18.0026s] [RoadTerrainFit] continuous=true points=4 curves=89 cost=68551.1685976623 from=(53209.27934824083, 35.67842102050781, 40009.868431972005) to=(54869.22036639166, 42.316219329833984, 42269.225508374344) elapsedMs=4.84
+[18.1757s] [RoadTerrainFit] continuous=true points=10 curves=155 cost=30970.55719497728 from=(54869.22036639166, 42.316219329833984, 42269.225508374344) to=(57574.185693850624, 100.03596496582031, 46103.65775013175) elapsedMs=9.271
+[18.1761s] [RoadGroundCorridor] cells=12 step=250 margin=3519.3871301909167
+[18.185s] [RoadTerrainFit] continuous=true points=6 curves=161 cost=28181.737612046738 from=(54869.22036639166, 42.316219329833984, 42269.225508374344) to=(57574.185693850624, 100.03596496582031, 46103.65775013175) elapsedMs=8.823
+[18.3002s] [RoadTerrainFit] continuous=true points=7 curves=84 cost=23350.41376030589 from=(59107.0056751191, 121.74560546875, 47955.14674995266) to=(59672.99224860835, 35.420688351796215, 50312.41023338574) elapsedMs=3.171
+[18.3015s] [RoadGroundCorridor] cells=11 step=250 margin=1818.1942859825626
+[18.3044s] [RoadTerrainFit] continuous=true points=6 curves=84 cost=20782.95647429931 from=(59107.0056751191, 121.74560546875, 47955.14674995266) to=(59672.99224860835, 35.420688351796215, 50312.41023338574) elapsedMs=2.965
+[18.42s] [RoadTerrainFitRejected] continuous=true points=15 radiusPasses=0 profilePasses=0
+[18.4273s] [RoadTerrainFit] continuous=false points=15 curves=143 cost=129291.99637254691 from=(19854.580828234288, 83.73738861083984, 33334.19925325732) to=(16249.013327277606, 47.487159729003906, 31547.375976542236) elapsedMs=7.469
+[18.4276s] [RoadGroundCorridor] cells=14 step=250 margin=3018.0259466608777
+[18.4372s] [RoadTerrainFit] continuous=true points=8 curves=143 cost=19297.701142905054 from=(19854.580828234288, 83.73738861083984, 33334.19925325732) to=(16249.013327277606, 47.487159729003906, 31547.375976542236) elapsedMs=9.527
+[18.6541s] [RoadTerrainFit] continuous=true points=74 curves=280 cost=23909.684819334732 from=(16997.87197999624, 38.82310706167914, 43861.873933121235) to=(19543.351788828422, 36.105440479588744, 51015.23442060898) elapsedMs=16.338
+[18.6586s] [RoadGroundCorridor] cells=61 step=75.92762 margin=5694.571447276064
+[18.675s] [RoadTerrainFit] continuous=true points=27 curves=252 cost=45659.74638156218 from=(16997.87197999624, 38.82310706167914, 43861.873933121235) to=(19543.351788828422, 36.105440479588744, 51015.23442060898) elapsedMs=16.359
+[19.0142s] [RoadTerrainFitRejected] continuous=true points=27 radiusPasses=0 profilePasses=0
+[19.0219s] [RoadTerrainFit] continuous=false points=27 curves=113 cost=30480.0085243149 from=(58196.43489720071, 25.285062007400143, 52364.43489720071) to=(56741.960936538875, 32.073612213134766, 51479.9609375) elapsedMs=8.012
+[19.0254s] [RoadGroundCorridor] cells=26 step=48 margin=510.68677473268923
+[19.0287s] [RoadTerrainFit] continuous=true points=13 curves=61 cost=30307.76340270089 from=(58196.43489720071, 25.285062007400143, 52364.43489720071) to=(56741.960936538875, 32.073612213134766, 51479.9609375) elapsedMs=3.313
+[19.1801s] [RoadTerrainFit] continuous=true points=33 curves=80 cost=16810.73568832634 from=(15670.16878654091, 43.52656503712023, 30906.913570621306) to=(15053.831288814545, 39.69257354736328, 28905.411366939545) elapsedMs=3.354
+[19.1809s] [RoadGroundCorridor] cells=30 step=48 margin=1570.6874856654904
+[19.1839s] [RoadTerrainFit] continuous=true points=14 curves=74 cost=15801.99168987231 from=(15670.16878654091, 43.52656503712023, 30906.913570621306) to=(15053.831288814545, 39.69257354736328, 28905.411366939545) elapsedMs=3.006
+[19.5222s] [RoadTerrainFit] continuous=true points=26 curves=117 cost=26592.566193378294 from=(19222.041247312758, 37.595375061035156, 51156.009035911025) to=(17185.947152015542, 32.051658630371094, 51352.367946359365) elapsedMs=8.514
+[19.5229s] [RoadGroundCorridor] cells=39 step=48 margin=1534.1553840702918
+[19.5263s] [RoadTerrainFit] continuous=true points=17 curves=74 cost=23104.17059327918 from=(19222.041247312758, 37.595375061035156, 51156.009035911025) to=(17185.947152015542, 32.051658630371094, 51352.367946359365) elapsedMs=3.403
+[19.6696s] [RoadTerrainFit] continuous=true points=19 curves=82 cost=20559.960205195905 from=(15026.59339527111, 40.06491470336914, 28852.092985162257) to=(12880.846630155911, 45.60493850708008, 29063.188924629554) elapsedMs=3.58
+[19.6703s] [RoadGroundCorridor] cells=41 step=48 margin=1617.0790812634455
+[19.6737s] [RoadTerrainFit] continuous=true points=17 curves=77 cost=17008.512465673943 from=(15026.59339527111, 40.06491470336914, 28852.092985162257) to=(12880.846630155911, 45.60493850708008, 29063.188924629554) elapsedMs=3.407
+[19.7648s] [RoadTerrainFit] continuous=true points=12 curves=42 cost=48999.90887647781 from=(29479.593128145796, 34.323265075683594, 29991.593128145796) to=(28452.05784164753, 27.149383544921875, 29632.701690081027) elapsedMs=4.887
+[19.7653s] [RoadGroundCorridor] cells=19 step=48 margin=326.52237999618745
+[19.7698s] [RoadTerrainFit] continuous=true points=12 curves=43 cost=37651.13424344808 from=(29479.593128145796, 34.323265075683594, 29991.593128145796) to=(28452.05784164753, 27.149383544921875, 29632.701690081027) elapsedMs=4.497
+[19.9347s] [RoadTerrainFit] continuous=true points=30 curves=132 cost=25366.83507930244 from=(57574.185693850624, 100.03596496582031, 46103.65775013175) to=(53826.09392260545, 26.29720687866211, 46039.30225604123) elapsedMs=6.392
+[19.9366s] [RoadGroundCorridor] cells=74 step=48 margin=2811.4831717180327
+[19.943s] [RoadTerrainFit] continuous=true points=28 curves=132 cost=28796.44506694047 from=(57574.185693850624, 100.03596496582031, 46103.65775013175) to=(53826.09392260545, 26.29720687866211, 46039.30225604123) elapsedMs=6.387
+[20.1045s] [RoadTerrainFit] continuous=true points=58 curves=178 cost=20691.67719081901 from=(55864.01558843996, 41.40643310546875, 26956.89818578013) to=(57140, 40.26054382324219, 31540) elapsedMs=10.307
+[20.1094s] [RoadGroundCorridor] cells=70 step=48 margin=3568.0581739446116
+[20.1192s] [RoadTerrainFit] continuous=true points=29 curves=165 cost=20799.127367246514 from=(55864.01558843996, 41.40643310546875, 26956.89818578013) to=(57140, 40.26054382324219, 31540) elapsedMs=9.696
+[20.235s] [RoadTerrainFit] continuous=true points=40 curves=209 cost=39327.26171496258 from=(29412.685235496683, 24.59982681274414, 42499.415869674136) to=(28991.864969197097, 32.368831634521484, 47987.10233500786) elapsedMs=15.462
+[20.2381s] [RoadGroundCorridor] cells=94 step=55.03798 margin=4127.848500921959
+[20.2518s] [RoadTerrainFit] continuous=true points=34 curves=195 cost=35848.99724994157 from=(29412.685235496683, 24.59982681274414, 42499.415869674136) to=(28991.864969197097, 32.368831634521484, 47987.10233500786) elapsedMs=13.604
+[20.6429s] [RoadTerrainFit] continuous=true points=12 curves=40 cost=37004.31442548705 from=(61843.057698824785, 49.13555908203125, 26536.49420457251) to=(62091.74254496362, 36.41191116518286, 27456.82812683288) elapsedMs=2.119
+[20.6446s] [RoadGroundCorridor] cells=14 step=48 margin=286.0022400342391
+[20.6464s] [RoadTerrainFit] continuous=true points=10 curves=38 cost=35261.88878743405 from=(61843.057698824785, 49.13555908203125, 26536.49420457251) to=(62091.74254496362, 36.41191116518286, 27456.82812683288) elapsedMs=1.738
+[20.7326s] [RoadTerrainFit] continuous=true points=35 curves=86 cost=32115.149884516286 from=(19892.06578267312, 34.076297760009766, 51129.14237690034) to=(21890.337913284584, 32.3543815612793, 50259.438099843646) elapsedMs=3.557
+[20.7414s] [RoadGroundCorridor] cells=47 step=48 margin=1634.4971194832124
+[20.7497s] [RoadTerrainFit] continuous=true points=21 curves=112 cost=55082.8797851187 from=(19892.06578267312, 34.076297760009766, 51129.14237690034) to=(21890.337913284584, 32.3543815612793, 50259.438099843646) elapsedMs=8.364
+[20.8769s] [RoadTerrainFit] continuous=true points=67 curves=325 cost=141060.1202047245 from=(29098.3115454693, 39.19157409667969, 17398.658045706343) to=(25661.265770404425, 47.34654235839844, 17085.2657713581) elapsedMs=30.104
+[20.8784s] [RoadGroundCorridor] cells=68 step=48 margin=2588.477899722299
+[20.8902s] [RoadTerrainFit] continuous=true points=29 curves=126 cost=97278.98714501905 from=(29098.3115454693, 39.19157409667969, 17398.658045706343) to=(25661.265770404425, 47.34654235839844, 17085.2657713581) elapsedMs=11.765
+[21.1773s] [RoadTerrainFit] continuous=true points=42 curves=307 cost=59967.43799140689 from=(55254.84991692238, 41.96835708618164, 41748.65258316777) to=(63816.66898456055, 28.269433975219727, 40859.70105231077) elapsedMs=17.854
+[21.1809s] [RoadGroundCorridor] cells=89 step=86.07844 margin=6455.883097709553
+[21.1996s] [RoadTerrainFit] continuous=true points=33 curves=289 cost=63143.93702523167 from=(55254.84991692238, 41.96835708618164, 41748.65258316777) to=(63816.66898456055, 28.269433975219727, 40859.70105231077) elapsedMs=18.719
+[21.3866s] [RoadTerrainFit] continuous=true points=16 curves=58 cost=17126.91585262287 from=(51389.88179225983, 40.80631637573242, 38189.89052843176) to=(50584.248750990715, 33.76030731201172, 39626.139279422474) elapsedMs=2.457
+[21.3869s] [RoadGroundCorridor] cells=18 step=48 margin=494.0313314675724
+[21.3897s] [RoadTerrainFit] continuous=true points=8 curves=55 cost=17032.72772906229 from=(51389.88179225983, 40.80631637573242, 38189.89052843176) to=(50584.248750990715, 33.76030731201172, 39626.139279422474) elapsedMs=2.813
+[21.5539s] [RoadTerrainFit] continuous=true points=41 curves=277 cost=32254.330873451476 from=(56037.91829474277, 37.66496658325195, 22869.713307616363) to=(49686.911545568415, 38.26466369628906, 18903.10752424978) elapsedMs=14.158
+[21.5603s] [RoadGroundCorridor] cells=59 step=74.8794 margin=5615.95513647422
+[21.5754s] [RoadTerrainFit] continuous=true points=31 curves=280 cost=41505.04437347782 from=(56037.91829474277, 37.66496658325195, 22869.713307616363) to=(49686.911545568415, 38.26466369628906, 18903.10752424978) elapsedMs=15.073
+[21.7422s] [RoadTerrainFit] continuous=true points=26 curves=74 cost=22253.011991702497 from=(49686.911545568415, 38.26466369628906, 18903.10752424978) to=(47804, 34.935855865478516, 18348) elapsedMs=3.641
+[21.7427s] [RoadGroundCorridor] cells=29 step=48 margin=588.9100293527188
+[21.7463s] [RoadTerrainFit] continuous=true points=13 curves=68 cost=17227.259701277497 from=(49686.911545568415, 38.26466369628906, 18903.10752424978) to=(47804, 34.935855865478516, 18348) elapsedMs=3.508
+[21.9062s] [RoadTerrainFit] continuous=true points=56 curves=221 cost=22912.1439446242 from=(50429.00721940899, 32.578346252441406, 39825.48095563282) to=(48588, 46.026859283447266, 43228) elapsedMs=14.754
+[21.9078s] [RoadGroundCorridor] cells=39 step=48 margin=2901.4865894784907
+[21.9152s] [RoadTerrainFit] continuous=true points=16 curves=127 cost=24446.51586545816 from=(50429.00721940899, 32.578346252441406, 39825.48095563282) to=(48588, 46.026859283447266, 43228) elapsedMs=7.329
+[22.2401s] [RoadTerrainFit] continuous=true points=22 curves=61 cost=20058.741131347917 from=(37978.965517463395, 28.05490493774414, 23787.59054249162) to=(36906.71778555705, 28.580087661743164, 22983.30450554125) elapsedMs=4.159
+[22.2405s] [RoadGroundCorridor] cells=18 step=48 margin=402.1109430282235
+[22.2436s] [RoadTerrainFit] continuous=true points=10 curves=47 cost=19421.505329627114 from=(37978.965517463395, 28.05490493774414, 23787.59054249162) to=(36906.71778555705, 28.580087661743164, 22983.30450554125) elapsedMs=3.092
+[22.4853s] [RoadTerrainFit] continuous=true points=37 curves=105 cost=68029.48094720762 from=(63828, 35.06674575805664, 34252) to=(61355.586526166255, 44.06840515136719, 34016.38652659541) elapsedMs=7.868
+[22.5067s] [RoadGroundCorridor] cells=48 step=48 margin=1862.7110425734286
+[22.5124s] [RoadTerrainFit] continuous=true points=20 curves=90 cost=69881.27167503153 from=(63828, 35.06674575805664, 34252) to=(61355.586526166255, 44.06840515136719, 34016.38652659541) elapsedMs=5.753
+[22.8293s] [RoadTerrainFit] continuous=true points=72 curves=375 cost=84690.15575386841 from=(10315.922534618765, 205.2812891123657, 19605.302270946155) to=(16323.066593055675, 316.4778551000157, 19039.399116104894) elapsedMs=23.974
+[22.8331s] [RoadGroundCorridor] cells=84 step=60.337406 margin=4525.3054805398115
+[22.8527s] [RoadTerrainFit] continuous=true points=41 curves=254 cost=71269.1844289949 from=(10315.922534618765, 205.2812891123657, 19605.302270946155) to=(16323.066593055675, 316.4778551000157, 19039.399116104894) elapsedMs=19.593
+[23.2463s] [RoadTerrainFitRejected] continuous=true points=41 radiusPasses=0 profilePasses=0
+[23.2756s] [RoadTerrainFit] continuous=false points=41 curves=455 cost=86603.05525010107 from=(47804, 34.935855865478516, 18348) to=(41430.107658634704, 409.88104248046875, 7770.957737176534) elapsedMs=29.771
+[23.2783s] [RoadGroundCorridor] cells=53 step=123.49102 margin=9261.826694420964
+[23.3022s] [RoadTerrainFit] continuous=true points=22 curves=400 cost=79797.07739834476 from=(47804, 34.935855865478516, 18348) to=(41430.107658634704, 409.88104248046875, 7770.957737176534) elapsedMs=23.965
+[23.7307s] [RoadTerrainFitRejected] continuous=true points=41 radiusPasses=0 profilePasses=0
+[23.7423s] [RoadTerrainEnvelope] points=41 pass=32 excess=19.285534949942416 index=90 first=(41430.107658634704, 409.88104248046875, 7770.957737176534) last=(41125.54839822038, 347.8333740234375, 3436.564354067268)
+[23.7424s] [RoadTerrainFitRejected] continuous=false points=41 radiusPasses=8 profilePasses=0
+[23.7533s] [RoadGroundCorridor] cells=90 step=48 margin=3258.8101843676163
+[23.7804s] [RoadTerrainFit] continuous=true points=52 curves=204 cost=289564.57626958913 from=(41430.107658634704, 409.88104248046875, 7770.957737176534) to=(41125.54839822038, 347.8333740234375, 3436.564354067268) elapsedMs=27.037
+[24.3146s] [RoadTerrainFit] continuous=true points=12 curves=24 cost=2379.923218727112 from=(41430.107658634704, 409.88104248046875, 7770.957737176534) to=(41085.38798868431, 368.3622131347656, 7682.766189513679) elapsedMs=1.786
+[24.3149s] [RoadGroundCorridor] cells=0 step=48 margin=240
+[24.5739s] [RoadTerrainFitRejected] continuous=true points=72 radiusPasses=0 profilePasses=0
+[24.5877s] [RoadTerrainEnvelope] points=72 pass=32 excess=33.70850814380066 index=328 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63854.04016339226, 733.9882202148438, 14601.5868390054)
+[24.5879s] [RoadTerrainFitRejected] continuous=false points=72 radiusPasses=8 profilePasses=0
+[24.664s] [RoadGroundCorridor] cells=242 step=113.77771 margin=8533.328363315857
+[24.6674s] [RoadTerrainEnvelope] points=130 pass=0 excess=2.4090798554676667 index=419 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63854.04016339226, 733.9882202148438, 14601.5868390054)
+[24.6944s] [RoadTerrainEnvelope] points=130 pass=32 excess=1.1411976538721547 index=411 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63854.04016339226, 733.9882202148438, 14601.5868390054)
+[24.6946s] [RoadTerrainFitRejected] continuous=true points=130 radiusPasses=9 profilePasses=0
+[24.698s] [RoadTerrainEnvelope] points=130 pass=0 excess=1.1853402299572053 index=1257 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63854.04016339226, 733.9882202148438, 14601.5868390054)
+[24.7278s] [RoadTerrainEnvelope] points=130 pass=32 excess=27.682217044123945 index=757 first=(56037.91829474277, 37.66496658325195, 22869.713307616363) last=(63854.04016339226, 733.9882202148438, 14601.5868390054)
+[24.7279s] [RoadTerrainFitRejected] continuous=false points=130 radiusPasses=9 profilePasses=0
+[25.1837s] [RoadAlignmentSearch] nearest=8382.002669526148 highest=109.01199340820312 goals=0 fitFailures=0 nodes=15615
+[25.1837s] [RoadAlignmentBlocked] from=(56037.91829474277, 37.66496658325195, 22869.713307616363) to=(63854.04016339226, 733.9882202148438, 14601.5868390054) expanded=3000 limit=3000
+[25.1849s] [RoadTerrainFit] continuous=true points=5 curves=10 cost=253.29991388320923 from=(61495.334386924886, 34.394569396972656, 53812.855264728045) to=(61738.59881281627, 35.885536193847656, 53746.70831396134) elapsedMs=0.289
+[25.1851s] [RoadGroundCorridor] cells=4 step=48 margin=240
+[25.1853s] [RoadTerrainFit] continuous=true points=3 curves=9 cost=255.04981184005737 from=(61495.334386924886, 34.394569396972656, 53812.855264728045) to=(61738.59881281627, 35.885536193847656, 53746.70831396134) elapsedMs=0.254
+[25.2029s] [RoadTerrainFit] continuous=true points=6 curves=19 cost=744.3602151870728 from=(59759.50758932136, 32.037716698653874, 50399.20184514501) to=(59308, 27.191022872924805, 50636) elapsedMs=1.65
+[25.2032s] [RoadGroundCorridor] cells=7 step=48 margin=240
+[25.2043s] [RoadTerrainEnvelope] points=5 pass=32 excess=1.4650811778820128 index=15 first=(59759.50758932136, 32.037716698653874, 50399.20184514501) last=(59308, 27.191022872924805, 50636)
+[25.2043s] [RoadTerrainFit] continuous=true points=5 curves=18 cost=736.1743521690369 from=(59759.50758932136, 32.037716698653874, 50399.20184514501) to=(59308, 27.191022872924805, 50636) elapsedMs=1.133
+[25.3976s] [RoadTerrainFit] continuous=true points=5 curves=13 cost=419.41844367980957 from=(61864.00143111342, 49.990928649902344, 27748.022514675773) to=(62090.21004869162, 41.17841262817383, 27490.091818764216) elapsedMs=1.029
+[25.3979s] [RoadGroundCorridor] cells=7 step=48 margin=240
+[25.3991s] [RoadTerrainFit] continuous=true points=6 curves=15 cost=428.7681427001953 from=(61864.00143111342, 49.990928649902344, 27748.022514675773) to=(62090.21004869162, 41.17841262817383, 27490.091818764216) elapsedMs=1.168
+[25.4847s] [RoadAlignmentRepair] candidates=37 rerouted=17 unbuildable=0 savedCost=88002.51649464323
+[25.7585s] [RoadHeightStage] stage=alignment raisedDryNodes=22 maximumGap=11.33818352044807
+[25.9119s] [RoadHeightStage] stage=crossings raisedDryNodes=22 maximumGap=11.33818352044807
+[26.1804s] [RoadHeightStage] stage=finalGrades raisedDryNodes=22 maximumGap=11.33818352044807
+[27.1429s] [RoadEarthworks] groundedEdges=1759 adjustedVertices=109671 maxCut=11.73 maxFill=29.95 slope=1:1.5
+[28.4471s] [RoadEarthworks] groundedEdges=72 adjustedVertices=291 maxCut=12.22 maxFill=11.22 slope=1:1.5
+[28.4475s] [TunnelTopology] intersectionsAfterVerticalAlignment=true gradeBeforeJoin=0 gradeAfterJoin=1
+[28.4687s] [RoadDesignAudit] edges=17782 gradeBefore=82 gradeAfter=0 radiusBefore=15 radiusAfter=0 maxGrade=0.08955
+[28.4772s] [TownRoadGround] center=(62140, 53164) streets=205 elevated=0 tunnels=0 maxClearanceM=0.03
+[28.4858s] [TownRoadGround] center=(24252, 23772) streets=292 elevated=0 tunnels=0 maxClearanceM=0.06
+[28.4944s] [TownRoadGround] center=(16724, 43468) streets=50 elevated=0 tunnels=0 maxClearanceM=0.03
+[28.5029s] [TownRoadGround] center=(45276, 30396) streets=353 elevated=0 tunnels=0 maxClearanceM=0.03
+[28.7268s] [NarrowBlockMerge] removedShortcuts=6
+[28.7272s] [WaterCrossings] wetBefore=319 elevatedEdges=325
+[28.7571s] [BridgeAlignmentAudit] wetEdges=285 waterLengthM=6732 parallelWaterLengthM=90 maxWaterGrade=0.08954479173927693 submergedSamples=0
+[28.7577s] [RoadGroundAudit] elevated=390 belowTwoMeters=10 buried=24
+[28.7706s] [GuideSignClearance] generated=27 exclusionViolations=0 clearanceM=30
+[28.7709s] [GuideSign] 61 地区を登録, 案内標識自動生成完了
+[28.7709s] [PostProcess] registerGuideDestinations: 15173ms
+[28.771s] [Phase4] PostProcess 完了 (16578ms)
+[28.8071s] [RailCostCandidate] line=0 variant=0 feasible=true cost=62013 points=66
+[28.8073s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[28.811s] [RailCostCandidate] line=0 variant=1 feasible=true cost=61982 points=66
+[28.8112s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[28.8147s] [RailCostCandidate] line=0 variant=2 feasible=true cost=61436 points=66
+[28.8148s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[28.8206s] [RailCostCandidate] line=0 variant=3 feasible=true cost=61400 points=66
+[28.8208s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[28.8215s] [RailCostCandidate] line=0 variant=4 feasible=true cost=59681 points=63
+[28.8222s] [RailCostChosen] line=0 variant=4 cost=59681 sections=62
+[28.8779s] [RailCostCandidate] line=1 variant=0 feasible=true cost=343526 points=583
+[28.8795s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[28.9357s] [RailCostCandidate] line=1 variant=1 feasible=true cost=340600 points=577
+[28.9374s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[28.9915s] [RailCostCandidate] line=1 variant=2 feasible=true cost=345105 points=568
+[28.9931s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[29.0592s] [RailCostCandidate] line=1 variant=3 feasible=true cost=227625 points=617
+[29.0609s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[29.0689s] [RailCostCandidate] line=1 variant=4 feasible=true cost=570871 points=418
+[29.0746s] [RailCostChosen] line=1 variant=4 cost=570871 sections=417
+[29.0805s] [RailCostCandidate] line=2 variant=0 feasible=true cost=70786 points=107
+[29.0808s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[29.0864s] [RailCostCandidate] line=2 variant=1 feasible=true cost=70061 points=105
+[29.0867s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[29.0915s] [RailCostCandidate] line=2 variant=2 feasible=true cost=74846 points=98
+[29.0918s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[29.0986s] [RailCostCandidate] line=2 variant=3 feasible=true cost=76989 points=96
+[29.0988s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[29.0995s] [RailCostCandidate] line=2 variant=4 feasible=true cost=185625 points=53
+[29.1001s] [RailCostChosen] line=2 variant=4 cost=185625 sections=52
+[29.1446s] [RailCostCandidate] line=3 variant=0 feasible=true cost=391344 points=606
+[29.1463s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[29.1907s] [RailCostCandidate] line=3 variant=1 feasible=true cost=397590 points=616
+[29.1925s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[29.2361s] [RailCostCandidate] line=3 variant=2 feasible=true cost=404367 points=567
+[29.2377s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[29.3282s] [RailCostCandidate] line=3 variant=3 feasible=true cost=557720 points=1079
+[29.3309s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[29.3379s] [RailCostCandidate] line=3 variant=4 feasible=true cost=549457 points=348
+[29.3419s] [RailCostChosen] line=3 variant=4 cost=549457 sections=347
+[29.3447s] [RailCostCandidate] line=4 variant=0 feasible=true cost=60566 points=18
+[29.347s] [RailCostCandidate] line=4 variant=1 feasible=true cost=60569 points=18
+[29.3493s] [RailCostCandidate] line=4 variant=2 feasible=true cost=60570 points=18
+[29.3577s] [RailCostCandidate] line=4 variant=3 feasible=true cost=60570 points=18
+[29.3579s] [RailCostCandidate] line=4 variant=4 feasible=true cost=58151 points=16
+[29.358s] [RailCostChosen] line=4 variant=4 cost=58151 sections=15
+[29.3605s] [RailProfileBlocked] sample=13 run=60.000014305114156 lower=44.5 upper=44.5 road=40.13574752807617 start=57 end=44.5
+[29.3605s] [RailCostCandidate] line=5 variant=0 feasible=false cost=inf points=15
+[29.3631s] [RailProfileBlocked] sample=13 run=60.000014305114156 lower=44.5 upper=44.5 road=40.13574752807617 start=57 end=44.5
+[29.3631s] [RailCostCandidate] line=5 variant=1 feasible=false cost=inf points=15
+[29.3655s] [RailProfileBlocked] sample=13 run=60.000014305114156 lower=44.5 upper=44.5 road=40.13574752807617 start=57 end=44.5
+[29.3655s] [RailCostCandidate] line=5 variant=2 feasible=false cost=inf points=15
+[29.3735s] [RailProfileBlocked] sample=13 run=60.000014305114156 lower=44.5 upper=44.5 road=40.13574752807617 start=57 end=44.5
+[29.3735s] [RailCostCandidate] line=5 variant=3 feasible=false cost=inf points=15
+[29.3736s] [RailProfileBlocked] sample=13 run=60.000014305114156 lower=44.5 upper=44.5 road=40.13574752807617 start=57 end=44.5
+[29.3736s] [RailCostCandidate] line=5 variant=4 feasible=false cost=inf points=15
+[29.3737s] [RailCostFailure] from=1 to=2
+[29.3771s] [RailCostCandidate] line=5 variant=0 feasible=true cost=56800 points=34
+[29.3772s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[29.3807s] [RailCostCandidate] line=5 variant=1 feasible=true cost=54289 points=34
+[29.3838s] [RailCostCandidate] line=5 variant=2 feasible=true cost=54630 points=33
+[29.3935s] [RailCostCandidate] line=5 variant=3 feasible=true cost=54742 points=33
+[29.3939s] [RailCostCandidate] line=5 variant=4 feasible=true cost=54253 points=29
+[29.3943s] [RailCostChosen] line=5 variant=4 cost=54253 sections=28
+[29.3987s] [RailCostCandidate] line=6 variant=0 feasible=true cost=78035 points=58
+[29.3989s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[29.4035s] [RailCostCandidate] line=6 variant=1 feasible=true cost=78113 points=58
+[29.4036s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[29.408s] [RailCostCandidate] line=6 variant=2 feasible=true cost=74156 points=56
+[29.4081s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[29.418s] [RailCostCandidate] line=6 variant=3 feasible=true cost=72590 points=57
+[29.4181s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[29.4188s] [RailCostCandidate] line=6 variant=4 feasible=true cost=124648 points=53
+[29.4192s] [RailCostChosen] line=6 variant=4 cost=124648 sections=52
+[29.4592s] [RailCostCandidate] line=7 variant=0 feasible=true cost=208434 points=564
+[29.4608s] [RailAlignmentRejected] variant=0 reason=radius-or-grade
+[29.4998s] [RailCostCandidate] line=7 variant=1 feasible=true cost=205841 points=556
+[29.5014s] [RailAlignmentRejected] variant=1 reason=radius-or-grade
+[29.5437s] [RailCostCandidate] line=7 variant=2 feasible=true cost=201691 points=529
+[29.5453s] [RailAlignmentRejected] variant=2 reason=radius-or-grade
+[29.6054s] [RailCostCandidate] line=7 variant=3 feasible=true cost=238144 points=573
+[29.6072s] [RailAlignmentRejected] variant=3 reason=radius-or-grade
+[29.6132s] [RailCostCandidate] line=7 variant=4 feasible=true cost=118091 points=297
+[29.618s] [RailCostChosen] line=7 variant=4 cost=118091 sections=296
+[29.6306s] [RailHeight] samples=16423 median=0.9983647920177603 p95=18.63056587774478 maximum=27.50215738659947
+[29.6306s] [RailwayAudit] maxGrade=0.01552611515863256 roadConflicts=0 underWater=0 failedConnections=0
+[29.6306s] [StationCurvature] station=17680 minimumRadius=inf
+[29.6306s] [StationCurvature] station=18559 minimumRadius=inf
+[29.6306s] [StationCurvature] station=18574 minimumRadius=inf
+[29.6307s] [StationCurvature] station=18212 minimumRadius=inf
+[29.6307s] [StationCurvature] station=18654 minimumRadius=inf
+[29.6307s] [StationCurvature] station=18160 minimumRadius=inf
+[29.6307s] [StationCurvature] station=17681 minimumRadius=inf
+[29.6307s] [StationCurvature] station=18602 minimumRadius=inf
+[29.6307s] [StationCurvature] station=17743 minimumRadius=inf
+[29.6307s] [StationCurvature] violations=0
+[29.7097s] [RailDepot] rejected station=17680 reason=駅の横に車庫用の空地がありません（道路・線路）
+[29.7885s] [RailDepot] rejected station=18559 reason=駅の横に車庫用の空地がありません（道路・線路）
+[29.8676s] [RailDepot] rejected station=18602 reason=駅の横に車庫用の空地がありません（道路・線路）
+[29.9465s] [RailDepot] rejected station=18654 reason=駅の横に車庫用の空地がありません（道路・線路）
+[29.9465s] [RailDepot] generated=0 candidateStations=4
+[29.9465s] [RailwayAlignment] stations=9 lines=8 sections=1269 rejectedCorridors=1
+[30.111s] [DistrictHierarchy] areas=422 boundaries=16955 uncoveredCells=0
+[31.2949s] [applyZonesGlobal] realistic land-use 1104ms
+[32.7468s] [AgriculturalAccess] roads=13104 homes=1794
+[32.9839s] [UrbanFacility] town=汐淵 type=18 requested=1 placed=1 candidates=424
+[32.9876s] [UrbanFacility] town=汐淵 type=19 requested=1 placed=0 candidates=0
+[33.0234s] [UrbanFacility] town=汐淵 type=20 requested=1 placed=1 candidates=424
+[33.0568s] [UrbanFacility] town=汐淵 type=21 requested=2 placed=2 candidates=225
+[33.0949s] [UrbanFacility] town=汐淵 type=17 requested=2 placed=2 candidates=125
+[33.1409s] [UrbanFacility] town=葦草 type=18 requested=1 placed=1 candidates=1552
+[33.1443s] [UrbanFacility] town=葦草 type=19 requested=1 placed=0 candidates=0
+[33.1904s] [UrbanFacility] town=葦草 type=20 requested=1 placed=1 candidates=1552
+[33.2333s] [UrbanFacility] town=葦草 type=21 requested=2 placed=2 candidates=896
+[33.2835s] [UrbanFacility] town=葦草 type=17 requested=2 placed=2 candidates=219
+[33.3126s] [UrbanFacility] town=玉寺 type=18 requested=1 placed=1 candidates=164
+[33.3159s] [UrbanFacility] town=玉寺 type=19 requested=1 placed=0 candidates=0
+[33.3445s] [UrbanFacility] town=玉寺 type=20 requested=1 placed=1 candidates=164
+[33.3725s] [UrbanFacility] town=玉寺 type=21 requested=2 placed=1 candidates=87
+[33.4037s] [UrbanFacility] town=玉寺 type=17 requested=2 placed=2 candidates=38
+[33.4438s] [UrbanFacility] town=網瀬洗 type=18 requested=1 placed=1 candidates=283
+[33.4474s] [UrbanFacility] town=網瀬洗 type=19 requested=1 placed=0 candidates=0
+[33.4868s] [UrbanFacility] town=網瀬洗 type=20 requested=1 placed=1 candidates=283
+[33.5242s] [UrbanFacility] town=網瀬洗 type=21 requested=2 placed=2 candidates=47
+[33.5427s] [UrbanFacility] town=鵜池 type=21 requested=1 placed=1 candidates=187
+[33.5612s] [UrbanFacility] town=秋神 type=21 requested=1 placed=1 candidates=185
+[33.5909s] [UrbanFacility] town=常宮 type=21 requested=1 placed=0 candidates=181
+[33.778s] [RoadsideServices] district=0 convenience=6 fuel=3
+[33.9528s] [RoadsideServices] district=1 convenience=6 fuel=3
+[34.0663s] [RoadsideServices] district=2 convenience=6 fuel=1
+[34.1763s] [RoadsideServices] district=3 convenience=6 fuel=2
+[34.2475s] [RoadsideServices] district=4 convenience=3 fuel=0
+[34.2716s] [RoadsideServices] district=5 convenience=1 fuel=0
+[34.2948s] [RoadsideServices] district=6 convenience=1 fuel=0
+[34.3504s] [RoadsideServices] district=7 convenience=6 fuel=1
+[34.3958s] [RoadsideServices] district=8 convenience=0 fuel=0
+[34.4475s] [RoadsideServices] district=9 convenience=6 fuel=1
+[34.515s] [RoadsideServices] district=10 convenience=6 fuel=2
+[34.5555s] [RoadsideServices] district=11 convenience=6 fuel=2
+[34.5906s] [RoadsideServices] district=12 convenience=3 fuel=1
+[34.6258s] [RoadsideServices] district=13 convenience=3 fuel=0
+[34.6574s] [RoadsideServices] district=14 convenience=0 fuel=0
+[34.6795s] [RoadsideServices] district=15 convenience=0 fuel=0
+[34.7019s] [RoadsideServices] district=16 convenience=0 fuel=0
+[34.7254s] [RoadsideServices] district=17 convenience=0 fuel=0
+[34.7475s] [RoadsideServices] district=18 convenience=0 fuel=0
+[34.7711s] [RoadsideServices] district=19 convenience=0 fuel=0
+[34.7945s] [RoadsideServices] district=20 convenience=1 fuel=0
+[34.8191s] [RoadsideServices] district=21 convenience=0 fuel=0
+[34.8452s] [RoadsideServices] district=22 convenience=0 fuel=0
+[34.8693s] [RoadsideServices] district=23 convenience=1 fuel=0
+[34.8944s] [RoadsideServices] district=24 convenience=1 fuel=0
+[34.9191s] [RoadsideServices] district=25 convenience=0 fuel=0
+[34.944s] [RoadsideServices] district=26 convenience=1 fuel=0
+[34.9682s] [RoadsideServices] district=27 convenience=0 fuel=0
+[34.9925s] [RoadsideServices] district=28 convenience=1 fuel=0
+[35.0173s] [RoadsideServices] district=29 convenience=0 fuel=0
+[35.0419s] [RoadsideServices] district=30 convenience=0 fuel=0
+[35.0661s] [RoadsideServices] district=31 convenience=1 fuel=0
+[35.0901s] [RoadsideServices] district=32 convenience=1 fuel=0
+[35.114s] [RoadsideServices] district=33 convenience=0 fuel=0
+[35.1362s] [RoadsideServices] district=34 convenience=0 fuel=0
+[35.1582s] [RoadsideServices] district=35 convenience=1 fuel=0
+[35.1808s] [RoadsideServices] district=36 convenience=0 fuel=0
+[35.2039s] [RoadsideServices] district=37 convenience=0 fuel=0
+[35.2266s] [RoadsideServices] district=38 convenience=0 fuel=0
+[35.2494s] [RoadsideServices] district=39 convenience=0 fuel=0
+[35.2713s] [RoadsideServices] district=40 convenience=0 fuel=0
+[35.2938s] [RoadsideServices] district=41 convenience=0 fuel=0
+[35.3158s] [RoadsideServices] district=42 convenience=0 fuel=0
+[35.3379s] [RoadsideServices] district=43 convenience=0 fuel=0
+[35.3597s] [RoadsideServices] district=44 convenience=0 fuel=0
+[35.383s] [RoadsideServices] district=45 convenience=0 fuel=0
+[35.4068s] [RoadsideServices] district=46 convenience=0 fuel=0
+[35.4299s] [RoadsideServices] district=47 convenience=0 fuel=0
+[35.4519s] [RoadsideServices] district=48 convenience=0 fuel=0
+[35.4766s] [RoadsideServices] district=49 convenience=0 fuel=0
+[35.4991s] [RoadsideServices] district=50 convenience=0 fuel=0
+[35.5212s] [RoadsideServices] district=51 convenience=0 fuel=0
+[35.5429s] [RoadsideServices] district=52 convenience=0 fuel=0
+[35.5644s] [RoadsideServices] district=53 convenience=0 fuel=0
+[35.5858s] [RoadsideServices] district=54 convenience=0 fuel=0
+[35.6071s] [RoadsideServices] district=55 convenience=0 fuel=0
+[35.6286s] [RoadsideServices] district=56 convenience=0 fuel=0
+[35.6498s] [RoadsideServices] district=57 convenience=0 fuel=0
+[35.6716s] [RoadsideServices] district=58 convenience=0 fuel=0
+[35.6929s] [RoadsideServices] district=59 convenience=0 fuel=0
+[35.7142s] [RoadsideServices] district=60 convenience=0 fuel=0
+[35.7524s] [NewTownGreenClearance] rejected=79
+[35.7525s] [UrbanMix] midrise=938 towers=40 offices=114 detached=14267
+[35.7525s] [PlacementReview] slots=46649 placed=26097 density=8434 clearance=331 neighbor=2587
+[36.1745s] [RearLots] placed=8229
+[36.3185s] [GreenTrafficIsland] center=(62368.77288450346, 53480.566087304556) area=3045.1990292072296 cells=12
+[36.3188s] [GreenTrafficIsland] center=(24104.03430067793, 23680.49345331925) area=2832.3855994343758 cells=12
+[36.3192s] [BlockCoverage] blocks=2244 emptyBefore=2 infill=0 greenIslands=2 emptyAfter=0
+[40.6727s] [AgriculturalLayout] candidates=208542 fields=17408 paddies=5964 tracks=14012 drains=28024 disconnected=434
+[41.0575s] [SuburbanDevelopment] center=(62140, 53164) streets=151 depth=1149.8 buildings={3589, 1288, 496, 149}
+[41.0594s] [SuburbanDevelopment] center=(24252, 23772) streets=255 depth=1158.0 buildings={7368, 1458, 464, 75}
+[41.0598s] [SuburbanDevelopment] center=(16724, 43468) streets=84 depth=1152.0 buildings={956, 417, 228, 82}
+[41.0612s] [SuburbanDevelopment] center=(45276, 30396) streets=195 depth=1156.7 buildings={4028, 1236, 596, 204}
+[41.064s] [placeInitialBuildings] 26097 棟配置, インフィル1154棟, 農地2026159セル (8317ms)
+[41.064s] [placeInitialBuildings] placed=26097 infill=1154 fields=2026159 rejectedRoad=1380 rejectedSlope=309 elapsedMs=8317.1
+[42.9588s] [ParcelValidation] failure=0 count=37274
+[43.4613s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[43.4614s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[43.4945s] [Loading] 全パイプライン完了 (42.6秒)
+[46.4857s] [RiverRenderer] leveeRoads=29
+[46.8211s] [RiverRenderer] batches=957 shader=true
+[46.9749s] [TunnelJunction] rooms=0 roadSections=15
+[47.3431s] [TunnelRenderer] roadSections=15 railSections=267 mouthOpenings=6426
+[47.3491s] [Phase] 全体 46.4秒 → Playing へ遷移
+[47.7272s] [TreeModels] models=17 nearCapacity=64 farCapacity=1024 preloadMs=92.13
+[53.4266s] [BuildingPreload] assets=62 ms=5904.82
+[53.5034s] [JunctionGeometry] repaired node=26 approaches=4 regions=1 sourceFailure=6
+[53.5047s] [JunctionGeometry] repaired node=42 approaches=2 regions=1 sourceFailure=6
+[53.5163s] [JunctionGeometry] repaired node=15619 approaches=3 regions=1 sourceFailure=6
+[53.5164s] [JunctionGeometry] repaired node=15618 approaches=3 regions=1 sourceFailure=6
+[53.5191s] [JunctionGeometry] repaired node=15816 approaches=3 regions=1 sourceFailure=6
+[53.5397s] [JunctionGeometry] repaired node=15533 approaches=3 regions=1 sourceFailure=6
+[53.5619s] [JunctionGeometry] repaired node=2552 approaches=3 regions=1 sourceFailure=6
+[53.5743s] [JunctionGeometry] repaired node=15421 approaches=3 regions=1 sourceFailure=6
+[53.5883s] [JunctionGeometry] repaired node=3594 approaches=4 regions=1 sourceFailure=6
+[53.5984s] [JunctionGeometry] repaired node=15810 approaches=3 regions=1 sourceFailure=6
+[53.5991s] [JunctionGeometry] repaired node=15809 approaches=3 regions=1 sourceFailure=6
+[53.5995s] [JunctionGeometry] repaired node=15807 approaches=3 regions=1 sourceFailure=6
+[53.6171s] [JunctionGeometry] repaired node=15294 approaches=3 regions=1 sourceFailure=6
+[53.6172s] [JunctionGeometry] repaired node=15293 approaches=3 regions=1 sourceFailure=6
+[53.6768s] [JunctionGeometry] repaired node=15808 approaches=4 regions=1 sourceFailure=6
+[53.6775s] [JunctionGeometry] repaired node=6711 approaches=3 regions=1 sourceFailure=6
+[53.6781s] [JunctionGeometry] repaired node=6724 approaches=5 regions=1 sourceFailure=6
+[53.6802s] [JunctionGeometry] repaired node=6895 approaches=3 regions=1 sourceFailure=6
+[53.7375s] [JunctionGeometry] repaired node=9330 approaches=2 regions=1 sourceFailure=6
+[53.744s] [JunctionGeometry] repaired node=15814 approaches=3 regions=1 sourceFailure=6
+[53.7449s] [JunctionGeometry] repaired node=15813 approaches=3 regions=1 sourceFailure=6
+[53.7596s] [JunctionGeometry] repaired node=10360 approaches=3 regions=1 sourceFailure=6
+[54.0473s] [JunctionGeometry] repaired node=15190 approaches=3 regions=1 sourceFailure=6
+[54.0677s] [JunctionGeometry] repaired node=15804 approaches=3 regions=1 sourceFailure=6
+[54.0685s] [JunctionGeometry] repaired node=15715 approaches=3 regions=1 sourceFailure=6
+[54.0692s] [JunctionGeometry] repaired node=15736 approaches=3 regions=1 sourceFailure=6
+[54.1266s] [JunctionGeometry] repaired node=17672 approaches=4 regions=1 sourceFailure=6
+[54.1269s] [JunctionGeometry] repaired node=17673 approaches=4 regions=1 sourceFailure=6
+[54.1272s] [JunctionGeometry] repaired node=17674 approaches=4 regions=1 sourceFailure=6
+[54.1274s] [JunctionGeometry] repaired node=17675 approaches=4 regions=1 sourceFailure=6
+[54.1276s] [JunctionGeometry] repaired node=17676 approaches=4 regions=1 sourceFailure=6
+[54.1279s] [JunctionGeometry] repaired node=17677 approaches=4 regions=1 sourceFailure=6
+[54.1294s] [JunctionGeometry] repaired node=18975 approaches=3 regions=1 sourceFailure=6
+[54.1364s] [JunctionGeometry] repaired node=19196 approaches=2 regions=1 sourceFailure=6
+[54.1409s] [JunctionGeometry] repaired node=19346 approaches=3 regions=1 sourceFailure=6
+[54.1418s] [JunctionGeometry] repaired node=19368 approaches=2 regions=1 sourceFailure=6
+[54.1426s] [JunctionGeometry] repaired node=19381 approaches=3 regions=1 sourceFailure=6
+[54.1429s] [JunctionGeometry] repaired node=19384 approaches=3 regions=1 sourceFailure=6
+[54.1435s] [JunctionGeometry] repaired node=19400 approaches=3 regions=1 sourceFailure=6
+[54.1454s] [JunctionGeometry] repaired node=19459 approaches=3 regions=1 sourceFailure=6
+[54.1459s] [JunctionGeometry] repaired node=19471 approaches=3 regions=1 sourceFailure=6
+[54.1466s] [JunctionGeometry] repaired node=19490 approaches=3 regions=1 sourceFailure=6
+[54.147s] [JunctionGeometry] repaired node=19500 approaches=3 regions=1 sourceFailure=6
+[54.1472s] [JunctionGeometry] repaired node=19502 approaches=3 regions=1 sourceFailure=6
+[54.1476s] [JunctionGeometry] repaired node=19507 approaches=3 regions=1 sourceFailure=6
+[54.1506s] [JunctionGeometry] repaired node=19599 approaches=3 regions=1 sourceFailure=6
+[54.1559s] [JunctionGeometry] repaired node=19767 approaches=3 regions=1 sourceFailure=6
+[54.1581s] [JunctionGeometry] repaired node=19827 approaches=3 regions=1 sourceFailure=6
+[54.1588s] [JunctionGeometry] repaired node=19842 approaches=3 regions=1 sourceFailure=6
+[54.1597s] [JunctionGeometry] repaired node=19866 approaches=3 regions=1 sourceFailure=6
+[54.1603s] [JunctionGeometry] repaired node=19879 approaches=2 regions=1 sourceFailure=6
+[54.1609s] [JunctionGeometry] repaired node=19890 approaches=3 regions=1 sourceFailure=6
+[54.1615s] [JunctionGeometry] repaired node=19904 approaches=3 regions=1 sourceFailure=6
+[54.1668s] [JunctionGeometry] repaired node=20064 approaches=3 regions=1 sourceFailure=6
+[54.1685s] [JunctionGeometry] repaired node=20107 approaches=3 regions=1 sourceFailure=6
+[54.1725s] [JunctionGeometry] repaired node=20245 approaches=3 regions=1 sourceFailure=6
+[54.1728s] [JunctionGeometry] repaired node=20246 approaches=3 regions=1 sourceFailure=6
+[54.1735s] [JunctionGeometry] repaired node=20261 approaches=3 regions=1 sourceFailure=6
+[54.175s] [JunctionGeometry] repaired node=20293 approaches=3 regions=1 sourceFailure=6
+[54.176s] [JunctionGeometry] repaired node=20317 approaches=3 regions=1 sourceFailure=6
+[54.1782s] [JunctionGeometry] repaired node=20371 approaches=3 regions=1 sourceFailure=6
+[54.1786s] [JunctionGeometry] repaired node=20380 approaches=3 regions=1 sourceFailure=6
+[54.1796s] [JunctionGeometry] repaired node=20400 approaches=3 regions=1 sourceFailure=6
+[54.1819s] [JunctionGeometry] repaired node=20465 approaches=3 regions=1 sourceFailure=6
+[54.1862s] [JunctionGeometry] repaired node=20570 approaches=3 regions=1 sourceFailure=6
+[54.1868s] [JunctionGeometry] repaired node=20582 approaches=3 regions=1 sourceFailure=6
+[54.1871s] [JunctionGeometry] repaired node=20584 approaches=3 regions=1 sourceFailure=6
+[54.1898s] [JunctionGeometry] repaired node=20656 approaches=2 regions=1 sourceFailure=6
+[54.1929s] [JunctionGeometry] repaired node=20755 approaches=3 regions=1 sourceFailure=6
+[54.1981s] [JunctionGeometry] repaired node=20918 approaches=3 regions=1 sourceFailure=6
+[54.1983s] [JunctionGeometry] repaired node=20921 approaches=3 regions=1 sourceFailure=6
+[54.199s] [JunctionGeometry] repaired node=20933 approaches=3 regions=1 sourceFailure=6
+[54.2002s] [JunctionGeometry] repaired node=20967 approaches=3 regions=1 sourceFailure=6
+[54.2059s] [JunctionGeometry] repaired node=21127 approaches=3 regions=1 sourceFailure=6
+[54.2075s] [JunctionGeometry] repaired node=21176 approaches=3 regions=1 sourceFailure=6
+[54.2087s] [JunctionGeometry] repaired node=21209 approaches=3 regions=1 sourceFailure=6
+[54.2141s] [JunctionGeometry] repaired node=21371 approaches=3 regions=1 sourceFailure=6
+[54.218s] [JunctionGeometry] repaired node=21472 approaches=3 regions=1 sourceFailure=6
+[54.2189s] [JunctionGeometry] repaired node=21490 approaches=3 regions=1 sourceFailure=6
+[54.2197s] [JunctionGeometry] repaired node=21513 approaches=3 regions=1 sourceFailure=6
+[54.22s] [JunctionGeometry] repaired node=21516 approaches=3 regions=1 sourceFailure=6
+[54.2203s] [JunctionGeometry] repaired node=21519 approaches=3 regions=1 sourceFailure=6
+[54.2223s] [JunctionGeometry] repaired node=21568 approaches=3 regions=1 sourceFailure=6
+[54.2271s] [JunctionGeometry] repaired node=21709 approaches=3 regions=1 sourceFailure=6
+[54.2331s] [JunctionGeometry] repaired node=21859 approaches=2 regions=2 sourceFailure=6
+[54.2335s] [JunctionGeometry] repaired node=21861 approaches=3 regions=1 sourceFailure=6
+[54.2382s] [JunctionGeometry] repaired node=21995 approaches=3 regions=1 sourceFailure=6
+[54.2429s] [JunctionGeometry] repaired node=22145 approaches=3 regions=1 sourceFailure=6
+[54.2442s] [JunctionGeometry] repaired node=22179 approaches=3 regions=1 sourceFailure=6
+[54.2456s] [JunctionGeometry] repaired node=22222 approaches=3 regions=1 sourceFailure=6
+[54.2487s] [JunctionGeometry] repaired node=22298 approaches=3 regions=1 sourceFailure=6
+[54.2503s] [JunctionGeometry] repaired node=22340 approaches=3 regions=1 sourceFailure=6
+[54.2523s] [JunctionGeometry] repaired node=22391 approaches=3 regions=1 sourceFailure=6
+[54.2554s] [JunctionGeometry] repaired node=22477 approaches=3 regions=1 sourceFailure=6
+[54.2563s] [JunctionGeometry] repaired node=22501 approaches=3 regions=1 sourceFailure=6
+[54.2626s] [JunctionGeometry] repaired node=22689 approaches=3 regions=1 sourceFailure=6
+[54.2644s] [JunctionGeometry] repaired node=22740 approaches=3 regions=1 sourceFailure=6
+[54.2647s] [JunctionGeometry] repaired node=22743 approaches=3 regions=1 sourceFailure=6
+[54.268s] [JunctionGeometry] repaired node=22833 approaches=3 regions=1 sourceFailure=6
+[54.2686s] [JunctionGeometry] repaired node=22840 approaches=3 regions=1 sourceFailure=6
+[54.2741s] [JunctionGeometry] repaired node=22982 approaches=3 regions=1 sourceFailure=6
+[54.2748s] [JunctionGeometry] repaired node=22996 approaches=3 regions=1 sourceFailure=6
+[54.2756s] [JunctionGeometry] repaired node=23015 approaches=3 regions=1 sourceFailure=6
+[54.2788s] [JunctionGeometry] repaired node=23100 approaches=3 regions=1 sourceFailure=6
+[54.2798s] [JunctionGeometry] repaired node=23119 approaches=3 regions=1 sourceFailure=6
+[54.28s] [JunctionGeometry] repaired node=23121 approaches=3 regions=1 sourceFailure=6
+[54.2812s] [JunctionGeometry] repaired node=23151 approaches=3 regions=1 sourceFailure=6
+[54.2838s] [JunctionGeometry] repaired node=23208 approaches=3 regions=1 sourceFailure=6
+[54.2851s] [JunctionGeometry] repaired node=23235 approaches=3 regions=1 sourceFailure=6
+[54.2889s] [JunctionGeometry] repaired node=23343 approaches=3 regions=1 sourceFailure=6
+[54.2916s] [JunctionGeometry] repaired node=23430 approaches=3 regions=1 sourceFailure=6
+[54.2925s] [JunctionGeometry] repaired node=23458 approaches=3 regions=1 sourceFailure=6
+[54.294s] [JunctionGeometry] repaired node=23499 approaches=3 regions=1 sourceFailure=6
+[54.2947s] [JunctionGeometry] repaired node=23518 approaches=3 regions=1 sourceFailure=6
+[54.2961s] [JunctionGeometry] repaired node=23556 approaches=3 regions=1 sourceFailure=6
+[54.2971s] [JunctionGeometry] repaired node=23574 approaches=3 regions=1 sourceFailure=6
+[54.2998s] [JunctionGeometry] repaired node=23644 approaches=3 regions=1 sourceFailure=6
+[54.3003s] [JunctionGeometry] repaired node=23654 approaches=3 regions=1 sourceFailure=6
+[54.3009s] [JunctionGeometry] repaired node=23672 approaches=3 regions=1 sourceFailure=6
+[54.3017s] [JunctionGeometry] repaired node=23691 approaches=3 regions=1 sourceFailure=6
+[54.3033s] [JunctionGeometry] repaired node=23732 approaches=3 regions=1 sourceFailure=6
+[54.3078s] [JunctionGeometry] repaired node=23843 approaches=3 regions=1 sourceFailure=6
+[54.308s] [JunctionGeometry] repaired node=23844 approaches=3 regions=1 sourceFailure=6
+[54.3092s] [JunctionGeometry] repaired node=23869 approaches=3 regions=1 sourceFailure=6
+[54.3105s] [JunctionGeometry] repaired node=23901 approaches=3 regions=1 sourceFailure=6
+[54.3113s] [JunctionGeometry] repaired node=23920 approaches=3 regions=1 sourceFailure=6
+[54.3143s] [JunctionGeometry] repaired node=23992 approaches=3 regions=1 sourceFailure=6
+[54.3161s] [JunctionGeometry] repaired node=24047 approaches=3 regions=1 sourceFailure=6
+[54.3173s] [JunctionGeometry] repaired node=24078 approaches=3 regions=1 sourceFailure=6
+[54.3182s] [JunctionGeometry] repaired node=24103 approaches=3 regions=1 sourceFailure=6
+[54.3187s] [JunctionGeometry] repaired node=24115 approaches=3 regions=1 sourceFailure=6
+[54.322s] [JunctionGeometry] repaired node=24208 approaches=3 regions=1 sourceFailure=6
+[54.3222s] [JunctionGeometry] repaired node=24210 approaches=3 regions=1 sourceFailure=6
+[54.326s] [JunctionGeometry] repaired node=24324 approaches=3 regions=1 sourceFailure=6
+[54.327s] [JunctionGeometry] repaired node=24352 approaches=3 regions=1 sourceFailure=6
+[54.329s] [JunctionGeometry] repaired node=24398 approaches=3 regions=1 sourceFailure=6
+[54.3308s] [JunctionGeometry] repaired node=24446 approaches=3 regions=1 sourceFailure=6
+[54.3312s] [JunctionGeometry] repaired node=24452 approaches=3 regions=1 sourceFailure=6
+[54.3321s] [JunctionGeometry] repaired node=24473 approaches=3 regions=1 sourceFailure=6
+[54.3329s] [JunctionGeometry] repaired node=24489 approaches=3 regions=1 sourceFailure=6
+[54.3353s] [JunctionGeometry] repaired node=24548 approaches=3 regions=1 sourceFailure=6
+[54.3375s] [JunctionGeometry] repaired node=24623 approaches=3 regions=1 sourceFailure=6
+[54.339s] [JunctionGeometry] repaired node=24660 approaches=3 regions=1 sourceFailure=6
+[54.3397s] [JunctionGeometry] repaired node=24675 approaches=3 regions=1 sourceFailure=6
+[54.3427s] [JunctionGeometry] repaired node=24755 approaches=3 regions=1 sourceFailure=6
+[54.3456s] [JunctionGeometry] repaired node=24821 approaches=3 regions=1 sourceFailure=6
+[54.348s] [JunctionGeometry] repaired node=24896 approaches=3 regions=1 sourceFailure=6
+[54.3499s] [JunctionGeometry] repaired node=24935 approaches=3 regions=1 sourceFailure=6
+[54.3507s] [JunctionGeometry] repaired node=24953 approaches=3 regions=1 sourceFailure=6
+[54.3547s] [JunctionGeometry] repaired node=25067 approaches=3 regions=1 sourceFailure=6
+[54.3629s] [JunctionGeometry] repaired node=25336 approaches=3 regions=1 sourceFailure=6
+[54.3649s] [JunctionGeometry] repaired node=25390 approaches=3 regions=1 sourceFailure=6
+[54.366s] [JunctionGeometry] repaired node=25416 approaches=3 regions=1 sourceFailure=6
+[54.3705s] [JunctionGeometry] repaired node=25551 approaches=3 regions=1 sourceFailure=6
+[54.3711s] [JunctionGeometry] repaired node=25561 approaches=3 regions=1 sourceFailure=6
+[54.3713s] [JunctionGeometry] repaired node=25565 approaches=3 regions=1 sourceFailure=6
+[54.3768s] [JunctionGeometry] repaired node=25725 approaches=3 regions=1 sourceFailure=6
+[54.3791s] [JunctionGeometry] repaired node=25783 approaches=2 regions=2 sourceFailure=6
+[54.3832s] [JunctionGeometry] repaired node=25892 approaches=3 regions=1 sourceFailure=6
+[54.3839s] [JunctionGeometry] repaired node=25907 approaches=3 regions=1 sourceFailure=6
+[54.3866s] [JunctionGeometry] repaired node=25961 approaches=3 regions=1 sourceFailure=6
+[54.3897s] [JunctionGeometry] repaired node=26044 approaches=3 regions=1 sourceFailure=6
+[54.3905s] [JunctionGeometry] repaired node=26059 approaches=3 regions=1 sourceFailure=6
+[54.3958s] [JunctionGeometry] repaired node=26180 approaches=2 regions=2 sourceFailure=6
+[54.408s] [JunctionGeometry] repaired node=26526 approaches=3 regions=1 sourceFailure=6
+[54.4084s] [JunctionGeometry] repaired node=26536 approaches=3 regions=1 sourceFailure=6
+[54.4095s] [JunctionGeometry] repaired node=26567 approaches=3 regions=1 sourceFailure=6
+[54.4126s] [JunctionGeometry] repaired node=26647 approaches=3 regions=1 sourceFailure=6
+[54.4156s] [JunctionGeometry] repaired node=26737 approaches=3 regions=1 sourceFailure=6
+[54.4163s] [JunctionGeometry] repaired node=26744 approaches=3 regions=1 sourceFailure=6
+[54.4166s] [JunctionGeometry] repaired node=26745 approaches=3 regions=1 sourceFailure=6
+[54.4184s] [JunctionGeometry] repaired node=26789 approaches=2 regions=2 sourceFailure=6
+[54.4199s] [JunctionGeometry] repaired node=26825 approaches=3 regions=1 sourceFailure=6
+[54.4203s] [JunctionGeometry] repaired node=26830 approaches=3 regions=1 sourceFailure=6
+[54.422s] [JunctionGeometry] repaired node=26869 approaches=3 regions=1 sourceFailure=6
+[54.4371s] [JunctionGeometry] repaired node=27283 approaches=3 regions=1 sourceFailure=6
+[54.4408s] [JunctionGeometry] repaired node=27369 approaches=3 regions=1 sourceFailure=6
+[54.4536s] [JunctionGeometry] repaired node=27726 approaches=3 regions=1 sourceFailure=6
+[54.4644s] [JunctionGeometry] repaired node=28093 approaches=3 regions=1 sourceFailure=6
+[54.4715s] [JunctionGeometry] repaired node=28300 approaches=3 regions=1 sourceFailure=6
+[54.4727s] [JunctionGeometry] repaired node=28320 approaches=3 regions=1 sourceFailure=6
+[54.4746s] [JunctionGeometry] repaired node=28380 approaches=3 regions=1 sourceFailure=6
+[54.4758s] [JunctionGeometry] repaired node=28402 approaches=3 regions=1 sourceFailure=6
+[54.4793s] [JunctionGeometry] repaired node=28488 approaches=3 regions=1 sourceFailure=6
+[54.4913s] [JunctionGeometry] repaired node=28769 approaches=3 regions=1 sourceFailure=6
+[54.4976s] [JunctionGeometry] repaired node=28904 approaches=3 regions=1 sourceFailure=6
+[54.4995s] [JunctionGeometry] repaired node=28951 approaches=3 regions=1 sourceFailure=6
+[54.5012s] [JunctionGeometry] repaired node=28977 approaches=3 regions=1 sourceFailure=6
+[54.5022s] [JunctionGeometry] repaired node=29002 approaches=3 regions=1 sourceFailure=6
+[54.5122s] [JunctionGeometry] repaired node=29235 approaches=3 regions=1 sourceFailure=6
+[54.5148s] [JunctionGeometry] repaired node=29311 approaches=3 regions=1 sourceFailure=6
+[54.517s] [JunctionGeometry] repaired node=29369 approaches=3 regions=1 sourceFailure=6
+[54.5297s] [JunctionGeometry] repaired node=29688 approaches=3 regions=1 sourceFailure=6
+[54.5318s] [JunctionGeometry] repaired node=29752 approaches=3 regions=1 sourceFailure=6
+[54.535s] [JunctionGeometry] repaired node=29843 approaches=3 regions=1 sourceFailure=6
+[54.5371s] [JunctionGeometry] repaired node=29893 approaches=3 regions=1 sourceFailure=6
+[54.5385s] [JunctionGeometry] repaired node=29926 approaches=3 regions=1 sourceFailure=6
+[54.5417s] [JunctionGeometry] repaired node=29989 approaches=3 regions=1 sourceFailure=6
+[54.5435s] [JunctionGeometry] repaired node=30035 approaches=3 regions=1 sourceFailure=6
+[54.5463s] [JunctionGeometry] repaired node=30101 approaches=2 regions=2 sourceFailure=6
+[54.5503s] [JunctionGeometry] repaired node=30196 approaches=3 regions=1 sourceFailure=6
+[54.5524s] [JunctionGeometry] repaired node=30249 approaches=3 regions=1 sourceFailure=6
+[54.5557s] [JunctionGeometry] repaired node=30334 approaches=3 regions=1 sourceFailure=6
+[54.5564s] [JunctionGeometry] repaired node=30351 approaches=3 regions=1 sourceFailure=6
+[54.5582s] [JunctionGeometry] repaired node=30390 approaches=3 regions=1 sourceFailure=6
+[54.5646s] [JunctionGeometry] repaired node=30505 approaches=2 regions=2 sourceFailure=6
+[54.566s] [JunctionGeometry] repaired node=30536 approaches=3 regions=1 sourceFailure=6
+[54.5669s] [JunctionGeometry] repaired node=30560 approaches=3 regions=1 sourceFailure=6
+[54.5696s] [JunctionGeometry] repaired node=30630 approaches=3 regions=1 sourceFailure=6
+[54.572s] [JunctionGeometry] repaired node=30690 approaches=3 regions=1 sourceFailure=6
+[54.5778s] [JunctionGeometry] repaired node=30840 approaches=2 regions=2 sourceFailure=6
+[54.5788s] [JunctionGeometry] repaired node=30863 approaches=3 regions=1 sourceFailure=6
+[54.5838s] [JunctionGeometry] repaired node=31002 approaches=3 regions=1 sourceFailure=6
+[54.5849s] [JunctionGeometry] repaired node=31028 approaches=3 regions=1 sourceFailure=6
+[54.5865s] [JunctionGeometry] repaired node=31071 approaches=3 regions=1 sourceFailure=6
+[54.587s] [JunctionGeometry] repaired node=31080 approaches=2 regions=1 sourceFailure=6
+[54.588s] [JunctionGeometry] repaired node=31104 approaches=3 regions=1 sourceFailure=6
+[54.5895s] [JunctionGeometry] repaired node=31152 approaches=3 regions=1 sourceFailure=6
+[54.5966s] [JunctionGeometry] repaired node=31397 approaches=3 regions=1 sourceFailure=6
+[54.5972s] [JunctionGeometry] repaired node=31411 approaches=3 regions=1 sourceFailure=6
+[54.5989s] [JunctionGeometry] repaired node=31450 approaches=2 regions=1 sourceFailure=6
+[54.5999s] [JunctionGeometry] repaired node=31474 approaches=2 regions=2 sourceFailure=6
+[54.6002s] [JunctionGeometry] repaired node=31477 approaches=3 regions=1 sourceFailure=6
+[54.6107s] [JunctionGeometry] repaired node=31755 approaches=3 regions=1 sourceFailure=6
+[55.2023s] [WorldPreload] proxies=4096 totalMs=1755.22
+[71.0928s] [RoadFallback] preload edges=33331 nodes=29538 ms=15890.42
+[72.2092s] [RoadOverview] batches=622 sources=62869
+[73.0771s] [InitialEconomy] housing=323815 population=233146 grant=30.309 maintenance=22.718
+[73.0836s] [Navigation] phase=0 focus=(24252, 32.575355529785156, 23772) eye=(24252, 418.2479009628296, 24231.62666273117)
+[73.2606s] [HudStats] updateMs=2.13 housing=323815
+[73.2762s] [MapTerrain] local (512, 512) px step=8.99m build=15.1ms
+[73.2833s] [RenderCost] total=199.62 pre3D=4.78 train=93.96 flush=8.94 resolve=0.01 screen=0.09 ui=27.51 place=0.17 hudStats=2.17 hudDraw=0.41 minimap=22.16 panels=0.01
+[73.2835s] [NavigationCost] phase=0 frame=0 cpuMs=199.88 roadsMs=15.06 edges=0 nodes=4 partsMs=0.00 nodesMs=4.57 markingsMs=0.01 furnitureMs=0.00
+[73.2908s] [TreeStreaming] key=98784247831 revision=2 placementMs=74.05 masksMs=34.97 patchesMs=12.82 woodlandMs=21.35 instances=193 excludedTrees=0
+[73.2909s] [TreeStreaming] key=103079215127 revision=1 placementMs=53.35 masksMs=24.05 patchesMs=8.07 woodlandMs=20.56 instances=233 excludedTrees=0
+[73.3194s] [TreeStreaming] key=103079215128 revision=1 placementMs=15.25 masksMs=6.63 patchesMs=0.59 woodlandMs=6.87 instances=140 excludedTrees=0
+[73.3427s] [TreeStreaming] key=98784247832 revision=1 placementMs=35.19 masksMs=18.79 patchesMs=4.29 woodlandMs=5.95 instances=258 excludedTrees=0
+[73.3764s] [TreeStreaming] key=98784247830 revision=2 placementMs=42.99 masksMs=20.25 patchesMs=10.62 woodlandMs=11.35 instances=350 excludedTrees=0
+[73.3979s] [TreeStreaming] key=94489280535 revision=2 placementMs=40.21 masksMs=14.47 patchesMs=8.93 woodlandMs=14.68 instances=324 excludedTrees=0
+[73.4198s] [TreeStreaming] key=103079215126 revision=2 placementMs=36.41 masksMs=16.85 patchesMs=11.84 woodlandMs=6.55 instances=259 excludedTrees=0
+[73.4384s] [TreeStreaming] key=94489280536 revision=2 placementMs=29.95 masksMs=15.19 patchesMs=1.52 woodlandMs=7.16 instances=100 excludedTrees=0
+[73.4389s] [TreeStreaming] key=94489280534 revision=1 placementMs=9.28 masksMs=3.15 patchesMs=0.47 woodlandMs=5.33 instances=4620 excludedTrees=0
+[73.4636s] [TreeStreaming] key=107374182422 revision=2 placementMs=11.71 masksMs=4.98 patchesMs=0.24 woodlandMs=6.05 instances=61 excludedTrees=0
+[73.4641s] [TreeStreaming] key=98784247829 revision=2 placementMs=13.55 masksMs=8.45 patchesMs=1.68 woodlandMs=2.48 instances=266 excludedTrees=0
+[73.4855s] [TreeStreaming] key=103079215125 revision=2 placementMs=12.22 masksMs=6.04 patchesMs=0.53 woodlandMs=4.09 instances=124 excludedTrees=0
+[73.486s] [TreeStreaming] key=94489280533 revision=0 placementMs=3.51 masksMs=0.00 patchesMs=0.00 woodlandMs=3.51 instances=4840 excludedTrees=0
+[73.5061s] [TreeStreaming] key=107374182421 revision=2 placementMs=10.83 masksMs=5.22 patchesMs=0.01 woodlandMs=3.98 instances=0 excludedTrees=0
+[74.1981s] [BuildingStreaming] key=98784247831 workerMs=726.69 uploadMs=1.99 excludedTrees=0
+[74.2916s] [BuildingStreaming] key=103079215127 workerMs=513.88 uploadMs=0.27 excludedTrees=0
+[74.4306s] [Streaming] terrain workerMs=1259.89 uploadTotalMs=14.07 maxFrameUploadMs=9.53 uploadFrames=3
+[74.4306s] [LandscapeStreaming] key=103079215127 terrainMs=999.77 masksMs=9.81 patchesMs=245.23 woodlandMs=0.00 landscapeVertices=241579 landscapeTriangles=98063
+[74.5213s] [HudStats] updateMs=1.37 housing=323815
+[74.7794s] [BuildingStreaming] key=98784247832 workerMs=342.34 uploadMs=3.88 excludedTrees=0
+[74.8264s] [BuildingStreaming] key=103079215128 workerMs=120.51 uploadMs=1.60 excludedTrees=0
+[75.2384s] [Streaming] terrain workerMs=2056.63 uploadTotalMs=20.69 maxFrameUploadMs=12.44 uploadFrames=4
+[75.2384s] [LandscapeStreaming] key=98784247831 terrainMs=1792.57 masksMs=29.79 patchesMs=230.82 woodlandMs=0.00 landscapeVertices=303753 landscapeTriangles=114215
+[75.6585s] [Streaming] terrain workerMs=1110.64 uploadTotalMs=14.14 maxFrameUploadMs=4.82 uploadFrames=5
+[75.6585s] [LandscapeStreaming] key=98784247832 terrainMs=922.26 masksMs=12.86 patchesMs=174.69 woodlandMs=0.00 landscapeVertices=238486 landscapeTriangles=96672
+[75.7354s] [Streaming] terrain workerMs=318.36 uploadTotalMs=6.35 maxFrameUploadMs=3.28 uploadFrames=3
+[75.7354s] [LandscapeStreaming] key=103079215128 terrainMs=244.35 masksMs=3.38 patchesMs=70.14 woodlandMs=0.00 landscapeVertices=83149 landscapeTriangles=37055
+[75.8508s] [BuildingStreaming] key=98784247830 workerMs=679.15 uploadMs=2.08 excludedTrees=0
+[75.8704s] [HudStats] updateMs=1.55 housing=323815
+[76.1499s] [BuildingStreaming] key=94489280535 workerMs=528.45 uploadMs=1.41 excludedTrees=0
+[76.7343s] [Streaming] terrain workerMs=936.23 uploadTotalMs=10.59 maxFrameUploadMs=6.23 uploadFrames=3
+[76.7344s] [LandscapeStreaming] key=94489280535 terrainMs=810.19 masksMs=8.04 patchesMs=117.40 woodlandMs=0.00 landscapeVertices=219360 landscapeTriangles=87098
+[76.7849s] [BuildingStreaming] key=103079215126 workerMs=521.11 uploadMs=1.60 excludedTrees=0
+[76.8587s] [BuildingStreaming] key=94489280536 workerMs=114.76 uploadMs=1.57 excludedTrees=0
+[76.9734s] [BuildingStreaming] key=94489280534 workerMs=60.49 uploadMs=2.21 excludedTrees=0
+[77.2766s] [Streaming] terrain workerMs=1537.81 uploadTotalMs=15.05 maxFrameUploadMs=10.08 uploadFrames=3
+[77.2766s] [LandscapeStreaming] key=98784247830 terrainMs=1358.99 masksMs=12.75 patchesMs=165.02 woodlandMs=0.00 landscapeVertices=316317 landscapeTriangles=124891
+[77.295s] [HudStats] updateMs=1.50 housing=323815
+[77.7516s] [Streaming] terrain workerMs=422.41 uploadTotalMs=7.40 maxFrameUploadMs=3.27 uploadFrames=3
+[77.7516s] [LandscapeStreaming] key=94489280536 terrainMs=372.31 masksMs=4.47 patchesMs=45.20 woodlandMs=0.00 landscapeVertices=71243 landscapeTriangles=31785
+[77.9335s] [Streaming] terrain workerMs=147.47 uploadTotalMs=3.96 maxFrameUploadMs=2.19 uploadFrames=2
+[77.9335s] [LandscapeStreaming] key=94489280534 terrainMs=118.79 masksMs=1.80 patchesMs=26.67 woodlandMs=0.00 landscapeVertices=50988 landscapeTriangles=19768
+[78.1876s] [Streaming] terrain workerMs=194.24 uploadTotalMs=5.70 maxFrameUploadMs=2.43 uploadFrames=3
+[78.1876s] [LandscapeStreaming] key=107374182422 terrainMs=134.51 masksMs=2.82 patchesMs=56.66 woodlandMs=0.00 landscapeVertices=40421 landscapeTriangles=17441
+[78.271s] [Streaming] terrain workerMs=1448.64 uploadTotalMs=14.64 maxFrameUploadMs=9.94 uploadFrames=3
+[78.2711s] [LandscapeStreaming] key=103079215126 terrainMs=1237.50 masksMs=13.56 patchesMs=196.49 woodlandMs=0.00 landscapeVertices=319956 landscapeTriangles=126112
+[78.5275s] [Streaming] terrain workerMs=207.64 uploadTotalMs=4.38 maxFrameUploadMs=2.30 uploadFrames=2
+[78.5276s] [LandscapeStreaming] key=103079215125 terrainMs=159.62 masksMs=2.63 patchesMs=45.12 woodlandMs=0.00 landscapeVertices=61931 landscapeTriangles=27313
+[78.5526s] [Streaming] terrain workerMs=4.85 uploadTotalMs=1.18 maxFrameUploadMs=1.18 uploadFrames=1
+[78.5526s] [LandscapeStreaming] key=94489280533 terrainMs=4.85 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[78.577s] [Streaming] terrain workerMs=13.49 uploadTotalMs=0.99 maxFrameUploadMs=0.99 uploadFrames=1
+[78.577s] [LandscapeStreaming] key=107374182421 terrainMs=9.85 masksMs=1.15 patchesMs=2.34 woodlandMs=0.00 landscapeVertices=4664 landscapeTriangles=2334
+[78.658s] [HudStats] updateMs=1.40 housing=323815
+[78.8069s] [Streaming] terrain workerMs=524.28 uploadTotalMs=10.30 maxFrameUploadMs=4.79 uploadFrames=4
+[78.8069s] [LandscapeStreaming] key=98784247829 terrainMs=481.97 masksMs=5.49 patchesMs=36.41 woodlandMs=0.00 landscapeVertices=69684 landscapeTriangles=29796
+[79.7993s] [HudStats] updateMs=1.61 housing=323815
+[80.7998s] [HudStats] updateMs=1.41 housing=323815
+[81.4948s] [Navigation] phase=1 focus=(24252, 32.575355529785156, 23772) eye=(24252, 34.075355529785156, 23772)
+[81.5731s] [RenderCost] total=78.23 pre3D=4.41 train=28.14 flush=6.21 resolve=0.00 screen=0.06 ui=1.65 place=0.03 hudStats=0.00 hudDraw=0.07 minimap=0.04 panels=0.00
+[81.5731s] [NavigationCost] phase=1 frame=0 cpuMs=78.28 roadsMs=14.58 edges=1 nodes=0 partsMs=1.06 nodesMs=0.00 markingsMs=0.07 furnitureMs=4.48
+[81.6116s] [TreeStreaming] key=90194313238 revision=0 placementMs=5.69 masksMs=0.00 patchesMs=0.00 woodlandMs=5.69 instances=5210 excludedTrees=0
+[81.6116s] [TreeStreaming] key=90194313237 revision=0 placementMs=4.17 masksMs=0.00 patchesMs=0.00 woodlandMs=4.17 instances=1684 excludedTrees=0
+[81.6121s] [Streaming] terrain workerMs=10.77 uploadTotalMs=0.37 maxFrameUploadMs=0.37 uploadFrames=1
+[81.6121s] [LandscapeStreaming] key=90194313238 terrainMs=10.77 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[81.6419s] [RenderCost] total=67.02 pre3D=36.66 train=0.43 flush=4.83 resolve=0.00 screen=0.05 ui=2.06 place=0.03 hudStats=0.00 hudDraw=0.06 minimap=0.04 panels=0.00
+[81.642s] [NavigationCost] phase=1 frame=1 cpuMs=67.06 roadsMs=13.65 edges=1 nodes=1 partsMs=1.33 nodesMs=1.34 markingsMs=0.09 furnitureMs=2.70
+[81.6441s] [TreeStreaming] key=98784247828 revision=2 placementMs=8.65 masksMs=5.71 patchesMs=0.54 woodlandMs=2.07 instances=82 excludedTrees=0
+[81.6443s] [TreeStreaming] key=103079215124 revision=1 placementMs=0.51 masksMs=0.00 patchesMs=0.00 woodlandMs=0.50 instances=0 excludedTrees=0
+[81.6457s] [Streaming] terrain workerMs=10.20 uploadTotalMs=1.35 maxFrameUploadMs=1.35 uploadFrames=1
+[81.6457s] [LandscapeStreaming] key=90194313237 terrainMs=10.20 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[81.677s] [TreeStreaming] key=94489280532 revision=1 placementMs=5.33 masksMs=2.76 patchesMs=0.28 woodlandMs=2.11 instances=4479 excludedTrees=0
+[81.6772s] [TreeStreaming] key=111669149718 revision=1 placementMs=5.03 masksMs=2.78 patchesMs=0.02 woodlandMs=1.80 instances=0 excludedTrees=0
+[81.6779s] [Streaming] terrain workerMs=5.55 uploadTotalMs=0.66 maxFrameUploadMs=0.66 uploadFrames=1
+[81.6779s] [LandscapeStreaming] key=103079215124 terrainMs=4.63 masksMs=0.00 patchesMs=0.92 woodlandMs=0.00 landscapeVertices=1830 landscapeTriangles=930
+[81.8093s] [Streaming] terrain workerMs=79.89 uploadTotalMs=2.83 maxFrameUploadMs=2.20 uploadFrames=2
+[81.8093s] [LandscapeStreaming] key=94489280532 terrainMs=69.78 masksMs=0.96 patchesMs=9.05 woodlandMs=0.00 landscapeVertices=21342 landscapeTriangles=9034
+[81.8102s] [BuildingStreaming] key=98784247829 workerMs=135.54 uploadMs=0.86 excludedTrees=0
+[81.9244s] [Streaming] terrain workerMs=231.00 uploadTotalMs=5.87 maxFrameUploadMs=2.81 uploadFrames=3
+[81.9244s] [LandscapeStreaming] key=98784247828 terrainMs=187.14 masksMs=2.74 patchesMs=40.41 woodlandMs=0.00 landscapeVertices=63919 landscapeTriangles=29361
+[81.9528s] [BuildingStreaming] key=103079215125 workerMs=98.77 uploadMs=1.41 excludedTrees=0
+[82.0568s] [BuildingStreaming] key=107374182422 workerMs=39.84 uploadMs=1.42 excludedTrees=0
+[82.1751s] [Streaming] terrain workerMs=310.65 uploadTotalMs=3.64 maxFrameUploadMs=2.53 uploadFrames=2
+[82.1751s] [LandscapeStreaming] key=111669149718 terrainMs=302.95 masksMs=1.99 patchesMs=5.57 woodlandMs=0.00 landscapeVertices=13113 landscapeTriangles=6469
+[82.4353s] [HudStats] updateMs=0.94 housing=323815
+[83.7932s] [HudStats] updateMs=0.94 housing=323815
+[85.1838s] [HudStats] updateMs=1.09 housing=323815
+[86.5988s] [HudStats] updateMs=1.05 housing=323815
+[88.0449s] [HudStats] updateMs=1.16 housing=323815
+[89.0915s] [HudStats] updateMs=1.20 housing=323815
+[90.3383s] [Navigation] phase=2 focus=(24252, 32.575355529785156, 23772) eye=(24252, 418.2479009628296, 24231.62666273117)
+[90.3598s] [NavigationCost] phase=2 frame=0 cpuMs=21.49 roadsMs=6.13 edges=0 nodes=0 partsMs=0.00 nodesMs=0.00 markingsMs=0.00 furnitureMs=0.00
+[90.3731s] [HudStats] updateMs=1.58 housing=323815
+[91.3455s] [HudStats] updateMs=1.22 housing=323815
+[92.3453s] [HudStats] updateMs=1.33 housing=323815
+[93.5523s] [Navigation] phase=3 focus=(22452, 152.39552307128906, 22872) eye=(22452, 153.89552307128906, 22872)
+[93.5718s] [NavigationCost] phase=3 frame=0 cpuMs=19.47 roadsMs=4.86 edges=0 nodes=0 partsMs=0.00 nodesMs=0.00 markingsMs=0.00 furnitureMs=0.00
+[93.5722s] [TreeStreaming] key=90194313239 revision=1 placementMs=9.09 masksMs=4.77 patchesMs=0.01 woodlandMs=3.95 instances=1904 excludedTrees=0
+[93.5722s] [TreeStreaming] key=85899345942 revision=0 placementMs=3.88 masksMs=0.00 patchesMs=0.00 woodlandMs=3.88 instances=6564 excludedTrees=0
+[93.5727s] [Streaming] terrain workerMs=6.54 uploadTotalMs=0.43 maxFrameUploadMs=0.43 uploadFrames=1
+[93.5727s] [LandscapeStreaming] key=85899345942 terrainMs=6.54 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.5733s] [BuildingStreaming] key=90194313238 workerMs=0.01 uploadMs=0.56 excludedTrees=0
+[93.5873s] [HudStats] updateMs=0.89 housing=323815
+[93.5883s] [TreeStreaming] key=85899345941 revision=0 placementMs=4.81 masksMs=0.00 patchesMs=0.00 woodlandMs=4.81 instances=7484 excludedTrees=0
+[93.5887s] [TreeStreaming] key=85899345943 revision=1 placementMs=6.61 masksMs=3.68 patchesMs=0.01 woodlandMs=2.77 instances=2019 excludedTrees=0
+[93.5898s] [Streaming] terrain workerMs=6.30 uploadTotalMs=1.07 maxFrameUploadMs=1.07 uploadFrames=1
+[93.5898s] [LandscapeStreaming] key=85899345941 terrainMs=6.30 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.5904s] [BuildingStreaming] key=90194313237 workerMs=0.01 uploadMs=0.56 excludedTrees=0
+[93.6065s] [TreeStreaming] key=90194313236 revision=0 placementMs=5.63 masksMs=0.00 patchesMs=0.00 woodlandMs=5.63 instances=6358 excludedTrees=0
+[93.6066s] [TreeStreaming] key=85899345940 revision=0 placementMs=3.73 masksMs=0.00 patchesMs=0.00 woodlandMs=3.73 instances=7772 excludedTrees=0
+[93.6071s] [BuildingStreaming] key=94489280533 workerMs=0.01 uploadMs=0.44 excludedTrees=0
+[93.6203s] [TreeStreaming] key=81604378645 revision=0 placementMs=1.93 masksMs=0.00 patchesMs=0.00 woodlandMs=1.93 instances=7692 excludedTrees=0
+[93.6204s] [TreeStreaming] key=90194313235 revision=0 placementMs=2.56 masksMs=0.00 patchesMs=0.00 woodlandMs=2.56 instances=3976 excludedTrees=0
+[93.6214s] [BuildingStreaming] key=90194313239 workerMs=8.33 uploadMs=1.05 excludedTrees=0
+[93.6349s] [Streaming] terrain workerMs=27.41 uploadTotalMs=1.30 maxFrameUploadMs=1.30 uploadFrames=1
+[93.6349s] [LandscapeStreaming] key=85899345943 terrainMs=22.87 masksMs=0.89 patchesMs=3.42 woodlandMs=0.00 landscapeVertices=3762 landscapeTriangles=1968
+[93.6355s] [BuildingStreaming] key=85899345942 workerMs=0.01 uploadMs=0.57 excludedTrees=0
+[93.647s] [TreeStreaming] key=94489280531 revision=2 placementMs=9.76 masksMs=4.62 patchesMs=1.47 woodlandMs=2.69 instances=828 excludedTrees=0
+[93.6481s] [Streaming] terrain workerMs=2.85 uploadTotalMs=0.92 maxFrameUploadMs=0.92 uploadFrames=1
+[93.6481s] [LandscapeStreaming] key=90194313236 terrainMs=2.85 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.6485s] [BuildingStreaming] key=85899345941 workerMs=0.02 uploadMs=0.42 excludedTrees=0
+[93.662s] [Streaming] terrain workerMs=3.46 uploadTotalMs=0.37 maxFrameUploadMs=0.37 uploadFrames=1
+[93.662s] [LandscapeStreaming] key=85899345940 terrainMs=3.46 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.6627s] [BuildingStreaming] key=85899345943 workerMs=0.65 uploadMs=0.68 excludedTrees=0
+[93.675s] [Streaming] terrain workerMs=4.44 uploadTotalMs=1.10 maxFrameUploadMs=1.10 uploadFrames=1
+[93.6751s] [LandscapeStreaming] key=81604378645 terrainMs=4.44 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.6756s] [BuildingStreaming] key=90194313236 workerMs=0.01 uploadMs=0.50 excludedTrees=0
+[93.6854s] [Streaming] terrain workerMs=5.93 uploadTotalMs=0.32 maxFrameUploadMs=0.32 uploadFrames=1
+[93.6854s] [LandscapeStreaming] key=90194313235 terrainMs=5.92 masksMs=0.00 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[93.7216s] [Streaming] terrain workerMs=146.21 uploadTotalMs=3.19 maxFrameUploadMs=2.71 uploadFrames=2
+[93.7217s] [LandscapeStreaming] key=90194313239 terrainMs=143.12 masksMs=1.65 patchesMs=1.30 woodlandMs=0.00 landscapeVertices=3475 landscapeTriangles=1723
+[93.736s] [BuildingStreaming] key=94489280532 workerMs=28.42 uploadMs=1.10 excludedTrees=0
+[94.1089s] [Streaming] terrain workerMs=357.81 uploadTotalMs=8.79 maxFrameUploadMs=3.05 uploadFrames=4
+[94.1089s] [LandscapeStreaming] key=94489280531 terrainMs=309.39 masksMs=4.55 patchesMs=43.46 woodlandMs=0.00 landscapeVertices=103703 landscapeTriangles=44011
+[94.5553s] [HudStats] updateMs=1.04 housing=323815
+[95.5555s] [HudStats] updateMs=0.89 housing=323815
+[96.7554s] [Navigation] phase=4 focus=(22452, 152.39552307128906, 22872) eye=(22452, 153.89552307128906, 22872)
+[96.7654s] [NavigationCost] phase=4 frame=0 cpuMs=9.99 roadsMs=4.26 edges=0 nodes=0 partsMs=0.00 nodesMs=0.00 markingsMs=0.00 furnitureMs=0.00
+[96.7721s] [HudStats] updateMs=0.92 housing=323815
+[97.7692s] [HudStats] updateMs=0.95 housing=323815
+[98.7688s] [HudStats] updateMs=0.98 housing=323815
+[99.9545s] [Navigation] phase=5 focus=(24252, 32.575355529785156, 23772) eye=(24252, 418.2479009628296, 24231.62666273117)
+[99.9764s] [NavigationCost] phase=5 frame=0 cpuMs=21.94 roadsMs=6.68 edges=0 nodes=0 partsMs=0.00 nodesMs=0.00 markingsMs=0.00 furnitureMs=0.00
+[99.9891s] [HudStats] updateMs=1.50 housing=323815
+[100.972s] [HudStats] updateMs=1.37 housing=323815
+[101.973s] [HudStats] updateMs=1.43 housing=323815
+[102.931s] [Navigation] complete phases=6
+[104.157s] [GameApp] stopped
+===== DebugLog closed 2026-10-06 19:16:12 =====

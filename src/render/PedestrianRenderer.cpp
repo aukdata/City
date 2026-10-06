@@ -133,3 +133,10 @@ void PedestrianRenderer::render(
 	m_stats.triangles += m_far.batch.triangles();
 	m_stats.drawCalls += m_far.batch.draw();
 }
+
+void PedestrianRenderer::preload()
+{
+	prepare();VehicleInstanceBatch::preloadShaders();
+	for(auto& pose:m_near) for(auto& part:pose) { part.batch.append(part.source,Mat4x4::Identity());part.batch.clear(); }
+	m_far.batch.append(m_far.source,Mat4x4::Identity());m_far.batch.clear();
+}

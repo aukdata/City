@@ -1,0 +1,492 @@
+{
+  "traffic_baseline": {
+    "1": {
+      "renderMs": {
+        "mean": 13.362,
+        "p95": 15.239,
+        "max": 22.368
+      },
+      "frameMs": {
+        "mean": 18.736,
+        "p95": 28.47,
+        "max": 36.248
+      },
+      "carUpdateMs": {
+        "mean": 2.979,
+        "p95": 3.3,
+        "max": 4.937
+      },
+      "carDrawMs": {
+        "mean": 0.093,
+        "p95": 0.107,
+        "max": 0.204
+      },
+      "roadMs": {
+        "mean": 5.682,
+        "p95": 6.491,
+        "max": 8.304
+      },
+      "flushMs": {
+        "mean": 3.142,
+        "p95": 3.644,
+        "max": 4.635
+      },
+      "gpuMs": {
+        "mean": 5.23,
+        "p95": 14.724,
+        "max": 17.382
+      },
+      "minimapMs": {
+        "mean": 1.144,
+        "p95": 1.322,
+        "max": 1.687
+      },
+      "coldRenderMax": 149.976,
+      "cars": [
+        3198,
+        3205
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 3
+    },
+    "2": {
+      "renderMs": {
+        "mean": 8.023,
+        "p95": 9.274,
+        "max": 12.104
+      },
+      "frameMs": {
+        "mean": 16.672,
+        "p95": 27.664,
+        "max": 31.42
+      },
+      "carUpdateMs": {
+        "mean": 2.804,
+        "p95": 3.192,
+        "max": 9.43
+      },
+      "carDrawMs": {
+        "mean": 0.27,
+        "p95": 0.314,
+        "max": 0.531
+      },
+      "roadMs": {
+        "mean": 3.401,
+        "p95": 4.273,
+        "max": 5.364
+      },
+      "flushMs": {
+        "mean": 0.538,
+        "p95": 0.692,
+        "max": 2.159
+      },
+      "gpuMs": {
+        "mean": 1.646,
+        "p95": 1.992,
+        "max": 2.36
+      },
+      "minimapMs": {
+        "mean": 0.945,
+        "p95": 1.083,
+        "max": 2.089
+      },
+      "coldRenderMax": 15.479,
+      "cars": [
+        3199,
+        3208
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 0
+    }
+  },
+  "traffic_intermediate": {
+    "1": {
+      "renderMs": {
+        "mean": 12.723,
+        "p95": 14.449,
+        "max": 22.049
+      },
+      "frameMs": {
+        "mean": 18.267,
+        "p95": 28.352,
+        "max": 35.925
+      },
+      "carUpdateMs": {
+        "mean": 2.955,
+        "p95": 3.345,
+        "max": 5.128
+      },
+      "carDrawMs": {
+        "mean": 0.095,
+        "p95": 0.105,
+        "max": 0.304
+      },
+      "roadMs": {
+        "mean": 3.836,
+        "p95": 4.399,
+        "max": 7.828
+      },
+      "flushMs": {
+        "mean": 3.481,
+        "p95": 4.17,
+        "max": 4.878
+      },
+      "gpuMs": {
+        "mean": 5.672,
+        "p95": 15.045,
+        "max": 18.349
+      },
+      "systemUpdateMs": {
+        "mean": 0.608,
+        "p95": 1.014,
+        "max": 2.792
+      },
+      "roadCandidates": {
+        "mean": 1673.0,
+        "p95": 1673.0,
+        "max": 1673.0
+      },
+      "nodeCandidates": {
+        "mean": 1256.0,
+        "p95": 1256.0,
+        "max": 1256.0
+      },
+      "minimapMs": {
+        "mean": 1.177,
+        "p95": 1.375,
+        "max": 1.75
+      },
+      "coldRenderMax": 61.25,
+      "cars": [
+        3200,
+        3204
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 1
+    },
+    "2": {
+      "renderMs": {
+        "mean": 7.144,
+        "p95": 8.142,
+        "max": 11.2
+      },
+      "frameMs": {
+        "mean": 16.671,
+        "p95": 27.665,
+        "max": 34.694
+      },
+      "carUpdateMs": {
+        "mean": 2.682,
+        "p95": 3.179,
+        "max": 4.837
+      },
+      "carDrawMs": {
+        "mean": 0.263,
+        "p95": 0.3,
+        "max": 0.521
+      },
+      "roadMs": {
+        "mean": 2.16,
+        "p95": 2.527,
+        "max": 4.993
+      },
+      "flushMs": {
+        "mean": 0.677,
+        "p95": 0.871,
+        "max": 1.684
+      },
+      "gpuMs": {
+        "mean": 2.097,
+        "p95": 6.007,
+        "max": 12.235
+      },
+      "systemUpdateMs": {
+        "mean": 5.01,
+        "p95": 16.39,
+        "max": 20.94
+      },
+      "roadCandidates": {
+        "mean": 3319.0,
+        "p95": 3319.0,
+        "max": 3319.0
+      },
+      "nodeCandidates": {
+        "mean": 2627.0,
+        "p95": 2627.0,
+        "max": 2627.0
+      },
+      "minimapMs": {
+        "mean": 0.94,
+        "p95": 1.082,
+        "max": 1.944
+      },
+      "coldRenderMax": 16.722,
+      "cars": [
+        3198,
+        3208
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 0
+    }
+  },
+  "traffic_final": {
+    "1": {
+      "renderMs": {
+        "mean": 12.377,
+        "p95": 14.352,
+        "max": 23.221
+      },
+      "frameMs": {
+        "mean": 17.859,
+        "p95": 28.148,
+        "max": 35.526
+      },
+      "carUpdateMs": {
+        "mean": 2.886,
+        "p95": 3.242,
+        "max": 5.057
+      },
+      "carDrawMs": {
+        "mean": 0.092,
+        "p95": 0.103,
+        "max": 0.136
+      },
+      "roadMs": {
+        "mean": 3.731,
+        "p95": 4.363,
+        "max": 5.393
+      },
+      "flushMs": {
+        "mean": 3.314,
+        "p95": 4.005,
+        "max": 6.47
+      },
+      "gpuMs": {
+        "mean": 5.582,
+        "p95": 15.139,
+        "max": 18.28
+      },
+      "systemUpdateMs": {
+        "mean": 0.609,
+        "p95": 0.984,
+        "max": 5.743
+      },
+      "roadCandidates": {
+        "mean": 2056.0,
+        "p95": 2056.0,
+        "max": 2056.0
+      },
+      "nodeCandidates": {
+        "mean": 1256.0,
+        "p95": 1256.0,
+        "max": 1256.0
+      },
+      "minimapMs": {
+        "mean": 1.21,
+        "p95": 1.399,
+        "max": 2.34
+      },
+      "coldRenderMax": 43.103,
+      "cars": [
+        3199,
+        3205
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 1
+    },
+    "2": {
+      "renderMs": {
+        "mean": 7.239,
+        "p95": 8.192,
+        "max": 10.768
+      },
+      "frameMs": {
+        "mean": 16.671,
+        "p95": 27.823,
+        "max": 30.275
+      },
+      "carUpdateMs": {
+        "mean": 2.541,
+        "p95": 3.095,
+        "max": 5.265
+      },
+      "carDrawMs": {
+        "mean": 0.261,
+        "p95": 0.291,
+        "max": 0.429
+      },
+      "roadMs": {
+        "mean": 2.29,
+        "p95": 2.622,
+        "max": 4.224
+      },
+      "flushMs": {
+        "mean": 0.647,
+        "p95": 0.841,
+        "max": 1.898
+      },
+      "gpuMs": {
+        "mean": 2.107,
+        "p95": 2.506,
+        "max": 13.03
+      },
+      "systemUpdateMs": {
+        "mean": 5.06,
+        "p95": 16.503,
+        "max": 17.268
+      },
+      "roadCandidates": {
+        "mean": 3623.0,
+        "p95": 3623.0,
+        "max": 3623.0
+      },
+      "nodeCandidates": {
+        "mean": 2627.0,
+        "p95": 2627.0,
+        "max": 2627.0
+      },
+      "minimapMs": {
+        "mean": 0.961,
+        "p95": 1.109,
+        "max": 2.033
+      },
+      "coldRenderMax": 22.135,
+      "cars": [
+        3199,
+        3206
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 0
+    }
+  },
+  "traffic_perf_final": {
+    "1": {
+      "renderMs": {
+        "mean": 12.291,
+        "p95": 14.363,
+        "max": 20.602
+      },
+      "frameMs": {
+        "mean": 17.148,
+        "p95": 20.345,
+        "max": 26.217
+      },
+      "carUpdateMs": {
+        "mean": 2.885,
+        "p95": 3.342,
+        "max": 5.272
+      },
+      "carDrawMs": {
+        "mean": 0.096,
+        "p95": 0.105,
+        "max": 0.719
+      },
+      "roadMs": {
+        "mean": 3.761,
+        "p95": 4.439,
+        "max": 5.28
+      },
+      "flushMs": {
+        "mean": 3.298,
+        "p95": 3.958,
+        "max": 5.65
+      },
+      "gpuMs": {
+        "mean": 4.895,
+        "p95": 5.753,
+        "max": 7.854
+      },
+      "systemUpdateMs": {
+        "mean": 0.656,
+        "p95": 1.126,
+        "max": 3.666
+      },
+      "roadCandidates": {
+        "mean": 2056.0,
+        "p95": 2056.0,
+        "max": 2056.0
+      },
+      "nodeCandidates": {
+        "mean": 1256.0,
+        "p95": 1256.0,
+        "max": 1256.0
+      },
+      "minimapMs": {
+        "mean": 1.159,
+        "p95": 1.344,
+        "max": 1.941
+      },
+      "coldRenderMax": 38.88,
+      "cars": [
+        3199,
+        3205
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 0
+    },
+    "2": {
+      "renderMs": {
+        "mean": 7.033,
+        "p95": 7.982,
+        "max": 9.769
+      },
+      "frameMs": {
+        "mean": 16.67,
+        "p95": 27.848,
+        "max": 31.501
+      },
+      "carUpdateMs": {
+        "mean": 2.445,
+        "p95": 3.017,
+        "max": 4.977
+      },
+      "carDrawMs": {
+        "mean": 0.258,
+        "p95": 0.279,
+        "max": 3.184
+      },
+      "roadMs": {
+        "mean": 2.271,
+        "p95": 2.547,
+        "max": 3.016
+      },
+      "flushMs": {
+        "mean": 0.609,
+        "p95": 0.787,
+        "max": 1.612
+      },
+      "gpuMs": {
+        "mean": 1.714,
+        "p95": 2.13,
+        "max": 2.409
+      },
+      "systemUpdateMs": {
+        "mean": 5.982,
+        "p95": 16.732,
+        "max": 18.656
+      },
+      "roadCandidates": {
+        "mean": 3623.0,
+        "p95": 3623.0,
+        "max": 3623.0
+      },
+      "nodeCandidates": {
+        "mean": 2627.0,
+        "p95": 2627.0,
+        "max": 2627.0
+      },
+      "minimapMs": {
+        "mean": 0.925,
+        "p95": 1.059,
+        "max": 3.069
+      },
+      "coldRenderMax": 14.935,
+      "cars": [
+        3199,
+        3208
+      ],
+      "steadySamples": 1200,
+      "renderOver40": 0
+    }
+  }
+}

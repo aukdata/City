@@ -1,0 +1,134 @@
+{
+  "1": {
+    "frameMs": {
+      "mean": 17.148,
+      "p95": 20.308,
+      "max": 26.217
+    },
+    "renderMs": {
+      "mean": 12.291,
+      "p95": 14.3,
+      "max": 20.602
+    },
+    "updateMs": {
+      "mean": 4.153,
+      "p95": 4.928,
+      "max": 6.688
+    },
+    "systemUpdateMs": {
+      "mean": 0.656,
+      "p95": 1.125,
+      "max": 3.666
+    },
+    "previousDiagnosticsMs": {
+      "mean": 0.052,
+      "p95": 0.55,
+      "max": 0.995
+    },
+    "trafficSignalMs": {
+      "mean": 0.385,
+      "p95": 0.456,
+      "max": 2.281
+    },
+    "trafficIDMMs": {
+      "mean": 1.313,
+      "p95": 1.546,
+      "max": 2.105
+    },
+    "trafficLaneChangeMs": {
+      "mean": 0.826,
+      "p95": 0.954,
+      "max": 1.216
+    },
+    "trafficOtherMs": {
+      "mean": 0.36,
+      "p95": 0.418,
+      "max": 0.519
+    },
+    "roadCandidates": {
+      "mean": 2056.0,
+      "p95": 2056.0,
+      "max": 2056.0
+    },
+    "nodeCandidates": {
+      "mean": 1256.0,
+      "p95": 1256.0,
+      "max": 1256.0
+    },
+    "framesOver25": 5,
+    "framesOver25MeanStages": {
+      "frameMs": 25.695,
+      "renderMs": 19.931,
+      "updateMs": 4.709,
+      "systemUpdateMs": 0.818,
+      "previousDiagnosticsMs": 0.24
+    },
+    "unmeasuredMeanMs": -0.003
+  },
+  "2": {
+    "frameMs": {
+      "mean": 16.67,
+      "p95": 27.807,
+      "max": 31.501
+    },
+    "renderMs": {
+      "mean": 7.033,
+      "p95": 7.96,
+      "max": 9.769
+    },
+    "updateMs": {
+      "mean": 3.609,
+      "p95": 4.425,
+      "max": 6.396
+    },
+    "systemUpdateMs": {
+      "mean": 5.982,
+      "p95": 16.72,
+      "max": 18.656
+    },
+    "previousDiagnosticsMs": {
+      "mean": 0.049,
+      "p95": 0.512,
+      "max": 1.294
+    },
+    "trafficSignalMs": {
+      "mean": 0.336,
+      "p95": 0.398,
+      "max": 2.466
+    },
+    "trafficIDMMs": {
+      "mean": 1.079,
+      "p95": 1.365,
+      "max": 2.061
+    },
+    "trafficLaneChangeMs": {
+      "mean": 0.716,
+      "p95": 0.878,
+      "max": 1.162
+    },
+    "trafficOtherMs": {
+      "mean": 0.315,
+      "p95": 0.39,
+      "max": 0.608
+    },
+    "roadCandidates": {
+      "mean": 3623.0,
+      "p95": 3623.0,
+      "max": 3623.0
+    },
+    "nodeCandidates": {
+      "mean": 2627.0,
+      "p95": 2627.0,
+      "max": 2627.0
+    },
+    "framesOver25": 298,
+    "framesOver25MeanStages": {
+      "frameMs": 27.128,
+      "renderMs": 7.193,
+      "updateMs": 3.738,
+      "systemUpdateMs": 16.154,
+      "previousDiagnosticsMs": 0.047
+    },
+    "unmeasuredMeanMs": -0.004
+  }
+}

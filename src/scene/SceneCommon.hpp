@@ -26,6 +26,7 @@ struct SceneData
 	bool   benchmarkNavigation = false; ///< Repeat walking transitions, turns and map jumps.
 	bool   benchmarkStreaming = false; ///< Deterministic camera flight with per-frame CPU measurements.
 	FilePath playtestCommands; ///< 明示指定されたローカル操作コマンドだけを読む。
+	double systemUpdateMs = 0; ///< Time spent in engine update and presentation, measured before scene work.
 	bool   playtest = false; ///< Opt-in live input/state/frame diagnostics without image output.
 	bool   syncTerrain = false; ///< Reference path for terrain streaming A/B measurements.
 	int    captureNode = -1; ///< Optional exact junction for render regression on saved maps.

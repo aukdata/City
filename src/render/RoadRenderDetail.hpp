@@ -11,7 +11,23 @@ namespace RoadRenderDetail
 	struct StripRange { float sStart; float sEnd; };
 	constexpr float kWorldUV = 0.5f;
 
-	inline SliceInfo makeSlice(const CubicBezier& bez, const World& world,
+	/// @brief Cover arbitrary part offsets and the 25 m outside samples used for retaining walls.
+	inline double equipmentPadding(const RoadEdge& edge)
+	{
+		double padding = 256 + edge.totalWidth();
+		for (const auto& part : edge.parts)
+		{
+			for (float offset : {part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R})
+			{
+				padding = Max(padding, Abs(static_cast<double>(offset)) + 32);
+			}
+		}
+		for (const auto& sign : edge.signs) { padding = Max(padding, Abs(static_cast<double>(sign.lateralOffset)) + 32); }
+		return padding;
+	}
+
+	template<class Heights>
+	inline SliceInfo makeSlice(const CubicBezier& bez, const Heights& world,
 	                    float s, double terrainLift, bool useElevation = false)
 	{
 		const Vec3  p  = bez.positionAt(s);
