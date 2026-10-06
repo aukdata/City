@@ -524,7 +524,6 @@ GENERATION_SETTING(double, districtRoads_minimumTownHalfExtent, U"districtRoads"
 GENERATION_SETTING(double, districtRoads_ruralRoadSearchMargin, U"districtRoads", U"ruralRoadSearchMargin", 1e-05, 10000)
 GENERATION_SETTING(double, districtRoads_ruralAnchorRatio, U"districtRoads", U"ruralAnchorRatio", 1e-05, 10000)
 GENERATION_SETTING(double, districtRoads_ruralAnchorSearchRadius, U"districtRoads", U"ruralAnchorSearchRadius", 1e-05, 10000)
-GENERATION_SETTING(float, districtRoads_ruralJunctionSetback, U"districtRoads", U"ruralJunctionSetback", 1e-05, 10000)
 GENERATION_SETTING(double, districtRoads_dispersedBranchLength, U"districtRoads", U"dispersedBranchLength", 1e-05, 10000)
 GENERATION_SETTING(double, districtRoads_clusterBranchLength, U"districtRoads", U"clusterBranchLength", 1e-05, 10000)
 GENERATION_SETTING(double, districtRoads_valleyBranchLength, U"districtRoads", U"valleyBranchLength", 1e-05, 10000)

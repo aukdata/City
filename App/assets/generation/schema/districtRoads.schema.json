@@ -42,7 +42,6 @@
     "ruralRoadSearchMargin",
     "ruralAnchorRatio",
     "ruralAnchorSearchRadius",
-    "ruralJunctionSetback",
     "dispersedBranchLength",
     "clusterBranchLength",
     "valleyBranchLength",
@@ -248,11 +247,6 @@
       "maximum": 10000.0
     },
     "ruralAnchorSearchRadius": {
-      "type": "number",
-      "minimum": 1e-05,
-      "maximum": 10000.0
-    },
-    "ruralJunctionSetback": {
       "type": "number",
       "minimum": 1e-05,
       "maximum": 10000.0

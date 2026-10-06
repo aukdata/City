@@ -13,7 +13,7 @@
 | 道路断面・計画・路線の編集パネル | `GameScene_Panels.cpp` | RoadPlanDraft / RoadConstructionStart などの共通処理を使う。 |
 | 建物・車両・敷地などの情報 | `GameScene_InspectorPanels.cpp` | GameScene の選択状態と PanelManager を使用する。 |
 | 信号の現示編集と模式図 | `GameScene_SignalPanel.cpp` | 道路断面と模式図の色は `ui/RoadDiagramStyle.hpp` で共有する。 |
-| 道路面・交差点のメッシュ | `render/RoadRenderer.cpp` | 標識・信号・工事・ストリーミングは担当ファイルへ分ける。 |
+| 道路描画・路面メッシュ・区画線・沿道設備 | `RoadRenderer.cpp`, `RoadRenderer_Mesh.cpp`, `RoadRenderer_Markings.cpp`, `RoadRenderer_Furniture.cpp` | キャッシュは RoadRenderer が所有し、内部断面計算は RoadRenderDetail、汎用メッシュ演算は MeshGeometry で共有する。 |
 | 信号の見た目と選択輪郭 | `RoadRenderer_Signals.cpp` | 配置は RoadGeometry、現示は交通シミュレーションを参照する。 |
 | 地形・建物・木・遠景の表示 | `WorldRenderer_*`, `TerrainSurfaceGeometry`, `TreeGeometry` | CPU 上の幾何生成と GPU 資源の管理を区別する。 |
 | 地区街路・集落の接続候補検索 | `gen/RoadNodeIndex.hpp` | 空間検索だけを共有し、距離・費用・除外条件は呼出側が決める。 |
@@ -26,9 +26,9 @@
 
 `GameScene` はワールド、道路、鉄道、選択状態、描画器を所有する。分割された `.cpp` は同じクラスの実装であり、新しい状態所有者を増やさない。
 
-生成・ロード中は `GamePhase::Loading` が通常のゲーム更新を止める。ワーカが生成・復元するデータを、完了前に通常描画へ渡さない。進捗数値は atomic、進捗文字列は mutex で受け渡す。メインスレッドが future の結果を取得してから GPU 資源を準備し、Playing へ進む。シーン破棄時は生成タスクと経路サービスの完了を待つ。
+生成・ロード中は `GamePhase::Loading` が通常のゲーム更新を止める。ワーカが生成・復元するデータを、完了前に通常描画へ渡さない。進捗数値は atomic、進捗文字列は mutex で受け渡す。メインスレッドが future の結果を取得してから GPU 資源を準備し、Playing へ進む。地形生成・地形ロード・広域地形の CPU 処理は `sim/ParallelJobs.hpp` で実行し、全ワーカを合流させてから例外を呼出側へ返す。シーン破棄時は生成・ロードタスクの完了を先に待ち、そのタスクが開始した経路サービスを停止する。
 
-通常プレイでは入力・建設状態・経済・車両・描画の順序を `GameScene::update` が管理する。経路サービスへは `shared_ptr<const SimGraph>` とメッセージを渡し、可変の `World` を直接共有しない。
+通常プレイでは入力・建設状態・経済・車両・描画の順序を `GameScene::update` が管理する。経路サービスへは `shared_ptr<const SimGraph>` とメッセージを渡し、可変の `World` を直接共有しない。`SimGraph` の全件・差分更新は同じ抽出処理を使い、差分更新は編集前後の接続先を更新する。ノードの撤去はそのノードを端点に持つ辺と付帯情報も撤去し、付け替え済みの辺は保持する。
 
 ## 道路ノード検索
 
@@ -46,11 +46,11 @@
 
 ## 保存と検証
 
-`GameScene_Storage` はゲーム全体の保存対象をまとめ、形式ごとの直列化は `save/` と `railway/RailwayStorage` が担当する。新しい保存先へ書き、再読込みを検証してから公開する既存の順序を保つ。
+`GameScene_Storage` はゲーム全体の保存対象をまとめ、形式ごとの直列化は `save/` と `railway/RailwayStorage` が担当する。新しい保存先へ書き、再読込みを検証してから公開する既存の順序を保つ。`RoadBinary` はチャンクと全体で一つのデコーダを使い、全レコードと拡張領域が読めた場合にだけ呼出側へ反映する。文字列は UTF-8 の uint16 長さ上限を保存前に検査する。単体の鉄道保存も欠番 ID を保持し、重複 ID は復元を中止する。ゲームのセーブ形式4では `ChunkDevelopmentStorage` が建物・農地・ゾーン・市街化区域・区画ポリゴンを保存し、ロードで配置を再生成しない。復元の全レコードを検証してからチャンクへ反映し、経路サービスは配置の復元後に開始する。道路バイナリ形式19のノード・制御点・計画点と区画ポリゴンの頂点はdouble精度を保存する。旧ゲームセーブの移行は行わない。
 
 ビルド対象は City と Test の各プロジェクトに登録する。Test はシーンを起動せずに核となる処理と描画を検証するため、両者のソース集合は完全には一致しない。ファイルの追加時は重複・欠落・IDE の分類も確認する。
 
-今回の調査範囲と確認結果は [統合リファクタリング](../REFACTOR.md)、未解決の動作上の問題は [ISSUE.md](../ISSUE.md) を参照する。
+今回の調査範囲と確認結果は [包括的リファクタリングの記録](../artifacts/comprehensive_refactor_20261006/REVIEW.md)、未解決の動作上の問題は [ISSUE.md](../ISSUE.md) を参照する。
 
 ## 道路と鉄道の共通インフラ（2026-09-17）
 
@@ -59,3 +59,7 @@
 `TransportCrossSection` が断面と軌道位置を共通化し、`TransportMode` が経路の交通資格を表す。道路の編集通知は鉄道参照と静的メッシュも更新する。列車の閉塞は車線単位で、複線の上下線を互いに塞がない。道路専用の処理（家の接道、農道の分岐候補、自動車標識、車の進入）は `hasRoadLanes` / `Lane::allows` で対象を限定する。
 
 保存では共通網が形状と断面、鉄道メタデータがID参照と運行設定を担当する。描画は道路側が路盤と構造物、鉄道側がレール・枕木・駅・車両を担当する。検証は `SharedTransportTests.cpp` と [改修記録](../artifacts/shared_transport_20260917/REVIEW.md)。
+
+## 診断ログの所有権
+
+本体の診断は `DebugLog::print` / `DBG_LOG` へ集約する。`GameApp::run` がアセット登録前にログを初期化し、シーンとワーカの破棄後にセッションを閉じる。履歴とファイルは同じ mutex で保護し、描画側は履歴のコピーを一度だけ取得する。ワーカの時刻は steady_clock を使い、Siv3D の可変時計を参照しない。追記時の UTF-8 BOM はファイル先頭だけに置く。

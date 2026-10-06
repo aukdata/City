@@ -545,18 +545,18 @@
     },
     "upliftRate": {
       "type": "number",
-      "minimum": 0,
+      "minimum": 0.0,
       "maximum": 0.02
     },
     "erosionRate": {
       "type": "number",
-      "minimum": 0,
-      "maximum": 2
+      "minimum": 0.0,
+      "maximum": 2.0
     },
     "depositionRate": {
       "type": "number",
-      "minimum": 0,
-      "maximum": 2
+      "minimum": 0.0,
+      "maximum": 2.0
     }
   }
 }

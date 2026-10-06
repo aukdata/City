@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "stages": [
+    {
+      "railEdges": 1269,
+      "status": "passed",
+      "railLines": 8,
+      "population": 233146,
+      "buildings": 37274,
+      "funds": 30.0,
+      "stage": "new-and-save"
+    },
+    {
+      "railEdges": 1269,
+      "status": "passed",
+      "population": 233146,
+      "buildings": 37274,
+      "railLines": 8,
+      "identicalChunkSnapshots": 4096,
+      "stage": "reload-and-resave"
+    },
+    {
+      "status": "passed",
+      "stage": "close-during-loading",
+      "exitCode": 0
+    }
+  ],
+  "save": "App/saves/refactoring_20261006"
+}

@@ -123,32 +123,32 @@
     "gradientProbe": {
       "type": "number",
       "minimum": 0.5,
-      "maximum": 32
+      "maximum": 32.0
     },
     "minimumTraceStep": {
       "type": "number",
       "minimum": 0.01,
-      "maximum": 4
+      "maximum": 4.0
     },
     "confluenceSnap": {
       "type": "number",
       "minimum": 0.01,
-      "maximum": 4
+      "maximum": 4.0
     },
     "sedimentCapacity": {
       "type": "number",
-      "minimum": 0,
-      "maximum": 20
+      "minimum": 0.0,
+      "maximum": 20.0
     },
     "erosionRate": {
       "type": "number",
-      "minimum": 0,
-      "maximum": 2
+      "minimum": 0.0,
+      "maximum": 2.0
     },
     "depositionRate": {
       "type": "number",
-      "minimum": 0,
-      "maximum": 2
+      "minimum": 0.0,
+      "maximum": 2.0
     }
   }
 }

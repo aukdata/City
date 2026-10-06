@@ -150,23 +150,23 @@
     },
     "terrainSmoothingPasses": {
       "type": "integer",
-      "minimum": 0,
-      "maximum": 64
+      "minimum": 0.0,
+      "maximum": 64.0
     },
     "terrainProfileSpacing": {
       "type": "number",
-      "minimum": 8,
-      "maximum": 64
+      "minimum": 8.0,
+      "maximum": 64.0
     },
     "longDistanceMarginRatio": {
       "type": "number",
       "minimum": 0.1,
-      "maximum": 2
+      "maximum": 2.0
     },
     "generatedExpansionLimit": {
       "type": "integer",
-      "minimum": 1000,
-      "maximum": 60000
+      "minimum": 1000.0,
+      "maximum": 60000.0
     }
   }
 }

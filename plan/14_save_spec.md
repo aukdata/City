@@ -1,11 +1,11 @@
 # セーブ・ロード仕様書
 
-将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-09-14）** は
+将来案としては MessagePack + チャンク分割保存を想定するが、**現行実装（2026-10-06）** は
 `JSON + 独自バイナリ` の簡易構成で保存している。
 
 ---
 
-## 0. 現行実装（2026-09-14）
+## 0. 現行実装（2026-10-06）
 
 ### 0.1 ディレクトリ構造
 
@@ -17,21 +17,23 @@ saves/
     │   ├── economy.json
     │   ├── districts.json
     │   ├── roads.bin
-    │   └── guide_signs.json
+    │   ├── guide_signs.json
+    │   └── construction_clearance.json
     └── chunks/
         └── {cx}_{cy}/
-            └── terrain.bin
+            ├── terrain.bin
+            └── development.bin
 ```
 
 ### 0.2 保存している内容
 
 - `meta.json`
-  - `version`, `seed`, `worldChunks`
+  - `version=4`, `seed`, `worldChunks`
   - `generation`: 河川・町村・道路・鉄道・建物・農地・自然林・自動車・歩行者の生成選択
   - `gameNow`, `timeScale`
   - `nextNodeId`, `nextEdgeId`
   - `cameraFocusX/Y/Z`, `cameraDistance`, `cameraYaw`, `cameraPitch`
-  - `zoneDevelopment`: プレイヤーが編集したセルの用途・建物・開発進捗。基礎街の再生成後に復元する
+  - `zoneDevelopment`: プレイヤーが編集したセルの用途・建物・開発進捗。保存した全セルの配置を復元した後に開発状態を復元する
   - `railway`: 線路・駅・車庫のグラフ、路線名・停車駅・運行時間帯・間隔・種別、直前発車と次便の方向
 - `global/economy.json`
   - `funds`, `population`, `happiness`
@@ -39,35 +41,39 @@ saves/
   - 地区種別、中心座標、半径、スコア、地名、読み
 - `global/roads.bin`
   - 道路ノード、道路エッジ、レーン、断面部品、道路標識
-  - 末尾追記で `RoadObject` と `RoadRoute`
+  - 形式19。ノード・制御点・計画点はdouble精度を保存
+  - 末尾追記で `RoadObject`, `RoadRoute`, `RoadPlan`, 手動道路標示
 - `global/guide_signs.json`
   - **手動編集された案内標識のみ**
   - 自動生成案内標識はロード後に再計算
 - `chunks/{cx}_{cy}/terrain.bin`
   - `gridSize(int32)` + `float` ハイトマップ配列
+- `chunks/{cx}_{cy}/development.bin`
+  - 全セルの用途、建物・農地の配置と接道参照・角度・オフセット・建築時刻、市街化区域
+  - 区画ポリゴンと `sourceParcelKey`。頂点はdouble精度を保存
+  - チャンク単位で全レコードを検証してから反映し、破損時は既存配置を変更しない
 
 ### 0.3 ロード時に再構築している内容
 
 - `NamedDestination` と自動案内標識
 - 自動道路標識 (`recomputeAllAutoSigns`)
-- 建物配置
-  - `districts.json` と道路ネットワークから再生成
-- ゾーン
-  - 地区情報から `applyZonesGlobal()` で再適用
+- 建物・ゾーン・区画は `development.bin` の保存状態を復元し、再生成しない
 - 鉄道
-  - `meta.railway` がある場合は保存したグラフとダイヤを復元し、再生成しない。保存前の形式で鉄道欄がない場合だけ生成する
+  - `meta.railway` のグラフとダイヤを復元し、再生成しない
 
 ### 0.4 まだ永続化していない内容
 
 - 車両の現在位置・経路
 - 走行中の列車の位置・停車状態（ロード後は保存ダイヤの次便から再開）
-- 全セルの `zoneMap`（プレイヤーが塗ったセルは保存済み）
-- 全セルの `buildingGrid`（プレイヤーが塗った区画の建物は保存済み）
 - 各種 UI 状態
 
 ### 0.5 一覧と削除
 
 タイトルの保存一覧はmeta.jsonを持つセーブを列挙し、ロードと名前指定の削除に対応する。削除前に対象名を確認する。一覧を再取得しても確認対象を番号で取り違えない。失敗理由を画面に表示する。ロード時は生成選択を復元し、無効にした農地・建物や自動交通を勝手に生成しない。詳しくは [33](33_generation_and_underground.md)。
+
+### 0.6 現行形式と互換性
+
+ゲームのセーブ形式4、道路バイナリ19、チャンク配置バイナリ2を使用する。旧形式のセーブの復元・移行は対象としない（ユーザー指定、2026-10-06）。保存は全4096チャンクの地形と配置を揃えてから既存の SaveTransaction で公開する。建物の配置と区画を再生成しないことで、再ロード・再保存でも保存時の配置データを維持する。
 
 以下の章は中長期の理想設計として残す。
 
@@ -427,7 +433,7 @@ meta.version でフォーマットバージョンを管理する。
 
 ### 2026-09-12: 旧道路ジオメトリの移行
 
-meta.json に `roadGeometryVersion: 1` を保存する。キーが存在しない旧セーブはロード後、建物配置・道路参照復元前に共有道路区間を統合する。処理は読み込んだネットワーク上で実行し、ロードだけでは元セーブを書き換えない。ユーザーによる保存後は再移行を省略する。削除された旧道路への建物参照は有効な接道候補から復元する。
+旧形式で使用していた道路接続と建物参照の移行は、現行セーブ形式4の復元には適用しない。保存時の道路形状と建物の接道参照をそのまま復元する。
 
 ### 2026-09-12: 都市の形成計画
 
@@ -437,6 +443,6 @@ meta.json に `roadGeometryVersion: 1` を保存する。キーが存在しな�
 
 `global/districts.json` の `morphologyVersion=2` では、地区ごとの `fringe_i` 件数と `fringeAX_i_j / fringeAZ_i_j / fringeBX_i_j / fringeBZ_i_j` に、外縁街路を地区座標で保存する。旧版でキーがない場合は空配列とする。道路そのものは既存の道路保存系で復元する。
 
-田畑の不整形ポリゴンは `chunks/x_y/land_patches.bin` に保存する。新規生成の農道は道路として保存し、道路の高さフラグのbit3に `farmAccess` を記録する。旧 `FarmTrack` / `IrrigationDitch` の列挙値は残すが、新規農道は土地パッチで生成しない。既存セーブの移行処理は行わない。
+田畑の不整形ポリゴンは、2026-10-06以降 `chunks/x_y/development.bin` に建物・ゾーンとともに保存する。新規生成の農道は道路として保存し、道路の高さフラグのbit3に `farmAccess` を記録する。旧 `FarmTrack` / `IrrigationDitch` の列挙値は残すが、新規農道は土地パッチで生成しない。既存セーブの移行処理は行わない。
 
 当面の開発優先度は新規生成の景観と街のつながり。既存セーブの互換性・移行の拡充を優先しない（ユーザー指定、2026-09-13）。
