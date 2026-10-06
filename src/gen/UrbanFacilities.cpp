@@ -258,7 +258,7 @@ namespace UrbanFacilities
 							const double height =
 								world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.y));
 							dry &= height >
-								   world.waterSurfaceHeight(point.x, point.y) + settings.development_buildingFreeboard;
+								   world.waterPlanningHeight(point.x, point.y) + settings.development_buildingFreeboard;
 							low = Min(low, height);
 							high = Max(high, height);
 						}
@@ -389,7 +389,7 @@ namespace UrbanFacilities
 							}
 							candidate.y =
 								world.sampleHeight(static_cast<float>(flat.x), static_cast<float>(flat.y)) + .04;
-							if (candidate.y < world.waterSurfaceHeight(flat.x, flat.y) + 1 ||
+							if (candidate.y < world.waterPlanningHeight(flat.x, flat.y) + 1 ||
 								UrbanMorphology::isReservedGreen(town.plan, local(town, flat)))
 							{
 								continue;

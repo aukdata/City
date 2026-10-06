@@ -107,7 +107,7 @@ namespace RailwayAlignment
 							: alternative == 1 ? GenerationSettings::get().railway_corridorCostWeight1
 							: alternative == 2 ? GenerationSettings::get().railway_corridorCostWeight2
 											   : GenerationSettings::get().railway_corridorCostWeight3;
-						const double water = world.waterSurfaceHeight(point.x, point.y);
+						const double water = world.waterPlanningHeight(point.x, point.y);
 						return 1 + RailCostProfile::unitCost(reference - ground) * coefficient +
 							   (ground < water + 1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0);
 					});
@@ -221,7 +221,7 @@ namespace RailwayAlignment
 					double minimum=Max(GenerationSettings::get().railway_minimumAltitude,ground-GenerationSettings::get().railway_maximumTunnelDepth),maximum=ground+GenerationSettings::get().railway_maximumViaductHeight,roadClearance=-1e9,underpass=1e9;
 					for (int dz=-1;dz<=1;++dz) for (int dx=-1;dx<=1;++dx)
 					{
-						const Vec2 around=position+Vec2{dx*GenerationSettings::get().railway_crossingSideSample,dz*GenerationSettings::get().railway_crossingSideSample}; const double terrain=world.sampleHeight(static_cast<float>(around.x),static_cast<float>(around.y)),water=world.waterSurfaceHeight(around.x,around.y);
+						const Vec2 around=position+Vec2{dx*GenerationSettings::get().railway_crossingSideSample,dz*GenerationSettings::get().railway_crossingSideSample}; const double terrain=world.sampleHeight(static_cast<float>(around.x),static_cast<float>(around.y)),water=world.waterPlanningHeight(around.x,around.y);
 						const auto corridor=crossings.interval(around,GenerationSettings::get().railway_crossingMargin);
 						roadClearance=Max(roadClearance,corridor.second+GenerationSettings::get().railway_crossingExtraClearance); underpass=Min(underpass,corridor.first-GenerationSettings::get().railway_crossingExtraClearance);
 						if (terrain<water+1) { roadClearance=Max(roadClearance,water+GenerationSettings::get().railway_waterClearance); underpass=Min(underpass,terrain-GenerationSettings::get().railway_waterTunnelCover); }
@@ -306,7 +306,7 @@ namespace RailwayAlignment
 				const Vec3 point=curve->evaluate(static_cast<float>(i)/count),tangent=curve->tangent(static_cast<float>(i)/count);
 				clearances << point.y-world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
 				maximumGrade=Max(maximumGrade,Abs(tangent.y)/Max(.001,Vec2{tangent.x,tangent.z}.length()));
-				const auto crossing=crossings.interval({point.x,point.z}); conflicts+=point.y<crossing.second-.1 && point.y>crossing.first+.1; underWater+=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z))<world.waterSurfaceHeight(point.x,point.z)+1 && point.y<world.waterSurfaceHeight(point.x,point.z) && point.y>world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z))-8;
+				const auto crossing=crossings.interval({point.x,point.z}); conflicts+=point.y<crossing.second-.1 && point.y>crossing.first+.1; underWater+=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z))<world.waterPlanningHeight(point.x,point.z)+1 && point.y<world.waterPlanningHeight(point.x,point.z) && point.y>world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z))-8;
 			}
 		}
 		clearances.sort();

@@ -187,6 +187,7 @@ void GameScene::update()
 		const int64 monthIndexBefore = m_clock.monthIndex();
 		const double simulationDt = dt * m_clock.speedMultiplier();
 		m_clock.advance(dt);
+		m_world.advanceSourceWater(simulationDt);
 		const int64 monthIndexAfter = m_clock.monthIndex();
 
 		if (monthIndexAfter > monthIndexBefore)

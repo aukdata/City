@@ -1178,12 +1178,12 @@ namespace DistrictRoads
 			const double distance=Vec2{a.x,a.z}.distanceFrom(Vec2{b.x,b.z});
 			const int samples=Max(2,static_cast<int>(Ceil(distance/GenerationSettings::get().districtRoads_terrainSampleStep)));
 			double previous=world.sampleHeight(static_cast<float>(a.x),static_cast<float>(a.z));
-			if (previous<world.waterSurfaceHeight(a.x,a.z)+minimumHeight) { return false; }
+			if (previous<world.waterPlanningHeight(a.x,a.z)+minimumHeight) { return false; }
 			for (int sample=1;sample<=samples;++sample)
 			{
 				const Vec3 p=a+(b-a)*(static_cast<double>(sample)/samples);
 				const double height=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
-				if (height<world.waterSurfaceHeight(p.x,p.z)+minimumHeight || Abs(height-previous)>distance/samples*GenerationSettings::get().districtRoads_maxSlope) { return false; }
+				if (height<world.waterPlanningHeight(p.x,p.z)+minimumHeight || Abs(height-previous)>distance/samples*GenerationSettings::get().districtRoads_maxSlope) { return false; }
 				previous=height;
 			}
 			return true;
@@ -1222,7 +1222,7 @@ namespace DistrictRoads
 					for (double localX=-settlement.plan.halfExtent.x+GenerationSettings::get().districtRoads_buildableSampleInset;localX<settlement.plan.halfExtent.x && fits;localX+=GenerationSettings::get().districtRoads_buildableSampleStep)
 					{
 						const Vec3 point=position(static_cast<float>(localX),static_cast<float>(localZ));
-						fits=point.y>=world.waterSurfaceHeight(point.x,point.z)+GenerationSettings::get().districtRoads_townFreeboard;
+						fits=point.y>=world.waterPlanningHeight(point.x,point.z)+GenerationSettings::get().districtRoads_townFreeboard;
 					}
 				}
 				if (fits)

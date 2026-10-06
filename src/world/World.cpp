@@ -1,8 +1,11 @@
-﻿#include "../gen/GenerationSettings.hpp"
+﻿#include <filesystem>
+#include <fstream>
+#include "../gen/GenerationSettings.hpp"
 #include "World.hpp"
 #include <cmath>
 #include "../sim/ParallelJobs.hpp"
 #include <queue>
+#include <map>
 
 void World::reserveChunks()
 {
@@ -130,6 +133,7 @@ void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 	m_mapDepth = mapDepth;
 	m_perlin   = PerlinNoise{ seed };
 	m_rivers=RiverNetwork{};
+	m_sourceWater.reset(); m_waterBacklog = m_lastWaterLog = 0.0;
 	uint64 state = seed;
 	const auto random = [&]()
 	{
@@ -487,6 +491,105 @@ void World::generateRivers()
 		[this](double x,double z) { return getBiome(static_cast<float>(x),static_cast<float>(z))==BiomeType::Ocean; });
 }
 
+void World::generateSourceWater(bool riversEnabled,bool routedRivers)
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	m_rivers = RiverNetwork{};
+	const auto height = [this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); };
+	const auto marine = [this](double x,double z) { return getBiome(static_cast<float>(x),static_cast<float>(z)) == BiomeType::Ocean; };
+	if (riversEnabled) { m_rivers.generate(m_mapWidth,m_mapDepth,height,marine,!routedRivers,routedRivers); }
+	std::vector<SourceWater::Source> sources;
+	for (const auto& source : m_rivers.waterSources) { sources.push_back({source.position.x,source.position.y,source.rate}); }
+	const auto bed=[this](double x,double z) { return (computeHeight(static_cast<float>(x+8),static_cast<float>(z-8))
+		+computeHeight(static_cast<float>(x-8),static_cast<float>(z+8)))*.5; };
+	m_sourceWater = std::make_unique<SourceWater>(m_mapWidth,m_mapDepth,bed,marine,sources);
+	std::vector<SourceWater::Channel> channels;channels.reserve(m_rivers.reaches.size());
+	std::map<std::pair<double,double>,int> downstream;
+	for (std::size_t i=0;i<m_rivers.reaches.size();++i) { const auto& reach=m_rivers.reaches[i];downstream[{reach.start.x,reach.start.z}]=static_cast<int>(i); }
+	for (const auto& reach:m_rivers.reaches)
+	{
+		const auto found=downstream.find({reach.end.x,reach.end.z});
+		const int next=found!=downstream.end() ? found->second : marine(reach.end.x,reach.end.z) ? -2 : -1;
+		channels.push_back({reach.start.x,reach.start.z,reach.end.x,reach.end.z,reach.start.y,reach.end.y,
+			reach.halfWidth*2,reach.endHalfWidth*2,Max(.5,GenerationSettings::get().rivers_bedDepth+reach.incision),next,0});
+	}
+	std::size_t mapped=0;
+	for (const auto& source:m_rivers.waterSources)
+	{
+		const auto found=downstream.find({source.position.x,source.position.y});
+		const auto nearest=m_rivers.nearest(source.position);
+		const int index=found!=downstream.end() ? found->second : nearest.reach;
+		if (index>=0) { channels[static_cast<std::size_t>(index)].inlet+=source.rate;++mapped; }
+	}
+	if (!channels.empty()) { m_sourceWater->configureChannels(std::move(channels)); }
+	DBG_LOG(U"[RiverWater] reaches={} mappedSources={}/{} initialStored={}m3"_fmt(m_rivers.reaches.size(),mapped,sources.size(),m_sourceWater->ownedVolume()));
+	m_waterBacklog = m_lastWaterLog = 0.0;
+	DBG_LOG(U"[SourceWater] initialized seed={} grid={}x{} spacing={}m sources={} rejected={} seaCells={} seaLevel=0 sinkOnly=1 setupMs={:.2f}"_fmt(
+		m_seed,m_sourceWater->grid().width,m_sourceWater->grid().height,m_sourceWater->grid().cellSize,
+		m_sourceWater->sourceCount(),m_sourceWater->rejectedSources(),m_sourceWater->oceanCells(),timer.msF()));
+}
+
+bool World::saveSourceWater(FilePathView path) const
+{
+	if (!m_sourceWater) { return false; }
+	std::ofstream stream{std::filesystem::path{String{path}.toWstr()},std::ios::binary};
+	if (!stream || !m_sourceWater->write(stream)) { return false; }
+	stream.flush(); return static_cast<bool>(stream);
+}
+
+bool World::verifySourceWater(FilePathView path) const
+{
+	if (!m_sourceWater) { return false; }
+	std::ifstream stream{std::filesystem::path{String{path}.toWstr()},std::ios::binary};
+	return stream && m_sourceWater->read(stream,false);
+}
+
+bool World::loadSourceWater(FilePathView path)
+{
+	if (!m_sourceWater) { return false; }
+	std::ifstream stream{std::filesystem::path{String{path}.toWstr()},std::ios::binary};
+	const bool valid=stream && m_sourceWater->read(stream);
+	DBG_LOG(U"[SourceWater] restore path={} valid={} t={}s stored={}m3 seaIn={}m3 balance={}m3"_fmt(
+		path,valid,m_sourceWater->elapsed(),m_sourceWater->ownedVolume(),m_sourceWater->inflow(),m_sourceWater->balanceError()));
+	return valid;
+}
+
+float World::waterBedHeight(double x,double z) const
+{
+	const Point coord{static_cast<int>(Floor(x/CHUNK_SIZE)),static_cast<int>(Floor(z/CHUNK_SIZE))};
+	if (getChunk(coord)) { return sampleHeight(static_cast<float>(x),static_cast<float>(z)); }
+	return computeHeight(static_cast<float>(x),static_cast<float>(z));
+}
+
+double World::waterSurfaceHeight(double x,double z) const
+{
+	if (!m_sourceWater) { return m_rivers.waterLevel({x,z}); }
+	const auto water = m_sourceWater->sample(x,z,waterBedHeight(x,z));
+	return water.depth > 0.003 || water.ocean ? water.head : 0.0;
+}
+
+double World::waterPlanningHeight(double x,double z) const
+{
+	return Max(waterSurfaceHeight(x,z),m_rivers.waterLevel({x,z}));
+}
+
+void World::advanceSourceWater(double gameSeconds)
+{
+	if (!m_sourceWater || gameSeconds <= 0.0) { return; }
+	m_waterBacklog += gameSeconds*60.0;
+	constexpr double kStep = 6.0;
+	if (m_waterBacklog < kStep) { return; }
+	const Stopwatch timer{StartImmediately::Yes};
+	m_sourceWater->advance(kStep); m_waterBacklog -= kStep;
+	if (m_sourceWater->elapsed()-m_lastWaterLog >= 600.0)
+	{
+		m_lastWaterLog = m_sourceWater->elapsed();
+		DBG_LOG(U"[SourceWater] t={:.1f}s stepMs={:.3f} backlog={:.2f}s sources={} injected={:.6f}m3 stored={:.6f}m3 seaOut={:.6f}m3 seaIn={:.6f}m3 balance={:.9g}m3"_fmt(
+			m_sourceWater->elapsed(),timer.msF(),m_waterBacklog,m_sourceWater->sourceCount(),m_sourceWater->injected(),
+			m_sourceWater->ownedVolume(),m_sourceWater->outflow(),m_sourceWater->inflow(),m_sourceWater->balanceError()));
+	}
+}
+
 float World::computeHeight(float wx,float wz) const
 {
 	return static_cast<float>(m_rivers.carveHeight({wx,wz},computeBaseHeight(wx,wz)));
@@ -499,4 +602,20 @@ void World::setGridHeight(int x,int z,float height)
 		{
 			if (auto* chunk=getChunk({cx,cz})) { chunk->heightMap[{x-cx*HEIGHT_CELLS,z-cz*HEIGHT_CELLS}]=height; chunk->markMeshDirty(); }
 		}
+	if (m_sourceWater)
+	{
+		const double spacing = m_sourceWater->grid().cellSize;
+		const int cx = static_cast<int>(x*16.0/spacing), cz = static_cast<int>(z*16.0/spacing);
+		for (int dz = -1; dz <= 1; ++dz)
+		{
+			for (int dx = -1; dx <= 1; ++dx)
+			{
+				const int bx = cx+dx, bz = cz+dz;
+				if (bx >= 0 && bz >= 0 && bx < m_sourceWater->grid().width && bz < m_sourceWater->grid().height)
+				{
+					m_sourceWater->setBed(bx,bz,waterBedHeight((bx+0.5)*spacing,(bz+0.5)*spacing));
+				}
+			}
+		}
+	}
 }

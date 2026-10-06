@@ -7,10 +7,14 @@ class MapTerrainLayer
 public:
 	RectF bounds;
 	DynamicTexture texture;
+	using WaterDepth = std::function<double(Vec2,float)>;
+	/// @brief Synchronous water-aware update for rendering verification.
+	bool update(RectF visible, Size pixels, const std::function<float(Vec2)>& sample, const WaterDepth& waterDepth)
+	{ return update(visible,pixels,sample,Math::Inf,waterDepth); }
 	double metersPerPixel = 0;
 	void invalidate() { m_valid = false; m_build.reset(); }
 	/// @brief Sample and shade a padded tile, synchronously by default or a few rows per frame.
-	bool update(RectF visible, Size pixels, const std::function<float(Vec2)>& sample, double budgetMs = Math::Inf)
+	bool update(RectF visible, Size pixels, const std::function<float(Vec2)>& sample, double budgetMs = Math::Inf, const WaterDepth& waterDepth = {})
 	{
 		const double requested = visible.w * 1.5 / pixels.x;
 		if (m_valid && covers(bounds, texture.size(), metersPerPixel, visible, pixels, requested))
@@ -44,8 +48,10 @@ public:
 				const float height = tile.heights[y + 1][x + 1];
 				const double dx = (tile.heights[y + 1][x + 2] - tile.heights[y + 1][x]) / (2 * step.x);
 				const double dz = (tile.heights[y + 2][x + 1] - tile.heights[y][x + 1]) / (2 * step.y);
-				const double light = height < 0 ? 1 : Clamp(.9 + (-dx * .55 - dz * .45) / Math::Sqrt(1 + dx * dx + dz * dz), .57, 1.18);
-				const ColorF color = height < 0 ? ColorF{.37,.62,.75}.lerp(ColorF{.18,.4,.61}, Clamp(-height / 70.0, 0.0, 1.0))
+				const Vec2 world=tile.bounds.pos+Vec2{(x+.5)*step.x,(y+.5)*step.y};
+				const double wet=waterDepth ? waterDepth({Clamp(world.x,0.0,65535.99),Clamp(world.y,0.0,65535.99)},height) : Max(0.0,-static_cast<double>(height));
+				const double light = wet > .003 ? 1 : Clamp(.9 + (-dx * .55 - dz * .45) / Math::Sqrt(1 + dx * dx + dz * dz), .57, 1.18);
+				const ColorF color = wet > .003 ? ColorF{.37,.62,.75}.lerp(ColorF{.18,.4,.61}, Clamp(wet / 70.0, 0.0, 1.0))
 					: height < 180 ? ColorF{.69,.77,.56}.lerp(ColorF{.51,.64,.43}, Clamp(height / 180.0, 0.0, 1.0))
 					: ColorF{.51,.64,.43}.lerp(ColorF{.82,.81,.74}, Clamp((height - 180) / 1100.0, 0.0, 1.0));
 				tile.image[y][x] = ColorF{color.r * light, color.g * light, color.b * light};

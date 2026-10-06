@@ -1,4 +1,5 @@
-﻿#include "WorldRenderer.hpp"
+﻿#include "WaterSurfaceGeometry.hpp"
+#include "WorldRenderer.hpp"
 #include "TreeGeometry.hpp"
 #include "RegionalTerrain.hpp"
 #include "TerrainMaterials.hpp"
@@ -51,7 +52,8 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 			Graphics3D::SetPSTexture(2,TextureAsset(Asset::CoastSand));
 			for(const auto& batch:m_regionalTerrain) { batch.mesh.draw(TextureAsset(TerrainMaterials::texture(batch.materialKey)),TerrainMaterials::color(batch.materialKey)); }
 		}
-		{const ScopedCustomShader3D shader{m_waterShader};Box{Vec3{WORLD_SIZE*.5,0,WORLD_SIZE*.5},Vec3{WORLD_SIZE,.04,WORLD_SIZE}}.draw(ColorF{1});}
+		if (world.sourceWater()) { renderSourceWater(world,true); }
+		else {const ScopedCustomShader3D shader{m_waterShader};WaterSurfaceGeometry::seaBox({WORLD_SIZE*.5,WORLD_SIZE*.5},{WORLD_SIZE,WORLD_SIZE}).draw(ColorF{1});}
 		// すでに用意済みの建物は地域LODでも残す。地形全域を同期で詳細化しない。
 		m_buildingFrustum=ViewFrustum{camera,160000};
 		for(const auto& [key, batches]:m_buildingProxyCache) { drawBuildingProxy(key); }
@@ -133,7 +135,9 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 
 	m_treeRenderer.draw(m_foliageShader);
 
-	// ---- 水面（y=0 の半透明平面）----
+	// ---- Source water / legacy fixed sea ----
+	if (world.sourceWater()) { renderSourceWater(world,false); }
+	else
 	{
 		const ScopedCustomShader3D waterShader{m_waterShader};
 		const ColorF waterColor{1};

@@ -10,9 +10,9 @@ namespace
 {
 	constexpr int kHeadings = 32;
 	constexpr double kAngle = Math::TwoPi/kHeadings;
-	
-	
-	
+
+
+
 
 	Vec2 horizontal(Vec3 point) { return {point.x,point.z}; }
 	Vec3 direction(int heading) { return {Cos(heading*kAngle),0,Sin(heading*kAngle)}; }
@@ -85,7 +85,7 @@ namespace
 			{
 				if (point.x<lower.x || point.z<lower.y || point.x>upper.x || point.z>upper.y) { return none; }
 				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
-				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterSurfaceHeight(point.x,point.z);
+				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterPlanningHeight(point.x,point.z);
 				if (point.y-ground>maximumViaductHeight) { return none; }
 				if (ground<water+GenerationSettings::get().crossings_waterBankMargin && ground-point.y<=RoadConstructionCost::MaximumCut() && point.y<water+5.5) { return none; }
 			}
@@ -98,7 +98,7 @@ namespace
 				if (!world.getChunk({static_cast<int>(point.x)/CHUNK_SIZE,static_cast<int>(point.z)/CHUNK_SIZE})) { return none; }
 				const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
 				if (point.y-ground>maximumViaductHeight) { return none; }
-				const double water = world.waterSurfaceHeight(point.x, point.z);
+				const double water = world.waterPlanningHeight(point.x, point.z);
 				if (ground < water + GenerationSettings::get().crossings_waterBankMargin && ground - point.y <= RoadConstructionCost::MaximumCut() && point.y < water + 5.5) { return none; }
 				total += RoadConstructionCost::segment(point.y, ground, water, curve.totalLength/count, tunnelRun);
 			}
@@ -238,7 +238,7 @@ static Optional<RoadAlignment::Result> fitTerrainCorridor(const World& world, co
 			{
 				const Vec3 p=piece.positionAt(piece.totalLength*(static_cast<float>(sample)+.5f)/samples);
 				const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z));
-				const double water=world.waterSurfaceHeight(p.x,p.z);
+				const double water=world.waterPlanningHeight(p.x,p.z);
 				if (ground>=water+settings.crossings_waterBankMargin) { continue; }
 				const double safe=water+Max(5.5,settings.crossings_waterClearance)+1;
 				requiredWater[i]=Max(requiredWater[i],safe);
@@ -249,7 +249,7 @@ static Optional<RoadAlignment::Result> fitTerrainCorridor(const World& world, co
 		for (size_t i=0; i<=pieces.size(); ++i)
 		{
 			const Vec3 p=i<pieces.size() ? pieces[i].p0 : pieces.back().p3;
-			const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),water=world.waterSurfaceHeight(p.x,p.z);
+			const double ground=world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),water=world.waterPlanningHeight(p.x,p.z);
 			const bool wet=ground<water+settings.crossings_waterBankMargin;
 			const double target=Max(wet ? water+Max(5.5,settings.crossings_waterClearance)+1 : ground,requiredWater[i]);
 			levels << target;
@@ -458,7 +458,7 @@ Optional<RoadAlignment::Result> RoadAlignment::find(const World& world,Vec3 star
 			if (end.x<landscape.lower.x || end.z<landscape.lower.y || end.x>landscape.upper.x || end.z>landscape.upper.y) { continue; }
 			const double rise=horizontal(end-current.point).length()*grade;
 			const double terrain=world.sampleHeight(static_cast<float>(end.x),static_cast<float>(end.z));
-			const double water=world.waterSurfaceHeight(end.x,end.z);
+			const double water=world.waterPlanningHeight(end.x,end.z);
 			const double desired=terrain<water+GenerationSettings::get().crossings_waterBankMargin ? water+GenerationSettings::get().crossings_waterClearance : terrain;
 			Array<double> heights{Clamp(desired,current.point.y-rise,current.point.y+rise)};
 			for (const double fraction : {-1.0,0.0,1.0})
@@ -523,7 +523,7 @@ void RoadAlignment::repairSteepEdges(RoadNetwork& roads,const World& world)
 		for (const int id : points)
 		{
 			const Vec3 point=roads.getNode(id)->position;
-			const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterSurfaceHeight(point.x,point.z);
+			const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)),water=world.waterPlanningHeight(point.x,point.z);
 			const bool wet=ground<water+GenerationSettings::get().crossings_waterBankMargin;
 			samples << RailCostProfile::Sample{horizontal(point), ground, ground-200, Max(ground+120, water+12),
 				wet ? water+GenerationSettings::get().crossings_waterClearance : -1e9, wet ? ground-GenerationSettings::get().roads_maximumCut-.01 : 1e9};
@@ -540,7 +540,7 @@ void RoadAlignment::repairSteepEdges(RoadNetwork& roads,const World& world)
 		samples.front().minimum=samples.front().maximum=start; samples.back().minimum=samples.back().maximum=goal;
 		auto result = RailCostProfile::solve(samples, start, goal, grade, [&](const RailCostProfile::Sample& sample, double elevation)
 		{
-			return RoadConstructionCost::unit(elevation, sample.ground, world.waterSurfaceHeight(sample.position.x, sample.position.y));
+			return RoadConstructionCost::unit(elevation, sample.ground, world.waterPlanningHeight(sample.position.x, sample.position.y));
 		});
 		if (!result.feasible && Abs(goal-start)<=run*grade)
 		{

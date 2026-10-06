@@ -506,7 +506,7 @@ namespace
 			return BuildingType::Farmland;
 		}
 	}
-	
+
 
 	String buildingTomlPathFromStem(const String& stem)
 	{
@@ -894,11 +894,11 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		for (const Vec2& corner : footprint)
 		{
 			const float height = m_world.sampleHeight(static_cast<float>(corner.x), static_cast<float>(corner.y));
-			if (height<m_world.waterSurfaceHeight(corner.x,corner.y)+GenerationSettings::get().development_buildingFreeboard) { ++rejectedSlope; return false; }
+			if (height<m_world.waterPlanningHeight(corner.x,corner.y)+GenerationSettings::get().development_buildingFreeboard) { ++rejectedSlope; return false; }
 			minHeight = Min(minHeight, height);
 			maxHeight = Max(maxHeight, height);
 		}
-		
+
 		if (minHeight < GenerationSettings::get().development_coastalBuildHeight || maxHeight - minHeight > maximumRelief)
 		{
 			++rejectedSlope;
@@ -1499,7 +1499,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 						for (double dz=0;dz<=sizeZ;dz+=8) for (double dx=0;dx<=sizeX;dx+=8)
 						{
 							const Vec2 point=corner+Vec2{dx,dz};
-							dry &= m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))>m_world.waterSurfaceHeight(point.x,point.y)+1;
+							dry &= m_world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y))>m_world.waterPlanningHeight(point.x,point.y)+1;
 						}
 						if (!dry) { continue; }
 						field.polygon = { corner, corner + Vec2{ sizeX, 0 }, corner + Vec2{ sizeX, sizeZ }, corner + Vec2{ 0, sizeZ } };

@@ -584,4 +584,17 @@
     <ClInclude Include="..\src\save\ChunkDevelopmentStorage.hpp" />
     <ClInclude Include="..\src\sim\ParallelJobs.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SourceWaterTests.cpp" />
+    <ClCompile Include="..\src\sim\SourceWater.cpp" />
+    <ClCompile Include="..\src\sim\GridWater.cpp" />
+    <ClCompile Include="..\src\sim\FixedSeaBoundary.cpp" />
+    <ClCompile Include="..\src\render\WorldRenderer_Water.cpp" />
+    <ClInclude Include="..\src\sim\SourceWater.hpp" />
+    <ClInclude Include="..\src\sim\GridWater.hpp" />
+    <ClInclude Include="..\src\sim\FixedSeaBoundary.hpp" />
+    <ClInclude Include="..\src\render\SourceWaterGeometry.hpp" />
+    <ClInclude Include="..\src\render\ShaderAsset.hpp" />
+    <ClInclude Include="..\src\render\WaterSurfaceGeometry.hpp" />
+  </ItemGroup>
 </Project>

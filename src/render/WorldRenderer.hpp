@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "ShaderAsset.hpp"
 #include "TunnelGeometry.hpp"
 #include "ModelBatch.hpp"
 #include "TreeInstances.hpp"
@@ -79,7 +80,7 @@ private:
 	bool m_woodlandEnabled = true;
 	using Key = int64;
 	Array<TunnelGeometry::Opening> m_tunnelOpenings;
-	HashTable<Key,Array<Polygon>> m_transportSites;
+	HashTable<Key,Array<s3d::Polygon>> m_transportSites;
 	size_t m_railwayNodeCount=0,m_railwayEdgeCount=0,m_railwayDepotCount=0;
 	bool m_transportSitesDirty=true;
 
@@ -238,7 +239,7 @@ private:
 		Array<Chunk> heights;
 		Array<TerrainSubtractionQuad> quads;
 		RiverNetwork rivers;
-		Array<Polygon> sites;
+		Array<s3d::Polygon> sites;
 		bool woodland = true;
 	};
 	struct TreeJobResult
@@ -330,7 +331,25 @@ private:
 	uint64 m_geometryRevision = 0;
 	PixelShader m_buildingShader;
 	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
-	PixelShader m_waterShader{HLSL{U"shaders/hlsl/city_forward.hlsl",U"River_PS"}};
+	/// @brief Water meshes are cached per active chunk; only two uploads are allowed per frame.
+	void renderSourceWater(const World& world, bool regional);
+	struct SourceWaterMesh
+	{
+		Mesh sea;
+		DynamicMesh mesh;
+		uint64 revision = 0, terrainRevision = 0;
+		double updated = -1.0;
+		bool dynamic = false;
+	};
+	HashTable<Key,SourceWaterMesh> m_sourceWaterMeshes;
+	Mesh m_sourceSeaRegional;
+	SourceWaterMesh m_sourceLandRegional;
+	struct SourceWaterVisual { Float4 parameters; };
+	ConstantBuffer<SourceWaterVisual> m_sourceWaterVisual;
+	PixelShader m_sourceWaterShader;
+	const SourceWater* m_sourceWaterIdentity = nullptr;
+	size_t m_sourceWaterCursor = 0;
+	PixelShader m_waterShader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"River_PS")};
 	bool drawLandscapeBatch(int materialKey,Key key) const;
 	Optional<ViewFrustum> m_buildingFrustum;
 	HashSet<Key> m_distantDetailChunks;

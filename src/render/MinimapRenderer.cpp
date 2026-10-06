@@ -23,6 +23,30 @@ void MinimapRenderer::updateRoadOverlayAround([[maybe_unused]] const Array<int>&
 {
 	m_mapDirty=true;m_localTerrain.invalidate();m_fullTerrain.invalidate();
 }
+void MinimapRenderer::refreshWaterStrokes() const
+{
+	const auto* water=m_world ? m_world->sourceWater() : nullptr;
+	if (!water || water->channels().empty()) { return; }
+	m_map.rivers.clear();const auto& channels=water->channels();
+	std::vector<int> incoming(channels.size(),0);std::vector<bool> used(channels.size(),false);
+	for (const auto& channel:channels) { if (channel.downstream>=0) { ++incoming[static_cast<std::size_t>(channel.downstream)]; } }
+	for (std::size_t first=0;first<channels.size();++first)
+	{
+		if (incoming[first]==1 || used[first] || water->channelDepth(first)<=.003) { continue; }
+		WorldMapView::Stroke stroke;const auto& begin=channels[first];stroke.width=(begin.width0+begin.width1)*.5;
+		stroke.points << Vec2{begin.x0,begin.z0};std::size_t current=first;Vec2 lower{begin.x0,begin.z0},upper=lower;
+		while (!used[current] && water->channelDepth(current)>.003)
+		{
+			used[current]=true;const auto& c=channels[current];const Vec2 end{c.x1,c.z1};
+			lower.x=Min(lower.x,end.x);lower.y=Min(lower.y,end.y);upper.x=Max(upper.x,end.x);upper.y=Max(upper.y,end.y);
+			const bool finish=c.downstream<0 || incoming[static_cast<std::size_t>(c.downstream)]!=1;
+			if (finish || stroke.points.back().distanceFrom(end)>=48) { stroke.points << end; }
+			if (finish) { break; }current=static_cast<std::size_t>(c.downstream);
+		}
+		if (stroke.points.size()>1) { stroke.bounds=RectF{lower,upper-lower}.stretched(stroke.width);m_map.rivers << std::move(stroke); }
+	}
+}
+
 void MinimapRenderer::refreshMap(const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements)
 {
 	if (m_railEdges!=railway.edges().size() || m_railNodes!=railway.nodes().size())
@@ -75,7 +99,8 @@ void MinimapRenderer::refreshMap(const RoadNetwork& roads,const TrainNetwork& ra
 			if (node.type==TrackNodeType::Station) { m_map.labels << WorldMapView::Label{{node.position.x,node.position.z},node.name+U"駅",true}; }
 		}
 		m_map.rivers.clear(); m_map.boundaries.clear();
-		if (m_world) for (const auto& reach : m_world->rivers().reaches) { m_map.rivers << WorldMapView::Stroke{{{reach.start.x,reach.start.z},{reach.end.x,reach.end.z}},reach.bounds,reach.halfWidth*2,0}; }
+		refreshWaterStrokes();
+		if (m_world && !m_world->sourceWater()) for (const auto& reach : m_world->rivers().reaches) { m_map.rivers << WorldMapView::Stroke{{{reach.start.x,reach.start.z},{reach.end.x,reach.end.z}},reach.bounds,reach.halfWidth*2,0}; }
 		if (m_districts)
 		{
 			for (const auto& area : m_districts->areas)
@@ -116,19 +141,23 @@ void MinimapRenderer::openFullScreen(const GameCamera& camera,const RoadNetwork&
 void MinimapRenderer::drawFullScreen(const GameCamera& camera) const
 {
 	if (!m_world) { return; }
+	if (const auto* water=m_world->sourceWater(); water && water->surfaceRevision()!=m_waterMapRevision && Scene::Time()-m_waterMapUpdated>10)
+	{ m_fullTerrain.invalidate();m_localTerrain.invalidate();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
 	const Size size=Scene::Size(); const Vec2 a=m_map.toWorld(m_map.body(size).tl(),size),b=m_map.toWorld(m_map.body(size).br(),size);
 	const RectF visible{Vec2{Min(a.x,b.x),Min(a.y,b.y)},Vec2{Abs(b.x-a.x),Abs(b.y-a.y)}};
 	const Stopwatch timer{StartImmediately::Yes};
-	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);},1.0)) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
+	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);},1.0,[this](Vec2 point,float height){return m_world->sourceWater() ? m_world->sourceWater()->sample(point.x,point.y,height).depth : Max(0.0,-static_cast<double>(height));})) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
 	const Vec3 focus=camera.focusPoint();m_map.draw(size,m_fullTerrain.texture,m_font,{focus.x,focus.z},m_fullTerrain.bounds);
 }
 void MinimapRenderer::render([[maybe_unused]] const GameCamera& camera,[[maybe_unused]] const Array<MapGenerator::Settlement>& settlements) const
 {
 	if (!m_world || !m_smallVisible) { return; }
+	if (const auto* water=m_world->sourceWater(); water && water->surfaceRevision()!=m_waterMapRevision && Scene::Time()-m_waterMapUpdated>10)
+	{ m_fullTerrain.invalidate();m_localTerrain.invalidate();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
 	const RectF area=m_local.body(smallRect());
 	const double diameter=m_local.span()*area.size.length()/Min(area.w,area.h);
 	const Stopwatch timer{StartImmediately::Yes};
-	if (m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point){return terrainHeight(point);},1.0)) { DBG_LOG(U"[MapTerrain] local {} px step={:.2f}m build={:.1f}ms"_fmt(m_localTerrain.texture.size(),m_localTerrain.metersPerPixel,timer.msF())); }
+	if (m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point){return terrainHeight(point);},1.0,[this](Vec2 point,float height){return m_world->sourceWater() ? m_world->sourceWater()->sample(point.x,point.y,height).depth : Max(0.0,-static_cast<double>(height));})) { DBG_LOG(U"[MapTerrain] local {} px step={:.2f}m build={:.1f}ms"_fmt(m_localTerrain.texture.size(),m_localTerrain.metersPerPixel,timer.msF())); }
 	m_local.draw(smallRect(),m_localTerrain.texture,m_font,m_map,m_localTerrain.bounds);
 }
 RectF MinimapRenderer::smallRect() const
@@ -145,5 +174,5 @@ void MinimapRenderer::preload(const GameCamera& camera,const RoadNetwork& roads,
 	const Vec3 focus=camera.focusPoint(),direction=camera.camera3D().getFocusPosition()-camera.eyePosition();
 	m_local.follow({focus.x,focus.z},{direction.x,direction.z});
 	const auto area=m_local.body(smallRect());const double diameter=m_local.span()*area.size.length()/Min(area.w,area.h);
-	(void)m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point) { return terrainHeight(point); });
+	(void)m_localTerrain.update({m_local.center-Vec2{diameter,diameter}*.5,diameter,diameter},{512,512},[this](Vec2 point) { return terrainHeight(point); },Math::Inf,[this](Vec2 point,float height) { return m_world->sourceWater() ? m_world->sourceWater()->sample(point.x,point.y,height).depth : Max(0.0,-static_cast<double>(height)); });
 }

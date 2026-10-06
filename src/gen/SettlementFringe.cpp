@@ -7,8 +7,8 @@ namespace SettlementFringe
 {
 	namespace
 	{
-		
-		
+
+
 
 		Vec2 horizontal(Vec3 point) { return {point.x,point.z}; }
 
@@ -21,7 +21,7 @@ namespace SettlementFringe
 				const Vec2 point=line.begin.lerp(line.end,static_cast<double>(step)/steps);
 				const double height=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y));
 				if (point.x<0 || point.y<0 || point.x>=WORLD_SIZE || point.y>=WORLD_SIZE
-					|| height<world.waterSurfaceHeight(point.x,point.y)+GenerationSettings::get().fringe_waterFreeboard
+					|| height<world.waterPlanningHeight(point.x,point.y)+GenerationSettings::get().fringe_waterFreeboard
 					|| Abs(height-previous)>line.length()/steps*GenerationSettings::get().fringe_maximumGrade) { return false; }
 				previous=height;
 			}

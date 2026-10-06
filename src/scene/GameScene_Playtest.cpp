@@ -195,6 +195,12 @@ void GameScene::recordPlaytestFrame()
 		state[U"renderMs"]=m_renderTimings.total; state[U"logicMs"]=m_logicMs;
 		state[U"signalsMs"]=m_renderTimings.signals; state[U"mapBuilds"]=map.cartographyBuilds();
 		state[U"cursorX"]=Cursor::Pos().x; state[U"cursorY"]=Cursor::Pos().y;
+		if (const auto* water=m_world.sourceWater())
+		{
+			state[U"waterSeconds"]=water->elapsed();state[U"waterSources"]=water->sourceCount();
+			state[U"waterInjected"]=water->injected();state[U"waterStored"]=water->ownedVolume();
+			state[U"waterSeaOut"]=water->outflow();state[U"waterSeaIn"]=water->inflow();state[U"waterBalance"]=water->balanceError();
+		}
 		state.save(U"playtest_state.json");
 		if (inputChanged) { DBG_LOG(U"[PlaytestState] {}"_fmt(state.formatMinimum())); }
 	}
@@ -376,6 +382,43 @@ void GameScene::processPlaytestCommand()
 		}
 		report[U"minorJunctions"]=minor;report[U"majorJunctions"]=major;report[U"signalJunctions"]=signals;report.save(U"playtest_signals.json");
 	}
+	else if (action==U"water_view" && !m_world.rivers().waterSources.isEmpty())
+	{
+		const auto& source=m_world.rivers().waterSources[Clamp(static_cast<size_t>(Max(0,static_cast<int>(number(U"source")))),size_t{0},m_world.rivers().waterSources.size()-1)];
+		const auto p=source.position;
+		m_camera.setCaptureState({p.x,m_world.waterBedHeight(p.x,p.y),p.y},static_cast<float>(number(U"distance",700)),-.7f,.72f);
+		m_clock.speed=static_cast<TimeSpeed>(Clamp(static_cast<int>(number(U"speed",1)),0,3));
+		DBG_LOG(U"[SourceWater] camera source={} x={} z={} y={} rate={}"_fmt(number(U"source"),p.x,p.y,m_world.waterBedHeight(p.x,p.y),source.rate));
+	}
+	else if (action==U"river_view" && !m_world.rivers().reaches.isEmpty())
+	{
+		int index=Clamp(static_cast<int>(number(U"reach")),0,static_cast<int>(m_world.rivers().reaches.size())-1);
+		if (number(U"levee")!=0)
+		{
+			for (const auto& edge:m_network.edges()) { if (edge.leveeRoad) { if (const auto curve=m_network.getBezier(edge.id))
+			{ const auto p=curve->positionAt(curve->totalLength*.5f);const auto river=m_world.rivers().nearest(p.xz());
+				if (river.reach<0 || river.distance-river.halfWidth<24 || river.distance-river.halfWidth>40) { continue; }
+				if (number(U"walk")!=0) { const auto tangent=curve->tangentAt(curve->totalLength*.5f);m_camera.setWalkingState(p,static_cast<float>(Atan2(tangent.x,tangent.z))); }
+				else { m_camera.setCaptureState(p,static_cast<float>(number(U"distance",450)),-.7f,.72f); }break; } } }
+		}
+		else
+		{
+			const auto& reach=m_world.rivers().reaches[index];const auto p=reach.start.lerp(reach.end,.5);
+			m_camera.setCaptureState(p,static_cast<float>(number(U"distance",450)),-.7f,.72f);
+		}
+		m_clock.speed=static_cast<TimeSpeed>(Clamp(static_cast<int>(number(U"speed",1)),0,3));
+		JSON report;report[U"reaches"]=m_world.rivers().reaches.size();report[U"leveeRoads"]=Array<int>{};report[U"reviewSites"]=Array<JSON>{};
+		for (const auto& edge:m_network.edges()) { if (edge.leveeRoad) { report[U"leveeRoads"].push_back(edge.id); } }
+		for (std::size_t i=0;i<m_world.rivers().reaches.size();i+=Max(std::size_t{1},m_world.rivers().reaches.size()/150))
+		{
+			const auto& reach=m_world.rivers().reaches[i];JSON site;site[U"id"]=i;site[U"x"]=reach.start.x;site[U"z"]=reach.start.z;
+			site[U"head"]=reach.start.y;site[U"width"]=reach.halfWidth*2;
+			if (const auto* water=m_world.sourceWater(); water && i<water->channels().size())
+			{ site[U"downstream"]=water->channels()[i].downstream;site[U"flow"]=water->channelFlow(i);site[U"depth"]=water->channelDepth(i); }report[U"reviewSites"].push_back(site);
+		}
+		report.save(U"river_review.json");
+	}
+	else if (action==U"water_save") { getData().saveName=command[U"name"].getOr<String>(U"source_water_review"); saveGame(); }
 	else if (action==U"snapshot") { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
 	else if (action==U"exit") { System::Exit(); }
 	if (number(U"capture")!=0) { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }

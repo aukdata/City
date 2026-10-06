@@ -189,7 +189,7 @@ namespace
 				const double height=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.y));
 				lowest=Min(lowest,height); highest=Max(highest,height);
 				dry=dry && sample.x>=0 && sample.y>=0 && sample.x<WORLD_SIZE && sample.y<WORLD_SIZE
-					&& height>world.waterSurfaceHeight(sample.x,sample.y)+.3;
+					&& height>world.waterPlanningHeight(sample.x,sample.y)+.3;
 			}
 			const double roadTerrain=world.sampleHeight(static_cast<float>(road.position.x),static_cast<float>(road.position.z));
 			const double roadHeight=RoadGeometry::surfaceY(*road.edge,road.position,roadTerrain);

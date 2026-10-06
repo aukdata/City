@@ -1,0 +1,358 @@
+{
+  "date": "2026-10-07",
+  "mainGame": "App/City.exe",
+  "binarySha256": "666aab69a08b3c0a23f86e111fed8758e24f9a3edf778bbc23d43e0f9bbc9e30",
+  "mainBase": "f20175e644f90671acc725d644a90f0a4e6574fb",
+  "builds": [
+    {
+      "run": "20261007-030142-build-yswr72s7",
+      "target": "City",
+      "errors": 0,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    {
+      "run": "20261007-030212-build-kxl47ctn",
+      "target": "Test",
+      "errors": 0,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  ],
+  "tests": [
+    {
+      "run": "20261007-025011-test-3t58x_yl",
+      "filter": "SourceWater",
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "run": "20261007-025244-test-9pr85zxl",
+      "filter": "Rivers.",
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "run": "20261007-025326-test-zstb5arb",
+      "filter": "Transport.",
+      "passed": 26,
+      "failed": 0
+    },
+    {
+      "run": "20261007-025340-test-0t2yjwep",
+      "filter": "Map",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "run": "20261007-025352-test-2n21zndl",
+      "filter": "SaveTransaction",
+      "passed": 5,
+      "failed": 0
+    }
+  ],
+  "sourceWaterGame": {
+    "balanceError": -8.87666828930378e-10,
+    "closedEnds": 0,
+    "gridBytes": 12847312,
+    "mappedSupply": 8704.0,
+    "oceanCells": 55502,
+    "reaches": 146812,
+    "seaOutlets": 22,
+    "sources": 136,
+    "spacing": 128.0,
+    "verifiedLevees": 20
+  },
+  "oneDayProgression": {
+    "balanceError": 5.4836273193359375e-06,
+    "initialStored": 0.0,
+    "meanStepMs": 1.9527402777777778,
+    "samples": [
+      {
+        "injected": 52224.0,
+        "seaFlow": 2.1336108938403127e-08,
+        "seaOut": 1.2801665363041876e-07,
+        "seconds": 6.0,
+        "stored": 52223.99999987179,
+        "wetReaches": 862
+      },
+      {
+        "injected": 5222400.0,
+        "seaFlow": 90.80029549464875,
+        "seaOut": 23397.36927550411,
+        "seconds": 600.0,
+        "stored": 5199002.630724406,
+        "wetReaches": 15743
+      },
+      {
+        "injected": 31334400.0,
+        "seaFlow": 719.5373205971393,
+        "seaOut": 1285869.8186132626,
+        "seconds": 3600.0,
+        "stored": 30048530.181386255,
+        "wetReaches": 75701
+      },
+      {
+        "injected": 188006400.0,
+        "seaFlow": 5881.943798693776,
+        "seaOut": 61154808.464362,
+        "seconds": 21600.0,
+        "stored": 126851591.53563319,
+        "wetReaches": 146557
+      },
+      {
+        "injected": 752025600.0,
+        "seaFlow": 8704.0,
+        "seaOut": 597510509.347242,
+        "seconds": 86400.0,
+        "stored": 154515090.65276355,
+        "wetReaches": 146812
+      }
+    ],
+    "totalSupply": 8704.0
+  },
+  "nativeGpu": {
+    "balanceError": -4.842877388000488e-07,
+    "changedPixels": 32312,
+    "meanStepMs": 2.193833333333333,
+    "meshMs": 6.718,
+    "seaIn": 0.0,
+    "seaTriangles": 298,
+    "sourceX": 24064.0,
+    "sourceZ": 40960.0
+  },
+  "normalGame": {
+    "initial_paused": {
+      "frame": 1755,
+      "timeSpeed": 0,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 0,
+      "waterSeconds": 6.0,
+      "waterSources": 136,
+      "waterInjected": 52224.0,
+      "waterStored": 52223.99999987179,
+      "waterSeaOut": 1.2801665363041876e-07,
+      "waterSeaIn": 0.0,
+      "waterBalance": -1.964508555829525e-10
+    },
+    "source_growing": {
+      "frame": 4710,
+      "timeSpeed": 3,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 0,
+      "waterSeconds": 7440.0,
+      "waterSources": 136,
+      "waterInjected": 64757760.0,
+      "waterStored": 59075248.184986,
+      "waterSeaOut": 5682511.815012789,
+      "waterSeaIn": 0.0,
+      "waterBalance": -1.2069940567016602e-06
+    },
+    "full_map": {
+      "frame": 5610,
+      "timeSpeed": 3,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": true,
+      "mapBuilds": 1,
+      "waterSeconds": 11466.0,
+      "waterSources": 136,
+      "waterInjected": 99800064.0,
+      "waterStored": 84683824.87100519,
+      "waterSeaOut": 15116239.128988706,
+      "waterSeaIn": 0.0,
+      "waterBalance": -6.109476089477539e-06
+    },
+    "levee_view": {
+      "frame": 7395,
+      "timeSpeed": 3,
+      "cameraMode": 3,
+      "focusX": 29208.603399009557,
+      "focusY": 27.296358966667174,
+      "focusZ": 29681.33853702599,
+      "map": false,
+      "mapBuilds": 4,
+      "waterSeconds": 19020.0,
+      "waterSources": 136,
+      "waterInjected": 165550080.0,
+      "waterStored": 118936543.03279531,
+      "waterSeaOut": 46613536.967199184,
+      "waterSeaIn": 0.0,
+      "waterBalance": -5.513429641723633e-06
+    },
+    "levee_walk": {
+      "frame": 9150,
+      "timeSpeed": 3,
+      "cameraMode": 2,
+      "focusX": 29208.603399009557,
+      "focusY": 27.302361315071856,
+      "focusZ": 29681.33853702599,
+      "map": false,
+      "mapBuilds": 4,
+      "waterSeconds": 27258.0,
+      "waterSources": 136,
+      "waterInjected": 237253632.0,
+      "waterStored": 140663180.21783227,
+      "waterSeaOut": 96590451.78216998,
+      "waterSeaIn": 0.0,
+      "waterBalance": 2.2649765014648438e-06
+    },
+    "levee_walk_moved": {
+      "frame": 9615,
+      "timeSpeed": 3,
+      "cameraMode": 2,
+      "focusX": 29208.275650689273,
+      "focusY": 27.29361163653973,
+      "focusZ": 29681.66175524756,
+      "map": false,
+      "mapBuilds": 4,
+      "waterSeconds": 29580.0,
+      "waterSources": 136,
+      "waterInjected": 257464320.0,
+      "waterStored": 144813572.10088086,
+      "waterSeaOut": 112650747.89912333,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.172325134277344e-06
+    },
+    "before_save": {
+      "frame": 10815,
+      "timeSpeed": 0,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 4,
+      "waterSeconds": 29670.0,
+      "waterSources": 136,
+      "waterInjected": 258247680.0,
+      "waterStored": 144957604.1692533,
+      "waterSeaOut": 113290075.8307508,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.082918167114258e-06
+    },
+    "after_save": {
+      "frame": 11115,
+      "timeSpeed": 0,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 4,
+      "waterSeconds": 29670.0,
+      "waterSources": 136,
+      "waterInjected": 258247680.0,
+      "waterStored": 144957604.1692533,
+      "waterSeaOut": 113290075.8307508,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.082918167114258e-06
+    },
+    "after_reload": {
+      "frame": 3225,
+      "timeSpeed": 0,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 0,
+      "waterSeconds": 29670.0,
+      "waterSources": 136,
+      "waterInjected": 258247680.0,
+      "waterStored": 144957604.1692533,
+      "waterSeaOut": 113290075.8307508,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.082918167114258e-06
+    },
+    "resumed": {
+      "frame": 3570,
+      "timeSpeed": 3,
+      "cameraMode": 3,
+      "focusX": 13056.0,
+      "focusY": 39.43922805786133,
+      "focusZ": 29184.0,
+      "map": false,
+      "mapBuilds": 0,
+      "waterSeconds": 31086.0,
+      "waterSources": 136,
+      "waterInjected": 270572544.0,
+      "waterStored": 147027297.353054,
+      "waterSeaOut": 123545246.64695252,
+      "waterSeaIn": 0.0,
+      "waterBalance": 6.496906280517578e-06
+    }
+  },
+  "leveeRoads": [
+    24150,
+    6827,
+    6828,
+    6830,
+    6831,
+    20099,
+    18888,
+    24147,
+    18446,
+    18447,
+    18449,
+    18450,
+    18451,
+    18452,
+    18453,
+    24115,
+    18456,
+    18457,
+    18458,
+    18459,
+    18460,
+    18461,
+    18462,
+    18463,
+    20100,
+    24148,
+    24149
+  ],
+  "walkDistanceM": 0.46031400174800513,
+  "saveFormat": 4,
+  "sourceWaterSaveVersion": 2,
+  "saveReload": {
+    "exact": {
+      "waterSeconds": true,
+      "waterSources": true,
+      "waterInjected": true,
+      "waterStored": true,
+      "waterSeaOut": true,
+      "waterSeaIn": true,
+      "waterBalance": true
+    },
+    "before": {
+      "waterSeconds": 29670.0,
+      "waterSources": 136,
+      "waterInjected": 258247680.0,
+      "waterStored": 144957604.1692533,
+      "waterSeaOut": 113290075.8307508,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.082918167114258e-06
+    },
+    "after": {
+      "waterSeconds": 29670.0,
+      "waterSources": 136,
+      "waterInjected": 258247680.0,
+      "waterStored": 144957604.1692533,
+      "waterSeaOut": 113290075.8307508,
+      "waterSeaIn": 0.0,
+      "waterBalance": 4.082918167114258e-06
+    }
+  },
+  "unrelatedTrackedChangesExcluded": 17
+}

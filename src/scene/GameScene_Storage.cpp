@@ -60,6 +60,8 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 	JSON meta;
 	meta[U"version"] = kGameSaveVersion;
 	meta[U"roadGeometryVersion"] = 1;
+	meta[U"sourceWaterVersion"] = m_world.sourceWater() ? m_world.sourceWater()->snapshotVersion() : 0;
+	meta[U"sourceWaterBacklog"] = m_world.sourceWaterBacklog();
 	meta[U"zoneDevelopment"] = m_zoneManager.saveState(m_world);
 	meta[U"railway"] = m_trainNetwork.saveState();
 	meta[U"seed"] = getData().seed;
@@ -198,6 +200,10 @@ SaveResult GameScene::writeGameSnapshot(const FilePath& saveRoot) const
 
 		}
 	}
+	if (m_world.sourceWater() && !m_world.saveSourceWater(globalDirectory+U"/source_water.bin"))
+	{
+		return SaveResult::failed(SaveError::WriteFailed,U"水量を保存できません",globalDirectory);
+	}
 	return SaveResult::succeeded(saveRoot);
 }
 
@@ -233,6 +239,10 @@ SaveResult GameScene::verifyGameSnapshot(const FilePath& saveRoot) const
 	{
 		return SaveResult::failed(SaveError::MissingData,
 			U"roads.bin が欠損しています", roadsPath);
+	}
+	if (meta[U"sourceWaterVersion"].getOr<int>(0)>0 && !m_world.verifySourceWater(saveRoot+U"/global/source_water.bin"))
+	{
+		return SaveResult::failed(SaveError::VerificationFailed,U"水量の再読込み検証に失敗しました",saveRoot);
 	}
 	return SaveResult::succeeded(saveRoot);
 }
@@ -333,15 +343,14 @@ bool GameScene::loadGame()
 	m_world.setGenerationParams(getData().seed,
 		WORLD_SIZE,
 		WORLD_SIZE);
-	if (getData().generation.enabled(GenerationOptions::Element::Rivers))
-	{
-		m_world.generateRivers();
-	}
+	m_world.generateSourceWater(getData().generation.enabled(GenerationOptions::Element::Rivers),meta[U"sourceWaterVersion"].getOr<int>(0)!=1);
 	m_world.reserveChunks();
 	DebugLog::print(U"[Load] meta+init: {:.0f}ms"_fmt(step.msF()));
 	step.restart();
 
 	loadTerrainChunks(saveRoot, step);
+	if (meta[U"sourceWaterVersion"].getOr<int>(0)>0 && !m_world.loadSourceWater(saveRoot+U"/global/source_water.bin")) { return false; }
+	m_world.restoreWaterBacklog(meta[U"sourceWaterBacklog"].getOr<double>(0.0));
 
 	// 経済
 	if (const JSON eco = JSON::Load(U"{}/global/economy.json"_fmt(saveRoot)))

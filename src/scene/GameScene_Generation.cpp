@@ -192,7 +192,7 @@ void GameScene::postProcessRoads()
 		{
 			if (node.id < 0) { continue; }
 			const double ground = m_world.sampleHeight(static_cast<float>(node.position.x), static_cast<float>(node.position.z));
-			if (ground < m_world.waterSurfaceHeight(node.position.x, node.position.z) + 3.2) { continue; }
+			if (ground < m_world.waterPlanningHeight(node.position.x, node.position.z) + 3.2) { continue; }
 			const double gap = node.position.y - ground; highest = Max(highest, gap); raised += gap > 8;
 		}
 		DBG_LOG(U"[RoadHeightStage] stage={} raisedDryNodes={} maximumGap={}"_fmt(stage, raised, highest));
@@ -200,14 +200,14 @@ void GameScene::postProcessRoads()
 	auditDryStreets(U"terrain");
 	WaterCrossings::splitWaterSpans(m_network,
 		[&](double x, double z) { return m_world.sampleHeight(static_cast<float>(x), static_cast<float>(z)); },
-		[&](double x, double z) { return m_world.waterSurfaceHeight(x, z); });
+		[&](double x, double z) { return m_world.waterPlanningHeight(x, z); });
 	RoadVerticalAlignment::apply(m_network,m_world);
 	auditDryStreets(U"vertical");
 	const auto roadsBefore = RoadDesignLimits::measure(m_network, m_world);
 	// Resolve infeasible hills before bridge approach heights can spread into adjacent towns.
 	RoadDesignLimits::apply(m_network, m_world);
 	auditDryStreets(U"alignment");
-	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); },[&](double x,double z) { return m_world.waterSurfaceHeight(x,z); });
+	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); },[&](double x,double z) { return m_world.waterPlanningHeight(x,z); });
 	auditDryStreets(U"crossings");
 	RoadDesignLimits::fitGrades(m_network, m_world);
 	auditDryStreets(U"finalGrades");
@@ -262,7 +262,7 @@ void GameScene::postProcessRoads()
 			for (float arc=0;arc<curve->totalLength;arc+=6)
 			{
 				const Vec3 p=curve->positionAt(arc),tangent=curve->tangentAt(arc);
-				const double ground=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),waterLevel=m_world.waterSurfaceHeight(p.x,p.z);
+				const double ground=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),waterLevel=m_world.waterPlanningHeight(p.x,p.z);
 				if (ground>=waterLevel+1) { continue; }
 				wet=true;wetLength+=6;submerged+=(edge.usesDesignHeight() ? p.y : ground)<waterLevel;
 				maxBridgeGrade=Max(maxBridgeGrade,Abs(tangent.y)/Max(.001,Vec2{tangent.x,tangent.z}.length()));
@@ -288,7 +288,7 @@ void GameScene::postProcessRoads()
 				const Vec3 point=curve->positionAt(arc),right=tangentToRight(curve->tangentAt(arc));
 				for (const int side : {-1,0,1})
 				{
-					const Vec3 p=point+right*(edge.totalWidth()*.5*side);const double ground=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),surface=m_world.waterSurfaceHeight(p.x,p.z);
+					const Vec3 p=point+right*(edge.totalWidth()*.5*side);const double ground=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)),surface=m_world.waterPlanningHeight(p.x,p.z);
 					const double pavement=edge.usesDesignHeight() ? point.y : ground;
 					wet|=ground<surface && pavement<surface-.03 && !(edge.tunnel && pavement<ground-6);
 				}

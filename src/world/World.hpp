@@ -2,6 +2,7 @@
 #include "Chunk.hpp"
 #include "../gen/TerrainType.hpp"
 #include "../gen/RiverNetwork.hpp"
+#include "../sim/SourceWater.hpp"
 
 /// @brief チャンク管理クラス
 /// @details 64×64 固定サイズワールド。カメラ周辺 5×5 チャンクをアクティブに保つ。
@@ -19,11 +20,27 @@ public:
 	void reserveChunks();
 	/// @brief 基本地形から流域を生成する。高さマップ生成前、または保存地形の復帰前に呼ぶ。
 	void generateRivers();
+	/// @brief Carve connected riverbeds and banks; only sources supply water and the sea drains it.
+	void generateSourceWater(bool riversEnabled = true,bool routedRivers = true);
+	/// @brief One bounded coarse step per frame, with hydraulic seconds tied to calendar minutes.
+	void advanceSourceWater(double gameSeconds);
+	/// @brief Preserve water and its exact mass ledger within the existing atomic save transaction.
+	bool saveSourceWater(FilePathView path) const;
+	bool verifySourceWater(FilePathView path) const;
+	bool loadSourceWater(FilePathView path);
+	double sourceWaterBacklog() const { return m_waterBacklog; }
+	void restoreWaterBacklog(double value) { m_waterBacklog=IsFinite(value) && value>=0.0 ? value : 0.0; }
+	const SourceWater* sourceWater() const { return m_sourceWater.get(); }
+	/// @brief Sample exactly the visible installed terrain, falling back before chunks exist.
+	float waterBedHeight(double x,double z) const;
 	const RiverNetwork& rivers() const { return m_rivers; }
 	/// @brief Area counts and moved thickness from the terrain evolution pass.
 	struct TerrainEvolutionStats { int uplifted=0, eroded=0, deposited=0; double upliftMetres=0, erosionMetres=0, depositionMetres=0; };
 	const TerrainEvolutionStats& terrainEvolution() const { return m_terrainEvolution; }
-	double waterSurfaceHeight(double x,double z) const { return m_rivers.waterLevel({x,z}); }
+	/// @brief Actual source-fed surface; dry riverbeds have no water.
+	double waterSurfaceHeight(double x,double z) const;
+	/// @brief Expected river stage used for bridge and parcel clearance before water arrives.
+	double waterPlanningHeight(double x,double z) const;
 	/// @brief 共有格子点を隣接チャンクにも反映する（地形整形用）。
 	void setGridHeight(int x,int z,float height);
 
@@ -95,6 +112,8 @@ private:
 
 	void rebuildActiveChunkCache();
 
+	std::unique_ptr<SourceWater> m_sourceWater;
+	double m_waterBacklog = 0.0, m_lastWaterLog = 0.0;
 	RiverNetwork m_rivers;
 	TerrainEvolutionStats m_terrainEvolution;
 	float computeBaseHeight(float wx,float wz) const;

@@ -33,10 +33,7 @@ void GameScene::initNewGame()
 	{
 		using Element = GenerationOptions::Element;
 		const auto& options = getData().generation;
-		if (options.enabled(Element::Rivers))
-		{
-			m_world.generateRivers();
-		}
+		m_world.generateSourceWater(options.enabled(Element::Rivers));
 		generateAllTerrain();
 		if (options.enabled(Element::Settlements))
 		{

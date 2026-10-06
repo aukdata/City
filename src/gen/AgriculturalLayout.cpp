@@ -16,6 +16,8 @@ namespace AgriculturalLayout
 		bool agricultural(const World& world,Vec2 point)
 		{
 			if (point.x<0 || point.y<0 || point.x>=WORLD_SIZE || point.y>=WORLD_SIZE) { return false; }
+			const auto river=world.rivers().nearest(point);
+			if (river.reach>=0 && river.distance<=river.halfWidth+(river.halfWidth>=42 ? 45 : 18)) { return false; }
 			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
 			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
 			if (!chunk) { return false; }
@@ -114,10 +116,12 @@ namespace AgriculturalLayout
 						for (const auto corner:footprint)
 						{
 							const auto ground=groundPoint(world,corner);low=Min(low,ground.y);high=Max(high,ground.y);
-							valid &= agricultural(world,corner) && ground.y>world.waterSurfaceHeight(corner.x,corner.y)+config.agriculture_minimumFreeboard;
+							valid &= agricultural(world,corner) && ground.y>world.waterPlanningHeight(corner.x,corner.y)+config.agriculture_minimumFreeboard;
 						}
 						if (!valid || high-low>config.development_maximumBuildingRelief) { continue; }
-						const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
+						const auto river=world.rivers().nearest(point);
+			if (river.reach>=0 && river.distance<=river.halfWidth+(river.halfWidth>=42 ? 45 : 18)) { return false; }
+			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
 						auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});auto& building=chunk->buildingGrid[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}];
 						if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland) { continue; }
 						building.type=BuildingType::RuralHouse;building.angle=static_cast<float>(angle);building.edgeId=edge.id;building.edgeT=curve->tFromArcLength(arc);
@@ -219,7 +223,7 @@ namespace AgriculturalLayout
 						const auto footprint=ParcelGeometry::footprint(horizontal(p),config.agriculture_trackWidth*.5+1,0);
 						const double joiningWidth=connection ? roads.getEdge(*connection->edgeId)->totalWidth()*.5+config.agriculture_trackWidth*.5+3 : 0;
 						const bool joining=connection && p.distanceFrom(end)<joiningWidth;
-						valid &= (run==0 || joining || agricultural(world,horizontal(p))) && ground.y>world.waterSurfaceHeight(p.x,p.z)+config.agriculture_minimumFreeboard
+						valid &= (run==0 || joining || agricultural(world,horizontal(p))) && ground.y>world.waterPlanningHeight(p.x,p.z)+config.agriculture_minimumFreeboard
 							&& Abs(ground.y-last.y)<=distance*config.agriculture_maximumTrackGrade && Abs(ground.y-p.y)<config.agriculture_maximumTrackCutFill
 							&& !rail.overlaps(footprint) && !buildings.occupied.overlaps(footprint);
 						if (p.distanceFrom(start)>12 && !joining && occupied.overlaps(footprint)) { valid=false; }
@@ -319,7 +323,7 @@ namespace AgriculturalLayout
 						   ground = groundPoint(world, horizontal(point));
 				const auto footprint =
 					ParcelGeometry::footprint(horizontal(point), config.agriculture_trackWidth * .5 + 1, 0);
-				valid &= ground.y > world.waterSurfaceHeight(point.x, point.z) + config.agriculture_minimumFreeboard &&
+				valid &= ground.y > world.waterPlanningHeight(point.x, point.z) + config.agriculture_minimumFreeboard &&
 						 Abs(ground.y - point.y) < config.agriculture_maximumTrackCutFill &&
 						 Abs(ground.y - last.y) <=
 							 horizontal(ground - last).length() * config.agriculture_maximumTrackGrade &&
@@ -450,7 +454,7 @@ namespace AgriculturalLayout
 					for (int i=0;i<=samples;++i)
 					{
 						const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
-						valid &= agricultural(world,point) && ground.y>world.waterSurfaceHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
+						valid &= agricultural(world,point) && ground.y>world.waterPlanningHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
 					}
 				}
 				for (size_t i=1;i+1<polygon.size();++i)
