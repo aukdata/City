@@ -337,7 +337,8 @@ private:
 	{
 		Mesh sea;
 		DynamicMesh mesh;
-		uint64 revision = 0, terrainRevision = 0;
+		uint64 revision = 0, terrainRevision = 0, topology = 0;
+		size_t vertices = 0;
 		double updated = -1.0;
 		bool dynamic = false;
 	};

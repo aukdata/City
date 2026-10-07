@@ -10,6 +10,19 @@
 /// @brief Sink-only sea, exact conservation, snapshot recovery and source-only game generation.
 void registerSourceWaterTests(TestRunner& runner)
 {
+	runner.add(U"SourceWater.SignedDryBanks",[](TestContext& context)
+	{
+		SourceWater water{512,256,[](double,double) { return 0.0; },[](double,double) { return false; },{},128};
+		water.configureChannels({{64,128,448,128,10,10,40,40,2,-2,64}});
+		context.expect(water.sample(256,128,0).depth<0,U"A dry configured river cannot acquire visible water from bank smoothing");
+		water.advance(6000);
+		const auto center=water.sample(256,128,0),bank=water.sample(256,164,0),high=water.sample(256,152,12);
+		context.expect(center.depth>0,U"The supplied river still has visible water");
+		context.expectNear(bank.head,center.head,1e-12,U"The dry-bank support retains the same continuous hydraulic plane");
+		context.expect(bank.depth<=-8,U"A low depression outside the actual river width cannot become water");
+		context.expectNear(high.depth,high.head-12,1e-12,U"High dry banks retain true signed terrain depth instead of a 5 cm shelf");
+		context.expectNear(water.inflow(),0,0,U"Smoothing cannot introduce sea backflow");
+	});
 	runner.add(U"SourceWater.RiverConfluenceAndDrying",[](TestContext& context)
 	{
 		const auto height=[](double,double) { return 0.0; };const auto marine=[](double,double) { return false; };
@@ -210,7 +223,11 @@ void registerSourceWaterTests(TestRunner& runner)
 		for(int step=0;step<600;++step) { world.advanceSourceWater(0.1); }
 		const double simulationMs=simulation.msF();
 		const Stopwatch geometry{StartImmediately::Yes};
+		const double storedBeforeMesh=world.sourceWater()->ownedVolume();
 		const auto data=SourceWaterGeometry::build(world,ox,oz,64,16,2);
+		context.expect(data.vertices.size()>65*65 && data.vertices.size()<65*65*2,U"Only shoreline cells receive half-grid samples, within a bounded vertex budget");
+		context.expect(data.indices.size()<64*64*2,U"Fully dry cells are omitted instead of refining the whole map");
+		context.expectNear(world.sourceWater()->ownedVolume(),storedBeforeMesh,0,U"Smoothing the visible bank does not alter simulated water");
 		const double meshMs=geometry.msF();
 		context.expect(!data.indices.isEmpty(),U"The production mesh contains owned land triangles");
 		const Mesh water{data};
@@ -249,6 +266,7 @@ void registerSourceWaterTests(TestRunner& runner)
 		for(const auto& vertex:sea.vertices) { context.expectNear(vertex.pos.y,0.01,1e-8,U"Every sea render vertex shares the same fixed level plus only the depth bias"); }
 		JSON report;report[U"sourceX"]=x;report[U"sourceZ"]=z;report[U"changedPixels"]=changed;
 		report[U"meanStepMs"]=simulationMs/600;report[U"meshMs"]=meshMs;report[U"seaTriangles"]=sea.indices.size();
+		report[U"vertices"]=data.vertices.size();report[U"triangles"]=data.indices.size();
 		report[U"balanceError"]=world.sourceWater()->balanceError();report[U"seaIn"]=world.sourceWater()->inflow();
 		report.save(U"TestResults/source_water_native.json");
 	});

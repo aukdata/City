@@ -1,6 +1,7 @@
 ﻿#include "WorldRenderer.hpp"
 #include "SourceWaterGeometry.hpp"
 #include "../debug/DebugLog.hpp"
+#include <array>
 
 namespace SourceWaterGeometry
 {
@@ -31,24 +32,32 @@ namespace SourceWaterGeometry
 		const int corners = cells+1;
 		MeshData data;
 		data.vertices.resize(static_cast<size_t>(corners)*corners);
-		for (int z=0; z<=cells; ++z)
+		const auto vertexAt=[&](double wx,double wz)
 		{
-			for (int x=0; x<=cells; ++x)
+			const double bed=world.waterBedHeight(wx,wz);
+			const auto sample=mode==1 ? SourceWater::Sample{0.0,-bed,true} : water.sample(wx,wz,bed);
+			Vertex3D vertex;
+			vertex.pos={static_cast<float>(wx),static_cast<float>(sample.head+0.01),static_cast<float>(wz)};
+			vertex.normal={0,1,0};vertex.tex={static_cast<float>(sample.depth),0};
+			if (mode==2 && !water.channels().empty())
 			{
-				const double wx=originX+x*step, wz=originZ+z*step;
-				const double bed=world.waterBedHeight(wx,wz);
-				const auto sample=mode==1 ? SourceWater::Sample{0.0,-bed,true} : water.sample(wx,wz,bed);
-				auto& vertex=data.vertices[static_cast<size_t>(z)*corners+x];
-				vertex.pos={static_cast<float>(wx),static_cast<float>(sample.head+0.01),static_cast<float>(wz)};
-				vertex.normal={0,1,0}; vertex.tex={static_cast<float>(sample.depth),0};
-				if (mode==2 && !water.channels().empty())
+				const auto river=world.rivers().nearest({wx,wz});
+				if (river.reach>=0)
 				{
-					const auto river=world.rivers().nearest({wx,wz});
-					if (river.reach>=0) { const auto& reach=world.rivers().reaches[river.reach];vertex.tex.y=8+static_cast<float>(std::atan2(reach.end.z-reach.start.z,reach.end.x-reach.start.x));
-						const auto index=static_cast<std::size_t>(river.reach);const auto& channel=water.channels()[index];
-						const double speed=water.channelFlow(index)/Max(.01,(channel.width0+channel.width1)*.5*water.channelDepth(index));
-						vertex.normal.y=1+static_cast<float>(Clamp(speed,0.0,4.0)); }
+					const auto& reach=world.rivers().reaches[river.reach];
+					vertex.tex.y=8+static_cast<float>(std::atan2(reach.end.z-reach.start.z,reach.end.x-reach.start.x));
+					const auto index=static_cast<std::size_t>(river.reach);const auto& channel=water.channels()[index];
+					const double speed=water.channelFlow(index)/Max(.01,(channel.width0+channel.width1)*.5*water.channelDepth(index));
+					vertex.normal.y=1+static_cast<float>(Clamp(speed,0.0,4.0));
 				}
+			}
+			return vertex;
+		};
+		for (int z=0;z<=cells;++z)
+		{
+			for (int x=0;x<=cells;++x)
+			{
+				data.vertices[static_cast<size_t>(z)*corners+x]=vertexAt(originX+x*step,originZ+z*step);
 			}
 		}
 		for (int z=0; z<cells; ++z)
@@ -59,8 +68,29 @@ namespace SourceWaterGeometry
 				const bool sea=water.ocean(static_cast<int>(wx/water.grid().cellSize),static_cast<int>(wz/water.grid().cellSize));
 				if ((mode==1 && !sea) || (mode==2 && sea)) { continue; }
 				const uint32 a=static_cast<uint32>(z*corners+x), b=a+1, c=a+corners, d=c+1;
-				if (mode==2 && step!=16.0 && !sea && Max({data.vertices[a].tex.x,data.vertices[b].tex.x,data.vertices[c].tex.x,data.vertices[d].tex.x})<=0.002f) { continue; }
-				data.indices << TriangleIndex32{a,c,b} << TriangleIndex32{b,c,d};
+				const float minimum=Min({data.vertices[a].tex.x,data.vertices[b].tex.x,data.vertices[c].tex.x,data.vertices[d].tex.x});
+				const float maximum=Max({data.vertices[a].tex.x,data.vertices[b].tex.x,data.vertices[c].tex.x,data.vertices[d].tex.x});
+				if (mode==2 && maximum<=.002f) { continue; }
+				// Add five samples only where a wet/dry contour crosses the 16 m cell.
+				// The wet interior and simulation retain their existing spacing.
+				if (mode==2 && step==16.0 && !water.channels().empty() && minimum<=.002f)
+				{
+					std::array<uint32,9> ids{a,0,b,0,0,0,c,0,d};
+					for (const int slot:{1,3,4,5,7})
+					{
+						ids[slot]=static_cast<uint32>(data.vertices.size());
+						data.vertices << vertexAt(originX+(x+(slot%3)*.5)*step,originZ+(z+(slot/3)*.5)*step);
+					}
+					for (int row=0;row<2;++row)
+					{
+						for (int col=0;col<2;++col)
+						{
+							const int i=row*3+col;
+							data.indices << TriangleIndex32{ids[i],ids[i+3],ids[i+1]} << TriangleIndex32{ids[i+1],ids[i+3],ids[i+4]};
+						}
+					}
+				}
+				else { data.indices << TriangleIndex32{a,c,b} << TriangleIndex32{b,c,d}; }
 			}
 		}
 		// Finite differences supply gentle flow-aligned highlights without another simulation field.
@@ -147,8 +177,19 @@ void WorldRenderer::renderSourceWater(const World& world, bool regional)
 		}
 		const auto data=dynamic ? SourceWaterGeometry::build(world,origin.x,origin.z,HEIGHT_CELLS,16.0,2) : MeshData{};
 		if (!dynamic) { entry.mesh=DynamicMesh{}; }
-		else if (entry.mesh) { entry.mesh.fill(data.vertices); }
-		else if (!data.indices.isEmpty()) { entry.mesh=DynamicMesh{data}; }
+		else if (!data.indices.isEmpty())
+		{
+			// Shore refinement changes the index layout as water arrives or recedes.
+			uint64 topology=14695981039346656037ULL;
+			for (const auto& face:data.indices)
+			{
+				for (const uint32 index:{face.i0,face.i1,face.i2}) { topology=(topology^index)*1099511628211ULL; }
+			}
+			if (entry.mesh && entry.vertices==data.vertices.size() && entry.topology==topology) { entry.mesh.fill(data.vertices); }
+			else { entry.mesh=DynamicMesh{data}; }
+			entry.vertices=data.vertices.size();entry.topology=topology;
+		}
+		else { entry.mesh=DynamicMesh{};entry.vertices=0;entry.topology=0; }
 		entry.terrainRevision=water->terrainRevision();entry.revision=water->revision();entry.updated=Scene::Time();entry.dynamic=dynamic;
 		++uploaded;
 	}

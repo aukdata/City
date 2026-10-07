@@ -1,6 +1,12 @@
 ﻿#include "SourceWater.hpp"
 #include <limits>
 
+namespace
+{
+	constexpr double kWetBankMargin = 8.0;
+	constexpr double kDryBankSupport = 32.0;
+}
+
 SourceWater::SourceWater(double width, double height, const Height& terrain, const Marine& marine,
 	const std::vector<Source>& sources, double spacing)
 	: m_width(width), m_height(height)
@@ -114,7 +120,7 @@ void SourceWater::configureChannels(std::vector<Channel> channels)
 		m_channelVolume[i]=0;
 		m_channelResidence[i]=discharge[i]>0 ? m_channelArea[i]*c.depth/discharge[i] : 60;
 		m_channelFlow[i]=0;
-		const double margin=std::max(c.width0,c.width1)*.5+16;
+		const double margin=std::max(c.width0,c.width1)*.5+kDryBankSupport;
 		for (int z=static_cast<int>(std::floor((std::min(c.z0,c.z1)-margin)/512));z<=static_cast<int>(std::floor((std::max(c.z0,c.z1)+margin)/512));++z)
 		{ for (int x=static_cast<int>(std::floor((std::min(c.x0,c.x1)-margin)/512));x<=static_cast<int>(std::floor((std::max(c.x0,c.x1)+margin)/512));++x)
 			{ m_channelIndex[channelKey(x,z)].push_back(i); } }
@@ -135,20 +141,22 @@ SourceWater::Sample SourceWater::sample(double x,double z,double terrainHeight) 
 	if (!m_channels.empty())
 	{
 		const auto found=m_channelIndex.find(channelKey(static_cast<int>(x/512),static_cast<int>(z/512)));
-		double nearest=std::numeric_limits<double>::max(),head=terrainHeight-.05;
+		double nearest=std::numeric_limits<double>::max(),head=terrainHeight-.05, bankClip=-.05;
 		if (found!=m_channelIndex.end()) { for (const auto i:found->second)
 		{
 			const auto& c=m_channels[i];const double dx=c.x1-c.x0,dz=c.z1-c.z0;
 			const double t=std::clamp(((x-c.x0)*dx+(z-c.z0)*dz)/(dx*dx+dz*dz),0.0,1.0);
 			const double distance=std::hypot(x-c.x0-dx*t,z-c.z0-dz*t),halfWidth=(c.width0+(c.width1-c.width0)*t)*.5;
-			if (distance>halfWidth+8 || channelDepth(i)<=.003 || distance-halfWidth>=nearest) { continue; }
-			nearest=distance-halfWidth;
+			if (distance>halfWidth+kDryBankSupport || channelDepth(i)<=.003 || distance-halfWidth>=nearest) { continue; }
+			nearest=distance-halfWidth;bankClip=halfWidth+kWetBankMargin-distance;
 			const double startOffset=channelDepth(i)-c.depth;
 			const double endOffset=c.downstream>=0 ? channelDepth(static_cast<std::size_t>(c.downstream))-m_channels[static_cast<std::size_t>(c.downstream)].depth
 				: c.downstream==-2 ? 0 : startOffset;
 			head=c.head0+(c.head1-c.head0)*t+startOffset*(1-t)+endOffset*t;
 		} }
-		return {head,head-terrainHeight,false};
+		// Extrapolate the hydraulic head through the dry bank, rather than lowering dry vertices
+		// to ground minus 5 cm. Signed terrain/width clipping keeps the outside bank dry.
+		return {head,std::min(head-terrainHeight,bankClip),false};
 	}
 	const int firstX = static_cast<int>(std::floor(gx-0.5)), firstZ = static_cast<int>(std::floor(gz-0.5));
 	double sum = 0.0, weight = 0.0;

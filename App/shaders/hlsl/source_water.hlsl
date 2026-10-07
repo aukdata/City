@@ -7,6 +7,7 @@ float noise(float2 p) { float2 i=floor(p),f=frac(p); f=f*f*(3.0-2.0*f); return l
 float4 WaterPS(PSInput input):SV_TARGET
 {
     float depth=max(input.UV.x,0.0);
+    float edgeWidth=max(0.006,fwidth(input.UV.x));
     if(depth<0.002) discard;
     float2 p=input.WorldPosition.xz;
     float t=parameters.x;
@@ -40,6 +41,6 @@ float4 WaterPS(PSInput input):SV_TARGET
     float streak=pow(saturate(noise(float2(along*0.10-t*speed*6.0,side*0.8))-0.35)*1.5,3.0)*river;
     color+=float3(0.11,0.15,0.14)*streak;
     // Millimetre bank clipping stays signed; centimetre films retain a visible reflection.
-    float alpha=(0.24+0.56*(1.0-exp(-depth*1.5))+fresnel*0.18)*smoothstep(0.002,0.008,depth);
+    float alpha=(0.24+0.56*(1.0-exp(-depth*1.5))+fresnel*0.18)*smoothstep(0.002,0.002+edgeWidth,depth);
     return float4(color*(ambientColor+sunColor*0.6),clamp(alpha,0.0,0.96));
 }

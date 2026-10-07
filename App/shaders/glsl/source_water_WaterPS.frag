@@ -11,6 +11,7 @@ float noise(vec2 p) { vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); return mix(
 void main()
 {
     float depth=max(UV.x,0.0);
+    float edgeWidth=max(0.006,fwidth(UV.x));
     if(depth<0.002) discard;
     vec2 p=WorldPosition.xz;
     float t=parameters.x;
@@ -44,6 +45,6 @@ void main()
     float streak=pow(clamp(noise(vec2(along*0.10-t*speed*6.0,side*0.8))-0.35,0.0,1.0)*1.5,3.0)*river;
     color+=vec3(0.11,0.15,0.14)*streak;
     // Millimetre bank clipping stays signed; centimetre films retain a visible reflection.
-    float alpha=(0.24+0.56*(1.0-exp(-depth*1.5))+fresnel*0.18)*smoothstep(0.002,0.008,depth);
+    float alpha=(0.24+0.56*(1.0-exp(-depth*1.5))+fresnel*0.18)*smoothstep(0.002,0.002+edgeWidth,depth);
     FragColor=vec4(color*(ambientColor+sunColor*0.6),clamp(alpha,0.0,0.96));
 }
