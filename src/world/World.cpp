@@ -573,6 +573,19 @@ double World::waterPlanningHeight(double x,double z) const
 	return Max(waterSurfaceHeight(x,z),m_rivers.waterLevel({x,z}));
 }
 
+void World::prepareSourceWaterForNewGame()
+{
+	if (!m_sourceWater || m_sourceWater->channels().empty() || m_sourceWater->sourceCount()==0 || m_sourceWater->elapsed()!=0) { return; }
+	const Stopwatch timer{StartImmediately::Yes};
+	// Real point-source supply creates the initial river; no water is painted onto dry land.
+	constexpr int kPreparationSteps=3600;
+	for (int step=0;step<kPreparationSteps;++step) { m_sourceWater->advance(6.0); }
+	m_lastWaterLog=m_sourceWater->elapsed();
+	DBG_LOG(U"[SourceWater] preparedNewGame t={}s steps={} sources={} injected={}m3 stored={}m3 seaOut={}m3 seaIn={}m3 balance={}m3 wallMs={:.2f}"_fmt(
+		m_sourceWater->elapsed(),kPreparationSteps,m_sourceWater->sourceCount(),m_sourceWater->injected(),m_sourceWater->ownedVolume(),
+		m_sourceWater->outflow(),m_sourceWater->inflow(),m_sourceWater->balanceError(),timer.msF()));
+}
+
 void World::advanceSourceWater(double gameSeconds)
 {
 	if (!m_sourceWater || gameSeconds <= 0.0) { return; }

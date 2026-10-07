@@ -17,13 +17,13 @@ namespace SourceWaterGeometry
 				if (water.channelDepth(index)<=.003) { continue; }
 				const auto& c=water.channels()[index];
 				const double speed=water.channelFlow(index)/Max(.01,(c.width0+c.width1)*.5*water.channelDepth(index));
-				const Vec2 delta{c.x1-c.x0,c.z1-c.z0};const Vec2 right{delta.y,-delta.x};const auto normal=right.normalized();
+				const Vec2 delta{c.x1-c.x0,c.z1-c.z0};const Vec2 right{delta.y,-delta.x};const auto normal=right.normalized(),flow=delta.normalized();
 				const uint32 first=static_cast<uint32>(strips.vertices.size());
 				for (const bool end:{false,true}) { for (const int side:{-1,1})
 				{
 					const Vec2 center=end ? Vec2{c.x1,c.z1} : Vec2{c.x0,c.z0};const auto p=center+normal*(end ? c.width1 : c.width0)*.5*side;
 					const auto sample=water.sample(p.x,p.y,world.waterBedHeight(p.x,p.y));
-					strips.vertices << Vertex3D{Float3{static_cast<float>(p.x),static_cast<float>(sample.head+.01),static_cast<float>(p.y)},Float3{0,1+static_cast<float>(Clamp(speed,0.0,4.0)),0},Float2{static_cast<float>(sample.depth),8+static_cast<float>(std::atan2(delta.y,delta.x))}};
+					strips.vertices << Vertex3D{Float3{static_cast<float>(p.x),static_cast<float>(sample.head+.01),static_cast<float>(p.y)},Float3{static_cast<float>(flow.x),1+static_cast<float>(Clamp(speed,0.0,4.0)),static_cast<float>(flow.y)},Float2{static_cast<float>(sample.depth),8}};
 				} }
 				strips.indices << TriangleIndex32{first,first+2,first+1} << TriangleIndex32{first+1,first+2,first+3};
 			}
@@ -45,7 +45,9 @@ namespace SourceWaterGeometry
 				if (river.reach>=0)
 				{
 					const auto& reach=world.rivers().reaches[river.reach];
-					vertex.tex.y=8+static_cast<float>(std::atan2(reach.end.z-reach.start.z,reach.end.x-reach.start.x));
+					const auto flow=Vec2{reach.end.x-reach.start.x,reach.end.z-reach.start.z}.normalized();
+					// Interpolate direction vectors across bends without wrapping an angle at +/- pi.
+					vertex.tex.y=8;vertex.normal.x=static_cast<float>(flow.x);vertex.normal.z=static_cast<float>(flow.y);
 					const auto index=static_cast<std::size_t>(river.reach);const auto& channel=water.channels()[index];
 					const double speed=water.channelFlow(index)/Max(.01,(channel.width0+channel.width1)*.5*water.channelDepth(index));
 					vertex.normal.y=1+static_cast<float>(Clamp(speed,0.0,4.0));

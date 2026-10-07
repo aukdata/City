@@ -27,29 +27,8 @@ public:
 					if (side>0) { BridgeStructure::quad(mesh,innerA,innerB,outerB,outerA); }
 					else { BridgeStructure::quad(mesh,innerB,innerA,outerA,outerB); }
 				};
-				if (world.sourceWater())
-				{
-					// Installed terrain is the walking surface; gravel must follow it, not an older analytic bank.
-					const int rows=Max(1,static_cast<int>(Ceil(run/6)));
-					for (const int side:{-1,1}) { for (int row=0;row<rows;++row)
-					{
-						const auto point=[&](int end,double offset)
-						{
-							const double t=static_cast<double>(row+end)/rows;
-							Vec3 p=reach.start.lerp(reach.end,t)+right*(Math::Lerp(reach.halfWidth,reach.endHalfWidth,t)+offset)*side;
-							p.y=world.waterBedHeight(p.x,p.z)+.08;return p;
-						};
-						for (int col=0;col<6;++col)
-						{
-							const Vec3 a=point(0,col*3.0),b=point(1,col*3.0),c=point(1,(col+1)*3.0),d=point(0,(col+1)*3.0);
-							bool dryBank=true;
-							// Tributaries share one riverbed; a branch's gravel cannot cross another branch's water.
-							for (const Vec3 p:{a,b,c,d}) { const auto bank=world.rivers().nearest(p.xz());dryBank &= bank.distance>=bank.halfWidth-.1; }
-							if (dryBank) { ribbon(shores[key],a,b,c,d,side); }
-						}
-					} }
-					continue;
-				}
+				// Routed banks are terrain-aligned, faded surfaces in the streamed landscape cache.
+				if (world.sourceWater()) { continue; }
 				for (const int side : {-1,1})
 				{
 					const auto bankPoint=[&](Vec3 center,double halfWidth,double offset,double minimumY)

@@ -1,4 +1,5 @@
 {
+  "sourceRate": 256,
   "catchmentGrid": 256,
   "minimumCatchmentCells": 100,
   "valleyWaterDepth": 0.7,

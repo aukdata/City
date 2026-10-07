@@ -107,7 +107,7 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 	}
 	std::sort(sources.begin(),sources.end(),[&](int a,int b) { return drainage.flow[a]!=drainage.flow[b] ? drainage.flow[a]>drainage.flow[b] : a<b; });
 	m_statistics.sources=static_cast<int>(sources.size());
-	for (const int id : sources) { waterSources << WaterSource{drainage.position(id),64.0}; }
+	for (const int id : sources) { waterSources << WaterSource{drainage.position(id),settings.rivers_sourceRate}; }
 	if (sourcesOnly)
 	{
 		DBG_LOG(U"[RiverNetwork] source-only count={} domain=({:.0f},{:.0f}) reaches=0"_fmt(waterSources.size(),width,depth));

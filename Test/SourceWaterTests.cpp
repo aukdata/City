@@ -23,6 +23,29 @@ void registerSourceWaterTests(TestRunner& runner)
 		context.expectNear(high.depth,high.head-12,1e-12,U"High dry banks retain true signed terrain depth instead of a 5 cm shelf");
 		context.expectNear(water.inflow(),0,0,U"Smoothing cannot introduce sea backflow");
 	});
+	runner.add(U"SourceWater.HigherDischargeFillsFaster",[](TestContext& context)
+	{
+		const auto height=[](double,double) { return 0.0; };const auto marine=[](double,double) { return false; };
+		const std::vector<SourceWater::Channel> channels={
+			{0,50,100,50,10,9,20,20,2,2,4},{50,0,100,50,10,9,20,20,2,2,6},{100,50,200,50,9,8,30,30,2,-2,0}};
+		auto stronger=channels;for (auto& c:stronger) { c.inlet*=4; }
+		SourceWater normal{512,128,height,marine,{},128},fast{512,128,height,marine,{},128};
+		normal.configureChannels(channels);fast.configureChannels(stronger);
+		for (std::size_t i=0;i<channels.size();++i)
+		{
+			context.expectNear(fast.channelResidence(i)*4,normal.channelResidence(i),1e-12,U"Higher source discharge shortens residence without increasing design depth");
+		}
+		for(int step=0;step<200;++step) { normal.advance(24);fast.advance(6); }
+		for (std::size_t i=0;i<channels.size();++i)
+		{
+			context.expectNear(fast.channelDepth(i),normal.channelDepth(i),1e-10,U"The same river stage arrives in one quarter of the physical time");
+			context.expectNear(fast.channelFlow(i),normal.channelFlow(i)*4,1e-9,U"Water actually flows faster instead of only changing an animation clock");
+		}
+		context.expectNear(fast.ownedVolume(),normal.ownedVolume(),1e-8,U"Both river states hold the same real source-supplied volume");
+		context.expectNear(fast.injected(),normal.injected(),1e-8,U"Equal source volume is supplied in a shorter time");
+		context.expectNear(fast.balanceError(),0,1e-8,U"Stronger flow still conserves water through confluence and sea drainage");
+		context.expectNear(fast.inflow(),0,0,U"Faster filling does not use water from the sea");
+	});
 	runner.add(U"SourceWater.RiverConfluenceAndDrying",[](TestContext& context)
 	{
 		const auto height=[](double,double) { return 0.0; };const auto marine=[](double,double) { return false; };
@@ -128,14 +151,14 @@ void registerSourceWaterTests(TestRunner& runner)
 		context.expect(!LeveeRoad::dryConnection(world,midpoint-Vec3{crossing.x,0,crossing.y},midpoint+Vec3{crossing.x,0,crossing.y}),U"A levee access road cannot cross a currently dry future riverbed");
 		world.advanceSourceWater(0);context.expectNear(water->elapsed(),0,0,U"Pause does not advance water");
 		world.advanceSourceWater(0.1);context.expectNear(water->elapsed(),6,0,U"Water follows game time in physical seconds");
-		context.expectNear(water->injected(),static_cast<double>(water->sourceCount())*64*6,1e-7,U"Every generated inlet injects its configured volume");
+		context.expectNear(water->injected(),static_cast<double>(water->sourceCount())*GenerationSettings::get().rivers_sourceRate*6,1e-7,U"Every generated inlet injects its configured volume");
 		world.advanceSourceWater(10);context.expectNear(water->elapsed(),12,0,U"A slow frame performs at most one bounded water step");
 		context.expectNear(water->inflow(),0,0,U"The real game ocean is a drain only");
 		JSON report;report[U"sources"]=water->sourceCount();report[U"oceanCells"]=water->oceanCells();
 		report[U"gridBytes"]=water->grid().allocatedBytes();report[U"balanceError"]=water->balanceError();
 		report[U"spacing"]=water->grid().cellSize;report[U"reaches"]=water->channels().size();
 		double rate=0;int outlets=0,closed=0;for (const auto& c:water->channels()) { rate+=c.inlet;outlets+=c.downstream==-2;closed+=c.downstream==-1; }
-		context.expectNear(rate,water->sourceCount()*64.0,1e-8,U"Every point source is mapped onto a real river reach");
+		context.expectNear(rate,water->sourceCount()*GenerationSettings::get().rivers_sourceRate,1e-8,U"Every point source is mapped onto a real river reach");
 		int banks=0;for (const auto& reach:world.rivers().reaches)
 		{
 			const Vec2 flow{reach.end.x-reach.start.x,reach.end.z-reach.start.z};
@@ -179,6 +202,24 @@ void registerSourceWaterTests(TestRunner& runner)
 		report[U"totalSupply"]=supply;report[U"meanStepMs"]=timer.msF()/14400;report[U"balanceError"]=water->balanceError();
 		report.save(U"TestResults/source_river_progression.json");
 	});
+	runner.add(U"SourceWater.NewGameStartsWithEstablishedFlow",[](TestContext& context)
+	{
+		World world;world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);world.generateSourceWater();
+		const auto* water=world.sourceWater();
+		context.expectNear(water->ownedVolume(),0,0,U"The generator remains source-only and initially dry");
+		world.prepareSourceWaterForNewGame();
+		double supply=0;size_t wet=0;
+		for (std::size_t i=0;i<water->channels().size();++i) { supply+=water->channels()[i].inlet;wet+=water->channelDepth(i)>.003; }
+		context.expect(wet==water->channels().size(),U"Every real river reach already carries source water before new-game play begins");
+		context.expectNear(water->injected(),supply*water->elapsed(),1e-5,U"Loading preparation contains only integrated point-source supply");
+		context.expectNear(water->ownedVolume()+water->outflow(),water->injected(),.01,U"Established initial flow still conserves source water");
+		context.expectNear(water->inflow(),0,0,U"Startup flow never draws water from the sea");
+		context.expectNear(world.sourceWaterBacklog(),0,0,U"Loading preparation does not create a calendar catch-up backlog");
+		const double seconds=water->elapsed(),stored=water->ownedVolume();
+		world.prepareSourceWaterForNewGame();world.advanceSourceWater(0);
+		context.expectNear(water->elapsed(),seconds,0,U"Preparation cannot rerun on a live or restored river, and pause still stops time");
+		context.expectNear(water->ownedVolume(),stored,0,U"Repeated preparation cannot add hidden water");
+	});
 	runner.add(U"SourceWater.MapShowsElevatedWater",[](TestContext& context)
 	{
 		MapTerrainLayer layer;const Size size{64,64};
@@ -213,6 +254,8 @@ void registerSourceWaterTests(TestRunner& runner)
 		const Mesh ground{terrain};
 		#if SIV3D_PLATFORM(WINDOWS)
 		const auto terrainShader=PixelShader::HLSL(U"../../Test/shaders/source_water_terrain.hlsl",U"TerrainPS");
+		const auto bankShader=PixelShader::HLSL(U"../../App/shaders/hlsl/city_forward.hlsl",U"RiverBank_PS");
+		context.expect(!!bankShader,U"The production terrain-aligned gravel-bed shader compiles in the native GPU process");
 #else
 		const PixelShader terrainShader=GLSL{U"../../Test/shaders/source_water_terrain.frag"};
 #endif
@@ -236,7 +279,7 @@ void registerSourceWaterTests(TestRunner& runner)
 		const double bed=world.waterBedHeight(x,z);
 		const BasicCamera3D camera{size,40_deg,{x+480,bed+460,z-480},{x,bed,z}};
 		struct Visual { Float4 parameters; };ConstantBuffer<Visual> visual;visual->parameters={10,0,0,0};
-		Image bare,wet;
+		Image bare,wet,moving;
 		for(int frame=0;frame<5 && System::Update();++frame)
 		{
 			{
@@ -247,6 +290,7 @@ void registerSourceWaterTests(TestRunner& runner)
 				{ const ScopedCustomShader3D shader{terrainShader};ground.draw(); }
 				if (frame>0)
 				{
+					if (frame==4) { visual->parameters.x=10.02f; }
 					Graphics3D::SetPSConstantBuffer(5,visual);
 					const ScopedRenderStates3D stateWater{BlendState::NonPremultiplied,RasterizerState::SolidCullNone,DepthStencilState::DepthTest};
 					const ScopedCustomShader3D shader{waterShader};water.draw();
@@ -255,6 +299,7 @@ void registerSourceWaterTests(TestRunner& runner)
 			Graphics3D::Flush();target.draw();
 			if(frame==0) { target.readAsImage(bare); }
 			if(frame==3) { target.readAsImage(wet);wet.save(U"Screenshot/source_water_native.png"); }
+			if(frame==4) { target.readAsImage(moving); }
 		}
 		size_t changed=0;
 		if (bare.size()==wet.size() && !wet.isEmpty())
@@ -262,11 +307,22 @@ void registerSourceWaterTests(TestRunner& runner)
 			for(int row=0;row<wet.height();++row) { for(int col=0;col<wet.width();++col) { const auto a=bare[row][col],b=wet[row][col];changed+=Abs(static_cast<int>(a.r)-b.r)+Abs(static_cast<int>(a.g)-b.g)+Abs(static_cast<int>(a.b)-b.b)>8 ? 1 : 0; } }
 		}
 		context.expect(changed>50,U"GPU readback confirms visible source water inside the carved game riverbed");
+		size_t motion=0;
+		if (wet.size()==moving.size() && !moving.isEmpty())
+		{
+			for(int row=0;row<wet.height();++row) { for(int col=0;col<wet.width();++col)
+			{
+				const auto a=wet[row][col],b=moving[row][col];
+				motion+=Abs(static_cast<int>(a.r)-b.r)+Abs(static_cast<int>(a.g)-b.g)+Abs(static_cast<int>(a.b)-b.b)>2 ? 1 : 0;
+			} }
+		}
+		context.expect(motion>20,U"The supplied downstream velocity animates the actual river shader without changing water storage");
+		context.expectNear(world.sourceWater()->ownedVolume(),storedBeforeMesh,0,U"Visual current animation remains independent of the volume ledger");
 		const auto sea=SourceWaterGeometry::build(world,31232,34304,16,128,1);
 		for(const auto& vertex:sea.vertices) { context.expectNear(vertex.pos.y,0.01,1e-8,U"Every sea render vertex shares the same fixed level plus only the depth bias"); }
 		JSON report;report[U"sourceX"]=x;report[U"sourceZ"]=z;report[U"changedPixels"]=changed;
 		report[U"meanStepMs"]=simulationMs/600;report[U"meshMs"]=meshMs;report[U"seaTriangles"]=sea.indices.size();
-		report[U"vertices"]=data.vertices.size();report[U"triangles"]=data.indices.size();
+		report[U"vertices"]=data.vertices.size();report[U"triangles"]=data.indices.size();report[U"motionPixels"]=motion;
 		report[U"balanceError"]=world.sourceWater()->balanceError();report[U"seaIn"]=world.sourceWater()->inflow();
 		report.save(U"TestResults/source_water_native.json");
 	});

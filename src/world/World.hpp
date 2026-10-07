@@ -22,6 +22,8 @@ public:
 	void generateRivers();
 	/// @brief Carve connected riverbeds and banks; only sources supply water and the sea drains it.
 	void generateSourceWater(bool riversEnabled = true,bool routedRivers = true);
+	/// @brief Establish fresh rivers from point-source supply during new-game loading, without advancing the calendar.
+	void prepareSourceWaterForNewGame();
 	/// @brief One bounded coarse step per frame, with hydraulic seconds tied to calendar minutes.
 	void advanceSourceWater(double gameSeconds);
 	/// @brief Preserve water and its exact mass ledger within the existing atomic save transaction.

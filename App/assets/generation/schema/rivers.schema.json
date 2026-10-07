@@ -4,6 +4,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "sourceRate",
     "catchmentGrid",
     "minimumCatchmentCells",
     "valleyWaterDepth",
@@ -30,6 +31,11 @@
     "depositionRate"
   ],
   "properties": {
+    "sourceRate": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100000.0
+    },
     "catchmentGrid": {
       "type": "number",
       "minimum": 64.0,

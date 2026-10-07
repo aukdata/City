@@ -564,6 +564,7 @@ GENERATION_SETTING(int, fringe_cityDeepPeriod, U"fringe", U"cityDeepPeriod", 1, 
 GENERATION_SETTING(int, fringe_cityMaximumTiers, U"fringe", U"cityMaximumTiers", 1, 5)
 GENERATION_SETTING(int, fringe_townShallowPeriod, U"fringe", U"townShallowPeriod", 1, 100)
 GENERATION_SETTING(int, fringe_normalTiers, U"fringe", U"normalTiers", 1, 5)
+GENERATION_SETTING(double, rivers_sourceRate, U"rivers", U"sourceRate", 1, 100000)
 GENERATION_SETTING(double, rivers_catchmentGrid, U"rivers", U"catchmentGrid", 64, 1024)
 GENERATION_SETTING(int, rivers_minimumCatchmentCells, U"rivers", U"minimumCatchmentCells", 1, 10000)
 GENERATION_SETTING(double, rivers_valleyWaterDepth, U"rivers", U"valleyWaterDepth", 0, 10000)

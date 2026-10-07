@@ -62,6 +62,8 @@ void GameScene::initNewGame()
 			applyZonesGlobal();
 			placeInitialBuildings();
 		}
+		setLoadingStatus(U"川の流れを準備中...");
+		m_world.prepareSourceWaterForNewGame();
 	});
 	DebugLog::print(U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks));
 }

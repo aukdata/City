@@ -301,6 +301,23 @@ float4 Foliage_PS(s3d::PSInput input) : SV_TARGET
 }
 
 
+// Streamed riverbeds carry signed distance from the channel in UV.x and a
+// local gravel extent in UV.y. The underlying terrain remains the walking bed.
+float4 RiverBank_PS(s3d::PSInput input) : SV_TARGET
+{
+	float2 ground = input.worldPosition.xz;
+	float bankDistance = input.uv.x, width = max(1, input.uv.y);
+	float variation = sin(ground.x * .071 + sin(ground.y * .037)) * sin(ground.y * .061 + ground.x * .013);
+	float coverage = 1 - smoothstep(width - 5, width + 2, bankDistance + variation * 2.3);
+	if (coverage < .008) discard;
+	float2 uv = float2(ground.x * .97237 - ground.y * .23345, ground.x * .23345 + ground.y * .97237) / 10;
+	float2 rotated = float2(-uv.y,uv.x) * .173 + float2(.31,.67);
+	float3 gravel = lerp(g_texture0.Sample(g_sampler0,uv).rgb,g_texture0.Sample(g_sampler0,rotated).rgb,.38);
+	float dry = smoothstep(2,14,bankDistance);
+	float3 soil = lerp(float3(.40,.37,.31),float3(.72,.69,.60),dry);
+	return shadeCity(input,float4(gravel * soil * (1 + variation * .065),coverage));
+}
+
 float4 River_PS(s3d::PSInput input) : SV_TARGET
 {
     float2 p = input.worldPosition.xz;

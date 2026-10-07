@@ -87,6 +87,7 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 	if (const auto sites = m_transportSites.find(key); sites != m_transportSites.end()) { snapshot->sites = sites->second; }
 	snapshot->rivers = world.rivers().subset(RectF{chunk.coord.x * CHUNK_SIZE - 64, chunk.coord.y * CHUNK_SIZE - 64, CHUNK_SIZE + 128, CHUNK_SIZE + 128});
 	snapshot->woodland = m_woodlandEnabled;
+	snapshot->sourceWater = world.sourceWater() != nullptr;
 	// Placement has its own slots and can become visible during terrain work.
 	const std::shared_ptr<const LandscapeSnapshot> input = std::move(snapshot);
 	if (startTrees)
@@ -97,7 +98,7 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 			const Stopwatch timer{StartImmediately::Yes};
 			TreeJobResult result;
 			(void)buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
-				input->sites, result.stats, result.instances, true, input->woodland);
+				input->sites, result.stats, result.instances, true, input->woodland, input->sourceWater);
 			result.milliseconds = timer.msF();
 			return result;
 		});
@@ -115,7 +116,7 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 			result.terrainMilliseconds = timer.msF();
 			Array<TreeInstance> unusedTrees;
 			result.landscape = buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
-				input->sites, result.landscapeStats, unusedTrees, false, false);
+				input->sites, result.landscapeStats, unusedTrees, false, false, input->sourceWater);
 			auto partition=[](Array<TerrainMeshData>& batches)
 			{
 				Array<TerrainMeshData> slices;
@@ -238,7 +239,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			}
 		}
 		stage(U"coarse");
-		if (!m_buildingMeshCache.contains(key) && nearestDistance < 1400) { startBuildingJob(key, chunk, world, network); }
+		if (!m_buildingMeshCache.contains(key) && nearestDistance < BuildingLod::kPreloadDistance) { startBuildingJob(key, chunk, world, network); }
 		stage(U"buildingRequest");
 		if (nearestDistance < 2400) { startStreamingJobs(key, chunk, world, network, absent || terrainDirty); }
 	}

@@ -2,6 +2,7 @@
 #include "ShaderAsset.hpp"
 #include "TunnelGeometry.hpp"
 #include "ModelBatch.hpp"
+#include "BuildingLod.hpp"
 #include "TreeInstances.hpp"
 #include "../railway/RailwaySite.hpp"
 #include "../world/World.hpp"
@@ -161,7 +162,7 @@ private:
 	/// @brief チャンクの景観メッシュデータを生成する。
 	static Array<TerrainMeshData> buildLandscapeMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads,
 		const Array<Chunk>& heightSnapshots, const RiverNetwork& rivers,
-		const Array<Polygon>& sites, LandscapeBuildStats& stats, Array<TreeInstance>& trees, bool treesOnly, bool woodland = true);
+		const Array<Polygon>& sites, LandscapeBuildStats& stats, Array<TreeInstance>& trees, bool treesOnly, bool woodland = true, bool sourceWater = false);
 	/// @brief Temporary uncut grid without per-triangle polygon allocation.
 	static Array<TerrainMeshData> buildCoarseTerrainMeshData(const Chunk& chunk);
 	static Array<TerrainMeshData> buildTerrainMeshData(const Chunk& chunk, const Array<TerrainSubtractionQuad>& quads);
@@ -241,6 +242,7 @@ private:
 		RiverNetwork rivers;
 		Array<s3d::Polygon> sites;
 		bool woodland = true;
+		bool sourceWater = false; ///< Routed-water banks share cached terrain surfaces.
 	};
 	struct TreeJobResult
 	{
@@ -265,6 +267,7 @@ private:
 		Box bounds;
 		float scale = 1;
 		Array<ModelMeshSource> farGeometry;
+		BuildingLod::Proxy proxy;
 	};
 	struct FarBuildingMeshData { MeshData geometry; Material material; };
 	struct BuildingJobResult
@@ -275,6 +278,7 @@ private:
 		Array<TreeInstance> trees;
 		Box bounds;
 		size_t farCount = 0, excludedTrees = 0;
+		double largestDimension = 0;
 		double milliseconds = 0;
 	};
 	struct BuildingJob
@@ -291,7 +295,14 @@ private:
 		const HashTable<uint32, BuildingCpuAsset>& models, bool includeLandscape);
 	std::shared_ptr<const HashTable<uint32, BuildingCpuAsset>> m_cpuBuildingAssets;
 	Array<BuildingJob> m_buildingJobs;
-	HashTable<Key, Array<BuildingBatch>> m_buildingProxyCache;
+	/// @brief Low-cost roofs and walls for the full map; rare landmarks retain textured LOD geometry.
+	struct BuildingProxyChunk
+	{
+		Array<BuildingBatch> solids;
+		Array<StaticModelBatch> landmarks;
+		size_t count = 0, triangles = 0;
+	};
+	HashTable<Key, BuildingProxyChunk> m_buildingProxyCache;
 	bool m_regionalView = false;
 	HashTable<Key, uint64> m_proxyRevisions;
 	Array<TreeJob> m_treeJobs;
@@ -318,6 +329,7 @@ private:
 		Array<StaticModelBatch> batches;
 		Box bounds;
 		size_t count = 0;
+		double largestDimension = 0;
 	};
 	HashTable<Key, FarBuildings> m_farBuildings;
 	size_t m_buildingDrawCalls = 0, m_buildingTriangles = 0;
