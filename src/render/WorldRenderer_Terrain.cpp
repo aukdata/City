@@ -46,33 +46,6 @@ namespace
 		return found;
 	}
 
-	int terrainMaterialKeyForCell(const Chunk& chunk, int col, int row)
-	{
-		const int x = Clamp(col, 0, ZONE_CELLS - 1);
-		const int z = Clamp(row, 0, ZONE_CELLS - 1);
-		const float h = (chunk.heightMap[{ x, z }] + chunk.heightMap[{ x + 1, z }]
-			+ chunk.heightMap[{ x, z + 1 }] + chunk.heightMap[{ x + 1, z + 1 }]) * 0.25f;
-		// 建て込んだ用途地域の建物間は芝生でなく空き地の地面にする。
-		const ZoneType zone = chunk.zoneMap[{ x, z }];
-		if (zone == ZoneType::Residential || zone == ZoneType::LowResidential
-			|| zone == ZoneType::Commercial || zone == ZoneType::Industrial)
-		{
-			int built = 0;
-			for (int dz = -1; dz <= 1; ++dz)
-			{
-				for (int dx = -1; dx <= 1; ++dx)
-				{
-					const int nx = x + dx, nz = z + dz;
-					if (nx < 0 || nz < 0 || nx >= ZONE_CELLS || nz >= ZONE_CELLS) { continue; }
-					const BuildingType type = chunk.buildingGrid[{ nx, nz }].type;
-					built += type != BuildingType::None && type != BuildingType::Farmland && type != BuildingType::ParkBuilding;
-				}
-			}
-			if (built >= 2) { return TerrainMaterials::kUrbanGround; }
-		}
-		return TerrainMaterials::keyForHeight(h);
-	}
-
 	std::unordered_set<int64> chunkKeysAroundPoint(const Vec3& pos, float radius)
 	{
 		std::unordered_set<int64> keys;
@@ -249,7 +222,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 			const TerrainClipVertex v01 = makeGridVertex(col, row + 1);
 			const TerrainClipVertex v11 = makeGridVertex(col + 1, row + 1);
 
-			const int materialKey = terrainMaterialKeyForCell(chunk, col, row);
+			const int materialKey = TerrainMaterials::keyForCell(chunk, col, row);
 			processTriangle(materialKey, cellQuads[{ col, row }], v00, v01, v10);
 			processTriangle(materialKey, cellQuads[{ col, row }], v10, v01, v11);
 		}

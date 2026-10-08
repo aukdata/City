@@ -4,6 +4,7 @@
 #include "MeshGeometry.hpp"
 #include "TerrainSurfaceGeometry.hpp"
 #include "LandscapeMaterials.hpp"
+#include "ParcelAccessGeometry.hpp"
 #include "TreeGeometry.hpp"
 #include "BuildingLod.hpp"
 #include "VegetationProfile.hpp"
@@ -862,7 +863,7 @@ namespace
 		const RectF parcelBounds = boundsOfPolygon(outline);
 		for (const auto& road : roadMasks)
 		{
-			if (rectIntersects(parcelBounds.stretched(3), road.bounds)) { adjacentRoads << &road; }
+			if (rectIntersects(parcelBounds.stretched(30), road.bounds)) { adjacentRoads << &road; }
 		}
 		auto clearOfRoad = [&](Vec2 position, double radius)
 		{
@@ -884,6 +885,26 @@ namespace
 			}
 			return true;
 		};
+		// A narrow concrete entrance joins the facade to the sidewalk, while the rear remains garden or service yard.
+		if (groups.surfaces && building.type!=BuildingType::None && building.type!=BuildingType::Farmland
+			&& building.type!=BuildingType::ParkBuilding && building.type!=BuildingType::Parking && !isCompleteSiteBuilding(building.type))
+		{
+			const Vec2 facade=center-inward*(half-.05);
+			Optional<ParcelAccessGeometry::Connection> connection;
+			const double width=isResidentialBuildingType(building.type) || building.type==BuildingType::UrbanHousePair ? 1.4 : 2.2;
+			for (const auto* road : adjacentRoads)
+			{
+				if (road->facility || Abs(road->roadHeight-world.sampleHeight(static_cast<float>(facade.x),static_cast<float>(facade.y)))>4) { continue; }
+				const auto candidate=ParcelAccessGeometry::connect(facade,-inward,width,road->footprint);
+				if (candidate && (!connection || candidate->distance<connection->distance)) { connection=candidate; }
+			}
+			if (connection)
+			{
+				LandPatch entrance=patch;entrance.type=LandPatchType::ParcelAsphalt;entrance.elevationOffset=Max(patch.elevationOffset+.012f,.035f);
+				entrance.polygon=std::move(connection->polygon);
+				appendLandPatchSurface(groups[100],world,entrance,roadMasks);
+			}
+		}
 		if (patch.type == LandPatchType::GardenSoil)
 		{
 			// Side and rear boundaries leave the original model's street entrance unobstructed.
