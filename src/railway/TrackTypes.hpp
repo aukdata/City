@@ -14,6 +14,14 @@ enum class TrackNodeType : uint8
 /// @brief 駅施設の構成。地下でも駅ノードは実際のホーム標高を保持する。
 enum class StationKind : uint8 { Local, Terminal, Underground };
 
+/// @brief 地表で確保した駅前広場。寸法・徒歩接続を描画と保存で共有する。
+struct StationForecourt
+{
+	Vec3 origin; ///< 駅舎階段の下端。横方向と奥行き方向は駅フレームに従う。
+	Vec2 size; ///< 広場の幅・奥行き [m]。
+	Vec3 streetAccess; ///< 接道する歩道の地表位置。
+};
+
 /// @brief 線路ノード（交差点・駅・端点）
 struct TrackNode
 {
@@ -25,6 +33,7 @@ struct TrackNode
 
 	StationKind stationKind = StationKind::Local;
 	Optional<Vec3> entrance; ///< 地上の徒歩入口。ホームとの上下移動を徒歩リンクで接続する。
+	Optional<StationForecourt> forecourt; ///< 地形・道路と干渉しない駅前広場。旧セーブでは未設定。
 
 	/// @brief 有効なノードか
 	bool isValid() const { return id >= 0; }

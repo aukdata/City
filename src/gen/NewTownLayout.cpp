@@ -1,5 +1,6 @@
 ﻿#include "NewTownLayout.hpp"
 #include "StreetBlocks.hpp"
+#include "ParcelGeometry.hpp"
 #include "../debug/DebugLog.hpp"
 
 void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& network)
@@ -95,8 +96,8 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 	}
 	// 緑道だけに囲まれた街区や外周緑地の角地を、接道する宅地だと誤認しない。
 	// 車道から建物幅ぶん後退した位置を採れる面だけを住宅用に残す。
-	Optional<Polygon> plannedPark;
-	double parkScore=Math::Inf;
+	Array<Optional<Polygon>> plannedParks(4);
+	Array<double> parkScores(4,Math::Inf);
 	for (const auto& block:StreetBlocks::collect(network))
 	{
 		Array<Vec2> boundary;
@@ -113,8 +114,20 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 			&& (!plan.civic || !plan.civic->contains(center))
 			&& !UrbanMorphology::isReservedGreen(plan,center))
 		{
-			const double score=center.distanceFrom(plan.civic ? plan.civic->center() : Vec2{0,0});
-			if (score<parkScore) { parkScore=score;plannedPark=Polygon{boundary}; }
+			constexpr double kGreenwayParkDistance = 50;
+			const int quarter = (center.x >= 0 ? 1 : 0) + (center.y >= 0 ? 2 : 0);
+			double greenDistance = Math::Inf;
+			for (const auto& path : plan.greenways)
+			{
+				const Vec2 span = path.end - path.begin;
+				const double t = Clamp((center - path.begin).dot(span) / Max(1.0,span.lengthSq()),0.0,1.0);
+				greenDistance = Min(greenDistance,center.distanceFrom(path.begin + span * t));
+			}
+			const double score = greenDistance + center.distanceFrom(plan.civic ? plan.civic->center() : Vec2{0,0});
+			if (greenDistance <= kGreenwayParkDistance && score < parkScores[quarter])
+			{
+				parkScores[quarter] = score; plannedParks[quarter] = Polygon{boundary};
+			}
 		}
 		bool frontage=false;
 		for (const int id:block.edges)
@@ -126,18 +139,31 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 			{
 				const Vec3 p=curve->evaluate(fraction),tangent=curve->tangentAt(curve->totalLength*fraction);
 				const Vec2 right=Vec2{tangent.z,-tangent.x}.normalized();
-				const double distance=edge->totalWidth()*.5+GenerationSettings::get().buildings_footprint_Office*.5+GenerationSettings::get().development_defaultBuildingSetbackM;
+				const double half = GenerationSettings::get().buildings_footprint_Detached * .5;
+				const double distance=edge->totalWidth()*.5+half+GenerationSettings::get().development_defaultBuildingSetbackM;
 				for (const int side:{-1,1})
 				{
 					const Vec2 candidate=Vec2{p.x,p.z}+right*(distance*side);
-					frontage |= block.contains(candidate) && !UrbanMorphology::isReservedGreen(plan,local({candidate.x,0,candidate.y}));
+					const auto footprint = ParcelGeometry::footprint(candidate,half,Atan2(-right.x,right.y));
+					bool fits = true;
+					for (const Vec2 corner : footprint)
+					{
+						fits &= block.contains(corner) && !UrbanMorphology::isReservedGreen(plan,local({corner.x,0,corner.y}));
+					}
+					frontage |= fits;
 				}
 			}
 		}
 		if (!frontage) { plan.neighborhoodParks << Polygon{boundary}; }
 	}
-	// 学校や緑道の近くに住区公園を1区画確保する。
-	if (plan.neighborhoodParks.isEmpty() && plannedPark) { plan.neighborhoodParks << *plannedPark; }
+	// 緑道とつながる住区公園を各方面に確保し、住宅地内にもまとまった緑を残す。
+	for (const auto& park : plannedParks)
+	{
+		if (park && !plan.neighborhoodParks.any([&](const Polygon& existing) { return existing.intersects(*park); }))
+		{
+			plan.neighborhoodParks << *park;
+		}
+	}
 	DBG_LOG(U"[NewTownLayout] center=({}, {}) carRoads={} greenways={} parks={}"_fmt(
 		settlement.center.x, settlement.center.y, carRoads, plan.greenways.size(),plan.neighborhoodParks.size()));
 }

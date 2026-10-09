@@ -22,6 +22,10 @@ namespace RailwaySite
 	Optional<Frame> depotFrame(const TrainNetwork& network, const RailDepot& depot);
 	ParcelGeometry::Quad rectangle(const Frame& frame, double left, double right, double start, double end);
 	Array<ParcelGeometry::Quad> footprints(const TrainNetwork& network);
+	/// @brief 建物配置前に、駅舎の階段下へ接道する地表の広場を確保する。
+	void prepareForecourts(TrainNetwork& network,const World& world,const RoadNetwork& roads);
+	/// @brief 駅前広場の舗装・保護範囲。入口の位置はサイズ変更で動かさない。
+	ParcelGeometry::Quad forecourtFootprint(const Frame& station,const StationForecourt& forecourt);
 	/// @brief 地上・高架線路と施設の除草範囲。深いトンネル上の森林は残す。
 	Array<ParcelGeometry::Quad> landscapeFootprints(const TrainNetwork& network,const World& world);
 }

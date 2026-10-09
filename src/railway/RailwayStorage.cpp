@@ -23,6 +23,12 @@ JSON TrainNetwork::saveState() const
 		JSON item; item[U"id"] = node.id; item[U"type"] = static_cast<int>(node.type); item[U"name"] = node.name;
 		item[U"stationKind"] = static_cast<int>(node.stationKind);
 		if (node.entrance) { item[U"entrance"] = vectorJson(*node.entrance); }
+		if (node.forecourt)
+		{
+			item[U"forecourt"][U"origin"] = vectorJson(node.forecourt->origin);
+			item[U"forecourt"][U"size"] = Array<double>{node.forecourt->size.x,node.forecourt->size.y};
+			item[U"forecourt"][U"streetAccess"] = vectorJson(node.forecourt->streetAccess);
+		}
 		if (!sharedInfrastructure()) { item[U"position"] = vectorJson(node.position); }
 		state[U"nodes"].push_back(item);
 	}
@@ -100,6 +106,17 @@ bool TrainNetwork::restoreState(const JSON& state)
 				const Vec3 entrance=readVector(item[U"entrance"]);
 				if (!finite(entrance)) { return false; }
 				node->entrance=entrance;
+			}
+			if (item.contains(U"forecourt"))
+			{
+				const auto& saved = item[U"forecourt"];
+				StationForecourt forecourt{readVector(saved[U"origin"]),
+					{saved[U"size"][0].get<double>(),saved[U"size"][1].get<double>()},readVector(saved[U"streetAccess"])};
+				if (node->type != TrackNodeType::Station || node->stationKind == StationKind::Underground
+					|| !finite(forecourt.origin) || !finite(forecourt.streetAccess)
+					|| !std::isfinite(forecourt.size.x) || !std::isfinite(forecourt.size.y)
+					|| !InRange(forecourt.size.x,10.0,50.0) || !InRange(forecourt.size.y,10.0,50.0)) { return false; }
+				node->forecourt = forecourt;
 			}
 		}
 		HashSet<int> edgeIds;

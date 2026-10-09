@@ -303,8 +303,10 @@ void registerUrbanFabricTests(TestRunner& runner)
 					item[U"renderedTriangles"] = renderer.buildingTriangles();
 					item[U"greenPixels"] = green;
 					item[U"quantizedColors"] = colors.size();
-					context.expect(renderer.buildingsSubmitted() > 100 && renderer.buildingTriangles() > 10000,
-						U"Production renderer submits the generated city models");
+					// 近距離の OBJ 直接描画は三角形集計に含まれないため、実際の draw 呼出しを確認する。
+					item[U"buildingDrawCalls"] = renderer.buildingDrawCalls();
+					context.expect(renderer.buildingsSubmitted() > 100 && renderer.buildingDrawCalls() > 100,
+						U"Production renderer submits and draws the generated city models");
 					context.expect(colors.size() > 30 && dark < 1024 * 768 / 20,
 						U"District image contains lit geometry and materials rather than a missing or black surface");
 					if (origin == UrbanMorphology::Origin::Planned)
@@ -331,8 +333,8 @@ void registerUrbanFabricTests(TestRunner& runner)
 				}
 				if (origin == UrbanMorphology::Origin::Planned)
 				{
-					context.expect(detached > apartments * 2 && schools >= 1,
-						U"New towns form continuous detached housing rows with a school");
+					context.expect(detached > apartments && apartments > 10 && schools >= 1,
+						U"New towns combine detached rows, apartment precincts and a local school");
 				}
 				if (origin == UrbanMorphology::Origin::Industrial)
 				{

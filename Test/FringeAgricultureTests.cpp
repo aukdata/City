@@ -91,6 +91,15 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		for (const auto& node:network.nodes()) if (node.id>=0 && node.attachments.size()>=3) { ++junctions; }
 		context.expect(settlement.plan.frontageRoads && settlement.plan.ruralHomes.size()>=3,U"Short regional road segments support several rural side streets");
 		context.expect(junctions>=3,U"Rural side streets connect at existing regional road nodes");
+		int parallel = 0, dangling = 0;
+		for (const auto& edge : network.edges())
+		{
+			if (edge.id < 0 || edge.roadType != RoadType::LocalRoad) { continue; }
+			const Vec3 a = network.getNode(edge.nodeA)->position, b = network.getNode(edge.nodeB)->position;
+			parallel += Abs(b.x - a.x) > Abs(b.z - a.z) * 3;
+			dangling += network.getNode(edge.nodeA)->attachments.size() == 1 || network.getNode(edge.nodeB)->attachments.size() == 1;
+		}
+		context.expect(parallel >= 2 && dangling == 0,U"Post towns have a connected parallel back street instead of a row of dead-end teeth");
 	});
 	runner.add(U"Morphology.AgriculturalAccess",[](TestContext& context)
 	{
@@ -179,6 +188,16 @@ void registerFringeAgricultureTests(TestRunner& runner)
 			if (origin==UrbanMorphology::Origin::Planned)
 			{
 				context.expect(settlement.plan.fringeStreets.isEmpty() && settlement.plan.greenways.size()>=24,U"New towns preserve their planned green boundary and internal pedestrian network");
+				context.expect(settlement.plan.neighborhoodParks.size() >= 4,U"The new town reserves parks in several residential quarters");
+				int green = 0, samples = 0;
+				for (double z = -settlement.plan.halfExtent.y; z <= settlement.plan.halfExtent.y; z += 10)
+				{
+					for (double x = -settlement.plan.halfExtent.x; x <= settlement.plan.halfExtent.x; x += 10)
+					{
+						green += UrbanMorphology::isReservedGreen(settlement.plan,{x,z}); ++samples;
+					}
+				}
+				context.expect(static_cast<double>(green) / samples >= .30,U"Greenways, parks and the outer green belt reserve at least 30 percent of the planned district");
 			}
 			else
 			{
@@ -219,7 +238,12 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		} } }
 		const double nearDensity=nearArea/(Math::Pi*700*700),farDensity=farArea/(Math::Pi*(1900*1900-1200*1200));
 		context.expect(stats.fields>50 && connected && grounded,U"Actual farm roads form a drivable ground network connected to existing roads");
-		context.expect(curved>5 && maximumGrade<.061,U"Farm branches bend with terrain without exceeding the farm-road gradient");
+		int dangling = 0;
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id >= 0 && node.attachments.size() == 1 && roads.getEdge(node.attachments.front().edgeId)->farmAccess) { ++dangling; }
+		}
+		context.expect(dangling == 0 && maximumGrade < .061,U"Farm blocks return to existing roads and respect the farm-road gradient");
 		context.expect(nearDensity>farDensity*1.3 && farArea>0,U"Field coverage decreases outward from the village, measured per unit area");
 		JSON report;
 		report[U"fields"] = stats.fields;
@@ -232,6 +256,42 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		report.save(U"TestResults/farm_terrain_density.json");
 	});
 
+	runner.add(U"Morphology.FarmBlocksRespectLandAndSegmentation",[](TestContext& context)
+	{
+		for (const bool supported : {false,true})
+		{
+			World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+			for (int z = 31; z <= 33; ++z) { for (int x = 31; x <= 33; ++x)
+			{
+				flatChunk(world,{x,z}); world.getChunk({x,z})->zoneMap.fill(supported ? ZoneType::Agriculture : ZoneType::UrbanControl);
+			} }
+			RoadNetwork roads; Optional<int> previous;
+			for (int i = 0; i <= 40; ++i)
+			{
+				const Vec3 point{32000.0 + i * 48,20,33000}; const int node = roads.addNode(point);
+				if (previous)
+				{
+					const Vec3 a = roads.getNode(*previous)->position;
+					roads.addEdge(*previous,node,a.lerp(point,1.0/3),a.lerp(point,2.0/3),RoadType::Arterial,2);
+				}
+				previous = node;
+			}
+			const auto before = roads.edges().size();
+			AgriculturalLayout::Frame frame; frame.center = {32960,33000};
+			const auto stats = AgriculturalLayout::generate(world,roads,42,{frame});
+			if (supported)
+			{
+				context.expect(stats.tracks > 0 && stats.fields > 20,U"Short edges of one continuous trunk still support real agricultural blocks");
+				int dangling = 0;
+				for (const auto& node : roads.nodes())
+				{
+					if (node.id >= 0 && node.attachments.size() == 1 && roads.getEdge(node.attachments.front().edgeId)->farmAccess) { ++dangling; }
+				}
+				context.expect(dangling == 0,U"Generated farm tracks have no unsupported free ends");
+			}
+			else { context.expect(stats.tracks == 0 && stats.fields == 0 && roads.edges().size() == before,U"Unsuitable land cannot add farm spurs or even split the trunk"); }
+		}
+	});
 	runner.add(U"Morphology.ParcelVertexEditing",[](TestContext& context)
 	{
 		const Array<Vec2> plot{{100,100},{135,100},{135,135},{118,119},{100,135}};

@@ -5,6 +5,7 @@
 #include "src/render/TrainRenderer.hpp"
 #include "src/railway/RailDepotBuilder.hpp"
 #include "src/railway/TrainConsist.hpp"
+#include "src/pedestrian/PedestrianNetwork.hpp"
 
 namespace
 {
@@ -181,6 +182,54 @@ void registerRailwayTimetableTests(TestRunner& runner)
 		const Vec3 shed = yard->point(4,0,70);
 		context.expect(sites.overlaps(ParcelGeometry::footprint({shed.x,shed.z},3,0)),U"The full depot site is reserved against procedural houses and new zoning");
 	});
+	runner.add(U"Railway.ForecourtGroundAccessAndStorage", [](TestContext& context)
+	{
+		World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
+		world.installChunkDirect({0,0},{Grid<float>(65,65,10),10,10});
+		auto network = sampleNetwork(); RoadNetwork roads;
+		const Vec3 a{80,10,250}, b{280,10,250};
+		const int first = roads.addNode(a), last = roads.addNode(b);
+		roads.addEdge(first,last,a.lerp(b,1.0/3),a.lerp(b,2.0/3),RoadType::LocalRoad,2);
+		for (const auto& edge : roads.edges()) { roads.getEdge(edge.id)->edgeState = EdgeState::Existing; }
+		network.getNode(0)->stationKind = StationKind::Terminal;
+		RailwaySite::prepareForecourts(network,world,roads);
+		const auto* station = network.getNode(0);
+		context.expect(station->forecourt.has_value() && station->entrance.has_value(),U"A ground-level plaza connects the elevated station stairs to an existing street");
+		if (!station->forecourt) { return; }
+		const auto& site = *station->forecourt; const auto frame = *RailwaySite::stationFrame(network,0);
+		context.expectNear(site.origin.y,10,.001,U"The plaza stays on the actual ground rather than the rail elevation");
+		const ParcelRoadIndex roadSites{roads,false,false};
+		context.expect(!roadSites.overlaps(RailwaySite::forecourtFootprint(frame,site)),U"The forecourt shrinks to fit clear land without covering the street");
+		ParcelRoadIndex reserved{roads}; reserved.addRailway(network);
+		const Vec3 center = site.origin + frame.right * (4 - site.size.x * .5) + frame.along * (site.size.y * .5);
+		context.expect(reserved.overlaps(ParcelGeometry::footprint({center.x,center.z},1,0)),U"Homes and farm tracks cannot occupy the plaza");
+		const auto geometry = RailFacilities::station(network,world,0);
+		for (const auto material : {RailFacilities::Paving,RailFacilities::Asphalt,RailFacilities::Greenery})
+		{
+			context.expect(!geometry.parts[material].indices.isEmpty(),U"The station has a tiled forecourt, a vehicle band and planted waiting space");
+			for (const auto& vertex : geometry.parts[material].vertices)
+			{
+				context.expect(std::isfinite(vertex.pos.y) && vertex.pos.y >= 9.9 && vertex.pos.y <= 10.8,U"Forecourt surfaces are supported on the ground");
+			}
+		}
+		int upperFaces = 0;
+		for (const auto& vertex : geometry.parts[RailFacilities::Paving].vertices)
+		{
+			upperFaces += vertex.normal.y > .9;
+		}
+		context.expect(upperFaces > 20,U"The plaza's exposed pavement faces upward for GPU culling and lighting");
+		PedestrianNetwork walking; BuildingAccessIndex access;
+		walking.rebuild(world,roads,access,network);
+		const auto plazaNode = walking.nearestNode(center,1), doorway = walking.nearestNode(site.origin,1);
+		context.expect(plazaNode && doorway && walking.route(*plazaNode,*doorway,100).has_value(),U"Pedestrians actually traverse the plaza to reach the station doorway");
+		const auto state = network.saveState(); TrainNetwork restored;
+		context.expect(restored.restoreState(state) && restored.saveState().formatMinimum() == state.formatMinimum(),U"Forecourt dimensions, doorway and street access round-trip exactly");
+		JSON invalid = state; invalid[U"nodes"][0][U"forecourt"][U"size"] = Array<double>{-1,24};
+		context.expect(!restored.restoreState(invalid) && restored.saveState().formatMinimum() == state.formatMinimum(),U"Invalid forecourt dimensions fail atomically");
+		const JSON legacy = sampleNetwork().saveState();
+		TrainNetwork old;
+		context.expect(old.restoreState(legacy) && !old.getNode(0)->forecourt,U"Existing saves without forecourts remain readable");
+	});
 	runner.add(U"Railway.DepotRejectsRoadAndTerrain", [](TestContext& context)
 	{
 		for (int variant=0;variant<2;++variant)
@@ -209,7 +258,14 @@ void registerRailwayTimetableTests(TestRunner& runner)
 		FileSystem::ChangeCurrentDirectory(directory+U"../../App/");
 		World world; world.reserveChunks(); world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);
 		Grid<float> height(HEIGHT_CELLS+1,HEIGHT_CELLS+1,10); world.installChunkDirect({0,0},HeightMapResult{height,10,10});
-		auto network=sampleNetwork(); RoadNetwork roads; String error; RailDepotBuilder::add(network,world,roads,0,error);
+		auto network=sampleNetwork(); RoadNetwork roads; String error;
+		const Vec3 roadA{60,10,250}, roadB{300,10,250};
+		const int first = roads.addNode(roadA), last = roads.addNode(roadB);
+		roads.addEdge(first,last,roadA.lerp(roadB,1.0/3),roadA.lerp(roadB,2.0/3),RoadType::LocalRoad,2);
+		for (const auto& edge : roads.edges()) { roads.getEdge(edge.id)->edgeState = EdgeState::Existing; }
+		RailwaySite::prepareForecourts(network,world,roads);
+		context.expect(network.getNode(0)->forecourt.has_value(),U"GPU review includes the real ground forecourt");
+		RailDepotBuilder::add(network,world,roads,0,error);
 		TrainRenderer renderer;
 		for (int view=0;view<3;++view)
 		{

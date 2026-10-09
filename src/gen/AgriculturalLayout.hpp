@@ -4,7 +4,7 @@
 #include "../road/RoadNetwork.hpp"
 #include "../railway/TrainNetwork.hpp"
 
-/// @brief 既存道路から地形に沿う農道を伸ばし、民家の近くに不整形のほ場を生成する。
+/// @brief 耕作適地に既存道と両端接続する農道を計画し、民家の近くにまとまったほ場を生成する。
 namespace AgriculturalLayout
 {
 	constexpr uint32 kManagedField=0x80000000u;

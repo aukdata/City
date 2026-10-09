@@ -1267,6 +1267,7 @@ namespace DistrictRoads
 			int added=0,noAnchor=0,noTerrain=0,noConnection=0;
 			const bool clustered=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Clustered;
 			const bool dispersed=settlement.plan.ruralForm==UrbanMorphology::RuralForm::Dispersed;
+			const bool ribbonTown=settlement.plan.origin==UrbanMorphology::Origin::Post || settlement.plan.origin==UrbanMorphology::Origin::Temple;
 			for (int index=-2;index<=2;++index)
 			{
 				const Vec2 desired=settlement.center+settlement.gridAxisX*(index*plannedExtent.x*GenerationSettings::get().districtRoads_ruralAnchorRatio);
@@ -1330,7 +1331,7 @@ namespace DistrictRoads
 				if (normal.lengthSq()<.001) { continue; }
 				normal.normalize();
 				const double length=dispersed ? GenerationSettings::get().districtRoads_dispersedBranchLength : (clustered ? GenerationSettings::get().districtRoads_clusterBranchLength : GenerationSettings::get().districtRoads_valleyBranchLength);
-				const double side=(index%2==0 ? 1.0 : -1.0)*(settlement.plan.salt%2==0 ? 1.0 : -1.0);
+				const double side=(dispersed && !ribbonTown && index%2!=0 ? -1.0 : 1.0)*(settlement.plan.salt%2==0 ? 1.0 : -1.0);
 				Vec2 end{};Vec3 endPosition{};bool terrainFits=false;
 				for (const double candidateSide : {side,-side})
 				{
@@ -1349,7 +1350,7 @@ namespace DistrictRoads
 				const int endNode=network.addNode(endPosition,NodeType::Endpoint);
 				if (!tryAddLocalRoadEdge(network,anchor,endNode)) { network.removeNode(endNode);++noConnection;continue; }
 				GeneratedStreet::apply(*network.getEdge(findEdgeBetweenNodes(network,anchor,endNode)),GeneratedStreet::describe(dispersed ? GeneratedStreet::Role::FarmAccess : GeneratedStreet::Role::Village));
-				if (clustered && !backNodes.isEmpty())
+				if ((clustered || ribbonTown || !dispersed) && !backNodes.isEmpty())
 				{
 					const Vec3 previous=network.getNode(backNodes.back())->position;
 					const double previousSide=Vec2{previous.x-settlement.center.x,previous.z-settlement.center.y}.dot(settlement.gridAxisZ);
