@@ -1135,6 +1135,136 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 		}
 	}
 
+	// ニュータウンの集合住宅住区は、日照を揃えるため同じ向きの中層住棟を平行に並べた団地にする。
+	// 2〜3棟を短い間隔で連ねて板状の住棟に見せ、列の間には日照と植栽のための広い隣棟間隔を空ける。
+	int estateBlocks = 0, estateBuildings = 0, estatePrevious = 0;
+	{
+		constexpr double kUnitGap = 0.4;
+		constexpr double kBlockInset = 2.0;
+		constexpr int kUnitsPerSlab = 4;
+		constexpr double kSlabGap = 10.0;
+		constexpr double kMaximumRowSearch = 8.0;
+		constexpr BuildingType kEstateUnit = BuildingType::MidApartment;
+		const double unit = buildingFootprintXZ(kEstateUnit);
+		for (const auto& block : StreetBlocks::collect(m_network))
+		{
+			const MapGenerator::Settlement* town = nullptr;
+			for (const auto& candidate : m_districts)
+			{
+				if (candidate.plan.origin != UrbanMorphology::Origin::Planned) { continue; }
+				const Vec2 local = planLocal(candidate, block.center);
+				if (Abs(local.x) <= candidate.plan.halfExtent.x && Abs(local.y) <= candidate.plan.halfExtent.y) { town = &candidate; break; }
+			}
+			if (!town) { continue; }
+			const Vec2 localCenter = planLocal(*town, block.center);
+			if (UrbanMorphology::sample(town->plan, localCenter).district != UrbanMorphology::District::PlannedHousing
+				|| UrbanMorphology::isReservedGreen(town->plan, localCenter)) { continue; }
+			const Vec2 axisX = town->gridAxisX, axisZ = town->gridAxisZ;
+			// 住棟の正面は南（軸の正方向）へ向け、背面を北の隣棟へ向ける。
+			const float angle = static_cast<float>(std::atan2(axisZ.x, -axisZ.y));
+			const auto inBlock = [&](Vec2 center)
+			{
+				for (const Vec2 corner : ParcelGeometry::footprint(center, unit * .5 + kBlockInset, angle)) { if (!block.contains(corner)) { return false; } }
+				return true;
+			};
+			// 既存の沿道配置を外し、街区全体を団地として配置し直す。
+			Point lowChunk, highChunk; int lowX, lowZ, highX, highZ;
+			worldToZoneCell(static_cast<float>(block.bounds.x), static_cast<float>(block.bounds.y), lowChunk, lowX, lowZ);
+			worldToZoneCell(static_cast<float>(block.bounds.x + block.bounds.w), static_cast<float>(block.bounds.y + block.bounds.h), highChunk, highX, highZ);
+			HashTable<int64, Building> previous;
+			for (int globalZ = lowChunk.y * ZONE_CELLS + lowZ; globalZ <= highChunk.y * ZONE_CELLS + highZ; ++globalZ)
+			{
+				for (int globalX = lowChunk.x * ZONE_CELLS + lowX; globalX <= highChunk.x * ZONE_CELLS + highX; ++globalX)
+				{
+					const Point coord{ globalX / ZONE_CELLS, globalZ / ZONE_CELLS }; const int col = globalX % ZONE_CELLS, row = globalZ % ZONE_CELLS;
+					Chunk* chunk = m_world.getChunk(coord); if (!chunk) { continue; }
+					Building& building = chunk->buildingGrid[{ col, row }];
+					if ((building.type == BuildingType::MidApartment || building.type == BuildingType::LowApartment)
+						&& block.contains(cellCenterXZ(coord, col, row) + Vec2{ building.offsetX, building.offsetZ }))
+					{
+						previous[zoneCellKey(coord, col, row)] = building; building = Building{}; chunk->markMeshDirty();
+					}
+				}
+			}
+			Array<std::pair<Point, Point>> placedCells;
+			// 街区の南北の街路に沿って住棟の列を置き、中央を住棟間の広場として空ける。
+			double uMin = Math::Inf, uMax = -Math::Inf, vMin = Math::Inf, vMax = -Math::Inf;
+			for (const Vec2 point : block.outline)
+			{
+				const Vec2 delta = point - block.center;
+				uMin = Min(uMin, delta.dot(axisX)); uMax = Max(uMax, delta.dot(axisX)); vMin = Min(vMin, delta.dot(axisZ)); vMax = Max(vMax, delta.dot(axisZ));
+			}
+			const double slabLength = unit * kUnitsPerSlab + kUnitGap * (kUnitsPerSlab - 1);
+			// 街区の外形は道路中心線なので、最も広い接道道路の半幅と後退距離から列の探索を始める。
+			double roadHalf = 0;
+			for (const int edgeId : block.edges) { if (const auto* edge = m_network.getEdge(edgeId)) { roadHalf = Max(roadHalf, static_cast<double>(edge->totalWidth()) * .5); } }
+			const double firstOffset = unit * .5 + roadHalf + GenerationSettings::get().development_suburbanSetback;
+			for (const int side : { -1, 1 })
+			{
+				const double edgeV = side < 0 ? vMin : vMax;
+				for (double offset = firstOffset; offset <= firstOffset + kMaximumRowSearch; offset += 1.5)
+				{
+					const double v = edgeV - side * offset;
+					if ((v - vMin) < unit * .5 || (vMax - v) < unit * .5) { break; }
+					int rowPlaced = 0;
+					for (double u = uMin + unit * .5; u <= uMax - unit * .5; u += slabLength + kSlabGap)
+					{
+						for (int index = 0; index < kUnitsPerSlab; ++index)
+						{
+							const Vec2 position = block.center + axisX * (u + index * (unit + kUnitGap)) + axisZ * v;
+							if (!inBlock(position)) { continue; }
+							Point coord; int col = 0, row = 0; worldToZoneCell(static_cast<float>(position.x), static_cast<float>(position.y), coord, col, row);
+							Chunk* chunk = m_world.getChunk(coord);
+							if (!chunk || chunk->buildingGrid[{ col, row }].type != BuildingType::None) { continue; }
+							Building building; building.type = kEstateUnit; building.angle = angle;
+							double nearest = Math::Inf;
+							for (const int edgeId : block.edges)
+							{
+								EdgeProjection projection;
+								if (projectPointToEdgeXZ(m_network, edgeId, position, projection) && projection.distance < nearest)
+								{
+									nearest = projection.distance; building.edgeId = edgeId; building.edgeT = projection.edgeT;
+								}
+							}
+							// 住棟は接道検査の範囲内に収める。
+							const auto* edge = m_network.getEdge(building.edgeId);
+							if (!edge || nearest > edge->totalWidth() * .5 + unit * .5 + GenerationSettings::get().development_defaultBuildingSetbackM
+								+ GenerationSettings::get().development_validationFrontageMargin - 1.0) { continue; }
+							const Vec2 cell = cellCenterXZ(coord, col, row);
+							building.offsetX = static_cast<float>(position.x - cell.x); building.offsetZ = static_cast<float>(position.y - cell.y);
+							if (!isBuildableFootprint(building, position, GenerationSettings::get().development_maximumSuburbanRelief)) { continue; }
+							if (overlapsExistingBuilding(m_world, coord, col, row, static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(unit * .5 - .3), angle)) { continue; }
+							chunk->buildingGrid[{ col, row }] = building; chunk->zoneMap[{ col, row }] = ZoneType::Residential; chunk->markMeshDirty();
+							placedCells << std::pair{ coord, Point{ col, row } }; ++rowPlaced;
+						}
+					}
+					constexpr int kMinimumRowUnits = 2;
+					if (rowPlaced >= kMinimumRowUnits) { break; }
+				}
+			}
+			// 団地として1棟も建てられない街区は、元の沿道配置へ戻す。
+			if (placedCells.isEmpty())
+			{
+				for (const auto& [key, building] : previous)
+				{
+					const int64 cellKey = key;
+					for (int globalZ = lowChunk.y * ZONE_CELLS + lowZ; globalZ <= highChunk.y * ZONE_CELLS + highZ; ++globalZ)
+					{
+						for (int globalX = lowChunk.x * ZONE_CELLS + lowX; globalX <= highChunk.x * ZONE_CELLS + highX; ++globalX)
+						{
+							const Point coord{ globalX / ZONE_CELLS, globalZ / ZONE_CELLS }; const int col = globalX % ZONE_CELLS, row = globalZ % ZONE_CELLS;
+							if (zoneCellKey(coord, col, row) != cellKey) { continue; }
+							if (Chunk* chunk = m_world.getChunk(coord)) { chunk->buildingGrid[{ col, row }] = building; chunk->markMeshDirty(); }
+						}
+					}
+				}
+				continue;
+			}
+			++estateBlocks; estateBuildings += static_cast<int>(placedCells.size()); estatePrevious += static_cast<int>(previous.size());
+		}
+	}
+	DebugLog::print(U"[HousingEstates] blocks={} buildings={} previous={}"_fmt(estateBlocks, estateBuildings, estatePrevious));
+
 	// 街区の奥は旗竿地の住宅で埋める。前面の住宅と同じ道路へ路地状敷地で接道する。
 	int rearPlaced = 0;
 	{
