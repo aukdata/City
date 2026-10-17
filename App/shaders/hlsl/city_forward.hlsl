@@ -269,7 +269,9 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 		float3 water=float3(.045,.068,.052)+sin(uv.y*2.4+sin(uv.x*.7))*.004;
 		float fresnel=pow(1-saturate(dot(normalize(g_eyePosition-input.worldPosition),normalize(input.normal))),4);
 		water=lerp(water,float3(.23,.29,.31),fresnel*.65);
-		albedo=lerp(water,green,lerp(.35,rice,resolved));
+		// 夏の水田は稲が水面をほぼ覆い、周囲の草地より黄みの強い明るい緑に見える。
+		float3 riceGreen=lerp(float3(.13,.23,.028),float3(.25,.37,.05),variation);
+		albedo=lerp(water,riceGreen,lerp(.82,saturate(rice*.6+.45),resolved));
 	}
 	else
 	{

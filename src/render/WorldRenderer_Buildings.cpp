@@ -913,6 +913,34 @@ namespace
 				appendLandPatchSurface(groups[100],world,entrance,roadMasks);
 			}
 		}
+		if (groups.planting && (building.type == BuildingType::RuralHouse || building.type == BuildingType::VillageHouse))
+		{
+			// 平野の農家は、裏と片側を杉・欅の屋敷林で囲み、田んぼの中で木立のかたまりに見える。
+			constexpr double kWindbreakSpacing = 3.4;
+			constexpr double kWindbreakOutset = 1.2;
+			constexpr double kWindbreakRoadClearance = 2.6;
+			const double sideSign = (patch.materialVariant & 1u) ? 1.0 : -1.0;
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 midpoint = (a + b) * 0.5, offset = midpoint - center;
+				const bool rear = offset.dot(inward) > half * 0.5;
+				const bool flank = offset.dot(along) * sideSign > half * 0.5 && offset.dot(inward) > -half * 0.5;
+				if (!rear && !flank) { continue; }
+				const double length = a.distanceFrom(b);
+				const Vec2 toCenter = (center - midpoint).normalized();
+				for (double distance = kWindbreakSpacing * 0.5; distance < length; distance += kWindbreakSpacing)
+				{
+					// 屋敷林は敷地境界の生垣の外側に列植し、建物と道路には枝を掛けない。
+					const Vec2 position = a.lerp(b, distance / length) - toCenter * kWindbreakOutset;
+					if (!clearOfRoad(position, kWindbreakRoadClearance) || position.distanceFrom(center) < half + 2.0) { continue; }
+					const uint32 variation = patch.materialVariant * 2654435761u + static_cast<uint32>(side * 31 + distance);
+					const double height = 11.0 + (variation % 7) * 0.9;
+					appendLandscapeTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						variation, 5.0, height, (variation % 3) != 0);
+				}
+			}
+		}
 		if (patch.type == LandPatchType::GardenSoil)
 		{
 			// Side and rear boundaries leave the original model's street entrance unobstructed.

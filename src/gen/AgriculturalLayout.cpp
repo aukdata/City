@@ -24,9 +24,10 @@ namespace AgriculturalLayout
 			if (!chunk) { return false; }
 			const Point local{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS};
 			const ZoneType zone=chunk->zoneMap[local];
-			// 日本の平野では田畑が住宅のすぐ裏まで続く。未開発の郊外住宅用地と白地も耕作地にする。
+			// 日本の平野では田畑が住宅のすぐ裏まで続く。未開発の住宅用地と白地も、宅地化されるまでは耕作地にする。
+			// 公共施設用地（市街化調整区域）だけは耕作地にしない。開発時に農地と決まったセルも耕作できる。
 			return zone==ZoneType::Agriculture
-				|| ((zone==ZoneType::Unzoned || zone==ZoneType::LowResidential) && chunk->buildingGrid[local].type==BuildingType::None);
+				|| (zone!=ZoneType::UrbanControl && (chunk->buildingGrid[local].type==BuildingType::None || chunk->buildingGrid[local].type==BuildingType::Farmland));
 		}
 		/// @brief 都市計画上の農業地域。一般道沿いの農家を市街地の宅地予定地へ置かないために使う。
 		bool farmingZone(const World& world,Vec2 point)
@@ -35,6 +36,23 @@ namespace AgriculturalLayout
 			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
 			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
 			return chunk && chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]==ZoneType::Agriculture;
+		}
+		/// @brief 建物が建て込んだ市街地か。駅前や中心街の空き地には田畑を作らない。
+		bool builtUp(const World& world,Vec2 point)
+		{
+			constexpr int kRadius=4;
+			constexpr int kBuiltLimit=30;
+			const Point center{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
+			int built=0;
+			for (int dz=-kRadius;dz<=kRadius;++dz) { for (int dx=-kRadius;dx<=kRadius;++dx)
+			{
+				const Point cell=center+Point{dx,dz};
+				if (cell.x<0 || cell.y<0) { continue; }
+				const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});if (!chunk) { continue; }
+				const auto type=chunk->buildingGrid[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}].type;
+				built+=type!=BuildingType::None && type!=BuildingType::Farmland && type!=BuildingType::RuralHouse && type!=BuildingType::VillageHouse;
+			} }
+			return built>kBuiltLimit;
 		}
 		uint32 hash(uint64 seed,Vec2 point)
 		{
@@ -86,7 +104,8 @@ namespace AgriculturalLayout
 						if (building.type==BuildingType::None || building.type==BuildingType::Farmland) { continue; }
 						const Vec2 center{(x*ZONE_CELLS+col+.5)*kCellSize+building.offsetX,(z*ZONE_CELLS+row+.5)*kCellSize+building.offsetZ};
 						occupied.add(ParcelGeometry::footprint(center,buildingFootprintXZ(building.type)*.5+3,building.angle));
-						if (building.type==BuildingType::RuralHouse || building.type==BuildingType::VillageHouse) { homes << center; }
+						// 平野の耕作者は農家だけでなく、集落縁の戸建てにも住む。
+						if (building.type==BuildingType::RuralHouse || building.type==BuildingType::VillageHouse || building.type==BuildingType::Detached) { homes << center; }
 					} }
 				} }
 			}
@@ -632,6 +651,8 @@ namespace AgriculturalLayout
 		const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
 		ParcelRoadIndex occupied{roads,true};if (railway) { occupied.addRailway(*railway); }Sites sites{world};
 		// 田畑は道路に平行な長方形の短冊。1列目から順に置き、重なる区画は奥行きを縮めるか見送る。
+		int sparse=0,unsuitable=0,crowded=0,blocked=0,uneven=0;
+		constexpr double kFullCultivationDensity=1.25;
 		struct Candidate { Vec2 center; Vec2 left, right, normalLeft, normalRight; double depth; int tier; uint32 salt; };
 		Array<Candidate> candidates;
 		const double bucketSize=config.agriculture_plotLength*2;
@@ -644,8 +665,9 @@ namespace AgriculturalLayout
 			if (!prepareAccess && edge.farmAccess) { ++stats.tracks;stats.drains+=2; }
 			const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
 			const int count=Max(1,static_cast<int>(Round(curve->totalLength/(config.agriculture_plotLength*.5))));
-			// 道路沿いの1列目の奥にも、畦道でつながる田畑が2列続く。
-			for (int tier=0;tier<3;++tier) for (int section=0;section<count;++section) { for (int side:{-1,1})
+			// 平野の田畑は道路沿いの1列目から奥へ、畦道でつながって途切れずに続く。
+			constexpr int kFieldTiers=7;
+			for (int tier=0;tier<kFieldTiers;++tier) for (int section=0;section<count;++section) { for (int side:{-1,1})
 			{
 				const float begin=curve->totalLength*section/count,end=curve->totalLength*(section+1)/count;
 				const Vec3 a0=curve->positionAt(begin),b0=curve->positionAt(end),n1=tangentToRight(curve->tangentAt(begin))*side,n2=tangentToRight(curve->tangentAt(end))*side;
@@ -657,7 +679,14 @@ namespace AgriculturalLayout
 				const Vec2 districtCell{Floor(center.x/bucketSize)*bucketSize,Floor(center.y/bucketSize)*bucketSize};
 				const double districtRoll=(hash(seed,districtCell)%10000)/10000.0;
 				const double plotRoll=(salt%10000)/10000.0;
-				++stats.candidates;if (districtRoll*.72+plotRoll*.28>density(center,frames) || !agricultural(world,center)) { continue; }
+				++stats.candidates;
+				// 集落に近い平野はほぼ全面が耕作地になり、遠い縁辺部だけ地区単位で耕作放棄地や原野が混じる。
+				if (districtRoll*.72+plotRoll*.28>Min(1.0,density(center,frames)*kFullCultivationDensity)) { ++sparse;continue; }
+				if (!agricultural(world,center) || builtUp(world,center))
+				{
+					++unsuitable;
+					continue;
+				}
 				const double near=(tier==0 ? edge.totalWidth()*.5+config.agriculture_drainWidth : 0.0)+config.agriculture_bundWidth;
 				const double depth=config.agriculture_plotWidth*2*(1+config.agriculture_fieldShapeVariation*(static_cast<double>((salt>>8)%100)/50-1))-config.agriculture_bundWidth;
 				candidates << Candidate{center,horizontal(a+n1*near),horizontal(b+n2*near),horizontal(n1),horizontal(n2),depth,tier,salt};
@@ -677,6 +706,44 @@ namespace AgriculturalLayout
 			} }
 			return false;
 		};
+		enum class Placement { Placed, Crowded, Blocked, Uneven, Disconnected, Missing };
+		/// @brief 区画の外形を地形・水域・道路・建物・既存の田畑と照合し、成立すれば田または畑として登録する。
+		const auto placeField=[&](const Array<Vec2>& outline,uint32 salt)
+		{
+			const Vec2 center=Polygon{outline}.centroid();
+			// 隣の田との間に畦の幅を残す。
+			Array<Vec2> polygon;for (const Vec2 vertex:outline) { polygon << center.lerp(vertex,.97); }
+			if (overlapsAccepted(Polygon{polygon},center)) { return Placement::Crowded; }
+			bool valid=true;double low=Math::Inf,high=-Math::Inf;
+			for (const Vec2 vertex:polygon)
+			{
+				const int samples=Max(1,static_cast<int>(Ceil(vertex.distanceFrom(center)/config.agriculture_sampleStep)));
+				for (int i=0;i<=samples && valid;++i)
+				{
+					const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
+					valid &= agricultural(world,point) && ground.y>world.waterPlanningHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
+				}
+			}
+			for (size_t i=1;i+1<polygon.size() && valid;++i)
+			{
+				const ParcelGeometry::Quad triangle{polygon[0],polygon[i],polygon[i+1],polygon[i+1]};
+				valid &= !occupied.overlaps(triangle) && !sites.occupied.overlaps(triangle);
+			}
+			if (!valid) { return Placement::Blocked; }
+			if (high-low>config.agriculture_maximumFieldRelief) { return Placement::Uneven; }
+			if (!sites.served(polygon,config.agriculture_homeMaximumDistance)) { return Placement::Disconnected; }
+			const Point coord{static_cast<int>(center.x/CHUNK_SIZE),static_cast<int>(center.y/CHUNK_SIZE)};auto* chunk=world.getChunk(coord);if (!chunk) { return Placement::Missing; }
+			accepted[bucket(center)] << Polygon{polygon};
+			LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
+			const bool paddy=high-low<config.agriculture_paddyRelief && salt%config.agriculture_dryFieldDivisor!=0;
+			patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=salt|kManagedField;
+			chunk->landPatches << std::move(patch);chunk->markMeshDirty();++stats.fields;stats.paddies+=paddy;
+			return Placement::Placed;
+		};
+		const auto count=[&](Placement result)
+		{
+			crowded+=result==Placement::Crowded;blocked+=result==Placement::Blocked;uneven+=result==Placement::Uneven;stats.disconnected+=result==Placement::Disconnected;
+		};
 		for (const auto& candidate:candidates)
 		{
 			for (const double fraction:{1.0,.7,.45})
@@ -687,36 +754,62 @@ namespace AgriculturalLayout
 				const double bend=depth*(static_cast<double>((candidate.salt>>12)%9)-4.0)*.012;
 				Array<Vec2> outline{candidate.left,candidate.right,farRight,farRight.lerp(farLeft,.5)+(candidate.normalLeft+candidate.normalRight)*.5*bend,farLeft};
 				UrbanParcel::normalize(outline);if (outline.size()<3 || Polygon{outline}.area()<config.agriculture_minimumFieldArea) { break; }
-				const Vec2 center=Polygon{outline}.centroid();
-				// 隣の田との間に畦の幅を残す。
-				Array<Vec2> polygon;for (const Vec2 vertex:outline) { polygon << center.lerp(vertex,.97); }
-				if (overlapsAccepted(Polygon{polygon},center)) { continue; }
-				bool valid=true;double low=Math::Inf,high=-Math::Inf;
-				for (const Vec2 vertex:polygon)
-				{
-					const int samples=Max(1,static_cast<int>(Ceil(vertex.distanceFrom(center)/config.agriculture_sampleStep)));
-					for (int i=0;i<=samples;++i)
-					{
-						const Vec2 point=center.lerp(vertex,static_cast<double>(i)/samples);const auto ground=groundPoint(world,point);low=Min(low,ground.y);high=Max(high,ground.y);
-						valid &= agricultural(world,point) && ground.y>world.waterPlanningHeight(point.x,point.y)+config.agriculture_minimumFreeboard;
-					}
-				}
-				for (size_t i=1;i+1<polygon.size();++i)
-				{
-					const ParcelGeometry::Quad triangle{polygon[0],polygon[i],polygon[i+1],polygon[i+1]};
-					valid &= !occupied.overlaps(triangle) && !sites.occupied.overlaps(triangle);
-				}
-				if (!valid || high-low>config.agriculture_maximumFieldRelief) { continue; }
-				if (!sites.served(polygon,config.agriculture_homeMaximumDistance)) { ++stats.disconnected;break; }
-				const Point coord{static_cast<int>(center.x/CHUNK_SIZE),static_cast<int>(center.y/CHUNK_SIZE)};auto* chunk=world.getChunk(coord);if (!chunk) { break; }
-				accepted[bucket(center)] << Polygon{polygon};
-				LandPatch patch;patch.id=static_cast<int>(chunk->landPatches.size());patch.polygon=std::move(polygon);patch.elevationOffset=config.agriculture_surfaceLift;
-				const bool paddy=high-low<config.agriculture_paddyRelief && candidate.salt%config.agriculture_dryFieldDivisor!=0;
-				patch.type=paddy ? LandPatchType::PaddyField : LandPatchType::FarmField;patch.materialVariant=candidate.salt|kManagedField;
-				chunk->landPatches << std::move(patch);chunk->markMeshDirty();++stats.fields;stats.paddies+=paddy;
-				break;
+				const auto result=placeField(outline,candidate.salt);count(result);
+				if (result==Placement::Placed || result==Placement::Disconnected || result==Placement::Missing) { break; }
 			}
 		}
+		// 道路沿いの列で埋まらなかった平地を、最寄りの道路と同じ向きの格子に並ぶ短冊で埋める。
+		// 区画の格子は道路の起点を基準にするため、隣り合う区画は畦をはさんで揃う。
+		int infill=0;const Stopwatch infillTimer{StartImmediately::Yes};
+		{
+			RoadPlanSnapIndex roadIndex;roadIndex.rebuild(roads);
+			constexpr double kInfillStep=24;
+			constexpr double kInfillSearch=400;
+			const double plotLength=config.agriculture_plotLength*.8,plotWidth=config.agriculture_plotWidth*.6;
+			HashSet<Point> visited;
+			for (const auto& frame:frames)
+			{
+				const double radius=config.agriculture_maximumRadius;
+				for (double z=frame.center.y-radius;z<=frame.center.y+radius;z+=kInfillStep) { for (double x=frame.center.x-radius;x<=frame.center.x+radius;x+=kInfillStep)
+				{
+					const Vec2 point{x,z};
+					if (!visited.insert(Point{static_cast<int>(Floor(x/kInfillStep)),static_cast<int>(Floor(z/kInfillStep))}).second) { continue; }
+					const uint32 salt=hash(seed,point)&~kManagedField;
+					const Vec2 districtCell{Floor(x/bucketSize)*bucketSize,Floor(z/bucketSize)*bucketSize};
+					const double roll=(hash(seed,districtCell)%10000)/10000.0*.72+(salt%10000)/10000.0*.28;
+					if (roll>Min(1.0,density(point,frames)*kFullCultivationDensity)) { continue; }
+					bool covered=false;
+					if (const auto found=accepted.find(bucket(point));found!=accepted.end())
+					{
+						for (const auto& field:found->second) { if (field.contains(point)) { covered=true;break; } }
+					}
+					if (covered || !agricultural(world,point) || builtUp(world,point)) { continue; }
+					const auto hit=roadIndex.find(roads,groundPoint(world,point),kInfillSearch,Math::Inf,false,[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.useElevation; });
+					if (!hit.edgeId) { continue; }
+					const auto* edge=roads.getEdge(*hit.edgeId);const auto curve=roads.getBezier(*hit.edgeId);if (!edge || !curve) { continue; }
+					Vec2 along=horizontal(curve->tangentAt(curve->totalLength*hit.curveT));if (along.lengthSq()<1e-6) { continue; }
+					along.normalize();const Vec2 across{-along.y,along.x};
+					const Vec2 anchor=horizontal(roads.getNode(edge->nodeA)->position);
+					const double u=Floor((point-anchor).dot(along)/plotLength)*plotLength,v=Floor((point-anchor).dot(across)/plotWidth)*plotWidth;
+					// 家や道に挟まれた土地では、町なかの小さな田のように短辺・長辺とも縮めて収める。
+					for (const Vec2 scale:{Vec2{1.0,1.0},Vec2{.6,1.0},Vec2{.35,1.0},Vec2{.35,.6}})
+					{
+						const double length=plotLength*scale.x,width=plotWidth*scale.y;
+						const Vec2 cellCenter=anchor+along*(u+plotLength*.5)+across*(v+plotWidth*.5);
+						const Vec2 toward=point-cellCenter;
+						const Vec2 origin=cellCenter+along*Clamp(toward.dot(along),-(plotLength-length)*.5,(plotLength-length)*.5)
+							+across*Clamp(toward.dot(across),-(plotWidth-width)*.5,(plotWidth-width)*.5)-along*(length*.5)-across*(width*.5);
+						const Array<Vec2> outline{origin,origin+along*length,origin+along*length+across*width,origin+across*width};
+						const auto result=placeField(outline,salt);
+						if (result==Placement::Placed) { ++infill;break; }
+						if (result!=Placement::Crowded && result!=Placement::Blocked) { break; }
+					}
+				} }
+			}
+		}
+
+		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(
+			stats.fields,infill,infillTimer.msF(),sparse,unsuitable,crowded,blocked,uneven,stats.disconnected));
 		return stats;
 	}
 }

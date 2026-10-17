@@ -1636,7 +1636,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 			const auto* chunk=m_world.getChunk({x,z});if (!chunk) { continue; }
 			for (int row=0;row<ZONE_CELLS;++row) { for (int col=0;col<ZONE_CELLS;++col)
 			{
-				const auto& home=chunk->buildingGrid[{col,row}];if (home.type==BuildingType::RuralHouse || home.type==BuildingType::VillageHouse) { farmHomes << cellCenterXZ({x,z},col,row)+Vec2{home.offsetX,home.offsetZ}; }
+				const auto& home=chunk->buildingGrid[{col,row}];if (home.type==BuildingType::RuralHouse || home.type==BuildingType::VillageHouse || home.type==BuildingType::Detached) { farmHomes << cellCenterXZ({x,z},col,row)+Vec2{home.offsetX,home.offsetZ}; }
 			} }
 			for (const auto& patch:chunk->landPatches) { if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField) { farmPlots << &patch; } }
 		} }

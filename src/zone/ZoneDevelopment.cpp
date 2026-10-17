@@ -128,6 +128,37 @@ namespace
 			}
 		}
 	}
+	/// @brief 田畑の外形を、宅地の辺のうち田畑側を向く1辺の外側だけに切り詰める。残りが小さすぎる場合は空を返す。
+	Array<Vec2> trimFieldBehindLot(const Array<Vec2>& field,const Array<Vec2>& lot)
+	{
+		constexpr double kBundGap=1.0;
+		constexpr double kMinimumRemainingArea=200.0;
+		Vec2 lotCenter{0,0},fieldCenter{0,0};
+		for (const Vec2 point:lot) { lotCenter+=point; }
+		for (const Vec2 point:field) { fieldCenter+=point; }
+		lotCenter/=static_cast<double>(lot.size());fieldCenter/=static_cast<double>(field.size());
+		Vec2 origin{0,0},normal{0,0};double best=-Math::Inf;
+		for (size_t i=0;i<lot.size();++i)
+		{
+			const Vec2 a=lot[i],b=lot[(i+1)%lot.size()],span=b-a;
+			if (span.lengthSq()<1e-6) { continue; }
+			Vec2 outward=Vec2{-span.y,span.x}.normalized();
+			if ((a-lotCenter).dot(outward)<0) { outward=-outward; }
+			const double facing=(fieldCenter-(a+b)*.5).dot(outward);
+			if (facing>best) { best=facing;origin=a;normal=outward; }
+		}
+		Array<Vec2> clipped;
+		const auto inside=[&](Vec2 point) { return (point-origin).dot(normal)-kBundGap; };
+		for (size_t i=0;i<field.size();++i)
+		{
+			const Vec2 current=field[i],next=field[(i+1)%field.size()];
+			const double a=inside(current),b=inside(next);
+			if (a>=0) { clipped << current; }
+			if ((a>=0)!=(b>=0)) { clipped << current.lerp(next,a/(a-b)); }
+		}
+		if (clipped.size()<3 || Polygon{clipped}.area()<kMinimumRemainingArea || Polygon{clipped}.intersects(Polygon{lot})) { return {}; }
+		return clipped;
+	}
 	bool overlapsRoads(const ParcelGeometry::Quad& footprint, const Array<NearbyRoad>& roads)
 	{
 		// Reserve the actual road strip, including bends, junction approaches and future road construction.
@@ -281,6 +312,26 @@ ZoneDevelopmentResult ZoneManager::updateDevelopment(World& world, const RoadNet
 		const Vec2 center=ZoneGrid::cellCenterXZ(plot.chunk,plot.cell.x,plot.cell.y)+Vec2{building.offsetX,building.offsetZ};
 		patch.polygon=UrbanParcel::partition(world,plot.chunk,plot.cell.x,plot.cell.y,center,site.parcel);
 		trimNeighborParcels(world,plot.chunk,plot.cell,center,building);
+		if (plot.zone!=ZoneType::Agriculture && patch.polygon.size()>=3)
+		{
+			// 宅地化した敷地に重なる田畑は、その敷地の分だけ転用して残りの田を耕作し続ける。
+			const Polygon lot{patch.polygon};
+			for (int dz=-1;dz<=1;++dz) { for (int dx=-1;dx<=1;++dx)
+			{
+				auto* neighbor=world.getChunk(plot.chunk+Point{dx,dz});if (!neighbor) { continue; }
+				bool changed=false;
+				for (auto& field:neighbor->landPatches)
+				{
+					if ((field.type!=LandPatchType::PaddyField && field.type!=LandPatchType::FarmField) || field.polygon.size()<3 || !Polygon{field.polygon}.intersects(lot)) { continue; }
+					field.polygon=trimFieldBehindLot(field.polygon,patch.polygon);changed=true;
+				}
+				if (changed)
+				{
+					neighbor->landPatches.remove_if([](const LandPatch& field) { return field.polygon.size()<3; });
+					neighbor->markMeshDirty();
+				}
+			} }
+		}
 		if (patch.polygon.size()>=3) { chunk->landPatches << std::move(patch); }
 		chunk->markMeshDirty();
 		++result.buildings; result.housing+=buildingCapacity(building.type);
