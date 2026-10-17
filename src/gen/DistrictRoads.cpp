@@ -1453,8 +1453,24 @@ namespace DistrictRoads
 		HashSet<int> plainLocalEdges;
 		HashTable<int, Array<GridAdjEdge>> gridGraph;
 
+		// 造成地のニュータウンも街区ごとに向きと形が少しずつ違う。緩やかな変位で交差点をずらし、四角い格子の繰り返しにしない。
+		// 外周の緑地帯へ向けて変位を弱め、町の範囲と幹線の接続位置は保つ。
+		const uint64 warpSeed = seed + static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL;
+		const auto phase = [&](int index) { return static_cast<double>((warpSeed >> (index * 8)) & 255u) / 255.0 * Math::TwoPi; };
+		auto plannedWarp = [&](float lx, float lz) -> Vec2
+		{
+			if (plan.origin != UrbanMorphology::Origin::Planned) { return { 0, 0 }; }
+			constexpr double kWarpAmplitude = 11.0;
+			constexpr double kWarpFadeStart = 0.7, kWarpFadeEnd = 0.88;
+			const double extent = Max(Abs(lx) / plan.halfExtent.x, Abs(lz) / plan.halfExtent.y);
+			const double fade = 1.0 - Clamp((extent - kWarpFadeStart) / (kWarpFadeEnd - kWarpFadeStart), 0.0, 1.0);
+			return Vec2{ Sin(lx / 170.0 + phase(0)) * Cos(lz / 230.0 + phase(1)) + .5 * Sin((lx + lz) / 97.0 + phase(2)),
+				Cos(lx / 210.0 + phase(3)) * Sin(lz / 160.0 + phase(4)) + .5 * Cos((lx - lz) / 113.0 + phase(5)) } * (kWarpAmplitude * fade);
+		};
 		auto localToWorld = [&](float lx, float lz) -> Vec3
 		{
+			const Vec2 warp = plannedWarp(lx, lz);
+			lx += static_cast<float>(warp.x); lz += static_cast<float>(warp.y);
 			const Vec2 xz = settlement.center + axisX * lx + axisZ * lz;
 			const float y = world.sampleHeight(static_cast<float>(xz.x), static_cast<float>(xz.y));
 			return Vec3{ xz.x, y, xz.y };
@@ -1526,6 +1542,40 @@ namespace DistrictRoads
 					const double amount = (static_cast<double>((hash >> 8) % 2001u) / 1000.0 - 1.0) * reach;
 					bendA = amount;
 					bendB = ((hash >> 40) % 5u) < 2u ? -amount : amount;
+				}
+				// 丘陵のニュータウンは、等高線に沿って曲がる街路で斜面を縫う。曲げ方の候補から縦断勾配が最も緩いものを選ぶ。
+				if (plan.origin == UrbanMorphology::Origin::Planned)
+				{
+					const int corridorLine = rowA == rowB ? rowA : colA;
+					const int centreLine = rowA == rowB ? rows / 2 : n / 2;
+					const bool distributor = outerFrame || Abs(corridorLine - centreLine) % 4 == 0;
+					const double length = start.distanceFrom(end);
+					const double reach = Min(distributor ? 22.0 : 6.0, length * (distributor ? .22 : .08));
+					const Vec3 dir = end - start;
+					const Vec2 left = Vec2{ -dir.z, dir.x }.normalized();
+					double bestRoughness = Math::Inf;
+					for (const double first : { 0.0, -1.0, 1.0, -.5, .5 })
+					{
+						for (const double second : { first, -first })
+						{
+							const Vec3 ctrlA = start + dir / 3.0 + Vec3{ left.x * first * reach, 0.0, left.y * first * reach };
+							const Vec3 ctrlB = start + dir * (2.0 / 3.0) + Vec3{ left.x * second * reach, 0.0, left.y * second * reach };
+							const CubicBezier curve{ start, ctrlA, ctrlB, end };
+							constexpr int kGradeSamples = 12;
+							double roughness = 0, previousHeight = start.y; Vec3 previousPoint = start;
+							for (int sample = 1; sample <= kGradeSamples; ++sample)
+							{
+								const Vec3 point = curve.evaluate(static_cast<float>(sample) / kGradeSamples);
+								const double height = world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.z));
+								const double run = Max(1.0, Vec2{ point.x - previousPoint.x, point.z - previousPoint.z }.length());
+								roughness += Square((height - previousHeight) / run) * run;
+								previousHeight = height; previousPoint = point;
+							}
+							// 曲げるほど道は長くなるため、勾配が十分に緩む場合だけ曲げる。
+							roughness *= 1.0 + Abs(first) * .08;
+							if (roughness < bestRoughness) { bestRoughness = roughness; bendA = first * reach; bendB = second * reach; }
+						}
+					}
 				}
 				if (!tryAddLocalRoadEdge(network, nodeA, nodeB, bendA, bendB)) return;
 				edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
@@ -1802,7 +1852,7 @@ namespace DistrictRoads
 			}
 		}
 		if (plan.origin!=UrbanMorphology::Origin::Planned) { SettlementFringe::generate(settlement,world,network); }
-		NewTownLayout::finish(settlement,network);
+		NewTownLayout::finish(settlement,network,&world);
 		if (plan.scale==0)
 		{
 			HashSet<int> wide,reviewed;

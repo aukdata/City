@@ -918,7 +918,7 @@ GENERATION_SETTING(double, urbanFabric_newTownOuterHousingStart, U"urbanFabric",
 GENERATION_SETTING(double, urbanFabric_newTownGreenBeltStart, U"urbanFabric", U"newTownGreenBeltStart", 0.85, 0.99)
 GENERATION_SETTING(double, urbanFabric_newTownCenterRatio, U"urbanFabric", U"newTownCenterRatio", 0.05, 0.4)
 GENERATION_SETTING(double, urbanFabric_newTownSpacingAlong, U"urbanFabric", U"newTownSpacingAlong", 80, 200)
-GENERATION_SETTING(double, urbanFabric_newTownSpacingCross, U"urbanFabric", U"newTownSpacingCross", 70, 180)
+GENERATION_SETTING(double, urbanFabric_newTownSpacingCross, U"urbanFabric", U"newTownSpacingCross", 36, 180)
 GENERATION_SETTING(double, urbanFabric_newTownDetachedPercent, U"urbanFabric", U"newTownDetachedPercent", 60, 100)
 GENERATION_SETTING(double, urbanFabric_newTownMidrisePercent, U"urbanFabric", U"newTownMidrisePercent", 60, 100)
 GENERATION_SETTING(double, urbanFabric_newTownParkTreeSpacing, U"urbanFabric", U"newTownParkTreeSpacing", 12, 60)
