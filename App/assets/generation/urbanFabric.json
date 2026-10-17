@@ -34,6 +34,6 @@
   "newTownSpacingCross": 70,
   "newTownDetachedPercent": 95,
   "newTownMidrisePercent": 92,
-  "newTownParkTreeSpacing": 24,
+  "newTownParkTreeSpacing": 12,
   "newTownParkTreeClearance": 4
 }

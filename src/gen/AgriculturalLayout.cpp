@@ -37,6 +37,28 @@ namespace AgriculturalLayout
 			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
 			return chunk && chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]==ZoneType::Agriculture;
 		}
+		/// @brief 造成済みのニュータウンの内側か。
+		bool insidePlannedTown(Vec2 point,const Array<Frame>& frames)
+		{
+			for (const auto& frame:frames)
+			{
+				if (frame.plannedHalfExtent.x<=0) { continue; }
+				const Vec2 delta=point-frame.center;
+				if (Abs(delta.dot(frame.axisX))<=frame.plannedHalfExtent.x && Abs(delta.dot(frame.axisZ))<=frame.plannedHalfExtent.y) { return true; }
+			}
+			return false;
+		}
+		/// @brief 町割の内側か。市街地の空き地には道路沿いの小さな田だけを残す。
+		bool insideTown(Vec2 point,const Array<Frame>& frames)
+		{
+			for (const auto& frame:frames)
+			{
+				if (frame.townHalfExtent.x<=0) { continue; }
+				const Vec2 delta=point-frame.center;
+				if (Abs(delta.dot(frame.axisX))<=frame.townHalfExtent.x && Abs(delta.dot(frame.axisZ))<=frame.townHalfExtent.y) { return true; }
+			}
+			return false;
+		}
 		/// @brief 建物が建て込んだ市街地か。駅前や中心街の空き地には田畑を作らない。
 		bool builtUp(const World& world,Vec2 point)
 		{
@@ -682,7 +704,8 @@ namespace AgriculturalLayout
 				++stats.candidates;
 				// 集落に近い平野はほぼ全面が耕作地になり、遠い縁辺部だけ地区単位で耕作放棄地や原野が混じる。
 				if (districtRoll*.72+plotRoll*.28>Min(1.0,density(center,frames)*kFullCultivationDensity)) { ++sparse;continue; }
-				if (!agricultural(world,center) || builtUp(world,center))
+				constexpr int kTownFieldTiers=2;
+				if (!agricultural(world,center) || builtUp(world,center) || insidePlannedTown(center,frames) || (tier>=kTownFieldTiers && insideTown(center,frames)))
 				{
 					++unsuitable;
 					continue;
@@ -783,7 +806,7 @@ namespace AgriculturalLayout
 					{
 						for (const auto& field:found->second) { if (field.contains(point)) { covered=true;break; } }
 					}
-					if (covered || !agricultural(world,point) || builtUp(world,point)) { continue; }
+					if (covered || !agricultural(world,point) || builtUp(world,point) || insidePlannedTown(point,frames)) { continue; }
 					const auto hit=roadIndex.find(roads,groundPoint(world,point),kInfillSearch,Math::Inf,false,[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.useElevation; });
 					if (!hit.edgeId) { continue; }
 					const auto* edge=roads.getEdge(*hit.edgeId);const auto curve=roads.getBezier(*hit.edgeId);if (!edge || !curve) { continue; }

@@ -1160,8 +1160,9 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 				}
 			}
 		}
-		// 深い街区は2列目の奥まで埋める。奥の列ほど空き地が残りやすい。
-		for (int depth = 0; depth < 2; ++depth)
+		// 日本の市街地は街区の奥まで小さな宅地が詰まる。深い街区は3列目まで埋め、奥ほど空き地を少し残す。
+		constexpr std::array<double, 3> kRearMinimumIntensity{ 0.85, 0.72, 0.55 };
+		for (int depth = 0; depth < static_cast<int>(kRearMinimumIntensity.size()); ++depth)
 		{
 			Array<FrontSite> placedRears;
 			for (const auto& front : fronts)
@@ -1169,19 +1170,21 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 				const int si = nearestSettlementIndex(m_districts, static_cast<float>(front.position.x), static_cast<float>(front.position.y));
 				if (si < 0) continue;
 				const auto& settlement = m_districts[si];
-				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Planned
-					|| settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
+				const bool planned = settlement.plan.origin == UrbanMorphology::Origin::Planned;
+				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
 				const auto use = UrbanMorphology::sample(settlement.plan, planLocal(settlement, front.position));
-				if (use.district != UrbanMorphology::District::Housing && use.district != UrbanMorphology::District::OldTown) continue;
+				// ニュータウンの戸建て住区も、街路の両側に背中合わせの宅地が並ぶ。
+				if (use.district != UrbanMorphology::District::Housing && (planned || use.district != UrbanMorphology::District::OldTown)) continue;
+				if (planned && front.building.type != BuildingType::Detached) continue;
 				const Vec2 inward{ -Math::Sin(front.building.angle), Math::Cos(front.building.angle) };
 				const Vec2 frontCell = front.position + inward * static_cast<double>(buildingFootprintXZ(front.building.type));
 				const uint32 hash = settlementCellHash(m_seed ^ 0x5EA4F1A7ULL, si,
 					static_cast<int>(Floor(frontCell.x / 16.0)), static_cast<int>(Floor(frontCell.y / 16.0)));
 				const double intensity = Max({ UrbanMorphology::downtownIntensity(settlement.plan, planLocal(settlement, front.position)),
-					static_cast<double>(use.occupancy), depth == 0 ? 0.75 : 0.55 });
-				if ((hash % 1000u) >= static_cast<uint32>(Clamp(intensity, 0.0, 0.9) * 1000.0)) continue;
+					static_cast<double>(use.occupancy), kRearMinimumIntensity[depth] });
+				if ((hash % 1000u) >= static_cast<uint32>(Clamp(intensity, 0.0, 0.95) * 1000.0)) continue;
 				Building rear;
-				rear.type = (hash / 1000u) % 3u == 0u ? BuildingType::LowApartment
+				rear.type = planned ? BuildingType::Detached : (hash / 1000u) % 3u == 0u ? BuildingType::LowApartment
 					: (front.building.type == BuildingType::UrbanHousePair ? BuildingType::UrbanHousePair : BuildingType::Detached);
 				rear.angle = front.building.angle;
 				rear.edgeId = front.building.edgeId;
@@ -1906,6 +1909,8 @@ Array<AgriculturalLayout::Frame> SettlementDevelopment::agriculturalFrames() con
 			frame.origin=settlement.center-frame.axisX*plan.halfExtent.x-frame.axisZ*plan.halfExtent.y;
 			const auto columns=UrbanMorphology::streetCoordinates(plan,false),rows=UrbanMorphology::streetCoordinates(plan,true);
 			frame.plotSize={columns[1]-columns[0],(rows[1]-rows[0])/4.0};
+			if (plan.origin==UrbanMorphology::Origin::Planned) { frame.plannedHalfExtent=plan.halfExtent; }
+			if (plan.origin!=UrbanMorphology::Origin::Rural) { frame.townHalfExtent=plan.halfExtent; }
 			farmFrames << frame;
 		}
 	return farmFrames;

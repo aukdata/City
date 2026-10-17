@@ -353,7 +353,8 @@ namespace
 			appendPublicGreen(groups,world,patch,roadMasks);
 		}
 		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3
-			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil || patch.type == LandPatchType::ParcelGravel))
+			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil || patch.type == LandPatchType::ParcelGravel
+				|| patch.type == LandPatchType::ParcelAsphalt))
 		{
 			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
 		}
@@ -746,7 +747,10 @@ namespace
 		{
 			for (double x=Ceil(bounds.x/step)*step;x<bounds.x+bounds.w;x+=step)
 			{
-				const Vec2 point{x,z};
+				// 格子状に並べず、雑木林のように株の位置を不規則にずらす。
+				const uint32 jitter=static_cast<uint32>(Floor(x/step))*2654435761u ^ static_cast<uint32>(Floor(z/step))*40503u;
+				constexpr double kJitterRatio=.38;
+				const Vec2 point{x+((jitter%1000)/1000.0-.5)*2*kJitterRatio*step,z+(((jitter/1000)%1000)/1000.0-.5)*2*kJitterRatio*step};
 				if (!shape.contains(point)) { continue; }
 				bool clear=true;
 				for (size_t i=0;i<patch.polygon.size() && clear;++i)
@@ -761,7 +765,9 @@ namespace
 				}
 				if (!clear) { continue; }
 				const uint32 hash=static_cast<uint32>(x/step)*73856093u ^ static_cast<uint32>(z/step)*19349663u;
-				appendParkTree(groups,point,world.sampleHeight(static_cast<float>(x),static_cast<float>(z)),hash,1);
+				// 住区公園と緑地帯は、多摩ニュータウンのように残した雑木林として高木を密に植える。
+				const double height=9.0+(hash%9)*.7;
+				appendLandscapeTree(groups,point,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)),hash,height*.72,height,(hash%5)==0);
 			}
 		}
 	}
@@ -911,6 +917,29 @@ namespace
 				LandPatch entrance=patch;entrance.type=LandPatchType::ParcelAsphalt;entrance.elevationOffset=Max(patch.elevationOffset+.012f,.035f);
 				entrance.polygon=std::move(connection->polygon);
 				appendLandPatchSurface(groups[100],world,entrance,roadMasks);
+			}
+		}
+		if (groups.planting && (building.type == BuildingType::MidApartment || building.type == BuildingType::LowApartment))
+		{
+			// 団地や集合住宅の敷地は、住棟の間と外周に植えた高木で囲まれる。
+			constexpr double kCourtyardTreeSpacing = 7.0;
+			constexpr double kCourtyardTreeInset = 2.4;
+			constexpr double kCourtyardTreeClearance = 2.0;
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 midpoint = (a + b) * 0.5;
+				// 道路に面した辺は駐車場・出入口として空ける。
+				if ((midpoint - center).dot(inward) < -half * 0.5) { continue; }
+				const double length = a.distanceFrom(b);
+				const Vec2 toCenter = (center - midpoint).normalized();
+				for (double distance = kCourtyardTreeSpacing * 0.5; distance < length; distance += kCourtyardTreeSpacing)
+				{
+					const Vec2 position = a.lerp(b, distance / length) + toCenter * kCourtyardTreeInset;
+					if (!fits(position, kCourtyardTreeClearance) || position.distanceFrom(center) < half + 2.5) { continue; }
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						patch.materialVariant + static_cast<uint32>(side * 17 + distance), 1.6);
+				}
 			}
 		}
 		if (groups.planting && (building.type == BuildingType::RuralHouse || building.type == BuildingType::VillageHouse))

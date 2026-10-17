@@ -15,6 +15,8 @@ namespace AgriculturalLayout
 		Vec2 origin{0,0};
 		Vec2 axisX{1,0}, axisZ{0,1};
 		Vec2 plotSize{GenerationSettings::get().agriculture_plotLength,GenerationSettings::get().agriculture_plotWidth};
+		Vec2 plannedHalfExtent{0,0}; ///< 計画的に造成したニュータウンの範囲。内側の空き地には田畑を作らない。
+		Vec2 townHalfExtent{0,0}; ///< 町割の範囲。内側では道路沿いの奥へ何列も田を伸ばさない。
 		Vec2 worldPoint(Vec2 point) const { return origin+axisX*point.x+axisZ*point.y; }
 		Vec2 localPoint(Vec2 point) const { const Vec2 delta=point-origin; return {delta.dot(axisX),delta.dot(axisZ)}; }
 	};
