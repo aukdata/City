@@ -896,7 +896,15 @@ namespace
 			{
 				if (road->facility || Abs(road->roadHeight-world.sampleHeight(static_cast<float>(facade.x),static_cast<float>(facade.y)))>4) { continue; }
 				const auto candidate=ParcelAccessGeometry::connect(facade,-inward,width,road->footprint);
-				if (candidate && (!connection || candidate->distance<connection->distance)) { connection=candidate; }
+				if (!candidate || (connection && candidate->distance>=connection->distance)) { continue; }
+				// 玄関からの舗装は自分の敷地内だけを通す。隣地や別の宅地を横切る長い通路は作らない。
+				bool ownLot=true;
+				for (double step=.5;step<candidate->distance-.3 && ownLot;step+=1.0)
+				{
+					const Vec2 point=facade-inward*step;
+					ownLot=shape.contains(point) || !clearOfRoad(point,.3);
+				}
+				if (ownLot) { connection=candidate; }
 			}
 			if (connection)
 			{

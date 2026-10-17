@@ -109,9 +109,17 @@ namespace LeveeRoad
 				const auto start=findAccess(points.front(),-1);
 				if (!start) { continue; }
 				++startAccesses;
-				const auto finish=findAccess(points.back(),*start);
-
-				if (finish) { ++bothAccesses; }
+				auto finish=findAccess(points.back(),*start);
+				// 下流端で道へ戻れない場合は、手前の取り付け可能な地点まで短くする。行き止まりの堤防道路は作らない。
+				for (size_t last=points.size()-1;!finish && last>=4;--last)
+				{
+					double prefix=0;
+					for (size_t index=1;index<last;++index) { prefix+=points[index].xz().distanceFrom(points[index-1].xz()); }
+					if (prefix<400) { break; }
+					if ((finish=findAccess(points[last-1],*start))) { points.resize(last); }
+				}
+				if (!finish) { continue; }
+				++bothAccesses;
 				bool gentle=true;
 				for (size_t index=1;index<points.size();++index)
 				{
@@ -122,7 +130,7 @@ namespace LeveeRoad
 				Array<int> nodes;
 				nodes << *start;
 				for (const Vec3 point:points) { nodes << network.addNode(point); }
-				if (finish) { nodes << *finish; }
+				nodes << *finish;
 				bool success=true;
 				Array<int> addedEdges;
 				for (size_t index=1;index<nodes.size();++index)
@@ -140,7 +148,7 @@ namespace LeveeRoad
 				if (!success)
 				{
 					for (const int id:addedEdges) { network.removeEdge(id); }
-					for (size_t index=1;index<nodes.size()-(finish ? 1 : 0);++index) { network.removeNode(nodes[index]); }
+					for (size_t index=1;index+1<nodes.size();++index) { network.removeNode(nodes[index]); }
 					continue;
 				}
 				DBG_LOG(U"[LeveeRoadRoute] start=({}, {}) end=({}, {}) river=({}, {}) length={:.0f}"_fmt(

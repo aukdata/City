@@ -1743,6 +1743,7 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 	int roadOverlapCount = 0;
 	int frontageDistanceCount = 0;
 	int coastalBuildingCount = 0;
+	int floodedBuildingCount = 0;
 	int missingParcelCount = 0;
 	for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
 	{
@@ -1778,6 +1779,12 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 					if (h < GenerationSettings::get().development_validationMinimumHeight)
 					{
 						++coastalBuildingCount;
+					}
+					// 初期通水後の実際の水面が、敷地の地盤より上に来ていないかを確かめる。
+					constexpr double kFloodTolerance = 0.05;
+					if (m_world.waterSurfaceHeight(center.x, center.y) > h + kFloodTolerance)
+					{
+						++floodedBuildingCount; DBG_LOG(U"[BuildingFlooded] coord=({}, {}) cell=({}, {}) type={} center=({}, {}) ground={:.2f} water={:.2f}"_fmt(chunkX,chunkY,col,row,static_cast<int>(building.type),center.x,center.y,h,m_world.waterSurfaceHeight(center.x, center.y)));
 					}
 
 					const RoadEdge* edge = m_network.getEdge(building.edgeId);
@@ -1838,10 +1845,9 @@ SettlementDevelopment::Validation SettlementDevelopment::validateGeneratedCityCo
 	}
 	const bool parcelsValid = parcelFailures.size() == 1 && parcelFailures.contains(static_cast<int>(PolygonFailureType::OK));
 	const bool passed = (parcelsValid && noFrontageCount == 0 && missingEdgeCount == 0 && missingParcelCount == 0 && roadOverlapCount == 0
-		&& frontageDistanceCount == 0 && coastalBuildingCount == 0);
-	const String summary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} passed={}"_fmt(
-		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, passed);
-	DebugLog::print(U"[CityConstraintValidation] " + summary);
+		&& frontageDistanceCount == 0 && coastalBuildingCount == 0 && floodedBuildingCount == 0);
+	const String summary = U"buildings={} noFrontage={} missingEdge={} missingParcel={} roadOverlap={} frontageDistance={} coastal={} flooded={} passed={}"_fmt(
+		buildingCount, noFrontageCount, missingEdgeCount, missingParcelCount, roadOverlapCount, frontageDistanceCount, coastalBuildingCount, floodedBuildingCount, passed);
 	DebugLog::print(U"[CityConstraintValidation] " + summary);
 	return Validation{ passed, summary };
 }

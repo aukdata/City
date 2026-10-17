@@ -28,6 +28,14 @@ namespace AgriculturalLayout
 			return zone==ZoneType::Agriculture
 				|| ((zone==ZoneType::Unzoned || zone==ZoneType::LowResidential) && chunk->buildingGrid[local].type==BuildingType::None);
 		}
+		/// @brief 都市計画上の農業地域。一般道沿いの農家を市街地の宅地予定地へ置かないために使う。
+		bool farmingZone(const World& world,Vec2 point)
+		{
+			if (point.x<0 || point.y<0 || point.x>=WORLD_SIZE || point.y>=WORLD_SIZE) { return false; }
+			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
+			const auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});
+			return chunk && chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]==ZoneType::Agriculture;
+		}
 		uint32 hash(uint64 seed,Vec2 point)
 		{
 			return static_cast<uint32>(UrbanMorphology::mix(seed^(static_cast<uint64>(static_cast<uint32>(Floor(point.x)))<<32)^static_cast<uint32>(Floor(point.y))));
@@ -93,42 +101,62 @@ namespace AgriculturalLayout
 				return false;
 			}
 		};
-		int prepareHomes(World& world,const RoadNetwork& roads,const TrainNetwork* railway,const Array<Frame>& frames)
+		int prepareHomes(World& world,const RoadNetwork& roads,uint64 seed,const TrainNetwork* railway,const Array<Frame>& frames)
 		{
 			const auto& config=GenerationSettings::get();ParcelRoadIndex occupied{roads,true};if (railway) { occupied.addRailway(*railway); }
 			Sites sites{world};int placed=0;
+			const double half=buildingFootprintXZ(BuildingType::RuralHouse)*.5;
+			/// 道路の指定位置の左右どちらかへ、道に面した農家を1軒置く。
+			const auto place=[&](const RoadEdge& edge,const CubicBezier& curve,float arc,bool farmRoad)
+			{
+				const Vec3 road=curve.positionAt(arc),right3=tangentToRight(curve.tangentAt(arc));
+				for (const int side:{-1,1})
+				{
+					const Vec2 outward=horizontal(right3)*side,point=horizontal(road)+outward*(edge.totalWidth()*.5+half+config.agriculture_homeSetback);
+					if (!agricultural(world,point) || (!farmRoad && !farmingZone(world,point))) { continue; }
+					const double angle=Atan2(-outward.x,outward.y);const auto footprint=ParcelGeometry::footprint(point,half+config.agriculture_homeFootprintMargin,angle);
+					if (occupied.overlaps(footprint) || sites.occupied.overlaps(footprint)) { continue; }
+					double low=Math::Inf,high=-Math::Inf;bool valid=true;
+					for (const auto corner:footprint)
+					{
+						const auto ground=groundPoint(world,corner);low=Min(low,ground.y);high=Max(high,ground.y);
+						valid &= agricultural(world,corner) && ground.y>world.waterPlanningHeight(corner.x,corner.y)+config.agriculture_minimumFreeboard;
+					}
+					if (!valid || high-low>config.development_maximumBuildingRelief) { continue; }
+					const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
+					auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});auto& building=chunk->buildingGrid[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}];
+					if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland) { continue; }
+					building.type=BuildingType::RuralHouse;building.angle=static_cast<float>(angle);building.edgeId=edge.id;building.edgeT=curve.tFromArcLength(arc);
+					building.offsetX=static_cast<float>(point.x-(cell.x+.5)*kCellSize);building.offsetZ=static_cast<float>(point.y-(cell.y+.5)*kCellSize);
+					chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]=ZoneType::LowResidential;chunk->markMeshDirty();
+					sites.occupied.add(footprint);sites.homes << point;++placed;
+					return true;
+				}
+				return false;
+			};
+			// 日本の平野の農家は等間隔に散らばらず、数軒が道沿いに寄り合う小さな集落をつくる。
+			constexpr int kMaximumNeighbors=4;
+			constexpr double kNeighborGap=8;
+			const double neighborStep=half*2+kNeighborGap;
 			for (const auto& edge:roads.edges())
 			{
-				if (edge.id<0 || edge.useElevation || edge.tunnel || !edge.farmAccess) { continue; }
+				if (edge.id<0 || edge.useElevation || edge.tunnel) { continue; }
+				// 農家は農道だけでなく、田園を通る集落道・旧道沿いにも点在する。一般道では農業地域に限る。
+				const bool farmRoad=edge.farmAccess;
+				if (!farmRoad && (edge.roadType!=RoadType::LocalRoad || !edge.hasRoadLanes() || !edge.isRoadbedBuilt())) { continue; }
 				const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
 				for (float arc=curve->totalLength*.5f;arc<curve->totalLength;arc+=static_cast<float>(config.agriculture_homeSpacing))
 				{
-					const Vec3 road=curve->positionAt(arc),right3=tangentToRight(curve->tangentAt(arc));
-					if (settlementDistance(horizontal(road),frames)>config.agriculture_maximumRadius) { continue; }
-					if (sites.served({horizontal(road)},config.agriculture_homeSpacing)) { continue; }
-					for (const int side:{-1,1})
+					const Vec2 road=horizontal(curve->positionAt(arc));
+					if (settlementDistance(road,frames)>config.agriculture_maximumRadius) { continue; }
+					if (sites.served({road},config.agriculture_homeSpacing)) { continue; }
+					if (!place(edge,*curve,arc,farmRoad)) { continue; }
+					const int neighbors=static_cast<int>(hash(seed,road)%(kMaximumNeighbors+1));
+					for (int index=1;index<=neighbors;++index)
 					{
-						const double half=buildingFootprintXZ(BuildingType::RuralHouse)*.5;
-						const Vec2 outward=horizontal(right3)*side,point=horizontal(road)+outward*(edge.totalWidth()*.5+half+config.agriculture_homeSetback);
-						if (!agricultural(world,point)) { continue; }
-						const double angle=Atan2(-outward.x,outward.y);const auto footprint=ParcelGeometry::footprint(point,half+config.agriculture_homeFootprintMargin,angle);
-						if (occupied.overlaps(footprint) || sites.occupied.overlaps(footprint)) { continue; }
-						double low=Math::Inf,high=-Math::Inf;bool valid=true;
-						for (const auto corner:footprint)
-						{
-							const auto ground=groundPoint(world,corner);low=Min(low,ground.y);high=Max(high,ground.y);
-							valid &= agricultural(world,corner) && ground.y>world.waterPlanningHeight(corner.x,corner.y)+config.agriculture_minimumFreeboard;
-						}
-						if (!valid || high-low>config.development_maximumBuildingRelief) { continue; }
-						const auto river=world.rivers().nearest(point);
-			if (river.reach>=0 && river.distance<=river.halfWidth+(river.halfWidth>=42 ? 45 : 18)) { return false; }
-			const Point cell{static_cast<int>(point.x/kCellSize),static_cast<int>(point.y/kCellSize)};
-						auto* chunk=world.getChunk({cell.x/ZONE_CELLS,cell.y/ZONE_CELLS});auto& building=chunk->buildingGrid[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}];
-						if (building.type!=BuildingType::None && building.type!=BuildingType::Farmland) { continue; }
-						building.type=BuildingType::RuralHouse;building.angle=static_cast<float>(angle);building.edgeId=edge.id;building.edgeT=curve->tFromArcLength(arc);
-						building.offsetX=static_cast<float>(point.x-(cell.x+.5)*kCellSize);building.offsetZ=static_cast<float>(point.y-(cell.y+.5)*kCellSize);
-						chunk->zoneMap[{cell.x%ZONE_CELLS,cell.y%ZONE_CELLS}]=ZoneType::LowResidential;chunk->markMeshDirty();
-						sites.occupied.add(footprint);sites.homes << point;++placed;break;
+						const double offset=neighborStep*((index+1)/2)*(index%2 ? 1 : -1);
+						if (arc+offset<half || arc+offset>curve->totalLength-half) { continue; }
+						place(edge,*curve,static_cast<float>(arc+offset),farmRoad);
 					}
 				}
 			}
@@ -207,7 +235,63 @@ namespace AgriculturalLayout
 		ParcelRoadIndex occupied{roads,true}; RoadNetwork empty; ParcelRoadIndex rail{empty};
 		if (railway) { rail.addRailway(*railway); }
 		Sites buildings{world}; RoadPlanSnapIndex connections; connections.rebuild(roads);
+		const auto probe = [&](Vec3 position)
+		{
+			constexpr double kSnapTolerance = 2;
+			return connections.find(roads,position,kSnapTolerance,kSnapTolerance,false,
+				[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.farmAccess; });
+		};
+		/// 接続点で既存道を分割し、取り付け先の節点を返す。
+		const auto attachHit = [&](const RoadPlanSnapIndex::Hit& hit) -> Optional<int>
+		{
+			if (!hit.edgeId) { return none; }
+			const auto* edge = roads.getEdge(*hit.edgeId);
+			if (!edge) { return none; }
+			if (hit.curveT == 0) { return edge->nodeA; }
+			if (hit.curveT == 1) { return edge->nodeB; }
+			const auto curve = roads.getBezier(edge->id);
+			const float sample = hit.curveT * CubicBezier::SAMPLES;
+			const int index = Min(CubicBezier::SAMPLES - 1,static_cast<int>(sample));
+			const int node = roads.splitEdgeAt(edge->id,Math::Lerp(curve->arcTable[index],curve->arcTable[index + 1],sample - index));
+			if (node < 0) { return none; }
+			for (const int child : roads.getNode(node)->edgeIds()) { connections.appendEdge(roads,child); }
+			return node;
+		};
+		/// @brief 両端の節点が決まった農道を追加する。途中で追加に失敗したら、この農道の辺と節点を戻す。
+		const auto commitTrack = [&](int first,int last,const Array<CubicBezier>& curves)
+		{
+			Array<int> nodes{first}, addedEdges;
+			for (size_t i = 0; i + 1 < curves.size(); ++i) { nodes << roads.addNode(curves[i].p3,NodeType::Joint); }
+			nodes << last;
+			bool valid = true;
+			for (size_t i = 0; i < curves.size(); ++i)
+			{
+				const auto id = roads.addEdge(nodes[i],nodes[i + 1],curves[i].p1,curves[i].p2,RoadType::LocalRoad,2);
+				if (!id) { valid = false; break; }
+				auto* edge = roads.getEdge(*id); auto profile = GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);
+				profile.laneWidth = static_cast<float>(config.agriculture_trackWidth / profile.lanes);
+				GeneratedStreet::apply(*edge,profile); edge->edgeState = EdgeState::Existing; edge->farmAccess = true;
+				edge->parts.remove_if([](const RoadPart& part) { return part.type == RoadPartType::UtilityPole; });
+				addedEdges << *id;
+			}
+			if (!valid)
+			{
+				for (const int id : addedEdges) { roads.removeEdge(id); }
+				for (size_t i = 1; i + 1 < nodes.size(); ++i) { roads.removeNode(nodes[i]); }
+				return false;
+			}
+			for (const int id : addedEdges)
+			{
+				const auto curve = roads.getBezier(id);
+				for (int i = 1; i <= 8; ++i) { occupied.add(ribbon(horizontal(curve->evaluate((i - 1) / 8.0f)),horizontal(curve->evaluate(i / 8.0f)),config.agriculture_trackWidth * .5 + 1)); }
+				connections.appendEdge(roads,id);
+			}
+			for (const int node : nodes) { roads.updateNodeCutoffs(node); roads.rebuildLaneConnections(node); }
+			stats.tracks += static_cast<int>(addedEdges.size()); stats.connections += 2;
+			return true;
+		};
 		int blocks = 0, rejected = 0;
+		Array<Vec2> blockFrontage;
 		// 耕区の長辺に沿う農道を先に計画し、両端だけを既存道へ取り付ける。
 		// 全区間と耕作可能な帯を確認するまで、道路や交差点を追加しない。
 		for (const auto& frontage : frontages)
@@ -237,11 +321,11 @@ namespace AgriculturalLayout
 						bool usable = true; double low = Math::Inf, high = -Math::Inf;
 						for (const int x : {-1,1}) { for (const int z : {-1,1})
 						{
-							const Vec2 probe = point + along * (config.agriculture_plotLength * .2 * x) + normal * (kFieldProbeHalfDepth * z);
-							const Vec3 ground = groundPoint(world,probe);
-							usable &= agricultural(world,probe) && ground.y > world.waterPlanningHeight(probe.x,probe.y) + config.agriculture_minimumFreeboard
-								&& !rail.overlaps(ParcelGeometry::footprint(probe,kFieldProbeHalfDepth * .5,0))
-								&& !buildings.occupied.overlaps(ParcelGeometry::footprint(probe,kFieldProbeHalfDepth * .5,0));
+							const Vec2 fieldProbe = point + along * (config.agriculture_plotLength * .2 * x) + normal * (kFieldProbeHalfDepth * z);
+							const Vec3 ground = groundPoint(world,fieldProbe);
+							usable &= agricultural(world,fieldProbe) && ground.y > world.waterPlanningHeight(fieldProbe.x,fieldProbe.y) + config.agriculture_minimumFreeboard
+								&& !rail.overlaps(ParcelGeometry::footprint(fieldProbe,kFieldProbeHalfDepth * .5,0))
+								&& !buildings.occupied.overlaps(ParcelGeometry::footprint(fieldProbe,kFieldProbeHalfDepth * .5,0));
 							low = Min(low,ground.y); high = Max(high,ground.y);
 						} }
 						supported += usable && high - low <= config.agriculture_maximumFieldRelief;
@@ -272,56 +356,153 @@ namespace AgriculturalLayout
 						curves << curve;
 					}
 					if (!valid) { ++rejected; continue; }
-					const auto attach = [&](Vec3 position) -> Optional<int>
-					{
-						constexpr double kSnapTolerance = 2;
-						const auto hit = connections.find(roads,position,kSnapTolerance,kSnapTolerance,false,
-							[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.farmAccess; });
-						if (!hit.edgeId) { return none; }
-						const auto* edge = roads.getEdge(*hit.edgeId);
-						if (hit.curveT == 0) { return edge->nodeA; }
-						if (hit.curveT == 1) { return edge->nodeB; }
-						const auto curve = roads.getBezier(edge->id);
-						const float sample = hit.curveT * CubicBezier::SAMPLES;
-						const int index = Min(CubicBezier::SAMPLES - 1,static_cast<int>(sample));
-						const int node = roads.splitEdgeAt(edge->id,Math::Lerp(curve->arcTable[index],curve->arcTable[index + 1],sample - index));
-						if (node < 0) { return none; }
-						for (const int child : roads.getNode(node)->edgeIds()) { connections.appendEdge(roads,child); }
-						return node;
-					};
-					const auto first = attach(points.front()), last = attach(points.back());
-					if (!first || !last) { ++rejected; continue; }
-					Array<int> nodes{*first}, addedEdges;
-					for (size_t i = 1; i + 1 < points.size(); ++i) { nodes << roads.addNode(points[i],NodeType::Joint); }
-					nodes << *last;
-					for (size_t i = 0; i < curves.size(); ++i)
-					{
-						const auto id = roads.addEdge(nodes[i],nodes[i + 1],curves[i].p1,curves[i].p2,RoadType::LocalRoad,2);
-						if (!id) { valid = false; break; }
-						auto* edge = roads.getEdge(*id); auto profile = GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);
-						profile.laneWidth = static_cast<float>(config.agriculture_trackWidth / profile.lanes);
-						GeneratedStreet::apply(*edge,profile); edge->edgeState = EdgeState::Existing; edge->farmAccess = true;
-						edge->parts.remove_if([](const RoadPart& part) { return part.type == RoadPartType::UtilityPole; });
-						addedEdges << *id;
-					}
-					if (!valid)
-					{
-						for (const int id : addedEdges) { roads.removeEdge(id); }
-						for (size_t i = 1; i + 1 < nodes.size(); ++i) { roads.removeNode(nodes[i]); }
-						++rejected; continue;
-					}
-					for (const int id : addedEdges)
-					{
-						const auto curve = roads.getBezier(id);
-						for (int i = 1; i <= 8; ++i) { occupied.add(ribbon(horizontal(curve->evaluate((i - 1) / 8.0f)),horizontal(curve->evaluate(i / 8.0f)),config.agriculture_trackWidth * .5 + 1)); }
-						connections.appendEdge(roads,id);
-					}
-					for (const int node : nodes) { roads.updateNodeCutoffs(node); roads.rebuildLaneConnections(node); }
-					stats.tracks += static_cast<int>(addedEdges.size()); stats.connections += 2; ++blocks;
+					// 片端だけ分割して取り付けに失敗すると不要な節点が残るため、両端の接続先を先に確かめる。
+					if (!probe(points.front()).edgeId || !probe(points.back()).edgeId) { ++rejected; continue; }
+					const auto first = attachHit(probe(points.front())), last = attachHit(probe(points.back()));
+					if (!first || !last || !commitTrack(*first,*last,curves)) { ++rejected; continue; }
+					++blocks;
+					for (double arc = begin; arc <= end; arc += kJunctionMargin) { blockFrontage << horizontal(frontage.positionAt(static_cast<float>(arc))); }
 				}
 			}
 		}
 		DBG_LOG(U"[AgriculturalBlocks] seed={} blocks={} rejected={} tracks={} connections={}"_fmt(seed,blocks,rejected,stats.tracks,stats.connections));
+		// 区画農道を通せない細長い耕地や山際の谷田には、既存道から地形に沿う枝農道を伸ばす。
+		// 経路全体を計画し、別の道へ戻れる枝だけを追加するので、行き止まりや使われない分岐点を残さない。
+		struct Root { Vec3 position; Optional<int> node; Vec2 direction; double reach; };
+		Array<Root> roots; HashSet<Point> rootCells;
+		const double rootSpacing = config.agriculture_accessSpacing * config.agriculture_rootSpacingRatio;
+		const auto addRoots = [&](Vec3 position,Optional<int> node,Vec2 normal)
+		{
+			const Vec2 point = horizontal(position); const double probability = density(point,frames);
+			if (probability < config.agriculture_minimumDensity || (hash(seed,point) % 10000) / 10000.0 > probability) { return; }
+			if (Abs(groundPoint(world,point).y - position.y) > 1) { return; }
+			// 区画農道を整備した沿道では、その間へ直交する枝道を足さず、耕区の並行配置を保つ。
+			if (blockFrontage.any([&](Vec2 block) { return block.distanceFromSq(point) < Square(config.agriculture_accessSpacing * .5); })) { return; }
+			if (!rootCells.insert(Point{static_cast<int>(point.x / rootSpacing),static_cast<int>(point.y / rootSpacing)}).second) { return; }
+			const double reach = config.agriculture_trackReach * (config.agriculture_minimumReachRatio + (1 - config.agriculture_minimumReachRatio) * probability);
+			for (const int side : {-1,1})
+			{
+				// 町の道路沿いにある住宅帯を越え、最初の区間の先が農地なら取り付けを許可する。
+				if (agricultural(world,point + normal * side * config.agriculture_trackStep)) { roots << Root{position,node,normal * side,reach}; }
+			}
+		};
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0 || node.attachments.isEmpty() || node.attachments.size() > 3) { continue; }
+			const auto* edge = roads.getEdge(node.attachments.front().edgeId);
+			if (!edge || !eligible(*edge)) { continue; }
+			const auto curve = roads.getBezier(edge->id);
+			addRoots(node.position,node.id,horizontal(tangentToRight(curve->tangentAt(edge->nodeA == node.id ? 0 : curve->totalLength))));
+		}
+		// 長い沿道では交差点の間からも枝を出す。分岐点は枝を採用したときだけ作る。
+		for (const auto& frontage : frontages)
+		{
+			for (double arc = config.agriculture_accessSpacing; arc < frontage.totalLength - config.agriculture_accessSpacing * .5; arc += config.agriculture_accessSpacing)
+			{
+				const Vec3 position = frontage.positionAt(static_cast<float>(arc));
+				if (!agricultural(world,horizontal(position))) { continue; }
+				addRoots(position,none,horizontal(tangentToRight(frontage.tangentAt(static_cast<float>(arc)))));
+			}
+		}
+		const auto connectable = [](const RoadEdge& edge)
+		{
+			return edge.hasRoadLanes() && edge.isRoadbedBuilt() && !edge.tunnel && !edge.useElevation && edge.roadType != RoadType::Expressway;
+		};
+		/// @brief 枝農道の1区間が、耕地・勾配・切盛り・既存施設の条件を満たすか調べる。
+		const auto spurValid = [&](const CubicBezier& curve,bool leaving,double joiningWidth)
+		{
+			Vec3 last = curve.p0;
+			const int samples = Max(3,static_cast<int>(Ceil(curve.totalLength / config.agriculture_sampleStep)));
+			for (int i = 1; i <= samples; ++i)
+			{
+				const Vec3 p = curve.positionAt(curve.totalLength * i / samples), ground = groundPoint(world,horizontal(p));
+				const auto footprint = ParcelGeometry::footprint(horizontal(p),config.agriculture_trackWidth * .5 + 1,0);
+				const bool joining = p.distanceFrom(curve.p3) < joiningWidth;
+				if (!(leaving || joining || agricultural(world,horizontal(p)))
+					|| ground.y <= world.waterPlanningHeight(p.x,p.z) + config.agriculture_minimumFreeboard
+					|| Abs(ground.y - last.y) > horizontal(p - last).length() * config.agriculture_maximumTrackGrade
+					|| Abs(ground.y - p.y) >= config.agriculture_maximumTrackCutFill
+					|| rail.overlaps(footprint) || buildings.occupied.overlaps(footprint)
+					|| (p.distanceFrom(curve.p0) > 12 && !joining && occupied.overlaps(footprint))) { return false; }
+				last = ground;
+			}
+			return true;
+		};
+		int spurs = 0, abandoned = 0;
+		for (const auto& root : roots)
+		{
+			if (root.node && (!roads.getNode(*root.node) || roads.getNode(*root.node)->id < 0)) { continue; }
+			const auto awayFromRoot = [&](const RoadEdge& edge)
+			{
+				return connectable(edge) && (!root.node || (edge.nodeA != *root.node && edge.nodeB != *root.node));
+			};
+			Array<CubicBezier> path; Optional<RoadPlanSnapIndex::Hit> finish;
+			Vec3 start = root.position; Vec2 direction = root.direction;
+			const double phase = (hash(seed,horizontal(root.position)) % 10000) / 10000.0 * Math::TwoPi;
+			for (double run = 0; run < root.reach && !finish; run += config.agriculture_trackStep)
+			{
+				Optional<CubicBezier> best; Optional<RoadPlanSnapIndex::Hit> bestConnection; Vec2 bestDirection = direction; double bestCost = Math::Inf;
+				// 乱数を区間ごとに振らず、連続した蛇行の目標方向を地形費用と比較する。
+				const double bend = config.agriculture_meanderAngle * (Sin(phase + run * Math::TwoPi / config.agriculture_meanderWavelength) - Sin(phase));
+				const Vec2 preferred{root.direction.x * Cos(bend) - root.direction.y * Sin(bend),root.direction.x * Sin(bend) + root.direction.y * Cos(bend)};
+				for (const int turn : {0,-1,1,-2,2})
+				{
+					const double angle = turn * config.agriculture_trackHeadingStep;
+					const Vec2 next{direction.x * Cos(angle) - direction.y * Sin(angle),direction.x * Sin(angle) + direction.y * Cos(angle)};
+					if (next.dot(root.direction) < .25) { continue; }
+					Vec3 end = groundPoint(world,horizontal(start) + (direction + next).normalized() * config.agriculture_trackStep);
+					Optional<RoadPlanSnapIndex::Hit> connection;
+					const auto hit = connections.find(roads,end,config.agriculture_connectionRadius,config.agriculture_maximumTrackCutFill,false,awayFromRoot);
+					if (hit.edgeId)
+					{
+						const Vec2 span = horizontal(hit.position - start);
+						if (span.length() > 12 && span.normalized().dot(direction) > .5 && hit.position.distanceFrom(root.position) > config.agriculture_trackStep) { end = hit.position; connection = hit; }
+					}
+					if (!connection && !agricultural(world,horizontal(end))) { continue; }
+					const double handle = horizontal(end - start).length() / 3;
+					const CubicBezier curve{start,{start.x + direction.x * handle,Math::Lerp(start.y,end.y,1.0/3),start.z + direction.y * handle},
+						{end.x - next.x * handle,Math::Lerp(start.y,end.y,2.0/3),end.z - next.y * handle},end};
+					if (curve.minimumHorizontalRadius() < RoadDesignLimits::forType(RoadType::LocalRoad).minimumRadius) { continue; }
+					const double joiningWidth = connection ? roads.getEdge(*connection->edgeId)->totalWidth() * .5 + config.agriculture_trackWidth * .5 + 3 : 0;
+					if (!spurValid(curve,run == 0,joiningWidth)) { continue; }
+					double reliefCost = 0;
+					for (int i = 1; i <= 4; ++i) { reliefCost += Square(groundPoint(world,horizontal(curve.evaluate(i / 4.0f))).y - groundPoint(world,horizontal(curve.evaluate((i - 1) / 4.0f))).y); }
+					const double cost = reliefCost + Square(angle) * config.agriculture_trackTurnPenalty + (next - preferred).lengthSq() * config.agriculture_trackDirectionPenalty;
+					if ((!bestConnection && connection) || (static_cast<bool>(bestConnection) == static_cast<bool>(connection) && cost < bestCost))
+					{
+						best = curve; bestDirection = next; bestCost = cost; bestConnection = connection;
+					}
+				}
+				if (!best) { break; }
+				path << *best; start = best->p3; direction = bestDirection; finish = bestConnection;
+			}
+			if (path.isEmpty()) { continue; }
+			if (!finish)
+			{
+				// 届かなかった枝は、最寄りの道へ緩い曲線で戻せる場合だけ残す。
+				const auto hit = connections.find(roads,start,config.agriculture_deadEndConnectionRadius,
+					config.agriculture_deadEndConnectionRadius * config.agriculture_maximumTrackGrade,false,awayFromRoot);
+				if (hit.edgeId && hit.position.distanceFrom(root.position) > config.agriculture_trackStep)
+				{
+					const Vec3 tangent = (path.back().p3 - path.back().p2).normalized(), span = hit.position - start;
+					const double length = horizontal(span).length();
+					if (length >= 24 && horizontal(span).normalized().dot(horizontal(tangent).normalized()) >= -.25)
+					{
+						Vec3 handle = tangent * (length / 3); handle.y = span.y / 3;
+						const CubicBezier curve{start,start + handle,hit.position - span / 3,hit.position};
+						const double joiningWidth = roads.getEdge(*hit.edgeId)->totalWidth() * .5 + config.agriculture_trackWidth * .5 + 3;
+						if (RoadAlignment::respectsLimits(curve,RoadType::LocalRoad) && spurValid(curve,false,joiningWidth)) { path << curve; finish = hit; }
+					}
+				}
+			}
+			if (!finish || (!root.node && !probe(root.position).edgeId)) { ++abandoned; continue; }
+			// 終点側を先に分割する。始点が同じ辺上でも、分割後の辺から位置で取り直せる。
+			const auto last = attachHit(*finish);
+			const auto first = root.node ? root.node : (last ? attachHit(probe(root.position)) : none);
+			if (!first || !last || *first == *last || !commitTrack(*first,*last,path)) { ++abandoned; continue; }
+			++spurs;
+		}
+		DBG_LOG(U"[AgriculturalSpurs] seed={} roots={} spurs={} abandoned={} tracks={}"_fmt(seed,roots.size(),spurs,abandoned,stats.tracks));
 		// 伸長が終わった農道だけを再検査し、最寄りの接続可能な道まで枝を延長する。
 		Array<int> deadEnds;
 		for (const auto& node : roads.nodes())
@@ -442,7 +623,7 @@ namespace AgriculturalLayout
 				++stats.connections;
 			}
 		}
-		stats.homes=prepareHomes(world,roads,railway,frames);stats.drains=stats.tracks*2;return stats;
+		stats.homes=prepareHomes(world,roads,seed,railway,frames);stats.drains=stats.tracks*2;return stats;
 	}
 
 	Stats generate(World& world,RoadNetwork& roads,uint64 seed,const Array<Frame>& inputFrames,bool prepareAccess,const TrainNetwork* railway)

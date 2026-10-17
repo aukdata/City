@@ -41,7 +41,7 @@ namespace RailFacilities
 			}
 		}
 		/// @brief 歩行広場・送迎帯・待合・駐輪ラックを、確保済みの駅敷地内へ配置する。
-		void forecourt(Geometry& geometry,const World& world,const RailwaySite::Frame& station,const StationForecourt& site)
+		void forecourt(Geometry& geometry,const World& world,const RailwaySite::Frame& station,const StationForecourt& site,const Optional<Vec3>& entrance)
 		{
 			constexpr double kTileSize = 4;
 			constexpr double kVehicleBand = 5.5;
@@ -74,6 +74,17 @@ namespace RailFacilities
 					groundTile(geometry.parts[Paving],world,path,-1.2,1.2,z,Min(z + kTileSize,length),.105);
 				}
 			}
+			// 横断道路の先に設けた広場へは、駅舎の出口から歩道をつなぐ。
+			if (entrance)
+			{
+				Vec3 toPlaza = site.origin - *entrance; toPlaza.y = 0;
+				const double gap = toPlaza.length();
+				if (gap > .1)
+				{
+					toPlaza /= gap; const RailwaySite::Frame walk{*entrance,toPlaza,{toPlaza.z,0,-toPlaza.x}};
+					for (double z = 0; z < gap; z += kTileSize) { groundTile(geometry.parts[Paving],world,walk,-1.2,1.2,z,Min(z + kTileSize,gap),.105); }
+				}
+			}
 			const auto furniture = [&](Material material,Vec3 position,Vec3 size)
 			{
 				position.y += groundAt(world,surface.point(position.x,0,position.z)) - surface.origin.y;
@@ -92,13 +103,18 @@ namespace RailFacilities
 			const double signHeight = groundAt(world,surface.point(waitingX,0,waitingZ - 2.5)) - surface.origin.y + 2.2;
 			geometry.signs << Sign{surface.point(waitingX,signHeight,waitingZ - 2.5),surface.right,bus ? U"バス・タクシー" : U"送迎・タクシー",3.0};
 			// 屋根付きの駐輪ラックは歩行動線と離して端部へ。
-			const double cycleZ = site.size.y - 3;
-			furniture(Roof,{1.6,2.3,cycleZ},{3.6,.12,4});
-			for (const double z : {cycleZ - 1.5,cycleZ + 1.5}) { furniture(Steel,{3.2,1.15,z},{.09,2.3,.09}); }
-			for (int i = 0; i < 5; ++i)
+			// 小さな駅前では待合と重なるため、駐輪ラックは奥行きに余裕がある広場だけに置く。
+			constexpr double kCycleRackMinimumDepth = 24;
+			if (site.size.y >= kCycleRackMinimumDepth)
 			{
-				const double z = cycleZ - 1.4 + i * .7;
-				furniture(Steel,{1.4,.35,z},{1.5,.05,.05}); furniture(Steel,{2.1,.2,z},{.05,.4,.05});
+				const double cycleZ = site.size.y - 3;
+				furniture(Roof,{1.6,2.3,cycleZ},{3.6,.12,4});
+				for (const double z : {cycleZ - 1.5,cycleZ + 1.5}) { furniture(Steel,{3.2,1.15,z},{.09,2.3,.09}); }
+				for (int i = 0; i < 5; ++i)
+				{
+					const double z = cycleZ - 1.4 + i * .7;
+					furniture(Steel,{1.4,.35,z},{1.5,.05,.05}); furniture(Steel,{2.1,.2,z},{.05,.4,.05});
+				}
 			}
 			if (site.size.x >= 20)
 			{
@@ -308,7 +324,7 @@ namespace RailFacilities
 			RailStructure::prism(geometry.parts[Steel],base.point(x,1.05,22.1),base.point(x,ground,22.3+steps*.28),
 				base.right,base.right,0,.035,.96,.90);
 		}
-		if (node->forecourt) { forecourt(geometry,world,base,*node->forecourt); }
+		if (node->forecourt) { forecourt(geometry,world,base,*node->forecourt,node->entrance); }
 		return geometry;
 	}
 	Geometry depot(const TrainNetwork& network, const World& world, const RailDepot& depot)

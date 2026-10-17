@@ -96,8 +96,9 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 	}
 	// 緑道だけに囲まれた街区や外周緑地の角地を、接道する宅地だと誤認しない。
 	// 車道から建物幅ぶん後退した位置を採れる面だけを住宅用に残す。
-	Array<Optional<Polygon>> plannedParks(4);
-	Array<double> parkScores(4,Math::Inf);
+	// 緑道沿いの街区を優先し、緑道が通らない方面でも生活中心に近い街区を住区公園に充てる。
+	Array<Optional<Polygon>> plannedParks(4), fallbackParks(4);
+	Array<double> parkScores(4,Math::Inf), fallbackScores(4,Math::Inf);
 	for (const auto& block:StreetBlocks::collect(network))
 	{
 		Array<Vec2> boundary;
@@ -128,6 +129,8 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 			{
 				parkScores[quarter] = score; plannedParks[quarter] = Polygon{boundary};
 			}
+			const double civicDistance = center.distanceFrom(plan.civic ? plan.civic->center() : Vec2{0,0});
+			if (civicDistance < fallbackScores[quarter]) { fallbackScores[quarter] = civicDistance; fallbackParks[quarter] = Polygon{boundary}; }
 		}
 		bool frontage=false;
 		for (const int id:block.edges)
@@ -157,8 +160,9 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 		if (!frontage) { plan.neighborhoodParks << Polygon{boundary}; }
 	}
 	// 緑道とつながる住区公園を各方面に確保し、住宅地内にもまとまった緑を残す。
-	for (const auto& park : plannedParks)
+	for (size_t quarter = 0; quarter < plannedParks.size(); ++quarter)
 	{
+		const auto& park = plannedParks[quarter] ? plannedParks[quarter] : fallbackParks[quarter];
 		if (park && !plan.neighborhoodParks.any([&](const Polygon& existing) { return existing.intersects(*park); }))
 		{
 			plan.neighborhoodParks << *park;

@@ -24,7 +24,7 @@
   "trackDirectionPenalty": 0.3,
   "trackHeadingStep": 0.16,
   "maximumTrackCutFill": 1,
-  "densityFalloff": 1.0,
+  "densityFalloff": 0.6,
   "minimumDensity": 0.08,
   "rootSpacingRatio": 0.65,
   "minimumReachRatio": 0.65,

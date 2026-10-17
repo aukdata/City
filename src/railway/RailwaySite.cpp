@@ -140,14 +140,20 @@ namespace RailwaySite
 				entrance = frame->point(-12,0,kStairStart + steps * kStepRun);
 			}
 			entrance.y = world.sampleHeight(static_cast<float>(entrance.x),static_cast<float>(entrance.z));
-			const Frame surface{entrance,frame->along,frame->right};
 			const Array<Vec2> sizes = node->stationKind == StationKind::Terminal
-				? Array<Vec2>{{38,42},{28,32},{20,24},{14,18}} : Array<Vec2>{{24,28},{20,24},{14,18}};
-			for (const Vec2 size : sizes)
+				? Array<Vec2>{{38,42},{28,32},{20,24},{14,18},{12,14},{10,16}} : Array<Vec2>{{24,28},{20,24},{14,18},{12,14},{10,16}};
+			int roadOverlap = 0, uneven = 0, noStreet = 0, blockedPath = 0;
+			// 駅舎の出口に横断道路が接している駅では、道を渡った先の街区に広場を設ける。
+			constexpr std::array<double,3> kPlazaOffsets{0.0,16.0,32.0};
+			for (size_t attempt = 0; attempt < kPlazaOffsets.size() * sizes.size() && !node->forecourt; ++attempt)
 			{
-				StationForecourt proposed{entrance,size,{}};
+				const Vec2 size = sizes[attempt % sizes.size()];
+				Vec3 origin = entrance + frame->along * kPlazaOffsets[attempt / sizes.size()];
+				origin.y = world.sampleHeight(static_cast<float>(origin.x),static_cast<float>(origin.z));
+				const Frame surface{origin,frame->along,frame->right};
+				StationForecourt proposed{origin,size,{}};
 				const auto footprint = forecourtFootprint(*frame,proposed);
-				if (occupied.overlaps(footprint)) { continue; }
+				if (occupied.overlaps(footprint)) { ++roadOverlap; continue; }
 				bool valid = true; double low = Math::Inf, high = -Math::Inf;
 				const int rows = static_cast<int>(Ceil(size.y / kSurveyStep)), columns = static_cast<int>(Ceil(size.x / kSurveyStep));
 				for (int row = 0; row <= rows; ++row) { for (int column = 0; column <= columns; ++column)
@@ -158,15 +164,17 @@ namespace RailwaySite
 						&& height > world.waterPlanningHeight(p.x,p.z) + 1;
 					low = Min(low,height); high = Max(high,height);
 				} }
-				if (!valid || high - low > kMaximumRelief) { continue; }
+				if (!valid || high - low > kMaximumRelief) { ++uneven; continue; }
 				// 道路中心ではなく広場側の歩道端へ接続する。線路を横断する接続は除外。
+				// 最寄りの道へ別の道路を横切らずに歩けない場合は、次に近い道を試す。
 				const Vec3 center = surface.point(4 - size.x * .5,0,size.y * .5);
-				double nearest = Square(kMaximumStreetDistance); Optional<Vec3> access;
+				Array<std::pair<double,Vec3>> candidates;
 				for (const auto& edge : roads.edges())
 				{
 					if (edge.id < 0 || !edge.hasRoadLanes() || !edge.isRoadbedBuilt() || edge.useElevation || edge.tunnel || edge.roadType == RoadType::Expressway) { continue; }
 					const auto curve = roads.getBezier(edge.id); if (!curve) { continue; }
 					const int samples = Max(1,static_cast<int>(Ceil(curve->totalLength / kSurveyStep)));
+					Optional<std::pair<double,Vec3>> best;
 					for (int sample = 0; sample <= samples; ++sample)
 					{
 						const float arc = curve->totalLength * sample / samples;
@@ -174,32 +182,46 @@ namespace RailwaySite
 						p += right * ((center - p).dot(right) > 0 ? 1 : -1) * (edge.totalWidth() * .5 - .5);
 						if ((p - frame->origin).dot(frame->right) > -8) { continue; }
 						const double distance = Vec2{p.x - center.x,p.z - center.z}.lengthSq();
-						if (distance < nearest)
+						if (distance < Square(kMaximumStreetDistance) && (!best || distance < best->first))
 						{
-							nearest = distance; p.y = world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)); access = p;
+							p.y = world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z)); best = std::pair{distance,p};
 						}
 					}
+					if (best) { candidates << *best; }
 				}
-				if (!access) { continue; }
-				Vec3 previous = center; previous.y = world.sampleHeight(static_cast<float>(center.x),static_cast<float>(center.z));
-				const int samples = Max(1,static_cast<int>(Ceil(Sqrt(nearest) / kSurveyStep)));
-				constexpr double kMaximumWalkGrade = .12;
-				constexpr double kConnectionHalfWidth = 1.5;
-				for (int sample = 1; sample <= samples; ++sample)
+				if (candidates.isEmpty()) { ++noStreet; continue; }
+				candidates.sort_by([](const auto& a,const auto& b) { return a.first < b.first; });
+				Optional<Vec3> access;
+				constexpr size_t kMaximumAccessCandidates = 6;
+				for (size_t index = 0; index < Min(candidates.size(),kMaximumAccessCandidates) && !access; ++index)
 				{
-					Vec3 point = center.lerp(*access,static_cast<double>(sample) / samples);
-					point.y = world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-					valid &= point.y > world.waterPlanningHeight(point.x,point.z) + 1
-						&& Abs(point.y - previous.y) <= Vec2{point.x - previous.x,point.z - previous.z}.length() * kMaximumWalkGrade;
-					if (sample + 1 < samples && occupied.overlaps(ParcelGeometry::footprint({point.x,point.z},kConnectionHalfWidth,0))) { valid = false; }
-					previous = point;
+					const Vec3 target = candidates[index].second;
+					Vec3 previous = center; previous.y = world.sampleHeight(static_cast<float>(center.x),static_cast<float>(center.z));
+					const int samples = Max(1,static_cast<int>(Ceil(Sqrt(candidates[index].first) / kSurveyStep)));
+					constexpr double kMaximumWalkGrade = .12;
+					constexpr double kConnectionHalfWidth = 1.5;
+					bool walkable = true;
+					for (int sample = 1; sample <= samples && walkable; ++sample)
+					{
+						Vec3 point = center.lerp(target,static_cast<double>(sample) / samples);
+						point.y = world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+						walkable = point.y > world.waterPlanningHeight(point.x,point.z) + 1
+							&& Abs(point.y - previous.y) <= Vec2{point.x - previous.x,point.z - previous.z}.length() * kMaximumWalkGrade
+							&& (sample + 1 >= samples || !occupied.overlaps(ParcelGeometry::footprint({point.x,point.z},kConnectionHalfWidth,0)));
+						previous = point;
+					}
+					if (walkable) { access = target; }
 				}
-				if (!valid) { continue; }
+				if (!access) { ++blockedPath; continue; }
 				proposed.streetAccess = *access; node->forecourt = proposed; node->entrance = entrance; ++created;
-				DBG_LOG(U"[StationForecourt] id={} name={} position={} size={} street={} relief={}"_fmt(id,node->name,entrance,size,*access,high - low));
+				DBG_LOG(U"[StationForecourt] id={} name={} position={} offset={} size={} street={} relief={}"_fmt(id,node->name,entrance,kPlazaOffsets[attempt / sizes.size()],size,*access,high - low));
 				break;
 			}
-			if (!node->forecourt) { DBG_LOG(U"[StationForecourt] id={} position={} reason=no-clear-ground-with-street-access"_fmt(id,node->position)); }
+			if (!node->forecourt)
+			{
+				DBG_LOG(U"[StationForecourt] id={} position={} reason=no-clear-ground-with-street-access roadOverlap={} uneven={} noStreet={} blockedPath={}"_fmt(
+					id,node->position,roadOverlap,uneven,noStreet,blockedPath));
+			}
 		}
 		DBG_LOG(U"[StationForecourt] created={} stations={}"_fmt(created,stations.size()));
 	}

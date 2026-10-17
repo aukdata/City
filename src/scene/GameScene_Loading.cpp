@@ -57,13 +57,14 @@ void GameScene::initNewGame()
 			return id >= 0 ? m_districtHierarchy.areas[id].name : U"";
 		});
 		m_trainNetwork.synchronize();
+		// 建物は計画水位だけでなく、実際に流した初期の川の水面も避けて配置・検証する。
+		setLoadingStatus(U"川の流れを準備中...");
+		m_world.prepareSourceWaterForNewGame();
 		if (options.enabled(Element::Buildings))
 		{
 			applyZonesGlobal();
 			placeInitialBuildings();
 		}
-		setLoadingStatus(U"川の流れを準備中...");
-		m_world.prepareSourceWaterForNewGame();
 	});
 	DebugLog::print(U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks));
 }
