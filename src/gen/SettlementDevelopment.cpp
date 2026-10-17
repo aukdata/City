@@ -1773,11 +1773,22 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 			} }
 			for (const auto& patch:chunk->landPatches) { if (patch.type==LandPatchType::FarmField || patch.type==LandPatchType::PaddyField) { farmPlots << &patch; } }
 		} }
+		constexpr double kHomeBucket=256;
+		constexpr int kHomeReach=4;
+		HashTable<Point,Array<Vec2>> homeBuckets;
+		for (const Vec2 home:farmHomes) { homeBuckets[Point{static_cast<int>(Floor(home.x/kHomeBucket)),static_cast<int>(Floor(home.y/kHomeBucket))}] << home; }
 		double maximumHomeDistance=0;int isolatedFields=0,irregularFields=0;
 		for (size_t index=0;index<farmPlots.size();++index)
 		{
 			const auto& patch=*farmPlots[index];double nearest=Math::Inf;
-			for (const Vec2 home:farmHomes) { double farthest=0;for (const Vec2 point:patch.polygon) { farthest=Max(farthest,home.distanceFrom(point)); }nearest=Min(nearest,farthest); }
+			// 家は数万軒あるため格子で近傍だけを調べる。探索範囲外は孤立した田畑として範囲の値を記録する。
+			const Point bucket{static_cast<int>(Floor(patch.polygon.front().x/kHomeBucket)),static_cast<int>(Floor(patch.polygon.front().y/kHomeBucket))};
+			for (int dz=-kHomeReach;dz<=kHomeReach;++dz) { for (int dx=-kHomeReach;dx<=kHomeReach;++dx)
+			{
+				const auto found=homeBuckets.find(bucket+Point{dx,dz});if (found==homeBuckets.end()) { continue; }
+				for (const Vec2 home:found->second) { double farthest=0;for (const Vec2 point:patch.polygon) { farthest=Max(farthest,home.distanceFrom(point)); }nearest=Min(nearest,farthest); }
+			} }
+			nearest=Min(nearest,kHomeBucket*kHomeReach);
 			maximumHomeDistance=Max(maximumHomeDistance,nearest);isolatedFields+=nearest>500;irregularFields+=patch.polygon.size()>4;
 			if (index<64) { const Vec2 center=Polygon{patch.polygon}.centroid();report[U"fieldExamples"][index]=Array<double>{center.x,center.y,nearest}; }
 		}

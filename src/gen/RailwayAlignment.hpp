@@ -55,6 +55,9 @@ namespace RailwayAlignment
 		}
 		if (stations.size()<2) { UrbanFacilities::generateSubways(world,network,towns); return; }
 		HashSet<int> connected{stations.front()}; HashSet<uint64> rejected; int lines=0,failures=0;
+		// 近い順に3駅から通せない駅は、山や海で隔てられた別の地域とみなす。遠い駅からの探索を繰り返して生成を長引かせない。
+		constexpr int kMaximumTargetAttempts=3;
+		HashTable<int,int> targetFailures;
 		const auto pairKey=[](int a,int b) { return (static_cast<uint64>(Min(a,b))<<32)|static_cast<uint32>(Max(a,b)); };
 		while (connected.size()<stations.size())
 		{
@@ -253,7 +256,16 @@ namespace RailwayAlignment
 					else { DBG_LOG(U"[RailAlignmentRejected] variant={} reason=radius-or-grade"_fmt(alternative)); }
 				}
 			}
-			if (bestPoints.isEmpty()) { ++failures; rejected.insert(pairKey(from,to)); DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to)); continue; }
+			if (bestPoints.isEmpty())
+			{
+				++failures; rejected.insert(pairKey(from,to)); DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to));
+				if (++targetFailures[to]>=kMaximumTargetAttempts)
+				{
+					connected.insert(to);
+					DBG_LOG(U"[RailwaySeparateRegion] candidate={} position={} reason=attempts-exhausted"_fmt(to,candidates[to].position));
+				}
+				continue;
+			}
 			connected.insert(to);
 			const int firstStation=buildStation(from),lastStation=buildStation(to);
 			Array<int> ids{firstStation};

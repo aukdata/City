@@ -67,7 +67,7 @@ public:
 	/// @brief 道路部品アセットをロードする
 	bool loadAssets();
 	/// @brief 読み込み中に地域全体の簡略路面を準備し、視点移動時の一斉生成を避ける。
-	void preloadFallbacks(const RoadNetwork& network,const World& world);
+	void preloadFallbacks(const RoadNetwork& network,const World& world,Optional<Vec3> focus=none);
 	/// @brief Prepare the initial nearby equipment before play; later visits use frame-bounded streaming.
 	void preloadDetails(const RoadNetwork& network, const World& world, Vec3 eye);
 	/// @brief Construction uses the paused/resumed game clock, never wall time.
@@ -250,6 +250,20 @@ private:
 	HashTable<int, PartMeshEntry> m_fallbackNodes;
 	void prepareFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world);
 	void prepareFallbackNode(int nodeId,const RoadNetwork& network,const World& world);
+	/// @brief GPU に依存しない遠景用メッシュの頂点計算。読み取り専用で、複数スレッドから同時に呼べる。
+	struct FallbackPartData { MeshData data; ColorF color; const Texture* texture = nullptr; RoadPartType type = RoadPartType::Roadbed; bool asphalt = true; };
+	struct FallbackEdgeData { int64 chunk = 0; int nodeA = -1, nodeB = -1; Array<FallbackPartData> parts; };
+	struct FallbackNodeData { bool valid = false; int64 chunk = 0; MeshData data; };
+	[[nodiscard]] FallbackEdgeData buildFallbackEdgeData(const RoadEdge& edge,const RoadNetwork& network,const World& world) const;
+	[[nodiscard]] FallbackNodeData buildFallbackNodeData(int nodeId,const RoadNetwork& network,const World& world) const;
+	/// @param createMeshes false のとき GPU メッシュは初めて描く時まで作らず、遠景バッチ用の頂点だけを登録する。
+	void commitFallbackEdge(int edgeId,FallbackEdgeData&& data,bool createMeshes=true);
+	void commitFallbackNode(int nodeId,FallbackNodeData&& data,bool createMeshes=true);
+	/// @brief 読み込み時に作らなかった遠景用メッシュを、描く直前に作る。
+	void materializeFallbackEdge(int edgeId);
+	void materializeFallbackNode(int nodeId);
+	HashTable<int,Array<MeshData>> m_pendingFallbackEdges;
+	HashTable<int,MeshData> m_pendingFallbackNodes;
 	HashTable<int64,uint64> m_preloadedHeights;
 	[[nodiscard]] bool canBuildCache();
 	void drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world);

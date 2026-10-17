@@ -104,6 +104,7 @@ private:
 	/// @details Loading 中は通常更新を止め、get() 後にメインスレッドで GPU 資源を準備する。
 	/// 破棄時にも完了を待ち、ワーカが参照するワールドの寿命を守る。
 	std::future<void> m_generationFuture;
+	bool m_buildingModelsPreloaded = false; ///< 建物模型は生成と並行して一度だけ読み込む。
 
 	/// @brief 生成進捗 [0.0, 1.0]（atomic でバックグラウンドスレッドから更新）
 	std::atomic<float> m_genProgress{ 0.0f };

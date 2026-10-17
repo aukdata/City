@@ -114,6 +114,12 @@ void GameScene::updateLoading()
 	// バックグラウンド生成の完了待ちと、成功時の最終初期化・失敗時の画面維持をここで分岐する。
 	if (m_generationFuture.valid())
 	{
+		// 建物模型の読み込みは生成結果に依存しない。生成スレッドの処理中に描画スレッドで済ませ、完了後の待ち時間を減らす。
+		if (!m_buildingModelsPreloaded && m_generationFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+		{
+			m_worldRenderer.preloadBuildingModels();
+			m_buildingModelsPreloaded = true;
+		}
 		if (m_generationFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
 		{
 			const auto failLoading = [this](const String& reason)
@@ -206,10 +212,10 @@ void GameScene::updateLoading()
 			{
 				(void)TextureAsset{name}.size();
 			}
-			m_worldRenderer.preloadBuildingModels();
+			if (!m_buildingModelsPreloaded) { m_worldRenderer.preloadBuildingModels(); m_buildingModelsPreloaded = true; }
 			m_worldRenderer.setTransportSites(m_trainNetwork, m_network, m_world);
 			m_worldRenderer.prepareWorld(m_world, m_network);
-			m_roadRenderer.preloadFallbacks(m_network,m_world);
+			m_roadRenderer.preloadFallbacks(m_network,m_world,m_camera.focusPoint());
 			m_roadRenderer.preloadDetails(m_network,m_world,m_camera.eyePosition());
 			FontAsset(Asset::Small16).preload(U"街の情報交通通知停止再開操作速度人口資金周辺地図混雑平均最大住宅充足率月次収支幸福度道路工事中同じタブを押すと閉じます0123456789×億円年月日時分−＋?…/.: ");
 			String placeGlyphs=U"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,-()";

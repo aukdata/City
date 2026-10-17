@@ -101,6 +101,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 		++m_cacheBuildStats.edges;
 		m_cacheBuildStats.partsMs += buildTimer.msF();
 		m_fallbackEdges.erase(edge.id);
+		m_pendingFallbackEdges.erase(edge.id);
 		m_drawnFallbackEdges.erase(edge.id);
 		++m_geometryRevision;
 		meshIt = m_partMeshCache.emplace(edge.id, std::move(entries)).first;
@@ -254,6 +255,7 @@ void RoadRenderer::drawNodeCap(const RoadNetwork& network, int nodeId, const Wor
 		++m_cacheBuildStats.nodes;
 		m_cacheBuildStats.nodesMs += cacheTimer.msF();
 		m_fallbackNodes.erase(nodeId);
+		m_pendingFallbackNodes.erase(nodeId);
 		++m_geometryRevision;
 		m_nodeCapCache[nodeId] = std::move(entries);
 	}
@@ -573,49 +575,130 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
 }
 
 /// @brief A continuous, inexpensive surface remains visible while exact roadside parts are built.
+RoadRenderer::FallbackEdgeData RoadRenderer::buildFallbackEdgeData(const RoadEdge& edge, const RoadNetwork& network, const World& world) const
+{
+	FallbackEdgeData result;
+	result.nodeA = edge.nodeA; result.nodeB = edge.nodeB;
+	if (const auto bezier = network.getBezier(edge.id))
+	{
+		const Vec3 middle = bezier->positionAt(bezier->totalLength * .5f);
+		result.chunk = chunkCoordToKey({static_cast<int>(Floor(middle.x / CHUNK_SIZE)), static_cast<int>(Floor(middle.z / CHUNK_SIZE))});
+		StripRange range;
+		if (calcStripRange(bezier->totalLength, edge.cutoffA, edge.cutoffB, range))
+		{
+			for (const auto& part : edge.parts)
+			{
+				if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) { continue; }
+				const auto [color, height, texture] = getPartVisual(part);
+				auto data = buildStripMeshTapered(*bezier, world, part.offsetA_L, part.offsetA_R,
+					part.offsetB_L, part.offsetB_R, height, range.sStart, range.sEnd, .25f, 0, edge.usesDesignHeight());
+				if (data.indices.isEmpty()) { continue; }
+				orientRoadFaces(data);
+				result.parts << FallbackPartData{std::move(data), color, texture, part.type, part.asphalt()};
+			}
+		}
+	}
+	return result;
+}
+
+void RoadRenderer::commitFallbackEdge(int edgeId, FallbackEdgeData&& data, bool createMeshes)
+{
+	Array<PartMeshEntry> entries;
+	Array<MeshData> pending;
+	OverviewSource overview{};
+	overview.nodeA = data.nodeA; overview.nodeB = data.nodeB; overview.chunk = data.chunk;
+	for (auto& part : data.parts)
+	{
+		const Mesh mesh = createMeshes ? Mesh{part.data} : Mesh{};
+		if (!createMeshes) { pending << part.data; }
+		entries << PartMeshEntry{{mesh, mesh}, part.color, part.texture, part.type, part.asphalt};
+		overview.parts << OverviewPart{std::move(part.data), entries.back()};
+	}
+	if (!pending.isEmpty()) { m_pendingFallbackEdges[edgeId] = std::move(pending); }
+	m_overviewDirty.insert(overview.chunk);
+	m_overviewSources[static_cast<int64>(edgeId) * 2] = std::move(overview);
+	m_overviewOwners[m_overviewSources.at(static_cast<int64>(edgeId)*2).chunk].insert(static_cast<int64>(edgeId)*2);
+	m_fallbackEdges.emplace(edgeId, std::move(entries));
+	++m_geometryRevision;
+}
+
 void RoadRenderer::prepareFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world)
 {
 	if (!m_fallbackEdges.contains(edge.id))
 	{
 		const Stopwatch timer{StartImmediately::Yes};
-		Array<PartMeshEntry> entries;
-		OverviewSource overview{};
-		overview.nodeA = edge.nodeA; overview.nodeB = edge.nodeB;
-		if (const auto bezier = network.getBezier(edge.id))
-		{
-			const Vec3 middle = bezier->positionAt(bezier->totalLength * .5f);
-			overview.chunk = chunkCoordToKey({static_cast<int>(Floor(middle.x / CHUNK_SIZE)), static_cast<int>(Floor(middle.z / CHUNK_SIZE))});
-			StripRange range;
-			if (calcStripRange(bezier->totalLength, edge.cutoffA, edge.cutoffB, range))
-			{
-				for (const auto& part : edge.parts)
-				{
-					if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) { continue; }
-					const auto [color, height, texture] = getPartVisual(part);
-					auto data = buildStripMeshTapered(*bezier, world, part.offsetA_L, part.offsetA_R,
-						part.offsetB_L, part.offsetB_R, height, range.sStart, range.sEnd, .25f, 0, edge.usesDesignHeight());
-					if (data.indices.isEmpty()) { continue; }
-					orientRoadFaces(data);
-					const Mesh mesh{data};
-					entries << PartMeshEntry{{mesh, mesh}, color, texture, part.type, part.asphalt()};
-					overview.parts << OverviewPart{std::move(data), entries.back()};
-				}
-			}
-		}
-		m_overviewDirty.insert(overview.chunk);
-		m_overviewSources[static_cast<int64>(edge.id) * 2] = std::move(overview);
-		m_overviewOwners[m_overviewSources.at(static_cast<int64>(edge.id)*2).chunk].insert(static_cast<int64>(edge.id)*2);
-		m_fallbackEdges.emplace(edge.id, std::move(entries));
-		++m_geometryRevision;
+		commitFallbackEdge(edge.id, buildFallbackEdgeData(edge, network, world));
 		m_cacheBuildStats.fallbackMs += timer.msF();
 	}
+}
+
+void RoadRenderer::materializeFallbackEdge(int edgeId)
+{
+	const auto pending = m_pendingFallbackEdges.find(edgeId);
+	if (pending == m_pendingFallbackEdges.end()) { return; }
+	if (const auto entries = m_fallbackEdges.find(edgeId); entries != m_fallbackEdges.end())
+	{
+		for (size_t i = 0; i < entries->second.size() && i < pending->second.size(); ++i)
+		{
+			const Mesh mesh{pending->second[i]};
+			entries->second[i].meshPair = {mesh, mesh};
+		}
+	}
+	m_pendingFallbackEdges.erase(pending);
+}
+
+void RoadRenderer::materializeFallbackNode(int nodeId)
+{
+	const auto pending = m_pendingFallbackNodes.find(nodeId);
+	if (pending == m_pendingFallbackNodes.end()) { return; }
+	if (const auto entry = m_fallbackNodes.find(nodeId); entry != m_fallbackNodes.end())
+	{
+		const Mesh mesh{pending->second};
+		entry->second.meshPair = {mesh, mesh};
+	}
+	m_pendingFallbackNodes.erase(pending);
 }
 
 void RoadRenderer::drawFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world)
 {
 	prepareFallbackEdge(edge,network,world);
+	materializeFallbackEdge(edge.id);
 	m_drawnFallbackEdges.emplace(edge.id);
 	for (const auto& entry : m_fallbackEdges.at(edge.id)) { drawSurface(entry, entry.meshPair.detail); }
+}
+
+RoadRenderer::FallbackNodeData RoadRenderer::buildFallbackNodeData(int nodeId, const RoadNetwork& network, const World& world) const
+{
+	FallbackNodeData result;
+	const auto layout = JunctionGeometry::build(network, nodeId, true, &world);
+	result.data = JunctionGeometry::terrainFootprint(layout);
+	for (auto& vertex : result.data.vertices)
+	{
+		if (!layout.elevated) { vertex.pos.y = static_cast<float>(world.sampleHeight(vertex.pos.x, vertex.pos.z) + kRoadSurfaceLift); }
+		vertex.tex = Float2{vertex.pos.x * kWorldUV, vertex.pos.z * kWorldUV};
+	}
+	orientRoadFaces(result.data);
+	if (const auto* node = network.getNode(nodeId))
+	{
+		result.valid = true;
+		result.chunk = chunkCoordToKey({static_cast<int>(Floor(node->position.x / CHUNK_SIZE)), static_cast<int>(Floor(node->position.z / CHUNK_SIZE))});
+	}
+	return result;
+}
+
+void RoadRenderer::commitFallbackNode(int nodeId, FallbackNodeData&& data, bool createMeshes)
+{
+	const auto& definition = m_partRegistry.get(U"roadbed_asphalt");
+	const Mesh mesh = data.data.indices.isEmpty() || !createMeshes ? Mesh{} : Mesh{data.data};
+	if (!createMeshes && !data.data.indices.isEmpty()) { m_pendingFallbackNodes[nodeId] = data.data; }
+	m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, ColorF{.29, .30, .32},
+		definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
+	if (data.valid)
+	{
+		m_overviewDirty.insert(data.chunk);
+		m_overviewSources[static_cast<int64>(nodeId) * 2 + 1] = OverviewSource{data.chunk, {{std::move(data.data), m_fallbackNodes.at(nodeId)}}};
+		m_overviewOwners[data.chunk].insert(static_cast<int64>(nodeId)*2+1);
+	}
 }
 
 void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, const World& world)
@@ -623,25 +706,7 @@ void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, c
 	if (!m_fallbackNodes.contains(nodeId))
 	{
 		const Stopwatch timer{StartImmediately::Yes};
-		const auto layout = JunctionGeometry::build(network, nodeId, true, &world);
-		auto data = JunctionGeometry::terrainFootprint(layout);
-		for (auto& vertex : data.vertices)
-		{
-			if (!layout.elevated) { vertex.pos.y = static_cast<float>(world.sampleHeight(vertex.pos.x, vertex.pos.z) + kRoadSurfaceLift); }
-			vertex.tex = Float2{vertex.pos.x * kWorldUV, vertex.pos.z * kWorldUV};
-		}
-		orientRoadFaces(data);
-		const auto& definition = m_partRegistry.get(U"roadbed_asphalt");
-		const Mesh mesh = data.indices.isEmpty() ? Mesh{} : Mesh{data};
-		m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, ColorF{.29, .30, .32},
-			definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
-		if (const auto* node = network.getNode(nodeId))
-		{
-			const int64 key = chunkCoordToKey({static_cast<int>(Floor(node->position.x / CHUNK_SIZE)), static_cast<int>(Floor(node->position.z / CHUNK_SIZE))});
-			m_overviewDirty.insert(key);
-			m_overviewSources[static_cast<int64>(nodeId) * 2 + 1] = OverviewSource{key, {{std::move(data), m_fallbackNodes.at(nodeId)}}};
-			m_overviewOwners[key].insert(static_cast<int64>(nodeId)*2+1);
-		}
+		commitFallbackNode(nodeId, buildFallbackNodeData(nodeId, network, world));
 		m_cacheBuildStats.fallbackMs += timer.msF();
 	}
 }
@@ -649,6 +714,7 @@ void RoadRenderer::prepareFallbackNode(int nodeId, const RoadNetwork& network, c
 void RoadRenderer::drawFallbackNode(int nodeId,const RoadNetwork& network,const World& world)
 {
 	prepareFallbackNode(nodeId,network,world);
+	materializeFallbackNode(nodeId);
 	const auto& entry = m_fallbackNodes.at(nodeId);
 	if (entry.meshPair.detail) { drawSurface(entry, entry.meshPair.detail); }
 }

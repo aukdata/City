@@ -3,6 +3,8 @@
 #include "../road/RoadSign.hpp"
 #include "../debug/DebugLog.hpp"
 #include <bit>
+#include <future>
+#include <thread>
 
 namespace
 {
@@ -14,16 +16,44 @@ namespace
 	}
 }
 
-void RoadRenderer::preloadFallbacks(const RoadNetwork& network,const World& world)
+void RoadRenderer::preloadFallbacks(const RoadNetwork& network,const World& world,Optional<Vec3> focus)
 {
 	const Stopwatch timer{StartImmediately::Yes};
-	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt()) { prepareFallbackEdge(edge,network,world); m_boundsCache[edge.id]=edgeBounds(network,edge.id); } }
-	for(const auto& node:network.nodes()) { if(node.id>=0 && !node.attachments.isEmpty()) { prepareFallbackNode(node.id,network,world); } }
+	// 頂点計算は読み取り専用なので複数スレッドへ分け、GPU メッシュの作成と登録だけを描画スレッドで行う。
+	Array<int> edges,nodes;
+	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt() && !m_fallbackEdges.contains(edge.id)) { edges << edge.id; } }
+	for(const auto& node:network.nodes()) { if(node.id>=0 && !node.attachments.isEmpty() && !m_fallbackNodes.contains(node.id)) { nodes << node.id; } }
+	constexpr size_t kMaximumWorkers=8;
+	const size_t workers=Max<size_t>(1,Min<size_t>(kMaximumWorkers,std::thread::hardware_concurrency()));
+	Array<FallbackEdgeData> edgeData(edges.size());Array<FallbackNodeData> nodeData(nodes.size());
+	{
+		Array<std::future<void>> jobs;
+		for(size_t worker=0;worker<workers;++worker)
+		{
+			jobs << std::async(std::launch::async,[&,worker]
+			{
+				for(size_t i=worker;i<edges.size();i+=workers) { edgeData[i]=buildFallbackEdgeData(*network.getEdge(edges[i]),network,world); }
+				for(size_t i=worker;i<nodes.size();i+=workers) { nodeData[i]=buildFallbackNodeData(nodes[i],network,world); }
+			});
+		}
+		for(auto& job:jobs) { job.get(); }
+	}
+	const double cpuMs=timer.msF();
+	// GPU メッシュの作成は1件ずつ重い。開始地点の周辺だけを先に作り、遠い道路は初めて描く時に作る。
+	constexpr double kEagerMeshRadius=3000;
+	const auto nearFocus=[&](Vec3 position) { return !focus || Vec2{position.x-focus->x,position.z-focus->z}.lengthSq()<kEagerMeshRadius*kEagerMeshRadius; };
+	for(size_t i=0;i<edges.size();++i)
+	{
+		const auto* edge=network.getEdge(edges[i]);
+		commitFallbackEdge(edges[i],std::move(edgeData[i]),nearFocus(network.getNode(edge->nodeA)->position));
+	}
+	for(const auto& edge:network.edges()) { if(edge.id>=0 && edge.isRoadbedBuilt()) { m_boundsCache[edge.id]=edgeBounds(network,edge.id); } }
+	for(size_t i=0;i<nodes.size();++i) { commitFallbackNode(nodes[i],std::move(nodeData[i]),nearFocus(network.getNode(nodes[i])->position)); }
 	for(int z=0;z<WORLD_CHUNKS;++z) { for(int x=0;x<WORLD_CHUNKS;++x)
 	{
 		if(const auto* chunk=world.getChunk({x,z});chunk && !chunk->heightMap.isEmpty()) { m_preloadedHeights[chunkCoordToKey(chunk->coord)]=terrainSignature(*chunk); }
 	} }
-	DBG_LOG(U"[RoadFallback] preload edges={} nodes={} ms={:.2f}"_fmt(m_fallbackEdges.size(),m_fallbackNodes.size(),timer.msF()));
+	DBG_LOG(U"[RoadFallback] preload edges={} nodes={} cpuMs={:.2f} ms={:.2f}"_fmt(m_fallbackEdges.size(),m_fallbackNodes.size(),cpuMs,timer.msF()));
 	HashSet<int64> overviewKeys;
 	for (const auto& [owner, source] : m_overviewSources) { overviewKeys.insert(source.chunk); }
 	for (int64 key : overviewKeys) { rebuildOverview(key); }
@@ -231,6 +261,7 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 	m_constructionCache.erase(edgeId);
 	invalidateOverview(static_cast<int64>(edgeId) * 2);
 	m_fallbackEdges.erase(edgeId);
+	m_pendingFallbackEdges.erase(edgeId);
 	m_drawnFallbackEdges.erase(edgeId);
 	if (m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
 		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
@@ -256,6 +287,7 @@ void RoadRenderer::eraseNodeCaches(int nodeId)
 	if (m_nodeCapCache.contains(nodeId) || m_signalAttachGeomCache.contains(nodeId)) { ++m_geometryRevision; }
 	m_nodeCapCache.erase(nodeId);
 	m_fallbackNodes.erase(nodeId);
+	m_pendingFallbackNodes.erase(nodeId);
 	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2);
 	m_markingCacheByNode.erase(static_cast<int64>(nodeId) * 2 + 1);
 
@@ -288,6 +320,7 @@ void RoadRenderer::invalidateEdgeCache(int edgeId, int nodeA, int nodeB)
 		for (int64 owner : nodeOwners) { invalidateOverview(owner); }
 		m_nodeCapCache.clear();
 		m_fallbackNodes.clear();
+		m_pendingFallbackNodes.clear();
 		m_nodeCapWireCache.clear();
 		m_markingCacheByNode.clear();
 
@@ -309,8 +342,10 @@ void RoadRenderer::invalidateAllCaches()
 	m_preloadedHeights.clear();
 	m_constructionCache.clear();
 	m_fallbackEdges.clear();
+	m_pendingFallbackEdges.clear();
 	m_drawnFallbackEdges.clear();
 	m_fallbackNodes.clear();
+	m_pendingFallbackNodes.clear();
 	m_pierMeshCache.clear();
 	m_signalSummaryCache.clear();
 	++m_geometryRevision;
