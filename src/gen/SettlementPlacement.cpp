@@ -362,7 +362,19 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 		if (draw>=fabric.urbanFabric_newTownCityProbability) { continue; }
 		Optional<Settlement> best;
 		double bestCost=Math::Inf;
-		for (const auto& site:sites)
+		// 農村の候補地は平地に偏る。都市を囲む環状の候補も加え、造成された丘陵地を選べるようにする。
+		Array<SiteCandidate> townSites=sites;
+		constexpr int kRingDirections=24;
+		for (const double radius:{fabric.urbanFabric_newTownMinimumDistance+300.0,(fabric.urbanFabric_newTownMinimumDistance+fabric.urbanFabric_newTownMaximumDistance)*.5,fabric.urbanFabric_newTownMaximumDistance-300.0})
+		{
+			for (int direction=0;direction<kRingDirections;++direction)
+			{
+				const double angle=Math::TwoPi*direction/kRingDirections;
+				const Vec2 point=city.center+Vec2{Cos(angle),Sin(angle)}*radius;
+				townSites << SiteCandidate{point,0.5f,0,locationSalt(seed,point)};
+			}
+		}
+		for (const auto& site:townSites)
 		{
 			const double distance=site.center.distanceFrom(city.center);
 			if (distance<fabric.urbanFabric_newTownMinimumDistance || distance>fabric.urbanFabric_newTownMaximumDistance) { continue; }
@@ -391,7 +403,8 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 				}
 			}
 			if (!fits) { continue; }
-			const double cost=distance*fabric.urbanFabric_newTownDistanceWeight+(high-low)*fabric.urbanFabric_newTownReliefWeight;
+			// 日本のニュータウンの多くは丘陵を造成した住宅地。平地の田畑より、起伏のある丘陵を優先する。
+			const double cost=distance*fabric.urbanFabric_newTownDistanceWeight+Abs((high-low)-fabric.urbanFabric_newTownTargetRelief)*fabric.urbanFabric_newTownReliefWeight;
 			if (cost<bestCost) { bestCost=cost; best=std::move(town); }
 		}
 		if (best) { newTowns << std::move(*best); }

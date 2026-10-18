@@ -1572,7 +1572,7 @@ namespace DistrictRoads
 								previousHeight = height; previousPoint = point;
 							}
 							// 曲げるほど道は長くなるため、勾配が十分に緩む場合だけ曲げる。
-							roughness *= 1.0 + Abs(first) * .08;
+							roughness *= 1.0 + Abs(first) * .03;
 							if (roughness < bestRoughness) { bestRoughness = roughness; bendA = first * reach; bendB = second * reach; }
 						}
 					}

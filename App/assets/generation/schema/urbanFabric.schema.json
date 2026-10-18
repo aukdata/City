@@ -28,6 +28,7 @@
     "newTownSampleSpacing",
     "newTownDistanceWeight",
     "newTownReliefWeight",
+    "newTownTargetRelief",
     "newTownGreenHalfWidth",
     "newTownWalkwayWidth",
     "newTownApartmentFrontage",
@@ -162,6 +163,11 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 20.0
+    },
+    "newTownTargetRelief": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 120.0
     },
     "newTownGreenHalfWidth": {
       "type": "number",

@@ -910,6 +910,7 @@ GENERATION_SETTING(double, urbanFabric_newTownFreeboard, U"urbanFabric", U"newTo
 GENERATION_SETTING(double, urbanFabric_newTownSampleSpacing, U"urbanFabric", U"newTownSampleSpacing", 25, 250)
 GENERATION_SETTING(double, urbanFabric_newTownDistanceWeight, U"urbanFabric", U"newTownDistanceWeight", 0, 5)
 GENERATION_SETTING(double, urbanFabric_newTownReliefWeight, U"urbanFabric", U"newTownReliefWeight", 0, 20)
+GENERATION_SETTING(double, urbanFabric_newTownTargetRelief, U"urbanFabric", U"newTownTargetRelief", 0, 120)
 GENERATION_SETTING(double, urbanFabric_newTownGreenHalfWidth, U"urbanFabric", U"newTownGreenHalfWidth", 8, 40)
 GENERATION_SETTING(double, urbanFabric_newTownWalkwayWidth, U"urbanFabric", U"newTownWalkwayWidth", 2, 10)
 GENERATION_SETTING(double, urbanFabric_newTownApartmentFrontage, U"urbanFabric", U"newTownApartmentFrontage", 16, 40)
