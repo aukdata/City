@@ -604,16 +604,22 @@ namespace
 			// 地図端で終わらない路線は末端 IC を残すため、終点側の余裕を短くしない。
 			const double upper = line.length() - (lineEndsAtBorder ? endMargin : TrumpetLayout::make().reach() + 200);
 			// 取付道路と本線の跨道部が既存道路と重ならない位置まで、IC を路線方向へずらす。
+			// IC の敷地（町側: 連絡路・料金所・取付道路、反対側: ループ）に一般道が入らない位置を探す。
 			const auto free = [&](double s)
 			{
 				const Vec2 right = rightOf(line.tangent(s));
+				const double townSide = (towns[candidate.town].center - line.at(s)).dot(right) >= 0 ? 1.0 : -1.0;
 				const auto layout = TrumpetLayout::make();
-				const double width = layout.stemSouth + c.expressway_tollStemLength;
+				const double townReach = layout.stemSouth + 30 + c.expressway_tollStemLength + c.expressway_accessLength;
+				const double farReach = layout.loopCenter.y + layout.radius + 90;
 				for (double along = -layout.reach(); along <= layout.reach(); along += 40)
 				{
-					for (const double lateral : { -width, -width * .5, 0.0, layout.loopCenter.y, layout.loopCenter.y + layout.radius })
+					const Vec2 point = line.at(Clamp(s + along, 0.0, line.length()));
+					for (double lateral = -farReach; lateral <= townReach; lateral += 35)
 					{
-						if (crossings.interval(line.at(Clamp(s + along, 0.0, line.length())) + right * lateral, 12).second > -1e8) { return false; }
+						// 町側の連絡路は中心付近だけ、本線沿いは全長を調べる。
+						if (lateral > 40 && Abs(along) > 140) { continue; }
+						if (crossings.interval(point + right * (lateral * townSide), 12).second > -1e8) { return false; }
 					}
 				}
 				return true;
@@ -1402,6 +1408,7 @@ namespace ExpresswayNetwork
 		{
 			const auto* edge = roads.getEdge(id); if (!edge) { continue; }
 			elevated += edge->useElevation && !edge->tunnel; tunnels += edge->tunnel;
+			if (edge->tunnel && tunnels <= 3) { const Vec3 at = roads.getBezier(id)->positionAt(edge->length * .5f); DBG_LOG(U"[ExpresswayTunnel] edge={} position=({:.0f},{:.1f},{:.0f})"_fmt(id, at.x, at.y, at.z)); }
 			if (edge->useElevation && !edge->tunnel) { roads.generatePiersForEdge(id, world); ++piers; }
 		}
 		// 土工で高架・トンネルの区分が変わった区間の路側設備を作り直す。
