@@ -1293,8 +1293,10 @@ namespace ExpresswayNetwork
 				++summary.interchanges;
 				const size_t farIndex = index * 2 + (townSide > 0 ? 0 : 1), nearIndex = index * 2 + (townSide > 0 ? 1 : 0);
 				const int farSignNode = farWay.indexAt(stationOf(plan.loopLead)), nearSignNode = nearWay.indexAt(stationOf(plan.nearRamp));
-				pendingSigns << PendingSign{ farIndex, farSignNode, ic.name, ic.reading, U"出口" };
-				pendingSigns << PendingSign{ nearIndex, nearSignNode, ic.name, ic.reading, U"出口" };
+				// 出口標識には路線ごとの IC 番号（起点側から 1, 2, …）を添える。
+				const String exit = U"出口 {}"_fmt(&ic - route.interchanges.data() + 1);
+				pendingSigns << PendingSign{ farIndex, farSignNode, ic.name, ic.reading, exit };
+				pendingSigns << PendingSign{ nearIndex, nearSignNode, ic.name, ic.reading, exit };
 				divergeIndices[farIndex] << farSignNode;
 				divergeIndices[nearIndex] << nearSignNode;
 				DBG_LOG(U"[ExpresswayInterchange] name={} type=trumpet station={:.0f} townSide={} connected={} plaza=({:.0f},{:.0f}) loop=({:.0f},{:.0f})"_fmt(
