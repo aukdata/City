@@ -906,7 +906,8 @@ namespace AgriculturalLayout
 						const Array<Vec2> outline{origin,origin+along*length,origin+along*length+across*width,origin+across*width};
 						const auto result=placeField(outline,salt);
 						if (result==Placement::Placed) { ++infill;break; }
-						if (result!=Placement::Crowded && result!=Placement::Blocked) { break; }
+						// 起伏で収まらない区画も、小さくすれば斜面の段々畑として収まる。
+						if (result!=Placement::Crowded && result!=Placement::Blocked && result!=Placement::Uneven) { break; }
 					}
 				} }
 			}

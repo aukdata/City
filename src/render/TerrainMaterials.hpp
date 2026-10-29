@@ -63,7 +63,7 @@ namespace TerrainMaterials
 		case 4: return ColorF{ 0.76, 0.70, 0.52 };
 		case 5: return ColorF{ 0.48, 0.58, 0.56 };
 		case kUrbanGround: return ColorF{ 0.62, 0.74, 1.05 };
-		case kUrbanPaving: return ColorF{ .78,.90,1.22 };
+		case kUrbanPaving: return ColorF{ .66,.76,1.04 };
 		case kVacantLot: return ColorF{ 0.66, 0.66, 0.70 };
 		case kTendedGreen: return ColorF{ 0.62, 0.68, 0.74 };
 		default: return ColorF{ 0.65, 0.69, 0.76 };

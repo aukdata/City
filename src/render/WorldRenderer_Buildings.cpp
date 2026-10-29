@@ -908,6 +908,89 @@ namespace
 		}
 		groups.excludedTrees += excludedByFacilities;
 	}
+	/// @brief 町なかの空き区画を、家庭菜園・砂利の月極駐車場・雑草地に使い分ける。向きは隣の家に揃える。
+	template<class HeightSource>
+	void appendVacantLotUse(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
+		const Array<LandRoadMask>& roadMasks)
+	{
+		if (!groups.surfaces || chunk.zoneMap.isEmpty()) { return; }
+		constexpr int kPatchCells=CHUNK_SIZE/4;
+		constexpr double kLotHalf=6.2;
+		const Vec2 chunkOrigin{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE};
+		Optional<Grid<bool>> covered;
+		const auto clearOfPatches=[&](const Array<Vec2>& points)
+		{
+			if (!covered)
+			{
+				covered.emplace(kPatchCells,kPatchCells,false);
+				for (const auto& patch:chunk.landPatches)
+				{
+					if (patch.polygon.size()<3) { continue; }
+					const Polygon shape{patch.polygon};const RectF bounds=shape.boundingRect().stretched(4);
+					const int left=Clamp(static_cast<int>(Floor((bounds.x-chunkOrigin.x)/4)),0,kPatchCells-1),right=Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunkOrigin.x)/4)),0,kPatchCells-1);
+					const int top=Clamp(static_cast<int>(Floor((bounds.y-chunkOrigin.y)/4)),0,kPatchCells-1),bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunkOrigin.y)/4)),0,kPatchCells-1);
+					for (int z=top;z<=bottom;++z) for (int x=left;x<=right;++x)
+					{
+						if (!(*covered)[{x,z}] && shape.contains(chunkOrigin+Vec2{x*4+2.0,z*4+2.0})) { (*covered)[{x,z}]=true; }
+					}
+				}
+			}
+			for (const Vec2 point:points)
+			{
+				const Vec2 local=(point-chunkOrigin)/4;
+				const int x=static_cast<int>(Floor(local.x)),z=static_cast<int>(Floor(local.y));
+				if (!InRange(x,0,kPatchCells-1) || !InRange(z,0,kPatchCells-1) || (*covered)[{x,z}]) { return false; }
+			}
+			return true;
+		};
+		for (int row=1;row<ZONE_CELLS-1;++row) for (int col=1;col<ZONE_CELLS-1;++col)
+		{
+			const ZoneType zone=chunk.zoneMap[{col,row}];
+			if ((zone!=ZoneType::Residential && zone!=ZoneType::LowResidential && zone!=ZoneType::Commercial)
+				|| chunk.buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
+			const uint32 hash=cellVisualHash(chunk.coord,col,row,733u);
+			const uint32 use=hash%100u;
+			// 半分弱は雑草地のまま残す。
+			constexpr uint32 kGardenShare=40, kParkingShare=18;
+			if (use>=kGardenShare+kParkingShare) { continue; }
+			// 家に囲まれた町なかの空き地だけを使う。郊外の原野に駐車場を点在させない。
+			Optional<float> angle;int neighbors=0;
+			for (int dz=-1;dz<=1;++dz) for (int dx=-1;dx<=1;++dx)
+			{
+				const Building& neighbor=chunk.buildingGrid[{col+dx,row+dz}];
+				if (!isResidentialBuildingType(neighbor.type) && neighbor.type!=BuildingType::Shop) { continue; }
+				++neighbors;
+				if (!angle) { angle=neighbor.angle; }
+			}
+			constexpr int kMinimumNeighbors=3;
+			if (!angle || neighbors<kMinimumNeighbors) { continue; }
+			const Vec2 center=chunkOrigin+Vec2{(col+.5)*16,(row+.5)*16};
+			const Vec2 along{Cos(*angle),Sin(*angle)},across{-along.y,along.x};
+			const double length=kLotHalf*(use<kGardenShare ? 1.0 : 1.15),width=kLotHalf*(use<kGardenShare ? .72 : 1.0);
+			Array<Vec2> outline{center-along*length-across*width,center+along*length-across*width,center+along*length+across*width,center-along*length+across*width};
+			if (!clearOfPatches({outline[0],outline[1],outline[2],outline[3],center})) { continue; }
+			bool clearOfRoads=true;
+			for (const auto& road:roadMasks) { if (clearOfRoads && Circle{center,kLotHalf*.6}.intersects(road.shape)) { clearOfRoads=false; } }
+			if (!clearOfRoads) { continue; }
+			LandPatch lot;lot.polygon=std::move(outline);lot.materialVariant=hash;lot.elevationOffset=.03f;
+			if (use<kGardenShare)
+			{
+				lot.type=LandPatchType::FarmField;
+				appendLandPatchSurface(groups[landPatchMaterialKey(lot.type,lot.materialVariant)],world,lot,roadMasks);
+				continue;
+			}
+			lot.type=LandPatchType::ParcelGravel;
+			appendLandPatchSurface(groups[landPatchMaterialKey(lot.type,lot.materialVariant)],world,lot,roadMasks);
+			// 月極駐車場には数台が停まっている。
+			const int cars=static_cast<int>((hash>>8)%4u);
+			for (int car=0;car<cars;++car)
+			{
+				const Vec2 position=center+along*((car-1.5)*2.6)+across*(((hash>>(12+car))&1u) ? 2.6 : -2.6);
+				const float y=world.sampleHeight(static_cast<float>(position.x),static_cast<float>(position.y));
+				appendRotatedBox(groups[(hash>>(16+car))%3u==0 ? 108 : 107],static_cast<float>(position.x),y+.75f,static_cast<float>(position.y),1.7f,1.4f,4.3f,*angle);
+			}
+		}
+	}
 	template<class HeightSource>
 	void appendParcelLandscape(LandscapeGeometry& groups, const HeightSource& world,
 		const Chunk& chunk, const LandPatch& patch, const Array<LandRoadMask>& roadMasks)
@@ -1612,6 +1695,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(cons
 	LandscapeGeometry groups;
 	groups.surfaces = !treesOnly; groups.planting = treesOnly;
 	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks); }
+	appendVacantLotUse(groups,chunk,heights,masks);
 	if (sourceWater) { appendRiverBanks(groups,chunk,rivers,masks,roadMaskCount); }
 	stats.patchesMilliseconds = timer.msF() - stats.masksMilliseconds;
 	if (woodland && treesOnly)
@@ -1672,6 +1756,7 @@ WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const Land
 	if (includeLandscape)
 	{
 		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
+		appendVacantLotUse(groups, chunk, world, roadMasks);
 		if (input.sourceWater) { appendRiverBanks(groups,chunk,input.rivers,roadMasks,roadMasks.size()); }
 		if (input.woodland)
 		{

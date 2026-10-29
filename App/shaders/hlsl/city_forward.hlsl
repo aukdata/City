@@ -264,7 +264,7 @@ float4 Yard_PS(s3d::PSInput input) : SV_TARGET
 	float3 paved = float3(.120, .118, .112) * lerp(1, clamp(grain, .7, 1.3), .6);
 	float3 lawn = float3(.064, .098, .030), shrub = float3(.026, .046, .018), soil = float3(.110, .092, .066);
 	float3 plants = lerp(shrub, lawn, smoothstep(.2, .6, valueNoise(p / 1.3 + 5.1)));
-	float3 albedo = lerp(plants, paved, smoothstep(.28, .50, n));
+	float3 albedo = lerp(plants, paved, smoothstep(.34, .56, n));
 	albedo = lerp(albedo, soil, smoothstep(.72, .9, valueNoise(p / 4.1 + 29.3)) * .5);
 	return shadeCity(input, float4(albedo, 1));
 }
@@ -341,8 +341,9 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 	else
 	{
 		// Intermittent planting leaves exposed soil between cultivated rows; some parcels are fallow or freshly tilled.
-		crop*=smoothstep(-.6,.2,cos(uv.y*7.4));
-		float grown=lerp(.15,.9,crop1);
+		float grown=lerp(.3,.95,crop1);
+		// Grown crops spread across the furrows, young ones leave most of the ridge bare.
+		crop=smoothstep(.9-grown*1.3,1.2-grown*1.3,ridge)*smoothstep(-.6,.2,cos(uv.y*7.4)+grown);
 		green=lerp(green,float3(.035,.070,.020),step(.6,crop2)*.6);
 		albedo=lerp(soil,green,lerp(grown,crop*lerp(.5,1,grown),resolved));
 	}
