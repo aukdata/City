@@ -266,6 +266,9 @@ namespace
 		}
 		const Vec2 rowNormal{-rowDirection.y,rowDirection.x};
 		const uint32 fieldVariant=(patch.materialVariant>>3)%kFieldVariants;
+		Vec2 lotCenter{0,0};
+		for (const Vec2 vertex:patch.polygon) { lotCenter+=vertex; }
+		lotCenter/=static_cast<double>(patch.polygon.size());
 		Array<Vec2> outline = patch.polygon;
 		UrbanParcel::normalize(outline);
 		const Polygon shape{ outline };
@@ -302,6 +305,12 @@ namespace
 						{
 							vertex.pos.y = world.sampleHeight(static_cast<float>(vertex.pos.x), static_cast<float>(vertex.pos.z)) + patch.elevationOffset;
 							vertex.tex = terrainUvAt(vertex.pos, materialKey);
+							if (materialKey==kGardenYardMaterial || materialKey==kPavedYardMaterial)
+							{
+								// 庭の舗装と植え込みは敷地の向きに揃えた区画で描く。
+								const Vec2 local=Vec2{vertex.pos.x,vertex.pos.z}-lotCenter;
+								vertex.tex=Float2{static_cast<float>(local.dot(rowDirection)),static_cast<float>(local.dot(rowNormal))};
+							}
 							if (materialKey==130 || materialKey==131)
 							{
 								// 区画ごとの作付けの違いを、行方向の座標に kFieldVariantSpan 単位の区画番号として載せる。
@@ -1160,6 +1169,17 @@ namespace
 					&& fits(position, TreeGeometry::horizontalClearance(3.2)))
 				{
 					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, 0.7);
+				}
+			}
+			// 裏庭には背の高い庭木が並び、上空からは家ごとに緑のかたまりが見える。
+			for (int index = 0; groups.planting && index < 2; ++index)
+			{
+				const Vec2 position = center + along * ((index == 0 ? -1.0 : 1.0) * half * 0.45) + inward * (half + 3.2);
+				if (((patch.materialVariant >> (index * 5 + 17)) % 3u) != 0u
+					&& fits(position, TreeGeometry::horizontalClearance(3.6)))
+				{
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						patch.materialVariant + 7 + index, 0.9 + ((patch.materialVariant >> (index + 23)) & 3u) * 0.12);
 				}
 			}
 		}

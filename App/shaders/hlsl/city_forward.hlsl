@@ -250,22 +250,28 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 }
 
 // Japanese house lots seen from above: concrete and gravel parking, clipped shrubs and a little lawn.
-// Alpha selects a paved lot (1) or a garden lot (.5); world-space patches keep neighbouring lots distinct.
+// UV is metres along the lot axes from its centre, so paving slabs and planting beds line up with the house.
+// Alpha selects a paved lot (1) or a garden lot (.5).
 float4 Yard_PS(s3d::PSInput input) : SV_TARGET
 {
 	float2 p = input.worldPosition.xz;
-	float footprint = length(fwidth(p));
+	float2 uv = input.uv;
+	float footprint = length(fwidth(uv));
 	float garden = 1 - g_diffuseColor.a;
-	float resolved = 1 - smoothstep(.6, 2.5, footprint);
-	float n = valueNoise(p / 1.9) * .5 + valueNoise(p / 5.5 + 13.7) * .5;
-	n = lerp(.5, n, resolved * .7 + .3) - garden * .45;
-	float3 gravel = g_texture0.Sample(g_sampler0, input.uv).rgb;
+	float resolved = 1 - smoothstep(.5, 2.0, footprint);
+	float2 bed = uv / float2(3.1, 2.3);
+	float2 within = frac(bed);
+	float cell = hash21(floor(bed) + floor(p / 40) * 7.3);
+	// Bed edges blur slightly so the grid reads as gardens, not tiles.
+	float edge = smoothstep(0, .12, min(min(within.x, 1 - within.x), min(within.y, 1 - within.y)));
+	float n = lerp(.5, cell, resolved * lerp(.6, 1, edge)) * .75 + valueNoise(p / 6.5 + 13.7) * .25 - garden * .4;
+	float3 gravel = g_texture0.Sample(g_sampler0, p / 3).rgb;
 	float grain = dot(gravel, float3(.3, .6, .1)) / .22;
 	float3 paved = float3(.120, .118, .112) * lerp(1, clamp(grain, .7, 1.3), .6);
 	float3 lawn = float3(.064, .098, .030), shrub = float3(.026, .046, .018), soil = float3(.110, .092, .066);
-	float3 plants = lerp(shrub, lawn, smoothstep(.2, .6, valueNoise(p / 1.3 + 5.1)));
-	float3 albedo = lerp(plants, paved, smoothstep(.34, .56, n));
-	albedo = lerp(albedo, soil, smoothstep(.72, .9, valueNoise(p / 4.1 + 29.3)) * .5);
+	float3 plants = lerp(shrub, lawn, smoothstep(.25, .65, valueNoise(p / 1.3 + 5.1)));
+	float3 albedo = lerp(plants, paved, smoothstep(.36, .5, n));
+	albedo = lerp(albedo, soil, smoothstep(.72, .9, valueNoise(p / 4.1 + 29.3)) * .4);
 	return shadeCity(input, float4(albedo, 1));
 }
 
@@ -330,7 +336,7 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 		float fresnel=pow(1-saturate(dot(normalize(g_eyePosition-input.worldPosition),normalize(input.normal))),4);
 		water=lerp(water,float3(.23,.29,.31),fresnel*.65);
 		// 夏の水田は稲が水面をほぼ覆う。株の育ちと品種で区画ごとに緑の濃さ・黄みが変わる。
-		float3 young=float3(.070,.135,.022),grown=float3(.115,.185,.030),ripe=float3(.165,.190,.040);
+		float3 young=float3(.074,.150,.020),grown=float3(.122,.205,.028),ripe=float3(.165,.190,.040);
 		float3 riceGreen=lerp(young,grown,crop1);
 		riceGreen=lerp(riceGreen,ripe,smoothstep(.75,.95,crop2)*.8);
 		riceGreen*=lerp(.88,1.12,variation);
