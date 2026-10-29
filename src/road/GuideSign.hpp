@@ -116,6 +116,12 @@ namespace GuideSign
 	/// @brief poleMetadata() のキャッシュを破棄（次回呼び出し時に JSON から再ロード）
 	void reloadPoleMetadata();
 
+	/// @brief 地名と距離の 1 行（km <= 0 の行は距離を表示しない）
+	struct DistanceRow { String name; String reading; float km = 0; };
+
+	/// @brief 方面及び距離（106）と同じ板面配置で行を並べる。高速道路の予告・出口標識に使う。
+	Array<SignElement> BuildDistanceBoard(const Array<DistanceRow>& rows);
+
 	/// @brief 案内標識テクスチャのピクセルサイズを決める（m 単位 → px）
 	Size guideSignTexSize(double widthM, double heightM);
 

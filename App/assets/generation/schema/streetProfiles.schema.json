@@ -82,7 +82,20 @@
     "shoulderPoleOffset",
     "arterialPoleSpacing",
     "localPoleSpacing",
-    "poleJitter"
+    "poleJitter",
+    "mountainClimbing_laneWidth",
+    "mountainClimbing_speed",
+    "mountainClimbing_shoulder",
+    "mountainClimbing_minimumGrade",
+    "mountainClimbing_minimumLength",
+    "street16_lanes",
+    "street16_laneWidth",
+    "street16_speed",
+    "street16_walkway",
+    "street16_shoulder",
+    "street16_center",
+    "street16_edgeLines",
+    "street16_arterial"
   ],
   "properties": {
     "farmAccess_lanes": {
@@ -479,6 +492,71 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 100.0
+    },
+    "mountainClimbing_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "mountainClimbing_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "mountainClimbing_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "mountainClimbing_minimumGrade": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 0.3
+    },
+    "mountainClimbing_minimumLength": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 5000.0
+    },
+    "street16_lanes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "street16_laneWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "street16_speed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 130.0
+    },
+    "street16_walkway": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "street16_shoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 12.0
+    },
+    "street16_center": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "street16_edgeLines": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "street16_arterial": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
     }
   }
 }

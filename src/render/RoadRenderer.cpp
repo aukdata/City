@@ -239,6 +239,7 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 			else meshes[i].draw(m_constructionConcrete,ColorF{1});
 		}
 	}
+	if (isClose && edge.roadType == RoadType::Expressway) { drawFacilities(network, edge, world); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

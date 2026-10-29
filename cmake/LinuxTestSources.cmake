@@ -154,4 +154,6 @@ set(CITY_TEST_SOURCES
 	"src/sim/GridWater.cpp"
 	"src/sim/SimThread.cpp"
 	"src/sim/SourceWater.cpp"
+	"src/gen/ExpresswayNetwork.cpp"
+	"src/render/RoadRenderer_Expressway.cpp"
 )

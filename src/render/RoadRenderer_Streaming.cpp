@@ -265,7 +265,7 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 	m_pendingFallbackEdges.erase(edgeId);
 	m_drawnFallbackEdges.erase(edgeId);
 	if (m_constructionCache.contains(edgeId) || m_partMeshCache.contains(edgeId) || m_streetFurnitureCache.contains(edgeId)
-		|| m_pierMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
+		|| m_pierMeshCache.contains(edgeId) || m_facilityMeshCache.contains(edgeId) || m_signCache.contains(edgeId) || m_guideSignCache.contains(edgeId))
 	{
 		++m_geometryRevision;
 	}
@@ -277,6 +277,7 @@ void RoadRenderer::eraseEdgeCaches(int edgeId)
 	m_marginCache.erase(edgeId);
 	m_boundsCache.erase(edgeId);
 	m_pierMeshCache.erase(edgeId);
+	m_facilityMeshCache.erase(edgeId);
 	m_signCache.erase(edgeId);
 	m_guideSignCache.erase(edgeId);
 	m_guideSignTexAllReady = false;  // エッジ変更時は案内標識テクスチャを再チェック
@@ -349,6 +350,7 @@ void RoadRenderer::invalidateAllCaches()
 	m_fallbackNodes.clear();
 	m_pendingFallbackNodes.clear();
 	m_pierMeshCache.clear();
+	m_facilityMeshCache.clear();
 	m_signalSummaryCache.clear();
 	++m_geometryRevision;
 	m_dirtyTerrainObserved.clear();

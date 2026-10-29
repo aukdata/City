@@ -1683,6 +1683,9 @@
     <ClCompile Include="src\gen\VillageConnections.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\gen\ExpresswayNetwork.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\save\SaveCatalog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -1704,6 +1707,12 @@
     <ClInclude Include="src\gen\VillageConnections.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\gen\ExpresswayNetwork.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gen\ExpresswayCrossSection.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\render\RoadRenderer_Mesh.cpp">
@@ -1713,6 +1722,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\render\RoadRenderer_Furniture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\RoadRenderer_Expressway.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClInclude Include="src\render\MeshGeometry.hpp">

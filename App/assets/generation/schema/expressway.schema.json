@@ -1,0 +1,568 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: expressway",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "maximumLines",
+    "lanesPerDirection",
+    "laneWidth",
+    "outerShoulder",
+    "innerShoulder",
+    "medianWidth",
+    "guardrailWidth",
+    "slopeWidth",
+    "speed",
+    "maximumGrade",
+    "minimumRadius",
+    "routingCell",
+    "corridorMargin",
+    "settlementClearance",
+    "settlementPenalty",
+    "roadParallelPenalty",
+    "smoothingPasses",
+    "radiusPasses",
+    "profileSampleLength",
+    "nodeSpacing",
+    "maximumViaductHeight",
+    "maximumTunnelDepth",
+    "roadClearanceMargin",
+    "waterClearance",
+    "waterTunnelCover",
+    "borderSearchDistance",
+    "lineEndLead",
+    "regionalCityAxisDistance",
+    "interchangeOffset",
+    "interchangeSpacing",
+    "interchangeTownDistance",
+    "interchangeEndMargin",
+    "rampLaneWidth",
+    "rampOuterShoulder",
+    "rampInnerShoulder",
+    "rampSpeed",
+    "rampMaximumGrade",
+    "rampDivergeAngle",
+    "junctionFlyoverClearance",
+    "junctionCrossingClearance",
+    "junctionDivergeLength",
+    "junctionMergeLength",
+    "junctionBranchOffset",
+    "junctionBranchAngle",
+    "junctionBranchLead",
+    "junctionSplitLength",
+    "junctionTargetDistance",
+    "junctionInterchangeSpacing",
+    "junctionRampSpeed",
+    "accessLaneWidth",
+    "accessMedian",
+    "accessAddedLaneMedian",
+    "accessShoulder",
+    "accessSidewalk",
+    "accessSpeed",
+    "accessAddedLaneLength",
+    "accessLength",
+    "accessConnectRadius",
+    "tollGateWidth",
+    "tollGateLength",
+    "tollGateHeight",
+    "signLateralMargin",
+    "signPoleHeight",
+    "delineatorSpacing",
+    "emergencyPhoneSpacing",
+    "tunnelEmergencyPhoneSpacing",
+    "kilometrePostSpacing",
+    "earthworkRoadDistance",
+    "borderMaximumRise",
+    "terrainCostWeight",
+    "signScale",
+    "antiGlareSpacing",
+    "noiseBarrierPanel",
+    "noiseBarrierDistance",
+    "noiseBarrierHeight",
+    "rampLightSpacing",
+    "trumpetLoopRadius",
+    "trumpetLoopSpeed",
+    "trumpetNearRamp",
+    "trumpetFarMerge",
+    "trumpetLoopLead",
+    "trumpetStemLength",
+    "trumpetBridgeApex",
+    "trumpetLoopLift",
+    "tollStemLength",
+    "serviceMinimumGap",
+    "serviceAreaGap",
+    "serviceClearance",
+    "serviceLength",
+    "serviceOffset",
+    "throughVehiclesPerEdge",
+    "throughTripSteps"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maximumLines": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "lanesPerDirection": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "laneWidth": {
+      "type": "number",
+      "minimum": 2.5,
+      "maximum": 4.5
+    },
+    "outerShoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "innerShoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "medianWidth": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 12.0
+    },
+    "guardrailWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 2.0
+    },
+    "slopeWidth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "speed": {
+      "type": "number",
+      "minimum": 40.0,
+      "maximum": 140.0
+    },
+    "maximumGrade": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.08
+    },
+    "minimumRadius": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 3000.0
+    },
+    "routingCell": {
+      "type": "number",
+      "minimum": 40.0,
+      "maximum": 400.0
+    },
+    "corridorMargin": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 20000.0
+    },
+    "settlementClearance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 3000.0
+    },
+    "settlementPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "roadParallelPenalty": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "smoothingPasses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "radiusPasses": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "profileSampleLength": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 200.0
+    },
+    "nodeSpacing": {
+      "type": "number",
+      "minimum": 60.0,
+      "maximum": 1000.0
+    },
+    "maximumViaductHeight": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 120.0
+    },
+    "maximumTunnelDepth": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 1000.0
+    },
+    "roadClearanceMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "waterClearance": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 40.0
+    },
+    "waterTunnelCover": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 100.0
+    },
+    "borderSearchDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 30000.0
+    },
+    "lineEndLead": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 10000.0
+    },
+    "regionalCityAxisDistance": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 60000.0
+    },
+    "interchangeOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "interchangeSpacing": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 30000.0
+    },
+    "interchangeTownDistance": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 20000.0
+    },
+    "interchangeEndMargin": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 10000.0
+    },
+    "rampLaneWidth": {
+      "type": "number",
+      "minimum": 2.5,
+      "maximum": 4.5
+    },
+    "rampOuterShoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 4.0
+    },
+    "rampInnerShoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "rampSpeed": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 100.0
+    },
+    "rampMaximumGrade": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.12
+    },
+    "rampDivergeAngle": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.5
+    },
+    "junctionFlyoverClearance": {
+      "type": "number",
+      "minimum": 4.0,
+      "maximum": 20.0
+    },
+    "junctionCrossingClearance": {
+      "type": "number",
+      "minimum": 3.0,
+      "maximum": 15.0
+    },
+    "junctionDivergeLength": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 3000.0
+    },
+    "junctionMergeLength": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 3000.0
+    },
+    "junctionBranchOffset": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 300.0
+    },
+    "junctionBranchAngle": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 80.0
+    },
+    "junctionBranchLead": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 3000.0
+    },
+    "junctionSplitLength": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 3000.0
+    },
+    "junctionTargetDistance": {
+      "type": "number",
+      "minimum": 1000.0,
+      "maximum": 60000.0
+    },
+    "junctionInterchangeSpacing": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 20000.0
+    },
+    "junctionRampSpeed": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 120.0
+    },
+    "accessLaneWidth": {
+      "type": "number",
+      "minimum": 2.5,
+      "maximum": 4.5
+    },
+    "accessMedian": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "accessAddedLaneMedian": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "accessShoulder": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "accessSidewalk": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 8.0
+    },
+    "accessSpeed": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 100.0
+    },
+    "accessAddedLaneLength": {
+      "type": "number",
+      "minimum": 30.0,
+      "maximum": 1000.0
+    },
+    "accessLength": {
+      "type": "number",
+      "minimum": 30.0,
+      "maximum": 2000.0
+    },
+    "accessConnectRadius": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 20000.0
+    },
+    "tollGateWidth": {
+      "type": "number",
+      "minimum": 4.0,
+      "maximum": 80.0
+    },
+    "tollGateLength": {
+      "type": "number",
+      "minimum": 4.0,
+      "maximum": 200.0
+    },
+    "tollGateHeight": {
+      "type": "number",
+      "minimum": 3.0,
+      "maximum": 20.0
+    },
+    "signLateralMargin": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5.0
+    },
+    "signPoleHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "delineatorSpacing": {
+      "type": "number",
+      "minimum": 4.0,
+      "maximum": 200.0
+    },
+    "emergencyPhoneSpacing": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 5000.0
+    },
+    "tunnelEmergencyPhoneSpacing": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 1000.0
+    },
+    "kilometrePostSpacing": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 1000.0
+    },
+    "earthworkRoadDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "borderMaximumRise": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 3000.0
+    },
+    "terrainCostWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "signScale": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 4.0
+    },
+    "antiGlareSpacing": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 20.0
+    },
+    "noiseBarrierPanel": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "noiseBarrierDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "noiseBarrierHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "rampLightSpacing": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 200.0
+    },
+    "trumpetLoopRadius": {
+      "type": "number",
+      "minimum": 30.0,
+      "maximum": 200.0
+    },
+    "trumpetLoopSpeed": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 80.0
+    },
+    "trumpetNearRamp": {
+      "type": "number",
+      "minimum": 150.0,
+      "maximum": 2000.0
+    },
+    "trumpetFarMerge": {
+      "type": "number",
+      "minimum": 150.0,
+      "maximum": 2000.0
+    },
+    "trumpetLoopLead": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 1000.0
+    },
+    "trumpetStemLength": {
+      "type": "number",
+      "minimum": 120.0,
+      "maximum": 1000.0
+    },
+    "trumpetBridgeApex": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 20.0
+    },
+    "trumpetLoopLift": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 15.0
+    },
+    "tollStemLength": {
+      "type": "number",
+      "minimum": 40.0,
+      "maximum": 1000.0
+    },
+    "serviceMinimumGap": {
+      "type": "number",
+      "minimum": 2000.0,
+      "maximum": 100000.0
+    },
+    "serviceAreaGap": {
+      "type": "number",
+      "minimum": 2000.0,
+      "maximum": 100000.0
+    },
+    "serviceClearance": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 20000.0
+    },
+    "serviceLength": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 2000.0
+    },
+    "serviceOffset": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 200.0
+    },
+    "throughVehiclesPerEdge": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "throughTripSteps": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 400
+    }
+  }
+}

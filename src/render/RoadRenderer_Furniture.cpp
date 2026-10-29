@@ -36,6 +36,15 @@ Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 	MeshData roadsideMd;
 	MeshData markerMd;
 	MeshData ironMd;
+	// 高速道路の路側設備（CSL road_kit の非常電話・視線誘導標・キロポストを簡略化した形）。
+	MeshData cabinetMd;
+	MeshData emergencyMd;
+	MeshData reflectorMd;
+	MeshData whiteReflectorMd;
+	MeshData guideGreenMd;
+	MeshData barrierMd;
+	MeshData barrierGlassMd;
+	MeshData lampMd;
 	const auto mountain=MountainRoadGeometry::build(edge,bezier,world,range.sStart,range.sEnd);
 
 	for (size_t partIndex = 0; partIndex < edge.parts.size(); ++partIndex)
@@ -154,6 +163,51 @@ Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 				previousPole = poleCenter;
 				previousRight = right;
 			}
+			else if (part.defId == U"expressway_delineator" || part.defId == U"expressway_delineator_median")
+			{
+				// 防護柵上の視線誘導標。左側（路肩側）は白、中央分離帯側は橙の反射体。
+				const bool median = part.defId == U"expressway_delineator_median";
+				const double side = median ? -1.0 : 1.0;
+				appendOrientedBox(markerMd, Vec3{ anchorX, groundY + 0.86, anchorZ }, Float3{ 0.07f, 0.26f, 0.07f }, yaw);
+				appendOrientedBox(median ? reflectorMd : whiteReflectorMd, Vec3{ anchorX + right.x * 0.05 * side, groundY + 1.02, anchorZ + right.y * 0.05 * side }, Float3{ 0.03f, 0.10f, 0.10f }, yaw);
+			}
+			else if (part.defId == U"expressway_antiglare")
+			{
+				// 中央分離帯の防眩板。進行方向に対して斜めに立つ細い緑の羽板。
+				appendOrientedBox(guideGreenMd, Vec3{ anchorX, groundY + 1.18, anchorZ }, Float3{ 0.16f, 0.6f, 0.025f }, yaw + 0.35f);
+				appendOrientedBox(markerMd, Vec3{ anchorX, groundY + 0.82, anchorZ }, Float3{ 0.05f, 0.12f, 0.05f }, yaw);
+			}
+			else if (part.defId == U"expressway_noise_barrier")
+			{
+				// 遮音壁: H 形鋼の支柱と、下部の吸音板・上部の透光板。
+				const float height = GenerationSettings::get().expressway_noiseBarrierHeight;
+				const float panel = spacing;
+				appendOrientedBox(barrierMd, Vec3{ anchorX, groundY + height * .32, anchorZ }, Float3{ panel, height * .64f, 0.12f }, yaw);
+				appendOrientedBox(barrierGlassMd, Vec3{ anchorX, groundY + height * .82, anchorZ }, Float3{ panel, height * .36f, 0.05f }, yaw);
+				appendOrientedBox(markerMd, Vec3{ anchorX - tangent.x * panel * .5, groundY + height * .5, anchorZ - tangent.y * panel * .5 }, Float3{ 0.15f, height + 0.05f, 0.18f }, yaw);
+			}
+			else if (part.defId == U"expressway_light")
+			{
+				// ランプの道路照明: 鋼管ポールと車道側へ伸びる腕、灯具。
+				const Vec3 base{ anchorX, groundY, anchorZ };
+				appendCylinder(markerMd, base + Vec3{ 0, 5.0, 0 }, 0.09, 10.0, 10);
+				appendOrientedBox(markerMd, base + Vec3{ right.x * 0.9, 9.9, right.y * 0.9 }, Float3{ 0.08f, 0.08f, 1.8f }, yaw);
+				appendOrientedBox(lampMd, base + Vec3{ right.x * 1.8, 9.82, right.y * 1.8 }, Float3{ 0.32f, 0.12f, 0.62f }, yaw);
+			}
+			else if (part.defId == U"expressway_sos")
+			{
+				// 非常電話: 白い筐体・扉の朱色帯・上部の SOS 表示板（Expressway_SOS の外形寸法）。
+				appendOrientedBox(cabinetMd, Vec3{ anchorX, groundY + 0.78, anchorZ }, Float3{ 0.62f, 1.56f, 0.46f }, yaw);
+				appendOrientedBox(emergencyMd, Vec3{ anchorX - right.x * 0.24, groundY + 1.18, anchorZ - right.y * 0.24 }, Float3{ 0.56f, 0.30f, 0.02f }, yaw);
+				appendCylinder(markerMd, Vec3{ anchorX + right.x * 0.30, groundY + 1.45, anchorZ + right.y * 0.30 }, 0.045, 2.9, 8);
+				appendOrientedBox(emergencyMd, Vec3{ anchorX + right.x * 0.30, groundY + 2.75, anchorZ + right.y * 0.30 }, Float3{ 0.04f, 0.42f, 0.62f }, yaw);
+			}
+			else if (part.defId == U"expressway_kilopost")
+			{
+				// 100m ごとのキロポスト（緑地に白縁の小板）。
+				appendCylinder(markerMd, Vec3{ anchorX, groundY + 0.55, anchorZ }, 0.03, 1.1, 6);
+				appendOrientedBox(guideGreenMd, Vec3{ anchorX, groundY + 1.12, anchorZ }, Float3{ 0.03f, 0.24f, 0.36f }, yaw);
+			}
 			else if (part.type == RoadPartType::RoadsideObject)
 			{
 				const Vec3 center{ anchorX, groundY + 0.85f, anchorZ };
@@ -211,6 +265,14 @@ Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 	if (!markerMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.82, 0.78, 0.64 }.removeSRGBCurve(), std::move(markerMd) };
 	if (!ironMd.vertices.isEmpty()) { batches << LaneLineMeshData{ColorF{.43,.44,.43}.removeSRGBCurve(),std::move(ironMd)}; }
 	if (!roadsideMd.vertices.isEmpty()) batches << LaneLineMeshData{ ColorF{ 0.30, 0.33, 0.33 }.removeSRGBCurve(), std::move(roadsideMd) };
+	if (!cabinetMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.86, 0.86, 0.82 }.removeSRGBCurve(), std::move(cabinetMd) }; }
+	if (!emergencyMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.84, 0.24, 0.12 }.removeSRGBCurve(), std::move(emergencyMd) }; }
+	if (!reflectorMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 1.0, 0.55, 0.10 }.removeSRGBCurve(), std::move(reflectorMd) }; }
+	if (!whiteReflectorMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.96, 0.96, 0.94 }.removeSRGBCurve(), std::move(whiteReflectorMd) }; }
+	if (!barrierMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.62, 0.66, 0.66 }.removeSRGBCurve(), std::move(barrierMd) }; }
+	if (!barrierGlassMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.72, 0.84, 0.86 }.removeSRGBCurve(), std::move(barrierGlassMd) }; }
+	if (!lampMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.95, 0.92, 0.78 }.removeSRGBCurve(), std::move(lampMd) }; }
+	if (!guideGreenMd.vertices.isEmpty()) { batches << LaneLineMeshData{ ColorF{ 0.0, 0.43, 0.29 }.removeSRGBCurve(), std::move(guideGreenMd) }; }
 	return batches;
 }
 

@@ -1,0 +1,19 @@
+id = "expressway_delineator_median"
+name = "Expressway Median Delineator"
+type = "RoadsideObject"
+tiling = "Longitudinal"
+placement = "RepeatAlongEdge"
+envelope_role = "RoadOwnedObject"
+model_unit_width = 0.07
+model_unit_len = 1.0
+repeat_spacing_m = 25.0
+repeat_jitter_m = 0.0
+height_offset = 0.0
+symmetric = false
+
+[material]
+color = [1.0, 0.55, 0.10]
+
+[lod]
+mesh_names = []
+distances = []

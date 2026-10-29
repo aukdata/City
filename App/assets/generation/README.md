@@ -23,6 +23,7 @@
 | network.json | 地区間道路の探索範囲、接続距離、山道の判定 |
 | crossings.json | 橋の水面離隔、取り付け、鉄道と道路の離隔、法面 |
 | railway.json | 駅の高さ・直線区間、鉄道路線の経路費用・縦断制限 |
+| expressway.json | 高速道路の本線断面・勾配・半径、IC・JCT の配置と寸法、料金所、取付道路（JP Bypass 24m）、案内標識・路側設備の間隔 |
 | placeNames.json | 地形別の地名語根の選択重み。語彙本体は既存の地名 TOML |
 | pedestrians.json | 住民数、近景・遠景の更新間隔、徒歩探索の予算、駐車在庫、列車定員、描画距離 |
 | traffic.json | 車両数、補充速度、建物あたりの交通、時間帯・貨物の割合 |

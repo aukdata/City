@@ -48,6 +48,10 @@ void GameScene::initNewGame()
 			generateDistrictRoads();
 			postProcessRoads();
 		}
+		if (options.enabled(Element::Expressway))
+		{
+			generateExpressways();
+		}
 		if (options.enabled(Element::Railway))
 		{
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts, &m_network);

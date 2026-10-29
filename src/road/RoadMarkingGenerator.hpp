@@ -21,7 +21,7 @@ public:
 	static Array<RoadMarkingPlacement> collectEdge(const RoadNetwork& network, const RoadEdge& edge, const Options& options = defaultOptions())
 	{
 		Array<RoadMarkingPlacement> placements;
-		if (options.generateArterialLaneLines && edge.roadType == RoadType::Arterial && edge.isRoadbedBuilt())
+		if (options.generateArterialLaneLines && (edge.roadType == RoadType::Arterial || edge.roadType == RoadType::Expressway) && edge.isRoadbedBuilt())
 		{
 			appendSafeCenterLines(placements, network, edge);
 		}
@@ -149,7 +149,8 @@ private:
 	static void appendSafeCenterLines(Array<RoadMarkingPlacement>& placements, const RoadNetwork& network, const RoadEdge& edge)
 	{
 		const auto bezier = network.getBezier(edge.id);
-		if (!bezier || edge.lanes.size() < 2) { return; }
+		// 高速道路の 1 車線ランプも外側線・中央分離側の線を引く。
+		if (!bezier || (edge.lanes.size() < 2 && edge.roadType != RoadType::Expressway)) { return; }
 		const float begin = Max(0.0f, edge.cutoffA - 0.1f);
 		const float end = Min(bezier->totalLength, bezier->totalLength - edge.cutoffB + 0.1f);
 		if (end - begin < 0.2f) { return; }

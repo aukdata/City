@@ -319,6 +319,11 @@ private:
 	                                                const World& world,
 	                                                float marginA, float marginB) const;
 
+	/// @brief 料金所・分岐点滅灯などエッジ所有の高速道路施設。点滅灯は描画時に色を切り替える。
+	struct FacilityMesh { Mesh mesh; ColorF color{ 1 }; int blinkPhase = -1; };
+	Array<FacilityMesh> buildFacilityMeshes(const RoadNetwork& network, const RoadEdge& edge, const World& world) const;
+	void drawFacilities(const RoadNetwork& network, const RoadEdge& edge, const World& world);
+
 	Array<LaneLineBatch> buildLaneLineBatches(const RoadEdge& edge, const CubicBezier& bezier,
 	                                          const World& world,
 	                                          float marginA, float marginB) const;
@@ -533,6 +538,7 @@ private:
 	HashTable<int, Array<std::pair<Vec3, Vec3>>>      m_nodeCapWireCache;    ///< ノード ID → ワイヤーフレーム輪郭線分配列（B パス用）
 	HashTable<int, EdgeBounds>                m_boundsCache;
 	HashTable<int, Array<Mesh>>              m_pierMeshCache;   ///< エッジ ID → 橋脚メッシュ配列
+	HashTable<int, Array<FacilityMesh>>      m_facilityMeshCache; ///< エッジ ID → 料金所・点滅灯メッシュ
 	HashTable<int, Array<SignDraw>>           m_signCache;          ///< エッジ ID → 道路標識変換情報
 	HashSet<int>                              m_visibleEdges;     ///< 直近 render() の可視エッジ集合
 	std::function<String(Vec2)> m_municipalityLookup;

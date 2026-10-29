@@ -931,6 +931,14 @@ namespace
 	}
 }
 
+Array<SignElement> GuideSign::BuildDistanceBoard(const Array<DistanceRow>& rows)
+{
+	// 自動生成の 106 と同じ板面配置を使い、手動配置の標識でも寸法と文字位置を揃える。
+	Array<Dest> dests;
+	for (const auto& row : rows) { dests << Dest{ row.name, row.reading, row.km, 0 }; }
+	return buildDirectionDistance_Elements(dests);
+}
+
 GuideSign::AutoPlacementClearance::AutoPlacementClearance(const RoadNetwork& network)
 {
 	for (const auto& node : network.nodes())
