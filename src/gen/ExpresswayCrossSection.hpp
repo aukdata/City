@@ -63,8 +63,16 @@ namespace ExpresswayCrossSection
 		return c.expressway_lanesPerDirection * c.expressway_laneWidth * .5f + c.expressway_innerShoulder + c.expressway_medianWidth * .5f;
 	}
 
-	/// @param emergencyPhone 1km ごとの非常電話をこの区間の中央へ置く（トンネル内は 200m 間隔）。
-	inline void applyCarriageway(RoadEdge& edge, bool emergencyPhone)
+	/// @brief 区間ごとに変わる路側設備。
+	struct CarriagewayOptions
+	{
+		bool emergencyPhone = false; ///< 1km ごとの非常電話をこの区間の中央へ置く（トンネル内は 200m 間隔）
+		bool noiseBarrier = false;   ///< 市街地に近い区間の遮音壁
+	};
+
+	/// @details 道路構造令 第1種第2級: 車線 3.5m、左側路肩 2.5m、中央帯 4.5m（側帯 0.75m×2＋分離帯 3.0m）。
+	///   高架区間は法面・鋼製防護柵の代わりにコンクリート壁高欄を立てる。
+	inline void applyCarriageway(RoadEdge& edge, const CarriagewayOptions& options)
 	{
 		using namespace detail;
 		const auto& c = GenerationSettings::get();
@@ -79,20 +87,30 @@ namespace ExpresswayCrossSection
 				i == 0 ? LineType::SolidWhite : LineType::DashedWhite, i + 1 == count ? LineType::SolidWhite : LineType::DashedWhite);
 		}
 		edge.parts.clear();
-		float x = -half - c.expressway_outerShoulder - c.expressway_guardrailWidth - c.expressway_slopeWidth;
-		edge.parts << strip(RoadPartType::Slope, x, c.expressway_slopeWidth, U"slope_grass"); x += c.expressway_slopeWidth;
-		edge.parts << strip(RoadPartType::Guardrail, x, c.expressway_guardrailWidth, U"guardrail_steel"); x += c.expressway_guardrailWidth;
+		const bool viaduct = edge.useElevation && !edge.tunnel;
+		float x = -half - c.expressway_outerShoulder - c.expressway_guardrailWidth;
+		if (!viaduct) { edge.parts << strip(RoadPartType::Slope, x - c.expressway_slopeWidth, c.expressway_slopeWidth, U"slope_grass"); }
+		edge.parts << strip(viaduct ? RoadPartType::Wall : RoadPartType::Guardrail, x, c.expressway_guardrailWidth, viaduct ? U"wall_concrete" : U"guardrail_steel"); x += c.expressway_guardrailWidth;
 		edge.parts << strip(RoadPartType::Shoulder, x, c.expressway_outerShoulder, U"roadbed_asphalt");
 		edge.parts << strip(RoadPartType::Roadbed, -half, half * 2, U"roadbed_asphalt");
 		edge.parts << strip(RoadPartType::Shoulder, half, c.expressway_innerShoulder, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Median, half + c.expressway_innerShoulder, c.expressway_medianWidth * .5f, U"median_concrete");
-		// 路側設備（CSL road_kit / 日本道路テーマ）: 視線誘導標・非常電話・キロポスト。
+		// 中央分離帯: 側帯の外に防護柵、分離帯の中心に防眩板（対向車の前照灯を遮る緑の羽板）。
+		const float medianStart = half + c.expressway_innerShoulder, medianHalf = c.expressway_medianWidth * .5f;
+		edge.parts << strip(RoadPartType::Guardrail, medianStart, c.expressway_guardrailWidth, U"guardrail_steel");
+		edge.parts << strip(RoadPartType::Median, medianStart + c.expressway_guardrailWidth, medianHalf - c.expressway_guardrailWidth, U"median_concrete");
+		edge.parts << repeat(medianStart + medianHalf - .05f, U"expressway_antiglare", c.expressway_antiGlareSpacing);
+		// 路側設備（CSL road_kit / 日本道路テーマ）: 視線誘導標は左側が白、中央分離帯側が橙。
 		const float rail = -half - c.expressway_outerShoulder - c.expressway_guardrailWidth * .5f;
 		edge.parts << repeat(rail, U"expressway_delineator", c.expressway_delineatorSpacing);
-		if (edge.tunnel || emergencyPhone)
+		edge.parts << repeat(medianStart + c.expressway_guardrailWidth * .5f, U"expressway_delineator_median", c.expressway_delineatorSpacing);
+		if (edge.tunnel || options.emergencyPhone)
 		{
 			edge.parts << repeat(rail - c.expressway_guardrailWidth - .55f, U"expressway_sos",
 				edge.tunnel ? c.expressway_tunnelEmergencyPhoneSpacing : Max(4.0f, edge.length));
+		}
+		if (options.noiseBarrier && !edge.tunnel)
+		{
+			edge.parts << repeat(rail - c.expressway_guardrailWidth * .5f - .3f, U"expressway_noise_barrier", c.expressway_noiseBarrierPanel);
 		}
 		edge.parts << repeat(half + c.expressway_innerShoulder + .35f, U"expressway_kilopost", c.expressway_kilometrePostSpacing);
 		finish(edge);
@@ -119,6 +137,8 @@ namespace ExpresswayCrossSection
 		edge.parts << strip(RoadPartType::Guardrail, x, rail, U"guardrail_steel"); x += rail;
 		edge.parts << strip(RoadPartType::Slope, x, slope, U"slope_grass");
 		edge.parts << repeat(-half - c.expressway_rampOuterShoulder - rail * .5f, U"expressway_delineator", c.expressway_delineatorSpacing);
+		// IC・JCT のランプは照明区間（本線は原則無照明）。
+		edge.parts << repeat(-half - c.expressway_rampOuterShoulder - rail - .6f, U"expressway_light", c.expressway_rampLightSpacing);
 		finish(edge);
 	}
 

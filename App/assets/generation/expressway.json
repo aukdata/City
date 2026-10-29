@@ -22,7 +22,7 @@
   "nodeSpacing": 220,
   "maximumViaductHeight": 35,
   "maximumTunnelDepth": 250,
-  "roadClearanceMargin": 0.8,
+  "roadClearanceMargin": 1.6,
   "waterClearance": 8,
   "waterTunnelCover": 12,
   "borderSearchDistance": 9000,
@@ -74,5 +74,11 @@
   "kilometrePostSpacing": 100,
   "earthworkRoadDistance": 110,
   "borderMaximumRise": 250,
-  "terrainCostWeight": 0.8
+  "terrainCostWeight": 0.8,
+  "signScale": 1.8,
+  "antiGlareSpacing": 2.0,
+  "noiseBarrierPanel": 4.0,
+  "noiseBarrierDistance": 600.0,
+  "noiseBarrierHeight": 3.0,
+  "rampLightSpacing": 35.0
 }

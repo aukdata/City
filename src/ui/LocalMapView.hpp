@@ -70,7 +70,7 @@ public:
 			{
 				if (!road.bounds.intersects(visible)) { continue; }
 				const double width=Clamp(road.width*scale,road.category==0 ? 1.0 : 1.5,9.0);
-				const ColorF color=road.category==2 ? ColorF{.23,.31,.37} : road.category==1 ? ColorF{1,.82,.32} : ColorF{.97};
+				const ColorF color=road.category==3 ? ColorF{.22,.62,.40} : road.category==2 ? ColorF{.23,.31,.37} : road.category==1 ? ColorF{1,.82,.32} : ColorF{.97};
 				double phase=0;
 				for (size_t i=1;i<road.points.size();++i)
 				{

@@ -8,7 +8,7 @@
 class WorldMapView
 {
 public:
-	struct Stroke { Array<Vec2> points; RectF bounds; double width = 5; int category = 0; bool tunnel = false; };
+	struct Stroke { Array<Vec2> points; RectF bounds; double width = 5; int category = 0; bool tunnel = false; }; ///< category: 0 生活道路 1 幹線 2 鉄道 3 高速道路
 	struct Label { Vec2 position; String text; bool station = false; double minimumZoom=1; String reading; };
 	Array<Stroke> streets,rivers;
 	struct Border { Vec2 a,b; int level=0; };
@@ -189,7 +189,7 @@ private:
 				{
 					if (!road.bounds.intersects(visibleWorld)) { continue; }
 					const double width = Clamp(road.width*scale(size), road.category==0 ? 1.5 : 1.8, 24.0);
-					const ColorF color = pass==0 ? ColorF{.68,.68,.64} : (road.category==2 ? ColorF{.35,.4,.46} : (road.category==1 ? ColorF{1,.83,.39} : ColorF{1}));
+					const ColorF color = pass==0 ? ColorF{.68,.68,.64} : (road.category==3 ? ColorF{.22,.62,.40} : road.category==2 ? ColorF{.35,.4,.46} : (road.category==1 ? ColorF{1,.83,.39} : ColorF{1}));
 					const size_t stride=static_cast<size_t>(Max(1.0,std::floor(1.5/(30*scale(size)))));
 					double phase=0;
 					for (size_t index=1; index<road.points.size(); index+=stride)

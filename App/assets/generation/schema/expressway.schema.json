@@ -79,7 +79,13 @@
     "kilometrePostSpacing",
     "earthworkRoadDistance",
     "borderMaximumRise",
-    "terrainCostWeight"
+    "terrainCostWeight",
+    "signScale",
+    "antiGlareSpacing",
+    "noiseBarrierPanel",
+    "noiseBarrierDistance",
+    "noiseBarrierHeight",
+    "rampLightSpacing"
   ],
   "properties": {
     "enabled": {
@@ -461,6 +467,36 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10.0
+    },
+    "signScale": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 4.0
+    },
+    "antiGlareSpacing": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 20.0
+    },
+    "noiseBarrierPanel": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 20.0
+    },
+    "noiseBarrierDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "noiseBarrierHeight": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 10.0
+    },
+    "rampLightSpacing": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 200.0
     }
   }
 }
