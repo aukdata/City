@@ -222,7 +222,7 @@ namespace RoadDesignLimits
 				for (const int side : {-1, 0, 1})
 				{
 					const Vec3 sample = point + right*(edge.totalWidth()*.5*side);
-					const double water = world.waterSurfaceHeight(sample.x, sample.z);
+					const double water = world.waterPlanningHeight(sample.x, sample.z);
 					const double ground = world.sampleHeight(static_cast<float>(sample.x), static_cast<float>(sample.z));
 					// A covered tunnel beneath a stream does not need a bridge above that stream.
 					if (ground - point.y > GenerationSettings::get().roads_maximumCut) { continue; }

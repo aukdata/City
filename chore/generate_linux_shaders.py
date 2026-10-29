@@ -3,7 +3,7 @@ import subprocess,re
 root=Path(__file__).resolve().parent.parent
 out=root/'App/shaders/glsl';out.mkdir(exist_ok=True)
 tmp=root/'build-linux/shader-intermediates';tmp.mkdir(parents=True,exist_ok=True)
-jobs={'city_forward':{'frag':['Depth_PS','Shading_PS','Terrain_PS','Earth_PS','Aggregate_PS','Field_PS','Paddy_PS','Foliage_PS','River_PS','Pavement_PS','Asphalt_PS','Building_PS','VehicleInstance_PS','VehiclePaint_PS']},'tree_instances':{'vert':['NearVS','FarVS']},'vehicle_instances':{'vert':['VS']},'city_cable':{'vert':['Cable_VS'],'frag':['Cable_PS']},'selection_outline':{'frag':['PS']}}
+jobs={'city_forward':{'frag':['Depth_PS','Shading_PS','Terrain_PS','Earth_PS','Aggregate_PS','Field_PS','Paddy_PS','Foliage_PS','RiverBank_PS','Yard_PS','River_PS','Pavement_PS','Asphalt_PS','Building_PS','VehicleInstance_PS','VehiclePaint_PS']},'tree_instances':{'vert':['NearVS','FarVS']},'vehicle_instances':{'vert':['VS']},'city_cable':{'vert':['Cable_VS'],'frag':['Cable_PS']},'selection_outline':{'frag':['PS']}}
 for stem,stages in jobs.items():
  source=(root/f'App/shaders/hlsl/{stem}.hlsl').read_text(encoding='utf-8-sig')
  header=[]
@@ -34,4 +34,4 @@ for stem,stages in jobs.items():
    if entry=='Depth_PS':s=s.replace('gl_FragCoord.z','(gl_FragCoord.z * 2.0 - 1.0)')
    glsl.write_text('// Generated from the matching HLSL entry point by chore/generate_linux_shaders.py.\n'+'\n'.join(header)+'\n'+s)
    subprocess.run(['glslangValidator','-S',stage,str(glsl)],check=True)
-print('Validated all 20 GLSL shaders')
+print('Validated all generated GLSL shaders')

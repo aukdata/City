@@ -1,0 +1,206 @@
+{
+  "650.000": {
+    "samples": 240,
+    "warmup_frames": 240,
+    "frameMs": {
+      "mean": 16.715,
+      "p95": 28.27,
+      "max": 30.937
+    },
+    "renderMs": {
+      "mean": 10.967,
+      "p95": 13.641,
+      "max": 22.463
+    },
+    "terrainOnlyMs": {
+      "mean": 1.719,
+      "p95": 3.672,
+      "max": 4.632
+    },
+    "roadMs": {
+      "mean": 3.663,
+      "p95": 4.538,
+      "max": 5.731
+    },
+    "shadowMs": {
+      "mean": 0.174,
+      "p95": 0.0,
+      "max": 7.512
+    },
+    "hudStatsMs": {
+      "mean": 0.03,
+      "p95": 0.001,
+      "max": 1.882
+    },
+    "hudDrawMs": {
+      "mean": 0.067,
+      "p95": 0.084,
+      "max": 0.129
+    },
+    "buildingDrawCalls": {
+      "mean": 1188.0,
+      "p95": 1188.0,
+      "max": 1188.0
+    },
+    "gpuMs": {
+      "mean": 3.789,
+      "p95": 4.909,
+      "max": 5.167
+    },
+    "cold_max_renderMs": 34.976,
+    "over_100ms_render_frames": 0
+  },
+  "3000.000": {
+    "samples": 240,
+    "warmup_frames": 240,
+    "frameMs": {
+      "mean": 16.795,
+      "p95": 27.491,
+      "max": 43.996
+    },
+    "renderMs": {
+      "mean": 4.968,
+      "p95": 6.101,
+      "max": 8.644
+    },
+    "terrainOnlyMs": {
+      "mean": 0.258,
+      "p95": 0.396,
+      "max": 0.727
+    },
+    "roadMs": {
+      "mean": 2.347,
+      "p95": 2.829,
+      "max": 3.844
+    },
+    "shadowMs": {
+      "mean": 0.0,
+      "p95": 0.0,
+      "max": 0.0
+    },
+    "hudStatsMs": {
+      "mean": 0.023,
+      "p95": 0.001,
+      "max": 1.451
+    },
+    "hudDrawMs": {
+      "mean": 0.058,
+      "p95": 0.068,
+      "max": 0.076
+    },
+    "buildingDrawCalls": {
+      "mean": 104.0,
+      "p95": 104.0,
+      "max": 104.0
+    },
+    "gpuMs": {
+      "mean": 1.811,
+      "p95": 2.132,
+      "max": 28.709
+    },
+    "cold_max_renderMs": 13.787,
+    "over_100ms_render_frames": 0
+  },
+  "6000.000": {
+    "samples": 240,
+    "warmup_frames": 240,
+    "frameMs": {
+      "mean": 16.663,
+      "p95": 27.263,
+      "max": 28.567
+    },
+    "renderMs": {
+      "mean": 4.706,
+      "p95": 5.936,
+      "max": 7.993
+    },
+    "terrainOnlyMs": {
+      "mean": 0.282,
+      "p95": 0.422,
+      "max": 0.538
+    },
+    "roadMs": {
+      "mean": 2.327,
+      "p95": 2.77,
+      "max": 3.127
+    },
+    "shadowMs": {
+      "mean": 0.0,
+      "p95": 0.0,
+      "max": 0.0
+    },
+    "hudStatsMs": {
+      "mean": 0.025,
+      "p95": 0.001,
+      "max": 1.732
+    },
+    "hudDrawMs": {
+      "mean": 0.06,
+      "p95": 0.068,
+      "max": 0.104
+    },
+    "buildingDrawCalls": {
+      "mean": 118.0,
+      "p95": 118.0,
+      "max": 118.0
+    },
+    "gpuMs": {
+      "mean": 1.753,
+      "p95": 2.226,
+      "max": 2.451
+    },
+    "cold_max_renderMs": 10.326,
+    "over_100ms_render_frames": 0
+  },
+  "12000.000": {
+    "samples": 240,
+    "warmup_frames": 240,
+    "frameMs": {
+      "mean": 16.707,
+      "p95": 27.29,
+      "max": 28.551
+    },
+    "renderMs": {
+      "mean": 3.821,
+      "p95": 4.693,
+      "max": 6.36
+    },
+    "terrainOnlyMs": {
+      "mean": 0.474,
+      "p95": 0.58,
+      "max": 2.991
+    },
+    "roadMs": {
+      "mean": 1.372,
+      "p95": 1.663,
+      "max": 2.068
+    },
+    "shadowMs": {
+      "mean": 0.0,
+      "p95": 0.0,
+      "max": 0.0
+    },
+    "hudStatsMs": {
+      "mean": 0.023,
+      "p95": 0.001,
+      "max": 1.522
+    },
+    "hudDrawMs": {
+      "mean": 0.06,
+      "p95": 0.072,
+      "max": 0.122
+    },
+    "buildingDrawCalls": {
+      "mean": 189.0,
+      "p95": 189.0,
+      "max": 189.0
+    },
+    "gpuMs": {
+      "mean": 0.771,
+      "p95": 1.012,
+      "max": 3.106
+    },
+    "cold_max_renderMs": 8.848,
+    "over_100ms_render_frames": 0
+  }
+}

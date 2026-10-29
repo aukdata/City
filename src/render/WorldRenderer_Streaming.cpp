@@ -1,4 +1,5 @@
 ﻿#include "WorldRenderer.hpp"
+#include "MeshUploadSlices.hpp"
 #include "LandscapeMaterials.hpp"
 #include "TerrainMaterials.hpp"
 #include "TreeGeometry.hpp"
@@ -86,6 +87,7 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 	if (const auto sites = m_transportSites.find(key); sites != m_transportSites.end()) { snapshot->sites = sites->second; }
 	snapshot->rivers = world.rivers().subset(RectF{chunk.coord.x * CHUNK_SIZE - 64, chunk.coord.y * CHUNK_SIZE - 64, CHUNK_SIZE + 128, CHUNK_SIZE + 128});
 	snapshot->woodland = m_woodlandEnabled;
+	snapshot->sourceWater = world.sourceWater() != nullptr;
 	// Placement has its own slots and can become visible during terrain work.
 	const std::shared_ptr<const LandscapeSnapshot> input = std::move(snapshot);
 	if (startTrees)
@@ -96,7 +98,7 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 			const Stopwatch timer{StartImmediately::Yes};
 			TreeJobResult result;
 			(void)buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
-				input->sites, result.stats, result.instances, true, input->woodland);
+				input->sites, result.stats, result.instances, true, input->woodland, input->sourceWater);
 			result.milliseconds = timer.msF();
 			return result;
 		});
@@ -114,7 +116,14 @@ void WorldRenderer::startStreamingJobs(Key key, const Chunk& chunk, const World&
 			result.terrainMilliseconds = timer.msF();
 			Array<TreeInstance> unusedTrees;
 			result.landscape = buildLandscapeMeshData(input->chunk, input->quads, input->heights, input->rivers,
-				input->sites, result.landscapeStats, unusedTrees, false, false);
+				input->sites, result.landscapeStats, unusedTrees, false, false, input->sourceWater);
+			auto partition=[](Array<TerrainMeshData>& batches)
+			{
+				Array<TerrainMeshData> slices;
+				for(auto& batch:batches) { for(auto& mesh:MeshUploadSlices::split(std::move(batch.meshData))) { slices << TerrainMeshData{batch.materialKey,std::move(mesh)}; } }
+				batches=std::move(slices);
+			};
+			partition(result.batches);partition(result.landscape);
 			result.milliseconds = timer.msF();
 			return result;
 		});
@@ -177,6 +186,8 @@ void WorldRenderer::uploadCompletedTerrain()
 
 void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwork& network)
 {
+	Stopwatch stageTimer{StartImmediately::Yes};
+	auto stage=[&](StringView name) { const double ms=stageTimer.msF(); if(ms>20) { DBG_LOG(U"[ChunkStage] coord={} stage={} ms={:.2f}"_fmt(chunk.coord,name,ms)); } stageTimer.restart(); };
 	// チャンク単位で地形と建物の GPU キャッシュを更新し、そのまま描画まで完結させる。
 	const Key key = chunkCoordToKey(chunk.coord);
 	const double nearestDistance = m_buildingEye.distanceFrom(Vec3{
@@ -213,23 +224,24 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			if (absent)
 			{
 				Array<TerrainMeshBatch> batches;
-				for (auto& data : buildTerrainMeshData(chunk, {}))
+				for (auto& data : buildCoarseTerrainMeshData(chunk))
 				{
 					batches << TerrainMeshBatch{data.materialKey, DynamicMesh{data.meshData}};
 				}
 				m_meshCache[key] = std::move(batches);
 				m_pendingTerrainRebuildKeys.insert(key);
 			}
-			if (chunk.meshDirty || !m_buildingMeshCache.contains(key))
+			if (chunk.meshDirty)
 			{
-				const Stopwatch timer{ StartImmediately::Yes };
-				rebuildBuildingMeshes(key, chunk, world, network);
-				DBG_LOG(U"[Streaming] buildings chunk=({}, {}) ms={:.2f}"_fmt(chunk.coord.x,chunk.coord.y,timer.msF()));
 				++m_terrainRevisions[key];
+				m_buildingMeshCache.erase(key);
 				chunk.meshDirty = false;
 			}
 		}
-		startStreamingJobs(key, chunk, world, network, absent || terrainDirty);
+		stage(U"coarse");
+		if (!m_buildingMeshCache.contains(key) && nearestDistance < BuildingLod::kPreloadDistance) { startBuildingJob(key, chunk, world, network); }
+		stage(U"buildingRequest");
+		if (nearestDistance < 2400) { startStreamingJobs(key, chunk, world, network, absent || terrainDirty); }
 	}
 	else
 	{
@@ -257,6 +269,7 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 
 	}
 
+	stage(U"streamingRequest");
 	// 急斜面では地形メッシュの薄い断面が見えるため両面描画にする
 	const ScopedRenderStates3D cullNone{ RasterizerState::SolidCullNone };
 	if (const auto it = m_meshCache.find(key); it != m_meshCache.end())
@@ -268,6 +281,29 @@ void WorldRenderer::drawChunk(Chunk& chunk, const World& world, const RoadNetwor
 			batch.mesh.draw(TextureAsset(TerrainMaterials::texture(batch.materialKey)), TerrainMaterials::color(batch.materialKey));
 		}
 	}
+	stage(U"terrainDraw");
 	drawCachedBuildings(key);
+	stage(U"buildingDraw");
 }
 
+
+Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildCoarseTerrainMeshData(const Chunk& chunk)
+{
+	constexpr int cells = 16;
+	const auto origin = chunk.worldOrigin();
+	auto grid = MeshData::Grid(Float3{static_cast<float>(origin.x + CHUNK_SIZE * .5), 0, static_cast<float>(origin.z + CHUNK_SIZE * .5)}, Float2{CHUNK_SIZE, CHUNK_SIZE}, cells, cells);
+	for (auto& vertex : grid.vertices)
+	{
+		vertex.pos.y = chunk.getHeight(vertex.pos.x, vertex.pos.z);
+		vertex.tex = Float2{vertex.pos.x / 32, vertex.pos.z / 32};
+	}
+	grid.computeNormals();
+	Array<TerrainMeshData> batches{{0, {}}, {1, {}}};
+	for (auto& batch : batches) { batch.meshData.vertices = grid.vertices; }
+	for (const auto& face : grid.indices)
+	{
+		const float height = (grid.vertices[face.i0].pos.y + grid.vertices[face.i1].pos.y + grid.vertices[face.i2].pos.y) / 3;
+		batches[TerrainMaterials::keyForHeight(height)].meshData.indices << face;
+	}
+	return batches;
+}

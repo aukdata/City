@@ -1,0 +1,4 @@
+*.cpp -text
+*.hpp -text
+*.h -text
+*.sh text eol=lf

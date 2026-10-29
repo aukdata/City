@@ -1,5 +1,6 @@
 ﻿#include "TestRunner.hpp"
 #include <chrono>
+#include <cmath>
 #include <exception>
 
 namespace
@@ -58,7 +59,8 @@ void TestContext::expectEqual(int64 actual, int64 expected, StringView message)
 
 void TestContext::expectNear(double actual, double expected, double tolerance, StringView message)
 {
-	if (Abs(actual - expected) > tolerance)
+	if (!std::isfinite(actual) || !std::isfinite(expected) || !std::isfinite(tolerance)
+		|| tolerance < 0 || Abs(actual - expected) > tolerance)
 	{
 		m_failures << U"{} (actual={}, expected={}, tolerance={})"_fmt(
 			message, actual, expected, tolerance);
@@ -96,6 +98,10 @@ int TestRunner::run(FilePathView outputDirectory)
 		try
 		{
 			test.function(context);
+		}
+		catch (const Error& error)
+		{
+			context.expect(false, U"Unhandled Siv3D error: {}"_fmt(error.what()));
 		}
 		catch (const std::exception& exception)
 		{

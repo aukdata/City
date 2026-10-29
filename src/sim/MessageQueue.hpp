@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <Siv3D.hpp>
+#include <chrono>
 #include <mutex>
 #include <condition_variable>
 
@@ -23,11 +24,16 @@ public:
 	/// @brief 全メッセージを一括取り出し（O(1) swap）
 	Array<T> drain()
 	{
-		std::lock_guard lock(m_mutex);
-		Array<T> result = std::move(m_queue);
-		m_queue.clear();
+		Array<T> result;
+		{
+			std::lock_guard lock(m_mutex);
+			result.swap(m_queue);
+		}
 		return result;
 	}
+
+	/// @brief 残っているメッセージをロック外で破棄する。
+	void clear() { (void)drain(); }
 
 	/// @brief メッセージが届くまで待機する（タイムアウト付き）
 	/// @return true: メッセージあり / false: タイムアウト

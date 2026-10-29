@@ -1,5 +1,6 @@
 ﻿#include "CityLighting.hpp"
 #include "ShaderAsset.hpp"
+#include "../debug/DebugLog.hpp"
 #include "../gen/GenerationSettings.hpp"
 
 bool CityLighting::initialize(FilePathView shaderPath, bool shadowsEnabled)
@@ -23,7 +24,7 @@ bool CityLighting::initialize(FilePathView shaderPath, bool shadowsEnabled)
 	m_foliageShader=ShaderAsset::pixel(shaderPath,U"Foliage_PS");
 	if (!m_buildingShader || !m_depthShader || !m_forwardShader || !m_terrainShader || !m_fieldShader || !m_paddyShader || !m_foliageShader)
 	{
-		Logger << U"[CityLighting] Failed to compile " << shaderPath;
+		DebugLog::print(Format(U"[CityLighting] Failed to compile ", shaderPath));
 		m_forwardShader = PixelShader{};
 		return false;
 	}
@@ -64,7 +65,7 @@ void CityLighting::update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirec
 	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
 	constexpr float kFogDensity = 0.00004f;
 	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), kFogDensity };
-	if (!m_shadowsEnabled)
+	if (!m_shadowsEnabled || camera.getEyePosition().distanceFrom(focus) > 1800)
 	{
 		// Preserve the daylight-dependent fog and direct lighting; skip only cast shadows.
 		// shadowVisibility already returns fully lit before reading either depth texture.

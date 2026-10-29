@@ -25,11 +25,115 @@ namespace RailFacilities
 			}
 		}
 		double groundAt(const World& world, Vec3 point) { return world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z)); }
+		/// @brief 地表の起伏を保つ厚み付き舗装。浮いた一枚板を広場全体へ置かない。
+		void groundTile(MeshData& mesh,const World& world,const RailwaySite::Frame& frame,double left,double right,double start,double end,double lift)
+		{
+			Array<Vec3> corners{frame.point(left,0,start),frame.point(right,0,start),frame.point(right,0,end),frame.point(left,0,end)};
+			for (auto& point : corners) { point.y = groundAt(world,point) + lift; }
+			constexpr double kPavingThickness = .08;
+			const Vec3 down{0,-kPavingThickness,0};
+			BridgeStructure::quad(mesh,corners[0],corners[3],corners[2],corners[1]);
+			BridgeStructure::quad(mesh,corners[0] + down,corners[1] + down,corners[2] + down,corners[3] + down);
+			for (size_t i = 0; i < corners.size(); ++i)
+			{
+				const size_t next = (i + 1) % corners.size();
+				BridgeStructure::quad(mesh,corners[i],corners[next],corners[next] + down,corners[i] + down);
+			}
+		}
+		/// @brief 歩行広場・送迎帯・待合・駐輪ラックを、確保済みの駅敷地内へ配置する。
+		void forecourt(Geometry& geometry,const World& world,const RailwaySite::Frame& station,const StationForecourt& site,const Optional<Vec3>& entrance)
+		{
+			constexpr double kTileSize = 4;
+			constexpr double kVehicleBand = 5.5;
+			constexpr double kEntranceInset = 4;
+			constexpr double kCurbWidth = .2;
+			const RailwaySite::Frame surface{site.origin,station.along,station.right};
+			const double left = kEntranceInset - site.size.x, right = kEntranceInset;
+			const bool bus = site.size.x >= 28;
+			for (double z = 0; z < site.size.y; z += kTileSize)
+			{
+				const double end = Min(z + kTileSize,site.size.y);
+				groundTile(geometry.parts[Asphalt],world,surface,left,left + kVehicleBand,z,end,.045);
+				groundTile(geometry.parts[Concrete],world,surface,left + kVehicleBand,left + kVehicleBand + kCurbWidth,z,end,.15);
+				for (double x = left + kVehicleBand + kCurbWidth; x < right; x += kTileSize)
+				{
+					groundTile(geometry.parts[Paving],world,surface,x,Min(x + kTileSize,right),z,end,.10);
+				}
+				groundTile(geometry.parts[Tactile],world,surface,-.15,.15,z,end,.115);
+				groundTile(geometry.parts[WhiteLine],world,surface,left + .25,left + .35,z,end,.055);
+			}
+			// 駅舎から既存の歩道まで舗装を連続させる。経路も同じ地表位置を使う。
+			const Vec3 center = surface.point(kEntranceInset - site.size.x * .5,0,site.size.y * .5);
+			Vec3 along = site.streetAccess - center; along.y = 0;
+			const double length = along.length();
+			if (length > .1)
+			{
+				along /= length; const RailwaySite::Frame path{center,along,{along.z,0,-along.x}};
+				for (double z = 0; z < length; z += kTileSize)
+				{
+					groundTile(geometry.parts[Paving],world,path,-1.2,1.2,z,Min(z + kTileSize,length),.105);
+				}
+			}
+			// 横断道路の先に設けた広場へは、駅舎の出口から歩道をつなぐ。
+			if (entrance)
+			{
+				Vec3 toPlaza = site.origin - *entrance; toPlaza.y = 0;
+				const double gap = toPlaza.length();
+				if (gap > .1)
+				{
+					toPlaza /= gap; const RailwaySite::Frame walk{*entrance,toPlaza,{toPlaza.z,0,-toPlaza.x}};
+					for (double z = 0; z < gap; z += kTileSize) { groundTile(geometry.parts[Paving],world,walk,-1.2,1.2,z,Min(z + kTileSize,gap),.105); }
+				}
+			}
+			const auto furniture = [&](Material material,Vec3 position,Vec3 size)
+			{
+				position.y += groundAt(world,surface.point(position.x,0,position.z)) - surface.origin.y;
+				box(geometry.parts[material],surface,position,size);
+			};
+			const double waitingX = left + kVehicleBand + 2;
+			const double waitingZ = site.size.y * .65;
+			furniture(Roof,{waitingX,2.8,waitingZ},{3.2,.16,bus ? 9.0 : 5.5});
+			for (const double z : {waitingZ - 2,waitingZ + 2})
+			{
+				furniture(Steel,{waitingX + 1,1.4,z},{.1,2.8,.1});
+			}
+			furniture(Timber,{waitingX,.52,waitingZ},{.55,.12,2.8});
+			furniture(Timber,{waitingX + .28,.8,waitingZ},{.08,.55,2.8});
+			for (const double z : {waitingZ - .9,waitingZ + .9}) { furniture(Steel,{waitingX,.29,z},{.08,.45,.08}); }
+			const double signHeight = groundAt(world,surface.point(waitingX,0,waitingZ - 2.5)) - surface.origin.y + 2.2;
+			geometry.signs << Sign{surface.point(waitingX,signHeight,waitingZ - 2.5),surface.right,bus ? U"バス・タクシー" : U"送迎・タクシー",3.0};
+			// 屋根付きの駐輪ラックは歩行動線と離して端部へ。
+			// 小さな駅前では待合と重なるため、駐輪ラックは奥行きに余裕がある広場だけに置く。
+			constexpr double kCycleRackMinimumDepth = 24;
+			if (site.size.y >= kCycleRackMinimumDepth)
+			{
+				const double cycleZ = site.size.y - 3;
+				furniture(Roof,{1.6,2.3,cycleZ},{3.6,.12,4});
+				for (const double z : {cycleZ - 1.5,cycleZ + 1.5}) { furniture(Steel,{3.2,1.15,z},{.09,2.3,.09}); }
+				for (int i = 0; i < 5; ++i)
+				{
+					const double z = cycleZ - 1.4 + i * .7;
+					furniture(Steel,{1.4,.35,z},{1.5,.05,.05}); furniture(Steel,{2.1,.2,z},{.05,.4,.05});
+				}
+			}
+			if (site.size.x >= 20)
+			{
+				const double x = waitingX + 4, z = site.size.y * .3;
+				furniture(Concrete,{x,.3,z},{2.2,.6,3.4});
+				furniture(Greenery,{x,.65,z},{1.9,.25,3.1});
+			}
+			for (const double z : {3.0,site.size.y - 3})
+			{
+				furniture(Steel,{left + 1.8,2.4,z},{.10,4.8,.10});
+				furniture(Light,{left + 1.8,4.8,z},{.65,.12,.35});
+			}
+		}
 	}
 	ColorF color(size_t material)
 	{
 		const std::array<ColorF,Count> palette={ColorF{.60,.59,.54},ColorF{.23,.34,.34},ColorF{.38,.42,.43},ColorF{.23,.38,.43},
-			ColorF{.94,.71,.20},ColorF{.49,.33,.20},ColorF{.95,.93,.78},ColorF{.34,.35,.32}};
+			ColorF{.94,.71,.20},ColorF{.49,.33,.20},ColorF{.95,.93,.78},ColorF{.34,.35,.32},
+			ColorF{.72,.69,.62},ColorF{.24,.25,.25},ColorF{.29,.44,.24},ColorF{.92,.92,.86}};
 		return palette[material].removeSRGBCurve();
 	}
 	Geometry station(const TrainNetwork& network, const World& world, int stationId)
@@ -137,7 +241,22 @@ namespace RailFacilities
 				if (ground<-.15) { box(geometry.parts[Concrete],base,{x,(ground-.15)*.5,z},{.7,-ground-.15,.7}); }
 			}
 		}
-		box(geometry.parts[urban ? Concrete : Timber],base,{-11,2.65,14},{7,3.2,14});
+		// 駅舎を中空の壁と開いた入口にする。改札・券売機・窓口が外から見える。
+		const Material wall = urban ? Concrete : Timber;
+		box(geometry.parts[wall],base,{-14.45,2.65,14},{.18,3.2,14});
+		box(geometry.parts[wall],base,{-11,2.65,7.08},{7,3.2,.18});
+		for (const Vec2 span : {Vec2{-14.5,-13.25},Vec2{-10.75,-7.5}})
+		{
+			box(geometry.parts[wall],base,{(span.x + span.y) * .5,2.65,20.92},{span.y - span.x,3.2,.18});
+		}
+		box(geometry.parts[wall],base,{-12,3.95,20.92},{2.5,.6,.18});
+		box(geometry.parts[wall],base,{-7.55,1.65,14},{.18,1.2,14});
+		for (const double z : {7.0,11.5,16.5,21.0}) { box(geometry.parts[wall],base,{-7.55,2.9,z},{.18,2.6,.22}); }
+		box(geometry.parts[Steel],base,{-13.25,1.7,18.3},{.8,1.3,.5});
+		box(geometry.parts[Glass],base,{-13.25,2.0,18.57},{.58,.32,.035});
+		for (const double x : {-12.7,-11.3}) { box(geometry.parts[Steel],base,{x,1.58,17},{.3,1.06,1.7}); }
+		geometry.signs << Sign{base.point(-12,3.38,21.04),base.right,U"改札",2.2};
+		geometry.signs << Sign{base.point(-13.25,2.58,18.62),base.right,U"きっぷ",1.2};
 		if (!terminal)
 		{
 			gable(geometry.parts[Roof], base, -15.3, -6.7, 5.8, 22.2, 4.35, 5.65);
@@ -178,15 +297,10 @@ namespace RailFacilities
 				box(geometry.parts[Glass], base, {x, 4.1, 20}, {2.2, 6.2, 2.5});
 			}
 			// バス・タクシーの待合はホーム標高でなく、実際の地表へ下ろす。
-			const double forecourtGround=groundAt(world,base.point(-12,0,38))-base.origin.y;
-			box(geometry.parts[Concrete],base,{-12,forecourtGround+.03,38},{6,.06,12});
-			box(geometry.parts[Roof], base, {-12, forecourtGround+3.0, 38}, {5.5, .15, 10});
-			for (const double z : {34.0, 42.0})
-			{
-				box(geometry.parts[Steel], base, {-14, forecourtGround+1.5, z}, {.12, 3.0, .12});
-			}
+			// 地表の待合は確保済み広場の位置・寸法から後段で構築する。
 			geometry.signs << Sign{base.point(0, 10.1, 2.85), base.right, node->name + U" ターミナル", width * .7};
-			geometry.signs << Sign{base.point(-12, forecourtGround+2.5, 33), base.right, U"バス・タクシー", 5};
+			// ターミナルから橋上改札へ上がる階段を駅舎内に配置する。
+			for (int step = 0; step < 34; ++step) { box(geometry.parts[Concrete],base,{-9.4,1.05 + step * .175,8 + step * .28},{1.8,.18,.29}); }
 		}
 		for (const double z : {9.0,14.0,19.0})
 		{
@@ -198,7 +312,7 @@ namespace RailFacilities
 		box(geometry.parts[Roof],base,{-6.1,3.9,14},{3,.16,5.4});
 		geometry.signs << Sign{base.point(-7.30,3.85,14),base.along,node->name+U"駅",4.8};
 		// 地面から駅舎へ連続する階段。高架駅でも入口を浮かせない。
-		const double ground = groundAt(world,base.point(-12,0,40))-base.origin.y;
+		const double ground = (node->forecourt ? node->forecourt->origin.y : groundAt(world,base.point(-12,0,40))) - base.origin.y;
 		const double rise = Max(.18,1.05-ground); const int steps = Max(1,static_cast<int>(std::ceil(rise/.18)));
 		for (int step = 0; step < steps; ++step)
 		{
@@ -210,6 +324,7 @@ namespace RailFacilities
 			RailStructure::prism(geometry.parts[Steel],base.point(x,1.05,22.1),base.point(x,ground,22.3+steps*.28),
 				base.right,base.right,0,.035,.96,.90);
 		}
+		if (node->forecourt) { forecourt(geometry,world,base,*node->forecourt,node->entrance); }
 		return geometry;
 	}
 	Geometry depot(const TrainNetwork& network, const World& world, const RailDepot& depot)

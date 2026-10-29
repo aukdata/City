@@ -1,4 +1,5 @@
 ﻿#include "ArrowMarkingRegistry.hpp"
+#include "../debug/DebugLog.hpp"
 
 namespace
 {
@@ -27,7 +28,7 @@ bool ArrowMarkingRegistry::load(FilePathView dirPath)
 		const TOMLReader toml{ path };
 		if (!toml)
 		{
-			Console << U"[ArrowMarkingRegistry] failed to open: " << path;
+			DebugLog::print(Format(U"[ArrowMarkingRegistry] failed to open: ", path));
 			continue;
 		}
 
@@ -35,7 +36,7 @@ bool ArrowMarkingRegistry::load(FilePathView dirPath)
 		const auto type = parseType(id);
 		if (!type)
 		{
-			Console << U"[ArrowMarkingRegistry] unknown id: " << id;
+			DebugLog::print(Format(U"[ArrowMarkingRegistry] unknown id: ", id));
 			continue;
 		}
 
@@ -50,7 +51,7 @@ bool ArrowMarkingRegistry::load(FilePathView dirPath)
 		const Polygon poly{ verts };
 		if (poly.isEmpty())
 		{
-			Console << U"[ArrowMarkingRegistry] invalid polygon for: " << id;
+			DebugLog::print(Format(U"[ArrowMarkingRegistry] invalid polygon for: ", id));
 			continue;
 		}
 

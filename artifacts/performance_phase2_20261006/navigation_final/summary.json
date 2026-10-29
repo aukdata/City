@@ -1,0 +1,50 @@
+{
+  "action": "playtest",
+  "status": "passed",
+  "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-201144-playtest-rpxw_hfo",
+  "mode": "navigation",
+  "seed": 42,
+  "configuration": "Release",
+  "exit_code": 0,
+  "samples": 1647,
+  "milliseconds": {
+    "cpuMs": {
+      "mean": 13.359,
+      "p95": 24.9,
+      "max": 62.859
+    }
+  },
+  "phase_cpu_ms": {
+    "0": {
+      "mean": 14.11,
+      "p95": 20.087,
+      "max": 62.859
+    },
+    "1": {
+      "mean": 22.145,
+      "p95": 28.322,
+      "max": 47.144
+    },
+    "2": {
+      "mean": 10.527,
+      "p95": 11.969,
+      "max": 22.381
+    },
+    "3": {
+      "mean": 6.708,
+      "p95": 10.837,
+      "max": 16.806
+    },
+    "4": {
+      "mean": 6.174,
+      "p95": 7.781,
+      "max": 10.118
+    },
+    "5": {
+      "mean": 10.581,
+      "p95": 12.041,
+      "max": 21.792
+    }
+  },
+  "elapsed_seconds": 110.64
+}

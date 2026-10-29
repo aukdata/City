@@ -285,6 +285,36 @@ void registerTreeStreamingTests(TestRunner& runner)
 		}
 		report.save(assets.previous + U"TestResults/shared_tree_readback.json");
 	});
+	runner.add(U"Performance.BuildingSnapshotPublication", [](TestContext& context)
+	{
+		GameAssets assets; RegisterAssets(); World world; world.reserveChunks();
+		for (int z = 0; z < WORLD_CHUNKS; ++z) for (int x = 0; x < WORLD_CHUNKS; ++x)
+		{
+			if (x != 0 || z != 0) { world.getChunk({x,z})->heightMap.clear(); }
+		}
+		auto* chunk = world.getChunk({0,0}); chunk->buildingGrid[{10,10}].type = BuildingType::Detached; chunk->markMeshDirty();
+		world.update({165,0,165}); RoadNetwork roads; WorldRenderer renderer; renderer.setAsyncTerrain(true); renderer.setWoodlandEnabled(false);
+		CityLighting lighting; lighting.initialize(); renderer.setTerrainShader(lighting.terrainShader()); renderer.setBuildingShader(lighting.buildingShader());
+		const Size size{320,240}; const BasicCamera3D camera{size,45_deg,Vec3{165,60,80},Vec3{165,0,165}};
+		const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm,HasDepth::Yes};
+		auto render = [&]
+		{
+			{ const ScopedRenderTarget3D scope{target.clear(ColorF{0})}; const ScopedRenderStates3D state{DepthStencilState::DepthTestWrite};
+			Graphics3D::SetCameraTransform(camera); lighting.bind(); renderer.render(world,roads,camera); }
+			Graphics3D::Flush();
+		};
+		auto settle = [&]
+		{
+			const Stopwatch timeout{StartImmediately::Yes};
+			do { render(); std::this_thread::sleep_for(std::chrono::milliseconds{1}); } while (renderer.pendingTerrainJobs() && timeout.sF() < 15);
+			context.expectEqual(renderer.pendingTerrainJobs(),size_t{0},U"CPU snapshots and bounded GPU uploads complete"); render();
+		};
+		settle(); context.expect(renderer.buildingsSubmitted() == 1,U"Detailed detached house is published after asynchronous preparation");
+		chunk->buildingGrid[{10,10}].angle = .8f; chunk->markMeshDirty(); render();
+		chunk->buildingGrid[{10,10}] = Building{}; chunk->markMeshDirty();
+		settle(); context.expectEqual(renderer.buildingsSubmitted(),size_t{0},U"An edit supersedes the in-flight building snapshot without resurrecting a demolished house");
+	});
+
 	runner.add(U"TreeStreaming.LodReuseAndInvalidation", [](TestContext& context)
 	{
 		GameAssets assets; RegisterAssets();
@@ -338,8 +368,8 @@ void registerTreeStreamingTests(TestRunner& runner)
 		context.expect(renderer.treeInstanceCount() == count, U"Returning to the same garden reuses identical placement");
 		renderer.invalidateAllTerrain(); settle();
 		context.expect(renderer.treeInstanceCount() == count, U"A terrain cache reset preserves the trees owned by still-cached building lots");
-		chunk->meshDirty = true; render({165, 100, 50});
-		chunk->landPatches.clear(); chunk->buildingGrid[{20, 20}].type = BuildingType::None; chunk->buildingGrid[{8, 8}].type = BuildingType::None; chunk->meshDirty = true;
+		chunk->markMeshDirty(); render({165, 100, 50});
+		chunk->landPatches.clear(); chunk->buildingGrid[{20, 20}].type = BuildingType::None; chunk->buildingGrid[{8, 8}].type = BuildingType::None; chunk->markMeshDirty();
 		settle();
 		context.expect(renderer.treeInstanceCount() == 0, U"An edit supersedes old in-flight placement and removes deleted garden trees");
 		context.expect(renderer.treePlacementBuilds() > treeBuilds, U"Actual world edits still invalidate tree placement");

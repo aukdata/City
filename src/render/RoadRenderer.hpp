@@ -9,6 +9,10 @@
 #include "../traffic/TrafficLight.hpp"
 #include "../world/World.hpp"
 #include <Siv3D/ViewFrustum.hpp>
+#include "../world/HeightSnapshot.hpp"
+#include "../road/LocationSigns.hpp"
+#include "../road/RoadSign.hpp"
+#include <future>
 
 /// @brief 通常 / LOD の2段メッシュペア
 struct LodMeshPair { Mesh detail; Mesh lod; };
@@ -45,11 +49,17 @@ public:
 	struct CacheBuildStats
 	{
 		int edges = 0, nodes = 0, markings = 0, furniture = 0, deferred = 0;
+		size_t candidateEdges=0,candidateNodes=0;
 		double partsMs = 0, nodesMs = 0, markingsMs = 0, furnitureMs = 0, fallbackMs = 0;
 		[[nodiscard]] double buildMilliseconds() const { return partsMs + nodesMs + markingsMs + furnitureMs; }
 	};
 	[[nodiscard]] const CacheBuildStats& cacheBuildStats() const { return m_cacheBuildStats; }
 
+	/// @brief Full-scan reference path for conservative index readback tests.
+	void setSpatialQueryEnabled(bool enabled) { m_spatialQuery = enabled; }
+	/// @brief Controlled reference path for overview rendering verification.
+	void setOverviewEnabled(bool enabled) { m_overviewEnabled = enabled; }
+	[[nodiscard]] size_t overviewDrawCalls() const { return m_overviewDrawCalls; }
 	/// @brief Limit new detailed caches per render call; infinity is the synchronous reference.
 	/// @details Existing geometry always draws. A single build cannot be interrupted.
 	void setCacheBuildBudget(double milliseconds) { m_cacheBuildBudgetMs = Max(0.01, milliseconds); }
@@ -57,7 +67,9 @@ public:
 	/// @brief 道路部品アセットをロードする
 	bool loadAssets();
 	/// @brief 読み込み中に地域全体の簡略路面を準備し、視点移動時の一斉生成を避ける。
-	void preloadFallbacks(const RoadNetwork& network,const World& world);
+	void preloadFallbacks(const RoadNetwork& network,const World& world,Optional<Vec3> focus=none);
+	/// @brief Prepare the initial nearby equipment before play; later visits use frame-bounded streaming.
+	void preloadDetails(const RoadNetwork& network, const World& world, Vec3 eye);
 	/// @brief Construction uses the paused/resumed game clock, never wall time.
 	void setConstructionTime(GameTime now) { m_constructionNow = now; }
 
@@ -137,10 +149,20 @@ public:
 	                      const ViewFrustum& frustum, Vec3 cameraPos);
 
 	struct LaneLineBatch { ColorF color; Mesh mesh; bool cable = false; };
+	/// @brief CPU-only equipment geometry, safe to construct on workers.
+	struct LaneLineMeshData { ColorF color; MeshData mesh; bool cable=false; };
+	void setAsyncDetails(bool enabled) { m_asyncDetails=enabled; }
+	[[nodiscard]] size_t pendingDetailJobs() const { return m_detailJobs.size(); }
+	/// @brief Whether a complete, current equipment snapshot has been published.
+	[[nodiscard]] bool hasPublishedDetails(int edgeId) const
+	{
+		return m_streetFurnitureCache.contains(edgeId) && m_signCache.contains(edgeId) && m_guideSignCache.contains(edgeId);
+	}
 
 	/// @brief 市町村名の参照元を変更し、境界標識の位置を再生成する。
 	void setMunicipalityLookup(std::function<String(Vec2)> lookup)
 	{
+		++m_detailEpoch;
 		m_municipalityLookup = std::move(lookup);
 		m_signCache.clear();
 	}
@@ -169,6 +191,57 @@ private:
 		uint64 texKey = 0;   ///< m_guideSignTexCache のキー
 	};
 
+	/// @brief Captured metadata and CPU geometry only; no graphics assets enter workers.
+	struct GuideSignMeshData { Mat4x4 poleMat,boardMat; Vec3 poleTop; MeshData board,back; uint64 texKey=0; };
+	struct DetailInput
+	{
+		RoadEdge edge; CubicBezier curve; HeightSnapshot heights;
+		Array<LocationSigns::Boundary> boundaries;
+		Array<GuideSignPlacement> guides;
+		RoadSign::PoleMetadata signMeta; GuideSign::PoleMetadata guideMeta;
+		float marginA,marginB;
+	};
+	struct DetailResult { Array<LaneLineMeshData> furniture; Array<SignDraw> signs; Array<GuideSignMeshData> guides; double milliseconds=0; };
+	struct DetailJob
+	{
+		int edge; uint64 epoch,revision; std::future<DetailResult> future;
+		Optional<DetailResult> result; Array<LaneLineBatch> uploaded; Array<GuideSignDraw> uploadedGuides;
+		size_t furnitureIndex=0,guideIndex=0;
+	};
+	Array<DetailJob> m_detailJobs;
+	HashTable<int,uint64> m_detailRevisions;
+	uint64 m_detailEpoch=0;
+	bool m_asyncDetails=false;
+	void startDetailJob(const RoadEdge& edge,const RoadNetwork& network,const World& world,float marginA,float marginB);
+	void uploadCompletedDetails();
+	static Array<LaneLineMeshData> buildFurnitureMeshData(const RoadEdge& edge,const CubicBezier& curve,const HeightSnapshot& heights,float marginA,float marginB);
+	static Array<SignDraw> buildSnapshotSigns(const DetailInput& input);
+	static Array<GuideSignMeshData> buildSnapshotGuides(const DetailInput& input);
+
+	/// @brief Every cell touched by an edge bound is indexed, including long cross-cell roads.
+	HashTable<int64,HashSet<int>> m_spatialEdges,m_spatialNodes;
+	HashTable<int,Array<int64>> m_edgeCells,m_nodeCells;
+	HashTable<int64,Vec2> m_spatialHeights;
+	HashSet<int> m_dirtySpatialEdges,m_dirtySpatialNodes;
+	const RoadNetwork* m_spatialNetwork=nullptr;
+	size_t m_indexedEdges=0,m_indexedNodes=0;
+	bool m_spatialQuery=true;
+	void synchronizeSpatialIndex(const RoadNetwork& network);
+	Array<int> querySpatial(Vec3 eye,const ViewFrustum& frustum,bool nodes) const;
+	Array<int> queryNearbyNodes(const RoadNetwork& network, Vec3 eye, double radius);
+	/// @brief Source strips stay indexed by owner so edits invalidate only their batch.
+	struct OverviewPart { MeshData data; PartMeshEntry visual; };
+	struct OverviewSource { int64 chunk; Array<OverviewPart> parts; int nodeA = -1, nodeB = -1; };
+	HashTable<int64, OverviewSource> m_overviewSources;
+	HashTable<int64,HashSet<int64>> m_overviewOwners;
+	HashTable<int64, Array<PartMeshEntry>> m_overviewBatches;
+	HashSet<int64> m_overviewDrawn;
+	HashSet<int64> m_overviewDirty;
+	bool m_overviewEnabled = true;
+	size_t m_overviewDrawCalls = 0;
+	void rebuildOverview(int64 chunk);
+	void invalidateOverview(int64 owner);
+	void drawOverview(const ViewFrustum& frustum, Vec3 cameraPos);
 	CacheBuildStats m_cacheBuildStats;
 	double m_cacheBuildBudgetMs = Math::Inf;
 	struct VisibleRoad
@@ -184,6 +257,20 @@ private:
 	HashTable<int, PartMeshEntry> m_fallbackNodes;
 	void prepareFallbackEdge(const RoadEdge& edge,const RoadNetwork& network,const World& world);
 	void prepareFallbackNode(int nodeId,const RoadNetwork& network,const World& world);
+	/// @brief GPU に依存しない遠景用メッシュの頂点計算。読み取り専用で、複数スレッドから同時に呼べる。
+	struct FallbackPartData { MeshData data; ColorF color; const Texture* texture = nullptr; RoadPartType type = RoadPartType::Roadbed; bool asphalt = true; };
+	struct FallbackEdgeData { int64 chunk = 0; int nodeA = -1, nodeB = -1; Array<FallbackPartData> parts; };
+	struct FallbackNodeData { bool valid = false; int64 chunk = 0; MeshData data; };
+	[[nodiscard]] FallbackEdgeData buildFallbackEdgeData(const RoadEdge& edge,const RoadNetwork& network,const World& world) const;
+	[[nodiscard]] FallbackNodeData buildFallbackNodeData(int nodeId,const RoadNetwork& network,const World& world) const;
+	/// @param createMeshes false のとき GPU メッシュは初めて描く時まで作らず、遠景バッチ用の頂点だけを登録する。
+	void commitFallbackEdge(int edgeId,FallbackEdgeData&& data,bool createMeshes=true);
+	void commitFallbackNode(int nodeId,FallbackNodeData&& data,bool createMeshes=true);
+	/// @brief 読み込み時に作らなかった遠景用メッシュを、描く直前に作る。
+	void materializeFallbackEdge(int edgeId);
+	void materializeFallbackNode(int nodeId);
+	HashTable<int,Array<MeshData>> m_pendingFallbackEdges;
+	HashTable<int,MeshData> m_pendingFallbackNodes;
 	HashTable<int64,uint64> m_preloadedHeights;
 	[[nodiscard]] bool canBuildCache();
 	void drawFallbackEdge(const RoadEdge& edge, const RoadNetwork& network, const World& world);
@@ -436,7 +523,7 @@ private:
 	HashTable<int, Array<LaneLineBatch>>      m_markingCacheByEdge; ///< エッジ ID → 統合道路標示
 	HashTable<int, Array<LaneLineBatch>>      m_streetFurnitureCache;
 	uint64 m_geometryRevision = 0;
-	HashSet<int64> m_dirtyTerrainObserved;
+	HashTable<int64,uint64> m_dirtyTerrainObserved;
 	VertexShader m_cableVS;
 	PixelShader m_cablePS;
 	struct CableView { Float4 viewport{ 1, 1, 1, 1 }; };

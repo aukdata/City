@@ -17,14 +17,17 @@ public:
 	SimThread() = default;
 	~SimThread() { stop(); }
 
-	/// @brief スレッドを開始する
+	/// @brief 旧ワーカを停止してから新しいスナップショットで開始する。所有スレッド専用。
 	void start(std::shared_ptr<const SimGraph> graph);
 
-	/// @brief スレッドを停止して join する
+	/// @brief スレッドを停止して join し、旧要求・応答を破棄する。所有スレッド専用。
 	void stop();
 
 	/// @brief リクエストを送信する（メインスレッドから呼ぶ）
-	void pushRequest(SimRequest req) { m_inbox.push(std::move(req)); }
+	void pushRequest(SimRequest req)
+	{
+		if (m_running) { m_inbox.push(std::move(req)); }
+	}
 
 	/// @brief レスポンスを一括取得する（メインスレッドから呼ぶ）
 	Array<SimResponse> drainResponses() { return m_outbox.drain(); }

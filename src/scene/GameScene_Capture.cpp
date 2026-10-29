@@ -429,7 +429,7 @@ void GameScene::updateStreamingBenchmark()
 		DBG_LOG(U"[StreamingProgress] frame={} pending={} signalsMs={:.3f}"_fmt(
 			m_captureFrame, m_worldRenderer.pendingTerrainJobs(), m_renderTimings.signals));
 	}
-	if (m_captureFrame == 60 && m_worldRenderer.pendingTerrainJobs() > 0) { return; }
+	if (m_captureFrame == 60 && (m_worldRenderer.pendingTerrainJobs() > 0 || m_roadRenderer.pendingDetailJobs()>0)) { return; }
 	if (m_captureFrame >= 120)
 	{
 		const double cpuMs = timer.msF();
@@ -437,8 +437,8 @@ void GameScene::updateStreamingBenchmark()
 		m_captureFrameTimes << Scene::DeltaTime() * 1000.0;
 		if (cpuMs > 40.0)
 		{
-			DebugLog::print(U"[FlightSpike] frame={} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f} hudMs={:.2f}"_fmt(
-				flightFrame, cpuMs, m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds(),m_renderTimings.uiRenderer));
+			DebugLog::print(U"[FlightSpike] frame={} cpuMs={:.2f} terrainMs={:.2f} roadsMs={:.2f} shadowMs={:.2f} hudMs={:.2f} hudStatsMs={:.2f} hudDrawMs={:.2f}"_fmt(
+				flightFrame, cpuMs, m_renderTimings.terrainOnly, m_renderTimings.roadMesh, m_cityLighting.shadowMilliseconds(),m_renderTimings.uiRenderer,m_renderTimings.hudStats,m_renderTimings.hudDraw));
 		}
 	}
 	if (++m_captureFrame >= 840)

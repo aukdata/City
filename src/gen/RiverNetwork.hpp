@@ -12,11 +12,13 @@ public:
 	struct Sample { Vec2 center; double distance=1e30; double surface=0; double halfWidth=0; int reach=-1; };
 	/// @brief Generation diagnostics for unresolved outlets and escape routes.
 	struct Statistics { int sources=0, spillways=0, unresolved=0, selfIntersections=0, exhausted=0; };
+	struct WaterSource { Vec2 position; double rate = 64.0; }; ///< Source-only inlet, m³/s.
+	Array<WaterSource> waterSources;
 	Array<Reach> reaches;
 	const Statistics& statistics() const { return m_statistics; }
 	/// @brief 集水から水源を選び、連続地形の -grad f を追跡して河道と合流を形成する。
 	void generate(double width, double depth, const std::function<double(double, double)>& height,
-		const std::function<bool(double, double)>& marine = {});
+		const std::function<bool(double, double)>& marine = {}, bool sourcesOnly = false,bool seaOnly = true);
 	Sample nearest(Vec2 point) const
 	{
 		Sample result;
@@ -64,7 +66,15 @@ public:
 		const double cut=Math::Lerp(Min(original,target),original,blend*blend*(3-2*blend));
 		const double lowland=Clamp((sample.surface+5-original)/5.0,0.0,1.0);
 		const double fan=Sin(Math::Pi*Clamp(bank/extent,0.0,1.0));
-		return cut+reach.alluvium*fan*lowland;
+		const double carved=cut+reach.alluvium*fan*lowland;
+		const Vec3 delta=reach.end-reach.start;
+		if (Min(reach.halfWidth,reach.endHalfWidth)>=42 && Abs(delta.y)/Max(.01,Vec2{delta.x,delta.z}.length())<.025
+			&& Max(reach.start.y,reach.end.y)<180 && sample.distance>=sample.halfWidth && bank<=43)
+		{
+			const double crest=bank<27 ? Clamp((bank-18)/9,0.0,1.0) : bank<=33 ? 1 : Clamp((43-bank)/10,0.0,1.0);
+			return Max(carved,sample.surface+.25+crest*1.4);
+		}
+		return carved;
 	}
 private:
 	static int64 key(int x,int z) { return static_cast<int64>(x)*0x100000000LL+static_cast<uint32>(z); }

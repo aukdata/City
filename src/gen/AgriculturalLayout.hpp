@@ -4,7 +4,7 @@
 #include "../road/RoadNetwork.hpp"
 #include "../railway/TrainNetwork.hpp"
 
-/// @brief 既存道路から地形に沿う農道を伸ばし、民家の近くに不整形のほ場を生成する。
+/// @brief 耕作適地に既存道と両端接続する農道を計画し、民家の近くにまとまったほ場を生成する。
 namespace AgriculturalLayout
 {
 	constexpr uint32 kManagedField=0x80000000u;
@@ -15,6 +15,8 @@ namespace AgriculturalLayout
 		Vec2 origin{0,0};
 		Vec2 axisX{1,0}, axisZ{0,1};
 		Vec2 plotSize{GenerationSettings::get().agriculture_plotLength,GenerationSettings::get().agriculture_plotWidth};
+		Vec2 plannedHalfExtent{0,0}; ///< 計画的に造成したニュータウンの範囲。内側の空き地には田畑を作らない。
+		Vec2 townHalfExtent{0,0}; ///< 町割の範囲。内側では道路沿いの奥へ何列も田を伸ばさない。
 		Vec2 worldPoint(Vec2 point) const { return origin+axisX*point.x+axisZ*point.y; }
 		Vec2 localPoint(Vec2 point) const { const Vec2 delta=point-origin; return {delta.dot(axisX),delta.dot(axisZ)}; }
 	};

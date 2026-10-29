@@ -7,7 +7,7 @@ class RoadBinary
 {
 public:
 	static constexpr uint32 kMagic   = 0x004E4452u;  ///< "RDN\0"（リトルエンディアン）
-	static constexpr uint16 kVersion = 20; ///< 現行フォーマット版
+	static constexpr uint16 kVersion = 21; ///< 現行フォーマット版
 
 	/// @brief roads.bin を書き出す
 	/// @param path     出力ファイルパス
@@ -20,19 +20,19 @@ public:
 	                  const Array<RoadEdge>& edges);
 
 	/// @brief roads.bin を読み込み、ノード・エッジを追記する
-	/// @note  読み込んだノードの edgeIds はクリア済み（addEdgeRaw で再構築するため）
+	/// @note ノード種別と attachment を復元する。失敗時は出力配列を変更しない。
 	/// @return 成功なら true
 	static bool read(const FilePath& path,
 	                 Array<RoadNode>& outNodes,
 	                 Array<RoadEdge>& outEdges);
 
 	/// @brief RoadNetwork 全体を単一ファイルに書き出す
-	/// @details v20 requires the global identity trailer; standalone read/write remain base-record APIs.
+	/// @details v20+ requires the global identity trailer; standalone read/write remain base-record APIs.
 	/// @param error Optional precise failure reason; cleared on success.
 	static bool writeGlobal(const FilePath& path, const RoadNetwork& network, String* error = nullptr);
 
-	/// @brief 単一ファイルから RoadNetwork を復元する
+	/// @brief 単一ファイルから RoadNetwork を復元する。失敗時は呼出側の網を変更しない。
 	/// @param preserveSnapshot Keep persisted cutoff/type/sign state; rebuild only derived connection paths.
-	/// @note v20 restores exact movement IDs and authored signal programs in both modes. Failed loads may have appended graph data.
+	/// @note v20+ restores exact movement IDs and authored signal programs in both modes.
 	static bool readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot = false);
 };

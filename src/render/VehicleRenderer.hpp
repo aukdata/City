@@ -7,6 +7,8 @@ class VehicleRenderer
 {
 public:
 	/// @brief 全車両を描画する
+	/// @brief Load model tiers and immutable far-instance meshes before traffic starts.
+	void preload();
 	void render(const Array<Vehicle>& vehicles, Vec3 cameraPos, const BasicCamera3D* camera = nullptr);
 	[[nodiscard]] size_t drawCalls() const { return m_drawCalls; }
 	[[nodiscard]] size_t submitted() const { return m_submitted; }

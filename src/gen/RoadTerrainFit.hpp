@@ -29,7 +29,7 @@ namespace RoadTerrainFit
 					{
 						const Vec3 sample=point+right*(edge.totalWidth()*.5*side);
 						const double terrain=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.z));
-						fits&=point.y-terrain<=GenerationSettings::get().roads_maximumFill && terrain-point.y<=GenerationSettings::get().roads_maximumCut && terrain>world.waterSurfaceHeight(sample.x,sample.z)+GenerationSettings::get().crossings_earthworkWaterMargin;
+						fits&=point.y-terrain<=GenerationSettings::get().roads_maximumFill && terrain-point.y<=GenerationSettings::get().roads_maximumCut && terrain>world.waterPlanningHeight(sample.x,sample.z)+GenerationSettings::get().crossings_earthworkWaterMargin;
 					}
 				}
 				if (!fits) { continue; }
@@ -46,7 +46,7 @@ namespace RoadTerrainFit
 						const Vec2 sample{x*spacing,z*spacing}; const double distance=sample.distanceFrom({point.x,point.z});
 						if (distance>=radius) { continue; }
 						const double terrain=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.y));
-						if (terrain<=world.waterSurfaceHeight(sample.x,sample.y)+GenerationSettings::get().crossings_earthworkWaterMargin) { continue; }
+						if (terrain<=world.waterPlanningHeight(sample.x,sample.y)+GenerationSettings::get().crossings_earthworkWaterMargin) { continue; }
 						// One grid margin keeps interpolation flat across a narrow road; outside it the slope is bounded.
 						const double relief=Max(0.0,distance-half-spacing)*GenerationSettings::get().crossings_earthworkSlope;
 						const double desired=Clamp(terrain,point.y-relief,point.y+relief);

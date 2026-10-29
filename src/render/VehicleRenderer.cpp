@@ -192,3 +192,21 @@ void VehicleRenderer::drawVehicle(const Vehicle& v, int level)
 	OrientedBox{ center, vis.size, boxWorldRotation(v) }.draw(vis.color.removeSRGBCurve());
 	++m_drawCalls;
 }
+
+void VehicleRenderer::preload()
+{
+	VehicleInstanceBatch::preloadShaders();
+	for(int index=0;index<9;++index)
+	{
+		Vehicle vehicle;vehicle.type=index>=7 ? VehicleType::Emergency : static_cast<VehicleType>(index);vehicle.id=index==8 ? 1 : 0;
+		if(!usesCarModel(vehicle,true)) { continue; }
+		for(int level=0;level<3;++level)
+		{
+			const auto& model=ensureVehicleModel(vehicle,level);
+			for(const auto& material:model.materials()) { if(!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); } }
+		}
+		auto& asset=m_farAssets[index];
+		if(asset.parts.isEmpty()) { asset.parts=loadModelMeshSource(modelLodPath(U"assets/vehicles/{}.obj"_fmt(modelStem(vehicle)),2),ensureVehicleModel(vehicle,2));asset.batches.resize(asset.parts.size()); }
+		for(size_t part=0;part<asset.parts.size();++part) { asset.batches[part].append(asset.parts[part],Mat4x4::Identity());asset.batches[part].clear(); }
+	}
+}

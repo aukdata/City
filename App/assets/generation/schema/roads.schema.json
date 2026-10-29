@@ -17,6 +17,7 @@
     "highwayMinimumRadius",
     "arterialMaximumGrade",
     "arterialMinimumRadius",
+    "maximumGeneratedViaductHeight",
     "endpointElevationThreshold",
     "interiorElevationThreshold",
     "tunnelLengthScale",
@@ -26,8 +27,7 @@
     "viaductBaseCost",
     "pierInterval",
     "pierMinimumSpan",
-    "pierMinimumClearance",
-    "maximumGeneratedViaductHeight"
+    "pierMinimumClearance"
   ],
   "properties": {
     "surfaceCost": {
@@ -95,6 +95,11 @@
       "minimum": 5.0,
       "maximum": 2000.0
     },
+    "maximumGeneratedViaductHeight": {
+      "type": "number",
+      "minimum": 8.0,
+      "maximum": 200.0
+    },
     "endpointElevationThreshold": {
       "type": "number",
       "minimum": 0.01,
@@ -144,11 +149,6 @@
       "type": "number",
       "minimum": 1.0,
       "maximum": 20.0
-    },
-    "maximumGeneratedViaductHeight": {
-      "type": "number",
-      "minimum": 8,
-      "maximum": 200
     }
   }
 }

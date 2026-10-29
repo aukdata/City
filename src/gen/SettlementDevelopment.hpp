@@ -28,8 +28,6 @@ public:
 	void generateLandPatches(bool preserveExisting = false);
 	void refreshBuildingAnglesFromEdges();
 	Validation validateGeneratedCityConstraints() const;
-	/// @brief 既存の読み込み入口。処理を移すだけで移行範囲は拡張しない。
-	void migrateLegacyBuildingFrontageReferences();
 
 private:
 	Array<AgriculturalLayout::Frame> agriculturalFrames() const;

@@ -23,7 +23,7 @@ namespace LeveeRoad
 		{
 			const Vec3 point=a.lerp(b,along/distance);
 			const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-			if (ground<world.waterSurfaceHeight(point.x,point.z)+.2) { return false; }
+			if (ground<world.waterPlanningHeight(point.x,point.z)+.2) { return false; }
 		}
 		return true;
 	}
@@ -69,23 +69,23 @@ namespace LeveeRoad
 					const double run=flow.length();
 					if (run<.5 || Max(reach.start.y,reach.end.y)>185) { break; }
 					const Vec2 normal{flow.y/run,-flow.x/run};
-					const Vec3 end=reach.end+Vec3{normal.x*side*(reach.endHalfWidth+43),0,
-						normal.y*side*(reach.endHalfWidth+43)};
+					const Vec3 end=reach.end+Vec3{normal.x*side*(reach.endHalfWidth+30),0,
+						normal.y*side*(reach.endHalfWidth+30)};
 					if (points.isEmpty())
 					{
-						const Vec3 begin=reach.start+Vec3{normal.x*side*(reach.halfWidth+43),0,
-							normal.y*side*(reach.halfWidth+43)};
+						const Vec3 begin=reach.start+Vec3{normal.x*side*(reach.halfWidth+30),0,
+							normal.y*side*(reach.halfWidth+30)};
 						const double ground=world.sampleHeight(static_cast<float>(begin.x),static_cast<float>(begin.z));
-						points << Vec3{begin.x,ground+1.45,begin.z};
+						points << Vec3{begin.x,ground+.15,begin.z};
 					}
 					length+=run;
 					if (length-lastPoint>=88 || length>=560)
 					{
 						const double ground=world.sampleHeight(static_cast<float>(end.x),static_cast<float>(end.z));
-						const double water=world.waterSurfaceHeight(end.x,end.z);
+						const double water=world.waterPlanningHeight(end.x,end.z);
 						if (end.x<300 || end.z<300 || end.x>WORLD_SIZE-300 || end.z>WORLD_SIZE-300
 							|| ground<water-.2 || ground>reach.end.y+20) { break; }
-						const Vec3 roadPoint{end.x,ground+1.45,end.z};
+						const Vec3 roadPoint{end.x,ground+.15,end.z};
 						if (roadPoint.xz().distanceFrom(points.back().xz())<35
 							|| roadPoint.xz().distanceFrom(points.back().xz())>175) { break; }
 						points << roadPoint;
@@ -109,7 +109,15 @@ namespace LeveeRoad
 				const auto start=findAccess(points.front(),-1);
 				if (!start) { continue; }
 				++startAccesses;
-				const auto finish=findAccess(points.back(),*start);
+				auto finish=findAccess(points.back(),*start);
+				// 下流端で道へ戻れない場合は、手前の取り付け可能な地点まで短くする。行き止まりの堤防道路は作らない。
+				for (size_t last=points.size()-1;!finish && last>=4;--last)
+				{
+					double prefix=0;
+					for (size_t index=1;index<last;++index) { prefix+=points[index].xz().distanceFrom(points[index-1].xz()); }
+					if (prefix<400) { break; }
+					if ((finish=findAccess(points[last-1],*start))) { points.resize(last); }
+				}
 				if (!finish) { continue; }
 				++bothAccesses;
 				bool gentle=true;

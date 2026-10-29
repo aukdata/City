@@ -284,3 +284,23 @@ void TrainRenderer::drawTrainSilhouette(const Train& train, const TrainNetwork& 
 		for (const auto& object:model.objects()) { for (const auto& part:object.parts) { part.mesh.draw(color); } }
 	}
 }
+
+void TrainRenderer::preloadGeometry(const TrainNetwork& network,const World& world)
+{
+	for(const auto& edge:network.edges())
+	{
+		if(!edge.isValid() || !edge.isRoadbedBuilt() || (edge.edgeState!=EdgeState::Open && edge.edgeState!=EdgeState::Existing)) { continue; }
+		if(const auto curve=network.getBezier(edge.id)) { m_trackMeshCache[edge.id]=buildTrackMesh(edge,*curve,false);m_distantTracks[edge.id]=buildTrackMesh(edge,*curve,true); }
+	}
+	m_facilityEdgeCount=network.edges().size();m_parkedTrains=RailFacilities::parkedTrains(network);
+	for(const auto& node:network.nodes()) { if(node.type==TrackNodeType::Station) { m_stations[node.id]=buildFacility(RailFacilities::station(network,world,node.id)); } }
+	for(const auto& depot:network.depots()) { m_depots[depot.stationNodeId]=buildFacility(RailFacilities::depot(network,world,depot)); }
+	for(const auto& [id,facility]:m_stations) { for(const auto& [board,name]:facility.signs) { m_pendingFacilityNames.insert(name); } }
+	for(const auto& [id,facility]:m_depots) { for(const auto& [board,name]:facility.signs) { m_pendingFacilityNames.insert(name); } }
+	for(const auto stem:{U"regional_cab",U"regional_trailer",U"urban_cab",U"urban_trailer"}) for(int level=0;level<3;++level)
+	{
+		const auto& model=ensureModel(stem,level);
+		for(const auto& material:model.materials()) { if(!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); } }
+	}
+	prepareFacilityTextures();
+}

@@ -1,0 +1,13 @@
+{
+  "action": "test",
+  "status": "passed",
+  "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-201948-test-erye_fb8",
+  "filter": "(all)",
+  "configuration": "Release",
+  "exit_code": 0,
+  "total": 330,
+  "passed": 330,
+  "failed": 0,
+  "failure_details": [],
+  "elapsed_seconds": 279.61
+}

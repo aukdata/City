@@ -23,6 +23,23 @@ namespace VegetationProfile
 		return height>=config.vegetation_minimumForestAltitude && height<=config.vegetation_treeLine && slope<=config.vegetation_maximumForestSlope
 			&& !(height<config.vegetation_flatClearingAltitude && slope<config.vegetation_flatClearingSlope);
 	}
+	/// @brief 平野に点在する屋敷林・社寺林・平地林の濃さ。森林帯から外れた平地にも小さな木立を残す。
+	/// @param threshold 木立になる確率場の下限。市街化調整区域の緑地では下げて雑木林を広く残す。
+	inline double copse(Vec2 point,double threshold=.66)
+	{
+		const auto noise=[](Vec2 p)
+		{
+			const auto hash=[](double x,double y)
+			{
+				uint32 h=static_cast<uint32>(static_cast<int32>(x))*374761393u+static_cast<uint32>(static_cast<int32>(y))*668265263u;
+				h=(h^(h>>13))*1274126177u;return ((h^(h>>16))&0xFFFFu)/65535.0;
+			};
+			const double x=Floor(p.x),y=Floor(p.y),fx=p.x-x,fy=p.y-y;
+			const double u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);
+			return Math::Lerp(Math::Lerp(hash(x,y),hash(x+1,y),u),Math::Lerp(hash(x,y+1),hash(x+1,y+1),u),v);
+		};
+		return blend(noise(point/190)*.65+noise(point/55+Vec2{17.3,4.1})*.35,threshold,threshold+.08);
+	}
 	/// @brief グローバル格子上の境界距離を2パスで求める。500mの余白を含め、隣のチャンクと連続する。
 	class BoundaryField
 	{

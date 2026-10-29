@@ -56,39 +56,13 @@ struct SimGraph
 		for (const auto& edge : network.edges())
 		{
 			if (edge.id < 0) continue;
-			Edge se;
-			se.id         = edge.id;
-			se.nodeA      = edge.nodeA;
-			se.nodeB      = edge.nodeB;
-			se.length     = edge.length;
-			se.speedLimit = edge.speedLimit;
-			se.congestion = edge.congestion;
-			se.roadType   = edge.roadType;
-			se.edgeState  = edge.edgeState;
-			se.parts      = edge.parts;
-			se.lanes      = edge.lanes;
-
-			// ベジェ接線角を計算（ターン判定用）
-			if (const auto bez = network.getBezier(edge.id))
-			{
-				const Vec3 tA = bez->tangentAt(0.0f);
-				const Vec3 tB = bez->tangentAt(bez->totalLength);
-				se.tangentAngleA = static_cast<float>(Math::Atan2(tA.x, tA.z));
-				se.tangentAngleB = static_cast<float>(Math::Atan2(tB.x, tB.z));
-			}
-			g.edges[edge.id] = std::move(se);
+			g.edges[edge.id] = snapshotEdge(edge, network);
 		}
 
 		for (const auto& node : network.nodes())
 		{
 			if (node.id < 0) continue;
-			Node sn;
-			sn.id      = node.id;
-			sn.edgeIds = node.edgeIds();
-			for (const auto& att : node.attachments)
-				sn.edgeControl[att.edgeId] = att.control;
-			sn.laneConnections = node.laneConnections;
-			g.nodes[node.id] = std::move(sn);
+			g.nodes[node.id] = snapshotNode(node);
 		}
 
 		return g;
@@ -104,16 +78,15 @@ struct SimGraph
 		for (const int nid : dirtyNodeIds)
 		{
 			nodeIds.insert(nid);
-			// 削除・分割前の接続も集める。現在の attachments からは消えたエッジを追跡できない。
-			if (const auto previousNode = nodes.find(nid); previousNode != nodes.end())
+			if (const auto* previous = getNode(nid))
 			{
-				for (const int edgeId : previousNode->second.edgeIds)
+				for (const int id : previous->edgeIds)
 				{
-					edgeIds.insert(edgeId);
-					if (const auto previousEdge = edges.find(edgeId); previousEdge != edges.end())
+					edgeIds.insert(id);
+					if (const auto* edge = getEdge(id))
 					{
-						nodeIds.insert(previousEdge->second.nodeA);
-						nodeIds.insert(previousEdge->second.nodeB);
+						nodeIds.insert(edge->nodeA);
+						nodeIds.insert(edge->nodeB);
 					}
 				}
 			}
@@ -138,39 +111,14 @@ struct SimGraph
 			}
 		}
 
-		// 古いエッジで、もう RoadNetwork に存在しないものを削除
-		for (auto it = edges.begin(); it != edges.end(); )
-		{
-			if (edgeIds.contains(it->first) && !network.getEdge(it->first))
-				it = edges.erase(it);
-			else
-				++it;
-		}
-
 		// エッジを更新
 		for (const int eid : edgeIds)
 		{
 			const RoadEdge* re = network.getEdge(eid);
 			if (!re) { edges.erase(eid); continue; }
-			Edge se;
-			se.id         = re->id;
-			se.nodeA      = re->nodeA;
-			se.nodeB      = re->nodeB;
-			se.length     = re->length;
-			se.speedLimit = re->speedLimit;
-			se.congestion = re->congestion;
-			se.roadType   = re->roadType;
-			se.edgeState  = re->edgeState;
-			se.parts      = re->parts;
-			se.lanes      = re->lanes;
-			if (const auto bez = network.getBezier(re->id))
-			{
-				se.tangentAngleA = static_cast<float>(Math::Atan2(bez->tangentAt(0.0f).x, bez->tangentAt(0.0f).z));
-				se.tangentAngleB = static_cast<float>(Math::Atan2(bez->tangentAt(bez->totalLength).x, bez->tangentAt(bez->totalLength).z));
-			}
 			nodeIds.insert(re->nodeA);
 			nodeIds.insert(re->nodeB);
-			edges[eid] = std::move(se);
+			edges[eid] = snapshotEdge(*re, network);
 		}
 
 		// ノードを更新
@@ -178,13 +126,7 @@ struct SimGraph
 		{
 			const RoadNode* rn = network.getNode(nid);
 			if (!rn) { nodes.erase(nid); continue; }
-			Node sn;
-			sn.id      = rn->id;
-			sn.edgeIds = rn->edgeIds();
-			for (const auto& att : rn->attachments)
-				sn.edgeControl[att.edgeId] = att.control;
-			sn.laneConnections = rn->laneConnections;
-			nodes[nid] = std::move(sn);
+			nodes[nid] = snapshotNode(*rn);
 		}
 	}
 
@@ -208,5 +150,44 @@ struct SimGraph
 	{
 		const auto it = nodes.find(id);
 		return (it != nodes.end()) ? &it->second : nullptr;
+	}
+
+private:
+	/// @brief 全件更新と局所更新で同じエッジ情報を抽出する。
+	static Edge snapshotEdge(const RoadEdge& edge, const RoadNetwork& network)
+	{
+		Edge se;
+		se.id         = edge.id;
+		se.nodeA      = edge.nodeA;
+		se.nodeB      = edge.nodeB;
+		se.length     = edge.length;
+		se.speedLimit = edge.speedLimit;
+		se.congestion = edge.congestion;
+		se.roadType   = edge.roadType;
+		se.edgeState  = edge.edgeState;
+		se.parts      = edge.parts;
+		se.lanes      = edge.lanes;
+
+		// ベジェ接線角を計算（ターン判定用）
+		if (const auto bez = network.getBezier(edge.id))
+		{
+			const Vec3 tA = bez->tangentAt(0.0f);
+			const Vec3 tB = bez->tangentAt(bez->totalLength);
+			se.tangentAngleA = static_cast<float>(Math::Atan2(tA.x, tA.z));
+			se.tangentAngleB = static_cast<float>(Math::Atan2(tB.x, tB.z));
+		}
+		return se;
+	}
+
+	/// @brief ノードの接続と規制を一つの読取り専用スナップショットへまとめる。
+	static Node snapshotNode(const RoadNode& node)
+	{
+		Node sn;
+		sn.id      = node.id;
+		sn.edgeIds = node.edgeIds();
+		for (const auto& att : node.attachments)
+			sn.edgeControl[att.edgeId] = att.control;
+		sn.laneConnections = node.laneConnections;
+		return sn;
 	}
 };

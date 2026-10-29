@@ -1,96 +1,100 @@
 ﻿#pragma once
+#include <Siv3D.hpp>
+#include <chrono>
+#include <filesystem>
 #include <fstream>
+#include <mutex>
 
-/// @brief デバッグログ（画面表示 + ファイル出力）
-/// @details DebugRenderer がデバッグモード中に画面右下へ表示し、同時に App/debug.log へ出力する
+/// @brief スレッドセーフな診断ログ。画面用の履歴と UTF-8 ファイルを同時に更新する。
 class DebugLog
 {
 public:
 	struct Entry
 	{
 		String text;
-		double time = 0.0;  ///< Scene::Time() でのタイムスタンプ
+		double time = 0.0; ///< Scene::Time() と同じ原点の経過秒。
 	};
 
-	static constexpr int    MAX_LINES     = 20;
+	static constexpr int MAX_LINES = 20;
 	static constexpr double FADE_DURATION = 3.0;
 
-	/// @brief ログファイルを開く
-	/// @param path 実行時ワーキングディレクトリからの出力先
-	/// @param append true の場合は追記、false の場合は起動ごとに上書き
+	/// @brief ログを開き、画面履歴と時計を新しいセッションへ切り替える。
 	static void initialize(const FilePath& path = U"debug.log", bool append = false)
 	{
-		auto& output = file();
-		if (output.is_open())
-		{
-			output.close();
-		}
-
-		const auto mode = append ? std::ios::app : std::ios::trunc;
-		output.open(Unicode::ToUTF8(path), std::ios::out | mode);
-		if (!output)
-		{
-			return;
-		}
-
-		output << "\xEF\xBB\xBF";
-		output << "===== DebugLog started "
-			   << Unicode::ToUTF8(DateTime::Now().format(U"yyyy-MM-dd HH:mm:ss"))
-			   << " =====\n";
-		output.flush();
+		auto& state = storage();
+		std::lock_guard lock(state.mutex);
+		state.output.close();
+		state.output.clear();
+		state.entries.clear();
+		state.startedAt = Clock::now();
+		state.sceneOrigin = Scene::Time();
+		state.output.open(std::filesystem::path{path.toWstr()},
+			std::ios::out | (append ? std::ios::app : std::ios::trunc));
+		if (!state.output) { return; }
+		state.output.seekp(0, std::ios::end);
+		if (state.output.tellp() == std::streampos{0}) { state.output << "\xEF\xBB\xBF"; }
+		state.output << "===== DebugLog started "
+			<< Unicode::ToUTF8(DateTime::Now().format(U"yyyy-MM-dd HH:mm:ss")) << " =====\n";
+		state.output.flush();
 	}
 
-	/// @brief ログファイルを閉じる
+	/// @brief ログを閉じる。シーンとワーカの終了後に呼ぶ。
 	static void shutdown()
 	{
-		auto& output = file();
-		if (output.is_open())
+		auto& state = storage();
+		std::lock_guard lock(state.mutex);
+		if (!state.output.is_open()) { return; }
+		state.output << "===== DebugLog closed "
+			<< Unicode::ToUTF8(DateTime::Now().format(U"yyyy-MM-dd HH:mm:ss")) << " =====\n";
+		state.output.close();
+	}
+
+	/// @brief 1行を追加する。ワーカは Siv3D の可変時計へアクセスしない。
+	static void print(const String& text)
+	{
+		auto& state = storage();
+		std::lock_guard lock(state.mutex);
+		const double time = state.sceneOrigin + std::chrono::duration<double>(Clock::now() - state.startedAt).count();
+		state.entries << Entry{text, time};
+		while (state.entries.size() > static_cast<size_t>(MAX_LINES)) { state.entries.pop_front(); }
+		if (state.output.is_open())
 		{
-			output << "===== DebugLog closed "
-				   << Unicode::ToUTF8(DateTime::Now().format(U"yyyy-MM-dd HH:mm:ss"))
-				   << " =====\n";
-			output.close();
+			state.output << '[' << time << "s] " << Unicode::ToUTF8(text) << '\n';
+			state.output.flush();
 		}
 	}
 
-	/// @brief 1 行ログに追加する
-	static void print(const String& text)
+	/// @brief 画面履歴を消去する。ファイルの記録は保持する。
+	static void clear()
 	{
-		auto& e = entries();
-		e << Entry{ text, Scene::Time() };
-		while (static_cast<int>(e.size()) > MAX_LINES)
-			e.pop_front();
-
-		writeToFile(text);
+		auto& state = storage();
+		std::lock_guard lock(state.mutex);
+		state.entries.clear();
 	}
 
-	/// @brief ログを全消去する
-	static void clear() { entries().clear(); }
-
-	/// @brief エントリリストを返す（DebugRenderer から参照する）
-	static Array<Entry>& entries()
+	/// @brief 描画中に変更されない履歴のコピーを返す。
+	static Array<Entry> entries()
 	{
-		static Array<Entry> s_entries;
-		return s_entries;
+		auto& state = storage();
+		std::lock_guard lock(state.mutex);
+		return state.entries;
 	}
 
 private:
-	static std::ofstream& file()
+	using Clock = std::chrono::steady_clock;
+	struct Storage
 	{
-		static std::ofstream s_file;
-		return s_file;
-	}
+		std::mutex mutex;
+		std::ofstream output;
+		Array<Entry> entries;
+		Clock::time_point startedAt = Clock::now();
+		double sceneOrigin = 0.0;
+	};
 
-	static void writeToFile(const String& text)
+	static Storage& storage()
 	{
-		auto& output = file();
-		if (!output.is_open())
-		{
-			return;
-		}
-
-		output << '[' << Scene::Time() << "s] " << Unicode::ToUTF8(text) << '\n';
-		output.flush();
+		static Storage state;
+		return state;
 	}
 };
 

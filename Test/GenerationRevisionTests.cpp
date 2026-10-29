@@ -741,7 +741,7 @@ void registerGenerationRevisionTests(TestRunner& runner)
 			context.expect(occupied > 2000, U"FPS表示時の移動先にも切替ボタンを描画");
 		}
 	});
-	runner.add(U"GenerationRevision.FlatFarmMeanders", [](TestContext& context)
+	runner.add(U"GenerationRevision.FlatFarmBlocks", [](TestContext& context)
 	{
 		World world;
 		world.reserveChunks();
@@ -761,24 +761,20 @@ void registerGenerationRevisionTests(TestRunner& runner)
 		AgriculturalLayout::Frame frame;
 		frame.center = {33150, 33000};
 		const auto stats = AgriculturalLayout::prepare(world, roads, 42, {frame});
-		int curved = 0;
+		int dangling = 0; double parallel = 0, total = 0;
 		for (const auto& road : roads.edges())
 		{
-			if (road.id < 0 || !road.farmAccess)
-			{
-				continue;
-			}
+			if (road.id < 0 || !road.farmAccess) { continue; }
 			const auto curve = *roads.getBezier(road.id);
-			const Vec2 arm{curve.p1.x - curve.p0.x, curve.p1.z - curve.p0.z},
-				span{curve.p3.x - curve.p0.x, curve.p3.z - curve.p0.z};
-			curved += Abs(arm.x * span.y - arm.y * span.x) > 1;
+			total += curve.totalLength;
+			if (Abs(curve.p3.x - curve.p0.x) > Abs(curve.p3.z - curve.p0.z) * 3) { parallel += curve.totalLength; }
+			dangling += roads.getNode(road.nodeA)->attachments.size() == 1 || roads.getNode(road.nodeB)->attachments.size() == 1;
 		}
-		context.expect(curved >= 3, U"完全な平地でも高さの変化に頼らず水平に曲がる畦道を生成");
-		JSON report;
-		report[U"curvedRoads"] = curved;
-		report[U"tracks"] = stats.tracks;
-		report[U"connections"] = stats.connections;
-		report.save(U"TestResults/flat_farm_meanders.json");
+		context.expect(stats.tracks > 0 && dangling == 0 && parallel > total * .65,
+			U"平野の農道は耕区の長辺に沿って並行し、両端が接続する");
+		JSON report; report[U"parallelLength"] = parallel; report[U"totalLength"] = total;
+		report[U"dangling"] = dangling; report[U"tracks"] = stats.tracks; report[U"connections"] = stats.connections;
+		report.save(U"TestResults/flat_farm_blocks.json");
 		TrainNetwork rail;
 		const int n0 = rail.addStation({32000, 10, 32800}, U"西"), n1 = rail.addStation({33000, 10, 32800}, U"東");
 		const int track = rail.addEdge(n0, n1, {32333, 10, 32800}, {32666, 10, 32800}, 60);

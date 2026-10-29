@@ -1,0 +1,23 @@
+{
+  "action": "playtest",
+  "status": "passed",
+  "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-161329-playtest-kptx5mfm",
+  "mode": "streaming",
+  "seed": 42,
+  "configuration": "Release",
+  "exit_code": 0,
+  "samples": 720,
+  "milliseconds": {
+    "cpuMs": {
+      "mean": 7.58,
+      "p95": 15.715,
+      "max": 25.092
+    },
+    "frameMs": {
+      "mean": 16.741,
+      "p95": 26.752,
+      "max": 26.956
+    }
+  },
+  "elapsed_seconds": 91.34
+}

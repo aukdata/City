@@ -1,0 +1,10 @@
+{
+  "baseline": {
+    "publications": 29,
+    "maxFrameUploadMs": 12.44
+  },
+  "final": {
+    "publications": 29,
+    "maxFrameUploadMs": 3.46
+  }
+}

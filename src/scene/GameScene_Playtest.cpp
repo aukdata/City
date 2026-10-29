@@ -4,17 +4,23 @@
 /// @brief Opt-in diagnostics for real keyboard/mouse playtests; never transmits images.
 void GameScene::recordPlaytestFrame()
 {
+	const Stopwatch diagnostics{StartImmediately::Yes};
 	if (m_playtestFrame == 0)
 	{
+		m_playtestIntervalTimer.restart();
 		m_playtestFrames.open(U"playtest_frames.csv");
-		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs,renderDistanceMeters,buildingsSubmitted,treesSubmitted");
+		m_playtestFrames.writeln(U"frame,mode,map,frameMs,renderMs,logicMs,terrainMs,roadMs,shadowMs,cars,carUpdateMs,carDrawMs,carDrawCalls,visibleCars,buildingDrawCalls,gpuMs,commandId,distance,terrainOnlyMs,hudStatsMs,hudDrawMs,pre3DMs,flushMs,resolveMs,screenMs,uiMs,placeMs,minimapMs,trainMs,roadCandidates,nodeCandidates,roadDetailJobs,systemUpdateMs,updateMs,previousDiagnosticsMs,trafficSignalMs,trafficIDMMs,trafficLaneChangeMs,trafficOtherMs,renderDistanceMeters,buildingsSubmitted,treesSubmitted");
 	}
-	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f},{},{},{}"_fmt(
+	m_playtestFrames.writeln(U"{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{},{},{},{:.3f},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{},{},{}"_fmt(
 		m_playtestFrame,static_cast<int>(m_camera.mode()),m_minimapRenderer.fullScreen() ? 1 : 0,
-		Scene::DeltaTime()*1000,m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
+		m_playtestIntervalTimer.msF(),m_renderTimings.total,m_logicMs,m_renderTimings.terrain,m_renderTimings.roadMesh,m_cityLighting.shadowMilliseconds(),
 		m_vehicleManager.vehicleCount(),m_vehicleManager.lastStats().total(),m_renderTimings.vehicle,m_vehicleRenderer.drawCalls(),
-		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds(),
+		m_vehicleRenderer.submitted(),m_worldRenderer.buildingDrawCalls(),m_gpuTimer.milliseconds(),m_playtestCommandId,m_camera.distance(),
+		m_renderTimings.terrainOnly,m_renderTimings.hudStats,m_renderTimings.hudDraw,m_renderTimings.pre3D,m_renderTimings.flush,m_renderTimings.resolve,m_renderTimings.screen,m_renderTimings.ui,m_renderTimings.uiPlaceNames,m_renderTimings.uiMinimap,m_renderTimings.train,m_roadRenderer.cacheBuildStats().candidateEdges,m_roadRenderer.cacheBuildStats().candidateNodes,m_roadRenderer.pendingDetailJobs(),getData().systemUpdateMs,
+		m_updateMs,m_playtestDiagnosticsMs,m_vehicleManager.lastStats().signal,m_vehicleManager.lastStats().idm,
+		m_vehicleManager.lastStats().laneChange,m_vehicleManager.lastStats().other,
 		getData().renderDistance,m_worldRenderer.buildingsSubmitted(),m_worldRenderer.treesSubmitted()));
+	m_playtestIntervalTimer.restart();
 	if(m_renderTimings.total>40)
 	{
 		const auto& cache=m_roadRenderer.cacheBuildStats();
@@ -27,7 +33,22 @@ void GameScene::recordPlaytestFrame()
 		if (GameInput::down(key)) { DBG_LOG(U"[PlaytestInput] frame={} key={}"_fmt(m_playtestFrame,key.name())); inputChanged=true; }
 	}
 	if (MouseL.down() || MouseR.down() || Mouse::Wheel()!=0) { inputChanged=true; }
-	if (inputChanged || m_playtestFrame%15==0)
+	const bool writeState = inputChanged || m_playtestFrame % 15 == 0;
+	if (writeState && m_playtestPerformanceOnly)
+	{
+		// Performance probes need progress and trip counts; full inspection remains available by default.
+		JSON state;
+		state[U"commandId"] = m_playtestCommandId; state[U"frame"] = m_playtestFrame;
+		state[U"fps"] = m_frameRateGraph.latest(); state[U"renderMs"] = m_renderTimings.total;
+		state[U"focused"] = Window::GetState().focused;
+		state[U"traffic"][U"cars"] = m_vehicleManager.vehicleCount();
+		state[U"traffic"][U"spawned"] = m_vehicleManager.populationStats().spawned;
+		state[U"traffic"][U"completed"] = m_vehicleManager.populationStats().completed;
+		state[U"traffic"][U"routeFailures"] = m_vehicleManager.populationStats().routeFailures;
+		state[U"traffic"][U"updateMs"] = m_vehicleManager.lastStats().total();
+		state.save(U"playtest_state.json");
+	}
+	else if (writeState)
 	{
 		JSON state;
 		const Vec3 focus=m_camera.focusPoint(); auto& map=m_minimapRenderer.mapView();
@@ -215,11 +236,18 @@ void GameScene::recordPlaytestFrame()
 		state[U"renderMs"]=m_renderTimings.total; state[U"logicMs"]=m_logicMs;
 		state[U"signalsMs"]=m_renderTimings.signals; state[U"mapBuilds"]=map.cartographyBuilds();
 		state[U"cursorX"]=Cursor::Pos().x; state[U"cursorY"]=Cursor::Pos().y;
+		if (const auto* water=m_world.sourceWater())
+		{
+			state[U"waterSeconds"]=water->elapsed();state[U"waterSources"]=water->sourceCount();
+			state[U"waterInjected"]=water->injected();state[U"waterStored"]=water->ownedVolume();
+			state[U"waterSeaOut"]=water->outflow();state[U"waterSeaIn"]=water->inflow();state[U"waterBalance"]=water->balanceError();
+		}
 		state.save(U"playtest_state.json");
 		if (inputChanged) { DBG_LOG(U"[PlaytestState] {}"_fmt(state.formatMinimum())); }
 	}
 	if ((GameInput::down(KeyF10) || GameInput::down(KeyF12))) { ScreenCapture::SaveCurrentFrame(U"playtest_{:06}.png"_fmt(m_playtestFrame)); }
 	++m_playtestFrame;
+	m_playtestDiagnosticsMs = diagnostics.msF();
 }
 
 /// @brief Exercise cold navigation changes through the same camera methods as actual play.
@@ -234,7 +262,7 @@ void GameScene::updateNavigationBenchmark()
 	{
 		m_benchmarkOrigin = m_camera.focusPoint();
 		m_playtestFrames.open(U"navigation_frames.csv");
-		m_playtestFrames.writeln(U"phase,frame,cpuMs,roadsMs,terrainMs,shadowMs,edges,nodes,markings,furniture,partsMs,nodesMs,markingsMs,furnitureMs,deferred,fallbackMs");
+		m_playtestFrames.writeln(U"phase,frame,cpuMs,roadsMs,terrainMs,shadowMs,edges,nodes,markings,furniture,partsMs,nodesMs,markingsMs,furnitureMs,deferred,fallbackMs,pre3DMs,flushMs,resolveMs,screenMs,uiMs,placeMs,minimapMs,trainMs");
 	}
 	const Vec3 origin = *m_benchmarkOrigin;
 	if (m_captureFrame == 0)
@@ -256,17 +284,17 @@ void GameScene::updateNavigationBenchmark()
 	renderWorld();
 	const double cpuMs = timer.msF();
 	const auto& stats = m_roadRenderer.cacheBuildStats();
-	m_playtestFrames.writeln(U"{},{},{:.3f},{:.3f},{:.3f},{:.3f},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f}"_fmt(
+	m_playtestFrames.writeln(U"{},{},{:.3f},{:.3f},{:.3f},{:.3f},{},{},{},{},{:.3f},{:.3f},{:.3f},{:.3f},{},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}"_fmt(
 		m_captureIndex, m_captureFrame, cpuMs, m_renderTimings.roadMesh, m_renderTimings.terrainOnly,
 		m_cityLighting.shadowMilliseconds(), stats.edges, stats.nodes, stats.markings, stats.furniture,
-		stats.partsMs, stats.nodesMs, stats.markingsMs, stats.furnitureMs, stats.deferred, stats.fallbackMs));
+		stats.partsMs, stats.nodesMs, stats.markingsMs, stats.furnitureMs, stats.deferred, stats.fallbackMs,m_renderTimings.pre3D,m_renderTimings.flush,m_renderTimings.resolve,m_renderTimings.screen,m_renderTimings.ui,m_renderTimings.uiPlaceNames,m_renderTimings.uiMinimap,m_renderTimings.train));
 	if (m_captureFrame == 0 || cpuMs > 40)
 	{
 		DBG_LOG(U"[NavigationCost] phase={} frame={} cpuMs={:.2f} roadsMs={:.2f} edges={} nodes={} partsMs={:.2f} nodesMs={:.2f} markingsMs={:.2f} furnitureMs={:.2f}"_fmt(
 			m_captureIndex, m_captureFrame, cpuMs, m_renderTimings.roadMesh, stats.edges, stats.nodes,
 			stats.partsMs, stats.nodesMs, stats.markingsMs, stats.furnitureMs));
 	}
-	if (m_captureFrame == 60 && (m_worldRenderer.pendingTerrainJobs() > 0 || stats.deferred > 0)) { return; }
+	if (m_captureFrame == 60 && (m_worldRenderer.pendingTerrainJobs() > 0 || m_roadRenderer.pendingDetailJobs()>0 || stats.deferred > 0)) { return; }
 	if (m_captureFrame == kPhaseFrames - 1) { ScreenCapture::SaveCurrentFrame(U"navigation_{}.png"_fmt(m_captureIndex)); }
 	if (++m_captureFrame == kPhaseFrames)
 	{
@@ -302,6 +330,7 @@ void GameScene::processPlaytestCommand()
 	}
 	else if (action==U"benchmark_view")
 	{
+		m_playtestPerformanceOnly = command.contains(U"performanceOnly") && command[U"performanceOnly"].getOr<bool>(false);
 		const double x=number(U"x",m_camera.focusPoint().x),z=number(U"z",m_camera.focusPoint().z);
 		m_camera.setCaptureState({x,number(U"y",m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z))),z},
 			static_cast<float>(number(U"distance",3000)),static_cast<float>(number(U"yaw",-.7)),static_cast<float>(number(U"pitch",.72)));
@@ -394,6 +423,43 @@ void GameScene::processPlaytestCommand()
 		}
 		report[U"minorJunctions"]=minor;report[U"majorJunctions"]=major;report[U"signalJunctions"]=signals;report.save(U"playtest_signals.json");
 	}
+	else if (action==U"water_view" && !m_world.rivers().waterSources.isEmpty())
+	{
+		const auto& source=m_world.rivers().waterSources[Clamp(static_cast<size_t>(Max(0,static_cast<int>(number(U"source")))),size_t{0},m_world.rivers().waterSources.size()-1)];
+		const auto p=source.position;
+		m_camera.setCaptureState({p.x,m_world.waterBedHeight(p.x,p.y),p.y},static_cast<float>(number(U"distance",700)),-.7f,.72f);
+		m_clock.speed=static_cast<TimeSpeed>(Clamp(static_cast<int>(number(U"speed",1)),0,3));
+		DBG_LOG(U"[SourceWater] camera source={} x={} z={} y={} rate={}"_fmt(number(U"source"),p.x,p.y,m_world.waterBedHeight(p.x,p.y),source.rate));
+	}
+	else if (action==U"river_view" && !m_world.rivers().reaches.isEmpty())
+	{
+		int index=Clamp(static_cast<int>(number(U"reach")),0,static_cast<int>(m_world.rivers().reaches.size())-1);
+		if (number(U"levee")!=0)
+		{
+			for (const auto& edge:m_network.edges()) { if (edge.leveeRoad) { if (const auto curve=m_network.getBezier(edge.id))
+			{ const auto p=curve->positionAt(curve->totalLength*.5f);const auto river=m_world.rivers().nearest(p.xz());
+				if (river.reach<0 || river.distance-river.halfWidth<24 || river.distance-river.halfWidth>40) { continue; }
+				if (number(U"walk")!=0) { const auto tangent=curve->tangentAt(curve->totalLength*.5f);m_camera.setWalkingState(p,static_cast<float>(Atan2(tangent.x,tangent.z))); }
+				else { m_camera.setCaptureState(p,static_cast<float>(number(U"distance",450)),-.7f,.72f); }break; } } }
+		}
+		else
+		{
+			const auto& reach=m_world.rivers().reaches[index];const auto p=reach.start.lerp(reach.end,.5);
+			m_camera.setCaptureState(p,static_cast<float>(number(U"distance",450)),-.7f,.72f);
+		}
+		m_clock.speed=static_cast<TimeSpeed>(Clamp(static_cast<int>(number(U"speed",1)),0,3));
+		JSON report;report[U"reaches"]=m_world.rivers().reaches.size();report[U"leveeRoads"]=Array<int>{};report[U"reviewSites"]=Array<JSON>{};
+		for (const auto& edge:m_network.edges()) { if (edge.leveeRoad) { report[U"leveeRoads"].push_back(edge.id); } }
+		for (std::size_t i=0;i<m_world.rivers().reaches.size();i+=Max(std::size_t{1},m_world.rivers().reaches.size()/150))
+		{
+			const auto& reach=m_world.rivers().reaches[i];JSON site;site[U"id"]=i;site[U"x"]=reach.start.x;site[U"z"]=reach.start.z;
+			site[U"head"]=reach.start.y;site[U"width"]=reach.halfWidth*2;
+			if (const auto* water=m_world.sourceWater(); water && i<water->channels().size())
+			{ site[U"downstream"]=water->channels()[i].downstream;site[U"flow"]=water->channelFlow(i);site[U"depth"]=water->channelDepth(i); }report[U"reviewSites"].push_back(site);
+		}
+		report.save(U"river_review.json");
+	}
+	else if (action==U"water_save") { getData().saveName=command[U"name"].getOr<String>(U"source_water_review"); saveGame(); }
 	else if (action==U"snapshot") { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
 	else if (action==U"exit") { System::Exit(); }
 	if (number(U"capture")!=0) { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }

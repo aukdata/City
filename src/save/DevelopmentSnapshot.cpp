@@ -473,7 +473,7 @@ bool DevelopmentSnapshot::read(const FilePath& path, World& world)
 			}
 			chunk.landPatches.swap(record.landPatches);
 			chunk.isUrbanizationArea = record.isUrbanizationArea;
-			chunk.meshDirty = true;
+			chunk.markMeshDirty();
 		}
 		return true;
 	}

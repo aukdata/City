@@ -14,6 +14,7 @@ namespace GameLaunch
 		bool captureRoadRenders = false;
 		bool uncapped = false;
 		Optional<uint64> seedOverride;
+		Optional<Size> windowSize; ///< --window-size width height, clamped by the caller.
 	};
 
 	/// @brief Apply explicit arguments over already loaded local preferences.
@@ -22,6 +23,14 @@ namespace GameLaunch
 		Options options;
 		for (size_t i = 0; i < args.size(); ++i)
 		{
+			if (args[i] == U"--window-size" && i + 2 < args.size())
+			{
+				const int width = ParseOpt<int>(args[i + 1]).value_or(0);
+				const int height = ParseOpt<int>(args[i + 2]).value_or(0);
+				if (width > 0 && height > 0) { options.windowSize = Size{width, height}; }
+				i += 2;
+				continue;
+			}
 			if (args[i] == U"--seed" && i + 1 < args.size())
 			{
 				options.seedOverride = ParseOpt<uint64>(args[i + 1]);

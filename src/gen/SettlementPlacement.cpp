@@ -8,17 +8,17 @@ namespace
 {
 	using Settlement = MapGenerator::Settlement;
 	using Kind = MapGenerator::SettlementKind;
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
+
+
+
+
+
 
 	uint64 locationSalt(uint64 seed, Vec2 p)
 	{
@@ -31,7 +31,7 @@ namespace
 	double agriculturalLand(Vec2 center, const SettlementPlacement::HeightSampler& height,
 		const SettlementPlacement::HeightSampler& water)
 	{
-		
+
 		const double ground = height(center);
 		int suitable = 0;
 		for (int i = 0; i < GenerationSettings::get().placement_directions; ++i)
@@ -129,7 +129,7 @@ namespace
 						bool previousWet = m_cells[current].wet;
 						double traversal = 0;
 						// Intermediate samples prevent a narrow river or ridge disappearing between grid centers.
-						
+
 						for (int step = 1; step <= GenerationSettings::get().placement_steps; ++step)
 						{
 							const double sample = step == GenerationSettings::get().placement_steps ? m_cells[next].height
@@ -165,7 +165,7 @@ namespace
 			settlement.accessCost = access.owner ? access.cost : GenerationSettings::get().placement_catchmentReach;
 			if (!access.owner) { return; }
 			size_t target = cell;
-			
+
 			for (int step = 0; step < GenerationSettings::get().placement_directionSteps && m_cells[target].next; ++step)
 			{
 				target = *m_cells[target].next;
@@ -293,7 +293,7 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 		if (site.score < GenerationSettings::get().placement_minimumTownScore || site.farmland < GenerationSettings::get().placement_minimumTownFarmland || site.salt % GenerationSettings::get().placement_townSelectionDivisor != 0
 			|| !clearOfCenters(site.center, GenerationSettings::get().placement_townSpacing)) { continue; }
 		int neighbours = 0;
-		
+
 		for (const auto& other : sites)
 		{
 			if (other.farmland >= GenerationSettings::get().placement_minimumNeighbourFarmland && site.center.distanceFromSq(other.center) < GenerationSettings::get().placement_marketRadius * GenerationSettings::get().placement_marketRadius) { ++neighbours; }
@@ -362,7 +362,19 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 		if (draw>=fabric.urbanFabric_newTownCityProbability) { continue; }
 		Optional<Settlement> best;
 		double bestCost=Math::Inf;
-		for (const auto& site:sites)
+		// 農村の候補地は平地に偏る。都市を囲む環状の候補も加え、造成された丘陵地を選べるようにする。
+		Array<SiteCandidate> townSites=sites;
+		constexpr int kRingDirections=24;
+		for (const double radius:{fabric.urbanFabric_newTownMinimumDistance+300.0,(fabric.urbanFabric_newTownMinimumDistance+fabric.urbanFabric_newTownMaximumDistance)*.5,fabric.urbanFabric_newTownMaximumDistance-300.0})
+		{
+			for (int direction=0;direction<kRingDirections;++direction)
+			{
+				const double angle=Math::TwoPi*direction/kRingDirections;
+				const Vec2 point=city.center+Vec2{Cos(angle),Sin(angle)}*radius;
+				townSites << SiteCandidate{point,0.5f,0,locationSalt(seed,point)};
+			}
+		}
+		for (const auto& site:townSites)
 		{
 			const double distance=site.center.distanceFrom(city.center);
 			if (distance<fabric.urbanFabric_newTownMinimumDistance || distance>fabric.urbanFabric_newTownMaximumDistance) { continue; }
@@ -391,7 +403,8 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 				}
 			}
 			if (!fits) { continue; }
-			const double cost=distance*fabric.urbanFabric_newTownDistanceWeight+(high-low)*fabric.urbanFabric_newTownReliefWeight;
+			// 日本のニュータウンの多くは丘陵を造成した住宅地。平地の田畑より、起伏のある丘陵を優先する。
+			const double cost=distance*fabric.urbanFabric_newTownDistanceWeight+Abs((high-low)-fabric.urbanFabric_newTownTargetRelief)*fabric.urbanFabric_newTownReliefWeight;
 			if (cost<bestCost) { bestCost=cost; best=std::move(town); }
 		}
 		if (best) { newTowns << std::move(*best); }
@@ -509,7 +522,7 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 		RectF{0, 0, WORLD_SIZE, WORLD_SIZE}, [&](const Vec2& p)
 		{
 			return world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.y));
-		}, [&](const Vec2& p) { return world.waterSurfaceHeight(p.x, p.y); });
+		}, [&](const Vec2& p) { return world.waterPlanningHeight(p.x, p.y); });
 	JSON audit;
 	for (size_t i = 0; i < settlements.size(); ++i)
 	{
@@ -524,7 +537,7 @@ Array<MapGenerator::Settlement> MapGenerator::placeAllSettlements(
 		row[U"centers"] = settlement.plan.centers.size();
 		row[U"accessCost"] = settlement.accessCost;
 		row[U"height"] = world.sampleHeight(static_cast<float>(settlement.center.x), static_cast<float>(settlement.center.y));
-		row[U"water"] = world.waterSurfaceHeight(settlement.center.x, settlement.center.y);
+		row[U"water"] = world.waterPlanningHeight(settlement.center.x, settlement.center.y);
 		if (settlement.serviceCenter) { row[U"serviceCenter"] = *settlement.serviceCenter; }
 		audit[U"settlements"].push_back(row);
 	}

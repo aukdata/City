@@ -287,9 +287,14 @@ void VehicleManager::update(double dt, GameTime gameNow,
 			m_passengerArrivals << PassengerArrival{vehicle.passengerId,vehicle.destinationBuilding,vehicle.position,vehicle.tripCompleted};
 		}
 	}
+	const size_t beforeRemoval = m_vehicles.size();
+	for (const auto& vehicle : m_vehicles) { if (vehicle.currentEdge == -1) { m_vehicleIndices.erase(vehicle.id); } }
 	m_vehicles.remove_if([](const Vehicle& v) { return v.currentEdge == -1; });
-	m_vehicleIndices.clear();
-	for (size_t i = 0; i < m_vehicles.size(); ++i) { m_vehicleIndices[m_vehicles[i].id] = i; }
+	if (m_vehicles.size() != beforeRemoval)
+	{
+		// Compaction changes array positions only after a vehicle actually leaves.
+		for (size_t i = 0; i < m_vehicles.size(); ++i) { m_vehicleIndices.at(m_vehicles[i].id) = i; }
+	}
 
 	const auto t2 = Clock::now();
 	m_stats.other = toMs(t2 - t0) - m_stats.total();

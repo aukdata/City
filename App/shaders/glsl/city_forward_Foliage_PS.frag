@@ -68,57 +68,57 @@ layout(location = 0) out vec4 _entryPointOutput;
 
 void main()
 {
-    vec3 _570 = input_worldPosition * 18.0;
-    vec3 _572 = fwidth(_570);
-    float _575 = 1.0 - smoothstep(0.60000002384185791015625, 2.0, length(_572));
-    vec3 _671 = normalize(normalize(input_normal + ((vec3(sin(_570.x), 0.0, cos(_570.z)) * 0.180000007152557373046875) * _575)));
-    float _992;
+    vec3 _573 = input_worldPosition * 18.0;
+    vec3 _575 = fwidth(_573);
+    float _578 = 1.0 - smoothstep(0.60000002384185791015625, 2.0, length(_575));
+    vec3 _674 = normalize(normalize(input_normal + ((vec3(sin(_573.x), 0.0, cos(_573.z)) * 0.180000007152557373046875) * _578)));
+    float _995;
     do
     {
         if (_89.g_shadowParameters.w <= 0.0)
         {
-            _992 = 1.0;
+            _995 = 1.0;
             break;
         }
-        vec4 _778 = _89.g_worldToShadow * vec4(input_worldPosition, 1.0);
-        vec3 _784 = _778.xyz / vec3(_778.w);
-        vec2 _789 = (_784.xy * vec2(0.5, -0.5)) + vec2(0.5);
-        if (((any(lessThan(_789, vec2(0.00200000009499490261077880859375))) || any(greaterThan(_789, vec2(0.99800002574920654296875)))) || (_784.z < 0.0)) || (_784.z > 1.0))
+        vec4 _781 = _89.g_worldToShadow * vec4(input_worldPosition, 1.0);
+        vec3 _787 = _781.xyz / vec3(_781.w);
+        vec2 _792 = (_787.xy * vec2(0.5, -0.5)) + vec2(0.5);
+        if (((any(lessThan(_792, vec2(0.00200000009499490261077880859375))) || any(greaterThan(_792, vec2(0.99800002574920654296875)))) || (_787.z < 0.0)) || (_787.z > 1.0))
         {
-            _992 = 1.0;
+            _995 = 1.0;
             break;
         }
-        float _817 = _89.g_shadowParameters.z * (1.0 + (3.0 * (1.0 - clamp(dot(_671, _159.g_sunDirection), 0.0, 1.0))));
-        float _985;
-        _985 = 0.0;
-        float _990;
+        float _820 = _89.g_shadowParameters.z * (1.0 + (3.0 * (1.0 - clamp(dot(_674, _159.g_sunDirection), 0.0, 1.0))));
+        float _988;
+        _988 = 0.0;
+        float _993;
         SPIRV_CROSS_UNROLL
-        for (int _984 = -1; _984 <= 1; _985 = _990, _984++)
+        for (int _987 = -1; _987 <= 1; _988 = _993, _987++)
         {
-            _990 = _985;
-            float _876;
+            _993 = _988;
+            float _879;
             SPIRV_CROSS_UNROLL
-            for (int _986 = -1; _986 <= 1; _990 = _876, _986++)
+            for (int _989 = -1; _989 <= 1; _993 = _879, _989++)
             {
-                vec4 _842 = textureLod(Texture1, _789 + (vec2(float(_986), float(_984)) * _89.g_shadowParameters.xy), 0.0);
-                float _843 = _842.x;
-                float _988;
+                vec4 _845 = textureLod(Texture1, _792 + (vec2(float(_989), float(_987)) * _89.g_shadowParameters.xy), 0.0);
+                float _846 = _845.x;
+                float _991;
                 if (_89.g_dynamicShadow.x > 0.5)
                 {
-                    _988 = max(_843, textureLod(Texture3, _789 + (vec2(float(_986), float(_984)) * _89.g_shadowParameters.xy), 0.0).x);
+                    _991 = max(_846, textureLod(Texture3, _792 + (vec2(float(_989), float(_987)) * _89.g_shadowParameters.xy), 0.0).x);
                 }
                 else
                 {
-                    _988 = _843;
+                    _991 = _846;
                 }
-                _876 = _990 + float(int((_784.z + _817) >= _988));
+                _879 = _993 + float(int((_787.z + _820) >= _991));
             }
         }
-        _992 = mix(1.0, _985 * 0.111111111938953399658203125, _89.g_shadowParameters.w * clamp(min(min(_789.x, _789.y), min(1.0 - _789.x, 1.0 - _789.y)) * 24.0, 0.0, 1.0));
+        _995 = mix(1.0, _988 * 0.111111111938953399658203125, _89.g_shadowParameters.w * clamp(min(min(_792.x, _792.y), min(1.0 - _792.x, 1.0 - _792.y)) * 24.0, 0.0, 1.0));
         break;
     } while(false);
-    vec3 _679 = _159.g_sunColor * _992;
-    vec3 _728 = ((((_159.g_globalAmbientColor * mix(vec3(0.579999983310699462890625, 0.540000021457672119140625, 0.4799999892711639404296875), vec3(0.87999999523162841796875, 0.949999988079071044921875, 1.059999942779541015625), vec3(clamp((_671.y * 0.5) + 0.5, 0.0, 1.0)))) + (_679 * clamp(dot(_671, _159.g_sunDirection), 0.0, 1.0))) * vec4((_351.g_diffuseColor.xyz * mix(0.800000011920928955078125, 1.10000002384185791015625, clamp(0.449999988079071044921875 + ((sin((input_worldPosition.x * 0.730000019073486328125) + sin(input_worldPosition.z * 0.910000026226043701171875)) * cos(input_worldPosition.y * 1.37000000476837158203125)) * 0.300000011920928955078125), 0.0, 1.0))) * mix(1.0, 0.579999983310699462890625 + (fract(sin(dot(floor(_570.xz + vec2(_570.y * 0.430000007152557373046875)), vec2(127.09999847412109375, 311.70001220703125))) * 43758.546875) * 0.839999973773956298828125), _575), 1.0).xyz) + ((_679 * (_351.g_specularColor * 0.3499999940395355224609375)) * (pow(clamp(dot(_671, normalize(normalize(_334.g_eyePosition - input_worldPosition) + _159.g_sunDirection)), 0.0, 1.0), max(8.0, _351.g_shininess)) * float(0.0 < dot(_671, _159.g_sunDirection))))) + _351.g_emissionColor;
-    _entryPointOutput = vec4(mix(_89.g_fogColorDensity.xyz, _728, vec3(exp((-_89.g_fogColorDensity.w) * distance(_334.g_eyePosition, input_worldPosition)))), 1.0);
+    vec3 _682 = _159.g_sunColor * _995;
+    vec3 _731 = ((((_159.g_globalAmbientColor * mix(vec3(0.579999983310699462890625, 0.540000021457672119140625, 0.4799999892711639404296875), vec3(0.87999999523162841796875, 0.949999988079071044921875, 1.059999942779541015625), vec3(clamp((_674.y * 0.5) + 0.5, 0.0, 1.0)))) + (_682 * clamp(dot(_674, _159.g_sunDirection), 0.0, 1.0))) * vec4((_351.g_diffuseColor.xyz * mix(0.800000011920928955078125, 1.10000002384185791015625, clamp(0.449999988079071044921875 + ((sin((input_worldPosition.x * 0.730000019073486328125) + sin(input_worldPosition.z * 0.910000026226043701171875)) * cos(input_worldPosition.y * 1.37000000476837158203125)) * 0.300000011920928955078125), 0.0, 1.0))) * mix(1.0, 0.579999983310699462890625 + (fract(sin(dot(floor(_573.xz + vec2(_573.y * 0.430000007152557373046875)), vec2(127.09999847412109375, 311.70001220703125))) * 43758.546875) * 0.839999973773956298828125), _578), 1.0).xyz) + ((_682 * (_351.g_specularColor * 0.3499999940395355224609375)) * (pow(clamp(dot(_674, normalize(normalize(_334.g_eyePosition - input_worldPosition) + _159.g_sunDirection)), 0.0, 1.0), max(8.0, _351.g_shininess)) * float(0.0 < dot(_674, _159.g_sunDirection))))) + _351.g_emissionColor;
+    _entryPointOutput = vec4(mix(_89.g_fogColorDensity.xyz, _731, vec3(exp((-_89.g_fogColorDensity.w) * distance(_334.g_eyePosition, input_worldPosition)))), 1.0);
 }
 

@@ -6,7 +6,8 @@
 #include "../road/RoadEnvironment.hpp"
 #include "../asset/AssetRegistrar.hpp"
 
-bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World& world,
+template<class Heights>
+static bool signTransforms(const CubicBezier& bezier, const Heights& world,
 	float arcLen, float lateralOffset, bool boardFacesTan,
 	float boardOffsetX, float boardOffsetY, float boardOffsetZ,
 	const RoadEdge& edge, Mat4x4& outPole, Mat4x4& outBoard, Vec3& outPoleTop)
@@ -55,6 +56,14 @@ bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World&
 			static_cast<float>(anchorZ) });
 	outPoleTop = Vec3{ anchorX, groundY + boardOffsetY, anchorZ };
 	return true;
+}
+
+bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World& world,
+	float arcLen, float lateralOffset, bool boardFacesTan,
+	float boardOffsetX, float boardOffsetY, float boardOffsetZ,
+	const RoadEdge& edge, Mat4x4& outPole, Mat4x4& outBoard, Vec3& outPoleTop)
+{
+	return signTransforms(bezier,world,arcLen,lateralOffset,boardFacesTan,boardOffsetX,boardOffsetY,boardOffsetZ,edge,outPole,outBoard,outPoleTop);
 }
 
 Array<RoadRenderer::SignDraw> RoadRenderer::buildEdgeSignMeshes(
@@ -115,6 +124,66 @@ Array<RoadRenderer::SignDraw> RoadRenderer::buildEdgeSignMeshes(
 			SignDraw sign; sign.type=RoadSignType::Municipality; sign.label=forward ? boundary.after : boundary.before;
 			const float lateral=forward ? ext.left-1.4f : ext.right+1.4f;
 			if (computeSignTransforms(*bez,world,boundary.arc,lateral,!forward,meta.offsetX,meta.offsetY,meta.offsetZ,
+				*edge,sign.poleMat,sign.boardMat,sign.poleTop)) { batches << sign; }
+		}
+	}
+	return batches;
+}
+
+Array<RoadRenderer::SignDraw> RoadRenderer::buildSnapshotSigns(const DetailInput& input)
+{
+	const RoadEdge* edge=&input.edge;const CubicBezier* bez=&input.curve;const auto& world=input.heights;
+
+	Array<SignDraw> batches;
+
+	for (const auto& sp : edge->signs)
+	{
+		if (sp.type == RoadSignType::None) { continue; }
+
+		const bool atA = (sp.nodeEndId == edge->nodeA);
+		const bool atB = (sp.nodeEndId == edge->nodeB);
+		if (!atA && !atB) { continue; }
+
+		// 弧長位置: cutoff + arcOffset を内側方向に
+		const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
+		const float arc = atA
+			? (cutoff + sp.arcOffset)
+			: (bez->totalLength - cutoff - sp.arcOffset);
+
+		// 看板は driver に向ける: nodeA 側 → driver は B→A → 看板正面は +tan
+		//                          nodeB 側 → driver は A→B → 看板正面は -tan
+		const bool entering=sp.type==RoadSignType::NoEntry || sp.type==RoadSignType::OneWay;
+		const bool boardFacesTan = entering ? !atA : atA;
+
+		Mat4x4 poleMat, boardMat;
+		Vec3   poleTop;
+		const auto& meta = input.signMeta;
+		if (!signTransforms(*bez, world, arc, sp.lateralOffset, boardFacesTan,
+		                           meta.offsetX, meta.offsetY, meta.offsetZ,
+		                           *edge, poleMat, boardMat, poleTop))
+		{
+			continue;
+		}
+
+		SignDraw signDraw;
+		signDraw.poleMat  = poleMat;
+		signDraw.boardMat = boardMat;
+		signDraw.poleTop  = poleTop;
+		signDraw.type     = sp.type;
+		signDraw.auxNumber = sp.auxValue;
+		batches << signDraw;
+	}
+
+	for (const auto& boundary:input.boundaries)
+	{
+		const auto ext=RoadSign::roadbedExtentsOf(*edge);
+		const auto& meta=input.signMeta;
+		for (bool forward:{true,false})
+		{
+			if (!edge->lanes.any([&](const Lane& lane) { return lane.dir==(forward ? LaneDir::Forward : LaneDir::Backward); })) { continue; }
+			SignDraw sign; sign.type=RoadSignType::Municipality; sign.label=forward ? boundary.after : boundary.before;
+			const float lateral=forward ? ext.left-1.4f : ext.right+1.4f;
+			if (signTransforms(*bez,world,boundary.arc,lateral,!forward,meta.offsetX,meta.offsetY,meta.offsetZ,
 				*edge,sign.poleMat,sign.boardMat,sign.poleTop)) { batches << sign; }
 		}
 	}
@@ -409,6 +478,29 @@ Optional<RoadRenderer::GuideSignDraw> RoadRenderer::buildGuideSignDraw(
 	if (!mesh.vertices.isEmpty()) { draw.boardMesh=Mesh{mesh};draw.backMesh=Mesh{RoadSign::CreateBoardBackingMesh(mesh)}; }
 	draw.texKey = guideSignTexKey(sign);
 	return draw;
+}
+
+Array<RoadRenderer::GuideSignMeshData> RoadRenderer::buildSnapshotGuides(const DetailInput& input)
+{
+	Array<GuideSignMeshData> draws;const auto* edge=&input.edge;const auto* curve=&input.curve;const auto& world=input.heights;
+	for(const auto& sign:input.guides)
+	{
+		const bool atA = sign.nodeEndId == edge->nodeA;
+		if (!atA && sign.nodeEndId != edge->nodeB) { continue; }
+		const float cutoff = atA ? edge->cutoffA : edge->cutoffB;
+		const float arc = atA ? cutoff + sign.arcOffset : curve->totalLength - cutoff - sign.arcOffset;
+		const auto& meta = input.guideMeta;
+		GuideSignMeshData draw;
+		if (!signTransforms(*curve, world, arc, sign.lateralOffset, !atA,
+			meta.offsetX, meta.offsetY, meta.offsetZ, *edge,
+			draw.poleMat, draw.boardMat, draw.poleTop)) { continue; }
+		const auto size = GuideSign::computeBoardSizeFor(sign);
+		const MeshData mesh = GuideSign::CreateBoardMesh(size.width, size.height);
+		if (!mesh.vertices.isEmpty()) { draw.board=mesh;draw.back=RoadSign::CreateBoardBackingMesh(mesh); }
+		draw.texKey = guideSignTexKey(sign);
+		if(!draw.board.indices.isEmpty()) { draws << std::move(draw); }
+	}
+	return draws;
 }
 
 Array<RoadRenderer::GuideSignDraw> RoadRenderer::buildEdgeGuideSignDraws(

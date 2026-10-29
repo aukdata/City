@@ -1,6 +1,7 @@
 ﻿#include "GameScene.hpp"
 #include "WorldSelection.hpp"
 #include "RoadSelection.hpp"
+#include "../debug/DebugLog.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../railway/TrainConsist.hpp"
 #include "../ui/NavigationHeader.hpp"
@@ -166,10 +167,10 @@ void GameScene::handleInput()
 	{
 		if (GameInput::down(KeyR))
 		{
-			Console << U"[Reload] Reloading all assets...";
+			DebugLog::print(U"[Reload] Reloading all assets...");
 			m_roadRenderer.loadAssets();
 			m_roadRenderer.invalidateAllCaches();
-			Console << U"[Reload] Done.";
+			DebugLog::print(U"[Reload] Done.");
 		}
 		return;  // F3 押下中は通常操作を無効化
 	}
@@ -1036,7 +1037,7 @@ void GameScene::handleRoadDraw()
 			if (m_world.sampleHeight(static_cast<float>(clickPos.x),
 			                          static_cast<float>(clickPos.z)) < 0.0f)
 			{
-				Console << U"[AutoPlace] 水域の地点は選択できません";
+				DebugLog::print(U"[AutoPlace] 水域の地点は選択できません");
 				return;
 			}
 
@@ -1165,7 +1166,7 @@ void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 
 	if (edgeIds.isEmpty())
 	{
-		Console << U"[AutoPlace] 敷設失敗: 経路が見つかりませんでした";
+		DebugLog::print(U"[AutoPlace] 敷設失敗: 経路が見つかりませんでした");
 		return;
 	}
 
@@ -1196,7 +1197,7 @@ void GameScene::invokeAutoPlace(Vec3 start, Vec3 goal)
 	}
 	notifyNetworkChanged(dirtyNodes);
 
-	Console << U"[AutoPlace] 敷設完了: {} エッジ"_fmt(edgeIds.size());
+	DebugLog::print(U"[AutoPlace] 敷設完了: {} エッジ"_fmt(edgeIds.size()));
 }
 
 void GameScene::handleZonePaint()
@@ -1280,7 +1281,7 @@ void GameScene::handleTerrainEdit()
 
 		if (modified)
 		{
-			chunk->meshDirty = true;
+			chunk->markMeshDirty();
 			chunk->updateHeightBounds();
 			m_subsurface.invalidate();
 			m_tunnelRenderer.dirty = true;
@@ -1809,7 +1810,7 @@ void GameScene::handleLandParcelEditInput()
 	{
 		if (!LandPlot::validEditablePolygon(vertices)) { return false; }
 		patch->polygon=std::move(vertices);
-		chunk->meshDirty=true;
+		chunk->markMeshDirty();
 		refreshLandParcelMesh();
 		return true;
 	};

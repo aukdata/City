@@ -1,0 +1,160 @@
+{
+  "full_tests": {
+    "action": "test",
+    "status": "passed",
+    "artifacts": "20261006-142035-test-qm356va1",
+    "filter": "(all)",
+    "configuration": "Release",
+    "exit_code": 0,
+    "total": 324,
+    "passed": 324,
+    "failed": 0,
+    "failure_details": [],
+    "elapsed_seconds": 254.0
+  },
+  "core_tests_final": {
+    "action": "test",
+    "status": "passed",
+    "artifacts": "20261006-141449-test-l60ywugj",
+    "filter": "CoreRefactoring",
+    "configuration": "Release",
+    "exit_code": 0,
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "failure_details": [],
+    "elapsed_seconds": 18.53
+  },
+  "test_build_final": {
+    "action": "build",
+    "status": "passed",
+    "artifacts": "20261006-142525-build-vydwao6p",
+    "target": "Test",
+    "configuration": "Release",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 0,
+    "elapsed_seconds": 18.23
+  },
+  "streaming": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "20261006-142621-playtest-mddljaky",
+    "mode": "streaming",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 720,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 10.974,
+        "p95": 18.558,
+        "max": 1492.438
+      },
+      "frameMs": {
+        "mean": 17.049,
+        "p95": 26.766,
+        "max": 100.0
+      }
+    },
+    "elapsed_seconds": 93.34
+  },
+  "navigation": {
+    "action": "playtest",
+    "status": "passed",
+    "artifacts": "20261006-142845-playtest-yl37b5ev",
+    "mode": "navigation",
+    "seed": 42,
+    "configuration": "Release",
+    "exit_code": 0,
+    "samples": 1865,
+    "milliseconds": {
+      "cpuMs": {
+        "mean": 26.957,
+        "p95": 34.565,
+        "max": 6293.734
+      }
+    },
+    "phase_cpu_ms": {
+      "0": {
+        "mean": 40.168,
+        "p95": 28.362,
+        "max": 6293.734
+      },
+      "1": {
+        "mean": 32.752,
+        "p95": 35.706,
+        "max": 404.191
+      },
+      "2": {
+        "mean": 12.715,
+        "p95": 14.136,
+        "max": 27.65
+      },
+      "3": {
+        "mean": 16.18,
+        "p95": 24.413,
+        "max": 112.224
+      },
+      "4": {
+        "mean": 14.32,
+        "p95": 18.17,
+        "max": 29.919
+      },
+      "5": {
+        "mean": 12.958,
+        "p95": 15.041,
+        "max": 23.867
+      }
+    },
+    "elapsed_seconds": 124.49
+  },
+  "city_build_final": {
+    "action": "build",
+    "status": "passed",
+    "artifacts": "20261006-142504-build-msgpykig",
+    "target": "City",
+    "configuration": "Release",
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 0,
+    "elapsed_seconds": 18.62
+  },
+  "build_retry": {
+    "failed_run": "20261006-132509-build-idu6tsye",
+    "diagnostics": [
+      "C1001 internal compiler error (SimThread.cpp)",
+      "D8040 compiler child process error"
+    ],
+    "recovery": "Unchanged-source standard build passed on retry"
+  },
+  "current_save_roundtrip": {
+    "status": "passed",
+    "stages": [
+      {
+        "railEdges": 1269,
+        "status": "passed",
+        "railLines": 8,
+        "population": 233146,
+        "buildings": 37274,
+        "funds": 30.0,
+        "stage": "new-and-save"
+      },
+      {
+        "railEdges": 1269,
+        "status": "passed",
+        "population": 233146,
+        "buildings": 37274,
+        "railLines": 8,
+        "identicalChunkSnapshots": 4096,
+        "stage": "reload-and-resave"
+      },
+      {
+        "status": "passed",
+        "stage": "close-during-loading",
+        "exitCode": 0
+      }
+    ],
+    "save": "App/saves/refactoring_20261006"
+  }
+}

@@ -284,13 +284,22 @@ void PedestrianNetwork::rebuild(
 		const Vec3 platform = frame->point(-5.8, 1.08, 8);
 		Vec3 entrance = station.entrance.value_or(frame->point(-12, 0, 8));
 		entrance.y = world.sampleHeight(static_cast<float>(entrance.x), static_cast<float>(entrance.z)) + .03;
-		const auto street = nearestNode(entrance, 350);
+		const auto street = nearestNode(station.forecourt ? station.forecourt->streetAccess : entrance, 350);
 		if (!street)
 		{
 			continue;
 		}
 		const int doorway = addNode(entrance), wait = addNode(platform);
-		addLink({*street, doorway});
+		if (station.forecourt)
+		{
+			const auto& forecourt = *station.forecourt;
+			const RailwaySite::Frame surface{forecourt.origin,frame->along,frame->right};
+			Vec3 center = surface.point(4 - forecourt.size.x * .5,0,forecourt.size.y * .5);
+			center.y = world.sampleHeight(static_cast<float>(center.x),static_cast<float>(center.z)) + .03;
+			const int plaza = addNode(center), accessNode = addNode(forecourt.streetAccess + Vec3{0,.03,0});
+			addLink({*street,accessNode}); addLink({accessNode,plaza}); addLink({plaza,doorway});
+		}
+		else { addLink({*street, doorway}); }
 		addLink({doorway, wait});
 		m_stationIndices[station.id] = m_stations.size();
 		m_stations << PedestrianStation{station.id, wait, platform};

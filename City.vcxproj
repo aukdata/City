@@ -232,6 +232,7 @@
     <ClCompile Include="src\road\RoadConstruction.cpp" />
     <ClCompile Include="src\render\RoadRenderer_Construction.cpp" />
     <ClCompile Include="src\render\RoadRenderer_Streaming.cpp" />
+    <ClCompile Include="src\render\RoadRenderer_Async.cpp" />
     <ClCompile Include="src\ui\RoadPlanToolbar.cpp" />
     <ClCompile Include="src\ui\ZonePalette.cpp" />
     <ClCompile Include="src\ui\TrainTimetableEditor.cpp" />
@@ -244,6 +245,7 @@
     <ClCompile Include="src\gen\SettlementPlacement.cpp" />
     <ClCompile Include="src\gen\VillageConnections.cpp" />
     <ClCompile Include="src\gen\SettlementFringe.cpp" />
+    <ClCompile Include="src\save\ChunkDevelopmentStorage.cpp" />
     <ClCompile Include="src\save\RoadBinary.cpp" />
     <ClCompile Include="src\save\SaveTransaction.cpp" />
     <ClCompile Include="src\save\DevelopmentSnapshot.cpp" />
@@ -699,5 +701,28 @@
     <None Include="src\gen\GenerationSettings.def" />
     <ClInclude Include="src\ui\FrameRateGraph.hpp" />
     <ClInclude Include="src\render\VehiclePaint.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\render\RoadRenderer_Mesh.cpp" />
+    <ClCompile Include="src\render\RoadRenderer_Markings.cpp" />
+    <ClCompile Include="src\render\RoadRenderer_Furniture.cpp" />
+    <ClInclude Include="src\save\ChunkDevelopmentStorage.hpp" />
+    <ClInclude Include="src\render\MeshGeometry.hpp" />
+    <ClInclude Include="src\render\MeshUploadSlices.hpp" />
+    <ClInclude Include="src\world\HeightSnapshot.hpp" />
+    <ClInclude Include="src\render\RoadRenderDetail.hpp" />
+    <ClInclude Include="src\sim\ParallelJobs.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\sim\SourceWater.cpp" />
+    <ClCompile Include="src\sim\GridWater.cpp" />
+    <ClCompile Include="src\sim\FixedSeaBoundary.cpp" />
+    <ClCompile Include="src\render\WorldRenderer_Water.cpp" />
+    <ClInclude Include="src\sim\SourceWater.hpp" />
+    <ClInclude Include="src\sim\GridWater.hpp" />
+    <ClInclude Include="src\sim\FixedSeaBoundary.hpp" />
+    <ClInclude Include="src\render\SourceWaterGeometry.hpp" />
+    <ClInclude Include="src\render\ShaderAsset.hpp" />
+    <ClInclude Include="src\render\WaterSurfaceGeometry.hpp" />
   </ItemGroup>
 </Project>

@@ -15,7 +15,9 @@ namespace ShaderAsset
 		{
 			bindings = {{U"PSPerFrame", 0}, {U"PSPerView", 1}, {U"PSPerMaterial", 3}, {U"CityParameters", 4}};
 			if (entry == U"VehiclePaint_PS") { bindings << ConstantBufferBinding{U"VehiclePaint", 5}; }
+			if (entry == U"Building_PS") { bindings << ConstantBufferBinding{U"BuildingTint", 6}; }
 		}
+		else if (name == U"source_water") { bindings = {{U"PSPerFrame",0},{U"PSPerView",1},{U"WaterVisualParams",5}}; }
 		else if (name == U"selection_outline") { bindings << ConstantBufferBinding{U"OutlineParams", 1}; }
 		return GLSL{FileSystem::ParentPath(path) + U"../glsl/{}_{}.frag"_fmt(name, entry), bindings};
 #endif

@@ -131,7 +131,7 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 	m_font(U"[D-01 Network]  Nodes:{}  Edges:{}"_fmt(nodeCount, edgeCount))
 		.draw(Vec2{ 10, 10 }, Palette::Lime);
 
-	// クリックでノード / エッジ中点を選択して Console 出力
+	// クリックでノード / エッジ中点を選択して ログ出力
 	if (MouseL.down())
 	{
 		const Ray ray = camera.screenToRay(Cursor::Pos());
@@ -171,10 +171,10 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 				String edgeList;
 				for (const auto& att : node->attachments)
 					edgeList += U"{} "_fmt(att.edgeId);
-				Console << U"[Node {}]  type={}  pos=({:.0f},{:.0f},{:.0f})  edges=[{}]"_fmt(
+				DebugLog::print(U"[Node {}]  type={}  pos=({:.0f},{:.0f},{:.0f})  edges=[{}]"_fmt(
 					node->id, typeStr,
 					node->position.x, node->position.y, node->position.z,
-					edgeList.trimmed());
+					edgeList.trimmed()));
 			}
 		}
 		else if (hitEdge != -1)
@@ -186,12 +186,12 @@ void DebugRenderer::renderNetwork(const RoadNetwork& network, const GameCamera& 
 					U"LocalRoad", U"Arterial", U"Expressway", U"Highway"
 				};
 				const StringView typeStr = roadTypeStr[static_cast<int>(edge->roadType)];
-				Console << U"[Edge {}]  type={}  {}->{} lanes={}  len={:.0f}m  speed={:.0f}km/h"_fmt(
+				DebugLog::print(U"[Edge {}]  type={}  {}->{} lanes={}  len={:.0f}m  speed={:.0f}km/h"_fmt(
 					edge->id, typeStr,
 					edge->nodeA, edge->nodeB,
 					edge->lanes.size(),
 					edge->length,
-					edge->speedLimit);
+					edge->speedLimit));
 			}
 		}
 	}
@@ -355,9 +355,10 @@ void DebugRenderer::renderLog()
 	constexpr double lineH = 18.0;
 	double y = sz.y - lineH - 5.0;
 
-	for (int i = static_cast<int>(DebugLog::entries().size()) - 1; i >= 0; --i)
+	const auto entries = DebugLog::entries();
+	for (int i = static_cast<int>(entries.size()) - 1; i >= 0; --i)
 	{
-		const auto& entry = DebugLog::entries()[i];
+		const auto& entry = entries[i];
 		const double elapsed = now - entry.time;
 		if (elapsed > DebugLog::FADE_DURATION) continue;
 
@@ -392,7 +393,7 @@ void DebugRenderer::renderHelp()
 		U"",
 		U"F3+D        Profiler (numbers)",
 		U"F3+P        Performance graph",
-		U"F3+Shift+P  Dump perf to Console",
+		U"F3+Shift+P  Dump perf to debug.log",
 		U"F3+N        Network visualizer",
 		U"F3+C        Chunk boundaries",
 		U"F3+V        Vehicle debug info",
@@ -565,10 +566,10 @@ void DebugRenderer::renderPerfGraph(const MainPerfHistory& mainHistory,
 	if (!m_showPerfGraph && !(KeyF3.pressed() && KeyShift.pressed() && KeyP.down()))
 		return;
 
-	// F3+Shift+P: Console に数値出力
+	// F3+Shift+P: ログに数値出力
 	if (KeyF3.pressed() && KeyShift.pressed() && KeyP.down())
 	{
-		dumpPerfToConsole(mainHistory, simHistory);
+		dumpPerfToLog(mainHistory, simHistory);
 	}
 
 	if (!m_showPerfGraph) return;
@@ -676,10 +677,10 @@ void DebugRenderer::renderPerfGraph(const MainPerfHistory& mainHistory,
 	          simHistory, kSimSegs, static_cast<int>(std::size(kSimSegs)), getSimValues);
 }
 
-void DebugRenderer::dumpPerfToConsole(const MainPerfHistory& mainHistory,
+void DebugRenderer::dumpPerfToLog(const MainPerfHistory& mainHistory,
                                       const SimPerfHistory& simHistory)
 {
-	Console << U"===== Performance Snapshot =====";
+	DebugLog::print(U"===== Performance Snapshot =====");
 
 	if (mainHistory.count() > 0)
 	{
@@ -703,16 +704,16 @@ void DebugRenderer::dumpPerfToConsole(const MainPerfHistory& mainHistory,
 		avg.train *= inv; avg.debugUI *= inv;
 
 		const auto& m = mainHistory.latest();
-		Console << U"--- Main Thread --- (latest / avg of {})"_fmt(n);
-		Console << U"  LockWait: {:.2f} / {:.2f}ms"_fmt(m.lockWait, avg.lockWait);
-		Console << U"  Sky:      {:.2f} / {:.2f}ms"_fmt(m.sky, avg.sky);
-		Console << U"  Terrain:  {:.2f} / {:.2f}ms"_fmt(m.terrain, avg.terrain);
-		Console << U"  Road:     {:.2f} / {:.2f}ms"_fmt(m.road, avg.road);
-		Console << U"  Zone:     {:.2f} / {:.2f}ms"_fmt(m.zone, avg.zone);
-		Console << U"  Vehicle:  {:.2f} / {:.2f}ms"_fmt(m.vehicle, avg.vehicle);
-		Console << U"  Train:    {:.2f} / {:.2f}ms"_fmt(m.train, avg.train);
-		Console << U"  Debug+UI: {:.2f} / {:.2f}ms"_fmt(m.debugUI, avg.debugUI);
-		Console << U"  Total:    {:.2f} / {:.2f}ms"_fmt(m.total(), avg.total());
+		DebugLog::print(U"--- Main Thread --- (latest / avg of {})"_fmt(n));
+		DebugLog::print(U"  LockWait: {:.2f} / {:.2f}ms"_fmt(m.lockWait, avg.lockWait));
+		DebugLog::print(U"  Sky:      {:.2f} / {:.2f}ms"_fmt(m.sky, avg.sky));
+		DebugLog::print(U"  Terrain:  {:.2f} / {:.2f}ms"_fmt(m.terrain, avg.terrain));
+		DebugLog::print(U"  Road:     {:.2f} / {:.2f}ms"_fmt(m.road, avg.road));
+		DebugLog::print(U"  Zone:     {:.2f} / {:.2f}ms"_fmt(m.zone, avg.zone));
+		DebugLog::print(U"  Vehicle:  {:.2f} / {:.2f}ms"_fmt(m.vehicle, avg.vehicle));
+		DebugLog::print(U"  Train:    {:.2f} / {:.2f}ms"_fmt(m.train, avg.train));
+		DebugLog::print(U"  Debug+UI: {:.2f} / {:.2f}ms"_fmt(m.debugUI, avg.debugUI));
+		DebugLog::print(U"  Total:    {:.2f} / {:.2f}ms"_fmt(m.total(), avg.total()));
 	}
 
 	if (simHistory.count() > 0)
@@ -734,15 +735,15 @@ void DebugRenderer::dumpPerfToConsole(const MainPerfHistory& mainHistory,
 		avg.laneChange *= inv; avg.signal *= inv; avg.other *= inv;
 
 		const auto& s = simHistory.latest();
-		Console << U"--- Sim Thread --- (latest / avg of {})"_fmt(n);
-		Console << U"  Graph:      {:.2f} / {:.2f}ms"_fmt(s.graph, avg.graph);
-		Console << U"  Reroute:    {:.2f} / {:.2f}ms"_fmt(s.reroute, avg.reroute);
-		Console << U"  IDM:        {:.2f} / {:.2f}ms"_fmt(s.idm, avg.idm);
-		Console << U"  LaneChange: {:.2f} / {:.2f}ms"_fmt(s.laneChange, avg.laneChange);
-		Console << U"  Signal:     {:.2f} / {:.2f}ms"_fmt(s.signal, avg.signal);
-		Console << U"  Other:      {:.2f} / {:.2f}ms"_fmt(s.other, avg.other);
-		Console << U"  Total:      {:.2f} / {:.2f}ms"_fmt(s.total(), avg.total());
+		DebugLog::print(U"--- Sim Thread --- (latest / avg of {})"_fmt(n));
+		DebugLog::print(U"  Graph:      {:.2f} / {:.2f}ms"_fmt(s.graph, avg.graph));
+		DebugLog::print(U"  Reroute:    {:.2f} / {:.2f}ms"_fmt(s.reroute, avg.reroute));
+		DebugLog::print(U"  IDM:        {:.2f} / {:.2f}ms"_fmt(s.idm, avg.idm));
+		DebugLog::print(U"  LaneChange: {:.2f} / {:.2f}ms"_fmt(s.laneChange, avg.laneChange));
+		DebugLog::print(U"  Signal:     {:.2f} / {:.2f}ms"_fmt(s.signal, avg.signal));
+		DebugLog::print(U"  Other:      {:.2f} / {:.2f}ms"_fmt(s.other, avg.other));
+		DebugLog::print(U"  Total:      {:.2f} / {:.2f}ms"_fmt(s.total(), avg.total()));
 	}
 
-	Console << U"================================";
+	DebugLog::print(U"================================");
 }

@@ -1,4 +1,5 @@
 ﻿#include "../asset/ModelLodPath.hpp"
+#include "../debug/DebugLog.hpp"
 #include "SignalRegistry.hpp"
 
 namespace
@@ -46,7 +47,7 @@ bool SignalRegistry::load(FilePathView dirPath)
 			++count;
 		}
 	}
-	Console << U"[SignalRegistry] Loaded " << count << U" signal definitions from " << dirPath;
+	DebugLog::print(Format(U"[SignalRegistry] Loaded ", count, U" signal definitions from ", dirPath));
 	return count > 0;
 }
 
@@ -79,7 +80,7 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 	const TOMLReader toml{ tomlPath };
 	if (!toml)
 	{
-		Console << U"[SignalRegistry] Failed to parse: " << tomlPath;
+		DebugLog::print(Format(U"[SignalRegistry] Failed to parse: ", tomlPath));
 		return none;
 	}
 
@@ -89,7 +90,7 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 
 	if (def.id.isEmpty())
 	{
-		Console << U"[SignalRegistry] Missing 'id' in " << tomlPath;
+		DebugLog::print(Format(U"[SignalRegistry] Missing 'id' in ", tomlPath));
 		return none;
 	}
 
@@ -205,7 +206,7 @@ Optional<SignalRegistry::Entry> SignalRegistry::loadEntry(FilePathView tomlPath,
 
 		for (const auto& m : meshes)
 			(level == 0 ? model.meshes : model.lodMeshes[level-1])[m.name] = m;
-		if (level == 0) { Console << U"[SignalRegistry] " << def.id << U": " << meshes.size() << U" meshes loaded"; }
+		if (level == 0) { DebugLog::print(Format(U"[SignalRegistry] ", def.id, U": ", meshes.size(), U" meshes loaded")); }
 	}
 
 	// テクスチャは存在する場合だけ後付けし、モデル未使用定義も扱えるようにする。

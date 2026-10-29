@@ -12,7 +12,8 @@ namespace
 	constexpr double kWallRelief = .4;
 	constexpr double kWallOffset = .10;
 
-	Vec3 groundPosition(const World& world,Vec3 position)
+	template<class Heights>
+	Vec3 groundPosition(const Heights& world,Vec3 position)
 	{
 		position.y=world.sampleHeight(static_cast<float>(position.x),static_cast<float>(position.z));
 		return position;
@@ -24,10 +25,11 @@ namespace
 	}
 }
 
-MountainRoadGeometry::Geometry MountainRoadGeometry::build(const RoadEdge& edge,const CubicBezier& curve,
-	const World& world,float start,float end)
+template<class Heights>
+MountainRoadGeometry::Geometry buildMountainGeometry(const RoadEdge& edge,const CubicBezier& curve,
+	const Heights& world,float start,float end)
 {
-	Geometry result;
+	MountainRoadGeometry::Geometry result;
 	for (const int side : {-1,1})
 	{
 		int station=0;
@@ -90,4 +92,13 @@ MountainRoadGeometry::Geometry MountainRoadGeometry::build(const RoadEdge& edge,
 		}
 	}
 	return result;
+}
+
+MountainRoadGeometry::Geometry MountainRoadGeometry::build(const RoadEdge& edge,const CubicBezier& curve,const World& world,float start,float end)
+{
+	return buildMountainGeometry(edge,curve,world,start,end);
+}
+MountainRoadGeometry::Geometry MountainRoadGeometry::build(const RoadEdge& edge,const CubicBezier& curve,const HeightSnapshot& world,float start,float end)
+{
+	return buildMountainGeometry(edge,curve,world,start,end);
 }

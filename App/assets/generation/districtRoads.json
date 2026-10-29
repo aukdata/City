@@ -37,7 +37,6 @@
   "ruralRoadSearchMargin": 220,
   "ruralAnchorRatio": 0.3,
   "ruralAnchorSearchRadius": 180,
-  "ruralJunctionSetback": 45,
   "dispersedBranchLength": 175,
   "clusterBranchLength": 105,
   "valleyBranchLength": 70,

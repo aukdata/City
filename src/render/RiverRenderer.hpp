@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "ShaderAsset.hpp"
+#include "WaterSurfaceGeometry.hpp"
 #include "../world/World.hpp"
 #include "BridgeStructure.hpp"
 #include "../asset/AssetRegistrar.hpp"
@@ -17,8 +18,7 @@ public:
 			const Vec3 delta=reach.end-reach.start; if (Vec2{delta.x,delta.z}.lengthSq()<1) { continue; }
 			const Vec3 right=Vec3{delta.z,0,-delta.x}.normalized();
 			const int key=static_cast<int>(reach.start.z/1024)*64+static_cast<int>(reach.start.x/1024);
-			Vec3 a=reach.start+Vec3{0,.06,0},b=reach.end+Vec3{0,.06,0};
-			BridgeStructure::quad(water[key],a-right*reach.halfWidth,b-right*reach.endHalfWidth,b+right*reach.endHalfWidth,a+right*reach.halfWidth);
+			if (!world.sourceWater()) { WaterSurfaceGeometry::appendRiverReach(water[key],reach); } else { water[key]; }
 			const double run=Vec2{delta.x,delta.z}.length();
 			if (Min(reach.halfWidth,reach.endHalfWidth)>=42 && Abs(delta.y)/run<.025
 				&& Max(reach.start.y,reach.end.y)<180)
@@ -28,6 +28,8 @@ public:
 					if (side>0) { BridgeStructure::quad(mesh,innerA,innerB,outerB,outerA); }
 					else { BridgeStructure::quad(mesh,innerB,innerA,outerA,outerB); }
 				};
+				// Routed banks are terrain-aligned, faded surfaces in the streamed landscape cache.
+				if (world.sourceWater()) { continue; }
 				for (const int side : {-1,1})
 				{
 					const auto bankPoint=[&](Vec3 center,double halfWidth,double offset,double minimumY)
@@ -55,20 +57,10 @@ public:
 				}
 			}
 
-			// Round joins keep the tributary mouths watertight even when widths differ.
-			for (const Vec3 center : {a,b}) for (int i=0;i<16;++i)
-			{
-				const double t=i*Math::TwoPi/16,u=(i+1)*Math::TwoPi/16;
-				const double width=center==a ? reach.halfWidth : reach.endHalfWidth;
-				const uint32 n=static_cast<uint32>(water[key].vertices.size());
-				for (const Vec3 p : {center,center+Vec3{Cos(u),0,Sin(u)}*width,center+Vec3{Cos(t),0,Sin(t)}*width})
-					water[key].vertices << Vertex3D{Float3{p},Float3{0,1,0},Float2{static_cast<float>(p.x*.1),static_cast<float>(p.z*.1)}};
-				water[key].indices << TriangleIndex32{n,n+1,n+2};
-			}
-			if (reach.barSide!=0 && Abs(delta.y)<delta.length()*.012)
+			if (!world.sourceWater() && reach.barSide!=0 && Abs(delta.y)<delta.length()*.012)
 			{
 				const Vec3 side=right*(reach.halfWidth*reach.barSide);
-				const Vec3 first=a+delta*.15+side*.84,last=a+delta*.8+side*.84,inside=a+delta*.46+side*.48;
+				const Vec3 first=reach.start+delta*.15+side*.84,last=reach.start+delta*.8+side*.84,inside=reach.start+delta*.46+side*.48;
 				const Vec3 raised{0,.16,0}; const uint32 n=static_cast<uint32>(bars[key].vertices.size());
 				for (const Vec3 p : {first+raised,inside+raised,last+raised}) { bars[key].vertices << Vertex3D{Float3{p},Float3{0,1,0},Float2{static_cast<float>(p.x*.15),static_cast<float>(p.z*.15)}}; }
 				bars[key].indices << TriangleIndex32{n,n+1,n+2} << TriangleIndex32{n,n+2,n+1};
@@ -111,7 +103,7 @@ public:
 		DBG_LOG(U"[RiverRenderer] leveeRoads={}"_fmt(leveeRoadCount));
 		for (auto& [key,data] : water)
 		{
-			Batch batch; batch.center={(key%64+.5)*1024,0,(key/64+.5)*1024}; batch.water=Mesh{data};
+			Batch batch; batch.center={(key%64+.5)*1024,0,(key/64+.5)*1024}; if (!data.indices.isEmpty()) { batch.water=Mesh{data}; }
 			if (bars.contains(key) && !bars[key].indices.isEmpty()) { batch.bar=Mesh{bars[key]}; }
 			if (shores.contains(key) && !shores[key].indices.isEmpty()) { batch.shore=Mesh{shores[key]}; }
 			if (levees.contains(key) && !levees[key].indices.isEmpty()) { batch.levee=Mesh{levees[key]}; }

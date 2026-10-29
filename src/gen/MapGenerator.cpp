@@ -333,8 +333,8 @@ void MapGenerator::generateGlobalRoads(
 		}
 	}
 
-	Logger << U"[Roads] ノード作成: {} (城下町={}, 宿場町={}, 農村={})"_fmt(
-		nodeIds.size(), castleTownIdx.size(), postTownIdx.size(), villageIdx.size());
+	DebugLog::print(U"[Roads] ノード作成: {} (城下町={}, 宿場町={}, 農村={})"_fmt(
+		nodeIds.size(), castleTownIdx.size(), postTownIdx.size(), villageIdx.size()));
 
 	RoadNodeIndex roadHash;
 	HashSet<int64> globalOccupied;  // 既存道路が通過するワールドセルの集合
@@ -489,9 +489,9 @@ void MapGenerator::generateGlobalRoads(
 		if (!br.isEmpty())
 			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(br));
 	}
-	Logger << U"[Roads] Layer1 国道指定: main={} branches={}"_fmt(
+	DebugLog::print(U"[Roads] Layer1 国道指定: main={} branches={}"_fmt(
 		(chainEdges.size() + frontExtEdges.size() + backExtEdges.size() > 0 ? 1 : 0),
-		branchRoutes.size());
+		branchRoutes.size()));
 
 	// Layer 1 の全中間ノードを空間ハッシュに登録
 	for (const auto& node : network.nodes())
@@ -500,8 +500,8 @@ void MapGenerator::generateGlobalRoads(
 			roadHash.insert(node.position, node.id);
 	}
 
-	Logger << U"[Roads] Layer1 幹線街道: {:.0f}ms (nodes={}, edges={})"_fmt(
-		swStep.msF(), network.nodes().size(), network.edges().size());
+	DebugLog::print(U"[Roads] Layer1 幹線街道: {:.0f}ms (nodes={}, edges={})"_fmt(
+		swStep.msF(), network.nodes().size(), network.edges().size()));
 	if (onProgress) onProgress(0.15f);
 
 	// =====================================================================
@@ -570,8 +570,8 @@ void MapGenerator::generateGlobalRoads(
 		++postTownsConnected;
 	}
 
-	Logger << U"[Roads] Layer2 地方道: {:.0f}ms (宿場町接続={}/{})"_fmt(
-		swStep.msF(), postTownsConnected, postTownIdx.size());
+	DebugLog::print(U"[Roads] Layer2 地方道: {:.0f}ms (宿場町接続={}/{})"_fmt(
+		swStep.msF(), postTownsConnected, postTownIdx.size()));
 	if (onProgress) onProgress(0.40f);
 
 	// =====================================================================
@@ -635,8 +635,8 @@ void MapGenerator::generateGlobalRoads(
 			onProgress(0.40f + 0.60f * static_cast<float>(ri) / totalVillages);
 	}
 
-	Logger << U"[Roads] Layer3 集落道: {:.0f}ms (接続={}, 街道沿い={}, 計={})"_fmt(
-		swStep.msF(), villagesConnected, villagesRoadFacing, totalVillages);
+	DebugLog::print(U"[Roads] Layer3 集落道: {:.0f}ms (接続={}, 街道沿い={}, 計={})"_fmt(
+		swStep.msF(), villagesConnected, villagesRoadFacing, totalVillages));
 	if (onProgress) onProgress(0.90f);
 
 	// =====================================================================
@@ -742,11 +742,11 @@ void MapGenerator::generateGlobalRoads(
 		++forceConnected;
 	}
 
-	Logger << U"[Roads] 未接続強制接続: {:.0f}ms ({}地区)"_fmt(swStep.msF(), forceConnected);
+	DebugLog::print(U"[Roads] 未接続強制接続: {:.0f}ms ({}地区)"_fmt(swStep.msF(), forceConnected));
 	if (onProgress) onProgress(1.0f);
 
-	Logger << U"[Roads] 合計: nodes={}, edges={} ({:.0f}ms)"_fmt(
-		network.nodes().size(), network.edges().size(), swTotal.msF());
+	DebugLog::print(U"[Roads] 合計: nodes={}, edges={} ({:.0f}ms)"_fmt(
+		network.nodes().size(), network.edges().size(), swTotal.msF()));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -810,8 +810,8 @@ void MapGenerator::generateDistrictRoads(
 	}
 	for (const int id : emptyNodes) { network.removeNode(id); }
 
-	Logger << U"[DistrictRoads] 完了: districts={} ({:.0f}ms)"_fmt(
-		settlements.size(), swTotal.msF());
+	DebugLog::print(U"[DistrictRoads] 完了: districts={} ({:.0f}ms)"_fmt(
+		settlements.size(), swTotal.msF()));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -822,4 +822,5 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world,
                               const Array<Settlement>& districts, RoadNetwork* roads)
 {
 	RailwayAlignment::generate(trainNet,world,districts,roads);
+	if (roads) { RailwaySite::prepareForecourts(trainNet,world,*roads); }
 }

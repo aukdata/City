@@ -1,4 +1,5 @@
 ﻿#include "RoadBinary.hpp"
+#include "../debug/DebugLog.hpp"
 #include <array>
 #include <map>
 #include <set>
@@ -25,30 +26,16 @@ namespace
 			return true;
 		}
 
-		Console << U"[RoadBinary] Invalid count for {}: {} > {}"_fmt(label, count, maxAllowed);
+		DebugLog::print(U"[RoadBinary] Invalid count for {}: {} > {}"_fmt(label, count, maxAllowed));
 		return false;
 	}
 
-	/// @brief Coordinates retain the double precision used by the live road graph.
-	bool validPosition(const Vec3& position)
+	/// @brief バイナリ形式で表現できる UTF-8 文字列長かを検査する。
+	bool validString(const String& text)
 	{
-		return IsFinite(position.x) && IsFinite(position.y) && IsFinite(position.z);
-	}
-
-	/// @brief Version 19 stores doubles; existing versions 13-18 retain their float layout.
-	bool readPosition(BinaryReader& reader, uint16 version, Vec3& position)
-	{
-		if (version >= 19)
-		{
-			if (!reader.read(position.x) || !reader.read(position.y) || !reader.read(position.z)) { return false; }
-		}
-		else
-		{
-			float x = 0, y = 0, z = 0;
-			if (!reader.read(x) || !reader.read(y) || !reader.read(z)) { return false; }
-			position = Vec3{x,y,z};
-		}
-		return validPosition(position);
+		constexpr size_t kMaxStringBytes = 65535;
+		return validateCount(static_cast<uint32>(Min(text.toUTF8().size(), kMaxStringBytes + 1)),
+			static_cast<uint32>(kMaxStringBytes), U"string.bytes");
 	}
 
 	/// @brief 文字列を uint16 長さ + UTF-8 バイト列で書き出す
@@ -72,35 +59,28 @@ namespace
 		return true;
 	}
 
-	/// @brief 文字列を読み飛ばす（readString のスキップ版）
-	void skipString(BinaryReader& r)
+	/// @brief Coordinates retain the double precision used by the live road graph.
+	bool validPosition(const Vec3& position)
 	{
-		uint16 len; r.read(len);
-		r.skip(len);
+		return IsFinite(position.x) && IsFinite(position.y) && IsFinite(position.z);
 	}
 
-	/// @brief SignalPlacement をスキップする
-	bool skipSignalPlacement(BinaryReader& r)
+	/// @brief Versions 19+ store doubles; version 18 retains its float layout.
+	bool readPosition(BinaryReader& reader, uint16 version, Vec3& position)
 	{
-		uint8 hasSig;
-		if (!r.read(hasSig)) return false;
-		if (hasSig == 0) return true;
-		skipString(r);  // signalDefId
-		r.skip(sizeof(float));  // yawOffset
-		// phases
-		uint32 phaseCnt;
-		if (!r.read(phaseCnt)) return false;
-		if (!validateCount(phaseCnt, kMaxSignalPhaseCount, U"skip.signal.phaseCnt")) return false;
-		for (uint32 pi = 0; pi < phaseCnt; ++pi)
+		if (version >= 19)
 		{
-			r.skip(sizeof(float));  // duration
-			uint32 gCnt;
-			if (!r.read(gCnt)) return false;
-			if (!validateCount(gCnt, kMaxConnPerSignalPhase, U"skip.signal.greenCnt")) return false;
-			r.skip(gCnt * sizeof(int32));
+			if (!reader.read(position.x) || !reader.read(position.y) || !reader.read(position.z)) { return false; }
 		}
-		return true;
+		else
+		{
+			float x = 0, y = 0, z = 0;
+			if (!reader.read(x) || !reader.read(y) || !reader.read(z)) { return false; }
+			position = Vec3{x,y,z};
+		}
+		return validPosition(position);
 	}
+
 
 	constexpr uint32 kConnectionIdentityMagic = 0x4449434Cu; // LCID
 	constexpr uint16 kConnectionIdentitySchema = 1;
@@ -250,6 +230,27 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 		if (!validPosition(edge.ctrlA) || !validPosition(edge.ctrlB)) { return false; }
 	}
 
+	if (!validateCount(static_cast<uint32>(vn.size()), kMaxNodeCount, U"nodeCount")
+		|| !validateCount(static_cast<uint32>(ve.size()), kMaxEdgeCount, U"edgeCount")) { return false; }
+	for (const auto& node : vn)
+	{
+		if (!validateCount(static_cast<uint32>(node.attachments.size()), kMaxAttachmentPerNode, U"node.attachments")) { return false; }
+		if (!node.signalPlacement) { continue; }
+		const auto& signal = *node.signalPlacement;
+		if (!validString(signal.signalDefId) || !validateCount(static_cast<uint32>(signal.phases.size()), kMaxSignalPhaseCount, U"signal.phases")) { return false; }
+		for (const auto& phase : signal.phases)
+		{
+			if (!validateCount(static_cast<uint32>(phase.greenConnectionIds.size()), kMaxConnPerSignalPhase, U"signal.connections")) { return false; }
+		}
+	}
+	for (const auto& edge : ve)
+	{
+		if (!validateCount(static_cast<uint32>(edge.lanes.size()), kMaxLanePerEdge, U"edge.lanes")
+			|| !validateCount(static_cast<uint32>(edge.parts.size()), kMaxPartPerEdge, U"edge.parts")
+			|| !validateCount(static_cast<uint32>(edge.signs.size()), kMaxSignPerEdge, U"edge.signs")) { return false; }
+		for (const auto& part : edge.parts) { if (!validString(part.defId)) { return false; } }
+	}
+
 	BinaryWriter w{ path };
 	if (!w) return false;
 
@@ -381,208 +382,207 @@ bool RoadBinary::write(const FilePath& path, int32 cx, int32 cy,
 	return true;
 }
 
-bool RoadBinary::read(const FilePath& path,
-                      Array<RoadNode>& outNodes,
-                      Array<RoadEdge>& outEdges)
+namespace
 {
-	// 基本道路データを防御的に検証しながら読み戻し、上位で再構築できる形の配列へ復元する。
-	BinaryReader r{ path };
-	if (!r) return false;
-
-	// ---- ヘッダー ----
-	uint32 magic;
-	if (!r.read(magic) || magic != kMagic) return false;
-	uint16 version;
-	if (!r.read(version) || (version < 13 || version > kVersion))
+	/// @brief 道路本体を一度だけ読み、末尾の拡張レコードへ reader を進める。
+	bool readSnapshot(BinaryReader& r, Array<RoadNode>& outNodes, Array<RoadEdge>& outEdges, uint16& version)
 	{
-		Console << U"[RoadBinary] Unsupported save version: " << version << U" (expected 13.." << kVersion << U")";
-		return false;
-	}
-
-	int32  cx, cy;
-	if (!r.read(cx) || !r.read(cy)) return false;
-	uint32 nodeCount, edgeCount, planCount, lightCount;
-	if (!r.read(nodeCount) || !r.read(edgeCount) || !r.read(planCount) || !r.read(lightCount)) return false;
-	if (!validateCount(nodeCount, kMaxNodeCount, U"nodeCount")) return false;
-	if (!validateCount(edgeCount, kMaxEdgeCount, U"edgeCount")) return false;
-
-	// ---- RoadNode レコード ----
-	for (uint32 i = 0; i < nodeCount; ++i)
-	{
-		RoadNode n;
-		uint8 type;
-		uint32 edgeCnt;
-
-		if (!r.read(n.id)) return false;
-		if (!readPosition(r, version, n.position)) { return false; }
-		if (!r.read(type) || !r.read(edgeCnt)) return false;
-		if (type > static_cast<uint8>(NodeType::Diverge)) { return false; }
-		n.type = static_cast<NodeType>(type);
-		if (!validateCount(edgeCnt, kMaxAttachmentPerNode, U"node.edgeCnt")) return false;
-
-		// attachment の全フィールドを読む
-		for (uint32 j = 0; j < edgeCnt; ++j)
+		// ---- ヘッダー ----
+		uint32 magic;
+		if (!r.read(magic) || magic != RoadBinary::kMagic) return false;
+		version = 0;
+		// v18 uses float coordinates, v19 double coordinates/routes, v20 double coordinates with
+		// float routes and movement identities, and v21 combines double routes with identities.
+		if (!r.read(version) || version < 18 || version > RoadBinary::kVersion)
 		{
-			EdgeAttachment att;
-			if (!r.read(att.edgeId) || !r.read(att.lateralOffset)) return false;
-			uint8 isThrough, ctrl;
-			if (!r.read(isThrough) || !r.read(ctrl)) return false;
-			att.isThrough = (isThrough != 0);
-			att.control = static_cast<TrafficControl>(ctrl);
-			n.attachments << att;
+			DebugLog::print(Format(U"[RoadBinary] Unsupported save version: ", version, U" (expected 18..", RoadBinary::kVersion, U")"));
+			return false;
 		}
 
-		// SignalPlacement
+		int32  cx, cy;
+		if (!r.read(cx) || !r.read(cy)) return false;
+		uint32 nodeCount, edgeCount, planCount, lightCount;
+		if (!r.read(nodeCount) || !r.read(edgeCount) || !r.read(planCount) || !r.read(lightCount)) return false;
+		if (!validateCount(nodeCount, kMaxNodeCount, U"nodeCount")) return false;
+		if (!validateCount(edgeCount, kMaxEdgeCount, U"edgeCount")) return false;
+
+		// ---- RoadNode レコード ----
+		for (uint32 i = 0; i < nodeCount; ++i)
 		{
-			uint8 hasSignal;
-			if (!r.read(hasSignal)) return false;
-			if (hasSignal != 0)
+			RoadNode n;
+			uint8 type;
+			uint32 edgeCnt;
+
+			if (!r.read(n.id)) return false;
+			if (!readPosition(r, version, n.position)) { return false; }
+			if (!r.read(type) || !r.read(edgeCnt)) return false;
+			if (type > static_cast<uint8>(NodeType::Diverge)) { return false; }
+			if (!validateCount(edgeCnt, kMaxAttachmentPerNode, U"node.edgeCnt")) return false;
+
+			n.type = static_cast<NodeType>(type);
+
+			// attachment の全フィールドを読む
+			for (uint32 j = 0; j < edgeCnt; ++j)
 			{
-				SignalPlacement sp;
-				if (!readString(r, sp.signalDefId)) return false;
-				if (!r.read(sp.yawOffset)) return false;
-				// フェーズ定義
-				uint32 phaseCnt;
-				if (!r.read(phaseCnt)) return false;
-				if (!validateCount(phaseCnt, kMaxSignalPhaseCount, U"signal.phaseCnt")) return false;
-				for (uint32 pi = 0; pi < phaseCnt; ++pi)
-				{
-					SignalPhaseDef ph;
-					if (!r.read(ph.duration)) return false;
-					uint32 gCnt;
-					if (!r.read(gCnt)) return false;
-					if (!validateCount(gCnt, kMaxConnPerSignalPhase, U"signal.greenCnt")) return false;
-					for (uint32 gi = 0; gi < gCnt; ++gi)
-					{
-						int32 cid;
-						if (!r.read(cid)) return false;
-						ph.greenConnectionIds << cid;
-					}
-					sp.phases << std::move(ph);
-				}
-				n.signalPlacement = std::move(sp);
+				EdgeAttachment att;
+				if (!r.read(att.edgeId) || !r.read(att.lateralOffset)) return false;
+				uint8 isThrough, ctrl;
+				if (!r.read(isThrough) || !r.read(ctrl)) return false;
+				att.isThrough = (isThrough != 0);
+				att.control = static_cast<TrafficControl>(ctrl);
+				n.attachments << att;
 			}
-		}
 
-		outNodes << n;
-	}
-
-	// ---- RoadEdge レコード ----
-	for (uint32 i = 0; i < edgeCount; ++i)
-	{
-		RoadEdge e;
-		uint8 rt, es;
-		uint32 laneCnt;
-
-		if (!r.read(e.id)) return false;
-		if (!r.read(e.nodeA) || !r.read(e.nodeB)) return false;
-		if (!readPosition(r, version, e.ctrlA) || !readPosition(r, version, e.ctrlB)) { return false; }
-		if (!r.read(rt)) return false;
-		e.roadType = static_cast<RoadType>(rt);
-		if (!r.read(e.speedLimit) || !r.read(e.length) || !r.read(e.planId) || !r.read(e.cutoffA) || !r.read(e.cutoffB)) return false;
-		if (!r.read(es)) return false;
-		e.edgeState = static_cast<EdgeState>(es);
-		if (!r.read(e.constructionStartTime)) return false;
-		if (!r.read(e.borderNodeA) || !r.read(e.borderNodeB) || !r.read(laneCnt)) return false;
-		if (!validateCount(laneCnt, kMaxLanePerEdge, U"edge.laneCnt")) return false;
-		e.lanes.resize(laneCnt);
-		for (uint32 j = 0; j < laneCnt; ++j)
-		{
-			Lane& lane = e.lanes[j];
-			uint8 dir, op, ltype, lineL, lineR, canL, canR;
-			if (!r.read(lane.offsetA_L) || !r.read(lane.offsetA_R) || !r.read(lane.offsetB_L) || !r.read(lane.offsetB_R) || !r.read(lane.nominalWidth)) return false;
-			if (!r.read(dir) || !r.read(op) || !r.read(ltype) || !r.read(lineL) || !r.read(lineR) || !r.read(canL) || !r.read(canR)) return false;
-			lane.dir   = static_cast<LaneDir>(dir);
-			lane.op    = static_cast<OpState>(op);
-			lane.type  = static_cast<LaneType>(ltype);
-			lane.lineLeft  = static_cast<LineType>(lineL);
-			lane.lineRight = static_cast<LineType>(lineR);
-			lane.canChangeLaneLeft  = (canL != 0);
-			lane.canChangeLaneRight = (canR & 1) != 0;
-			lane.bidirectional = (canR & 2) != 0;
-		}
-		e.laneVehicles = Array<Array<int>>(e.lanes.size());
-
-		// useElevation
-		{
-			uint8 elev;
-			if (!r.read(elev)) return false;
-			e.useElevation = (elev & 1) != 0;
-			e.designGrade = (elev & 4) != 0;
-			e.farmAccess = (elev & 8) != 0;
-			e.electrified = (elev & 16) == 0;
-			e.depotTrack = (elev & 32) != 0;
-			e.leveeRoad = (elev & 64) != 0;
-			e.tunnel = (elev & 2) != 0;
-		}
-
-		// parts
-		{
-			uint32 partCnt;
-			if (!r.read(partCnt)) return false;
-			if (!validateCount(partCnt, kMaxPartPerEdge, U"edge.partCnt")) return false;
-			e.parts.clear();
-			e.parts.reserve(partCnt);
-			for (uint32 p = 0; p < partCnt; ++p)
+			// SignalPlacement
 			{
-				RoadPart part;
-				uint8 bs, pt;
-				if (!readString(r, part.defId)) return false;
-				if (!r.read(part.offsetA_L) || !r.read(part.offsetA_R) || !r.read(part.offsetB_L) || !r.read(part.offsetB_R) || !r.read(bs) || !r.read(pt)) return false;
-				part.build = static_cast<BuildState>(bs);
-				part.type  = static_cast<RoadPartType>(pt);
-				if (version >= 14)
+				uint8 hasSignal;
+				if (!r.read(hasSignal)) return false;
+				if (hasSignal != 0)
 				{
+					SignalPlacement sp;
+					if (!readString(r, sp.signalDefId)) return false;
+					if (!r.read(sp.yawOffset)) return false;
+					// フェーズ定義
+					uint32 phaseCnt;
+					if (!r.read(phaseCnt)) return false;
+					if (!validateCount(phaseCnt, kMaxSignalPhaseCount, U"signal.phaseCnt")) return false;
+					for (uint32 pi = 0; pi < phaseCnt; ++pi)
+					{
+						SignalPhaseDef ph;
+						if (!r.read(ph.duration)) return false;
+						uint32 gCnt;
+						if (!r.read(gCnt)) return false;
+						if (!validateCount(gCnt, kMaxConnPerSignalPhase, U"signal.greenCnt")) return false;
+						for (uint32 gi = 0; gi < gCnt; ++gi)
+						{
+							int32 cid;
+							if (!r.read(cid)) return false;
+							ph.greenConnectionIds << cid;
+						}
+						sp.phases << std::move(ph);
+					}
+					n.signalPlacement = std::move(sp);
+				}
+			}
+
+			outNodes << n;
+		}
+
+		// ---- RoadEdge レコード ----
+		for (uint32 i = 0; i < edgeCount; ++i)
+		{
+			RoadEdge e;
+			uint8 rt, es;
+			uint32 laneCnt;
+
+			if (!r.read(e.id)) return false;
+			if (!r.read(e.nodeA) || !r.read(e.nodeB)) return false;
+			if (!readPosition(r, version, e.ctrlA) || !readPosition(r, version, e.ctrlB)) { return false; }
+			if (!r.read(rt)) return false;
+			e.roadType = static_cast<RoadType>(rt);
+			if (!r.read(e.speedLimit) || !r.read(e.length) || !r.read(e.planId) || !r.read(e.cutoffA) || !r.read(e.cutoffB)) return false;
+			if (!r.read(es)) return false;
+			e.edgeState = static_cast<EdgeState>(es);
+			if (!r.read(e.constructionStartTime)) return false;
+			if (!r.read(e.borderNodeA) || !r.read(e.borderNodeB) || !r.read(laneCnt)) return false;
+			if (!validateCount(laneCnt, kMaxLanePerEdge, U"edge.laneCnt")) return false;
+			e.lanes.resize(laneCnt);
+			for (uint32 j = 0; j < laneCnt; ++j)
+			{
+				Lane& lane = e.lanes[j];
+				uint8 dir, op, ltype, lineL, lineR, canL, canR;
+				if (!r.read(lane.offsetA_L) || !r.read(lane.offsetA_R) || !r.read(lane.offsetB_L) || !r.read(lane.offsetB_R) || !r.read(lane.nominalWidth)) return false;
+				if (!r.read(dir) || !r.read(op) || !r.read(ltype) || !r.read(lineL) || !r.read(lineR) || !r.read(canL) || !r.read(canR)) return false;
+				lane.dir   = static_cast<LaneDir>(dir);
+				lane.op    = static_cast<OpState>(op);
+				lane.type  = static_cast<LaneType>(ltype);
+				lane.lineLeft  = static_cast<LineType>(lineL);
+				lane.lineRight = static_cast<LineType>(lineR);
+				lane.canChangeLaneLeft  = (canL != 0);
+				lane.canChangeLaneRight = (canR & 1) != 0;
+				lane.bidirectional = (canR & 2) != 0;
+			}
+			e.laneVehicles = Array<Array<int>>(e.lanes.size());
+
+			// useElevation
+			{
+				uint8 elev;
+				if (!r.read(elev)) return false;
+				e.useElevation = (elev & 1) != 0;
+				e.designGrade = (elev & 4) != 0;
+				e.farmAccess = (elev & 8) != 0;
+				e.electrified = (elev & 16) == 0;
+				e.depotTrack = (elev & 32) != 0;
+				e.leveeRoad = (elev & 64) != 0;
+				e.tunnel = (elev & 2) != 0;
+			}
+
+			// parts
+			{
+				uint32 partCnt;
+				if (!r.read(partCnt)) return false;
+				if (!validateCount(partCnt, kMaxPartPerEdge, U"edge.partCnt")) return false;
+				e.parts.clear();
+				e.parts.reserve(partCnt);
+				for (uint32 p = 0; p < partCnt; ++p)
+				{
+					RoadPart part;
+					uint8 bs, pt;
+					if (!readString(r, part.defId)) return false;
+					if (!r.read(part.offsetA_L) || !r.read(part.offsetA_R) || !r.read(part.offsetB_L) || !r.read(part.offsetB_R) || !r.read(bs) || !r.read(pt)) return false;
+					part.build = static_cast<BuildState>(bs);
+					part.type  = static_cast<RoadPartType>(pt);
 					uint8 placement, envelopeRole;
 					if (!r.read(placement) || !r.read(envelopeRole)) return false;
 					part.placement = static_cast<RoadPartPlacement>(placement);
 					part.envelopeRole = static_cast<RoadPartEnvelopeRole>(envelopeRole);
-				}
-				if (version >= 15)
-				{
 					if (!r.read(part.repeatSpacing) || !r.read(part.repeatJitter)) return false;
-					part.useDefinitionRepeatSpacing = false;
-					part.useDefinitionRepeatJitter = false;
-				}
-				if (version >= 16)
-				{
 					uint8 useDefSpacing, useDefJitter;
 					if (!r.read(useDefSpacing) || !r.read(useDefJitter)) return false;
 					part.useDefinitionRepeatSpacing = (useDefSpacing != 0);
 					part.useDefinitionRepeatJitter = (useDefJitter != 0);
+					e.parts << part;
 				}
-				e.parts << part;
 			}
-		}
 
-		// signs（道路標識配置）
-		{
-			uint32 signCnt;
-			if (!r.read(signCnt)) return false;
-			if (!validateCount(signCnt, kMaxSignPerEdge, U"edge.signCnt")) return false;
-			e.signs.clear();
-			e.signs.reserve(signCnt);
-			for (uint32 si = 0; si < signCnt; ++si)
+			// signs（道路標識配置）
 			{
-				RoadSignPlacement s;
-				uint8 stype, autoGen;
-				int32 aux;
-				if (!r.read(stype) || !r.read(s.nodeEndId) || !r.read(s.arcOffset) || !r.read(s.lateralOffset) || !r.read(s.poleHeight) || !r.read(s.yawOffset) || !r.read(aux) || !r.read(autoGen)) return false;
-				s.type = static_cast<RoadSignType>(stype);
-				s.auxValue = static_cast<int>(aux);
-				s.autoGenerated = (autoGen != 0);
-				e.signs << s;
+				uint32 signCnt;
+				if (!r.read(signCnt)) return false;
+				if (!validateCount(signCnt, kMaxSignPerEdge, U"edge.signCnt")) return false;
+				e.signs.clear();
+				e.signs.reserve(signCnt);
+				for (uint32 si = 0; si < signCnt; ++si)
+				{
+					RoadSignPlacement s;
+					uint8 stype, autoGen;
+					int32 aux;
+					if (!r.read(stype) || !r.read(s.nodeEndId) || !r.read(s.arcOffset) || !r.read(s.lateralOffset) || !r.read(s.poleHeight) || !r.read(s.yawOffset) || !r.read(aux) || !r.read(autoGen)) return false;
+					s.type = static_cast<RoadSignType>(stype);
+					s.auxValue = static_cast<int>(aux);
+					s.autoGenerated = (autoGen != 0);
+					e.signs << s;
+				}
 			}
+
+			outEdges << e;
 		}
 
-		// v11 以降: guideSigns は roads.bin から分離済み
-		{
-			// no-op
-		}
-
-		outEdges << e;
+		return true;
 	}
+}
 
+bool RoadBinary::read(const FilePath& path, Array<RoadNode>& outNodes, Array<RoadEdge>& outEdges)
+{
+	BinaryReader reader{path};
+	if (!reader) { return false; }
+	Array<RoadNode> nodes;
+	Array<RoadEdge> edges;
+	uint16 version = 0;
+	if (!readSnapshot(reader, nodes, edges, version)) { return false; }
+	// 途中失敗時に呼出側へ未完成のレコードを残さない。
+	outNodes.append(std::move(nodes));
+	outEdges.append(std::move(edges));
 	return true;
 }
 
@@ -596,6 +596,22 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network, S
 	}
 	if (error) { *error = U"roads.bin を保存できません"; }
 	// 基本道路スナップショットの後ろに、グローバル管理の道路オブジェクトと路線情報を追記する。
+	if (!validateCount(static_cast<uint32>(network.objects().size()), kMaxRoadObjectCount, U"objects")
+		|| !validateCount(static_cast<uint32>(network.routes().size()), kMaxRouteCount, U"routes")
+		|| !validateCount(static_cast<uint32>(network.plans().size()), kMaxRouteCount, U"plans")
+		|| !validateCount(static_cast<uint32>(network.manualMarkings().size()), 8192, U"markings")) { return false; }
+	for (const auto& route : network.routes())
+	{
+		if (route.id < 0) { continue; }
+		if (!validString(route.name) || !validateCount(static_cast<uint32>(route.edgeIds.size()), kMaxRouteEdgeCount, U"route.edges")) { return false; }
+	}
+	for (const auto& plan : network.plans())
+	{
+		if (plan.id < 0) { continue; }
+		if (!validString(plan.name) || !validString(plan.routeName) || !validString(plan.originName) || !validString(plan.destName)
+			|| !validateCount(static_cast<uint32>(plan.edgeIds.size()), kMaxRouteEdgeCount, U"plan.edges")
+			|| !validateCount(static_cast<uint32>(plan.viaPoints.size()), kMaxRouteEdgeCount, U"plan.via")) { return false; }
+	}
 	if (!write(path, 0, 0, network.nodes(), network.edges()))
 		return false;
 
@@ -659,9 +675,9 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network, S
 		w.write(static_cast<uint32>(plan.viaPoints.size()));
 		for (const Vec3& point : plan.viaPoints)
 		{
-			w.write(static_cast<float>(point.x));
-			w.write(static_cast<float>(point.y));
-			w.write(static_cast<float>(point.z));
+			w.write(point.x);
+			w.write(point.y);
+			w.write(point.z);
 		}
 		w.write(plan.totalCost);
 		w.write(plan.totalLength);
@@ -703,12 +719,15 @@ bool RoadBinary::writeGlobal(const FilePath& path, const RoadNetwork& network, S
 	return success;
 }
 
-bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool preserveSnapshot)
+bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& destination, bool preserveSnapshot)
 {
 	// 基本道路を復元した後、付帯情報を順に読み足して RoadNetwork 全体を再生する。
+	BinaryReader r{path};
+	if (!r) { return false; }
 	Array<RoadNode> nodes;
 	Array<RoadEdge> edges;
-	if (!read(path, nodes, edges)) return false;
+	uint16 version = 0;
+	if (!readSnapshot(r, nodes, edges, version)) { return false; }
 	HashSet<int> savedNodeIds;
 	for (const auto& node : nodes)
 	{
@@ -724,51 +743,32 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 			}
 		}
 	}
-
-	// attachment 情報を退避（addEdgeRaw がデフォルト attachment で上書きするため）
-	HashTable<int, Array<EdgeAttachment>> savedAttachments;
-	for (const auto& n : nodes)
-		if (!n.attachments.isEmpty())
-			savedAttachments[n.id] = n.attachments;
-
-	for (auto& n : nodes) n.attachments.clear();
-	for (const auto& n : nodes) network.addNodeRaw(n);
-	for (const auto& e : edges) network.addEdgeRaw(e);
-
-	// addEdgeRaw 後に、保存時の attachment 補助情報だけをノード側へ上書きで戻す。
-	// 保存した attachment 情報を復元
-	for (const auto& [nid, atts] : savedAttachments)
+	RoadNetwork network;
+	// Raw insertion rebuilds topology incrementally. Restore the serialized state
+	// after insertion so through attachments, node kinds and geometry stay intact.
+	for (const auto& saved : nodes)
 	{
-		RoadNode* node = network.getNode(nid);
-		if (!node) continue;
-		if (preserveSnapshot)
-		{
-			node->attachments = atts;
-			continue;
-		}
-		for (const auto& saved : atts)
-		{
-			if (auto* att = node->getAttachment(saved.edgeId))
-			{
-				att->lateralOffset = saved.lateralOffset;
-				att->isThrough     = saved.isThrough;
-				att->control       = saved.control;
-			}
-		}
+		RoadNode detached = saved; detached.attachments.clear();
+		network.addNodeRaw(detached);
 	}
-
+	for (const auto& edge : edges) { network.addEdgeRaw(edge); }
+	for (const auto& saved : nodes)
+	{
+		auto* node = network.getNode(saved.id);
+		if (!node) { return false; }
+		node->type = saved.type; node->attachments = saved.attachments;
+	}
+	for (const auto& saved : edges)
+	{
+		auto* edge = network.getEdge(saved.id);
+		if (!edge) { return false; }
+		edge->cutoffA = saved.cutoffA; edge->cutoffB = saved.cutoffB;
+		edge->parts = saved.parts;
+	}
+	for (const auto& saved : nodes) { network.rebuildLaneConnections(saved.id); }
 	if (preserveSnapshot)
 	{
-		// addEdgeRaw rebuilds topology incrementally and overwrites persisted end geometry.
-		// Restore every cutoff before updating paths so both ends see the complete snapshot.
-		for (const auto& saved : edges)
-		{
-			if (RoadEdge* edge = network.getEdge(saved.id))
-			{
-				edge->cutoffA = saved.cutoffA;
-				edge->cutoffB = saved.cutoffB;
-			}
-		}
+		// Authoritative snapshots keep their persisted node kinds and signal programs.
 		for (const auto& saved : nodes)
 		{
 			if (RoadNode* node = network.getNode(saved.id))
@@ -778,70 +778,6 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 			}
 			network.updateLaneConnectionPaths(saved.id);
 		}
-	}
-
-	// RoadObject を読み込む
-	// read() 後にファイルを再度開いてノード+エッジをスキップする
-	BinaryReader r{ path };
-	if (!r) return false;
-
-	// ヘッダーをスキップ
-	r.setPos(0);
-	uint32 magic2;
-	uint16 ver2;
-	int32 cx2, cy2;
-	if (!r.read(magic2) || !r.read(ver2) || !r.read(cx2) || !r.read(cy2)) return false;
-	if (magic2 != kMagic || (ver2 < 13 || ver2 > kVersion)) return false;
-	uint32 nc2, ec2, pc2, lc2;
-	if (!r.read(nc2) || !r.read(ec2) || !r.read(pc2) || !r.read(lc2)) return false;
-	if (!validateCount(nc2, kMaxNodeCount, U"skip.nodeCount")) return false;
-	if (!validateCount(ec2, kMaxEdgeCount, U"skip.edgeCount")) return false;
-
-	const size_t coordinateBytes = (ver2 >= 19) ? sizeof(double) : sizeof(float);
-	// ノードをスキップ
-	for (uint32 i = 0; i < nc2; ++i)
-	{
-		r.skip(sizeof(int32) + coordinateBytes * 3 + sizeof(uint8));
-		uint32 attCnt;
-		if (!r.read(attCnt)) return false;
-		if (!validateCount(attCnt, kMaxAttachmentPerNode, U"skip.node.attCnt")) return false;
-		r.skip(attCnt * (sizeof(int32) + sizeof(float) + sizeof(uint8) * 2));
-		if (!skipSignalPlacement(r)) return false;
-	}
-
-	// エッジをスキップ（現行フォーマット固定）
-	for (uint32 i = 0; i < ec2; ++i)
-	{
-		// id + nodeA + nodeB + ctrlA.xyz + ctrlB.xyz + roadType + speedLimit + length + planId + cutoffA + cutoffB + edgeState
-		r.skip(sizeof(int32) * 4 + coordinateBytes * 6 + sizeof(float) * 4 + sizeof(uint8) * 2);
-		r.skip(sizeof(double)); // constructionStartTime
-		r.skip(sizeof(int32) * 2);  // borderNodeA, borderNodeB
-		uint32 laneCnt;
-		if (!r.read(laneCnt)) return false;
-		if (!validateCount(laneCnt, kMaxLanePerEdge, U"skip.edge.laneCnt")) return false;
-		r.skip(laneCnt * (sizeof(float) * 5 + sizeof(uint8) * 7));
-		r.skip(sizeof(uint8));  // useElevation
-		uint32 partCnt;
-		if (!r.read(partCnt)) return false;
-		if (!validateCount(partCnt, kMaxPartPerEdge, U"skip.edge.partCnt")) return false;
-		for (uint32 p = 0; p < partCnt; ++p)
-		{
-			skipString(r);
-			// offsetA_L + offsetA_R + offsetB_L + offsetB_R + build + type (+ placement + envelopeRole in v14, repeat in v15, repeat flags in v16)
-			const int partUint8Count = (ver2 >= 16) ? 6 : ((ver2 >= 14) ? 4 : 2);
-			const int partFloatCount = (ver2 >= 15) ? 6 : 4;
-			r.skip(sizeof(float) * partFloatCount + sizeof(uint8) * partUint8Count);
-		}
-		// signs
-		{
-			uint32 signCnt;
-			if (!r.read(signCnt)) return false;
-			if (!validateCount(signCnt, kMaxSignPerEdge, U"skip.edge.signCnt")) return false;
-			// 1 sign のサイズ: uint8 + int32 + float*4 + int32 + uint8 = 1+4+16+4+1 = 26
-			r.skip(signCnt * (sizeof(uint8) + sizeof(int32) + sizeof(float) * 4 + sizeof(int32) + sizeof(uint8)));
-		}
-
-		// guideSigns は別ファイル管理（skip なし）
 	}
 
 	// 自動生成 signs を再計算
@@ -955,9 +891,18 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 		plan.viaPoints.reserve(viaCount);
 		for (uint32 j = 0; j < viaCount; ++j)
 		{
-			float x, y, z;
-			if (!r.read(x) || !r.read(y) || !r.read(z)) return false;
-			plan.viaPoints << Vec3{ x, y, z };
+			Vec3 point;
+			if (version == 19 || version >= 21)
+			{
+				if (!r.read(point.x) || !r.read(point.y) || !r.read(point.z)) return false;
+			}
+			else
+			{
+				float x, y, z;
+				if (!r.read(x) || !r.read(y) || !r.read(z)) return false;
+				point = Vec3{ x, y, z };
+			}
+			plan.viaPoints << point;
 		}
 
 		if (!r.read(plan.totalCost) || !r.read(plan.totalLength)) return false;
@@ -980,37 +925,34 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 		}
 		network.addPlanRaw(plan);
 	}
-	if (ver2 >= 17)
+	network.clearManualMarkings();
+	uint32 markingCount = 0;
+	if (!r.read(markingCount)) return false;
+	if (!validateCount(markingCount, 8192, U"roadMarkingCount")) return false;
+	for (uint32 i = 0; i < markingCount; ++i)
 	{
-		network.clearManualMarkings();
-		uint32 markingCount = 0;
-		if (!r.read(markingCount)) return false;
-		if (!validateCount(markingCount, 8192, U"roadMarkingCount")) return false;
-		for (uint32 i = 0; i < markingCount; ++i)
+		RoadMarkingPlacement marking;
+		int32 id, edgeId, nodeId, nodeEndId;
+		uint8 kind, scope, overrideMode, autoGenerated;
+		if (!r.read(id) || !r.read(kind) || !r.read(scope) || !r.read(overrideMode)
+			|| !r.read(edgeId) || !r.read(nodeId) || !r.read(nodeEndId)
+			|| !r.read(marking.arcOffset) || !r.read(marking.lateralCenter)
+			|| !r.read(marking.width) || !r.read(marking.length) || !r.read(marking.angleOffset)
+			|| !r.read(autoGenerated))
 		{
-			RoadMarkingPlacement marking;
-			int32 id, edgeId, nodeId, nodeEndId;
-			uint8 kind, scope, overrideMode, autoGenerated;
-			if (!r.read(id) || !r.read(kind) || !r.read(scope) || !r.read(overrideMode)
-				|| !r.read(edgeId) || !r.read(nodeId) || !r.read(nodeEndId)
-				|| !r.read(marking.arcOffset) || !r.read(marking.lateralCenter)
-				|| !r.read(marking.width) || !r.read(marking.length) || !r.read(marking.angleOffset)
-				|| !r.read(autoGenerated))
-			{
-				return false;
-			}
-			marking.id = static_cast<int>(id);
-			marking.kind = static_cast<RoadMarkingKind>(kind);
-			marking.scope = static_cast<RoadMarkingScope>(scope);
-			marking.overrideMode = static_cast<RoadMarkingOverrideMode>(overrideMode);
-			marking.edgeId = static_cast<int>(edgeId);
-			marking.nodeId = static_cast<int>(nodeId);
-			marking.nodeEndId = static_cast<int>(nodeEndId);
-			marking.autoGenerated = (autoGenerated != 0);
-			network.addManualMarking(marking);
+			return false;
 		}
+		marking.id = static_cast<int>(id);
+		marking.kind = static_cast<RoadMarkingKind>(kind);
+		marking.scope = static_cast<RoadMarkingScope>(scope);
+		marking.overrideMode = static_cast<RoadMarkingOverrideMode>(overrideMode);
+		marking.edgeId = static_cast<int>(edgeId);
+		marking.nodeId = static_cast<int>(nodeId);
+		marking.nodeEndId = static_cast<int>(nodeEndId);
+		marking.autoGenerated = (autoGenerated != 0);
+		network.addManualMarking(marking);
 	}
-	if (ver2 >= 20)
+	if (version >= 20)
 	{
 		// Pairing depends on attachment order. Reconstruct once with the complete saved
 		// ordering before matching stable identities; restore authored state afterwards.
@@ -1018,9 +960,9 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 		{
 			RoadNode* node = network.getNode(saved.id);
 			if (!node) { return false; }
-			if (const auto it = savedAttachments.find(saved.id); it != savedAttachments.end()) { node->attachments = it->second; }
+			node->attachments = saved.attachments;
 			network.rebuildLaneConnections(saved.id);
-			if (const auto it = savedAttachments.find(saved.id); it != savedAttachments.end()) { node->attachments = it->second; }
+			node->attachments = saved.attachments;
 			node->signalPlacement = saved.signalPlacement;
 		}
 		if (!readConnectionIdentities(r, network, savedNodeIds)) { return false; }
@@ -1030,5 +972,6 @@ bool RoadBinary::readGlobal(const FilePath& path, RoadNetwork& network, bool pre
 	// Current snapshots retain authored construction timing and financial estimates.
 	if (!preserveSnapshot) { network.rebuildAllPlanStats(); }
 
+	destination = std::move(network);
 	return true;
 }

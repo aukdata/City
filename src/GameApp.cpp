@@ -48,8 +48,16 @@ void GameApp::run()
 	Graphics::SetVSyncEnabled(true);
 	Window::SetTitle(U"Pavecity");
 
-	RegisterAssets();
 	DebugLog::initialize(U"debug.log");
+	struct LogSession
+	{
+		~LogSession()
+		{
+			DebugLog::print(U"[GameApp] stopped");
+			DebugLog::shutdown();
+		}
+	} logSession;
+	RegisterAssets();
 	DebugLog::print(U"[GameApp] started");
 
 	App manager;
@@ -68,6 +76,7 @@ void GameApp::run()
 	const bool captureRoadRenders = options.captureRoadRenders;
 	const bool uncapped = options.uncapped;
 	const auto seedOverride = options.seedOverride;
+	if (options.windowSize) { Window::Resize(Clamp(options.windowSize->x, 640, 3840), Clamp(options.windowSize->y, 480, 2160)); }
 
 	if (captureCityRenders)
 	{
@@ -102,7 +111,11 @@ void GameApp::run()
 		const Stopwatch systemTimer{ StartImmediately::Yes };
 		if (!System::Update()) { break; }
 		GameInput::beginFrame();
-		if (captureCityRenders) { systemTimes << systemTimer.msF(); }
+		manager.get()->systemUpdateMs = systemTimer.msF();
+		if (captureCityRenders || manager.get()->playtest || manager.get()->benchmarkNavigation || manager.get()->benchmarkStreaming)
+		{
+			systemTimes << manager.get()->systemUpdateMs;
+		}
 		if (!manager.update()) { break; }
 		if (systemTimes.size() >= 120)
 		{
@@ -113,7 +126,4 @@ void GameApp::run()
 			systemTimes.clear();
 		}
 	}
-
-	DebugLog::print(U"[GameApp] stopped");
-	DebugLog::shutdown();
 }

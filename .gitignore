@@ -100,3 +100,4 @@ __pycache__/
 # Local user preferences (separate from city saves)
 /App/settings.json
 /App/settings.json.pending/
+/App/river_review.json

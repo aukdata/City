@@ -1,0 +1,50 @@
+{
+  "action": "playtest",
+  "status": "passed",
+  "artifacts": "D:\\Users\\Takuma\\Creations\\codes\\City\\artifacts\\local_runs\\checks\\20261006-191427-playtest-r_hgggsx",
+  "mode": "navigation",
+  "seed": 42,
+  "configuration": "Release",
+  "exit_code": 0,
+  "samples": 1499,
+  "milliseconds": {
+    "cpuMs": {
+      "mean": 14.484,
+      "p95": 24.422,
+      "max": 199.882
+    }
+  },
+  "phase_cpu_ms": {
+    "0": {
+      "mean": 18.875,
+      "p95": 26.652,
+      "max": 199.882
+    },
+    "1": {
+      "mean": 21.603,
+      "p95": 25.509,
+      "max": 78.276
+    },
+    "2": {
+      "mean": 10.346,
+      "p95": 12.372,
+      "max": 21.486
+    },
+    "3": {
+      "mean": 6.485,
+      "p95": 10.786,
+      "max": 19.466
+    },
+    "4": {
+      "mean": 5.943,
+      "p95": 7.373,
+      "max": 9.989
+    },
+    "5": {
+      "mean": 10.23,
+      "p95": 11.863,
+      "max": 21.939
+    }
+  },
+  "elapsed_seconds": 105.88
+}

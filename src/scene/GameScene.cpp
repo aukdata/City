@@ -13,6 +13,7 @@
 GameScene::GameScene(const InitData& init)
 	: IScene{ init }
 {
+	m_roadRenderer.setAsyncDetails(!getData().syncRoads);
 	m_worldRenderer.setAsyncTerrain(!getData().syncTerrain);
 	constexpr double kRoadCacheBuildBudgetMs = 4.0;
 	m_roadRenderer.setCacheBuildBudget(getData().syncRoads ? Math::Inf : kRoadCacheBuildBudgetMs);
@@ -52,10 +53,9 @@ GameScene::GameScene(const InitData& init)
 GameScene::~GameScene()
 {
 	GameInput::releaseTextFocus();
+	// ロードタスク自身も経路サービスを開始するため、開始・終了を並行させない。
+	if (m_generationFuture.valid()) { m_generationFuture.wait(); }
 	m_simThread.stop();
-
-	if (m_generationFuture.valid())
-		m_generationFuture.wait();
 }
 
 void GameScene::initScene()
@@ -162,6 +162,7 @@ void GameScene::applyPendingSettings()
 
 void GameScene::update()
 {
+	const Stopwatch updateTime{StartImmediately::Yes};
 	m_frameRateGraph.sampleNow();
 	applyPendingSettings();
 	// シミュレーション応答、時間進行、入力、カメラ、描画準備を毎フレームここで順に同期させる。
@@ -249,6 +250,7 @@ void GameScene::update()
 		const int64 monthIndexBefore = m_clock.monthIndex();
 		const double simulationDt = dt * m_clock.speedMultiplier();
 		m_clock.advance(dt);
+		m_world.advanceSourceWater(simulationDt);
 		const int64 monthIndexAfter = m_clock.monthIndex();
 
 		if (monthIndexAfter > monthIndexBefore)
@@ -430,6 +432,7 @@ void GameScene::update()
 	updateDriving(dt,mapInput);
 
 	if (getData().playtest && !getData().playtestCommands.isEmpty() && m_playtestFrame%15==0) { processPlaytestCommand(); }
+	m_updateMs = updateTime.msF();
 	renderWorld();
 	if (getData().playtest) { recordPlaytestFrame(); }
 }

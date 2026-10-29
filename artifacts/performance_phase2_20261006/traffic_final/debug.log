@@ -1,0 +1,882 @@
+﻿===== DebugLog started 2026-10-06 19:52:10 =====
+[0.0008612s] [GameApp] started
+[0.0187639s] [GameApp] direct start: load 'refactoring_20261006'
+[0.153906s] [StreetMaterials] asphalt=true pavement=true
+[0.454796s] [SignalRegistry] signal_3lamp: 6 meshes loaded
+[0.472181s] [SignalRegistry] Loaded 1 signal definitions from assets/signals
+[0.472989s] [RoadPartRegistry] curb_concrete: inner=4 center=12 outer=4 verts
+[0.473499s] [RoadPartRegistry] guardrail_steel: inner=8 center=28 outer=8 verts
+[0.473921s] [RoadPartRegistry] median_concrete: inner=4 center=4 outer=4 verts
+[0.484395s] [RoadPartRegistry] roadbed_asphalt: inner=4 center=4 outer=4 verts
+[0.495279s] [RoadPartRegistry] roadbed_ballast: inner=4 center=4 outer=4 verts
+[0.503534s] [RoadPartRegistry] roadbed_slab: inner=4 center=4 outer=4 verts
+[0.504098s] [RoadPartRegistry] roadside_gutter_concrete: inner=4 center=12 outer=4 verts
+[0.504541s] [RoadPartRegistry] sidewalk_tile: inner=8 center=4 outer=8 verts
+[0.504959s] [RoadPartRegistry] slope_grass: inner=4 center=4 outer=4 verts
+[0.505378s] [RoadPartRegistry] Loaded 11 part definitions from assets/road_parts
+[1.44876s] [RiverNetwork] reaches=146822 lengthKm=913.9 confluences=114 spillways=160 sinks=0 self=90 exhausted=0
+[1.61429s] [Load] meta+init: 1109ms
+[1.73297s] [Load] terrain: 119ms
+[2.47099s] [PresentTiming] systemP50=13.33 systemP95=26.73 focused=true minimized=false vsync=true
+[2.66333s] [Load] roads: OK nodes=31278 edges=33331
+[2.66335s] [Load] economy+roads: 930ms
+[2.84397s] [DistrictHierarchy] areas=422 boundaries=16955 uncoveredCells=0
+[4.12751s] [GuideSignClearance] generated=177 exclusionViolations=0 clearanceM=30
+[4.12784s] [GuideSign] 61 地区を登録, 案内標識自動生成完了
+[4.12792s] [Load] finish: 1465ms
+[4.47096s] [PresentTiming] systemP50=13.35 systemP95=26.72 focused=true minimized=false vsync=true
+[5.94759s] [ParcelValidation] failure=0 count=37274
+[6.45905s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[6.45909s] [CityConstraintValidation] buildings=37274 noFrontage=0 missingEdge=0 missingParcel=0 roadOverlap=0 frontageDistance=0 coastal=0 passed=true
+[6.48446s] [PresentTiming] systemP50=13.35 systemP95=26.80 focused=true minimized=false vsync=true
+[7.04194s] [Load] TOTAL: 6536ms from saves/refactoring_20261006
+[7.04429s] [Load] 完了 (6.5秒)
+[8.01007s] [RiverRenderer] leveeRoads=29
+[8.35746s] [RiverRenderer] batches=957 shader=true
+[8.41352s] [TunnelJunction] rooms=0 roadSections=15
+[8.50486s] [TunnelRenderer] roadSections=15 railSections=267 mouthOpenings=6426
+[8.81797s] [TreeModels] models=17 nearCapacity=64 farCapacity=1024 preloadMs=76.50
+[13.1529s] [BuildingPreload] assets=62 ms=4513.65
+[13.2173s] [JunctionGeometry] repaired node=26 approaches=4 regions=1 sourceFailure=6
+[13.2185s] [JunctionGeometry] repaired node=42 approaches=2 regions=1 sourceFailure=6
+[13.2291s] [JunctionGeometry] repaired node=15619 approaches=3 regions=1 sourceFailure=6
+[13.2292s] [JunctionGeometry] repaired node=15618 approaches=3 regions=1 sourceFailure=6
+[13.2315s] [JunctionGeometry] repaired node=15816 approaches=3 regions=1 sourceFailure=6
+[13.2505s] [JunctionGeometry] repaired node=15533 approaches=3 regions=1 sourceFailure=6
+[13.2702s] [JunctionGeometry] repaired node=2552 approaches=3 regions=1 sourceFailure=6
+[13.2814s] [JunctionGeometry] repaired node=15421 approaches=3 regions=1 sourceFailure=6
+[13.2942s] [JunctionGeometry] repaired node=3594 approaches=4 regions=1 sourceFailure=6
+[13.3035s] [JunctionGeometry] repaired node=15810 approaches=3 regions=1 sourceFailure=6
+[13.3043s] [JunctionGeometry] repaired node=15809 approaches=3 regions=1 sourceFailure=6
+[13.3047s] [JunctionGeometry] repaired node=15807 approaches=3 regions=1 sourceFailure=6
+[13.3211s] [JunctionGeometry] repaired node=15294 approaches=3 regions=1 sourceFailure=6
+[13.3213s] [JunctionGeometry] repaired node=15293 approaches=3 regions=1 sourceFailure=6
+[13.3758s] [JunctionGeometry] repaired node=15808 approaches=4 regions=1 sourceFailure=6
+[13.3763s] [JunctionGeometry] repaired node=6711 approaches=3 regions=1 sourceFailure=6
+[13.3768s] [JunctionGeometry] repaired node=6724 approaches=5 regions=1 sourceFailure=6
+[13.3789s] [JunctionGeometry] repaired node=6895 approaches=3 regions=1 sourceFailure=6
+[13.4337s] [JunctionGeometry] repaired node=9330 approaches=2 regions=1 sourceFailure=6
+[13.4399s] [JunctionGeometry] repaired node=15814 approaches=3 regions=1 sourceFailure=6
+[13.4408s] [JunctionGeometry] repaired node=15813 approaches=3 regions=1 sourceFailure=6
+[13.4546s] [JunctionGeometry] repaired node=10360 approaches=3 regions=1 sourceFailure=6
+[13.7256s] [JunctionGeometry] repaired node=15190 approaches=3 regions=1 sourceFailure=6
+[13.7448s] [JunctionGeometry] repaired node=15804 approaches=3 regions=1 sourceFailure=6
+[13.7456s] [JunctionGeometry] repaired node=15715 approaches=3 regions=1 sourceFailure=6
+[13.7462s] [JunctionGeometry] repaired node=15736 approaches=3 regions=1 sourceFailure=6
+[13.8013s] [JunctionGeometry] repaired node=17672 approaches=4 regions=1 sourceFailure=6
+[13.8016s] [JunctionGeometry] repaired node=17673 approaches=4 regions=1 sourceFailure=6
+[13.8018s] [JunctionGeometry] repaired node=17674 approaches=4 regions=1 sourceFailure=6
+[13.8021s] [JunctionGeometry] repaired node=17675 approaches=4 regions=1 sourceFailure=6
+[13.8023s] [JunctionGeometry] repaired node=17676 approaches=4 regions=1 sourceFailure=6
+[13.8026s] [JunctionGeometry] repaired node=17677 approaches=4 regions=1 sourceFailure=6
+[13.8041s] [JunctionGeometry] repaired node=18975 approaches=3 regions=1 sourceFailure=6
+[13.8112s] [JunctionGeometry] repaired node=19196 approaches=2 regions=1 sourceFailure=6
+[13.8153s] [JunctionGeometry] repaired node=19346 approaches=3 regions=1 sourceFailure=6
+[13.8163s] [JunctionGeometry] repaired node=19368 approaches=2 regions=1 sourceFailure=6
+[13.8171s] [JunctionGeometry] repaired node=19381 approaches=3 regions=1 sourceFailure=6
+[13.8174s] [JunctionGeometry] repaired node=19384 approaches=3 regions=1 sourceFailure=6
+[13.818s] [JunctionGeometry] repaired node=19400 approaches=3 regions=1 sourceFailure=6
+[13.8199s] [JunctionGeometry] repaired node=19459 approaches=3 regions=1 sourceFailure=6
+[13.8205s] [JunctionGeometry] repaired node=19471 approaches=3 regions=1 sourceFailure=6
+[13.8212s] [JunctionGeometry] repaired node=19490 approaches=3 regions=1 sourceFailure=6
+[13.8216s] [JunctionGeometry] repaired node=19500 approaches=3 regions=1 sourceFailure=6
+[13.8218s] [JunctionGeometry] repaired node=19502 approaches=3 regions=1 sourceFailure=6
+[13.8222s] [JunctionGeometry] repaired node=19507 approaches=3 regions=1 sourceFailure=6
+[13.8252s] [JunctionGeometry] repaired node=19599 approaches=3 regions=1 sourceFailure=6
+[13.8303s] [JunctionGeometry] repaired node=19767 approaches=3 regions=1 sourceFailure=6
+[13.8323s] [JunctionGeometry] repaired node=19827 approaches=3 regions=1 sourceFailure=6
+[13.833s] [JunctionGeometry] repaired node=19842 approaches=3 regions=1 sourceFailure=6
+[13.8339s] [JunctionGeometry] repaired node=19866 approaches=3 regions=1 sourceFailure=6
+[13.8345s] [JunctionGeometry] repaired node=19879 approaches=2 regions=1 sourceFailure=6
+[13.8352s] [JunctionGeometry] repaired node=19890 approaches=3 regions=1 sourceFailure=6
+[13.8358s] [JunctionGeometry] repaired node=19904 approaches=3 regions=1 sourceFailure=6
+[13.8413s] [JunctionGeometry] repaired node=20064 approaches=3 regions=1 sourceFailure=6
+[13.8429s] [JunctionGeometry] repaired node=20107 approaches=3 regions=1 sourceFailure=6
+[13.847s] [JunctionGeometry] repaired node=20245 approaches=3 regions=1 sourceFailure=6
+[13.8472s] [JunctionGeometry] repaired node=20246 approaches=3 regions=1 sourceFailure=6
+[13.8478s] [JunctionGeometry] repaired node=20261 approaches=3 regions=1 sourceFailure=6
+[13.8491s] [JunctionGeometry] repaired node=20293 approaches=3 regions=1 sourceFailure=6
+[13.85s] [JunctionGeometry] repaired node=20317 approaches=3 regions=1 sourceFailure=6
+[13.8522s] [JunctionGeometry] repaired node=20371 approaches=3 regions=1 sourceFailure=6
+[13.8526s] [JunctionGeometry] repaired node=20380 approaches=3 regions=1 sourceFailure=6
+[13.8536s] [JunctionGeometry] repaired node=20400 approaches=3 regions=1 sourceFailure=6
+[13.8559s] [JunctionGeometry] repaired node=20465 approaches=3 regions=1 sourceFailure=6
+[13.86s] [JunctionGeometry] repaired node=20570 approaches=3 regions=1 sourceFailure=6
+[13.8606s] [JunctionGeometry] repaired node=20582 approaches=3 regions=1 sourceFailure=6
+[13.8609s] [JunctionGeometry] repaired node=20584 approaches=3 regions=1 sourceFailure=6
+[13.8636s] [JunctionGeometry] repaired node=20656 approaches=2 regions=1 sourceFailure=6
+[13.8666s] [JunctionGeometry] repaired node=20755 approaches=3 regions=1 sourceFailure=6
+[13.8718s] [JunctionGeometry] repaired node=20918 approaches=3 regions=1 sourceFailure=6
+[13.872s] [JunctionGeometry] repaired node=20921 approaches=3 regions=1 sourceFailure=6
+[13.8725s] [JunctionGeometry] repaired node=20933 approaches=3 regions=1 sourceFailure=6
+[13.8738s] [JunctionGeometry] repaired node=20967 approaches=3 regions=1 sourceFailure=6
+[13.8793s] [JunctionGeometry] repaired node=21127 approaches=3 regions=1 sourceFailure=6
+[13.8809s] [JunctionGeometry] repaired node=21176 approaches=3 regions=1 sourceFailure=6
+[13.8821s] [JunctionGeometry] repaired node=21209 approaches=3 regions=1 sourceFailure=6
+[13.8879s] [JunctionGeometry] repaired node=21371 approaches=3 regions=1 sourceFailure=6
+[13.8915s] [JunctionGeometry] repaired node=21472 approaches=3 regions=1 sourceFailure=6
+[13.8924s] [JunctionGeometry] repaired node=21490 approaches=3 regions=1 sourceFailure=6
+[13.8932s] [JunctionGeometry] repaired node=21513 approaches=3 regions=1 sourceFailure=6
+[13.8934s] [JunctionGeometry] repaired node=21516 approaches=3 regions=1 sourceFailure=6
+[13.8937s] [JunctionGeometry] repaired node=21519 approaches=3 regions=1 sourceFailure=6
+[13.8956s] [JunctionGeometry] repaired node=21568 approaches=3 regions=1 sourceFailure=6
+[13.9004s] [JunctionGeometry] repaired node=21709 approaches=3 regions=1 sourceFailure=6
+[13.9064s] [JunctionGeometry] repaired node=21859 approaches=2 regions=2 sourceFailure=6
+[13.9067s] [JunctionGeometry] repaired node=21861 approaches=3 regions=1 sourceFailure=6
+[13.9115s] [JunctionGeometry] repaired node=21995 approaches=3 regions=1 sourceFailure=6
+[13.9164s] [JunctionGeometry] repaired node=22145 approaches=3 regions=1 sourceFailure=6
+[13.9177s] [JunctionGeometry] repaired node=22179 approaches=3 regions=1 sourceFailure=6
+[13.9191s] [JunctionGeometry] repaired node=22222 approaches=3 regions=1 sourceFailure=6
+[13.9221s] [JunctionGeometry] repaired node=22298 approaches=3 regions=1 sourceFailure=6
+[13.9236s] [JunctionGeometry] repaired node=22340 approaches=3 regions=1 sourceFailure=6
+[13.9253s] [JunctionGeometry] repaired node=22391 approaches=3 regions=1 sourceFailure=6
+[13.9282s] [JunctionGeometry] repaired node=22477 approaches=3 regions=1 sourceFailure=6
+[13.9293s] [JunctionGeometry] repaired node=22501 approaches=3 regions=1 sourceFailure=6
+[13.9355s] [JunctionGeometry] repaired node=22689 approaches=3 regions=1 sourceFailure=6
+[13.9371s] [JunctionGeometry] repaired node=22740 approaches=3 regions=1 sourceFailure=6
+[13.9374s] [JunctionGeometry] repaired node=22743 approaches=3 regions=1 sourceFailure=6
+[13.9407s] [JunctionGeometry] repaired node=22833 approaches=3 regions=1 sourceFailure=6
+[13.9411s] [JunctionGeometry] repaired node=22840 approaches=3 regions=1 sourceFailure=6
+[13.9465s] [JunctionGeometry] repaired node=22982 approaches=3 regions=1 sourceFailure=6
+[13.9473s] [JunctionGeometry] repaired node=22996 approaches=3 regions=1 sourceFailure=6
+[13.9481s] [JunctionGeometry] repaired node=23015 approaches=3 regions=1 sourceFailure=6
+[13.9514s] [JunctionGeometry] repaired node=23100 approaches=3 regions=1 sourceFailure=6
+[13.9524s] [JunctionGeometry] repaired node=23119 approaches=3 regions=1 sourceFailure=6
+[13.9527s] [JunctionGeometry] repaired node=23121 approaches=3 regions=1 sourceFailure=6
+[13.9538s] [JunctionGeometry] repaired node=23151 approaches=3 regions=1 sourceFailure=6
+[13.9563s] [JunctionGeometry] repaired node=23208 approaches=3 regions=1 sourceFailure=6
+[13.9574s] [JunctionGeometry] repaired node=23235 approaches=3 regions=1 sourceFailure=6
+[13.9612s] [JunctionGeometry] repaired node=23343 approaches=3 regions=1 sourceFailure=6
+[13.964s] [JunctionGeometry] repaired node=23430 approaches=3 regions=1 sourceFailure=6
+[13.9649s] [JunctionGeometry] repaired node=23458 approaches=3 regions=1 sourceFailure=6
+[13.9665s] [JunctionGeometry] repaired node=23499 approaches=3 regions=1 sourceFailure=6
+[13.9672s] [JunctionGeometry] repaired node=23518 approaches=3 regions=1 sourceFailure=6
+[13.9685s] [JunctionGeometry] repaired node=23556 approaches=3 regions=1 sourceFailure=6
+[13.9694s] [JunctionGeometry] repaired node=23574 approaches=3 regions=1 sourceFailure=6
+[13.9721s] [JunctionGeometry] repaired node=23644 approaches=3 regions=1 sourceFailure=6
+[13.9726s] [JunctionGeometry] repaired node=23654 approaches=3 regions=1 sourceFailure=6
+[13.9732s] [JunctionGeometry] repaired node=23672 approaches=3 regions=1 sourceFailure=6
+[13.974s] [JunctionGeometry] repaired node=23691 approaches=3 regions=1 sourceFailure=6
+[13.9756s] [JunctionGeometry] repaired node=23732 approaches=3 regions=1 sourceFailure=6
+[13.98s] [JunctionGeometry] repaired node=23843 approaches=3 regions=1 sourceFailure=6
+[13.9802s] [JunctionGeometry] repaired node=23844 approaches=3 regions=1 sourceFailure=6
+[13.9813s] [JunctionGeometry] repaired node=23869 approaches=3 regions=1 sourceFailure=6
+[13.9827s] [JunctionGeometry] repaired node=23901 approaches=3 regions=1 sourceFailure=6
+[13.9834s] [JunctionGeometry] repaired node=23920 approaches=3 regions=1 sourceFailure=6
+[13.9863s] [JunctionGeometry] repaired node=23992 approaches=3 regions=1 sourceFailure=6
+[13.9882s] [JunctionGeometry] repaired node=24047 approaches=3 regions=1 sourceFailure=6
+[13.9894s] [JunctionGeometry] repaired node=24078 approaches=3 regions=1 sourceFailure=6
+[13.9904s] [JunctionGeometry] repaired node=24103 approaches=3 regions=1 sourceFailure=6
+[13.9909s] [JunctionGeometry] repaired node=24115 approaches=3 regions=1 sourceFailure=6
+[13.9943s] [JunctionGeometry] repaired node=24208 approaches=3 regions=1 sourceFailure=6
+[13.9945s] [JunctionGeometry] repaired node=24210 approaches=3 regions=1 sourceFailure=6
+[13.9983s] [JunctionGeometry] repaired node=24324 approaches=3 regions=1 sourceFailure=6
+[13.9993s] [JunctionGeometry] repaired node=24352 approaches=3 regions=1 sourceFailure=6
+[14.0013s] [JunctionGeometry] repaired node=24398 approaches=3 regions=1 sourceFailure=6
+[14.0031s] [JunctionGeometry] repaired node=24446 approaches=3 regions=1 sourceFailure=6
+[14.0034s] [JunctionGeometry] repaired node=24452 approaches=3 regions=1 sourceFailure=6
+[14.0043s] [JunctionGeometry] repaired node=24473 approaches=3 regions=1 sourceFailure=6
+[14.005s] [JunctionGeometry] repaired node=24489 approaches=3 regions=1 sourceFailure=6
+[14.0074s] [JunctionGeometry] repaired node=24548 approaches=3 regions=1 sourceFailure=6
+[14.0097s] [JunctionGeometry] repaired node=24623 approaches=3 regions=1 sourceFailure=6
+[14.011s] [JunctionGeometry] repaired node=24660 approaches=3 regions=1 sourceFailure=6
+[14.0118s] [JunctionGeometry] repaired node=24675 approaches=3 regions=1 sourceFailure=6
+[14.0148s] [JunctionGeometry] repaired node=24755 approaches=3 regions=1 sourceFailure=6
+[14.0177s] [JunctionGeometry] repaired node=24821 approaches=3 regions=1 sourceFailure=6
+[14.0201s] [JunctionGeometry] repaired node=24896 approaches=3 regions=1 sourceFailure=6
+[14.0218s] [JunctionGeometry] repaired node=24935 approaches=3 regions=1 sourceFailure=6
+[14.0225s] [JunctionGeometry] repaired node=24953 approaches=3 regions=1 sourceFailure=6
+[14.0266s] [JunctionGeometry] repaired node=25067 approaches=3 regions=1 sourceFailure=6
+[14.0348s] [JunctionGeometry] repaired node=25336 approaches=3 regions=1 sourceFailure=6
+[14.0367s] [JunctionGeometry] repaired node=25390 approaches=3 regions=1 sourceFailure=6
+[14.0379s] [JunctionGeometry] repaired node=25416 approaches=3 regions=1 sourceFailure=6
+[14.0421s] [JunctionGeometry] repaired node=25551 approaches=3 regions=1 sourceFailure=6
+[14.0427s] [JunctionGeometry] repaired node=25561 approaches=3 regions=1 sourceFailure=6
+[14.0431s] [JunctionGeometry] repaired node=25565 approaches=3 regions=1 sourceFailure=6
+[14.0489s] [JunctionGeometry] repaired node=25725 approaches=3 regions=1 sourceFailure=6
+[14.051s] [JunctionGeometry] repaired node=25783 approaches=2 regions=2 sourceFailure=6
+[14.0548s] [JunctionGeometry] repaired node=25892 approaches=3 regions=1 sourceFailure=6
+[14.0554s] [JunctionGeometry] repaired node=25907 approaches=3 regions=1 sourceFailure=6
+[14.0576s] [JunctionGeometry] repaired node=25961 approaches=3 regions=1 sourceFailure=6
+[14.0613s] [JunctionGeometry] repaired node=26044 approaches=3 regions=1 sourceFailure=6
+[14.062s] [JunctionGeometry] repaired node=26059 approaches=3 regions=1 sourceFailure=6
+[14.067s] [JunctionGeometry] repaired node=26180 approaches=2 regions=2 sourceFailure=6
+[14.0789s] [JunctionGeometry] repaired node=26526 approaches=3 regions=1 sourceFailure=6
+[14.0793s] [JunctionGeometry] repaired node=26536 approaches=3 regions=1 sourceFailure=6
+[14.0804s] [JunctionGeometry] repaired node=26567 approaches=3 regions=1 sourceFailure=6
+[14.0836s] [JunctionGeometry] repaired node=26647 approaches=3 regions=1 sourceFailure=6
+[14.0866s] [JunctionGeometry] repaired node=26737 approaches=3 regions=1 sourceFailure=6
+[14.0871s] [JunctionGeometry] repaired node=26744 approaches=3 regions=1 sourceFailure=6
+[14.0873s] [JunctionGeometry] repaired node=26745 approaches=3 regions=1 sourceFailure=6
+[14.0891s] [JunctionGeometry] repaired node=26789 approaches=2 regions=2 sourceFailure=6
+[14.0907s] [JunctionGeometry] repaired node=26825 approaches=3 regions=1 sourceFailure=6
+[14.0911s] [JunctionGeometry] repaired node=26830 approaches=3 regions=1 sourceFailure=6
+[14.0927s] [JunctionGeometry] repaired node=26869 approaches=3 regions=1 sourceFailure=6
+[14.1073s] [JunctionGeometry] repaired node=27283 approaches=3 regions=1 sourceFailure=6
+[14.1107s] [JunctionGeometry] repaired node=27369 approaches=3 regions=1 sourceFailure=6
+[14.1232s] [JunctionGeometry] repaired node=27726 approaches=3 regions=1 sourceFailure=6
+[14.1332s] [JunctionGeometry] repaired node=28093 approaches=3 regions=1 sourceFailure=6
+[14.1395s] [JunctionGeometry] repaired node=28300 approaches=3 regions=1 sourceFailure=6
+[14.1402s] [JunctionGeometry] repaired node=28320 approaches=3 regions=1 sourceFailure=6
+[14.142s] [JunctionGeometry] repaired node=28380 approaches=3 regions=1 sourceFailure=6
+[14.1431s] [JunctionGeometry] repaired node=28402 approaches=3 regions=1 sourceFailure=6
+[14.1466s] [JunctionGeometry] repaired node=28488 approaches=3 regions=1 sourceFailure=6
+[14.158s] [JunctionGeometry] repaired node=28769 approaches=3 regions=1 sourceFailure=6
+[14.1633s] [JunctionGeometry] repaired node=28904 approaches=3 regions=1 sourceFailure=6
+[14.1652s] [JunctionGeometry] repaired node=28951 approaches=3 regions=1 sourceFailure=6
+[14.167s] [JunctionGeometry] repaired node=28977 approaches=3 regions=1 sourceFailure=6
+[14.1679s] [JunctionGeometry] repaired node=29002 approaches=3 regions=1 sourceFailure=6
+[14.1772s] [JunctionGeometry] repaired node=29235 approaches=3 regions=1 sourceFailure=6
+[14.1798s] [JunctionGeometry] repaired node=29311 approaches=3 regions=1 sourceFailure=6
+[14.1819s] [JunctionGeometry] repaired node=29369 approaches=3 regions=1 sourceFailure=6
+[14.1941s] [JunctionGeometry] repaired node=29688 approaches=3 regions=1 sourceFailure=6
+[14.1961s] [JunctionGeometry] repaired node=29752 approaches=3 regions=1 sourceFailure=6
+[14.1993s] [JunctionGeometry] repaired node=29843 approaches=3 regions=1 sourceFailure=6
+[14.201s] [JunctionGeometry] repaired node=29893 approaches=3 regions=1 sourceFailure=6
+[14.2025s] [JunctionGeometry] repaired node=29926 approaches=3 regions=1 sourceFailure=6
+[14.2047s] [JunctionGeometry] repaired node=29989 approaches=3 regions=1 sourceFailure=6
+[14.2064s] [JunctionGeometry] repaired node=30035 approaches=3 regions=1 sourceFailure=6
+[14.2091s] [JunctionGeometry] repaired node=30101 approaches=2 regions=2 sourceFailure=6
+[14.2123s] [JunctionGeometry] repaired node=30196 approaches=3 regions=1 sourceFailure=6
+[14.2142s] [JunctionGeometry] repaired node=30249 approaches=3 regions=1 sourceFailure=6
+[14.217s] [JunctionGeometry] repaired node=30334 approaches=3 regions=1 sourceFailure=6
+[14.2176s] [JunctionGeometry] repaired node=30351 approaches=3 regions=1 sourceFailure=6
+[14.2191s] [JunctionGeometry] repaired node=30390 approaches=3 regions=1 sourceFailure=6
+[14.2242s] [JunctionGeometry] repaired node=30505 approaches=2 regions=2 sourceFailure=6
+[14.2254s] [JunctionGeometry] repaired node=30536 approaches=3 regions=1 sourceFailure=6
+[14.2262s] [JunctionGeometry] repaired node=30560 approaches=3 regions=1 sourceFailure=6
+[14.2288s] [JunctionGeometry] repaired node=30630 approaches=3 regions=1 sourceFailure=6
+[14.2313s] [JunctionGeometry] repaired node=30690 approaches=3 regions=1 sourceFailure=6
+[14.2365s] [JunctionGeometry] repaired node=30840 approaches=2 regions=2 sourceFailure=6
+[14.2374s] [JunctionGeometry] repaired node=30863 approaches=3 regions=1 sourceFailure=6
+[14.2422s] [JunctionGeometry] repaired node=31002 approaches=3 regions=1 sourceFailure=6
+[14.2432s] [JunctionGeometry] repaired node=31028 approaches=3 regions=1 sourceFailure=6
+[14.2447s] [JunctionGeometry] repaired node=31071 approaches=3 regions=1 sourceFailure=6
+[14.2452s] [JunctionGeometry] repaired node=31080 approaches=2 regions=1 sourceFailure=6
+[14.2461s] [JunctionGeometry] repaired node=31104 approaches=3 regions=1 sourceFailure=6
+[14.2476s] [JunctionGeometry] repaired node=31152 approaches=3 regions=1 sourceFailure=6
+[14.2547s] [JunctionGeometry] repaired node=31397 approaches=3 regions=1 sourceFailure=6
+[14.2552s] [JunctionGeometry] repaired node=31411 approaches=3 regions=1 sourceFailure=6
+[14.2568s] [JunctionGeometry] repaired node=31450 approaches=2 regions=1 sourceFailure=6
+[14.2577s] [JunctionGeometry] repaired node=31474 approaches=2 regions=2 sourceFailure=6
+[14.2579s] [JunctionGeometry] repaired node=31477 approaches=3 regions=1 sourceFailure=6
+[14.268s] [JunctionGeometry] repaired node=31755 approaches=3 regions=1 sourceFailure=6
+[14.5522s] [WorldPreload] proxies=4096 totalMs=1379.21
+[30.4179s] [RoadFallback] preload edges=33331 nodes=29538 ms=15865.69
+[30.6213s] [RoadOverview] batches=622 sources=62869
+[32.6288s] [Phase] 全体 32.1秒 → Playing へ遷移
+[32.6326s] [PlaytestCommand] id=1 action=benchmark_view
+[32.6636s] [HudStats] updateMs=1.61 housing=323815
+[32.6757s] [RenderCost] total=43.10 pre3D=1.73 train=0.48 vehicle=0.00 pedestrian=0.07 debug=0.77 zone=0.00 flush=3.13 resolve=0.00 screen=0.06 ui=16.01 place=0.23 hudStats=1.65 hudDraw=0.10 minimap=11.93 panels=0.01
+[32.6765s] [TravelCost] frame=0 total=43.10 terrain=9.96 road=7.67 parts=0.00 node=4.00 marks=0.01 furniture=0.00 fallback=0.00 edges=0 nodes=5
+[32.7028s] [TreeStreaming] key=98784247831 revision=2 placementMs=35.57 masksMs=15.41 patchesMs=13.65 woodlandMs=5.72 instances=193 excludedTrees=0
+[32.7029s] [TreeStreaming] key=94489280535 revision=2 placementMs=16.57 masksMs=7.54 patchesMs=5.65 woodlandMs=3.07 instances=324 excludedTrees=0
+[32.7338s] [TreeStreaming] key=98784247832 revision=1 placementMs=15.78 masksMs=7.30 patchesMs=4.58 woodlandMs=2.78 instances=258 excludedTrees=0
+[32.7621s] [TreeStreaming] key=98784247830 revision=2 placementMs=28.86 masksMs=12.48 patchesMs=10.55 woodlandMs=4.25 instances=350 excludedTrees=0
+[32.7623s] [TreeStreaming] key=94489280536 revision=2 placementMs=9.72 masksMs=4.69 patchesMs=0.76 woodlandMs=3.99 instances=100 excludedTrees=0
+[32.7938s] [TreeStreaming] key=103079215127 revision=1 placementMs=21.27 masksMs=9.15 patchesMs=5.84 woodlandMs=5.39 instances=233 excludedTrees=0
+[32.7939s] [TreeStreaming] key=94489280534 revision=1 placementMs=3.28 masksMs=1.37 patchesMs=0.49 woodlandMs=1.34 instances=4620 excludedTrees=0
+[32.8297s] [TreeStreaming] key=103079215128 revision=1 placementMs=7.31 masksMs=2.76 patchesMs=0.67 woodlandMs=3.63 instances=140 excludedTrees=0
+[32.8663s] [TreeStreaming] key=103079215126 revision=2 placementMs=37.93 masksMs=20.80 patchesMs=10.73 woodlandMs=5.23 instances=259 excludedTrees=0
+[32.8665s] [TreeStreaming] key=98784247829 revision=2 placementMs=7.71 masksMs=4.44 patchesMs=1.16 woodlandMs=1.80 instances=266 excludedTrees=0
+[32.9008s] [TreeStreaming] key=107374182423 revision=1 placementMs=3.34 masksMs=0.90 patchesMs=0.00 woodlandMs=2.39 instances=14 excludedTrees=0
+[32.9009s] [TreeStreaming] key=103079215125 revision=2 placementMs=4.84 masksMs=2.69 patchesMs=0.56 woodlandMs=1.32 instances=124 excludedTrees=0
+[32.9309s] [TreeStreaming] key=107374182422 revision=2 placementMs=7.82 masksMs=2.55 patchesMs=0.24 woodlandMs=4.92 instances=61 excludedTrees=0
+[32.9309s] [TreeStreaming] key=107374182421 revision=2 placementMs=3.78 masksMs=0.93 patchesMs=0.01 woodlandMs=2.73 instances=0 excludedTrees=0
+[32.958s] [RoadDetail] publish edge=13906 revision=0 workerMs=0.06 uploadMs=0.07
+[32.9827s] [RoadDetail] publish edge=13863 revision=0 workerMs=0.17 uploadMs=0.16
+[33.0055s] [RoadDetail] publish edge=13864 revision=0 workerMs=0.10 uploadMs=0.16
+[33.0258s] [RoadDetail] publish edge=13961 revision=0 workerMs=0.15 uploadMs=0.14
+[33.0448s] [RoadDetail] publish edge=13861 revision=0 workerMs=0.15 uploadMs=0.13
+[33.0621s] [RoadDetail] publish edge=12863 revision=0 workerMs=0.15 uploadMs=0.14
+[33.0808s] [RoadDetail] publish edge=13247 revision=0 workerMs=0.13 uploadMs=0.14
+[33.1098s] [RoadDetail] publish edge=13248 revision=0 workerMs=0.11 uploadMs=0.15
+[33.1275s] [RoadDetail] publish edge=13910 revision=0 workerMs=0.04 uploadMs=0.06
+[33.1472s] [RoadDetail] publish edge=13246 revision=0 workerMs=0.13 uploadMs=0.15
+[33.1652s] [RoadDetail] publish edge=13908 revision=0 workerMs=0.13 uploadMs=0.17
+[33.1818s] [RoadDetail] publish edge=12952 revision=0 workerMs=0.13 uploadMs=0.14
+[33.1996s] [RoadDetail] publish edge=13249 revision=0 workerMs=0.13 uploadMs=0.13
+[33.217s] [RoadDetail] publish edge=25781 revision=0 workerMs=0.10 uploadMs=0.12
+[33.2338s] [RoadDetail] publish edge=12973 revision=0 workerMs=0.12 uploadMs=0.14
+[33.2508s] [RoadDetail] publish edge=13250 revision=0 workerMs=0.12 uploadMs=0.15
+[33.2704s] [RoadDetail] publish edge=13912 revision=0 workerMs=0.12 uploadMs=0.17
+[33.2905s] [RoadDetail] publish edge=13911 revision=0 workerMs=0.03 uploadMs=0.06
+[33.3121s] [RoadDetail] publish edge=13909 revision=0 workerMs=0.12 uploadMs=0.16
+[33.3326s] [RoadDetail] publish edge=13245 revision=0 workerMs=0.13 uploadMs=0.17
+[33.3505s] [RoadDetail] publish edge=13800 revision=0 workerMs=0.04 uploadMs=0.07
+[33.3774s] [RoadDetail] publish edge=25780 revision=0 workerMs=0.13 uploadMs=0.16
+[33.4101s] [RoadDetail] publish edge=13263 revision=0 workerMs=0.15 uploadMs=0.20
+[33.4306s] [RoadDetail] publish edge=12929 revision=0 workerMs=0.14 uploadMs=0.19
+[33.4517s] [RoadDetail] publish edge=13264 revision=0 workerMs=0.13 uploadMs=0.16
+[33.4749s] [RoadDetail] publish edge=12986 revision=0 workerMs=0.15 uploadMs=0.19
+[33.501s] [RoadDetail] publish edge=12905 revision=0 workerMs=0.14 uploadMs=0.16
+[33.5234s] [RoadDetail] publish edge=12953 revision=0 workerMs=0.16 uploadMs=0.15
+[33.5458s] [RoadDetail] publish edge=13265 revision=0 workerMs=0.12 uploadMs=0.23
+[33.5685s] [RoadDetail] publish edge=13801 revision=0 workerMs=0.03 uploadMs=0.06
+[33.5918s] [RoadDetail] publish edge=13802 revision=0 workerMs=0.13 uploadMs=0.14
+[33.6135s] [RoadDetail] publish edge=12885 revision=0 workerMs=0.14 uploadMs=0.23
+[33.6365s] [RoadDetail] publish edge=13262 revision=0 workerMs=0.12 uploadMs=0.15
+[33.6587s] [RoadDetail] publish edge=12974 revision=0 workerMs=0.15 uploadMs=0.14
+[33.6818s] [RoadDetail] publish edge=13266 revision=0 workerMs=0.12 uploadMs=0.17
+[33.7009s] [Streaming] terrain workerMs=833.44 uploadTotalMs=21.99 maxFrameUploadMs=3.00 uploadFrames=10
+[33.701s] [LandscapeStreaming] key=94489280535 terrainMs=702.61 masksMs=7.00 patchesMs=110.65 woodlandMs=0.00 landscapeVertices=219360 landscapeTriangles=87098
+[33.7051s] [RoadDetail] publish edge=13753 revision=0 workerMs=0.15 uploadMs=0.17
+[33.7268s] [RoadDetail] publish edge=13798 revision=0 workerMs=0.16 uploadMs=0.16
+[33.7605s] [RoadDetail] publish edge=25779 revision=0 workerMs=0.12 uploadMs=0.10
+[33.7824s] [RoadDetail] publish edge=12865 revision=0 workerMs=0.22 uploadMs=0.15
+[33.8047s] [RoadDetail] publish edge=13261 revision=0 workerMs=0.13 uploadMs=0.25
+[33.8297s] [RoadDetail] publish edge=13799 revision=0 workerMs=0.12 uploadMs=0.21
+[33.8529s] [RoadDetail] publish edge=13280 revision=0 workerMs=0.15 uploadMs=0.18
+[33.8768s] [RoadDetail] publish edge=13281 revision=0 workerMs=0.17 uploadMs=0.18
+[33.9016s] [RoadDetail] publish edge=13913 revision=0 workerMs=0.06 uploadMs=0.07
+[33.9242s] [RoadDetail] publish edge=13756 revision=0 workerMs=0.22 uploadMs=0.16
+[33.9453s] [RoadDetail] publish edge=12987 revision=0 workerMs=0.15 uploadMs=0.16
+[33.9656s] [RoadDetail] publish edge=13267 revision=0 workerMs=0.13 uploadMs=0.14
+[33.9936s] [RoadDetail] publish edge=13279 revision=0 workerMs=0.16 uploadMs=0.20
+[34.0141s] [RoadDetail] publish edge=13865 revision=0 workerMs=0.11 uploadMs=0.16
+[34.0348s] [RoadDetail] publish edge=13282 revision=0 workerMs=0.21 uploadMs=0.14
+[34.0544s] [BuildingStreaming] key=98784247831 workerMs=380.31 uploadMs=1.53 excludedTrees=0
+[34.057s] [RoadDetail] publish edge=13963 revision=0 workerMs=0.14 uploadMs=0.17
+[34.0826s] [RoadDetail] publish edge=13278 revision=0 workerMs=0.17 uploadMs=0.20
+[34.0996s] [HudStats] updateMs=2.58 housing=323815
+[34.1248s] [RoadDetail] publish edge=13840 revision=0 workerMs=0.14 uploadMs=0.18
+[34.1509s] [RoadDetail] publish edge=13283 revision=0 workerMs=0.16 uploadMs=0.22
+[34.1792s] [RoadDetail] publish edge=12846 revision=0 workerMs=0.17 uploadMs=0.18
+[34.2063s] [RoadDetail] publish edge=13755 revision=0 workerMs=0.16 uploadMs=0.17
+[34.2351s] [RoadDetail] publish edge=25778 revision=0 workerMs=0.12 uploadMs=0.13
+[34.2603s] [RoadDetail] publish edge=13277 revision=0 workerMs=0.21 uploadMs=0.17
+[34.2846s] [RoadDetail] publish edge=13838 revision=0 workerMs=0.04 uploadMs=0.08
+[34.3087s] [RoadDetail] publish edge=13915 revision=0 workerMs=0.12 uploadMs=0.25
+[34.3345s] [RoadDetail] publish edge=13914 revision=0 workerMs=0.04 uploadMs=0.07
+[34.3613s] [RoadDetail] publish edge=13965 revision=0 workerMs=0.13 uploadMs=0.15
+[34.3893s] [RoadDetail] publish edge=13866 revision=0 workerMs=0.12 uploadMs=0.33
+[34.4208s] [RoadDetail] publish edge=13867 revision=0 workerMs=0.13 uploadMs=0.15
+[34.4498s] [RoadDetail] publish edge=13003 revision=0 workerMs=0.18 uploadMs=0.16
+[34.4767s] [RoadDetail] publish edge=13268 revision=0 workerMs=0.12 uploadMs=0.18
+[34.5051s] [RoadDetail] publish edge=13016 revision=0 workerMs=0.16 uploadMs=0.19
+[34.5422s] [RoadDetail] publish edge=13964 revision=0 workerMs=0.12 uploadMs=0.23
+[34.5711s] [RoadDetail] publish edge=25763 revision=0 workerMs=0.10 uploadMs=0.11
+[34.5987s] [RoadDetail] publish edge=13754 revision=0 workerMs=0.14 uploadMs=0.16
+[34.6248s] [RoadDetail] publish edge=13759 revision=0 workerMs=0.16 uploadMs=0.15
+[34.6502s] [RoadDetail] publish edge=13284 revision=0 workerMs=0.16 uploadMs=0.16
+[34.6766s] [RoadDetail] publish edge=14040 revision=0 workerMs=0.13 uploadMs=0.15
+[34.7036s] [RoadDetail] publish edge=13841 revision=0 workerMs=0.16 uploadMs=0.14
+[34.7295s] [RoadDetail] publish edge=13842 revision=0 workerMs=0.14 uploadMs=0.16
+[34.7525s] [BuildingStreaming] key=94489280535 workerMs=237.36 uploadMs=1.23 excludedTrees=0
+[34.755s] [RoadDetail] publish edge=13758 revision=0 workerMs=0.05 uploadMs=0.09
+[34.7825s] [RoadDetail] publish edge=13839 revision=0 workerMs=0.03 uploadMs=0.09
+[34.7975s] [PresentTiming] systemP50=0.61 systemP95=26.57 focused=true minimized=false vsync=true
+[34.8073s] [Streaming] terrain workerMs=1767.18 uploadTotalMs=33.84 maxFrameUploadMs=2.68 uploadFrames=15
+[34.8074s] [LandscapeStreaming] key=98784247831 terrainMs=1525.53 masksMs=15.57 patchesMs=197.28 woodlandMs=0.00 landscapeVertices=303753 landscapeTriangles=114215
+[34.8129s] [RoadDetail] publish edge=13298 revision=0 workerMs=0.16 uploadMs=0.21
+[34.845s] [RoadDetail] publish edge=13299 revision=0 workerMs=0.15 uploadMs=0.18
+[34.8762s] [RoadDetail] publish edge=13918 revision=0 workerMs=0.01 uploadMs=0.01
+[34.9133s] [RoadDetail] publish edge=13297 revision=0 workerMs=0.23 uploadMs=0.21
+[34.9464s] [RoadDetail] publish edge=13916 revision=0 workerMs=0.17 uploadMs=0.17
+[34.9932s] [RoadDetail] publish edge=12825 revision=0 workerMs=0.18 uploadMs=0.23
+[35.0257s] [RoadDetail] publish edge=13300 revision=0 workerMs=0.18 uploadMs=0.21
+[35.0574s] [RoadDetail] publish edge=13966 revision=0 workerMs=0.13 uploadMs=0.19
+[35.087s] [RoadDetail] publish edge=14041 revision=0 workerMs=0.15 uploadMs=0.18
+[35.1147s] [RoadDetail] publish edge=14044 revision=0 workerMs=0.18 uploadMs=0.19
+[35.1375s] [Streaming] terrain workerMs=848.00 uploadTotalMs=23.41 maxFrameUploadMs=2.72 uploadFrames=10
+[35.1376s] [LandscapeStreaming] key=98784247832 terrainMs=709.28 masksMs=6.99 patchesMs=117.84 woodlandMs=0.00 landscapeVertices=238486 landscapeTriangles=96672
+[35.1421s] [RoadDetail] publish edge=13285 revision=0 workerMs=0.20 uploadMs=0.20
+[35.167s] [RoadDetail] publish edge=14042 revision=0 workerMs=0.13 uploadMs=0.22
+[35.1922s] [RoadDetail] publish edge=13017 revision=0 workerMs=0.14 uploadMs=0.20
+[35.218s] [RoadDetail] publish edge=13296 revision=0 workerMs=0.15 uploadMs=0.22
+[35.2425s] [RoadDetail] publish edge=25777 revision=0 workerMs=0.12 uploadMs=0.12
+[35.2674s] [RoadDetail] publish edge=12975 revision=0 workerMs=0.13 uploadMs=0.19
+[35.292s] [RoadDetail] publish edge=13301 revision=0 workerMs=0.17 uploadMs=0.16
+[35.3179s] [RoadDetail] publish edge=13757 revision=0 workerMs=0.05 uploadMs=0.09
+[35.3425s] [RoadDetail] publish edge=25762 revision=0 workerMs=0.11 uploadMs=0.12
+[35.3686s] [RoadDetail] publish edge=13295 revision=0 workerMs=0.15 uploadMs=0.17
+[35.4065s] [RoadDetail] publish edge=13805 revision=0 workerMs=0.03 uploadMs=0.11
+[35.4343s] [RoadDetail] publish edge=13920 revision=0 workerMs=0.13 uploadMs=0.19
+[35.4583s] [RoadDetail] publish edge=13919 revision=0 workerMs=0.03 uploadMs=0.07
+[35.4844s] [RoadDetail] publish edge=13968 revision=0 workerMs=0.12 uploadMs=0.23
+[35.5087s] [BuildingStreaming] key=98784247832 workerMs=162.11 uploadMs=1.29 excludedTrees=0
+[35.5111s] [RoadDetail] publish edge=13917 revision=0 workerMs=0.12 uploadMs=0.18
+[35.5456s] [RoadDetail] publish edge=14043 revision=0 workerMs=0.11 uploadMs=0.16
+[35.5724s] [RoadDetail] publish edge=14071 revision=0 workerMs=0.13 uploadMs=0.17
+[35.6017s] [RoadDetail] publish edge=13967 revision=0 workerMs=0.13 uploadMs=0.18
+[35.6294s] [RoadDetail] publish edge=12989 revision=0 workerMs=0.13 uploadMs=0.17
+[35.6585s] [RoadDetail] publish edge=13302 revision=0 workerMs=0.17 uploadMs=0.21
+[35.681s] [Streaming] terrain workerMs=392.92 uploadTotalMs=12.22 maxFrameUploadMs=2.58 uploadFrames=6
+[35.681s] [LandscapeStreaming] key=94489280536 terrainMs=341.94 masksMs=4.01 patchesMs=38.37 woodlandMs=0.00 landscapeVertices=71243 landscapeTriangles=31785
+[35.6859s] [RoadDetail] publish edge=13275 revision=0 workerMs=0.17 uploadMs=0.20
+[35.7099s] [RoadDetail] publish edge=13709 revision=0 workerMs=0.03 uploadMs=0.08
+[35.7348s] [RoadDetail] publish edge=14069 revision=0 workerMs=0.03 uploadMs=0.07
+[35.7598s] [RoadDetail] publish edge=14083 revision=0 workerMs=0.15 uploadMs=0.20
+[35.7798s] [RoadDetail] publish edge=13761 revision=0 workerMs=0.03 uploadMs=0.07
+[35.7895s] [HudStats] updateMs=1.84 housing=323815
+[35.8119s] [RoadDetail] publish edge=13803 revision=0 workerMs=0.12 uploadMs=0.14
+[35.8329s] [RoadDetail] publish edge=13806 revision=0 workerMs=0.03 uploadMs=0.09
+[35.8531s] [RoadDetail] publish edge=13807 revision=0 workerMs=0.14 uploadMs=0.16
+[35.8746s] [RoadDetail] publish edge=25776 revision=0 workerMs=0.10 uploadMs=0.13
+[35.8946s] [RoadDetail] publish edge=25761 revision=0 workerMs=0.11 uploadMs=0.10
+[35.915s] [RoadDetail] publish edge=13303 revision=0 workerMs=0.17 uploadMs=0.18
+[35.9366s] [RoadDetail] publish edge=13710 revision=0 workerMs=0.03 uploadMs=0.09
+[35.9594s] [RoadDetail] publish edge=13711 revision=0 workerMs=0.12 uploadMs=0.26
+[35.9802s] [RoadDetail] publish edge=13315 revision=0 workerMs=0.16 uploadMs=0.16
+[36.001s] [RoadDetail] publish edge=12932 revision=0 workerMs=0.14 uploadMs=0.20
+[36.0206s] [RoadDetail] publish edge=13316 revision=0 workerMs=0.15 uploadMs=0.19
+[36.0413s] [RoadDetail] publish edge=12908 revision=0 workerMs=0.13 uploadMs=0.18
+[36.0611s] [RoadDetail] publish edge=13314 revision=0 workerMs=0.12 uploadMs=0.19
+[36.0812s] [RoadDetail] publish edge=12956 revision=0 workerMs=0.12 uploadMs=0.16
+[36.1016s] [RoadDetail] publish edge=13760 revision=0 workerMs=0.04 uploadMs=0.12
+[36.1335s] [RoadDetail] publish edge=13764 revision=0 workerMs=0.13 uploadMs=0.18
+[36.1562s] [RoadDetail] publish edge=14070 revision=0 workerMs=0.03 uploadMs=0.08
+[36.177s] [RoadDetail] publish edge=14087 revision=0 workerMs=0.12 uploadMs=0.16
+[36.2038s] [RoadDetail] publish edge=12887 revision=0 workerMs=0.19 uploadMs=0.24
+[36.2249s] [RoadDetail] publish edge=13313 revision=0 workerMs=0.13 uploadMs=0.29
+[36.2464s] [RoadDetail] publish edge=12976 revision=0 workerMs=0.16 uploadMs=0.19
+[36.271s] [RoadDetail] publish edge=13317 revision=0 workerMs=0.12 uploadMs=0.20
+[36.2955s] [RoadDetail] publish edge=13804 revision=0 workerMs=0.15 uploadMs=0.19
+[36.3199s] [RoadDetail] publish edge=12868 revision=0 workerMs=0.17 uploadMs=0.16
+[36.3416s] [RoadDetail] publish edge=13312 revision=0 workerMs=0.15 uploadMs=0.15
+[36.3649s] [RoadDetail] publish edge=12827 revision=0 workerMs=0.15 uploadMs=0.18
+[36.3885s] [RoadDetail] publish edge=13293 revision=0 workerMs=0.17 uploadMs=0.17
+[36.4108s] [RoadDetail] publish edge=12990 revision=0 workerMs=0.13 uploadMs=0.24
+[36.4356s] [RoadDetail] publish edge=13318 revision=0 workerMs=0.12 uploadMs=0.22
+[36.4587s] [RoadDetail] publish edge=13019 revision=0 workerMs=0.16 uploadMs=0.17
+[36.493s] [RoadDetail] publish edge=14085 revision=0 workerMs=0.15 uploadMs=0.19
+[36.5161s] [BuildingStreaming] key=98784247830 workerMs=280.11 uploadMs=2.06 excludedTrees=0
+[36.5189s] [RoadDetail] publish edge=25760 revision=0 workerMs=0.13 uploadMs=0.12
+[36.5398s] [Streaming] terrain workerMs=1443.92 uploadTotalMs=27.27 maxFrameUploadMs=2.65 uploadFrames=12
+[36.5398s] [LandscapeStreaming] key=98784247830 terrainMs=1246.73 masksMs=11.81 patchesMs=161.20 woodlandMs=0.00 landscapeVertices=316317 landscapeTriangles=124891
+[36.5457s] [RoadDetail] publish edge=12848 revision=0 workerMs=0.11 uploadMs=0.29
+[36.5736s] [RoadDetail] publish edge=13763 revision=0 workerMs=0.12 uploadMs=0.39
+[36.6077s] [RoadDetail] publish edge=25775 revision=0 workerMs=0.14 uploadMs=0.15
+[36.6384s] [RoadDetail] publish edge=13005 revision=0 workerMs=0.14 uploadMs=0.23
+[36.6673s] [BuildingStreaming] key=94489280536 workerMs=26.09 uploadMs=1.08 excludedTrees=0
+[36.6705s] [RoadDetail] publish edge=13319 revision=0 workerMs=0.20 uploadMs=0.21
+[36.7012s] [RoadDetail] publish edge=13331 revision=0 workerMs=0.17 uploadMs=0.20
+[36.7272s] [RoadDetail] publish edge=12933 revision=0 workerMs=0.21 uploadMs=0.17
+[36.7524s] [RoadDetail] publish edge=13332 revision=0 workerMs=0.13 uploadMs=0.18
+[36.7763s] [RoadDetail] publish edge=14086 revision=0 workerMs=0.17 uploadMs=0.18
+[36.8005s] [RoadDetail] publish edge=14090 revision=0 workerMs=0.13 uploadMs=0.19
+[36.82s] [Streaming] terrain workerMs=912.89 uploadTotalMs=20.04 maxFrameUploadMs=2.62 uploadFrames=9
+[36.8201s] [LandscapeStreaming] key=103079215127 terrainMs=728.34 masksMs=8.50 patchesMs=161.51 woodlandMs=0.00 landscapeVertices=241579 landscapeTriangles=98063
+[36.825s] [RoadDetail] publish edge=12909 revision=0 workerMs=0.12 uploadMs=0.20
+[36.8499s] [RoadDetail] publish edge=13330 revision=0 workerMs=0.13 uploadMs=0.17
+[36.8714s] [Streaming] terrain workerMs=131.73 uploadTotalMs=4.24 maxFrameUploadMs=2.40 uploadFrames=2
+[36.8715s] [LandscapeStreaming] key=94489280534 terrainMs=104.80 masksMs=1.14 patchesMs=22.19 woodlandMs=0.00 landscapeVertices=50988 landscapeTriangles=19768
+[36.8771s] [RoadDetail] publish edge=12957 revision=0 workerMs=0.13 uploadMs=0.19
+[36.9124s] [RoadDetail] publish edge=13333 revision=0 workerMs=0.12 uploadMs=0.18
+[36.9374s] [RoadDetail] publish edge=13762 revision=0 workerMs=0.12 uploadMs=0.29
+[36.9607s] [RoadDetail] publish edge=12807 revision=0 workerMs=0.13 uploadMs=0.22
+[36.9827s] [RoadDetail] publish edge=12888 revision=0 workerMs=0.17 uploadMs=0.17
+[37.0047s] [RoadDetail] publish edge=13329 revision=0 workerMs=0.10 uploadMs=0.17
+[37.0271s] [RoadDetail] publish edge=12869 revision=0 workerMs=0.15 uploadMs=0.18
+[37.0532s] [RoadDetail] publish edge=13328 revision=0 workerMs=0.13 uploadMs=0.18
+[37.0782s] [RoadDetail] publish edge=12828 revision=0 workerMs=0.15 uploadMs=0.17
+[37.099s] [Streaming] terrain workerMs=215.74 uploadTotalMs=6.35 maxFrameUploadMs=2.28 uploadFrames=3
+[37.099s] [LandscapeStreaming] key=103079215128 terrainMs=158.97 masksMs=2.35 patchesMs=50.68 woodlandMs=0.00 landscapeVertices=83149 landscapeTriangles=37055
+[37.1038s] [RoadDetail] publish edge=13039 revision=0 workerMs=0.12 uploadMs=0.26
+[37.1264s] [RoadDetail] publish edge=13020 revision=0 workerMs=0.15 uploadMs=0.19
+[37.1492s] [RoadDetail] publish edge=14088 revision=0 workerMs=0.13 uploadMs=0.16
+[37.1722s] [RoadDetail] publish edge=12991 revision=0 workerMs=0.13 uploadMs=0.30
+[37.1949s] [RoadDetail] publish edge=13334 revision=0 workerMs=0.12 uploadMs=0.21
+[37.2181s] [RoadDetail] publish edge=25759 revision=0 workerMs=0.11 uploadMs=0.12
+[37.2406s] [RoadDetail] publish edge=25774 revision=0 workerMs=0.12 uploadMs=0.15
+[37.251s] [HudStats] updateMs=1.80 housing=323815
+[37.276s] [RoadDetail] publish edge=13006 revision=0 workerMs=0.12 uploadMs=0.22
+[37.2977s] [BuildingStreaming] key=103079215127 workerMs=163.57 uploadMs=1.37 excludedTrees=0
+[37.3005s] [RoadDetail] publish edge=13335 revision=0 workerMs=0.12 uploadMs=0.18
+[37.3276s] [RoadDetail] publish edge=14089 revision=0 workerMs=0.12 uploadMs=0.29
+[37.3517s] [RoadDetail] publish edge=13665 revision=0 workerMs=0.13 uploadMs=0.16
+[37.3762s] [RoadDetail] publish edge=13347 revision=0 workerMs=0.12 uploadMs=0.19
+[37.4006s] [RoadDetail] publish edge=13348 revision=0 workerMs=0.13 uploadMs=0.18
+[37.4233s] [BuildingStreaming] key=94489280534 workerMs=23.15 uploadMs=1.25 excludedTrees=0
+[37.4265s] [RoadDetail] publish edge=13923 revision=0 workerMs=0.04 uploadMs=0.10
+[37.453s] [RoadDetail] publish edge=13346 revision=0 workerMs=0.14 uploadMs=0.17
+[37.4782s] [RoadDetail] publish edge=13921 revision=0 workerMs=0.12 uploadMs=0.18
+[37.5098s] [RoadDetail] publish edge=13349 revision=0 workerMs=0.12 uploadMs=0.20
+[37.5391s] [RoadDetail] publish edge=13969 revision=0 workerMs=0.12 uploadMs=0.20
+[37.5689s] [RoadDetail] publish edge=12829 revision=0 workerMs=0.24 uploadMs=0.21
+[37.6017s] [BuildingStreaming] key=103079215128 workerMs=24.44 uploadMs=1.87 excludedTrees=0
+[37.6037s] [RoadDetail] publish edge=13327 revision=0 workerMs=0.11 uploadMs=0.24
+[37.6333s] [RoadDetail] publish edge=13345 revision=0 workerMs=0.15 uploadMs=0.23
+[37.6638s] [RoadDetail] publish edge=14155 revision=0 workerMs=0.19 uploadMs=0.25
+[37.71s] [RoadDetail] publish edge=13350 revision=0 workerMs=0.14 uploadMs=0.18
+[37.7378s] [RoadDetail] publish edge=13998 revision=0 workerMs=0.15 uploadMs=0.33
+[37.765s] [RoadDetail] publish edge=13021 revision=0 workerMs=0.16 uploadMs=0.19
+[37.787s] [Streaming] terrain workerMs=467.37 uploadTotalMs=15.40 maxFrameUploadMs=2.73 uploadFrames=7
+[37.787s] [LandscapeStreaming] key=98784247829 terrainMs=422.32 masksMs=3.79 patchesMs=31.49 woodlandMs=0.00 landscapeVertices=69684 landscapeTriangles=29796
+[37.7919s] [RoadDetail] publish edge=14091 revision=0 workerMs=0.14 uploadMs=0.22
+[37.8131s] [Streaming] terrain workerMs=2.56 uploadTotalMs=0.26 maxFrameUploadMs=0.26 uploadFrames=1
+[37.8131s] [LandscapeStreaming] key=107374182423 terrainMs=1.62 masksMs=0.64 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[37.8179s] [RoadDetail] publish edge=12870 revision=0 workerMs=0.18 uploadMs=0.21
+[37.8424s] [RoadDetail] publish edge=25758 revision=0 workerMs=0.08 uploadMs=0.14
+[37.8676s] [RoadDetail] publish edge=25773 revision=0 workerMs=0.11 uploadMs=0.12
+[37.8926s] [RoadDetail] publish edge=14018 revision=0 workerMs=0.14 uploadMs=0.15
+[37.9158s] [RoadDetail] publish edge=14092 revision=0 workerMs=0.12 uploadMs=0.18
+[37.9431s] [RoadDetail] publish edge=14095 revision=0 workerMs=0.14 uploadMs=0.15
+[37.9535s] [PresentTiming] systemP50=0.48 systemP95=0.79 focused=true minimized=false vsync=true
+[37.9677s] [RoadDetail] publish edge=13344 revision=0 workerMs=0.18 uploadMs=0.24
+[37.9948s] [RoadDetail] publish edge=13765 revision=0 workerMs=0.12 uploadMs=0.19
+[38.0246s] [RoadDetail] publish edge=13925 revision=0 workerMs=0.12 uploadMs=0.17
+[38.0521s] [RoadDetail] publish edge=13924 revision=0 workerMs=0.03 uploadMs=0.10
+[38.0756s] [Streaming] terrain workerMs=191.23 uploadTotalMs=6.19 maxFrameUploadMs=2.29 uploadFrames=3
+[38.0756s] [LandscapeStreaming] key=103079215125 terrainMs=148.41 masksMs=2.21 patchesMs=37.42 woodlandMs=0.00 landscapeVertices=61931 landscapeTriangles=27313
+[38.0806s] [RoadDetail] publish edge=13971 revision=0 workerMs=0.14 uploadMs=0.20
+[38.1185s] [RoadDetail] publish edge=13922 revision=0 workerMs=0.17 uploadMs=0.16
+[38.143s] [RoadDetail] publish edge=12808 revision=0 workerMs=0.12 uploadMs=0.18
+[38.1713s] [RoadDetail] publish edge=13668 revision=0 workerMs=0.14 uploadMs=0.15
+[38.1962s] [RoadDetail] publish edge=13970 revision=0 workerMs=0.14 uploadMs=0.18
+[38.2212s] [RoadDetail] publish edge=14000 revision=0 workerMs=0.13 uploadMs=0.17
+[38.2455s] [RoadDetail] publish edge=13351 revision=0 workerMs=0.14 uploadMs=0.19
+[38.2758s] [RoadDetail] publish edge=13999 revision=0 workerMs=0.12 uploadMs=0.18
+[38.3069s] [RoadDetail] publish edge=14020 revision=0 workerMs=0.16 uploadMs=0.18
+[38.3345s] [RoadDetail] publish edge=13040 revision=0 workerMs=0.14 uploadMs=0.18
+[38.3626s] [RoadDetail] publish edge=14158 revision=0 workerMs=0.14 uploadMs=0.18
+[38.3925s] [RoadDetail] publish edge=13671 revision=0 workerMs=0.15 uploadMs=0.20
+[38.4195s] [RoadDetail] publish edge=14019 revision=0 workerMs=0.13 uploadMs=0.16
+[38.4477s] [RoadDetail] publish edge=13343 revision=0 workerMs=0.12 uploadMs=0.19
+[38.4763s] [RoadDetail] publish edge=13712 revision=0 workerMs=0.15 uploadMs=0.17
+[38.5045s] [RoadDetail] publish edge=25757 revision=0 workerMs=0.14 uploadMs=0.12
+[38.5433s] [RoadDetail] publish edge=14093 revision=0 workerMs=0.13 uploadMs=0.17
+[38.5707s] [RoadDetail] publish edge=14096 revision=0 workerMs=0.15 uploadMs=0.20
+[38.5994s] [RoadDetail] publish edge=13766 revision=0 workerMs=0.13 uploadMs=0.20
+[38.6267s] [RoadDetail] publish edge=13767 revision=0 workerMs=0.13 uploadMs=0.20
+[38.6497s] [Streaming] terrain workerMs=1414.66 uploadTotalMs=29.54 maxFrameUploadMs=2.57 uploadFrames=13
+[38.6497s] [LandscapeStreaming] key=103079215126 terrainMs=1180.38 masksMs=12.37 patchesMs=204.28 woodlandMs=0.00 landscapeVertices=319956 landscapeTriangles=126112
+[38.6629s] [RoadDetail] publish edge=25772 revision=0 workerMs=0.12 uploadMs=0.14
+[38.6911s] [RoadDetail] publish edge=13363 revision=0 workerMs=0.12 uploadMs=0.16
+[38.7182s] [RoadDetail] publish edge=12935 revision=0 workerMs=0.26 uploadMs=0.22
+[38.7432s] [Streaming] terrain workerMs=170.29 uploadTotalMs=7.19 maxFrameUploadMs=2.20 uploadFrames=4
+[38.7433s] [LandscapeStreaming] key=107374182422 terrainMs=114.75 masksMs=2.30 patchesMs=49.49 woodlandMs=0.00 landscapeVertices=40421 landscapeTriangles=17441
+[38.747s] [RoadDetail] publish edge=13364 revision=0 workerMs=0.13 uploadMs=0.21
+[38.7704s] [Streaming] terrain workerMs=7.91 uploadTotalMs=1.63 maxFrameUploadMs=1.63 uploadFrames=1
+[38.7705s] [LandscapeStreaming] key=107374182421 terrainMs=5.04 masksMs=0.97 patchesMs=1.39 woodlandMs=0.00 landscapeVertices=4664 landscapeTriangles=2334
+[38.7742s] [RoadDetail] publish edge=12911 revision=0 workerMs=0.14 uploadMs=0.20
+[38.8004s] [RoadDetail] publish edge=13362 revision=0 workerMs=0.15 uploadMs=0.19
+[38.8251s] [BuildingStreaming] key=103079215126 workerMs=276.33 uploadMs=1.64 excludedTrees=0
+[38.8271s] [RoadDetail] publish edge=14159 revision=0 workerMs=0.13 uploadMs=0.15
+[38.8511s] [RoadDetail] publish edge=14162 revision=0 workerMs=0.20 uploadMs=0.26
+[38.876s] [RoadDetail] publish edge=12959 revision=0 workerMs=0.16 uploadMs=0.30
+[38.901s] [RoadDetail] publish edge=13365 revision=0 workerMs=0.32 uploadMs=0.29
+[38.9273s] [RoadDetail] publish edge=12789 revision=0 workerMs=0.15 uploadMs=0.31
+[38.9403s] [HudStats] updateMs=2.04 housing=323815
+[38.9688s] [RoadDetail] publish edge=12889 revision=0 workerMs=0.17 uploadMs=0.39
+[38.9942s] [RoadDetail] publish edge=12978 revision=0 workerMs=0.17 uploadMs=0.26
+[39.0187s] [RoadDetail] publish edge=13366 revision=0 workerMs=0.14 uploadMs=0.30
+[39.0431s] [RoadDetail] publish edge=14094 revision=0 workerMs=0.13 uploadMs=0.25
+[39.0672s] [RoadDetail] publish edge=12871 revision=0 workerMs=0.15 uploadMs=0.41
+[39.0917s] [RoadDetail] publish edge=13361 revision=0 workerMs=0.14 uploadMs=0.25
+[39.1156s] [RoadDetail] publish edge=13670 revision=0 workerMs=0.14 uploadMs=0.32
+[39.14s] [RoadDetail] publish edge=13674 revision=0 workerMs=0.13 uploadMs=0.25
+[39.1638s] [RoadDetail] publish edge=13713 revision=0 workerMs=0.15 uploadMs=0.25
+[39.1879s] [RoadDetail] publish edge=13714 revision=0 workerMs=0.14 uploadMs=0.26
+[39.2127s] [RoadDetail] publish edge=12993 revision=0 workerMs=0.14 uploadMs=0.24
+[39.2385s] [RoadDetail] publish edge=13367 revision=0 workerMs=0.12 uploadMs=0.32
+[39.265s] [RoadDetail] publish edge=13061 revision=0 workerMs=0.17 uploadMs=0.24
+[39.2895s] [RoadDetail] publish edge=14097 revision=0 workerMs=0.17 uploadMs=0.24
+[39.3151s] [RoadDetail] publish edge=14100 revision=0 workerMs=0.15 uploadMs=0.28
+[39.3513s] [RoadDetail] publish edge=14098 revision=0 workerMs=0.16 uploadMs=0.31
+[39.3755s] [RoadDetail] publish edge=14160 revision=0 workerMs=0.13 uploadMs=0.39
+[39.3997s] [RoadDetail] publish edge=12850 revision=0 workerMs=0.20 uploadMs=0.26
+[39.4222s] [RoadDetail] publish edge=13769 revision=0 workerMs=0.13 uploadMs=0.22
+[39.4457s] [RoadDetail] publish edge=13669 revision=0 workerMs=0.12 uploadMs=0.25
+[39.4703s] [RoadDetail] publish edge=13007 revision=0 workerMs=0.13 uploadMs=0.24
+[39.4975s] [RoadDetail] publish edge=13768 revision=0 workerMs=0.13 uploadMs=0.23
+[39.5224s] [RoadDetail] publish edge=13772 revision=0 workerMs=0.15 uploadMs=0.27
+[39.5481s] [RoadDetail] publish edge=25756 revision=0 workerMs=0.13 uploadMs=0.19
+[39.5733s] [RoadDetail] publish edge=25771 revision=0 workerMs=0.14 uploadMs=0.24
+[39.5984s] [RoadDetail] publish edge=13675 revision=0 workerMs=0.14 uploadMs=0.23
+[39.624s] [RoadDetail] publish edge=13676 revision=0 workerMs=0.15 uploadMs=0.25
+[39.6465s] [RoadDetail] publish edge=14161 revision=0 workerMs=0.14 uploadMs=0.23
+[39.6677s] [RoadDetail] publish edge=13672 revision=0 workerMs=0.13 uploadMs=0.35
+[39.689s] [RoadDetail] publish edge=12831 revision=0 workerMs=0.14 uploadMs=0.20
+[39.7217s] [RoadDetail] publish edge=13359 revision=0 workerMs=0.19 uploadMs=0.24
+[39.7426s] [RoadDetail] publish edge=13023 revision=0 workerMs=0.17 uploadMs=0.21
+[39.7629s] [RoadDetail] publish edge=13368 revision=0 workerMs=0.13 uploadMs=0.23
+[39.7862s] [RoadDetail] publish edge=14099 revision=0 workerMs=0.12 uploadMs=0.25
+[39.8079s] [RoadDetail] publish edge=14165 revision=0 workerMs=0.12 uploadMs=0.23
+[39.8283s] [RoadDetail] publish edge=13380 revision=0 workerMs=0.14 uploadMs=0.27
+[39.8495s] [RoadDetail] publish edge=12936 revision=0 workerMs=0.17 uploadMs=0.24
+[39.8712s] [RoadDetail] publish edge=13381 revision=0 workerMs=0.13 uploadMs=0.22
+[39.8944s] [RoadDetail] publish edge=12912 revision=0 workerMs=0.12 uploadMs=0.24
+[39.9181s] [RoadDetail] publish edge=13379 revision=0 workerMs=0.16 uploadMs=0.26
+[39.9406s] [RoadDetail] publish edge=12960 revision=0 workerMs=0.12 uploadMs=0.22
+[39.9618s] [RoadDetail] publish edge=13382 revision=0 workerMs=0.14 uploadMs=0.27
+[39.9857s] [RoadDetail] publish edge=12890 revision=0 workerMs=0.15 uploadMs=0.24
+[40.0084s] [RoadDetail] publish edge=13378 revision=0 workerMs=0.12 uploadMs=0.21
+[40.0307s] [RoadDetail] publish edge=13354 revision=0 workerMs=0.14 uploadMs=0.24
+[40.0632s] [RoadDetail] publish edge=14163 revision=0 workerMs=0.03 uploadMs=0.12
+[40.0846s] [RoadDetail] publish edge=13383 revision=0 workerMs=0.15 uploadMs=0.24
+[40.1057s] [RoadDetail] publish edge=12872 revision=0 workerMs=0.16 uploadMs=0.31
+[40.1264s] [RoadDetail] publish edge=13377 revision=0 workerMs=0.15 uploadMs=0.22
+[40.1471s] [RoadDetail] publish edge=13358 revision=0 workerMs=0.13 uploadMs=0.22
+[40.1683s] [RoadDetail] publish edge=13673 revision=0 workerMs=0.11 uploadMs=0.31
+[40.1931s] [RoadDetail] publish edge=12994 revision=0 workerMs=0.13 uploadMs=0.21
+[40.2154s] [RoadDetail] publish edge=13384 revision=0 workerMs=0.14 uploadMs=0.31
+[40.2367s] [RoadDetail] publish edge=13771 revision=0 workerMs=0.04 uploadMs=0.14
+[40.2573s] [RoadDetail] publish edge=25755 revision=0 workerMs=0.12 uploadMs=0.16
+[40.2777s] [RoadDetail] publish edge=13369 revision=0 workerMs=0.14 uploadMs=0.22
+[40.3003s] [RoadDetail] publish edge=25770 revision=0 workerMs=0.10 uploadMs=0.36
+[40.3224s] [RoadDetail] publish edge=13008 revision=0 workerMs=0.12 uploadMs=0.22
+[40.3442s] [RoadDetail] publish edge=13385 revision=0 workerMs=0.14 uploadMs=0.28
+[40.3654s] [RoadDetail] publish edge=14164 revision=0 workerMs=0.05 uploadMs=0.13
+[40.3744s] [HudStats] updateMs=1.72 housing=323815
+[40.3989s] [RoadDetail] publish edge=14214 revision=0 workerMs=0.14 uploadMs=0.25
+[40.4217s] [RoadDetail] publish edge=13770 revision=0 workerMs=0.05 uploadMs=0.15
+[40.4442s] [RoadDetail] publish edge=12832 revision=0 workerMs=0.14 uploadMs=0.23
+[40.4659s] [RoadDetail] publish edge=13375 revision=0 workerMs=0.14 uploadMs=0.25
+[40.4894s] [RoadDetail] publish edge=12791 revision=0 workerMs=0.12 uploadMs=0.21
+[40.5108s] [RoadDetail] publish edge=13613 revision=0 workerMs=0.12 uploadMs=0.24
+[40.5321s] [RoadDetail] publish edge=13024 revision=0 workerMs=0.14 uploadMs=0.23
+[40.5552s] [RoadDetail] publish edge=14101 revision=0 workerMs=0.15 uploadMs=0.22
+[40.5771s] [RoadDetail] publish edge=12937 revision=0 workerMs=0.20 uploadMs=0.30
+[40.5982s] [RoadDetail] publish edge=13397 revision=0 workerMs=0.11 uploadMs=0.25
+[40.6196s] [RoadDetail] publish edge=12913 revision=0 workerMs=0.20 uploadMs=0.29
+[40.6409s] [RoadDetail] publish edge=13396 revision=0 workerMs=0.13 uploadMs=0.26
+[40.6623s] [RoadDetail] publish edge=13398 revision=0 workerMs=0.12 uploadMs=0.22
+[40.6835s] [RoadDetail] publish edge=14001 revision=0 workerMs=0.12 uploadMs=0.24
+[40.7058s] [RoadDetail] publish edge=13063 revision=0 workerMs=0.14 uploadMs=0.25
+[40.7397s] [RoadDetail] publish edge=14215 revision=0 workerMs=0.11 uploadMs=0.20
+[40.764s] [RoadDetail] publish edge=13395 revision=0 workerMs=0.12 uploadMs=0.32
+[40.7855s] [RoadDetail] publish edge=14102 revision=0 workerMs=0.12 uploadMs=0.25
+[40.8074s] [RoadDetail] publish edge=14105 revision=0 workerMs=0.11 uploadMs=0.21
+[40.8285s] [RoadDetail] publish edge=13399 revision=0 workerMs=0.12 uploadMs=0.22
+[40.8507s] [RoadDetail] publish edge=14003 revision=0 workerMs=0.13 uploadMs=0.25
+[40.8729s] [RoadDetail] publish edge=13616 revision=0 workerMs=0.12 uploadMs=0.28
+[40.8942s] [RoadDetail] publish edge=12810 revision=0 workerMs=0.13 uploadMs=0.26
+[40.9172s] [RoadDetail] publish edge=13678 revision=0 workerMs=0.15 uploadMs=0.42
+[40.9417s] [RoadDetail] publish edge=13394 revision=0 workerMs=0.12 uploadMs=0.22
+[40.9511s] [PresentTiming] systemP50=0.53 systemP95=0.78 focused=true minimized=false vsync=true
+[40.9663s] [RoadDetail] publish edge=13808 revision=0 workerMs=0.14 uploadMs=0.23
+[40.9905s] [RoadDetail] publish edge=25754 revision=0 workerMs=0.11 uploadMs=0.26
+[41.0123s] [RoadDetail] publish edge=25769 revision=0 workerMs=0.12 uploadMs=0.19
+[41.0349s] [RoadDetail] publish edge=13400 revision=0 workerMs=0.14 uploadMs=0.20
+[41.0571s] [RoadDetail] publish edge=14021 revision=0 workerMs=0.12 uploadMs=0.28
+[41.0904s] [RoadDetail] publish edge=13042 revision=0 workerMs=0.13 uploadMs=0.27
+[41.1132s] [RoadDetail] publish edge=13387 revision=0 workerMs=0.17 uploadMs=0.22
+[41.1347s] [RoadDetail] publish edge=14219 revision=0 workerMs=0.11 uploadMs=0.28
+[41.1559s] [RoadDetail] publish edge=13393 revision=0 workerMs=0.12 uploadMs=0.22
+[41.1768s] [RoadDetail] publish edge=13773 revision=0 workerMs=0.11 uploadMs=0.25
+[41.2013s] [RoadDetail] publish edge=13677 revision=0 workerMs=0.11 uploadMs=0.24
+[41.2234s] [RoadDetail] publish edge=13681 revision=0 workerMs=0.12 uploadMs=0.20
+[41.2448s] [RoadDetail] publish edge=13401 revision=0 workerMs=0.11 uploadMs=0.21
+[41.2661s] [RoadDetail] publish edge=14002 revision=0 workerMs=0.11 uploadMs=0.22
+[41.2874s] [RoadDetail] publish edge=14005 revision=0 workerMs=0.11 uploadMs=0.34
+[41.3087s] [RoadDetail] publish edge=12792 revision=0 workerMs=0.13 uploadMs=0.27
+[41.3298s] [RoadDetail] publish edge=13615 revision=0 workerMs=0.12 uploadMs=0.26
+[41.3512s] [RoadDetail] publish edge=13392 revision=0 workerMs=0.15 uploadMs=0.21
+[41.373s] [RoadDetail] publish edge=13717 revision=0 workerMs=0.13 uploadMs=0.22
+[41.3947s] [RoadDetail] publish edge=14004 revision=0 workerMs=0.10 uploadMs=0.24
+[41.4299s] [RoadDetail] publish edge=14023 revision=0 workerMs=0.12 uploadMs=0.23
+[41.454s] [RoadDetail] publish edge=13082 revision=0 workerMs=0.12 uploadMs=0.25
+[41.4792s] [RoadDetail] publish edge=14103 revision=0 workerMs=0.13 uploadMs=0.24
+[41.5021s] [RoadDetail] publish edge=14106 revision=0 workerMs=0.17 uploadMs=0.23
+[41.5241s] [RoadDetail] publish edge=13809 revision=0 workerMs=0.12 uploadMs=0.21
+[41.5468s] [RoadDetail] publish edge=13810 revision=0 workerMs=0.11 uploadMs=0.23
+[41.5696s] [RoadDetail] publish edge=14022 revision=0 workerMs=0.11 uploadMs=0.33
+[41.5927s] [RoadDetail] publish edge=13064 revision=0 workerMs=0.16 uploadMs=0.25
+[41.6153s] [RoadDetail] publish edge=14217 revision=0 workerMs=0.04 uploadMs=0.12
+[41.6372s] [RoadDetail] publish edge=14104 revision=0 workerMs=0.11 uploadMs=0.24
+[41.6585s] [RoadDetail] publish edge=25753 revision=0 workerMs=0.11 uploadMs=0.16
+[41.6792s] [RoadDetail] publish edge=13614 revision=0 workerMs=0.13 uploadMs=0.23
+[41.7001s] [RoadDetail] publish edge=13774 revision=0 workerMs=0.11 uploadMs=0.23
+[41.7221s] [RoadDetail] publish edge=13775 revision=0 workerMs=0.12 uploadMs=0.24
+[41.744s] [RoadDetail] publish edge=25768 revision=0 workerMs=0.11 uploadMs=0.19
+[41.7534s] [HudStats] updateMs=1.77 housing=323815
+[41.7783s] [RoadDetail] publish edge=13680 revision=0 workerMs=0.11 uploadMs=0.22
+[41.8018s] [RoadDetail] publish edge=13715 revision=0 workerMs=0.11 uploadMs=0.24
+[41.8246s] [RoadDetail] publish edge=14218 revision=0 workerMs=0.12 uploadMs=0.27
+[41.848s] [RoadDetail] publish edge=14108 revision=0 workerMs=0.14 uploadMs=0.23
+[41.8705s] [RoadDetail] publish edge=13412 revision=0 workerMs=0.12 uploadMs=0.26
+[41.8922s] [RoadDetail] publish edge=13926 revision=0 workerMs=0.04 uploadMs=0.12
+[41.9147s] [RoadDetail] publish edge=13411 revision=0 workerMs=0.11 uploadMs=0.31
+[41.9387s] [RoadDetail] publish edge=13868 revision=0 workerMs=0.12 uploadMs=0.23
+[41.9619s] [RoadDetail] publish edge=12962 revision=0 workerMs=0.17 uploadMs=0.24
+[41.9923s] [RoadDetail] publish edge=13413 revision=0 workerMs=0.12 uploadMs=0.20
+[42.0151s] [RoadDetail] publish edge=13679 revision=0 workerMs=0.12 uploadMs=0.23
+[42.0375s] [RoadDetail] publish edge=13718 revision=0 workerMs=0.13 uploadMs=0.23
+[42.0602s] [RoadDetail] publish edge=13719 revision=0 workerMs=0.11 uploadMs=0.23
+[42.0827s] [RoadDetail] publish edge=13410 revision=0 workerMs=0.12 uploadMs=0.24
+[42.1061s] [RoadDetail] publish edge=13843 revision=0 workerMs=0.13 uploadMs=0.30
+[42.1407s] [RoadDetail] publish edge=13414 revision=0 workerMs=0.12 uploadMs=0.22
+[42.1634s] [RoadDetail] publish edge=14024 revision=0 workerMs=0.12 uploadMs=0.27
+[42.1857s] [RoadDetail] publish edge=14107 revision=0 workerMs=0.12 uploadMs=0.28
+[42.2079s] [RoadDetail] publish edge=14110 revision=0 workerMs=0.12 uploadMs=0.24
+[42.2302s] [RoadDetail] publish edge=12770 revision=0 workerMs=0.13 uploadMs=0.22
+[42.2524s] [RoadDetail] publish edge=13409 revision=0 workerMs=0.11 uploadMs=0.24
+[42.2754s] [RoadDetail] publish edge=13811 revision=0 workerMs=0.14 uploadMs=0.23
+[42.2972s] [RoadDetail] publish edge=13415 revision=0 workerMs=0.11 uploadMs=0.22
+[42.3201s] [RoadDetail] publish edge=14026 revision=0 workerMs=0.11 uploadMs=0.22
+[42.3421s] [RoadDetail] publish edge=12793 revision=0 workerMs=0.16 uploadMs=0.24
+[42.3647s] [RoadDetail] publish edge=13408 revision=0 workerMs=0.12 uploadMs=0.28
+[42.3877s] [RoadDetail] publish edge=13778 revision=0 workerMs=0.11 uploadMs=0.24
+[42.4102s] [RoadDetail] publish edge=13716 revision=0 workerMs=0.10 uploadMs=0.20
+[42.4343s] [RoadDetail] publish edge=13416 revision=0 workerMs=0.11 uploadMs=0.24
+[42.4598s] [RoadDetail] publish edge=14045 revision=0 workerMs=0.11 uploadMs=0.24
+[42.4969s] [RoadDetail] publish edge=13065 revision=0 workerMs=0.16 uploadMs=0.24
+[42.5199s] [RoadDetail] publish edge=13403 revision=0 workerMs=0.15 uploadMs=0.33
+[42.5423s] [RoadDetail] publish edge=14109 revision=0 workerMs=0.12 uploadMs=0.24
+[42.5646s] [RoadDetail] publish edge=13928 revision=0 workerMs=0.11 uploadMs=0.20
+[42.5875s] [RoadDetail] publish edge=13870 revision=0 workerMs=0.11 uploadMs=0.25
+[42.6098s] [RoadDetail] publish edge=13407 revision=0 workerMs=0.11 uploadMs=0.22
+[42.6317s] [RoadDetail] publish edge=13776 revision=0 workerMs=0.13 uploadMs=0.27
+[42.654s] [RoadDetail] publish edge=13417 revision=0 workerMs=0.12 uploadMs=0.26
+[42.6765s] [RoadDetail] publish edge=14072 revision=0 workerMs=0.18 uploadMs=0.24
+[42.6988s] [RoadDetail] publish edge=13845 revision=0 workerMs=0.12 uploadMs=0.23
+[42.7216s] [RoadDetail] publish edge=14028 revision=0 workerMs=0.11 uploadMs=0.28
+[42.7447s] [RoadDetail] publish edge=13813 revision=0 workerMs=0.12 uploadMs=0.23
+[42.7701s] [RoadDetail] publish edge=14047 revision=0 workerMs=0.13 uploadMs=0.23
+[42.7925s] [RoadDetail] publish edge=13780 revision=0 workerMs=0.14 uploadMs=0.22
+[42.8155s] [RoadDetail] publish edge=14074 revision=0 workerMs=0.11 uploadMs=0.21
+[42.8491s] [RoadDetail] publish edge=13083 revision=0 workerMs=0.15 uploadMs=0.23
+[42.8717s] [RoadDetail] publish edge=14274 revision=0 workerMs=0.11 uploadMs=0.27
+[42.8956s] [RoadDetail] publish edge=13418 revision=0 workerMs=0.12 uploadMs=0.25
+[42.9197s] [RoadDetail] publish edge=12794 revision=0 workerMs=0.16 uploadMs=0.40
+[42.9443s] [RoadDetail] publish edge=13618 revision=0 workerMs=0.12 uploadMs=0.23
+[42.9672s] [RoadDetail] publish edge=14278 revision=0 workerMs=0.15 uploadMs=0.25
+[42.9911s] [RoadDetail] publish edge=13066 revision=0 workerMs=0.15 uploadMs=0.25
+[43.0147s] [RoadDetail] publish edge=13423 revision=0 workerMs=0.13 uploadMs=0.22
+[43.0373s] [RoadDetail] publish edge=13617 revision=0 workerMs=0.11 uploadMs=0.22
+[43.0594s] [RoadDetail] publish edge=13621 revision=0 workerMs=0.16 uploadMs=0.25
+[43.0819s] [RoadDetail] publish edge=13432 revision=0 workerMs=0.12 uploadMs=0.21
+[43.1047s] [RoadDetail] publish edge=13105 revision=0 workerMs=0.16 uploadMs=0.30
+[43.1279s] [RoadDetail] publish edge=12771 revision=0 workerMs=0.16 uploadMs=0.24
+[43.1509s] [RoadDetail] publish edge=13560 revision=0 workerMs=0.14 uploadMs=0.24
+[43.1739s] [RoadDetail] publish edge=13084 revision=0 workerMs=0.17 uploadMs=0.25
+[43.1833s] [HudStats] updateMs=1.69 housing=323815
+[43.2089s] [RoadDetail] publish edge=14276 revision=0 workerMs=0.12 uploadMs=0.23
+[43.2328s] [RoadDetail] publish edge=13422 revision=0 workerMs=0.14 uploadMs=0.32
+[43.2556s] [RoadDetail] publish edge=13433 revision=0 workerMs=0.14 uploadMs=0.24
+[43.2777s] [RoadDetail] publish edge=13563 revision=0 workerMs=0.16 uploadMs=0.28
+[43.3s] [RoadDetail] publish edge=14277 revision=0 workerMs=0.11 uploadMs=0.29
+[43.3232s] [RoadDetail] publish edge=14281 revision=0 workerMs=0.15 uploadMs=0.27
+[43.3464s] [RoadDetail] publish edge=13434 revision=0 workerMs=0.12 uploadMs=0.24
+[43.3687s] [RoadDetail] publish edge=12754 revision=0 workerMs=0.16 uploadMs=0.29
+[43.3909s] [RoadDetail] publish edge=13106 revision=0 workerMs=0.16 uploadMs=0.24
+[43.6851s] [PresentTiming] systemP50=0.57 systemP95=0.84 focused=true minimized=false vsync=true
+[44.2999s] [HudStats] updateMs=1.71 housing=323815
+[45.3855s] [HudStats] updateMs=1.91 housing=323815
+[45.8426s] [PresentTiming] systemP50=0.56 systemP95=0.82 focused=true minimized=false vsync=true
+[46.4977s] [HudStats] updateMs=2.10 housing=323815
+[47.5721s] [HudStats] updateMs=1.81 housing=323815
+[48.0177s] [PresentTiming] systemP50=0.56 systemP95=0.80 focused=true minimized=false vsync=true
+[48.6382s] [HudStats] updateMs=1.85 housing=323815
+[49.7137s] [HudStats] updateMs=2.62 housing=323815
+[50.1996s] [PresentTiming] systemP50=0.50 systemP95=0.95 focused=true minimized=false vsync=true
+[50.8507s] [HudStats] updateMs=1.85 housing=323815
+[51.9303s] [HudStats] updateMs=1.82 housing=323815
+[52.3788s] [PresentTiming] systemP50=0.53 systemP95=1.06 focused=true minimized=false vsync=true
+[52.9994s] [HudStats] updateMs=1.86 housing=323815
+[54.0725s] [HudStats] updateMs=1.91 housing=323815
+[54.5201s] [PresentTiming] systemP50=0.54 systemP95=1.00 focused=true minimized=false vsync=true
+[55.1452s] [HudStats] updateMs=1.72 housing=323815
+[56.2145s] [HudStats] updateMs=1.91 housing=323815
+[56.6529s] [PresentTiming] systemP50=0.55 systemP95=1.10 focused=true minimized=false vsync=true
+[57.2836s] [HudStats] updateMs=1.80 housing=323815
+[58.3366s] [HudStats] updateMs=1.74 housing=323815
+[58.7821s] [PresentTiming] systemP50=0.54 systemP95=1.12 focused=true minimized=false vsync=true
+[59.3994s] [HudStats] updateMs=1.75 housing=323815
+[60.4536s] [HudStats] updateMs=2.03 housing=323815
+[60.9024s] [PresentTiming] systemP50=0.56 systemP95=1.01 focused=true minimized=false vsync=true
+[61.5107s] [HudStats] updateMs=1.84 housing=323815
+[62.5779s] [HudStats] updateMs=1.70 housing=323815
+[63.0358s] [PresentTiming] systemP50=0.51 systemP95=1.09 focused=true minimized=false vsync=true
+[63.6507s] [HudStats] updateMs=1.78 housing=323815
+[64.719s] [HudStats] updateMs=1.85 housing=323815
+[65.1744s] [PresentTiming] systemP50=0.53 systemP95=0.96 focused=true minimized=false vsync=true
+[65.7929s] [HudStats] updateMs=2.08 housing=323815
+[66.8628s] [HudStats] updateMs=1.75 housing=323815
+[67.3327s] [PresentTiming] systemP50=0.54 systemP95=1.01 focused=true minimized=false vsync=true
+[67.9532s] [HudStats] updateMs=2.00 housing=323815
+[69.0163s] [HudStats] updateMs=1.79 housing=323815
+[69.4683s] [PresentTiming] systemP50=0.53 systemP95=0.97 focused=true minimized=false vsync=true
+[70.0866s] [HudStats] updateMs=1.80 housing=323815
+[71.1635s] [HudStats] updateMs=2.22 housing=323815
+[71.6357s] [PresentTiming] systemP50=0.54 systemP95=1.00 focused=true minimized=false vsync=true
+[72.301s] [HudStats] updateMs=2.08 housing=323815
+[73.3772s] [HudStats] updateMs=1.75 housing=323815
+[73.8291s] [PresentTiming] systemP50=0.51 systemP95=0.97 focused=true minimized=false vsync=true
+[74.4463s] [HudStats] updateMs=1.84 housing=323815
+[75.5209s] [HudStats] updateMs=1.81 housing=323815
+[75.9665s] [PresentTiming] systemP50=0.60 systemP95=0.92 focused=true minimized=false vsync=true
+[76.5889s] [HudStats] updateMs=1.80 housing=323815
+[77.6604s] [HudStats] updateMs=1.88 housing=323815
+[78.1045s] [PresentTiming] systemP50=0.54 systemP95=0.98 focused=true minimized=false vsync=true
+[78.7188s] [HudStats] updateMs=1.86 housing=323815
+[78.978s] [PlaytestCommand] id=2 action=benchmark_view
+[79.0099s] [TreeStreaming] key=94489280537 revision=2 placementMs=4.15 masksMs=1.64 patchesMs=0.03 woodlandMs=2.35 instances=3 excludedTrees=0
+[79.01s] [TreeStreaming] key=90194313240 revision=1 placementMs=6.34 masksMs=1.51 patchesMs=0.01 woodlandMs=4.78 instances=19 excludedTrees=0
+[79.0291s] [TreeStreaming] key=90194313241 revision=2 placementMs=0.96 masksMs=0.22 patchesMs=0.00 woodlandMs=0.73 instances=977 excludedTrees=0
+[79.0292s] [TreeStreaming] key=98784247833 revision=1 placementMs=4.51 masksMs=1.25 patchesMs=0.02 woodlandMs=3.20 instances=3 excludedTrees=0
+[79.0473s] [TreeStreaming] key=90194313239 revision=1 placementMs=2.56 masksMs=1.36 patchesMs=0.01 woodlandMs=1.13 instances=1904 excludedTrees=0
+[79.048s] [Streaming] terrain workerMs=37.91 uploadTotalMs=2.78 maxFrameUploadMs=2.17 uploadFrames=2
+[79.048s] [LandscapeStreaming] key=90194313240 terrainMs=27.46 masksMs=1.39 patchesMs=7.49 woodlandMs=0.00 landscapeVertices=8852 landscapeTriangles=4450
+[79.0638s] [Streaming] terrain workerMs=3.28 uploadTotalMs=0.31 maxFrameUploadMs=0.31 uploadFrames=1
+[79.0639s] [LandscapeStreaming] key=90194313241 terrainMs=2.72 masksMs=0.17 patchesMs=0.00 woodlandMs=0.00 landscapeVertices=0 landscapeTriangles=0
+[79.1062s] [Streaming] terrain workerMs=83.23 uploadTotalMs=5.11 maxFrameUploadMs=2.31 uploadFrames=3
+[79.1062s] [LandscapeStreaming] key=94489280537 terrainMs=75.70 masksMs=1.48 patchesMs=2.57 woodlandMs=0.00 landscapeVertices=6797 landscapeTriangles=3237
+[79.1338s] [Streaming] terrain workerMs=39.27 uploadTotalMs=3.84 maxFrameUploadMs=2.08 uploadFrames=2
+[79.1339s] [LandscapeStreaming] key=98784247833 terrainMs=33.71 masksMs=1.40 patchesMs=2.40 woodlandMs=0.00 landscapeVertices=8644 landscapeTriangles=4172
+[79.2794s] [Streaming] terrain workerMs=111.85 uploadTotalMs=7.16 maxFrameUploadMs=2.45 uploadFrames=4
+[79.2794s] [LandscapeStreaming] key=90194313239 terrainMs=105.78 masksMs=1.33 patchesMs=0.73 woodlandMs=0.00 landscapeVertices=3475 landscapeTriangles=1723
+[79.7353s] [HudStats] updateMs=1.43 housing=323815
+[80.1486s] [PresentTiming] systemP50=0.78 systemP95=16.07 focused=true minimized=false vsync=true
+[80.7351s] [HudStats] updateMs=1.27 housing=323815
+[81.7351s] [HudStats] updateMs=1.27 housing=323815
+[82.1479s] [PresentTiming] systemP50=2.82 systemP95=16.46 focused=true minimized=false vsync=true
+[82.8436s] [HudStats] updateMs=1.37 housing=323815
+[83.843s] [HudStats] updateMs=1.69 housing=323815
+[84.2545s] [PresentTiming] systemP50=2.71 systemP95=16.39 focused=true minimized=false vsync=true
+[84.8421s] [HudStats] updateMs=1.29 housing=323815
+[85.8424s] [HudStats] updateMs=1.29 housing=323815
+[86.2554s] [PresentTiming] systemP50=2.84 systemP95=16.31 focused=true minimized=false vsync=true
+[86.8416s] [HudStats] updateMs=1.25 housing=323815
+[87.8419s] [HudStats] updateMs=1.30 housing=323815
+[88.2544s] [PresentTiming] systemP50=2.92 systemP95=16.56 focused=true minimized=false vsync=true
+[88.8424s] [HudStats] updateMs=1.32 housing=323815
+[89.8421s] [HudStats] updateMs=1.33 housing=323815
+[90.2545s] [PresentTiming] systemP50=2.76 systemP95=16.46 focused=true minimized=false vsync=true
+[90.8416s] [HudStats] updateMs=1.27 housing=323815
+[91.8437s] [HudStats] updateMs=1.60 housing=323815
+[92.2568s] [PresentTiming] systemP50=2.92 systemP95=16.42 focused=true minimized=false vsync=true
+[92.8416s] [HudStats] updateMs=1.29 housing=323815
+[93.842s] [HudStats] updateMs=1.26 housing=323815
+[94.2562s] [PresentTiming] systemP50=2.85 systemP95=16.59 focused=true minimized=false vsync=true
+[94.8419s] [HudStats] updateMs=1.40 housing=323815
+[95.8415s] [HudStats] updateMs=1.37 housing=323815
+[96.2704s] [PresentTiming] systemP50=3.04 systemP95=16.67 focused=true minimized=false vsync=true
+[96.8433s] [HudStats] updateMs=1.27 housing=323815
+[97.8419s] [HudStats] updateMs=1.43 housing=323815
+[98.2691s] [PresentTiming] systemP50=2.92 systemP95=16.54 focused=true minimized=false vsync=true
+[98.8574s] [HudStats] updateMs=1.33 housing=323815
+[99.8578s] [HudStats] updateMs=1.57 housing=323815
+[100.268s] [PresentTiming] systemP50=2.94 systemP95=16.76 focused=true minimized=false vsync=true
+[100.855s] [HudStats] updateMs=1.41 housing=323815
+[101.857s] [HudStats] updateMs=1.58 housing=323815
+[102.268s] [PresentTiming] systemP50=2.32 systemP95=16.46 focused=true minimized=false vsync=true
+[102.856s] [HudStats] updateMs=1.27 housing=323815
+[103.855s] [HudStats] updateMs=1.35 housing=323815
+[104.268s] [PresentTiming] systemP50=2.92 systemP95=16.53 focused=true minimized=false vsync=true
+[104.855s] [HudStats] updateMs=1.25 housing=323815
+[105.855s] [HudStats] updateMs=1.26 housing=323815
+[106.268s] [PresentTiming] systemP50=2.92 systemP95=16.58 focused=true minimized=false vsync=true
+[106.855s] [HudStats] updateMs=1.35 housing=323815
+[107.857s] [HudStats] updateMs=1.35 housing=323815
+[108.267s] [PresentTiming] systemP50=2.96 systemP95=16.55 focused=true minimized=false vsync=true
+[108.857s] [HudStats] updateMs=1.37 housing=323815
+[109.856s] [HudStats] updateMs=1.36 housing=323815
+[110.267s] [PresentTiming] systemP50=2.95 systemP95=16.54 focused=true minimized=false vsync=true
+[110.855s] [HudStats] updateMs=1.27 housing=323815
+[111.855s] [HudStats] updateMs=1.28 housing=323815
+[112.281s] [PresentTiming] systemP50=2.97 systemP95=16.49 focused=true minimized=false vsync=true
+[112.855s] [HudStats] updateMs=1.28 housing=323815
+[113.855s] [HudStats] updateMs=1.24 housing=323815
+[114.281s] [PresentTiming] systemP50=2.77 systemP95=16.48 focused=true minimized=false vsync=true
+[114.855s] [HudStats] updateMs=1.31 housing=323815
+[115.87s] [HudStats] updateMs=1.35 housing=323815
+[116.283s] [PresentTiming] systemP50=2.76 systemP95=16.30 focused=true minimized=false vsync=true
+[116.869s] [HudStats] updateMs=1.26 housing=323815
+[117.868s] [HudStats] updateMs=1.23 housing=323815
+[118.281s] [PresentTiming] systemP50=2.85 systemP95=16.43 focused=true minimized=false vsync=true
+[118.87s] [HudStats] updateMs=1.30 housing=323815
+[119.354s] [PlaytestCommand] id=3 action=exit
+[120.083s] [GameApp] stopped
+===== DebugLog closed 2026-10-06 19:54:10 =====

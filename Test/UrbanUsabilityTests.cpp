@@ -4,6 +4,8 @@
 #include "src/ui/Camera.hpp"
 #include "src/scene/RoadSelection.hpp"
 #include "src/render/FrontageGeometry.hpp"
+#include "src/render/ParcelAccessGeometry.hpp"
+#include "src/render/TerrainMaterials.hpp"
 #include "src/ui/WorldMapView.hpp"
 #include "src/ui/CollapsibleHudPanel.hpp"
 #include "src/ui/LandParcelPanel.hpp"
@@ -64,6 +66,34 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 			U"A road without a nearby node is still selectable");
 		context.expect(RoadSelection::choose(none, cursor, false) == RoadSelection::Target::None,
 			U"Empty ground does not create a selection");
+	});
+	runner.add(U"StreetDetail.GroundAndEntrances",[](TestContext& context)
+	{
+		Chunk chunk;chunk.heightMap=Grid<float>(HEIGHT_CELLS+1,HEIGHT_CELLS+1,20.0f);
+		chunk.zoneMap=Grid<ZoneType>(ZONE_CELLS,ZONE_CELLS,ZoneType::Residential);
+		chunk.buildingGrid=Grid<Building>(ZONE_CELLS,ZONE_CELLS);
+		chunk.buildingGrid[{20,20}].type=BuildingType::LowApartment;chunk.buildingGrid[{21,20}].type=BuildingType::Detached;
+		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kUrbanPaving,U"Occupied urban yards have paved ground instead of blanket earth");
+		context.expect(TerrainMaterials::keyForCell(chunk,20,21)==TerrainMaterials::kVacantLot,U"An empty residential plot is a weedy vacant lot, not lawn, even between occupied plots");
+		context.expect(TerrainMaterials::cover(TerrainMaterials::kVacantLot)==TerrainMaterials::Cover::Vacant && TerrainMaterials::cover(TerrainMaterials::keyForHeight(20))==TerrainMaterials::Cover::Meadow,U"Vacant lots and open country use different vegetation cover");
+		chunk.zoneMap[{20,20}]=ZoneType::LowResidential;
+		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kTendedGreen,U"Low-density gardens keep tended green between their own planted and gravel parcel surfaces");
+		chunk.buildingGrid[{30,30}].type=BuildingType::ParkBuilding;
+		context.expect(TerrainMaterials::keyForCell(chunk,30,30)==TerrainMaterials::kTendedGreen,U"Parks are tended lawn");
+		chunk.zoneMap[{20,20}]=ZoneType::Industrial;
+		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kUrbanGround,U"Industrial service ground remains aggregate");
+		const Array<Vec2> road{{0,-20},{4,-20},{4,20},{0,20}};
+		const auto entrance=ParcelAccessGeometry::connect({12,3},{-1,0},1.4,road);
+		context.expect(entrance.has_value(),U"A street-facing entrance reaches the real road boundary");
+		if (entrance)
+		{
+			context.expectNear(entrance->distance,8,.001,U"The path stops at the near curb, not the road center");
+			for (const auto point:entrance->polygon) { context.expect(point.x>=4 && point.x<=12,U"The entrance does not paint the carriageway"); }
+			context.expectNear(entrance->polygon[0].distanceFrom(entrance->polygon[1]),1.4,.001,U"Entrance width is at pedestrian scale");
+		}
+		context.expect(!ParcelAccessGeometry::connect({12,3},{1,0},1.4,road),U"A road behind a facade never creates a path through the building");
+		context.expect(!ParcelAccessGeometry::connect({2,3},{1,0},1.4,road),U"An already-overlapping facade never creates a path inside the road");
+		context.expect(!ParcelAccessGeometry::connect({50,3},{-1,0},1.4,road),U"An unrelated distant road is not connected across other properties");
 	});
 	runner.add(U"UI.FullScreenMap", [](TestContext& context)
 	{

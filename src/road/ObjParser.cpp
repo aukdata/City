@@ -1,4 +1,5 @@
 ﻿#include "ObjParser.hpp"
+#include "../debug/DebugLog.hpp"
 
 namespace
 {
@@ -74,7 +75,7 @@ Array<PartModelData> ObjParser::parse(FilePathView path, bool nativeMaterials)
 	TextReader reader{ path };
 	if (!reader)
 	{
-		Console << U"[ObjParser] Failed to open: " << path;
+		DebugLog::print(Format(U"[ObjParser] Failed to open: ", path));
 		return {};
 	}
 

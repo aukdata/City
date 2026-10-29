@@ -10,6 +10,8 @@ namespace GuideSign { class AutoPlacementClearance; }
 class RoadNetwork
 {
 public:
+	static constexpr int kMaxEdgesPerNode = 6; ///< 建設と復元で共通に使う接続上限。
+
 	/// @brief ノードを追加し、割り当てた id を返す
 	int addNode(Vec3 pos, NodeType type = NodeType::Endpoint);
 
@@ -27,7 +29,8 @@ public:
 	/// @brief エッジを削除する（id を -1 にマーク）
 	void removeEdge(int edgeId);
 
-	/// @brief ノードを削除する（id を -1 にマーク）
+	/// @brief ノードと、そのノードを端点に持つ辺・付帯情報を撤去する。
+	/// @details 別ノードへ付け替え済みの辺は保持し、ノード id を -1 にマークする。
 	void removeNode(int nodeId);
 
 	/// @brief 既存 ID を保持したままノードを追加する（チャンクリロード用）

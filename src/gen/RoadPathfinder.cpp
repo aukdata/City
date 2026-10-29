@@ -30,7 +30,7 @@ void RoadPathfinder::setup(const World& world, Vec2 offset, int gridW, int gridH
 			{
 				m_heightGrid[gz*gridW+gx]=std::numeric_limits<float>::quiet_NaN();
 			}
-			m_waterGrid[gz*gridW+gx]=static_cast<float>(world.waterSurfaceHeight(wp.x,wp.y));
+			m_waterGrid[gz*gridW+gx]=static_cast<float>(world.waterPlanningHeight(wp.x,wp.y));
 			const auto sample=world.rivers().nearest(wp);
 			if (sample.reach>=0 && sample.distance<sample.halfWidth+cellSize)
 			{

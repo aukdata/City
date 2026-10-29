@@ -95,8 +95,9 @@ void RoadRenderer::drawSignals(const RoadNetwork& network, const SimGraph& simGr
 	constexpr double kSignalDrawMaxDistSq = 500.0 * 500.0;
 
 	// 交差点ごとの進入方向サマリーと取付行列を再利用しながら、信号灯器をまとめて描画する。
-	for (const auto& node : network.nodes())
+	for (int id : queryNearbyNodes(network, cameraPos, 500))
 	{
+		const auto* source = network.getNode(id); if (!source) { continue; } const RoadNode& node = *source;
 		if (node.id < 0 || !node.signalPlacement)
 		{
 			continue;

@@ -12,6 +12,8 @@
 class MinimapRenderer
 {
 public:
+	/// @brief Warm initial cartography and local terrain without consuming player input.
+	void preload(const GameCamera& camera,const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 	void setSmallBounds(Optional<RectF> bounds) { m_smallBounds=bounds;m_smallVisible=bounds.has_value(); }
 	void buildTerrainTexture(const World& world);
 	void setGeography(const World& world,const DistrictHierarchy& districts) { m_world=&world;m_districts=&districts;m_mapDirty=true; }
@@ -36,9 +38,13 @@ private:
 	size_t m_railEdges=0,m_railNodes=0;
 	static constexpr int kDisplaySize=200,kMargin=12;
 	mutable MapTerrainLayer m_localTerrain,m_fullTerrain;
+	mutable uint64 m_waterMapRevision=0;
+	mutable double m_waterMapUpdated=0;
 	Font m_font=FontAsset(Asset::CJK14);
 	Optional<RectF> m_smallBounds;
 	RectF smallRect() const;
 	float terrainHeight(Vec2 point) const;
+	/// @brief Simplified wet centerlines keep narrow rivers legible at country-wide map scales.
+	void refreshWaterStrokes() const;
 	void refreshMap(const RoadNetwork& roads,const TrainNetwork& railway,const Array<MapGenerator::Settlement>& settlements);
 };

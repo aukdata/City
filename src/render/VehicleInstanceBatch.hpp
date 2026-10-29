@@ -6,6 +6,8 @@
 class VehicleInstanceBatch
 {
 public:
+	/// @brief Compile shared instance shaders before the first moving population is drawn.
+	static void preloadShaders() { (void)instanceShader();(void)paintShader(); }
 	void clear() { m_transforms.clear(); m_colors.clear(); m_hasPaint=false; }
 	void append(const ModelMeshSource& source, const Mat4x4& transform, Float4 paint = {1,1,1,1})
 	{
@@ -30,12 +32,11 @@ public:
 	uint32 draw()
 	{
 		if (m_transforms.isEmpty()) { return 0; }
-		static const VertexShader shader = ShaderAsset::vertex(U"shaders/hlsl/vehicle_instances.hlsl", U"VS");
-		if (shader.isEmpty()) { throw Error{U"車両LODの頂点シェーダーを読み込めません"}; }
+		const auto& shader=instanceShader();
 		const ScopedCustomShader3D scope{shader};
-		static const PixelShader paintShader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl", U"VehicleInstance_PS")};
+		const auto& paint=paintShader();
 		Optional<ScopedCustomShader3D> paintScope;
-		if (m_hasPaint) { paintScope.emplace(paintShader); }
+		if (m_hasPaint) { paintScope.emplace(paint); }
 		uint32 calls = 0;
 		for (size_t start = 0; start < m_transforms.size(); start += kCapacity)
 		{
@@ -48,6 +49,15 @@ public:
 	}
 	[[nodiscard]] size_t triangles() const { return m_transforms.size() * m_triangles; }
 private:
+	static const VertexShader& instanceShader()
+	{
+		static const VertexShader shader=ShaderAsset::vertex(U"shaders/hlsl/vehicle_instances.hlsl",U"VS");
+		if(shader.isEmpty()) { throw Error{U"車両LODの頂点シェーダーを読み込めません"}; }return shader;
+	}
+	static const PixelShader& paintShader()
+	{
+		static const PixelShader shader{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl",U"VehicleInstance_PS")};return shader;
+	}
 	static constexpr uint32 kCapacity = 256;
 	Mesh m_mesh;
 	Material m_material;

@@ -30,7 +30,7 @@ namespace RailDepotBuilder
 				const Vec3 point = yard.point(x,0,z);
 				if (point.x < 16 || point.z < 16 || point.x >= WORLD_SIZE-16 || point.z >= WORLD_SIZE-16) { error = U"車庫の敷地がマップの外です"; return false; }
 				const float ground = world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-				if (ground > point.y+.3 || point.y-ground > 22 || ground < world.waterSurfaceHeight(point.x,point.z)+1)
+				if (ground > point.y+.3 || point.y-ground > 22 || ground < world.waterPlanningHeight(point.x,point.z)+1)
 				{
 					error = U"駅の横の地形が車庫に適していません"; return false;
 				}
@@ -51,7 +51,7 @@ namespace RailDepotBuilder
 		{
 			const Vec3 point = approach.positionAt(arc);
 			const double ground = world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-			if (ground>point.y+.3 || point.y-ground>22 || ground<world.waterSurfaceHeight(point.x,point.z)+1)
+			if (ground>point.y+.3 || point.y-ground>22 || ground<world.waterPlanningHeight(point.x,point.z)+1)
 			{
 				error=U"引込線の地形が車庫に適していません"; return false;
 			}

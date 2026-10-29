@@ -184,6 +184,7 @@ void GameScene::pushPerfStats()
 
 void GameScene::renderWorld()
 {
+	m_renderTimings={};
 	if (m_minimapRenderer.fullScreen())
 	{
 		const Stopwatch mapTimer{StartImmediately::Yes};
@@ -247,6 +248,7 @@ void GameScene::renderWorld()
 	}
 	// Keep the camera and UI in native coordinates; only the 3D raster target changes.
 	RenderTexture& sceneTarget = getData().lowSpec ? m_lowSpecRenderTexture : static_cast<RenderTexture&>(m_renderTexture);
+	m_renderTimings.pre3D=swTotal.msF();
 	// 3D シーン描画
 	{
 		const ScopedRenderTarget3D target{ sceneTarget.clear(ColorF{ 0.2, 0.3, 0.4 }.removeSRGBCurve()) };
@@ -331,9 +333,12 @@ void GameScene::renderWorld()
 
 	m_gpuTimer.begin(sceneTarget);
 	Graphics3D::Flush();
+	lap(m_renderTimings.flush);
 	if (!getData().lowSpec) { m_renderTexture.resolve(); }
+	lap(m_renderTimings.resolve);
 	m_gpuTimer.end();
 	RenderQuality::present(sceneTarget, Scene::Size());
+	lap(m_renderTimings.screen);
 
 	if (!getData().captureCityRenders)
 	{
@@ -342,6 +347,7 @@ void GameScene::renderWorld()
 	}
 	lap(m_renderTimings.ui);
 	m_renderTimings.total = swTotal.msF();
+	if(m_renderTimings.total>40) { DBG_LOG(U"[RenderCost] total={:.2f} pre3D={:.2f} train={:.2f} vehicle={:.2f} pedestrian={:.2f} debug={:.2f} zone={:.2f} flush={:.2f} resolve={:.2f} screen={:.2f} ui={:.2f} place={:.2f} hudStats={:.2f} hudDraw={:.2f} minimap={:.2f} panels={:.2f}"_fmt(m_renderTimings.total,m_renderTimings.pre3D,m_renderTimings.train,m_renderTimings.vehicle,m_renderTimings.pedestrian,m_renderTimings.debug,m_renderTimings.zone,m_renderTimings.flush,m_renderTimings.resolve,m_renderTimings.screen,m_renderTimings.ui,m_renderTimings.uiPlaceNames,m_renderTimings.hudStats,m_renderTimings.hudDraw,m_renderTimings.uiMinimap,m_renderTimings.uiPanels)); }
 
 	if (getData().captureCityRenders)
 	{
@@ -1041,12 +1047,15 @@ void GameScene::render2DUI()
 	}
 	--m_hudStatsRefreshCountdown;
 
+	m_renderTimings.hudStats = housingTimer.msF();
+	const Stopwatch hudTimer{StartImmediately::Yes};
 	m_uiRenderer.render(m_clock, m_vehicleManager.vehicleCount(), modeString(), m_economy, m_hudStats, m_camera.mode() == CameraMode::FirstPerson, m_driving.active());
 	if (m_driving.active())
 	{
 		DrivingHud::draw(FontAsset(Asset::CJK14),Scene::Size(),{m_driving.vehicle().speed,m_driving.steering(),m_driving.distance(),
 			m_driving.speedLimit(),m_clock.speed==TimeSpeed::Paused,m_driving.blocked()});
 	}
+	m_renderTimings.hudDraw = hudTimer.msF();
 	lap(m_renderTimings.uiRenderer);
 
 	// ミニマップ（小）をパネルより先に描画 → パネルが上に重なる

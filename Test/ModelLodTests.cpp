@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/render/ModelBatch.hpp"
+#include "src/render/BuildingLod.hpp"
 #include "src/render/VehicleRenderer.hpp"
 #include "src/render/GpuFrameTimer.hpp"
 #include "src/traffic/SignalRegistry.hpp"
@@ -18,6 +19,44 @@ namespace
 
 void registerModelLodTests(TestRunner& runner)
 {
+	runner.add(U"ModelLod.BuildingVisibilityAndRoofProxy", [](TestContext& context)
+	{
+		AppDirectory directory;
+		HashTable<String,Image> textures;
+		context.expect(BuildingLod::detailDistance(12)>500 && BuildingLod::farDistance(12)>1500,
+			U"Normal visible town and street distances retain roof and facade detail");
+		context.expect(BuildingLod::detailDistance(80)>BuildingLod::detailDistance(12)*2
+			&& BuildingLod::farDistance(80)>BuildingLod::farDistance(12)*2,
+			U"Large readable landmarks keep detail farther than small houses");
+		context.expect(BuildingLod::kPreloadDistance>BuildingLod::farDistance(12),U"Buildings are prepared before their normal silhouette transition");
+		JSON report;
+		for (const String stem : {U"residential_001",U"residential_012",U"rural_house_001",U"residential_014"})
+		{
+			const String source = U"assets/buildings/residential/"+stem+U".obj";
+			const Model original{source},distant{modelLodPath(source,2)};
+			Model::RegisterDiffuseTextures(distant,TextureDesc::MippedSRGB);
+			const Box bounds = original.boundingBox();
+			const auto proxy = BuildingLod::proxy(bounds,loadModelMeshSource(modelLodPath(source,2),distant),textures);
+			context.expect(!proxy.wall.indices.isEmpty() && !proxy.roof.indices.isEmpty(),U"Distant houses retain separate closed walls and roofs");
+			context.expect(proxy.wall.indices.size()+proxy.roof.indices.size()<=24,U"Global house silhouettes stay small");
+			Vec3 low{Math::Inf,Math::Inf,Math::Inf},high{-Math::Inf,-Math::Inf,-Math::Inf};
+			for (const auto* mesh : {&proxy.wall,&proxy.roof}) for (const auto& vertex : mesh->vertices)
+			{
+				low.x=Min(low.x,static_cast<double>(vertex.pos.x));low.y=Min(low.y,static_cast<double>(vertex.pos.y));low.z=Min(low.z,static_cast<double>(vertex.pos.z));
+				high.x=Max(high.x,static_cast<double>(vertex.pos.x));high.y=Max(high.y,static_cast<double>(vertex.pos.y));high.z=Max(high.z,static_cast<double>(vertex.pos.z));
+			}
+			const Vec3 originalLow = bounds.center-bounds.size*.5,originalHigh = bounds.center+bounds.size*.5;
+			context.expectNear(low.y,originalLow.y,.01,U"LOD preserves the original ground anchor");
+			context.expectNear(high.y,originalHigh.y,.01,U"LOD preserves the original roof height");
+			context.expect(low.x>=originalLow.x-.01 && low.z>=originalLow.z-.01 && high.x<=originalHigh.x+.01 && high.z<=originalHigh.z+.01,
+				U"Distant bodies stay inside the original placement and footprint");
+			if (stem==U"rural_house_001") { context.expect(high.x-low.x<bounds.size.x*.8,U"A rural garden remains open instead of becoming a giant box"); }
+			if (stem==U"residential_001" || stem==U"rural_house_001") { context.expect(proxy.pitched,U"Sloped house roofs remain sloped in the cheap global silhouette"); }
+			report[stem][U"pitchedRoof"]=proxy.pitched;report[stem][U"triangles"]=proxy.wall.indices.size()+proxy.roof.indices.size();
+		}
+		report.save(directory.previous+U"TestResults/building_lod_quality.json");
+	});
+
 	runner.add(U"ModelLod.AllAssets", [](TestContext& context)
 	{
 		AppDirectory directory;

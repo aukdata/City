@@ -83,6 +83,7 @@ private:
 	void prepareFringeCapture(int variant);
 	void prepareRoadsideCapture(int variant);
 	TextWriter m_playtestFrames;
+	Stopwatch m_playtestIntervalTimer{StartImmediately::Yes}; ///< DeltaTimeの上限を含まない実フレーム間隔。
 	int m_playtestFrame = 0;
 
 	// ---- ゲームフェーズ ----
@@ -105,6 +106,7 @@ private:
 	/// @details Loading 中は通常更新を止め、get() 後にメインスレッドで GPU 資源を準備する。
 	/// 破棄時にも完了を待ち、ワーカが参照するワールドの寿命を守る。
 	std::future<void> m_generationFuture;
+	bool m_buildingModelsPreloaded = false; ///< 建物模型は生成と並行して一度だけ読み込む。
 
 	/// @brief 生成進捗 [0.0, 1.0]（atomic でバックグラウンドスレッドから更新）
 	std::atomic<float> m_genProgress{ 0.0f };
@@ -384,6 +386,8 @@ private:
 	Array<Vehicle>  m_renderVehicles;
 
 	// 描画プロファイリング
+	bool m_playtestPerformanceOnly = false; ///< Explicit benchmark snapshots omit expensive interactive inspection data.
+	double          m_updateMs = 0.0, m_playtestDiagnosticsMs = 0.0; ///< CPU update before drawing and previous opt-in diagnostics cost.
 	double          m_logicMs = 0.0;
 	double          m_lockWaitMs = 0.0;
 	MainPerfHistory m_mainPerfHistory;
@@ -409,6 +413,8 @@ private:
 		// render2DUI 内訳
 		double uiPlaceNames = 0, uiRouteSigns = 0, uiRenderer = 0;
 		double uiMinimap = 0, uiEdgeHandles = 0, uiPanels = 0;
+		double pre3D=0, flush=0, resolve=0, screen=0; ///< 初回生成とGPU送出・待機を切り分ける。
+		double hudStats = 0, hudDraw = 0; ///< 集計とフォント・HUD描画の停止を区別する。
 	};
 	RenderTimings m_renderTimings;
 
@@ -473,7 +479,6 @@ private:
 	void postProcessRoads();
 	void placeInitialBuildings(bool preserveLandPatches=false);
 	void generateLandPatches(bool preserveExisting = false);
-	void migrateLegacyBuildingFrontageReferences();
 	bool validateGeneratedCityConstraints();
 	void refreshBuildingAnglesFromEdges();
 	void updateCaptureCityRenders();

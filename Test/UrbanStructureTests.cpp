@@ -805,7 +805,7 @@ void registerUrbanStructureTests(TestRunner& runner)
 			Building building; building.type=BuildingType::Detached; building.angle=angle; building.edgeId=edgeId; building.edgeT=curve->tFromArcLength(arc);
 			const Vec2 cell=ZoneGrid::cellCenterXZ(coord,col,row);
 			building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y);
-			chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=ZoneType::LowResidential; chunk->meshDirty=true;
+			chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=ZoneType::LowResidential; chunk->markMeshDirty();
 			return true;
 		};
 		for (const Vec2 position : neighbors)

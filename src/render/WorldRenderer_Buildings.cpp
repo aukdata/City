@@ -1,8 +1,12 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "WorldRenderer.hpp"
+#include "MeshUploadSlices.hpp"
+#include "MeshGeometry.hpp"
 #include "TerrainSurfaceGeometry.hpp"
 #include "LandscapeMaterials.hpp"
+#include "ParcelAccessGeometry.hpp"
 #include "TreeGeometry.hpp"
+#include "BuildingLod.hpp"
 #include "VegetationProfile.hpp"
 #include "TransportLandscape.hpp"
 #include "FrontageGeometry.hpp"
@@ -13,6 +17,8 @@
 #include "../gen/UrbanParcel.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../debug/DebugLog.hpp"
+#include "RegionalTerrain.hpp"
+#include <algorithm>
 
 using namespace TerrainSurfaceGeometry;
 using LandscapeMaterials::detailColorForKey;
@@ -33,8 +39,18 @@ void WorldRenderer::preloadBuildingModels()
 			if (loaded.insert(key).second) { getBuildingModelAsset(type,variant); }
 		}
 	}
+	auto cpuAssets = std::make_shared<HashTable<uint32, BuildingCpuAsset>>();
+	HashTable<String,Image> proxyTextures;
+	for (const auto& [key, asset] : m_buildingModels)
+	{
+		cpuAssets->emplace(key, BuildingCpuAsset{asset.model.boundingBox(), asset.scale, asset.farGeometry, BuildingLod::proxy(asset.model.boundingBox(),asset.farGeometry,proxyTextures), asset.model.isEmpty() ? none : asset.frontWall});
+	}
+	m_cpuBuildingAssets = std::move(cpuAssets);
 	DBG_LOG(U"[BuildingPreload] assets={} ms={:.2f}"_fmt(loaded.size(),timer.msF()));
 }
+
+using MeshGeometry::appendMeshData;
+using MeshGeometry::rotateMeshY;
 
 namespace
 {
@@ -47,7 +63,38 @@ namespace
 		size_t excludedTrees = 0;
 		MeshData& operator[](int material) { return meshes[material]; }
 	};
-	float buildingBaseHeight(const World& world,const Building& building,float x,float z)
+	/// @brief Axis-aligned bounds of CPU geometry, equal to the uploaded Mesh::boundingBox().
+	Box meshDataBounds(const MeshData& mesh)
+	{
+		if (mesh.vertices.isEmpty()) { return Box{Vec3{}, Vec3{}}; }
+		Vec3 lower{Math::Inf, Math::Inf, Math::Inf}, upper{-Math::Inf, -Math::Inf, -Math::Inf};
+		for (const auto& vertex : mesh.vertices)
+		{
+			lower = Vec3{Min<double>(lower.x, vertex.pos.x), Min<double>(lower.y, vertex.pos.y), Min<double>(lower.z, vertex.pos.z)};
+			upper = Vec3{Max<double>(upper.x, vertex.pos.x), Max<double>(upper.y, vertex.pos.y), Max<double>(upper.z, vertex.pos.z)};
+		}
+		return Box{(lower + upper) * .5, upper - lower};
+	}
+	/// @brief Worker-owned immutable heights and neighboring buildings.
+	struct BuildingHeightSnapshot
+	{
+		const Array<Chunk>& chunks;
+		const RiverNetwork* rivers=nullptr; ///< Routed-channel levels captured with the snapshot.
+		/// @brief Snapshot equivalent of World::waterSurfaceHeight for dry-access checks.
+		double waterSurfaceHeight(double x, double z) const { return rivers ? rivers->waterLevel({x, z}) : 0.0; }
+		const Chunk* getChunk(Point coord) const
+		{
+			for (const auto& chunk : chunks) { if (chunk.coord == coord) { return &chunk; } }
+			return nullptr;
+		}
+		float sampleHeight(float x, float z) const
+		{
+			const auto* chunk = getChunk({static_cast<int>(Floor(x / CHUNK_SIZE)), static_cast<int>(Floor(z / CHUNK_SIZE))});
+			return chunk ? chunk->getHeight(x, z) : 0.0f;
+		}
+	};
+	template<class HeightSource>
+	float buildingBaseHeight(const HeightSource& world,const Building& building,float x,float z)
 	{
 		float height=world.sampleHeight(x,z);
 		if (building.type==BuildingType::Parking) { return height; }
@@ -81,36 +128,6 @@ namespace
 		return static_cast<float>(Max(0.001, s));
 	}
 
-	/// @brief 建物 Box メッシュの頂点を中心 (cx, cz) まわりに角度 angle で Y 軸回転する
-	/// @details rebuildBuildingMeshes と drawBuildingSilhouette で同じ変換を適用するための共通処理
-	void rotateBoxVerticesY(MeshData& box, float cx, float cz, float angle)
-	{
-		if (angle == 0.0f) return;
-		const float cosA = Math::Cos(angle);
-		const float sinA = Math::Sin(angle);
-		for (auto& v : box.vertices)
-		{
-			const float dx = v.pos.x - cx;
-			const float dz = v.pos.z - cz;
-			v.pos.x = cx + dx * cosA - dz * sinA;
-			v.pos.z = cz + dx * sinA + dz * cosA;
-			const float nx = v.normal.x;
-			const float nz = v.normal.z;
-			v.normal.x = nx * cosA - nz * sinA;
-			v.normal.z = nx * sinA + nz * cosA;
-		}
-	}
-
-	void appendMeshData(MeshData& dst, const MeshData& src)
-	{
-		const uint32 offset = static_cast<uint32>(dst.vertices.size());
-		dst.vertices.append(src.vertices);
-		for (const auto& tri : src.indices)
-		{
-			dst.indices << TriangleIndex32{ tri.i0 + offset, tri.i1 + offset, tri.i2 + offset };
-		}
-	}
-
 	uint32 cellVisualHash(Point chunkCoord, int col, int row, uint32 salt)
 	{
 		uint32 value = static_cast<uint32>(chunkCoord.x * 73856093)
@@ -129,10 +146,16 @@ namespace
 	void appendRotatedBox(MeshData& dst, float cx, float cy, float cz, float sx, float sy, float sz, float angle)
 	{
 		MeshData box = MeshData::Box(Float3{ cx, cy, cz }, Float3{ sx, sy, sz });
-		rotateBoxVerticesY(box, cx, cz, angle);
+		rotateMeshY(box, cx, cz, angle);
 		appendMeshData(dst, box);
 	}
 
+	/// @brief 住宅敷地の地表。Yard_PS が舗装と植栽の割合を拡散色のアルファで切り替える。
+	constexpr int kGardenYardMaterial = 137;
+	constexpr int kPavedYardMaterial = 139;
+	/// @brief 田畑のUVに載せる区画番号の数と間隔。間隔は1区画の大きさより十分広い。
+	constexpr uint32 kFieldVariants = 32;
+	constexpr double kFieldVariantSpan = 1024;
 	int landPatchMaterialKey(LandPatchType type, [[maybe_unused]] uint64 seed)
 	{
 		switch (type)
@@ -158,6 +181,77 @@ namespace
 		float roadHeight=0;
 		bool facility=false;
 	};
+
+	/// @brief Cache terrain-aligned gravel beds and banks with a smooth fade into grass.
+	void appendRiverBanks(LandscapeGeometry& groups, const Chunk& chunk, const RiverNetwork& rivers,
+		const Array<LandRoadMask>& masks, size_t roadMaskCount)
+	{
+		if (!groups.surfaces || rivers.reaches.isEmpty() || chunk.heightMap.isEmpty()) { return; }
+		const Vec3 origin = chunk.worldOrigin();
+		Grid<bool> candidates(HEIGHT_CELLS, HEIGHT_CELLS, false);
+		for (const auto& reach : rivers.reaches)
+		{
+			const double margin = Max(reach.halfWidth, reach.endHalfWidth) + 30;
+			const double left = Min(reach.start.x, reach.end.x) - margin, right = Max(reach.start.x, reach.end.x) + margin;
+			const double top = Min(reach.start.z, reach.end.z) - margin, bottom = Max(reach.start.z, reach.end.z) + margin;
+			if (right < origin.x || left > origin.x + CHUNK_SIZE || bottom < origin.z || top > origin.z + CHUNK_SIZE) { continue; }
+			const int firstCol = Clamp(static_cast<int>(Floor((left - origin.x) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+			const int lastCol = Clamp(static_cast<int>(Floor((right - origin.x) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+			const int firstRow = Clamp(static_cast<int>(Floor((top - origin.z) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+			const int lastRow = Clamp(static_cast<int>(Floor((bottom - origin.z) / kTerrainCellSize)), 0, HEIGHT_CELLS - 1);
+			for (int row = firstRow; row <= lastRow; ++row) for (int col = firstCol; col <= lastCol; ++col)
+			{
+				candidates[{col,row}] = true;
+			}
+		}
+		Grid<Float2> banks(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, Float2{1e9f, 0});
+		Grid<bool> sampled(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, false);
+		const auto vertexAt = [&](int col, int row)
+		{
+			const Vec3 position = origin + Vec3{col * kTerrainCellSize, chunk.heightMap[{col,row}] + .006, row * kTerrainCellSize};
+			if (!sampled[{col,row}])
+			{
+				const auto river = rivers.nearest(position.xz());
+				if (river.reach >= 0)
+				{
+					banks[{col,row}] = Float2{static_cast<float>(river.distance - river.halfWidth),
+						static_cast<float>(Clamp(river.halfWidth * .24 + 7, 9.0, 22.0))};
+				}
+				sampled[{col,row}] = true;
+			}
+			return TerrainClipVertex{position,banks[{col,row}]};
+		};
+		for (int row = 0; row < HEIGHT_CELLS; ++row) for (int col = 0; col < HEIGHT_CELLS; ++col)
+		{
+			if (!candidates[{col,row}]) { continue; }
+			const TerrainClipVertex a = vertexAt(col,row), b = vertexAt(col+1,row), c = vertexAt(col,row+1), d = vertexAt(col+1,row+1);
+			const RectF bounds{origin.x + col * kTerrainCellSize,origin.z + row * kTerrainCellSize,kTerrainCellSize,kTerrainCellSize};
+			Array<const LandRoadMask*> nearbyRoads;
+			for (size_t mask = 0; mask < roadMaskCount; ++mask)
+			{
+				if (rectIntersects(bounds,masks[mask].bounds)) { nearbyRoads << &masks[mask]; }
+			}
+			for (const Array<TerrainClipVertex>& triangle : {Array<TerrainClipVertex>{a,c,b},Array<TerrainClipVertex>{b,c,d}})
+			{
+				bool outside = true;
+				for (const auto& vertex : triangle) { outside &= vertex.tex.x > vertex.tex.y + 8; }
+				if (outside) { continue; }
+				Array<Array<TerrainClipVertex>> pieces{triangle};
+				for (const auto* road : nearbyRoads)
+				{
+					Array<Array<TerrainClipVertex>> remainder;
+					for (const auto& piece : pieces)
+					{
+						for (auto& fragment : subtractConvexPolygonXZ(piece,road->footprint)) { remainder << std::move(fragment); }
+					}
+					pieces = std::move(remainder);
+				}
+				MeshData& bank = groups[138];
+				for (const auto& piece : pieces) { appendPolygonAsTriangles(piece,bank.vertices,bank.indices); }
+			}
+		}
+	}
+
 	template<class HeightSource>
 	void appendPublicGreen(LandscapeGeometry& groups, const HeightSource& world,
 		const LandPatch& patch, const Array<LandRoadMask>& roadMasks);
@@ -190,6 +284,10 @@ namespace
 			if (edge.lengthSq()>longest) { longest=edge.lengthSq();rowDirection=edge.normalized(); }
 		}
 		const Vec2 rowNormal{-rowDirection.y,rowDirection.x};
+		const uint32 fieldVariant=(patch.materialVariant>>3)%kFieldVariants;
+		Vec2 lotCenter{0,0};
+		for (const Vec2 vertex:patch.polygon) { lotCenter+=vertex; }
+		lotCenter/=static_cast<double>(patch.polygon.size());
 		Array<Vec2> outline = patch.polygon;
 		UrbanParcel::normalize(outline);
 		const Polygon shape{ outline };
@@ -226,10 +324,17 @@ namespace
 						{
 							vertex.pos.y = world.sampleHeight(static_cast<float>(vertex.pos.x), static_cast<float>(vertex.pos.z)) + patch.elevationOffset;
 							vertex.tex = terrainUvAt(vertex.pos, materialKey);
+							if (materialKey==kGardenYardMaterial || materialKey==kPavedYardMaterial)
+							{
+								// 庭の舗装と植え込みは敷地の向きに揃えた区画で描く。
+								const Vec2 local=Vec2{vertex.pos.x,vertex.pos.z}-lotCenter;
+								vertex.tex=Float2{static_cast<float>(local.dot(rowDirection)),static_cast<float>(local.dot(rowNormal))};
+							}
 							if (materialKey==130 || materialKey==131)
 							{
+								// 区画ごとの作付けの違いを、行方向の座標に kFieldVariantSpan 単位の区画番号として載せる。
 								const Vec2 local=Vec2{vertex.pos.x,vertex.pos.z}-patch.polygon.front();
-								vertex.tex=Float2{static_cast<float>(local.dot(rowNormal)),static_cast<float>(local.dot(rowDirection))};
+								vertex.tex=Float2{static_cast<float>(local.dot(rowNormal)+kFieldVariantSpan*(fieldVariant+.5)),static_cast<float>(local.dot(rowDirection))};
 							}
 						}
 						Array<Array<TerrainClipVertex>> pieces{ piece };
@@ -271,8 +376,17 @@ namespace
 			|| patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil);
 		if (groups.surfaces && drawSurface)
 		{
-			MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
-			appendLandPatchSurface(surface, world, patch, roadMasks);
+			int materialKey = landPatchMaterialKey(patch.type, patch.materialVariant);
+			if (patch.sourceParcelKey >= 0 && (patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil))
+			{
+				// 住宅の敷地は茶色い裸地ではなく、駐車場の舗装・砂利と庭木・芝がまだらに混じる。
+				const int col = static_cast<int>(patch.sourceParcelKey & 255), row = static_cast<int>((patch.sourceParcelKey >> 8) & 255);
+				if (col < ZONE_CELLS && row < ZONE_CELLS && isResidentialBuildingType(chunk.buildingGrid[{ col, row }].type))
+				{
+					materialKey = patch.type == LandPatchType::GardenSoil ? kGardenYardMaterial : kPavedYardMaterial;
+				}
+			}
+			appendLandPatchSurface(groups[materialKey], world, patch, roadMasks);
 		}
 		const RectF bounds = boundsOfPolygon(patch.polygon);
 		const float cx = static_cast<float>(bounds.x + bounds.w * 0.5);
@@ -284,7 +398,8 @@ namespace
 			appendPublicGreen(groups,world,patch,roadMasks);
 		}
 		if (patch.sourceParcelKey >= 0 && patch.polygon.size() >= 3
-			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil || patch.type == LandPatchType::ParcelGravel))
+			&& (groups.surfaces || patch.type == LandPatchType::GardenSoil || patch.type == LandPatchType::ParcelGravel
+				|| patch.type == LandPatchType::ParcelAsphalt))
 		{
 			appendParcelLandscape(groups, world, chunk, patch, roadMasks);
 		}
@@ -394,8 +509,9 @@ namespace
 	}
 
 	/// @brief One compact urban lot carries two visibly separate narrow homes.
-	void appendUrbanHousePair(LandscapeGeometry& groups, const World& world,
-		const Building& building, float cx, float cz, uint32 hash)
+	template<class HeightSource>
+	void appendUrbanHousePair(LandscapeGeometry& groups, const HeightSource& world,
+		const Building& building, float cx, float cz, uint32 hash, bool silhouetteOnly = false)
 	{
 		const float footprint=buildingFootprintXZ(building.type);
 		const float gap=FrontageGeometry::kPairedGap;
@@ -413,8 +529,8 @@ namespace
 		// 道路側に駐車・玄関アプローチのコンクリート土間を残す。
 		const float setback=FrontageGeometry::kPairedApronDepth;
 		const Vec2 apron=worldOffset(0.0f,-footprint*0.5f+setback*0.5f);
-		appendRotatedBox(groups[100],static_cast<float>(apron.x),baseY+FrontageGeometry::kPairedApronTop-FrontageGeometry::kPairedApronThickness*.5f,static_cast<float>(apron.y),
-			footprint-0.2f,FrontageGeometry::kPairedApronThickness,setback,building.angle);
+		if (!silhouetteOnly) { appendRotatedBox(groups[100],static_cast<float>(apron.x),baseY+FrontageGeometry::kPairedApronTop-FrontageGeometry::kPairedApronThickness*.5f,static_cast<float>(apron.y),
+			footprint-0.2f,FrontageGeometry::kPairedApronThickness,setback,building.angle); }
 		for (int side=0;side<2;++side)
 		{
 			const uint32 local=hash>>(side*7+3);
@@ -439,6 +555,7 @@ namespace
 				appendGableRoof(groups[roofKey],static_cast<float>(house.x),baseY+height,static_cast<float>(house.y),
 					houseWidth+0.36f,depth+0.36f,0.95f,building.angle,false);
 			}
+			if (silhouetteOnly) { continue; }
 			const float frontZ=lz-depth*0.5f-0.05f;
 			const float sideX=lx+(side==0 ? -1.0f : 1.0f)*(houseWidth*0.5f+0.05f);
 			const float doorX=lx+(side==0 ? 1.0f : -1.0f)*houseWidth*0.26f;
@@ -478,7 +595,8 @@ namespace
 	}
 
 	/// @brief 戸建ての側方にカーポートか物置を置き、隣家との間の空地を生活の設備で埋める。
-	void appendHouseSideStructure(LandscapeGeometry& groups, const World& world, const Building& building,
+	template<class HeightSource>
+	void appendHouseSideStructure(LandscapeGeometry& groups, const HeightSource& world, const Building& building,
 		Point chunkCoord, int col, int row, float cx, float cz, uint32 hash, const Array<LandRoadMask>& roadMasks)
 	{
 		const uint32 kind = hash % 10u;
@@ -545,8 +663,9 @@ namespace
 	}
 
 	/// @brief 工業団地の区画を埋める低層の大型倉庫。
-	void appendIndustrialWarehouse(LandscapeGeometry& groups, const World& world,
-		const Building& building, float cx, float cz)
+	template<class HeightSource>
+	void appendIndustrialWarehouse(LandscapeGeometry& groups, const HeightSource& world,
+		const Building& building, float cx, float cz, bool silhouetteOnly = false)
 	{
 		const float baseY=buildingBaseHeight(world,building,cx,cz);
 		const float angle=building.angle;
@@ -559,6 +678,7 @@ namespace
 			cx,baseY+4.25f,cz,27.4f,8.5f,27.4f,angle);
 		appendRotatedBox(groups[107],
 			cx,baseY+8.65f,cz,27.8f,0.3f,27.8f,angle);
+		if (silhouetteOnly) { return; }
 		for (int bay=-1;bay<=1;++bay)
 		{
 			const Vec2 door=worldOffset(bay*8.0f,-13.75f);
@@ -645,6 +765,13 @@ namespace
 	}
 
 	/// @brief 原型を参照する配置情報だけを保存する。距離で再生成しない。
+	/// @brief 屋根材・外壁の塗り分け番号（1〜8）。設置位置だけで決まり、近景と遠景で一致する。
+	uint32 buildingTintVariant(const Float3& position)
+	{
+		const uint32 hash = static_cast<uint32>(static_cast<int32>(Floor(position.x * 4))) * 73856093u
+			^ static_cast<uint32>(static_cast<int32>(Floor(position.z * 4))) * 19349663u;
+		return 1 + (hash >> 7) % 8u;
+	}
 	void appendLandscapeTree(LandscapeGeometry& groups, Vec2 position, float ground, uint32 variation,
 		double width, double height, bool cedar, bool woodland = false)
 	{
@@ -672,7 +799,10 @@ namespace
 		{
 			for (double x=Ceil(bounds.x/step)*step;x<bounds.x+bounds.w;x+=step)
 			{
-				const Vec2 point{x,z};
+				// 格子状に並べず、雑木林のように株の位置を不規則にずらす。
+				const uint32 jitter=static_cast<uint32>(Floor(x/step))*2654435761u ^ static_cast<uint32>(Floor(z/step))*40503u;
+				constexpr double kJitterRatio=.38;
+				const Vec2 point{x+((jitter%1000)/1000.0-.5)*2*kJitterRatio*step,z+(((jitter/1000)%1000)/1000.0-.5)*2*kJitterRatio*step};
 				if (!shape.contains(point)) { continue; }
 				bool clear=true;
 				for (size_t i=0;i<patch.polygon.size() && clear;++i)
@@ -687,7 +817,9 @@ namespace
 				}
 				if (!clear) { continue; }
 				const uint32 hash=static_cast<uint32>(x/step)*73856093u ^ static_cast<uint32>(z/step)*19349663u;
-				appendParkTree(groups,point,world.sampleHeight(static_cast<float>(x),static_cast<float>(z)),hash,1);
+				// 住区公園と緑地帯は、多摩ニュータウンのように残した雑木林として高木を密に植える。
+				const double height=9.0+(hash%9)*.7;
+				appendLandscapeTree(groups,point,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)),hash,height*.72,height,(hash%5)==0);
 			}
 		}
 	}
@@ -700,7 +832,9 @@ namespace
 		Grid<bool> blocked(ZONE_CELLS,ZONE_CELLS,false);
 		for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
 		{
-			if (chunk.zoneMap[{col,row}] == ZoneType::Unzoned && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
+			// 農業地域でも作付けのない土地には木立を置く。田畑そのものは下の区画マスクで除く。
+			const ZoneType zone=chunk.zoneMap[{col,row}];
+			if ((zone == ZoneType::Unzoned || zone == ZoneType::Agriculture || zone == ZoneType::UrbanControl) && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
 			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
 			{
 				if (InRange(col+dx,0,ZONE_CELLS-1) && InRange(row+dz,0,ZONE_CELLS-1)) { blocked[{col+dx,row+dz}] = true; }
@@ -722,16 +856,55 @@ namespace
 			const auto* source=world.getChunk({static_cast<int>(Floor(point.x/CHUNK_SIZE)),static_cast<int>(Floor(point.y/CHUNK_SIZE))});
 			if(!source) { return false; }
 			const int col=Clamp(static_cast<int>((point.x-source->coord.x*CHUNK_SIZE)/16),0,ZONE_CELLS-1),row=Clamp(static_cast<int>((point.y-source->coord.y*CHUNK_SIZE)/16),0,ZONE_CELLS-1);
-			if(!source->zoneMap.isEmpty() && source->zoneMap[{col,row}]!=ZoneType::Unzoned) { return false; }
+			const ZoneType zone=source->zoneMap.isEmpty() ? ZoneType::Unzoned : source->zoneMap[{col,row}];
+			if(zone!=ZoneType::Unzoned && zone!=ZoneType::Agriculture) { return false; }
 			const float x=static_cast<float>(point.x),z=static_cast<float>(point.y);
 			const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
+			// 農業地域の平地は耕作地・草地として残し、森は斜面にだけ広げる。
+			if(zone==ZoneType::Agriculture && slope<GenerationSettings::get().vegetation_flatClearingSlope) { return false; }
 			return VegetationProfile::habitat(world.sampleHeight(x,z),slope);
 		}};
+		// 田畑・宅地の上には木立を置かない。4m格子へ一度だけ塗る。
+		constexpr int kPatchCells=CHUNK_SIZE/4;
+		Grid<bool> covered(kPatchCells,kPatchCells,false);
+		const Vec2 chunkOrigin{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE};
+		for (const auto& patch:chunk.landPatches)
+		{
+			// 市街化調整区域の公共緑地には木立を残す。
+			if (patch.polygon.size()<3 || (patch.type==LandPatchType::GardenSoil && patch.sourceParcelKey<0)) { continue; }
+			const Polygon shape{patch.polygon};const RectF bounds=shape.boundingRect().stretched(4);
+			const int left=Clamp(static_cast<int>(Floor((bounds.x-chunkOrigin.x)/4)),0,kPatchCells-1),right=Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunkOrigin.x)/4)),0,kPatchCells-1);
+			const int top=Clamp(static_cast<int>(Floor((bounds.y-chunkOrigin.y)/4)),0,kPatchCells-1),bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunkOrigin.y)/4)),0,kPatchCells-1);
+			for (int z=top;z<=bottom;++z) for (int x=left;x<=right;++x)
+			{
+				if (!covered[{x,z}] && shape.contains(chunkOrigin+Vec2{x*4+2.0,z*4+2.0})) { covered[{x,z}]=true; }
+			}
+		}
+		const auto clearOfPatches=[&](Vec2 point,double radius)
+		{
+			for (const Vec2 offset:{Vec2{0,0},Vec2{radius,0},Vec2{-radius,0},Vec2{0,radius},Vec2{0,-radius}})
+			{
+				const Vec2 local=(point+offset-chunkOrigin)/4;
+				const int x=static_cast<int>(Floor(local.x)),z=static_cast<int>(Floor(local.y));
+				if (InRange(x,0,kPatchCells-1) && InRange(z,0,kPatchCells-1) && covered[{x,z}]) { return false; }
+			}
+			return true;
+		};
 		int excludedByFacilities=0;
 		for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
 		{
 			if (blocked[{col,row}]) { continue; }
-			const uint32 candidateCount=nearbyRoads[{col,row}].isEmpty() ? GenerationSettings::get().vegetation_interiorCandidates : GenerationSettings::get().vegetation_roadsideCandidates;
+			// 平地の木立は森の内部より密に植わり、樹冠がひとかたまりに見える。
+			const Vec2 cellCenter{chunk.coord.x*CHUNK_SIZE+(col+.5)*16,chunk.coord.y*CHUNK_SIZE+(row+.5)*16};
+			// 木立を平地に限る判定はこのチャンクの高さだけで行い、隣接チャンクの編集に左右されない。
+			const auto& h=chunk.heightMap;
+			const double cellRelief=(Max({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]})-Min({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]}))/16;
+			const bool groveGround=cellRelief<GenerationSettings::get().vegetation_flatClearingSlope;
+			// 町の中に残る市街化調整区域の緑地は、草原ではなく雑木林の残る緑地になる。
+			const double groveThreshold=chunk.zoneMap[{col,row}]==ZoneType::UrbanControl ? .5 : .66;
+			const bool denseGrove=groveGround && VegetationProfile::copse(cellCenter,groveThreshold)>.3;
+			const uint32 forestCandidates=nearbyRoads[{col,row}].isEmpty() ? GenerationSettings::get().vegetation_interiorCandidates : GenerationSettings::get().vegetation_roadsideCandidates;
+			const uint32 candidateCount=denseGrove ? Max(forestCandidates,GenerationSettings::get().vegetation_roadsideCandidates) : forestCandidates;
 			for (uint32 candidate=0;candidate<candidateCount;++candidate)
 			{
 				const uint32 hash=cellVisualHash(chunk.coord,col,row,179u+candidate*31u);
@@ -741,9 +914,13 @@ namespace
 				if (!rivers.vegetationAllowed(position,ground,7)) { continue; }
 				const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
 				const auto altitude=VegetationProfile::at(ground);
-				const double probability=altitude.trees*boundary.density(position)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
+				// 木立は平地に置く。斜面の森は森林帯の境界に任せる。
+				const double grove=ground>2 && groveGround ? VegetationProfile::copse(position,groveThreshold) : 0.0;
+				// 木立のために増やした候補は木立だけに使い、森の密度は変えない。
+				const bool forestCandidate=candidate<forestCandidates;
+				const double probability=altitude.trees*Max(forestCandidate ? boundary.density(position) : 0.0,grove)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
 				const double draw=(hash%10000u)/10000.0;
-				const bool alpine=draw>=probability && draw<probability+altitude.alpine
+				const bool alpine=forestCandidate && draw>=probability && draw<probability+altitude.alpine
 					&& slope<=GenerationSettings::get().vegetation_maximumForestSlope;
 				if(draw>=probability && !alpine) { continue; }
 				const float scale=(GenerationSettings::get().vegetation_treeScaleMinimum+static_cast<float>((hash>>3)%29u)*.01f)*static_cast<float>(alpine ? 1 : altitude.treeScale);
@@ -755,7 +932,7 @@ namespace
 					const auto& road=roadMasks[roadIndex];
 					if (!TreeGeometry::clearOfCorridor(position,treeWidth,road.shape)) { excludedByFacilities+=road.facility;clear=false;break; }
 				}
-				if (!clear) { continue; }
+				if (!clear || !clearOfPatches(position,treeWidth*.4)) { continue; }
 				appendLandscapeTree(groups,position,ground,hash,treeWidth,(alpine ? GenerationSettings::get().vegetation_alpineHeight : cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar && !alpine,true);
 				if (candidate==0 && !alpine)
 				{
@@ -768,6 +945,89 @@ namespace
 			}
 		}
 		groups.excludedTrees += excludedByFacilities;
+	}
+	/// @brief 町なかの空き区画を、家庭菜園・砂利の月極駐車場・雑草地に使い分ける。向きは隣の家に揃える。
+	template<class HeightSource>
+	void appendVacantLotUse(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
+		const Array<LandRoadMask>& roadMasks)
+	{
+		if (!groups.surfaces || chunk.zoneMap.isEmpty()) { return; }
+		constexpr int kPatchCells=CHUNK_SIZE/4;
+		constexpr double kLotHalf=6.2;
+		const Vec2 chunkOrigin{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE};
+		Optional<Grid<bool>> covered;
+		const auto clearOfPatches=[&](const Array<Vec2>& points)
+		{
+			if (!covered)
+			{
+				covered.emplace(kPatchCells,kPatchCells,false);
+				for (const auto& patch:chunk.landPatches)
+				{
+					if (patch.polygon.size()<3) { continue; }
+					const Polygon shape{patch.polygon};const RectF bounds=shape.boundingRect().stretched(4);
+					const int left=Clamp(static_cast<int>(Floor((bounds.x-chunkOrigin.x)/4)),0,kPatchCells-1),right=Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunkOrigin.x)/4)),0,kPatchCells-1);
+					const int top=Clamp(static_cast<int>(Floor((bounds.y-chunkOrigin.y)/4)),0,kPatchCells-1),bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunkOrigin.y)/4)),0,kPatchCells-1);
+					for (int z=top;z<=bottom;++z) for (int x=left;x<=right;++x)
+					{
+						if (!(*covered)[{x,z}] && shape.contains(chunkOrigin+Vec2{x*4+2.0,z*4+2.0})) { (*covered)[{x,z}]=true; }
+					}
+				}
+			}
+			for (const Vec2 point:points)
+			{
+				const Vec2 local=(point-chunkOrigin)/4;
+				const int x=static_cast<int>(Floor(local.x)),z=static_cast<int>(Floor(local.y));
+				if (!InRange(x,0,kPatchCells-1) || !InRange(z,0,kPatchCells-1) || (*covered)[{x,z}]) { return false; }
+			}
+			return true;
+		};
+		for (int row=1;row<ZONE_CELLS-1;++row) for (int col=1;col<ZONE_CELLS-1;++col)
+		{
+			const ZoneType zone=chunk.zoneMap[{col,row}];
+			if ((zone!=ZoneType::Residential && zone!=ZoneType::LowResidential && zone!=ZoneType::Commercial)
+				|| chunk.buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
+			const uint32 hash=cellVisualHash(chunk.coord,col,row,733u);
+			const uint32 use=hash%100u;
+			// 半分弱は雑草地のまま残す。
+			constexpr uint32 kGardenShare=40, kParkingShare=18;
+			if (use>=kGardenShare+kParkingShare) { continue; }
+			// 家に囲まれた町なかの空き地だけを使う。郊外の原野に駐車場を点在させない。
+			Optional<float> angle;int neighbors=0;
+			for (int dz=-1;dz<=1;++dz) for (int dx=-1;dx<=1;++dx)
+			{
+				const Building& neighbor=chunk.buildingGrid[{col+dx,row+dz}];
+				if (!isResidentialBuildingType(neighbor.type) && neighbor.type!=BuildingType::Shop) { continue; }
+				++neighbors;
+				if (!angle) { angle=neighbor.angle; }
+			}
+			constexpr int kMinimumNeighbors=3;
+			if (!angle || neighbors<kMinimumNeighbors) { continue; }
+			const Vec2 center=chunkOrigin+Vec2{(col+.5)*16,(row+.5)*16};
+			const Vec2 along{Cos(*angle),Sin(*angle)},across{-along.y,along.x};
+			const double length=kLotHalf*(use<kGardenShare ? 1.0 : 1.15),width=kLotHalf*(use<kGardenShare ? .72 : 1.0);
+			Array<Vec2> outline{center-along*length-across*width,center+along*length-across*width,center+along*length+across*width,center-along*length+across*width};
+			if (!clearOfPatches({outline[0],outline[1],outline[2],outline[3],center})) { continue; }
+			bool clearOfRoads=true;
+			for (const auto& road:roadMasks) { if (clearOfRoads && Circle{center,kLotHalf*.6}.intersects(road.shape)) { clearOfRoads=false; } }
+			if (!clearOfRoads) { continue; }
+			LandPatch lot;lot.polygon=std::move(outline);lot.materialVariant=hash;lot.elevationOffset=.03f;
+			if (use<kGardenShare)
+			{
+				lot.type=LandPatchType::FarmField;
+				appendLandPatchSurface(groups[landPatchMaterialKey(lot.type,lot.materialVariant)],world,lot,roadMasks);
+				continue;
+			}
+			lot.type=LandPatchType::ParcelGravel;
+			appendLandPatchSurface(groups[landPatchMaterialKey(lot.type,lot.materialVariant)],world,lot,roadMasks);
+			// 月極駐車場には数台が停まっている。
+			const int cars=static_cast<int>((hash>>8)%4u);
+			for (int car=0;car<cars;++car)
+			{
+				const Vec2 position=center+along*((car-1.5)*2.6)+across*(((hash>>(12+car))&1u) ? 2.6 : -2.6);
+				const float y=world.sampleHeight(static_cast<float>(position.x),static_cast<float>(position.y));
+				appendRotatedBox(groups[(hash>>(16+car))%3u==0 ? 108 : 107],static_cast<float>(position.x),y+.75f,static_cast<float>(position.y),1.7f,1.4f,4.3f,*angle);
+			}
+		}
 	}
 	template<class HeightSource>
 	void appendParcelLandscape(LandscapeGeometry& groups, const HeightSource& world,
@@ -789,7 +1049,7 @@ namespace
 		const RectF parcelBounds = boundsOfPolygon(outline);
 		for (const auto& road : roadMasks)
 		{
-			if (rectIntersects(parcelBounds.stretched(3), road.bounds)) { adjacentRoads << &road; }
+			if (rectIntersects(parcelBounds.stretched(30), road.bounds)) { adjacentRoads << &road; }
 		}
 		auto clearOfRoad = [&](Vec2 position, double radius)
 		{
@@ -811,9 +1071,88 @@ namespace
 			}
 			return true;
 		};
-		if (patch.type == LandPatchType::GardenSoil)
+		// A narrow concrete entrance joins the facade to the sidewalk, while the rear remains garden or service yard.
+		if (groups.surfaces && building.type!=BuildingType::None && building.type!=BuildingType::Farmland
+			&& building.type!=BuildingType::ParkBuilding && building.type!=BuildingType::Parking && !isCompleteSiteBuilding(building.type))
 		{
-			// Side and rear boundaries leave the original model's street entrance unobstructed.
+			const Vec2 facade=center-inward*(half-.05);
+			Optional<ParcelAccessGeometry::Connection> connection;
+			const double width=isResidentialBuildingType(building.type) || building.type==BuildingType::UrbanHousePair ? 1.4 : 2.2;
+			for (const auto* road : adjacentRoads)
+			{
+				if (road->facility || Abs(road->roadHeight-world.sampleHeight(static_cast<float>(facade.x),static_cast<float>(facade.y)))>4) { continue; }
+				const auto candidate=ParcelAccessGeometry::connect(facade,-inward,width,road->footprint);
+				if (!candidate || (connection && candidate->distance>=connection->distance)) { continue; }
+				// 玄関からの舗装は自分の敷地内だけを通す。隣地や別の宅地を横切る長い通路は作らない。
+				bool ownLot=true;
+				for (double step=.5;step<candidate->distance-.3 && ownLot;step+=1.0)
+				{
+					const Vec2 point=facade-inward*step;
+					ownLot=shape.contains(point) || !clearOfRoad(point,.3);
+				}
+				if (ownLot) { connection=candidate; }
+			}
+			if (connection)
+			{
+				LandPatch entrance=patch;entrance.type=LandPatchType::ParcelAsphalt;entrance.elevationOffset=Max(patch.elevationOffset+.012f,.035f);
+				entrance.polygon=std::move(connection->polygon);
+				appendLandPatchSurface(groups[100],world,entrance,roadMasks);
+			}
+		}
+		if (groups.planting && (building.type == BuildingType::MidApartment || building.type == BuildingType::LowApartment))
+		{
+			// 団地や集合住宅の敷地は、住棟の間と外周に植えた高木で囲まれる。
+			constexpr double kCourtyardTreeSpacing = 7.0;
+			constexpr double kCourtyardTreeInset = 2.4;
+			constexpr double kCourtyardTreeClearance = 2.0;
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 midpoint = (a + b) * 0.5;
+				// 道路に面した辺は駐車場・出入口として空ける。
+				if ((midpoint - center).dot(inward) < -half * 0.5) { continue; }
+				const double length = a.distanceFrom(b);
+				const Vec2 toCenter = (center - midpoint).normalized();
+				for (double distance = kCourtyardTreeSpacing * 0.5; distance < length; distance += kCourtyardTreeSpacing)
+				{
+					const Vec2 position = a.lerp(b, distance / length) + toCenter * kCourtyardTreeInset;
+					if (!fits(position, kCourtyardTreeClearance) || position.distanceFrom(center) < half + 2.5) { continue; }
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						patch.materialVariant + static_cast<uint32>(side * 17 + distance), 1.6);
+				}
+			}
+		}
+		if (groups.planting && (building.type == BuildingType::RuralHouse || building.type == BuildingType::VillageHouse))
+		{
+			// 平野の農家は、裏と片側を杉・欅の屋敷林で囲み、田んぼの中で木立のかたまりに見える。
+			constexpr double kWindbreakSpacing = 3.4;
+			constexpr double kWindbreakOutset = 1.2;
+			constexpr double kWindbreakRoadClearance = 2.6;
+			const double sideSign = (patch.materialVariant & 1u) ? 1.0 : -1.0;
+			for (size_t side = 0; side < patch.polygon.size(); ++side)
+			{
+				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
+				const Vec2 midpoint = (a + b) * 0.5, offset = midpoint - center;
+				const bool rear = offset.dot(inward) > half * 0.5;
+				const bool flank = offset.dot(along) * sideSign > half * 0.5 && offset.dot(inward) > -half * 0.5;
+				if (!rear && !flank) { continue; }
+				const double length = a.distanceFrom(b);
+				const Vec2 toCenter = (center - midpoint).normalized();
+				for (double distance = kWindbreakSpacing * 0.5; distance < length; distance += kWindbreakSpacing)
+				{
+					// 屋敷林は敷地境界の生垣の外側に列植し、建物と道路には枝を掛けない。
+					const Vec2 position = a.lerp(b, distance / length) - toCenter * kWindbreakOutset;
+					if (!clearOfRoad(position, kWindbreakRoadClearance) || position.distanceFrom(center) < half + 2.0) { continue; }
+					const uint32 variation = patch.materialVariant * 2654435761u + static_cast<uint32>(side * 31 + distance);
+					const double height = 11.0 + (variation % 7) * 0.9;
+					appendLandscapeTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						variation, 5.0, height, (variation % 3) != 0);
+				}
+			}
+		}
+		// Side and rear boundaries leave the original model's street entrance unobstructed.
+		const auto appendBoundary = [&](int materialKey, float height, float thickness)
+		{
 			for (size_t side = 0; groups.surfaces && side < patch.polygon.size(); ++side)
 			{
 				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
@@ -825,12 +1164,16 @@ namespace
 				{
 					const Vec2 position = a.lerp(b, (segment + 0.5) / pieces);
 					if (!clearOfRoad(position, length / pieces * 0.5 + 0.18)) { continue; }
-					appendRotatedBox(groups[123], static_cast<float>(position.x),
-						world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + 0.30f,
-						static_cast<float>(position.y), static_cast<float>(length / pieces), 0.60f, 0.12f,
+					appendRotatedBox(groups[materialKey], static_cast<float>(position.x),
+						world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + height * 0.5f,
+						static_cast<float>(position.y), static_cast<float>(length / pieces), height, thickness,
 						static_cast<float>(Atan2(b.y - a.y, b.x - a.x)));
 				}
 			}
+		};
+		if (patch.type == LandPatchType::GardenSoil)
+		{
+			appendBoundary(123, 0.60f, 0.12f);
 			for (int index = 0; groups.planting && index < 4; ++index)
 			{
 				const Vec2 position = center + inward * (half + 4.0 + (index / 2) * 5.0)
@@ -843,6 +1186,9 @@ namespace
 		}
 		else if (patch.type == LandPatchType::ParcelGravel && isResidentialBuildingType(building.type))
 		{
+			// 戸建ての敷地境界はブロック塀か生垣で区切られる。
+			if ((patch.materialVariant % 3u) != 0u) { appendBoundary(123, 0.60f, 0.12f); }
+			else { appendBoundary(106, 0.95f, 0.45f); }
 			// 砂利敷きの住宅地にも隣地境界沿いと裏庭に庭木を残す。
 			for (int index = 0; groups.planting && index < 4; ++index)
 			{
@@ -852,6 +1198,17 @@ namespace
 					&& fits(position, TreeGeometry::horizontalClearance(3.2)))
 				{
 					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)), patch.materialVariant + index, 0.7);
+				}
+			}
+			// 裏庭には背の高い庭木が並び、上空からは家ごとに緑のかたまりが見える。
+			for (int index = 0; groups.planting && index < 2; ++index)
+			{
+				const Vec2 position = center + along * ((index == 0 ? -1.0 : 1.0) * half * 0.45) + inward * (half + 3.2);
+				if (((patch.materialVariant >> (index * 5 + 17)) % 3u) != 0u
+					&& fits(position, TreeGeometry::horizontalClearance(3.6)))
+				{
+					appendParkTree(groups, position, world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)),
+						patch.materialVariant + 7 + index, 0.9 + ((patch.materialVariant >> (index + 23)) & 3u) * 0.12);
 				}
 			}
 		}
@@ -871,13 +1228,14 @@ namespace
 		}
 	}
 	/// @brief Build a bounded per-chunk index once; each entry path queries only intersecting32m cells.
+	template<class HeightSource>
 	struct ResidentialAccessIndex
 	{
 		struct Item { int64 owner=-1; RectF bounds; Array<Vec2> outline; };
 		Array<Item> items;
 		HashTable<Point,Array<size_t>> cells;
 		HashTable<int64,Array<const LandPatch*>> parcels;
-		ResidentialAccessIndex(const World& world,const Chunk& chunk,const Array<LandRoadMask>& masks)
+		ResidentialAccessIndex(const HeightSource& world,const Chunk& chunk,const Array<LandRoadMask>& masks)
 		{
 			const RectF region{chunk.coord.x*CHUNK_SIZE-32,chunk.coord.y*CHUNK_SIZE-32,CHUNK_SIZE+64,CHUNK_SIZE+64};
 			const auto add=[&](int64 owner,Array<Vec2> outline)
@@ -927,9 +1285,10 @@ namespace
 	};
 
 	/// @brief Join a verified residential doorway to its assigned street without changing ownership.
-	int appendResidentialAccess(LandscapeGeometry& groups,const World& world,const RoadNetwork& roads,
+	template<class HeightSource,class RoadSource>
+	int appendResidentialAccess(LandscapeGeometry& groups,const HeightSource& world,const RoadSource& roads,
 		const Chunk& chunk,int col,int row,const Building& building,Vec2 center,
-		const Array<ResidentialParcelAccess::Entry>& entrances,const ResidentialAccessIndex& index,Array<WorldRenderer::ResidentialAccessRecord>& acceptedEntries)
+		const Array<ResidentialParcelAccess::Entry>& entrances,const ResidentialAccessIndex<HeightSource>& index,Array<WorldRenderer::ResidentialAccessRecord>& acceptedEntries)
 	{
 		const auto* edge=roads.getEdge(building.edgeId); const auto curve=roads.getBezier(building.edgeId);
 		if (!edge || !curve || edge->tunnel || edge->useElevation || !edge->hasRoadLanes() || curve->totalLength<.1f) { return 0; }
@@ -1007,7 +1366,8 @@ namespace
 		return built;
 	}
 
-	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendUrbanLotDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                           int col, int row, const Building& building, float cx, float cz,
 	                           float cellSize,const Array<LandRoadMask>& roadMasks)
 	{
@@ -1111,7 +1471,8 @@ namespace
 
 
 	}
-	void appendFarmlandDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendFarmlandDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                           int col, int row, float cx, float cz, float cellSize)
 	{
 		const uint32 hash = cellVisualHash(chunk.coord, col, row, 0xA6B4C893u);
@@ -1148,7 +1509,8 @@ namespace
 			appendRotatedBox(groups[110], px, baseY + 0.05f, pz, 0.42f, 0.04f, fieldD, angle);
 		}
 	}
-	void appendBoxBuildingDetails(LandscapeGeometry& groups, const Chunk& chunk, const World& world,
+	template<class HeightSource>
+	void appendBoxBuildingDetails(LandscapeGeometry& groups, const Chunk& chunk, const HeightSource& world,
 	                              int col, int row, BuildingType type, float cx, float cz,
 	                              float footprint, float height, float angle)
 	{
@@ -1304,8 +1666,7 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	}
 	else
 	{
-		Console << U"[WorldRenderer] building TOML load failed: " << tomlPath
-		        << U" (scale fallback=" << kDefaultModelScale << U")";
+		DebugLog::print(Format(U"[WorldRenderer] building TOML load failed: ", tomlPath, U" (scale fallback=", kDefaultModelScale, U")"));
 	}
 
 	const String distantPath = modelLodPath(path, 1);
@@ -1313,18 +1674,33 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	{
 		asset.distantModel = Model{ distantPath };
 		Model::RegisterDiffuseTextures(asset.distantModel, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : asset.distantModel.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 	}
 	const String farPath = modelLodPath(path, 2);
 	if (FileSystem::IsFile(farPath))
 	{
 		const Model farModel{farPath};
 		Model::RegisterDiffuseTextures(farModel, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : farModel.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 		asset.farGeometry = loadModelMeshSource(farPath, farModel);
 	}
 	asset.model = Model{ path };
 	if (!asset.model.isEmpty())
 	{
 		Model::RegisterDiffuseTextures(asset.model, TextureDesc::MippedSRGB);
+		// Registration alone leaves texture decoding/upload on the first visible draw.
+		for (const auto& material : asset.model.materials())
+		{
+			if (!material.diffuseTextureName.isEmpty()) { (void)TextureAsset{material.diffuseTextureName}.size(); }
+		}
 		if (type != BuildingType::Parking && type != BuildingType::Factory && !isCompleteSiteBuilding(type))
 		{
 			const auto& bounds = asset.model.boundingBox();
@@ -1347,7 +1723,7 @@ WorldRenderer::BuildingModelAsset& WorldRenderer::getBuildingModelAsset(Building
 	}
 	else
 	{
-		Console << U"[WorldRenderer] building model load failed: " << path;
+		DebugLog::print(Format(U"[WorldRenderer] building model load failed: ", path));
 	}
 
 	auto [inserted, _] = m_buildingModels.emplace(key, std::move(asset));
@@ -1450,14 +1826,14 @@ void WorldRenderer::drawBuildingSilhouette(const Chunk& chunk, const World& worl
 	MeshData box = MeshData::Box(
 		Float3{ cx, cy, cz },
 		Float3{ visualFootprint, height, visualFootprint });
-	rotateBoxVerticesY(box, cx, cz, b.angle);
+	rotateMeshY(box, cx, cz, b.angle);
 	Mesh{ box }.draw(color);
 }
 
 Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(const Chunk& chunk,
 	const Array<TerrainSubtractionQuad>& quads, const Array<Chunk>& heightSnapshots,
 	const RiverNetwork& rivers, const Array<Polygon>& sites, LandscapeBuildStats& stats,
-	Array<TreeInstance>& trees, bool treesOnly, bool woodland)
+	Array<TreeInstance>& trees, bool treesOnly, bool woodland, bool sourceWater)
 {
 	const Stopwatch timer{StartImmediately::Yes};
 	struct HeightSnapshot
@@ -1490,6 +1866,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(cons
 		masks << LandRoadMask{quad.bounds,quad.footprint,Polygon{outline},quad.bedBottomY};
 	}
 	for (const auto& site : sites) { masks << LandRoadMask{site.boundingRect(),site.outer(),site,0,true}; }
+	const size_t roadMaskCount = masks.size();
 	for (const auto& reach : rivers.reaches)
 	{
 		const Vec2 a{reach.start.x,reach.start.z},b{reach.end.x,reach.end.z},direction=(b-a).normalized(),right{direction.y,-direction.x};
@@ -1501,6 +1878,8 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildLandscapeMeshData(cons
 	LandscapeGeometry groups;
 	groups.surfaces = !treesOnly; groups.planting = treesOnly;
 	for (const auto& patch : chunk.landPatches) { appendLandPatchMesh(groups,heights,chunk,patch,masks); }
+	appendVacantLotUse(groups,chunk,heights,masks);
+	if (sourceWater) { appendRiverBanks(groups,chunk,rivers,masks,roadMaskCount); }
 	stats.patchesMilliseconds = timer.msF() - stats.masksMilliseconds;
 	if (woodland && treesOnly)
 	{
@@ -1532,50 +1911,43 @@ MeshData WorldRenderer::landPatchSurface(const World& world,const RoadNetwork& n
 	return surface;
 }
 
-void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world,const RoadNetwork& roads)
+WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const LandscapeSnapshot& input,
+	const HashTable<uint32, BuildingCpuAsset>& models, bool includeLandscape)
 {
+	const Stopwatch timer{StartImmediately::Yes};
+	const auto& chunk = input.chunk;
+	const BuildingHeightSnapshot world{input.heights, &input.rivers};
+	BuildingJobResult result;
 	constexpr float cellSize  = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
 	const float footprint = buildingFootprintXZ();
 
 	const Vec3 origin = chunk.worldOrigin();
 
-	m_buildingDetailBounds.erase(key);
 	// 建物種別ごとに MeshData を積み上げる（Box 描画用）
 	LandscapeGeometry groups;
 	// 住宅 OBJ インスタンス
 	Array<BuildingModelInstance> modelInstances;
-	int accessPaths=0; m_residentialAccessEntries[key].clear();
+
 
 	Array<LandRoadMask> roadMasks;
-	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end())
+	for (const auto& mask : input.quads)
 	{
-		for (const auto& mask : masks->second)
-		{
-			Array<Vec2> outline = mask.footprint;
-			UrbanParcel::normalize(outline);
-			roadMasks << LandRoadMask{ mask.bounds, mask.footprint, Polygon{ outline }, mask.bedBottomY };
-		}
+		Array<Vec2> outline = mask.footprint;
+		UrbanParcel::normalize(outline);
+		roadMasks << LandRoadMask{mask.bounds, mask.footprint, Polygon{outline}, mask.bedBottomY};
 	}
-	if (const auto sites=m_transportSites.find(key); sites!=m_transportSites.end())
-	{
-		for (const auto& site : sites->second) { roadMasks << LandRoadMask{site.boundingRect(),site.outer(),site,0,true}; }
-	}
-	Optional<ResidentialAccessIndex> accessIndex;
-	for (const auto& building : chunk.buildingGrid)
-	{
-		if (building.type==BuildingType::None) { continue; }
-		const auto* assigned=roads.getEdge(building.edgeId); if (!assigned) { continue; }
-		if (assigned->parts.any([](const RoadPart& part) { return part.defId==U"roadside_gutter_covered_concrete"; }))
-		{
-			accessIndex.emplace(world,chunk,roadMasks); break;
-		}
-	}
-	if (!m_asyncTerrain)
+	for (const auto& site : input.sites) { roadMasks << LandRoadMask{site.boundingRect(), site.outer(), site, 0, true}; }
+	// Covered-gutter streets alone receive the bounded residential entry ramps.
+	Optional<ResidentialAccessIndex<BuildingHeightSnapshot>> accessIndex;
+	if (!input.accessRoads.edges.empty()) { accessIndex.emplace(world,chunk,roadMasks); }
+	if (includeLandscape)
 	{
 		for (const LandPatch& patch : chunk.landPatches) { appendLandPatchMesh(groups, world, chunk, patch, roadMasks); }
-		if (m_woodlandEnabled)
+		appendVacantLotUse(groups, chunk, world, roadMasks);
+		if (input.sourceWater) { appendRiverBanks(groups,chunk,input.rivers,roadMasks,roadMasks.size()); }
+		if (input.woodland)
 		{
-			appendWoodland(groups, chunk, world, roadMasks, world.rivers());
+			appendWoodland(groups, chunk, world, roadMasks, input.rivers);
 		}
 	}
 
@@ -1604,7 +1976,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				appendUrbanHousePair(groups,world,b,cx,cz,cellVisualHash(chunk.coord,col,row,8841));
 				Array<ResidentialParcelAccess::Entry> entries; const Vec2 along{Cos(b.angle),Sin(b.angle)},inward{-along.y,along.x};
 				for (const auto local : FrontageGeometry::pairedGroundEntries(buildingFootprintXZ(b.type))) { entries << ResidentialParcelAccess::Entry{Vec2{cx,cz}+along*local.x+inward*local.y,buildingBaseHeight(world,b,cx,cz)+FrontageGeometry::kPairedApronTop}; }
-				if (accessIndex) { accessPaths+=appendResidentialAccess(groups,world,roads,chunk,col,row,b,{cx,cz},entries,*accessIndex,m_residentialAccessEntries[key]); }
+				if (accessIndex) { (void)appendResidentialAccess(groups,world,input.accessRoads,chunk,col,row,b,{cx,cz},entries,*accessIndex,result.accessRecords); }
 				continue;
 			}
 			if (b.type==BuildingType::IndustrialWarehouse)
@@ -1630,14 +2002,14 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				const int gx = chunk.coord.x * ZONE_CELLS + col;
 				const int gz = chunk.coord.y * ZONE_CELLS + row;
 				const uint8 variant = buildingModelVariant(b.type, gx, gz);
-				BuildingModelAsset& asset = getBuildingModelAsset(b.type, variant);
-				const float modelScale = normalizedObjScale(b.type, asset.model.boundingBox(), asset.scale);
-				if ((b.type==BuildingType::Detached || b.type==BuildingType::LowApartment || b.type==BuildingType::VillageHouse) && asset.frontWall && !asset.model.isEmpty() && accessIndex)
+				const auto& asset = models.at((static_cast<uint32>(b.type) << 8) | variant);
+				const float modelScale = normalizedObjScale(b.type, asset.bounds, asset.scale);
+				if ((b.type==BuildingType::Detached || b.type==BuildingType::LowApartment || b.type==BuildingType::VillageHouse) && asset.frontWall && accessIndex)
 				{
 					const Vec2 local=FrontageGeometry::groundEntry(*asset.frontWall*modelScale);
 					const Vec2 along{Cos(b.angle),Sin(b.angle)},inward{-along.y,along.x};
 					const Vec2 entrance=Vec2{cx,cz}+along*local.x+inward*local.y;
-					accessPaths+=appendResidentialAccess(groups,world,roads,chunk,col,row,b,{cx,cz},{{entrance,gy+FrontageGeometry::kStepHeight}},*accessIndex,m_residentialAccessEntries[key]);
+					(void)appendResidentialAccess(groups,world,input.accessRoads,chunk,col,row,b,{cx,cz},{{entrance,gy+FrontageGeometry::kStepHeight}},*accessIndex,result.accessRecords);
 				}
 				modelInstances.push_back({
 					b.type,
@@ -1668,7 +2040,7 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 				Float3{ visualFootprint, height, visualFootprint });
 
 			// 最近傍道路の向きに合わせてY軸回転
-			rotateBoxVerticesY(box, cx, cz, b.angle);
+			rotateMeshY(box, cx, cz, b.angle);
 
 			auto& dst = groups[static_cast<int>(b.type)];
 			const uint32 offset = static_cast<uint32>(dst.vertices.size());
@@ -1683,42 +2055,34 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 		}
 	}
 
-	if (groups.excludedTrees) { DBG_LOG(U"[RailLandscape] key={} excludedTrees={}"_fmt(key, groups.excludedTrees)); }
-	m_lotTreeCache[key] = std::move(groups.trees);
-	auto& batches = m_buildingMeshCache[key];
-	batches.clear();
+	result.excludedTrees = groups.excludedTrees;
+	result.trees = std::move(groups.trees);
+	auto& batches = result.batches;
 	for (auto& [typeInt, meshData] : groups.meshes)
 	{
 		if (meshData.vertices.isEmpty()) continue;
-		const ColorF color = (typeInt >= 100)
-			? detailColorForKey(typeInt)
-			: buildingColor(static_cast<BuildingType>(typeInt));
-		batches.push_back({
-			typeInt,
-			color,
-			Mesh{ meshData }
-		});
 		if (RenderDistance::limitedMaterial(typeInt))
 		{
-			const Box bounds = batches.back().mesh.boundingBox();
-			const auto previous = m_buildingDetailBounds.find(key);
-			m_buildingDetailBounds[key] = previous == m_buildingDetailBounds.end()
-				? bounds : RenderDistance::merge(previous->second, bounds);
+			const Box bounds = meshDataBounds(meshData);
+			result.detailBounds = result.detailBounds ? RenderDistance::merge(*result.detailBounds, bounds) : bounds;
 		}
+		for(auto& mesh:MeshUploadSlices::split(std::move(meshData))) { batches << TerrainMeshData{typeInt,std::move(mesh)}; }
 	}
 
-	DBG_LOG(U"[ResidentialAccess] chunk=({}, {}) paths={}"_fmt(chunk.coord.x,chunk.coord.y,accessPaths));
+
 	// The far tier is baked once per edited chunk, grouped by asset material.
-	auto& far = m_farBuildings[key]; far = FarBuildings{};
+	auto& far = result;
 	HashTable<uint64, MeshData> merged;
 	HashTable<uint64, Material> materials;
 	float highest = chunk.heightMax;
+	double largestDimension = 0;
 	for (auto& instance : modelInstances)
 	{
-		auto& asset = getBuildingModelAsset(instance.type, instance.modelVariant);
+		const auto& asset = models.at((static_cast<uint32>(instance.type) << 8) | instance.modelVariant);
 		instance.distanceBounds = RenderDistance::buildingSphere(RenderDistance::transformBox(
-			asset.model.boundingBox(), instance.scale, -instance.angle, Vec3{instance.pos}));
-		highest = Max(highest, instance.pos.y + static_cast<float>(asset.model.boundingBox().size.y * instance.scale));
+			asset.bounds, instance.scale, -instance.angle, Vec3{instance.pos}));
+		highest = Max(highest, instance.pos.y + static_cast<float>(asset.bounds.size.y * instance.scale));
+		largestDimension = Max(largestDimension, Max({asset.bounds.size.x,asset.bounds.size.y,asset.bounds.size.z}) * instance.scale);
 		const uint32 assetId = (static_cast<uint32>(instance.type) << 8) | instance.modelVariant;
 		for (size_t part = 0; part < asset.farGeometry.size(); ++part)
 		{
@@ -1726,22 +2090,26 @@ void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const Wor
 			const auto& source = asset.farGeometry[part];
 			auto geometry = source.geometry;
 			geometry.scale(instance.scale).rotate(Quaternion::RotateY(-instance.angle)).translate(instance.pos);
+			// 統合後も個体の塗り分けが残るよう、UV（0〜1）の整数部に番号を載せる。
+			const float tint = static_cast<float>(buildingTintVariant(instance.pos));
+			for (auto& vertex : geometry.vertices) { vertex.tex.x += tint; }
 			appendMeshData(merged[materialId], geometry);
 			materials[materialId] = source.material;
 		}
-		if (!asset.farGeometry.isEmpty()) { ++far.count; }
+		if (!asset.farGeometry.isEmpty()) { ++far.farCount; }
 	}
+	far.largestDimension = largestDimension;
 	far.bounds = Box{Vec3{origin.x + CHUNK_SIZE * .5, (chunk.heightMin + highest) * .5, origin.z + CHUNK_SIZE * .5},
 		Vec3{CHUNK_SIZE + 100, Max(1.0f, highest - chunk.heightMin), CHUNK_SIZE + 100}};
-	Optional<Box> farBounds;
-	for (const auto& [materialId, geometry] : merged)
+	for (auto& [materialId, geometry] : merged)
 	{
-		far.batches << StaticModelBatch{Mesh{geometry}, materials[materialId], static_cast<uint32>(geometry.indices.size())};
-		const Box bounds = far.batches.back().mesh.boundingBox();
-		farBounds = farBounds ? RenderDistance::merge(*farBounds,bounds) : bounds;
+		const Box bounds = meshDataBounds(geometry);
+		far.farDistanceBounds = far.farDistanceBounds ? RenderDistance::merge(*far.farDistanceBounds,bounds) : bounds;
+		for(auto& mesh:MeshUploadSlices::split(std::move(geometry))) { far.farBatches << FarBuildingMeshData{std::move(mesh),materials[materialId]}; }
 	}
-	far.distanceBounds = farBounds.value_or(far.bounds);
-	m_buildingModelCache[key] = std::move(modelInstances);
+	result.instances = std::move(modelInstances);
+	result.milliseconds = timer.msF();
+	return result;
 }
 
 bool WorldRenderer::drawLandscapeBatch(int materialKey,Key key) const
@@ -1764,8 +2132,7 @@ bool WorldRenderer::useFarBuildings(Key key, Vec3 eye) const
 	const auto instances = m_buildingModelCache.find(key);
 	if (cached == m_farBuildings.end() || instances == m_buildingModelCache.end()) { return false; }
 	const auto& far = cached->second;
-	constexpr double kFarDistance = 850;
-	return !RenderDistance::contains(eye, far.bounds, kFarDistance) && !far.batches.isEmpty()
+	return !RenderDistance::contains(eye, far.bounds, BuildingLod::farDistance(far.largestDimension)) && !far.batches.isEmpty()
 		&& far.count == instances->second.size();
 }
 
@@ -1787,9 +2154,11 @@ bool WorldRenderer::buildingWithinRenderDistance(const Chunk& chunk, int col, in
 
 void WorldRenderer::drawCachedBuildings(Key key)
 {
-	submitCachedTrees(key);
-	bool farDrawn = false;
-	if (const auto cached = m_farBuildings.find(key); cached != m_farBuildings.end())
+	const bool proxy = m_regionalView || !m_buildingMeshCache.contains(key);
+	if (proxy) { drawBuildingProxy(key); }
+	else { submitCachedTrees(key); }
+	bool farDrawn = proxy;
+	if (const auto cached = m_farBuildings.find(key); !proxy && cached != m_farBuildings.end())
 	{
 		const auto& far = cached->second;
 		if (useFarBuildings(key,m_buildingEye))
@@ -1799,6 +2168,8 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			if (RenderDistance::contains(m_buildingEye,far.distanceBounds,m_renderDistance))
 			{
 				const ScopedCustomShader3D shader{m_buildingShader};
+				m_buildingTint->variant = Float4{0, 0, 0, 0};
+				Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 				for (const auto& batch : far.batches)
 				{
 					if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
@@ -1830,9 +2201,14 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			const Mat4x4 worldMat = (Mat4x4::Scale(inst.scale)
 			                       * Mat4x4::RotateY(-inst.angle))
 				.translated(inst.pos.x, inst.pos.y, inst.pos.z);
-			const Model& model = (m_buildingEye.distanceFromSq(Vec3{ inst.pos }) > 250 * 250 && !asset.distantModel.isEmpty())
+			const auto& bounds = asset.model.boundingBox();
+			const double dimension = Max({bounds.size.x,bounds.size.y,bounds.size.z}) * inst.scale;
+			const double detailDistance = BuildingLod::detailDistance(dimension);
+			const Model& model = (m_buildingEye.distanceFromSq(center) > detailDistance * detailDistance && !asset.distantModel.isEmpty())
 				? asset.distantModel : asset.model;
 			const auto& materials = model.materials();
+			m_buildingTint->variant = Float4{static_cast<float>(buildingTintVariant(inst.pos)), 0, 0, 0};
+			Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 			for (const auto& obj : model.objects())
 			{
 				const Transformer3D transform{ worldMat };
@@ -1845,6 +2221,7 @@ void WorldRenderer::drawCachedBuildings(Key key)
 
 	for (const auto* cache : { &m_buildingMeshCache, &m_landscapeMeshCache })
 	{
+		if (proxy && cache == &m_buildingMeshCache) { continue; }
 		const auto it = cache->find(key);
 		if (it == cache->end()) { continue; }
 		for (const auto& batch : it->second)
@@ -1855,7 +2232,36 @@ void WorldRenderer::drawCachedBuildings(Key key)
 					: !RenderDistance::contains(m_buildingEye,batch.mesh.boundingBox(),m_renderDistance))) { continue; }
 			const int material=batch.materialKey%1000;
 			const bool distant=m_distantDetailChunks.contains(key);
-			if (distant && material==123) { continue; }
+			if (distant && (material==123 || material==112 || material==114 || material==116 || material==118)) { continue; }
+			if (material == 138)
+			{
+				static const PixelShader shader=[]
+				{
+					const PixelShader result{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl",U"RiverBank_PS")};
+					DBG_LOG(U"[RiverBankRender] shader={} path=shaders/hlsl/city_forward.hlsl entry=RiverBank_PS"_fmt(static_cast<bool>(result)));
+					return result;
+				}();
+				if (shader)
+				{
+					const ScopedCustomShader3D bankShader{shader};
+					const ScopedRenderStates3D state{BlendState::NonPremultiplied,RasterizerState::SolidCullNone,DepthStencilState::DepthTest};
+					batch.mesh.draw(TextureAsset(Asset::Gravel),ColorF{1});
+				}
+				continue;
+			}
+			if (material==kGardenYardMaterial || material==kPavedYardMaterial)
+			{
+				static const PixelShader shader=[]
+				{
+					const PixelShader result{ShaderAsset::pixel(U"shaders/hlsl/city_forward.hlsl",U"Yard_PS")};
+					DBG_LOG(U"[YardRender] shader={} path=shaders/hlsl/city_forward.hlsl entry=Yard_PS"_fmt(static_cast<bool>(result)));
+					return result;
+				}();
+				Optional<ScopedCustomShader3D> yardShader;
+				if (shader) { yardShader.emplace(shader); }
+				batch.mesh.draw(TextureAsset(Asset::Gravel),ColorF{1,material==kPavedYardMaterial ? 1.0 : 0.5});
+				continue;
+			}
 			if ((material==130 && m_fieldShader) || (material==131 && m_paddyShader))
 			{
 				const ScopedCustomShader3D shader{material==131 ? m_paddyShader : m_fieldShader};
@@ -1946,6 +2352,7 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 			{
 				for (const auto& batch : landscape->second)
 				{
+					if (batch.materialKey == 138) { continue; }
 					if (RenderDistance::limitedMaterial(batch.materialKey)
 						&& !RenderDistance::contains(m_buildingEye,batch.mesh.boundingBox(),m_renderDistance)) { continue; }
 					if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{1.0}); }
@@ -1967,7 +2374,7 @@ void WorldRenderer::renderShadowCasters(Vec3 focus, double radius) const
 		for (const auto& batch : batches->second)
 		{
 			if (RenderDistance::limitedMaterial(batch.materialKey) && !detailWithinRenderDistance(key,m_buildingEye)) { continue; }
-			if (drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
+			if (batch.materialKey != 138 && drawLandscapeBatch(batch.materialKey,key)) { batch.mesh.draw(ColorF{ 1.0 }); }
 		}
 	}
 	m_treeRenderer.draw({}, true);
@@ -2019,4 +2426,241 @@ void WorldRenderer::setTransportSites(const TrainNetwork& network,const RoadNetw
 	for (const Key key : changed) { m_landscapeMeshCache.erase(key); m_buildingMeshCache.erase(key); m_residentialAccessEntries.erase(key); }
 	invalidateTerrainChunkKeys(changed);
 	m_transportSitesDirty=false;
+}
+
+WorldRenderer::LandscapeSnapshot WorldRenderer::buildingSnapshot(Key key, const Chunk& chunk, const World& world, const RoadNetwork& roads) const
+{
+	LandscapeSnapshot input;
+	input.chunk = chunk;
+	input.woodland = m_woodlandEnabled;
+	input.sourceWater = world.sourceWater() != nullptr;
+	input.rivers = world.rivers().subset(RectF{chunk.coord.x * CHUNK_SIZE - 64, chunk.coord.y * CHUNK_SIZE - 64, CHUNK_SIZE + 128, CHUNK_SIZE + 128});
+	if (const auto masks = m_chunkSubtractorCache.find(key); masks != m_chunkSubtractorCache.end()) { input.quads = masks->second; }
+	if (const auto sites = m_transportSites.find(key); sites != m_transportSites.end()) { input.sites = sites->second; }
+	for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+	{
+		if (const auto* neighbor = world.getChunk(chunk.coord + Point{dx, dz}))
+		{
+			Chunk copy;
+			copy.coord = neighbor->coord;
+			copy.heightMap = neighbor->heightMap;
+			copy.zoneMap = neighbor->zoneMap;
+			copy.buildingGrid = neighbor->buildingGrid;
+			input.heights << std::move(copy);
+		}
+	}
+	// Covered-gutter streets keep their bounded entry ramps; capture only those edges for the worker.
+	for (const auto& building : chunk.buildingGrid)
+	{
+		if (building.type == BuildingType::None || input.accessRoads.edges.contains(building.edgeId)) { continue; }
+		const auto* assigned = roads.getEdge(building.edgeId);
+		const auto curve = roads.getBezier(building.edgeId);
+		if (!assigned || !curve || !assigned->parts.any([](const RoadPart& part) { return part.defId == U"roadside_gutter_covered_concrete"; })) { continue; }
+		input.accessRoads.edges.emplace(building.edgeId, *assigned);
+		input.accessRoads.curves.emplace(building.edgeId, *curve);
+	}
+	if (!input.accessRoads.edges.empty())
+	{
+		// The access index also avoids neighboring parcels, so their land patches join the snapshot.
+		for (auto& copy : input.heights)
+		{
+			if (const auto* neighbor = world.getChunk(copy.coord)) { copy.landPatches = neighbor->landPatches; }
+		}
+	}
+	return input;
+}
+
+void WorldRenderer::startBuildingJob(Key key, const Chunk& chunk, const World& world, const RoadNetwork& roads)
+{
+	if (m_buildingJobs.size() >= 2 || !m_cpuBuildingAssets
+		|| std::any_of(m_buildingJobs.begin(), m_buildingJobs.end(), [key](const BuildingJob& job) { return job.key == key; })) { return; }
+	(void)getChunkSubtractionQuads(roads, chunk.coord);
+	auto input = buildingSnapshot(key, chunk, world, roads);
+	BuildingJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+	job.future = std::async(std::launch::async, [input = std::move(input), models = m_cpuBuildingAssets]
+	{
+		return buildBuildingMeshData(input, *models, false);
+	});
+	m_buildingJobs << std::move(job);
+}
+
+void WorldRenderer::uploadCompletedBuildings()
+{
+	const Stopwatch upload{StartImmediately::Yes};
+	for (size_t i = 0; i < m_buildingJobs.size();)
+	{
+		auto& job = m_buildingJobs[i];
+		if (!job.result)
+		{
+			if (job.future.wait_for(std::chrono::seconds{0}) != std::future_status::ready) { ++i; continue; }
+			job.result = job.future.get();
+		}
+		if (job.epoch != m_terrainEpoch || job.revision != m_terrainRevisions[job.key])
+		{
+			m_buildingJobs.erase(m_buildingJobs.begin() + i);
+			continue;
+		}
+		auto& result = *job.result;
+		while (job.index < result.batches.size() && upload.msF() < 2.0)
+		{
+			auto& batch = result.batches[job.index++];
+			const auto color = batch.materialKey >= 100 ? detailColorForKey(batch.materialKey) : buildingColor(static_cast<BuildingType>(batch.materialKey));
+			job.uploaded << BuildingBatch{batch.materialKey, color, Mesh{batch.meshData}};
+			batch.meshData = {};
+		}
+		while (job.index == result.batches.size() && job.farIndex < result.farBatches.size() && upload.msF() < 2.0)
+		{
+			auto& batch = result.farBatches[job.farIndex++];
+			job.uploadedFar << StaticModelBatch{Mesh{batch.geometry}, batch.material, static_cast<uint32>(batch.geometry.indices.size())};
+			batch.geometry = {};
+		}
+		if (job.index == result.batches.size() && job.farIndex == result.farBatches.size())
+		{
+			m_buildingMeshCache[job.key] = std::move(job.uploaded);
+			m_farBuildings[job.key] = FarBuildings{std::move(job.uploadedFar), result.bounds, result.farCount, result.largestDimension,
+				result.farDistanceBounds.value_or(result.bounds)};
+			if (result.detailBounds) { m_buildingDetailBounds[job.key] = *result.detailBounds; }
+			else { m_buildingDetailBounds.erase(job.key); }
+			if (!result.accessRecords.isEmpty()) { DBG_LOG(U"[ResidentialAccess] key={} paths={}"_fmt(job.key, result.accessRecords.size())); }
+			m_residentialAccessEntries[job.key] = std::move(result.accessRecords);
+			m_buildingModelCache[job.key] = std::move(result.instances);
+			m_lotTreeCache[job.key] = std::move(result.trees);
+			++m_geometryRevision;
+			DBG_LOG(U"[BuildingStreaming] key={} workerMs={:.2f} uploadMs={:.2f} excludedTrees={}"_fmt(job.key, result.milliseconds, upload.msF(), result.excludedTrees));
+			m_buildingJobs.erase(m_buildingJobs.begin() + i);
+		}
+		break;
+	}
+}
+
+void WorldRenderer::rebuildBuildingMeshes(Key key, const Chunk& chunk, const World& world, const RoadNetwork& roads)
+{
+	if (!m_cpuBuildingAssets) { preloadBuildingModels(); }
+	BuildingJob job{key, m_terrainEpoch, m_terrainRevisions[key], {}};
+	job.result = buildBuildingMeshData(buildingSnapshot(key, chunk, world, roads), *m_cpuBuildingAssets, !m_asyncTerrain);
+	m_buildingJobs << std::move(job);
+	while (!m_buildingJobs.isEmpty()) { uploadCompletedBuildings(); }
+}
+
+void WorldRenderer::rebuildBuildingProxy(Key key, const Chunk& chunk, const World& world)
+{
+	LandscapeGeometry groups;
+	HashTable<int,ColorF> colors;
+	HashTable<uint64,MeshData> landmarkGeometry;
+	HashTable<uint64,Material> landmarkMaterials;
+	BuildingProxyChunk proxy;
+	const auto origin = chunk.worldOrigin();
+	if (!chunk.buildingGrid.isEmpty()) for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
+	{
+		const auto& b = chunk.buildingGrid[{col, row}];
+		if (b.type == BuildingType::None || b.type == BuildingType::Farmland || b.type == BuildingType::Parking || b.type == BuildingType::ParkBuilding) { continue; }
+		++proxy.count;
+		const float x = static_cast<float>(origin.x + (col + .5) * CHUNK_SIZE / ZONE_CELLS) + b.offsetX;
+		const float z = static_cast<float>(origin.z + (row + .5) * CHUNK_SIZE / ZONE_CELLS) + b.offsetZ;
+		if (b.type == BuildingType::UrbanHousePair)
+		{
+			appendUrbanHousePair(groups,world,b,x,z,cellVisualHash(chunk.coord,col,row,8841),true);
+			continue;
+		}
+		if (b.type == BuildingType::IndustrialWarehouse)
+		{
+			appendIndustrialWarehouse(groups,world,b,x,z,true);
+			continue;
+		}
+		const float ground = buildingBaseHeight(world,b,x,z);
+		if (isObjBuildingType(b.type))
+		{
+			const uint8 variant = buildingModelVariant(b.type,chunk.coord.x * ZONE_CELLS + col,chunk.coord.y * ZONE_CELLS + row);
+			const uint32 assetId = (static_cast<uint32>(b.type) << 8) | variant;
+			const auto& asset = m_cpuBuildingAssets->at(assetId);
+			const float scale = normalizedObjScale(b.type,asset.bounds,asset.scale);
+			// Sparse large landmarks keep their actual roofs, wings and baked facade materials.
+			const bool landmark = b.type == BuildingType::OfficeTower || b.type == BuildingType::CityHall
+				|| b.type == BuildingType::ShoppingMall || b.type == BuildingType::Hospital || b.type == BuildingType::School;
+			if (landmark && !asset.farGeometry.isEmpty())
+			{
+				for (size_t part = 0; part < asset.farGeometry.size(); ++part)
+				{
+					const uint64 materialId = (static_cast<uint64>(assetId) << 32) | part;
+					auto geometry = asset.farGeometry[part].geometry;
+					geometry.scale(scale).rotate(Quaternion::RotateY(-b.angle)).translate(Float3{x,ground,z});
+					appendMeshData(landmarkGeometry[materialId],geometry);
+					landmarkMaterials[materialId] = asset.farGeometry[part].material;
+				}
+				continue;
+			}
+			for (int part = 0; part < 2; ++part)
+			{
+				const int materialId = 10000 + static_cast<int>(assetId) * 2 + part;
+				auto geometry = part == 0 ? asset.proxy.wall : asset.proxy.roof;
+				geometry.scale(scale).rotate(Quaternion::RotateY(-b.angle)).translate(Float3{x,ground,z});
+				appendMeshData(groups[materialId],geometry);
+				colors[materialId] = part == 0 ? asset.proxy.wallColor : asset.proxy.roofColor;
+			}
+			continue;
+		}
+		const float width = buildingFootprintXZ(b.type), height = buildingHeight(b.type);
+		if (height > 0 && width > 0)
+		{
+			appendRotatedBox(groups[static_cast<int>(b.type)],x,ground + height * .5f,z,width,height,width,b.angle);
+		}
+	}
+	for (auto& [material,geometry] : groups.meshes)
+	{
+		const ColorF color = material >= 10000 ? colors.at(material)
+			: material >= 100 ? detailColorForKey(material) : buildingColor(static_cast<BuildingType>(material));
+		proxy.triangles += geometry.indices.size();
+		for (auto& slice : MeshUploadSlices::split(std::move(geometry))) { proxy.solids << BuildingBatch{material,color,Mesh{slice}}; }
+	}
+	for (auto& [materialId,geometry] : landmarkGeometry)
+	{
+		proxy.triangles += geometry.indices.size();
+		for (auto& slice : MeshUploadSlices::split(std::move(geometry)))
+		{
+			proxy.landmarks << StaticModelBatch{Mesh{slice},landmarkMaterials[materialId],static_cast<uint32>(slice.indices.size())};
+		}
+	}
+	m_buildingProxyCache[key] = std::move(proxy);
+	m_proxyRevisions[key] = chunk.contentRevision;
+}
+
+void WorldRenderer::drawBuildingProxy(Key key)
+{
+	if (const auto found = m_buildingProxyCache.find(key); found != m_buildingProxyCache.end())
+	{
+		const ScopedCustomShader3D shader{m_buildingShader};
+		m_buildingTint->variant = Float4{0, 0, 0, 0};
+		Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
+		const auto& proxy = found->second;
+		m_buildingsConsidered += proxy.count;
+		for (const auto& batch : proxy.solids)
+		{
+			if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
+			batch.mesh.draw(batch.color); ++m_buildingDrawCalls;
+		}
+		for (const auto& batch : proxy.landmarks)
+		{
+			if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
+			batch.draw(); ++m_buildingDrawCalls;
+		}
+		m_buildingsSubmitted += proxy.count;
+		m_buildingTriangles += proxy.triangles;
+	}
+}
+
+void WorldRenderer::prepareWorld(const World& world, const RoadNetwork& roads)
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	primeAllChunkSubtractorCaches(roads);
+	m_buildingProxyCache.clear();
+	for (int z = 0; z < WORLD_CHUNKS; ++z) for (int x = 0; x < WORLD_CHUNKS; ++x)
+	{
+		if (const auto* chunk = world.getChunk({x, z})) { rebuildBuildingProxy(chunkCoordToKey(chunk->coord), *chunk, world); }
+	}
+	m_regionalTerrain.clear();
+	for (const auto& batch : RegionalTerrain::batches(RegionalTerrain::build(world)))
+	{
+		if (!batch.data.indices.isEmpty()) { m_regionalTerrain << TerrainMeshBatch{batch.materialKey, DynamicMesh{batch.data}}; }
+	}
+	DBG_LOG(U"[WorldPreload] proxies={} totalMs={:.2f}"_fmt(m_buildingProxyCache.size(), timer.msF()));
 }

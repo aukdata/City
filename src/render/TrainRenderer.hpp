@@ -13,6 +13,8 @@ class TrainRenderer
 public:
 	// 線路の静的描画と列車の動的描画を分け、線路側だけ個別キャッシュできる構成にする。
 	/// @brief 線路を描画する
+	/// @brief Prepare both track tiers, facilities and rolling-stock assets during loading.
+	void preloadGeometry(const TrainNetwork& network,const World& world);
 	void renderTracks(const TrainNetwork& network,const World& world,Vec3 eye,const RoadNetwork& roads);
 
 	/// @brief 列車を描画する

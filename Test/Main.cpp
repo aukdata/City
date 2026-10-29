@@ -7,6 +7,8 @@
 #include "TestCases.hpp"
 #include "TestRunner.hpp"
 
+void registerSourceWaterTests(TestRunner& runner);
+
 void Main()
 {
 	TestRunner runner;
@@ -40,6 +42,7 @@ void Main()
 	registerRuralVisualTests(runner);
 	registerTreeStreamingTests(runner);
 	registerComprehensiveTests(runner);
+	registerCoreRefactoringTests(runner);
 	registerRefactoringTests(runner);
 	registerIntegrationRefactoringTests(runner);
 	registerCityHudTests(runner);
@@ -47,6 +50,7 @@ void Main()
 	registerMountainRoadTests(runner);
 	registerDrivingTests(runner);
 	registerSoundEffectsTests(runner);
+	registerSourceWaterTests(runner);
 	const int exitCode = runner.run();
 	::_exit(exitCode);
 }

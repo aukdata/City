@@ -89,7 +89,7 @@ namespace UrbanGroundPreview
 				{
 					if (patch.polygon.size()>=3 && Polygon{patch.polygon}.boundingRect().intersects(retained)) { chunk->landPatches << patch; }
 				}
-				chunk->meshDirty=true;
+				chunk->markMeshDirty();
 			}
 			world.update(eye);
 			report[U"fixture"]=U"cropped actual generated regional-hub street";
@@ -179,7 +179,7 @@ namespace UrbanGroundPreview
 						return patch.sourceParcelKey<0 && pockets.any([&](const Array<Vec2>& outline) { return patch.polygon==outline; });
 					});
 				}
-				chunk->meshDirty=true;
+				chunk->markMeshDirty();
 			}
 			Optional<RoadNetwork> candidateRoads;
 			Optional<VillageGutterPreview::CandidateSelection> selection;
