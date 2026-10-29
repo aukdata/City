@@ -4,6 +4,8 @@
 #include "StreetProfile.hpp"
 #include "SettlementFringe.hpp"
 #include "NewTownLayout.hpp"
+#include "StreetBlocks.hpp"
+#include "ParcelRoadIndex.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../world/World.hpp"
 #include "../debug/DebugLog.hpp"
@@ -1906,6 +1908,147 @@ namespace DistrictRoads
 		DBG_LOG(U"[BlockAlleys] town={} alleys={}"_fmt(settlementIndex,alleyCount));
 		DBG_LOG(U"[SettlementPlan] index={} origin={} scale={} extent=({}, {}) nodes={} entrances={} connected={} station={}"_fmt(
 			settlementIndex,UrbanMorphology::originName(plan.origin),plan.scale,halfExtent.x,halfExtent.y,n*rows,arterialWorkNodes.size(),connectedOuterGridPoints.size(),plan.station.has_value()));
+	}
+
+	HashSet<int> subdivideDeepBlocks(const Array<MapGenerator::Settlement>& settlements, const World& world,
+		RoadNetwork& network, const TrainNetwork& railway)
+	{
+		// 両側に1列ずつ宅地（奥行き約32m）を取っても内側に空地が残る深さから分割する。
+		constexpr double kMinimumDepth = 84, kMinimumLength = 60, kMaximumLength = 420;
+		constexpr double kEndClearance = 9, kHalfWidth = 2.6, kMaximumGrade = .12, kEndpointSnap = 9;
+		constexpr int kPasses = 3;
+		const Stopwatch timer{StartImmediately::Yes};
+		HashSet<int> lanesAdded;
+		int added = 0, rejectedCrossing = 0, rejectedTerrain = 0, rejectedEdge = 0;
+		const auto nearestOnEdges = [&](Vec2 point, int& edgeId, float& parameter)
+		{
+			double best = Math::Inf; edgeId = -1;
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id < 0 || edge.useElevation || edge.tunnel) { continue; }
+				const auto curve = network.getBezier(edge.id); if (!curve) { continue; }
+				const Vec2 a{curve->p0.x, curve->p0.z}, b{curve->p3.x, curve->p3.z};
+				if (Min(a.x, b.x) - 40 > point.x || Max(a.x, b.x) + 40 < point.x || Min(a.y, b.y) - 40 > point.y || Max(a.y, b.y) + 40 < point.y) { continue; }
+				constexpr int kSamples = 48;
+				for (int i = 0; i <= kSamples; ++i)
+				{
+					const float t = static_cast<float>(i) / kSamples; const Vec3 p = curve->evaluate(t);
+					const double distance = Vec2{p.x, p.z}.distanceFrom(point);
+					if (distance < best) { best = distance; edgeId = edge.id; parameter = t; }
+				}
+			}
+			return best;
+		};
+		for (int pass = 0; pass < kPasses; ++pass)
+		{
+			ParcelRoadIndex occupied{network, true}; occupied.addRailway(railway);
+			struct Lane { Vec2 from, to; };
+			Array<Lane> lanes;
+			for (const auto& block : StreetBlocks::collect(network))
+			{
+				const MapGenerator::Settlement* town = nullptr;
+				for (const auto& candidate : settlements)
+				{
+					if (candidate.plan.origin == UrbanMorphology::Origin::Planned) { continue; }
+					const Vec2 delta = block.center - candidate.center;
+					const Vec2 local{delta.dot(candidate.gridAxisX), delta.dot(candidate.gridAxisZ)};
+					if (Abs(local.x) <= candidate.plan.halfExtent.x && Abs(local.y) <= candidate.plan.halfExtent.y) { town = &candidate; break; }
+				}
+				if (!town) { continue; }
+				double uMin = Math::Inf, uMax = -Math::Inf, vMin = Math::Inf, vMax = -Math::Inf;
+				for (const Vec2 point : block.outline)
+				{
+					const Vec2 delta = point - block.center;
+					uMin = Min(uMin, delta.dot(town->gridAxisX)); uMax = Max(uMax, delta.dot(town->gridAxisX));
+					vMin = Min(vMin, delta.dot(town->gridAxisZ)); vMax = Max(vMax, delta.dot(town->gridAxisZ));
+				}
+				const bool alongX = uMax - uMin >= vMax - vMin;
+				const double length = alongX ? uMax - uMin : vMax - vMin, depth = alongX ? vMax - vMin : uMax - uMin;
+				if (depth < kMinimumDepth || length < kMinimumLength) { continue; }
+				// 長辺と平行に短辺方向の中央を通す。鉄道や川が街区を横切る場合は、ずらした位置や直交方向も試す。
+				const Vec2 longAxis = alongX ? town->gridAxisX : town->gridAxisZ, shortAxis = alongX ? town->gridAxisZ : town->gridAxisX;
+				const double shortMin = alongX ? vMin : uMin, shortMax = alongX ? vMax : uMax, longMin = alongX ? uMin : vMin, longMax = alongX ? uMax : vMax;
+				struct Candidate { Vec2 major, minor, origin; };
+				Array<Candidate> candidates;
+				for (const double fraction : {.5, .34, .66, .25, .75}) { candidates << Candidate{longAxis, shortAxis, block.center + shortAxis * Math::Lerp(shortMin, shortMax, fraction)}; }
+				if (length >= kMinimumDepth * 2) { for (const double fraction : {.5, .34, .66}) { candidates << Candidate{shortAxis, longAxis, block.center + longAxis * Math::Lerp(longMin, longMax, fraction)}; } }
+				Optional<Lane> chosen;
+				bool anyCrossing = false, anyTerrain = false;
+				for (const auto& candidate : candidates)
+				{
+					const Vec2 major = candidate.major, minor = candidate.minor, origin = candidate.origin;
+					Optional<double> before, after;
+					for (size_t i = 0; i < block.outline.size(); ++i)
+					{
+						const Vec2 a = block.outline[i], b = block.outline[(i + 1) % block.outline.size()];
+						const double da = (a - origin).dot(minor), db = (b - origin).dot(minor);
+						if ((da > 0) == (db > 0) || Abs(da - db) < 1e-9) { continue; }
+						const double t = (a.lerp(b, da / (da - db)) - origin).dot(major);
+						if (t < 0 && (!before || t > *before)) { before = t; }
+						if (t >= 0 && (!after || t < *after)) { after = t; }
+					}
+					if (!before || !after || *after - *before < kMinimumLength || *after - *before > kMaximumLength) { continue; }
+					const Vec2 from = origin + major * *before, to = origin + major * *after;
+					// 両端の接続部を除いた路地の本体が、他の道路・鉄道・駅用地と重ならないこと。
+					bool crossing = false;
+					const double span = from.distanceFrom(to);
+					for (double distance = kEndClearance; distance + kEndClearance < span && !crossing; distance += 16)
+					{
+						const Vec2 a = from + major * distance, b = from + major * Min(span - kEndClearance, distance + 16);
+						crossing = occupied.overlaps(ParcelGeometry::Quad{a - minor * kHalfWidth, b - minor * kHalfWidth, b + minor * kHalfWidth, a + minor * kHalfWidth});
+					}
+					if (crossing) { anyCrossing = true; continue; }
+					bool terrain = true; double previous = world.sampleHeight(static_cast<float>(from.x), static_cast<float>(from.y));
+					for (double distance = 8; distance <= span && terrain; distance += 8)
+					{
+						const Vec2 point = from + major * Min(distance, span);
+						const double height = world.sampleHeight(static_cast<float>(point.x), static_cast<float>(point.y));
+						terrain = Abs(height - previous) / 8 <= kMaximumGrade && height > world.waterPlanningHeight(point.x, point.y) + 1;
+						previous = height;
+					}
+					if (!terrain) { anyTerrain = true; continue; }
+					chosen = Lane{from, to};
+					break;
+				}
+				if (!chosen) { rejectedCrossing += anyCrossing; rejectedTerrain += anyTerrain && !anyCrossing; continue; }
+				const Vec2 from = chosen->from, to = chosen->to;
+				lanes << Lane{from, to};
+			}
+			int passAdded = 0;
+			for (const auto& lane : lanes)
+			{
+				// 端点を既存の街路へつなぐ。交差点の近くでは新しい節点を作らず既存の節点を使う。
+				const auto attach = [&](Vec2 point) -> int
+				{
+					int edgeId = -1; float parameter = 0;
+					if (nearestOnEdges(point, edgeId, parameter) > 3) { return -1; }
+					const auto* edge = network.getEdge(edgeId);
+					for (const int nodeId : {edge->nodeA, edge->nodeB})
+					{
+						const Vec3 node = network.getNode(nodeId)->position;
+						if (Vec2{node.x, node.z}.distanceFrom(point) < kEndpointSnap) { return nodeId; }
+					}
+					return network.splitEdgeAtParameter(edgeId, parameter);
+				};
+				const int a = attach(lane.from), b = attach(lane.to);
+				if (a < 0 || b < 0 || a == b) { ++rejectedEdge; continue; }
+				const Vec3 start = network.getNode(a)->position, end = network.getNode(b)->position;
+				if (const auto id = network.addEdge(a, b, start + (end - start) / 3, end - (end - start) / 3, RoadType::LocalRoad, 2))
+				{
+					auto profile = GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);
+					profile.laneWidth = GenerationSettings::get().districtRoads_alleyLaneWidth; profile.shoulder = GenerationSettings::get().districtRoads_alleyShoulderWidth;
+					GeneratedStreet::apply(*network.getEdge(*id), profile);
+					// 道路の後処理は済んでいるので、ここで供用中にする。
+					network.getEdge(*id)->edgeState = EdgeState::Open;
+					lanesAdded.insert(*id);
+					++passAdded;
+				}
+			}
+			added += passAdded;
+			if (passAdded == 0) { break; }
+		}
+		DBG_LOG(U"[DeepBlockLanes] added={} rejectedCrossing={} rejectedTerrain={} rejectedEdge={} ms={:.0f}"_fmt(added, rejectedCrossing, rejectedTerrain, rejectedEdge, timer.msF()));
+		return lanesAdded;
 	}
 
 	void generateCastleTown(uint64 seed,int index,MapGenerator::Settlement& settlement,const KaidoSegment& kaido,const World& world,RoadNetwork& network)

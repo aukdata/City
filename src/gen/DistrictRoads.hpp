@@ -3,6 +3,7 @@
 
 class World;
 class RoadNetwork;
+class TrainNetwork;
 
 /// @brief 集落タイプ別の地区内道路生成
 /// @details 城下町（格子＋街道クランク＋城）／宿場町（はしご状）／農村（櫛状）の
@@ -43,6 +44,12 @@ namespace DistrictRoads
 	/// @brief 成り立ち・地形・成長段階の共通計画から街路を生成する
 	void generateSettlement(uint64 seed, int settlementIndex, MapGenerator::Settlement& settlement,
 		const KaidoSegment& kaido, const World& world, RoadNetwork& network);
+
+	/// @brief 鉄道敷設後、街路のない奥行きの深い街区を、長辺方向の路地で二分して接道できる宅地を増やす。
+	/// @details 路地は街区内だけを通り、既存の道路・鉄道・水域・急斜面を横切らない。計画住宅地は設計済みなので対象外。
+	/// @return 追加した路地のエッジ id。地形への摺り付けは呼び出し側で行う。
+	HashSet<int> subdivideDeepBlocks(const Array<MapGenerator::Settlement>& settlements, const World& world,
+		RoadNetwork& network, const TrainNetwork& railway);
 
 	void straightenCastleTownRoads(
 		const Array<MapGenerator::Settlement>& settlements,

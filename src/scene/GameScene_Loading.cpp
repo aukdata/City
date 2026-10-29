@@ -1,6 +1,8 @@
 ﻿#include <exception>
 #include "../debug/DebugLog.hpp"
 #include "GameScene.hpp"
+#include "../gen/DistrictRoads.hpp"
+#include "../gen/RoadTerrainFit.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../gen/SettlementNames.hpp"
 
@@ -48,6 +50,12 @@ void GameScene::initNewGame()
 		if (options.enabled(Element::Railway))
 		{
 			MapGenerator::setupTrain(m_trainNetwork, m_world, m_districts, &m_network);
+		}
+		if (options.enabled(Element::Roads))
+		{
+			// 鉄道用地が決まってから、街路のない深い街区に路地を通す。
+			const auto lanes = DistrictRoads::subdivideDeepBlocks(m_districts, m_world, m_network, m_trainNetwork);
+			if (!lanes.empty()) { RoadTerrainFit::apply(m_network, m_world, lanes); }
 		}
 		m_districtHierarchy.generate(m_world,m_districts);
 		m_network.recomputeAllAutoSigns();
