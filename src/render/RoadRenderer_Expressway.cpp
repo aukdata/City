@@ -18,31 +18,41 @@ namespace
 		const Vec2 right{ tangent.y, -tangent.x };
 		const float yaw = static_cast<float>(std::atan2(tangent.y, tangent.x));
 		const auto at = [&](double along, double lateral, double up) { return Vec3{ base.x + tangent.x * along + right.x * lateral, base.y + up, base.z + tangent.y * along + right.y * lateral }; };
-		// 大屋根と庇、4 本の柱。
-		appendOrientedBox(meshes[Canopy], at(0, 0, height), Float3{ length, .55f, width }, yaw);
-		appendOrientedBox(meshes[Steel], at(0, 0, height - .42), Float3{ length * .96f, .3f, width * .96f }, yaw);
-		for (const double along : { -length * .38, length * .38 })
-		{
-			for (const double lateral : { -width * .42, width * .42 })
-			{
-				appendOrientedBox(meshes[Steel], at(along, lateral, height * .5), Float3{ .45f, height, .45f }, yaw);
-			}
-		}
-		// レーン両側の分離島と料金収受ブース。遮断棒は上げた状態。
-		// レーン数は屋根幅から決める（ETC・一般の混在。CSL 料金所の 5m 間隔）。
+		// レーン数は屋根幅から決める（CSL 料金所の 5m 間隔）。分離島ごとにブースと柱を置く。
 		const int lanes = Max(1, static_cast<int>(width / 5.0f));
+		const double laneWidth = width / lanes;
+		// 薄い大屋根と、前後の妻面に回した濃色の幕板（レーン表示板を取り付ける帯）。
+		appendOrientedBox(meshes[Canopy], at(0, 0, height + .2), Float3{ length, .35f, width + 2.0f }, yaw);
+		appendOrientedBox(meshes[Steel], at(0, 0, height - .1), Float3{ length * .97f, .25f, width + 1.6f }, yaw);
+		for (const double end : { -1.0, 1.0 })
+		{
+			appendOrientedBox(meshes[Roof], at(end * (length * .5 + .05), 0, height - .45), Float3{ .12f, 1.3f, width + 2.0f }, yaw);
+		}
 		for (int island = 0; island <= lanes; ++island)
 		{
-			const double lateral = -width * .5 + width * island / lanes;
-			appendOrientedBox(meshes[Concrete], at(0, lateral, .14), Float3{ length * .8f, .28f, 1.3f }, yaw);
-			appendOrientedBox(meshes[Booth], at(-length * .08, lateral, 1.45), Float3{ 2.2f, 2.3f, 1.1f }, yaw);
-			appendOrientedBox(meshes[Steel], at(length * .22, lateral, 1.7), Float3{ .12f, 3.0f, .12f }, yaw);
+			const double lateral = -width * .5 + laneWidth * island;
+			// 分離島: 縁石の立ち上がりと、上流側の黄黒の衝撃吸収材。
+			appendOrientedBox(meshes[Concrete], at(0, lateral, .16), Float3{ length * .86f, .32f, 1.2f }, yaw);
+			appendOrientedBox(meshes[Housing], at(-length * .45, lateral, .55), Float3{ 1.4f, 1.1f, .9f }, yaw);
+			appendOrientedBox(meshes[CarDark], at(-length * .45 - .35, lateral, .55), Float3{ .25f, 1.12f, .92f }, yaw);
+			// 柱は島の上に立て、屋根の荷重を受ける。
+			for (const double along : { -length * .32, length * .32 }) { appendOrientedBox(meshes[Steel], at(along, lateral, height * .5), Float3{ .38f, height, .38f }, yaw); }
+			if (island == 0 || island == lanes) { continue; }
+			// 料金収受ブースと、レーン入口の信号（ETC 車線の可否表示）。
+			appendOrientedBox(meshes[Booth], at(-length * .05, lateral, 1.55), Float3{ 2.4f, 2.5f, 1.0f }, yaw);
+			appendOrientedBox(meshes[Glass], at(-length * .05, lateral, 2.0), Float3{ 2.0f, 1.0f, 1.02f }, yaw);
+			appendOrientedBox(meshes[CarDark], at(-length * .38, lateral, 1.6), Float3{ .3f, .6f, .3f }, yaw);
+			appendOrientedBox(meshes[General], at(-length * .38 - .16, lateral, 1.72), Float3{ .03f, .18f, .18f }, yaw);
 		}
-		// 入口正面の案内板（左: ETC 専用の紫、右: 一般の緑）。
-		appendOrientedBox(meshes[Etc], at(-length * .5 - .05, -width * .22, height - 1.1), Float3{ .08f, .95f, width * .38f }, yaw);
-		appendOrientedBox(meshes[General], at(-length * .5 - .05, width * .22, height - 1.1), Float3{ .08f, .95f, width * .38f }, yaw);
-		// ETC 路側アンテナ（CSL road_kit ETC20_DsrcAntenna）。
-		appendOrientedBox(meshes[Steel], at(-length * .3, 0, height - 1.0), Float3{ .5f, .35f, .9f }, yaw);
+		// 各レーンの入口側の幕板に表示板: 外側 2 レーンは一般（緑）、それ以外は ETC 専用（紫）。
+		for (int lane = 0; lane < lanes; ++lane)
+		{
+			const double lateral = -width * .5 + laneWidth * (lane + .5);
+			const bool general = lanes > 2 && (lane == 0 || lane == lanes - 1);
+			appendOrientedBox(meshes[general ? General : Etc], at(-length * .5 - .14, lateral, height - .45), Float3{ .05f, .95f, static_cast<float>(laneWidth * .8) }, yaw);
+			// ETC 路側アンテナ（CSL road_kit ETC20_DsrcAntenna）を各レーン上に吊る。
+			appendOrientedBox(meshes[Steel], at(-length * .3, lateral, height - .7), Float3{ .45f, .3f, .7f }, yaw);
+		}
 	}
 
 	/// @brief PA/SA: 本線側の駐車場（区画線と駐車車両）と、通路の外側のトイレ・売店棟。
