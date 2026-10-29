@@ -37,15 +37,11 @@
     "interchangeSpacing",
     "interchangeTownDistance",
     "interchangeEndMargin",
-    "interchangeClearance",
-    "interchangeApproachHeight",
-    "rampLength",
     "rampLaneWidth",
     "rampOuterShoulder",
     "rampInnerShoulder",
     "rampSpeed",
     "rampMaximumGrade",
-    "rampTerminalOffset",
     "rampDivergeAngle",
     "junctionFlyoverClearance",
     "junctionCrossingClearance",
@@ -70,7 +66,6 @@
     "tollGateWidth",
     "tollGateLength",
     "tollGateHeight",
-    "tollGateDistance",
     "signLateralMargin",
     "signPoleHeight",
     "delineatorSpacing",
@@ -85,7 +80,16 @@
     "noiseBarrierPanel",
     "noiseBarrierDistance",
     "noiseBarrierHeight",
-    "rampLightSpacing"
+    "rampLightSpacing",
+    "trumpetLoopRadius",
+    "trumpetLoopSpeed",
+    "trumpetNearRamp",
+    "trumpetFarMerge",
+    "trumpetLoopLead",
+    "trumpetStemLength",
+    "trumpetBridgeApex",
+    "trumpetLoopLift",
+    "tollStemLength"
   ],
   "properties": {
     "enabled": {
@@ -253,21 +257,6 @@
       "minimum": 200.0,
       "maximum": 10000.0
     },
-    "interchangeClearance": {
-      "type": "number",
-      "minimum": 4.0,
-      "maximum": 15.0
-    },
-    "interchangeApproachHeight": {
-      "type": "number",
-      "minimum": 4.0,
-      "maximum": 40.0
-    },
-    "rampLength": {
-      "type": "number",
-      "minimum": 150.0,
-      "maximum": 1500.0
-    },
     "rampLaneWidth": {
       "type": "number",
       "minimum": 2.5,
@@ -292,11 +281,6 @@
       "type": "number",
       "minimum": 0.01,
       "maximum": 0.12
-    },
-    "rampTerminalOffset": {
-      "type": "number",
-      "minimum": 30.0,
-      "maximum": 300.0
     },
     "rampDivergeAngle": {
       "type": "number",
@@ -418,11 +402,6 @@
       "minimum": 3.0,
       "maximum": 20.0
     },
-    "tollGateDistance": {
-      "type": "number",
-      "minimum": 10.0,
-      "maximum": 500.0
-    },
     "signLateralMargin": {
       "type": "number",
       "minimum": 0.0,
@@ -497,6 +476,51 @@
       "type": "number",
       "minimum": 10.0,
       "maximum": 200.0
+    },
+    "trumpetLoopRadius": {
+      "type": "number",
+      "minimum": 30.0,
+      "maximum": 200.0
+    },
+    "trumpetLoopSpeed": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 80.0
+    },
+    "trumpetNearRamp": {
+      "type": "number",
+      "minimum": 150.0,
+      "maximum": 2000.0
+    },
+    "trumpetFarMerge": {
+      "type": "number",
+      "minimum": 150.0,
+      "maximum": 2000.0
+    },
+    "trumpetLoopLead": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 1000.0
+    },
+    "trumpetStemLength": {
+      "type": "number",
+      "minimum": 120.0,
+      "maximum": 1000.0
+    },
+    "trumpetBridgeApex": {
+      "type": "number",
+      "minimum": 5.0,
+      "maximum": 20.0
+    },
+    "trumpetLoopLift": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 15.0
+    },
+    "tollStemLength": {
+      "type": "number",
+      "minimum": 40.0,
+      "maximum": 1000.0
     }
   }
 }

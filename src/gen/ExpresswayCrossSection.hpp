@@ -142,6 +142,37 @@ namespace ExpresswayCrossSection
 		finish(edge);
 	}
 
+	/// @brief 料金所の連絡路（往復 2+2 車線・中央に分離帯）の全幅。
+	inline float tollStemWidth()
+	{
+		const auto& c = GenerationSettings::get();
+		return 4 * c.expressway_rampLaneWidth + 2 * c.expressway_rampOuterShoulder + 1.0f + 2 * c.expressway_guardrailWidth;
+	}
+
+	/// @brief IC の料金所前後。A→B が本線から一般道へ出る向き（左側 2 車線）。
+	inline void applyTollStem(RoadEdge& edge)
+	{
+		using namespace detail;
+		const auto& c = GenerationSettings::get();
+		const float width = c.expressway_rampLaneWidth, separator = 1.0f;
+		edge.roadType = RoadType::Expressway;
+		edge.speedLimit = 40;
+		edge.lanes.clear();
+		for (int i = 0; i < 2; ++i) { edge.lanes << lane(-separator * .5f - (2 - i) * width, width, LaneDir::Forward, i == 0 ? LineType::SolidWhite : LineType::DashedWhite, i == 1 ? LineType::SolidWhite : LineType::DashedWhite); }
+		for (int i = 0; i < 2; ++i) { edge.lanes << lane(separator * .5f + i * width, width, LaneDir::Backward, i == 0 ? LineType::SolidWhite : LineType::DashedWhite, i == 1 ? LineType::SolidWhite : LineType::DashedWhite); }
+		edge.parts.clear();
+		const float roadway = 2 * width, outer = separator * .5f + roadway;
+		edge.parts << strip(RoadPartType::Guardrail, -outer - c.expressway_rampOuterShoulder - c.expressway_guardrailWidth, c.expressway_guardrailWidth, U"guardrail_steel");
+		edge.parts << strip(RoadPartType::Shoulder, -outer - c.expressway_rampOuterShoulder, c.expressway_rampOuterShoulder, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Roadbed, -outer, roadway, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Median, -separator * .5f, separator, U"median_concrete");
+		edge.parts << strip(RoadPartType::Roadbed, separator * .5f, roadway, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Shoulder, outer, c.expressway_rampOuterShoulder, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Guardrail, outer + c.expressway_rampOuterShoulder, c.expressway_guardrailWidth, U"guardrail_steel");
+		edge.parts << repeat(-outer - c.expressway_rampOuterShoulder - c.expressway_guardrailWidth - .6f, U"expressway_light", c.expressway_rampLightSpacing);
+		finish(edge);
+	}
+
 	/// @brief CSL JP Bypass 24m。車線 3.25m・歩道 3m・路肩 1.75m、中央分離帯 8m（2+1 は 4.75m）。
 	inline void applyBypass(RoadEdge& edge, BypassVariant variant)
 	{
