@@ -1425,7 +1425,16 @@ namespace ExpresswayNetwork
 					{
 						return town.kind != MapGenerator::SettlementKind::RuralSettlement && middle.distanceFrom(town.center) < town.radius + c.expressway_noiseBarrierDistance;
 					});
-					ExpresswayCrossSection::applyCarriageway(*edge, { .emergencyPhone = way->phones.contains(id), .noiseBarrier = urban });
+					// 路肩外側の地盤が路面より高い区間を切土とみなす（区間の過半）。
+					const auto curve = roads.getBezier(id);
+					int above = 0, samples = 0;
+					for (float arc = 0; arc <= edge->length; arc += 20, ++samples)
+					{
+						const Vec3 point = curve->positionAt(arc);
+						const Vec3 outer = point - tangentToRight(curve->tangentAt(arc)) * (ExpresswayCrossSection::carriagewayOffset() + c.expressway_outerShoulder + 2);
+						above += groundAt(world, flat(outer)) > point.y + 1.0;
+					}
+					ExpresswayCrossSection::applyCarriageway(*edge, { .emergencyPhone = way->phones.contains(id), .noiseBarrier = urban, .cutting = above * 2 > samples });
 				}
 			}
 		}

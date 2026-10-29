@@ -68,6 +68,7 @@ namespace ExpresswayCrossSection
 	{
 		bool emergencyPhone = false; ///< 1km ごとの非常電話をこの区間の中央へ置く（トンネル内は 200m 間隔）
 		bool noiseBarrier = false;   ///< 市街地に近い区間の遮音壁
+		bool cutting = false;        ///< 切土区間。法面は地形の掘削で表れるため盛土用の法面を付けない
 	};
 
 	/// @details 道路構造令 第1種第2級: 車線 3.5m、左側路肩 2.5m、中央帯 4.5m（側帯 0.75m×2＋分離帯 3.0m）。
@@ -89,7 +90,7 @@ namespace ExpresswayCrossSection
 		edge.parts.clear();
 		const bool viaduct = edge.useElevation && !edge.tunnel;
 		float x = -half - c.expressway_outerShoulder - c.expressway_guardrailWidth;
-		if (!viaduct) { edge.parts << strip(RoadPartType::Slope, x - c.expressway_slopeWidth, c.expressway_slopeWidth, U"slope_grass"); }
+		if (!viaduct && !options.cutting) { edge.parts << strip(RoadPartType::Slope, x - c.expressway_slopeWidth, c.expressway_slopeWidth, U"slope_grass"); }
 		edge.parts << strip(viaduct ? RoadPartType::Wall : RoadPartType::Guardrail, x, c.expressway_guardrailWidth, viaduct ? U"wall_concrete" : U"guardrail_steel"); x += c.expressway_guardrailWidth;
 		edge.parts << strip(RoadPartType::Shoulder, x, c.expressway_outerShoulder, U"roadbed_asphalt");
 		edge.parts << strip(RoadPartType::Roadbed, -half, half * 2, U"roadbed_asphalt");
