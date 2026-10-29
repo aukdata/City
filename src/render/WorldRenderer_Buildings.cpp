@@ -131,6 +131,12 @@ namespace
 		appendMeshData(dst, box);
 	}
 
+	/// @brief 住宅敷地の地表。Yard_PS が舗装と植栽の割合を拡散色のアルファで切り替える。
+	constexpr int kGardenYardMaterial = 137;
+	constexpr int kPavedYardMaterial = 139;
+	/// @brief 田畑のUVに載せる区画番号の数と間隔。間隔は1区画の大きさより十分広い。
+	constexpr uint32 kFieldVariants = 32;
+	constexpr double kFieldVariantSpan = 1024;
 	int landPatchMaterialKey(LandPatchType type, [[maybe_unused]] uint64 seed)
 	{
 		switch (type)
@@ -259,6 +265,7 @@ namespace
 			if (edge.lengthSq()>longest) { longest=edge.lengthSq();rowDirection=edge.normalized(); }
 		}
 		const Vec2 rowNormal{-rowDirection.y,rowDirection.x};
+		const uint32 fieldVariant=(patch.materialVariant>>3)%kFieldVariants;
 		Array<Vec2> outline = patch.polygon;
 		UrbanParcel::normalize(outline);
 		const Polygon shape{ outline };
@@ -297,8 +304,9 @@ namespace
 							vertex.tex = terrainUvAt(vertex.pos, materialKey);
 							if (materialKey==130 || materialKey==131)
 							{
+								// 区画ごとの作付けの違いを、行方向の座標に kFieldVariantSpan 単位の区画番号として載せる。
 								const Vec2 local=Vec2{vertex.pos.x,vertex.pos.z}-patch.polygon.front();
-								vertex.tex=Float2{static_cast<float>(local.dot(rowNormal)),static_cast<float>(local.dot(rowDirection))};
+								vertex.tex=Float2{static_cast<float>(local.dot(rowNormal)+kFieldVariantSpan*(fieldVariant+.5)),static_cast<float>(local.dot(rowDirection))};
 							}
 						}
 						Array<Array<TerrainClipVertex>> pieces{ piece };
@@ -340,8 +348,17 @@ namespace
 			|| patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil);
 		if (groups.surfaces && drawSurface)
 		{
-			MeshData& surface = groups[landPatchMaterialKey(patch.type, patch.materialVariant)];
-			appendLandPatchSurface(surface, world, patch, roadMasks);
+			int materialKey = landPatchMaterialKey(patch.type, patch.materialVariant);
+			if (patch.sourceParcelKey >= 0 && (patch.type == LandPatchType::ParcelGravel || patch.type == LandPatchType::GardenSoil))
+			{
+				// 住宅の敷地は茶色い裸地ではなく、駐車場の舗装・砂利と庭木・芝がまだらに混じる。
+				const int col = static_cast<int>(patch.sourceParcelKey & 255), row = static_cast<int>((patch.sourceParcelKey >> 8) & 255);
+				if (col < ZONE_CELLS && row < ZONE_CELLS && isResidentialBuildingType(chunk.buildingGrid[{ col, row }].type))
+				{
+					materialKey = patch.type == LandPatchType::GardenSoil ? kGardenYardMaterial : kPavedYardMaterial;
+				}
+			}
+			appendLandPatchSurface(groups[materialKey], world, patch, roadMasks);
 		}
 		const RectF bounds = boundsOfPolygon(patch.polygon);
 		const float cx = static_cast<float>(bounds.x + bounds.w * 0.5);
@@ -780,7 +797,9 @@ namespace
 		Grid<bool> blocked(ZONE_CELLS,ZONE_CELLS,false);
 		for (int row = 0; row < ZONE_CELLS; ++row) for (int col = 0; col < ZONE_CELLS; ++col)
 		{
-			if (chunk.zoneMap[{col,row}] == ZoneType::Unzoned && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
+			// 農業地域でも作付けのない土地には木立を置く。田畑そのものは下の区画マスクで除く。
+			const ZoneType zone=chunk.zoneMap[{col,row}];
+			if ((zone == ZoneType::Unzoned || zone == ZoneType::Agriculture) && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
 			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
 			{
 				if (InRange(col+dx,0,ZONE_CELLS-1) && InRange(row+dz,0,ZONE_CELLS-1)) { blocked[{col+dx,row+dz}] = true; }
@@ -802,16 +821,52 @@ namespace
 			const auto* source=world.getChunk({static_cast<int>(Floor(point.x/CHUNK_SIZE)),static_cast<int>(Floor(point.y/CHUNK_SIZE))});
 			if(!source) { return false; }
 			const int col=Clamp(static_cast<int>((point.x-source->coord.x*CHUNK_SIZE)/16),0,ZONE_CELLS-1),row=Clamp(static_cast<int>((point.y-source->coord.y*CHUNK_SIZE)/16),0,ZONE_CELLS-1);
-			if(!source->zoneMap.isEmpty() && source->zoneMap[{col,row}]!=ZoneType::Unzoned) { return false; }
+			const ZoneType zone=source->zoneMap.isEmpty() ? ZoneType::Unzoned : source->zoneMap[{col,row}];
+			if(zone!=ZoneType::Unzoned && zone!=ZoneType::Agriculture) { return false; }
 			const float x=static_cast<float>(point.x),z=static_cast<float>(point.y);
 			const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
+			// 農業地域の平地は耕作地・草地として残し、森は斜面にだけ広げる。
+			if(zone==ZoneType::Agriculture && slope<GenerationSettings::get().vegetation_flatClearingSlope) { return false; }
 			return VegetationProfile::habitat(world.sampleHeight(x,z),slope);
 		}};
+		// 田畑・宅地の上には木立を置かない。4m格子へ一度だけ塗る。
+		constexpr int kPatchCells=CHUNK_SIZE/4;
+		Grid<bool> covered(kPatchCells,kPatchCells,false);
+		const Vec2 chunkOrigin{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE};
+		for (const auto& patch:chunk.landPatches)
+		{
+			if (patch.polygon.size()<3) { continue; }
+			const Polygon shape{patch.polygon};const RectF bounds=shape.boundingRect().stretched(4);
+			const int left=Clamp(static_cast<int>(Floor((bounds.x-chunkOrigin.x)/4)),0,kPatchCells-1),right=Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunkOrigin.x)/4)),0,kPatchCells-1);
+			const int top=Clamp(static_cast<int>(Floor((bounds.y-chunkOrigin.y)/4)),0,kPatchCells-1),bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunkOrigin.y)/4)),0,kPatchCells-1);
+			for (int z=top;z<=bottom;++z) for (int x=left;x<=right;++x)
+			{
+				if (!covered[{x,z}] && shape.contains(chunkOrigin+Vec2{x*4+2.0,z*4+2.0})) { covered[{x,z}]=true; }
+			}
+		}
+		const auto clearOfPatches=[&](Vec2 point,double radius)
+		{
+			for (const Vec2 offset:{Vec2{0,0},Vec2{radius,0},Vec2{-radius,0},Vec2{0,radius},Vec2{0,-radius}})
+			{
+				const Vec2 local=(point+offset-chunkOrigin)/4;
+				const int x=static_cast<int>(Floor(local.x)),z=static_cast<int>(Floor(local.y));
+				if (InRange(x,0,kPatchCells-1) && InRange(z,0,kPatchCells-1) && covered[{x,z}]) { return false; }
+			}
+			return true;
+		};
 		int excludedByFacilities=0;
 		for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)
 		{
 			if (blocked[{col,row}]) { continue; }
-			const uint32 candidateCount=nearbyRoads[{col,row}].isEmpty() ? GenerationSettings::get().vegetation_interiorCandidates : GenerationSettings::get().vegetation_roadsideCandidates;
+			// 平地の木立は森の内部より密に植わり、樹冠がひとかたまりに見える。
+			const Vec2 cellCenter{chunk.coord.x*CHUNK_SIZE+(col+.5)*16,chunk.coord.y*CHUNK_SIZE+(row+.5)*16};
+			// 木立を平地に限る判定はこのチャンクの高さだけで行い、隣接チャンクの編集に左右されない。
+			const auto& h=chunk.heightMap;
+			const double cellRelief=(Max({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]})-Min({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]}))/16;
+			const bool groveGround=cellRelief<GenerationSettings::get().vegetation_flatClearingSlope;
+			const bool denseGrove=groveGround && VegetationProfile::copse(cellCenter)>.3;
+			const uint32 forestCandidates=nearbyRoads[{col,row}].isEmpty() ? GenerationSettings::get().vegetation_interiorCandidates : GenerationSettings::get().vegetation_roadsideCandidates;
+			const uint32 candidateCount=denseGrove ? Max(forestCandidates,GenerationSettings::get().vegetation_roadsideCandidates) : forestCandidates;
 			for (uint32 candidate=0;candidate<candidateCount;++candidate)
 			{
 				const uint32 hash=cellVisualHash(chunk.coord,col,row,179u+candidate*31u);
@@ -821,9 +876,13 @@ namespace
 				if (!rivers.vegetationAllowed(position,ground,7)) { continue; }
 				const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
 				const auto altitude=VegetationProfile::at(ground);
-				const double probability=altitude.trees*boundary.density(position)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
+				// 木立は平地に置く。斜面の森は森林帯の境界に任せる。
+				const double grove=ground>2 && groveGround ? VegetationProfile::copse(position) : 0.0;
+				// 木立のために増やした候補は木立だけに使い、森の密度は変えない。
+				const bool forestCandidate=candidate<forestCandidates;
+				const double probability=altitude.trees*Max(forestCandidate ? boundary.density(position) : 0.0,grove)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
 				const double draw=(hash%10000u)/10000.0;
-				const bool alpine=draw>=probability && draw<probability+altitude.alpine
+				const bool alpine=forestCandidate && draw>=probability && draw<probability+altitude.alpine
 					&& slope<=GenerationSettings::get().vegetation_maximumForestSlope;
 				if(draw>=probability && !alpine) { continue; }
 				const float scale=(GenerationSettings::get().vegetation_treeScaleMinimum+static_cast<float>((hash>>3)%29u)*.01f)*static_cast<float>(alpine ? 1 : altitude.treeScale);
@@ -835,7 +894,7 @@ namespace
 					const auto& road=roadMasks[roadIndex];
 					if (!TreeGeometry::clearOfCorridor(position,treeWidth,road.shape)) { excludedByFacilities+=road.facility;clear=false;break; }
 				}
-				if (!clear) { continue; }
+				if (!clear || !clearOfPatches(position,treeWidth*.4)) { continue; }
 				appendLandscapeTree(groups,position,ground,hash,treeWidth,(alpine ? GenerationSettings::get().vegetation_alpineHeight : cedar ? GenerationSettings::get().vegetation_cedarHeight : GenerationSettings::get().vegetation_broadleafHeight)*scale,cedar && !alpine,true);
 				if (candidate==0 && !alpine)
 				{
@@ -970,9 +1029,9 @@ namespace
 				}
 			}
 		}
-		if (patch.type == LandPatchType::GardenSoil)
+		// Side and rear boundaries leave the original model's street entrance unobstructed.
+		const auto appendBoundary = [&](int materialKey, float height, float thickness)
 		{
-			// Side and rear boundaries leave the original model's street entrance unobstructed.
 			for (size_t side = 0; groups.surfaces && side < patch.polygon.size(); ++side)
 			{
 				const Vec2 a = patch.polygon[side], b = patch.polygon[(side + 1) % patch.polygon.size()];
@@ -984,12 +1043,16 @@ namespace
 				{
 					const Vec2 position = a.lerp(b, (segment + 0.5) / pieces);
 					if (!clearOfRoad(position, length / pieces * 0.5 + 0.18)) { continue; }
-					appendRotatedBox(groups[123], static_cast<float>(position.x),
-						world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + 0.30f,
-						static_cast<float>(position.y), static_cast<float>(length / pieces), 0.60f, 0.12f,
+					appendRotatedBox(groups[materialKey], static_cast<float>(position.x),
+						world.sampleHeight(static_cast<float>(position.x), static_cast<float>(position.y)) + height * 0.5f,
+						static_cast<float>(position.y), static_cast<float>(length / pieces), height, thickness,
 						static_cast<float>(Atan2(b.y - a.y, b.x - a.x)));
 				}
 			}
+		};
+		if (patch.type == LandPatchType::GardenSoil)
+		{
+			appendBoundary(123, 0.60f, 0.12f);
 			for (int index = 0; groups.planting && index < 4; ++index)
 			{
 				const Vec2 position = center + inward * (half + 4.0 + (index / 2) * 5.0)
@@ -1002,6 +1065,9 @@ namespace
 		}
 		else if (patch.type == LandPatchType::ParcelGravel && isResidentialBuildingType(building.type))
 		{
+			// 戸建ての敷地境界はブロック塀か生垣で区切られる。
+			if ((patch.materialVariant % 3u) != 0u) { appendBoundary(123, 0.60f, 0.12f); }
+			else { appendBoundary(106, 0.95f, 0.45f); }
 			// 砂利敷きの住宅地にも隣地境界沿いと裏庭に庭木を残す。
 			for (int index = 0; groups.planting && index < 4; ++index)
 			{
@@ -1851,6 +1917,19 @@ void WorldRenderer::drawCachedBuildings(Key key)
 					const ScopedRenderStates3D state{BlendState::NonPremultiplied,RasterizerState::SolidCullNone,DepthStencilState::DepthTest};
 					batch.mesh.draw(TextureAsset(Asset::Gravel),ColorF{1});
 				}
+				continue;
+			}
+			if (material==kGardenYardMaterial || material==kPavedYardMaterial)
+			{
+				static const PixelShader shader=[]
+				{
+					const PixelShader result{HLSL{U"shaders/hlsl/city_forward.hlsl",U"Yard_PS"}};
+					DBG_LOG(U"[YardRender] shader={} path=shaders/hlsl/city_forward.hlsl entry=Yard_PS"_fmt(static_cast<bool>(result)));
+					return result;
+				}();
+				Optional<ScopedCustomShader3D> yardShader;
+				if (shader) { yardShader.emplace(shader); }
+				batch.mesh.draw(TextureAsset(Asset::Gravel),ColorF{1,material==kPavedYardMaterial ? 1.0 : 0.5});
 				continue;
 			}
 			if ((material==130 && m_fieldShader) || (material==131 && m_paddyShader))

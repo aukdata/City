@@ -49,7 +49,7 @@ namespace LandscapeMaterials
 		case 117: return ColorF{ 0.54, 0.54, 0.50 };
 		case 118: return ColorF{ 0.32, 0.30, 0.23 };
 		case 119: return ColorF{ 0.38, 0.42, 0.44 };
-		case 120: return ColorF{ 0.25, 0.24, 0.20 };
+		case 120: return ColorF{ 0.50, 0.62, 0.95 };
 		case 121: return ColorF{ 0.34, 0.31, 0.22 };
 		case 122: return ColorF{ 0.26, 0.30, 0.18 };
 		case 123: return ColorF{ 0.28, 0.29, 0.26 };

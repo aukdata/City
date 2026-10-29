@@ -183,9 +183,44 @@ float4 Shading_PS(s3d::PSInput input) : SV_TARGET
 	return shadeCity(input, GetDiffuseColor(input.uv));
 }
 
+float hash21(float2 p)
+{
+	return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
+}
+float valueNoise(float2 p)
+{
+	float2 i = floor(p), f = frac(p);
+	f = f * f * (3 - 2 * f);
+	return lerp(lerp(hash21(i), hash21(i + float2(1, 0)), f.x), lerp(hash21(i + float2(0, 1)), hash21(i + 1), f.x), f.y);
+}
+// Unmanaged Japanese land is not lawn: summer weeds, dry grass, bare earth and dark scrub form a mottled cover.
+// Town lots and gardens shift the same mosaic drier or greener, so 16 m material cells do not show as tiles.
+// Fine octaves fade out where a texel covers them, so distant land stays calm instead of shimmering.
+float3 groundCover(float2 p, float cover, float steepness, float footprint)
+{
+	float dryness = cover > .625 ? 0 : (cover > .375 ? .08 : -.12);
+	float fineWeight = 1 - smoothstep(1.5, 6, footprint);
+	float large = valueNoise(p / 140), mid = valueNoise(p / 41 + 17.3);
+	float fine = lerp(.5, valueNoise(p / 11 + 41.7) * .7 + valueNoise(p / 3.7 + 7.1) * .3, fineWeight);
+	float patches = valueNoise(p / 23 + 91.3);
+	float3 weeds = float3(.062, .100, .024), olive = float3(.092, .104, .038);
+	float3 straw = float3(.150, .130, .060), scrub = float3(.038, .060, .020), earth = float3(.140, .112, .072);
+	float3 result = lerp(weeds, olive, smoothstep(.25, .75, large * .5 + mid * .3 + fine * .2 + dryness));
+	result = lerp(result, straw, smoothstep(.62, .86, mid * .6 + fine * .4 + dryness) * .6);
+	result = lerp(result, scrub, smoothstep(.36, .16, mid * .65 + fine * .35 + dryness) * .5);
+	result = lerp(result, earth, smoothstep(.60, .85, patches) * saturate(dryness * 8) * .5);
+	result = lerp(result, scrub, saturate(steepness * 4) * .5);
+	return lerp(result, float3(.060, .102, .026), saturate(-dryness * 4) * .45);
+}
+
 float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 {
 	float4 albedo = GetDiffuseColor(input.uv);
+	float cover = g_diffuseColor.a;
+	albedo.a = 1;
+	float2 ground = input.worldPosition.xz;
+	float footprint = length(fwidth(ground));
+	float steepness = 1 - saturate(normalize(input.normal).y);
 	if (g_hasTexture)
 	{
 		float2 rotatedUv = float2(-input.uv.y, input.uv.x) * 0.173 + float2(0.31, 0.67);
@@ -193,17 +228,18 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 		// Mixing two scales breaks the repeating grass tile in aerial views.
 		albedo.rgb = lerp(albedo.rgb, g_diffuseColor.rgb * broad, .42);
 	}
+	if (cover < .875)
+	{
+		// The photograph supplies blade-scale relief only; colour comes from the cover mosaic.
+		float detail = dot(albedo.rgb / max(g_diffuseColor.rgb, .01), float3(.3, .6, .1)) / .17;
+		albedo.rgb = groundCover(ground, cover, steepness, footprint) * lerp(1, clamp(detail, .55, 1.5), .7);
+	}
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);
 	albedo.rgb = lerp(sand, albedo.rgb, dryLand);
-	float2 ground = input.worldPosition.xz;
-	float cover = sin(ground.x * .006 + sin(ground.y * .004)) * sin(ground.y * .005 + ground.x * .002);
-	float dryCover = smoothstep(.05, .72, cover) * .42;
-	albedo.rgb *= lerp(float3(1, 1, 1), float3(.96, .80, .69), dryCover);
 	float variation = sin(ground.x * .008 + sin(ground.y * .006)) * sin(ground.y * .009);
 	float altitude = input.worldPosition.y + variation * g_terrainVariation.x;
 	float alpine = smoothstep(g_altitudeBands.x, g_altitudeBands.y, altitude);
-	float steepness = 1 - saturate(normalize(input.normal).y);
 	float mineral = dot(albedo.rgb, float3(.2126,.7152,.0722));
 	float3 alpineCover = lerp(float3(.25,.29,.16),float3(.35,.34,.32),saturate(steepness * 2 + alpine * .5));
 	albedo.rgb = lerp(albedo.rgb,alpineCover * (.8 + mineral),alpine);
@@ -211,6 +247,26 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 	float3 snowColor = float3(.86,.9,.95) * (1 + variation * .035);
 	albedo.rgb = lerp(albedo.rgb,snowColor,snow * (1 - smoothstep(.55,.85,steepness)));
 	return shadeCity(input, albedo);
+}
+
+// Japanese house lots seen from above: concrete and gravel parking, clipped shrubs and a little lawn.
+// Alpha selects a paved lot (1) or a garden lot (.5); world-space patches keep neighbouring lots distinct.
+float4 Yard_PS(s3d::PSInput input) : SV_TARGET
+{
+	float2 p = input.worldPosition.xz;
+	float footprint = length(fwidth(p));
+	float garden = 1 - g_diffuseColor.a;
+	float resolved = 1 - smoothstep(.6, 2.5, footprint);
+	float n = valueNoise(p / 1.9) * .5 + valueNoise(p / 5.5 + 13.7) * .5;
+	n = lerp(.5, n, resolved * .7 + .3) - garden * .45;
+	float3 gravel = g_texture0.Sample(g_sampler0, input.uv).rgb;
+	float grain = dot(gravel, float3(.3, .6, .1)) / .22;
+	float3 paved = float3(.120, .118, .112) * lerp(1, clamp(grain, .7, 1.3), .6);
+	float3 lawn = float3(.064, .098, .030), shrub = float3(.026, .046, .018), soil = float3(.110, .092, .066);
+	float3 plants = lerp(shrub, lawn, smoothstep(.2, .6, valueNoise(p / 1.3 + 5.1)));
+	float3 albedo = lerp(plants, paved, smoothstep(.28, .50, n));
+	albedo = lerp(albedo, soil, smoothstep(.72, .9, valueNoise(p / 4.1 + 29.3)) * .5);
+	return shadeCity(input, float4(albedo, 1));
 }
 
 // Construction soil and crushed aggregate: two rotated samples suppress visible
@@ -247,7 +303,11 @@ float fieldNoise(float2 p)
 }
 float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 {
+	// UV.x carries the parcel number in 1024 m spans, so neighbouring parcels differ in crop and growth.
 	float2 uv=input.uv;
+	float parcel=floor(uv.x/1024);
+	uv.x-=parcel*1024+512;
+	float crop1=fieldNoise(float2(parcel,paddy ? 3.1 : 7.7)),crop2=fieldNoise(float2(parcel*1.37+.5,11.3));
 	float spacing=paddy ? .30 : .85;
 	float phase=uv.x/spacing;
 	float footprint=max(fwidth(phase),fwidth(uv.y/spacing));
@@ -258,9 +318,9 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 	float detailWeight=1-smoothstep(.3,1.0,max(fwidth(detailUv.x),fwidth(detailUv.y)));
 	float variation=lerp(.5,fieldNoise(floor(detailUv)),detailWeight);
 	float3 soil=g_hasTexture ? g_texture0.Sample(g_sampler0,uv*.21).rgb : float3(.35,.3,.2);
-	soil=lerp(float3(.10,.059,.031),float3(.21,.125,.060),saturate(dot(soil,float3(.3,.5,.2))*2));
+	soil=lerp(float3(.085,.055,.032),float3(.17,.115,.066),saturate(dot(soil,float3(.3,.5,.2))*2));
 	soil*=lerp(1, .75+.32*(ridge*.5+.5),resolved);
-	float3 green=lerp(float3(.075,.13,.022),float3(.19,.25,.045),variation);
+	float3 green=lerp(float3(.050,.095,.020),float3(.12,.17,.035),variation);
 	float3 albedo;
 	if (paddy)
 	{
@@ -269,20 +329,27 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 		float3 water=float3(.045,.068,.052)+sin(uv.y*2.4+sin(uv.x*.7))*.004;
 		float fresnel=pow(1-saturate(dot(normalize(g_eyePosition-input.worldPosition),normalize(input.normal))),4);
 		water=lerp(water,float3(.23,.29,.31),fresnel*.65);
-		// 夏の水田は稲が水面をほぼ覆い、周囲の草地より黄みの強い明るい緑に見える。
-		float3 riceGreen=lerp(float3(.13,.23,.028),float3(.25,.37,.05),variation);
-		albedo=lerp(water,riceGreen,lerp(.82,saturate(rice*.6+.45),resolved));
+		// 夏の水田は稲が水面をほぼ覆う。株の育ちと品種で区画ごとに緑の濃さ・黄みが変わる。
+		float3 young=float3(.070,.135,.022),grown=float3(.115,.185,.030),ripe=float3(.165,.190,.040);
+		float3 riceGreen=lerp(young,grown,crop1);
+		riceGreen=lerp(riceGreen,ripe,smoothstep(.75,.95,crop2)*.8);
+		riceGreen*=lerp(.88,1.12,variation);
+		// 田植え直後の区画は水面が多く見える。
+		float cover=lerp(.82,.55,step(.9,crop2));
+		albedo=lerp(water,riceGreen,lerp(cover,saturate(rice*.6+.45),resolved));
 	}
 	else
 	{
-		// Intermittent planting leaves exposed soil between cultivated rows.
+		// Intermittent planting leaves exposed soil between cultivated rows; some parcels are fallow or freshly tilled.
 		crop*=smoothstep(-.6,.2,cos(uv.y*7.4));
-		albedo=lerp(soil,green,lerp(.24,crop*.86,resolved));
+		float grown=lerp(.15,.9,crop1);
+		green=lerp(green,float3(.035,.070,.020),step(.6,crop2)*.6);
+		albedo=lerp(soil,green,lerp(grown,crop*lerp(.5,1,grown),resolved));
 	}
 	// Keep broad crop variation visible when the individual rows become subpixel.
 	float2 broadUv=input.worldPosition.xz*.075;
 	float broad=sin(broadUv.x+sin(broadUv.y*.63))*cos(broadUv.y+sin(broadUv.x*.42));
-	albedo*=.91+.12*broad;
+	albedo*=.93+.09*broad;
 	float3 across=ddx(input.worldPosition)*ddy(uv.y)-ddy(input.worldPosition)*ddx(uv.y);
 	across/=max(length(across),.000001);
 	input.normal=normalize(input.normal+across*sin(phase*6.2831853)*(paddy ? .12 : .48)*resolved);

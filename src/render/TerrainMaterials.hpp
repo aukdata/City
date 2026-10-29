@@ -12,6 +12,22 @@ namespace TerrainMaterials
 	constexpr int kUrbanGround = 6;
 	/// @brief Shared paved yards between urban buildings, separate from earth and planted vacant plots.
 	constexpr int kUrbanPaving = 7;
+	/// @brief 市街地の未利用地。雑草と裸地がまだらに混じる。
+	constexpr int kVacantLot = 8;
+	/// @brief 公園・庭として手入れされた芝地。
+	constexpr int kTendedGreen = 9;
+	/// @brief 地形シェーダーが選ぶ地表の植生。拡散色のアルファで渡し、描画単位を増やさない。
+	enum class Cover { Plain, Meadow, Vacant, Tended };
+	inline Cover cover(int materialKey)
+	{
+		switch (materialKey)
+		{
+		case 0: case 1: return Cover::Meadow;
+		case kVacantLot: return Cover::Vacant;
+		case kTendedGreen: return Cover::Tended;
+		default: return Cover::Plain;
+		}
+	}
 	/// @brief Land use and actual occupation determine the ground; zoning alone does not clear vacant gardens.
 	inline int keyForCell(const Chunk& chunk, int col, int row)
 	{
@@ -20,6 +36,8 @@ namespace TerrainMaterials
 		const int natural = keyForHeight(h);
 		const auto zone = chunk.zoneMap[{x,z}];
 		if (zone!=ZoneType::Residential && zone!=ZoneType::LowResidential && zone!=ZoneType::Commercial && zone!=ZoneType::Industrial) { return natural; }
+		const auto own = chunk.buildingGrid[{x,z}].type;
+		if (own==BuildingType::ParkBuilding) { return kTendedGreen; }
 		int built = 0;
 		for (int dz=-1;dz<=1;++dz) for (int dx=-1;dx<=1;++dx)
 		{
@@ -28,13 +46,14 @@ namespace TerrainMaterials
 			const auto type = chunk.buildingGrid[{nx,nz}].type;
 			built += type!=BuildingType::None && type!=BuildingType::Farmland && type!=BuildingType::ParkBuilding;
 		}
-		if (built<2) { return natural; }
-		const auto type = chunk.buildingGrid[{x,z}].type;
+		// 町の中で建物のない土地は芝生ではなく、雑草地・空き地になる。
+		if (built<2) { return kVacantLot; }
 		if (zone==ZoneType::Industrial) { return kUrbanGround; }
-		if (type==BuildingType::None || type==BuildingType::Farmland || type==BuildingType::ParkBuilding || zone==ZoneType::LowResidential) { return natural; }
+		if (own==BuildingType::None || own==BuildingType::Farmland) { return kVacantLot; }
+		if (zone==ZoneType::LowResidential) { return kTendedGreen; }
 		return kUrbanPaving;
 	}
-	inline ColorF color(int materialKey)
+	inline ColorF baseColor(int materialKey)
 	{
 		switch (materialKey)
 		{
@@ -43,12 +62,21 @@ namespace TerrainMaterials
 		case 3: return ColorF{ 0.50, 0.45, 0.30 };
 		case 4: return ColorF{ 0.76, 0.70, 0.52 };
 		case 5: return ColorF{ 0.48, 0.58, 0.56 };
-		case kUrbanGround: return ColorF{ 0.74, 0.72, 0.66 };
-		case kUrbanPaving: return ColorF{ .68,.68,.66 };
+		case kUrbanGround: return ColorF{ 0.62, 0.74, 1.05 };
+		case kUrbanPaving: return ColorF{ .78,.90,1.22 };
+		case kVacantLot: return ColorF{ 0.66, 0.66, 0.70 };
+		case kTendedGreen: return ColorF{ 0.62, 0.68, 0.74 };
 		default: return ColorF{ 0.65, 0.69, 0.76 };
 		}
 	}
-
+	inline ColorF color(int materialKey)
+	{
+		// アルファは不透明度ではなく、Terrain_PS が植生を選ぶための区分。
+		constexpr double kCoverAlpha[] = { 1.0, 0.75, 0.5, 0.25 };
+		ColorF result = baseColor(materialKey);
+		result.a = kCoverAlpha[static_cast<int>(cover(materialKey))];
+		return result;
+	}
 	inline StringView texture(int materialKey)
 	{
 		switch (materialKey)

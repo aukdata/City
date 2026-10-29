@@ -364,6 +364,8 @@ void registerComprehensiveTests(TestRunner& runner)
 		for(const float height:{10.0f,60.0f,1500.0f,2300.0f,500.0f})
 		{
 			World world;flatWorld(world,height);RoadNetwork roads;WorldRenderer renderer;renderer.setAsyncTerrain(false);renderer.setTerrainShader(lighting.terrainShader());
+			// 地表の陰影だけを比べる。斜面の農業地域には森が育つが、樹木は地域LODの対象外。
+			renderer.setWoodlandEnabled(false);
 			const Vec3 focus{33280,height,33280};
 			if(height==500)
 			{

@@ -23,9 +23,12 @@ void registerUrbanUsabilityTests(TestRunner& runner)
 		chunk.buildingGrid=Grid<Building>(ZONE_CELLS,ZONE_CELLS);
 		chunk.buildingGrid[{20,20}].type=BuildingType::LowApartment;chunk.buildingGrid[{21,20}].type=BuildingType::Detached;
 		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kUrbanPaving,U"Occupied urban yards have paved ground instead of blanket earth");
-		context.expect(TerrainMaterials::keyForCell(chunk,20,21)==TerrainMaterials::keyForHeight(20),U"An empty residential plot keeps vegetation even between occupied plots");
+		context.expect(TerrainMaterials::keyForCell(chunk,20,21)==TerrainMaterials::kVacantLot,U"An empty residential plot is a weedy vacant lot, not lawn, even between occupied plots");
+		context.expect(TerrainMaterials::cover(TerrainMaterials::kVacantLot)==TerrainMaterials::Cover::Vacant && TerrainMaterials::cover(TerrainMaterials::keyForHeight(20))==TerrainMaterials::Cover::Meadow,U"Vacant lots and open country use different vegetation cover");
 		chunk.zoneMap[{20,20}]=ZoneType::LowResidential;
-		context.expect(TerrainMaterials::keyForCell(chunk,20,20)!=TerrainMaterials::kUrbanPaving,U"Low-density gardens keep their own planted and gravel parcel surfaces");
+		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kTendedGreen,U"Low-density gardens keep tended green between their own planted and gravel parcel surfaces");
+		chunk.buildingGrid[{30,30}].type=BuildingType::ParkBuilding;
+		context.expect(TerrainMaterials::keyForCell(chunk,30,30)==TerrainMaterials::kTendedGreen,U"Parks are tended lawn");
 		chunk.zoneMap[{20,20}]=ZoneType::Industrial;
 		context.expect(TerrainMaterials::keyForCell(chunk,20,20)==TerrainMaterials::kUrbanGround,U"Industrial service ground remains aggregate");
 		const Array<Vec2> road{{0,-20},{4,-20},{4,20},{0,20}};
