@@ -808,7 +808,7 @@ namespace
 		{
 			// 農業地域でも作付けのない土地には木立を置く。田畑そのものは下の区画マスクで除く。
 			const ZoneType zone=chunk.zoneMap[{col,row}];
-			if ((zone == ZoneType::Unzoned || zone == ZoneType::Agriculture) && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
+			if ((zone == ZoneType::Unzoned || zone == ZoneType::Agriculture || zone == ZoneType::UrbanControl) && chunk.buildingGrid[{col,row}].type == BuildingType::None) { continue; }
 			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
 			{
 				if (InRange(col+dx,0,ZONE_CELLS-1) && InRange(row+dz,0,ZONE_CELLS-1)) { blocked[{col+dx,row+dz}] = true; }
@@ -844,7 +844,8 @@ namespace
 		const Vec2 chunkOrigin{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE};
 		for (const auto& patch:chunk.landPatches)
 		{
-			if (patch.polygon.size()<3) { continue; }
+			// 市街化調整区域の公共緑地には木立を残す。
+			if (patch.polygon.size()<3 || (patch.type==LandPatchType::GardenSoil && patch.sourceParcelKey<0)) { continue; }
 			const Polygon shape{patch.polygon};const RectF bounds=shape.boundingRect().stretched(4);
 			const int left=Clamp(static_cast<int>(Floor((bounds.x-chunkOrigin.x)/4)),0,kPatchCells-1),right=Clamp(static_cast<int>(Floor((bounds.x+bounds.w-chunkOrigin.x)/4)),0,kPatchCells-1);
 			const int top=Clamp(static_cast<int>(Floor((bounds.y-chunkOrigin.y)/4)),0,kPatchCells-1),bottom=Clamp(static_cast<int>(Floor((bounds.y+bounds.h-chunkOrigin.y)/4)),0,kPatchCells-1);
@@ -873,7 +874,9 @@ namespace
 			const auto& h=chunk.heightMap;
 			const double cellRelief=(Max({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]})-Min({h[{col,row}],h[{col+1,row}],h[{col,row+1}],h[{col+1,row+1}]}))/16;
 			const bool groveGround=cellRelief<GenerationSettings::get().vegetation_flatClearingSlope;
-			const bool denseGrove=groveGround && VegetationProfile::copse(cellCenter)>.3;
+			// 町の中に残る市街化調整区域の緑地は、草原ではなく雑木林の残る緑地になる。
+			const double groveThreshold=chunk.zoneMap[{col,row}]==ZoneType::UrbanControl ? .5 : .66;
+			const bool denseGrove=groveGround && VegetationProfile::copse(cellCenter,groveThreshold)>.3;
 			const uint32 forestCandidates=nearbyRoads[{col,row}].isEmpty() ? GenerationSettings::get().vegetation_interiorCandidates : GenerationSettings::get().vegetation_roadsideCandidates;
 			const uint32 candidateCount=denseGrove ? Max(forestCandidates,GenerationSettings::get().vegetation_roadsideCandidates) : forestCandidates;
 			for (uint32 candidate=0;candidate<candidateCount;++candidate)
@@ -886,7 +889,7 @@ namespace
 				const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
 				const auto altitude=VegetationProfile::at(ground);
 				// 木立は平地に置く。斜面の森は森林帯の境界に任せる。
-				const double grove=ground>2 && groveGround ? VegetationProfile::copse(position) : 0.0;
+				const double grove=ground>2 && groveGround ? VegetationProfile::copse(position,groveThreshold) : 0.0;
 				// 木立のために増やした候補は木立だけに使い、森の密度は変えない。
 				const bool forestCandidate=candidate<forestCandidates;
 				const double probability=altitude.trees*Max(forestCandidate ? boundary.density(position) : 0.0,grove)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
