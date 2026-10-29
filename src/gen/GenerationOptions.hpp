@@ -10,6 +10,7 @@ struct GenerationOptions
 		Settlements,
 		Roads,
 		Railway,
+		Expressway,
 		Buildings,
 		Farms,
 		Trees,
@@ -18,11 +19,11 @@ struct GenerationOptions
 		Count
 	};
 	static constexpr size_t kCount = static_cast<size_t>(Element::Count);
-	std::array<bool, kCount> selected{true, true, true, true, true, true, true, true, true};
+	std::array<bool, kCount> selected{true, true, true, true, true, true, true, true, true, true};
 	static constexpr std::array<StringView, kCount> labels{
-		U"河川", U"町・村", U"道路", U"鉄道・駅", U"建物", U"田畑・畦道", U"自然の樹木", U"自動車", U"歩行者"};
+		U"河川", U"町・村", U"道路", U"鉄道・駅", U"高速道路", U"建物", U"田畑・畦道", U"自然の樹木", U"自動車", U"歩行者"};
 	static constexpr std::array<StringView, kCount> keys{
-		U"rivers", U"settlements", U"roads", U"railway", U"buildings", U"farms", U"trees", U"cars", U"pedestrians"};
+		U"rivers", U"settlements", U"roads", U"railway", U"expressway", U"buildings", U"farms", U"trees", U"cars", U"pedestrians"};
 	bool available(Element element) const
 	{
 		switch (element)
@@ -30,6 +31,7 @@ struct GenerationOptions
 		case Element::Roads:
 			return enabled(Element::Settlements);
 		case Element::Railway:
+		case Element::Expressway:
 		case Element::Buildings:
 			return enabled(Element::Roads);
 		case Element::Farms:

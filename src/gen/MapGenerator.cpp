@@ -782,6 +782,16 @@ void MapGenerator::generateDistrictRoads(
 						-world.sampleHeight(static_cast<float>(other.x),static_cast<float>(other.z)))>GenerationSettings::get().network_mountainRoadRelief;
 				}
 				if (slopes>=2) { role=GeneratedStreet::Role::Mountain; }
+				// 急勾配の山道は登坂車線付き 2+1（CSL JP Mountain 12m Climbing）。追加車線は上り方向に置く。
+				if (role==GeneratedStreet::Role::Mountain && curve && curve->totalLength>=GenerationSettings::get().streetProfiles_mountainClimbing_minimumLength)
+				{
+					const double grade=(curve->p3.y-curve->p0.y)/Max(1.0f,curve->totalLength);
+					if (Abs(grade)>=GenerationSettings::get().streetProfiles_mountainClimbing_minimumGrade)
+					{
+						GeneratedStreet::apply(*edge,GeneratedStreet::describe(GeneratedStreet::Role::MountainClimbing),grade<0);
+						continue;
+					}
+				}
 			}
 			GeneratedStreet::apply(*edge,GeneratedStreet::describe(role));
 		}

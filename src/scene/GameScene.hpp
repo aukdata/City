@@ -470,6 +470,8 @@ private:
 	void generateAllRoads();
 	void generateDistrictRoads();
 	void postProcessRoads();
+	/// @brief 一般道の後に自動車専用道路（本線・IC・JCT）を追加する。
+	void generateExpressways();
 	void placeInitialBuildings(bool preserveLandPatches=false);
 	void generateLandPatches(bool preserveExisting = false);
 	bool validateGeneratedCityConstraints();

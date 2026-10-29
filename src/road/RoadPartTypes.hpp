@@ -134,6 +134,8 @@ struct RoadPart
 enum class RoadObjectType : uint8
 {
 	Pier,           ///< 橋脚
+	TollGate,       ///< 料金所（ETC・一般レーンの門型屋根とブース）
+	DivergeBlinker, ///< 分流鼻の 2 眼点滅灯
 	// 将来拡張: StreetLight, TrafficSign, UtilityPole, StreetTree, ...
 };
 

@@ -9,6 +9,7 @@
 #include "../gen/StreetBlocks.hpp"
 #include "../gen/DistrictRoads.hpp"
 #include "../gen/VillageConnections.hpp"
+#include "../gen/ExpresswayNetwork.hpp"
 #include "../save/RoadBinary.hpp"
 
 /// @file
@@ -323,6 +324,17 @@ void GameScene::postProcessRoads()
 
 	m_genProgress.store(kProgressDone);
 	DebugLog::print(U"[Phase4] PostProcess 完了 ({:.0f}ms)"_fmt(total.msF()));
+}
+
+void GameScene::generateExpressways()
+{
+	// 一般道の整備後、鉄道の前に置く。鉄道は高速道路も含めた道路と立体交差する。
+	setLoadingStatus(U"高速道路生成中");
+	const Stopwatch timer{ StartImmediately::Yes };
+	const auto summary = ExpresswayNetwork::generate(getData().seed, m_world, m_network, m_districts);
+	if (summary.lines > 0) { m_network.recomputeAllAutoGuideSigns(); }
+	DebugLog::print(U"[Phase4] 高速道路: 路線={} 延長={:.1f}km IC={} JCT={} ({:.0f}ms)"_fmt(
+		summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, timer.msF()));
 }
 
 void GameScene::registerGuideDestinations()

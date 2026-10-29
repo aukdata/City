@@ -5,7 +5,8 @@
 /// @brief 自動生成専用の断面。地域の役割を車道・歩道・路肩・標示へ一貫して反映する。
 namespace GeneratedStreet
 {
-	enum class Role : uint8 { FarmAccess, Village, Local, OneWay, ResidentialWalkways, Collector, MainArterial, Regional, Mountain };
+	/// @details Street16 は CSL JP Street 16m（車道 8.5m・歩道 3.75m）、MountainClimbing は JP Mountain 12m Climbing（2+1 登坂車線）。
+	enum class Role : uint8 { FarmAccess, Village, Local, OneWay, ResidentialWalkways, Collector, MainArterial, Regional, Mountain, Street16, MountainClimbing };
 	struct Profile
 	{
 		int lanes=0;
@@ -61,11 +62,21 @@ namespace GeneratedStreet
 			result.lanes=config.streetProfiles_mountain_lanes; result.laneWidth=config.streetProfiles_mountain_laneWidth; result.speed=config.streetProfiles_mountain_speed;
 			result.walkwayLeft=result.walkwayRight=config.streetProfiles_mountain_walkway; result.shoulder=config.streetProfiles_mountain_shoulder;
 			result.center=markings[config.streetProfiles_mountain_center]; result.edgeLines=config.streetProfiles_mountain_edgeLines!=0; result.arterial=config.streetProfiles_mountain_arterial!=0; break;
+		case Role::Street16:
+			result.lanes=config.streetProfiles_street16_lanes; result.laneWidth=config.streetProfiles_street16_laneWidth; result.speed=config.streetProfiles_street16_speed;
+			result.walkwayLeft=result.walkwayRight=config.streetProfiles_street16_walkway; result.shoulder=config.streetProfiles_street16_shoulder;
+			result.center=markings[config.streetProfiles_street16_center]; result.edgeLines=config.streetProfiles_street16_edgeLines!=0; result.arterial=config.streetProfiles_street16_arterial!=0; break;
+		case Role::MountainClimbing:
+			// 山道の標示・路肩を引き継ぎ、上り側だけ 1 車線を足す。
+			result=describe(Role::Mountain);
+			result.lanes=3; result.laneWidth=config.streetProfiles_mountainClimbing_laneWidth;
+			result.speed=config.streetProfiles_mountainClimbing_speed; result.shoulder=config.streetProfiles_mountainClimbing_shoulder; break;
 		}
 		return result;
 	}
 
 	/// @brief 無区画の双方向道路でも車両経路は左右2本で保持する。見た目の2車線標示とは区別する。
+	/// @param reverse 1 車線では走行方向、3 車線（登坂車線）では追加車線を B→A 側へ置く。
 	inline void apply(RoadEdge& edge, Profile profile, bool reverse=false)
 	{
 		edge.roadType=profile.arterial ? RoadType::Arterial : RoadType::LocalRoad;
@@ -79,11 +90,20 @@ namespace GeneratedStreet
 			lane.offsetA_R=lane.offsetB_R=lane.offsetA_L+profile.laneWidth;
 			lane.nominalWidth=profile.laneWidth;
 			if (profile.lanes==1) { lane.dir=reverse ? LaneDir::Backward : LaneDir::Forward; }
-			const int center=profile.lanes/2;
+			if (profile.lanes==3) { lane.dir=(reverse ? index>0 : index>1) ? LaneDir::Backward : LaneDir::Forward; }
+		}
+		// 対向の境界（登坂車線では中央から外れる）にだけ中央線を引く。
+		int center=profile.lanes;
+		for (int index=0;index<profile.lanes;++index) { if (edge.lanes[index].dir==LaneDir::Backward) { center=index; break; } }
+		for (int index=0;index<profile.lanes;++index)
+		{
+			auto& lane=edge.lanes[index];
 			lane.lineLeft=index==0 ? (profile.edgeLines ? LineType::SolidWhite : LineType::None)
 				: (index==center ? profile.center : LineType::DashedWhite);
 			lane.lineRight=index==profile.lanes-1 ? (profile.edgeLines ? LineType::SolidWhite : LineType::None)
 				: (index+1==center ? profile.center : LineType::DashedWhite);
+			lane.canChangeLaneLeft=index>0 && edge.lanes[index-1].dir==lane.dir;
+			lane.canChangeLaneRight=index+1<profile.lanes && edge.lanes[index+1].dir==lane.dir;
 		}
 		edge.parts.clear();
 		const auto part=[&](RoadPartType type, float left, float width, StringView definition)
