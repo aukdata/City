@@ -29,8 +29,11 @@ namespace
 			}
 		}
 		// レーン両側の分離島と料金収受ブース。遮断棒は上げた状態。
-		for (const double lateral : { -2.6, 2.6 })
+		// レーン数は屋根幅から決める（ETC・一般の混在。CSL 料金所の 5m 間隔）。
+		const int lanes = Max(1, static_cast<int>(width / 5.0f));
+		for (int island = 0; island <= lanes; ++island)
 		{
+			const double lateral = -width * .5 + width * island / lanes;
 			appendOrientedBox(meshes[Concrete], at(0, lateral, .14), Float3{ length * .8f, .28f, 1.3f }, yaw);
 			appendOrientedBox(meshes[Booth], at(-length * .08, lateral, 1.45), Float3{ 2.2f, 2.3f, 1.1f }, yaw);
 			appendOrientedBox(meshes[Steel], at(length * .22, lateral, 1.7), Float3{ .12f, 3.0f, .12f }, yaw);
@@ -75,7 +78,7 @@ Array<RoadRenderer::FacilityMesh> RoadRenderer::buildFacilityMeshes(const RoadNe
 		base.y = RoadGeometry::furnitureBaseY(edge, curve->positionAt(arc), edge.usesDesignHeight() ? curve->positionAt(arc).y : terrain);
 		if (object.type == RoadObjectType::TollGate)
 		{
-			appendTollGate(meshes, base, tangent, settings.expressway_tollGateWidth, settings.expressway_tollGateLength, settings.expressway_tollGateHeight);
+			appendTollGate(meshes, base, tangent, settings.expressway_tollGateWidth * Max(object.scale, .2f), settings.expressway_tollGateLength, settings.expressway_tollGateHeight);
 		}
 		else { appendBlinker(meshes, base, tangent); }
 	}
