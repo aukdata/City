@@ -746,6 +746,13 @@ namespace
 	}
 
 	/// @brief 原型を参照する配置情報だけを保存する。距離で再生成しない。
+	/// @brief 屋根材・外壁の塗り分け番号（1〜8）。設置位置だけで決まり、近景と遠景で一致する。
+	uint32 buildingTintVariant(const Float3& position)
+	{
+		const uint32 hash = static_cast<uint32>(static_cast<int32>(Floor(position.x * 4))) * 73856093u
+			^ static_cast<uint32>(static_cast<int32>(Floor(position.z * 4))) * 19349663u;
+		return 1 + (hash >> 7) % 8u;
+	}
 	void appendLandscapeTree(LandscapeGeometry& groups, Vec2 position, float ground, uint32 variation,
 		double width, double height, bool cedar, bool woodland = false)
 	{
@@ -1908,6 +1915,9 @@ WorldRenderer::BuildingJobResult WorldRenderer::buildBuildingMeshData(const Land
 			const auto& source = asset.farGeometry[part];
 			auto geometry = source.geometry;
 			geometry.scale(instance.scale).rotate(Quaternion::RotateY(-instance.angle)).translate(instance.pos);
+			// 統合後も個体の塗り分けが残るよう、UV（0〜1）の整数部に番号を載せる。
+			const float tint = static_cast<float>(buildingTintVariant(instance.pos));
+			for (auto& vertex : geometry.vertices) { vertex.tex.x += tint; }
 			appendMeshData(merged[materialId], geometry);
 			materials[materialId] = source.material;
 		}
@@ -1956,6 +1966,8 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			&& instances!=m_buildingModelCache.end() && far.count==instances->second.size())
 		{
 			const ScopedCustomShader3D shader{m_buildingShader};
+			m_buildingTint->variant = Float4{0, 0, 0, 0};
+			Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 			for (const auto& batch : far.batches)
 			{
 				if (m_buildingFrustum && !m_buildingFrustum->intersects(batch.mesh.boundingSphere())) { continue; }
@@ -1990,6 +2002,8 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			const Model& model = (m_buildingEye.distanceFromSq(center) > detailDistance * detailDistance && !asset.distantModel.isEmpty())
 				? asset.distantModel : asset.model;
 			const auto& materials = model.materials();
+			m_buildingTint->variant = Float4{static_cast<float>(buildingTintVariant(inst.pos)), 0, 0, 0};
+			Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 			for (const auto& obj : model.objects())
 			{
 				const Transformer3D transform{ worldMat };
@@ -2374,6 +2388,8 @@ void WorldRenderer::drawBuildingProxy(Key key)
 	if (const auto found = m_buildingProxyCache.find(key); found != m_buildingProxyCache.end())
 	{
 		const ScopedCustomShader3D shader{m_buildingShader};
+		m_buildingTint->variant = Float4{0, 0, 0, 0};
+		Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 		const auto& proxy = found->second;
 		m_buildingsConsidered += proxy.count;
 		for (const auto& batch : proxy.solids)

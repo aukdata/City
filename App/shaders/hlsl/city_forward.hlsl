@@ -472,9 +472,33 @@ float4 Asphalt_PS(s3d::PSInput input) : SV_TARGET
 
 // Baked building atlases use blue-grey texels for glass. Approximate sky reflection
 // with Fresnel; preserve the photographed recesses and diffuse facade shading.
+cbuffer BuildingTint : register(b6) { float4 g_buildingTint; }
+// Japanese roofs mix dark blue, charcoal and silver tiles with brown, rust and green sheet metal.
+// Only dark pitched roof texels are recoloured; flat roofs and lots keep their colour and facades get a slight tone shift.
+float3 buildingVariant(float3 albedo, float3 normal, float variant)
+{
+	if (variant < .5) { return albedo; }
+	static const float3 roofs[8] = {
+		float3(1, 1, 1), float3(1.05, 1.08, 1.0), float3(1.9, 1.35, .95), float3(2.2, 1.05, .75),
+		float3(.95, 1.25, 1.0), float3(2.4, 2.4, 2.3), float3(1, 1, 1), float3(1.5, 1.5, 1.45) };
+	float lum = dot(albedo, float3(.2126, .7152, .0722));
+	int index = (int)variant - 1;
+	float roof = smoothstep(.5, .7, normal.y) * (1 - smoothstep(.95, .99, normal.y)) * (1 - smoothstep(.06, .14, lum));
+	float3 recoloured = lum * roofs[index];
+	albedo = lerp(albedo, index == 0 || index == 6 ? albedo : recoloured, roof);
+	float wall = 1 - smoothstep(.3, .5, abs(normal.y));
+	float3 tone = lerp(float3(1.04, 1.0, .95), float3(.95, .98, 1.03), frac(variant * .37)) * lerp(.92, 1.08, frac(variant * .61));
+	return lerp(albedo, albedo * tone, wall);
+}
+
 float4 Building_PS(s3d::PSInput input) : SV_TARGET
 {
+	// Merged distant meshes carry the variant in the integer part of U; instances pass it in a constant buffer.
+	float baked = floor(input.uv.x);
+	input.uv.x -= baked;
+	float variant = baked > .5 ? baked : g_buildingTint.x;
 	float4 albedo = GetDiffuseColor(input.uv);
+	albedo.rgb = buildingVariant(albedo.rgb, normalize(input.normal), variant);
 	float glass = g_hasTexture * smoothstep(.008,.035,albedo.b-albedo.r) * (1-smoothstep(.10,.25,albedo.r)) * (1-smoothstep(.1,.4,abs(input.normal.y)));
 	float3 view = normalize(g_eyePosition-input.worldPosition);
 	float3 reflected = reflect(-view,normalize(input.normal));

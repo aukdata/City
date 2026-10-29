@@ -342,6 +342,9 @@ private:
 	int                                  m_terrainRebuildBudget = 0;
 	uint64 m_geometryRevision = 0;
 	PixelShader m_buildingShader;
+	/// @brief Building_PS の個体ごとの塗り分け番号。遠景の統合メッシュでは UV の整数部に同じ番号を焼き込む。
+	struct BuildingTint { Float4 variant; };
+	ConstantBuffer<BuildingTint> m_buildingTint;
 	PixelShader m_terrainShader,m_fieldShader,m_paddyShader,m_foliageShader;
 	/// @brief Water meshes are cached per active chunk; only two uploads are allowed per frame.
 	void renderSourceWater(const World& world, bool regional);
