@@ -213,14 +213,35 @@ float3 groundCover(float2 p, float cover, float steepness, float footprint)
 	return lerp(result, float3(.060, .102, .026), saturate(-dryness * 4) * .45);
 }
 
+// Town ground: UV carries the paved and tended-green share interpolated between 16 m cells.
+// A noisy threshold turns the smooth shares into irregular paved yards and weedy patches instead of a cell staircase.
+float3 townGround(float2 ground, float2 shares, float steepness, float footprint, float grain)
+{
+	float edge = valueNoise(ground / 5.3 + 7.7) * .6 + valueNoise(ground / 17 + 2.1) * .4 - .5;
+	float paved = smoothstep(.46, .62, shares.x + edge * .55);
+	float tended = smoothstep(.30, .50, shares.y + edge * .45);
+	float3 green = lerp(groundCover(ground, .5, steepness, footprint), groundCover(ground, .25, steepness, footprint), tended);
+	green *= lerp(1, clamp(grain, .55, 1.5), .7);
+	float slab = valueNoise(ground / 1.8 + 3.3) * .5 + valueNoise(ground / 7 + 9.1) * .5;
+	float3 paving = float3(.150, .150, .146) * lerp(.88, 1.10, slab);
+	return lerp(green, paving, paved);
+}
+
 float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 {
-	float4 albedo = GetDiffuseColor(input.uv);
 	float cover = g_diffuseColor.a;
-	albedo.a = 1;
 	float2 ground = input.worldPosition.xz;
 	float footprint = length(fwidth(ground));
 	float steepness = 1 - saturate(normalize(input.normal).y);
+	float2 shares = input.uv;
+	if (cover < .125)
+	{
+		// Same rotated 8 m tiling as TerrainSurfaceGeometry::terrainUvAt.
+		float2 tile = ground / 8;
+		input.uv = float2(.97237 * tile.x - .23345 * tile.y, .23345 * tile.x + .97237 * tile.y);
+	}
+	float4 albedo = GetDiffuseColor(input.uv);
+	albedo.a = 1;
 	if (g_hasTexture)
 	{
 		float2 rotatedUv = float2(-input.uv.y, input.uv.x) * 0.173 + float2(0.31, 0.67);
@@ -232,7 +253,8 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 	{
 		// The photograph supplies blade-scale relief only; colour comes from the cover mosaic.
 		float detail = dot(albedo.rgb / max(g_diffuseColor.rgb, .01), float3(.3, .6, .1)) / .17;
-		albedo.rgb = groundCover(ground, cover, steepness, footprint) * lerp(1, clamp(detail, .55, 1.5), .7);
+		albedo.rgb = cover < .125 ? townGround(ground, shares, steepness, footprint, detail)
+			: groundCover(ground, cover, steepness, footprint) * lerp(1, clamp(detail, .55, 1.5), .7);
 	}
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);

@@ -206,11 +206,26 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 		MeshData& group = groups[materialKey];
 		for (const auto& poly : pieces)
 		{
+			// 町なかの混合地表は UV に舗装・緑地の割合を持つ。テクスチャ座標はシェーダーが位置から求める。
+			if (materialKey == TerrainMaterials::kUrbanBlend) { appendPolygonAsTriangles(poly, group.vertices, group.indices); continue; }
 			Array<TerrainClipVertex> materialPoly;
 			materialPoly.reserve(poly.size());
 			for (const TerrainClipVertex& v : poly) materialPoly << withMaterialUv(v, materialKey);
 			appendPolygonAsTriangles(materialPoly, group.vertices, group.indices);
 		}
+	};
+	// 格子点ごとの舗装・緑地の割合。周囲4セルの平均なので、隣り合うセルの間でなめらかにつながる。
+	Grid<int> cellKeys(HEIGHT_CELLS, HEIGHT_CELLS);
+	for (int row = 0; row < HEIGHT_CELLS; ++row) for (int col = 0; col < HEIGHT_CELLS; ++col) { cellKeys[{ col, row }] = TerrainMaterials::keyForCell(chunk, col, row); }
+	const auto urbanWeights = [&](int col, int row)
+	{
+		Float2 weights{ 0, 0 };
+		for (const Point cell : { Point{ col - 1, row - 1 }, Point{ col, row - 1 }, Point{ col - 1, row }, Point{ col, row } })
+		{
+			const int key = cellKeys[{ Clamp(cell.x, 0, HEIGHT_CELLS - 1), Clamp(cell.y, 0, HEIGHT_CELLS - 1) }];
+			weights += Float2{ key == TerrainMaterials::kUrbanPaving ? .25f : 0.f, key == TerrainMaterials::kTendedGreen ? .25f : 0.f };
+		}
+		return weights;
 	};
 
 	for (int row = 0; row < HEIGHT_CELLS; ++row)
@@ -222,9 +237,17 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 			const TerrainClipVertex v01 = makeGridVertex(col, row + 1);
 			const TerrainClipVertex v11 = makeGridVertex(col + 1, row + 1);
 
-			const int materialKey = TerrainMaterials::keyForCell(chunk, col, row);
-			processTriangle(materialKey, cellQuads[{ col, row }], v00, v01, v10);
-			processTriangle(materialKey, cellQuads[{ col, row }], v10, v01, v11);
+			const int cellKey = cellKeys[{ col, row }];
+			if (TerrainMaterials::blendsInTown(cellKey))
+			{
+				const auto weighted = [&](TerrainClipVertex vertex, int c, int r) { vertex.tex = urbanWeights(c, r); return vertex; };
+				const TerrainClipVertex w00 = weighted(v00, col, row), w10 = weighted(v10, col + 1, row), w01 = weighted(v01, col, row + 1), w11 = weighted(v11, col + 1, row + 1);
+				processTriangle(TerrainMaterials::kUrbanBlend, cellQuads[{ col, row }], w00, w01, w10);
+				processTriangle(TerrainMaterials::kUrbanBlend, cellQuads[{ col, row }], w10, w01, w11);
+				continue;
+			}
+			processTriangle(cellKey, cellQuads[{ col, row }], v00, v01, v10);
+			processTriangle(cellKey, cellQuads[{ col, row }], v10, v01, v11);
 		}
 	}
 

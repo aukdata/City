@@ -16,8 +16,12 @@ namespace TerrainMaterials
 	constexpr int kVacantLot = 8;
 	/// @brief 公園・庭として手入れされた芝地。
 	constexpr int kTendedGreen = 9;
+	/// @brief 舗装・空き地・手入れされた緑地を頂点ごとの割合で混ぜる町なかの地表。セル境界に段差を出さない。
+	constexpr int kUrbanBlend = 11;
+	/// @brief kUrbanBlend に混ぜるセル。それ以外の材質は従来どおりセル単位で描く。
+	inline bool blendsInTown(int materialKey) { return materialKey==kUrbanPaving || materialKey==kVacantLot || materialKey==kTendedGreen; }
 	/// @brief 地形シェーダーが選ぶ地表の植生。拡散色のアルファで渡し、描画単位を増やさない。
-	enum class Cover { Plain, Meadow, Vacant, Tended };
+	enum class Cover { Plain, Meadow, Vacant, Tended, Blend };
 	inline Cover cover(int materialKey)
 	{
 		switch (materialKey)
@@ -25,6 +29,7 @@ namespace TerrainMaterials
 		case 0: case 1: return Cover::Meadow;
 		case kVacantLot: return Cover::Vacant;
 		case kTendedGreen: return Cover::Tended;
+		case kUrbanBlend: return Cover::Blend;
 		default: return Cover::Plain;
 		}
 	}
@@ -72,7 +77,7 @@ namespace TerrainMaterials
 	inline ColorF color(int materialKey)
 	{
 		// アルファは不透明度ではなく、Terrain_PS が植生を選ぶための区分。
-		constexpr double kCoverAlpha[] = { 1.0, 0.75, 0.5, 0.25 };
+		constexpr double kCoverAlpha[] = { 1.0, 0.75, 0.5, 0.25, 0.0 };
 		ColorF result = baseColor(materialKey);
 		result.a = kCoverAlpha[static_cast<int>(cover(materialKey))];
 		return result;
