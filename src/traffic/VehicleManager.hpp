@@ -118,6 +118,8 @@ private:
 	void avoidDrivenVehicle(Vehicle& vehicle,double dt,const RoadNetwork& roads) const;
 	Optional<Vec2> m_trafficFocus;
 	Array<int> m_localSpawnEdges, m_globalSpawnEdges;
+	Array<int> m_throughSpawnEdges; ///< 視点付近の高速道路本線。建物に依らない通過交通を出す
+	HashSet<int> m_throughSpawnSet;
 	double m_spawnRefresh = 0, m_spawnCredit = 0;
 	const World* m_world = nullptr;
 	BuildingAccessIndex m_buildingAccess;
@@ -128,6 +130,8 @@ private:
 	int m_localTrafficTarget = 0;
 	PopulationStats m_populationStats;
 	bool tryAutomaticSpawn(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork* network);
+	/// @brief 高速道路本線に、本線と連絡路だけをたどる通過交通を出す。
+	bool trySpawnThroughTraffic(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork& network);
 	void replenishTraffic(double dt, const SimGraph& graph, const RoadNetwork& network, const HashSet<int>& visibleEdges);
 	int            m_nextId = 0;
 	int            m_targetVehicleCount = 20;  ///< 自動スポーンの目標台数

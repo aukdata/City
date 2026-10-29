@@ -94,7 +94,9 @@
     "serviceAreaGap",
     "serviceClearance",
     "serviceLength",
-    "serviceOffset"
+    "serviceOffset",
+    "throughVehiclesPerEdge",
+    "throughTripSteps"
   ],
   "properties": {
     "enabled": {
@@ -551,6 +553,16 @@
       "type": "number",
       "minimum": 20.0,
       "maximum": 200.0
+    },
+    "throughVehiclesPerEdge": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 10.0
+    },
+    "throughTripSteps": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 400
     }
   }
 }

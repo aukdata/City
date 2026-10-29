@@ -1088,3 +1088,5 @@ GENERATION_SETTING(double, expressway_serviceAreaGap, U"expressway", U"serviceAr
 GENERATION_SETTING(double, expressway_serviceClearance, U"expressway", U"serviceClearance", 500, 20000)
 GENERATION_SETTING(double, expressway_serviceLength, U"expressway", U"serviceLength", 200, 2000)
 GENERATION_SETTING(double, expressway_serviceOffset, U"expressway", U"serviceOffset", 20, 200)
+GENERATION_SETTING(double, expressway_throughVehiclesPerEdge, U"expressway", U"throughVehiclesPerEdge", 0, 10)
+GENERATION_SETTING(int, expressway_throughTripSteps, U"expressway", U"throughTripSteps", 2, 400)

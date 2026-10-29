@@ -54,6 +54,52 @@ bool VehicleManager::tryAutomaticSpawn(int edgeId, const SimGraph& graph,
 }
 
 
+bool VehicleManager::trySpawnThroughTraffic(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork& network)
+{
+	const auto* edge = graph.getEdge(edgeId);
+	const auto* road = network.getEdge(edgeId);
+	if (!edge || !road || edge->roadType != RoadType::Expressway) { return false; }
+	const double halfLength = TrafficSpawn::vehicleLength(type) * .5;
+	const float start = static_cast<float>(road->cutoffA + halfLength + 4), finish = static_cast<float>(edge->length - road->cutoffB - halfLength - 4);
+	if (finish <= start) { return false; }
+	const int lane = Random(0, static_cast<int>(edge->lanes.size()) - 1);
+	const float arc = Random(start, finish);
+	if (!TrafficSpawn::laneOpen(*edge, lane) || !m_laneTraffic.hasSpace(edgeId, lane, arc, type)) { return false; }
+	// 本線と IC・JCT の連絡路だけを接続順にたどり、数 km 先の本線区間を目的地にする。
+	int current = edgeId, currentLane = lane, goal = -1, goalLane = -1;
+	const int steps = Random(GenerationSettings::get().expressway_throughTripSteps / 2, GenerationSettings::get().expressway_throughTripSteps);
+	for (int step = 0; step < steps; ++step)
+	{
+		const auto* from = graph.getEdge(current);
+		const auto* node = from ? graph.getNode(TrafficCommon::isForwardLane(*from, currentLane) ? from->nodeB : from->nodeA) : nullptr;
+		if (!node) { break; }
+		Array<std::pair<int, int>> next;
+		for (const auto& connection : node->laneConnections)
+		{
+			if (connection.fromEdgeId != current || connection.fromLaneIndex != currentLane) { continue; }
+			const auto* target = graph.getEdge(connection.toEdgeId);
+			if (target && target->roadType == RoadType::Expressway && TrafficSpawn::laneOpen(*target, connection.toLaneIndex)) { next << std::pair{ target->id, connection.toLaneIndex }; }
+		}
+		if (next.isEmpty()) { break; }
+		const auto selected = next[Random<size_t>(0, next.size() - 1)];
+		current = selected.first; currentLane = selected.second;
+		if (graph.getEdge(current)->lanes.size() >= 2) { goal = current; goalLane = currentLane; }
+	}
+	if (goal < 0 || goal == edgeId) { return false; }
+	Vehicle vehicle;
+	vehicle.id = m_nextId++;
+	vehicle.currentEdge = edgeId; vehicle.currentLane = lane; vehicle.arcPos = arc; vehicle.type = type;
+	vehicle.speed = static_cast<float>(edge->speedLimit / 3.6 * .85);
+	vehicle.departedAt = m_lastGameNow;
+	vehicle.populationManaged = true;
+	vehicle.goalEdgeId = goal; vehicle.goalLane = goalLane; vehicle.goalArc = static_cast<float>(graph.getEdge(goal)->length * .5);
+	m_laneTraffic.reserve(vehicle, lane);
+	m_vehicleIndices[vehicle.id] = m_vehicles.size();
+	m_vehicles << std::move(vehicle);
+	++m_populationStats.spawned;
+	return true;
+}
+
 bool VehicleManager::assignBuildingGoal(Vehicle& vehicle, const SimGraph& graph)
 {
 	if (!m_world)
@@ -118,11 +164,20 @@ void VehicleManager::replenishTraffic(double dt, const SimGraph& graph,
 	if (m_spawnRefresh <= 0)
 	{
 		m_spawnRefresh = kRefreshSeconds;
-		m_localSpawnEdges.clear(); m_globalSpawnEdges.clear(); m_localSpawnSet.clear();
+		m_localSpawnEdges.clear(); m_globalSpawnEdges.clear(); m_localSpawnSet.clear(); m_throughSpawnEdges.clear(); m_throughSpawnSet.clear();
 		size_t nearbyBuildings = 0;
 		for (const auto& [id, edge] : graph.edges)
 		{
 			if (!edge.isRoadbedBuilt() || edge.length < 24) { continue; }
+			if (edge.roadType == RoadType::Expressway && edge.lanes.size() >= 2 && edge.lanes.size() <= 3 && m_trafficFocus)
+			{
+				if (const auto curve = network.getBezier(id))
+				{
+					const auto point = curve->positionAt(edge.length * .5f);
+					const double radius = GenerationSettings::get().traffic_focusRadius * 2;
+					if (Vec2{ point.x, point.z }.distanceFromSq(*m_trafficFocus) < radius * radius) { m_throughSpawnEdges << id; m_throughSpawnSet.insert(id); }
+				}
+			}
 			const auto& points = m_buildingAccess.onEdge(id);
 			if (m_world && points.isEmpty()) { continue; }
 			m_globalSpawnEdges << id;
@@ -160,6 +215,16 @@ void VehicleManager::replenishTraffic(double dt, const SimGraph& graph,
 		{
 			m_spawnCredit -= 1; ++totalCount; localCount += m_localSpawnSet.contains(id);
 		}
+	}
+	// 高速道路の通過交通: 視点付近の本線 1 区間あたりの目標台数まで補充する。
+	int throughCount = 0;
+	for (const auto& vehicle : m_vehicles) { throughCount += vehicle.currentEdge >= 0 && !vehicle.tripCompleted && m_throughSpawnSet.contains(vehicle.currentEdge); }
+	const int throughTarget = static_cast<int>(m_throughSpawnEdges.size() * GenerationSettings::get().expressway_throughVehiclesPerEdge);
+	for (int attempt = 0; attempt < kAttempts && throughCount < throughTarget && !m_throughSpawnEdges.isEmpty(); ++attempt)
+	{
+		const int id = m_throughSpawnEdges[Random<size_t>(0, m_throughSpawnEdges.size() - 1)];
+		const VehicleType type = Random(0, 9) < 2 ? VehicleType::LargeTruck : selectDemandVehicleType();
+		if (trySpawnThroughTraffic(id, graph, type, network)) { ++throughCount; }
 	}
 	m_populationStats.localVehicles = localCount;
 	m_populationStats.localTarget = m_localTrafficTarget;
