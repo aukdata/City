@@ -136,6 +136,7 @@ enum class RoadObjectType : uint8
 	Pier,           ///< 橋脚
 	TollGate,       ///< 料金所（ETC・一般レーンの門型屋根とブース）
 	DivergeBlinker, ///< 分流鼻の 2 眼点滅灯
+	ServiceArea,    ///< PA/SA の駐車場・休憩施設（scale は施設の大きさ）
 	// 将来拡張: StreetLight, TrafficSign, UtilityPole, StreetTree, ...
 };
 

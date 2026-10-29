@@ -1083,3 +1083,8 @@ GENERATION_SETTING(double, expressway_trumpetStemLength, U"expressway", U"trumpe
 GENERATION_SETTING(double, expressway_trumpetBridgeApex, U"expressway", U"trumpetBridgeApex", 5, 20)
 GENERATION_SETTING(double, expressway_trumpetLoopLift, U"expressway", U"trumpetLoopLift", 0, 15)
 GENERATION_SETTING(double, expressway_tollStemLength, U"expressway", U"tollStemLength", 40, 1000)
+GENERATION_SETTING(double, expressway_serviceMinimumGap, U"expressway", U"serviceMinimumGap", 2000, 100000)
+GENERATION_SETTING(double, expressway_serviceAreaGap, U"expressway", U"serviceAreaGap", 2000, 100000)
+GENERATION_SETTING(double, expressway_serviceClearance, U"expressway", U"serviceClearance", 500, 20000)
+GENERATION_SETTING(double, expressway_serviceLength, U"expressway", U"serviceLength", 200, 2000)
+GENERATION_SETTING(double, expressway_serviceOffset, U"expressway", U"serviceOffset", 20, 200)

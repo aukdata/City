@@ -15,6 +15,7 @@ namespace ExpresswayNetwork
 		int lines = 0;
 		int interchanges = 0;
 		int junctions = 0;
+		int services = 0;
 		int mainlineEdges = 0;
 		int rampEdges = 0;
 		int accessEdges = 0;

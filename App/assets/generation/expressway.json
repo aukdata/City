@@ -84,5 +84,10 @@
   "trumpetStemLength": 250.0,
   "trumpetBridgeApex": 9.2,
   "trumpetLoopLift": 5.0,
-  "tollStemLength": 140.0
+  "tollStemLength": 140.0,
+  "serviceMinimumGap": 9000.0,
+  "serviceAreaGap": 16000.0,
+  "serviceClearance": 2500.0,
+  "serviceLength": 620.0,
+  "serviceOffset": 45.0
 }

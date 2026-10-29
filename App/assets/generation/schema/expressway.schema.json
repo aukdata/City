@@ -89,7 +89,12 @@
     "trumpetStemLength",
     "trumpetBridgeApex",
     "trumpetLoopLift",
-    "tollStemLength"
+    "tollStemLength",
+    "serviceMinimumGap",
+    "serviceAreaGap",
+    "serviceClearance",
+    "serviceLength",
+    "serviceOffset"
   ],
   "properties": {
     "enabled": {
@@ -521,6 +526,31 @@
       "type": "number",
       "minimum": 40.0,
       "maximum": 1000.0
+    },
+    "serviceMinimumGap": {
+      "type": "number",
+      "minimum": 2000.0,
+      "maximum": 100000.0
+    },
+    "serviceAreaGap": {
+      "type": "number",
+      "minimum": 2000.0,
+      "maximum": 100000.0
+    },
+    "serviceClearance": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 20000.0
+    },
+    "serviceLength": {
+      "type": "number",
+      "minimum": 200.0,
+      "maximum": 2000.0
+    },
+    "serviceOffset": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 200.0
     }
   }
 }

@@ -569,6 +569,7 @@ namespace
 	{
 		Line line;
 		Array<Interchange> interchanges;
+		Array<Interchange> services;   ///< PA/SA（station・最寄りの町・名称）
 		Optional<Junction> branch;     ///< この路線から分かれる JCT（本線側）
 		bool startsAtJunction = false; ///< 支線。始点の上下線は高さを分ける
 		Carriageway forward, backward;
@@ -647,6 +648,54 @@ namespace
 			const double reach = TrumpetLayout::make().reach() + 120;
 			rules << Constraint{ ic.station - reach, ic.station + reach, -2.5, 2.5 };
 		}
+	}
+
+	/// @brief IC 間の長い区間の中央付近に PA/SA を置く。縦断が地盤付近で、周囲に一般道がない位置に限る。
+	Array<Interchange> chooseServices(const Line& line, const World& world, const TransportClearance& crossings, const Array<Settlement>& towns,
+		const Array<double>& occupiedStations)
+	{
+		const auto& c = settings();
+		Array<double> stops = occupiedStations;
+		stops << 0.0 << line.length();
+		stops.sort();
+		Array<Interchange> result;
+		for (size_t i = 0; i + 1 < stops.size(); ++i)
+		{
+			const double gap = stops[i + 1] - stops[i];
+			if (gap < c.expressway_serviceMinimumGap) { continue; }
+			const double half = c.expressway_serviceLength * .5 + 120;
+			const auto suitable = [&](double s)
+			{
+				if (s - stops[i] < c.expressway_serviceClearance || stops[i + 1] - s < c.expressway_serviceClearance) { return false; }
+				for (double along = -half; along <= half; along += 30)
+				{
+					const double station = Clamp(s + along, 0.0, line.length());
+					const Vec2 point = line.at(station), right = rightOf(line.tangent(station));
+					if (Abs(line.height(station) - groundAt(world, point)) > 2.5) { return false; }
+					for (const double lateral : { -c.expressway_serviceOffset - 40, 0.0, c.expressway_serviceOffset + 40 })
+					{
+						const Vec2 probe = point + right * lateral;
+						if (crossings.interval(probe, 10).second > -1e8 || !landAt(world, probe)) { return false; }
+					}
+				}
+				return true;
+			};
+			const double middle = (stops[i] + stops[i + 1]) * .5;
+			for (double shift = 0; shift <= gap * .3; shift += 150)
+			{
+				Optional<double> found;
+				for (const double sign : { 1.0, -1.0 }) { if (suitable(middle + shift * sign)) { found = middle + shift * sign; break; } }
+				if (!found) { continue; }
+				const Vec2 point = line.at(*found);
+				int nearest = 0; double best = Math::Inf;
+				for (size_t t = 0; t < towns.size(); ++t) { const double d = towns[t].center.distanceFromSq(point); if (d < best) { best = d; nearest = static_cast<int>(t); } }
+				// 長い区間は休憩施設の大きい SA、それ以外は PA（NEXCO の配置間隔の目安に合わせる）。
+				const bool large = gap >= c.expressway_serviceAreaGap;
+				result << Interchange{ *found, nearest, interchangeName(towns[nearest], large ? U"SA" : U"PA"), interchangeReading(towns[nearest], large ? U"SA" : U"PA") };
+				break;
+			}
+		}
+		return result;
 	}
 
 	/// @brief 全 IC の拘束で縦断が成立しなければ、成立する IC だけを順に残す。
@@ -1020,6 +1069,14 @@ namespace ExpresswayNetwork
 				for (const double along : { layout.loopLead, layout.farMerge, layout.nearRamp, -layout.nearRamp, -layout.loopLead, -layout.farMerge }) { forced << ic.station + along; }
 			}
 			if (index == 0 && junctionRamps) { forced << junctionRamps->divergeStation << junctionRamps->mergeStation; }
+			{
+				Array<double> served;
+				for (const auto& ic : route.interchanges) { served << ic.station; }
+				if (index == 0 && mainRoute.branch) { served << mainRoute.branch->station; }
+				if (route.startsAtJunction) { served << 0.0; }
+				route.services = chooseServices(route.line, world, crossings, settlements, served);
+				for (const auto& service : route.services) { forced << service.station - c.expressway_serviceLength * .5 << service.station + c.expressway_serviceLength * .5; }
+			}
 			if (route.startsAtJunction) { forced << splitLength; }
 			const auto stations = nodeStations(route.line, forced);
 			const auto forwardOffset = route.startsAtJunction ? branchOut : HeightOffset{};
@@ -1239,6 +1296,56 @@ namespace ExpresswayNetwork
 			}
 		}
 
+		// ---- PA/SA: 両側の車道から左へ分流し、駐車場に沿う通路を通って合流する ----
+		for (size_t index = 0; index < routes.size(); ++index)
+		{
+			auto& route = routes[index];
+			for (const auto& service : route.services)
+			{
+				const double s = service.station, half = c.expressway_serviceLength * .5, angle = c.expressway_rampDivergeAngle;
+				for (const int side : { 1, -1 })
+				{
+					const auto& way = side > 0 ? route.forward : route.backward;
+					const double from = s - side * half, to = s + side * half;
+					const int diverge = way.nodeAt(from), merge = way.nodeAt(to);
+					if (diverge < 0 || merge < 0) { continue; }
+					const auto outward = [&](double station) { return -rightOf(route.line.tangent(station) * side); };
+					const auto aisle = [&](double station)
+					{
+						const Vec3 carriageway = carriagewayPoint(route.line, station, side, {});
+						return lift(flat(carriageway) + outward(station) * c.expressway_serviceOffset, carriageway.y);
+					};
+					const double inner = c.expressway_serviceLength * .22;
+					const Vec3 aisleStart = aisle(s - side * (half - inner)), aisleEnd = aisle(s + side * (half - inner));
+					const Vec2 travelIn = route.line.tangent(from) * side, travelOut = route.line.tangent(to) * side;
+					const Vec2 aisleDirection = (flat(aisleEnd) - flat(aisleStart)).normalized();
+					const int start = roads.addNode(aisleStart, NodeType::Joint), end = roads.addNode(aisleEnd, NodeType::Joint);
+					const Vec3 a = roads.getNode(diverge)->position, b = roads.getNode(merge)->position;
+					const auto lead = rampCurve(a, travelIn - rightOf(travelIn) * angle, aisleStart, aisleDirection, Math::Lerp(a.y, aisleStart.y, 1.0 / 3), Math::Lerp(a.y, aisleStart.y, 2.0 / 3));
+					const auto back = rampCurve(aisleEnd, aisleDirection, b, travelOut + rightOf(travelOut) * angle, Math::Lerp(aisleEnd.y, b.y, 1.0 / 3), Math::Lerp(aisleEnd.y, b.y, 2.0 / 3));
+					const CubicBezier straight{ aisleStart, aisleStart.lerp(aisleEnd, 1.0 / 3), aisleStart.lerp(aisleEnd, 2.0 / 3), aisleEnd };
+					const auto first = addRamp(roads, world, diverge, start, lead, c.expressway_rampSpeed, rampEdges);
+					const auto middle = addRamp(roads, world, start, end, straight, 20, rampEdges);
+					addRamp(roads, world, end, merge, back, c.expressway_rampSpeed, rampEdges);
+					if (middle)
+					{
+						RoadObject area;
+						area.parentEdgeId = *middle; area.arcPos = static_cast<float>(straight.totalLength * .5);
+						area.type = RoadObjectType::ServiceArea;
+						area.scale = service.name.ends_with(U"SA") ? 1.6f : 1.0f;
+						roads.addObject(area);
+					}
+					if (first) { addDivergeBlinker(roads, *first, travelIn, flat(a)); }
+					const size_t carriageway = index * 2 + (side > 0 ? 0 : 1);
+					const int signIndex = way.indexAt(from);
+					pendingSigns << PendingSign{ carriageway, signIndex, service.name, service.reading, service.name.ends_with(U"SA") ? U"サービスエリア" : U"パーキングエリア" };
+					divergeIndices[carriageway] << signIndex;
+				}
+				++summary.services;
+				DBG_LOG(U"[ExpresswayService] name={} station={:.0f} position=({:.0f},{:.0f})"_fmt(service.name, s, route.line.at(s).x, route.line.at(s).y));
+			}
+		}
+
 		// ---- JCT 連絡路 ----
 		if (junctionRamps && routes.size() > 1)
 		{
@@ -1336,8 +1443,8 @@ namespace ExpresswayNetwork
 		summary.mainlineEdges = static_cast<int>(mainlineEdges.size());
 		summary.rampEdges = static_cast<int>(rampEdges.size());
 		summary.accessEdges = static_cast<int>(accessEdges.size());
-		DBG_LOG(U"[Expressway] lines={} lengthKm={:.1f} interchanges={} junctions={} mainlineEdges={} rampEdges={} accessEdges={} tollGates={} signs={} earthworkEdges={} grounded={} elevated={} tunnels={} pierEdges={} maxGrade={:.4f} roadConflicts={} ms={:.0f}"_fmt(
-			summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, summary.mainlineEdges, summary.rampEdges, summary.accessEdges,
+		DBG_LOG(U"[Expressway] lines={} lengthKm={:.1f} interchanges={} junctions={} services={} mainlineEdges={} rampEdges={} accessEdges={} tollGates={} signs={} earthworkEdges={} grounded={} elevated={} tunnels={} pierEdges={} maxGrade={:.4f} roadConflicts={} ms={:.0f}"_fmt(
+			summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, summary.services, summary.mainlineEdges, summary.rampEdges, summary.accessEdges,
 			summary.tollGates, summary.guideSigns, earthwork.size(), grounded, elevated, tunnels, piers, steepest, conflicts, timer.msF()));
 		return summary;
 	}
