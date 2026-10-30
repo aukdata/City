@@ -5,6 +5,7 @@
 #include "RoadNodeIndex.hpp"
 #include "StreetProfile.hpp"
 #include "../debug/DebugLog.hpp"
+#include <future>
 #include <numeric>
 #include <queue>
 
@@ -439,15 +440,28 @@ namespace VillageConnections
 			}
 			endpoints.sort();
 			bool accepted = false;
-			for (size_t attempt = 0; attempt < Min(endpoints.size(), static_cast<size_t>(kAccessCandidates)); ++attempt)
+			// 端点の組ごとの線形探索は道路網に依存しないため、先に並列で解き、元の順で評価する。
+			const size_t attempts = Min(endpoints.size(), static_cast<size_t>(kAccessCandidates));
+			Array<std::future<Optional<RoadAlignment::Result>>> searches;
+			for (size_t attempt = 0; attempt < attempts; ++attempt)
+			{
+				const auto& from = fromChoices[endpoints[attempt].second.first];
+				const auto& to = toChoices[endpoints[attempt].second.second];
+				searches << std::async(std::launch::async, [&world, &config, from, to, roadType = road.roadType]() -> Optional<RoadAlignment::Result>
+				{
+					if (from.position.distanceFrom(to.position) < kMinimumDistance) { return none; }
+					return RoadAlignment::find(world, from.position, to.position, roadType,
+						config.routing_generatedExpansionLimit, TransportMode::Road, config.roads_maximumGeneratedViaductHeight);
+				});
+			}
+			for (size_t attempt = 0; attempt < attempts; ++attempt)
 			{
 				if (result.trials >= config.network_regionalRoutingAttemptLimit) { break; }
 				const auto& from = fromChoices[endpoints[attempt].second.first];
 				const auto& to = toChoices[endpoints[attempt].second.second];
 				if (from.position.distanceFrom(to.position) < kMinimumDistance) { continue; }
 				++result.trials;
-				const auto alignment = RoadAlignment::find(world, from.position, to.position, road.roadType,
-					config.routing_generatedExpansionLimit, TransportMode::Road, config.roads_maximumGeneratedViaductHeight);
+				const auto alignment = searches[attempt].get();
 				if (!alignment || !std::isfinite(alignment->cost) || alignment->cost > pair.direct * config.network_regionalMaximumCostRatio) { continue; }
 				RoadNetwork proposed = roads;
 				// 孤立集落には本物の端点を作り、失敗時はコピーごと破棄する。
