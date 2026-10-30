@@ -17,7 +17,8 @@ namespace LandscapeMaterials
 		case 105: return ColorF{ 0.32, 0.24, 0.18 };
 		case 125: return ColorF{ 0.30, 0.40, 0.22 }.removeSRGBCurve();
 		case 126: return ColorF{ 0.34, 0.44, 0.24 }.removeSRGBCurve();
-		case 127: return ColorF{ .24,.20,.105 };
+		// 畦は草に覆われ、上空からは田畑を縁取る明るい草の線に見える。
+		case 127: return ColorF{ .46,.46,.36 };
 		case 130: case 131: case 134: return ColorF{1};
 		case 132: return ColorF{.22,.34,.31}.removeSRGBCurve();
 		case 133: return ColorF{.39,.23,.17}.removeSRGBCurve();

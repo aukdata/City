@@ -453,6 +453,12 @@ namespace
 				if (building.type==BuildingType::HighApartment || building.type==BuildingType::OfficeTower) { building.type=BuildingType::LowApartment; }
 				if (building.type==BuildingType::Office && !stationLandmark) { building.type=BuildingType::Shop; }
 			}
+			// 農村集落に中高層の建物は建たない。集合住宅はあっても2階建てまで。
+			if (settlement.plan.scale==2 && (building.type==BuildingType::MidApartment || building.type==BuildingType::HighApartment
+				|| building.type==BuildingType::OfficeTower || building.type==BuildingType::Office))
+			{
+				building.type=(hash/31u)%4u==0u ? BuildingType::LowApartment : BuildingType::Detached;
+			}
 			if (building.type==BuildingType::Detached && settlement.plan.origin==UrbanMorphology::Origin::Rural
 				&& settlement.plan.ruralForm!=UrbanMorphology::RuralForm::Dispersed
 				&& UrbanMorphology::inCore(settlement.plan,local))
