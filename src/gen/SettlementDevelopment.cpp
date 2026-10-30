@@ -1429,6 +1429,91 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 				}
 			}
 		}
+		// 道路沿いの標本は0.5m刻みでも、角地に挟まれた数m²の建築可能域をすり抜けることがある。
+		// 住宅の敷地（正方形）の向きごとに、中心が置ける厳密な領域を道路帯とのミンコフスキー和で求めて置く。
+		// どの向きでも領域が空なら、この街区に住宅が建たないことの証明になる。
+		int regionPlacements=0; bool squareImpossible=false;
+		if (!occupied && rejectedSlope==slopeBefore && !(town->plan.civic && town->plan.civic->contains(planLocal(*town,block.center))))
+		{
+			const double half=buildingFootprintXZ(BuildingType::Detached)*.5+GenerationSettings::get().development_footprintMargin;
+			// 正方形は90度で一周する。2度刻みの区間から始め、厳密に置けず否定もできない区間だけを二分する。
+			struct Interval { double start, width; int depth; };
+			constexpr int kAngleSteps=45, kMaximumDepth=6;
+			Array<Interval> pending;
+			for (int step=0;step<kAngleSteps;++step) { pending << Interval{step*Math::HalfPi/kAngleSteps,Math::HalfPi/kAngleSteps,0}; }
+			bool unresolved=false,unknown=false;
+			while (!pending.isEmpty() && !occupied && !unknown)
+			{
+				const Interval interval=pending.back(); pending.pop_back();
+				const double angle=interval.start+interval.width*.5;
+				// 区間内のどの向きの正方形も、区間中央の向きで半辺を縮めた正方形を含む。
+				const double shrink=1.0/(Math::Cos(interval.width*.5)+Math::Sin(interval.width*.5));
+				const auto bound=StreetBlocks::freeCenterRegions(m_network,block,half*shrink,&roadIndex,angle);
+				if (!bound) { unknown=true; break; }
+				if (bound->isEmpty()) { continue; }
+				const auto exact=StreetBlocks::freeCenterRegions(m_network,block,half,&roadIndex,angle);
+				if (!exact) { unknown=true; break; }
+				if (exact->isEmpty())
+				{
+					if (interval.depth<kMaximumDepth)
+					{
+						pending << Interval{interval.start,interval.width*.5,interval.depth+1} << Interval{interval.start+interval.width*.5,interval.width*.5,interval.depth+1};
+					}
+					else { unresolved=true; }
+					continue;
+				}
+				for (const auto& region : *exact)
+				{
+					if (occupied || region.area()<=0) { continue; }
+					Array<Vec2> points{region.centroid()};
+					for (const Vec2 vertex : region.outer()) { points << region.centroid().lerp(vertex,.5); }
+					for (const Vec2 position : points)
+					{
+						if (occupied || !block.contains(position) || !region.contains(position)) { continue; }
+						// 最も近い街区の辺の道路へ接道させ、正方形の4つの向きのうち道路を向くものを選ぶ。
+						int edgeId=-1; float edgeT=0; double nearest=Math::Inf; Vec2 roadPoint{0,0};
+						for (const int id : block.edges)
+						{
+							const auto curve=m_network.getBezier(id); if (!curve) { continue; }
+							constexpr int kSamples=48;
+							for (int i=0;i<=kSamples;++i)
+							{
+								const float t=static_cast<float>(i)/kSamples; const Vec3 p=curve->evaluate(t);
+								const double distance=Vec2{p.x,p.z}.distanceFrom(position);
+								if (distance<nearest) { nearest=distance; edgeId=id; edgeT=t; roadPoint={p.x,p.z}; }
+							}
+						}
+						if (edgeId<0) { continue; }
+						Point coord; int col,row; worldToZoneCell(static_cast<float>(position.x),static_cast<float>(position.y),coord,col,row);
+						Chunk* chunk=m_world.getChunk(coord); if (!chunk || chunk->buildingGrid[{col,row}].type!=BuildingType::None) { continue; }
+						const Vec2 direction=(position-roadPoint).normalized();
+						const double facing=std::atan2(-direction.x,direction.y);
+						// ParcelGeometry の向きは building.angle と同じ定義。facing に最も近い angle+k·90度 を使う。
+						double bestAngle=angle,bestTurn=Math::Inf;
+						for (int quarter=0;quarter<4;++quarter)
+						{
+							const double candidate=angle+quarter*Math::HalfPi;
+							const double turn=Abs(std::remainder(candidate-facing,Math::TwoPi));
+							if (turn<bestTurn) { bestTurn=turn; bestAngle=candidate; }
+						}
+						Building building=InitialBuilding::spawn(ZoneType::LowResidential,town->kind,0,static_cast<uint32>(edgeId));
+						building.type=BuildingType::Detached; building.angle=static_cast<float>(bestAngle);
+						const Vec2 cell=cellCenterXZ(coord,col,row);
+						building.edgeId=edgeId; building.edgeT=edgeT;
+						building.offsetX=static_cast<float>(position.x-cell.x); building.offsetZ=static_cast<float>(position.y-cell.y);
+						if (!isBuildableFootprint(building,position,GenerationSettings::get().development_maximumSuburbanRelief)) { continue; }
+						if (overlapsExistingBuilding(m_world,coord,col,row,static_cast<float>(position.x),static_cast<float>(position.y),buildingFootprintXZ(building.type)*.5f,building.angle)) { continue; }
+						chunk->buildingGrid[{col,row}]=building; chunk->zoneMap[{col,row}]=ZoneType::LowResidential; chunk->markMeshDirty();
+						++blockInfill; ++regionPlacements; occupied=true;
+					}
+				}
+				// 幾何的には置けるのに、地形・緑地・隣家の条件で置けなかった。建たない証明にはならない。
+				unresolved|=!occupied;
+			}
+			squareImpossible=!occupied && !unknown && !unresolved;
+		}
+		if (regionPlacements>0) { DBG_LOG(U"[RegionInfill] center=({}, {}) placements={}"_fmt(block.center.x,block.center.y,regionPlacements)); }
+		if (occupied) { continue; }
 		// 隣の敷地の建物が街区へ張り出して全候補を塞いでいる場合は、既に建て込んだ街区とみなす。
 		if (!occupied && tried>0 && neighborOverlaps==tried) { continue; }
 		if (!occupied)
@@ -1439,7 +1524,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			const double requiredCenterRadius=buildingFootprintXZ(BuildingType::Detached)*.5
 				+GenerationSettings::get().development_footprintMargin;
 			const auto centerArea=StreetBlocks::freeCenterArea(m_network,block,requiredCenterRadius,&roadIndex);
-			if (centerArea && *centerArea==0.0 && rejectedSlope==slopeBefore)
+			if (((centerArea && *centerArea==0.0) || squareImpossible) && rejectedSlope==slopeBefore)
 			{
 				const auto openArea=StreetBlocks::freeCenterArea(m_network,block,0,&roadIndex);
 				if (openArea)
@@ -1454,7 +1539,7 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 						chunk->zoneMap[{col,row}]=ZoneType::Unzoned; chunk->markMeshDirty();
 					}
 					if (*openArea>0.0) { ++unbuildablePockets; } else { ++transportCoveredFaces; }
-					DBG_LOG(U"[UnbuildableStreetFace] center=({}, {}) area={} openArea={} centerArea={}"_fmt(block.center.x,block.center.y,block.area,*openArea,*centerArea));
+					DBG_LOG(U"[UnbuildableStreetFace] center=({}, {}) area={} openArea={} centerArea={} squareProof={}"_fmt(block.center.x,block.center.y,block.area,*openArea,centerArea.value_or(-1),squareImpossible));
 					continue;
 				}
 			}

@@ -143,7 +143,10 @@ namespace StreetBlocks
 	/// @brief Available-center superset using the placement validator's exact road ribbons.
 	/// @details Every rotated square of half-size r contains a disk of radius r. Only empty
 	/// subtraction proves that no square can fit; a surviving center never proves a fit.
-	inline Optional<double> freeCenterArea(const RoadNetwork& network,const Block& block,double footprintRadius,const ParcelRoadIndex* obstacleIndex=nullptr)
+	/// @brief freeCenterArea の領域そのもの（ワールド座標）。標本の間をすり抜けた小さな建築可能域を探すのに使う。
+	/// @param squareAngle 指定時は半径の円ではなく、この向きで半辺 footprintRadius の正方形の中心が置ける厳密な領域を返す。
+	/// 凸な道路帯と正方形のミンコフスキー和は、頂点どうしの和の凸包に等しい。
+	inline Optional<Array<s3d::Polygon>> freeCenterRegions(const RoadNetwork& network,const Block& block,double footprintRadius,const ParcelRoadIndex* obstacleIndex=nullptr,Optional<double> squareAngle=none)
 	{
 		if (block.outline.size()<3) { return none; }
 		const Vec2 origin=block.outline.front(); Array<Vec2> outline;
@@ -172,7 +175,13 @@ namespace StreetBlocks
 			high.x=Max(high.x,bounds.x+bounds.w); high.y=Max(high.y,bounds.y+bounds.h);
 		}
 		bool unsupported=false;
-		const RectF query=RectF{low+origin,high-low}.stretched(footprintRadius+.001);
+		const RectF query=RectF{low+origin,high-low}.stretched(footprintRadius*(squareAngle ? Math::Sqrt2 : 1.0)+.001);
+		Array<Vec2> square;
+		if (squareAngle)
+		{
+			const Vec2 along{Math::Cos(*squareAngle),Math::Sin(*squareAngle)},across{-along.y,along.x};
+			for (const Vec2 corner : {along+across,along-across,-along-across,-along+across}) { square << corner*footprintRadius; }
+		}
 		obstacleIndex->forEachNearby(query,[&](const ParcelGeometry::Quad& quad)
 		{
 			if (unsupported || regions.isEmpty()) { return; }
@@ -182,15 +191,28 @@ namespace StreetBlocks
 			// Use the exact road, track and site quads already registered by placement.
 			// A slightly smaller inscribed disk keeps legal touching conservative.
 			const double radius=Max(0.0,footprintRadius-.001);
-			const s3d::Polygon obstacle=radius>0 ? ribbon.calculateRoundBuffer(radius) : ribbon;
+			s3d::Polygon obstacle;
+			if (squareAngle)
+			{
+				Array<Vec2> sums; for (const Vec2 point : points) { for (const Vec2 corner : square) { sums << point+corner; } }
+				obstacle=Geometry2D::ConvexHull(sums);
+			}
+			else { obstacle=radius>0 ? ribbon.calculateRoundBuffer(radius) : ribbon; }
 			if (!obstacle) { unsupported=true; return; }
 			Array<s3d::Polygon> remaining;
 			for (const auto& region : regions) { remaining.append(Geometry2D::Subtract(region,obstacle)); }
 			regions=std::move(remaining);
 		});
 		if (unsupported) { return none; }
-		if (regions.isEmpty()) { return 0.0; }
-		double area=0; for (const auto& region : regions) { area+=region.area(); }
+		for (auto& region : regions) { region.moveBy(origin); }
+		return regions;
+	}
+	inline Optional<double> freeCenterArea(const RoadNetwork& network,const Block& block,double footprintRadius,const ParcelRoadIndex* obstacleIndex=nullptr)
+	{
+		const auto regions=freeCenterRegions(network,block,footprintRadius,obstacleIndex);
+		if (!regions) { return none; }
+		if (regions->isEmpty()) { return 0.0; }
+		double area=0; for (const auto& region : *regions) { area+=region.area(); }
 		// A tiny nonempty region is unresolved, never a geometric impossibility.
 		return Max(area,1e-12);
 	}

@@ -289,10 +289,13 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 		duplicate.id=second; duplicate.ctrlA={3.27,151.85,-10.94}; duplicate.ctrlB={6.54,153.10,-21.87};
 		GeneratedStreet::apply(duplicate,GeneratedStreet::describe(GeneratedStreet::Role::Local));
 		network.addEdgeRaw(duplicate);
-		const int route=network.addRoute(RoadRouteKind::NationalRoute,U"集落街道",{second},151);
+		// 計画中の道路と国道・県道などの路線に属する重複は、RoadIntegrity.ProtectedDuplicatesAreNotRetemplated の方針で
+		// 自動の統合から外れる。ここでは生成後の供用中の道路と通称の路線で、制御点が違う同じ回廊の統合と路線の引き継ぎを確かめる。
+		for (const int id : {first,second}) { network.getEdge(id)->edgeState=EdgeState::Open; }
+		const int route=network.addRoute(RoadRouteKind::Named,U"集落街道",{second},151);
 		context.expect(network.removeDuplicateEdges(42),U"The same physical corridor is consolidated even when its curve parameters differ");
 		context.expect((network.getEdge(first)!=nullptr)!=(network.getEdge(second)!=nullptr),U"Exactly one usable road remains");
-		context.expect(network.getRoute(route) && !network.getRoute(route)->edgeIds.isEmpty(),U"National-route membership survives consolidation");
+		context.expect(network.getRoute(route) && !network.getRoute(route)->edgeIds.isEmpty(),U"Named-route membership survives consolidation");
 	});
 	runner.add(U"Morphology.ExistingBoundaryGateway", [](TestContext& context)
 	{
