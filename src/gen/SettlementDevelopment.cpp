@@ -1269,6 +1269,109 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	}
 	DebugLog::print(U"[HousingEstates] blocks={} buildings={} previous={}"_fmt(estateBlocks, estateBuildings, estatePrevious));
 
+	// 道路沿いの家と家の間にもう1軒分の間口が残っていれば、戸建てを足して軒を連ねる。
+	// 16m格子1区画に1棟の制約で生じる間延びを補い、格納先は位置の区画か隣の空き区画にする。
+	int gapPlaced = 0;
+	{
+		constexpr double kSideGap = 1.0;
+		constexpr uint32 kGapFillPerMille = 850;
+		struct Front { double along; double lateral; Vec2 position; Building building; };
+		HashTable<int64, Array<Front>> sides;
+		for (int chunkY = 0; chunkY < WORLD_CHUNKS; ++chunkY)
+		{
+			for (int chunkX = 0; chunkX < WORLD_CHUNKS; ++chunkX)
+			{
+				const Chunk* chunk = m_world.getChunk(Point{ chunkX, chunkY });
+				if (!chunk) continue;
+				for (int row = 0; row < ZONE_CELLS; ++row)
+				{
+					for (int col = 0; col < ZONE_CELLS; ++col)
+					{
+						const Building& building = chunk->buildingGrid[{ col, row }];
+						if (building.type == BuildingType::None || building.type == BuildingType::Farmland || building.edgeId < 0) continue;
+						const Vec2 position = cellCenterXZ(Point{ chunkX, chunkY }, col, row) + Vec2{ building.offsetX, building.offsetZ };
+						EdgeProjection projection;
+						if (!projectPointToEdgeXZ(m_network, building.edgeId, position, projection)) continue;
+						const auto curve = m_network.getBezier(building.edgeId);
+						if (!curve) continue;
+						const double lateral = (position - projection.position).dot(projection.right);
+						const float scaled = projection.edgeT * CubicBezier::SAMPLES;
+						const int index = Clamp(static_cast<int>(scaled), 0, CubicBezier::SAMPLES - 1);
+						const double along = Math::Lerp(curve->arcTable[index], curve->arcTable[index + 1], scaled - index);
+						sides[static_cast<int64>(building.edgeId) * 2 + (lateral >= 0 ? 1 : 0)] << Front{ along, lateral, position, building };
+					}
+				}
+			}
+		}
+		for (auto& [key, fronts] : sides)
+		{
+			const int edgeId = static_cast<int>(key / 2);
+			const auto* edge = m_network.getEdge(edgeId);
+			const auto curve = m_network.getBezier(edgeId);
+			if (!edge || !curve || !edge->hasRoadLanes() || edge->useElevation || edge->tunnel || edge->roadType == RoadType::Expressway) continue;
+			fronts.sort_by([](const Front& a, const Front& b) { return a.along < b.along; });
+			for (size_t i = 0; i + 1 < fronts.size(); ++i)
+			{
+				const Front& first = fronts[i];
+				const Front& second = fronts[i + 1];
+				if (!isResidentialBuildingType(first.building.type) || !isResidentialBuildingType(second.building.type)) continue;
+				if (first.building.type == BuildingType::RuralHouse || first.building.type == BuildingType::VillageHouse) continue;
+				constexpr BuildingType kGapType = BuildingType::Detached;
+				const double width = buildingFootprintXZ(kGapType);
+				const double gap = second.along - first.along - (buildingFootprintXZ(first.building.type) + buildingFootprintXZ(second.building.type)) * .5;
+				if (gap < width + kSideGap * 2) continue;
+				const double along = (first.along + buildingFootprintXZ(first.building.type) * .5 + second.along - buildingFootprintXZ(second.building.type) * .5) * .5;
+				const double lateral = (first.lateral + second.lateral) * .5;
+				const float t = curve->tFromArcLength(static_cast<float>(along));
+				const Vec3 point = curve->evaluate(t);
+				const Vec3 right = tangentToRight(curve->tangent(t));
+				const Vec2 position = Vec2{ point.x, point.z } + Vec2{ right.x, right.z } * lateral;
+				const int si = nearestSettlementIndex(m_districts, static_cast<float>(position.x), static_cast<float>(position.y));
+				if (si < 0) continue;
+				const auto& settlement = m_districts[si];
+				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
+				const uint32 hash = settlementCellHash(m_seed ^ 0x6A7F01C3ULL, si, static_cast<int>(Floor(position.x / 4.0)), static_cast<int>(Floor(position.y / 4.0)));
+				if ((hash % 1000u) >= kGapFillPerMille) continue;
+				Building house;
+				house.type = kGapType;
+				house.angle = first.building.angle;
+				house.edgeId = edgeId;
+				house.edgeT = t;
+				// 位置の区画が埋まっていれば、隣接する空き区画へ格納する。
+				Point coord; int col = 0, row = 0;
+				worldToZoneCell(static_cast<float>(position.x), static_cast<float>(position.y), coord, col, row);
+				Chunk* chunk = m_world.getChunk(coord);
+				if (!chunk) continue;
+				const ZoneType zone = chunk->zoneMap[{ col, row }];
+				if (zone != ZoneType::Residential && zone != ZoneType::LowResidential && zone != ZoneType::Commercial) continue;
+				Optional<Point> storage;
+				double nearest = Math::Inf;
+				for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+				{
+					const int nx = col + dx, nz = row + dz;
+					if (!InRange(nx, 0, ZONE_CELLS - 1) || !InRange(nz, 0, ZONE_CELLS - 1) || chunk->buildingGrid[{ nx, nz }].type != BuildingType::None) continue;
+					// 敷地は格納先の区画の用途地域から作るため、格納先も市街地の区画に限る。
+					const ZoneType storageZone = chunk->zoneMap[{ nx, nz }];
+					if (storageZone != ZoneType::Residential && storageZone != ZoneType::LowResidential && storageZone != ZoneType::Commercial) continue;
+					const double distance = cellCenterXZ(coord, nx, nz).distanceFrom(position);
+					if (distance < nearest) { nearest = distance; storage = Point{ nx, nz }; }
+				}
+				if (!storage) continue;
+				const Vec2 cellCenter = cellCenterXZ(coord, storage->x, storage->y);
+				house.offsetX = static_cast<float>(position.x - cellCenter.x);
+				house.offsetZ = static_cast<float>(position.y - cellCenter.y);
+				if (!isBuildableFootprint(house, position)) continue;
+				const float minimumSetback = Max(GenerationSettings::get().development_minimumRoadSetback, setbackFromRoadByModel(house.type, coord.x * ZONE_CELLS + col, coord.y * ZONE_CELLS + row) * GenerationSettings::get().development_modelSetbackFraction);
+				if (!hasRoadClearance(m_network, edgeId, position, static_cast<float>(width * .5), minimumSetback)) { ++rejectedClearance; continue; }
+				if (overlapsExistingBuilding(m_world, coord, storage->x, storage->y, static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(width * .5), house.angle)) { ++rejectedNeighbor; continue; }
+				chunk->buildingGrid[{ storage->x, storage->y }] = house;
+				chunk->markMeshDirty();
+				++gapPlaced;
+			}
+		}
+	}
+	DebugLog::print(U"[FrontageGaps] placed={}"_fmt(gapPlaced));
+
 	// 街区の奥は旗竿地の住宅で埋める。前面の住宅と同じ道路へ路地状敷地で接道する。
 	int rearPlaced = 0;
 	{
