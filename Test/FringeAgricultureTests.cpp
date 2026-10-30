@@ -168,11 +168,13 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		bool overlap=false,served=true;
 		for (size_t i=0;i<fields.size();++i)
 		{
-			bool nearby=false;for (const Vec2 home:homes) { bool all=true;for (const auto point:fields[i].outer()) { all &= point.distanceFrom(home)<=500; }nearby |= all; }served &= nearby;
+			// 道路から400m以上離れた平野のほ場整備の格子だけは、家から1200mまでの通い耕作を認める（仕様24章）。
+			const double reach=Abs(fields[i].centroid().y-33600)>400 ? 1200 : 500;
+			bool nearby=false;for (const Vec2 home:homes) { bool all=true;for (const auto point:fields[i].outer()) { all &= point.distanceFrom(home)<=reach; }nearby |= all; }served &= nearby;
 			for (size_t j=i+1;j<fields.size();++j) { overlap |= fields[i].intersects(fields[j]); }
 		}
 		context.expect(irregular>5 && !overlap,U"Irregular road-following fields do not overlap at chunk or village boundaries");
-		context.expect(served && !homes.isEmpty(),U"Every part of every field has a rural house within 500 m");
+		context.expect(served && !homes.isEmpty(),U"Every part of every field has a rural house within 500 m, or 1200 m for consolidated fields far from roads");
 		JSON report;report[U"fields"]=stats.fields;report[U"roads"]=stats.tracks;report[U"irregular"]=irregular;report[U"homes"]=homes.size();report[U"overlap"]=overlap;report[U"served"]=served;report.save(U"TestResults/town_aligned_agriculture.json");
 	});
 	runner.add(U"Morphology.SuburbanOrigins",[](TestContext& context)
