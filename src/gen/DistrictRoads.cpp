@@ -2086,31 +2086,60 @@ namespace DistrictRoads
 		const Stopwatch timer{StartImmediately::Yes};
 		HashSet<int> lanesAdded;
 		int added = 0, rejectedCrossing = 0, rejectedTerrain = 0, rejectedEdge = 0;
+		// 端点の接続先を探すため、道路の制御点の外接矩形を64m格子へ登録する。分割・追加した道路はその都度登録する。
+		constexpr double kEdgeBucket = 64, kSearchMargin = 40;
+		HashTable<Point, Array<int>> edgeBuckets;
+		const auto bucketOf = [&](double x, double z) { return Point{static_cast<int>(Floor(x / kEdgeBucket)), static_cast<int>(Floor(z / kEdgeBucket))}; };
+		const auto indexEdge = [&](int id)
+		{
+			const auto* edge = network.getEdge(id);
+			if (!edge || edge->id < 0 || edge->useElevation || edge->tunnel) { return; }
+			const auto curve = network.getBezier(id); if (!curve) { return; }
+			double left = Math::Inf, right = -Math::Inf, top = Math::Inf, bottom = -Math::Inf;
+			for (const Vec3 p : {curve->p0, curve->p1, curve->p2, curve->p3}) { left = Min(left, p.x); right = Max(right, p.x); top = Min(top, p.z); bottom = Max(bottom, p.z); }
+			const Point low = bucketOf(left, top), high = bucketOf(right, bottom);
+			for (int z = low.y; z <= high.y; ++z) for (int x = low.x; x <= high.x; ++x) { edgeBuckets[{x, z}] << id; }
+		};
+		for (const auto& edge : network.edges()) { indexEdge(edge.id); }
+		const auto indexNode = [&](int nodeId)
+		{
+			if (const auto* node = network.getNode(nodeId)) { for (const auto& attachment : node->attachments) { indexEdge(attachment.edgeId); } }
+		};
 		const auto nearestOnEdges = [&](Vec2 point, int& edgeId, float& parameter)
 		{
 			double best = Math::Inf; edgeId = -1;
-			for (const auto& edge : network.edges())
+			HashSet<int> visited;
+			const Point low = bucketOf(point.x - kSearchMargin, point.y - kSearchMargin), high = bucketOf(point.x + kSearchMargin, point.y + kSearchMargin);
+			for (int z = low.y; z <= high.y; ++z) for (int x = low.x; x <= high.x; ++x)
 			{
-				if (edge.id < 0 || edge.useElevation || edge.tunnel) { continue; }
-				const auto curve = network.getBezier(edge.id); if (!curve) { continue; }
-				const Vec2 a{curve->p0.x, curve->p0.z}, b{curve->p3.x, curve->p3.z};
-				if (Min(a.x, b.x) - 40 > point.x || Max(a.x, b.x) + 40 < point.x || Min(a.y, b.y) - 40 > point.y || Max(a.y, b.y) + 40 < point.y) { continue; }
-				constexpr int kSamples = 48;
-				for (int i = 0; i <= kSamples; ++i)
+				const auto found = edgeBuckets.find({x, z}); if (found == edgeBuckets.end()) { continue; }
+				for (const int id : found->second)
 				{
-					const float t = static_cast<float>(i) / kSamples; const Vec3 p = curve->evaluate(t);
-					const double distance = Vec2{p.x, p.z}.distanceFrom(point);
-					if (distance < best) { best = distance; edgeId = edge.id; parameter = t; }
+					if (!visited.insert(id).second) { continue; }
+					// 分割で消えた道路は取得できないか id が -1 になる。
+					const auto* edge = network.getEdge(id); if (!edge || edge->id != id) { continue; }
+					const auto curve = network.getBezier(id); if (!curve) { continue; }
+					constexpr int kSamples = 48;
+					for (int i = 0; i <= kSamples; ++i)
+					{
+						const float t = static_cast<float>(i) / kSamples; const Vec3 p = curve->evaluate(t);
+						const double distance = Vec2{p.x, p.z}.distanceFrom(point);
+						if (distance < best) { best = distance; edgeId = id; parameter = t; }
+					}
 				}
 			}
 			return best;
 		};
+		double collectMs = 0, attachMs = 0;
 		for (int pass = 0; pass < kPasses; ++pass)
 		{
+			const Stopwatch passTimer{StartImmediately::Yes};
 			ParcelRoadIndex occupied{network, true}; occupied.addRailway(railway);
 			struct Lane { Vec2 from, to; };
 			Array<Lane> lanes;
-			for (const auto& block : StreetBlocks::collect(network))
+			const auto blocks = StreetBlocks::collect(network);
+			collectMs += passTimer.msF();
+			for (const auto& block : blocks)
 			{
 				const MapGenerator::Settlement* town = nullptr;
 				for (const auto& candidate : settlements)
@@ -2181,6 +2210,7 @@ namespace DistrictRoads
 				lanes << Lane{from, to};
 			}
 			int passAdded = 0;
+			const Stopwatch attachTimer{StartImmediately::Yes};
 			for (const auto& lane : lanes)
 			{
 				// 端点を既存の街路へつなぐ。交差点の近くでは新しい節点を作らず既存の節点を使う。
@@ -2194,7 +2224,9 @@ namespace DistrictRoads
 						const Vec3 node = network.getNode(nodeId)->position;
 						if (Vec2{node.x, node.z}.distanceFrom(point) < kEndpointSnap) { return nodeId; }
 					}
-					return network.splitEdgeAtParameter(edgeId, parameter);
+					const int split = network.splitEdgeAtParameter(edgeId, parameter);
+					indexNode(split);
+					return split;
 				};
 				const int a = attach(lane.from), b = attach(lane.to);
 				if (a < 0 || b < 0 || a == b) { ++rejectedEdge; continue; }
@@ -2207,13 +2239,15 @@ namespace DistrictRoads
 					// 道路の後処理は済んでいるので、ここで供用中にする。
 					network.getEdge(*id)->edgeState = EdgeState::Open;
 					lanesAdded.insert(*id);
+					indexEdge(*id);
 					++passAdded;
 				}
 			}
+			attachMs += attachTimer.msF();
 			added += passAdded;
 			if (passAdded == 0) { break; }
 		}
-		DBG_LOG(U"[DeepBlockLanes] added={} rejectedCrossing={} rejectedTerrain={} rejectedEdge={} ms={:.0f}"_fmt(added, rejectedCrossing, rejectedTerrain, rejectedEdge, timer.msF()));
+		DBG_LOG(U"[DeepBlockLanes] added={} rejectedCrossing={} rejectedTerrain={} rejectedEdge={} ms={:.0f} collectMs={:.0f} attachMs={:.0f}"_fmt(added, rejectedCrossing, rejectedTerrain, rejectedEdge, timer.msF(), collectMs, attachMs));
 		return lanesAdded;
 	}
 
