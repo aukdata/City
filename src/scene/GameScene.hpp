@@ -454,6 +454,8 @@ private:
 	void initScene();
 	void initNewGame();
 	void initLoadGame();
+	/// @brief 生成・ロードした土地利用から全LOD共通の森林境界を作り、地形の描画へ公開する。
+	void publishForestCover();
 	void saveGame();
 	SaveResult writeGameSnapshot(const FilePath& saveRoot) const;
 	SaveResult verifyGameSnapshot(const FilePath& saveRoot) const;

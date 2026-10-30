@@ -729,7 +729,8 @@ void registerComprehensiveTests(TestRunner& runner)
 		CityLighting lighting;context.expect(lighting.initialize(),U"Production terrain shader loads");
 		const Size size{320,240};const RenderTexture target{size,TextureFormat::R8G8B8A8_Unorm_SRGB,HasDepth::Yes};
 		JSON report;report[U"cases"]=Array<JSON>{};
-		for(const float height:{10.0f,60.0f,1500.0f,2300.0f,500.0f})
+		Optional<double> openSlopeBrightness;
+		for(const auto [height,forested]:{std::pair{10.0f,false},std::pair{60.0f,false},std::pair{1500.0f,false},std::pair{2300.0f,false},std::pair{500.0f,false},std::pair{500.0f,true}})
 		{
 			World world;flatWorld(world,height);RoadNetwork roads;WorldRenderer renderer;renderer.setAsyncTerrain(false);renderer.setTerrainShader(lighting.terrainShader());
 			// 地表の陰影だけを比べる。斜面の農業地域には森が育つが、樹木は地域LODの対象外。
@@ -748,6 +749,8 @@ void registerComprehensiveTests(TestRunner& runner)
 					chunk->heightMin=chunk->heightMap[0][0];chunk->heightMax=chunk->heightMap[HEIGHT_CELLS][HEIGHT_CELLS];
 				} }
 			}
+			// 森林被覆を公開すると、詳細地形も地域LODの地形も同じ値で斜面を林冠の色にする。
+			if (forested) { VegetationProfile::ForestCover::publish(std::make_shared<const VegetationProfile::ForestCover>(world)); }
 			world.update(focus);Array<double> means;Array<Image> frames;
 			for(const double clearance:{4499.0,4501.0})
 			{
@@ -760,8 +763,14 @@ void registerComprehensiveTests(TestRunner& runner)
 				pixels.save(directory+U"Screenshot/zoom_terrain_{}_{}.png"_fmt(static_cast<int>(height),static_cast<int>(clearance)));
 			}
 			double difference=0;for(int y=60;y<180;++y) { for(int x=80;x<240;++x) {const auto a=frames[0][y][x],b=frames[1][y][x];difference+=(Abs(int(a.r)-int(b.r))+Abs(int(a.g)-int(b.g))+Abs(int(a.b)-int(b.b)))/3.0;} }
-			difference/=19200;JSON row;row[U"height"]=height;row[U"meanBrightness"]=means;row[U"meanChannelDifference"]=difference;report[U"cases"].push_back(row);
-			context.expect(difference<3,U"Zooming past the regional terrain threshold preserves ground shading at altitude {} (difference {:.2f})"_fmt(height,difference));
+			difference/=19200;JSON row;row[U"height"]=height;row[U"forested"]=forested;row[U"meanBrightness"]=means;row[U"meanChannelDifference"]=difference;report[U"cases"].push_back(row);
+			context.expect(difference<3,U"Zooming past the regional terrain threshold preserves ground shading at altitude {} forested={} (difference {:.2f})"_fmt(height,forested,difference));
+			if (height==500 && !forested) { openSlopeBrightness=(means[0]+means[1])*.5; }
+			if (forested)
+			{
+				VegetationProfile::ForestCover::publish(nullptr);
+				context.expect(openSlopeBrightness && (means[0]+means[1])*.5<*openSlopeBrightness-5,U"Forested slopes keep a canopy colour in both the detailed and the regional terrain");
+			}
 		}
 		report.save(directory+U"TestResults/zoom_terrain_shading.json");Graphics3D::SetSunColor(ColorF{1});
 	});

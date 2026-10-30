@@ -234,7 +234,8 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 	float footprint = length(fwidth(ground));
 	float steepness = 1 - saturate(normalize(input.normal).y);
 	float2 shares = input.uv;
-	if (cover < .125)
+	float forest = cover > .625 && cover < .875 ? saturate(input.uv.x) : 0;
+	if (cover < .125 || (cover > .625 && cover < .875))
 	{
 		// Same rotated 8 m tiling as TerrainSurfaceGeometry::terrainUvAt.
 		float2 tile = ground / 8;
@@ -255,6 +256,12 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 		float detail = dot(albedo.rgb / max(g_diffuseColor.rgb, .01), float3(.3, .6, .1)) / .17;
 		albedo.rgb = cover < .125 ? townGround(ground, shares, steepness, footprint, detail)
 			: groundCover(ground, cover, steepness, footprint) * lerp(1, clamp(detail, .55, 1.5), .7);
+		// Forest floor and, from afar, the closed canopy: all LODs share the same cover, so forests
+		// stay in place when individual trees stop being drawn.
+		float crowns = valueNoise(ground / 9 + 1.3) * lerp(.5, 1, 1 - smoothstep(4, 16, footprint)) * .6 + valueNoise(ground / 41) * .4;
+		// Matches the foliage palette of the drawn trees (cedar darker, broadleaf lighter) so the switch is not visible.
+		float3 canopy = lerp(float3(.040, .072, .024), float3(.066, .112, .034), smoothstep(.4, .6, valueNoise(ground / 260 + 3.7))) * (.7 + crowns * .5);
+		albedo.rgb = lerp(albedo.rgb, canopy, smoothstep(.15, .85, forest));
 	}
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
 	float dryLand = smoothstep(0.25, 3.0, input.worldPosition.y);

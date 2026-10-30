@@ -132,6 +132,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 
 	HashTable<int, MeshData> groups;
 
+	const auto forest = VegetationProfile::ForestCover::current();
 	auto makeGridVertex = [&](int col, int row)
 	{
 		const Vec3 pos = worldOrigin + Vec3{
@@ -139,7 +140,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 			chunk.heightMap[{ col, row }],
 			row * kTerrainCellSize
 		};
-		return TerrainClipVertex{ pos, terrainUvAt(pos) };
+		return TerrainClipVertex{ pos, Float2{ TerrainMaterials::forestCover(forest.get(), pos), 0 } };
 	};
 
 	auto processTriangle = [&](int materialKey, const Array<size_t>& candidates, const TerrainClipVertex& a, const TerrainClipVertex& b, const TerrainClipVertex& c)
@@ -207,7 +208,7 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildTerrainMeshData(const 
 		for (const auto& poly : pieces)
 		{
 			// 町なかの混合地表は UV に舗装・緑地の割合を持つ。テクスチャ座標はシェーダーが位置から求める。
-			if (materialKey == TerrainMaterials::kUrbanBlend) { appendPolygonAsTriangles(poly, group.vertices, group.indices); continue; }
+			if (materialKey == TerrainMaterials::kUrbanBlend || TerrainMaterials::carriesForestCover(materialKey)) { appendPolygonAsTriangles(poly, group.vertices, group.indices); continue; }
 			Array<TerrainClipVertex> materialPoly;
 			materialPoly.reserve(poly.size());
 			for (const TerrainClipVertex& v : poly) materialPoly << withMaterialUv(v, materialKey);

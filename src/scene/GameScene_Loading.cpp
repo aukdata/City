@@ -2,6 +2,7 @@
 #include "../debug/DebugLog.hpp"
 #include "GameScene.hpp"
 #include "../gen/DistrictRoads.hpp"
+#include "../render/VegetationProfile.hpp"
 #include "../gen/RoadTerrainFit.hpp"
 #include "../asset/AssetRegistrar.hpp"
 #include "../ui/LoadingRecovery.hpp"
@@ -15,7 +16,15 @@ void GameScene::initLoadGame()
 	startLoadingPhase(LoadingTask::LoadGame, U"ロード中...", U"セーブデータを読み込み中...", [this]()
 	{
 		m_loadGameResult = loadGame();
+		if (m_loadGameResult) { publishForestCover(); }
 	});
+}
+
+void GameScene::publishForestCover()
+{
+	const Stopwatch timer{StartImmediately::Yes};
+	VegetationProfile::ForestCover::publish(std::make_shared<const VegetationProfile::ForestCover>(m_world));
+	DBG_LOG(U"[ForestCover] published ms={:.0f}"_fmt(timer.msF()));
 }
 
 void GameScene::initNewGame()
@@ -78,6 +87,7 @@ void GameScene::initNewGame()
 			applyZonesGlobal();
 			placeInitialBuildings();
 		}
+		publishForestCover();
 	});
 	DebugLog::print(U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks));
 }

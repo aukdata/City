@@ -853,16 +853,7 @@ namespace
 		}
 		const VegetationProfile::BoundaryField boundary{{chunk.coord.x*CHUNK_SIZE,chunk.coord.y*CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE},[&](Vec2 point)
 		{
-			const auto* source=world.getChunk({static_cast<int>(Floor(point.x/CHUNK_SIZE)),static_cast<int>(Floor(point.y/CHUNK_SIZE))});
-			if(!source) { return false; }
-			const int col=Clamp(static_cast<int>((point.x-source->coord.x*CHUNK_SIZE)/16),0,ZONE_CELLS-1),row=Clamp(static_cast<int>((point.y-source->coord.y*CHUNK_SIZE)/16),0,ZONE_CELLS-1);
-			const ZoneType zone=source->zoneMap.isEmpty() ? ZoneType::Unzoned : source->zoneMap[{col,row}];
-			if(zone!=ZoneType::Unzoned && zone!=ZoneType::Agriculture) { return false; }
-			const float x=static_cast<float>(point.x),z=static_cast<float>(point.y);
-			const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
-			// 農業地域の平地は耕作地・草地として残し、森は斜面にだけ広げる。
-			if(zone==ZoneType::Agriculture && slope<GenerationSettings::get().vegetation_flatClearingSlope) { return false; }
-			return VegetationProfile::habitat(world.sampleHeight(x,z),slope);
+			return VegetationProfile::forestHabitat(world,point);
 		}};
 		// 田畑・宅地の上には木立を置かない。4m格子へ一度だけ塗る。
 		constexpr int kPatchCells=CHUNK_SIZE/4;

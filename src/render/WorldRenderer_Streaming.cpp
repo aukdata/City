@@ -292,10 +292,11 @@ Array<WorldRenderer::TerrainMeshData> WorldRenderer::buildCoarseTerrainMeshData(
 	constexpr int cells = 16;
 	const auto origin = chunk.worldOrigin();
 	auto grid = MeshData::Grid(Float3{static_cast<float>(origin.x + CHUNK_SIZE * .5), 0, static_cast<float>(origin.z + CHUNK_SIZE * .5)}, Float2{CHUNK_SIZE, CHUNK_SIZE}, cells, cells);
+	const auto forest = VegetationProfile::ForestCover::current();
 	for (auto& vertex : grid.vertices)
 	{
 		vertex.pos.y = chunk.getHeight(vertex.pos.x, vertex.pos.z);
-		vertex.tex = Float2{vertex.pos.x / 32, vertex.pos.z / 32};
+		vertex.tex = Float2{TerrainMaterials::forestCover(forest.get(), Vec3{vertex.pos}), 0};
 	}
 	grid.computeNormals();
 	Array<TerrainMeshData> batches{{0, {}}, {1, {}}};

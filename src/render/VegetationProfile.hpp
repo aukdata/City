@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "../gen/GenerationSettings.hpp"
+#include "../world/Chunk.hpp"
 #include <Siv3D.hpp>
+#include <memory>
+#include <mutex>
 
 /// @brief 高度帯と地形に沿った森林境界。確率場を連続にし、木の候補自体は固定する。
 namespace VegetationProfile
@@ -77,5 +80,49 @@ namespace VegetationProfile
 			const double distance=Math::Lerp(Math::Lerp(m_distance[y][x],m_distance[y][x+1],fx),Math::Lerp(m_distance[y+1][x],m_distance[y+1][x+1],fx),fy);
 			return blend(distance,0,m_fade);
 		}
+	};
+	/// @brief 森が広がる土地か。用途地域のない土地と、農業地域の斜面だけが森になる。詳細LODの木と遠景の林床が共有する。
+	template<class Source>
+	bool forestHabitat(const Source& world,Vec2 point)
+	{
+		const auto* source=world.getChunk({static_cast<int>(Floor(point.x/CHUNK_SIZE)),static_cast<int>(Floor(point.y/CHUNK_SIZE))});
+		if(!source) { return false; }
+		const int col=Clamp(static_cast<int>((point.x-source->coord.x*CHUNK_SIZE)/16),0,ZONE_CELLS-1),row=Clamp(static_cast<int>((point.y-source->coord.y*CHUNK_SIZE)/16),0,ZONE_CELLS-1);
+		const ZoneType zone=source->zoneMap.isEmpty() ? ZoneType::Unzoned : source->zoneMap[{col,row}];
+		if(zone!=ZoneType::Unzoned && zone!=ZoneType::Agriculture) { return false; }
+		const float x=static_cast<float>(point.x),z=static_cast<float>(point.y);
+		const double slope=Max(Abs(world.sampleHeight(x+8,z)-world.sampleHeight(x-8,z)),Abs(world.sampleHeight(x,z+8)-world.sampleHeight(x,z-8)))/16;
+		// 農業地域の平地は耕作地・草地として残し、森は斜面にだけ広げる。
+		if(zone==ZoneType::Agriculture && slope<GenerationSettings::get().vegetation_flatClearingSlope) { return false; }
+		return habitat(world.sampleHeight(x,z),slope);
+	}
+	/// @brief ワールド全体の森林境界。全LODの地表が同じ値から林床の濃さを決め、遠景で森が消えないようにする。
+	/// 生成・ロード完了時に作り直して公開し、描画スレッドとストリーミングの作業スレッドが読み取りだけで共有する。
+	class ForestCover
+	{
+		BoundaryField m_field;
+	public:
+		template<class Source>
+		explicit ForestCover(const Source& world)
+			: m_field({0,0,WORLD_SIZE,WORLD_SIZE},[&](Vec2 point){ return forestHabitat(world,point); }) {}
+		/// @brief 詳細LODの森の候補が木になる確率と同じ値（0〜1）。
+		[[nodiscard]] double at(Vec2 point,double height) const
+		{
+			if (height<2) { return 0; }
+			return VegetationProfile::at(height).trees*m_field.density(point)*GenerationSettings::get().vegetation_forestDensityPercent/100.0;
+		}
+		static std::shared_ptr<const ForestCover> current()
+		{
+			const std::lock_guard lock{mutex()};
+			return instance();
+		}
+		static void publish(std::shared_ptr<const ForestCover> cover)
+		{
+			const std::lock_guard lock{mutex()};
+			instance()=std::move(cover);
+		}
+	private:
+		static std::mutex& mutex() { static std::mutex value; return value; }
+		static std::shared_ptr<const ForestCover>& instance() { static std::shared_ptr<const ForestCover> value; return value; }
 	};
 }

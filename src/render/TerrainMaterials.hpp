@@ -2,6 +2,7 @@
 #include <Siv3D.hpp>
 #include "../world/Chunk.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "VegetationProfile.hpp"
 
 /// @brief 詳細地形と遠景地形で共用する材質。LODによって色やテクスチャを変えない。
 namespace TerrainMaterials
@@ -20,6 +21,13 @@ namespace TerrainMaterials
 	constexpr int kUrbanBlend = 11;
 	/// @brief kUrbanBlend に混ぜるセル。それ以外の材質は従来どおりセル単位で描く。
 	inline bool blendsInTown(int materialKey) { return materialKey==kUrbanPaving || materialKey==kVacantLot || materialKey==kTendedGreen; }
+	/// @brief 草地の地表は UV.x に森林被覆率を持ち、テクスチャ座標はシェーダーが位置から求める。
+	inline bool carriesForestCover(int materialKey) { return materialKey==0 || materialKey==1; }
+	/// @brief 地形の頂点に載せる森林被覆率。公開済みの森林境界がなければ 0。
+	inline float forestCover(const VegetationProfile::ForestCover* cover,Vec3 position)
+	{
+		return cover ? static_cast<float>(cover->at(Vec2{position.x,position.z},position.y)) : 0.0f;
+	}
 	/// @brief 地形シェーダーが選ぶ地表の植生。拡散色のアルファで渡し、描画単位を増やさない。
 	enum class Cover { Plain, Meadow, Vacant, Tended, Blend };
 	inline Cover cover(int materialKey)

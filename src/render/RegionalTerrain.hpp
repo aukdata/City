@@ -13,10 +13,11 @@ namespace RegionalTerrain
 	{
 		const float extent=static_cast<float>(WORLD_SIZE);
 		auto data=MeshData::Grid(Float3{extent*.5f,0,extent*.5f},Float2{extent,extent},kCells,kCells,Float2{extent/32,extent/32});
+		const auto forest=VegetationProfile::ForestCover::current();
 		for(auto& vertex:data.vertices)
 		{
 			vertex.pos.y=world.sampleHeight(Clamp(vertex.pos.x,0.0f,extent-.01f),Clamp(vertex.pos.z,0.0f,extent-.01f));
-			vertex.tex=TerrainSurfaceGeometry::terrainUvAt(Vec3{vertex.pos});
+			vertex.tex=Float2{TerrainMaterials::forestCover(forest.get(),Vec3{vertex.pos}),0};
 		}
 		data.computeNormals();return data;
 	}
