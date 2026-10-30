@@ -1269,11 +1269,11 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 	}
 	DebugLog::print(U"[HousingEstates] blocks={} buildings={} previous={}"_fmt(estateBlocks, estateBuildings, estatePrevious));
 
-	// 道路沿いの家と家の間にもう1軒分の間口が残っていれば、戸建てを足して軒を連ねる。
+	// 道路沿いの建物の間にもう1軒分の間口が残っていれば、戸建てか店舗を足して軒を連ねる。
 	// 16m格子1区画に1棟の制約で生じる間延びを補い、格納先は位置の区画か隣の空き区画にする。
-	int gapPlaced = 0;
+	int gapPlaced = 0, gapOtherUse = 0, gapNarrow = 0, gapStorage = 0, gapGround = 0, gapRoad = 0, gapNeighbor = 0;
 	{
-		constexpr double kSideGap = 1.0;
+		constexpr double kSideGap = 1.0, kShopSideGap = .6;
 		constexpr uint32 kGapFillPerMille = 850;
 		struct Front { double along; double lateral; Vec2 position; Building building; };
 		HashTable<int64, Array<Front>> sides;
@@ -1310,67 +1310,109 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 			const auto curve = m_network.getBezier(edgeId);
 			if (!edge || !curve || !edge->hasRoadLanes() || edge->useElevation || edge->tunnel || edge->roadType == RoadType::Expressway) continue;
 			fronts.sort_by([](const Front& a, const Front& b) { return a.along < b.along; });
+			// 町なかの住宅・店舗・事務所・集合住宅の並びだけを詰める。駐車場・公園・工場・大型施設の脇は空けておく。
+			const auto streetFront = [](BuildingType type)
+			{
+				return (isResidentialBuildingType(type) && type != BuildingType::RuralHouse && type != BuildingType::VillageHouse)
+					|| type == BuildingType::Shop || type == BuildingType::Office;
+			};
+			const auto zoneAt = [&](Vec2 point) -> Optional<ZoneType>
+			{
+				Point coord; int col = 0, row = 0;
+				worldToZoneCell(static_cast<float>(point.x), static_cast<float>(point.y), coord, col, row);
+				const Chunk* chunk = m_world.getChunk(coord);
+				return chunk ? Optional<ZoneType>{ chunk->zoneMap[{ col, row }] } : none;
+			};
+			const auto pointAt = [&](double along, double lateral)
+			{
+				const float t = curve->tFromArcLength(static_cast<float>(Clamp(along, 0.0, static_cast<double>(curve->totalLength))));
+				const Vec3 point = curve->evaluate(t);
+				const Vec3 right = tangentToRight(curve->tangent(t));
+				return std::pair{ Vec2{ point.x, point.z } + Vec2{ right.x, right.z } * lateral, t };
+			};
+			// 区間 [from, to] の間口に、同じ種類の建物を等間隔で入るだけ並べる。
+			const auto fillSpan = [&](double from, double to, double lateral, float angle)
+			{
+				const auto middleZone = zoneAt(pointAt((from + to) * .5, lateral).first);
+				if (!middleZone) { return; }
+				const BuildingType gapType = *middleZone == ZoneType::Commercial ? BuildingType::Shop : BuildingType::Detached;
+				const double sideGap = gapType == BuildingType::Shop ? kShopSideGap : kSideGap;
+				const double width = buildingFootprintXZ(gapType);
+				const int count = static_cast<int>(Floor((to - from - sideGap) / (width + sideGap)));
+				if (count <= 0) { ++gapNarrow; return; }
+				const double pitch = (to - from) / count;
+				for (int index = 0; index < count; ++index)
+				{
+					const auto [position, t] = pointAt(from + pitch * (index + .5), lateral);
+					const int si = nearestSettlementIndex(m_districts, static_cast<float>(position.x), static_cast<float>(position.y));
+					if (si < 0) continue;
+					const auto& settlement = m_districts[si];
+					if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
+					const uint32 hash = settlementCellHash(m_seed ^ 0x6A7F01C3ULL, si, static_cast<int>(Floor(position.x / 4.0)), static_cast<int>(Floor(position.y / 4.0)));
+					if ((hash % 1000u) >= kGapFillPerMille) continue;
+					Building house;
+					house.type = gapType;
+					house.angle = angle;
+					house.edgeId = edgeId;
+					house.edgeT = t;
+					// 位置の区画が埋まっていれば、隣接する空き区画へ格納する。
+					Point coord; int col = 0, row = 0;
+					worldToZoneCell(static_cast<float>(position.x), static_cast<float>(position.y), coord, col, row);
+					Chunk* chunk = m_world.getChunk(coord);
+					if (!chunk) continue;
+					const ZoneType zone = chunk->zoneMap[{ col, row }];
+					if (zone != ZoneType::Residential && zone != ZoneType::LowResidential && zone != ZoneType::Commercial) continue;
+					Optional<Point> storage;
+					double nearest = Math::Inf;
+					for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+					{
+						const int nx = col + dx, nz = row + dz;
+						if (!InRange(nx, 0, ZONE_CELLS - 1) || !InRange(nz, 0, ZONE_CELLS - 1) || chunk->buildingGrid[{ nx, nz }].type != BuildingType::None) continue;
+						// 敷地は格納先の区画の用途地域から作るため、格納先も市街地の区画に限る。
+						const ZoneType storageZone = chunk->zoneMap[{ nx, nz }];
+						if (storageZone != ZoneType::Residential && storageZone != ZoneType::LowResidential && storageZone != ZoneType::Commercial) continue;
+						const double distance = cellCenterXZ(coord, nx, nz).distanceFrom(position);
+						if (distance < nearest) { nearest = distance; storage = Point{ nx, nz }; }
+					}
+					if (!storage) { ++gapStorage; continue; }
+					const Vec2 cellCenter = cellCenterXZ(coord, storage->x, storage->y);
+					house.offsetX = static_cast<float>(position.x - cellCenter.x);
+					house.offsetZ = static_cast<float>(position.y - cellCenter.y);
+					if (!isBuildableFootprint(house, position)) { ++gapGround; continue; }
+					const float minimumSetback = Max(GenerationSettings::get().development_minimumRoadSetback, setbackFromRoadByModel(house.type, coord.x * ZONE_CELLS + col, coord.y * ZONE_CELLS + row) * GenerationSettings::get().development_modelSetbackFraction);
+					if (!hasRoadClearance(m_network, edgeId, position, static_cast<float>(width * .5), minimumSetback)) { ++rejectedClearance; ++gapRoad; continue; }
+					if (overlapsExistingBuilding(m_world, coord, storage->x, storage->y, static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(width * .5), house.angle)) { ++rejectedNeighbor; ++gapNeighbor; continue; }
+					chunk->buildingGrid[{ storage->x, storage->y }] = house;
+					chunk->markMeshDirty();
+					++gapPlaced;
+				}
+			};
 			for (size_t i = 0; i + 1 < fronts.size(); ++i)
 			{
 				const Front& first = fronts[i];
 				const Front& second = fronts[i + 1];
-				if (!isResidentialBuildingType(first.building.type) || !isResidentialBuildingType(second.building.type)) continue;
-				if (first.building.type == BuildingType::RuralHouse || first.building.type == BuildingType::VillageHouse) continue;
-				constexpr BuildingType kGapType = BuildingType::Detached;
-				const double width = buildingFootprintXZ(kGapType);
-				const double gap = second.along - first.along - (buildingFootprintXZ(first.building.type) + buildingFootprintXZ(second.building.type)) * .5;
-				if (gap < width + kSideGap * 2) continue;
-				const double along = (first.along + buildingFootprintXZ(first.building.type) * .5 + second.along - buildingFootprintXZ(second.building.type) * .5) * .5;
-				const double lateral = (first.lateral + second.lateral) * .5;
-				const float t = curve->tFromArcLength(static_cast<float>(along));
-				const Vec3 point = curve->evaluate(t);
-				const Vec3 right = tangentToRight(curve->tangent(t));
-				const Vec2 position = Vec2{ point.x, point.z } + Vec2{ right.x, right.z } * lateral;
-				const int si = nearestSettlementIndex(m_districts, static_cast<float>(position.x), static_cast<float>(position.y));
-				if (si < 0) continue;
-				const auto& settlement = m_districts[si];
-				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
-				const uint32 hash = settlementCellHash(m_seed ^ 0x6A7F01C3ULL, si, static_cast<int>(Floor(position.x / 4.0)), static_cast<int>(Floor(position.y / 4.0)));
-				if ((hash % 1000u) >= kGapFillPerMille) continue;
-				Building house;
-				house.type = kGapType;
-				house.angle = first.building.angle;
-				house.edgeId = edgeId;
-				house.edgeT = t;
-				// 位置の区画が埋まっていれば、隣接する空き区画へ格納する。
-				Point coord; int col = 0, row = 0;
-				worldToZoneCell(static_cast<float>(position.x), static_cast<float>(position.y), coord, col, row);
-				Chunk* chunk = m_world.getChunk(coord);
-				if (!chunk) continue;
-				const ZoneType zone = chunk->zoneMap[{ col, row }];
-				if (zone != ZoneType::Residential && zone != ZoneType::LowResidential && zone != ZoneType::Commercial) continue;
-				Optional<Point> storage;
-				double nearest = Math::Inf;
-				for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+				if (!streetFront(first.building.type) || !streetFront(second.building.type)) { ++gapOtherUse; continue; }
+				fillSpan(first.along + buildingFootprintXZ(first.building.type) * .5, second.along - buildingFootprintXZ(second.building.type) * .5,
+					(first.lateral + second.lateral) * .5, first.building.angle);
+			}
+			// 並びの両端から交差点の手前までも、角地の離隔を残して詰める。
+			if (!fronts.isEmpty())
+			{
+				const double corner = GenerationSettings::get().development_cornerSetback;
+				const Front& head = fronts.front();
+				const Front& tail = fronts.back();
+				if (streetFront(head.building.type))
 				{
-					const int nx = col + dx, nz = row + dz;
-					if (!InRange(nx, 0, ZONE_CELLS - 1) || !InRange(nz, 0, ZONE_CELLS - 1) || chunk->buildingGrid[{ nx, nz }].type != BuildingType::None) continue;
-					// 敷地は格納先の区画の用途地域から作るため、格納先も市街地の区画に限る。
-					const ZoneType storageZone = chunk->zoneMap[{ nx, nz }];
-					if (storageZone != ZoneType::Residential && storageZone != ZoneType::LowResidential && storageZone != ZoneType::Commercial) continue;
-					const double distance = cellCenterXZ(coord, nx, nz).distanceFrom(position);
-					if (distance < nearest) { nearest = distance; storage = Point{ nx, nz }; }
+					fillSpan(edge->cutoffA + corner, head.along - buildingFootprintXZ(head.building.type) * .5, head.lateral, head.building.angle);
 				}
-				if (!storage) continue;
-				const Vec2 cellCenter = cellCenterXZ(coord, storage->x, storage->y);
-				house.offsetX = static_cast<float>(position.x - cellCenter.x);
-				house.offsetZ = static_cast<float>(position.y - cellCenter.y);
-				if (!isBuildableFootprint(house, position)) continue;
-				const float minimumSetback = Max(GenerationSettings::get().development_minimumRoadSetback, setbackFromRoadByModel(house.type, coord.x * ZONE_CELLS + col, coord.y * ZONE_CELLS + row) * GenerationSettings::get().development_modelSetbackFraction);
-				if (!hasRoadClearance(m_network, edgeId, position, static_cast<float>(width * .5), minimumSetback)) { ++rejectedClearance; continue; }
-				if (overlapsExistingBuilding(m_world, coord, storage->x, storage->y, static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(width * .5), house.angle)) { ++rejectedNeighbor; continue; }
-				chunk->buildingGrid[{ storage->x, storage->y }] = house;
-				chunk->markMeshDirty();
-				++gapPlaced;
+				if (streetFront(tail.building.type))
+				{
+					fillSpan(tail.along + buildingFootprintXZ(tail.building.type) * .5, curve->totalLength - edge->cutoffB - corner, tail.lateral, tail.building.angle);
+				}
 			}
 		}
 	}
-	DebugLog::print(U"[FrontageGaps] placed={}"_fmt(gapPlaced));
+	DebugLog::print(U"[FrontageGaps] placed={} otherUse={} narrow={} noStorage={} ground={} road={} neighbor={}"_fmt(gapPlaced, gapOtherUse, gapNarrow, gapStorage, gapGround, gapRoad, gapNeighbor));
 
 	// 街区の奥は旗竿地の住宅で埋める。前面の住宅と同じ道路へ路地状敷地で接道する。
 	int rearPlaced = 0;
@@ -1390,7 +1432,9 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 					for (int col = 0; col < ZONE_CELLS; ++col)
 					{
 						const Building& building = chunk->buildingGrid[{ col, row }];
-						if (building.edgeId < 0 || !isResidentialBuildingType(building.type)
+						// 駅前の店舗・事務所の裏にも、小さな集合住宅や住宅が建て込む。
+						const bool streetFront = isResidentialBuildingType(building.type) || building.type == BuildingType::Shop || building.type == BuildingType::Office;
+						if (building.edgeId < 0 || !streetFront
 							|| building.type == BuildingType::RuralHouse || building.type == BuildingType::VillageHouse) continue;
 						fronts << FrontSite{ cellCenterXZ(Point{ chunkX, chunkY }, col, row) + Vec2{ building.offsetX, building.offsetZ }, building };
 					}
@@ -1411,7 +1455,9 @@ SettlementDevelopment::Validation SettlementDevelopment::placeInitialBuildings(b
 				if (settlement.plan.scale > 1 || settlement.plan.origin == UrbanMorphology::Origin::Rural) continue;
 				const auto use = UrbanMorphology::sample(settlement.plan, planLocal(settlement, front.position));
 				// ニュータウンの戸建て住区も、街路の両側に背中合わせの宅地が並ぶ。
-				if (use.district != UrbanMorphology::District::Housing && (planned || use.district != UrbanMorphology::District::OldTown)) continue;
+				const bool commercialFront = front.building.type == BuildingType::Shop || front.building.type == BuildingType::Office;
+				if (commercialFront ? (planned || use.district != UrbanMorphology::District::Station)
+					: (use.district != UrbanMorphology::District::Housing && (planned || use.district != UrbanMorphology::District::OldTown))) continue;
 				if (planned && front.building.type != BuildingType::Detached) continue;
 				const Vec2 inward{ -Math::Sin(front.building.angle), Math::Cos(front.building.angle) };
 				const Vec2 frontCell = front.position + inward * static_cast<double>(buildingFootprintXZ(front.building.type));
