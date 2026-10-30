@@ -845,7 +845,7 @@ namespace AgriculturalLayout
 		}
 		// 道路沿いの列で埋まらなかった平地を、最寄りの道路と同じ向きの格子に並ぶ短冊で埋める。
 		// 区画の格子は道路の起点を基準にするため、隣り合う区画は畦をはさんで揃う。
-		int infill=0;std::array<int,6> infillGrid{};const Stopwatch infillTimer{StartImmediately::Yes};
+		int infill=0,gridDitches=0;std::array<int,6> infillGrid{};const Stopwatch infillTimer{StartImmediately::Yes};
 		{
 			RoadPlanSnapIndex roadIndex;roadIndex.rebuild(roads);
 			constexpr double kInfillStep=24;
@@ -900,7 +900,8 @@ namespace AgriculturalLayout
 						for (const auto& frame:frames) { const double d=frame.center.distanceFromSq(point); if (d<nearestDistance) { nearestDistance=d; nearest=&frame; } }
 						if (!nearest) { continue; }
 						const Vec2 along=nearest->axisX,across=nearest->axisZ,anchor=nearest->origin;
-						constexpr double kWideBund=1.5;
+						// 2列ごとの広い畦の中央に用排水路を通す。
+						constexpr double kWideBund=2.4,kDitch=.9;
 						const double period=plotWidth*2+kWideBund;
 						const double a=(point-anchor).dot(along),c=(point-anchor).dot(across);
 						const double block=Floor(c/period),offset=c-block*period;
@@ -914,6 +915,21 @@ namespace AgriculturalLayout
 						++infillGrid[static_cast<int>(result)];
 						if (result!=Placement::Placed) { continue; }
 						++infill;
+						if (row==0)
+						{
+							const Vec2 start=origin-across*((kWideBund+kDitch)*.5);
+							const ParcelGeometry::Quad strip{start,start+along*plotLength,start+along*plotLength+across*kDitch,start+across*kDitch};
+							if (!occupied.overlaps(strip) && !sites.occupied.overlaps(strip))
+							{
+								const Vec2 middle=(strip[0]+strip[2])*.5;
+								if (auto* chunk=world.getChunk({static_cast<int>(middle.x/CHUNK_SIZE),static_cast<int>(middle.y/CHUNK_SIZE)}))
+								{
+									LandPatch ditch;ditch.id=static_cast<int>(chunk->landPatches.size());ditch.type=LandPatchType::IrrigationDitch;
+									ditch.polygon={strip[0],strip[1],strip[2],strip[3]};ditch.elevationOffset=config.agriculture_surfaceLift*.5f;ditch.materialVariant=salt;
+									chunk->landPatches << std::move(ditch);chunk->markMeshDirty();++gridDitches;
+								}
+							}
+						}
 						continue;
 					}
 					const auto* edge=roads.getEdge(*hit.edgeId);const auto curve=roads.getBezier(*hit.edgeId);if (!edge || !curve) { continue; }
@@ -939,7 +955,7 @@ namespace AgriculturalLayout
 			}
 		}
 
-		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3]));
+		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches));
 		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(
 			stats.fields,infill,infillTimer.msF(),sparse,unsuitable,crowded,blocked,uneven,stats.disconnected));
 		return stats;

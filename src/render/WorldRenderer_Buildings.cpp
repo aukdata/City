@@ -446,13 +446,20 @@ namespace
 		}
 		if (patch.type == LandPatchType::IrrigationDitch)
 		{
-			// Concrete lips and a dark water bed are distinct from the earth bund.
-			for (const double x : {bounds.x,bounds.x+bounds.w-.12})
+			// Concrete lips along both long sides; the strip may be rotated to follow the field grid.
+			if (patch.polygon.size()==4)
 			{
-				LandPatch lip=patch;
-				lip.polygon={Vec2{x,bounds.y},Vec2{x+.12,bounds.y},Vec2{x+.12,bounds.y+bounds.h},Vec2{x,bounds.y+bounds.h}};
-				lip.elevationOffset=.22f;
-				appendLandPatchSurface(groups[117],world,lip,roadMasks);
+				const auto& q=patch.polygon;
+				const bool firstLong=q[0].distanceFromSq(q[1])>=q[1].distanceFromSq(q[2]);
+				const Vec2 a=firstLong ? q[0] : q[1],b=firstLong ? q[1] : q[2],c=firstLong ? q[2] : q[3],d=firstLong ? q[3] : q[0];
+				const Vec2 inwardAB=(d-a).normalized()*.12,inwardCD=(b-c).normalized()*.12;
+				for (const auto& [p0,p1,inward] : {std::tuple{a,b,inwardAB},std::tuple{c,d,inwardCD}})
+				{
+					LandPatch lip=patch;
+					lip.polygon={p0,p1,p1+inward,p0+inward};
+					lip.elevationOffset=.22f;
+					appendLandPatchSurface(groups[117],world,lip,roadMasks);
+				}
 			}
 		}
 		if (patch.type == LandPatchType::Seawall)
