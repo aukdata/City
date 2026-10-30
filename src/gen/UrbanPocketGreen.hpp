@@ -106,7 +106,7 @@ namespace UrbanPocketGreen
 			double low=Math::Inf,high=-Math::Inf;
 			const auto dry=[&](Vec2 point)
 			{
-				const double height=world.sampleHeight(point.x,point.y); low=Min(low,height); high=Max(high,height);
+				const double height=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)); low=Min(low,height); high=Max(high,height);
 				return height>world.waterSurfaceHeight(point.x,point.y)+1;
 			};
 			for (size_t i=0;i<global.outer().size();++i)

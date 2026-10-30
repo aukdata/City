@@ -128,8 +128,8 @@ namespace ResidentialParcelAccess
 			for (const auto point : {a,b,c,d}) { mesh.vertices << Vertex3D{Float3{point},Float3{normal},Float2{static_cast<float>(point.x*.25),static_cast<float>(point.z*.25)}}; }
 			for (const auto triangle : {TriangleIndex32{start,start+1,start+2},TriangleIndex32{start,start+2,start+3}})
 			{
-				const Vec3 a=Vec3{mesh.vertices[triangle.i0].pos},b=Vec3{mesh.vertices[triangle.i1].pos},c=Vec3{mesh.vertices[triangle.i2].pos};
-				if ((b-a).cross(c-a).lengthSq()>0) { mesh.indices << triangle; }
+				const Vec3 p0=Vec3{mesh.vertices[triangle.i0].pos},p1=Vec3{mesh.vertices[triangle.i1].pos},p2=Vec3{mesh.vertices[triangle.i2].pos};
+				if ((p1-p0).cross(p2-p0).lengthSq()>0) { mesh.indices << triangle; }
 			}
 		};
 		const Vec3 normal=Vec3{-inward.x*grade,1,-inward.y*grade}.normalized();

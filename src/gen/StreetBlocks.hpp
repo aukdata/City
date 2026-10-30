@@ -148,8 +148,8 @@ namespace StreetBlocks
 		if (block.outline.size()<3) { return none; }
 		const Vec2 origin=block.outline.front(); Array<Vec2> outline;
 		for (const Vec2 point : block.outline) { outline << point-origin; }
-		const Polygon face{outline}; if (!face) { return none; }
-		Array<Polygon> regions{face};
+		const s3d::Polygon face{outline}; if (!face) { return none; }
+		Array<s3d::Polygon> regions{face};
 		for (const int id : block.edges)
 		{
 			const auto* edge=network.getEdge(id); const auto curve=network.getBezier(id);
@@ -160,7 +160,7 @@ namespace StreetBlocks
 			for (const Vec3 point : {curve->p0,curve->p1,curve->p2,curve->p3}) { controls << Vec2{point.x-origin.x,point.z-origin.y}; }
 			// The curved/chord boundary difference lies in this edge's convex hull.
 			// Add only those local hulls, not a hull spanning concave corners of the whole face.
-			const Polygon controlHull=Geometry2D::ConvexHull(controls);
+			const s3d::Polygon controlHull=Geometry2D::ConvexHull(controls);
 			if (controlHull) { regions << controlHull; }
 		}
 		Optional<ParcelRoadIndex> ownedIndex;
@@ -177,14 +177,14 @@ namespace StreetBlocks
 		{
 			if (unsupported || regions.isEmpty()) { return; }
 			Array<Vec2> points; for (const Vec2 point : quad) { points << point-origin; }
-			const Polygon ribbon=Geometry2D::ConvexHull(points);
+			const s3d::Polygon ribbon=Geometry2D::ConvexHull(points);
 			if (!ribbon) { unsupported=true; return; }
 			// Use the exact road, track and site quads already registered by placement.
 			// A slightly smaller inscribed disk keeps legal touching conservative.
 			const double radius=Max(0.0,footprintRadius-.001);
-			const Polygon obstacle=radius>0 ? ribbon.calculateRoundBuffer(radius) : ribbon;
+			const s3d::Polygon obstacle=radius>0 ? ribbon.calculateRoundBuffer(radius) : ribbon;
 			if (!obstacle) { unsupported=true; return; }
-			Array<Polygon> remaining;
+			Array<s3d::Polygon> remaining;
 			for (const auto& region : regions) { remaining.append(Geometry2D::Subtract(region,obstacle)); }
 			regions=std::move(remaining);
 		});

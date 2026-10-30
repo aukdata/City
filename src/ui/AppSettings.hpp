@@ -3,7 +3,8 @@
 #include <filesystem>
 #include <fstream>
 #if SIV3D_PLATFORM(WINDOWS)
-#include <Siv3D/Windows/Windows.hpp>
+// windows.h を広く読み込むと GDI の Polygon が s3d::Polygon と衝突するため、使う関数だけを宣言する。
+extern "C" __declspec(dllimport) int __stdcall MoveFileExW(const wchar_t* existingFileName, const wchar_t* newFileName, unsigned long flags);
 #endif
 #include "../render/RenderDistance.hpp"
 
@@ -104,8 +105,8 @@ struct AppSettings
 			}
 #if SIV3D_PLATFORM(WINDOWS)
 			// Windows の filesystem::rename は既存ファイルを置換できない。
-			return ::MoveFileExW(temporaryPath.c_str(), finalPath.c_str(),
-				MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE;
+			constexpr unsigned long kReplaceExisting = 0x1, kWriteThrough = 0x8;
+			return ::MoveFileExW(temporaryPath.c_str(), finalPath.c_str(), kReplaceExisting | kWriteThrough) != 0;
 #else
 			std::filesystem::rename(temporaryPath, finalPath, error);
 			return !error;
