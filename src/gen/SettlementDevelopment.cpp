@@ -1769,6 +1769,13 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 					};
 					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon), density >= 0.5);
 					if (patch.polygon.size() >= 3) { chunk.landPatches << patch; }
+					else
+					{
+						// Neighboring lots left no frontage for this house; a building is never kept without its own parcel.
+						DBG_LOG(U"[LandPatches] removed lotless building chunk=({}, {}) cell=({}, {}) type={}"_fmt(chunkX, chunkY, col, row, static_cast<int>(building.type)));
+						chunk.buildingGrid[{ col, row }] = Building{};
+						chunk.markMeshDirty();
+					}
 				}
 			}
 
