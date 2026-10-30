@@ -33,6 +33,51 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 		}
 		return false;
 	};
+	const auto candidateGreenway = [&](const RoadEdge& edge)
+	{
+		const auto* a = network.getNode(edge.nodeA);
+		const auto* b = network.getNode(edge.nodeB);
+		if (!a || !b) { return false; }
+		const Vec2 from = local(a->position), to = local(b->position);
+		if (!UrbanMorphology::inCore(plan, from, 0.1) || !UrbanMorphology::inCore(plan, to, 0.1)) { return false; }
+		return edge.roadType == RoadType::LocalRoad && ((Abs(from.x - to.x) < kCoordinateTolerance && greenCorridor(x, (from.x + to.x) * .5)) ||
+			(Abs(from.y - to.y) < kCoordinateTolerance && greenCorridor(z, (from.y + to.y) * .5)));
+	};
+	// 外形を欠いた住区では、緑道にすると車道網が分断される街路がある。その街路は車道のまま残す。
+	HashSet<int> keptAsCarRoad;
+	{
+		HashTable<int, int> parent;
+		const auto find = [&](int node)
+		{
+			int root = node;
+			while (parent.contains(root) && parent[root] != root) { root = parent[root]; }
+			for (int cursor = node; parent.contains(cursor) && parent[cursor] != root;) { const int next = parent[cursor]; parent[cursor] = root; cursor = next; }
+			return root;
+		};
+		const auto unite = [&](int a, int b)
+		{
+			if (!parent.contains(a)) { parent[a] = a; }
+			if (!parent.contains(b)) { parent[b] = b; }
+			parent[find(a)] = find(b);
+		};
+		Array<int> candidates;
+		for (const auto& item : network.edges())
+		{
+			if (item.id < 0 || !item.isRoadbedBuilt()) { continue; }
+			if (candidateGreenway(item)) { candidates << item.id; }
+			else { unite(item.nodeA, item.nodeB); }
+		}
+		for (const int id : candidates)
+		{
+			const auto* edge = network.getEdge(id);
+			// 緑道どうしの交点（車道のない節点）は緑道のまま残す。
+			if (parent.contains(edge->nodeA) && parent.contains(edge->nodeB) && find(edge->nodeA) != find(edge->nodeB))
+			{
+				keptAsCarRoad.insert(id);
+				unite(edge->nodeA, edge->nodeB);
+			}
+		}
+	}
 	int carRoads = 0;
 	Array<int> greenwayEdges;
 	HashSet<int> changedNodes;
@@ -55,9 +100,7 @@ void NewTownLayout::finish(MapGenerator::Settlement& settlement, RoadNetwork& ne
 			continue;
 		}
 		// 幹線への入口・駅前道路は維持する。4本ごとに1本の住区内道路を緑道へ変更。
-		const bool greenway =
-			edge.roadType == RoadType::LocalRoad && ((Abs(from.x - to.x) < kCoordinateTolerance && greenCorridor(x, (from.x + to.x) * .5)) ||
-														(Abs(from.y - to.y) < kCoordinateTolerance && greenCorridor(z, (from.y + to.y) * .5)));
+		const bool greenway = candidateGreenway(edge) && !keptAsCarRoad.contains(item.id);
 		if (!greenway)
 		{
 			edge.parts.remove_if([](const RoadPart& part) { return part.type == RoadPartType::UtilityPole; });

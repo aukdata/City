@@ -210,9 +210,28 @@ namespace UrbanMorphology
 		UrbanStructure::rebuildCommercialStreets(plan);
 	}
 
+	/// @brief 計画住宅地の外形。角を丸め、方位ごとに造成範囲が出入りする。尾根や谷で造成地が途切れる実際のニュータウンに近づける。
+	/// @return 地区座標の点を外形の半径で正規化した値。1以下が造成範囲。
+	inline double plannedOutlineRatio(const Plan& plan, Vec2 point, double margin)
+	{
+		const double hx=Max(1.0,plan.halfExtent.x+margin),hz=Max(1.0,plan.halfExtent.y+margin);
+		const double x=Abs(point.x)/hx,z=Abs(point.y)/hz;
+		constexpr double kCornerPower=5;
+		const double radius=Math::Pow(Math::Pow(x,kCornerPower)+Math::Pow(z,kCornerPower),1/kCornerPower);
+		const double angle=Math::Atan2(point.y/hz,point.x/hx);
+		const auto phase=[&](int index) { return static_cast<double>((mix(plan.salt+0x51ED27ULL)>>(index*8))&255u)/255.0*Math::TwoPi; };
+		const double wave=.5+.3*Math::Sin(2*angle+phase(0))+.2*Math::Sin(3*angle+phase(1))+.15*Math::Sin(5*angle+phase(2));
+		constexpr double kMaximumIndent=.22;
+		const double t=Clamp((wave-.45)/.4,0.0,1.0);
+		// 街道・幹線が出入りする軸方向は外周を保ち、入口との接続を切らない。斜め方向だけを欠く。
+		const double diagonal=Square(Math::Sin(2*angle));
+		return radius/(1-kMaximumIndent*t*t*(3-2*t)*diagonal);
+	}
+
 	inline bool inCore(const Plan& plan, Vec2 point, double margin=0)
 	{
-		return Abs(point.x)<=plan.halfExtent.x+margin && Abs(point.y)<=plan.halfExtent.y+margin;
+		if (Abs(point.x)>plan.halfExtent.x+margin || Abs(point.y)>plan.halfExtent.y+margin) { return false; }
+		return plan.origin!=Origin::Planned || plannedOutlineRatio(plan,point,margin)<=1;
 	}
 
 	inline double fringeDistance(const Plan& plan, Vec2 point)
@@ -256,10 +275,12 @@ namespace UrbanMorphology
 	/// @brief 都市の公園とニュータウンの緑道を予約。建物と補完配置で共有する。
 	inline bool isReservedGreen(const Plan& plan, Vec2 point)
 	{
+		// 計画住宅地の緑地帯は不整形な外形に沿い、造成しなかった範囲の外側も残された緑地になる。
+		if (plan.origin==Origin::Planned && Abs(point.x)<=plan.halfExtent.x && Abs(point.y)<=plan.halfExtent.y
+			&& plannedOutlineRatio(plan,point,0)>GenerationSettings::get().urbanFabric_newTownGreenBeltStart) { return true; }
 		if (!inCore(plan,point)) { return false; }
 		if (plan.neighborhoodParks.any([&](const Polygon& park) { return park.contains(point); })) { return true; }
 		if (plan.origin!=Origin::Planned) { return false; }
-		if (Max(Abs(point.x)/plan.halfExtent.x,Abs(point.y)/plan.halfExtent.y)>GenerationSettings::get().urbanFabric_newTownGreenBeltStart) { return true; }
 		for (const auto& path:plan.greenways)
 		{
 			const Vec2 span=path.end-path.begin;

@@ -1536,11 +1536,25 @@ namespace DistrictRoads
 
 				const Vec3 pos = localToWorld(lx, lz);
 				if (pos.y < GenerationSettings::get().districtRoads_minimumDryHeight) continue;
+				// 計画住宅地は丸めた不整形な外形の内側だけを造成する。
+				if (plan.origin == UrbanMorphology::Origin::Planned && !UrbanMorphology::inCore(plan, { lx, lz }, 1.0)) continue;
 
 				const int nid = network.addNode(pos, NodeType::Intersection);
 				nodeIds[{ col, row }] = nid;
 
 				if (row == 0 || row == rows - 1 || col == 0 || col == n - 1)
+				{
+					outerGridPointSet.insert(nid);
+				}
+			}
+		}
+		// 外形を欠いた計画住宅地では、造成範囲の縁の格子点も外周として扱い、幹線との接続候補にする。
+		if (plan.origin == UrbanMorphology::Origin::Planned)
+		{
+			for (int row = 1; row + 1 < rows; ++row) for (int col = 1; col + 1 < n; ++col)
+			{
+				const int nid = nodeIds[{ col, row }];
+				if (nid >= 0 && (nodeIds[{ col - 1, row }] < 0 || nodeIds[{ col + 1, row }] < 0 || nodeIds[{ col, row - 1 }] < 0 || nodeIds[{ col, row + 1 }] < 0))
 				{
 					outerGridPointSet.insert(nid);
 				}
@@ -1743,6 +1757,39 @@ namespace DistrictRoads
 				if (inside(edge.nodeA) && inside(edge.nodeB)) { registerGridEdge(edge.id,edge.nodeA,edge.nodeB); }
 			}
 			DBG_LOG(U"[UrbanMosaicInfill] cores={} reservedLocalEdges={} seamConnections={} transactionCopies={}"_fmt(inherited.cores.size(),reservedInfill,inherited.seamConnections,inherited.transactionCopies));
+		}
+
+		// 不整形な外形で切り離された計画住宅地の小片は、最大の街路網だけを残して撤去する。
+		if (plan.origin == UrbanMorphology::Origin::Planned)
+		{
+			HashSet<int> largest;
+			HashSet<int> visited;
+			for (const auto& [start, adjacency] : gridGraph)
+			{
+				if (visited.contains(start)) { continue; }
+				HashSet<int> component{ start }; Array<int> pending{ start }; visited.insert(start);
+				for (size_t cursor = 0; cursor < pending.size(); ++cursor)
+				{
+					for (const auto& next : gridGraph[pending[cursor]])
+					{
+						if (visited.insert(next.toNodeId).second) { component.insert(next.toNodeId); pending << next.toNodeId; }
+					}
+				}
+				if (component.size() > largest.size()) { largest = std::move(component); }
+			}
+			int removedFragments = 0;
+			for (int& id : nodeIds)
+			{
+				if (id < 0 || largest.contains(id)) { continue; }
+				if (const auto* node = network.getNode(id))
+				{
+					const auto attachments = node->attachments;
+					for (const auto& attachment : attachments) { network.removeEdge(attachment.edgeId); }
+				}
+				gridGraph.erase(id); outerGridPointSet.erase(id);
+				network.removeNode(id); id = -1; ++removedFragments;
+			}
+			DBG_LOG(U"[PlannedOutline] removedFragmentNodes={}"_fmt(removedFragments));
 		}
 
 		// 生活道路の一部を抜いて丁字路と不整形な街区を作る。どの交差点も3方向以上を残し、格子全体の連結を保つ。
