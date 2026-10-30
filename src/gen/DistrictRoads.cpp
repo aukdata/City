@@ -1510,6 +1510,17 @@ namespace DistrictRoads
 		const auto phase = [&](int index) { return static_cast<double>((warpSeed >> (index * 8)) & 255u) / 255.0 * Math::TwoPi; };
 		auto plannedWarp = [&](float lx, float lz) -> Vec2
 		{
+			// 自然発生的な町は、街路の列ごとに緩く傾き曲がる。軸方向のずれは南北の位置だけで決め、直交方向のずれは
+			// 町の軸（街道）から外向きにだけ広げるので、交差点の間隔は元の格子より短くならない。街道の近くの列はずらさない。
+			// 城下町の地割と工業団地は整列を保つ。
+			if (organicStreets)
+			{
+				constexpr double kShear = 9.0, kAxisCalm = 120.0;
+				const double calm = Min(1.0, Abs(lz) / kAxisCalm);
+				const double along = (Sin(lz / 190.0 + phase(0)) + .5 * Sin(lz / 83.0 + phase(2))) / 1.5 * calm;
+				const double outward = Abs(Sin(lx / 210.0 + phase(3)) + .5 * Sin(lx / 91.0 + phase(5))) / 1.5 * Clamp(lz / kAxisCalm, -1.0, 1.0);
+				return Vec2{ along, outward } * kShear;
+			}
 			if (plan.origin != UrbanMorphology::Origin::Planned) { return { 0, 0 }; }
 			constexpr double kWarpAmplitude = 11.0;
 			constexpr double kWarpFadeStart = 0.7, kWarpFadeEnd = 0.88;

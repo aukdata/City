@@ -91,3 +91,8 @@
 - seed 42: 格子の田 36829区画追加、生成 63.4→64.4秒。seed 7: 生成 76.6秒。両シード generationPassed=true。
 - `Morphology.TownAlignedAgriculture` の「全田畑が家から500m以内」を、道路から400m超の格子の田に限り1200mへ変更し、仕様24章に理由を追記した。
 - 比較画像：`final_12_seed42_consolidated_fields.jpg`（同一座標の固定視点）。全テスト509件合格。
+
+## 既成市街地の格子
+
+- 城下町・工業団地・ニュータウン以外の自然発生的な町の格子に、列ごとの緩い傾き・曲がり（最大9m）を加えた。軸方向のずれは直交座標だけで、直交方向のずれは町の軸（街道）から外向きにだけ広げるので、交差点の間隔は元の格子より短くならない（細切れ区間を作らない `Morphology.AllOriginsConnected` を維持）。街道から120m以内はずらさない（国道の経路の連続性 `UrbanStructure.AbsorbedHamletTopology` を維持）。外周の格子点の判定（SettlementFringe）はずれ分の許容（9.5m）を持つ。
+- seed 42: 生成 65.0秒、seed 7: 76.1秒、両シード generationPassed=true、全テスト509件合格。比較画像 `final_13_seed42_organic_town_grid.jpg`（自動選択の市街地視点のため、前後で撮影位置が少し異なる）。

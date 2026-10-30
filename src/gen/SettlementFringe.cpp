@@ -102,7 +102,9 @@ namespace SettlementFringe
 			{
 				if (node.id<0 || node.attachments.isEmpty()) { continue; }
 				const Vec2 point=local(horizontal(node.position));
-				if (Abs(point.dot(outward)-extent)<.1 && Abs(point.dot(along))<(alongX ? plan.halfExtent.x : plan.halfExtent.y)-GenerationSettings::get().fringe_cornerMargin)
+				// 自然発生的な町の街路は列ごとに最大9mずれる（DistrictRoads）。内側の格子とは40m以上離れているので取り違えない。
+				constexpr double kFrameTolerance = 9.5;
+				if (Abs(point.dot(outward)-extent)<kFrameTolerance && Abs(point.dot(along))<(alongX ? plan.halfExtent.x : plan.halfExtent.y)-GenerationSettings::get().fringe_cornerMargin)
 				{
 					anchors << std::make_pair(point.dot(along),node.id);
 				}
