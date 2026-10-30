@@ -390,6 +390,15 @@ float4 cultivatedSurface(s3d::PSInput input,bool paddy)
 	float2 broadUv=input.worldPosition.xz*.075;
 	float broad=sin(broadUv.x+sin(broadUv.y*.63))*cos(broadUv.y+sin(broadUv.x*.42));
 	albedo*=.93+.09*broad;
+	// Growth is never uniform within a parcel: water depth, fertiliser and lodging leave lighter and darker patches,
+	// and the planting rows read as faint streaks from afar.
+	float2 world=input.worldPosition.xz;
+	float patchy=valueNoise(world/11+parcel*3.7)*.6+valueNoise(world/4.3+parcel*1.9)*.4;
+	albedo*=.86+.26*patchy;
+	float streak=1-smoothstep(.2,1.2,footprint);
+	albedo*=1+(1-streak)*.025*sin(uv.x*(paddy ? 1.9 : .9));
+	float grey=dot(albedo,float3(.2126,.7152,.0722));
+	albedo=lerp(grey.xxx,albedo,.85);
 	float3 across=ddx(input.worldPosition)*ddy(uv.y)-ddy(input.worldPosition)*ddx(uv.y);
 	across/=max(length(across),.000001);
 	input.normal=normalize(input.normal+across*sin(phase*6.2831853)*(paddy ? .12 : .48)*resolved);
