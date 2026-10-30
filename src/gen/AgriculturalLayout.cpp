@@ -4,6 +4,7 @@
 #include "StreetProfile.hpp"
 #include "UrbanParcel.hpp"
 #include "RoadDesignLimits.hpp"
+#include "RoadTerrainFit.hpp"
 #include "../road/RoadPlanDraft.hpp"
 #include "../debug/DebugLog.hpp"
 
@@ -845,6 +846,9 @@ namespace AgriculturalLayout
 		}
 		// 道路沿いの列で埋まらなかった平地を、最寄りの道路と同じ向きの格子に並ぶ短冊で埋める。
 		// 区画の格子は道路の起点を基準にするため、隣り合う区画は畦をはさんで揃う。
+		struct RoadLine { const Frame* frame=nullptr; double along=0, low=Math::Inf, high=-Math::Inf; int fields=0; };
+		HashTable<int64,RoadLine> roadLines;
+		HashSet<int> gridRoads;int gridRoadRejected=0;
 		int infill=0,gridDitches=0;std::array<int,6> infillGrid{};const Stopwatch infillTimer{StartImmediately::Yes};
 		{
 			RoadPlanSnapIndex roadIndex;roadIndex.rebuild(roads);
@@ -903,11 +907,17 @@ namespace AgriculturalLayout
 						// 2列ごとの広い畦の中央に用排水路を通す。
 						constexpr double kWideBund=2.4,kDitch=.9;
 						const double period=plotWidth*2+kWideBund;
+						// 4列ごとに幹線農道の用地を空ける。農道は両端が既存の道路に届く列だけに後で通す。
+						constexpr int kColumnsPerRoad=4;constexpr double kRoadGap=7;
+						const double superPeriod=plotLength*kColumnsPerRoad+kRoadGap;
 						const double a=(point-anchor).dot(along),c=(point-anchor).dot(across);
+						const double superBlock=Floor(a/superPeriod),superOffset=a-superBlock*superPeriod;
+						if (superOffset<kRoadGap) { continue; }
+						const double column=Floor((superOffset-kRoadGap)/plotLength);
 						const double block=Floor(c/period),offset=c-block*period;
 						if (offset<kWideBund) { continue; }
 						const int row=offset<kWideBund+plotWidth ? 0 : 1;
-						const Vec2 origin=anchor+along*(Floor(a/plotLength)*plotLength)+across*(block*period+kWideBund+row*plotWidth);
+						const Vec2 origin=anchor+along*(superBlock*superPeriod+kRoadGap+column*plotLength)+across*(block*period+kWideBund+row*plotWidth);
 						const Array<Vec2> outline{origin,origin+along*plotLength,origin+along*plotLength+across*plotWidth,origin+across*plotWidth};
 						// 整備された大区画は通い耕作もあるため、家からの距離は道路沿いの田畑の2.4倍まで許す。
 						constexpr double kGridHomeDistanceRatio=2.4;
@@ -915,6 +925,12 @@ namespace AgriculturalLayout
 						++infillGrid[static_cast<int>(result)];
 						if (result!=Placement::Placed) { continue; }
 						++infill;
+						{
+							const int64 key=(static_cast<int64>(nearest-frames.data())<<40)^(static_cast<int64>(superBlock)&0xFFFFFFFFFFLL);
+							auto& line=roadLines[key];
+							line.frame=nearest;line.along=superBlock*superPeriod+kRoadGap*.5;
+							line.low=Min(line.low,block*period);line.high=Max(line.high,(block+1)*period);++line.fields;
+						}
 						if (row==0)
 						{
 							const Vec2 start=origin-across*((kWideBund+kDitch)*.5);
@@ -953,9 +969,148 @@ namespace AgriculturalLayout
 					}
 				} }
 			}
+			// 幹線農道：格子の農道用地を両方向へ延ばし、既存の道路に届く列だけを農道にする。行き止まりは作らない。
+			{
+				constexpr int kMinimumFields=12;constexpr double kStep=8,kReach=1500,kMaximumGrade=.06,kSnap=7;
+				for (const auto& [key,line] : roadLines)
+				{
+					if (line.fields<kMinimumFields) { continue; }
+					const Vec2 along=line.frame->axisX,across=line.frame->axisZ;
+					const Vec2 base=line.frame->origin+along*line.along;
+					// 田の範囲の中央から外へ進み、最初に当たる道路を端点にする。途中の地形・建物・線路で失敗したら諦める。
+					const auto reach=[&](double startC,double direction) -> Optional<RoadPlanSnapIndex::Hit>
+					{
+						double previous=groundPoint(world,base+across*startC).y;
+						for (double distance=kStep;distance<=kReach;distance+=kStep)
+						{
+							const Vec2 point=base+across*(startC+direction*distance);
+							const auto hit=roadIndex.find(roads,groundPoint(world,point),kSnap,Math::Inf,false,
+								[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.useElevation && !edge.tunnel && edge.roadType!=RoadType::Expressway; });
+							if (hit.edgeId) { return hit; }
+							// 田の外の草地・林も通れる。水域と急勾配だけは避ける。
+							const auto sample=terrainSample(point);
+							if (sample.height<=world.waterPlanningHeight(point.x,point.y)+config.agriculture_minimumFreeboard
+								|| Abs(sample.height-previous)/kStep>kMaximumGrade) { return none; }
+							const Vec2 side=along*(config.agriculture_trackWidth*.5+1);
+							const ParcelGeometry::Quad ribbon{point-side-across*kStep*.5,point+side-across*kStep*.5,point+side+across*kStep*.5,point-side+across*kStep*.5};
+							if (sites.occupied.overlaps(ribbon)) { return none; }
+							previous=sample.height;
+						}
+						return none;
+					};
+					const double middle=(line.low+line.high)*.5;
+					const auto first=reach(middle,-1),second=reach(middle,1);
+					if (!first || !second || *first->edgeId==*second->edgeId) { ++gridRoadRejected; continue; }
+					const auto attach=[&](const RoadPlanSnapIndex::Hit& hit) -> int
+					{
+						const auto* edge=roads.getEdge(*hit.edgeId); if (!edge) { return -1; }
+						for (const int nodeId : {edge->nodeA,edge->nodeB})
+						{
+							if (horizontal(roads.getNode(nodeId)->position).distanceFrom(horizontal(hit.position))<kSnap) { return nodeId; }
+						}
+						// 分割した道路に接道していた建物は、近い方の子の道路へ付け替える。
+						const int parent=*hit.edgeId;
+						const auto parentCurve=roads.getBezier(parent);
+						const int split=roads.splitEdgeAtParameter(parent,hit.curveT);
+						if (split<0 || !parentCurve) { return split; }
+						Array<std::pair<int,CubicBezier>> children;
+						for (const auto& attachment : roads.getNode(split)->attachments)
+						{
+							if (const auto curve=roads.getBezier(attachment.edgeId)) { children.emplace_back(attachment.edgeId,*curve); }
+						}
+						Vec2 low{Math::Inf,Math::Inf},high{-Math::Inf,-Math::Inf};
+						for (const Vec3 p : {parentCurve->p0,parentCurve->p1,parentCurve->p2,parentCurve->p3}) { low={Min(low.x,p.x),Min(low.y,p.z)};high={Max(high.x,p.x),Max(high.y,p.z)}; }
+						constexpr double kFrontageMargin=80;constexpr int kSamples=32;
+						const int left=static_cast<int>(Floor((low.x-kFrontageMargin)/kCellSize)),right=static_cast<int>(Floor((high.x+kFrontageMargin)/kCellSize));
+						const int top=static_cast<int>(Floor((low.y-kFrontageMargin)/kCellSize)),bottom=static_cast<int>(Floor((high.y+kFrontageMargin)/kCellSize));
+						for (int z=Max(0,top);z<=bottom;++z) for (int x=Max(0,left);x<=right;++x)
+						{
+							auto* chunk=world.getChunk({x/ZONE_CELLS,z/ZONE_CELLS}); if (!chunk) { continue; }
+							auto& building=chunk->buildingGrid[{x%ZONE_CELLS,z%ZONE_CELLS}];
+							if (building.edgeId!=parent) { continue; }
+							const Vec2 position=Vec2{(x+.5)*kCellSize+building.offsetX,(z+.5)*kCellSize+building.offsetZ};
+							double best=Math::Inf;
+							for (const auto& [childId,curve] : children)
+							{
+								for (int i=0;i<=kSamples;++i)
+								{
+									const float t=static_cast<float>(i)/kSamples;const double distance=horizontal(curve.evaluate(t)).distanceFrom(position);
+									if (distance<best) { best=distance;building.edgeId=childId;building.edgeT=t; }
+								}
+							}
+							chunk->markMeshDirty();
+						}
+						return split;
+					};
+					const int a=attach(*first),b=attach(*second);
+					if (a<0 || b<0 || a==b) { ++gridRoadRejected; continue; }
+					const Vec3 start=roads.getNode(a)->position,end=roads.getNode(b)->position;
+					const auto id=roads.addEdge(a,b,start+(end-start)/3,end-(end-start)/3,RoadType::LocalRoad,2);
+					if (!id) { ++gridRoadRejected; continue; }
+					auto* edge=roads.getEdge(*id);auto profile=GeneratedStreet::describe(GeneratedStreet::Role::FarmAccess);
+					profile.laneWidth=static_cast<float>(config.agriculture_trackWidth/profile.lanes);
+					GeneratedStreet::apply(*edge,profile);edge->edgeState=EdgeState::Open;edge->farmAccess=true;
+					edge->parts.remove_if([](const RoadPart& part) { return part.type==RoadPartType::UtilityPole; });
+					for (const int node : {a,b}) { roads.updateNodeCutoffs(node);roads.rebuildLaneConnections(node); }
+					gridRoads.insert(*id);++stats.tracks;stats.connections+=2;
+					// 農道が横切る田畑は、農道の両側に分けて残す。
+					{
+						const Vec2 from=horizontal(start),to=horizontal(end),direction=(to-from).normalized(),normal{-direction.y,direction.x};
+						const double half=config.agriculture_trackWidth*.5+1;
+						const auto clip=[](const Array<Vec2>& polygon,Vec2 origin,Vec2 keep)
+						{
+							Array<Vec2> result;
+							for (size_t i=0;i<polygon.size();++i)
+							{
+								const Vec2 p0=polygon[i],p1=polygon[(i+1)%polygon.size()];
+								const double d0=(p0-origin).dot(keep),d1=(p1-origin).dot(keep);
+								if (d0>=0) { result << p0; }
+								if ((d0>=0)!=(d1>=0)) { result << p0.lerp(p1,d0/(d0-d1)); }
+							}
+							return result;
+						};
+						const auto area=[](const Array<Vec2>& polygon)
+						{
+							double sum=0; for (size_t i=0;i<polygon.size();++i) { const Vec2 a=polygon[i],b=polygon[(i+1)%polygon.size()]; sum+=a.x*b.y-b.x*a.y; } return Abs(sum)*.5;
+						};
+						const RectF bounds=RectF{Vec2{Min(from.x,to.x),Min(from.y,to.y)},Vec2{Abs(to.x-from.x),Abs(to.y-from.y)}}.stretched(half+1);
+						const Polygon corridor{Array<Vec2>{from-normal*half,to-normal*half,to+normal*half,from+normal*half}};
+						for (int cz=static_cast<int>(bounds.y/CHUNK_SIZE);cz<=static_cast<int>((bounds.y+bounds.h)/CHUNK_SIZE);++cz)
+						for (int cx=static_cast<int>(bounds.x/CHUNK_SIZE);cx<=static_cast<int>((bounds.x+bounds.w)/CHUNK_SIZE);++cx)
+						{
+							auto* chunk=world.getChunk({cx,cz}); if (!chunk) { continue; }
+							Array<LandPatch> pieces; bool changed=false;
+							for (auto& patch:chunk->landPatches)
+							{
+								if ((patch.type!=LandPatchType::PaddyField && patch.type!=LandPatchType::FarmField && patch.type!=LandPatchType::IrrigationDitch)
+									|| patch.polygon.size()<3) { continue; }
+								Array<Vec2> outline=patch.polygon; UrbanParcel::normalize(outline);
+								if (outline.size()<3 || !Polygon{outline}.intersects(corridor)) { continue; }
+								// 線分の範囲外へはみ出す区画もあるので、両側を半平面で切る。
+								const Array<Vec2> left=clip(patch.polygon,from+normal*half,normal),right=clip(patch.polygon,from-normal*half,-normal);
+								patch.polygon.clear(); changed=true;
+								for (const auto& part : {left,right})
+								{
+									if (part.size()>=3 && area(part)>=(patch.type==LandPatchType::IrrigationDitch ? 1.0 : config.agriculture_minimumFieldArea*.25))
+									{
+										LandPatch piece=patch; piece.polygon=part; pieces << std::move(piece);
+									}
+								}
+							}
+							if (changed)
+							{
+								chunk->landPatches.remove_if([](const LandPatch& patch) { return patch.polygon.size()<3; });
+								for (auto& piece:pieces) { piece.id=static_cast<int>(chunk->landPatches.size()); chunk->landPatches << std::move(piece); }
+								chunk->markMeshDirty();
+							}
+						}
+					}
+				}
+			}
 		}
+		if (!gridRoads.empty()) { RoadTerrainFit::apply(roads,world,gridRoads); }
 
-		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches));
+		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={} roads={} roadRejected={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches,gridRoads.size(),gridRoadRejected));
 		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(
 			stats.fields,infill,infillTimer.msF(),sparse,unsuitable,crowded,blocked,uneven,stats.disconnected));
 		return stats;
