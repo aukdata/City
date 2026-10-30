@@ -110,7 +110,7 @@ namespace TrafficCommon
 
 		const float dv    = speed - vLead;
 		const float sStar = params.s0 + Max(0.0f,
-			speed * params.T + speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
+			speed * params.T + speed * dv / (2.0f * std::sqrt(params.aMax * params.b)));
 		const float safeGap = Max(0.1f, gap);
 
 		return params.aMax * (
@@ -168,7 +168,7 @@ namespace TrafficCommon
 
 		const float dv    = speed;
 		const float sStar = params.s0 + Max(0.0f,
-			speed * params.T + speed * dv / (2.0f * std::sqrtf(params.aMax * params.b)));
+			speed * params.T + speed * dv / (2.0f * std::sqrt(params.aMax * params.b)));
 		const float gap   = Max(0.1f, distToStop);
 		const float vRatio = speed / Max(0.1f, params.v0);
 

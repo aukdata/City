@@ -296,7 +296,8 @@ void registerRiverGenerationTests(TestRunner& runner)
 				const double across = side < 2 ? z - kDepth * .5 : x - kWidth * .5;
 				return kOutletHeight + kDownstreamGrade * (side % 2 == 0 ? along : extent - along) + Square(across) * .00008;
 			};
-			RiverNetwork rivers; rivers.generate(kWidth, kDepth, height);
+			// Land-boundary outlets are the optional regional-window mode; the game default drains to the sea.
+			RiverNetwork rivers; rivers.generate(kWidth, kDepth, height, {}, false, false);
 			JSON result = surveyFoundationGraph(rivers, kWidth, kDepth, [](double, double) { return false; });
 			expectFoundationGraph(context, result);
 			HashSet<Vec2> starts;
@@ -392,7 +393,7 @@ void registerRiverGenerationTests(TestRunner& runner)
 		{
 			return x*.001+50*(1+std::tanh((x-4096)/900))+80*std::exp(-Square((x-4096)/900))+Square(z-8192)*.000002-5;
 		};
-		RiverNetwork rivers; rivers.generate(16337,16337,height);
+		RiverNetwork rivers; rivers.generate(16337,16337,height,{},false,false);
 		int boundaryOutlets=0;
 		double maximumCut=0;
 		for (const auto& reach : rivers.reaches)

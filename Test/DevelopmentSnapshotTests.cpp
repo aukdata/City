@@ -234,7 +234,8 @@ void registerDevelopmentSnapshotTests(TestRunner& runner)
 		context.expect(fileBytes("TestResults/authoritative_roads.bin")==fileBytes("TestResults/authoritative_roads_again.bin"),U"All persisted road fields remain byte stable");
 		RoadNetwork legacy;
 		context.expect(RoadBinary::readGlobal(first,legacy),U"Default legacy road restoration remains available");
-		context.expect(legacy.getEdge(edges[0]) && legacy.getEdge(edges[0])->cutoffA != source.getEdge(edges[0])->cutoffA,U"Legacy path continues its original cutoff recalculation");
+		// Both restore modes keep stored cutoffs; only authoritative snapshots skip derived sign and plan rebuilding.
+		context.expect(legacy.getEdge(edges[0]) && legacy.getEdge(edges[0])->cutoffA == source.getEdge(edges[0])->cutoffA,U"Default restoration also keeps the stored cutoff");
 		source.getEdge(edges[0])->cutoffA = std::numeric_limits<float>::infinity();
 		context.expect(RoadBinary::writeGlobal(second,source),U"Create malformed-cutoff fixture");
 		RoadNetwork rejected;

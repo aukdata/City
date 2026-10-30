@@ -632,7 +632,7 @@ bool GameScene::loadGame()
 	{
 		generateLandPatches(true);
 		m_clearanceLedger.apply(m_world);
-		migrateLegacyBuildingFrontageReferences();
+
 		refreshBuildingAnglesFromEdges();
 	}
 	if (meta.contains(U"zoneDevelopment")) { m_zoneManager.restoreState(meta[U"zoneDevelopment"],m_world,restoreSnapshot); }

@@ -1254,7 +1254,8 @@ namespace
 					const auto* source=world.getChunk({x,z}); if (!source) { continue; }
 					for (const auto& patch : source->landPatches)
 					{
-						if (source==&chunk && patch.sourceParcelKey>=0 && patch.polygon.size()>=3) { parcels[patch.sourceParcelKey] << &patch; }
+						// Worker snapshots hold copies, so identify the resident chunk by coordinate.
+						if (source->coord==chunk.coord && patch.sourceParcelKey>=0 && patch.polygon.size()>=3) { parcels[patch.sourceParcelKey] << &patch; }
 						add(patch.sourceParcelKey,patch.polygon);
 					}
 					for (int row=0;row<ZONE_CELLS;++row) for (int col=0;col<ZONE_CELLS;++col)

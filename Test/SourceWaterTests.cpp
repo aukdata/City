@@ -257,7 +257,7 @@ void registerSourceWaterTests(TestRunner& runner)
 		const auto bankShader=PixelShader::HLSL(U"../../App/shaders/hlsl/city_forward.hlsl",U"RiverBank_PS");
 		context.expect(!!bankShader,U"The production terrain-aligned gravel-bed shader compiles in the native GPU process");
 #else
-		const PixelShader terrainShader=GLSL{U"../../Test/shaders/source_water_terrain.frag"};
+		const PixelShader terrainShader=GLSL{U"../../Test/shaders/source_water_terrain.frag", {}};
 #endif
 		const auto waterShader=ShaderAsset::pixel(U"../../App/shaders/hlsl/source_water.hlsl",U"WaterPS");
 		context.expect(!!terrainShader && !!waterShader,U"The production HLSL water shader compiles in the native Test process");

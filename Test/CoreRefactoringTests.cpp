@@ -408,6 +408,10 @@ void registerCoreRefactoringTests(TestRunner& runner)
 		roads.getNode(throughNode)->getAttachment(0)->lateralOffset = 2.5f;
 		roads.getEdge(0)->cutoffA = 3.25f; roads.getEdge(0)->cutoffB = 7.5f;
 		roads.getEdge(1)->parts.clear();
+		// Saved movement identities must describe the current attachments and parts, as after any
+		// real edit. Without lane parts the junction has no movements left for the fixture signal.
+		roads.getNode(1)->signalPlacement.reset();
+		for (const int id : {0, 1, 2, throughNode}) { roads.rebuildLaneConnections(id); }
 		context.expect(RoadBinary::writeGlobal(U"TestResults/core_topology.bin", roads), U"Custom topology saves");
 		RoadNetwork restored; restored.addNode({999, 0, 999});
 		context.expect(RoadBinary::readGlobal(U"TestResults/core_topology.bin", restored), U"Global restore replaces an existing network");
