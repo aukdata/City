@@ -40,10 +40,14 @@ namespace UrbanParcel
 
 	/// @brief 大きな駐車場と隣家の間は建物中心の中点でなく、両敷地の間の空地で分ける。
 	/// @param preserveFootprint 建物の占有範囲の外側で境界を分ける。
+	/// @param alignLots 同じ向きに並ぶ家どうしを、道路に直交・平行な境界で長方形の宅地に分ける（新規生成の町割）。
 	inline Array<Vec2> clipBetweenSites(Array<Vec2> polygon, Vec2 center, const Building& owner,
-		Vec2 neighbor, const Building& adjacent, bool preserveFootprint = false)
+		Vec2 neighbor, const Building& adjacent, bool preserveFootprint = false, bool alignLots = false)
 	{
-		if (!preserveFootprint && !isCompleteSiteBuilding(owner.type) && !isCompleteSiteBuilding(adjacent.type))
+		// 向きの違う家とは中点で分ける。
+		constexpr double kAlignedTolerance = 15_deg;
+		const bool aligned = alignLots && Abs(std::remainder(static_cast<double>(owner.angle - adjacent.angle), Math::HalfPi)) <= kAlignedTolerance;
+		if (!preserveFootprint && !isCompleteSiteBuilding(owner.type) && !isCompleteSiteBuilding(adjacent.type) && !aligned)
 		{
 			return clipCloserTo(std::move(polygon), center, neighbor);
 		}
@@ -78,7 +82,7 @@ namespace UrbanParcel
 	/// @brief 隣接する建物との境界で敷地を分割する。
 	/// @param preserveFootprint 建物の四隅が敷地から削られないようにする。
 	inline Array<Vec2> partition(const World& world, Point coord, int col, int row,
-		Vec2 center, Array<Vec2> polygon, bool preserveFootprint = false)
+		Vec2 center, Array<Vec2> polygon, bool preserveFootprint = false, bool alignLots = false)
 	{
 		constexpr double kCellSize = static_cast<double>(CHUNK_SIZE) / ZONE_CELLS;
 		const int globalCol = coord.x * ZONE_CELLS + col;
@@ -98,7 +102,7 @@ namespace UrbanParcel
 				if (building.type == BuildingType::None || building.type == BuildingType::Farmland) { continue; }
 				const Vec2 neighbor{ (x + 0.5) * kCellSize + building.offsetX,
 					(z + 0.5) * kCellSize + building.offsetZ };
-				polygon = clipBetweenSites(std::move(polygon), center, owner, neighbor, building, preserveFootprint);
+				polygon = clipBetweenSites(std::move(polygon), center, owner, neighbor, building, preserveFootprint, alignLots);
 				if (polygon.size() < 3) { return {}; }
 			}
 		}

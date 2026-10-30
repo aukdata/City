@@ -293,13 +293,17 @@ float4 Yard_PS(s3d::PSInput input) : SV_TARGET
 	float cell = hash21(floor(bed) + floor(p / 40) * 7.3);
 	// Bed edges blur slightly so the grid reads as gardens, not tiles.
 	float edge = smoothstep(0, .12, min(min(within.x, 1 - within.x), min(within.y, 1 - within.y)));
-	float n = lerp(.5, cell, resolved * lerp(.6, 1, edge)) * .75 + valueNoise(p / 6.5 + 13.7) * .25 - garden * .4;
+	float n = cell * lerp(.6, 1, edge) * .8 + valueNoise(p / 6.5 + 13.7) * .2 - garden * .4;
 	float3 gravel = g_texture0.Sample(g_sampler0, p / 3).rgb;
 	float grain = dot(gravel, float3(.3, .6, .1)) / .22;
 	float3 paved = float3(.120, .118, .112) * lerp(1, clamp(grain, .7, 1.3), .6);
 	float3 lawn = float3(.064, .098, .030), shrub = float3(.026, .046, .018), soil = float3(.110, .092, .066);
-	float3 plants = lerp(shrub, lawn, smoothstep(.25, .65, valueNoise(p / 1.3 + 5.1)));
-	float3 albedo = lerp(plants, paved, smoothstep(.36, .5, n));
+	// Mostly lawn with a few clipped shrubs; the lawn itself varies only slightly.
+	lawn *= .92 + valueNoise(p / 4.3 + 2.9) * .16;
+	float3 plants = lerp(lawn, shrub, smoothstep(.62, .82, valueNoise(p / 1.6 + 5.1)));
+	// Unresolved beds blend to the lot's average paving share instead of thresholding into large blotches.
+	float share = lerp(lerp(.62, .28, garden), smoothstep(.36, .5, n), resolved);
+	float3 albedo = lerp(plants, paved, share);
 	albedo = lerp(albedo, soil, smoothstep(.72, .9, valueNoise(p / 4.1 + 29.3)) * .4);
 	return shadeCity(input, float4(albedo, 1));
 }

@@ -2001,7 +2001,7 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 						projection.position + along * halfAlong + frontageDir * backOffset,
 						projection.position - along * halfAlong + frontageDir * backOffset
 					};
-					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon), density >= 0.5);
+					patch.polygon = UrbanParcel::partition(m_world, coord, col, row, sampleCenter, std::move(patch.polygon), density >= 0.5, true);
 					if (patch.polygon.size() >= 3) { chunk.landPatches << patch; }
 					else
 					{
