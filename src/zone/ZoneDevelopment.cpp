@@ -205,36 +205,47 @@ namespace
 			// Keep the building in its painted cell. A small setback aligns doors and gardens to the road.
 			if (Abs(lateral)<outer+2 || road.arc<half+3 || road.arc>road.curve.totalLength-half-3) { continue; }
 			const double target=outer+half+2.2;
-			const Vec2 center=cellCenter+outward*Clamp(target-Abs(lateral),-5.0,5.0);
 			const double angle=Atan2(-outward.x,outward.y);
-			const auto footprint=ParcelGeometry::footprint(center,half+.25,angle);
-			if (overlapsBuildings(world,coord,cell,footprint) || overlapsRoads(footprint,roads)
-				|| (railway && railway->overlaps(footprint))) { continue; }
-			site.state=ZoneDevelopmentState::UnsuitableTerrain;
-			double lowest=Math::Inf, highest=-Math::Inf;
-			bool dry=true;
-			Array<Vec2> samples{center};
-			for (size_t i=0;i<footprint.size();++i) { samples << footprint[i] << (footprint[i]+footprint[(i+1)%4])*.5; }
-			for (const Vec2 sample : samples)
-			{
-				const double height=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.y));
-				lowest=Min(lowest,height); highest=Max(highest,height);
-				dry=dry && sample.x>=0 && sample.y>=0 && sample.x<WORLD_SIZE && sample.y<WORLD_SIZE
-					&& height>world.waterPlanningHeight(sample.x,sample.y)+.3;
-			}
-			const double roadTerrain=world.sampleHeight(static_cast<float>(road.position.x),static_cast<float>(road.position.z));
-			const double roadHeight=RoadGeometry::surfaceY(*road.edge,road.position,roadTerrain);
-			if (!dry || highest-lowest>1.2 || Abs((highest+lowest)*.5-roadHeight)>1.5) { continue; }
-			site.state=ZoneDevelopmentState::Developing;
-			site.building.angle=static_cast<float>(angle); site.building.edgeId=road.edge->id;
-			site.building.edgeT=road.parameter;
-			site.building.offsetX=static_cast<float>(center.x-cellCenter.x); site.building.offsetZ=static_cast<float>(center.y-cellCenter.y);
 			const Vec2 along{-outward.y,outward.x};
-			const double back=(center-road.position.xz()).dot(outward)+half+1;
-			const Vec2 frontCenter=road.position.xz()+outward*(outer+.06);
-			const Vec2 backCenter=road.position.xz()+outward*back;
-			site.parcel={frontCenter-along*(half+.6),frontCenter+along*(half+.6),backCenter+along*(half+.6),backCenter-along*(half+.6)};
-			return site;
+			// 区画の中央で隣家や道路と少し重なるときは、道路沿いに最大2.5mずらして間口の隙間へ収める。
+			// 隣家が区画へ大きく張り出している場合は、ずらしても建てない。
+			bool placed=false;
+			for (const double slide : {0.0,-1.25,1.25,-2.5,2.5})
+			{
+				const Vec2 center=cellCenter+outward*Clamp(target-Abs(lateral),-5.0,5.0)+along*slide;
+				const Vec3 tangent=road.curve.tangentAt(road.arc);
+				const double arc=road.arc+(center-cellCenter).dot(Vec2{tangent.x,tangent.z}.normalized());
+				if (arc<half+3 || arc>road.curve.totalLength-half-3) { continue; }
+				const auto footprint=ParcelGeometry::footprint(center,half+.25,angle);
+				if (overlapsBuildings(world,coord,cell,footprint) || overlapsRoads(footprint,roads)
+					|| (railway && railway->overlaps(footprint))) { continue; }
+				site.state=ZoneDevelopmentState::UnsuitableTerrain;
+				double lowest=Math::Inf, highest=-Math::Inf;
+				bool dry=true;
+				Array<Vec2> samples{center};
+				for (size_t i=0;i<footprint.size();++i) { samples << footprint[i] << (footprint[i]+footprint[(i+1)%4])*.5; }
+				for (const Vec2 sample : samples)
+				{
+					const double height=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.y));
+					lowest=Min(lowest,height); highest=Max(highest,height);
+					dry=dry && sample.x>=0 && sample.y>=0 && sample.x<WORLD_SIZE && sample.y<WORLD_SIZE
+						&& height>world.waterPlanningHeight(sample.x,sample.y)+.3;
+				}
+				const double roadTerrain=world.sampleHeight(static_cast<float>(road.position.x),static_cast<float>(road.position.z));
+				const double roadHeight=RoadGeometry::surfaceY(*road.edge,road.position,roadTerrain);
+				if (!dry || highest-lowest>1.2 || Abs((highest+lowest)*.5-roadHeight)>1.5) { continue; }
+				site.state=ZoneDevelopmentState::Developing;
+				site.building.angle=static_cast<float>(angle); site.building.edgeId=road.edge->id;
+				site.building.edgeT=road.parameter;
+				site.building.offsetX=static_cast<float>(center.x-cellCenter.x); site.building.offsetZ=static_cast<float>(center.y-cellCenter.y);
+				const double back=(center-road.position.xz()).dot(outward)+half+1;
+				const Vec2 frontCenter=road.position.xz()+outward*(outer+.06)+along*slide;
+				const Vec2 backCenter=road.position.xz()+outward*back+along*slide;
+				site.parcel={frontCenter-along*(half+.6),frontCenter+along*(half+.6),backCenter+along*(half+.6),backCenter-along*(half+.6)};
+				placed=true;
+				break;
+			}
+			if (placed) { return site; }
 		}
 		return site;
 	}
