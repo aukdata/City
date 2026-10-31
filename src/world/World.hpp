@@ -92,6 +92,12 @@ private:
 	/// @brief バイオームパラメータ（基底高・振幅）を連続補間で計算する
 	void computeBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
 	void computeRawBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
+	/// @brief 名古屋〜高山を縮めた断面（湾・三角州・平野・丘陵・峡谷の山地・山奥の盆地・高い山脈）で陸の基底高と起伏量を決める。
+	/// @param transect 名目上の海岸線から内陸へ測った距離（地図の短辺に対する比）
+	/// @param lateral 海岸線に沿う座標（m、地図中央が0）
+	void computeTransectParams(double transect, double lateral, double inland, double scale, double reliefScale, float wx, float wz, float& outBase, float& outAmp) const;
+	/// @brief 断面配置で峡谷（山地を抜ける本流の谷）の中心が通る海岸沿いの座標（m）。
+	double transectGorgeAxis(double transect, double scale) const;
 	/// @brief 広域地形を一度だけ計算し、平野面積の上限と内部の丘陵を反映する。
 	void buildMacroTerrain();
 	/// @brief 山地に流域の谷を刻む。粗い格子で河川侵食（stream power 則）と斜面の安息角を解き、刻んだ深さを広域地形へ戻す。

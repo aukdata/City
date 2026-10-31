@@ -155,6 +155,12 @@ void World::setGenerationParams(uint64 seed, float mapWidth, float mapDepth)
 	m_rangeWidth=kRangeWidthMin+random()*kRangeWidthSpread;
 	m_flankSign=random()<.5 ? -1 : 1;
 	if (m_centralLandform==CentralLandform::Bay) { m_bayCenter=m_featureCenter.y*Min(mapWidth,mapDepth); }
+	if (GenerationSettings::get().terrain_transectLayout)
+	{
+		// 伊勢湾の奥へ木曽川が注ぐように、湾の奥を峡谷から平野へ出た本流の延長に置く。中央の湖や孤立した山は作らない。
+		m_centralLandform=CentralLandform::Plain;
+		m_bayCenter=transectGorgeAxis(0,Min(mapWidth,mapDepth));
+	}
 	buildMacroTerrain();
 }
 
@@ -212,7 +218,8 @@ void World::computeRawBiomeParams(float wx, float wz, float& outBase, float& out
 		+scale*kSmallWarpAmplitude*m_perlin.noise2D(u/(scale*kSmallWarpScale)+kSmallWarpNoiseOffset,v/(scale*kSmallWarpScale));
 	const double bay=std::exp(-Square((shoreV-m_bayCenter)/(scale*kMainBayWidth)));
 	const double secondBay=std::exp(-Square((shoreV+scale*kSecondaryBayOffset)/(scale*kSecondaryBayWidth)));
-	const double bayDepth=m_centralLandform==CentralLandform::Bay ? kCentralBayDepth : kUsualBayDepth;
+	const double bayDepth=GenerationSettings::get().terrain_transectLayout ? GenerationSettings::get().terrain_transectBayDepth
+		: m_centralLandform==CentralLandform::Bay ? kCentralBayDepth : kUsualBayDepth;
 	const double coast=scale*(kCoastOffset+bayDepth*bay+kSecondaryBayDepth*secondBay)
 		+scale*kCapeAmplitude*Sin(shoreV/(scale*kCapeScale)+m_terrainPhase)
 		+scale*kInletAmplitude*m_perlin.noise2D(shoreV/(scale*kInletScale),kInletNoiseOffset)
@@ -222,6 +229,11 @@ void World::computeRawBiomeParams(float wx, float wz, float& outBase, float& out
 	{
 		outBase=static_cast<float>(-kSeaDepth*reliefScale*(1-std::exp(inland/(scale*kSeaShelfWidth))));
 		outAmp=0; return;
+	}
+	if (GenerationSettings::get().terrain_transectLayout)
+	{
+		computeTransectParams((u-scale*kCoastOffset)/scale,v,inland,scale,reliefScale,wx,wz,outBase,outAmp);
+		return;
 	}
 	// The two mountain belts usually occupy the inland and lateral margins, with gaps rather than a border wall.
 	const double firstAxis=scale*(m_rangeOffset+kFirstRangeWander*Sin(v/(scale*kFirstRangeWavelength)+m_terrainPhase));
@@ -264,6 +276,63 @@ void World::computeRawBiomeParams(float wx, float wz, float& outBase, float& out
 	outAmp=static_cast<float>((kPlainDetail+mountain*kMountainDetail)*coastBlend*(1-lake));
 }
 
+double World::transectGorgeAxis(double transect, double scale) const
+{
+	return scale*(.05*Sin(m_terrainPhase)+.035*Sin(transect*9+m_terrainPhase)+.015*Sin(transect*23+2*m_terrainPhase));
+}
+
+void World::computeTransectParams(double transect, double lateral, double inland, double scale, double reliefScale, float wx, float wz, float& outBase, float& outAmp) const
+{
+	const auto& c=GenerationSettings::get();
+	// 山すその線は数 km の波長で出入りさせ、平野と山地の境を直線にしない。
+	const double f=transect+c.terrain_transectFrontWander*(m_perlin.octave2D(wx/(scale*.09)+211.0,wz/(scale*.09)-173.0,3,.5));
+	// 山並みの高さの揺らぎ。尾根ごとに 0.6〜1.4 倍。
+	const auto swell=[&](double size,double offset) { return .6+.8*m_perlin.noise2D0_1(wx/(scale*size)+offset,wz/(scale*size)-offset); };
+	const double hills=c.terrain_transectHillHeight*transition(f-c.terrain_transectHillStart,c.terrain_transectMountainStart+.04-c.terrain_transectHillStart)*swell(.05,31);
+	const double highlands=c.terrain_transectMountainHeight*transition(f-c.terrain_transectMountainStart,.12)*swell(.08,57);
+	const double alps=c.terrain_transectAlpsHeight*transition(f-c.terrain_transectAlpsStart,.14)*swell(.06,83);
+	// 平野の両脇（鈴鹿山脈・三河高原にあたる）は海の近くまで山が迫る。
+	const double side=Abs(lateral)/scale;
+	const double flank=c.terrain_transectFlankHeight*transition(side-.3,.16)*transition(f-.04,.14)*swell(.05,109);
+	double mountain=Max(Max(hills,highlands)+alps,flank);
+	// 盆地から平野へ山地を抜ける本流の谷（飛騨川・木曽川の峡谷にあたる）。谷底は盆地から峡谷の出口へ一様に下り、谷壁は V 字に立ち上がる。
+	const double basin=c.terrain_transectBasinPosition, exit=c.terrain_transectPlainEnd-.03;
+	const double gorgeFloor=f<basin ? c.terrain_transectGorgeExit+(c.terrain_transectBasinFloor-c.terrain_transectGorgeExit)*Clamp((f-exit)/(basin-exit),0.0,1.0)
+		: c.terrain_transectBasinFloor+(f-basin)*scale*.03;
+	const double across=Abs(lateral-transectGorgeAxis(f,scale));
+	const double gorge=gorgeFloor+Max(0.0,across-c.terrain_transectGorgeWidth*scale*.5)*c.terrain_transectGorgeSlope;
+	const double gorgeWeight=transition(f-(exit-.04),.04);
+	mountain=Math::Lerp(mountain,Min(mountain,gorge),gorgeWeight);
+	// 細部の起伏は谷底からの高さで決める。標高が高くても盆地や谷底そのものは平らに保つ。
+	double floor=gorgeFloor*gorgeWeight*(1-transition(across-c.terrain_transectGorgeWidth*scale*.5,scale*.03));
+	// 山奥の盆地（高山盆地にあたる）。本流の谷の上に、平らな底と緩い縁を持つ楕円の盆地を置く。
+	const double radius=c.terrain_transectBasinRadius*scale;
+	const double du=(f-basin)*scale/(radius*1.3), dv=(lateral-transectGorgeAxis(basin,scale))/radius;
+	const double r=std::sqrt(du*du+dv*dv);
+	const double basinHeight=c.terrain_transectBasinFloor+25*r*r;
+	const double basinWeight=1-transition(r-.7,.55);
+	mountain=Math::Lerp(mountain,Min(mountain,basinHeight),basinWeight);
+	floor=Min(mountain,Math::Lerp(floor,basinHeight,basinWeight));
+	mountain*=reliefScale; floor*=reliefScale;
+	// 平野: 海沿いは海抜 0〜3m の三角州、内陸へ扇状地として上がる。段丘は三角州では作らない。
+	const double delta=c.terrain_transectDeltaEnd, plainEnd=c.terrain_transectPlainEnd;
+	const double broad=m_perlin.noise2D0_1(wx/(scale*c.terrain_broadPlainScale),wz/(scale*c.terrain_broadPlainScale));
+	const double upland=transition(f-delta,plainEnd-delta);
+	double plain=f<delta ? .6+2.0*Max(0.0,f)/Max(.001,delta) : 2.6+45*Clamp((f-delta)/Max(.001,plainEnd-delta),0.0,1.0)+(f>plainEnd ? (f-plainEnd)*scale*.002 : 0);
+	const double local=m_perlin.noise2D0_1(wx/(scale*c.terrain_localPlainScale)+c.terrain_localPlainNoiseOffset,wz/(scale*c.terrain_localPlainScale));
+	plain+=reliefScale*(c.terrain_broadPlainRelief*broad+c.terrain_localPlainRelief*local)*upland;
+	if (c.terrain_terraceHeight>0 && c.terrain_terraceStrength>0)
+	{
+		const double level=plain/c.terrain_terraceHeight,tread=Math::Floor(level),fraction=level-tread;
+		const double riser=Clamp((fraction-(1-c.terrain_terraceRiser))/c.terrain_terraceRiser,0.0,1.0);
+		const double stepped=(tread+riser*riser*(3-2*riser))*c.terrain_terraceHeight;
+		plain=Math::Lerp(plain,stepped,c.terrain_terraceStrength*upland*(1-transition(mountain,c.terrain_terraceMountainFade)));
+	}
+	const double coastBlend=transition(inland,scale*c.terrain_coastBlendWidth);
+	outBase=static_cast<float>((plain+mountain)*coastBlend);
+	outAmp=static_cast<float>((c.terrain_plainDetail*(.1+.9*upland)+(mountain-floor)*c.terrain_mountainDetail)*coastBlend);
+}
+
 /// @brief 重い海岸・山脈ノイズは共有格子に一度だけ評価し、16m地表と地図は補間で参照する。
 void World::buildMacroTerrain()
 {
@@ -289,6 +358,19 @@ void World::buildMacroTerrain()
 			noise[{x, z}] = static_cast<float>(m_perlin.noise2D0_1(wx / scale + 171.0, wz / scale + 513.0));
 		}
 	}, concurrency);
+	// 断面配置では平野の広さを断面が決める。ランダムな内部丘陵で濃尾平野のような平野を埋めない。
+	if (config.terrain_transectLayout)
+	{
+		carveMacroValleys();
+		evolveMacroTerrain();
+		const double side = Min(m_mapWidth, m_mapDepth);
+		const Vec2 basin = Vec2{m_mapWidth * .5, m_mapDepth * .5} + m_landAxis * (side * (config.terrain_coastOffset + config.terrain_transectBasinPosition))
+			+ Vec2{-m_landAxis.y, m_landAxis.x} * transectGorgeAxis(config.terrain_transectBasinPosition, side);
+		float basinBase, basinAmplitude;
+		computeBiomeParams(static_cast<float>(basin.x), static_cast<float>(basin.y), basinBase, basinAmplitude);
+		DBG_LOG(U"[TerrainTransect] axis=({:.2f},{:.2f}) basin=({:.0f},{:.0f}) height={:.0f}"_fmt(m_landAxis.x, m_landAxis.y, basin.x, basin.y, basinBase));
+		return;
+	}
 	// 平野になる格子の「丘陵へ変わる閾値」を順位付けする。一律の環状山地は作らない。
 	Array<double> thresholds;
 	for (int z = 0; z < rows; ++z)

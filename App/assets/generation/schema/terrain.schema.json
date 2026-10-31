@@ -114,7 +114,25 @@
     "valleyDetailDepth",
     "valleyChannelArea",
     "valleyRoutingNoise",
-    "valleyRoutingScale"
+    "valleyRoutingScale",
+    "transectLayout",
+    "transectPlainEnd",
+    "transectDeltaEnd",
+    "transectHillStart",
+    "transectHillHeight",
+    "transectMountainStart",
+    "transectMountainHeight",
+    "transectAlpsStart",
+    "transectAlpsHeight",
+    "transectFlankHeight",
+    "transectBasinPosition",
+    "transectBasinRadius",
+    "transectBasinFloor",
+    "transectGorgeWidth",
+    "transectGorgeSlope",
+    "transectGorgeExit",
+    "transectBayDepth",
+    "transectFrontWander"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -671,6 +689,96 @@
       "type": "number",
       "minimum": 100,
       "maximum": 50000
+    },
+    "transectLayout": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "transectPlainEnd": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.9
+    },
+    "transectDeltaEnd": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.9
+    },
+    "transectHillStart": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.9
+    },
+    "transectHillHeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "transectMountainStart": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.95
+    },
+    "transectMountainHeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 4000
+    },
+    "transectAlpsStart": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 1.2
+    },
+    "transectAlpsHeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 4000
+    },
+    "transectFlankHeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3000
+    },
+    "transectBasinPosition": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 1.1
+    },
+    "transectBasinRadius": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 0.3
+    },
+    "transectBasinFloor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3000
+    },
+    "transectGorgeWidth": {
+      "type": "number",
+      "minimum": 0.002,
+      "maximum": 0.1
+    },
+    "transectGorgeSlope": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 3
+    },
+    "transectGorgeExit": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "transectBayDepth": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.8
+    },
+    "transectFrontWander": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.3
     }
   }
 }

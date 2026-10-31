@@ -570,5 +570,20 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 	}
 	m_statistics.spillways=spillways;
 	m_statistics.unresolved=sinks;
+	// 堤防のある緩流で、川から 300m 離れた地面が水面よりどれだけ高いか。大きいほど川が溝の底を流れている。
+	Array<double> bankRise; double leveedLength=0;
+	for (size_t id=0; id<reaches.size(); id+=4)
+	{
+		const auto& reach=reaches[id]; if (!leveed(reach)) { continue; }
+		const Vec2 a{reach.start.x,reach.start.z},b{reach.end.x,reach.end.z}; if (a.distanceFromSq(b)<1) { continue; }
+		const Vec2 across=Vec2{a.y-b.y,b.x-a.x}.normalized()*(reach.halfWidth+300),middle=(a+b)*.5;
+		const double ground=(height(middle.x+across.x,middle.y+across.y)+height(middle.x-across.x,middle.y-across.y))*.5;
+		bankRise << ground-(reach.start.y+reach.end.y)*.5; leveedLength+=a.distanceFrom(b)*4;
+	}
+	if (!bankRise.isEmpty())
+	{
+		bankRise.sort();
+		DBG_LOG(U"[RiverLevees] leveedKm={:.1f} bankRiseMedian={:.1f} bankRiseP90={:.1f}"_fmt(leveedLength/1000,bankRise[bankRise.size()/2],bankRise[bankRise.size()*9/10]));
+	}
 	DBG_LOG(U"[RiverNetwork] reaches={} lengthKm={:.1f} confluences={} spillways={} sinks={} self={} exhausted={}"_fmt(reaches.size(),length/1000,confluences,spillways,sinks,m_statistics.selfIntersections,m_statistics.exhausted));
 }

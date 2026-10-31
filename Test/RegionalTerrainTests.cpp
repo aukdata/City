@@ -1,6 +1,7 @@
 ﻿#include "TestCases.hpp"
 #include "TestRunner.hpp"
 #include "src/world/World.hpp"
+#include "src/gen/GenerationSettings.hpp"
 #include "src/gen/RailwayAlignment.hpp"
 #include "src/railway/RailTimetable.hpp"
 
@@ -38,7 +39,7 @@ namespace
 				ocean[next]=1; pending << next;
 			}
 		}
-		int core=0,coreDry=0,coreWater=0,coreMountain=0,edge=0,edgeBarrier=0,lake=0;
+		int core=0,coreDry=0,coreWater=0,coreMountain=0,edge=0,edgeBarrier=0,lake=0,upland=0;
 		Array<double> relief;
 		for (int z=2;z<kCells-1;++z) { for (int x=2;x<kCells-1;++x)
 		{
@@ -50,6 +51,7 @@ namespace
 				lake+=h<0 && !ocean[{x,z}] && world.getBiome(static_cast<float>(x*kStep),static_cast<float>(z*kStep))==BiomeType::Lake;
 			}
 			if (x<32 || x>224 || z<32 || z>224) { ++edge; edgeBarrier+=h<0 || h>300; }
+			upland+=h>400 && h<900 && slope<.05;
 			if (h>8 && h<150 && slope<.02)
 			{
 				double low=h,high=h;
@@ -92,6 +94,7 @@ namespace
 		result[U"shoreLengthKm"]=shoreLength/1000;
 		result[U"shoreSinuosity"]=shoreLength/Max(1.0,upper.distanceFrom(lower));
 		result[U"inlandLakeKm2"]=lake*kStep*kStep/1000000;
+		result[U"uplandBasinKm2"]=upland*kStep*kStep/1000000;
 		return result;
 	}
 }
@@ -132,7 +135,7 @@ void registerRegionalTerrainTests(TestRunner& runner)
 	{
 		const Array<uint64> seeds{7,42,130,2026,0,1,2,3,4,5,6,8,9,10,11,12,13,14,15,16};
 		JSON report; double central=0,periphery=0,roughness=0,coast=0;
-		int centralPlains=0,centralMountains=0,centralBays=0,inlandLakes=0;
+		int centralPlains=0,centralMountains=0,centralBays=0,inlandLakes=0,uplandBasins=0;
 		for (size_t i=0;i<seeds.size();++i)
 		{
 			const auto result=surveyRegion(seeds[i]); report[U"seeds"][i]=result;
@@ -144,18 +147,27 @@ void registerRegionalTerrainTests(TestRunner& runner)
 			centralMountains+=result[U"coreMountain"].get<double>()>.08;
 			centralBays+=result[U"coreWater"].get<double>()>.08;
 			inlandLakes+=result[U"inlandLakeKm2"].get<double>()>1;
+			uplandBasins+=result[U"uplandBasinKm2"].get<double>()>4;
 		}
 		const double count=static_cast<double>(seeds.size());
 		report[U"meanCoreDry"]=central/count; report[U"meanEdgeBarrier"]=periphery/count;
 		report[U"meanPlainRelief1024"]=roughness/count; report[U"meanShoreSinuosity"]=coast/count;
 		report[U"centralPlains"]=centralPlains; report[U"centralMountains"]=centralMountains;
-		report[U"centralBays"]=centralBays; report[U"inlandLakes"]=inlandLakes;
+		report[U"centralBays"]=centralBays; report[U"inlandLakes"]=inlandLakes; report[U"uplandBasins"]=uplandBasins;
 		report.save(U"TestResults/terrain_composition.json");
 		context.expect(central / count > .35 && centralPlains >= 3,
 			U"Interior hills leave developable valleys without requiring one broad central plain");
 		context.expect(periphery/count>.55,U"Map edges tend to be mountains or sea without a compulsory border wall");
 		context.expect(roughness/count>5 && roughness/count<24,U"Plains contain gentle kilometre-scale undulations while remaining buildable");
 		context.expect(coast/count>1.6,U"Ocean shores have real inlets and capes beyond a nearly straight boundary");
-		context.expect(centralMountains>0 && centralBays>0 && inlandLakes>0,U"Central mountains, large bays and inland lakes remain possible");
+		if (GenerationSettings::get().terrain_transectLayout)
+		{
+			// 名古屋〜高山の断面配置: 湖の代わりに、山奥の盆地（高山盆地にあたる）がどの seed にもある。
+			context.expect(centralMountains>0 && centralBays>0 && uplandBasins==static_cast<int>(seeds.size()),U"Every transect map has mountains, a bay and a flat upland basin deep in the mountains");
+		}
+		else
+		{
+			context.expect(centralMountains>0 && centralBays>0 && inlandLakes>0,U"Central mountains, large bays and inland lakes remain possible");
+		}
 	});
 }

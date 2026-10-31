@@ -300,6 +300,21 @@ Array<MapGenerator::Settlement> SettlementPlacement::generate(uint64 seed, Array
 		}
 		if (neighbours >= GenerationSettings::get().placement_minimumTownNeighbours) { addCenter(site, Kind::LocalTown); }
 	}
+	// 山奥の盆地（高山・松本にあたる）は標高で点数が下がっても、まとまった耕地があれば周囲の谷をまとめる都市になる。
+	// 都市として扱い、農村の間引きでは消さない。
+	// 平野の町から十分離れ、盆地の中で最も条件のよい地点を一つだけ選ぶ。
+	for (const auto& site : sites)
+	{
+		const auto& config = GenerationSettings::get();
+		if (config.placement_basinTownNeighbours <= 0 || height(site.center) < config.placement_uplandHeight
+			|| site.farmland < config.placement_minimumTownFarmland || !clearOfCenters(site.center, config.placement_basinTownSpacing)) { continue; }
+		int neighbours = 0;
+		for (const auto& other : sites)
+		{
+			if (other.farmland >= config.placement_minimumNeighbourFarmland && site.center.distanceFromSq(other.center) < config.placement_marketRadius * config.placement_marketRadius) { ++neighbours; }
+		}
+		if (neighbours >= config.placement_basinTownNeighbours) { addCenter(site, Kind::RegionalCity); }
+	}
 	if (sites.isEmpty()) { return {}; }
 	const size_t centerCount = settlements.size();
 	const TravelField access(bounds, height, settlements, water);

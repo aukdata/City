@@ -150,4 +150,17 @@
 
 - 平野の広い緩流（川幅の半分42m以上、勾配2.5%未満、水面180m未満。`RiverNetwork::leveed`）は両岸に堤防を持つ。水際から18mが川表の法尻、27〜33mが天端、43mが川裏の法尻。天端は水面＋0.25m＋`rivers.json` の `leveeHeight`（5m）。
 - 川を渡る道路は堤防を切り通さない。`WaterCrossings::repair` は、川を渡る区間から2区間以内の道路に、堤防の範囲（法尻から法尻まで）で天端＋`leveeBridgeMargin`（0.5m）以上の高さを課す（`RiverNetwork::leveeRoadFloor`）。橋は前後の堤防の天端に載る。堤防上の道（`leveeRoad`）と川に並ぶ道には課さない。
-- 既知の課題: 平野の川が段丘や地形の起伏を切って平野面より10m以上低く流れる所では、堤防が地形に埋もれて見えない。平野の川を平野面の高さで流す地形の見直しで扱う。
+- 下の断面配置では平野が海へ向かって一様に下るので、平野の川は平野面とほぼ同じ高さを流れ（seed 42 で川から300m離れた地面は水面より中央値1.5m、90%値4.4m高い。`[RiverLevees]` に記録）、堤防が平野面から立ち上がって見える。
+
+## 2026-10-31 名古屋〜高山を凝縮した地形（断面配置）
+
+濃尾平野から飛騨川の峡谷を遡って高山盆地へ至る地形を、一枚の地図に縮めて置く。`terrain.json` の `transectLayout` が1のとき、海岸から内陸への距離 f（地図の短辺を1とする）で地形帯を決める（`World::computeTransectParams`）。
+
+- 湾: 海岸線の湾の深さを `transectBayDepth`（0.3）にし、湾の中心を本流の谷の軸に合わせる（伊勢湾にあたる）。
+- 三角州: f が `transectDeltaEnd`（0.2）までは海抜0.6〜2.6mの平らな低地。段丘と細部の起伏は付けない。
+- 平野: `transectPlainEnd`（0.51）まで扇状地として45m上がり、広域と局所の緩い起伏と段丘を付ける。
+- 丘陵と山地: `transectHillStart`（0.43）から丘陵（`transectHillHeight` 260m）、`transectMountainStart`（0.54）から山地（`transectMountainHeight` 1150m）、`transectAlpsStart`（0.9）から高い山（`transectAlpsHeight` 1500m）。山すその線は `transectFrontWander` で数kmの波長で出入りさせる。平野の両脇（鈴鹿山脈・三河高原にあたる）には `transectFlankHeight`（650m）の山を海の近くまで寄せる。
+- 峡谷: 盆地から平野への本流の谷（飛騨川・木曽川にあたる）。谷底は峡谷の出口 `transectGorgeExit`（90m）から盆地の底へ一様に上がり、谷壁は `transectGorgeSlope`（0.55）の V 字。谷の軸は数波長の正弦で蛇行させる。
+- 山奥の盆地: f=`transectBasinPosition`（0.76）、半径 `transectBasinRadius`（0.07）の楕円で、底は `transectBasinFloor`（560m）。細部の起伏量は標高ではなく谷底・盆地底からの高さで決め、盆地と谷底を平らに保つ。
+- 盆地の都市（`SettlementPlacement::generate`）: 標高 `uplandHeight` 以上で耕地のまとまりがあり、`marketRadius` 内に耕地の候補が `basinTownNeighbours`（8）以上ある地点を、他の中心地から `basinTownSpacing`（15km）離して一つだけ都市にする（高山・松本にあたる）。標高による点数の低さでは除かない。都市なので農村の間引きでは消えない。
+- 断面配置では従来の内部丘陵・中央の湖は置かない。`Terrain.RegionalComposition` は湖の代わりに、全 seed で標高400〜900mの平らな盆地が4km²以上あることを確かめる。

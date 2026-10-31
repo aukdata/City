@@ -64,7 +64,9 @@
     "settlementEdgeMargin",
     "ruralRetentionRate",
     "maximumCities",
-    "mountainVillageFarmland"
+    "mountainVillageFarmland",
+    "basinTownNeighbours",
+    "basinTownSpacing"
   ],
   "properties": {
     "candidateSpacing": {
@@ -220,6 +222,16 @@
     "minimumTownNeighbours": {
       "type": "integer",
       "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "basinTownNeighbours": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 100000.0
+    },
+    "basinTownSpacing": {
+      "type": "number",
+      "minimum": 0.0001,
       "maximum": 100000.0
     },
     "villageSiteWeight": {

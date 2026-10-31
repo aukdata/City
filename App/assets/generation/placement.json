@@ -30,6 +30,8 @@
   "minimumTownFarmland": 0.5,
   "townSelectionDivisor": 5,
   "minimumTownNeighbours": 5,
+  "basinTownNeighbours": 8,
+  "basinTownSpacing": 15000.0,
   "villageSiteWeight": 0.45,
   "villageFarmlandWeight": 0.55,
   "villageAccessWeight": 0.35,
