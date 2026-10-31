@@ -157,6 +157,8 @@ enum class RoadSignType : uint8
 	Municipality,              ///< 市町村境界（101）
 	SteepGrade,                ///< 上り・下り急勾配（212の3・212の4）
 	NarrowRoad,                ///< 幅員減少（212）
+	LaneReduction,             ///< 車線数減少（登坂車線・付加車線の終わり）
+	ClimbingLane,              ///< 登坂車線（指示・青地の補助板）
 };
 
 /// @brief 道路標示の種類

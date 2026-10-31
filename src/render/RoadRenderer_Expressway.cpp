@@ -11,7 +11,7 @@ using MeshGeometry::appendOrientedBox;
 namespace
 {
 	/// @brief 施設ごとの材質。色は CSL 版の配色（淡い青緑の屋根、紫の ETC、緑の一般）に合わせる。
-	enum FacilityMaterial : size_t { Canopy, Steel, Concrete, Booth, Etc, General, Housing, LampUpper, LampLower, Asphalt, Paint, CarLight, CarDark, CarRed, Wall, Roof, Glass, MaterialCount };
+	enum FacilityMaterial : size_t { Canopy, Steel, Concrete, Booth, Etc, General, Housing, LampUpper, LampLower, Asphalt, Paint, CarLight, CarDark, CarRed, Wall, Roof, Glass, CushionRed, CushionWhite, MaterialCount };
 
 	void appendTollGate(std::array<MeshData, MaterialCount>& meshes, Vec3 base, Vec2 tangent, float width, float length, float height)
 	{
@@ -97,8 +97,21 @@ namespace
 		// 2 眼の灯器は上流（接近車両）側を向く。
 		appendOrientedBox(meshes[LampUpper], at(-.13, 2.4), Float3{ .04f, .2f, .2f }, yaw);
 		appendOrientedBox(meshes[LampLower], at(-.13, 1.97), Float3{ .04f, .2f, .2f }, yaw);
-		// 衝撃吸収材。
-		appendOrientedBox(meshes[Housing], at(-1.2, .45), Float3{ 1.8f, .9f, .9f }, yaw);
+		// 分流鼻のクッションドラム: 赤白の帯を巻いた樹脂製の円筒を 2 列に並べる。
+		const Vec2 right{ tangent.y, -tangent.x };
+		for (int row = 0; row < 3; ++row)
+		{
+			for (const double side : { -.5, .5 })
+			{
+				if (row == 0 && side > 0) { continue; }
+				const double along = -1.1 - row * 1.05, lateral = row == 0 ? 0.0 : side;
+				const Vec3 drum{ base.x + tangent.x * along + right.x * lateral, base.y, base.z + tangent.y * along + right.y * lateral };
+				for (int band = 0; band < 4; ++band)
+				{
+					MeshGeometry::appendMeshData(meshes[band % 2 == 0 ? CushionRed : CushionWhite], MeshData::Cylinder(Float3{ drum + Vec3{ 0, .12 + band * .225, 0 } }, .45, .225, 16));
+				}
+			}
+		}
 	}
 }
 
@@ -144,7 +157,7 @@ Array<RoadRenderer::FacilityMesh> RoadRenderer::buildFacilityMeshes(const RoadNe
 		ColorF{ .80, .90, .88 }, ColorF{ .58, .60, .60 }, ColorF{ .66, .66, .62 }, ColorF{ .92, .92, .90 },
 		ColorF{ .42, .20, .55 }, ColorF{ .10, .50, .26 }, ColorF{ .73, .50, .06 }, ColorF{ 1 }, ColorF{ 1 },
 		ColorF{ .19, .19, .20 }, ColorF{ .92, .92, .90 }, ColorF{ .86, .87, .88 }, ColorF{ .12, .13, .16 }, ColorF{ .58, .12, .10 },
-		ColorF{ .86, .82, .74 }, ColorF{ .30, .31, .33 }, ColorF{ .36, .48, .56 } };
+		ColorF{ .86, .82, .74 }, ColorF{ .30, .31, .33 }, ColorF{ .36, .48, .56 }, ColorF{ .78, .10, .08 }, ColorF{ .93, .93, .91 } };
 	Array<FacilityMesh> result;
 	for (size_t i = 0; i < meshes.size(); ++i)
 	{

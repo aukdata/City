@@ -23,6 +23,11 @@ namespace LandscapeMaterials
 		case 132: return ColorF{.22,.34,.31}.removeSRGBCurve();
 		case 133: return ColorF{.39,.23,.17}.removeSRGBCurve();
 		case 135: return ColorF{.13,.21,.24}.removeSRGBCurve();
+		// 沿道店舗のポール看板・のぼり旗の原色。
+		case 136: return ColorF{ 0.86, 0.68, 0.08 };
+		case 137: return ColorF{ 0.10, 0.28, 0.62 };
+		case 138: return ColorF{ 0.90, 0.90, 0.88 };
+		case 139: return ColorF{ 0.76, 0.10, 0.08 };
 		// 狭小住宅の外壁サイディングと屋根。
 		case 140: return ColorF{ 0.55, 0.49, 0.40 };
 		case 141: return ColorF{ 0.47, 0.47, 0.45 };

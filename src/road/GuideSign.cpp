@@ -208,8 +208,17 @@ namespace
 		Rect{ 0, 0, texSize }.draw(resolveBgColor(g.bgColor));
 		const double borderPx = Max(2.0, texSize.y * 0.015);
 		const double insetPx  = borderPx * 2.0;
-		RectF{ insetPx, insetPx, texSize.x - insetPx * 2, texSize.y - insetPx * 2 }
-			.drawFrame(borderPx, 0.0, ColorF{ 1, 1, 1 });
+		const ColorF background = resolveBgColor(g.bgColor);
+		if (background.r + background.g + background.b < .3)
+		{
+			// 道路情報板（黒地の文字表示板）は白縁でなく、灰色の筐体の枠で囲む。
+			Rect{ 0, 0, texSize }.drawFrame(borderPx * 3.0, 0.0, ColorF{ .42, .43, .44 });
+		}
+		else
+		{
+			RectF{ insetPx, insetPx, texSize.x - insetPx * 2, texSize.y - insetPx * 2 }
+				.drawFrame(borderPx, 0.0, ColorF{ 1, 1, 1 });
+		}
 		constexpr ColorF fg{ 1, 1, 1 };
 
 		for (const auto& el : g.elements)

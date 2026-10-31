@@ -69,6 +69,7 @@ namespace ExpresswayCrossSection
 		bool emergencyPhone = false; ///< 1km ごとの非常電話をこの区間の中央へ置く（トンネル内は 200m 間隔）
 		bool noiseBarrier = false;   ///< 市街地に近い区間の遮音壁
 		bool cutting = false;        ///< 切土区間。法面は地形の掘削で表れるため盛土用の法面を付けない
+		bool lighting = false;       ///< IC・JCT の分合流部の前後。本線にも道路照明を立てる
 	};
 
 	/// @details 道路構造令 第1種第2級: 車線 3.5m、左側路肩 2.5m、中央帯 4.5m（側帯 0.75m×2＋分離帯 3.0m）。
@@ -114,6 +115,11 @@ namespace ExpresswayCrossSection
 			edge.parts << repeat(rail - c.expressway_guardrailWidth * .5f - .3f, U"expressway_noise_barrier", c.expressway_noiseBarrierPanel);
 		}
 		edge.parts << repeat(half + c.expressway_innerShoulder + .35f, U"expressway_kilopost", c.expressway_kilometrePostSpacing);
+		if (options.lighting && !edge.tunnel)
+		{
+			// 照明柱は路肩側の防護柵の外。高架では壁高欄の上に立てる。
+			edge.parts << repeat(rail - c.expressway_guardrailWidth * .5f - (viaduct ? 0.0f : .6f), U"expressway_light", c.expressway_mainlineLightSpacing);
+		}
 		finish(edge);
 	}
 

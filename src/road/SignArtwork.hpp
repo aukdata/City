@@ -4,19 +4,28 @@
 /// @brief reference/ks084812_INDEX.md: 202, 323 and 326. Draw once into cached sign textures.
 namespace SignArtwork
 {
-	inline bool wide(RoadSignType type) { return type==RoadSignType::RoadName || type==RoadSignType::Municipality; }
+	inline bool wide(RoadSignType type) { return type==RoadSignType::RoadName || type==RoadSignType::Municipality || type==RoadSignType::ClimbingLane; }
 	inline bool dynamic(RoadSignType type)
 	{
 		return type==RoadSignType::SpeedLimit || type==RoadSignType::OneWay || type==RoadSignType::CurveWarning
 			|| type==RoadSignType::DirectionalRestriction || type==RoadSignType::NationalRoute
-			|| type==RoadSignType::PrefectureRoute || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || wide(type);
+			|| type==RoadSignType::PrefectureRoute || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::LaneReduction || wide(type);
 	}
 	inline String textureKey(RoadSignType type,int value,StringView label) { return U"{}:{}:{}"_fmt(static_cast<int>(type),value,label); }
 	inline int key(RoadSignType type,int value) { return static_cast<int>(type)*1000+value; }
 	inline void draw(RoadSignType type,int value,const Font& font,StringView label=U"")
 	{
 		const Color blue{20,62,142},red{202,28,44},yellow{255,199,25};
-		if (wide(type))
+		if (type==RoadSignType::ClimbingLane)
+		{
+			// 登坂車線の始まり: 青地に白文字の案内板（英字併記）。
+			RectF{4,4,760,248}.draw(blue);
+			RectF{12,12,744,232}.drawFrame(5,Palette::White);
+			const ScopedRenderStates2D textBlend{BlendState::Default2D};
+			font(U"登坂車線").drawAt(104,Vec2{384,104},Palette::White);
+			font(U"SLOWER TRAFFIC LANE").drawAt(40,Vec2{384,196},Palette::White);
+		}
+		else if (wide(type))
 		{
 			RectF{4,4,760,248}.draw(Palette::White);
 			RectF{12,12,744,232}.drawFrame(5,blue);
@@ -44,7 +53,7 @@ namespace SignArtwork
 			if (value&4) { Line{128,126,208,126}.drawArrow(20,Vec2{42,38},Palette::White); }
 			if (value&8) { Line{128,109,188,109}.draw(16,Palette::White); Line{188,109,188,192}.drawArrow(16,Vec2{30,30},Palette::White); }
 		}
-		else if (type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad)
+		else if (type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::LaneReduction)
 		{
 			Quad{Vec2{128,3},Vec2{253,128},Vec2{128,253},Vec2{3,128}}.draw(yellow).drawFrame(7,Palette::Black);
 			if (type==RoadSignType::SteepGrade)
@@ -52,6 +61,13 @@ namespace SignArtwork
 				Triangle{Vec2{61,170},Vec2{197,170},Vec2{value>0 ? 197.0 : 61.0,108}}.draw(Palette::Black);
 				const ScopedRenderStates2D textBlend{BlendState::Default2D};
 				font(U"{}%"_fmt(Abs(value))).drawAt(46,Vec2{128,95},Palette::Black);
+			}
+			else if (type==RoadSignType::LaneReduction)
+			{
+				// 左側の付加車線が右の車線へ合流する。
+				Line{158,200,158,58}.draw(15,Palette::Black);
+				Line{98,200,98,142}.draw(15,Palette::Black);
+				Line{98,142,146,94}.draw(15,Palette::Black);
 			}
 			else
 			{

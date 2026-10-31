@@ -181,7 +181,9 @@ const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 	case RoadSignType::Municipality:
 	case RoadSignType::PrefectureRoute: return kLabel;
 	case RoadSignType::SteepGrade:
-	case RoadSignType::NarrowRoad: return kCurve;
+	case RoadSignType::NarrowRoad:
+	case RoadSignType::LaneReduction: return kCurve;
+	case RoadSignType::ClimbingLane: return kLabel;
 	case RoadSignType::SpeedLimit: return kSpeed;
 	case RoadSignType::OneWay: return kOneWay;
 	case RoadSignType::CurveWarning: return kCurve;
@@ -196,14 +198,14 @@ const RoadSign::SignVisual& RoadSign::visualOf(RoadSignType type)
 
 MeshData RoadSign::CreateBoardMesh(RoadSignType type)
 {
-	if (type==RoadSignType::OneWay || type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::PrefectureRoute || SignArtwork::wide(type))
+	if (type==RoadSignType::OneWay || type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::LaneReduction || type==RoadSignType::PrefectureRoute || SignArtwork::wide(type))
 	{
 		MeshData mesh;
 		const double halfWidth=SignArtwork::wide(type) ? 1.2 : type==RoadSignType::OneWay ? .23 : .45,halfHeight=SignArtwork::wide(type) ? .4 : .45;
 		mesh.vertices << makeVert(-halfWidth,halfHeight,0,0,0,0,0,-1) << makeVert(halfWidth,halfHeight,0,1,0,0,0,-1)
 			<< makeVert(-halfWidth,-halfHeight,0,0,1,0,0,-1) << makeVert(halfWidth,-halfHeight,0,1,1,0,0,-1);
 		mesh.indices << TriangleIndex32{0,1,2} << TriangleIndex32{2,1,3};
-		if (type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::PrefectureRoute)
+		if (type==RoadSignType::CurveWarning || type==RoadSignType::SteepGrade || type==RoadSignType::NarrowRoad || type==RoadSignType::LaneReduction || type==RoadSignType::PrefectureRoute)
 		{
 			mesh=MeshData{};
 			const Array<Vec2> shape=type==RoadSignType::PrefectureRoute
@@ -364,6 +366,29 @@ Array<RoadSignPlacement> RoadSign::InferAutoForEdge(const RoadEdge& edge, const 
 			{
 				const auto* next=network.getEdge(other.edgeId);
 				if (next && next->id!=edge.id && next->totalWidth()+2<edge.totalWidth()) { add(RoadSignType::NarrowRoad,30,0,false); }
+			}
+		}
+		// 登坂車線・付加車線: 同じ向きの車線がこの先で減るときは車線数減少を予告し、
+		// このノードから入る向きの車線が手前より多いときは始まりに登坂車線の板を立てる。
+		if (node->attachments.size()==2)
+		{
+			const auto lanesToward=[&](const RoadEdge& road,int end,bool arriving)
+			{
+				const bool forward=(road.nodeB==end)==arriving;
+				return static_cast<int>(road.lanes.count_if([&](const Lane& lane) { return lane.dir==(forward ? LaneDir::Forward : LaneDir::Backward); }));
+			};
+			for (const auto& other:node->attachments)
+			{
+				const auto* next=network.getEdge(other.edgeId);
+				if (!next || next->id==edge.id || next->roadType==RoadType::Expressway) { continue; }
+				if (towardNode && usable>120 && lanesToward(*next,nodeId,false)<lanesToward(edge,nodeId,true) && lanesToward(*next,nodeId,false)>0)
+				{
+					add(RoadSignType::LaneReduction,Min(150.0f,usable*.6f),0,false);
+				}
+				if (usable>60 && lanesToward(edge,nodeId,false)>lanesToward(*next,nodeId,true) && lanesToward(*next,nodeId,true)>0)
+				{
+					add(RoadSignType::ClimbingLane,25,0,true);
+				}
 			}
 		}
 		// 車両進入禁止（303）: このノードから当該エッジへ進入できる車線が

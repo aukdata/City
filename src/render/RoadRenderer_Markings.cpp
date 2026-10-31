@@ -143,8 +143,9 @@ namespace
 		{
 		case LineType::SolidWhite:   return { ColorF{1,1,1}, 0.15f, 0, 0 };
 		case LineType::DashedWhite:  return { ColorF{1,1,1}, 0.15f, 8, 12 };
-		case LineType::SolidYellow:  return { ColorF{ 0.86, 0.74, 0.30 }, 0.16f, 0, 0 };
-		case LineType::DoubleYellow: return { ColorF{ 0.86, 0.74, 0.30 }, 0.16f, 0, 0 };
+		// 日本の黄色の区画線は橙に近い（写真の実測で sRGB 0.95, 0.65, 0.15 付近）。
+		case LineType::SolidYellow:  return { ColorF{ 0.95, 0.64, 0.13 }, 0.16f, 0, 0 };
+		case LineType::DoubleYellow: return { ColorF{ 0.95, 0.64, 0.13 }, 0.16f, 0, 0 };
 		default: return {};
 		}
 	}

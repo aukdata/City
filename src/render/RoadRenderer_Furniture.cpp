@@ -130,11 +130,16 @@ Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 				}
 				if (previousPole)
 				{
-					for (const float cableSide : { -0.75f, 0.0f, 0.75f })
+					// 高圧線 3 条（上段の腕金）、低圧線 2 条、通信線 3 条（低い位置で大きくたるむ）。
+					struct Wire { float side; double level; double sagRatio; };
+					constexpr std::array<Wire, 8> kWires{ Wire{ -0.75f, 3.95, .015 }, { 0.0f, 3.95, .015 }, { 0.75f, 3.95, .015 },
+						{ -0.45f, 2.25, .02 }, { 0.45f, 2.25, .02 }, { 0.22f, -0.35, .03 }, { 0.34f, -0.55, .034 }, { -0.28f, -0.75, .03 } };
+					for (const auto& wire : kWires)
 					{
-						const Vec3 from = *previousPole + Vec3{ previousRight.x * cableSide, 3.95, previousRight.y * cableSide };
-						const Vec3 to = poleCenter + Vec3{ right.x * cableSide, 3.95, right.y * cableSide };
-						const double sag = Min(0.65, from.distanceFrom(to) * 0.015);
+						const float cableSide = wire.side;
+						const Vec3 from = *previousPole + Vec3{ previousRight.x * cableSide, wire.level, previousRight.y * cableSide };
+						const Vec3 to = poleCenter + Vec3{ right.x * cableSide, wire.level, right.y * cableSide };
+						const double sag = Min(wire.level < 0 ? 1.1 : 0.65, from.distanceFrom(to) * wire.sagRatio);
 						constexpr int kCableSegments = 6;
 						Vec3 previous = from;
 						for (int segment = 1; segment <= kCableSegments; ++segment)

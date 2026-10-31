@@ -89,6 +89,31 @@ namespace FrontageGeometry
 				box(kDark,{-width*.31,.39+line*.09,front-.316},{.27,.018,.008});
 			}
 			plant(-width*.42);
+			// 地方の幹線沿いの店: 建物の角の前に縦長のポール看板、店先にのぼり旗を並べる。
+			constexpr std::array<int, 4> kColours{ 139, 137, 136, 132 };
+			if (seed%2==0)
+			{
+				const int body=kColours[seed/2%kColours.size()];
+				const Vec3 pole{width*.5+.9,0,front-1.6};
+				box(kMetal,pole+Vec3{0,2.6,0},{.32,5.2,.32});
+				box(body,pole+Vec3{0,6.3,0},{1.25,3.4,.34});
+				for (const double face : {-1.0,1.0})
+				{
+					// 白地の面に色帯を入れ、遠目にも店名板と分かる配色にする。
+					box(138,pole+Vec3{0,6.55,face*.18},{1.05,2.2,.02});
+					box(body,pole+Vec3{0,6.1,face*.19},{1.05,.32,.02});
+				}
+			}
+			if (seed%3!=1)
+			{
+				for (int flag=0;flag<4;++flag)
+				{
+					const Vec3 base{width*.5-.5-flag*.95,0,front-.95};
+					tube(kMetal,base,base+Vec3{0,2.9,0},.022);
+					tube(kMetal,base+Vec3{0,2.75,0},base+Vec3{-.5,2.75,0},.012);
+					box(kColours[(seed+flag)%kColours.size()],base+Vec3{-.25,1.85,0},{.48,1.75,.01});
+				}
+			}
 		}
 		else
 		{

@@ -114,7 +114,8 @@ struct RoadPart
 	bool useDefinitionRepeatJitter = true;               ///< true: RoadPartDef の repeatJitter を使う
 
 	/// @brief 舗装用シェーダを使う路盤。バラスト・スラブは独自の材質で描く。
-	[[nodiscard]] bool asphalt() const { return type == RoadPartType::Roadbed && (defId.isEmpty() || defId == U"roadbed_asphalt"); }
+	/// @details 舗装した路肩（高速道路・バイパス）も車道と同じ舗装材で描き、路肩だけ黒く見えないようにする。
+	[[nodiscard]] bool asphalt() const { return (type == RoadPartType::Roadbed && defId.isEmpty()) || ((type == RoadPartType::Roadbed || type == RoadPartType::Shoulder) && defId == U"roadbed_asphalt"); }
 
 	/// @brief A 端での幅
 	[[nodiscard]] float widthA()   const { return offsetA_R - offsetA_L; }

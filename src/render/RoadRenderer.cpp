@@ -301,7 +301,7 @@ void RoadRenderer::drawSurface(const PartMeshEntry& entry, const Mesh& mesh) con
 		if (entry.texture) { mesh.draw(*entry.texture, entry.color); }
 		else { mesh.draw(entry.color); }
 	};
-	if (entry.materialType == RoadPartType::Roadbed && entry.asphalt && m_asphaltPS)
+	if (entry.asphalt && m_asphaltPS)
 	{
 		Graphics3D::SetPSTexture(4, m_asphaltNormal);
 		const ScopedCustomShader3D shader{m_asphaltPS};

@@ -81,6 +81,10 @@
     "noiseBarrierDistance",
     "noiseBarrierHeight",
     "rampLightSpacing",
+    "mainlineLightSpacing",
+    "mainlineLightDistance",
+    "spacingCheckLead",
+    "informationBoardLead",
     "trumpetLoopRadius",
     "trumpetLoopSpeed",
     "trumpetNearRamp",
@@ -483,6 +487,26 @@
       "type": "number",
       "minimum": 10.0,
       "maximum": 200.0
+    },
+    "mainlineLightSpacing": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 200.0
+    },
+    "mainlineLightDistance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 3000.0
+    },
+    "spacingCheckLead": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20000.0
+    },
+    "informationBoardLead": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 6000.0
     },
     "trumpetLoopRadius": {
       "type": "number",
