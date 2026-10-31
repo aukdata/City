@@ -104,7 +104,17 @@
     "terraceHeight",
     "terraceRiser",
     "terraceStrength",
-    "terraceMountainFade"
+    "terraceMountainFade",
+    "valleyErosionCell",
+    "valleyErosionIterations",
+    "valleyErosionRate",
+    "valleyErosionExponent",
+    "valleyMaximumSlope",
+    "valleyDetailDamping",
+    "valleyDetailDepth",
+    "valleyChannelArea",
+    "valleyRoutingNoise",
+    "valleyRoutingScale"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -611,6 +621,56 @@
       "type": "number",
       "minimum": 1.0,
       "maximum": 2000.0
+    },
+    "valleyErosionCell": {
+      "type": "number",
+      "minimum": 64,
+      "maximum": 1024
+    },
+    "valleyErosionIterations": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 400
+    },
+    "valleyErosionRate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "valleyErosionExponent": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 1
+    },
+    "valleyMaximumSlope": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 3
+    },
+    "valleyDetailDamping": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "valleyDetailDepth": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 2000
+    },
+    "valleyChannelArea": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "valleyRoutingNoise": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "valleyRoutingScale": {
+      "type": "number",
+      "minimum": 100,
+      "maximum": 50000
     }
   }
 }

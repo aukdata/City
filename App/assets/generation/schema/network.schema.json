@@ -32,7 +32,18 @@
     "regionalDetourRatio",
     "regionalMinimumSavedDistance",
     "regionalMinimumSavingRatio",
-    "regionalMaximumCostRatio"
+    "regionalMaximumCostRatio",
+    "mountainRouteCount",
+    "mountainRouteRelief",
+    "mountainRouteProbe",
+    "mountainRouteMinimumLength",
+    "mountainRouteGapTolerance",
+    "mountainRouteWaypointSpacing",
+    "mountainRouteBankOffset",
+    "mountainRouteSideSwitch",
+    "mountainRouteJoinRadius",
+    "mountainRouteBorderReach",
+    "mountainRouteBasinReach"
   ],
   "properties": {
     "localRoutingCell": {
@@ -179,6 +190,61 @@
       "type": "number",
       "minimum": 1,
       "maximum": 64
+    },
+    "mountainRouteCount": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 8.0
+    },
+    "mountainRouteRelief": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 2000.0
+    },
+    "mountainRouteProbe": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 3000.0
+    },
+    "mountainRouteMinimumLength": {
+      "type": "number",
+      "minimum": 500.0,
+      "maximum": 60000.0
+    },
+    "mountainRouteGapTolerance": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 5000.0
+    },
+    "mountainRouteWaypointSpacing": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 5000.0
+    },
+    "mountainRouteBankOffset": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 300.0
+    },
+    "mountainRouteSideSwitch": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 500.0
+    },
+    "mountainRouteJoinRadius": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 40000.0
+    },
+    "mountainRouteBorderReach": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 40000.0
+    },
+    "mountainRouteBasinReach": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 60000.0
     }
   }
 }

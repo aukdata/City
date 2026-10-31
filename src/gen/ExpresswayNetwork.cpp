@@ -310,6 +310,8 @@ namespace
 				const double distance = Abs(line.stations[i] - origin);
 				if (distance > 600) { break; }
 				const auto& sample = samples[i];
+				// 谷の深い地図端では、最大土被り・最大橋脚高の範囲へ最急勾配で届く高さまで端点を寄せる。
+				height = Clamp(height, sample.minimum - grade * distance, sample.maximum + grade * distance);
 				if (sample.roadClearance < -1e8 || sample.underpass >= height - grade * distance) { continue; }
 				height = Max(height, std::ceil(sample.roadClearance - grade * distance) + .5);
 			}
@@ -317,7 +319,13 @@ namespace
 		};
 		start = approachEndpoint(true, start);
 		end = approachEndpoint(false, end);
-		const auto profile = RailCostProfile::solve(samples, start, end, grade);
+		auto profile = RailCostProfile::solve(samples, start, end, grade);
+		// 終点近くの立体交差を量子化した縦断で越えきれないときは、地図端側の終点を少しずつ上げて解き直す（起点は JCT の高さに固定されることがある）。
+		for (const double raise : { 1.0, 2.0, 4.0, 8.0 })
+		{
+			if (profile.feasible) { break; }
+			profile = RailCostProfile::solve(samples, start, Min(end + raise, samples.back().maximum), grade);
+		}
 		if (!profile.feasible)
 		{
 			DBG_LOG(U"[ExpresswayProfile] infeasible start={:.1f} end={:.1f} samples={}"_fmt(start, end, samples.size()));

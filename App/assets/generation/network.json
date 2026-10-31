@@ -27,5 +27,16 @@
   "regionalDetourRatio": 1.8,
   "regionalMinimumSavedDistance": 100,
   "regionalMinimumSavingRatio": 0.2,
-  "regionalMaximumCostRatio": 8
+  "regionalMaximumCostRatio": 8,
+  "mountainRouteCount": 2,
+  "mountainRouteRelief": 110.0,
+  "mountainRouteProbe": 350.0,
+  "mountainRouteMinimumLength": 4000.0,
+  "mountainRouteGapTolerance": 600.0,
+  "mountainRouteWaypointSpacing": 700.0,
+  "mountainRouteBankOffset": 30.0,
+  "mountainRouteSideSwitch": 25.0,
+  "mountainRouteJoinRadius": 8000.0,
+  "mountainRouteBorderReach": 9000.0,
+  "mountainRouteBasinReach": 15000.0
 }

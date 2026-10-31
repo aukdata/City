@@ -99,5 +99,15 @@
   "terraceHeight": 7.0,
   "terraceRiser": 0.22,
   "terraceStrength": 0.65,
-  "terraceMountainFade": 120.0
+  "terraceMountainFade": 120.0,
+  "valleyErosionCell": 256.0,
+  "valleyErosionIterations": 60,
+  "valleyErosionRate": 0.02,
+  "valleyErosionExponent": 0.5,
+  "valleyMaximumSlope": 0.7,
+  "valleyDetailDamping": 0.8,
+  "valleyDetailDepth": 150.0,
+  "valleyChannelArea": 16.0,
+  "valleyRoutingNoise": 150.0,
+  "valleyRoutingScale": 3000.0
 }

@@ -94,6 +94,8 @@ private:
 	void computeRawBiomeParams(float wx, float wz, float& outBase, float& outAmp) const;
 	/// @brief 広域地形を一度だけ計算し、平野面積の上限と内部の丘陵を反映する。
 	void buildMacroTerrain();
+	/// @brief 山地に流域の谷を刻む。粗い格子で河川侵食（stream power 則）と斜面の安息角を解き、刻んだ深さを広域地形へ戻す。
+	void carveMacroValleys();
 	/// @brief Uplifted relief is reshaped by drainage, sediment transport and alluvial deposition.
 	void evolveMacroTerrain();
 	Grid<Float2> m_macroTerrain;

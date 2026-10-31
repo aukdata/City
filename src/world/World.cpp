@@ -328,7 +328,139 @@ void World::buildMacroTerrain()
 			value.y += static_cast<float>(hill * config.terrain_mountainDetail);
 		}
 	}
+	carveMacroValleys();
 	evolveMacroTerrain();
+}
+
+void World::carveMacroValleys()
+{
+	const auto& config = GenerationSettings::get();
+	if (config.terrain_valleyErosionIterations <= 0 || config.terrain_valleyErosionRate <= 0) { return; }
+	const Stopwatch timer{ StartImmediately::Yes };
+	const int columns = static_cast<int>(m_macroTerrain.width()), rows = static_cast<int>(m_macroTerrain.height());
+	const int factor = Max(1, static_cast<int>(Round(config.terrain_valleyErosionCell / Min(m_macroStepX, m_macroStepZ))));
+	const int width = (columns - 1 + factor - 1) / factor + 1, depth = (rows - 1 + factor - 1) / factor + 1, count = width * depth;
+	const auto macroAt = [&](int x, int z) { return m_macroTerrain[{ Min(x * factor, columns - 1), Min(z * factor, rows - 1) }]; };
+	Array<double> initial(count), height(count), filled(count), relief(count);
+	Array<bool> outlet(count, false);
+	bool anyOutlet = false;
+	for (int id = 0; id < count; ++id)
+	{
+		// 細部の起伏も含めて流路を決め、一様な斜面に平行な直線の谷が並ばないようにする。
+		const int x = Min(id % width * factor, columns - 1), z = Min(id / width * factor, rows - 1);
+		// 侵食の間だけ数 km 波長の起伏を足して流路を曲げ、支流が合流する樹枝状の谷にする。最後に差分を取るので地形には残らない。
+		const double wx = x * m_macroStepX, wz = z * m_macroStepZ, scale = config.terrain_valleyRoutingScale;
+		// 平野には起伏を足さない（足した高まりを削った分が平野の窪みとして残るため）。
+		const double hilly = relief[id] = Clamp((macroAt(id % width, id / width).y - config.terrain_hillBiomeRelief) / Max(1.0, config.terrain_ruggedRelief - config.terrain_hillBiomeRelief), 0.0, 1.0);
+		const double routing = (m_perlin.octave2D0_1(wx / scale + 913.0, wz / scale - 277.0, 3, .5) - .5) * 2 * config.terrain_valleyRoutingNoise * hilly;
+		initial[id] = height[id] = computeBaseHeight(static_cast<float>(wx), static_cast<float>(wz)) + routing;
+		outlet[id] = macroAt(id % width, id / width).x <= 0;
+		anyOutlet |= outlet[id];
+	}
+	// 海や湖のない地図だけ、地図端を流出口にする。山の谷は盆地や海へ向かって刻まれる。
+	if (!anyOutlet)
+	{
+		for (int id = 0; id < count; ++id) { const int x = id % width, z = id / width; outlet[id] = x == 0 || z == 0 || x == width - 1 || z == depth - 1; }
+	}
+	const double stepX = m_macroStepX * factor, stepZ = m_macroStepZ * factor;
+	Array<int> receiver(count, -1), area(count), order;
+	Array<double> run(count, 1);
+	order.reserve(count);
+	using Entry = std::pair<double, int>;
+	for (int iteration = 0; iteration < config.terrain_valleyErosionIterations; ++iteration)
+	{
+		// 窪地を埋めた面で流向を決め、下流から順に並べる（Priority-Flood）。
+		std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> pending;
+		Array<bool> visited(count, false);
+		order.clear();
+		for (int id = 0; id < count; ++id)
+		{
+			receiver[id] = -1;
+			if (outlet[id]) { visited[id] = true; filled[id] = height[id]; pending.emplace(filled[id], id); }
+		}
+		while (!pending.empty())
+		{
+			const auto [level, id] = pending.top(); pending.pop();
+			order << id;
+			const int x = id % width, z = id / width;
+			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+			{
+				const int nx = x + dx, nz = z + dz;
+				if ((dx == 0 && dz == 0) || nx < 0 || nx >= width || nz < 0 || nz >= depth) { continue; }
+				const int next = nz * width + nx;
+				if (visited[next]) { continue; }
+				visited[next] = true;
+				filled[next] = Max(height[next], level + .001);
+				pending.emplace(filled[next], next);
+			}
+		}
+		for (const int id : order)
+		{
+			if (outlet[id]) { continue; }
+			height[id] = filled[id];
+			double steepest = -Math::Inf;
+			const int x = id % width, z = id / width;
+			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+			{
+				const int nx = x + dx, nz = z + dz;
+				if ((dx == 0 && dz == 0) || nx < 0 || nx >= width || nz < 0 || nz >= depth) { continue; }
+				const int next = nz * width + nx;
+				const double distance = std::sqrt(Square(dx * stepX) + Square(dz * stepZ));
+				const double grade = (filled[id] - filled[next]) / distance;
+				if (grade > steepest && filled[next] < filled[id]) { steepest = grade; receiver[id] = next; run[id] = distance / Min(stepX, stepZ); }
+			}
+		}
+		for (int id = 0; id < count; ++id) { area[id] = 1; }
+		for (auto it = order.rbegin(); it != order.rend(); ++it) { if (receiver[*it] >= 0) { area[receiver[*it]] += area[*it]; } }
+		// 流域面積の大きい川ほど下流の高さへ近づく陰解法（Braun & Willett 2013, n=1）。
+		for (const int id : order)
+		{
+			const int next = receiver[id];
+			if (next < 0) { continue; }
+			// 集水面積の小さい斜面は河川侵食せず、谷壁の安息角だけで形を決める。平野と低い丘陵は刻まない。
+			if (area[id] < config.terrain_valleyChannelArea || relief[id] <= 0) { continue; }
+			const double erosion = relief[id] * config.terrain_valleyErosionRate * std::pow(static_cast<double>(area[id]), config.terrain_valleyErosionExponent) / run[id];
+			height[id] = (height[id] + erosion * height[next]) / (1 + erosion);
+		}
+		// 谷へ向かう斜面は安息角を超えないよう削り、V 字の谷壁にする。
+		for (const int id : order)
+		{
+			if (outlet[id]) { continue; }
+			const int x = id % width, z = id / width;
+			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+			{
+				const int nx = x + dx, nz = z + dz;
+				if ((dx == 0 && dz == 0) || nx < 0 || nx >= width || nz < 0 || nz >= depth) { continue; }
+				const int next = nz * width + nx;
+				if (outlet[next]) { continue; }
+				height[id] = Min(height[id], height[next] + config.terrain_valleyMaximumSlope * std::sqrt(Square(dx * stepX) + Square(dz * stepZ)));
+			}
+		}
+	}
+	// 刻んだ深さを広域格子へ補間して戻す。谷底では細部の起伏を抑え、刻んだ谷を細部のノイズで塞がない。
+	Array<double> incision(count);
+	for (int id = 0; id < count; ++id) { incision[id] = outlet[id] ? 0.0 : initial[id] - height[id]; }
+	double deepest = 0, carvedArea = 0;
+	for (int z = 0; z < rows; ++z)
+	{
+		for (int x = 0; x < columns; ++x)
+		{
+			auto& value = m_macroTerrain[{ x, z }];
+			if (value.x <= 0) { continue; }
+			const int cx = Min(x / factor, width - 2), cz = Min(z / factor, depth - 2);
+			const double u = Clamp(static_cast<double>(x) / factor - cx, 0.0, 1.0), v = Clamp(static_cast<double>(z) / factor - cz, 0.0, 1.0);
+			const double cut = Math::Lerp(Math::Lerp(incision[cz * width + cx], incision[cz * width + cx + 1], u),
+				Math::Lerp(incision[(cz + 1) * width + cx], incision[(cz + 1) * width + cx + 1], u), v);
+			if (cut <= 0) { continue; }
+			value.x = static_cast<float>(Max(.5, value.x - cut));
+			const double t = Clamp(cut / config.terrain_valleyDetailDepth, 0.0, 1.0);
+			value.y *= static_cast<float>(1 - config.terrain_valleyDetailDamping * t * t * (3 - 2 * t));
+			deepest = Max(deepest, cut);
+			carvedArea += cut > 20;
+		}
+	}
+	DBG_LOG(U"[TerrainValleys] cell={:.0f} iterations={} deepest={:.0f} carvedKm2={:.1f} ms={:.0f}"_fmt(
+		stepX, config.terrain_valleyErosionIterations, deepest, carvedArea * m_macroStepX * m_macroStepZ / 1e6, timer.msF()));
 }
 
 /// @brief Route rainfall to the sea, incise steep channels and lay transported sediment on lower gradients.

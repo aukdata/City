@@ -133,3 +133,15 @@
 - 別の水源の河道に「川幅×1.5＋振幅」より近づく点は振幅を半分、4分の1と縮める。それでも交差する流路は、その水源の流路全体を最急降下線へ戻す。蛇行後に伸びた区間は元の刻み（12m）以下へ分割する。水位は従来どおり下流へ単調に下げる。
 - 地上視点では、読み込み済みチャンク（約±4km）の外側を地域地形（128m格子）で描き、周囲の山並みを見せる。詳細チャンクの範囲の三角形は除外し、境界はチャンク境界と一致させる。海面下だけの三角形は描かない。読み込み範囲が変わったときだけ組み直す。
 - 山道の山側擁壁が1.6m以上の区間では、擁壁の上の急な切土（高さ/水平距離0.55以上）を最大8段（水平約20m）までモルタル吹付で覆い、2.5m×4mの格子の法枠を重ねる（国道41号の飛騨川沿いのような渓谷の道）。
+
+## 2026-10-31 山地の谷と渓谷の国道
+
+国道41号（飛騨川沿い）のような、川が山地を深く刻み、国道が川に沿って峡谷を遡る地形と道路を作る。
+
+- 谷の侵食（`World::carveMacroValleys`、値は `terrain.json` の `valley*`）: 広域地形の上に `valleyErosionCell`（256m）格子をとり、河川侵食（stream power 則）を陰解法で `valleyErosionIterations`（60）回解く（Braun & Willett 2013 の Fastscape 方式、n=1）。毎回、窪地を埋めた面で流向を決め（Priority-Flood）、集水面積 A のセルを `valleyErosionRate`×A^`valleyErosionExponent` の重みで下流の高さへ近づける。侵食の重みは広域の起伏量が丘陵の閾値（`hillBiomeRelief`）から `ruggedRelief` へ増えるにつれて0から1へ上げ、平野と低い丘陵は刻まない（町と農地の平地を残す）。集水が `valleyChannelArea`（16セル）未満の斜面は河川侵食せず、谷へ向かう勾配を `valleyMaximumSlope`（0.7）以下に削って V 字の谷壁にする。海と湖を流出口とし、どちらもない地図だけ地図端を流出口にする。
+- 侵食の間だけ、山地と丘陵に振幅 `valleyRoutingNoise`（150m）、波長 `valleyRoutingScale`（3km）の起伏を足して流路を曲げる。一様な斜面に平行な谷が並ばず、支流が合流する樹枝状の谷になる。最後に差分（刻んだ深さ）だけを広域格子へ補間して戻すので、足した起伏は残らない。平野には足さない。
+- 高速道路の縦断が地図端の終点近くの立体交差を量子化した高さで越えきれないときは、終点を1・2・4・8m上げて解き直す（起点はJCTの高さに固定されることがあるので動かさない）。
+- 刻んだ深さが `valleyDetailDepth`（150m）に近づくほど細部の起伏量を最大 `valleyDetailDamping`（80%）減らし、谷底を細部ノイズで塞がない。
+- 渓谷の国道（`MapGenerator::generateMountainRoutes`、値は `network.json` の `mountainRoute*`）: 川の区間のうち、水面から左右 `mountainRouteProbe`（350m）の地面が両側とも `mountainRouteRelief`（110m）以上高いものを峡谷とする。峡谷の上端から下流へたどり、`mountainRouteGapTolerance` 以下の途切れは一続きとみなす。長さ `mountainRouteMinimumLength` 以上の峡谷を、下流へ `mountainRouteBasinReach` まで延ばして既存道路（中継点間隔の2倍以内）か地図端に届くものだけ採る。同じ峡谷を共有する支流違いの候補は最長のものだけ残し、道路網へ出る川を地図端へ出る川より先に試す。
+- 中継点は下流から上流へ `mountainRouteWaypointSpacing`（700m）ごとに、緩い側の岸（川幅＋`mountainRouteBankOffset`）に置く。対岸が `mountainRouteSideSwitch` 以上低いときだけ渡る。成立しないときは対岸、次に山側へ2.5倍離した位置を試し、それでも駄目な中継点は連続2つまで飛ばす。路面は水面より6m以上高くする。2車線の幹線道路として一般の道路生成（A*と地形への線形当てはめ）で結び、トンネル・橋・擁壁は既存の規則で付く。
+- 上流端は `mountainRouteJoinRadius` 以内の別の道路か、`mountainRouteBorderReach` 以内の地図端へ延ばす。地図端から入る道は上流側で道路網へつながらなければ取り消す。中継点5つ（約3.5km）以上を結べたものだけを国道（`NationalRoute`）として最大 `mountainRouteCount` 本登録する。候補は `mountainRouteCount`×3 本まで試し、1本の中で結べない中継点が12を超えたら打ち切る。

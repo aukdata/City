@@ -92,6 +92,11 @@ private:
 	/// @param globalOccupied  既存道路が通過するワールド座標セル (cellSize=120m) のセット。
 	///                        生成後、新道路の通過セルが追加される。
 	/// @param outEdgeIds (optional) 生成されたエッジ ID を起点→終点順で追記
+	/// @brief 山地の川が刻む峡谷に沿う国道（国道41号の飛騨川沿いのような道）を通す。
+	/// @details 両岸が高い河道の連続区間を探し、緩い側の岸に沿った中継点を A* でつなぐ。
+	///   下流端は既存道路へ、上流端は近ければ地図端へ接続し、国道として登録する。
+	static void generateMountainRoutes(const World& world, RoadNetwork& network, HashSet<int64>& globalOccupied);
+
 	static void buildRoadSegment(
 		const World& world, RoadNetwork& network,
 		int startNodeId, Vec3 startPos, int endNodeId, Vec3 endPos,

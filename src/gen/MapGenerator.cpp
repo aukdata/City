@@ -493,6 +493,8 @@ void MapGenerator::generateGlobalRoads(
 		(chainEdges.size() + frontExtEdges.size() + backExtEdges.size() > 0 ? 1 : 0),
 		branchRoutes.size()));
 
+	generateMountainRoutes(world, network, globalOccupied);
+
 	// Layer 1 の全中間ノードを空間ハッシュに登録
 	for (const auto& node : network.nodes())
 	{
@@ -833,4 +835,239 @@ void MapGenerator::setupTrain(TrainNetwork& trainNet, World& world,
 {
 	RailwayAlignment::generate(trainNet,world,districts,roads);
 	if (roads) { RailwaySite::prepareForecourts(trainNet,world,*roads); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// generateMountainRoutes: 峡谷に沿う山間国道
+// ─────────────────────────────────────────────────────────────────────────────
+
+void MapGenerator::generateMountainRoutes(const World& world, RoadNetwork& network, HashSet<int64>& globalOccupied)
+{
+	const auto& c = GenerationSettings::get();
+	const auto& reaches = world.rivers().reaches;
+	if (c.network_mountainRouteCount <= 0 || reaches.isEmpty()) { return; }
+	const Stopwatch timer{ StartImmediately::Yes };
+	const auto keyOf = [](const Vec3& p) { return Point{ static_cast<int>(Math::Round(p.x * 8)), static_cast<int>(Math::Round(p.z * 8)) }; };
+	const auto ground = [&](Vec2 p) { return static_cast<double>(world.sampleHeight(static_cast<float>(Clamp(p.x, 0.0, static_cast<double>(WORLD_SIZE) - .01)), static_cast<float>(Clamp(p.y, 0.0, static_cast<double>(WORLD_SIZE) - .01)))); };
+	const size_t count = reaches.size();
+	HashTable<Point, int> startAt;
+	for (size_t i = 0; i < count; ++i) { startAt[keyOf(reaches[i].start)] = static_cast<int>(i); }
+	Array<int> next(count, -1);
+	Array<bool> gorge(count, false), gorgeAbove(count, false);
+	for (size_t i = 0; i < count; ++i)
+	{
+		const auto& reach = reaches[i];
+		if (const auto found = startAt.find(keyOf(reach.end)); found != startAt.end() && found->second != static_cast<int>(i)) { next[i] = found->second; }
+		const Vec2 a{ reach.start.x, reach.start.z }, b{ reach.end.x, reach.end.z };
+		if (a.distanceFromSq(b) < 1e-6) { continue; }
+		const Vec2 across = Vec2{ b.y - a.y, a.x - b.x }.normalized(), middle = (a + b) * .5;
+		const double water = (reach.start.y + reach.end.y) * .5;
+		const double relief = Min(ground(middle + across * c.network_mountainRouteProbe), ground(middle - across * c.network_mountainRouteProbe)) - water;
+		gorge[i] = relief > c.network_mountainRouteRelief && water > 0;
+	}
+	for (size_t i = 0; i < count; ++i) { if (gorge[i] && next[i] >= 0) { gorgeAbove[next[i]] = true; } }
+	// 峡谷の上端から下流へたどり、峡谷でない区間が短く挟まっても一続きとみなす。
+	struct Chain { Array<int> reaches; double length = 0; size_t gorgeReaches = 0; int joinNode = -1; bool borderMouth = false; };
+	Array<Chain> chains;
+	for (size_t i = 0; i < count; ++i)
+	{
+		if (!gorge[i] || gorgeAbove[i]) { continue; }
+		Chain chain; double gap = 0, kept = 0;
+		for (int id = static_cast<int>(i); id >= 0 && chain.reaches.size() < count; id = next[id])
+		{
+			const double run = Vec2{ reaches[id].end.x - reaches[id].start.x, reaches[id].end.z - reaches[id].start.z }.length();
+			gap = gorge[id] ? 0 : gap + run;
+			if (gap > c.network_mountainRouteGapTolerance) { break; }
+			chain.reaches << id; chain.length += run;
+			if (gorge[id]) { kept = chain.length; }
+		}
+		// 末尾の峡谷でない区間（盆地へ出た後）は落とす。
+		while (!chain.reaches.isEmpty() && chain.length > kept)
+		{
+			const auto& last = reaches[chain.reaches.back()];
+			chain.length -= Vec2{ last.end.x - last.start.x, last.end.z - last.start.z }.length();
+			chain.reaches.pop_back();
+		}
+		chain.gorgeReaches = chain.reaches.size();
+		if (chain.length >= c.network_mountainRouteMinimumLength) { chains << std::move(chain); }
+	}
+	// 盆地の道路網から峡谷へ入る川を選ぶ。地図端から外へ流れ出る山中の川は、下流端を道路網につなげない。
+	constexpr double NodeCell = 512.0;
+	HashTable<Point, Array<int>> nodeGrid;
+	for (const auto& node : network.nodes())
+	{
+		if (node.id >= 0) { nodeGrid[Point{ static_cast<int>(node.position.x / NodeCell), static_cast<int>(node.position.z / NodeCell) }] << node.id; }
+	}
+	const auto nearestNode = [&](Vec2 point, double radius)
+	{
+		int nearest = -1; double best = radius;
+		const int reachCells = static_cast<int>(Math::Ceil(radius / NodeCell));
+		const Point cell{ static_cast<int>(point.x / NodeCell), static_cast<int>(point.y / NodeCell) };
+		for (int dz = -reachCells; dz <= reachCells; ++dz)
+		{
+			for (int dx = -reachCells; dx <= reachCells; ++dx)
+			{
+				const auto found = nodeGrid.find(cell + Point{ dx, dz });
+				if (found == nodeGrid.end()) { continue; }
+				for (const int id : found->second)
+				{
+					const auto* node = network.getNode(id);
+					const double distance = Vec2{ node->position.x, node->position.z }.distanceFrom(point);
+					if (distance < best) { best = distance; nearest = id; }
+				}
+			}
+		}
+		return nearest;
+	};
+	// 峡谷を出た後は、盆地の道路網に届くまで川沿いに下る（飛騨川を下って美濃加茂へ出る国道41号のように）。
+	// 川が先に地図端へ出るなら、地図の外から峡谷を遡って入ってくる道として地図端を起点にする。
+	const double inset = c.network_borderInset, size = WORLD_SIZE;
+	const double mouthJoin = c.network_mountainRouteWaypointSpacing * 2;
+	const auto toBorder = [&](Vec2 p) { return Min({ p.x, p.y, size - p.x, size - p.y }); };
+	// 川べりの中継点は、道路の線形検証が求める水面からの余裕まで路面を上げる。
+	const auto deck = [&](Vec2 p) { return Max(ground(p), world.waterPlanningHeight(p.x, p.y) + 6.0); };
+	const auto borderPoint = [&](Vec2 p)
+	{
+		const double distance = toBorder(p);
+		Vec3 border{ p.x, 0, p.y };
+		if (distance == p.x) { border.x = inset; } else if (distance == p.y) { border.z = inset; }
+		else if (distance == size - p.x) { border.x = size - inset; } else { border.z = size - inset; }
+		border.y = deck(Vec2{ border.x, border.z });
+		return border;
+	};
+	for (auto& chain : chains)
+	{
+		double extended = 0;
+		for (int id = next[chain.reaches.back()]; ; id = next[id])
+		{
+			const auto& end = reaches[chain.reaches.back()].end;
+			const Vec2 mouth{ end.x, end.z };
+			if (const int node = nearestNode(mouth, mouthJoin); node >= 0) { chain.joinNode = node; break; }
+			if (toBorder(mouth) < inset + mouthJoin) { chain.borderMouth = true; break; }
+			if (id < 0 || extended > c.network_mountainRouteBasinReach || chain.reaches.size() >= count) { break; }
+			const double run = Vec2{ reaches[id].end.x - reaches[id].start.x, reaches[id].end.z - reaches[id].start.z }.length();
+			chain.reaches << id; extended += run;
+		}
+	}
+	chains.remove_if([](const Chain& chain) { return chain.joinNode < 0 && !chain.borderMouth; });
+	// 同じ峡谷を共有する支流違いの候補は、最も長いものだけ残す。盆地の道路網へ出る川を地図端へ出る川より先に試す。
+	chains.sort_by([](const Chain& a, const Chain& b) { return a.length > b.length; });
+	{
+		HashSet<int> mouths;
+		chains.remove_if([&](const Chain& chain) { return !mouths.insert(chain.reaches[chain.gorgeReaches - 1]).second; });
+	}
+	chains.stable_sort_by([](const Chain& a, const Chain& b) { return (a.joinNode >= 0) > (b.joinNode >= 0); });
+	const auto link = [&](int from, const Vec3& fromPosition, int to, const Vec3& toPosition, Array<int>& edges)
+	{
+		const size_t before = edges.size();
+		buildRoadSegment(world, network, from, fromPosition, to, toPosition, RoadType::Arterial, 2, globalOccupied, {}, {}, &edges);
+		return edges.size() > before;
+	};
+	HashSet<int> used;
+	int built = 0, attempts = 0;
+	for (const auto& chain : chains)
+	{
+		if (built >= c.network_mountainRouteCount || attempts >= c.network_mountainRouteCount * 3) { break; }
+		// 峡谷部分の半分以上が既存の山間国道と重なる支流は選ばない（下流の盆地区間は共有してよい）。
+		const auto gorgePart = chain.reaches.slice(0, chain.gorgeReaches);
+		if (gorgePart.count_if([&](int id) { return used.contains(id); }) * 2 > gorgePart.size()) { continue; }
+		++attempts;
+		// 下流（盆地側）から上流へ、緩い側の岸に中継点を置く。対岸の方が十分低いときだけ橋で渡る。
+		// 各中継点には、緩い側の岸を第一候補に、対岸と山側へ離した位置を代わりの候補として持たせる。
+		Array<Array<Vec3>> waypoints;
+		double along = 0, nextMark = c.network_mountainRouteWaypointSpacing; int side = 0;
+		for (auto it = chain.reaches.rbegin(); it != chain.reaches.rend(); ++it)
+		{
+			const auto& reach = reaches[*it];
+			const Vec2 a{ reach.end.x, reach.end.z }, b{ reach.start.x, reach.start.z };
+			const double run = a.distanceFrom(b);
+			if (run < 1e-3) { continue; }
+			while (nextMark <= along + run)
+			{
+				const double t = (nextMark - along) / run;
+				const Vec2 center = a.lerp(b, t), across = Vec2{ b.y - a.y, a.x - b.x } / run;
+				const double halfWidth = Math::Lerp(reach.endHalfWidth, reach.halfWidth, t), offset = halfWidth + c.network_mountainRouteBankOffset;
+				const double left = ground(center + across * offset), right = ground(center - across * offset);
+				if (side == 0) { side = left <= right ? 1 : -1; }
+				else if ((side > 0 ? left - right : right - left) > c.network_mountainRouteSideSwitch) { side = -side; }
+				Array<Vec3> options;
+				for (const auto [direction, distance] : { std::pair{ side, offset }, std::pair{ -side, offset }, std::pair{ side, offset * 2.5 } })
+				{
+					const Vec2 point = (center + across * (direction * distance)).clamp(RectF{ inset, inset, size - 2 * inset, size - 2 * inset });
+					options << Vec3{ point.x, deck(point), point.y };
+				}
+				waypoints << std::move(options);
+				nextMark += c.network_mountainRouteWaypointSpacing;
+			}
+			along += run;
+		}
+		if (waypoints.size() < 3) { DBG_LOG(U"[MountainRoute] skipped reason=short waypoints={}"_fmt(waypoints.size())); continue; }
+		// 下流端は既存道路か地図端につなぐ。成立しない中継点は 2 つまで飛ばして次へ向かう。
+		Array<int> edges, routeNodes;
+		int previous = chain.joinNode;
+		if (previous < 0)
+		{
+			previous = network.addNode(borderPoint(Vec2{ waypoints.front().front().x, waypoints.front().front().z }), NodeType::Endpoint);
+			routeNodes << previous;
+		}
+		Vec3 previousPosition = network.getNode(previous)->position;
+		size_t reached = 0; int skipped = 0, failures = 0;
+		for (size_t i = 0; i < waypoints.size(); ++i)
+		{
+			bool linked = false;
+			for (const Vec3& option : waypoints[i])
+			{
+				const int node = network.addNode(option);
+				if (link(previous, previousPosition, node, option, edges))
+				{
+					previous = node; previousPosition = option; routeNodes << node; linked = true;
+					break;
+				}
+				network.removeNode(node);
+			}
+			if (!linked)
+			{
+				if (++skipped > 2 || ++failures > 12) { break; }
+				continue;
+			}
+			skipped = 0; reached = i + 1;
+		}
+		// 上流端は峠の向こうの道路網か地図端へ延ばす。地図端から入る道は、どこかで道路網につながらなければ採らない。
+		const Vec3 head = previousPosition;
+		bool connected = chain.joinNode >= 0;
+		if (reached == waypoints.size())
+		{
+			const int target = nearestNode(Vec2{ head.x, head.z }, c.network_mountainRouteJoinRadius);
+			if (target >= 0 && target != chain.joinNode && link(previous, head, target, network.getNode(target)->position, edges)) { connected = true; }
+			else if (toBorder(Vec2{ head.x, head.z }) < c.network_mountainRouteBorderReach)
+			{
+				const Vec3 border = borderPoint(Vec2{ head.x, head.z });
+				const int edgeNode = network.addNode(border, NodeType::Endpoint);
+				if (link(previous, head, edgeNode, border, edges)) { routeNodes << edgeNode; } else { network.removeNode(edgeNode); }
+			}
+		}
+		DBG_LOG(U"[MountainRoute] river={:.1f}km waypoints={} reached={} edges={} connected={} mouth=({:.0f},{:.0f}) head=({:.0f},{:.0f})"_fmt(
+			chain.length / 1000, waypoints.size(), reached, edges.size(), connected, waypoints.front().front().x, waypoints.front().front().z, head.x, head.z));
+		// 峡谷へ数 km 入らない短い道は国道にしない（中継点 5 つ未満は取り消す）。
+		if (edges.size() >= 2 && connected && reached >= 5)
+		{
+			for (const int id : gorgePart) { used.insert(id); }
+			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(edges)); ++built;
+		}
+		else
+		{
+			// 途中で作った中継点と、つながりを失った節点だけを取り除く。
+			HashSet<int> touched{ routeNodes.begin(), routeNodes.end() };
+			for (const int edge : edges)
+			{
+				if (const auto* road = network.getEdge(edge)) { touched.insert(road->nodeA); touched.insert(road->nodeB); }
+				network.removeEdge(edge);
+			}
+			for (const int node : touched)
+			{
+				if (const auto* found = network.getNode(node); found && found->edgeIds().isEmpty()) { network.removeNode(node); }
+			}
+		}
+	}
+	DBG_LOG(U"[MountainRoute] candidates={} built={} ms={:.0f}"_fmt(chains.size(), built, timer.msF()));
 }
