@@ -110,6 +110,7 @@
   "valleyChannelArea": 16.0,
   "valleyRoutingNoise": 150.0,
   "valleyRoutingScale": 3000.0,
+  "valleyFloorGrade": 0.004,
   "transectLayout": 1,
   "transectPlainEnd": 0.51,
   "transectDeltaEnd": 0.2,

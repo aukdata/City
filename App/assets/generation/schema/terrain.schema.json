@@ -132,7 +132,8 @@
     "transectGorgeSlope",
     "transectGorgeExit",
     "transectBayDepth",
-    "transectFrontWander"
+    "transectFrontWander",
+    "valleyFloorGrade"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -779,6 +780,11 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 0.3
+    },
+    "valleyFloorGrade": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
     }
   }
 }

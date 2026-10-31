@@ -127,6 +127,8 @@ private:
 	RiverNetwork m_rivers;
 	TerrainEvolutionStats m_terrainEvolution;
 	float computeBaseHeight(float wx,float wz) const;
+	/// @brief 川の流路と水面を決める地面の高さ。山地では細部の起伏を除いた広域の谷の高さ。
+	double riverGroundHeight(double x,double z) const;
 	Array<Chunk>          m_chunks;
 	Point                 m_cameraChunk{ 0x7FFFFFFF, 0x7FFFFFFF };
 	Array<Chunk*>         m_activeChunks;

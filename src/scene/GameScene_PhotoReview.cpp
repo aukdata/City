@@ -32,13 +32,13 @@ namespace
 
 void GameScene::updatePhotoReview()
 {
-	constexpr int kViews = 19;
+	constexpr int kViews = 20;
 	// 地形・建物・道路設備の読み込みが落ち着くまで待つ上限。ソフトウェア描画では 1 フレーム数秒かかる。
 	constexpr int kMaximumFrames = 160;
 	static constexpr std::array<StringView, kViews> kNames{
 		U"expressway_ahead", U"expressway_exit", U"expressway_powerline", U"expressway_noise_barrier", U"expressway_embankment",
 		U"expressway_information_board", U"expressway_spacing_check", U"mountain_tunnel_portal", U"mountain_tunnel_inside",
-		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander", U"full_map", U"full_map_region", U"river_bridge", U"river_bridge_side" };
+		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander", U"full_map", U"full_map_region", U"river_bridge", U"river_bridge_side", U"mountain_river" };
 	m_clock.speed = TimeSpeed::Paused; m_clock.hour = 13;
 	m_camera.setFirstPersonFov(50_deg);
 	// 写真は 10 月末の撮影。山の紅葉の進みを合わせる。
@@ -264,6 +264,44 @@ void GameScene::updatePhotoReview()
 				const Vec3 flow = (reach.end - reach.start).normalized();
 				m_camera.setCaptureState(reach.start, 1600.0f, static_cast<float>(Atan2(flow.x, flow.z)), static_cast<float>(35_deg));
 				found = true; break;
+			}
+		}
+		else if (name == U"mountain_river")
+		{
+			// 集水 200km² 以上の山の川のうち、両岸 400m 先が最も高い峡谷を斜め上空 320m から下流向きに見下ろし、谷の断面と川幅を確かめる。
+			const auto& rivers = m_world.rivers().reaches;
+			const RiverNetwork::Reach* widest = nullptr;
+			double deepest = 0;
+			for (size_t i = 0; i < rivers.size(); i += 8)
+			{
+				const auto& reach = rivers[i];
+				if (reach.start.y < 150 || reach.catchment < 2e8) { continue; }
+				const Vec2 a{ reach.start.x, reach.start.z }, b{ reach.end.x, reach.end.z };
+				if (a.distanceFromSq(b) < 1) { continue; }
+				const Vec2 side = Vec2{ a.y - b.y, b.x - a.x }.normalized() * 400;
+				const double relief = Min(m_world.computeHeight(static_cast<float>(a.x + side.x), static_cast<float>(a.y + side.y)),
+					m_world.computeHeight(static_cast<float>(a.x - side.x), static_cast<float>(a.y - side.y))) - reach.start.y;
+				if (relief > deepest) { deepest = relief; widest = &reach; }
+			}
+			if (widest)
+			{
+				const Vec3 flow = (widest->end - widest->start).normalized();
+				String profile;
+				const Vec2 across{ -flow.z, flow.x };
+				for (int step = -15; step <= 15; ++step)
+				{
+					const Vec2 p = Vec2{ widest->start.x, widest->start.z } + across.normalized() * (step * 40.0);
+					profile += U"{:.0f} "_fmt(m_world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.y)));
+				}
+				DBG_LOG(U"[PhotoReview] mountain_river halfWidth={:.0f} endHalfWidth={:.0f} catchmentKm2={:.0f} water={:.0f}..{:.0f} length={:.0f} profile40m={}"_fmt(widest->halfWidth, widest->endHalfWidth, widest->catchment / 1e6, widest->start.y, widest->end.y, Vec2{ widest->end.x - widest->start.x, widest->end.z - widest->start.z }.length(), profile));
+				if (m_world.sourceWater())
+				{
+					const double ground = m_world.computeHeight(static_cast<float>(widest->start.x), static_cast<float>(widest->start.z));
+					const auto wet = m_world.sourceWater()->sample(widest->start.x, widest->start.z, ground);
+					DBG_LOG(U"[PhotoReview] mountain_river ground={:.2f} head={:.2f} depth={:.2f}"_fmt(ground, wet.head, wet.depth));
+				}
+				m_camera.setCaptureState(widest->start, 320.0f, static_cast<float>(Atan2(flow.x, flow.z)), static_cast<float>(22_deg));
+				found = true;
 			}
 		}
 		else if (name == U"full_map")

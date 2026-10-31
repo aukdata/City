@@ -164,3 +164,14 @@
 - 山奥の盆地: f=`transectBasinPosition`（0.76）、半径 `transectBasinRadius`（0.07）の楕円で、底は `transectBasinFloor`（560m）。細部の起伏量は標高ではなく谷底・盆地底からの高さで決め、盆地と谷底を平らに保つ。
 - 盆地の都市（`SettlementPlacement::generate`）: 標高 `uplandHeight` 以上で耕地のまとまりがあり、`marketRadius` 内に耕地の候補が `basinTownNeighbours`（8）以上ある地点を、他の中心地から `basinTownSpacing`（15km）離して一つだけ都市にする（高山・松本にあたる）。標高による点数の低さでは除かない。都市なので農村の間引きでは消えない。
 - 断面配置では従来の内部丘陵・中央の湖は置かない。`Terrain.RegionalComposition` は湖の代わりに、全 seed で標高400〜900mの平らな盆地が4km²以上あることを確かめる。
+
+## 2026-10-31 日本の山の川（V字谷と細い川）
+
+山奥の川が箱型の峡谷の底を幅300mで流れ、片岸が80mで200m落ちる崖になっていたのを、森に覆われたV字谷を細い川が流れる形にする。
+
+- 谷底の高さ（`World::carveMacroValleys`）: 流路を曲げるために足した起伏（`valleyRoutingNoise`）を除くと、刻んだ谷底がその起伏の分だけ上下する。除いたあとの面の窪地を Priority-Flood で埋め、谷底を下流へ `valleyFloorGrade`（0.4%）以上で一様に下げる（谷底平野）。
+- 川の地面（`World::riverGroundHeight`）: 流路と水面は、細部の起伏量が15〜45mを超える山地では細部を除いた広域の高さで決める。細部の起伏まで拾うと、水面が上流の窪みの高さに縛られて下流で谷底より深い溝になる。平地は細部も含めた高さを使う。
+- 川幅（`RiverNetwork::generate`）: 流量で決めた幅に、急な川（下流500mの水面勾配が `mountainWidthGrade` 0.8%以上）、標高の高い川（水面100mから `mountainWidthAltitude` 250mかけて）、谷に挟まれた川（両岸300m先が水面より10〜50m高い）ほど小さくなる係数を掛ける（最小 `mountainWidthFactor` 0.22倍）。係数は下流500mの中で最も強い狭まりを使い、測点ごとに川幅が跳ねないようにする。集水2000km²の峡谷の川は幅約300mから約90mになる。
+- 谷壁（`RiverNetwork::carveHeight`）: 両岸の地面が水面より15m以上高い川は、水際から `gravelBarWidth`（20m）を `bankSlope` で緩く上げた河原にし、その先を `valleySideSlope`（0.65、約33°）で元の斜面と交わるまで削る。地形より低い所だけを削るので、削り残しの段差や垂直の崖を作らない。削り幅は川から65m・198m・396m・594m先の地面の高さから求め、`maximumBankExtent`（600m）まで広げる。
+- 蛇行: 蛇行の振れ幅の先の地面が20〜30m以上高い谷あいの川は蛇行させない（細部の起伏で勾配が0に見えても谷壁へ押し込まない）。
+- 写真比較の `mountain_river`: 集水200km²以上の山の川のうち、両岸400m先が最も高い峡谷を斜め上空320mから見下ろし、`[PhotoReview] mountain_river` に谷の断面（40m間隔）と水深を記録する。

@@ -29,5 +29,11 @@
   "meanderGradeStart": 0.002,
   "meanderGradeEnd": 0.006,
   "leveeHeight": 5.0,
-  "leveeBridgeMargin": 0.5
+  "leveeBridgeMargin": 0.5,
+  "mountainWidthFactor": 0.22,
+  "mountainWidthGrade": 0.008,
+  "mountainWidthAltitude": 250.0,
+  "valleySideSlope": 0.65,
+  "gravelBarWidth": 20.0,
+  "maximumBankExtent": 600.0
 }

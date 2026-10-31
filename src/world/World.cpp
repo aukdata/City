@@ -423,7 +423,7 @@ void World::carveMacroValleys()
 	const int factor = Max(1, static_cast<int>(Round(config.terrain_valleyErosionCell / Min(m_macroStepX, m_macroStepZ))));
 	const int width = (columns - 1 + factor - 1) / factor + 1, depth = (rows - 1 + factor - 1) / factor + 1, count = width * depth;
 	const auto macroAt = [&](int x, int z) { return m_macroTerrain[{ Min(x * factor, columns - 1), Min(z * factor, rows - 1) }]; };
-	Array<double> initial(count), height(count), filled(count), relief(count);
+	Array<double> initial(count), height(count), filled(count), relief(count), routingNoise(count);
 	Array<bool> outlet(count, false);
 	bool anyOutlet = false;
 	for (int id = 0; id < count; ++id)
@@ -435,6 +435,7 @@ void World::carveMacroValleys()
 		// 平野には起伏を足さない（足した高まりを削った分が平野の窪みとして残るため）。
 		const double hilly = relief[id] = Clamp((macroAt(id % width, id / width).y - config.terrain_hillBiomeRelief) / Max(1.0, config.terrain_ruggedRelief - config.terrain_hillBiomeRelief), 0.0, 1.0);
 		const double routing = (m_perlin.octave2D0_1(wx / scale + 913.0, wz / scale - 277.0, 3, .5) - .5) * 2 * config.terrain_valleyRoutingNoise * hilly;
+		routingNoise[id] = routing;
 		initial[id] = height[id] = computeBaseHeight(static_cast<float>(wx), static_cast<float>(wz)) + routing;
 		outlet[id] = macroAt(id % width, id / width).x <= 0;
 		anyOutlet |= outlet[id];
@@ -519,9 +520,35 @@ void World::carveMacroValleys()
 			}
 		}
 	}
+	// 流路を曲げた起伏を除いた面は、谷底が起伏の分だけ上下する。窪みを埋めて谷底を下流へ一様に下げ（谷底平野）、
+	// 川が上流の窪みの高さに縛られて下流で谷底より深い溝を掘らないようにする。
+	{
+		std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> pending;
+		Array<bool> visited(count, false);
+		for (int id = 0; id < count; ++id)
+		{
+			height[id] -= routingNoise[id];
+			if (outlet[id]) { visited[id] = true; pending.emplace(height[id], id); }
+		}
+		while (!pending.empty())
+		{
+			const auto [level, id] = pending.top(); pending.pop();
+			const int x = id % width, z = id / width;
+			for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx)
+			{
+				const int nx = x + dx, nz = z + dz;
+				if ((dx == 0 && dz == 0) || nx < 0 || nx >= width || nz < 0 || nz >= depth) { continue; }
+				const int next = nz * width + nx;
+				if (visited[next]) { continue; }
+				visited[next] = true;
+				height[next] = Max(height[next], level + config.terrain_valleyFloorGrade * std::sqrt(Square(dx * stepX) + Square(dz * stepZ)));
+				pending.emplace(height[next], next);
+			}
+		}
+	}
 	// 刻んだ深さを広域格子へ補間して戻す。谷底では細部の起伏を抑え、刻んだ谷を細部のノイズで塞がない。
 	Array<double> incision(count);
-	for (int id = 0; id < count; ++id) { incision[id] = outlet[id] ? 0.0 : initial[id] - height[id]; }
+	for (int id = 0; id < count; ++id) { incision[id] = outlet[id] ? 0.0 : initial[id] - routingNoise[id] - height[id]; }
 	double deepest = 0, carvedArea = 0;
 	for (int z = 0; z < rows; ++z)
 	{
@@ -725,10 +752,19 @@ HeightMapResult World::buildHeightMap(Point chunkCoord) const
 	return { std::move(hm), lo, hi };
 }
 
+double World::riverGroundHeight(double x,double z) const
+{
+	// 山地の川は細部の起伏ではなく、侵食で刻んだ広域の谷に沿って流す。細部の起伏まで拾うと、
+	// 水面が上流の窪みの高さに縛られて下流で谷底より深い溝になる。平地は細部の起伏も含めた高さを使う。
+	float base, amplitude; computeBiomeParams(static_cast<float>(x), static_cast<float>(z), base, amplitude);
+	const double full = computeBaseHeight(static_cast<float>(x), static_cast<float>(z));
+	return Math::Lerp(full, static_cast<double>(base), Clamp((amplitude - 15.0) / 30.0, 0.0, 1.0));
+}
+
 void World::generateRivers()
 {
 	m_rivers.generate(m_mapWidth,m_mapDepth,
-		[this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); },
+		[this](double x,double z) { return riverGroundHeight(x,z); },
 		[this](double x,double z) { return getBiome(static_cast<float>(x),static_cast<float>(z))==BiomeType::Ocean; });
 }
 
@@ -736,7 +772,7 @@ void World::generateSourceWater(bool riversEnabled,bool routedRivers)
 {
 	const Stopwatch timer{StartImmediately::Yes};
 	m_rivers = RiverNetwork{};
-	const auto height = [this](double x,double z) { return computeBaseHeight(static_cast<float>(x),static_cast<float>(z)); };
+	const auto height = [this](double x,double z) { return riverGroundHeight(x,z); };
 	const auto marine = [this](double x,double z) { return getBiome(static_cast<float>(x),static_cast<float>(z)) == BiomeType::Ocean; };
 	if (riversEnabled) { m_rivers.generate(m_mapWidth,m_mapDepth,height,marine,!routedRivers,routedRivers); }
 	std::vector<SourceWater::Source> sources;
@@ -744,6 +780,24 @@ void World::generateSourceWater(bool riversEnabled,bool routedRivers)
 	const auto bed=[this](double x,double z) { return (computeHeight(static_cast<float>(x+8),static_cast<float>(z-8))
 		+computeHeight(static_cast<float>(x-8),static_cast<float>(z+8)))*.5; };
 	m_sourceWater = std::make_unique<SourceWater>(m_mapWidth,m_mapDepth,bed,marine,sources);
+	// 海岸の川の水源が水の格子で海の格子に入ると受け付けられず、その川が干上がる。近くの陸の格子へ移して作り直す。
+	if (m_sourceWater->rejectedSources()>0)
+	{
+		const auto& grid=m_sourceWater->grid();
+		for (auto& source : sources)
+		{
+			const int cellX=static_cast<int>(Floor(source.x/grid.cellSize)),cellZ=static_cast<int>(Floor(source.z/grid.cellSize));
+			if (cellX>=0 && cellZ>=0 && cellX<grid.width && cellZ<grid.height && !m_sourceWater->ocean(cellX,cellZ)) { continue; }
+			double nearest=Math::Inf;
+			for (int dz=-4; dz<=4; ++dz) for (int dx=-4; dx<=4; ++dx)
+			{
+				const int x=cellX+dx,z=cellZ+dz;
+				if (x<0 || z<0 || x>=grid.width || z>=grid.height || m_sourceWater->ocean(x,z) || dx*dx+dz*dz>=nearest) { continue; }
+				nearest=dx*dx+dz*dz; source.x=(x+.5)*grid.cellSize; source.z=(z+.5)*grid.cellSize;
+			}
+		}
+		m_sourceWater = std::make_unique<SourceWater>(m_mapWidth,m_mapDepth,bed,marine,sources);
+	}
 	std::vector<SourceWater::Channel> channels;channels.reserve(m_rivers.reaches.size());
 	std::map<std::pair<double,double>,int> downstream;
 	for (std::size_t i=0;i<m_rivers.reaches.size();++i) { const auto& reach=m_rivers.reaches[i];downstream[{reach.start.x,reach.start.z}]=static_cast<int>(i); }

@@ -61,6 +61,15 @@ public:
 		if (sample.distance>sample.halfWidth+extent) { return original; }
 		const double bank=Max(0.0,sample.distance-sample.halfWidth);
 		const double target=sample.surface-GenerationSettings::get().rivers_bedDepth-reach.incision+bank*GenerationSettings::get().rivers_bankSlope;
+		if (extent>GenerationSettings::get().rivers_carveExtent)
+		{
+			// 谷に挟まれた川: 水際から `gravelBarWidth` の河原を緩く上げ、その先は谷壁の勾配 `valleySideSlope` で元の斜面と交わる。
+			// 地形より低い所だけを削るので、削り残しの段差や垂直の崖を作らない。
+			const auto& config=GenerationSettings::get();
+			const double shelf=Min(bank,config.rivers_gravelBarWidth);
+			const double envelope=sample.surface-config.rivers_bedDepth-reach.incision+shelf*config.rivers_bankSlope+Max(0.0,bank-config.rivers_gravelBarWidth)*config.rivers_valleySideSlope;
+			return Min(original,envelope);
+		}
 		const double blendStart=Min(GenerationSettings::get().rivers_bankBlendStart,extent*.3);
 		const double blend=Clamp((bank-blendStart)/Max(1.0,extent-blendStart),0.0,1.0);
 		const double cut=Math::Lerp(Min(original,target),original,blend*blend*(3-2*blend));

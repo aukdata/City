@@ -395,9 +395,13 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 				double nearestJoin=Math::Inf;
 				for (const double join : joins) { nearestJoin=Min(nearestJoin,Abs(along[i]-join)); }
 				const double ends=Clamp(nearestJoin/(wavelength*.5),0.0,1.0);
-				const double taper=lowland*lowland*(3-2*lowland)*ends*ends*(3-2*ends);
-				if (taper<=0) { continue; }
+				// 谷に挟まれた川は谷の形に従う。蛇行の振れ幅の先の地面が高ければ動かさない（勾配は細部の起伏で 0 に見えることがある）。
 				const Vec2 normal=Vec2{-tangent.y,tangent.x}.normalized();
+				const Vec2 here=original[id],swing=normal*(settings.rivers_meanderAmplitude*channelWidth*1.2+60);
+				const double sideRise=(height(here.x+swing.x,here.y+swing.y)+height(here.x-swing.x,here.y-swing.y))*.5-height(here.x,here.y);
+				const double open=Clamp((30-sideRise)/20,0.0,1.0);
+				const double taper=lowland*lowland*(3-2*lowland)*ends*ends*(3-2*ends)*open;
+				if (taper<=0) { continue; }
 				const double offset=settings.rivers_meanderAmplitude*channelWidth*taper*(Sin(phase)+.18*Sin(3*phase+.6));
 				// 隣の流路（別の水源の河道）へ近づく場合は振幅を縮め、合流せずに交差させない。
 				const auto clear=[&](Vec2 point)
@@ -528,28 +532,63 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		sediment[next]+=sediment[id]+nodes[id].incision-nodes[id].alluvium;
 		if (principalChild[next]<0 || nodes[id].flow>nodes[principalChild[next]].flow) { principalChild[next]=id; }
 	}
-	const auto halfWidth=[&](double flow)
+	// 山の川は同じ流量でも平野の川より細い。急な川、標高の高い川、谷に挟まれた川ほど川幅を `mountainWidthFactor` 倍まで狭める。
+	// 勾配は下流へ 500m 以上たどった水面の平均で測る。
+	Array<double> narrowing(nodes.size(),0.0);
+	for (size_t id=0; id<nodes.size(); ++id)
 	{
-		return Clamp(settings.rivers_widthBase+std::sqrt(flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
-	};
+		double run=0; int last=static_cast<int>(id);
+		while (nodes[last].parent>=0 && run<500) { run+=nodes[last].point.distanceFrom(nodes[nodes[last].parent].point); last=nodes[last].parent; }
+		const double grade=run>1 ? Max(0.0,nodes[id].water-nodes[last].water)/run : 0;
+		const double steep=Clamp(grade/settings.rivers_mountainWidthGrade,0.0,1.0);
+		const double upland=Clamp((nodes[id].water-100)/settings.rivers_mountainWidthAltitude,0.0,1.0);
+		// 両岸 300m 先の地面が水面より高い谷あいの川も細くする。
+		double confined=0;
+		const Vec2 flow=nodes[last].point-nodes[id].point;
+		if (flow.lengthSq()>1)
+		{
+			const Vec2 side=Vec2{-flow.y,flow.x}.normalized()*300,p=nodes[id].point;
+			const double rise=(height(p.x+side.x,p.y+side.y)+height(p.x-side.x,p.y-side.y))*.5-nodes[id].water;
+			confined=Clamp((rise-10)/40,0.0,1.0);
+		}
+		narrowing[id]=Max(Max(steep,upland),confined);
+	}
+	// 測点ごとの凹凸や合流点で川幅が跳ねないよう、下流 500m の中で最も強い狭まりを使う。
+	Array<double> widths(nodes.size(),0.0);
+	for (size_t id=0; id<nodes.size(); ++id)
+	{
+		double run=0,strongest=narrowing[id]; int last=static_cast<int>(id);
+		while (nodes[last].parent>=0 && run<500) { run+=nodes[last].point.distanceFrom(nodes[nodes[last].parent].point); last=nodes[last].parent; strongest=Max(strongest,narrowing[last]); }
+		const double factor=Math::Lerp(1.0,settings.rivers_mountainWidthFactor,strongest);
+		widths[id]=Clamp((settings.rivers_widthBase+std::sqrt(nodes[id].flow)*settings.rivers_widthFlowScale)*factor,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
+	}
+	// 川幅は下流へ向かって狭まらない。峡谷が細ければ、その上流の盆地の川も峡谷の幅に合わせる。
+	for (auto it=queue.rbegin(); it!=queue.rend(); ++it) { if (nodes[*it].parent>=0) { widths[*it]=Min(widths[*it],widths[nodes[*it].parent]); } }
+	const auto halfWidth=[&](int id) { return widths[id]; };
 	double length=0;
 	for (const int id : queue)
 	{
 		const auto& node=nodes[id]; if (node.parent<0) { continue; }
 		const auto& next=nodes[node.parent]; if (node.point.distanceFromSq(next.point)<1e-8) { continue; }
 		Reach reach; reach.start={node.point.x,node.water,node.point.y}; reach.end={next.point.x,next.water,next.point.y};
-		reach.halfWidth=halfWidth(node.flow); reach.endHalfWidth=halfWidth(next.flow); reach.catchment=node.flow*drainage.spacing*drainage.spacing;
+		reach.halfWidth=halfWidth(id); reach.endHalfWidth=halfWidth(node.parent); reach.catchment=node.flow*drainage.spacing*drainage.spacing;
 		reach.incision=(node.incision+next.incision)*.5;
 		reach.alluvium=(node.alluvium+next.alluvium)*.5;
 		// A deep channel needs a broad valley shoulder rather than a cliff at the carve boundary.
 		const Vec2 flow=next.point-node.point;
 		const Vec2 across=Vec2{-flow.y,flow.x}.normalized();
 		const Vec2 middle=(node.point+next.point)*.5;
-		const double bankProbeDistance=Max(reach.halfWidth,reach.endHalfWidth)+settings.rivers_carveExtent;
-		const double bankHigh=Max(height(middle.x,middle.y),Max(height(middle.x+across.x*bankProbeDistance,middle.y+across.y*bankProbeDistance),
-			height(middle.x-across.x*bankProbeDistance,middle.y-across.y*bankProbeDistance)));
+		// 谷壁は川から離れるほど高くなるので、近くと遠くの両方で測る。
+		double bankHigh=height(middle.x,middle.y);
+		for (const double probe : {settings.rivers_carveExtent,settings.rivers_maximumBankExtent*.33,settings.rivers_maximumBankExtent*.66,settings.rivers_maximumBankExtent})
+		{
+			const double distance=Max(reach.halfWidth,reach.endHalfWidth)+probe;
+			bankHigh=Max(bankHigh,Max(height(middle.x+across.x*distance,middle.y+across.y*distance),height(middle.x-across.x*distance,middle.y-across.y*distance)));
+		}
 		const double relief=Max(0.0,bankHigh-(node.water+next.water)*.5);
-		reach.bankExtent=reach.halfWidth<80 ? Clamp(settings.rivers_carveExtent+(relief-15)*2.2,settings.rivers_carveExtent,250.0)
+		// 谷に挟まれた川は、河原の先を谷壁の勾配で地形と交わるまで削る。その範囲を削り幅にする。
+		const double shelfRise=settings.rivers_gravelBarWidth*settings.rivers_bankSlope;
+		reach.bankExtent=relief>15 ? Clamp(settings.rivers_gravelBarWidth+Max(0.0,relief-shelfRise)/settings.rivers_valleySideSlope+8,settings.rivers_carveExtent,settings.rivers_maximumBankExtent)
 			: settings.rivers_carveExtent;
 		const int mainChild=principalChild[id];
 		if (mainChild>=0 && reach.alluvium>.2 && id%4==0)
