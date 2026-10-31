@@ -737,10 +737,11 @@ void GameScene::renderSelectionOutline()
 void GameScene::prepareVehicleRenderData()
 {
 	m_renderVehicles.clear();
+	m_vehicleCurves.trim(m_network.edges().size());
 	for (const auto& vehicle : m_vehicleManager.vehicles())
 	{
 		if (vehicle.mode!=VehicleMode::Active) { continue; }
-		if (const auto pose=VehiclePose::resolve(vehicle,m_network,&m_world)) { m_renderVehicles<<*pose; }
+		if (const auto pose=VehiclePose::resolve(vehicle,m_network,&m_world,m_vehicleCurves)) { m_renderVehicles<<*pose; }
 	}
 }
 

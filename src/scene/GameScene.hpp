@@ -23,6 +23,7 @@
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../traffic/VehicleManager.hpp"
+#include "../traffic/VehiclePose.hpp"
 #include "../pedestrian/PedestrianManager.hpp"
 #include "../render/PedestrianRenderer.hpp"
 #include "../traffic/DrivingController.hpp"
@@ -389,6 +390,7 @@ private:
 
 	// 描画用バッファ（毎フレーム再割り当てを回避）
 	Array<Vehicle>  m_renderVehicles;
+	EdgeCurveCache  m_vehicleCurves; ///< 車両の姿勢計算で使う道路曲線（端点・制御点が変わると作り直す）
 
 	// 描画プロファイリング
 	bool m_playtestPerformanceOnly = false; ///< Explicit benchmark snapshots omit expensive interactive inspection data.

@@ -15,7 +15,28 @@ namespace
 	}
 }
 
+const CubicBezier* EdgeCurveCache::get(const RoadNetwork& roads,int edgeId)
+{
+	const RoadEdge* edge=roads.getEdge(edgeId);if (!edge) { return nullptr; }
+	const RoadNode* a=roads.getNode(edge->nodeA);const RoadNode* b=roads.getNode(edge->nodeB);if (!a || !b) { return nullptr; }
+	auto found=m_curves.find(edgeId);
+	if (found!=m_curves.end() && found->second.p0==a->position && found->second.p1==edge->ctrlA
+		&& found->second.p2==edge->ctrlB && found->second.p3==b->position)
+	{
+		return &found->second;
+	}
+	CubicBezier curve{a->position,edge->ctrlA,edge->ctrlB,b->position};
+	if (found!=m_curves.end()) { found->second=std::move(curve); return &found->second; }
+	return &m_curves.emplace(edgeId,std::move(curve)).first->second;
+}
+
 Optional<Vehicle> VehiclePose::resolve(const Vehicle& vehicle,const RoadNetwork& roads,const World* world)
+{
+	EdgeCurveCache curves;
+	return resolve(vehicle,roads,world,curves);
+}
+
+Optional<Vehicle> VehiclePose::resolve(const Vehicle& vehicle,const RoadNetwork& roads,const World* world,EdgeCurveCache& curves)
 {
 	Vehicle result;
 	result.id = vehicle.id; result.type = vehicle.type; result.speed = vehicle.speed;
@@ -34,7 +55,7 @@ Optional<Vehicle> VehiclePose::resolve(const Vehicle& vehicle,const RoadNetwork&
 	}
 	else
 	{
-		const auto* edge=roads.getEdge(vehicle.currentEdge);const auto curve=roads.getBezier(vehicle.currentEdge);
+		const auto* edge=roads.getEdge(vehicle.currentEdge);const auto* curve=curves.get(roads,vehicle.currentEdge);
 		if (!edge || !curve) { return none; }
 		const bool changing=vehicle.location==VehicleLocation::ChangingLane;
 		const int lane=changing ? vehicle.laneFrom : vehicle.currentLane;
