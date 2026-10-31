@@ -523,6 +523,12 @@ void RoadRenderer::renderWireframes(const RoadNetwork& network, const World& wor
                                      const ViewFrustum& frustum, Vec3 cameraPos)
 {
 	synchronizeSpatialIndex(network);
+	// Only planned edges and their junctions draw a wireframe; most frames have none.
+	if (std::none_of(network.edges().begin(), network.edges().end(),
+		[](const RoadEdge& edge) { return edge.id >= 0 && edge.edgeState == EdgeState::Planned; }))
+	{
+		return;
+	}
 	Array<int> edgeCandidates, nodeCandidates;
 	if (m_spatialQuery)
 	{
