@@ -46,23 +46,50 @@ void SourceWater::advance(double seconds)
 {
 	if (!std::isfinite(seconds) || seconds<0) { throw std::invalid_argument("Invalid river timestep"); }
 	if (m_channels.empty()) { m_sea->advance(seconds); }
+	else if (seconds>0 && m_channelsSettled && seconds==m_decaySeconds && m_supplyScale==m_settledScale)
+	{
+		// The previous step left every volume and flow bit-identical, so this step would too.
+		// Only the ledgers advance, adding the same terms in the same order as the full step.
+		for (const auto index:m_channelOrder) { m_channelInjected+=m_channels[index].inlet*m_supplyScale*seconds; }
+		for (const double transferred:m_settledOutflow) { m_channelOutflow+=transferred; }
+		m_elapsed+=seconds;++m_revision;
+		return;
+	}
 	else if (seconds>0)
 	{
 		std::vector<double> incoming(m_channels.size(),0);
+		bool settled=true;m_settledOutflow.clear();
+		if (seconds!=m_decaySeconds)
+		{
+			m_channelDecay.resize(m_channels.size());m_channelRelease.resize(m_channels.size());
+			for (std::size_t index=0;index<m_channels.size();++index)
+			{
+				const double fraction=seconds/m_channelResidence[index];
+				m_channelDecay[index]=std::exp(-fraction);m_channelRelease[index]=-std::expm1(-fraction);
+			}
+			m_decaySeconds=seconds;
+		}
 		for (const auto index:m_channelOrder)
 		{
 			const auto& channel=m_channels[index];
 			const double supplied=channel.inlet*m_supplyScale*seconds;
 			m_channelInjected+=supplied; incoming[index]+=supplied;
-			if (channel.downstream==-1) { m_channelVolume[index]+=incoming[index];m_channelFlow[index]=0;continue; }
+			const double volumeBefore=m_channelVolume[index],flowBefore=m_channelFlow[index];
+			if (channel.downstream==-1)
+			{
+				m_channelVolume[index]+=incoming[index];m_channelFlow[index]=0;
+				settled=settled && m_channelVolume[index]==volumeBefore && m_channelFlow[index]==flowBefore;continue;
+			}
 			// Exact linear-reservoir routing is positive and conservative even for very short reaches.
 			const double fraction=seconds/m_channelResidence[index];
-			const double retained=m_channelVolume[index]*std::exp(-fraction)+incoming[index]*(-std::expm1(-fraction))/fraction;
+			const double retained=m_channelVolume[index]*m_channelDecay[index]+incoming[index]*m_channelRelease[index]/fraction;
 			const double transferred=std::max(0.0,m_channelVolume[index]+incoming[index]-retained);
 			m_channelVolume[index]+=incoming[index]-transferred; m_channelFlow[index]=transferred/seconds;
-			if (channel.downstream==-2) { m_channelOutflow+=transferred; }
+			settled=settled && m_channelVolume[index]==volumeBefore && m_channelFlow[index]==flowBefore;
+			if (channel.downstream==-2) { m_channelOutflow+=transferred;m_settledOutflow.push_back(transferred); }
 			else { incoming[static_cast<std::size_t>(channel.downstream)]+=transferred; }
 		}
+		m_channelsSettled=settled;m_settledScale=m_supplyScale;
 	}
 	if (seconds > 0.0)
 	{
@@ -109,7 +136,7 @@ void SourceWater::configureChannels(std::vector<Channel> channels)
 		if (next>=0 && --incoming[static_cast<std::size_t>(next)]==0) { order.push_back(static_cast<std::size_t>(next)); }
 	}
 	if (order.size()!=count) { throw std::invalid_argument("Cyclic river network"); }
-	m_channels=std::move(channels);m_channelOrder=std::move(order);
+	m_channels=std::move(channels);m_channelOrder=std::move(order);m_channelsSettled=false;
 	m_channelVolume.resize(count);m_channelArea.resize(count);m_channelResidence.resize(count);m_channelFlow.assign(count,0);
 	std::vector<double> discharge(count,0);
 	for (const auto i:m_channelOrder)
@@ -141,22 +168,16 @@ SourceWater::Sample SourceWater::sample(double x,double z,double terrainHeight) 
 	if (!m_channels.empty())
 	{
 		const auto found=m_channelIndex.find(channelKey(static_cast<int>(x/512),static_cast<int>(z/512)));
-		double nearest=std::numeric_limits<double>::max(),head=terrainHeight-.05, bankClip=-.05;
+		ChannelHead state{terrainHeight};
 		if (found!=m_channelIndex.end()) { for (const auto i:found->second)
 		{
-			const auto& c=m_channels[i];const double dx=c.x1-c.x0,dz=c.z1-c.z0;
-			const double t=std::clamp(((x-c.x0)*dx+(z-c.z0)*dz)/(dx*dx+dz*dz),0.0,1.0);
-			const double distance=std::hypot(x-c.x0-dx*t,z-c.z0-dz*t),halfWidth=(c.width0+(c.width1-c.width0)*t)*.5;
-			if (distance>halfWidth+kDryBankSupport || channelDepth(i)<=.003 || distance-halfWidth>=nearest) { continue; }
-			nearest=distance-halfWidth;bankClip=halfWidth+kWetBankMargin-distance;
-			const double startOffset=channelDepth(i)-c.depth;
-			const double endOffset=c.downstream>=0 ? channelDepth(static_cast<std::size_t>(c.downstream))-m_channels[static_cast<std::size_t>(c.downstream)].depth
-				: c.downstream==-2 ? 0 : startOffset;
-			head=c.head0+(c.head1-c.head0)*t+startOffset*(1-t)+endOffset*t;
+			const auto candidate=channelGeometry(i,x,z);
+			if (candidate.distance>candidate.halfWidth+kDryBankSupport) { continue; }
+			applyChannel(candidate,state);
 		} }
 		// Extrapolate the hydraulic head through the dry bank, rather than lowering dry vertices
 		// to ground minus 5 cm. Signed terrain/width clipping keeps the outside bank dry.
-		return {head,std::min(head-terrainHeight,bankClip),false};
+		return {state.head,std::min(state.head-terrainHeight,state.bankClip),false};
 	}
 	const int firstX = static_cast<int>(std::floor(gx-0.5)), firstZ = static_cast<int>(std::floor(gz-0.5));
 	double sum = 0.0, weight = 0.0;
@@ -174,6 +195,48 @@ SourceWater::Sample SourceWater::sample(double x,double z,double terrainHeight) 
 	}
 	const double head = weight > 0.0 ? sum/weight : terrainHeight-0.05;
 	return {head,head-terrainHeight,false};
+}
+
+SourceWater::ChannelCandidate SourceWater::channelGeometry(std::size_t index,double x,double z) const
+{
+	const auto& c=m_channels[index];const double dx=c.x1-c.x0,dz=c.z1-c.z0;
+	const double t=std::clamp(((x-c.x0)*dx+(z-c.z0)*dz)/(dx*dx+dz*dz),0.0,1.0);
+	return {index,t,std::hypot(x-c.x0-dx*t,z-c.z0-dz*t),(c.width0+(c.width1-c.width0)*t)*.5};
+}
+
+void SourceWater::applyChannel(const ChannelCandidate& candidate,ChannelHead& state) const
+{
+	const auto i=candidate.index;const double t=candidate.t;
+	if (channelDepth(i)<=.003 || candidate.distance-candidate.halfWidth>=state.nearest) { return; }
+	const auto& c=m_channels[i];
+	state.nearest=candidate.distance-candidate.halfWidth;state.bankClip=candidate.halfWidth+kWetBankMargin-candidate.distance;
+	const double startOffset=channelDepth(i)-c.depth;
+	const double endOffset=c.downstream>=0 ? channelDepth(static_cast<std::size_t>(c.downstream))-m_channels[static_cast<std::size_t>(c.downstream)].depth
+		: c.downstream==-2 ? 0 : startOffset;
+	state.head=c.head0+(c.head1-c.head0)*t+startOffset*(1-t)+endOffset*t;
+}
+
+void SourceWater::channelCandidates(double x,double z,std::vector<ChannelCandidate>& out) const
+{
+	if (m_channels.empty() || x < 0.0 || z < 0.0 || x > m_width || z > m_height) { return; }
+	const auto found=m_channelIndex.find(channelKey(static_cast<int>(x/512),static_cast<int>(z/512)));
+	if (found==m_channelIndex.end()) { return; }
+	for (const auto i:found->second)
+	{
+		const auto candidate=channelGeometry(i,x,z);
+		if (candidate.distance<=candidate.halfWidth+kDryBankSupport) { out.push_back(candidate); }
+	}
+}
+
+SourceWater::Sample SourceWater::sampleCandidates(double x,double z,double terrainHeight,const ChannelCandidate* first,const ChannelCandidate* last) const
+{
+	if (m_channels.empty()) { return sample(x,z,terrainHeight); }
+	if (x < 0.0 || z < 0.0 || x > m_width || z > m_height) { return {terrainHeight-0.05,-0.05,false}; }
+	const double gx = std::min(x/m_grid->cellSize,m_grid->width-0.00001), gz = std::min(z/m_grid->cellSize,m_grid->height-0.00001);
+	if (ocean(static_cast<int>(gx),static_cast<int>(gz))) { return {0.0,-terrainHeight,true}; }
+	ChannelHead state{terrainHeight};
+	for (auto it=first;it!=last;++it) { applyChannel(*it,state); }
+	return {state.head,std::min(state.head-terrainHeight,state.bankClip),false};
 }
 
 bool SourceWater::hasLandWater(double x,double z,double width,double height) const
@@ -299,6 +362,7 @@ bool SourceWater::read(std::istream& stream,bool apply)
 	m_grid->bed=std::move(bed);m_grid->depth=std::move(depth);m_grid->injected=injected;m_grid->drained=drained;
 	m_channelVolume=std::move(channelVolumes);m_channelFlow=std::move(channelFlows);
 	m_channelInitial=channelInitial;m_channelInjected=channelInjected;m_channelOutflow=channelOutflow;m_supplyScale=supplyScale;
+	m_channelsSettled=false;
 	m_elapsed=elapsed; m_sea->restoreLedger(ledger); ++m_revision; ++m_terrainRevision;++m_surfaceRevision;
 	return true;
 }

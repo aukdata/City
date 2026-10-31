@@ -5,6 +5,7 @@
 #include "BuildingLod.hpp"
 #include "TreeInstances.hpp"
 #include "RenderDistance.hpp"
+#include "SourceWaterGeometry.hpp"
 #include "../railway/RailwaySite.hpp"
 #include "../world/World.hpp"
 #include "../road/RoadNetwork.hpp"
@@ -418,6 +419,7 @@ private:
 		size_t vertices = 0;
 		double updated = -1.0;
 		bool dynamic = false;
+		SourceWaterGeometry::LatticeCache lattice;
 	};
 	HashTable<Key,SourceWaterMesh> m_sourceWaterMeshes;
 	Mesh m_sourceSeaRegional;

@@ -1,4 +1,5 @@
-﻿#include <sstream>
+﻿#include <cstring>
+#include <sstream>
 #include "TestRunner.hpp"
 #include "src/sim/SourceWater.hpp"
 #include "src/world/World.hpp"
@@ -73,6 +74,29 @@ void registerSourceWaterTests(TestRunner& runner)
 		water.advance(60);restored.advance(60);context.expectNear(water.ownedVolume(),restored.ownedVolume(),0,U"Restored river continues identically");
 		const auto before=restored.ownedVolume();std::istringstream corrupt{snapshot.str().substr(0,snapshot.str().size()-2),std::ios::binary};
 		context.expect(!restored.read(corrupt) && restored.ownedVolume()==before,U"Incomplete river state cannot mutate a live world");
+	});
+	runner.add(U"SourceWater.SettledStepsMatchFullSteps",[](TestContext& context)
+	{
+		const auto height=[](double,double) { return 0.0; };const auto marine=[](double,double) { return false; };
+		const std::vector<SourceWater::Channel> channels={
+			{0,50,100,50,10,9,20,20,2,2,4},
+			{50,0,100,50,10,9,20,20,2,2,6},
+			{100,50,200,50,9,8,30,30,2,-2,0}};
+		SourceWater fast{512,128,height,marine,{},128},full{512,128,height,marine,{},128};
+		fast.configureChannels(channels);full.configureChannels(channels);
+		const auto snapshot=[](const SourceWater& water) { std::ostringstream out{std::ios::binary};water.write(out);return out.str(); };
+		bool settled=false;
+		for (int step=0;step<6000;++step)
+		{
+			fast.advance(6);settled|=fast.channelsSettled();
+			// Restoring a snapshot clears the settled state, so this copy always runs the full routing.
+			std::istringstream input{snapshot(full),std::ios::binary};full.read(input);full.advance(6);
+		}
+		context.expect(settled,U"Steady routed flow reaches a bit-identical fixed point");
+		context.expect(snapshot(fast)==snapshot(full),U"Skipping settled steps leaves volumes, flows and ledgers bit-identical");
+		fast.setSupplyScale(.5);full.setSupplyScale(.5);
+		for (int step=0;step<50;++step) { fast.advance(6);std::istringstream input{snapshot(full),std::ios::binary};full.read(input);full.advance(6); }
+		context.expect(snapshot(fast)==snapshot(full),U"A supply change resumes full routing");
 	});
 	runner.add(U"SourceWater.ClosedRiverAndCycleValidation",[](TestContext& context)
 	{
@@ -231,6 +255,28 @@ void registerSourceWaterTests(TestRunner& runner)
 		context.expect(wet.b>wet.r && wet.b>wet.g,U"Water above sea level is blue on the map");
 		context.expect(dry.g>dry.b,U"Dry banks retain their terrain colour");
 		pixels.save(U"Screenshot/source_water_map.png");
+	});
+	runner.add(U"SourceWater.CachedLatticeMatchesDirect",[](TestContext& context)
+	{
+		World world;world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);world.generateSourceWater();
+		context.expect(!world.rivers().waterSources.isEmpty(),U"Real game sources are available");
+		if (world.rivers().waterSources.isEmpty()) { return; }
+		const auto source=world.rivers().waterSources.front().position;
+		const double ox=Floor((source.x-512)/16.0)*16.0, oz=Floor((source.y-512)/16.0)*16.0;
+		const auto same=[](const MeshData& a,const MeshData& b)
+		{
+			return a.vertices.size()==b.vertices.size() && a.indices.size()==b.indices.size()
+				&& std::memcmp(a.vertices.data(),b.vertices.data(),a.vertices.size_bytes())==0
+				&& std::memcmp(a.indices.data(),b.indices.data(),a.indices.size_bytes())==0;
+		};
+		SourceWaterGeometry::LatticeCache cache;
+		for(int step=0;step<300;++step) { world.advanceSourceWater(0.1); }
+		const auto first=SourceWaterGeometry::build(world,ox,oz,64,16,2);
+		context.expect(!first.indices.isEmpty(),U"The sampled chunk holds river water");
+		context.expect(same(first,SourceWaterGeometry::build(world,ox,oz,64,16,2,&cache)),U"A cold lattice cache reproduces the direct mesh bit for bit");
+		for(int step=0;step<300;++step) { world.advanceSourceWater(0.1); }
+		context.expect(same(SourceWaterGeometry::build(world,ox,oz,64,16,2),SourceWaterGeometry::build(world,ox,oz,64,16,2,&cache)),
+			U"A warm cache reused after the water level changes still matches the direct mesh");
 	});
 	runner.add(U"SourceWater.NativeGameSurface",[](TestContext& context)
 	{

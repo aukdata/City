@@ -4,6 +4,8 @@
 #include <functional>
 #include <memory>
 #include <istream>
+#include <limits>
+#include <vector>
 #include <ostream>
 #include <unordered_map>
 
@@ -39,6 +41,12 @@ public:
 	void advance(double seconds);
 	/// @brief Reconstruct a shared head against the actual visible terrain height.
 	Sample sample(double x, double z, double terrainHeight) const;
+	/// @brief Channel geometry near a point; fixed for the routed topology, so renderers may cache it.
+	struct ChannelCandidate { std::size_t index = 0; double t = 0, distance = 0, halfWidth = 0; };
+	/// @brief Append the channels that sample() would consider at this point, in the same order.
+	void channelCandidates(double x, double z, std::vector<ChannelCandidate>& out) const;
+	/// @brief Same result as sample() with routed channels, using candidates from channelCandidates() at the same point.
+	Sample sampleCandidates(double x, double z, double terrainHeight, const ChannelCandidate* first, const ChannelCandidate* last) const;
 	/// @brief Test whether a region needs a dynamic inland mesh, independent of camera distance.
 	bool hasLandWater(double x, double z, double width, double height) const;
 	/// @brief Preserve owned water through terrain edits; routed river topology remains fixed.
@@ -59,6 +67,8 @@ public:
 	std::size_t rejectedSources() const { return m_rejectedSources; }
 	std::size_t oceanCells() const { return m_sea->oceanCellCount(); }
 	std::uint64_t revision() const { return m_revision; }
+	/// @brief True once a step left every channel volume and flow unchanged (steady routed flow).
+	bool channelsSettled() const { return m_channelsSettled; }
 
 private:
 	/// @brief Local spatial buckets keep water sampling independent of total river length.
@@ -68,6 +78,21 @@ private:
 	std::unordered_map<std::int64_t,std::vector<std::size_t>> m_channelIndex;
 	double m_channelInitial=0,m_channelInjected=0,m_channelOutflow=0,m_supplyScale=1;
 	double channelVolume() const;
+	/// @brief Nearest wet channel found so far while sampling one point.
+	struct ChannelHead
+	{
+		explicit ChannelHead(double terrainHeight) : head(terrainHeight-.05) {}
+		double head, nearest=std::numeric_limits<double>::max(), bankClip=-.05;
+	};
+	ChannelCandidate channelGeometry(std::size_t index, double x, double z) const;
+	void applyChannel(const ChannelCandidate& candidate, ChannelHead& state) const;
+	/// @brief Linear-reservoir factors for the last timestep; the simulation always uses the same step.
+	std::vector<double> m_channelDecay,m_channelRelease;
+	double m_decaySeconds=-1;
+	/// @brief Set when a full step changed no volume or flow; the outlet terms repeat exactly.
+	bool m_channelsSettled=false;
+	double m_settledScale=1;
+	std::vector<double> m_settledOutflow;
 	std::unique_ptr<GridWaterPrototype::GridWater> m_grid;
 	std::unique_ptr<GridWaterPrototype::FixedSeaBoundary> m_sea;
 	double m_width = 0.0, m_height = 0.0, m_elapsed = 0.0;

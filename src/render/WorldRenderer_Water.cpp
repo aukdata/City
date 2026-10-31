@@ -6,7 +6,7 @@
 namespace SourceWaterGeometry
 {
 	/// @brief Shared world lattice clips the water against the actual uncarved terrain.
-	MeshData build(const World& world, double originX, double originZ, int cells, double step, int mode)
+	MeshData build(const World& world, double originX, double originZ, int cells, double step, int mode, LatticeCache* cache)
 	{
 		const auto& water = *world.sourceWater();
 		if (mode==2 && step>16 && !water.channels().empty())
@@ -32,16 +32,38 @@ namespace SourceWaterGeometry
 		const int corners = cells+1;
 		MeshData data;
 		data.vertices.resize(static_cast<size_t>(corners)*corners);
-		const auto vertexAt=[&](double wx,double wz)
+		// Lattice lookups are cached by half-step index; the position itself is always computed as before.
+		const bool cached=cache && mode==2 && !water.channels().empty();
+		if (cached && (cache->owner!=&water || cache->side!=2*cells+1))
+		{
+			const size_t nodes=static_cast<size_t>(2*cells+1)*(2*cells+1);
+			cache->owner=&water;cache->side=2*cells+1;
+			cache->reach.assign(nodes,-2);cache->first.assign(nodes,0);cache->count.assign(nodes,0);cache->candidates.clear();
+		}
+		const auto vertexAt=[&](double wx,double wz,int hx,int hz)
 		{
 			const double bed=world.waterBedHeight(wx,wz);
-			const auto sample=mode==1 ? SourceWater::Sample{0.0,-bed,true} : water.sample(wx,wz,bed);
+			size_t node=0;
+			if (cached)
+			{
+				node=static_cast<size_t>(hz)*cache->side+hx;
+				if (cache->reach[node]==-2)
+				{
+					cache->first[node]=static_cast<uint32>(cache->candidates.size());
+					water.channelCandidates(wx,wz,cache->candidates);
+					cache->count[node]=static_cast<uint32>(cache->candidates.size())-cache->first[node];
+					cache->reach[node]=world.rivers().nearest({wx,wz}).reach;
+				}
+			}
+			const auto sample=mode==1 ? SourceWater::Sample{0.0,-bed,true}
+				: cached ? water.sampleCandidates(wx,wz,bed,cache->candidates.data()+cache->first[node],cache->candidates.data()+cache->first[node]+cache->count[node])
+				: water.sample(wx,wz,bed);
 			Vertex3D vertex;
 			vertex.pos={static_cast<float>(wx),static_cast<float>(sample.head+0.01),static_cast<float>(wz)};
 			vertex.normal={0,1,0};vertex.tex={static_cast<float>(sample.depth),0};
 			if (mode==2 && !water.channels().empty())
 			{
-				const auto river=world.rivers().nearest({wx,wz});
+				const RiverNetwork::Sample river=cached ? RiverNetwork::Sample{.reach=cache->reach[node]} : world.rivers().nearest({wx,wz});
 				if (river.reach>=0)
 				{
 					const auto& reach=world.rivers().reaches[river.reach];
@@ -59,7 +81,7 @@ namespace SourceWaterGeometry
 		{
 			for (int x=0;x<=cells;++x)
 			{
-				data.vertices[static_cast<size_t>(z)*corners+x]=vertexAt(originX+x*step,originZ+z*step);
+				data.vertices[static_cast<size_t>(z)*corners+x]=vertexAt(originX+x*step,originZ+z*step,2*x,2*z);
 			}
 		}
 		for (int z=0; z<cells; ++z)
@@ -81,7 +103,7 @@ namespace SourceWaterGeometry
 					for (const int slot:{1,3,4,5,7})
 					{
 						ids[slot]=static_cast<uint32>(data.vertices.size());
-						data.vertices << vertexAt(originX+(x+(slot%3)*.5)*step,originZ+(z+(slot/3)*.5)*step);
+						data.vertices << vertexAt(originX+(x+(slot%3)*.5)*step,originZ+(z+(slot/3)*.5)*step,2*x+slot%3,2*z+slot/3);
 					}
 					for (int row=0;row<2;++row)
 					{
@@ -177,7 +199,7 @@ void WorldRenderer::renderSourceWater(const World& world, bool regional)
 			const auto sea=SourceWaterGeometry::build(world,origin.x,origin.z,16,64.0,1);
 			entry.sea=sea.indices.isEmpty() ? Mesh{} : Mesh{sea};
 		}
-		const auto data=dynamic ? SourceWaterGeometry::build(world,origin.x,origin.z,HEIGHT_CELLS,16.0,2) : MeshData{};
+		const auto data=dynamic ? SourceWaterGeometry::build(world,origin.x,origin.z,HEIGHT_CELLS,16.0,2,&entry.lattice) : MeshData{};
 		if (!dynamic) { entry.mesh=DynamicMesh{}; }
 		else if (!data.indices.isEmpty())
 		{
