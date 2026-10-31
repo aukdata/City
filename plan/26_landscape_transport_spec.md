@@ -145,3 +145,9 @@
 - 渓谷の国道（`MapGenerator::generateMountainRoutes`、値は `network.json` の `mountainRoute*`）: 川の区間のうち、水面から左右 `mountainRouteProbe`（350m）の地面が両側とも `mountainRouteRelief`（110m）以上高いものを峡谷とする。峡谷の上端から下流へたどり、`mountainRouteGapTolerance` 以下の途切れは一続きとみなす。長さ `mountainRouteMinimumLength` 以上の峡谷を、下流へ `mountainRouteBasinReach` まで延ばして既存道路（中継点間隔の2倍以内）か地図端に届くものだけ採る。同じ峡谷を共有する支流違いの候補は最長のものだけ残し、道路網へ出る川を地図端へ出る川より先に試す。
 - 中継点は下流から上流へ `mountainRouteWaypointSpacing`（700m）ごとに、緩い側の岸（川幅＋`mountainRouteBankOffset`）に置く。対岸が `mountainRouteSideSwitch` 以上低いときだけ渡る。成立しないときは対岸、次に山側へ2.5倍離した位置を試し、それでも駄目な中継点は連続2つまで飛ばす。路面は水面より6m以上高くする。2車線の幹線道路として一般の道路生成（A*と地形への線形当てはめ）で結び、トンネル・橋・擁壁は既存の規則で付く。
 - 上流端は `mountainRouteJoinRadius` 以内の別の道路か、`mountainRouteBorderReach` 以内の地図端へ延ばす。地図端から入る道は上流側で道路網へつながらなければ取り消す。中継点5つ（約3.5km）以上を結べたものだけを国道（`NationalRoute`）として最大 `mountainRouteCount` 本登録する。候補は `mountainRouteCount`×3 本まで試し、1本の中で結べない中継点が12を超えたら打ち切る。
+
+## 2026-10-31 堤防の上を通る橋
+
+- 平野の広い緩流（川幅の半分42m以上、勾配2.5%未満、水面180m未満。`RiverNetwork::leveed`）は両岸に堤防を持つ。水際から18mが川表の法尻、27〜33mが天端、43mが川裏の法尻。天端は水面＋0.25m＋`rivers.json` の `leveeHeight`（5m）。
+- 川を渡る道路は堤防を切り通さない。`WaterCrossings::repair` は、川を渡る区間から2区間以内の道路に、堤防の範囲（法尻から法尻まで）で天端＋`leveeBridgeMargin`（0.5m）以上の高さを課す（`RiverNetwork::leveeRoadFloor`）。橋は前後の堤防の天端に載る。堤防上の道（`leveeRoad`）と川に並ぶ道には課さない。
+- 既知の課題: 平野の川が段丘や地形の起伏を切って平野面より10m以上低く流れる所では、堤防が地形に埋もれて見えない。平野の川を平野面の高さで流す地形の見直しで扱う。

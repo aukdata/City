@@ -27,5 +27,7 @@
   "meanderAmplitude": 1.2,
   "meanderWavelength": 11.0,
   "meanderGradeStart": 0.002,
-  "meanderGradeEnd": 0.006
+  "meanderGradeEnd": 0.006,
+  "leveeHeight": 5.0,
+  "leveeBridgeMargin": 0.5
 }

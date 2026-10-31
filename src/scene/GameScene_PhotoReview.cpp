@@ -32,13 +32,13 @@ namespace
 
 void GameScene::updatePhotoReview()
 {
-	constexpr int kViews = 17;
+	constexpr int kViews = 19;
 	// 地形・建物・道路設備の読み込みが落ち着くまで待つ上限。ソフトウェア描画では 1 フレーム数秒かかる。
 	constexpr int kMaximumFrames = 160;
 	static constexpr std::array<StringView, kViews> kNames{
 		U"expressway_ahead", U"expressway_exit", U"expressway_powerline", U"expressway_noise_barrier", U"expressway_embankment",
 		U"expressway_information_board", U"expressway_spacing_check", U"mountain_tunnel_portal", U"mountain_tunnel_inside",
-		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander", U"full_map", U"full_map_region" };
+		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander", U"full_map", U"full_map_region", U"river_bridge", U"river_bridge_side" };
 	m_clock.speed = TimeSpeed::Paused; m_clock.hour = 13;
 	m_camera.setFirstPersonFov(50_deg);
 	// 写真は 10 月末の撮影。山の紅葉の進みを合わせる。
@@ -271,6 +271,43 @@ void GameScene::updatePhotoReview()
 			// 全画面地図。地形の陰影・川・道路が描かれるかを確かめる。
 			m_minimapRenderer.openFullScreen(m_camera, m_network, m_trainNetwork, m_districts);
 			found = true;
+		}
+		else if (name == U"river_bridge" || name == U"river_bridge_side")
+		{
+			// 平野の堤防のある川を渡る一般道の橋のうち、最も低地のもの。運転席からの取り付けと、斜め上からの堤防との関係を見る。
+			const RoadEdge* bridge = nullptr; double lowest = Math::Inf;
+			for (const auto& edge : m_network.edges())
+			{
+				if (edge.id < 0 || expressway(edge) || !edge.useElevation || edge.tunnel || edge.length < 40) { continue; }
+				const Vec3 mid = m_network.getBezier(edge.id)->positionAt(edge.length * .5f);
+				const auto river = m_world.rivers().nearest(Vec2{ mid.x, mid.z });
+				if (river.reach < 0 || river.distance > river.halfWidth || !RiverNetwork::leveed(m_world.rivers().reaches[river.reach])) { continue; }
+				if (river.surface < lowest) { lowest = river.surface; bridge = &edge; }
+			}
+			if (bridge && name == U"river_bridge_side")
+			{
+				const auto curve = m_network.getBezier(bridge->id);
+				const Vec3 tangent = curve->tangentAt(bridge->length * .5f);
+				m_camera.setCaptureState(curve->positionAt(bridge->length * .5f), 260.0f, static_cast<float>(Atan2(tangent.x, tangent.z) + 70_deg), static_cast<float>(18_deg));
+				found = true;
+			}
+			else if (bridge)
+			{
+				// 橋の手前の取り付け道路に立ち、橋の方を向く。
+				for (const auto& attachment : m_network.getNode(bridge->nodeA)->attachments)
+				{
+					const auto* approach = m_network.getEdge(attachment.edgeId);
+					if (!approach || approach->id == bridge->id || approach->tunnel) { continue; }
+					const auto line = m_network.getBezier(approach->id);
+					const bool forward = approach->nodeB == bridge->nodeA;
+					const float arc = forward ? Max(0.0f, approach->length - 90.0f) : Min(approach->length, 90.0f);
+					Vec3 tangent = line->tangentAt(arc); if (!forward) { tangent = -tangent; }
+					Vec3 p = line->positionAt(arc) + tangentToRight(tangent) * leftLaneOffset(*approach);
+					p.y = (approach->usesDesignHeight() ? line->positionAt(arc).y : m_world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z))) + kRoadSurfaceLift;
+					m_camera.setWalkingState(p, static_cast<float>(Atan2(tangent.x, tangent.z)), 0.0f);
+					found = true; break;
+				}
+			}
 		}
 		else if (name == U"full_map_region")
 		{

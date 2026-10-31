@@ -9,6 +9,8 @@ namespace WaterCrossings
 {
 	struct Result { int wetEdges=0; int elevatedEdges=0; };
 	/// @brief 水域と橋の取り付けだけを短区間に分け、離れた交差点へ川の高さを直接代入しない。
+	/// @brief 堤防などで道路が下回れない高さ。範囲外は -∞ を返す。
+	inline double noRoadFloor(double,double) { return -Math::Inf; }
 	template<class HeightSampler, class WaterSampler>
 	void splitWaterSpans(RoadNetwork& network, const HeightSampler& height, const WaterSampler& water)
 	{
@@ -59,8 +61,8 @@ namespace WaterCrossings
 		}
 	}
 
-	template<class HeightSampler,class WaterSampler>
-	Result repair(RoadNetwork& network, const HeightSampler& height,const WaterSampler& water)
+	template<class HeightSampler,class WaterSampler,class FloorSampler = decltype(&noRoadFloor)>
+	Result repair(RoadNetwork& network, const HeightSampler& height,const WaterSampler& water,const FloorSampler& floor = &noRoadFloor)
 	{
 		Result result;
 		splitWaterSpans(network, height, water);
@@ -75,6 +77,38 @@ namespace WaterCrossings
 		{
 			if (value>level[id]+.001) { level[id]=value; pending.emplace(value,id); }
 		};
+		// 堤防の高さは、川を渡る区間から2区間以内の道路だけに課す。堤防沿いの道や川に並ぶ道は持ち上げない。
+		HashSet<int> nearCrossing;
+		{
+			Array<int> frontier;
+			for (const auto& edge : network.edges())
+			{
+				if (edge.id<0 || edge.tunnel || edge.leveeRoad) { continue; }
+				const auto curve=network.getBezier(edge.id);
+				if (!curve) { continue; }
+				bool crosses=false;
+				for (float arc=0;arc<=curve->totalLength && !crosses;arc+=GenerationSettings::get().crossings_waterSampleStep)
+				{
+					const Vec3 point=curve->positionAt(arc);
+					crosses=height(point.x,point.z)<water(point.x,point.z)+GenerationSettings::get().crossings_waterBankMargin && std::isfinite(floor(point.x,point.z));
+				}
+				if (crosses) { frontier << edge.nodeA << edge.nodeB; }
+			}
+			for (int hop=0;hop<=2;++hop)
+			{
+				Array<int> next;
+				for (const int id : frontier)
+				{
+					if (!nearCrossing.insert(id).second) { continue; }
+					for (const auto& attachment : network.getNode(id)->attachments)
+					{
+						const auto* edge=network.getEdge(attachment.edgeId);
+						if (edge && !edge->leveeRoad) { next << (edge->nodeA==id ? edge->nodeB : edge->nodeA); }
+					}
+				}
+				frontier=std::move(next);
+			}
+		}
 		for (const auto& edge : network.edges())
 		{
 			if (edge.id<0 || edge.tunnel) { continue; }
@@ -97,6 +131,13 @@ namespace WaterCrossings
 				surface=Max(surface,water(point.x,point.z));
 				wet|=low<surface+GenerationSettings::get().crossings_waterBankMargin;
 				if (low<surface+GenerationSettings::get().crossings_waterBankMargin) { bridgeLevel=Max(bridgeLevel,surface+GenerationSettings::get().crossings_waterClearance); }
+				// 堤防の範囲では天端より下を通さない。橋は前後の堤防の天端に載せる。
+				if (edge.leveeRoad || !nearCrossing.contains(edge.nodeA) || !nearCrossing.contains(edge.nodeB)) { continue; }
+				for (const int side : {-1,0,1})
+				{
+					const Vec3 sample=point+right*(edge.totalWidth()*.5*side);
+					if (const double required=floor(sample.x,sample.z); std::isfinite(required)) { wet=true; bridgeLevel=Max(bridgeLevel,required); }
+				}
 			}
 			if (wet)
 			{

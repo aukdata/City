@@ -668,6 +668,21 @@ void registerUrbanMorphologyTests(TestRunner& runner)
 			{ const Vec3 p=curve->positionAt(arc); if (Abs(p.x-150)<20) context.expect(edge.useElevation && p.y>=25.9,U"River crossing clears the 20 m water surface"); }
 		}
 	});
+	runner.add(U"Transport.BridgeOverLeveeCrests",[](TestContext& context)
+	{
+		// 川（x=150±20）の両岸に天端 26m の堤防（水際から 43m まで）。道路は堤防を切り通さず、天端に載って橋へ入る。
+		RoadNetwork roads;const int a=roads.addNode({-200,21,0}),b=roads.addNode({500,21,0});
+		roads.addEdge(a,b,{33,21,0},{267,21,0},RoadType::Arterial,2);
+		const auto ground=[](double x,double) { const double bank=Abs(x-150)-20; return bank<0 ? 18.0 : bank<18 ? 21.0 : bank<=43 ? 26.0 : 21.0; };
+		const auto water=[](double x,double) { return Abs(x-150)<20 ? 20.0 : 0.0; };
+		const auto floor=[](double x,double) { return Abs(x-150)-20<=43 ? 26.5 : -Math::Inf; };
+		const auto result=WaterCrossings::repair(roads,ground,water,floor);context.expect(result.elevatedEdges>0,U"The river is bridged");
+		for (const auto& edge : roads.edges()) if (edge.id>=0)
+		{
+			const auto curve=roads.getBezier(edge.id);for (float arc=0;arc<curve->totalLength;arc+=2)
+			{ const Vec3 p=curve->positionAt(arc); if (Abs(p.x-150)-20<=43) context.expect(p.y>=26.4,U"The road stays on the levee crests on both banks and the bridge between them"); }
+		}
+	});
 	runner.add(U"Terrain.SmallRoadEarthworks",[](TestContext& context)
 	{
 		World world;world.reserveChunks();world.setGenerationParams(42,WORLD_SIZE,WORLD_SIZE);

@@ -1014,6 +1014,8 @@ GENERATION_SETTING(double, rivers_meanderAmplitude, U"rivers", U"meanderAmplitud
 GENERATION_SETTING(double, rivers_meanderWavelength, U"rivers", U"meanderWavelength", 4, 30)
 GENERATION_SETTING(double, rivers_meanderGradeStart, U"rivers", U"meanderGradeStart", 0, 0.1)
 GENERATION_SETTING(double, rivers_meanderGradeEnd, U"rivers", U"meanderGradeEnd", 0.0001, 0.2)
+GENERATION_SETTING(double, rivers_leveeHeight, U"rivers", U"leveeHeight", 0, 15)
+GENERATION_SETTING(double, rivers_leveeBridgeMargin, U"rivers", U"leveeBridgeMargin", 0, 5)
 GENERATION_SETTING(int, routing_generatedExpansionLimit, U"routing", U"generatedExpansionLimit", 1000, 60000)
 GENERATION_SETTING(int, network_regionalNeighbors, U"network", U"regionalNeighbors", 1, 8)
 GENERATION_SETTING(double, network_regionalNeighborRadius, U"network", U"regionalNeighborRadius", 500, 15000)

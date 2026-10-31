@@ -208,7 +208,8 @@ void GameScene::postProcessRoads()
 	// Resolve infeasible hills before bridge approach heights can spread into adjacent towns.
 	RoadDesignLimits::apply(m_network, m_world);
 	auditDryStreets(U"alignment");
-	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); },[&](double x,double z) { return m_world.waterPlanningHeight(x,z); });
+	const auto water=WaterCrossings::repair(m_network,[&](double x,double z) { return m_world.sampleHeight(static_cast<float>(x),static_cast<float>(z)); },[&](double x,double z) { return m_world.waterPlanningHeight(x,z); },
+		[&](double x,double z) { return m_world.rivers().leveeRoadFloor(Vec2{x,z}); });
 	auditDryStreets(U"crossings");
 	RoadDesignLimits::fitGrades(m_network, m_world);
 	auditDryStreets(U"finalGrades");

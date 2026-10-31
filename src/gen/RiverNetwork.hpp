@@ -67,15 +67,31 @@ public:
 		const double lowland=Clamp((sample.surface+5-original)/5.0,0.0,1.0);
 		const double fan=Sin(Math::Pi*Clamp(bank/extent,0.0,1.0));
 		const double carved=cut+reach.alluvium*fan*lowland;
-		const Vec3 delta=reach.end-reach.start;
-		if (Min(reach.halfWidth,reach.endHalfWidth)>=42 && Abs(delta.y)/Max(.01,Vec2{delta.x,delta.z}.length())<.025
-			&& Max(reach.start.y,reach.end.y)<180 && sample.distance>=sample.halfWidth && bank<=43)
+		if (leveed(reach) && sample.distance>=sample.halfWidth && bank<=kLeveeOuterToe)
 		{
-			const double crest=bank<27 ? Clamp((bank-18)/9,0.0,1.0) : bank<=33 ? 1 : Clamp((43-bank)/10,0.0,1.0);
-			return Max(carved,sample.surface+.25+crest*1.4);
+			const double crest=bank<kLeveeCrestInner ? Clamp((bank-kLeveeInnerToe)/(kLeveeCrestInner-kLeveeInnerToe),0.0,1.0)
+				: bank<=kLeveeCrestOuter ? 1 : Clamp((kLeveeOuterToe-bank)/(kLeveeOuterToe-kLeveeCrestOuter),0.0,1.0);
+			return Max(carved,sample.surface+.25+crest*GenerationSettings::get().rivers_leveeHeight);
 		}
 		return carved;
 	}
+	/// @brief 平野の広い緩流は両岸に堤防を持つ。
+	static bool leveed(const Reach& reach)
+	{
+		const Vec3 delta=reach.end-reach.start;
+		return Min(reach.halfWidth,reach.endHalfWidth)>=42 && Abs(delta.y)/Max(.01,Vec2{delta.x,delta.z}.length())<.025 && Max(reach.start.y,reach.end.y)<180;
+	}
+	/// @brief 堤防の法尻から法尻までの範囲で、道路が下回ってはならない高さ（天端＋余裕）。範囲外は -∞。
+	/// @details 川を渡る道路は堤防を切り通さず、前後の堤防の天端に載って橋へ入る。
+	double leveeRoadFloor(Vec2 point) const
+	{
+		const auto sample=nearest(point); if (sample.reach<0 || !leveed(reaches[sample.reach])) { return -Math::Inf; }
+		const double bank=sample.distance-sample.halfWidth;
+		if (bank>kLeveeOuterToe) { return -Math::Inf; }
+		return sample.surface+.25+GenerationSettings::get().rivers_leveeHeight+GenerationSettings::get().rivers_leveeBridgeMargin;
+	}
+	/// 水際から測った堤防の位置（m）。川表の法尻・天端の川側・天端の川裏側・川裏の法尻。
+	static constexpr double kLeveeInnerToe=18,kLeveeCrestInner=27,kLeveeCrestOuter=33,kLeveeOuterToe=43;
 private:
 	static int64 key(int x,int z) { return static_cast<int64>(x)*0x100000000LL+static_cast<uint32>(z); }
 	HashTable<int64,Array<int>> m_index;

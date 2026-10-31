@@ -32,7 +32,9 @@
     "meanderAmplitude",
     "meanderWavelength",
     "meanderGradeStart",
-    "meanderGradeEnd"
+    "meanderGradeEnd",
+    "leveeHeight",
+    "leveeBridgeMargin"
   ],
   "properties": {
     "sourceRate": {
@@ -179,6 +181,16 @@
       "type": "number",
       "minimum": 0.0001,
       "maximum": 0.2
+    },
+    "leveeHeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "leveeBridgeMargin": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5
     }
   }
 }
