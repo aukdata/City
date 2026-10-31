@@ -253,8 +253,10 @@ void registerRiverGenerationTests(TestRunner& runner)
 		result[U"plainNetwork"] = surveyNetwork(broad); result[U"gorgeNetwork"] = surveyNetwork(mountain);
 		result.save(U"TestResults/river_course.json");
 		context.expect(plain[U"samples"].get<int>() > 180 && gorge[U"samples"].get<int>() > 180, U"Both fixtures contain a continuous main channel");
-		context.expectNear(plain[U"sinuosity"].get<double>(), 1, .005, U"一定勾配の直線谷では人工的な蛇行を足さない");
-		context.expect(plain[U"rmsOffset"].get<double>() < 8, U"平野でも谷底の最急降下を追う");
+		// 勾配 0.1% の氾濫原は自由蛇行する。蛇行帯は谷底から川幅の数倍以内に収め、谷壁を越えない。
+		context.expect(plain[U"sinuosity"].get<double>() > 1.05 && plain[U"sinuosity"].get<double>() < 2.0, U"緩勾配の平野の川は蛇行する");
+		context.expect(plain[U"maximumOffset"].get<double>() < 260, U"蛇行帯は谷底の最急降下線の周りに収まる");
+		context.expect(gorge[U"sinuosity"].get<double>() < 1.02, U"急勾配の谷では人工的な蛇行を足さない");
 		context.expect(gorge[U"rmsOffset"].get<double>() < 20, U"The same bends must not cut across steep valley walls");
 		context.expectEqual(result[U"plainNetwork"][U"uphill"].get<int>(), 0, U"Bends preserve downstream water level");
 	});

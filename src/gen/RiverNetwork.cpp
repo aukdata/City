@@ -351,6 +351,130 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		nodes[found->second].flow=Max(nodes[found->second].flow,terminal.flow);
 		node.parent=found->second;
 	}
+	// 緩勾配の氾濫原では川が自由蛇行する。最急降下の軌跡を基線に、川幅の約 11 倍の波長と
+	// 約 1.2 倍の振幅で横へずらす（Leopold & Wolman）。3 倍波で蛇行の非対称を付け、源流・合流・河口では 0 に戻す。
+	// 勾配が meanderGradeEnd を超える山地の川は谷の形に従うため動かさない。
+	if (settings.rivers_meanderAmplitude>0)
+	{
+		Array<Vec2> original(nodes.size());
+		for (size_t id=0; id<nodes.size(); ++id) { original[id]=nodes[id].point; }
+		HashSet<int> visitedOwner;
+		Array<int> inflow(nodes.size(),0);
+		for (const auto& node : nodes) { if (node.parent>=0) { ++inflow[node.parent]; } }
+		for (size_t start=0; start<nodes.size(); ++start)
+		{
+			const int owner=nodes[start].owner;
+			if (owner<0 || visitedOwner.contains(owner)) { continue; }
+			visitedOwner.insert(owner);
+			Array<int> chain{static_cast<int>(start)};
+			while (nodes[chain.back()].parent>=0 && nodes[nodes[chain.back()].parent].owner==owner && chain.size()<=nodes.size()) { chain << nodes[chain.back()].parent; }
+			if (nodes[chain.back()].parent>=0) { chain << nodes[chain.back()].parent; }
+			if (chain.size()<6) { continue; }
+			Array<double> along(chain.size(),0);
+			for (size_t i=1; i<chain.size(); ++i) { along[i]=along[i-1]+original[chain[i]].distanceFrom(original[chain[i-1]]); }
+			const double total=along.back();
+			// 支流が入る地点でも振幅を 0 に戻し、合流点を動かさない。
+			Array<double> joins{0.0,total};
+			for (size_t i=1; i+1<chain.size(); ++i) { if (inflow[chain[i]]>1) { joins << along[i]; } }
+			const double phase0=(owner%97)*.61803*Math::TwoPi;
+			double phase=phase0;
+			for (size_t i=1; i+1<chain.size(); ++i)
+			{
+				const int id=chain[i];
+				const double width=2*Clamp(settings.rivers_widthBase+std::sqrt(nodes[id].flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
+				// 波長は流路ごとにゆっくり揺らし、同じ形の繰り返しにしない。
+				const double wavelength=settings.rivers_meanderWavelength*width*(1+.3*Sin(along[i]/(width*37)+phase0));
+				phase+=Math::TwoPi*(along[i]-along[i-1])/wavelength;
+				const size_t reach=Max<size_t>(2,static_cast<size_t>(wavelength*.25/Max(1.0,step)));
+				const int behind=chain[i>=reach ? i-reach : 0],ahead=chain[Min(chain.size()-1,i+reach)];
+				const Vec2 tangent=original[ahead]-original[behind];
+				if (tangent.lengthSq()<1e-6) { continue; }
+				const double run=Max(1.0,along[Min(chain.size()-1,i+reach)]-along[i>=reach ? i-reach : 0]);
+				const double grade=Max(0.0,(height(original[behind].x,original[behind].y)-height(original[ahead].x,original[ahead].y))/run);
+				const double lowland=Clamp((settings.rivers_meanderGradeEnd-grade)/Max(1e-6,settings.rivers_meanderGradeEnd-settings.rivers_meanderGradeStart),0.0,1.0);
+				double nearestJoin=Math::Inf;
+				for (const double join : joins) { nearestJoin=Min(nearestJoin,Abs(along[i]-join)); }
+				const double ends=Clamp(nearestJoin/(wavelength*.5),0.0,1.0);
+				const double taper=lowland*lowland*(3-2*lowland)*ends*ends*(3-2*ends);
+				if (taper<=0) { continue; }
+				const Vec2 normal=Vec2{-tangent.y,tangent.x}.normalized();
+				const double offset=settings.rivers_meanderAmplitude*width*taper*(Sin(phase)+.18*Sin(3*phase+.6));
+				// 隣の流路（別の水源の河道）へ近づく場合は振幅を縮め、合流せずに交差させない。
+				const auto clear=[&](Vec2 point)
+				{
+					const double clearance=width*.75+Abs(offset)+20;
+					const int reachCells=static_cast<int>(Ceil(clearance/indexSize));
+					const Point cell{static_cast<int>(Floor(point.x/indexSize)),static_cast<int>(Floor(point.y/indexSize))};
+					for (int dz=-reachCells; dz<=reachCells; ++dz) for (int dx=-reachCells; dx<=reachCells; ++dx)
+					{
+						const auto found=segments.find(cell+Point{dx,dz}); if (found==segments.end()) { continue; }
+						for (const int other : found->second)
+						{
+							if (nodes[other].owner==owner || nodes[other].parent<0 || other>=static_cast<int>(original.size()) || nodes[other].parent>=static_cast<int>(original.size())) { continue; }
+							const Vec2 a=original[other],b=original[nodes[other].parent],span=b-a;
+							const double t=Clamp((point-a).dot(span)/Max(1e-9,span.lengthSq()),0.0,1.0);
+							if (point.distanceFrom(a+span*t)<clearance) { return false; }
+						}
+					}
+					return true;
+				};
+				for (const double scale : {1.0,.5,.25})
+				{
+					const Vec2 moved=original[id]+normal*(offset*scale);
+					if (inside(moved) && !drainage.ocean[drainage.cell(moved)] && clear(moved)) { nodes[id].point=moved; break; }
+				}
+			}
+		}
+		// 急な曲がりの内側などで別の区間と交差した流路は、その水源の流路全体を元の最急降下線へ戻す。
+		for (int pass=0; pass<4; ++pass)
+		{
+			HashTable<Point,Array<int>> moved;
+			constexpr double kCell=64;
+			for (size_t id=0; id<original.size(); ++id)
+			{
+				const int next=nodes[id].parent; if (next<0) { continue; }
+				const Vec2 a=nodes[id].point,b=nodes[next].point;
+				for (int z=static_cast<int>(Floor(Min(a.y,b.y)/kCell)); z<=static_cast<int>(Floor(Max(a.y,b.y)/kCell)); ++z)
+					for (int x=static_cast<int>(Floor(Min(a.x,b.x)/kCell)); x<=static_cast<int>(Floor(Max(a.x,b.x)/kCell)); ++x) { moved[Point{x,z}] << static_cast<int>(id); }
+			}
+			HashSet<int> revert;
+			for (const auto& [cell,ids] : moved)
+			{
+				for (size_t i=0; i<ids.size(); ++i) for (size_t j=i+1; j<ids.size(); ++j)
+				{
+					const int first=ids[i],second=ids[j],firstNext=nodes[first].parent,secondNext=nodes[second].parent;
+					if (first==secondNext || second==firstNext || firstNext==secondNext) { continue; }
+					const bool displaced=nodes[first].point!=original[first] || nodes[firstNext].point!=original[firstNext]
+						|| nodes[second].point!=original[second] || nodes[secondNext].point!=original[secondNext];
+					if (!displaced) { continue; }
+					const Vec2 a=nodes[first].point,b=nodes[firstNext].point,c=nodes[second].point,d=nodes[secondNext].point;
+					const double denominator=cross(b-a,d-c); if (Abs(denominator)<1e-12) { continue; }
+					const double t=cross(c-a,d-c)/denominator,u=cross(c-a,b-a)/denominator;
+					if (t>=0 && t<=1 && u>=0 && u<=1) { revert.insert(nodes[first].owner); revert.insert(nodes[second].owner); }
+				}
+			}
+			if (revert.empty()) { break; }
+			for (size_t id=0; id<original.size(); ++id) { if (revert.contains(nodes[id].owner)) { nodes[id].point=original[id]; } }
+		}
+		size_t displaced=0; double largest=0;
+		for (size_t id=0; id<original.size(); ++id) { const double shift=nodes[id].point.distanceFrom(original[id]); displaced+=shift>1; largest=Max(largest,shift); }
+		DBG_LOG(U"[RiverMeander] displaced={}/{} largestShift={:.0f}"_fmt(displaced,original.size(),largest));
+		// 外側の曲がりで伸びた区間を分割し、測点間隔を元の刻み程度に保つ。
+		const size_t count=nodes.size();
+		for (size_t id=0; id<count; ++id)
+		{
+			const int next=nodes[id].parent; if (next<0) { continue; }
+			const Vec2 a=nodes[id].point,b=nodes[next].point;
+			const int pieces=static_cast<int>(Ceil(a.distanceFrom(b)/step));
+			int previous=static_cast<int>(id);
+			for (int piece=1; piece<pieces; ++piece)
+			{
+				const int inserted=static_cast<int>(nodes.size());
+				nodes << ChannelNode{a.lerp(b,static_cast<double>(piece)/pieces),next,nodes[id].owner,nodes[id].flow};
+				nodes[previous].parent=inserted; previous=inserted;
+			}
+		}
+	}
 	// 合流後の流量と水位はグラフ全体で確定し、支流を跨いでも逆流・川幅の縮小を作らない。
 	Array<int> children(nodes.size(),0),queue;
 	for (const auto& node : nodes) { if (node.parent>=0) { ++children[node.parent]; } }

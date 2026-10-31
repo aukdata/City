@@ -23,5 +23,9 @@
   "confluenceSnap": 1.5,
   "sedimentCapacity": 3.0,
   "erosionRate": 0.4,
-  "depositionRate": 0.3
+  "depositionRate": 0.3,
+  "meanderAmplitude": 1.2,
+  "meanderWavelength": 11.0,
+  "meanderGradeStart": 0.002,
+  "meanderGradeEnd": 0.006
 }

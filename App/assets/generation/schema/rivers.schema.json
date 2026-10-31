@@ -28,7 +28,11 @@
     "confluenceSnap",
     "sedimentCapacity",
     "erosionRate",
-    "depositionRate"
+    "depositionRate",
+    "meanderAmplitude",
+    "meanderWavelength",
+    "meanderGradeStart",
+    "meanderGradeEnd"
   ],
   "properties": {
     "sourceRate": {
@@ -155,6 +159,26 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 2.0
+    },
+    "meanderAmplitude": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 3.0
+    },
+    "meanderWavelength": {
+      "type": "number",
+      "minimum": 4.0,
+      "maximum": 30.0
+    },
+    "meanderGradeStart": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 0.1
+    },
+    "meanderGradeEnd": {
+      "type": "number",
+      "minimum": 0.0001,
+      "maximum": 0.2
     }
   }
 }
