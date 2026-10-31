@@ -911,7 +911,9 @@ void MapGenerator::generateMountainRoutes(const World& world, RoadNetwork& netwo
 				if (found == nodeGrid.end()) { continue; }
 				for (const int id : found->second)
 				{
+					// 取り消した国道の節点は網から消えているので飛ばす。
 					const auto* node = network.getNode(id);
+					if (!node) { continue; }
 					const double distance = Vec2{ node->position.x, node->position.z }.distanceFrom(point);
 					if (distance < best) { best = distance; nearest = id; }
 				}
@@ -1005,6 +1007,7 @@ void MapGenerator::generateMountainRoutes(const World& world, RoadNetwork& netwo
 		// 下流端は既存道路か地図端につなぐ。成立しない中継点は 2 つまで飛ばして次へ向かう。
 		Array<int> edges, routeNodes;
 		int previous = chain.joinNode;
+		if (previous >= 0 && !network.getNode(previous)) { continue; }
 		if (previous < 0)
 		{
 			previous = network.addNode(borderPoint(Vec2{ waypoints.front().front().x, waypoints.front().front().z }), NodeType::Endpoint);
@@ -1052,6 +1055,8 @@ void MapGenerator::generateMountainRoutes(const World& world, RoadNetwork& netwo
 		if (edges.size() >= 2 && connected && reached >= 5)
 		{
 			for (const int id : gorgePart) { used.insert(id); }
+			// 後の区間との交差で分割され、番号が消えた辺は路線に入れない。
+			edges.remove_if([&](int id) { return !network.getEdge(id); });
 			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(edges)); ++built;
 		}
 		else
