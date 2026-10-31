@@ -150,6 +150,7 @@ private:
 	{
 		Model model;
 		Model distantModel;
+		ModelTextureCache modelTextures, distantTextures;
 		Array<ModelMeshSource> farGeometry;
 		float scale = 1.0f;
 		Optional<float> frontWall; ///< 庇・バルコニーを除いた接道側の壁面 Z [モデル m]

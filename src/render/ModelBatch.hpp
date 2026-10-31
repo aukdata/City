@@ -41,6 +41,28 @@ inline Array<ModelMeshSource> loadModelMeshSource(FilePathView path, const Model
 	return result;
 }
 
+/// @brief ModelObject::draw と同じ描画を、材質ごとの TextureAsset 名前検索なしで行う。
+/// 読み込めたテクスチャだけを保持し、空のものは次回また引き直す。
+class ModelTextureCache
+{
+public:
+	void draw(const ModelObject& object, const Array<Material>& materials)
+	{
+		if (m_textures.size() < materials.size()) { m_textures.resize(materials.size()); }
+		for (const auto& part : object.parts)
+		{
+			if (!part.materialID) { part.mesh.draw(); continue; }
+			const Material& material = materials[*part.materialID];
+			if (material.diffuseTextureName.isEmpty()) { part.mesh.draw(PhongMaterial{ material, HasDiffuseTexture::No }); continue; }
+			Texture& texture = m_textures[*part.materialID];
+			if (!texture) { texture = TextureAsset{ material.diffuseTextureName }; }
+			part.mesh.draw(texture, PhongMaterial{ material, HasDiffuseTexture::Yes });
+		}
+	}
+private:
+	Array<Texture> m_textures;
+};
+
 /// @brief 材質ごとに結合した不動のモデル。
 struct StaticModelBatch
 {

@@ -2203,15 +2203,16 @@ void WorldRenderer::drawCachedBuildings(Key key)
 			const auto& bounds = asset.model.boundingBox();
 			const double dimension = Max({bounds.size.x,bounds.size.y,bounds.size.z}) * inst.scale;
 			const double detailDistance = BuildingLod::detailDistance(dimension);
-			const Model& model = (m_buildingEye.distanceFromSq(center) > detailDistance * detailDistance && !asset.distantModel.isEmpty())
-				? asset.distantModel : asset.model;
+			const bool distantModel = m_buildingEye.distanceFromSq(center) > detailDistance * detailDistance && !asset.distantModel.isEmpty();
+			const Model& model = distantModel ? asset.distantModel : asset.model;
+			ModelTextureCache& textures = distantModel ? asset.distantTextures : asset.modelTextures;
 			const auto& materials = model.materials();
 			m_buildingTint->variant = Float4{static_cast<float>(buildingTintVariant(inst.pos)), 0, 0, 0};
 			Graphics3D::SetPSConstantBuffer(6, m_buildingTint);
 			for (const auto& obj : model.objects())
 			{
 				const Transformer3D transform{ worldMat };
-				obj.draw(materials);
+				textures.draw(obj, materials);
 				m_buildingDrawCalls += obj.parts.size();
 			}
 			drawFrontage(asset,inst,false);

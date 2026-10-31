@@ -19,6 +19,48 @@ namespace
 
 void registerModelLodTests(TestRunner& runner)
 {
+	runner.add(U"ModelLod.TextureCacheMatchesNativeDraw", [](TestContext& context)
+	{
+		AppDirectory directory;
+		const Model model{ U"assets/buildings/commercial/convenience_roadside_001.obj" };
+		Model::RegisterDiffuseTextures(model, TextureDesc::MippedSRGB);
+		bool textured = false;
+		for (const auto& material : model.materials()) { textured |= !material.diffuseTextureName.isEmpty(); }
+		context.expect(!model.isEmpty() && textured, U"The sample building has textured materials");
+		const Size size{ 320, 240 };
+		const BasicCamera3D camera{ size, 40_deg, Vec3{ 18, 14, -22 }, Vec3{ 0, 3, 0 } };
+		ModelTextureCache cache;
+		const auto render = [&](bool cached)
+		{
+			const RenderTexture target{ size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+			for (int frame = 0; frame < 2; ++frame)
+			{
+				{
+					const ScopedRenderTarget3D renderTarget{ target.clear(ColorF{ 0.35, 0.45, 0.55 }) };
+					const ScopedRenderStates3D states{ DepthStencilState::DepthTestWrite };
+					Graphics3D::SetCameraTransform(camera);
+					const Transformer3D transform{ Mat4x4::RotateY(0.4) };
+					for (const auto& object : model.objects())
+					{
+						if (cached) { cache.draw(object, model.materials()); }
+						else { object.draw(model.materials()); }
+					}
+				}
+				Graphics3D::Flush();
+				System::Update();
+			}
+			Image image; target.readAsImage(image); return image;
+		};
+		const Image native = render(false), first = render(true), warm = render(true);
+		const auto same = [](const Image& a, const Image& b)
+		{
+			return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](Color x, Color y) { return x == y; });
+		};
+		size_t painted = 0;
+		for (const auto& pixel : native) { painted += pixel != native[0][0]; }
+		context.expect(painted > 1000, U"The building covers part of the frame");
+		context.expect(same(native, first) && same(native, warm), U"Cached textures draw exactly the same pixels as ModelObject::draw");
+	});
 	runner.add(U"ModelLod.BuildingVisibilityAndRoofProxy", [](TestContext& context)
 	{
 		AppDirectory directory;
