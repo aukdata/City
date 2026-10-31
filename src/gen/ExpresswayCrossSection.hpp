@@ -133,52 +133,73 @@ namespace ExpresswayCrossSection
 				if (part.offsetA_R > -half + .01f) { continue; }
 				part.offsetA_L -= a; part.offsetA_R -= a; part.offsetB_L -= b; part.offsetB_R -= b;
 			}
-			// 本線車線との境は車線変更できる破線（車線境界線）。
-			Lane added = lane(-half - Max(a, b), Max(a, b), LaneDir::Forward, LineType::SolidWhite, LineType::DashedWhite);
+			// 本線車線との境は太く周期の短い破線（変速車線の車線境界線）。
+			Lane added = lane(-half - Max(a, b), Max(a, b), LaneDir::Forward, LineType::SolidWhite, LineType::DashedWhiteThick);
 			added.offsetA_L = -half - a; added.offsetA_R = -half;
 			added.offsetB_L = -half - b; added.offsetB_R = -half;
-			edge.lanes.front().lineLeft = LineType::DashedWhite;
+			edge.lanes.front().lineLeft = LineType::DashedWhiteThick;
 			edge.lanes.insert(edge.lanes.begin(), added);
 		}
 		finish(edge);
 	}
 
-	/// @brief ランプの一端を本線の変速車線へ寄せる。lateral は寄せる量（負 = 左）。
-	/// @details 車線と左側の部材をずらし、右側（本線側）の路肩・防護柵・法面はその端で幅 0 へ絞る。
-	inline void shiftRampEnd(RoadEdge& edge, bool atB, float lateral)
+	/// @brief 道路の一端の車線と部材を横へずらす。lateral は寄せる量（負 = 左）。
+	/// @param collapse +1: 右側（車線より外）の路肩・防護柵・法面をその端で幅 0 へ絞る。-1: 左側を絞る。0: 絞らない。
+	/// @details 別の道路と路面を共有する端（変速車線へ入るランプ、2 本のランプが 1 本の道路へまとまる分合流の鼻）で、
+	///   内側の路側部材が相手の車道へはみ出さないようにする。
+	inline void shiftEnd(RoadEdge& edge, bool atB, float lateral, int collapse)
 	{
 		if (edge.lanes.isEmpty()) { return; }
-		Lane& lane = edge.lanes.front();
-		float& laneLeft = atB ? lane.offsetB_L : lane.offsetA_L;
-		float& laneRight = atB ? lane.offsetB_R : lane.offsetA_R;
-		const float center = (laneLeft + laneRight) * .5f, right = laneRight;
-		laneLeft += lateral; laneRight += lateral;
+		float laneMin = Math::Inf, laneMax = -Math::Inf;
+		for (auto& lane : edge.lanes)
+		{
+			float& laneLeft = atB ? lane.offsetB_L : lane.offsetA_L;
+			float& laneRight = atB ? lane.offsetB_R : lane.offsetA_R;
+			laneMin = Min(laneMin, laneLeft); laneMax = Max(laneMax, laneRight);
+			laneLeft += lateral; laneRight += lateral;
+		}
+		const float center = (laneMin + laneMax) * .5f;
 		for (auto& part : edge.parts)
 		{
 			float& left = atB ? part.offsetB_L : part.offsetA_L;
 			float& rightEdge = atB ? part.offsetB_R : part.offsetA_R;
 			if (part.type == RoadPartType::Roadbed) { left += lateral; rightEdge += lateral; continue; }
-			if ((left + rightEdge) * .5f < center) { left += lateral; rightEdge += lateral; }
-			else { left = rightEdge = right + lateral; }
+			const bool rightSide = (left + rightEdge) * .5f >= center;
+			if (collapse > 0 && rightSide) { left = rightEdge = laneMax + lateral; }
+			else if (collapse < 0 && !rightSide) { left = rightEdge = laneMin + lateral; }
+			else { left += lateral; rightEdge += lateral; }
 		}
 	}
 
-	/// @brief IC・JCT の 1 車線ランプ。立体分岐（CSL grade_split）の車線幅と勾配を共有する。
-	inline void applyRamp(RoadEdge& edge, float speed)
+	/// @brief ランプの一端を本線の変速車線へ寄せる。lateral は寄せる量（負 = 左）。
+	/// @details 車線と左側の部材をずらし、右側（本線側）の路肩・防護柵・法面はその端で幅 0 へ絞る。
+	inline void shiftRampEnd(RoadEdge& edge, bool atB, float lateral) { shiftEnd(edge, atB, lateral, 1); }
+
+	/// @brief IC・JCT のランプ（既定 1 車線）。立体分岐（CSL grade_split）の車線幅と勾配を共有する。
+	/// @param lanes 料金所と分合流の鼻を結ぶ区間は、料金所前の往復路の片側と同じ 2 車線。
+	///   この区間は料金所広場の続きなので車線を区切る線を引かない。
+	inline void applyRamp(RoadEdge& edge, float speed, int lanes = 1)
 	{
 		using namespace detail;
 		const auto& c = GenerationSettings::get();
-		const float width = c.expressway_rampLaneWidth, half = width * .5f;
+		const int count = Max(1, lanes);
+		const float width = c.expressway_rampLaneWidth, half = width * count * .5f;
 		edge.roadType = RoadType::Expressway;
 		edge.speedLimit = speed;
-		edge.lanes = { lane(-half, width, LaneDir::Forward, LineType::SolidWhite, LineType::SolidWhite) };
+		edge.lanes.clear();
+		for (int i = 0; i < count; ++i)
+		{
+			const bool plaza = count > 1;
+			edge.lanes << lane(-half + i * width, width, LaneDir::Forward, plaza ? LineType::None : i == 0 ? LineType::SolidWhite : LineType::DashedWhite,
+				plaza ? LineType::None : i + 1 == count ? LineType::SolidWhite : LineType::DashedWhite);
+		}
 		edge.parts.clear();
 		const float rail = c.expressway_guardrailWidth, slope = c.expressway_slopeWidth * .7f;
 		float x = -half - c.expressway_rampOuterShoulder - rail - slope;
 		edge.parts << strip(RoadPartType::Slope, x, slope, U"slope_grass"); x += slope;
 		edge.parts << strip(RoadPartType::Guardrail, x, rail, U"guardrail_steel"); x += rail;
 		edge.parts << strip(RoadPartType::Shoulder, x, c.expressway_rampOuterShoulder, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Roadbed, -half, width, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Roadbed, -half, half * 2, U"roadbed_asphalt");
 		x = half;
 		edge.parts << strip(RoadPartType::Shoulder, x, c.expressway_rampInnerShoulder, U"roadbed_asphalt"); x += c.expressway_rampInnerShoulder;
 		edge.parts << strip(RoadPartType::Guardrail, x, rail, U"guardrail_steel"); x += rail;
@@ -196,17 +217,21 @@ namespace ExpresswayCrossSection
 		return 4 * c.expressway_rampLaneWidth + 2 * c.expressway_rampOuterShoulder + 1.0f + 2 * c.expressway_guardrailWidth;
 	}
 
+	/// @brief 料金所前の往復路の中央分離帯の幅 [m]。
+	inline constexpr float kTollSeparator = 1.0f;
+
 	/// @brief IC の料金所前後。A→B が本線から一般道へ出る向き（左側 2 車線）。
 	inline void applyTollStem(RoadEdge& edge)
 	{
 		using namespace detail;
 		const auto& c = GenerationSettings::get();
-		const float width = c.expressway_rampLaneWidth, separator = 1.0f;
+		const float width = c.expressway_rampLaneWidth, separator = kTollSeparator;
 		edge.roadType = RoadType::Expressway;
 		edge.speedLimit = 40;
 		edge.lanes.clear();
-		for (int i = 0; i < 2; ++i) { edge.lanes << lane(-separator * .5f - (2 - i) * width, width, LaneDir::Forward, i == 0 ? LineType::SolidWhite : LineType::DashedWhite, i == 1 ? LineType::SolidWhite : LineType::DashedWhite); }
-		for (int i = 0; i < 2; ++i) { edge.lanes << lane(separator * .5f + i * width, width, LaneDir::Backward, i == 0 ? LineType::SolidWhite : LineType::DashedWhite, i == 1 ? LineType::SolidWhite : LineType::DashedWhite); }
+		// 料金所の前後（料金所広場）は車線を区切る線を引かない。ブースの島へ向けて車が自由に寄る。
+		for (int i = 0; i < 2; ++i) { edge.lanes << lane(-separator * .5f - (2 - i) * width, width, LaneDir::Forward, LineType::None, LineType::None); }
+		for (int i = 0; i < 2; ++i) { edge.lanes << lane(separator * .5f + i * width, width, LaneDir::Backward, LineType::None, LineType::None); }
 		edge.parts.clear();
 		const float roadway = 2 * width, outer = separator * .5f + roadway;
 		edge.parts << strip(RoadPartType::Guardrail, -outer - c.expressway_rampOuterShoulder - c.expressway_guardrailWidth, c.expressway_guardrailWidth, U"guardrail_steel");

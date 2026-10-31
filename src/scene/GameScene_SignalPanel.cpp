@@ -230,7 +230,7 @@ namespace
 					const double off = static_cast<double>(cap.isNodeA ? rawOffset : -rawOffset) * kScale;
 					const Vec2 p0 = cap.center + rt * off;
 					const Vec2 p1 = p0 + dn * armLen;
-					const bool dashed = (lt == LineType::DashedWhite);
+					const bool dashed = (lt == LineType::DashedWhite || lt == LineType::DashedWhiteThick);
 					if (dashed)
 					{
 						for (double dd = 0; dd < armLen; dd += 10.0)

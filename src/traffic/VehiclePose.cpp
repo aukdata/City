@@ -1,5 +1,6 @@
 ﻿#include "VehiclePose.hpp"
 #include "../world/World.hpp"
+#include "TrafficCommon.hpp"
 
 namespace
 {
@@ -42,7 +43,7 @@ Optional<Vehicle> VehiclePose::resolve(const Vehicle& vehicle,const RoadNetwork&
 	result.id = vehicle.id; result.type = vehicle.type; result.speed = vehicle.speed;
 	result.currentEdge = vehicle.currentEdge; result.currentLane = vehicle.currentLane; result.arcPos = vehicle.arcPos;
 	result.location = vehicle.location; result.connectionNodeId = vehicle.connectionNodeId; result.connectionId = vehicle.connectionId;
-	result.laneFrom = vehicle.laneFrom; result.laneTo = vehicle.laneTo; result.laneChangeBlend = vehicle.laneChangeBlend;
+	result.laneFrom = vehicle.laneFrom; result.laneTo = vehicle.laneTo; result.laneChangeBlend = vehicle.laneChangeBlend; result.laneChangeDuration = vehicle.laneChangeDuration;
 	Vec3 tangent;bool designed=false;
 	if (vehicle.location==VehicleLocation::OnConnection)
 	{
@@ -60,9 +61,21 @@ Optional<Vehicle> VehiclePose::resolve(const Vehicle& vehicle,const RoadNetwork&
 		const bool changing=vehicle.location==VehicleLocation::ChangingLane;
 		const int lane=changing ? vehicle.laneFrom : vehicle.currentLane;
 		result.position=lanePosition(*curve,*edge,lane,vehicle.arcPos);
-		if (changing) { result.position=result.position.lerp(lanePosition(*curve,*edge,vehicle.laneTo,vehicle.arcPos),vehicle.laneChangeBlend); }
+		Vec3 lateral{};
+		if (changing)
+		{
+			// 横移動は S 字の進み具合で、車体は横へ動く速さの分だけ進行方向を振る（横滑りに見せない）。
+			const Vec3 target=lanePosition(*curve,*edge,vehicle.laneTo,vehicle.arcPos);
+			lateral=target-result.position;
+			result.position=result.position.lerp(target,TrafficConfig::laneChangeProgress(vehicle.laneChangeBlend));
+		}
 		tangent=curve->tangentAt(Clamp(vehicle.arcPos,0.0f,curve->totalLength));
 		if (InRange(lane,0,static_cast<int>(edge->lanes.size())-1) && edge->lanes[lane].dir==LaneDir::Backward) { tangent=-tangent; }
+		if (changing && !tangent.isZero())
+		{
+			const double rate=TrafficConfig::laneChangeProgressRate(vehicle.laneChangeBlend)/Max(.1,static_cast<double>(vehicle.laneChangeDuration));
+			tangent=tangent.normalized()*Max(1.0,static_cast<double>(vehicle.speed))+Vec3{lateral.x,0,lateral.z}*rate;
+		}
 		designed=edge->usesDesignHeight();
 	}
 	if (!designed && world) { result.position.y=world->sampleHeight(static_cast<float>(result.position.x),static_cast<float>(result.position.z)); }

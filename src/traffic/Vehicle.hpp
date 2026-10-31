@@ -133,6 +133,7 @@ struct Vehicle
 	int          laneFrom        = -1;    ///< ChangingLane 時の元車線
 	int          laneTo          = -1;    ///< ChangingLane 時の目標車線
 	float        laneChangeBlend = 0.0f;  ///< ChangingLane 時のブレンド [0,1]
+	float        laneChangeDuration = 0.5f; ///< ChangingLane にかける時間 [game sec]
 
 	// 一時停止
 	float        stopSignWait    = 0.0f;  ///< 一時停止の残り待機時間 [game sec]

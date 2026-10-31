@@ -55,6 +55,8 @@ namespace GuideSign
 
 	// ===== 寸法定数 =====
 
+	constexpr double kTexturePxPerM = 180.0;  ///< 板面テクスチャの解像度 [px/m]（Arrow の arrowLength はこの px 単位）
+
 	constexpr float  kPoleHeight_m     = 3.5f;   ///< ポール高さ既定値 [m]
 	constexpr float  kSideMargin_m     = 0.5f;   ///< 路肩外側へのマージン [m]
 	constexpr double kBoardRowHeight_m = 0.35;   ///< 1 行分の高さ [m]

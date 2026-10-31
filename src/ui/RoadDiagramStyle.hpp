@@ -31,6 +31,7 @@ namespace RoadDiagramStyle
 		{
 		case LineType::SolidWhite:  return ColorF{1.0, 1.0, 1.0};
 		case LineType::DashedWhite: return ColorF{1.0, 1.0, 1.0, 0.5};
+		case LineType::DashedWhiteThick: return ColorF{1.0, 1.0, 1.0, 0.7};
 		case LineType::SolidYellow: return ColorF{1.0, 0.9, 0.0};
 		case LineType::DoubleYellow:return ColorF{1.0, 0.9, 0.0};
 		default:                    return ColorF{0, 0, 0, 0};

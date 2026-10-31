@@ -194,10 +194,12 @@ private:
 		Vec3   poleTop;
 		Mesh   boardMesh,backMesh;    ///< 板寸法ごとに生成される平面メッシュ
 		uint64 texKey = 0;   ///< m_guideSignTexCache のキー
+		bool   overhead = false;      ///< 門型（片持ちの柱を描かない）
+		Mesh   gantryMesh;            ///< 門型の柱と梁（ワールド座標）。隣の板の門型に掛ける板は空
 	};
 
 	/// @brief Captured metadata and CPU geometry only; no graphics assets enter workers.
-	struct GuideSignMeshData { Mat4x4 poleMat,boardMat; Vec3 poleTop; MeshData board,back; uint64 texKey=0; };
+	struct GuideSignMeshData { Mat4x4 poleMat,boardMat; Vec3 poleTop; MeshData board,back; uint64 texKey=0; bool overhead=false; MeshData gantry; };
 	struct DetailInput
 	{
 		RoadEdge edge; CubicBezier curve; HeightSnapshot heights;

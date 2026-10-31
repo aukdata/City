@@ -16,7 +16,7 @@ namespace
 	using GuideSign::resolveBgColor;
 
 	/// @brief 看板テクスチャの解像度（リファレンス準拠の高解像度）
-	constexpr double kPxPerM = 180.0;
+	constexpr double kPxPerM = GuideSign::kTexturePxPerM;
 
 	// ===== Vertex 構築 =====
 
@@ -156,11 +156,12 @@ namespace
 	/// @param x0, y0   始点（シャフト末端）[px]
 	/// @param length   全長 [px]（シャフト＋矢頭）
 	/// @param angleDeg 先端方向 [度] : 0=上, 90=右, 180=下, 270=左
-	void drawArrow(double x0, double y0, double length, double angleDeg, const ColorF& col)
+	/// @param widthScale 矢の太さ・矢頭の倍率（高速道路の大きな板では 1 より大きい）
+	void drawArrow(double x0, double y0, double length, double angleDeg, const ColorF& col, double widthScale = 1.0)
 	{
-		const double shaftHalf = GuideSign::kArrowShaftWidth * 0.5;
-		const double headHalf  = GuideSign::kArrowHeadWidth  * 0.5;
-		const double shaftLen  = Max(0.0, length - GuideSign::kArrowHeadHeight);
+		const double shaftHalf = GuideSign::kArrowShaftWidth * 0.5 * widthScale;
+		const double headHalf  = GuideSign::kArrowHeadWidth  * 0.5 * widthScale;
+		const double shaftLen  = Max(0.0, length - GuideSign::kArrowHeadHeight * widthScale);
 
 		// ローカル座標: y=0 が始点、y=-length が矢頭先端（angle=0 で上向き）
 		Array<Vec2> pts = {
@@ -209,7 +210,7 @@ namespace
 		const double borderPx = Max(2.0, texSize.y * 0.015);
 		const double insetPx  = borderPx * 2.0;
 		const ColorF background = resolveBgColor(g.bgColor);
-		if (background.r + background.g + background.b < .3)
+		if (Max(background.r, Max(background.g, background.b)) < .12)
 		{
 			// 道路情報板（黒地の文字表示板）は白縁でなく、灰色の筐体の枠で囲む。
 			Rect{ 0, 0, texSize }.drawFrame(borderPx * 3.0, 0.0, ColorF{ .42, .43, .44 });
@@ -219,16 +220,19 @@ namespace
 			RectF{ insetPx, insetPx, texSize.x - insetPx * 2, texSize.y - insetPx * 2 }
 				.drawFrame(borderPx, 0.0, ColorF{ 1, 1, 1 });
 		}
-		constexpr ColorF fg{ 1, 1, 1 };
+		// 英数字だけの文字（距離・番号・路線番号・ローマ字）は欧文書体で描く。
+		const auto ascii = [](const String& text) { return text.all([](char32 ch) { return ch < 0x80; }); };
+		const auto fontFor = [&](const String& text) -> const Font& { return ascii(text) ? fontNum : fontJa; };
 
 		for (const auto& el : g.elements)
 		{
 			const double cx = el.posX * texSize.x;
 			const double cy = el.posY * texSize.y;
+			const ColorF fg = el.ink;
 
 			if (el.kind == SignElementKind::Arrow)
 			{
-				drawArrow(cx, cy, el.arrowLength, el.arrowAngle, fg);
+				drawArrow(cx, cy, el.arrowLength, el.arrowAngle, fg, el.scale > 0 ? el.scale : 1.0);
 			}
 			else if (el.kind == SignElementKind::ArrowNoHead)
 			{
@@ -237,10 +241,28 @@ namespace
 			else if (el.kind == SignElementKind::Text)
 			{
 				const double th = GuideSignLayout::DirectionArrow::UpTextH * texSize.y * el.scale;
-				fontJa(el.text).drawAt(th, Vec2{ cx, cy }, fg);
+				const Font& font = fontFor(el.text);
+				const double width = font(el.text).region(th).w;
+				font(el.text).draw(th, Arg::leftCenter = Vec2{ cx - width * el.align, cy }, fg);
 				if (g.showReading && !el.reading.isEmpty())
 				{
-					fontNum(el.reading).drawAt(th * 0.42, Vec2{ cx, cy + th * 0.68 }, fg);
+					const double readingWidth = fontNum(el.reading).region(th * 0.42).w;
+					fontNum(el.reading).draw(th * 0.42, Arg::leftCenter = Vec2{ cx - readingWidth * el.align, cy + th * 0.68 }, fg);
+				}
+			}
+			else if (el.kind == SignElementKind::Panel)
+			{
+				// 番号枠・路線名板・区分線: 角丸の板に文字（2 行目は reading）。
+				const SizeF size{ el.boxW * texSize.x, el.boxH * texSize.y };
+				const RoundRect box{ RectF{ Arg::center = Vec2{ cx, cy }, size }, Min(size.x, size.y) * 0.14 };
+				if (el.fill.a > 0) { box.draw(el.fill); }
+				else { box.drawFrame(Max(1.5, texSize.y * 0.012), fg); }
+				if (!el.text.isEmpty())
+				{
+					const double th = el.scale * texSize.y;
+					const bool twoLines = !el.reading.isEmpty();
+					fontFor(el.text)(el.text).drawAt(th, Vec2{ cx, twoLines ? cy - th * 0.22 : cy }, fg);
+					if (twoLines) { fontNum(el.reading).drawAt(th * 0.42, Vec2{ cx, cy + th * 0.5 }, fg); }
 				}
 			}
 			else if (el.kind == SignElementKind::DestName)

@@ -277,14 +277,13 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		}
 	};
 
-	// ── 自動車専用道の一方通行どうしの節点（本線の継ぎ目・分合流・変速車線の始終点） ──
+	// ── 自動車専用道どうしの節点（本線の継ぎ目・分合流・変速車線の始終点・料金所前の往復路の分かれ目） ──
 	// 交差点の方向別配分ではなく、節点での車線の横位置が近いものどうしをつなぐ。
 	// 合流するランプは変速車線へ、本線の各車線はそのまま隣の区間の同じ位置の車線へ入る。
 	const bool oneWayExpressway = node->attachments.size() >= 2 && node->attachments.all([&](const EdgeAttachment& attachment)
 	{
 		const RoadEdge* edge = getEdge(attachment.edgeId);
-		return edge && edge->roadType == RoadType::Expressway && !edge->lanes.isEmpty()
-			&& edge->lanes.all([](const Lane& lane) { return lane.dir == LaneDir::Forward; });
+		return edge && edge->roadType == RoadType::Expressway && !edge->lanes.isEmpty();
 	});
 	if (oneWayExpressway)
 	{
@@ -320,13 +319,15 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			}
 		}
 		const auto horizontal = [&](Vec3 a, Vec3 b) { const Vec2 d{ a.x - b.x, a.z - b.z }; return Abs(heading.x * d.y - heading.y * d.x); };
+		// 往復路の節点で、反対向きの車線へ折り返す接続を作らない。
+		const auto sameWay = [](const Placed& entry, const Placed& exit) { return entry.heading.dot(exit.heading) > .2; };
 		Array<bool> served(exits.size(), false);
 		for (const auto& entry : entries)
 		{
 			size_t best = exits.size(); double nearest = Math::Inf;
 			for (size_t i = 0; i < exits.size(); ++i)
 			{
-				if (exits[i].ref.edgeId == entry.ref.edgeId) { continue; }
+				if (exits[i].ref.edgeId == entry.ref.edgeId || !sameWay(entry, exits[i])) { continue; }
 				const double distance = horizontal(entry.position, exits[i].position);
 				if (distance < nearest - .05) { nearest = distance; best = i; }
 			}
@@ -339,7 +340,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 			const Placed* best = nullptr; double nearest = Math::Inf;
 			for (const auto& entry : entries)
 			{
-				if (entry.ref.edgeId == exits[i].ref.edgeId) { continue; }
+				if (entry.ref.edgeId == exits[i].ref.edgeId || !sameWay(entry, exits[i])) { continue; }
 				const double distance = horizontal(entry.position, exits[i].position);
 				if (distance < nearest - .05) { nearest = distance; best = &entry; }
 			}

@@ -78,6 +78,7 @@
     "earthworkRoadDistance",
     "borderMaximumRise",
     "terrainCostWeight",
+    "tunnelCostScale",
     "signScale",
     "antiGlareSpacing",
     "noiseBarrierPanel",
@@ -475,6 +476,11 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10.0
+    },
+    "tunnelCostScale": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 50.0
     },
     "signScale": {
       "type": "number",

@@ -73,6 +73,7 @@
   "earthworkRoadDistance": 110,
   "borderMaximumRise": 250,
   "terrainCostWeight": 0.8,
+  "tunnelCostScale": 3,
   "signScale": 1.8,
   "antiGlareSpacing": 2.0,
   "noiseBarrierPanel": 4.0,

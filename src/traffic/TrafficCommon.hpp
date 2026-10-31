@@ -15,7 +15,10 @@ namespace TrafficConfig
 
 	// ── 車線変更 ──
 	constexpr float kLaneChangeProbability  = 0.01f;  ///< フレームあたり試行確率
-	constexpr float kLaneChangeBlendRate    = 2.0f;   ///< ブレンド速度 [1/s]
+	constexpr float kLaneChangeMinDuration  = 1.5f;   ///< 低速時の車線変更時間 [s]
+	constexpr float kLaneChangeDurationPerSpeed = 0.09f; ///< 速度 1m/s あたりの追加時間 [s]（100km/h で約 4s・110m）
+	constexpr float kLaneChangeMaxDuration  = 4.5f;   ///< 車線変更時間の上限 [s]
+	constexpr float kLaneChangeShortestDuration = 0.8f; ///< 出口が迫るときに縮める下限 [s]
 	constexpr float kRightLaneGapMultiplier = 4.0f;   ///< 右車線変更 gap 閾値倍率
 
 	// ── 速度低減 ──
@@ -33,6 +36,26 @@ namespace TrafficConfig
 
 	// ── 単位変換 ──
 	constexpr float kKmhToMps = 3.6f;  ///< km/h ÷ kKmhToMps = m/s
+
+	/// @brief 速度に応じた車線変更の所要時間 [s]。実車は高速道路で 3〜5 秒かけて隣の車線へ移る。
+	inline float laneChangeDuration(float speed)
+	{
+		return Clamp(kLaneChangeMinDuration + Max(0.0f, speed) * kLaneChangeDurationPerSpeed, kLaneChangeMinDuration, kLaneChangeMaxDuration);
+	}
+
+	/// @brief 車線変更の横移動の進み具合（なめらかに始まりなめらかに終わる S 字）。
+	inline double laneChangeProgress(double blend)
+	{
+		const double t = Clamp(blend, 0.0, 1.0);
+		return t * t * (3 - 2 * t);
+	}
+
+	/// @brief laneChangeProgress の blend に対する傾き。
+	inline double laneChangeProgressRate(double blend)
+	{
+		const double t = Clamp(blend, 0.0, 1.0);
+		return 6 * t * (1 - t);
+	}
 }
 
 /// @brief 交通シミュレーション共通ユーティリティ

@@ -59,6 +59,7 @@ enum class LineType : uint8
 	DashedWhite,    ///< 白破線（車線変更可）
 	SolidYellow,    ///< 黄実線（追い越し禁止）
 	DoubleYellow,   ///< 黄二重線
+	DashedWhiteThick, ///< 白の太い破線（本線と加速・減速車線の境界。幅 45cm・線 3m・間隔 3m）
 };
 
 /// @brief ノード種別
@@ -237,6 +238,7 @@ enum class SignElementKind : uint8
 	RouteNumber,  ///< 国道番号アイコン（おにぎり型テクスチャ＋番号）value に番号を格納
 	DestName,     ///< 地名＋読み（左寄せ）
 	DestDistance, ///< 距離数字のみ表示、地名は参照保持
+	Panel,        ///< 角丸の板（地色 fill・縁/文字色 ink・文字 text）。番号枠・路線名・区分線に使う
 };
 
 struct SignElement
@@ -252,6 +254,12 @@ struct SignElement
 	float arrowAngle  = 0.0f;  ///< 矢印回転角 [度]（0=↑, 任意角度可）
 	float arrowLength = 0.0f;  ///< 矢印全長 [px]（始点から矢頭先端まで）
 	float value       = 0.0f;  ///< DestDistance: km 値
+	// Panel 用（Text・Arrow も ink で色を変えられる）
+	float boxW = 0.0f;         ///< 板の幅（盤面幅に対する比）
+	float boxH = 0.0f;         ///< 板の高さ（盤面高さに対する比）
+	ColorF ink{ 1, 1, 1, 1 };  ///< 文字・矢印・縁の色
+	ColorF fill{ 0, 0, 0, 0 }; ///< Panel の地色（alpha 0 なら塗らず ink の縁だけ）
+	float align = 0.5f;        ///< Text の横位置合わせ（0 = posX が左端、0.5 = 中央、1 = 右端）
 };
 
 /// @brief 案内標識配置情報（RoadNetwork::m_guideSigns で集中管理、id で紐付け）
@@ -272,6 +280,10 @@ struct GuideSignPlacement
 	float                 heightOverride = 0.0f; ///< 板高 [m]（0=自動）
 	ColorF                bgColor       { 21.0 / 255.0, 87.0 / 255.0, 161.0 / 255.0, 1.0 }; ///< 背景色。デフォルトは national_route.png 背景と同じ青。alpha=0 なら描画時にデフォルト青にフォールバック
 	bool                  showReading   = true;  ///< 下段にローマ字を表示するか
+	/// @brief 門型の支柱で車道の上に掲げる（高速道路の予告・分岐の標識）。lateralOffset は板の中心。
+	bool                  overhead      = false;
+	float                 gantryLeft    = 0.0f;  ///< 門型の左の柱の横位置 [m]（overhead で左右とも 0 なら柱を描かず、隣の板の門型に掛ける）
+	float                 gantryRight   = 0.0f;  ///< 門型の右の柱の横位置 [m]
 
 	/// @brief 看板要素（自由配置）。InferAutoForEdge も含めて常にここから描画する。
 	Array<SignElement>    elements;

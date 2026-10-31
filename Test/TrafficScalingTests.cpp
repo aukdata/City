@@ -4,6 +4,7 @@
 #include "src/traffic/BuildingAccess.hpp"
 #include "src/traffic/VehicleManager.hpp"
 #include "src/gen/StreetProfile.hpp"
+#include "src/gen/ExpresswayCrossSection.hpp"
 #include "src/asset/AssetRegistrar.hpp"
 #include <chrono>
 
@@ -244,6 +245,45 @@ void registerTrafficScalingTests(TestRunner& runner)
 		times.sort(); JSON report; report[U"cars"] = manager.vehicleCount(); report[U"medianUpdateMs"] = times[times.size()/2];
 		report[U"minimumBumperGap"] = minimumGap; report[U"stopped"] = stopped;
 		report.save(directory.previous + U"TestResults/traffic_full_simulation.json");
+	});
+	runner.add(U"TrafficScaling.ExpresswayJointKeepsSpeed", [](TestContext& context)
+	{
+		// 高速道路の本線は区間（エッジ）の継ぎ目で減速しない。継ぎ目の目標速度は前後の制限速度の平均。
+		context.expect(TrafficConfig::laneChangeDuration(0) >= 1.0f && TrafficConfig::laneChangeDuration(27.8f) >= 3.0f
+			&& TrafficConfig::laneChangeDuration(100) <= TrafficConfig::kLaneChangeMaxDuration, U"Lane changes take longer at expressway speed");
+		context.expect(TrafficConfig::laneChangeProgress(0) == 0 && TrafficConfig::laneChangeProgress(1) == 1 && TrafficConfig::laneChangeProgressRate(0) == 0,
+			U"Lane changes start and end without a lateral jump");
+		AppDirectory directory;
+		World world; world.reserveChunks();
+		for (int x = 0; x < 2; ++x) { world.installChunkDirect({x, 0}, HeightMapResult{Grid<float>(65, 65, 20), 20, 20}); }
+		RoadNetwork roads; Array<int> nodes, edges;
+		for (const double x : {50.0, 650.0, 1250.0, 1850.0}) { nodes << roads.addNode(Vec3{x, 20, 500}); }
+		for (int i = 0; i < 3; ++i)
+		{
+			const Vec3 a = roads.getNode(nodes[i])->position, b = roads.getNode(nodes[i + 1])->position;
+			const int id = *roads.addEdge(nodes[i], nodes[i + 1], a.lerp(b, 1.0 / 3), a.lerp(b, 2.0 / 3), RoadType::Expressway, 2);
+			auto* road = roads.getEdge(id); ExpresswayCrossSection::applyCarriageway(*road, {}); road->edgeState = EdgeState::Open;
+			edges << id;
+		}
+		for (const int node : nodes) { roads.updateNodeCutoffs(node); roads.rebuildLaneConnections(node); }
+		const auto graph = SimGraph::build(roads);
+		TrafficGraph routes; routes.rebuild(graph, 0, {});
+		VehicleManager manager; manager.init(graph, roads, &world);
+		TrafficDemand demand; demand.targetVehicleCount = 0; manager.setTrafficDemand(demand);
+		manager.spawnOnEdge(edges[0], graph, VehicleType::PassengerCar, edges[2]);
+		Optional<float> cruise; float slowest = Math::Inf; bool crossed = false;
+		for (int frame = 0; frame < 2400 && !manager.vehicles().isEmpty(); ++frame)
+		{
+			manager.update(.05, frame * .05, graph, roads, {});
+			resolveTrips(manager, graph, routes);
+			const auto& car = manager.vehicles().front();
+			// 2 本目の区間の後半で巡航速度を測り、3 本目の区間の前半まで（継ぎ目を含む）の最低速度と比べる。
+			if (car.currentEdge == edges[1] && car.location == VehicleLocation::OnLane && car.arcPos > 400 && !cruise) { cruise = car.speed; }
+			if (cruise) { slowest = Min(slowest, car.speed); }
+			if (car.currentEdge == edges[2] && car.location == VehicleLocation::OnLane && car.arcPos > 200) { crossed = true; break; }
+		}
+		context.expect(cruise.has_value() && crossed, U"The car drives through the joint");
+		context.expect(cruise && *cruise > 20 && slowest > *cruise * .95f, U"The car keeps its speed through the expressway joint ({} -> {} m/s)"_fmt(cruise.value_or(0), slowest));
 	});
 
 }

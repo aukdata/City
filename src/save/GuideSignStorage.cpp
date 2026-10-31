@@ -19,6 +19,12 @@ namespace
 		j[U"heightOverride"] = g.heightOverride;
 		j[U"bgColor"]        = Array<double>{ g.bgColor.r, g.bgColor.g, g.bgColor.b, g.bgColor.a };
 		j[U"showReading"]    = g.showReading;
+		if (g.overhead)
+		{
+			j[U"overhead"]    = true;
+			j[U"gantryLeft"]  = g.gantryLeft;
+			j[U"gantryRight"] = g.gantryRight;
+		}
 
 		JSON elems;
 		for (const auto& el : g.elements)
@@ -33,6 +39,11 @@ namespace
 			ej[U"arrowAngle"]  = el.arrowAngle;
 			ej[U"arrowLength"] = el.arrowLength;
 			ej[U"value"]       = el.value;
+			ej[U"boxW"]        = el.boxW;
+			ej[U"boxH"]        = el.boxH;
+			ej[U"ink"]         = Array<double>{ el.ink.r, el.ink.g, el.ink.b, el.ink.a };
+			ej[U"fill"]        = Array<double>{ el.fill.r, el.fill.g, el.fill.b, el.fill.a };
+			ej[U"align"]       = el.align;
 			elems.push_back(ej);
 		}
 		j[U"elements"] = elems;
@@ -57,6 +68,13 @@ namespace
 		const auto& bg   = j[U"bgColor"];
 		g.bgColor        = ColorF{ bg[0].get<double>(), bg[1].get<double>(), bg[2].get<double>(), bg[3].get<double>() };
 		g.showReading    = j[U"showReading"].get<bool>();
+		// 門型・Panel の項目は後から足したため、古い保存には無い。
+		if (j.hasElement(U"overhead"))
+		{
+			g.overhead    = j[U"overhead"].get<bool>();
+			g.gantryLeft  = j[U"gantryLeft"].get<float>();
+			g.gantryRight = j[U"gantryRight"].get<float>();
+		}
 		for (const auto& [key, val] : j[U"elements"])
 		{
 			SignElement el;
@@ -69,6 +87,17 @@ namespace
 			el.arrowAngle  = val[U"arrowAngle"].get<float>();
 			el.arrowLength = val[U"arrowLength"].get<float>();
 			el.value       = val[U"value"].get<float>();
+			if (val.hasElement(U"boxW")) { el.boxW = val[U"boxW"].get<float>(); }
+			if (val.hasElement(U"boxH")) { el.boxH = val[U"boxH"].get<float>(); }
+			const auto color = [&](StringView key, ColorF& out)
+			{
+				if (!val.hasElement(key)) { return; }
+				const auto& c = val[key];
+				out = ColorF{ c[0].get<double>(), c[1].get<double>(), c[2].get<double>(), c[3].get<double>() };
+			};
+			color(U"ink", el.ink);
+			color(U"fill", el.fill);
+			if (val.hasElement(U"align")) { el.align = val[U"align"].get<float>(); }
 			g.elements << el;
 		}
 		return g;

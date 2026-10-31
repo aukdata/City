@@ -382,7 +382,7 @@ namespace
 		// ========== Lanes セクション ==========
 		{
 			static constexpr StringView osN[] = { U"開放", U"暫定供用", U"閉鎖", U"予約" };
-			static constexpr StringView lnN[] = { U"なし", U"白実線", U"白破線", U"黄実線", U"黄二重線" };
+			static constexpr StringView lnN[] = { U"なし", U"白実線", U"白破線", U"黄実線", U"黄二重線", U"白太破線" };
 			static constexpr StringView drN[] = { U"順方向", U"逆方向" };
 
 			if (PanelWidget::section(pBold, U"車線 ({})"_fmt(edge.lanes.size()), st.lanesCollapsed, pX, y, kSectionW, kLH))
@@ -669,11 +669,11 @@ namespace
 						bx = pX + 4;
 						PanelWidget::label(pFont, U"左区画線", bx, y, ColorF{0.6});
 						bx += 48;
-						dirty |= PanelWidget::cycle(pFont, sl.lineLeft, lnN, 5, bx, y, 66, kLH);
+						dirty |= PanelWidget::cycle(pFont, sl.lineLeft, lnN, 6, bx, y, 66, kLH);
 						bx += 70;
 						PanelWidget::label(pFont, U"R", bx, y, ColorF{0.6});
 						bx += 14;
-						dirty |= PanelWidget::cycle(pFont, sl.lineRight, lnN, 5, bx, y, 66, kLH);
+						dirty |= PanelWidget::cycle(pFont, sl.lineRight, lnN, 6, bx, y, 66, kLH);
 						y += kLH;
 
 						bx = pX + 4;

@@ -8,16 +8,17 @@ namespace RailCostProfile
 {
 	struct Sample { Vec2 position; double ground=0,minimum=0,maximum=0,roadClearance=-1e9,underpass=1e9; };
 	struct Result { Array<double> heights; double cost=Math::Inf; bool feasible=false; };
-	inline double unitCost(double difference)
+	/// @param tunnelScale トンネル区間の費用倍率（道路は断面が広いほど大きい）
+	inline double unitCost(double difference,double tunnelScale=1.0)
 	{
-		if (difference < -GenerationSettings::get().railway_maximumCut) { return GenerationSettings::get().railway_tunnelCost+Abs(difference)*GenerationSettings::get().railway_tunnelDepthCost; }
+		if (difference < -GenerationSettings::get().railway_maximumCut) { return (GenerationSettings::get().railway_tunnelCost+Abs(difference)*GenerationSettings::get().railway_tunnelDepthCost)*tunnelScale; }
 		if (difference<0) { return 1.0+Square(difference)*GenerationSettings::get().railway_cutCostSquared; }
 		if (difference<=GenerationSettings::get().railway_maximumFill) { return 1.0+Square(difference)*GenerationSettings::get().railway_fillCostSquared; }
 		return GenerationSettings::get().railway_viaductBaseCost+difference*GenerationSettings::get().railway_viaductHeightCost+Square(difference)*GenerationSettings::get().railway_viaductHeightSquaredCost;
 	}
 	using ConstructionCost = std::function<double(const Sample&, double)>;
 	inline Result solve(const Array<Sample>& samples,double start,double end,double grade=GenerationSettings::get().railway_maximumGrade,
-		const ConstructionCost& constructionCost = {})
+		const ConstructionCost& constructionCost = {},double tunnelScale=1.0)
 	{
 		Result result; if (samples.size()<2) { return result; }
 		const double step=GenerationSettings::get().railway_profileHeightStep;
@@ -48,7 +49,7 @@ namespace RailCostProfile
 					if (Abs(slope)>grade+1e-8) { continue; }
 					const double cost = previous[from] + run * (constructionCost
 						? (constructionCost(samples[i-1], previousHeight) + constructionCost(samples[i], elevation)) * .5
-						: unitCost(elevation-samples[i].ground)+Square(slope/grade)*GenerationSettings::get().railway_gradeCost);
+						: unitCost(elevation-samples[i].ground,tunnelScale)+Square(slope/grade)*GenerationSettings::get().railway_gradeCost);
 					if (cost<next[level]) { next[level]=cost; parents[i*count+level]=from; }
 				}
 			}

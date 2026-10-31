@@ -1154,6 +1154,7 @@ GENERATION_SETTING(int, streetProfiles_street16_edgeLines, U"streetProfiles", U"
 GENERATION_SETTING(int, streetProfiles_street16_arterial, U"streetProfiles", U"street16_arterial", 0, 1)
 GENERATION_SETTING(double, expressway_borderMaximumRise, U"expressway", U"borderMaximumRise", 10, 3000)
 GENERATION_SETTING(double, expressway_terrainCostWeight, U"expressway", U"terrainCostWeight", 0, 10)
+GENERATION_SETTING(double, expressway_tunnelCostScale, U"expressway", U"tunnelCostScale", 0.1, 50)
 GENERATION_SETTING(double, expressway_signScale, U"expressway", U"signScale", 0.5, 4)
 GENERATION_SETTING(float, expressway_antiGlareSpacing, U"expressway", U"antiGlareSpacing", 0.5, 20)
 GENERATION_SETTING(float, expressway_noiseBarrierPanel, U"expressway", U"noiseBarrierPanel", 1, 20)

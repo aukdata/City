@@ -143,6 +143,8 @@ namespace
 		{
 		case LineType::SolidWhite:   return { ColorF{1,1,1}, 0.15f, 0, 0 };
 		case LineType::DashedWhite:  return { ColorF{1,1,1}, 0.15f, 8, 12 };
+		// 本線と変速車線の境界は、通常の車線境界線より太く短い周期の破線（幅 45cm、線 3m・間隔 3m）。
+		case LineType::DashedWhiteThick: return { ColorF{1,1,1}, 0.45f, 3, 3 };
 		// 日本の黄色の区画線は橙に近い（写真の実測で sRGB 0.95, 0.65, 0.15 付近）。
 		case LineType::SolidYellow:  return { ColorF{ 0.95, 0.64, 0.13 }, 0.16f, 0, 0 };
 		case LineType::DoubleYellow: return { ColorF{ 0.95, 0.64, 0.13 }, 0.16f, 0, 0 };

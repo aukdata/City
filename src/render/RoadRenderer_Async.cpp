@@ -98,8 +98,10 @@ void RoadRenderer::uploadCompletedDetails()
 			draw.poleMat = data.poleMat; draw.boardMat = data.boardMat;
 			draw.poleTop = data.poleTop; draw.texKey = data.texKey;
 			draw.boardMesh = Mesh{data.board}; draw.backMesh = Mesh{data.back};
+			draw.overhead = data.overhead;
+			if (!data.gantry.indices.isEmpty()) { draw.gantryMesh = Mesh{data.gantry}; }
 			job.uploadedGuides << std::move(draw);
-			data.board = {}; data.back = {};
+			data.board = {}; data.back = {}; data.gantry = {};
 		}
 		if (job.furnitureIndex == result.furniture.size() && job.guideIndex == result.guides.size())
 		{

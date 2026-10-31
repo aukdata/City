@@ -5,6 +5,7 @@
 #include "../road/RoadGeometry.hpp"
 #include "../road/RoadEnvironment.hpp"
 #include "../asset/AssetRegistrar.hpp"
+#include "MeshGeometry.hpp"
 
 template<class Heights>
 static bool signTransforms(const CubicBezier& bezier, const Heights& world,
@@ -56,6 +57,52 @@ static bool signTransforms(const CubicBezier& bezier, const Heights& world,
 			static_cast<float>(anchorZ) });
 	outPoleTop = Vec3{ anchorX, groundY + boardOffsetY, anchorZ };
 	return true;
+}
+
+namespace
+{
+	constexpr float kGantryClearance = 5.2f;  ///< 門型標識の板の下端の路面からの高さ [m]（建築限界 4.5m に余裕）
+
+	/// @brief 門型の柱と梁（トラス）をワールド座標で作る。柱は路側の外、梁は板の裏。
+	template<class Heights>
+	MeshData gantryMesh(const CubicBezier& bezier, const Heights& world, float arc, const RoadEdge& edge,
+		float left, float right, float beamBottom, float beamTop)
+	{
+		MeshData mesh;
+		if (arc < 0.0f || arc > bezier.totalLength || Abs(right - left) < 1.0f) { return mesh; }
+		const Vec3 roadPos = bezier.positionAt(arc);
+		const Vec3 side = tangentToRight(bezier.tangentAt(arc));
+		const Vec2 across = Vec2{ side.x, side.z }.lengthSq() > 1e-12 ? Vec2{ side.x, side.z }.normalized() : Vec2{ 1, 0 };
+		const float angle = static_cast<float>(Atan2(across.y, across.x));
+		const auto groundAt = [&](const Vec3& p)
+		{
+			return (edge.usesDesignHeight() ? roadPos.y : static_cast<double>(world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z)))) + kRoadSurfaceLift;
+		};
+		const double road = groundAt(roadPos);
+		const auto at = [&](float lateral) { return Vec3{ roadPos.x + across.x * lateral, 0.0, roadPos.z + across.y * lateral }; };
+		const double top = road + beamTop + .3;
+		for (const float lateral : { left, right })
+		{
+			Vec3 base = at(lateral);
+			const double ground = groundAt(base);
+			base.y = (ground + top) * .5;
+			MeshGeometry::appendOrientedBox(mesh, base, Float3{ .45f, static_cast<float>(top - ground), .45f }, angle);
+		}
+		const float span = Abs(right - left);
+		const Vec3 middle = at((left + right) * .5f);
+		// 上下の弦材と、3m ごとの束材。
+		for (const double height : { road + beamBottom + .15, road + beamTop - .15 })
+		{
+			MeshGeometry::appendOrientedBox(mesh, Vec3{ middle.x, height, middle.z }, Float3{ span, .28f, .28f }, angle);
+		}
+		const int verticals = Max(1, static_cast<int>(span / 3.0f));
+		for (int i = 0; i <= verticals; ++i)
+		{
+			const Vec3 p = at(Math::Lerp(left, right, i / static_cast<double>(verticals)));
+			MeshGeometry::appendOrientedBox(mesh, Vec3{ p.x, road + (beamBottom + beamTop) * .5, p.z }, Float3{ .12f, static_cast<float>(beamTop - beamBottom), .12f }, angle);
+		}
+		return mesh;
+	}
 }
 
 bool RoadRenderer::computeSignTransforms(const CubicBezier& bezier, const World& world,
@@ -389,6 +436,12 @@ namespace
 			mixFloat(el.posY);
 			mixFloat(el.scale);
 			mixFloat(el.arrowAngle);
+			mixFloat(el.arrowLength);
+			mixFloat(el.value);
+			mixFloat(el.boxW);
+			mixFloat(el.boxH);
+			mixFloat(el.align);
+			for (const double channel : { el.ink.r, el.ink.g, el.ink.b, el.ink.a, el.fill.r, el.fill.g, el.fill.b, el.fill.a }) { mixFloat(static_cast<float>(channel)); }
 			mixStr(el.text);
 			mixStr(el.reading);
 		}
@@ -470,10 +523,22 @@ Optional<RoadRenderer::GuideSignDraw> RoadRenderer::buildGuideSignDraw(
 	const float arc = atA ? cutoff + sign.arcOffset : curve->totalLength - cutoff - sign.arcOffset;
 	const auto& meta = GuideSign::poleMetadata();
 	GuideSignDraw draw;
-	if (!computeSignTransforms(*curve, world, arc, sign.lateralOffset, !atA,
-		meta.offsetX, meta.offsetY, meta.offsetZ, *edge,
-		draw.poleMat, draw.boardMat, draw.poleTop)) { return none; }
 	const auto size = GuideSign::computeBoardSizeFor(sign);
+	// 門型は板の中心を車線の上に置き、下端を建築限界より上へ。柱は板ごとの左右の位置に立てる。
+	const float boardX = sign.overhead ? 0.0f : meta.offsetX;
+	const float boardY = sign.overhead ? kGantryClearance + static_cast<float>(size.height) * .5f : meta.offsetY;
+	const float boardZ = sign.overhead ? .35f : meta.offsetZ;
+	if (!computeSignTransforms(*curve, world, arc, sign.lateralOffset, !atA,
+		boardX, boardY, boardZ, *edge,
+		draw.poleMat, draw.boardMat, draw.poleTop)) { return none; }
+	draw.overhead = sign.overhead;
+	if (sign.overhead)
+	{
+		// 柱の横位置は板の lateralOffset と同じくエッジの A→B 向きに対する左右。
+		const MeshData gantry = gantryMesh(*curve, world, arc, *edge, sign.gantryLeft, sign.gantryRight,
+			kGantryClearance - .3f, kGantryClearance + static_cast<float>(size.height) + .1f);
+		if (!gantry.indices.isEmpty()) { draw.gantryMesh = Mesh{ gantry }; }
+	}
 	const MeshData mesh = GuideSign::CreateBoardMesh(size.width, size.height);
 	if (!mesh.vertices.isEmpty()) { draw.boardMesh=Mesh{mesh};draw.backMesh=Mesh{RoadSign::CreateBoardBackingMesh(mesh)}; }
 	draw.texKey = guideSignTexKey(sign);
@@ -491,10 +556,19 @@ Array<RoadRenderer::GuideSignMeshData> RoadRenderer::buildSnapshotGuides(const D
 		const float arc = atA ? cutoff + sign.arcOffset : curve->totalLength - cutoff - sign.arcOffset;
 		const auto& meta = input.guideMeta;
 		GuideSignMeshData draw;
-		if (!signTransforms(*curve, world, arc, sign.lateralOffset, !atA,
-			meta.offsetX, meta.offsetY, meta.offsetZ, *edge,
-			draw.poleMat, draw.boardMat, draw.poleTop)) { continue; }
 		const auto size = GuideSign::computeBoardSizeFor(sign);
+		const float boardX = sign.overhead ? 0.0f : meta.offsetX;
+		const float boardY = sign.overhead ? kGantryClearance + static_cast<float>(size.height) * .5f : meta.offsetY;
+		const float boardZ = sign.overhead ? .35f : meta.offsetZ;
+		if (!signTransforms(*curve, world, arc, sign.lateralOffset, !atA,
+			boardX, boardY, boardZ, *edge,
+			draw.poleMat, draw.boardMat, draw.poleTop)) { continue; }
+		draw.overhead = sign.overhead;
+		if (sign.overhead)
+		{
+			draw.gantry = gantryMesh(*curve, world, arc, *edge, sign.gantryLeft, sign.gantryRight,
+				kGantryClearance - .3f, kGantryClearance + static_cast<float>(size.height) + .1f);
+		}
 		const MeshData mesh = GuideSign::CreateBoardMesh(size.width, size.height);
 		if (!mesh.vertices.isEmpty()) { draw.board=mesh;draw.back=RoadSign::CreateBoardBackingMesh(mesh); }
 		draw.texKey = guideSignTexKey(sign);
@@ -553,7 +627,8 @@ void RoadRenderer::drawGuideSignSilhouette(int signId, const RoadNetwork& networ
 		const auto draw = buildGuideSignDraw(sign, network, world);
 		if (!draw) { return; }
 		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
-		if (ensureGuidePoleMesh()) { m_guidePoleMesh->draw(draw->poleMat, color); }
+		if (draw->overhead) { if (!draw->gantryMesh.isEmpty()) { draw->gantryMesh.draw(color); } }
+		else if (ensureGuidePoleMesh()) { m_guidePoleMesh->draw(draw->poleMat, color); }
 		if (!draw->boardMesh.isEmpty()) { draw->boardMesh.draw(draw->boardMat, color); }
 		return;
 	}
@@ -570,6 +645,11 @@ void RoadRenderer::drawGuideSigns(const Array<GuideSignDraw>& draws)
 		const ScopedRenderStates3D states{ RasterizerState::SolidCullNone };
 		for (const auto& d : draws)
 		{
+			if (d.overhead)
+			{
+				if (!d.gantryMesh.isEmpty()) { d.gantryMesh.draw(RoadSign::kPoleColor.removeSRGBCurve()); }
+				continue;
+			}
 			const Vec3 position{d.poleMat.transformPoint(Float3{0,0,0})};
 			const double distance = position.distanceFromSq(Vec3{Graphics3D::GetEyePosition()});
 			const int lod = distance < 120*120 ? 0 : (distance < 300*300 ? 1 : 2);
