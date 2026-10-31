@@ -1,6 +1,7 @@
 ﻿#include "WorldRenderer.hpp"
 #include "TerrainSurfaceGeometry.hpp"
 #include "TerrainMaterials.hpp"
+#include "RegionalTerrain.hpp"
 #include "../debug/DebugLog.hpp"
 #include "../road/RoadGeometry.hpp"
 #include "../road/JunctionGeometry.hpp"
@@ -883,6 +884,9 @@ void WorldRenderer::invalidateTerrainForNode(int nodeId)
 void WorldRenderer::invalidateAllTerrain()
 {
 	m_regionalTerrain.clear();
+	m_backdropSource = MeshData{};
+	m_backdropTerrain.clear();
+	m_backdropChunks.clear();
 	m_transportSitesDirty=true;
 	++m_terrainEpoch;
 	m_treeCache.clear();
@@ -896,3 +900,30 @@ void WorldRenderer::invalidateAllTerrain()
 	m_chunkSubtractorPrimed = false;
 }
 
+void WorldRenderer::drawBackdropTerrain(const World& world, const Array<Chunk*>& activeChunks)
+{
+	Array<Point> chunks;
+	for (const auto* chunk : activeChunks) { if (chunk) { chunks << chunk->coord; } }
+	chunks.sort_by([](Point a, Point b) { return a.y != b.y ? a.y < b.y : a.x < b.x; });
+	if (m_backdropSource.vertices.isEmpty())
+	{
+		m_backdropSource = RegionalTerrain::build(world);
+		m_backdropChunks.clear();
+	}
+	if (chunks != m_backdropChunks)
+	{
+		const Stopwatch timer{ StartImmediately::Yes };
+		HashSet<Point> excluded;
+		for (const auto chunk : chunks) { excluded.emplace(chunk); }
+		m_backdropTerrain.clear();
+		for (const auto& batch : RegionalTerrain::backdrop(m_backdropSource, excluded))
+		{
+			if (!batch.data.indices.isEmpty()) { m_backdropTerrain << TerrainMeshBatch{ batch.materialKey, DynamicMesh{ batch.data } }; }
+		}
+		m_backdropChunks = std::move(chunks);
+		DBG_LOG(U"[BackdropTerrain] excluded={} buildMs={:.2f}"_fmt(excluded.size(), timer.msF()));
+	}
+	const ScopedCustomShader3D shader{ m_terrainShader };
+	Graphics3D::SetPSTexture(2, TextureAsset(Asset::CoastSand));
+	for (const auto& batch : m_backdropTerrain) { batch.mesh.draw(TextureAsset(TerrainMaterials::texture(batch.materialKey)), TerrainMaterials::color(batch.materialKey)); }
+}

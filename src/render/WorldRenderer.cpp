@@ -103,6 +103,8 @@ void WorldRenderer::render(World& world, const RoadNetwork& network, const Basic
 	const auto sceneSize = Scene::Size();
 	constexpr float kMargin = 512.0f;
 
+	drawBackdropTerrain(world, activeChunks);
+
 	for (Chunk* chunk : m_sortedChunks)
 	{
 		if (!chunk) continue;

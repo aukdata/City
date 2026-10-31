@@ -210,6 +210,8 @@ private:
 
 	/// @brief チャンクを描画する（DynamicMesh キャッシュを利用）
 	void drawChunk(Chunk& chunk, const World& world, const RoadNetwork& network);
+	/// @brief 地上視点で、読み込み範囲（約 4km）の外の山並みを地域地形で描く。
+	void drawBackdropTerrain(const World& world, const Array<Chunk*>& activeChunks);
 	/// @brief 完成した地形ジョブを既存の時間枠内でアップロードし、完成した組だけを公開する。
 	void uploadCompletedTerrain();
 	/// @brief 配置を地形のGPU転送から独立して公開する。
@@ -371,6 +373,9 @@ private:
 	uint64 m_terrainEpoch = 0;
 
 	Array<TerrainMeshBatch> m_regionalTerrain;
+	MeshData m_backdropSource;                 ///< 遠景用の地域地形（世界の再生成時だけ作り直す）
+	Array<TerrainMeshBatch> m_backdropTerrain; ///< 地上視点で詳細チャンクの外側に描く山並み
+	Array<Point> m_backdropChunks;             ///< m_backdropTerrain が除外している詳細チャンク
 	HashTable<Key, Array<TerrainMeshBatch>>       m_meshCache;
 	HashTable<Key, Array<TerrainSubtractionQuad>> m_chunkSubtractorCache;
 	HashTable<int, TerrainBooleanSubtractor>      m_edgeSubtractorCache;

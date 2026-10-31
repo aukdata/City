@@ -40,5 +40,19 @@ namespace RegionalTerrain
 		}
 		return result;
 	}
-
+	/// @brief 地上視点の遠景。詳細チャンクが描く範囲の三角形を除き、周囲の山並みだけを残す。
+	/// @details 格子 128m はチャンク 1024m の約数なので、除外境界はチャンク境界と一致する。海面下だけの三角形は省く。
+	inline Array<Batch> backdrop(const MeshData& source, const HashSet<Point>& excluded)
+	{
+		MeshData kept;
+		kept.vertices = source.vertices;
+		for (const auto& triangle : source.indices)
+		{
+			const auto& a = source.vertices[triangle.i0].pos; const auto& b = source.vertices[triangle.i1].pos; const auto& c = source.vertices[triangle.i2].pos;
+			if (Max({ a.y, b.y, c.y }) <= 0) { continue; }
+			const Point chunk{ static_cast<int>(Math::Floor((a.x + b.x + c.x) / (3 * CHUNK_SIZE))), static_cast<int>(Math::Floor((a.z + b.z + c.z) / (3 * CHUNK_SIZE))) };
+			if (!excluded.contains(chunk)) { kept.indices << triangle; }
+		}
+		return batches(kept);
+	}
 }
