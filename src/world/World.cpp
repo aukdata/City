@@ -249,7 +249,16 @@ void World::computeRawBiomeParams(float wx, float wz, float& outBase, float& out
 	const double kBroadPlainRelief=GenerationSettings::get().terrain_broadPlainRelief, kLocalPlainRelief=GenerationSettings::get().terrain_localPlainRelief, kPlainDetail=GenerationSettings::get().terrain_plainDetail;
 	const double broad=m_perlin.noise2D0_1(wx/(scale*kBroadPlainScale),wz/(scale*kBroadPlainScale));
 	const double local=m_perlin.noise2D0_1(wx/(scale*kLocalPlainScale)+kLocalPlainNoiseOffset,wz/(scale*kLocalPlainScale));
-	const double plain=kPlainFloor+inland*kInlandGradient+reliefScale*(kBroadPlainRelief*broad+kLocalPlainRelief*local);
+	double plain=kPlainFloor+inland*kInlandGradient+reliefScale*(kBroadPlainRelief*broad+kLocalPlainRelief*local);
+	// 盆地の河岸段丘: 平らな段丘面と短い段丘崖を交互に作る。上田・松本平のように田が並ぶ平坦面を広く残す。
+	const auto& terrace=GenerationSettings::get();
+	if (terrace.terrain_terraceHeight>0 && terrace.terrain_terraceStrength>0)
+	{
+		const double level=plain/terrace.terrain_terraceHeight,tread=Math::Floor(level),fraction=level-tread;
+		const double riser=Clamp((fraction-(1-terrace.terrain_terraceRiser))/terrace.terrain_terraceRiser,0.0,1.0);
+		const double stepped=(tread+riser*riser*(3-2*riser))*terrace.terrain_terraceHeight;
+		plain=Math::Lerp(plain,stepped,terrace.terrain_terraceStrength*(1-transition(mountain,terrace.terrain_terraceMountainFade)));
+	}
 	const double lake=lakeInfluence(u,v,scale);
 	outBase=static_cast<float>(Math::Lerp((plain+mountain)*coastBlend,kLakeBed*reliefScale,lake));
 	outAmp=static_cast<float>((kPlainDetail+mountain*kMountainDetail)*coastBlend*(1-lake));
@@ -458,8 +467,26 @@ float World::computeBaseHeight(float wx, float wz) const
 {
 	float base, amplitude; computeBiomeParams(wx, wz, base, amplitude);
 	if (base < 0) { return base; }
-	const double detail = m_perlin.octave2D0_1(wx * GenerationSettings::get().terrain_detailFrequency, wz * GenerationSettings::get().terrain_detailFrequency, GenerationSettings::get().terrain_detailOctaves, GenerationSettings::get().terrain_detailPersistence);
-	return static_cast<float>(base + (detail - .5) * amplitude);
+	const auto& config = GenerationSettings::get();
+	double detail = m_perlin.octave2D0_1(wx * config.terrain_detailFrequency, wz * config.terrain_detailFrequency, config.terrain_detailOctaves, config.terrain_detailPersistence) - .5;
+	// 山地は尾根が鋭く谷が V 字に刻まれた日本の山容にする。前の層の値で次の層を重み付けし、尾根筋に細部を集める。
+	const double rugged = Clamp((amplitude - config.terrain_foothillBiomeRelief) / Max(1.0, config.terrain_ruggedRelief - config.terrain_foothillBiomeRelief), 0.0, 1.0);
+	if (rugged > 0 && config.terrain_ridgeBlend > 0)
+	{
+		double ridged = 0, weight = 1, amplitudeSum = 0, gain = 1, frequency = config.terrain_ridgeFrequency;
+		for (int octave = 0; octave < config.terrain_ridgeOctaves; ++octave)
+		{
+			const double signal = Square(1 - Abs(m_perlin.noise2D(wx * frequency + 37.0 * octave, wz * frequency - 91.0 * octave))) * weight;
+			ridged += signal * gain; amplitudeSum += gain;
+			weight = Clamp(signal * 1.6, 0.0, 1.0); gain *= .5; frequency *= 2.03;
+		}
+		ridged /= amplitudeSum;
+		// 谷底は少し平らに残し、山あいの集落と田が入る余地を作る。
+		const double floor = config.terrain_valleyFloor;
+		ridged = ridged < floor ? floor - (floor - ridged) * .25 : ridged;
+		detail = Math::Lerp(detail, ridged - .35, rugged * rugged * (3 - 2 * rugged) * config.terrain_ridgeBlend);
+	}
+	return static_cast<float>(base + detail * amplitude);
 }
 
 HeightMapResult World::buildHeightMap(Point chunkCoord) const

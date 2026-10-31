@@ -95,7 +95,16 @@
     "macroSampleStep",
     "upliftRate",
     "erosionRate",
-    "depositionRate"
+    "depositionRate",
+    "ridgeBlend",
+    "ridgeFrequency",
+    "ridgeOctaves",
+    "ruggedRelief",
+    "valleyFloor",
+    "terraceHeight",
+    "terraceRiser",
+    "terraceStrength",
+    "terraceMountainFade"
   ],
   "properties": {
     "centralMountainThreshold": {
@@ -557,6 +566,51 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 2.0
+    },
+    "ridgeBlend": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "ridgeFrequency": {
+      "type": "number",
+      "minimum": 1e-06,
+      "maximum": 0.01
+    },
+    "ridgeOctaves": {
+      "type": "integer",
+      "minimum": 1.0,
+      "maximum": 8.0
+    },
+    "ruggedRelief": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 2000.0
+    },
+    "valleyFloor": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "terraceHeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "terraceRiser": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 1.0
+    },
+    "terraceStrength": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "terraceMountainFade": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 2000.0
     }
   }
 }

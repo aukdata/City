@@ -90,5 +90,14 @@
   "macroSampleStep": 64,
   "upliftRate": 0.0015,
   "erosionRate": 0.5,
-  "depositionRate": 0.35
+  "depositionRate": 0.35,
+  "ridgeBlend": 0.7,
+  "ridgeFrequency": 0.0006,
+  "ridgeOctaves": 5,
+  "ruggedRelief": 180.0,
+  "valleyFloor": 0.1,
+  "terraceHeight": 7.0,
+  "terraceRiser": 0.22,
+  "terraceStrength": 0.65,
+  "terraceMountainFade": 120.0
 }
