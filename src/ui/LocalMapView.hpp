@@ -64,7 +64,16 @@ public:
 			for (const auto& river : data.rivers)
 			{
 				if (!river.bounds.intersects(visible) || river.points.size()<2) { continue; }
-				MapStroke::draw(toScreen(river.points.front(),rect),toScreen(river.points.back(),rect),area,Max(1.4,river.width*scale),ColorF{.27,.59,.78});
+				// 川は流路の折れ線をたどって描く。画面上で 1.5px 未満の点は間引く。
+				const double width=Max(1.4,river.width*scale);
+				Vec2 previous=toScreen(river.points.front(),rect);
+				for (size_t i=1;i<river.points.size();++i)
+				{
+					const Vec2 next=toScreen(river.points[i],rect);
+					if (i+1<river.points.size() && previous.distanceFromSq(next)<2.25) { continue; }
+					MapStroke::draw(previous,next,area,width,ColorF{.27,.59,.78});
+					previous=next;
+				}
 			}
 			for (const auto& road : data.streets)
 			{

@@ -17,11 +17,11 @@ float MinimapRenderer::terrainHeight(Vec2 point) const
 
 void MinimapRenderer::updateRoadOverlay([[maybe_unused]] const RoadNetwork& roads,[[maybe_unused]] const World& world)
 {
-	m_mapDirty=true;m_localTerrain.invalidate();m_fullTerrain.invalidate();
+	m_mapDirty=true;m_localTerrain.refresh();m_fullTerrain.refresh();
 }
 void MinimapRenderer::updateRoadOverlayAround([[maybe_unused]] const Array<int>& nodes,[[maybe_unused]] const RoadNetwork& roads)
 {
-	m_mapDirty=true;m_localTerrain.invalidate();m_fullTerrain.invalidate();
+	m_mapDirty=true;m_localTerrain.refresh();m_fullTerrain.refresh();
 }
 void MinimapRenderer::refreshWaterStrokes() const
 {
@@ -147,18 +147,19 @@ void MinimapRenderer::drawFullScreen(const GameCamera& camera) const
 {
 	if (!m_world) { return; }
 	if (const auto* water=m_world->sourceWater(); water && water->surfaceRevision()!=m_waterMapRevision && Scene::Time()-m_waterMapUpdated>10)
-	{ m_fullTerrain.invalidate();m_localTerrain.invalidate();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
+	{ m_fullTerrain.refresh();m_localTerrain.refresh();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
 	const Size size=Scene::Size(); const Vec2 a=m_map.toWorld(m_map.body(size).tl(),size),b=m_map.toWorld(m_map.body(size).br(),size);
 	const RectF visible{Vec2{Min(a.x,b.x),Min(a.y,b.y)},Vec2{Abs(b.x-a.x),Abs(b.y-a.y)}};
 	const Stopwatch timer{StartImmediately::Yes};
-	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);},1.0,[this](Vec2 point,float height){return m_world->sourceWater() ? m_world->sourceWater()->sample(point.x,point.y,height).depth : Max(0.0,-static_cast<double>(height));})) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
+	// 全画面地図の間は 3D を描かないので、1 フレームの多くを陰影図に回す。拡大縮小の後に地形の欠けた範囲が長く残らない。
+	if (m_fullTerrain.update(visible,{Min(1536,size.x*3/2),Min(1152,size.y*3/2)},[this](Vec2 point){return terrainHeight(point);},kFullMapBudgetMs,[this](Vec2 point,float height){return m_world->sourceWater() ? m_world->sourceWater()->sample(point.x,point.y,height).depth : Max(0.0,-static_cast<double>(height));})) { m_map.invalidateCartography();DBG_LOG(U"[MapTerrain] full {} px step={:.2f}m build={:.1f}ms"_fmt(m_fullTerrain.texture.size(),m_fullTerrain.metersPerPixel,timer.msF())); }
 	const Vec3 focus=camera.focusPoint();m_map.draw(size,m_fullTerrain.texture,m_font,{focus.x,focus.z},m_fullTerrain.bounds);
 }
 void MinimapRenderer::render([[maybe_unused]] const GameCamera& camera,[[maybe_unused]] const Array<MapGenerator::Settlement>& settlements) const
 {
 	if (!m_world || !m_smallVisible) { return; }
 	if (const auto* water=m_world->sourceWater(); water && water->surfaceRevision()!=m_waterMapRevision && Scene::Time()-m_waterMapUpdated>10)
-	{ m_fullTerrain.invalidate();m_localTerrain.invalidate();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
+	{ m_fullTerrain.refresh();m_localTerrain.refresh();refreshWaterStrokes();m_map.invalidateCartography();m_waterMapRevision=water->surfaceRevision();m_waterMapUpdated=Scene::Time(); }
 	const RectF area=m_local.body(smallRect());
 	const double diameter=m_local.span()*area.size.length()/Min(area.w,area.h);
 	const Stopwatch timer{StartImmediately::Yes};

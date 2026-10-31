@@ -261,6 +261,11 @@ void registerCityGenerationTests(TestRunner& runner)
 		context.expect(mismatches == 0 && reference.bounds == progressive.bounds, U"Progressive terrain retains exact synchronous shading and spatial registration");
 		progressive.update(first, size, sample, .001); progressive.invalidate();
 		context.expect(progressive.update(second, size, sample), U"Invalidation cancels a partially sampled obsolete tile");
+		// 水面や道路が数秒ごとに変わっても、作りかけの陰影を捨て続けて地図が空のままにならない。
+		MapTerrainLayer churned; int calls = 0;
+		while (!churned.texture && calls < 100000) { churned.update(second, size, sample, .001); churned.refresh(); ++calls; }
+		context.expect(static_cast<bool>(churned.texture), U"Refreshing on every frame still publishes the first terrain tile");
+		context.expect(churned.update(second, size, sample), U"A refreshed layer redraws once its stale tile has been published");
 	});
 
 	runner.add(U"Performance.RoadSpatialAndAsyncReadback", [](TestContext& context)

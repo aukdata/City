@@ -26,6 +26,8 @@ public:
 	WorldMapView& mapView() { return m_map; }
 	LocalMapView& localView() { return m_local; }
 	bool fullScreen() const { return m_map.visible; }
+	/// @brief 全画面地図の地形陰影を描き終えたか（撮影の待ち合わせ用）。
+	bool fullTerrainReady() const { return m_fullTerrain.valid(); }
 	bool consumedInput() const { return m_consumedInput; }
 	void drawFullScreen(const GameCamera& camera) const;
 	void render(const GameCamera& camera,const Array<MapGenerator::Settlement>& settlements) const;
@@ -34,6 +36,7 @@ private:
 	LocalMapView m_local;
 	const World* m_world=nullptr;
 	const DistrictHierarchy* m_districts=nullptr;
+	static constexpr double kFullMapBudgetMs=12.0;
 	bool m_mapDirty=true,m_consumedInput=false,m_smallVisible=true;
 	size_t m_railEdges=0,m_railNodes=0;
 	static constexpr int kDisplaySize=200,kMargin=12;

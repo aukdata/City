@@ -175,7 +175,16 @@ private:
 			{
 				if (!river.bounds.intersects(visibleWorld)) { continue; }
 				if (river.points.size()<2) { continue; }
-				MapStroke::draw(toScreen(river.points.front(),size),toScreen(river.points.back(),size),body(size),Max(1.2,river.width*scale(size)),ColorF{.38,.67,.82});
+				// 川は流路の折れ線をたどって描く（始点と終点を直線で結ぶと実在しない川になる）。画面上で 1.5px 未満の点は間引く。
+				const double width=Max(1.2,river.width*scale(size));
+				Vec2 previous=toScreen(river.points.front(),size);
+				for (size_t i=1;i<river.points.size();++i)
+				{
+					const Vec2 next=toScreen(river.points[i],size);
+					if (i+1<river.points.size() && previous.distanceFromSq(next)<2.25) { continue; }
+					MapStroke::draw(previous,next,body(size),width,ColorF{.38,.67,.82});
+					previous=next;
+				}
 			}
 			for (const auto& border : boundaries)
 			{

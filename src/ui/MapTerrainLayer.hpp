@@ -13,6 +13,14 @@ public:
 	{ return update(visible,pixels,sample,Math::Inf,waterDepth); }
 	double metersPerPixel = 0;
 	void invalidate() { m_valid = false; m_build.reset(); }
+	/// @brief 水面の変化などで描き直す。作りかけの陰影は捨てずに仕上げて公開し、その後に描き直す。
+	void refresh()
+	{
+		m_valid = false;
+		if (m_build) { m_build->stale = true; }
+	}
+	/// @brief 最後に求められた表示範囲の陰影図を公開済みで、作りかけの陰影がないか。
+	bool valid() const { return m_valid && !m_build; }
 	/// @brief Sample and shade a padded tile, synchronously by default or a few rows per frame.
 	bool update(RectF visible, Size pixels, const std::function<float(Vec2)>& sample, double budgetMs = Math::Inf, const WaterDepth& waterDepth = {})
 	{
@@ -22,6 +30,8 @@ public:
 			m_build.reset(); return false;
 		}
 		const Stopwatch timer{StartImmediately::Yes};
+		// まだ何も表示していないときは 1 フレームの予算を広げ、最初の陰影図を早く出す。
+		if (!texture) { budgetMs = Max(budgetMs, 6.0); }
 		if (!m_build || !covers(m_build->bounds, m_build->pixels, m_build->bounds.w / pixels.x, visible, pixels, requested))
 		{
 			const Vec2 cell = visible.size / 8;
@@ -66,7 +76,7 @@ public:
 			if (!texture.fill(tile.image)) { texture = DynamicTexture{tile.image}; }
 		}
 		bounds = tile.bounds; metersPerPixel = bounds.w / pixels.x;
-		m_valid = true; m_build.reset(); return true;
+		m_valid = !tile.stale; m_build.reset(); return true;
 	}
 private:
 	struct Build
@@ -76,6 +86,7 @@ private:
 		Grid<float> heights;
 		Image image;
 		int heightRow = 0, imageRow = 0;
+		bool stale = false;
 	};
 	bool m_valid = false;
 	Optional<Build> m_build;
