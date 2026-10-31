@@ -300,8 +300,29 @@ namespace
 		};
 		start = clearEndpoint(samples.front(), start);
 		end = clearEndpoint(samples.back(), end);
+		// 端点のすぐ先で川や道路を跨ぐ必要があり、最急勾配でも間に合わないときは端点を持ち上げる。
+		const auto approachEndpoint = [&](bool front, double height)
+		{
+			const double origin = front ? line.stations.front() : line.stations.back();
+			for (size_t k = 0; k < samples.size(); ++k)
+			{
+				const size_t i = front ? k : samples.size() - 1 - k;
+				const double distance = Abs(line.stations[i] - origin);
+				if (distance > 600) { break; }
+				const auto& sample = samples[i];
+				if (sample.roadClearance < -1e8 || sample.underpass >= height - grade * distance) { continue; }
+				height = Max(height, std::ceil(sample.roadClearance - grade * distance) + .5);
+			}
+			return height;
+		};
+		start = approachEndpoint(true, start);
+		end = approachEndpoint(false, end);
 		const auto profile = RailCostProfile::solve(samples, start, end, grade);
-		if (!profile.feasible) { return false; }
+		if (!profile.feasible)
+		{
+			DBG_LOG(U"[ExpresswayProfile] infeasible start={:.1f} end={:.1f} samples={}"_fmt(start, end, samples.size()));
+			return false;
+		}
 		line.heights = profile.heights;
 		return true;
 	}
