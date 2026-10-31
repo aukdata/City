@@ -204,6 +204,7 @@ void GameScene::update()
 	if (getData().captureFirstPerson) { updateStreetReview(); return; }
 	if (getData().captureTransportObjects) { updateTransportObjectsReview(); return; }
 	if (getData().captureTransport) { updateTransportReview(); return; }
+	if (getData().capturePhotos) { updatePhotoReview(); return; }
 	if (getData().captureConstruction)
 	{
 		updateConstructionReview();

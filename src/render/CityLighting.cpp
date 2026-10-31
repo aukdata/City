@@ -61,10 +61,10 @@ void CityLighting::update(const BasicCamera3D& camera, Vec3 focus, Vec3 sunDirec
 		|| Abs(extent - m_previousExtent) > texelWorld
 		|| geometryRevision != m_previousRevision;
 	const float day = static_cast<float>(Clamp(daylight, 0.0, 1.0));
-	m_parameters->shadowParameters.w = day;
-	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
-	constexpr float kFogDensity = 0.00004f;
-	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), kFogDensity };
+	m_parameters->shadowParameters.w = day * static_cast<float>(1.0 - .75 * m_overcast);
+	const ColorF fog = ColorF{ 0.56, 0.65, 0.70 }.lerp(ColorF{ 0.70, 0.72, 0.74 }, m_overcast).lerp(ColorF{ 0.025, 0.035, 0.065 }, 1.0 - day).removeSRGBCurve();
+	const float fogDensity = 0.00004f * static_cast<float>(1.0 + 1.2 * m_overcast);
+	m_parameters->fogColorDensity = Float4{ static_cast<float>(fog.r), static_cast<float>(fog.g), static_cast<float>(fog.b), fogDensity };
 	if (!m_shadowsEnabled || camera.getEyePosition().distanceFrom(focus) > 1800)
 	{
 		// Preserve the daylight-dependent fog and direct lighting; skip only cast shadows.

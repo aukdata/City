@@ -12,6 +12,10 @@ public:
 		double daylight, uint64 geometryRevision, const std::function<void(Vec3, double)>& drawCasters,
 		const std::function<void(Vec3, double)>& drawDynamicCasters = {});
 	void bind() const;
+	/// @brief 紅葉の進み（0: 緑〜1: 盛り）。広葉樹の樹冠と遠景の森の色に使う。
+	void setAutumn(double amount) { m_parameters->terrainVariation.y = static_cast<float>(Clamp(amount, 0.0, 1.0)); }
+	/// @brief 曇天の度合い（0: 晴れ〜1: 厚い雲）。影を弱め、霞を濃く灰色にする。
+	void setOvercast(double amount) { m_overcast = Clamp(amount, 0.0, 1.0); }
 	[[nodiscard]] const PixelShader& shader() const { return m_forwardShader; }
 	[[nodiscard]] const PixelShader& buildingShader() const { return m_buildingShader; }
 	[[nodiscard]] const PixelShader& terrainShader() const { return m_terrainShader; }
@@ -38,6 +42,7 @@ private:
 	RenderTexture m_shadowMap, m_dynamicShadowMap;
 	ConstantBuffer<Parameters> m_parameters;
 	Vec3 m_previousFocus{ Math::Inf, 0, 0 };
+	double m_overcast = 0.0;
 	Vec3 m_previousSun{ 0, 0, 0 };
 	double m_previousExtent = 0.0;
 	uint64 m_previousRevision = 0;

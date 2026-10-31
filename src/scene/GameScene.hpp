@@ -19,6 +19,7 @@
 #include "../time/GameClock.hpp"
 #include "../world/World.hpp"
 #include "../gen/MapGenerator.hpp"
+#include "../gen/PowerLines.hpp"
 #include "../gen/PlaceNameGenerator.hpp"
 #include "../road/RoadNetwork.hpp"
 #include "../traffic/VehicleManager.hpp"
@@ -114,6 +115,10 @@ private:
 	// ---- 地名データベース ----
 	PlaceNameDB                     m_placeNames;
 	Array<MapGenerator::Settlement> m_districts;      ///< 全地区リスト（種別込み・名称込み）
+	Optional<double> m_autumnOverride; ///< 撮影用に紅葉の進みを固定する
+	double m_overcast = 0.0;           ///< 曇天の度合い（撮影用。通常は晴れ）
+	int m_photoSettledFrames = 0, m_photoSavedAt = -1; ///< 実写比較の撮影: 読み込み完了の連続フレーム数と保存したフレーム
+	Array<PowerLines::Line> m_powerLines;             ///< 送電線。生成済みの街から決定的に求め、セーブしない
 	Array<Vec2>                     m_castleTownCenters;   ///< 城下町座標キャッシュ（m_districts の派生）
 
 	// ---- コアシステム ----
@@ -612,6 +617,7 @@ private:
 	Array<int> m_streetReviewEdges;
 	void updateStreetReview();
 	void updateTransportReview();
+	void updatePhotoReview();
 	void updateTransportObjectsReview();
 	void jumpToMapPosition(Vec2 target);
 	void updateConstructionReview();

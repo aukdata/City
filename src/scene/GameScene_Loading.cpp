@@ -16,7 +16,11 @@ void GameScene::initLoadGame()
 	startLoadingPhase(LoadingTask::LoadGame, U"ロード中...", U"セーブデータを読み込み中...", [this]()
 	{
 		m_loadGameResult = loadGame();
-		if (m_loadGameResult) { publishForestCover(); }
+		if (m_loadGameResult)
+		{
+			m_powerLines = PowerLines::generate(getData().seed, m_world, m_network, m_districts);
+			publishForestCover();
+		}
 	});
 }
 
@@ -87,6 +91,9 @@ void GameScene::initNewGame()
 			applyZonesGlobal();
 			placeInitialBuildings();
 		}
+		// 送電線は建物の配置後に、道路・建物・水面を避けて鉄塔を立てる。
+		setLoadingStatus(U"送電線を配置中...");
+		m_powerLines = PowerLines::generate(getData().seed, m_world, m_network, m_districts);
 		publishForestCover();
 	});
 	DebugLog::print(U"[Loading] {} チャンク生成開始"_fmt(m_totalInitChunks));
@@ -237,6 +244,7 @@ void GameScene::updateLoading()
 				}
 			}
 			m_riverRenderer.build(m_world,m_network);
+			m_roadRenderer.setPowerLines(m_powerLines);
 			m_tunnelRenderer.build(m_world,m_network,m_trainNetwork);
 			m_worldRenderer.setTunnelOpenings(m_tunnelRenderer.openings);
 			m_minimapRenderer.setGeography(m_world,m_districtHierarchy);

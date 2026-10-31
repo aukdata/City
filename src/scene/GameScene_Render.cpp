@@ -230,6 +230,10 @@ void GameScene::renderWorld()
 		{
 			DebugLog::print(U"[GeometryRevision] world={} roads={}"_fmt(m_worldRenderer.geometryRevision(), m_roadRenderer.geometryRevision()));
 		}
+		// 紅葉は 10 月に色づき始め、11 月上旬に盛り、11 月末までに散る。
+		const double autumn = m_clock.month == 10 ? .25 + .65 * m_clock.day / 30.0 : m_clock.month == 11 ? .9 - .7 * m_clock.day / 30.0 : 0.0;
+		m_cityLighting.setAutumn(m_autumnOverride.value_or(autumn));
+		m_cityLighting.setOvercast(m_overcast);
 		m_cityLighting.update(m_camera.camera3D(), m_camera.focusPoint(), sunDir, sky.dayFactor,
 			m_worldRenderer.shadowRevision() + m_roadRenderer.geometryRevision(), [this](Vec3 focus, double radius)
 		{
@@ -258,8 +262,9 @@ void GameScene::renderWorld()
 		Graphics3D::SetCameraTransform(m_camera.camera3D());
 
 		Graphics3D::SetSunDirection(sunDir);
-		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.08 + 0.24 * sky.dayFactor + 0.08 * sky.dawnFactor });
-		Graphics3D::SetSunColor(ColorF{ 0.12 + 0.78 * sky.dayFactor });
+		// 曇天は直射を弱めて天空光を強める（影が淡く、色の差が小さい）。
+		Graphics3D::SetGlobalAmbientColor(ColorF{ 0.08 + (0.24 + 0.16 * m_overcast) * sky.dayFactor + 0.08 * sky.dawnFactor });
+		Graphics3D::SetSunColor(ColorF{ 0.12 + 0.78 * (1.0 - 0.6 * m_overcast) * sky.dayFactor });
 
 		const ColorF dayZenith  { 0.28, 0.52, 0.88 };
 		const ColorF dawnZenith { 0.22, 0.18, 0.38 };
@@ -273,7 +278,13 @@ void GameScene::renderWorld()
 
 		m_sky.starBrightness = Clamp(1.0 - sky.dayFactor * 3.0 - sky.dawnFactor * 2.0, 0.0, 1.0);
 		m_sky.cloudTime = Scene::Time() * 0.015;
-		m_sky.cloudsEnabled = false;
+		m_sky.cloudsEnabled = m_overcast > 0;
+		if (m_overcast > 0)
+		{
+			m_sky.zenithColor = m_sky.zenithColor.lerp(ColorF{ 0.50, 0.55, 0.62 }, m_overcast);
+			m_sky.horizonColor = m_sky.horizonColor.lerp(ColorF{ 0.80, 0.82, 0.84 }, m_overcast);
+			m_sky.cloudiness = .55 + .4 * m_overcast; m_sky.cloudColor = ColorF{ .86, .87, .88 }; m_sky.sunEnabled = false;
+		}
 		if (!m_underground)
 		{
 			m_sky.draw(sky.exposure);
@@ -340,7 +351,7 @@ void GameScene::renderWorld()
 	RenderQuality::present(sceneTarget, Scene::Size());
 	lap(m_renderTimings.screen);
 
-	if (!getData().captureCityRenders)
+	if (!getData().captureCityRenders && !getData().capturePhotos)
 	{
 		renderSelectionOutline();
 		render2DUI();

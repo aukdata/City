@@ -19,6 +19,7 @@ struct SceneData
 	bool   captureFirstPerson = false; ///< 同じ街角を歩行目線で比較撮影する。
 	bool   captureTransportObjects = false;
 	bool   captureTransport = false; ///< Streets, railway, bridges and full-screen map render review.
+	bool   capturePhotos = false; ///< 実写と同じ構図（高速道路・山間の国道・地方の幹線）を運転席目線で撮影する。
 	bool   auditRoadIntegrity = false; ///< 道路生成の段階データを出力して終了（画像なし）
 	bool   captureConstruction = false; ///< 工事の実画面と自動撤去を検証
 	bool   captureRoadPlanUx = false; ///< 道路計画の入力状態を再現して実画面を撮影する

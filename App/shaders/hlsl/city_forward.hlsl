@@ -193,6 +193,21 @@ float valueNoise(float2 p)
 	f = f * f * (3 - 2 * f);
 	return lerp(lerp(hash21(i), hash21(i + float2(1, 0)), f.x), lerp(hash21(i + float2(0, 1)), hash21(i + 1), f.x), f.y);
 }
+// 紅葉: g_terrainVariation.y（0〜1）が季節の進み。樹冠ごとに常緑・黄・橙・赤・褐色を割り当て、
+// 山腹が緑の地に黄や橙の斑になる晩秋の見え方にする。
+float3 autumnLeaves(float3 color, float3 world)
+{
+	float season=g_terrainVariation.y;
+	if (season<=0) return color;
+	float crown=hash21(floor(world.xz/5.5));
+	float stand=valueNoise(world.xz/90+7.1);
+	// 常緑（杉・松・照葉樹）の割合は林ごとに変える。
+	float turning=smoothstep(.30,.62,crown*.55+stand*.45+(season-.5)*.25);
+	float hue=hash21(floor(world.xz/5.5)+19.7);
+	float3 tint=hue<.38 ? float3(.62,.48,.10) : hue<.66 ? float3(.66,.30,.07) : hue<.84 ? float3(.52,.12,.06) : float3(.36,.24,.10);
+	float brightness=dot(color,float3(.2126,.7152,.0722))/.12;
+	return lerp(color,tint*.22*clamp(brightness,.6,1.4),turning*season);
+}
 // Unmanaged Japanese land is not lawn: summer weeds, dry grass, bare earth and dark scrub form a mottled cover.
 // Town lots and gardens shift the same mosaic drier or greener, so 16 m material cells do not show as tiles.
 // Fine octaves fade out where a texel covers them, so distant land stays calm instead of shimmering.
@@ -261,6 +276,7 @@ float4 Terrain_PS(s3d::PSInput input) : SV_TARGET
 		float crowns = valueNoise(ground / 9 + 1.3) * lerp(.5, 1, 1 - smoothstep(4, 16, footprint)) * .6 + valueNoise(ground / 41) * .4;
 		// Matches the foliage palette of the drawn trees (cedar darker, broadleaf lighter) so the switch is not visible.
 		float3 canopy = lerp(float3(.040, .072, .024), float3(.066, .112, .034), smoothstep(.4, .6, valueNoise(ground / 260 + 3.7))) * (.7 + crowns * .5);
+		canopy = lerp(canopy, autumnLeaves(canopy, float3(ground.x, 0, ground.y)) , .8);
 		albedo.rgb = lerp(albedo.rgb, canopy, smoothstep(.15, .85, forest));
 	}
 	float3 sand = g_coastalSand.Sample(g_sampler0, input.uv).rgb * float3(0.76, 0.70, 0.55);
@@ -413,6 +429,7 @@ float4 Foliage_PS(s3d::PSInput input) : SV_TARGET
 	float leaf=fieldNoise(floor(position.xz+position.y*.43));
 	float broad=sin(input.worldPosition.x*.73+sin(input.worldPosition.z*.91))*cos(input.worldPosition.y*1.37);
 	float3 color=g_diffuseColor.rgb*lerp(.80,1.10,saturate(.45+broad*.3))*lerp(1,.58+leaf*.84,detail);
+	color=autumnLeaves(color,input.worldPosition);
 	float3 normal=normalize(input.normal+float3(sin(position.x),0,cos(position.z))*.18*detail);
 	input.normal=normal;
 	return shadeCity(input,float4(color,1));

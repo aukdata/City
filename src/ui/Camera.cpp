@@ -360,7 +360,7 @@ void GameCamera::rebuildFirstPerson()
 		Math::Cos(m_fpYaw) * Math::Cos(m_fpPitch)
 	};
 	const Vec3 target = eye + fwd * 10.0;
-	m_camera = BasicCamera3D{ Scene::Size(), 80_deg, eye, target };
+	m_camera = BasicCamera3D{ Scene::Size(), m_fpFov, eye, target };
 }
 
 void GameCamera::setDrivingState(Vec3 ground,float heading,float grade)

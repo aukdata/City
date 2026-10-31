@@ -75,6 +75,8 @@ public:
 
 	/// @brief 通常の歩行カメラと同じ1.5 m目線・視野角で姿勢を指定する。
 	void setWalkingState(Vec3 ground, float yaw, float pitch = 0.0f);
+	/// @brief 一人称の垂直画角。写真と見比べる撮影では携帯電話のカメラ（約 50°）に合わせる。
+	void setFirstPersonFov(double fov) { m_fpFov = fov; }
 	/// @brief 車体姿勢に追従する右ハンドルの運転席。地表への高さ補正は行わない。
 	void setDrivingState(Vec3 ground, float heading, float grade);
 	/// @brief 車体に対する見回し角を設定する。中央へ戻す場合は {0,0}。
@@ -128,6 +130,7 @@ private:
 	// 一人称歩行モード用
 	float m_fpYaw   = 0.0f;   ///< 水平方向 [rad]
 	float m_fpPitch = 0.0f;   ///< 垂直方向 [rad]
+	double m_fpFov = 80_deg;  ///< 一人称の垂直画角
 
 	// ホイールクリックドラッグ回転用
 	Point m_dragAnchor    = Point{ 0, 0 };  ///< ドラッグ開始時のカーソル位置（毎フレームここへ戻す）

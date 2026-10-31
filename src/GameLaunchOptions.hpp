@@ -43,6 +43,7 @@ namespace GameLaunch
 			if (args[i] == U"--capture-first-person") { data.captureFirstPerson = true; options.captureCityRenders = true; continue; }
 			if (args[i] == U"--capture-rail-signs") { data.captureTransportObjects=true; continue; }
 			if (args[i] == U"--capture-transport") { data.captureTransport=true; continue; }
+			if (args[i] == U"--capture-photos") { data.capturePhotos=true; continue; }
 			if (args[i] == U"--capture-construction") { data.captureConstruction = true; continue; }
 			if (args[i] == U"--capture-road-ux") { data.captureRoadPlanUx = true; continue; }
 			if (args[i] == U"--benchmark-streaming") { data.benchmarkStreaming = true; continue; }
