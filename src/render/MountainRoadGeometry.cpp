@@ -11,6 +11,10 @@ namespace
 	constexpr double kBarrierDrop = 1.5;
 	constexpr double kWallRelief = .4;
 	constexpr double kWallOffset = .10;
+	constexpr double kSlopeProtectionWall = 1.6; ///< 法面保護を付ける擁壁の高さ [m]
+	constexpr double kSlopeStep = 2.5;           ///< 法枠の格子間隔（斜面方向）[m]
+	constexpr int kSlopeRows = 8;                ///< 斜面方向の最大段数（水平約 20m）
+	constexpr double kSlopeSteepness = .55;      ///< これより緩い斜面には吹付をしない（高さ/水平距離）
 
 	template<class Heights>
 	Vec3 groundPosition(const Heights& world,Vec3 position)
@@ -78,6 +82,24 @@ MountainRoadGeometry::Geometry buildMountainGeometry(const RoadEdge& edge,const 
 			const Vec3 lipA=topA+rightA*(side*.20),lipB=topB+rightB*(side*.20);
 			doubleQuad(result.wall,topA,topB,lipB,lipA);
 			const double height=Min(topA.y-first.y,topB.y-last.y);
+			if (height>=kSlopeProtectionWall)
+			{
+				// 擁壁の上の急な切土をモルタル吹付で覆い、法枠を斜面に沿って格子に組む。緩くなった所で止める。
+				Vec3 previousA=topA,previousB=topB;
+				for (int row=1;row<=kSlopeRows;++row)
+				{
+					const double reach=row*kSlopeStep;
+					Vec3 nextA=groundPosition(world,first+rightA*(side*reach)),nextB=groundPosition(world,last+rightB*(side*reach));
+					const double rise=Min(nextA.y-previousA.y,nextB.y-previousB.y);
+					if (rise<kSlopeStep*kSlopeSteepness) { break; }
+					nextA.y+=.06;nextB.y+=.06;
+					doubleQuad(result.shotcrete,previousA,previousB,nextB,nextA);
+					const Vec3 lift{0,.22,0};
+					doubleQuad(result.frame,nextA,nextB,nextB+lift,nextA+lift);
+					doubleQuad(result.frame,previousA,nextA,nextA+lift,previousA+lift);
+					previousA=nextA;previousB=nextB;
+				}
+			}
 			for (int patch=0;patch<5;++patch)
 			{
 				const double fraction=(patch+.25)/5;

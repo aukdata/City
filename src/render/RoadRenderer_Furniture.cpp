@@ -261,7 +261,8 @@ Array<RoadRenderer::LaneLineMeshData> RoadRenderer::buildFurnitureMeshData(
 	Array<LaneLineMeshData> batches;
 	for (const auto& item : {std::pair<const MeshData*,ColorF>{&mountain.wall,ColorF{.43,.45,.40}},
 		{&mountain.moss,ColorF{.24,.34,.16}},{&mountain.rail,ColorF{.48,.49,.43}},
-		{&mountain.posts,ColorF{.82,.81,.69}},{&mountain.reflectors,ColorF{1,.36,.07}}})
+		{&mountain.posts,ColorF{.82,.81,.69}},{&mountain.reflectors,ColorF{1,.36,.07}},
+		{&mountain.shotcrete,ColorF{.58,.58,.54}},{&mountain.frame,ColorF{.72,.72,.68}}})
 	{
 		if (!item.first->indices.isEmpty()) { batches<<LaneLineMeshData{item.second.removeSRGBCurve(),*item.first}; }
 	}
