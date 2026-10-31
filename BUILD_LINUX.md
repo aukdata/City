@@ -45,7 +45,7 @@ cd Test/App
 ```
 
 The Linux test source list mirrors `Test/Test.vcxproj`. Results remain in
-`Test/App/TestResults/`. Keep screenshots local according to `AGENTS.md`.
+`Test/App/TestResults/`.
 
 The cloud computer uses Mesa llvmpipe software rendering. Its frame times do not
 represent Windows GPU performance, and the current cloud audio backend is NoSound.

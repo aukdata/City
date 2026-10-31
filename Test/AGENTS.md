@@ -14,6 +14,6 @@
 
 ## 描画検証
 
-- スクリーンショットは `Test/App/Screenshot/` へ保存する。画像データを会話へ渡さない制約はルートと同じ。
+- スクリーンショットは `Test/App/Screenshot/` へ保存する。
 - `ScreenCapture::SaveCurrentFrame()` は次の `System::Update()` で保存される。フォント準備を2〜3フレーム待ち、保存完了後に終了する。
 - GPU readback と数値解析を使い、表示位置・色・裏面・重なり等を検証する。ユーザー操作待ちは入れない。
