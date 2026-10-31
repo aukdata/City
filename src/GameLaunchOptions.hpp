@@ -44,6 +44,7 @@ namespace GameLaunch
 			if (args[i] == U"--capture-rail-signs") { data.captureTransportObjects=true; continue; }
 			if (args[i] == U"--capture-transport") { data.captureTransport=true; continue; }
 			if (args[i] == U"--capture-photos") { data.capturePhotos=true; continue; }
+			if (args[i] == U"--capture-views" && i+1<args.size()) { data.capturePhotoViews=args[++i].split(U','); continue; }
 			if (args[i] == U"--capture-construction") { data.captureConstruction = true; continue; }
 			if (args[i] == U"--capture-road-ux") { data.captureRoadPlanUx = true; continue; }
 			if (args[i] == U"--benchmark-streaming") { data.benchmarkStreaming = true; continue; }

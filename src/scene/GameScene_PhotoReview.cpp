@@ -32,13 +32,13 @@ namespace
 
 void GameScene::updatePhotoReview()
 {
-	constexpr int kViews = 15;
+	constexpr int kViews = 17;
 	// 地形・建物・道路設備の読み込みが落ち着くまで待つ上限。ソフトウェア描画では 1 フレーム数秒かかる。
 	constexpr int kMaximumFrames = 160;
 	static constexpr std::array<StringView, kViews> kNames{
 		U"expressway_ahead", U"expressway_exit", U"expressway_powerline", U"expressway_noise_barrier", U"expressway_embankment",
 		U"expressway_information_board", U"expressway_spacing_check", U"mountain_tunnel_portal", U"mountain_tunnel_inside",
-		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander" };
+		U"mountain_bridge", U"mountain_road", U"valley_road", U"town_arterial", U"gorge_road", U"river_meander", U"full_map", U"full_map_region" };
 	m_clock.speed = TimeSpeed::Paused; m_clock.hour = 13;
 	m_camera.setFirstPersonFov(50_deg);
 	// 写真は 10 月末の撮影。山の紅葉の進みを合わせる。
@@ -77,6 +77,12 @@ void GameScene::updatePhotoReview()
 	};
 	if (m_captureCameraDirty)
 	{
+		// --capture-views で指定した場面だけを撮る。
+		const auto& only = getData().capturePhotoViews;
+		while (!only.isEmpty() && !only.contains(String{ kNames[m_captureIndex] }))
+		{
+			if (++m_captureIndex == kViews) { System::Exit(); return; }
+		}
 		bool found = false;
 		const String name{ kNames[m_captureIndex] };
 		if (name == U"expressway_ahead")
@@ -260,18 +266,33 @@ void GameScene::updatePhotoReview()
 				found = true; break;
 			}
 		}
+		else if (name == U"full_map")
+		{
+			// 全画面地図。地形の陰影・川・道路が描かれるかを確かめる。
+			m_minimapRenderer.openFullScreen(m_camera, m_network, m_trainNetwork, m_districts);
+			found = true;
+		}
+		else if (name == U"full_map_region")
+		{
+			// 地図全体。湾・平野・山地の配置を見る。
+			if (!m_minimapRenderer.fullScreen()) { m_minimapRenderer.openFullScreen(m_camera, m_network, m_trainNetwork, m_districts); }
+			auto& view = m_minimapRenderer.mapView();
+			view.zoom = 1; view.center = Vec2{ WORLD_SIZE * .5, WORLD_SIZE * .5 };
+			found = true;
+		}
 		DBG_LOG(U"[PhotoReview] view={} name={} found={} eye={}"_fmt(m_captureIndex, name, found, m_camera.eyePosition()));
 		m_captureCameraDirty = false; m_captureFrame = 0; m_photoSettledFrames = 0; m_photoSavedAt = found ? -1 : 0;
 	}
 	m_world.update(m_camera.focusPoint());
 	renderWorld();
 	++m_captureFrame;
-	const bool settled = m_worldRenderer.pendingTerrainJobs() == 0 && m_roadRenderer.pendingDetailJobs() == 0;
+	const bool map = m_minimapRenderer.fullScreen();
+	const bool settled = map ? m_minimapRenderer.fullTerrainReady() : m_worldRenderer.pendingTerrainJobs() == 0 && m_roadRenderer.pendingDetailJobs() == 0;
 	m_photoSettledFrames = settled ? m_photoSettledFrames + 1 : 0;
-	if (m_photoSavedAt < 0 && m_captureFrame >= 16 && (m_photoSettledFrames >= 6 || m_captureFrame >= kMaximumFrames))
+	if (m_photoSavedAt < 0 && m_captureFrame >= 16 && (m_photoSettledFrames >= 6 || m_captureFrame >= (map ? kMaximumFrames * 8 : kMaximumFrames)))
 	{
 		ScreenCapture::SaveCurrentFrame(U"{}/photo_{:02}_{}.png"_fmt(getData().captureFolder, m_captureIndex, kNames[m_captureIndex]));
-		DBG_LOG(U"[PhotoReview] saved view={} frame={} settled={}"_fmt(m_captureIndex, m_captureFrame, m_photoSettledFrames));
+		DBG_LOG(U"[PhotoReview] saved view={} frame={} settled={} map={}"_fmt(m_captureIndex, m_captureFrame, m_photoSettledFrames, map));
 		m_photoSavedAt = m_captureFrame;
 	}
 	if (m_photoSavedAt >= 0 && m_captureFrame > m_photoSavedAt + 3)
