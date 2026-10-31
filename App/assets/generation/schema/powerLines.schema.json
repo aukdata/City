@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pavecity generation: powerLines",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "maximumLines",
+    "borderFeeds",
+    "routingCell",
+    "towerSpacing",
+    "minimumSpan",
+    "towerHeight",
+    "slopeWeight",
+    "waterPenalty",
+    "settlementPenalty",
+    "roadClearance",
+    "buildingClearance",
+    "substationOffset",
+    "simplifyTolerance",
+    "conductorSag"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maximumLines": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 40
+    },
+    "borderFeeds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "routingCell": {
+      "type": "number",
+      "minimum": 50,
+      "maximum": 1000
+    },
+    "towerSpacing": {
+      "type": "number",
+      "minimum": 100,
+      "maximum": 800
+    },
+    "minimumSpan": {
+      "type": "number",
+      "minimum": 60,
+      "maximum": 600
+    },
+    "towerHeight": {
+      "type": "number",
+      "minimum": 15,
+      "maximum": 120
+    },
+    "slopeWeight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "waterPenalty": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "settlementPenalty": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "roadClearance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "buildingClearance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "substationOffset": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 3
+    },
+    "simplifyTolerance": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "conductorSag": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.2
+    }
+  }
+}

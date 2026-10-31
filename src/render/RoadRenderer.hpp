@@ -12,6 +12,7 @@
 #include "../world/HeightSnapshot.hpp"
 #include "../road/LocationSigns.hpp"
 #include "../road/RoadSign.hpp"
+#include "../gen/PowerLines.hpp"
 #include <future>
 
 /// @brief 通常 / LOD の2段メッシュペア
@@ -75,6 +76,10 @@ public:
 
 	void render(const RoadNetwork& network, const World& world,
 	            const ViewFrustum& frustum, Vec3 cameraPos);
+
+	/// @brief 送電線を差し替える。鉄塔と架空線のメッシュは次の render で 2km 区画ごとに作る。
+	void setPowerLines(Array<PowerLines::Line> lines) { m_powerLines = std::move(lines); m_powerLineTiles.clear(); m_powerLinesDirty = true; }
+	[[nodiscard]] const Array<PowerLines::Line>& powerLines() const { return m_powerLines; }
 
 	/// @brief Reuse cached road structure, poles and signs in the static sun-depth pass.
 	void renderShadowCasters(Vec3 focus, double radius);
@@ -533,6 +538,13 @@ private:
 	PixelShader m_cablePS;
 	struct CableView { Float4 viewport{ 1, 1, 1, 1 }; };
 	ConstantBuffer<CableView> m_cableView;
+	/// @brief 送電線の描画単位。遠い区画は描かない。
+	struct PowerLineTile { Vec2 center; Mesh steel, insulator, concrete, cable; };
+	Array<PowerLines::Line> m_powerLines;
+	Array<PowerLineTile> m_powerLineTiles;
+	bool m_powerLinesDirty = false;
+	void buildPowerLineTiles();
+	void drawPowerLines(Vec3 cameraPos);
 	HashTable<int, EdgeMargins>               m_marginCache;
 	HashTable<int, Array<PartMeshEntry>>              m_nodeCapCache;        ///< ノード ID → 部品メッシュ配列（Open/Existing エッジのみ）
 	HashTable<int, Array<std::pair<Vec3, Vec3>>>      m_nodeCapWireCache;    ///< ノード ID → ワイヤーフレーム輪郭線分配列（B パス用）

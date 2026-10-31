@@ -79,6 +79,7 @@ void RoadRenderer::render(const RoadNetwork& network, const World& world,
 	synchronizeTerrainChanges(world, network);
 	synchronizeSpatialIndex(network);
 	drawOverview(frustum, cameraPos);
+	drawPowerLines(cameraPos);
 	// ---- エッジ描画（端をノード半幅分カット）----
 	const float camX = static_cast<float>(cameraPos.x);
 	const float camZ = static_cast<float>(cameraPos.z);

@@ -1242,6 +1242,9 @@
     <ClCompile Include="..\src\gen\ExpresswayNetwork.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gen\PowerLines.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\render\RoadRenderer_Mesh.cpp">
@@ -1254,6 +1257,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\render\RoadRenderer_Expressway.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\render\RoadRenderer_PowerLines.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\sim\SimThread.cpp">

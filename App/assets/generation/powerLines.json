@@ -1,0 +1,17 @@
+{
+  "enabled": 1,
+  "maximumLines": 8,
+  "borderFeeds": 2,
+  "routingCell": 200,
+  "towerSpacing": 330,
+  "minimumSpan": 180,
+  "towerHeight": 46,
+  "slopeWeight": 18,
+  "waterPenalty": 6,
+  "settlementPenalty": 60,
+  "roadClearance": 18,
+  "buildingClearance": 20,
+  "substationOffset": 1.15,
+  "simplifyTolerance": 180,
+  "conductorSag": 0.035
+}
