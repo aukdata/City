@@ -110,8 +110,10 @@ inline uint8 residentialModelIndex(BuildingType t, int gx, int gz)
 {
 	const uint32 h = (static_cast<uint32>(gx) * 73856093u)
 	               ^ (static_cast<uint32>(gz) * 19349663u);
-	static constexpr uint8 kDetachedVariants[] = { 0, 1, 2, 3, 10, 11, 12, 13 };
-	static constexpr uint8 kLowApartmentVariants[] = { 4, 5, 14, 15 };
+	// 日本の戸建ては大半が2階建ての勾配屋根。勾配屋根の 0,2,10,12 を陸屋根の 1,3,11,13 の3倍出す。
+	static constexpr uint8 kDetachedVariants[] = { 0, 2, 10, 12, 0, 2, 10, 12, 0, 2, 10, 12, 1, 3, 11, 13 };
+	// 低層集合住宅は2階建ての 4,14 を主に、3階建ての箱 5,15 を3割程度にする。
+	static constexpr uint8 kLowApartmentVariants[] = { 4, 14, 4, 14, 5, 15, 4, 14, 5, 15 };
 	static constexpr uint8 kMidApartmentVariants[] = { 6, 7, 16 };
 	static constexpr uint8 kHighApartmentVariants[] = { 8, 9, 17 };
 	switch (t)
