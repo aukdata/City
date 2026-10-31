@@ -381,9 +381,9 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 			for (size_t i=1; i+1<chain.size(); ++i)
 			{
 				const int id=chain[i];
-				const double width=2*Clamp(settings.rivers_widthBase+std::sqrt(nodes[id].flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
+				const double channelWidth=2*Clamp(settings.rivers_widthBase+std::sqrt(nodes[id].flow)*settings.rivers_widthFlowScale,settings.rivers_minimumHalfWidth,settings.rivers_maximumHalfWidth);
 				// 波長は流路ごとにゆっくり揺らし、同じ形の繰り返しにしない。
-				const double wavelength=settings.rivers_meanderWavelength*width*(1+.3*Sin(along[i]/(width*37)+phase0));
+				const double wavelength=settings.rivers_meanderWavelength*channelWidth*(1+.3*Sin(along[i]/(channelWidth*37)+phase0));
 				phase+=Math::TwoPi*(along[i]-along[i-1])/wavelength;
 				const size_t reach=Max<size_t>(2,static_cast<size_t>(wavelength*.25/Max(1.0,step)));
 				const int behind=chain[i>=reach ? i-reach : 0],ahead=chain[Min(chain.size()-1,i+reach)];
@@ -398,11 +398,11 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 				const double taper=lowland*lowland*(3-2*lowland)*ends*ends*(3-2*ends);
 				if (taper<=0) { continue; }
 				const Vec2 normal=Vec2{-tangent.y,tangent.x}.normalized();
-				const double offset=settings.rivers_meanderAmplitude*width*taper*(Sin(phase)+.18*Sin(3*phase+.6));
+				const double offset=settings.rivers_meanderAmplitude*channelWidth*taper*(Sin(phase)+.18*Sin(3*phase+.6));
 				// 隣の流路（別の水源の河道）へ近づく場合は振幅を縮め、合流せずに交差させない。
 				const auto clear=[&](Vec2 point)
 				{
-					const double clearance=width*.75+Abs(offset)+20;
+					const double clearance=channelWidth*.75+Abs(offset)+20;
 					const int reachCells=static_cast<int>(Ceil(clearance/indexSize));
 					const Point cell{static_cast<int>(Floor(point.x/indexSize)),static_cast<int>(Floor(point.y/indexSize))};
 					for (int dz=-reachCells; dz<=reachCells; ++dz) for (int dx=-reachCells; dx<=reachCells; ++dx)

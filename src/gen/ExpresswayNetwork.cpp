@@ -1607,7 +1607,7 @@ namespace ExpresswayNetwork
 				if (!geometry.failure.isEmpty()) { DBG_LOG(U"[ExpresswayInterchange] skipped name={} reason={}"_fmt(ic.name, geometry.failure)); continue; }
 				const auto& plan = geometry.plan;
 				const auto& pieces = geometry.pieces;
-				const double s = ic.station, base = geometry.base;
+				const double s = ic.station;
 				const int townSide = geometry.townSide;
 				const Vec2 ey = geometry.ey, farTravel = geometry.farTravel, nearTravel = geometry.nearTravel, plazaPoint = geometry.plazaPoint;
 				const Vec3 loopEntry = geometry.loopEntry, loopRight = geometry.loopRight, loopTop = geometry.loopTop, southboundTop = geometry.southboundTop;
