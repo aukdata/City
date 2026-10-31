@@ -277,6 +277,20 @@ void registerSourceWaterTests(TestRunner& runner)
 		for(int step=0;step<300;++step) { world.advanceSourceWater(0.1); }
 		context.expect(same(SourceWaterGeometry::build(world,ox,oz,64,16,2),SourceWaterGeometry::build(world,ox,oz,64,16,2,&cache)),
 			U"A warm cache reused after the water level changes still matches the direct mesh");
+		// Skipping a rebuild is only allowed when the direct rebuild is identical to the kept mesh.
+		const Point chunk{static_cast<int>(Floor(ox/CHUNK_SIZE)),static_cast<int>(Floor(oz/CHUNK_SIZE))};
+		auto kept=SourceWaterGeometry::build(world,ox,oz,64,16,2,&cache);SourceWaterGeometry::remember(world,chunk,cache);
+		context.expect(SourceWaterGeometry::unchanged(world,chunk,cache) && same(kept,SourceWaterGeometry::build(world,ox,oz,64,16,2)),
+			U"Without a water step the chunk is reported unchanged and rebuilds identically");
+		int skipped=0,rebuilt=0;bool exact=true;
+		for(int check=0;check<80;++check)
+		{
+			for(int step=0;step<50;++step) { world.advanceSourceWater(0.1); }
+			if (SourceWaterGeometry::unchanged(world,chunk,cache)) { ++skipped;exact&=same(kept,SourceWaterGeometry::build(world,ox,oz,64,16,2)); }
+			else { ++rebuilt;kept=SourceWaterGeometry::build(world,ox,oz,64,16,2,&cache);SourceWaterGeometry::remember(world,chunk,cache); }
+		}
+		context.expect(rebuilt>0,U"Rising water is detected as a change");
+		context.expect(exact,U"Every skipped rebuild would have produced the kept mesh bit for bit (skipped {})"_fmt(skipped));
 	});
 	runner.add(U"SourceWater.NativeGameSurface",[](TestContext& context)
 	{

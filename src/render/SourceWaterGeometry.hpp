@@ -14,7 +14,17 @@ namespace SourceWaterGeometry
 		Array<uint32> first;
 		Array<uint32> count;
 		std::vector<SourceWater::ChannelCandidate> candidates;
+		/// @brief What the last cached build read that can change in play: the stage of every channel the
+		/// lattice consulted and the ground heights. Equal inputs rebuild a bit-identical mesh.
+		bool built = false;
+		Array<uint32> channels;
+		Array<double> stages;
+		Array<float> ground;
 	};
+	/// @brief Record the channel stages and ground read by the build that just used this cache.
+	void remember(const World& world,Point chunk,LatticeCache& cache);
+	/// @brief True when rebuilding this chunk would read exactly what the last cached build read.
+	[[nodiscard]] bool unchanged(const World& world,Point chunk,const LatticeCache& cache);
 	/// @param mode 1: fixed sea; 2: owned land, clipped against the real terrain.
 	/// @param cache Optional; reused only for the same water, origin, cells and step.
 	MeshData build(const World& world,double originX,double originZ,int cells,double step,int mode,LatticeCache* cache=nullptr);

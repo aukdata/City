@@ -2,6 +2,7 @@
 #include "SourceWaterGeometry.hpp"
 #include "../debug/DebugLog.hpp"
 #include <array>
+#include <cstring>
 
 namespace SourceWaterGeometry
 {
@@ -137,6 +138,67 @@ namespace SourceWaterGeometry
 	}
 }
 
+namespace SourceWaterGeometry
+{
+	namespace
+	{
+		/// @brief Heights read by a chunk's lattice: its own chunk and the +x/+z neighbours for the far edges.
+		/// A missing chunk falls back to the fixed generated terrain, recorded as an empty block.
+		void collectGround(const World& world,Point chunk,Array<float>& out)
+		{
+			out.clear();
+			for (const Point offset:{Point{0,0},Point{1,0},Point{0,1},Point{1,1}})
+			{
+				const auto* source=world.getChunk(chunk+offset);
+				out << static_cast<float>(source ? source->heightMap.num_elements() : 0);
+				if (source) { out.insert(out.end(),source->heightMap.begin(),source->heightMap.end()); }
+			}
+		}
+
+		void collectStages(const SourceWater& water,const Array<uint32>& channels,Array<double>& out)
+		{
+			out.clear();
+			for (const uint32 index:channels) { out << water.channelDepth(index) << water.channelFlow(index); }
+		}
+
+		bool sameBits(const auto& a,const auto& b)
+		{
+			return a.size()==b.size() && (a.isEmpty() || std::memcmp(a.data(),b.data(),a.size_bytes())==0);
+		}
+	}
+
+	void remember(const World& world,Point chunk,LatticeCache& cache)
+	{
+		const auto* water=world.sourceWater();
+		cache.built=water && !water->channels().empty() && cache.owner==water;
+		if (!cache.built) { return; }
+		cache.channels.clear();
+		for (size_t node=0;node<cache.reach.size();++node)
+		{
+			if (cache.reach[node]==-2) { continue; }
+			if (cache.reach[node]>=0) { cache.channels << static_cast<uint32>(cache.reach[node]); }
+			for (uint32 i=cache.first[node];i<cache.first[node]+cache.count[node];++i)
+			{
+				const auto index=cache.candidates[i].index;cache.channels << static_cast<uint32>(index);
+				if (const int downstream=water->channels()[index].downstream;downstream>=0) { cache.channels << static_cast<uint32>(downstream); }
+			}
+		}
+		cache.channels.sort();cache.channels.unique_consecutive();
+		collectStages(*water,cache.channels,cache.stages);
+		collectGround(world,chunk,cache.ground);
+	}
+
+	bool unchanged(const World& world,Point chunk,const LatticeCache& cache)
+	{
+		const auto* water=world.sourceWater();
+		if (!cache.built || !water || cache.owner!=water || water->channels().empty()) { return false; }
+		Array<double> stages;collectStages(*water,cache.channels,stages);
+		if (!sameBits(stages,cache.stages)) { return false; }
+		Array<float> ground;collectGround(world,chunk,ground);
+		return sameBits(ground,cache.ground);
+	}
+}
+
 void WorldRenderer::renderSourceWater(const World& world, bool regional)
 {
 	const auto* water=world.sourceWater();
@@ -194,12 +256,22 @@ void WorldRenderer::renderSourceWater(const World& world, bool regional)
 		auto& entry=m_sourceWaterMeshes[key];
 		if (entry.revision!=0 && (!dynamic && !entry.dynamic && entry.terrainRevision==water->terrainRevision())) { continue; }
 		if ((entry.revision==water->revision() && entry.terrainRevision==water->terrainRevision()) || Scene::Time()-entry.updated<0.1) { continue; }
+		if (dynamic && entry.dynamic && entry.revision!=0 && entry.terrainRevision==water->terrainRevision()
+			&& SourceWaterGeometry::unchanged(world,chunk->coord,entry.lattice))
+		{
+			// Same channel stages and ground: a rebuild would produce an identical mesh. It still uses this
+			// chunk's update slot so the other chunks refresh on the same frames as before.
+			entry.revision=water->revision();entry.updated=Scene::Time();
+			++uploaded;
+			continue;
+		}
 		if (entry.revision==0 || entry.terrainRevision!=water->terrainRevision())
 		{
 			const auto sea=SourceWaterGeometry::build(world,origin.x,origin.z,16,64.0,1);
 			entry.sea=sea.indices.isEmpty() ? Mesh{} : Mesh{sea};
 		}
 		const auto data=dynamic ? SourceWaterGeometry::build(world,origin.x,origin.z,HEIGHT_CELLS,16.0,2,&entry.lattice) : MeshData{};
+		if (dynamic) { SourceWaterGeometry::remember(world,chunk->coord,entry.lattice); }
 		if (!dynamic) { entry.mesh=DynamicMesh{}; }
 		else if (!data.indices.isEmpty())
 		{
