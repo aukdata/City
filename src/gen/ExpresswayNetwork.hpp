@@ -21,6 +21,7 @@ namespace ExpresswayNetwork
 		int accessEdges = 0;
 		int guideSigns = 0;
 		int tollGates = 0;
+		int auxiliaryLanes = 0; ///< 変速車線（加速・減速車線）を持つ本線区間の数
 		double lengthKm = 0;
 	};
 
@@ -32,4 +33,7 @@ namespace ExpresswayNetwork
 
 	/// @brief 地名から路線名の基部を作る（末尾の「市」を外す）。
 	String routeBaseName(StringView place);
+
+	/// @brief 設計速度 [km/h] に対する最小曲線半径 [m]（道路構造令 第15条の標準値。間は線形補間）。
+	double minimumCurveRadius(double speed);
 }

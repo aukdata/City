@@ -277,6 +277,77 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		}
 	};
 
+	// ── 自動車専用道の一方通行どうしの節点（本線の継ぎ目・分合流・変速車線の始終点） ──
+	// 交差点の方向別配分ではなく、節点での車線の横位置が近いものどうしをつなぐ。
+	// 合流するランプは変速車線へ、本線の各車線はそのまま隣の区間の同じ位置の車線へ入る。
+	const bool oneWayExpressway = node->attachments.size() >= 2 && node->attachments.all([&](const EdgeAttachment& attachment)
+	{
+		const RoadEdge* edge = getEdge(attachment.edgeId);
+		return edge && edge->roadType == RoadType::Expressway && !edge->lanes.isEmpty()
+			&& edge->lanes.all([](const Lane& lane) { return lane.dir == LaneDir::Forward; });
+	});
+	if (oneWayExpressway)
+	{
+		struct Placed { LaneRef ref; Vec3 position; Vec2 heading; };
+		Array<Placed> entries, exits;
+		const auto place = [&](const LaneRef& ref)
+		{
+			const RoadEdge* edge = getEdge(ref.edgeId);
+			const auto curve = getBezier(ref.edgeId);
+			if (!curve) { return Placed{ ref, node->position, Vec2{ 1, 0 } }; }
+			const auto end = calcLaneEndpoint(*curve, *edge, edge->lanes[ref.laneIndex], nodeId);
+			const Vec3 travel = end.tangent * end.dirSign;
+			const Vec2 heading = Vec2{ travel.x, travel.z }.lengthSq() > 1e-12 ? Vec2{ travel.x, travel.z }.normalized() : Vec2{ 1, 0 };
+			return Placed{ ref, end.worldPos, heading };
+		};
+		for (const auto& attachment : node->attachments)
+		{
+			for (const auto& ref : collectEntryLanes(attachment.edgeId)) { entries << place(ref); }
+			for (const auto& ref : collectExitLanes(attachment.edgeId)) { exits << place(ref); }
+		}
+		// 左の車線から順に見て、同じ距離なら左（路肩側）を選ぶ。
+		entries.sort_by([](const Placed& a, const Placed& b) { return a.ref.driverOffset < b.ref.driverOffset; });
+		exits.sort_by([](const Placed& a, const Placed& b) { return a.ref.driverOffset < b.ref.driverOffset; });
+		// 節点の切り欠きで車線端は前後にずれるため、進行方向に直交する横位置だけを比べる。
+		// 向きの基準は車線の最も多い区間（本線）。斜めに入るランプを基準にすると前後のずれが横位置に混ざる。
+		Vec2 heading{ 1, 0 }; size_t widest = 0;
+		for (const auto* group : { &entries, &exits })
+		{
+			for (const auto& placed : *group)
+			{
+				const size_t lanes = getEdge(placed.ref.edgeId)->lanes.size();
+				if (lanes > widest) { widest = lanes; heading = placed.heading; }
+			}
+		}
+		const auto horizontal = [&](Vec3 a, Vec3 b) { const Vec2 d{ a.x - b.x, a.z - b.z }; return Abs(heading.x * d.y - heading.y * d.x); };
+		Array<bool> served(exits.size(), false);
+		for (const auto& entry : entries)
+		{
+			size_t best = exits.size(); double nearest = Math::Inf;
+			for (size_t i = 0; i < exits.size(); ++i)
+			{
+				if (exits[i].ref.edgeId == entry.ref.edgeId) { continue; }
+				const double distance = horizontal(entry.position, exits[i].position);
+				if (distance < nearest - .05) { nearest = distance; best = i; }
+			}
+			if (best < exits.size()) { addConn(entry.ref, exits[best].ref); served[best] = true; }
+		}
+		// 分流先（ランプ・すり付け区間の車線）にも、最も近い進入車線からつなぐ。
+		for (size_t i = 0; i < exits.size(); ++i)
+		{
+			if (served[i]) { continue; }
+			const Placed* best = nullptr; double nearest = Math::Inf;
+			for (const auto& entry : entries)
+			{
+				if (entry.ref.edgeId == exits[i].ref.edgeId) { continue; }
+				const double distance = horizontal(entry.position, exits[i].position);
+				if (distance < nearest - .05) { nearest = distance; best = &entry; }
+			}
+			if (best) { addConn(best->ref, exits[i].ref); }
+		}
+		return;
+	}
+
 	// ── 方向種別 ──
 	enum class TurnDir { AllDirections, Left, StraightLeft, Straight, StraightRight, Right };
 

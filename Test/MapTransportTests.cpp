@@ -15,6 +15,7 @@
 #include "../src/railway/RailDepotBuilder.hpp"
 #include "../src/gen/RailwayAlignment.hpp"
 #include "../src/gen/ExpresswayNetwork.hpp"
+#include "../src/gen/ExpresswayCrossSection.hpp"
 #include "../src/traffic/OutsideConnections.hpp"
 #include <thread>
 #include <atomic>
@@ -87,6 +88,84 @@ void registerMapTransportTests(TestRunner& runner)
 		context.expect(span > WORLD_SIZE * .4, U"{}: the two map-edge ends are on different sides of the map (span {:.0f}m)"_fmt(label, span));
 		return ends.size();
 	};
+	// 本線（設計速度 expressway_speed）とランプ・料金所前後の区間（各区間の制限速度）の最小曲線半径と、本線の節点での折れ角を測る。
+	struct ExpresswayGeometry { double mainlineLength = 0; double mainlineRadius = Math::Inf, rampRadius = Math::Inf, rampRequired = 0, kinkDegrees = 0; Vec3 mainlineAt, rampAt, kinkAt; int rampSpeed = 0; };
+	const auto measureExpressway = [](const RoadNetwork& roads)
+	{
+		ExpresswayGeometry g;
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id < 0 || edge.roadType != RoadType::Expressway) { continue; }
+			const auto curve = roads.getBezier(edge.id);
+			if (!curve) { continue; }
+			const double radius = curve->minimumHorizontalRadius();
+			if (edge.speedLimit >= GenerationSettings::get().expressway_speed - .5f)
+			{
+				if (radius < g.mainlineRadius) { g.mainlineRadius = radius; g.mainlineLength = curve->totalLength; g.mainlineAt = curve->positionAt(curve->totalLength * .5f); }
+			}
+			else
+			{
+				// ベジェで円弧を近似する誤差（2% 以内）は許す。生成側の判定と同じ。
+				const double required = ExpresswayNetwork::minimumCurveRadius(edge.speedLimit) * .98;
+				if (radius / required < (g.rampRequired > 0 ? g.rampRadius / g.rampRequired : Math::Inf))
+				{
+					g.rampRadius = radius; g.rampRequired = required; g.rampAt = curve->positionAt(curve->totalLength * .5f); g.rampSpeed = static_cast<int>(edge.speedLimit);
+				}
+			}
+		}
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0) { continue; }
+			Optional<Vec2> incoming, outgoing;
+			for (const auto& attachment : node.attachments)
+			{
+				const auto* edge = roads.getEdge(attachment.edgeId);
+				if (!edge || edge->roadType != RoadType::Expressway || edge->speedLimit < GenerationSettings::get().expressway_speed - .5f) { continue; }
+				const auto curve = roads.getBezier(edge->id);
+				if (!curve) { continue; }
+				if (edge->nodeB == node.id) { const Vec3 t = curve->tangent(1); incoming = Vec2{ t.x, t.z }.normalized(); }
+				else { const Vec3 t = curve->tangent(0); outgoing = Vec2{ t.x, t.z }.normalized(); }
+			}
+			if (incoming && outgoing)
+			{
+				const double degrees = Math::ToDegrees(std::acos(Clamp(incoming->dot(*outgoing), -1.0, 1.0)));
+				if (degrees > g.kinkDegrees) { g.kinkDegrees = degrees; g.kinkAt = node.position; }
+			}
+		}
+		return g;
+	};
+	const auto auditGeometry = [=](TestContext& context, const RoadNetwork& roads, StringView label)
+	{
+		const auto g = measureExpressway(roads);
+		const double required = GenerationSettings::get().expressway_minimumRadius;
+		// 車道は中心線から片側へずれるため、内側の車道は中心線の半径より carriagewayOffset だけ小さい。
+		context.expect(g.mainlineRadius >= required - ExpresswayCrossSection::carriagewayOffset() - 1,
+			U"{}: mainline radius {:.0f}m >= {:.0f}m at {} (edge {:.0f}m)"_fmt(label, g.mainlineRadius, required, g.mainlineAt, g.mainlineLength));
+		context.expect(g.kinkDegrees < 1.0, U"{}: mainline has no kink at nodes ({:.2f} deg at {})"_fmt(label, g.kinkDegrees, g.kinkAt));
+		context.expect(g.rampRequired <= 0 || g.rampRadius >= g.rampRequired,
+			U"{}: ramp radius {:.0f}m >= {:.0f}m for {}km/h at {}"_fmt(label, g.rampRadius, g.rampRequired, g.rampSpeed, g.rampAt));
+		// 変速車線: ランプは本線の左に足した車線（添字 0）へ合流し、そこから分流する。本線の走行車線から直接は出入りしない。
+		const float mainlineSpeed = GenerationSettings::get().expressway_speed - .5f;
+		int merges = 0, diverges = 0, direct = 0;
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0) { continue; }
+			for (const auto& connection : node.laneConnections)
+			{
+				const auto* from = roads.getEdge(connection.fromEdgeId);
+				const auto* to = roads.getEdge(connection.toEdgeId);
+				if (!from || !to || from->roadType != RoadType::Expressway || to->roadType != RoadType::Expressway) { continue; }
+				const bool fromMain = from->speedLimit >= mainlineSpeed, toMain = to->speedLimit >= mainlineSpeed;
+				const size_t through = static_cast<size_t>(GenerationSettings::get().expressway_lanesPerDirection);
+				const auto report = [&](bool ok, StringView) { direct += !ok; };
+				if (!fromMain && toMain && from->lanes.size() == 1) { ++merges; report(to->lanes.size() > through && connection.toLaneIndex == 0, U"merge"); }
+				if (fromMain && !toMain && to->lanes.size() == 1) { ++diverges; report(from->lanes.size() > through && connection.fromLaneIndex == 0, U"diverge"); }
+			}
+		}
+		context.expect(merges >= 2 && diverges >= 2, U"{}: ramps merge and diverge ({} merges, {} diverges)"_fmt(label, merges, diverges));
+		context.expect(direct == 0, U"{}: every ramp joins the mainline through an acceleration or deceleration lane ({} direct)"_fmt(label, direct));
+		return g;
+	};
 	runner.add(U"Expressway.CrossesMapWithInterchange", [=](TestContext& context)
 	{
 		World world; flatWorld(world, [](Vec2) { return 20.0f; });
@@ -95,6 +174,7 @@ void registerMapTransportTests(TestRunner& runner)
 			town({ 42000, 34000 }, MapGenerator::SettlementKind::RegionalCity, U"東市") };
 		const auto summary = ExpresswayNetwork::generate(42, world, roads, towns);
 		auditExpressway(context, roads, summary, U"two cities");
+		auditGeometry(context, roads, U"two cities");
 	});
 	runner.add(U"Expressway.SingleTownBehindPlateau", [=](TestContext& context)
 	{
@@ -153,8 +233,9 @@ void registerMapTransportTests(TestRunner& runner)
 			const auto summary = ExpresswayNetwork::generate(seed, world, roads, towns);
 			DebugLog::shutdown();
 			const size_t ends = auditExpressway(context, roads, summary, U"seed {}"_fmt(seed));
-			report << U"seed={} towns={} lines={} lengthKm={:.1f} interchanges={} junctions={} borderEnds={} seconds={:.1f}"_fmt(
-				seed, towns.size(), summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, ends, timer.sF());
+			const auto geometry = auditGeometry(context, roads, U"seed {}"_fmt(seed));
+			report << U"seed={} towns={} lines={} lengthKm={:.1f} interchanges={} junctions={} borderEnds={} mainlineRadius={:.0f} kinkDegrees={:.2f} rampRadius={:.0f}/{:.0f} seconds={:.1f}"_fmt(
+				seed, towns.size(), summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, ends, geometry.mainlineRadius, geometry.kinkDegrees, geometry.rampRadius, geometry.rampRequired, timer.sF());
 		}
 	});
 	runner.add(U"MapSigns.TownBillboardLayout", [](TestContext& context)

@@ -8,6 +8,7 @@
 #include "RoadTerrainFit.hpp"
 #include "StreetProfile.hpp"
 #include "TransportClearance.hpp"
+#include <array>
 #include "../road/GuideSign.hpp"
 #include "../debug/DebugLog.hpp"
 
@@ -194,6 +195,76 @@ namespace
 		// 標本化後の固定区間（JCT の分岐直線）を保つため、先頭の拘束長を距離で持つ。
 		double fixedLength = 0;
 		for (size_t i = 1; i < Min(fixedPrefix, coarse.size()); ++i) { fixedLength += coarse[i].distanceFrom(coarse[i - 1]); }
+		// 3 点の外接円で半径を見積もり、最小曲線半径を割る点の前後だけを繰り返し均す。
+		// 全体を均すと緩い曲線まで中へ寄るため、急な箇所の周囲（半径の半分の幅）に限る。
+		{
+			const double target = c.expressway_minimumRadius * 1.15;
+			const int window = Max(2, static_cast<int>(Ceil(c.expressway_minimumRadius * .5 / c.expressway_profileSampleLength)));
+			// 折れ線を弧長で等間隔（profileSampleLength）に取り直す。端点は保つ。
+			const auto uniform = [&](const Array<Vec2>& source)
+			{
+				double total = 0;
+				for (size_t i = 1; i < source.size(); ++i) { total += source[i].distanceFrom(source[i - 1]); }
+				const int segments = Max(2, static_cast<int>(Math::Round(total / c.expressway_profileSampleLength)));
+				const double step = total / segments;
+				Array<Vec2> result{ source.front() };
+				double walked = 0, next = step;
+				for (size_t i = 1; i < source.size(); ++i)
+				{
+					const double piece = source[i].distanceFrom(source[i - 1]);
+					while (piece > 1e-9 && next <= walked + piece && static_cast<int>(result.size()) < segments)
+					{
+						result << source[i - 1].lerp(source[i], (next - walked) / piece);
+						next += step;
+					}
+					walked += piece;
+				}
+				result << source.back();
+				return result;
+			};
+			const auto circumradius = [](Vec2 a, Vec2 b, Vec2 d)
+			{
+				const double cross = Abs((b - a).x * (d - a).y - (b - a).y * (d - a).x);
+				return cross < 1e-9 ? Math::Inf : a.distanceFrom(b) * b.distanceFrom(d) * d.distanceFrom(a) / (2 * cross);
+			};
+			for (int pass = 0; pass < c.expressway_radiusPasses * 20; ++pass)
+			{
+				const size_t count = line.points.size();
+				Array<bool> marked(count, false);
+				bool tight = false;
+				for (size_t i = 1; i + 1 < count; ++i)
+				{
+					// 3 点おきに測り、標本間隔の細かな揺れを曲率と取り違えない。
+					const size_t lo = i >= 3 ? i - 3 : 0, hi = Min(count - 1, i + 3);
+					if (circumradius(line.points[lo], line.points[i], line.points[hi]) >= target) { continue; }
+					tight = true;
+					// 均しても残る急曲線（通過点での折り返しなど）は、均す幅を広げて角を大きく丸める。
+					const size_t reach = static_cast<size_t>(window) * (1 + static_cast<size_t>(pass) / 30);
+					for (size_t j = (i > reach ? i - reach : 1); j <= Min(count - 2, i + reach); ++j) { marked[j] = true; }
+				}
+				if (!tight) { DBG_LOG(U"[ExpresswayCurve] smoothed passes={}"_fmt(pass)); break; }
+				if (pass + 1 == c.expressway_radiusPasses * 20)
+				{
+					double worst = Math::Inf; Vec2 at; size_t worstIndex = 0;
+					for (size_t i = 3; i + 3 < count; ++i) { const double r = circumradius(line.points[i - 3], line.points[i], line.points[i + 3]); if (r < worst) { worst = r; at = line.points[i]; worstIndex = i; } }
+					DBG_LOG(U"[ExpresswayCurve] unresolved passes={} radius={:.0f} at={} index={}/{}"_fmt(pass + 1, worst, at, worstIndex, count));
+					// 分岐の固定直線に続く支線は、最小曲線半径を守れなければ作らない（JCT は任意）。本線は必ず通す。
+					if (fixedPrefix > 1) { return none; }
+				}
+				auto softened = line.points; double along = 0;
+				for (size_t i = 1; i + 1 < count; ++i)
+				{
+					along += line.points[i].distanceFrom(line.points[i - 1]);
+					if (!marked[i] || along <= fixedLength + 1) { continue; }
+					// 離れた点どうしの中点へ寄せると、曲がりが速く広い範囲へ分散する。
+					const size_t k = Min<size_t>({ 1 + static_cast<size_t>(pass) / 40, i, count - 1 - i });
+					softened[i] = line.points[i].lerp((line.points[i - k] + line.points[i + k]) * .5, .5);
+				}
+				line.points = std::move(softened);
+				// 均すと曲線の内側へ点が寄って間隔が縮み、同じ点数の幅が短くなる。定期的に等間隔へ戻す。
+				if (pass % 8 == 7) { line.points = uniform(line.points); }
+			}
+		}
 		for (int pass = 0; pass < c.expressway_radiusPasses; ++pass)
 		{
 			Array<Vec3> raised;
@@ -406,6 +477,29 @@ namespace
 			if (profile.feasible) { break; }
 			profile = RailCostProfile::solve(samples, start, Min(end + raise, samples.back().maximum), grade);
 		}
+		// 最後の計画（土被りの上限なし）では、地図端の端点の高さも固定しない。地図外へは高架・トンネルのまま抜けてよい。
+		if (!profile.feasible && line.structureScale >= 100)
+		{
+			// 元の高さ（地盤）に近い順に試し、地図端で地表に近い高さを優先する。
+			const auto heightsOf = [](const RailCostProfile::Sample& sample, double preferred)
+			{
+				Array<double> heights;
+				for (int k = 0; k <= 8; ++k) { heights << Math::Lerp(sample.minimum, sample.maximum, k / 8.0); }
+				heights.sort_by([&](double a, double b) { return Abs(a - preferred) < Abs(b - preferred); });
+				return heights;
+			};
+			for (const double height : heightsOf(samples.back(), end))
+			{
+				if (profile.feasible) { break; }
+				profile = RailCostProfile::solve(samples, start, height, grade);
+			}
+			for (const double height : heightsOf(samples.front(), start))
+			{
+				if (profile.feasible) { break; }
+				profile = RailCostProfile::solve(samples, height, end, grade);
+			}
+			if (profile.feasible) { DBG_LOG(U"[ExpresswayProfile] solved with a free map-edge height start={:.1f} end={:.1f}"_fmt(profile.heights.front(), profile.heights.back())); }
+		}
 		if (!profile.feasible)
 		{
 			// 診断: 離隔帯を無視しても、始点から最急勾配で届く高さが地盤の上下限（トンネル土被り・高架高さ）と交わらなくなる標本。
@@ -422,6 +516,7 @@ namespace
 					line.stations[i], samples[i].position.x, samples[i].position.y, samples[i].ground, samples[i].minimum, samples[i].maximum);
 				break;
 			}
+			if (limit == U"none" && (end < lo - 1 || end > hi + 1)) { limit = U"end={:.1f} reachable=({:.1f},{:.1f})"_fmt(end, lo, hi); }
 			DBG_LOG(U"[ExpresswayProfile] infeasible start={:.1f} end={:.1f} samples={} heightRange=({:.0f},{:.0f}) gradeLimit={}"_fmt(start, end, samples.size(), low, high, limit));
 			return false;
 		}
@@ -457,12 +552,21 @@ namespace
 	}
 
 	/// @brief ノードを置く station。IC・JCT の分合流点は必ずノードにする。
-	Array<double> nodeStations(const Line& line, Array<double> forced)
+	/// @param optional 置けるなら置く節点（変速車線の始終点）。他の節点から kMinimumGap 未満なら省き、短い区間で曲率が跳ねるのを防ぐ。
+	Array<double> nodeStations(const Line& line, Array<double> forced, Array<double> optional = {})
 	{
+		constexpr double kMinimumGap = 40;
 		const double spacing = settings().expressway_nodeSpacing, total = line.length();
 		forced.remove_if([&](double s) { return s <= 1 || s >= total - 1; });
 		Array<double> result{ 0.0, total };
 		result.append(forced);
+		optional.sort();
+		for (const double s : optional)
+		{
+			if (s <= kMinimumGap || s >= total - kMinimumGap || result.any([&](double f) { return Abs(f - s) < kMinimumGap; })) { continue; }
+			result << s;
+		}
+		forced = result;
 		for (double s = spacing; s < total - spacing * .4; s += spacing)
 		{
 			if (forced.any([&](double f) { return Abs(f - s) < spacing * .3; })) { continue; }
@@ -495,8 +599,19 @@ namespace
 		if (side < 0) { result.stations.reverse(); }
 		Array<Vec3> points;
 		for (const double s : result.stations) { points << carriagewayPoint(line, s, side, offset); }
-		const auto curves = RoadAlignment::fit(points);
-		if (curves.size() + 1 != points.size()) { return none; }
+		// 接線は隣の節点ではなく中心線の向きから取る。IC の分合流点で節点の間隔が不揃いでも曲率が跳ねない。
+		Array<CubicBezier> curves;
+		for (size_t i = 0; i + 1 < points.size(); ++i)
+		{
+			const Vec3 a = points[i], b = points[i + 1];
+			const Vec2 span = flat(b - a);
+			if (span.lengthSq() < 1e-6) { return none; }
+			const Vec2 ta = line.tangent(result.stations[i]) * side, tb = line.tangent(result.stations[i + 1]) * side;
+			const double arm = span.length() / 3;
+			const auto height = [&](Vec2 p) { return a.y + (b.y - a.y) * (p - flat(a)).dot(span) / span.lengthSq(); };
+			const Vec2 first = flat(a) + ta * arm, second = flat(b) - tb * arm;
+			curves << CubicBezier{ a, lift(first, height(first)), lift(second, height(second)), b };
+		}
 		for (const auto& point : points) { result.nodes << roads.addNode(point, NodeType::Joint); }
 		double arc = 0;
 		result.arcs << 0.0;
@@ -731,15 +846,25 @@ namespace
 	struct TrumpetLayout
 	{
 		double radius = 60, loopLift = 5, southboundX = 5, stemSouth = 250, bridgeApex = 9.2, stemGrade = .07;
+		double onRadius = 110; ///< 遠い側の流入ランプがループの外を回る円弧の半径（ランプの設計速度の最小曲線半径以上）
 		double loopLead = -170, farMerge = 430, nearRamp = 380;
 		Vec2 loopCenter{ 0, 0 };
 		/// @brief 本線の station 方向に IC が占める範囲（中心からの最大距離）。
 		[[nodiscard]] double reach() const { return Max({ -loopLead, farMerge, nearRamp }); }
+		/// @brief 変速車線（減速・加速車線とすり付け）まで含めた範囲。
+		[[nodiscard]] double auxiliaryReach() const
+		{
+			const auto& c = GenerationSettings::get();
+			const double taper = c.expressway_auxiliaryTaperLength, decelerate = c.expressway_decelerationLaneLength, accelerate = c.expressway_accelerationLaneLength;
+			return Max({ -loopLead + decelerate + taper, farMerge + accelerate + taper, nearRamp + Max(decelerate, accelerate) + taper });
+		}
 		static TrumpetLayout make()
 		{
 			const auto& c = GenerationSettings::get();
 			TrumpetLayout layout;
-			layout.radius = c.expressway_trumpetLoopRadius; layout.loopLift = c.expressway_trumpetLoopLift;
+			layout.radius = Max(c.expressway_trumpetLoopRadius, ExpresswayNetwork::minimumCurveRadius(c.expressway_trumpetLoopSpeed));
+			layout.onRadius = ExpresswayNetwork::minimumCurveRadius(c.expressway_rampSpeed) * 1.1;
+			layout.loopLift = c.expressway_trumpetLoopLift;
 			layout.stemSouth = c.expressway_trumpetStemLength; layout.bridgeApex = c.expressway_trumpetBridgeApex;
 			layout.stemGrade = c.expressway_rampMaximumGrade * 1.12;
 			layout.loopLead = -c.expressway_trumpetLoopLead; layout.farMerge = c.expressway_trumpetFarMerge; layout.nearRamp = c.expressway_trumpetNearRamp;
@@ -803,14 +928,15 @@ namespace
 		const Vec3 loopTop = g.loopTop = local(plan.loopCenter.x, plan.loopCenter.y + plan.radius, plan.loopLift * .66);
 		const Vec3 southboundTop = g.southboundTop = local(plan.southboundX, plan.loopCenter.y, plan.loopLift);
 		const Vec3 northboundTop = g.northboundTop = local(-plan.southboundX, plan.loopCenter.y, plan.loopLift);
-		const Vec3 overLoop = g.overLoop = local(plan.loopCenter.x + 20, plan.loopCenter.y + plan.radius + 70, plan.loopLift);
+		// 流入ランプはループの外側を半径 onRadius の 1/4 円で回る。
+		const Vec3 overLoop = g.overLoop = local(-plan.southboundX + plan.onRadius, plan.loopCenter.y + plan.onRadius, plan.loopLift);
 		const Vec3 southboundFoot = g.southboundFoot = local(plan.southboundX, -plan.stemSouth, 0);
 		const Vec3 northboundFoot = g.northboundFoot = local(-plan.southboundX, -plan.stemSouth, 0);
 		g.plazaPoint = center + ey * -(plan.stemSouth + 30);
 		g.plazaStart = lift(g.plazaPoint, base);
-		const double arcHandle = .5523 * plan.radius;
-		const auto arcCurve = [&](Vec3 from, Vec2 fromDirection, Vec3 to, Vec2 toDirection)
+		const auto arcCurve = [&](Vec3 from, Vec2 fromDirection, Vec3 to, Vec2 toDirection, double radius = 0)
 		{
+			const double arcHandle = .5523 * (radius > 0 ? radius : plan.radius);
 			return CubicBezier{ from, lift(flat(from) + fromDirection * arcHandle, Math::Lerp(from.y, to.y, 1.0 / 3)), lift(flat(to) - toDirection * arcHandle, Math::Lerp(from.y, to.y, 2.0 / 3)), to };
 		};
 		const auto handled = [&](Vec3 from, Vec2 a, Vec3 to, Vec2 b, double factor, Optional<double> firstHeight = none, Optional<double> secondHeight = none)
@@ -827,7 +953,7 @@ namespace
 			{ arcCurve(loopTop, heading(-1, 0), southboundTop, heading(0, -1)), U"loop3" },
 			{ handled(southboundTop, heading(0, -1), southboundFoot, heading(0, -1), .38, base + plan.bridgeApex + 1.5, base + plan.bridgeApex - 1), U"southbound" },
 			{ handled(northboundFoot, heading(0, 1), northboundTop, heading(0, 1), .38, base + plan.bridgeApex - 1, base + plan.bridgeApex + 1.5), U"northbound" },
-			{ handled(northboundTop, heading(0, 1), overLoop, heading(1, 0), .55), U"farOn1" },
+			{ arcCurve(northboundTop, heading(0, 1), overLoop, heading(1, 0), plan.onRadius), U"farOn1" },
 			{ handled(overLoop, heading(1, 0), position(farMerge), farTravelMerge + rightOf(farTravelMerge) * angle, .38), U"farOn2" },
 			{ handled(position(nearDiverge), nearTravel - rightOf(nearTravel) * angle, southboundFoot, heading(0, -1), .5), U"nearOff" },
 			{ handled(northboundFoot, heading(0, 1), position(nearMerge), nearTravelMerge + rightOf(nearTravelMerge) * angle, .5), U"nearOn" },
@@ -836,8 +962,15 @@ namespace
 		const HashSet<String> joined{ U"farLead|loop1", U"loop1|loop2", U"loop2|loop3", U"loop3|southbound", U"northbound|farOn1", U"farOn1|farOn2",
 			U"southbound|nearOff", U"northbound|nearOn", U"loop3|farOn1", U"southbound|northbound", U"nearOff|nearOn", U"southbound|farOn1", U"loop3|northbound" };
 		String& failure = g.failure;
+		// 曲線半径は各ランプの設計速度の最小値（ループは trumpetLoopSpeed、他は rampSpeed）。ベジェ近似の誤差 2% は許す。
 		for (const auto& piece : pieces)
 		{
+			const double speed = piece.key.starts_with(U"loop") ? c.expressway_trumpetLoopSpeed : c.expressway_rampSpeed;
+			if (piece.curve.minimumHorizontalRadius() < ExpresswayNetwork::minimumCurveRadius(speed) * .98) { failure = U"radius:" + piece.key; break; }
+		}
+		for (const auto& piece : pieces)
+		{
+			if (!failure.isEmpty()) { break; }
 			const bool stem = piece.key == U"southbound" || piece.key == U"northbound";
 			if (maximumGrade(piece.curve) > (stem ? plan.stemGrade : c.expressway_rampMaximumGrade * 1.05)) { failure = U"grade:" + piece.key; break; }
 		}
@@ -933,11 +1066,11 @@ namespace
 		}
 		candidates.sort_by([](const Candidate& a, const Candidate& b) { return a.priority != b.priority ? a.priority < b.priority : a.distance < b.distance; });
 		Array<Interchange> result;
-		const double endMargin = c.expressway_interchangeEndMargin + TrumpetLayout::make().reach();
+		const double endMargin = c.expressway_interchangeEndMargin + TrumpetLayout::make().auxiliaryReach();
 		for (const auto& candidate : candidates)
 		{
 			// 地図端で終わらない路線は末端 IC を残すため、終点側の余裕を短くしない。
-			const double upper = line.length() - (lineEndsAtBorder ? endMargin : TrumpetLayout::make().reach() + 200);
+			const double upper = line.length() - (lineEndsAtBorder ? endMargin : TrumpetLayout::make().auxiliaryReach() + 200);
 			// 取付道路と本線の跨道部が既存道路と重ならない位置まで、IC を路線方向へずらす。
 			// IC の敷地（町側: 連絡路・料金所・取付道路、反対側: ループ）に一般道が入らない位置を探す。
 			const auto free = [&](double s) { return interchangeSiteFree(line, s, towns[candidate.town].center, crossings); };
@@ -1283,6 +1416,22 @@ namespace
 
 namespace ExpresswayNetwork
 {
+	double minimumCurveRadius(double speed)
+	{
+		// 道路構造令 第15条: 120→710m, 100→460m, 80→280m, 60→150m, 50→100m, 40→60m, 30→30m。
+		constexpr std::array<std::pair<double, double>, 7> table{ { { 30, 30 }, { 40, 60 }, { 50, 100 }, { 60, 150 }, { 80, 280 }, { 100, 460 }, { 120, 710 } } };
+		if (speed <= table.front().first) { return table.front().second; }
+		for (size_t i = 1; i < table.size(); ++i)
+		{
+			if (speed <= table[i].first)
+			{
+				const double t = (speed - table[i - 1].first) / (table[i].first - table[i - 1].first);
+				return Math::Lerp(table[i - 1].second, table[i].second, t);
+			}
+		}
+		return table.back().second;
+	}
+
 	String displayName(StringView name)
 	{
 		String result{ name };
@@ -1543,24 +1692,46 @@ namespace ExpresswayNetwork
 		for (size_t index = 0; index < routes.size(); ++index)
 		{
 			auto& route = routes[index];
-			Array<double> forced;
+			Array<double> forced, optional;
 			for (const auto& ic : route.interchanges)
 			{
 				// 町の側で分合流の位置が入れ替わるため、両方の向きの節点を置く。
 				const auto layout = TrumpetLayout::make();
 				for (const double along : { layout.loopLead, layout.farMerge, layout.nearRamp, -layout.nearRamp, -layout.loopLead, -layout.farMerge }) { forced << ic.station + along; }
+				// 変速車線の始終点（すり付けの端）にも節点を置く。
+				const double taper = c.expressway_auxiliaryTaperLength, decelerate = c.expressway_decelerationLaneLength, accelerate = c.expressway_accelerationLaneLength;
+				for (const double along : { layout.loopLead - decelerate, layout.loopLead - decelerate - taper, layout.farMerge + accelerate, layout.farMerge + accelerate + taper,
+					layout.nearRamp + decelerate, layout.nearRamp + decelerate + taper, layout.nearRamp + accelerate, layout.nearRamp + accelerate + taper })
+				{
+					optional << ic.station + along << ic.station - along;
+				}
 			}
-			if (index == 0 && junctionRamps) { forced << junctionRamps->divergeStation << junctionRamps->mergeStation; }
+			if (index == 0 && junctionRamps)
+			{
+				const int near = mainRoute.branch->side;
+				forced << junctionRamps->divergeStation << junctionRamps->mergeStation;
+				optional << junctionRamps->divergeStation - near * c.expressway_decelerationLaneLength << junctionRamps->divergeStation - near * (c.expressway_decelerationLaneLength + c.expressway_auxiliaryTaperLength);
+				optional << junctionRamps->mergeStation - near * c.expressway_accelerationLaneLength << junctionRamps->mergeStation - near * (c.expressway_accelerationLaneLength + c.expressway_auxiliaryTaperLength);
+			}
 			{
 				Array<double> served;
 				for (const auto& ic : route.interchanges) { served << ic.station; }
 				if (index == 0 && mainRoute.branch) { served << mainRoute.branch->station; }
 				if (route.startsAtJunction) { served << 0.0; }
 				route.services = chooseServices(route.line, world, crossings, settlements, served);
-				for (const auto& service : route.services) { forced << service.station - c.expressway_serviceLength * .5 << service.station + c.expressway_serviceLength * .5; }
+				for (const auto& service : route.services)
+				{
+					const double half = c.expressway_serviceLength * .5, taper = c.expressway_auxiliaryTaperLength;
+					forced << service.station - half << service.station + half;
+					for (const double along : { half + c.expressway_decelerationLaneLength, half + c.expressway_decelerationLaneLength + taper,
+						half + c.expressway_accelerationLaneLength, half + c.expressway_accelerationLaneLength + taper })
+					{
+						optional << service.station - along << service.station + along;
+					}
+				}
 			}
 			if (route.startsAtJunction) { forced << splitLength; }
-			const auto stations = nodeStations(route.line, forced);
+			const auto stations = nodeStations(route.line, forced, optional);
 			const auto forwardOffset = route.startsAtJunction ? branchOut : HeightOffset{};
 			const auto backwardOffset = route.startsAtJunction ? branchIn : HeightOffset{};
 			auto forward = buildCarriageway(roads, world, route.line, stations, 1, forwardOffset, mainlineEdges);
@@ -1582,6 +1753,36 @@ namespace ExpresswayNetwork
 
 		// ---- IC（トランペット型: 遠い側の流出はループ、連絡路は本線を跨いで料金所へ） ----
 		HashSet<int> mainlineSet(mainlineEdges.begin(), mainlineEdges.end());
+		// ---- 変速車線: 分流点の手前に減速車線、合流点の先に加速車線（平行式、すり付け付き） ----
+		// 本線エッジごとに A 端・B 端の変速車線の幅を集め、路側設備を作り直すときに断面へ反映する。
+		HashTable<int, std::pair<float, float>> auxiliary;
+		HashSet<int> auxiliaryNodes;
+		const auto addAuxiliary = [&](const Carriageway& way, int node, bool merge)
+		{
+			const auto found = std::find(way.nodes.begin(), way.nodes.end(), node);
+			if (found == way.nodes.end()) { return; }
+			const size_t k = static_cast<size_t>(found - way.nodes.begin());
+			const double full = merge ? c.expressway_accelerationLaneLength : c.expressway_decelerationLaneLength, taper = c.expressway_auxiliaryTaperLength;
+			const auto widthAt = [&](double distance) { return static_cast<float>(c.expressway_laneWidth * Clamp(1 - (distance - full) / taper, 0.0, 1.0)); };
+			for (size_t j = 0; j < way.edges.size(); ++j)
+			{
+				// 合流は下流側（走行距離が増える側）、分流は上流側の区間。距離は分合流点から測る。
+				const double a = merge ? way.arcs[j] - way.arcs[k] : way.arcs[k] - way.arcs[j];
+				const double b = merge ? way.arcs[j + 1] - way.arcs[k] : way.arcs[k] - way.arcs[j + 1];
+				const double near = Min(a, b);
+				if (near < -1e-6 || near >= full + taper) { continue; }
+				auto& widths = auxiliary[way.edges[j]];
+				widths.first = Max(widths.first, widthAt(a)); widths.second = Max(widths.second, widthAt(b));
+				auxiliaryNodes.insert(way.nodes[j]); auxiliaryNodes.insert(way.nodes[j + 1]);
+			}
+		};
+		// ランプの本線側の端を変速車線の中心へ寄せる（ランプの車線中心 → 変速車線の中心）。
+		const float auxiliaryShift = -static_cast<float>(c.expressway_lanesPerDirection * c.expressway_laneWidth * .5 + c.expressway_laneWidth * .5);
+		const auto shiftRamp = [&](const Optional<int>& id, bool atB)
+		{
+			if (!id) { return; }
+			if (auto* edge = roads.getEdge(*id)) { ExpresswayCrossSection::shiftRampEnd(*edge, atB, auxiliaryShift); auxiliaryNodes.insert(edge->nodeA); auxiliaryNodes.insert(edge->nodeB); }
+		};
 		Array<std::pair<Vec2, Vec2>> mainlineSegments;
 		for (const int id : mainlineEdges)
 		{
@@ -1653,6 +1854,9 @@ namespace ExpresswayNetwork
 				}
 				if (ramps[0]) { addDivergeBlinker(roads, *ramps[0], farTravel, flat(position(farDiverge))); }
 				if (ramps[8]) { addDivergeBlinker(roads, *ramps[8], nearTravel, flat(position(nearDiverge))); }
+				addAuxiliary(farWay, farDiverge, false); addAuxiliary(farWay, farMerge, true);
+				addAuxiliary(nearWay, nearDiverge, false); addAuxiliary(nearWay, nearMerge, true);
+				shiftRamp(ramps[0], false); shiftRamp(ramps[7], true); shiftRamp(ramps[8], false); shiftRamp(ramps[9], true);
 				// 町側へ 24m の取付道路（料金所側 2+1）を延ばし、最寄りの一般道へつなぐ。
 				const int nearTerminal = stemEnd;
 				const Vec2 outward = -ey, nearPoint = plazaEndPoint;
@@ -1733,18 +1937,29 @@ namespace ExpresswayNetwork
 						const Vec3 carriageway = carriagewayPoint(route.line, station, side, {});
 						return lift(flat(carriageway) + outward(station) * c.expressway_serviceOffset, carriageway.y);
 					};
-					const double inner = c.expressway_serviceLength * .22;
-					const Vec3 aisleStart = aisle(s - side * (half - inner)), aisleEnd = aisle(s + side * (half - inner));
 					const Vec2 travelIn = route.line.tangent(from) * side, travelOut = route.line.tangent(to) * side;
-					const Vec2 aisleDirection = (flat(aisleEnd) - flat(aisleStart)).normalized();
-					const int start = roads.addNode(aisleStart, NodeType::Joint), end = roads.addNode(aisleEnd, NodeType::Joint);
 					const Vec3 a = roads.getNode(diverge)->position, b = roads.getNode(merge)->position;
-					const auto lead = rampCurve(a, travelIn - rightOf(travelIn) * angle, aisleStart, aisleDirection, Math::Lerp(a.y, aisleStart.y, 1.0 / 3), Math::Lerp(a.y, aisleStart.y, 2.0 / 3));
-					const auto back = rampCurve(aisleEnd, aisleDirection, b, travelOut + rightOf(travelOut) * angle, Math::Lerp(aisleEnd.y, b.y, 1.0 / 3), Math::Lerp(aisleEnd.y, b.y, 2.0 / 3));
+					// 出入りの曲線がランプの最小曲線半径を守るまで、駐車場沿いの通路を短くして取付区間を延ばす（曲線区間の SA）。
+					Vec3 aisleStart, aisleEnd; CubicBezier lead, back; double bestRadius = -1;
+					for (const double fraction : { .22, .3, .38, .46 })
+					{
+						const double inner = c.expressway_serviceLength * fraction;
+						const Vec3 p = aisle(s - side * (half - inner)), q = aisle(s + side * (half - inner));
+						const Vec2 direction = (flat(q) - flat(p)).normalized();
+						const auto in = rampCurve(a, travelIn - rightOf(travelIn) * angle, p, direction, Math::Lerp(a.y, p.y, 1.0 / 3), Math::Lerp(a.y, p.y, 2.0 / 3));
+						const auto out = rampCurve(q, direction, b, travelOut + rightOf(travelOut) * angle, Math::Lerp(q.y, b.y, 1.0 / 3), Math::Lerp(q.y, b.y, 2.0 / 3));
+						const double radius = Min(in.minimumHorizontalRadius(), out.minimumHorizontalRadius());
+						if (radius <= bestRadius) { continue; }
+						bestRadius = radius; aisleStart = p; aisleEnd = q; lead = in; back = out;
+						if (radius >= ExpresswayNetwork::minimumCurveRadius(c.expressway_rampSpeed)) { break; }
+					}
+					const int start = roads.addNode(aisleStart, NodeType::Joint), end = roads.addNode(aisleEnd, NodeType::Joint);
 					const CubicBezier straight{ aisleStart, aisleStart.lerp(aisleEnd, 1.0 / 3), aisleStart.lerp(aisleEnd, 2.0 / 3), aisleEnd };
 					const auto first = addRamp(roads, world, diverge, start, lead, c.expressway_rampSpeed, rampEdges);
 					const auto middle = addRamp(roads, world, start, end, straight, 20, rampEdges);
-					addRamp(roads, world, end, merge, back, c.expressway_rampSpeed, rampEdges);
+					const auto last = addRamp(roads, world, end, merge, back, c.expressway_rampSpeed, rampEdges);
+					addAuxiliary(way, diverge, false); addAuxiliary(way, merge, true);
+					shiftRamp(first, false); shiftRamp(last, true);
 					if (middle)
 					{
 						RoadObject area;
@@ -1777,6 +1992,8 @@ namespace ExpresswayNetwork
 			if (first && second)
 			{
 				++summary.junctions;
+				addAuxiliary(nearWay, divergeNode, false); addAuxiliary(farWay, mergeNode, true);
+				shiftRamp(first, false); shiftRamp(second, true);
 				addDivergeBlinker(roads, *first, mainRoute.line.tangent(junctionRamps->divergeStation) * junction.side, flat(roads.getNode(divergeNode)->position));
 				const size_t nearIndex = junction.side > 0 ? 0 : 1;
 				const int divergeIndex = nearWay.indexAt(junctionRamps->divergeStation);
@@ -1885,10 +2102,28 @@ namespace ExpresswayNetwork
 						const Vec2 point = flat(curve->positionAt(arc));
 						lit = std::any_of(rampEnds.begin(), rampEnds.end(), [&](Vec2 end) { return end.distanceFrom(point) < c.expressway_mainlineLightDistance; });
 					}
-					ExpresswayCrossSection::applyCarriageway(*edge, { .emergencyPhone = way->phones.contains(id), .noiseBarrier = urban, .cutting = above * 2 > samples, .lighting = lit });
+					const auto widths = auxiliary.find(id);
+					const float auxiliaryA = widths == auxiliary.end() ? 0.0f : widths->second.first, auxiliaryB = widths == auxiliary.end() ? 0.0f : widths->second.second;
+					ExpresswayCrossSection::applyCarriageway(*edge, { .emergencyPhone = way->phones.contains(id), .noiseBarrier = urban, .cutting = above * 2 > samples, .lighting = lit,
+						.auxiliaryA = auxiliaryA, .auxiliaryB = auxiliaryB });
 				}
 			}
 		}
+		// 車線数が変わった節点の車線接続と端部の切り欠きを作り直す。変速車線に掛かる案内標識は路肩側へ寄せる。
+		for (const int node : auxiliaryNodes) { roads.rebuildNodeConnectivity(node, node); }
+		for (const auto& sign : roads.guideSigns())
+		{
+			const auto widths = auxiliary.find(sign.parentEdgeId);
+			if (sign.id < 0 || widths == auxiliary.end() || sign.lateralOffset >= 0) { continue; }
+			if (auto* placed = roads.getGuideSign(sign.id))
+			{
+				const auto* edge = roads.getEdge(sign.parentEdgeId);
+				const float t = edge && edge->length > 0 ? Clamp(sign.arcOffset / edge->length, 0.0f, 1.0f) : 0.0f;
+				const float fromA = edge && sign.nodeEndId == edge->nodeA ? t : 1 - t;
+				placed->lateralOffset -= Math::Lerp(widths->second.first, widths->second.second, fromA);
+			}
+		}
+		summary.auxiliaryLanes = static_cast<int>(auxiliary.size());
 
 		// ---- 監査: 一般道との立体交差・勾配 ----
 		int conflicts = 0; double steepest = 0;

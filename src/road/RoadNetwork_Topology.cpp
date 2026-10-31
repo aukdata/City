@@ -323,6 +323,9 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 
 	// At an acute fork, a width-only cutoff leaves two full road strips on top of
 	// each other outside the junction. Start the strips where their envelopes separate.
+	// Only the two converging arms move their mouths. Other arms keep the normal
+	// cutoff so a straight-through road does not lose its markings for tens of metres.
+	Array<float> armCutoffs(node->attachments.size(), cutoff);
 	if (validCount>=3)
 	{
 		for (size_t i=0;i<node->attachments.size();++i) for (size_t j=i+1;j<node->attachments.size();++j)
@@ -350,18 +353,20 @@ void RoadNetwork::updateNodeCutoffs(int nodeId)
 				const Vec3 pb=second->positionAt(b->nodeA==nodeId?separation:second->totalLength-separation);
 				if (Vec2{pa.x-pb.x,pa.z-pb.z}.length()>=envelope+1.0) break;
 			}
-			cutoff=Max(cutoff,Min(separation,limit));
+			const float pairCutoff=Min(separation,limit);
+			armCutoffs[i]=Max(armCutoffs[i],pairCutoff);
+			armCutoffs[j]=Max(armCutoffs[j],pairCutoff);
 		}
 	}
 
 	// このノード端のカットオフ値を全接続エッジに書き込む
 	// 短いエッジでは cutoff がエッジ長を超えないようクランプ
-	for (const auto& att : node->attachments)
+	for (size_t index = 0; index < node->attachments.size(); ++index)
 	{
-		RoadEdge* e = getEdge(att.edgeId);
+		RoadEdge* e = getEdge(node->attachments[index].edgeId);
 		if (!e) continue;
 		const float maxCut = e->length * 0.4f;
-		const float c = e->hasRailLanes() ? 0.0f : Min(cutoff, maxCut);
+		const float c = e->hasRailLanes() ? 0.0f : Min(armCutoffs[index], maxCut);
 		if (e->nodeA == nodeId) e->cutoffA = c;
 		else                    e->cutoffB = c;
 	}

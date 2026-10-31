@@ -43,10 +43,16 @@ namespace JunctionGeometry
 		}
 	}
 
-	Vec3 bandPosition(const Section& section, const Band& band, double across)
+	std::pair<double, double> bandSpan(const Section& section, const Band& band)
 	{
 		const double near = Math::Lerp(band.nearStart, band.nearEnd, section.fraction);
 		const double far = Math::Lerp(band.farStart, band.farEnd, section.fraction);
+		return { Min(near, section.limit), Min(far, section.limit) };
+	}
+
+	Vec3 bandPosition(const Section& section, const Band& band, double across)
+	{
+		const auto [near, far] = bandSpan(section, band);
 		return section.position + section.outward * Math::Lerp(near, far, across);
 	}
 
@@ -145,6 +151,10 @@ namespace JunctionGeometry
 			if (gap <= 0.0) { gap += Math::TwoPi; }
 			const double denominator = cross(da, db);
 			bool rounded = false;
+			// Roadside strips of both approaches fill the wedge between them. In an
+			// acute wedge they meet at its bisector and form one kerbed island.
+			Optional<Vec2> wedgeApex;
+			double filletRadius = 0.0;
 			// A bend's two boundaries must follow the same tangent-fitted turn.
 			// A fixed inner fillet and a shallow outer chord cross at acute angles.
 			const bool blendBend = approaches.size() == 2 && node->transition == NodeTransition::Blend;
@@ -172,6 +182,8 @@ namespace JunctionGeometry
 					}
 					appendLine(q3, p3);
 					rounded = true;
+					if (gap < Math::Pi - 0.01) { wedgeApex = intersection; }
+					filletRadius = radius;
 				}
 			}
 			if (!rounded)
@@ -206,7 +218,17 @@ namespace JunctionGeometry
 					outward = tangent.lengthSq() > 1e-10 ? Vec3{ tangent.y, 0, -tangent.x }.normalized() : -a.right;
 				}
 				const Vec3 position{ points[i].x, Math::Lerp(start.y, end.y, fraction), points[i].y };
-				corner.sections << Section{ position, outward, fraction };
+				Section section{ position, outward, fraction };
+				if (wedgeApex)
+				{
+					const Vec2 bisector = (da + db).lengthSq() > 1e-10 ? (da + db).normalized() : Vec2{ -db.y, db.x };
+					const Vec2 normal{ outward.x, outward.z };
+					const double facing = cross(normal, bisector);
+					const double reach = Abs(facing) > 1e-6 ? cross(*wedgeApex - points[i], bisector) / facing : -1.0;
+					// Normals around the fillet meet at its centre, which lies on the bisector.
+					section.limit = reach > 0.0 ? reach : filletRadius;
+				}
+				corner.sections << section;
 				if (outline.isEmpty() || outline.back().distanceFromSq(position) > 1e-8) { outline << position; }
 			}
 			layout.corners << std::move(corner);
@@ -296,7 +318,7 @@ namespace JunctionGeometry
 				double distance = 0.0;
 				for (const auto& band : corner.bands)
 				{
-					distance = Max(distance, Math::Lerp(band.farStart, band.farEnd, section.fraction));
+					distance = Max(distance, bandSpan(section, band).second);
 				}
 				const Vec3 position = section.position + section.outward * distance;
 				const Vec2 point{ position.x-origin.x, position.z-origin.z };

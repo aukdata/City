@@ -43,6 +43,9 @@
     "rampSpeed",
     "rampMaximumGrade",
     "rampDivergeAngle",
+    "accelerationLaneLength",
+    "decelerationLaneLength",
+    "auxiliaryTaperLength",
     "junctionFlyoverClearance",
     "junctionCrossingClearance",
     "junctionDivergeLength",
@@ -297,6 +300,21 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 0.5
+    },
+    "accelerationLaneLength": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "decelerationLaneLength": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "auxiliaryTaperLength": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 300.0
     },
     "junctionFlyoverClearance": {
       "type": "number",

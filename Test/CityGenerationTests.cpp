@@ -371,6 +371,86 @@ void registerCityGenerationTests(TestRunner& runner)
 		context.expectEqual(render(), size_t{0}, U"Deleting a road invalidates its batched surface and both node caps without ghosts");
 	});
 
+	runner.add(U"RoadRendering.AcuteJunctionReview", [](TestContext& context)
+	{
+		// Renders forks, merges, skewed crossings and sharp bends for visual review.
+		const FilePath testDirectory = FileSystem::CurrentDirectory();
+		struct RestoreDirectory
+		{
+			FilePath path;
+			~RestoreDirectory() { FileSystem::ChangeCurrentDirectory(path); }
+		} restore{ testDirectory };
+		FileSystem::ChangeCurrentDirectory(testDirectory + U"../../App/");
+		RegisterAssets();
+		struct Arm { Vec2 end; RoadType type; int lanes; };
+		const Array<Array<Arm>> scenarios{
+			{ { Vec2{ -180, 0 }, RoadType::Arterial, 2 }, { Vec2{ 176, 37 }, RoadType::Arterial, 2 }, { Vec2{ 176, -37 }, RoadType::Arterial, 2 } },
+			{ { Vec2{ -180, 0 }, RoadType::Arterial, 2 }, { Vec2{ 180, 0 }, RoadType::Arterial, 2 }, { Vec2{ 163, 76 }, RoadType::LocalRoad, 2 } },
+			{ { Vec2{ -180, 0 }, RoadType::Arterial, 2 }, { Vec2{ 180, 0 }, RoadType::Arterial, 2 }, { Vec2{ 156, 90 }, RoadType::Arterial, 2 }, { Vec2{ -156, -90 }, RoadType::Arterial, 2 } },
+			{ { Vec2{ -180, 0 }, RoadType::LocalRoad, 2 }, { Vec2{ 180, 0 }, RoadType::LocalRoad, 2 }, { Vec2{ 169, 62 }, RoadType::LocalRoad, 2 } },
+			{ { Vec2{ -180, 0 }, RoadType::Arterial, 2 }, { Vec2{ -138, 116 }, RoadType::Arterial, 2 } },
+		};
+		for (size_t scenario = 0; scenario < scenarios.size(); ++scenario)
+		{
+			World world;
+			world.reserveChunks();
+			world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+			for (int z = 31; z <= 32; ++z)
+			{
+				for (int x = 31; x <= 32; ++x)
+				{
+					Grid<float> heights(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 70.0f);
+					world.installChunkDirect(Point{ x, z }, HeightMapResult{ heights, -40.0f, 180.0f });
+				}
+			}
+			RoadNetwork network;
+			const Vec3 focus{ 32768, 70.0, 32768 };
+			const int center = network.addNode(focus);
+			for (const auto& arm : scenarios[scenario])
+			{
+				const Vec3 end = focus + Vec3{ arm.end.x, 0, arm.end.y };
+				const int endNode = network.addNode(end);
+				const auto edgeId = network.addEdge(center, endNode, focus + (end - focus) / 3.0, focus + (end - focus) * (2.0 / 3.0), arm.type, arm.lanes);
+				context.expect(edgeId.has_value(), U"Acute junction fixture edge added");
+				if (edgeId) { network.getEdge(*edgeId)->edgeState = EdgeState::Open; }
+			}
+			const auto layout = JunctionGeometry::build(network, center);
+			context.expect(!layout.asphalt.indices.isEmpty(), U"Acute junction triangulates");
+			if (scenarios[scenario].size() == 3)
+			{
+				// The first arm does not converge with any other arm.
+				const auto* straight = network.getEdge(network.getNode(center)->attachments.front().edgeId);
+				context.expect(straight && straight->cutoffA < straight->totalWidth() * 0.5f + 3.5f, U"An arm outside the acute pair keeps the normal junction cutoff");
+			}
+			world.update(focus);
+			WorldRenderer terrain;
+			RoadRenderer roads;
+			context.expect(roads.loadAssets(), U"Road assets load for acute junction");
+			Vec2 heading{ 0, 0 };
+			for (const auto& arm : scenarios[scenario]) { heading += arm.end.normalized(); }
+			const Vec3 target = focus + (heading.lengthSq() > 1e-6 ? Vec3{ heading.normalized().x, 0, heading.normalized().y } * 25.0 : Vec3{});
+			const Size size{ 1280, 900 };
+			for (int view = 0; view < 2; ++view)
+			{
+				const BasicCamera3D camera{ size, 40_deg, target + (view == 0 ? Vec3{ 0, 55, -55 } : Vec3{ 0, 150, -0.1 }), target };
+				const RenderTexture target{ size, TextureFormat::R8G8B8A8_Unorm_SRGB, HasDepth::Yes };
+				{
+					const ScopedRenderTarget3D renderTarget{ target.clear(ColorF{ 0.05, 0.35, 0.7 }) };
+					const ScopedRenderStates3D state{ DepthStencilState::DepthTestWrite };
+					Graphics3D::SetCameraTransform(camera);
+					Graphics3D::SetSunDirection(Vec3{ 1, 2, -1 }.normalized());
+					Graphics3D::SetGlobalAmbientColor(ColorF{ 0.5 });
+					terrain.render(world, network, camera);
+					roads.render(network, world, ViewFrustum{ camera, 24000.0 }, camera.getEyePosition());
+				}
+				Graphics3D::Flush();
+				Image screenshot;
+				target.readAsImage(screenshot);
+				context.expect(screenshot.save(testDirectory + U"Screenshot/acute_junction_{}_{}.png"_fmt(scenario, view)), U"Save acute junction review");
+			}
+		}
+	});
+
 	runner.add(U"RoadRendering.SlopedArterialJunctions", [](TestContext& context)
 	{
 		const FilePath testDirectory = FileSystem::CurrentDirectory();

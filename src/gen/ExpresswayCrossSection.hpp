@@ -70,6 +70,9 @@ namespace ExpresswayCrossSection
 		bool noiseBarrier = false;   ///< 市街地に近い区間の遮音壁
 		bool cutting = false;        ///< 切土区間。法面は地形の掘削で表れるため盛土用の法面を付けない
 		bool lighting = false;       ///< IC・JCT の分合流部の前後。本線にも道路照明を立てる
+		/// @brief 変速車線（加速・減速車線）の幅 [m]。A 端と B 端で変え、すり付け区間は幅を 0 へ絞る。
+		/// 本線の左（路肩側）に 1 車線を足し、路肩・防護柵・法面をその分外へ出す。
+		float auxiliaryA = 0, auxiliaryB = 0;
 	};
 
 	/// @details 道路構造令 第1種第2級: 車線 3.5m、左側路肩 2.5m、中央帯 4.5m（側帯 0.75m×2＋分離帯 3.0m）。
@@ -120,7 +123,44 @@ namespace ExpresswayCrossSection
 			// 照明柱は路肩側の防護柵の外。高架では壁高欄の上に立てる。
 			edge.parts << repeat(rail - c.expressway_guardrailWidth * .5f - (viaduct ? 0.0f : .6f), U"expressway_light", c.expressway_mainlineLightSpacing);
 		}
+		if (options.auxiliaryA > 0 || options.auxiliaryB > 0)
+		{
+			// 変速車線: 本線の左端より外の部材を変速車線の幅だけ外へずらし、車道を左へ広げる。
+			const float a = options.auxiliaryA, b = options.auxiliaryB;
+			for (auto& part : edge.parts)
+			{
+				if (part.type == RoadPartType::Roadbed) { part.offsetA_L -= a; part.offsetB_L -= b; continue; }
+				if (part.offsetA_R > -half + .01f) { continue; }
+				part.offsetA_L -= a; part.offsetA_R -= a; part.offsetB_L -= b; part.offsetB_R -= b;
+			}
+			// 本線車線との境は車線変更できる破線（車線境界線）。
+			Lane added = lane(-half - Max(a, b), Max(a, b), LaneDir::Forward, LineType::SolidWhite, LineType::DashedWhite);
+			added.offsetA_L = -half - a; added.offsetA_R = -half;
+			added.offsetB_L = -half - b; added.offsetB_R = -half;
+			edge.lanes.front().lineLeft = LineType::DashedWhite;
+			edge.lanes.insert(edge.lanes.begin(), added);
+		}
 		finish(edge);
+	}
+
+	/// @brief ランプの一端を本線の変速車線へ寄せる。lateral は寄せる量（負 = 左）。
+	/// @details 車線と左側の部材をずらし、右側（本線側）の路肩・防護柵・法面はその端で幅 0 へ絞る。
+	inline void shiftRampEnd(RoadEdge& edge, bool atB, float lateral)
+	{
+		if (edge.lanes.isEmpty()) { return; }
+		Lane& lane = edge.lanes.front();
+		float& laneLeft = atB ? lane.offsetB_L : lane.offsetA_L;
+		float& laneRight = atB ? lane.offsetB_R : lane.offsetA_R;
+		const float center = (laneLeft + laneRight) * .5f, right = laneRight;
+		laneLeft += lateral; laneRight += lateral;
+		for (auto& part : edge.parts)
+		{
+			float& left = atB ? part.offsetB_L : part.offsetA_L;
+			float& rightEdge = atB ? part.offsetB_R : part.offsetA_R;
+			if (part.type == RoadPartType::Roadbed) { left += lateral; rightEdge += lateral; continue; }
+			if ((left + rightEdge) * .5f < center) { left += lateral; rightEdge += lateral; }
+			else { left = rightEdge = right + lateral; }
+		}
 	}
 
 	/// @brief IC・JCT の 1 車線ランプ。立体分岐（CSL grade_split）の車線幅と勾配を共有する。
