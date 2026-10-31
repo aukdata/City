@@ -121,7 +121,7 @@ Escは「入力欄を離れる → 仮計画を破棄 → 編集モード・選�
 
 ## 検証
 
-`Test/DrivingTests.cpp`、`PlayabilityTests.cpp`、`UrbanUsabilityTests.cpp`、`RoadPlanUxTests.cpp` と実ゲームの `--playtest` / `--capture-road-ux` で確認する。新しいUIはTestで描画・数値検証してから本体に使う。画像データは会話へ出さず、ローカル保存・GPU読み戻し・OCRで確認する。
+`Test/DrivingTests.cpp`、`PlayabilityTests.cpp`、`UrbanUsabilityTests.cpp`、`RoadPlanUxTests.cpp` と実ゲームの `--playtest` / `--capture-road-ux` で確認する。新しいUIはTestで描画・数値検証してから本体に使う。画面はローカル保存・GPU読み戻し・OCRで確認する。
 
 ## 用途と街の開発
 
