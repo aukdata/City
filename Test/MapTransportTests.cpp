@@ -14,6 +14,10 @@
 #include "../src/road/GuideSign.hpp"
 #include "../src/railway/RailDepotBuilder.hpp"
 #include "../src/gen/RailwayAlignment.hpp"
+#include "../src/gen/ExpresswayNetwork.hpp"
+#include "../src/traffic/OutsideConnections.hpp"
+#include <thread>
+#include <atomic>
 #include "../src/render/TreeGeometry.hpp"
 #include "../src/render/TunnelGeometry.hpp"
 #include "../src/render/TransportLandscape.hpp"
@@ -41,6 +45,118 @@ namespace
 
 void registerMapTransportTests(TestRunner& runner)
 {
+
+	// ---- 外部接続: 高速道路の本線は地図端から地図端へ抜け、必ず IC を持つ。鉄道は地図外と直通する ----
+	const auto flatWorld = [](World& world, const std::function<float(Vec2)>& height)
+	{
+		world.reserveChunks(); world.setGenerationParams(42, WORLD_SIZE, WORLD_SIZE);
+		for (int z = 0; z < WORLD_CHUNKS; ++z) for (int x = 0; x < WORLD_CHUNKS; ++x)
+		{
+			Grid<float> heights(HEIGHT_CELLS + 1, HEIGHT_CELLS + 1, 20);
+			float low = 1e9f, high = -1e9f;
+			for (int row = 0; row <= HEIGHT_CELLS; ++row) for (int col = 0; col <= HEIGHT_CELLS; ++col)
+			{
+				const float value = height(Vec2{ x * CHUNK_SIZE + col * 16.0, z * CHUNK_SIZE + row * 16.0 });
+				heights[{ col, row }] = value; low = Min(low, value); high = Max(high, value);
+			}
+			world.installChunkDirect({ x, z }, HeightMapResult{ heights, low, high });
+		}
+	};
+	const auto town = [](Vec2 center, MapGenerator::SettlementKind kind, StringView name)
+	{
+		MapGenerator::Settlement result; result.center = center; result.kind = kind; result.radius = 900; result.name = String{ name }; result.reading = U"test";
+		result.plan.station = Vec2{ 0, 0 };
+		return result;
+	};
+	/// 高速道路の地図端の端点（接続 1 本の節点）と IC 数を調べる。
+	const auto auditExpressway = [](TestContext& context, const RoadNetwork& roads, const ExpresswayNetwork::Summary& summary, StringView label)
+	{
+		Array<Vec3> ends;
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0 || node.attachments.size() != 1) { continue; }
+			const auto* edge = roads.getEdge(node.attachments.front().edgeId);
+			if (edge && edge->roadType == RoadType::Expressway && edge->lanes.size() >= 2 && OutsideConnections::borderDistance(node.position) < 60) { ends << node.position; }
+		}
+		double span = 0;
+		for (const auto& a : ends) for (const auto& b : ends) { span = Max(span, Vec2{ a.x - b.x, a.z - b.z }.length()); }
+		context.expect(summary.lines >= 1, U"{}: the mainline is built"_fmt(label));
+		context.expect(summary.interchanges >= 1, U"{}: the mainline always has an interchange"_fmt(label));
+		// 上下線それぞれが両端で地図端に達する（4 端点）。両端は地図の反対側どうし。
+		context.expect(ends.size() >= 4, U"{}: both carriageways reach the map edge at both ends (found {})"_fmt(label, ends.size()));
+		context.expect(span > WORLD_SIZE * .4, U"{}: the two map-edge ends are on different sides of the map (span {:.0f}m)"_fmt(label, span));
+		return ends.size();
+	};
+	runner.add(U"Expressway.CrossesMapWithInterchange", [=](TestContext& context)
+	{
+		World world; flatWorld(world, [](Vec2) { return 20.0f; });
+		RoadNetwork roads;
+		const Array<MapGenerator::Settlement> towns{ town({ 22000, 30000 }, MapGenerator::SettlementKind::RegionalCity, U"西市"),
+			town({ 42000, 34000 }, MapGenerator::SettlementKind::RegionalCity, U"東市") };
+		const auto summary = ExpresswayNetwork::generate(42, world, roads, towns);
+		auditExpressway(context, roads, summary, U"two cities");
+	});
+	runner.add(U"Expressway.SingleTownBehindPlateau", [=](TestContext& context)
+	{
+		// 町は 1 つだけ。最寄りの地図端（西）は 900m の高原で、通常の着地点の高低差上限を超える。
+		World world; flatWorld(world, [](Vec2 p) { return p.x < 4000 ? 900.0f : p.x < 6000 ? static_cast<float>(900 - (p.x - 4000) * .44) : 20.0f; });
+		RoadNetwork roads;
+		const Array<MapGenerator::Settlement> towns{ town({ 9000, 31000 }, MapGenerator::SettlementKind::LocalTown, U"高原町") };
+		const auto summary = ExpresswayNetwork::generate(7, world, roads, towns);
+		auditExpressway(context, roads, summary, U"single town");
+	});
+	runner.add(U"Railway.OutsideThroughService", [=](TestContext& context)
+	{
+		World world; flatWorld(world, [](Vec2) { return 20.0f; });
+		auto a = town({ 26000, 32000 }, MapGenerator::SettlementKind::RegionalCity, U"西町"), b = town({ 36000, 32000 }, MapGenerator::SettlementKind::RegionalCity, U"東町");
+		TrainNetwork network; RailwayAlignment::generate(network, world, { a, b });
+		Array<int> portals;
+		for (const auto& node : network.nodes()) { if (node.isPortal()) { portals << node.id; context.expect(OutsideConnections::borderDistance(node.position) < GenerationSettings::get().railway_outsideBorderInset + 60, U"The portal sits at the map edge"); } }
+		context.expect(!portals.isEmpty(), U"The line is extended to the map edge");
+		int outside = 0;
+		for (auto& schedule : network.schedules())
+		{
+			if (!schedule.outside) { continue; }
+			++outside;
+			context.expect(RailTimetable::validate(network, schedule).isEmpty(), U"The through service is a valid editable timetable");
+			context.expect(portals.contains(schedule.stops.front().stationNodeId) && schedule.stops.size() >= 3, U"The through service starts outside the map and calls at the stations");
+		}
+		context.expect(outside >= 1, U"Trains run from outside the map");
+		RailTimetable::applyOutsideDemand(network, 0);
+		const float quiet = network.schedules().filter([](const TrainSchedule& s) { return s.outside; }).front().headwaySec;
+		RailTimetable::applyOutsideDemand(network, 60000);
+		const float busy = network.schedules().filter([](const TrainSchedule& s) { return s.outside; }).front().headwaySec;
+		context.expect(busy < quiet, U"A larger population runs through trains more often ({} -> {} minutes)"_fmt(quiet, busy));
+		context.expect(!network.getNode(portals.front())->forecourt, U"The portal has no station forecourt");
+	});
+	runner.add(U"Expressway.GeneratedTerrainSeeds", [=](TestContext& context)
+	{
+		// 実際の地形・集落配置で、種ごとに本線が地図を貫通し IC を持つことを確かめる（一般道なし）。
+		TextWriter report{ U"TestResults/expressway_outside_seeds.txt" };
+		for (const uint64 seed : { 42ULL, 7ULL, 20260316ULL })
+		{
+			World world; world.reserveChunks(); world.setGenerationParams(seed, WORLD_SIZE, WORLD_SIZE);
+			const Stopwatch timer{ StartImmediately::Yes };
+			Array<HeightMapResult> buffer(WORLD_CHUNKS * WORLD_CHUNKS);
+			std::atomic<int> next{ 0 };
+			Array<std::thread> workers;
+			for (int worker = 0; worker < Max(1, static_cast<int>(std::thread::hardware_concurrency())); ++worker)
+			{
+				workers.emplace_back([&] { for (int index = next++; index < static_cast<int>(buffer.size()); index = next++) { buffer[index] = world.buildHeightMap({ index % WORLD_CHUNKS, index / WORLD_CHUNKS }); } });
+			}
+			for (auto& worker : workers) { worker.join(); }
+			for (int index = 0; index < static_cast<int>(buffer.size()); ++index) { world.installChunkDirect({ index % WORLD_CHUNKS, index / WORLD_CHUNKS }, std::move(buffer[index])); }
+			auto towns = MapGenerator::placeAllSettlements(seed, world);
+			for (size_t i = 0; i < towns.size(); ++i) { towns[i].name = U"町{}"_fmt(i); }
+			RoadNetwork roads;
+			DebugLog::initialize(U"TestResults/expressway_seed_{}.log"_fmt(seed));
+			const auto summary = ExpresswayNetwork::generate(seed, world, roads, towns);
+			DebugLog::shutdown();
+			const size_t ends = auditExpressway(context, roads, summary, U"seed {}"_fmt(seed));
+			report << U"seed={} towns={} lines={} lengthKm={:.1f} interchanges={} junctions={} borderEnds={} seconds={:.1f}"_fmt(
+				seed, towns.size(), summary.lines, summary.lengthKm, summary.interchanges, summary.junctions, ends, timer.sF());
+		}
+	});
 	runner.add(U"MapSigns.TownBillboardLayout", [](TestContext& context)
 	{
 		RegisterAssets(); const Font font = FontAsset(Asset::CJK24);

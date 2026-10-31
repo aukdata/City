@@ -28,7 +28,14 @@
     "minimumFreightShare",
     "maximumFreightShare",
     "largeTruckFreightShare",
-    "smallTruckFreightShare"
+    "smallTruckFreightShare",
+    "outsideBorderDistance",
+    "outsideExpresswayWeight",
+    "outsideInboundShare",
+    "outsideOutboundShare",
+    "outsideMinimumVehicles",
+    "outsideMaximumVehicles",
+    "outsideSpawnRate"
   ],
   "properties": {
     "burst": {
@@ -155,6 +162,41 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 1.0
+    },
+    "outsideBorderDistance": {
+      "type": "number",
+      "minimum": 10.0,
+      "maximum": 500.0
+    },
+    "outsideExpresswayWeight": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 20.0
+    },
+    "outsideInboundShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "outsideOutboundShare": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "outsideMinimumVehicles": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 1000.0
+    },
+    "outsideMaximumVehicles": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 20000.0
+    },
+    "outsideSpawnRate": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1000.0
     }
   }
 }

@@ -233,6 +233,28 @@ void GameScene::recordPlaytestFrame()
 		state[U"traffic"][U"updateMs"]=m_vehicleManager.lastStats().total();
 		int stopped=0; for (const auto& car : m_vehicleManager.vehicles()) { stopped += car.speed < .5f; }
 		state[U"traffic"][U"stopped"]=stopped;
+		// 外部接続（地図端の道路・地図外と直通する列車）の確認用。
+		const auto& outside=m_vehicleManager.outsideTraffic();
+		state[U"outside"][U"connections"]=m_vehicleManager.outsideConnections().size();
+		state[U"outside"][U"inbound"]=outside.inbound; state[U"outside"][U"outbound"]=outside.outbound;
+		state[U"outside"][U"targetInbound"]=outside.targetInbound; state[U"outside"][U"targetOutbound"]=outside.targetOutbound;
+		state[U"outside"][U"connectionPoints"]=Array<JSON>{};
+		for (const auto& connection : m_vehicleManager.outsideConnections())
+		{
+			JSON item; item[U"x"]=connection.position.x; item[U"z"]=connection.position.z; item[U"roadType"]=static_cast<int>(connection.roadType);
+			item[U"in"]=connection.inboundLanes.size(); item[U"out"]=connection.outboundLanes.size();
+			state[U"outside"][U"connectionPoints"].push_back(item);
+		}
+		state[U"outside"][U"trainServices"]=Array<JSON>{};
+		for (const auto& schedule : m_trainNetwork.schedules())
+		{
+			if (!schedule.outside) { continue; }
+			JSON item; item[U"name"]=schedule.name; item[U"headwayMinutes"]=schedule.headwaySec; item[U"stops"]=schedule.stops.size();
+			state[U"outside"][U"trainServices"].push_back(item);
+		}
+		int outsideTrains=0;
+		for (const auto& train : m_trainManager.trains()) { if (const auto* schedule=m_trainNetwork.getSchedule(train.scheduleId)) { outsideTrains+=schedule->outside; } }
+		state[U"outside"][U"trains"]=outsideTrains;
 		state[U"renderMs"]=m_renderTimings.total; state[U"logicMs"]=m_logicMs;
 		state[U"signalsMs"]=m_renderTimings.signals; state[U"mapBuilds"]=map.cartographyBuilds();
 		state[U"cursorX"]=Cursor::Pos().x; state[U"cursorY"]=Cursor::Pos().y;

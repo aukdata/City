@@ -96,7 +96,7 @@ void MinimapRenderer::refreshMap(const RoadNetwork& roads,const TrainNetwork& ra
 		}
 		for (const auto& node : railway.nodes())
 		{
-			if (node.type==TrackNodeType::Station) { m_map.labels << WorldMapView::Label{{node.position.x,node.position.z},node.name+U"駅",true}; }
+			if (node.type==TrackNodeType::Station) { m_map.labels << WorldMapView::Label{{node.position.x,node.position.z},node.isPortal() ? node.name : node.name+U"駅",true}; }
 		}
 		m_map.rivers.clear(); m_map.boundaries.clear();
 		refreshWaterStrokes();

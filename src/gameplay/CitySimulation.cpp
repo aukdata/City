@@ -132,6 +132,12 @@ TrafficDemand calculateTrafficDemand(int population, const CitySnapshot& snapsho
 	demand.largeTruckShare = freightShare * GenerationSettings::get().traffic_largeTruckFreightShare;
 	demand.smallTruckShare = freightShare * GenerationSettings::get().traffic_smallTruckFreightShare;
 	demand.passengerShare = 1.0 - freightShare;
+	// 外部接続: 事業所の来訪・通勤は地図外からも来て、住民の一部は地図外へ出かける。
+	// 人口がなくても地図外どうしを結ぶ通過・来訪の最低限の交通を残す。
+	const auto& settings = GenerationSettings::get();
+	const double outside = settings.traffic_outsideMinimumVehicles * Max(.25, demand.multiplier);
+	demand.outsideInbound = Clamp(static_cast<int>(Math::Round(activityVehicles * settings.traffic_outsideInboundShare * demand.multiplier + outside * .5)), 0, settings.traffic_outsideMaximumVehicles);
+	demand.outsideOutbound = Clamp(static_cast<int>(Math::Round(populationVehicles * settings.traffic_outsideOutboundShare * demand.multiplier + outside * .5)), 0, settings.traffic_outsideMaximumVehicles);
 	return demand;
 }
 

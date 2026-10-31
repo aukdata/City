@@ -18,4 +18,8 @@ namespace RailTimetable
 	/// @brief now 以後の発車予定。遅れている場合は、その発車予定時刻を返す。
 	Optional<GameTime> nextDeparture(const TrainSchedule& schedule, GameTime now);
 	Array<GameTime> departures(const TrainSchedule& schedule, GameTime now, int count = 5);
+	/// @brief 地図外と直通する路線の運行間隔 [分]。人口に比例した毎時本数を上下限で抑える。
+	float outsideHeadwayMinutes(int population);
+	/// @brief 外部直通路線の運行間隔を需要に合わせる。変わった路線数を返す。
+	int applyOutsideDemand(TrainNetwork& network, int population);
 }

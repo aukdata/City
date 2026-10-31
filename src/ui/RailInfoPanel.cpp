@@ -37,8 +37,9 @@ namespace RailInfoPanel
 		{
 			return result;
 		}
-		result.title = node->name.ends_with(U"駅") ? node->name : node->name + U"駅";
-		result.lines << (node->stationKind == StationKind::Underground	 ? U"地下駅"
+		result.title = node->isPortal() || node->name.ends_with(U"駅") ? node->name : node->name + U"駅";
+		result.lines << (node->isPortal() ? U"外部接続（地図外と直通）"
+							: node->stationKind == StationKind::Underground	 ? U"地下駅"
 							: node->stationKind == StationKind::Terminal ? U"ターミナル駅"
 																		 : U"地上駅")
 					 << U"ホーム  {}面"_fmt(RailwaySite::stationPaths(network, stationId).size());

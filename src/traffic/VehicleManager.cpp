@@ -118,7 +118,9 @@ VehicleType VehicleManager::selectDemandVehicleType() const
 
 void VehicleManager::recordCompletedTrip(const Vehicle& vehicle, GameTime gameNow)
 {
-	if (vehicle.type == VehicleType::Bus
+	// 地図外との往来は街の通勤時間に含めない。
+	if (vehicle.outsideTrip != 0
+		|| vehicle.type == VehicleType::Bus
 		|| vehicle.type == VehicleType::SmallTruck
 		|| vehicle.type == VehicleType::LargeTruck
 		|| vehicle.type == VehicleType::Emergency)

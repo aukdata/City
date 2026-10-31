@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "../ui/RoadPlanInput.hpp"
+#include "../railway/RailTimetable.hpp"
 #include "../ui/ZonePaintInput.hpp"
 #include "../render/ShaderAsset.hpp"
 #include "../render/RenderQuality.hpp"
@@ -275,6 +276,7 @@ void GameScene::update()
 			if (!getData().generation.enabled(GenerationOptions::Element::Cars))
 			{
 				demand.targetVehicleCount = 0;
+				demand.outsideInbound = demand.outsideOutbound = 0;
 			}
 			m_vehicleManager.setTrafficDemand(demand);
 			m_vehicleManager.setTrafficFocus(m_camera.focusPoint());
@@ -282,6 +284,8 @@ void GameScene::update()
 			                        m_network, m_roadRenderer.visibleEdges());
 		}
 
+		// 地図外と直通する路線は、街の人口（需要）に応じて運行間隔を変える。
+		RailTimetable::applyOutsideDemand(m_trainNetwork, m_economy.population);
 		m_trainManager.update(simulationDt, m_clock.now);
 		if (m_simGraph && getData().generation.enabled(GenerationOptions::Element::Pedestrians))
 		{

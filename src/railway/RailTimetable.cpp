@@ -1,5 +1,6 @@
 ﻿#include "RailTimetable.hpp"
 #include "TrainConsist.hpp"
+#include "../gen/GenerationSettings.hpp"
 
 namespace RailTimetable
 {
@@ -135,6 +136,25 @@ namespace RailTimetable
 			if (next <= start + duration(schedule) + kEpsilon) { return simulationAt(next); }
 		}
 		return none;
+	}
+	float outsideHeadwayMinutes(int population)
+	{
+		const auto& settings = GenerationSettings::get();
+		const double low = settings.railway_outsideMinimumTrainsPerHour, high = Max(low, settings.railway_outsideMaximumTrainsPerHour);
+		const double perHour = Clamp(Max(0, population) / settings.railway_outsidePeoplePerTrain, low, high);
+		// 時刻表として読みやすい 1 分単位に丸める。
+		return static_cast<float>(Clamp(std::round(60.0 / perHour), 1.0, static_cast<double>(kMinutesPerDay)));
+	}
+	int applyOutsideDemand(TrainNetwork& network, int population)
+	{
+		const float headway = outsideHeadwayMinutes(population);
+		int changed = 0;
+		for (auto& schedule : network.schedules())
+		{
+			if (!schedule.outside || Abs(schedule.headwaySec - headway) < .5f) { continue; }
+			schedule.headwaySec = headway; ++changed;
+		}
+		return changed;
 	}
 	Array<GameTime> departures(const TrainSchedule& schedule, GameTime now, int count)
 	{

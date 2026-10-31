@@ -38,6 +38,8 @@ struct TrafficDemand
 	double smallTruckShare = 0.20;
 	double largeTruckShare = 0.10;
 	double multiplier = 1.0;
+	int outsideInbound = 0;   ///< 地図外から流入して街の建物へ向かう車の目標台数
+	int outsideOutbound = 0;  ///< 街の建物から地図外へ流出する車の目標台数
 };
 
 /// @brief イベントが交通へ与える実効果

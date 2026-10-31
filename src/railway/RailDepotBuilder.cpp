@@ -114,7 +114,7 @@ namespace RailDepotBuilder
 	void generate(TrainNetwork& network, const World& world, const RoadNetwork& roads)
 	{
 		Array<int> candidates;
-		for (const auto& node : network.nodes()) { if (node.type == TrackNodeType::Station && node.edgeIds.size() == 1) { candidates << node.id; } }
+		for (const auto& node : network.nodes()) { if (node.isPassengerStation() && node.edgeIds.size() == 1) { candidates << node.id; } }
 		for (const int station : candidates)
 		{
 			String error;

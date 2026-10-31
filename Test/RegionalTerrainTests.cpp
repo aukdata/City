@@ -122,9 +122,9 @@ void registerRegionalTerrainTests(TestRunner& runner)
 		TrainNetwork network;
 		RailwayAlignment::generate(network,world,towns);
 		Array<int> stations;
-		for (const auto& node : network.nodes()) { if (node.type==TrackNodeType::Station) { stations << node.id; } }
+		for (const auto& node : network.nodes()) { if (node.isPassengerStation()) { stations << node.id; } }
 		context.expectEqual(stations.size(),size_t{2},U"An unreachable first candidate does not prevent the two lowland stations from being built");
-		context.expectEqual(network.schedules().size(),size_t{1},U"The feasible railway receives a default timetable");
+		context.expectEqual(network.schedules().count_if([](const TrainSchedule& schedule) { return !schedule.outside; }),size_t{1},U"The feasible railway receives a default timetable");
 		if (stations.size()==2) { context.expect(!network.findRoute(stations[0],stations[1]).isEmpty(),U"Built stations are connected, without an isolated phantom station on the mountain"); }
 		for (const auto& schedule : network.schedules()) { context.expect(RailTimetable::validate(network,schedule).isEmpty(),U"Generated partial railways retain valid editable timetables"); }
 	});

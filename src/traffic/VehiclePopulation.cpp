@@ -1,6 +1,7 @@
 ﻿#include "../gen/GenerationSettings.hpp"
 #include "VehicleManager.hpp"
 #include "TrafficSpawn.hpp"
+#include "../debug/DebugLog.hpp"
 
 bool VehicleManager::tryAutomaticSpawn(int edgeId, const SimGraph& graph,
 	VehicleType type, const RoadNetwork* network)
@@ -100,6 +101,135 @@ bool VehicleManager::trySpawnThroughTraffic(int edgeId, const SimGraph& graph, V
 	return true;
 }
 
+namespace
+{
+	/// @brief 地図端の節点から、車が出入りする位置までの弧長。
+	constexpr float kOutsideEndClearance = 12.0f;
+}
+
+bool VehicleManager::trySpawnInbound(const OutsideConnections::Connection& connection, const SimGraph& graph, VehicleType type)
+{
+	const auto* edge = graph.getEdge(connection.edgeId);
+	if (!edge || connection.inboundLanes.isEmpty() || m_globalSpawnEdges.isEmpty()) { return false; }
+	if (type == VehicleType::LargeTruck && edge->roadType == RoadType::LocalRoad) { type = VehicleType::SmallTruck; }
+	const int lane = connection.inboundLanes[Random<size_t>(0, connection.inboundLanes.size() - 1)];
+	const float offset = kOutsideEndClearance + static_cast<float>(TrafficSpawn::vehicleLength(type) * .5);
+	if (edge->length < offset * 2 + 8) { return false; }
+	const float arc = connection.atNodeA ? offset : edge->length - offset;
+	if (!TrafficSpawn::laneOpen(*edge, lane) || !m_laneTraffic.hasSpace(edge->id, lane, arc, type)) { return false; }
+	Vehicle vehicle;
+	vehicle.id = m_nextId++;
+	vehicle.currentEdge = edge->id; vehicle.currentLane = lane; vehicle.arcPos = arc; vehicle.type = type;
+	vehicle.speed = edge->speedLimit / 3.6f * .7f;
+	vehicle.departedAt = m_lastGameNow;
+	vehicle.outsideTrip = 1;
+	// 地図外から来た車は街のどこかの建物へ向かう。経路は走行グラフ全体の最短経路で求める。
+	if (m_world)
+	{
+		const int target = m_globalSpawnEdges[Random<size_t>(0, m_globalSpawnEdges.size() - 1)];
+		const auto& points = m_buildingAccess.onEdge(target);
+		if (points.isEmpty()) { return false; }
+		const auto& destination = points[Random<size_t>(0, points.size() - 1)];
+		vehicle.goalEdgeId = destination.edgeId; vehicle.goalLane = destination.lane;
+		vehicle.goalArc = destination.arc; vehicle.destinationBuilding = destination.buildingKey;
+	}
+	else
+	{
+		vehicle.goalEdgeId = TrafficSpawn::reachableGoal(graph, vehicle.currentEdge, vehicle.currentLane);
+		if (vehicle.goalEdgeId < 0) { return false; }
+	}
+	m_laneTraffic.reserve(vehicle, lane);
+	m_vehicleIndices[vehicle.id] = m_vehicles.size();
+	m_vehicles << std::move(vehicle);
+	++m_populationStats.spawned;
+	return true;
+}
+
+bool VehicleManager::trySpawnOutbound(const OutsideConnections::Connection& connection, const SimGraph& graph, VehicleType type)
+{
+	const auto* exit = graph.getEdge(connection.edgeId);
+	if (!exit || connection.outboundLanes.isEmpty() || m_globalSpawnEdges.isEmpty() || exit->length < kOutsideEndClearance * 2 + 8) { return false; }
+	const int originEdge = m_globalSpawnEdges[Random<size_t>(0, m_globalSpawnEdges.size() - 1)];
+	const auto* edge = graph.getEdge(originEdge);
+	if (!edge) { return false; }
+	if (type == VehicleType::LargeTruck && edge->roadType == RoadType::LocalRoad) { type = VehicleType::SmallTruck; }
+	// 建物の前から出発する（建物の索引がない単体試験では区間の中ほどから）。
+	Optional<BuildingAccessPoint> origin;
+	int lane = -1; float arc = edge->length * .5f;
+	if (m_world)
+	{
+		const auto& points = m_buildingAccess.onEdge(originEdge);
+		if (points.isEmpty()) { return false; }
+		origin = points[Random<size_t>(0, points.size() - 1)];
+		lane = origin->lane; arc = origin->arc;
+	}
+	else
+	{
+		for (int candidate = 0; candidate < static_cast<int>(edge->lanes.size()) && lane < 0; ++candidate) { if (TrafficSpawn::laneOpen(*edge, candidate)) { lane = candidate; } }
+	}
+	if (lane < 0 || !TrafficSpawn::laneOpen(*edge, lane) || !m_laneTraffic.hasSpace(originEdge, lane, arc, type)) { return false; }
+	Vehicle vehicle;
+	vehicle.id = m_nextId++;
+	vehicle.currentEdge = originEdge; vehicle.currentLane = lane; vehicle.arcPos = arc; vehicle.type = type;
+	vehicle.originBuilding = origin ? origin->buildingKey : -1;
+	vehicle.speed = origin ? 0.0f : Min(5.0f, edge->speedLimit / 3.6f);
+	vehicle.departedAt = m_lastGameNow;
+	vehicle.outsideTrip = -1;
+	// 目的地は地図端の流出車線。端点の手前で走行を終え、地図外へ出たものとして消える。
+	vehicle.goalEdgeId = exit->id;
+	vehicle.goalLane = connection.outboundLanes[Random<size_t>(0, connection.outboundLanes.size() - 1)];
+	vehicle.goalArc = connection.atNodeA ? kOutsideEndClearance : exit->length - kOutsideEndClearance;
+	m_laneTraffic.reserve(vehicle, lane);
+	m_vehicleIndices[vehicle.id] = m_vehicles.size();
+	m_vehicles << std::move(vehicle);
+	++m_populationStats.spawned;
+	return true;
+}
+
+void VehicleManager::replenishOutsideTraffic(double dt, const SimGraph& graph)
+{
+	const auto& settings = GenerationSettings::get();
+	m_outsideTraffic.inbound = m_outsideTraffic.outbound = 0;
+	for (const auto& vehicle : m_vehicles)
+	{
+		if (vehicle.currentEdge < 0 || vehicle.tripCompleted) { continue; }
+		m_outsideTraffic.inbound += vehicle.outsideTrip > 0;
+		m_outsideTraffic.outbound += vehicle.outsideTrip < 0;
+	}
+	// 需要が未設定（単体試験・起動直後）でも、地図外どうしの最低限の往来は出す。
+	const double eventMultiplier = m_eventDemandMultiplier;
+	m_outsideTraffic.targetInbound = static_cast<int>(Math::Round((m_trafficDemandConfigured ? m_trafficDemand.outsideInbound : settings.traffic_outsideMinimumVehicles / 2) * eventMultiplier));
+	m_outsideTraffic.targetOutbound = static_cast<int>(Math::Round((m_trafficDemandConfigured ? m_trafficDemand.outsideOutbound : settings.traffic_outsideMinimumVehicles / 2) * eventMultiplier));
+	if (m_outsideConnections.isEmpty() || dt <= 0) { return; }
+	m_outsideCredit = Min(settings.traffic_burst, m_outsideCredit + dt * settings.traffic_outsideSpawnRate);
+	const int capacity = settings.traffic_maximumVehicles - static_cast<int>(m_vehicles.size());
+	for (int attempt = 0; attempt < 16 && m_outsideCredit >= 1 && capacity > attempt; ++attempt)
+	{
+		// 目標との差に比例した確率で向きを選び、流入と流出を並行して補う。
+		const int inboundGap = Max(0, m_outsideTraffic.targetInbound - m_outsideTraffic.inbound);
+		const int outboundGap = Max(0, m_outsideTraffic.targetOutbound - m_outsideTraffic.outbound);
+		if (inboundGap <= 0 && outboundGap <= 0) { break; }
+		const bool inbound = Random(0.0, static_cast<double>(inboundGap + outboundGap)) < inboundGap;
+		const auto chosen = OutsideConnections::choose(m_outsideConnections, inbound);
+		if (!chosen) { break; }
+		const auto& connection = m_outsideConnections[*chosen];
+		// 広域の物流は高速道路と幹線に多い。
+		const bool freightRoad = connection.roadType == RoadType::Expressway || connection.roadType == RoadType::Arterial;
+		const VehicleType type = freightRoad && Random(0, 9) < 2 ? VehicleType::LargeTruck : selectDemandVehicleType();
+		m_outsideCredit -= 1;
+		if (inbound ? trySpawnInbound(connection, graph, type) : trySpawnOutbound(connection, graph, type))
+		{
+			(inbound ? m_outsideTraffic.inbound : m_outsideTraffic.outbound) += 1;
+		}
+		else if (m_outsideFailureLogs < 12)
+		{
+			++m_outsideFailureLogs;
+			const auto* edge = graph.getEdge(connection.edgeId);
+			DBG_LOG(U"[OutsideTraffic] spawn failed inbound={} edge={} length={} lanes={}/{}"_fmt(inbound, connection.edgeId, edge ? edge->length : -1.0f, connection.inboundLanes.size(), connection.outboundLanes.size()));
+		}
+	}
+}
+
 bool VehicleManager::assignBuildingGoal(Vehicle& vehicle, const SimGraph& graph)
 {
 	if (!m_world)
@@ -165,6 +295,14 @@ void VehicleManager::replenishTraffic(double dt, const SimGraph& graph,
 	{
 		m_spawnRefresh = kRefreshSeconds;
 		m_localSpawnEdges.clear(); m_globalSpawnEdges.clear(); m_localSpawnSet.clear(); m_throughSpawnEdges.clear(); m_throughSpawnSet.clear();
+		OutsideConnections::Diagnostics diagnostics;
+		m_outsideConnections = OutsideConnections::find(network, graph, &diagnostics);
+		if (m_outsideConnections.size() != m_loggedOutsideConnections)
+		{
+			m_loggedOutsideConnections = m_outsideConnections.size();
+			DBG_LOG(U"[OutsideTraffic] connections={} nearBorder={} branched={} missingEdge={} unbuilt={} short={} closed={}"_fmt(
+				m_outsideConnections.size(), diagnostics.nearBorder, diagnostics.branched, diagnostics.missingEdge, diagnostics.unbuilt, diagnostics.short_, diagnostics.closed));
+		}
 		size_t nearbyBuildings = 0;
 		for (const auto& [id, edge] : graph.edges)
 		{
@@ -202,7 +340,7 @@ void VehicleManager::replenishTraffic(double dt, const SimGraph& graph,
 	int localCount = 0, totalCount = 0;
 	for (const auto& vehicle : m_vehicles)
 	{
-		if (vehicle.currentEdge < 0 || vehicle.tripCompleted || vehicle.type == VehicleType::Bus || vehicle.type == VehicleType::Emergency) { continue; }
+		if (vehicle.currentEdge < 0 || vehicle.tripCompleted || vehicle.outsideTrip != 0 || vehicle.type == VehicleType::Bus || vehicle.type == VehicleType::Emergency) { continue; }
 		++totalCount; localCount += m_localSpawnSet.contains(vehicle.currentEdge);
 	}
 	for (int attempt = 0; attempt < kAttempts && m_spawnCredit >= 1 && totalCount < Min(kMaximumVehicles, m_targetVehicleCount); ++attempt)
@@ -226,6 +364,7 @@ void VehicleManager::replenishTraffic(double dt, const SimGraph& graph,
 		const VehicleType type = Random(0, 9) < 2 ? VehicleType::LargeTruck : selectDemandVehicleType();
 		if (trySpawnThroughTraffic(id, graph, type, network)) { ++throughCount; }
 	}
+	replenishOutsideTraffic(dt, graph);
 	m_populationStats.localVehicles = localCount;
 	m_populationStats.localTarget = m_localTrafficTarget;
 }

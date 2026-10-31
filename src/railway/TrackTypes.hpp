@@ -12,7 +12,8 @@ enum class TrackNodeType : uint8
 };
 
 /// @brief 駅施設の構成。地下でも駅ノードは実際のホーム標高を保持する。
-enum class StationKind : uint8 { Local, Terminal, Underground };
+/// Portal は地図端の外部接続。地図外の路線と直通する列車の発着点で、駅舎・ホーム・乗降はない。
+enum class StationKind : uint8 { Local, Terminal, Underground, Portal };
 
 /// @brief 地表で確保した駅前広場。寸法・徒歩接続を描画と保存で共有する。
 struct StationForecourt
@@ -37,6 +38,10 @@ struct TrackNode
 
 	/// @brief 有効なノードか
 	bool isValid() const { return id >= 0; }
+	/// @brief 地図外と直通する列車の発着点（駅施設を持たない）か
+	bool isPortal() const { return type == TrackNodeType::Station && stationKind == StationKind::Portal; }
+	/// @brief 乗客が乗り降りする実在の駅か
+	bool isPassengerStation() const { return type == TrackNodeType::Station && stationKind != StationKind::Portal; }
 };
 
 /// @brief 共通路盤と軌道車線を持つエッジ。形状の正本は RoadNetwork。
@@ -64,5 +69,6 @@ struct TrainSchedule
 	float         headwaySec = 600.0f;  ///< 運行間隔 [ゲーム秒]
 	TrainType     type = TrainType::Local;
 	bool          reverseNext = false; ///< 次便は停車駅列の逆順を走る
+	bool          outside = false;     ///< 地図外と直通する路線。運行間隔を街の人口（需要）から決める
 	GameTime      lastSpawnAt = -9999.0;  ///< 最後にスポーンした時刻（初回即時スポーンのため大負数）
 };

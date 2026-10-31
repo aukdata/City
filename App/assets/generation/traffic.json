@@ -23,5 +23,12 @@
   "minimumFreightShare": 0.08,
   "maximumFreightShare": 0.45,
   "largeTruckFreightShare": 0.35,
-  "smallTruckFreightShare": 0.65
+  "smallTruckFreightShare": 0.65,
+  "outsideBorderDistance": 80,
+  "outsideExpresswayWeight": 4,
+  "outsideInboundShare": 0.3,
+  "outsideOutboundShare": 0.12,
+  "outsideMinimumVehicles": 8,
+  "outsideMaximumVehicles": 1500,
+  "outsideSpawnRate": 6
 }

@@ -45,7 +45,12 @@
     "crossingExtraClearance",
     "waterClearance",
     "waterTunnelCover",
-    "platformLevelMargin"
+    "platformLevelMargin",
+    "outsideConnections",
+    "outsideBorderInset",
+    "outsidePeoplePerTrain",
+    "outsideMinimumTrainsPerHour",
+    "outsideMaximumTrainsPerHour"
   ],
   "properties": {
     "maximumCut": {
@@ -257,6 +262,31 @@
       "type": "number",
       "minimum": 0.0,
       "maximum": 10000.0
+    },
+    "outsideConnections": {
+      "type": "integer",
+      "minimum": 0.0,
+      "maximum": 2.0
+    },
+    "outsideBorderInset": {
+      "type": "number",
+      "minimum": 20.0,
+      "maximum": 2000.0
+    },
+    "outsidePeoplePerTrain": {
+      "type": "number",
+      "minimum": 100.0,
+      "maximum": 10000000.0
+    },
+    "outsideMinimumTrainsPerHour": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 60.0
+    },
+    "outsideMaximumTrainsPerHour": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 60.0
     }
   }
 }

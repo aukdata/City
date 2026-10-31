@@ -154,7 +154,7 @@ void TrainRenderer::renderTracks(const TrainNetwork& network,const World& world,
 	}
 	for (const auto& node : network.nodes())
 	{
-		if (node.type != TrackNodeType::Station || node.position.distanceFromSq(eye) > Square(2500.0)) { continue; }
+		if (!node.isPassengerStation() || node.position.distanceFromSq(eye) > Square(2500.0)) { continue; }
 		if (!m_stations.contains(node.id)) { m_stations.emplace(node.id,buildFacility(RailFacilities::station(network,world,node.id))); }
 		drawFacility(m_stations[node.id], node.position.distanceFromSq(eye) > 500 * 500);
 	}
@@ -293,7 +293,7 @@ void TrainRenderer::preloadGeometry(const TrainNetwork& network,const World& wor
 		if(const auto curve=network.getBezier(edge.id)) { m_trackMeshCache[edge.id]=buildTrackMesh(edge,*curve,false);m_distantTracks[edge.id]=buildTrackMesh(edge,*curve,true); }
 	}
 	m_facilityEdgeCount=network.edges().size();m_parkedTrains=RailFacilities::parkedTrains(network);
-	for(const auto& node:network.nodes()) { if(node.type==TrackNodeType::Station) { m_stations[node.id]=buildFacility(RailFacilities::station(network,world,node.id)); } }
+	for(const auto& node:network.nodes()) { if(node.isPassengerStation()) { m_stations[node.id]=buildFacility(RailFacilities::station(network,world,node.id)); } }
 	for(const auto& depot:network.depots()) { m_depots[depot.stationNodeId]=buildFacility(RailFacilities::depot(network,world,depot)); }
 	for(const auto& [id,facility]:m_stations) { for(const auto& [board,name]:facility.signs) { m_pendingFacilityNames.insert(name); } }
 	for(const auto& [id,facility]:m_depots) { for(const auto& [board,name]:facility.signs) { m_pendingFacilityNames.insert(name); } }

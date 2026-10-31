@@ -142,6 +142,7 @@ struct Vehicle
 	bool tripCompleted = false;  ///< 目的地エッジ終端へ到達し、履歴記録待ち
 
 	bool populationManaged = false; ///< 自動発生した通常交通のみ再配置の対象
+	int8 outsideTrip = 0;           ///< 外部接続の交通: +1 地図外から流入、-1 地図外へ流出、0 街の中だけ
 	float outsideFocusSeconds = 0; ///< 遠方かつ不可視で経過した時間
 
 	// バス専用フィールド

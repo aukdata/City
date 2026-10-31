@@ -53,7 +53,7 @@ JSON TrainNetwork::saveState() const
 		item[U"id"] = schedule.id; item[U"name"] = schedule.name; item[U"enabled"] = schedule.enabled;
 		item[U"first"] = schedule.firstDepartureMinute; item[U"last"] = schedule.lastDepartureMinute;
 		item[U"interval"] = schedule.headwaySec; item[U"type"] = static_cast<int>(schedule.type);
-		item[U"reverse"] = schedule.reverseNext; item[U"lastSpawn"] = schedule.lastSpawnAt;
+		item[U"reverse"] = schedule.reverseNext; item[U"lastSpawn"] = schedule.lastSpawnAt; item[U"outside"] = schedule.outside;
 		item[U"stops"] = Array<JSON>{};
 		for (size_t stop = 0; stop < schedule.stops.size(); ++stop)
 		{
@@ -99,7 +99,7 @@ bool TrainNetwork::restoreState(const JSON& state)
 			}
 			auto* node = restored.getNode(id); node->type = static_cast<TrackNodeType>(type); node->name = item[U"name"].get<String>();
 			const int kind=item[U"stationKind"].getOr<int>(0);
-			if (!InRange(kind,0,2)) { return false; }
+			if (!InRange(kind,0,static_cast<int>(StationKind::Portal))) { return false; }
 			node->stationKind=static_cast<StationKind>(kind);
 			if (item.contains(U"entrance"))
 			{
@@ -159,7 +159,7 @@ bool TrainNetwork::restoreState(const JSON& state)
 			const int type = item[U"type"].get<int>();
 			if (!InRange(type, 0, 4) || restored.getSchedule(schedule.id) || schedule.id < 0) { return false; }
 			schedule.type = static_cast<TrainType>(type); schedule.reverseNext = item[U"reverse"].get<bool>();
-			schedule.lastSpawnAt = item[U"lastSpawn"].get<double>();
+			schedule.lastSpawnAt = item[U"lastSpawn"].get<double>(); schedule.outside = item[U"outside"].getOr<bool>(false);
 			if (!std::isfinite(schedule.lastSpawnAt)) { return false; }
 			for (const auto& stop : item[U"stops"].arrayView()) { schedule.stops << StopEntry{stop[U"station"].get<int>(), stop[U"dwell"].get<float>()}; }
 			// 共通網は駅・線路を撤去できる。途切れたダイヤは修正用に保存し、発車時に経路を検査する。

@@ -272,7 +272,7 @@ void PedestrianNetwork::rebuild(
 	}
 	for (const auto& station : trains.nodes())
 	{
-		if (station.type != TrackNodeType::Station || station.edgeIds.isEmpty())
+		if (!station.isPassengerStation() || station.edgeIds.isEmpty())
 		{
 			continue;
 		}

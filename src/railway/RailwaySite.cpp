@@ -127,7 +127,7 @@ namespace RailwaySite
 		constexpr double kStationFloor = 1.05;
 		const ParcelRoadIndex occupied{roads,false,false};
 		Array<int> stations;
-		for (const auto& node : network.nodes()) { if (node.type == TrackNodeType::Station) { stations << node.id; } }
+		for (const auto& node : network.nodes()) { if (node.isPassengerStation()) { stations << node.id; } }
 		int created = 0;
 		for (const int id : stations)
 		{
@@ -233,7 +233,7 @@ namespace RailwaySite
 		Array<ParcelGeometry::Quad> result;
 		for (const auto& node : network.nodes())
 		{
-			if (node.type != TrackNodeType::Station) { continue; }
+			if (!node.isPassengerStation()) { continue; }
 			if (node.stationKind==StationKind::Underground && node.entrance)
 			{
 				if (const auto frame=stationFrame(network,node.id))

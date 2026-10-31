@@ -137,6 +137,73 @@ void registerTrafficScalingTests(TestRunner& runner)
 		JSON report; report[U"completed"] = manager.populationStats().completed; report[U"spawned"] = manager.populationStats().spawned;
 		report[U"accessPoints"] = manager.buildingAccess().size(); report.save(directory.previous + U"TestResults/building_trips.json");
 	});
+	runner.add(U"TrafficScaling.OutsideConnectionTrips", [](TestContext& context)
+	{
+		// 地図端（x=10）から街の環状道路へつながる幹線を外部接続として、流入・流出の車を出す。
+		AppDirectory directory;
+		World world; world.reserveChunks();
+		world.installChunkDirect({0, 0}, HeightMapResult{Grid<float>(65, 65, 20), 20, 20});
+		RoadNetwork roads; Array<int> nodes;
+		for (const Vec3 point : {Vec3{220,20,220}, Vec3{880,20,220}, Vec3{880,20,880}, Vec3{220,20,880}}) { nodes << roads.addNode(point); }
+		for (int i = 0; i < 4; ++i)
+		{
+			const Vec3 a = roads.getNode(nodes[i])->position, b = roads.getNode(nodes[(i + 1) % 4])->position;
+			const int id = *roads.addEdge(nodes[i], nodes[(i + 1) % 4], a.lerp(b, 1.0 / 3), a.lerp(b, 2.0 / 3), RoadType::LocalRoad, 2);
+			auto* road = roads.getEdge(id); GeneratedStreet::apply(*road, GeneratedStreet::describe(GeneratedStreet::Role::Local)); road->edgeState = EdgeState::Open;
+			for (int j = 0; j < 10; ++j)
+			{
+				const float fraction = (j + 1.0f) / 11;
+				const Vec3 point = a.lerp(b, fraction) + tangentToRight(b - a) * 18;
+				const Point cell{static_cast<int>(point.x / 16), static_cast<int>(point.z / 16)};
+				auto& building = world.getChunk({0,0})->buildingGrid[cell]; building.type = BuildingType::Detached;
+				building.edgeId = id; building.edgeT = fraction;
+				building.offsetX = static_cast<float>(point.x - (cell.x + .5) * 16);
+				building.offsetZ = static_cast<float>(point.z - (cell.y + .5) * 16);
+			}
+		}
+		const int border = roads.addNode(Vec3{10, 20, 220});
+		{
+			const Vec3 a = roads.getNode(border)->position, b = roads.getNode(nodes[0])->position;
+			const int id = *roads.addEdge(border, nodes[0], a.lerp(b, 1.0 / 3), a.lerp(b, 2.0 / 3), RoadType::Arterial, 2);
+			auto* road = roads.getEdge(id); GeneratedStreet::apply(*road, GeneratedStreet::describe(GeneratedStreet::Role::Local)); road->edgeState = EdgeState::Open;
+		}
+		for (const int node : nodes) { roads.updateNodeCutoffs(node); roads.rebuildLaneConnections(node); }
+		roads.updateNodeCutoffs(border); roads.rebuildLaneConnections(border);
+		const auto graph = SimGraph::build(roads);
+		const auto connections = OutsideConnections::find(roads, graph);
+		context.expectEqual(connections.size(), size_t{1}, U"Only the road ending at the map edge is an outside connection");
+		if (connections.size() == 1) { context.expect(!connections[0].inboundLanes.isEmpty() && !connections[0].outboundLanes.isEmpty(), U"A two-way road carries traffic both into and out of the map"); }
+		TrafficGraph routes; routes.rebuild(graph, 0, {});
+		VehicleManager manager; manager.init(graph, roads, &world);
+		TrafficDemand demand; demand.targetVehicleCount = 6; demand.outsideInbound = 5; demand.outsideOutbound = 5; manager.setTrafficDemand(demand);
+		HashSet<int> inbound, outbound, outboundAlive;
+		int arrivedOutside = 0;
+		for (int frame = 0; frame < 6000; ++frame)
+		{
+			manager.update(.05, frame * .05, graph, roads, {});
+			resolveTrips(manager, graph, routes);
+			HashSet<int> alive;
+			for (const auto& car : manager.vehicles())
+			{
+				if (car.outsideTrip > 0 && !inbound.contains(car.id))
+				{
+					inbound.insert(car.id);
+					context.expect(car.currentEdge == connections[0].edgeId && car.destinationBuilding >= 0, U"Inbound cars enter at the map edge and head to a building");
+				}
+				if (car.outsideTrip < 0)
+				{
+					if (!outbound.contains(car.id)) { context.expect(car.originBuilding >= 0 && car.goalEdgeId == connections[0].edgeId, U"Outbound cars leave a building for the map edge"); }
+					outbound.insert(car.id); alive.insert(car.id);
+				}
+			}
+			for (const int id : outboundAlive) { arrivedOutside += !alive.contains(id); }
+			outboundAlive = std::move(alive);
+		}
+		context.expect(inbound.size() >= 5 && outbound.size() >= 5, U"Cars come from and go to the outside connection (in {} / out {})"_fmt(inbound.size(), outbound.size()));
+		context.expect(arrivedOutside >= 3, U"Outbound cars reach the map edge and leave the map ({})"_fmt(arrivedOutside));
+		context.expectEqual(manager.populationStats().routeFailures, 0, U"Outside trips are routable");
+		context.expect(manager.outsideTraffic().inbound <= 5 && manager.outsideTraffic().outbound <= 5, U"Outside traffic stays within its demand");
+	});
 	runner.add(U"TrafficScaling.TwelveThousandStoppedQueues", [](TestContext& context)
 	{
 		AppDirectory directory;

@@ -40,5 +40,10 @@
   "waterTunnelCover": 10,
   "platformLevelMargin": 10,
   "minimumRadius": 300,
-  "smoothingPasses": 8
+  "smoothingPasses": 8,
+  "outsideConnections": 2,
+  "outsideBorderInset": 150,
+  "outsidePeoplePerTrain": 5000,
+  "outsideMinimumTrainsPerHour": 1,
+  "outsideMaximumTrainsPerHour": 8
 }

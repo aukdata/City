@@ -4,6 +4,7 @@ class World;
 #include "TrafficLight.hpp"
 #include "LaneVehicleIndex.hpp"
 #include "BuildingAccess.hpp"
+#include "OutsideConnections.hpp"
 #include "TrafficCommon.hpp"
 #include "../sim/SimMessages.hpp"
 #include "../sim/SimGraph.hpp"
@@ -54,6 +55,11 @@ public:
 		int localVehicles = 0, localTarget = 0;
 	};
 	const PopulationStats& populationStats() const { return m_populationStats; }
+	/// @brief 現在の外部接続（地図端で途切れる道路）。交通の補充時に更新する。
+	const Array<OutsideConnections::Connection>& outsideConnections() const { return m_outsideConnections; }
+	/// @brief 地図外から来た車・地図外へ向かう車の台数。
+	struct OutsideTraffic { int inbound = 0, outbound = 0, targetInbound = 0, targetOutbound = 0; };
+	const OutsideTraffic& outsideTraffic() const { return m_outsideTraffic; }
 	struct PassengerArrival { int passengerId; int64 parkingKey; Vec3 position; bool arrived; };
 	/// @brief 駐車場の出入口から、指定した駐車場へ向かう実車を生成する。満車線では乗車を待つ。
 	Optional<int> boardPassenger(int passengerId, const BuildingAccessPoint& from, const BuildingAccessPoint& to,
@@ -129,10 +135,21 @@ private:
 	bool assignBuildingGoal(Vehicle& vehicle, const SimGraph& graph);
 	int m_localTrafficTarget = 0;
 	PopulationStats m_populationStats;
+	OutsideTraffic m_outsideTraffic;
 	bool tryAutomaticSpawn(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork* network);
 	/// @brief 高速道路本線に、本線と連絡路だけをたどる通過交通を出す。
 	bool trySpawnThroughTraffic(int edgeId, const SimGraph& graph, VehicleType type, const RoadNetwork& network);
 	void replenishTraffic(double dt, const SimGraph& graph, const RoadNetwork& network, const HashSet<int>& visibleEdges);
+	/// @brief 外部接続（地図端の道路）から、需要に応じて流入・流出する車を補充する。
+	void replenishOutsideTraffic(double dt, const SimGraph& graph);
+	/// @brief 地図端の流入車線に車を出し、街の建物を目的地にする。
+	bool trySpawnInbound(const OutsideConnections::Connection& connection, const SimGraph& graph, VehicleType type);
+	/// @brief 街の建物から、地図端の流出車線を目的地にする車を出す。
+	bool trySpawnOutbound(const OutsideConnections::Connection& connection, const SimGraph& graph, VehicleType type);
+	Array<OutsideConnections::Connection> m_outsideConnections;
+	double m_outsideCredit = 0;
+	int m_outsideFailureLogs = 0; ///< 外部交通の発生失敗を記録した回数（診断用）
+	size_t m_loggedOutsideConnections = SIZE_MAX; ///< 診断ログを出した時の外部接続数
 	int            m_nextId = 0;
 	int            m_targetVehicleCount = 20;  ///< 自動スポーンの目標台数
 	TrafficDemand  m_trafficDemand;
