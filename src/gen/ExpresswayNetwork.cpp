@@ -35,6 +35,8 @@ namespace
 		Array<Vec2> points;
 		Array<double> stations;
 		Array<double> heights;
+		double structureScale = 1; ///< 最大トンネル土被りの倍率。山地を抜ける計画だけ長大トンネルを許す
+		double viaductScale = 1;   ///< 最大高架高さの倍率
 
 		[[nodiscard]] double length() const { return stations.isEmpty() ? 0.0 : stations.back(); }
 		[[nodiscard]] size_t segmentAt(double station) const
@@ -214,10 +216,52 @@ namespace
 		return line;
 	}
 
-	/// @brief 地図端の陸地を、方向の延長線から近い順に探す。
-	Optional<Vec2> borderLanding(const World& world, Vec2 from, Vec2 direction)
+	/// @brief 地図端の端点を置く内側距離。外部接続の判定（RoadNetwork::isBorderNode 相当）に収まる値。
+	double borderInset() { return settings().network_borderInset + 20; }
+
+	/// @brief 地図端から内側へ入ってすぐ急斜面・深い谷に当たらないか。当たる端点は縦断（最急勾配＋トンネルの土被り・高架の高さ）が成立しにくい。
+	bool gentleBorderApproach(const World& world, Vec2 candidate, Vec2 inward)
 	{
-		const double inset = settings().network_borderInset + 20;
+		const double edge = groundAt(world, candidate);
+		const double cover = settings().expressway_maximumTunnelDepth * .6, viaduct = settings().expressway_maximumViaductHeight;
+		for (double distance = 200; distance <= 3000; distance += 200)
+		{
+			const double rise = groundAt(world, candidate + inward * distance) - edge, allowance = settings().expressway_maximumGrade * distance;
+			if (rise > allowance + cover || -rise > allowance + viaduct * 2) { return false; }
+		}
+		return true;
+	}
+
+	/// @brief 地図の外周から、from より direction 側にある低い陸地の端点を探す。延長線の近くに使える端点がないときに使う。
+	Optional<Vec2> lowlandBorder(const World& world, Vec2 from, Vec2 direction)
+	{
+		const double inset = borderInset(), origin = groundAt(world, from);
+		Optional<Vec2> best; double bestScore = Math::Inf;
+		for (double along = inset; along <= WORLD_SIZE - inset; along += 250)
+		{
+			for (const auto& [point, inward] : { std::pair{ Vec2{ inset, along }, Vec2{ 1, 0 } }, std::pair{ Vec2{ WORLD_SIZE - inset, along }, Vec2{ -1, 0 } },
+				std::pair{ Vec2{ along, inset }, Vec2{ 0, 1 } }, std::pair{ Vec2{ along, WORLD_SIZE - inset }, Vec2{ 0, -1 } } })
+			{
+				const Vec2 offset = point - from;
+				const double distance = offset.length();
+				// 進行方向から ±75° 以内の地図端だけを使い、線形が折り返さないようにする。
+				if (distance < 2000 || offset.dot(direction) < distance * .26) { continue; }
+				if (!landAt(world, point) || !landAt(world, point + inward * 200) || !gentleBorderApproach(world, point, inward)) { continue; }
+				const double rise = Abs(groundAt(world, point) - origin);
+				const double score = distance + rise * 60;
+				if (score < bestScore) { bestScore = score; best = point; }
+			}
+		}
+		return best;
+	}
+
+	/// @brief 地図端の陸地を、方向の延長線から近い順に探す。
+	/// @param relax 0: 設定どおり。1: 地図端の全長を探し、高低差の上限を 4 倍に緩める。2: 高低差を問わない。
+	Optional<Vec2> borderLanding(const World& world, Vec2 from, Vec2 direction, int relax = 0)
+	{
+		const double inset = borderInset();
+		const double searchDistance = relax == 0 ? settings().expressway_borderSearchDistance : static_cast<double>(WORLD_SIZE);
+		const double maximumRise = relax == 0 ? settings().expressway_borderMaximumRise : relax == 1 ? settings().expressway_borderMaximumRise * 4 : Math::Inf;
 		double reach = Math::Inf;
 		for (const auto& [axis, bound] : { std::pair{ direction.x, direction.x > 0 ? WORLD_SIZE - inset - from.x : inset - from.x },
 			std::pair{ direction.y, direction.y > 0 ? WORLD_SIZE - inset - from.y : inset - from.y } })
@@ -232,21 +276,57 @@ namespace
 		// 山の上で地図端に抜けると縦断が成立しないため、出発地との高低差が小さい陸地を選ぶ。
 		const double origin = groundAt(world, from);
 		Optional<Vec2> best; double bestScore = Math::Inf;
-		for (double offset = 0; offset <= settings().expressway_borderSearchDistance; offset += 250)
+		const auto gentleApproach = [&](Vec2 candidate) { return relax >= 2 || gentleBorderApproach(world, candidate, -direction); };
+		for (double offset = 0; offset <= searchDistance; offset += 250)
 		{
 			for (const double sign : { 1.0, -1.0 })
 			{
 				const Vec2 candidate = hit + along * offset * sign;
-				if (insideWorld(candidate, inset - 1) && landAt(world, candidate) && landAt(world, candidate - direction * 200))
+				if (insideWorld(candidate, inset - 1) && landAt(world, candidate) && (relax >= 2 || landAt(world, candidate - direction * 200)) && gentleApproach(candidate))
 				{
 					const double rise = Abs(groundAt(world, candidate) - origin);
 					const double score = offset + rise * 40;
-					if (rise < settings().expressway_borderMaximumRise && score < bestScore) { bestScore = score; best = candidate; }
+					if (rise < maximumRise && score < bestScore) { bestScore = score; best = candidate; }
 				}
 				if (offset == 0) { break; }
 			}
 		}
 		return best;
+	}
+
+	/// @brief 本線の端点を必ず地図端に置く。向きを ±30°刻みで振り、それでもなければ条件を段階的に緩める。
+	/// @details どの陸地も見つからなければ延長線と地図端の交点（海上なら橋）を返す。
+	Vec2 borderEndpoint(const World& world, Vec2 from, Vec2 direction, int firstRelax)
+	{
+		for (int relax = Clamp(firstRelax, 0, 2); relax <= 2; ++relax)
+		{
+			// 高低差の小さい地図端を優先する（山の上の地図端に抜けると縦断が成立しにくい）。
+			for (const double degrees : { 0.0, 30.0, -30.0, 60.0, -60.0, 90.0, -90.0 })
+			{
+				const double angle = Math::ToRadians(degrees);
+				const Vec2 turned{ direction.x * Cos(angle) - direction.y * Sin(angle), direction.x * Sin(angle) + direction.y * Cos(angle) };
+				if (const auto border = borderLanding(world, from, turned.normalized(), relax))
+				{
+					if (relax > 0 || degrees != 0) { DBG_LOG(U"[ExpresswayBorder] relaxed level={} turnDegrees={:.0f} point=({:.0f},{:.0f})"_fmt(relax, degrees, border->x, border->y)); }
+					return *border;
+				}
+			}
+			if (relax == 0)
+			{
+				if (const auto border = lowlandBorder(world, from, direction))
+				{
+					DBG_LOG(U"[ExpresswayBorder] lowland point=({:.0f},{:.0f})"_fmt(border->x, border->y));
+					return *border;
+				}
+			}
+		}
+		const double inset = borderInset();
+		double reach = Math::Inf;
+		if (Abs(direction.x) > 1e-6) { reach = Min(reach, ((direction.x > 0 ? WORLD_SIZE - inset : inset) - from.x) / direction.x); }
+		if (Abs(direction.y) > 1e-6) { reach = Min(reach, ((direction.y > 0 ? WORLD_SIZE - inset : inset) - from.y) / direction.y); }
+		const Vec2 hit = from + direction * (std::isfinite(reach) ? Max(0.0, reach) : 0.0);
+		DBG_LOG(U"[ExpresswayBorder] fallback=extension point=({:.0f},{:.0f})"_fmt(hit.x, hit.y));
+		return Vec2{ Clamp(hit.x, inset, WORLD_SIZE - inset), Clamp(hit.y, inset, WORLD_SIZE - inset) };
 	}
 
 	/// @brief 縦断の局所拘束。station 区間内で地盤からの高さを制限する。
@@ -262,7 +342,7 @@ namespace
 		{
 			const Vec2 position = line.points[i];
 			const double ground = groundAt(world, position), station = line.stations[i];
-			double minimum = Max(c.railway_minimumAltitude, ground - c.expressway_maximumTunnelDepth), maximum = ground + c.expressway_maximumViaductHeight;
+			double minimum = Max(c.railway_minimumAltitude, ground - c.expressway_maximumTunnelDepth * line.structureScale), maximum = ground + c.expressway_maximumViaductHeight * line.viaductScale;
 			double roadClearance = -1e9, underpass = 1e9;
 			const Vec2 side = rightOf(line.tangent(station));
 			for (const double lateral : { -margin, 0.0, margin })
@@ -328,7 +408,21 @@ namespace
 		}
 		if (!profile.feasible)
 		{
-			DBG_LOG(U"[ExpresswayProfile] infeasible start={:.1f} end={:.1f} samples={}"_fmt(start, end, samples.size()));
+			// 診断: 離隔帯を無視しても、始点から最急勾配で届く高さが地盤の上下限（トンネル土被り・高架高さ）と交わらなくなる標本。
+			double low = Min(start, end), high = Max(start, end);
+			for (const auto& sample : samples) { low = Min(low, sample.minimum); high = Max(high, sample.maximum); }
+			String limit = U"none";
+			double lo = start, hi = start;
+			for (size_t i = 1; i < samples.size(); ++i)
+			{
+				const double run = samples[i].position.distanceFrom(samples[i - 1].position);
+				lo = Max(lo - run * grade, samples[i].minimum); hi = Min(hi + run * grade, samples[i].maximum);
+				if (lo <= hi) { continue; }
+				limit = U"station={:.0f} at=({:.0f},{:.0f}) ground={:.1f} band=({:.1f},{:.1f})"_fmt(
+					line.stations[i], samples[i].position.x, samples[i].position.y, samples[i].ground, samples[i].minimum, samples[i].maximum);
+				break;
+			}
+			DBG_LOG(U"[ExpresswayProfile] infeasible start={:.1f} end={:.1f} samples={} heightRange=({:.0f},{:.0f}) gradeLimit={}"_fmt(start, end, samples.size(), low, high, limit));
 			return false;
 		}
 		line.heights = profile.heights;
@@ -663,6 +757,126 @@ namespace
 		String name, reading;
 	};
 
+	/// @brief トランペット型 IC の各ランプ曲線と、勾配・交差・本線建築限界の判定結果。
+	struct TrumpetGeometry
+	{
+		struct Piece { CubicBezier curve; String key; };
+		TrumpetLayout plan;
+		double station = 0, base = 0;
+		int townSide = 1;  ///< 町が中心線の右（+1）か左（-1）か
+		Vec2 center, ey, farTravel, nearTravel, plazaPoint;
+		Vec3 loopEntry, loopRight, loopTop, southboundTop, northboundTop, overLoop, southboundFoot, northboundFoot, plazaStart;
+		Array<Piece> pieces;
+		String failure;    ///< 空なら建設できる
+	};
+
+	/// @brief 車道上の分合流点（station と車道の向き）を返す。節点がなければ none。
+	using WayPoint = std::function<Optional<Vec3>(double station, int side)>;
+
+	/// @brief station s の町側に置くトランペット型 IC の形を作り、建設できるか判定する。縦断を解いた後に使う。
+	/// @details IC 選定時は車道の計画位置、建設時は実際の節点位置で同じ判定をする。
+	TrumpetGeometry trumpetGeometry(const Line& line, double s, Vec2 townCenter, const WayPoint& wayPoint)
+	{
+		const auto& c = settings();
+		TrumpetGeometry g;
+		const auto& plan = g.plan = TrumpetLayout::make();
+		g.station = s;
+		const Vec2 center = g.center = line.at(s), t = line.tangent(s), right = rightOf(t);
+		const int townSide = g.townSide = (townCenter - center).dot(right) >= 0 ? 1 : -1;
+		// 局所座標: x は遠い側の車道の進行方向、y は町から離れる向き。遠い側の車道は y=+offset にある。
+		const Vec2 ex = t * townSide, ey = g.ey = -right * townSide;
+		const double base = g.base = line.height(s);
+		const auto local = [&](double x, double y, double h) { return lift(center + ex * x + ey * y, base + h); };
+		const auto heading = [&](double x, double y) { return ex * x + ey * y; };
+		const auto stationOf = [&](double x) { return s + townSide * x; };
+		// 遠い側の車道は townSide の向き（+1 = station 増加方向の車道）、近い側はその逆。
+		const auto farDiverge = wayPoint(stationOf(plan.loopLead), townSide), farMerge = wayPoint(stationOf(plan.farMerge), townSide);
+		const auto nearDiverge = wayPoint(stationOf(plan.nearRamp), -townSide), nearMerge = wayPoint(stationOf(-plan.nearRamp), -townSide);
+		if (!farDiverge || !farMerge || !nearDiverge || !nearMerge) { g.failure = U"missing-node"; return g; }
+		const auto position = [](const Optional<Vec3>& point) { return *point; };
+		const Vec2 farTravel = g.farTravel = line.tangent(stationOf(plan.loopLead)) * townSide, farTravelMerge = line.tangent(stationOf(plan.farMerge)) * townSide;
+		const Vec2 nearTravel = g.nearTravel = -line.tangent(stationOf(plan.nearRamp)) * townSide, nearTravelMerge = -line.tangent(stationOf(-plan.nearRamp)) * townSide;
+		const double angle = c.expressway_rampDivergeAngle;
+		// 各点（局所座標）。
+		const Vec3 loopEntry = g.loopEntry = local(plan.loopCenter.x, plan.loopCenter.y - plan.radius, 0);
+		const Vec3 loopRight = g.loopRight = local(plan.loopCenter.x + plan.radius, plan.loopCenter.y, plan.loopLift * .33);
+		const Vec3 loopTop = g.loopTop = local(plan.loopCenter.x, plan.loopCenter.y + plan.radius, plan.loopLift * .66);
+		const Vec3 southboundTop = g.southboundTop = local(plan.southboundX, plan.loopCenter.y, plan.loopLift);
+		const Vec3 northboundTop = g.northboundTop = local(-plan.southboundX, plan.loopCenter.y, plan.loopLift);
+		const Vec3 overLoop = g.overLoop = local(plan.loopCenter.x + 20, plan.loopCenter.y + plan.radius + 70, plan.loopLift);
+		const Vec3 southboundFoot = g.southboundFoot = local(plan.southboundX, -plan.stemSouth, 0);
+		const Vec3 northboundFoot = g.northboundFoot = local(-plan.southboundX, -plan.stemSouth, 0);
+		g.plazaPoint = center + ey * -(plan.stemSouth + 30);
+		g.plazaStart = lift(g.plazaPoint, base);
+		const double arcHandle = .5523 * plan.radius;
+		const auto arcCurve = [&](Vec3 from, Vec2 fromDirection, Vec3 to, Vec2 toDirection)
+		{
+			return CubicBezier{ from, lift(flat(from) + fromDirection * arcHandle, Math::Lerp(from.y, to.y, 1.0 / 3)), lift(flat(to) - toDirection * arcHandle, Math::Lerp(from.y, to.y, 2.0 / 3)), to };
+		};
+		const auto handled = [&](Vec3 from, Vec2 a, Vec3 to, Vec2 b, double factor, Optional<double> firstHeight = none, Optional<double> secondHeight = none)
+		{
+			const double handle = flat(to - from).length() * factor;
+			return CubicBezier{ from, lift(flat(from) + a.normalized() * handle, firstHeight.value_or(Math::Lerp(from.y, to.y, 1.0 / 3))),
+				lift(flat(to) - b.normalized() * handle, secondHeight.value_or(Math::Lerp(from.y, to.y, 2.0 / 3))), to };
+		};
+		auto& pieces = g.pieces;
+		pieces = Array<TrumpetGeometry::Piece>{
+			{ handled(position(farDiverge), farTravel - rightOf(farTravel) * angle, loopEntry, heading(1, 0), .38), U"farLead" },
+			{ arcCurve(loopEntry, heading(1, 0), loopRight, heading(0, 1)), U"loop1" },
+			{ arcCurve(loopRight, heading(0, 1), loopTop, heading(-1, 0)), U"loop2" },
+			{ arcCurve(loopTop, heading(-1, 0), southboundTop, heading(0, -1)), U"loop3" },
+			{ handled(southboundTop, heading(0, -1), southboundFoot, heading(0, -1), .38, base + plan.bridgeApex + 1.5, base + plan.bridgeApex - 1), U"southbound" },
+			{ handled(northboundFoot, heading(0, 1), northboundTop, heading(0, 1), .38, base + plan.bridgeApex - 1, base + plan.bridgeApex + 1.5), U"northbound" },
+			{ handled(northboundTop, heading(0, 1), overLoop, heading(1, 0), .55), U"farOn1" },
+			{ handled(overLoop, heading(1, 0), position(farMerge), farTravelMerge + rightOf(farTravelMerge) * angle, .38), U"farOn2" },
+			{ handled(position(nearDiverge), nearTravel - rightOf(nearTravel) * angle, southboundFoot, heading(0, -1), .5), U"nearOff" },
+			{ handled(northboundFoot, heading(0, 1), position(nearMerge), nearTravelMerge + rightOf(nearTravelMerge) * angle, .5), U"nearOn" },
+		};
+		// 接続する組を除き、平面で重なる区間は 6m 以上の高低差を取る。跨道部は本線の建築限界を守る。
+		const HashSet<String> joined{ U"farLead|loop1", U"loop1|loop2", U"loop2|loop3", U"loop3|southbound", U"northbound|farOn1", U"farOn1|farOn2",
+			U"southbound|nearOff", U"northbound|nearOn", U"loop3|farOn1", U"southbound|northbound", U"nearOff|nearOn", U"southbound|farOn1", U"loop3|northbound" };
+		String& failure = g.failure;
+		for (const auto& piece : pieces)
+		{
+			const bool stem = piece.key == U"southbound" || piece.key == U"northbound";
+			if (maximumGrade(piece.curve) > (stem ? plan.stemGrade : c.expressway_rampMaximumGrade * 1.05)) { failure = U"grade:" + piece.key; break; }
+		}
+		for (size_t i = 0; failure.isEmpty() && i < pieces.size(); ++i)
+		{
+			for (size_t j = i + 1; failure.isEmpty() && j < pieces.size(); ++j)
+			{
+				if (joined.contains(pieces[i].key + U"|" + pieces[j].key) || joined.contains(pieces[j].key + U"|" + pieces[i].key)) { continue; }
+				for (float a = 0; failure.isEmpty() && a <= pieces[i].curve.totalLength; a += 3)
+				{
+					const Vec3 p = pieces[i].curve.positionAt(a);
+					for (float b = 0; b <= pieces[j].curve.totalLength; b += 3)
+					{
+						const Vec3 q = pieces[j].curve.positionAt(b);
+						if (flat(p).distanceFrom(flat(q)) < 5.5 && Abs(p.y - q.y) < c.expressway_junctionCrossingClearance) { failure = U"crossing:" + pieces[i].key + U"/" + pieces[j].key; break; }
+					}
+				}
+			}
+		}
+		for (const auto& piece : pieces)
+		{
+			if (!failure.isEmpty() || (piece.key != U"southbound" && piece.key != U"northbound")) { continue; }
+			for (float a = 0; a <= piece.curve.totalLength; a += 3)
+			{
+				const Vec3 p = piece.curve.positionAt(a);
+				const double station = line.nearest(flat(p)).first;
+				const double lateral = Abs((flat(p) - line.at(station)).dot(rightOf(line.tangent(station))));
+				if (lateral < ExpresswayCrossSection::carriagewayOffset() + 7 && p.y - line.height(station) < c.expressway_junctionCrossingClearance) { failure = U"mainline:" + piece.key; break; }
+			}
+		}
+		return g;
+	}
+
+	/// @brief 縦断を解いた中心線から、車道の計画上の点を返す。
+	WayPoint plannedWay(const Line& line)
+	{
+		return [&line](double station, int side) -> Optional<Vec3> { return carriagewayPoint(line, station, side, {}); };
+	}
+
 	/// @brief 1 路線分の生成データ。
 	struct Route
 	{
@@ -679,6 +893,28 @@ namespace
 
 	String interchangeName(const Settlement& town, StringView suffix) { return ExpresswayNetwork::routeBaseName(town.name) + String{ suffix }; }
 	String interchangeReading(const Settlement& town, StringView suffix) { return town.reading.isEmpty() ? String{} : town.reading + U" " + String{ suffix }; }
+
+	/// @brief IC の敷地（町側: 連絡路・料金所・取付道路、反対側: ループ）に一般道が入らないか。
+	bool interchangeSiteFree(const Line& line, double s, Vec2 townCenter, const TransportClearance& crossings)
+	{
+		const auto& c = settings();
+		const Vec2 right = rightOf(line.tangent(s));
+		const double townSide = (townCenter - line.at(s)).dot(right) >= 0 ? 1.0 : -1.0;
+		const auto layout = TrumpetLayout::make();
+		const double townReach = layout.stemSouth + 30 + c.expressway_tollStemLength + c.expressway_accessLength;
+		const double farReach = layout.loopCenter.y + layout.radius + 90;
+		for (double along = -layout.reach(); along <= layout.reach(); along += 40)
+		{
+			const Vec2 point = line.at(Clamp(s + along, 0.0, line.length()));
+			for (double lateral = -farReach; lateral <= townReach; lateral += 35)
+			{
+				// 町側の連絡路は中心付近だけ、本線沿いは全長を調べる。
+				if (lateral > 40 && Abs(along) > 140) { continue; }
+				if (crossings.interval(point + right * (lateral * townSide), 12).second > -1e8) { return false; }
+			}
+		}
+		return true;
+	}
 
 	/// @brief 路線沿いの町へ IC を割り当てる。間隔・端部・JCT からの離隔を守る。
 	Array<Interchange> chooseInterchanges(const Line& line, const Array<Settlement>& towns, const Array<double>& avoidStations, bool lineEndsAtBorder,
@@ -704,25 +940,7 @@ namespace
 			const double upper = line.length() - (lineEndsAtBorder ? endMargin : TrumpetLayout::make().reach() + 200);
 			// 取付道路と本線の跨道部が既存道路と重ならない位置まで、IC を路線方向へずらす。
 			// IC の敷地（町側: 連絡路・料金所・取付道路、反対側: ループ）に一般道が入らない位置を探す。
-			const auto free = [&](double s)
-			{
-				const Vec2 right = rightOf(line.tangent(s));
-				const double townSide = (towns[candidate.town].center - line.at(s)).dot(right) >= 0 ? 1.0 : -1.0;
-				const auto layout = TrumpetLayout::make();
-				const double townReach = layout.stemSouth + 30 + c.expressway_tollStemLength + c.expressway_accessLength;
-				const double farReach = layout.loopCenter.y + layout.radius + 90;
-				for (double along = -layout.reach(); along <= layout.reach(); along += 40)
-				{
-					const Vec2 point = line.at(Clamp(s + along, 0.0, line.length()));
-					for (double lateral = -farReach; lateral <= townReach; lateral += 35)
-					{
-						// 町側の連絡路は中心付近だけ、本線沿いは全長を調べる。
-						if (lateral > 40 && Abs(along) > 140) { continue; }
-						if (crossings.interval(point + right * (lateral * townSide), 12).second > -1e8) { return false; }
-					}
-				}
-				return true;
-			};
+			const auto free = [&](double s) { return interchangeSiteFree(line, s, towns[candidate.town].center, crossings); };
 			double station = Clamp(candidate.station, endMargin, upper);
 			bool placed = false;
 			for (double shift = 0; shift <= 1200 && !placed; shift += 100)
@@ -825,6 +1043,102 @@ namespace
 		return attempt(interchanges);
 	}
 
+	/// @brief 縦断を解いた後、ランプの勾配・交差・本線の建築限界を満たさない IC を外す。
+	void dropUnbuildableInterchanges(const Line& line, const Array<Settlement>& towns, Array<Interchange>& interchanges)
+	{
+		interchanges.remove_if([&](const Interchange& ic)
+		{
+			const auto geometry = trumpetGeometry(line, ic.station, towns[ic.town].center, plannedWay(line));
+			if (geometry.failure.isEmpty()) { return false; }
+			DBG_LOG(U"[ExpresswayInterchange] dropped name={} station={:.0f} reason={}"_fmt(ic.name, ic.station, geometry.failure));
+			return true;
+		});
+	}
+
+	/// @brief IC が 1 つも残らなかった本線に、建設できる IC を 1 か所探して加える。
+	/// @details 町に近い位置から順に、敷地の一般道 → 縦断 → ランプ形状の順で確かめる。
+	///   1 巡目は敷地に一般道が入らない位置だけ、2 巡目は一般道との重なりを許す（取付道路は既存道路へ接続する）。
+	///   成立した場合は line の縦断をその IC の拘束で解き直した状態で返す。
+	bool addFallbackInterchange(Line& line, const World& world, const TransportClearance& crossings, const Array<Settlement>& towns,
+		const Array<double>& avoidStations, double start, double end, const Array<Constraint>& base, double grade, Array<Interchange>& interchanges)
+	{
+		const auto& c = settings();
+		if (towns.isEmpty()) { return false; }
+		const double margin = TrumpetLayout::make().reach() + 300;
+		if (line.length() < margin * 2) { return false; }
+		const auto nearestTown = [&](Vec2 point)
+		{
+			int nearest = 0; double best = Math::Inf;
+			for (size_t i = 0; i < towns.size(); ++i)
+			{
+				// 農村集落より町を優先して名前と取付先にする。
+				const double weight = towns[i].kind == MapGenerator::SettlementKind::RuralSettlement ? 2.0 : 1.0;
+				const double d = towns[i].center.distanceFrom(point) * weight;
+				if (d < best) { best = d; nearest = static_cast<int>(i); }
+			}
+			return nearest;
+		};
+		struct Candidate { double station; int town; };
+		Array<Candidate> candidates;
+		const auto push = [&](double station, int town)
+		{
+			if (station < margin || station > line.length() - margin) { return; }
+			if (avoidStations.any([&](double other) { return Abs(other - station) < c.expressway_junctionInterchangeSpacing; })) { return; }
+			if (candidates.any([&](const Candidate& other) { return Abs(other.station - station) < 60; })) { return; }
+			candidates << Candidate{ station, town };
+		};
+		// 町に近い順（農村集落は後回し）に、最寄りの station から前後へずらした位置。
+		Array<int> order;
+		for (size_t i = 0; i < towns.size(); ++i) { order << static_cast<int>(i); }
+		const auto rank = [&](int i)
+		{
+			const double distance = Max(0.0, line.nearest(towns[i].center).second - towns[i].radius);
+			return distance * (towns[i].kind == MapGenerator::SettlementKind::RuralSettlement ? 3.0 : 1.0);
+		};
+		order.sort_by([&](int a, int b) { return rank(a) < rank(b); });
+		for (const int town : order)
+		{
+			const double station = line.nearest(towns[town].center).first;
+			for (double shift = 0; shift <= 3000; shift += 150)
+			{
+				push(station + shift, town);
+				push(station - shift, town);
+			}
+		}
+		// どの町からも遠い路線でも、本線上を等間隔に調べる。
+		for (double station = margin; station <= line.length() - margin; station += 300) { push(station, nearestTown(line.at(station))); }
+		const Array<double> solvedHeights = line.heights;
+		int solves = 0;
+		constexpr int kMaximumSolves = 24;
+		for (const bool strict : { true, false })
+		{
+			for (const auto& candidate : candidates)
+			{
+				const Vec2 townCenter = towns[candidate.town].center;
+				if (strict && !interchangeSiteFree(line, candidate.station, townCenter, crossings)) { continue; }
+				// 現在の縦断で形が成立しない位置は、解き直しても成立しにくいので先に除く。
+				line.heights = solvedHeights;
+				if (!trumpetGeometry(line, candidate.station, townCenter, plannedWay(line)).failure.isEmpty()) { continue; }
+				if (++solves > kMaximumSolves) { break; }
+				const Interchange ic{ candidate.station, candidate.town, interchangeName(towns[candidate.town], U"IC"), interchangeReading(towns[candidate.town], U"IC") };
+				Array<Constraint> rules = base;
+				addInterchangeConstraints(rules, { ic });
+				if (!solveProfile(line, world, crossings, start, end, rules, grade)) { continue; }
+				if (const auto geometry = trumpetGeometry(line, ic.station, townCenter, plannedWay(line)); !geometry.failure.isEmpty())
+				{
+					DBG_LOG(U"[ExpresswayInterchange] fallback rejected station={:.0f} reason={}"_fmt(ic.station, geometry.failure));
+					continue;
+				}
+				DBG_LOG(U"[ExpresswayInterchange] fallback name={} station={:.0f} strict={} solves={}"_fmt(ic.name, ic.station, strict, solves));
+				interchanges << ic;
+				return true;
+			}
+		}
+		line.heights = solvedHeights;
+		DBG_LOG(U"[ExpresswayInterchange] fallback failed candidates={} solves={}"_fmt(candidates.size(), solves));
+		return false;
+	}
+
 	/// @brief 町の外側へ置いた IC 誘導点。地区半径の外へ出し、路線軸に寄せる。
 	Vec2 interchangeSite(const Settlement& town, Vec2 axisPoint)
 	{
@@ -836,28 +1150,43 @@ namespace
 	/// @brief 町の並びから本線の通過点を作る。両端は地図端の陸地、なければ最後の町の先で止める。
 	struct Corridor { Array<Vec2> waypoints; bool startBorder = false, endBorder = false; int primaryTown = -1; };
 
-	Optional<Corridor> mainCorridor(const World& world, const Array<Settlement>& towns, uint64 seed)
+	/// @param attempt 0: 主要都市を順に結ぶ。1: 地図端の着地点を緩めて選び直す。2 以上: 両端の 2 都市だけを通過点にする。
+	Optional<Corridor> mainCorridor(const World& world, const Array<Settlement>& towns, uint64 seed, int attempt)
 	{
 		const auto& c = settings();
+		if (towns.isEmpty()) { return none; }
 		Array<int> major;
 		for (size_t i = 0; i < towns.size(); ++i) { if (towns[i].kind == MapGenerator::SettlementKind::RegionalCity) { major << static_cast<int>(i); } }
 		if (major.size() < 2)
 		{
 			for (size_t i = 0; i < towns.size(); ++i) { if (towns[i].kind == MapGenerator::SettlementKind::LocalTown) { major << static_cast<int>(i); } }
 		}
-		if (major.size() < 2) { return none; }
-		int first = major[0], second = major[1]; double longest = -1;
+		if (major.size() < 2)
+		{
+			major.clear();
+			for (size_t i = 0; i < towns.size(); ++i) { major << static_cast<int>(i); }
+		}
+		int first = major[0], second = major[0]; double longest = -1;
 		for (const int a : major) for (const int b : major)
 		{
 			const double distance = towns[a].center.distanceFromSq(towns[b].center);
 			if (distance > longest) { longest = distance; first = a; second = b; }
 		}
-		const Vec2 axis = (towns[second].center - towns[first].center).normalized();
+		// 町が 1 つだけなら、地図の中心から町へ向かう軸（中心にあれば種で決めた向き）で地図を横断する。
+		Vec2 axis = towns[second].center - towns[first].center;
+		if (axis.lengthSq() < 1)
+		{
+			axis = towns[first].center - Vec2{ WORLD_SIZE * .5, WORLD_SIZE * .5 };
+			if (axis.lengthSq() < 1) { axis = (seed >> 9) & 1 ? Vec2{ 1, 0 } : Vec2{ 0, 1 }; }
+			axis = Vec2{ -axis.y, axis.x };
+		}
+		axis = axis.normalized();
 		const Vec2 normal{ -axis.y, axis.x };
 		struct Stop { double along; Vec2 site; int town; };
 		Array<Stop> stops;
 		for (const int index : major)
 		{
+			if (attempt >= 2 && index != first && index != second) { continue; }
 			const auto& town = towns[index];
 			const Vec2 delta = town.center - towns[first].center;
 			const double lateral = delta.dot(normal);
@@ -871,13 +1200,25 @@ namespace
 		int largest = stops.front().town;
 		for (const auto& stop : stops) { if (towns[stop.town].radius > towns[largest].radius) { largest = stop.town; } }
 		corridor.primaryTown = largest;
+		// 本線は必ず地図端から地図端へ抜ける（外部接続）。着地点が見つからなければ条件を緩める。
 		const Vec2 head = stops.front().site, tail = stops.back().site;
-		if (const auto border = borderLanding(world, head, -axis)) { corridor.waypoints << *border; corridor.startBorder = true; }
-		else { corridor.waypoints << head - axis * c.expressway_lineEndLead; }
+		const int relax = Min(attempt, 1);
+		corridor.waypoints << borderEndpoint(world, head, -axis, relax);
 		for (const auto& stop : stops) { corridor.waypoints << stop.site; }
-		if (const auto border = borderLanding(world, tail, axis)) { corridor.waypoints << *border; corridor.endBorder = true; }
-		else { corridor.waypoints << tail + axis * c.expressway_lineEndLead; }
-		for (auto& point : corridor.waypoints) { point = Vec2{ Clamp(point.x, 60.0, WORLD_SIZE - 60.0), Clamp(point.y, 60.0, WORLD_SIZE - 60.0) }; }
+		corridor.waypoints << borderEndpoint(world, tail, axis, relax);
+		corridor.startBorder = corridor.endBorder = true;
+		const double inset = borderInset();
+		for (auto& point : corridor.waypoints) { point = Vec2{ Clamp(point.x, inset, WORLD_SIZE - inset), Clamp(point.y, inset, WORLD_SIZE - inset) }; }
+		// 町の誘導点が地図端の着地点より外側（端の近く）にあると線形が折り返すため、近すぎる通過点を外す。
+		Array<Vec2> ordered{ corridor.waypoints.front() };
+		for (size_t i = 1; i + 1 < corridor.waypoints.size(); ++i)
+		{
+			if (corridor.waypoints[i].distanceFrom(corridor.waypoints.front()) > 800 && corridor.waypoints[i].distanceFrom(corridor.waypoints.back()) > 800) { ordered << corridor.waypoints[i]; }
+		}
+		ordered << corridor.waypoints.back();
+		corridor.waypoints = std::move(ordered);
+		DBG_LOG(U"[ExpresswayCorridorPlan] attempt={} stops={} start=({:.0f},{:.0f}) end=({:.0f},{:.0f})"_fmt(attempt, stops.size(),
+			corridor.waypoints.front().x, corridor.waypoints.front().y, corridor.waypoints.back().x, corridor.waypoints.back().y));
 		return corridor;
 	}
 
@@ -963,7 +1304,7 @@ namespace ExpresswayNetwork
 		const Stopwatch timer{ StartImmediately::Yes };
 		const auto& c = settings();
 		Summary summary;
-		if (!c.expressway_enabled || c.expressway_maximumLines <= 0 || settlements.size() < 2) { return summary; }
+		if (!c.expressway_enabled || c.expressway_maximumLines <= 0 || settlements.isEmpty()) { return summary; }
 
 		// 既存道路の立体交差判定と土工の除外範囲は、高速道路を足す前の道路網で作る。
 		const TransportClearance crossings{ &roads, world };
@@ -971,125 +1312,161 @@ namespace ExpresswayNetwork
 		OccupiedGround occupied;
 		for (const auto& edge : roads.edges()) { if (edge.id >= 0 && edge.hasRoadLanes()) { if (const auto curve = roads.getBezier(edge.id)) { occupied.addCurve(*curve); } } }
 
+		// 本線は必ず地図端から地図端へ抜け、IC を 1 つ以上持つ。成立しなければ通過点・着地点・勾配を緩めて計画し直す。
 		Array<Route> routes;
-		const auto corridor = mainCorridor(world, settlements, seed);
-		if (!corridor) { DBG_LOG(U"[Expressway] skipped reason=fewer-than-two-towns"); return summary; }
+		Optional<Corridor> corridor;
+		constexpr int kPlanAttempts = 4;
+		bool planned = false;
+		for (int attempt = 0; attempt < kPlanAttempts && !planned; ++attempt)
 		{
-			auto line = routeThrough(world, avoid, corridor->waypoints, 1);
-			if (!line) { DBG_LOG(U"[Expressway] skipped reason=no-mainline-corridor"); return summary; }
-			Route first;
-			first.line = std::move(*line);
-			first.primaryTown = corridor->primaryTown;
-			routes << std::move(first);
-		}
-
-		// ---- JCT: 本線から離れた町へ支線を出す（Y 型の片方向 JCT） ----
-		if (c.expressway_maximumLines >= 2)
-		{
-			int target = -1; double farthest = c.expressway_junctionTargetDistance;
-			for (size_t i = 0; i < settlements.size(); ++i)
+			const bool lastAttempt = attempt + 1 == kPlanAttempts;
+			// 最後の試行だけ最急縦断勾配を 1.5 倍（4% → 6%: 山地部の設計速度相当）まで許す。
+			const double mainGrade = Min(.08, c.expressway_maximumGrade * (lastAttempt ? 1.5 : 1.0));
+			routes.clear();
+			corridor = mainCorridor(world, settlements, seed, attempt);
+			if (!corridor) { DBG_LOG(U"[Expressway] skipped reason=no-towns"); return summary; }
 			{
-				const auto& town = settlements[i];
-				if (town.kind == MapGenerator::SettlementKind::RuralSettlement) { continue; }
-				const double distance = routes.front().line.nearest(town.center).second - town.radius;
-				const double score = distance * (town.kind == MapGenerator::SettlementKind::RegionalCity ? 1.6 : 1.0);
-				if (distance > c.expressway_junctionTargetDistance && score > farthest) { farthest = score; target = static_cast<int>(i); }
+				auto line = routeThrough(world, avoid, corridor->waypoints, 1);
+				if (!line) { DBG_LOG(U"[Expressway] retry attempt={} reason=no-mainline-corridor"_fmt(attempt)); continue; }
+				Route first;
+				first.line = std::move(*line);
+				// 3 回目は山地を長大トンネル（土被り 4 倍まで）・高橋脚（2 倍まで）で抜ける。
+				// 最後の試行は土被りの上限を外し（下限は railway_minimumAltitude）、高架も 3 倍まで許して本線を必ず通す。
+				first.line.structureScale = lastAttempt ? 1000.0 : attempt >= 2 ? 4.0 : 1.0;
+				first.line.viaductScale = lastAttempt ? 3.0 : attempt >= 2 ? 2.0 : 1.0;
+				first.primaryTown = corridor->primaryTown;
+				routes << std::move(first);
 			}
-			const double guard = c.expressway_junctionMergeLength + 900;
-			if (target >= 0 && routes.front().line.length() > guard * 2)
+
+			// ---- JCT: 本線から離れた町へ支線を出す（Y 型の片方向 JCT） ----
+			if (c.expressway_maximumLines >= 2 && !lastAttempt)
 			{
-				Junction junction;
-				junction.target = target;
-				const auto& baseLine = routes.front().line;
-				junction.station = Clamp(baseLine.nearest(settlements[target].center).first, guard, baseLine.length() - guard);
-				{
-					// 連絡路の区間に一般道が入らない位置へ JCT をずらす（縦断を地盤付近に保つため）。
-					const int side = (settlements[target].center - baseLine.at(junction.station)).dot(rightOf(baseLine.tangent(junction.station))) < 0 ? 1 : -1;
-					const auto free = [&](double s)
-					{
-						const double from = Min(s - side * (c.expressway_junctionMergeLength + 400), s + side * 400.0), to = Max(s - side * (c.expressway_junctionMergeLength + 400), s + side * 400.0);
-						for (double station = from; station <= to; station += 30)
-						{
-							const Vec2 right = rightOf(baseLine.tangent(station));
-							for (const double lateral : { -40.0, 0.0, 40.0, c.expressway_junctionBranchOffset * side * -1.0 - 20 * side })
-							{
-								if (crossings.interval(baseLine.at(Clamp(station, 0.0, baseLine.length())) + right * lateral, 12).second > -1e8) { return false; }
-							}
-						}
-						return true;
-					};
-					const double preferred = junction.station;
-					for (double shift = 0; shift <= 4000; shift += 150)
-					{
-						bool found = false;
-						for (const double sign : { 1.0, -1.0 })
-						{
-							const double trial = preferred + shift * sign;
-							if (trial < guard || trial > baseLine.length() - guard || !free(trial)) { continue; }
-							junction.station = trial; found = true; break;
-						}
-						if (found) { break; }
-					}
-				}
-				const Vec2 center = routes.front().line.at(junction.station), t = routes.front().line.tangent(junction.station);
-				// 目標が中心線の左なら station 増加側の車道（左側）から分岐する。
-				junction.side = (settlements[target].center - center).dot(rightOf(t)) < 0 ? 1 : -1;
-				const Vec2 u = t * junction.side, left = -rightOf(u);
-				const double angle = Math::ToRadians(c.expressway_junctionBranchAngle);
-				junction.direction = (u * Cos(angle) + left * Sin(angle)).normalized();
-				junction.origin = center + left * c.expressway_junctionBranchOffset;
-				// JCT 名は最寄りの町名（CSL: 地区名を JCT 名に使う）。
-				int nearestTown = target; double best = Math::Inf;
+				int target = -1; double farthest = c.expressway_junctionTargetDistance;
 				for (size_t i = 0; i < settlements.size(); ++i)
 				{
-					if (settlements[i].kind == MapGenerator::SettlementKind::RuralSettlement) { continue; }
-					const double d = settlements[i].center.distanceFromSq(center);
-					if (d < best) { best = d; nearestTown = static_cast<int>(i); }
+					const auto& town = settlements[i];
+					if (town.kind == MapGenerator::SettlementKind::RuralSettlement) { continue; }
+					const double distance = routes.front().line.nearest(town.center).second - town.radius;
+					const double score = distance * (town.kind == MapGenerator::SettlementKind::RegionalCity ? 1.6 : 1.0);
+					if (distance > c.expressway_junctionTargetDistance && score > farthest) { farthest = score; target = static_cast<int>(i); }
 				}
-				junction.name = interchangeName(settlements[nearestTown], U"JCT");
-				junction.reading = interchangeReading(settlements[nearestTown], U"JCT");
-				const auto& town = settlements[target];
-				const Vec2 site = interchangeSite(town, junction.origin);
-				Array<Vec2> waypoints{ junction.origin, junction.origin + junction.direction * c.expressway_junctionBranchLead, site };
-				const Vec2 onward = (town.center - center).normalized();
-				if (const auto border = borderLanding(world, site, onward)) { waypoints << *border; }
-				else { waypoints << site + onward * c.expressway_lineEndLead; }
-				if (auto line = routeThrough(world, avoid, waypoints, 2))
+				const double guard = c.expressway_junctionMergeLength + 900;
+				if (target >= 0 && routes.front().line.length() > guard * 2)
 				{
-					Route branch;
-					branch.line = std::move(*line);
-					branch.startsAtJunction = true;
-					branch.primaryTown = target;
-					routes.front().branch = junction;
-					routes << std::move(branch);
+					Junction junction;
+					junction.target = target;
+					const auto& baseLine = routes.front().line;
+					junction.station = Clamp(baseLine.nearest(settlements[target].center).first, guard, baseLine.length() - guard);
+					{
+						// 連絡路の区間に一般道が入らない位置へ JCT をずらす（縦断を地盤付近に保つため）。
+						const int side = (settlements[target].center - baseLine.at(junction.station)).dot(rightOf(baseLine.tangent(junction.station))) < 0 ? 1 : -1;
+						const auto free = [&](double s)
+						{
+							const double from = Min(s - side * (c.expressway_junctionMergeLength + 400), s + side * 400.0), to = Max(s - side * (c.expressway_junctionMergeLength + 400), s + side * 400.0);
+							for (double station = from; station <= to; station += 30)
+							{
+								const Vec2 right = rightOf(baseLine.tangent(station));
+								for (const double lateral : { -40.0, 0.0, 40.0, c.expressway_junctionBranchOffset * side * -1.0 - 20 * side })
+								{
+									if (crossings.interval(baseLine.at(Clamp(station, 0.0, baseLine.length())) + right * lateral, 12).second > -1e8) { return false; }
+								}
+							}
+							return true;
+						};
+						const double preferred = junction.station;
+						for (double shift = 0; shift <= 4000; shift += 150)
+						{
+							bool found = false;
+							for (const double sign : { 1.0, -1.0 })
+							{
+								const double trial = preferred + shift * sign;
+								if (trial < guard || trial > baseLine.length() - guard || !free(trial)) { continue; }
+								junction.station = trial; found = true; break;
+							}
+							if (found) { break; }
+						}
+					}
+					const Vec2 center = routes.front().line.at(junction.station), t = routes.front().line.tangent(junction.station);
+					// 目標が中心線の左なら station 増加側の車道（左側）から分岐する。
+					junction.side = (settlements[target].center - center).dot(rightOf(t)) < 0 ? 1 : -1;
+					const Vec2 u = t * junction.side, left = -rightOf(u);
+					const double angle = Math::ToRadians(c.expressway_junctionBranchAngle);
+					junction.direction = (u * Cos(angle) + left * Sin(angle)).normalized();
+					junction.origin = center + left * c.expressway_junctionBranchOffset;
+					// JCT 名は最寄りの町名（CSL: 地区名を JCT 名に使う）。
+					int nearestTown = target; double best = Math::Inf;
+					for (size_t i = 0; i < settlements.size(); ++i)
+					{
+						if (settlements[i].kind == MapGenerator::SettlementKind::RuralSettlement) { continue; }
+						const double d = settlements[i].center.distanceFromSq(center);
+						if (d < best) { best = d; nearestTown = static_cast<int>(i); }
+					}
+					junction.name = interchangeName(settlements[nearestTown], U"JCT");
+					junction.reading = interchangeReading(settlements[nearestTown], U"JCT");
+					const auto& town = settlements[target];
+					const Vec2 site = interchangeSite(town, junction.origin);
+					Array<Vec2> waypoints{ junction.origin, junction.origin + junction.direction * c.expressway_junctionBranchLead, site };
+					const Vec2 onward = (town.center - center).normalized();
+					if (const auto border = borderLanding(world, site, onward)) { waypoints << *border; }
+					else { waypoints << site + onward * c.expressway_lineEndLead; }
+					if (auto line = routeThrough(world, avoid, waypoints, 2))
+					{
+						Route branch;
+						branch.line = std::move(*line);
+						branch.startsAtJunction = true;
+						branch.primaryTown = target;
+						routes.front().branch = junction;
+						routes << std::move(branch);
+					}
+					else { DBG_LOG(U"[Expressway] junction skipped reason=no-branch-corridor target={}"_fmt(town.name)); }
 				}
-				else { DBG_LOG(U"[Expressway] junction skipped reason=no-branch-corridor target={}"_fmt(town.name)); }
 			}
-		}
-		Route& mainRoute = routes.front();
+			Route& mainRoute = routes.front();
 
-		// ---- IC と縦断 ----
-		Array<double> mainAvoid;
-		if (mainRoute.branch) { mainAvoid << mainRoute.branch->station; }
-		mainRoute.interchanges = chooseInterchanges(mainRoute.line, settlements, mainAvoid, corridor->endBorder, crossings);
-		{
-			Array<Constraint> rules;
-			if (mainRoute.branch)
+			// ---- IC と縦断 ----
+			Array<double> mainAvoid;
+			if (mainRoute.branch) { mainAvoid << mainRoute.branch->station; }
+			mainRoute.interchanges = chooseInterchanges(mainRoute.line, settlements, mainAvoid, corridor->endBorder, crossings);
 			{
-				const double s = mainRoute.branch->station, side = mainRoute.branch->side;
-				const double from = Min(s - side * (c.expressway_junctionMergeLength + 120), s + side * 200), to = Max(s - side * (c.expressway_junctionMergeLength + 120), s + side * 200);
-				rules << Constraint{ from, to, -3, 6 };
+				Array<Constraint> rules;
+				if (mainRoute.branch)
+				{
+					const double s = mainRoute.branch->station, side = mainRoute.branch->side;
+					const double from = Min(s - side * (c.expressway_junctionMergeLength + 120), s + side * 200), to = Max(s - side * (c.expressway_junctionMergeLength + 120), s + side * 200);
+					rules << Constraint{ from, to, -3, 6 };
+				}
+				const double start = groundAt(world, mainRoute.line.points.front()) + 1, end = groundAt(world, mainRoute.line.points.back()) + 1;
+				bool solved = solveWithInterchanges(mainRoute.line, world, crossings, start, end, rules, mainRoute.interchanges, mainGrade);
+				if (!solved && !rules.isEmpty())
+				{
+					DBG_LOG(U"[Expressway] junction dropped reason=mainline-profile");
+					rules.clear(); mainRoute.branch.reset(); routes.resize(1); mainAvoid.clear();
+					solved = solveWithInterchanges(mainRoute.line, world, crossings, start, end, rules, mainRoute.interchanges, mainGrade);
+				}
+				if (!solved) { DBG_LOG(U"[Expressway] retry attempt={} reason=mainline-profile-infeasible lengthM={:.0f}"_fmt(attempt, mainRoute.line.length())); continue; }
+				// 本線には必ず IC を置く。ランプが成立しない IC を外し、残らなければ建設できる位置を探す。
+				dropUnbuildableInterchanges(mainRoute.line, settlements, mainRoute.interchanges);
+				if (mainRoute.interchanges.isEmpty()
+					&& !addFallbackInterchange(mainRoute.line, world, crossings, settlements, mainAvoid, start, end, rules, mainGrade, mainRoute.interchanges)
+					&& mainRoute.branch)
+				{
+					// JCT との離隔で置けないときは JCT をあきらめ、IC を優先する。
+					DBG_LOG(U"[Expressway] junction dropped reason=interchange-required");
+					rules.clear(); mainRoute.branch.reset(); routes.resize(1); mainAvoid.clear();
+					if (solveProfile(mainRoute.line, world, crossings, start, end, {}, mainGrade))
+					{
+						addFallbackInterchange(mainRoute.line, world, crossings, settlements, mainAvoid, start, end, rules, mainGrade, mainRoute.interchanges);
+					}
+				}
+				if (mainRoute.interchanges.isEmpty() && !lastAttempt) { DBG_LOG(U"[Expressway] retry attempt={} reason=no-buildable-interchange"_fmt(attempt)); continue; }
+				mainRoute.interchanges.sort_by([](const Interchange& a, const Interchange& b) { return a.station < b.station; });
 			}
-			const double start = groundAt(world, mainRoute.line.points.front()) + 1, end = groundAt(world, mainRoute.line.points.back()) + 1;
-			bool solved = solveWithInterchanges(mainRoute.line, world, crossings, start, end, rules, mainRoute.interchanges, c.expressway_maximumGrade);
-			if (!solved && !rules.isEmpty())
-			{
-				DBG_LOG(U"[Expressway] junction dropped reason=mainline-profile");
-				rules.clear(); mainRoute.branch.reset(); routes.resize(1);
-				solved = solveWithInterchanges(mainRoute.line, world, crossings, start, end, rules, mainRoute.interchanges, c.expressway_maximumGrade);
-			}
-			if (!solved) { DBG_LOG(U"[Expressway] skipped reason=mainline-profile-infeasible lengthM={:.0f}"_fmt(mainRoute.line.length())); return summary; }
+			DBG_LOG(U"[ExpresswayPlan] attempt={} lengthKm={:.1f} interchanges={} junction={} grade={:.3f}"_fmt(
+				attempt, routes.front().line.length() / 1000.0, routes.front().interchanges.size(), routes.front().branch.has_value(), mainGrade));
+			planned = true;
 		}
+		if (!planned) { DBG_LOG(U"[Expressway] skipped reason=no-feasible-mainline attempts={}"_fmt(kPlanAttempts)); return summary; }
+		Route& mainRoute = routes.front();
 		if (routes.size() > 1)
 		{
 			auto& branch = routes[1];
@@ -1222,97 +1599,26 @@ namespace ExpresswayNetwork
 			auto& route = routes[index];
 			for (const auto& ic : route.interchanges)
 			{
-				const auto plan = TrumpetLayout::make();
-				const double s = ic.station;
-				const Vec2 center = route.line.at(s), t = route.line.tangent(s), right = rightOf(t);
-				const int townSide = (settlements[ic.town].center - center).dot(right) >= 0 ? 1 : -1;
-				// 局所座標: x は遠い側の車道の進行方向、y は町から離れる向き。遠い側の車道は y=+offset にある。
-				const Vec2 ex = t * townSide, ey = -right * townSide;
-				const double base = route.line.height(s);
-				const auto local = [&](double x, double y, double h) { return lift(center + ex * x + ey * y, base + h); };
-				const auto heading = [&](double x, double y) { return ex * x + ey * y; };
+				const auto geometry = trumpetGeometry(route.line, ic.station, settlements[ic.town].center, [&](double station, int side) -> Optional<Vec3>
+				{
+					const int node = (side > 0 ? route.forward : route.backward).nodeAt(station);
+					return node < 0 ? Optional<Vec3>{} : Optional<Vec3>{ roads.getNode(node)->position };
+				});
+				if (!geometry.failure.isEmpty()) { DBG_LOG(U"[ExpresswayInterchange] skipped name={} reason={}"_fmt(ic.name, geometry.failure)); continue; }
+				const auto& plan = geometry.plan;
+				const auto& pieces = geometry.pieces;
+				const double s = ic.station, base = geometry.base;
+				const int townSide = geometry.townSide;
+				const Vec2 ey = geometry.ey, farTravel = geometry.farTravel, nearTravel = geometry.nearTravel, plazaPoint = geometry.plazaPoint;
+				const Vec3 loopEntry = geometry.loopEntry, loopRight = geometry.loopRight, loopTop = geometry.loopTop, southboundTop = geometry.southboundTop;
+				const Vec3 northboundTop = geometry.northboundTop, overLoop = geometry.overLoop, southboundFoot = geometry.southboundFoot, northboundFoot = geometry.northboundFoot;
+				const Vec3 plazaStart = geometry.plazaStart;
 				const auto stationOf = [&](double x) { return s + townSide * x; };
 				const auto& nearWay = townSide > 0 ? route.backward : route.forward;
 				const auto& farWay = townSide > 0 ? route.forward : route.backward;
 				const int farDiverge = farWay.nodeAt(stationOf(plan.loopLead)), farMerge = farWay.nodeAt(stationOf(plan.farMerge));
 				const int nearDiverge = nearWay.nodeAt(stationOf(plan.nearRamp)), nearMerge = nearWay.nodeAt(stationOf(-plan.nearRamp));
-				if (farDiverge < 0 || farMerge < 0 || nearDiverge < 0 || nearMerge < 0) { DBG_LOG(U"[ExpresswayInterchange] skipped name={} reason=missing-node"_fmt(ic.name)); continue; }
 				const auto position = [&](int node) { return roads.getNode(node)->position; };
-				const Vec2 farTravel = route.line.tangent(stationOf(plan.loopLead)) * townSide, farTravelMerge = route.line.tangent(stationOf(plan.farMerge)) * townSide;
-				const Vec2 nearTravel = -route.line.tangent(stationOf(plan.nearRamp)) * townSide, nearTravelMerge = -route.line.tangent(stationOf(-plan.nearRamp)) * townSide;
-				const double angle = c.expressway_rampDivergeAngle;
-				// 各点（局所座標）。
-				const Vec3 loopEntry = local(plan.loopCenter.x, plan.loopCenter.y - plan.radius, 0);
-				const Vec3 loopRight = local(plan.loopCenter.x + plan.radius, plan.loopCenter.y, plan.loopLift * .33);
-				const Vec3 loopTop = local(plan.loopCenter.x, plan.loopCenter.y + plan.radius, plan.loopLift * .66);
-				const Vec3 southboundTop = local(plan.southboundX, plan.loopCenter.y, plan.loopLift);
-				const Vec3 northboundTop = local(-plan.southboundX, plan.loopCenter.y, plan.loopLift);
-				const Vec3 overLoop = local(plan.loopCenter.x + 20, plan.loopCenter.y + plan.radius + 70, plan.loopLift);
-				const Vec3 southboundFoot = local(plan.southboundX, -plan.stemSouth, 0);
-				const Vec3 northboundFoot = local(-plan.southboundX, -plan.stemSouth, 0);
-				const Vec2 plazaPoint = center + ey * -(plan.stemSouth + 30);
-				const Vec3 plazaStart = lift(plazaPoint, base);
-				const double arcHandle = .5523 * plan.radius;
-				const auto arcCurve = [&](Vec3 from, Vec2 fromDirection, Vec3 to, Vec2 toDirection)
-				{
-					return CubicBezier{ from, lift(flat(from) + fromDirection * arcHandle, Math::Lerp(from.y, to.y, 1.0 / 3)), lift(flat(to) - toDirection * arcHandle, Math::Lerp(from.y, to.y, 2.0 / 3)), to };
-				};
-				const auto handled = [&](Vec3 from, Vec2 a, Vec3 to, Vec2 b, double factor, Optional<double> firstHeight = none, Optional<double> secondHeight = none)
-				{
-					const double handle = flat(to - from).length() * factor;
-					return CubicBezier{ from, lift(flat(from) + a.normalized() * handle, firstHeight.value_or(Math::Lerp(from.y, to.y, 1.0 / 3))),
-						lift(flat(to) - b.normalized() * handle, secondHeight.value_or(Math::Lerp(from.y, to.y, 2.0 / 3))), to };
-				};
-				struct Piece { CubicBezier curve; String key; };
-				Array<Piece> pieces{
-					{ handled(position(farDiverge), farTravel - rightOf(farTravel) * angle, loopEntry, heading(1, 0), .38), U"farLead" },
-					{ arcCurve(loopEntry, heading(1, 0), loopRight, heading(0, 1)), U"loop1" },
-					{ arcCurve(loopRight, heading(0, 1), loopTop, heading(-1, 0)), U"loop2" },
-					{ arcCurve(loopTop, heading(-1, 0), southboundTop, heading(0, -1)), U"loop3" },
-					{ handled(southboundTop, heading(0, -1), southboundFoot, heading(0, -1), .38, base + plan.bridgeApex + 1.5, base + plan.bridgeApex - 1), U"southbound" },
-					{ handled(northboundFoot, heading(0, 1), northboundTop, heading(0, 1), .38, base + plan.bridgeApex - 1, base + plan.bridgeApex + 1.5), U"northbound" },
-					{ handled(northboundTop, heading(0, 1), overLoop, heading(1, 0), .55), U"farOn1" },
-					{ handled(overLoop, heading(1, 0), position(farMerge), farTravelMerge + rightOf(farTravelMerge) * angle, .38), U"farOn2" },
-					{ handled(position(nearDiverge), nearTravel - rightOf(nearTravel) * angle, southboundFoot, heading(0, -1), .5), U"nearOff" },
-					{ handled(northboundFoot, heading(0, 1), position(nearMerge), nearTravelMerge + rightOf(nearTravelMerge) * angle, .5), U"nearOn" },
-				};
-				// 接続する組を除き、平面で重なる区間は 6m 以上の高低差を取る。跨道部は本線の建築限界を守る。
-				const HashSet<String> joined{ U"farLead|loop1", U"loop1|loop2", U"loop2|loop3", U"loop3|southbound", U"northbound|farOn1", U"farOn1|farOn2",
-					U"southbound|nearOff", U"northbound|nearOn", U"loop3|farOn1", U"southbound|northbound", U"nearOff|nearOn", U"southbound|farOn1", U"loop3|northbound" };
-				String failure;
-				for (const auto& piece : pieces)
-				{
-					const bool stem = piece.key == U"southbound" || piece.key == U"northbound";
-					if (maximumGrade(piece.curve) > (stem ? plan.stemGrade : c.expressway_rampMaximumGrade * 1.05)) { failure = U"grade:" + piece.key; break; }
-				}
-				for (size_t i = 0; failure.isEmpty() && i < pieces.size(); ++i)
-				{
-					for (size_t j = i + 1; failure.isEmpty() && j < pieces.size(); ++j)
-					{
-						if (joined.contains(pieces[i].key + U"|" + pieces[j].key) || joined.contains(pieces[j].key + U"|" + pieces[i].key)) { continue; }
-						for (float a = 0; failure.isEmpty() && a <= pieces[i].curve.totalLength; a += 3)
-						{
-							const Vec3 p = pieces[i].curve.positionAt(a);
-							for (float b = 0; b <= pieces[j].curve.totalLength; b += 3)
-							{
-								const Vec3 q = pieces[j].curve.positionAt(b);
-								if (flat(p).distanceFrom(flat(q)) < 5.5 && Abs(p.y - q.y) < c.expressway_junctionCrossingClearance) { failure = U"crossing:" + pieces[i].key + U"/" + pieces[j].key; break; }
-							}
-						}
-					}
-				}
-				for (const auto& piece : pieces)
-				{
-					if (!failure.isEmpty() || (piece.key != U"southbound" && piece.key != U"northbound")) { continue; }
-					for (float a = 0; a <= piece.curve.totalLength; a += 3)
-					{
-						const Vec3 p = piece.curve.positionAt(a);
-						const double station = route.line.nearest(flat(p)).first;
-						const double lateral = Abs((flat(p) - route.line.at(station)).dot(rightOf(route.line.tangent(station))));
-						if (lateral < ExpresswayCrossSection::carriagewayOffset() + 7 && p.y - route.line.height(station) < c.expressway_junctionCrossingClearance) { failure = U"mainline:" + piece.key; break; }
-					}
-				}
-				if (!failure.isEmpty()) { DBG_LOG(U"[ExpresswayInterchange] skipped name={} reason={}"_fmt(ic.name, failure)); continue; }
 				// 節点を作り、曲線ごとに 1 車線のランプを張る。
 				const auto node = [&](Vec3 p) { return roads.addNode(p, NodeType::Joint); };
 				const int entry = node(loopEntry), loopA = node(loopRight), loopB = node(loopTop), sbTop = node(southboundTop), nbTop = node(northboundTop), above = node(overLoop);
@@ -1356,37 +1662,42 @@ namespace ExpresswayNetwork
 				addBypass(roads, middle, nearTerminal, ExpresswayCrossSection::BypassVariant::TwoOne, accessEdges);
 				addBypass(roads, outer, middle, ExpresswayCrossSection::BypassVariant::OneOne, accessEdges);
 				struct Target { int node; double score; };
-				Array<Target> targets;
 				const Vec3 outerPosition = roads.getNode(outer)->position;
-				for (const auto& candidate : roads.nodes())
-				{
-					if (candidate.id < 0 || candidate.attachments.isEmpty()) { continue; }
-					bool ordinary = false, arterial = false;
-					for (const auto& attachment : candidate.attachments)
-					{
-						const auto* edge = roads.getEdge(attachment.edgeId);
-						if (!edge || mainlineSet.contains(edge->id) || edge->roadType == RoadType::Expressway || edge->useElevation || !edge->hasRoadLanes()) { ordinary = false; break; }
-						ordinary = true; arterial |= edge->roadType == RoadType::Arterial;
-					}
-					if (!ordinary || accessEdges.any([&](int id) { const auto* e = roads.getEdge(id); return e && (e->nodeA == candidate.id || e->nodeB == candidate.id); })) { continue; }
-					const double distance = flat(candidate.position).distanceFrom(flat(outerPosition));
-					if (distance > c.expressway_accessConnectRadius || distance < 30) { continue; }
-					const double toward = (flat(candidate.position) - flat(outerPosition)).normalized().dot(outward);
-					targets << Target{ candidate.id, distance * (arterial ? .6 : 1.0) * (toward > -.2 ? 1.0 : 2.5) };
-				}
-				targets.sort_by([](const Target& a, const Target& b) { return a.score < b.score; });
+				// 取付道路は近い一般道へつなぐ。町から離れた IC は探索半径を 4 倍まで広げる。
 				bool connected = false;
-				for (size_t attempt = 0; attempt < Min<size_t>(4, targets.size()) && !connected; ++attempt)
+				for (const double radius : { c.expressway_accessConnectRadius, c.expressway_accessConnectRadius * 4 })
 				{
-					const Vec3 goal = roads.getNode(targets[attempt].node)->position;
-					const auto found = RoadAlignment::find(world, outerPosition, goal, RoadType::Arterial, 30000);
-					if (!found || crossesSegments(found->curves, mainlineSegments)) { continue; }
-					auto ids = RoadAutoPlace::buildAlignment(roads, world, found->curves, connector, .5f);
-					if (ids.isEmpty()) { continue; }
-					for (const int id : ids) { roads.getEdge(id)->edgeState = EdgeState::Open; }
-					roads.resolveIntersections(*std::min_element(ids.begin(), ids.end()), &ids);
-					for (const int id : ids) { if (auto* edge = roads.getEdge(id)) { edge->edgeState = EdgeState::Open; accessEdges << id; } }
-					connected = true;
+					if (connected) { break; }
+					Array<Target> targets;
+					for (const auto& candidate : roads.nodes())
+					{
+						if (candidate.id < 0 || candidate.attachments.isEmpty()) { continue; }
+						bool ordinary = false, arterial = false;
+						for (const auto& attachment : candidate.attachments)
+						{
+							const auto* edge = roads.getEdge(attachment.edgeId);
+							if (!edge || mainlineSet.contains(edge->id) || edge->roadType == RoadType::Expressway || edge->useElevation || !edge->hasRoadLanes()) { ordinary = false; break; }
+							ordinary = true; arterial |= edge->roadType == RoadType::Arterial;
+						}
+						if (!ordinary || accessEdges.any([&](int id) { const auto* e = roads.getEdge(id); return e && (e->nodeA == candidate.id || e->nodeB == candidate.id); })) { continue; }
+						const double distance = flat(candidate.position).distanceFrom(flat(outerPosition));
+						if (distance > radius || distance < 30) { continue; }
+						const double toward = (flat(candidate.position) - flat(outerPosition)).normalized().dot(outward);
+						targets << Target{ candidate.id, distance * (arterial ? .6 : 1.0) * (toward > -.2 ? 1.0 : 2.5) };
+					}
+					targets.sort_by([](const Target& a, const Target& b) { return a.score < b.score; });
+					for (size_t attempt = 0; attempt < Min<size_t>(4, targets.size()) && !connected; ++attempt)
+					{
+						const Vec3 goal = roads.getNode(targets[attempt].node)->position;
+						const auto found = RoadAlignment::find(world, outerPosition, goal, RoadType::Arterial, 30000);
+						if (!found || crossesSegments(found->curves, mainlineSegments)) { continue; }
+						auto ids = RoadAutoPlace::buildAlignment(roads, world, found->curves, connector, .5f);
+						if (ids.isEmpty()) { continue; }
+						for (const int id : ids) { roads.getEdge(id)->edgeState = EdgeState::Open; }
+						roads.resolveIntersections(*std::min_element(ids.begin(), ids.end()), &ids);
+						for (const int id : ids) { if (auto* edge = roads.getEdge(id)) { edge->edgeState = EdgeState::Open; accessEdges << id; } }
+						connected = true;
+					}
 				}
 				roads.addNamedDestination(nearTerminal, ic.name, ic.reading, 1);
 				++summary.interchanges;
