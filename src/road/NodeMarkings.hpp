@@ -86,24 +86,57 @@ namespace NodeMarkings
 			}
 			set.lines << NodeMarkingLine{ from, to, type };
 		};
-		for (const auto& connection : node->laneConnections)
+		// 線は車線接続ではなく、つながる 2 本の道路で進行方向の横位置がそろう車線境界どうしを結ぶ。
+		// （分合流点の車線接続は 1 車線ずれて結ばれることがあり、それに沿うと線が車線を斜めに横切る。）
+		struct Boundary { float travel; float raw; LineType type; };
+		const auto travelBoundaries = [&](const RoadEdge& edge, bool outgoing) -> Array<Boundary>
 		{
-			const auto* from = network.getEdge(connection.fromEdgeId);
-			const auto* to = network.getEdge(connection.toEdgeId);
-			if (!from || !to || connection.fromLaneIndex >= static_cast<int>(from->lanes.size()) || connection.toLaneIndex >= static_cast<int>(to->lanes.size())) { continue; }
-			const Lane& a = from->lanes[connection.fromLaneIndex];
-			const Lane& b = to->lanes[connection.toLaneIndex];
-			// 進行方向の左右。流入側はノードが B 端なら A→B に走る（左 = offset_L）。流出側はノードが A 端なら A→B。
-			const bool fromForward = from->nodeB == nodeId, toForward = to->nodeA == nodeId;
-			const float fromAtNodeL = from->nodeA == nodeId ? a.offsetA_L : a.offsetB_L, fromAtNodeR = from->nodeA == nodeId ? a.offsetA_R : a.offsetB_R;
-			const float toAtNodeL = to->nodeA == nodeId ? b.offsetA_L : b.offsetB_L, toAtNodeR = to->nodeA == nodeId ? b.offsetA_R : b.offsetB_R;
-			const NodeLineEnd fromLeft{ from->id, fromForward ? fromAtNodeL : fromAtNodeR }, fromRight{ from->id, fromForward ? fromAtNodeR : fromAtNodeL };
-			const NodeLineEnd toLeft{ to->id, toForward ? toAtNodeL : toAtNodeR }, toRight{ to->id, toForward ? toAtNodeR : toAtNodeL };
-			const LineType fromLeftType = fromForward ? a.lineLeft : a.lineRight, fromRightType = fromForward ? a.lineRight : a.lineLeft;
-			const LineType toLeftType = toForward ? b.lineLeft : b.lineRight, toRightType = toForward ? b.lineRight : b.lineLeft;
-			// 線のない側（料金所前後など）は引かない。
-			if (fromLeftType != LineType::None && toLeftType != LineType::None) { addLine(fromLeft, toLeft, stronger(fromLeftType, toLeftType)); }
-			if (fromRightType != LineType::None && toRightType != LineType::None) { addLine(fromRight, toRight, stronger(fromRightType, toRightType)); }
+			const bool atA = edge.nodeA == nodeId;
+			Array<Boundary> result;
+			for (const auto& lane : edge.lanes)
+			{
+				if (!lane.allows(TransportMode::Road)) { continue; }
+				// 流入側はノードへ向かう車線、流出側はノードから出る車線だけ。
+				const bool laneForward = lane.dir == LaneDir::Forward;
+				const bool towardNode = laneForward ? !atA : atA;
+				if (outgoing == towardNode) { continue; }
+				// 進行方向の左右。A→B に走る車線は raw のまま、B→A は反転。
+				const bool travelForward = laneForward;
+				const float l = atA ? lane.offsetA_L : lane.offsetB_L, r = atA ? lane.offsetA_R : lane.offsetB_R;
+				const auto add = [&](float raw, LineType type)
+				{
+					const float travel = travelForward ? raw : -raw;
+					for (auto& existing : result)
+					{
+						if (Abs(existing.travel - travel) < .05f) { existing.type = stronger(existing.type, type); return; }
+					}
+					result << Boundary{ travel, raw, type };
+				};
+				add(l, travelForward ? lane.lineLeft : lane.lineRight);
+				add(r, travelForward ? lane.lineRight : lane.lineLeft);
+			}
+			return result;
+		};
+		HashSet<int64> linked;
+		for (const auto& connection : node->laneConnections) { linked.insert(static_cast<int64>(connection.fromEdgeId) * 1000003 + connection.toEdgeId); }
+		for (const auto& fromAttachment : node->attachments)
+		{
+			const RoadEdge* from = network.getEdge(fromAttachment.edgeId);
+			if (!from) { continue; }
+			const auto fromBoundaries = travelBoundaries(*from, false);
+			for (const auto& toAttachment : node->attachments)
+			{
+				const RoadEdge* to = network.getEdge(toAttachment.edgeId);
+				if (!to || to->id == from->id || !linked.contains(static_cast<int64>(from->id) * 1000003 + to->id)) { continue; }
+				for (const auto& b : travelBoundaries(*to, true))
+				{
+					for (const auto& a : fromBoundaries)
+					{
+						if (Abs(a.travel - b.travel) >= .3f || a.type == LineType::None || b.type == LineType::None) { continue; }
+						addLine(NodeLineEnd{ from->id, a.raw }, NodeLineEnd{ to->id, b.raw }, stronger(a.type, b.type));
+					}
+				}
+			}
 		}
 		// 導流帯: 同じ点から別の道路へ分かれる 2 本（分流）、別の道路から同じ点へ集まる 2 本（合流）の間。
 		// 1 つの分合流につき、開いた側の端どうしが最も近い（向かい合う内側の）2 本だけを使う。

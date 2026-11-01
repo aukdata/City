@@ -235,13 +235,34 @@ namespace
 	}
 
 	/// @brief ノード内の区画線の曲線。両端の切り口から、道路の向きに沿って出る 3 次ベジェ（高さは線形補間）。
+	/// @brief 節点の端の横位置を、切り口（calcEdgeLineAt が測る位置）での同じ車線境界の横位置に直す。
+	/// 端で車線を寄せる道路（ランプなど）は、切り口が長いと端の値のままでは舗装の外へずれる。
+	float lateralAtCut(const RoadNetwork& network, int nodeId, const RoadEdge& edge, float lateral)
+	{
+		const auto bez = network.getBezier(edge.id);
+		if (!bez || bez->totalLength <= 0) { return lateral; }
+		const bool isNodeA = edge.nodeA == nodeId;
+		const float capRad = isNodeA ? edge.cutoffA : edge.cutoffB;
+		const float s = isNodeA
+			? Clamp(capRad - 0.1f, 0.0f, bez->totalLength * 0.45f)
+			: Clamp(bez->totalLength - capRad + 0.1f, bez->totalLength * 0.55f, bez->totalLength);
+		const float ft = s / bez->totalLength;
+		for (const auto& lane : edge.lanes)
+		{
+			const float endL = isNodeA ? lane.offsetA_L : lane.offsetB_L, endR = isNodeA ? lane.offsetA_R : lane.offsetB_R;
+			if (Abs(endL - lateral) < .05f) { return Math::Lerp(lane.offsetA_L, lane.offsetB_L, ft); }
+			if (Abs(endR - lateral) < .05f) { return Math::Lerp(lane.offsetA_R, lane.offsetB_R, ft); }
+		}
+		return lateral;
+	}
+
 	Optional<CubicBezier> nodeLineCurve(const RoadNetwork& network, int nodeId, const World& world, const NodeMarkingLine& line)
 	{
 		const RoadEdge* from = network.getEdge(line.from.edgeId);
 		const RoadEdge* to = network.getEdge(line.to.edgeId);
 		if (!from || !to) { return none; }
-		const auto a = calcEdgeLineAt(network, nodeId, world, *from, line.from.lateral);
-		const auto b = calcEdgeLineAt(network, nodeId, world, *to, line.to.lateral);
+		const auto a = calcEdgeLineAt(network, nodeId, world, *from, lateralAtCut(network, nodeId, *from, line.from.lateral));
+		const auto b = calcEdgeLineAt(network, nodeId, world, *to, lateralAtCut(network, nodeId, *to, line.to.lateral));
 		const double distance = (b.pos - a.pos).length();
 		if (distance < .1) { return none; }
 		const double handle = distance * .4;
@@ -271,17 +292,41 @@ namespace
 			const auto& right = curves[zone.rightLine];
 			if (!left || !right) { continue; }
 			const auto at = [](const CubicBezier& curve, double u) { return curve.positionAt(static_cast<float>(Clamp(u, 0.0, 1.0) * curve.totalLength)); };
-			const auto midAt = [&](double u) { return (at(*left, u) + at(*right, u)) * .5; };
+			// 左の縁の点に向かい合う右の縁の点（最も近い点）。長さの違う 2 本を同じ割合で取ると縞が斜めにずれる。
+			const auto across = [&](const Vec3& p) -> double
+			{
+				double best = 0, bestDistance = Math::Inf;
+				constexpr int kSamples = 64;
+				for (int k = 0; k <= kSamples; ++k)
+				{
+					const double v = k / static_cast<double>(kSamples);
+					const double d = at(*right, v).distanceFromSq(p);
+					if (d < bestDistance) { bestDistance = d; best = v; }
+				}
+				for (double step = .5 / kSamples; step > 1e-5; step *= .5)
+				{
+					for (const double v : { best - step, best + step })
+					{
+						const double d = at(*right, v).distanceFromSq(p);
+						if (v >= 0 && v <= 1 && d < bestDistance) { bestDistance = d; best = v; }
+					}
+				}
+				return best;
+			};
 			// V の先は 2 本が近づく側（分流の鼻・合流の先）へ向ける。
 			const double towardNose = at(*left, 0).distanceFrom(at(*right, 0)) <= at(*left, 1).distanceFrom(at(*right, 1)) ? -1.0 : 1.0;
-			const double length = Max(1.0, (left->totalLength + right->totalLength) * .5);
+			const double length = Max(1.0, static_cast<double>(left->totalLength));
 			for (double s = kStripeSpacing * .5; s < length; s += kStripeSpacing)
 			{
 				const double u = s / length;
-				const Vec3 pl = at(*left, u), pr = at(*right, u);
+				const Vec3 pl = at(*left, u);
+				const double v = across(pl);
+				const Vec3 pr = at(*right, v);
 				const double width = pl.distanceFrom(pr);
 				if (width < .6) { continue; }
-				const Vec3 ahead = midAt(Clamp(u + .5 / length, 0.0, 1.0)) - midAt(Clamp(u - .5 / length, 0.0, 1.0));
+				// 縞の向き: 2 本の縁の接線の平均（流れの向き）。
+				const Vec3 tangentL = left->tangentAt(static_cast<float>(u * left->totalLength)), tangentR = right->tangentAt(static_cast<float>(v * right->totalLength));
+				const Vec3 ahead{ tangentL.x + tangentR.x, 0, tangentL.z + tangentR.z };
 				const Vec3 along = ahead.lengthSq() > 1e-8 ? ahead.normalized() : Vec3{ 1, 0, 0 };
 				if (zone.pattern == NodeZonePattern::Chevron)
 				{
@@ -291,7 +336,7 @@ namespace
 				}
 				else
 				{
-					appendBar(stripes.vertices, stripes.indices, pl, at(*right, u + width / length), kStripeHalfWidth);
+					appendBar(stripes.vertices, stripes.indices, pl, at(*right, v + width / Max(1.0, static_cast<double>(right->totalLength))), kStripeHalfWidth);
 				}
 			}
 		}
