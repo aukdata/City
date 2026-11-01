@@ -193,6 +193,22 @@ void registerMapTransportTests(TestRunner& runner)
 		}
 		context.expect(overhead >= 2 && gantries >= 1, U"{}: exit signs hang over the carriageway on gantries ({} overhead, {} gantries)"_fmt(label, overhead, gantries));
 		context.expect(notices >= 3, U"{}: exits are announced at 2km, 1km and 500m ({} notices)"_fmt(label, notices));
+		// 料金所: 地上（盛土・切土）に置き、屋根の幕板に ETC 専用・ETC/一般・一般の車線表示板を掲げる。
+		int gates = 0, elevatedGates = 0, laneBoards = 0;
+		for (const auto& object : roads.objects())
+		{
+			if (object.id < 0 || object.type != RoadObjectType::TollGate) { continue; }
+			++gates;
+			const auto* edge = roads.getEdge(object.parentEdgeId);
+			elevatedGates += !edge || edge->useElevation;
+			for (const auto& sign : roads.guideSigns())
+			{
+				if (sign.id < 0 || sign.parentEdgeId != object.parentEdgeId) { continue; }
+				for (const auto& element : sign.elements) { laneBoards += element.kind == SignElementKind::Panel && (element.text == U"ETC専用" || element.text == U"一般"); }
+			}
+		}
+		context.expect(gates >= 1 && elevatedGates == 0, U"{}: toll plazas stand on the ground ({} of {} elevated)"_fmt(label, elevatedGates, gates));
+		context.expect(laneBoards >= gates * 5, U"{}: every toll lane has a lane board ({} boards, {} plazas)"_fmt(label, laneBoards, gates));
 		return g;
 	};
 	runner.add(U"Expressway.CrossesMapWithInterchange", [=](TestContext& context)

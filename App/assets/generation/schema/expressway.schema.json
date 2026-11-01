@@ -66,9 +66,6 @@
     "accessAddedLaneLength",
     "accessLength",
     "accessConnectRadius",
-    "tollGateWidth",
-    "tollGateLength",
-    "tollGateHeight",
     "signLateralMargin",
     "signPoleHeight",
     "delineatorSpacing",
@@ -416,21 +413,6 @@
       "type": "number",
       "minimum": 100.0,
       "maximum": 20000.0
-    },
-    "tollGateWidth": {
-      "type": "number",
-      "minimum": 4.0,
-      "maximum": 80.0
-    },
-    "tollGateLength": {
-      "type": "number",
-      "minimum": 4.0,
-      "maximum": 200.0
-    },
-    "tollGateHeight": {
-      "type": "number",
-      "minimum": 3.0,
-      "maximum": 20.0
     },
     "signLateralMargin": {
       "type": "number",

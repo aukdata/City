@@ -220,28 +220,184 @@ namespace ExpresswayCrossSection
 	/// @brief 料金所前の往復路の中央分離帯の幅 [m]。
 	inline constexpr float kTollSeparator = 1.0f;
 
-	/// @brief IC の料金所前後。A→B が本線から一般道へ出る向き（左側 2 車線）。
-	inline void applyTollStem(RoadEdge& edge)
+	/// @brief 料金所レーンの種別。料金所の屋根の車線表示板（ETC 専用は紫、一般は緑、ETC/一般は両方）に対応する。
+	enum class TollLaneKind : uint8 { EtcOnly, EtcGeneral, General };
+
+	/// @brief 料金所の 1 レーン。横位置は連絡路の A→B 向きに対する左右（負 = 左）。
+	struct TollLane
+	{
+		float left = 0, width = 0;
+		TollLaneKind kind = TollLaneKind::EtcOnly;
+		bool exit = true;     ///< 本線から一般道へ出る向き（A→B）。入口レーンは B→A
+		int traffic = -1;     ///< 料金所区間の通行車線の番号。車両が通らないレーン（一般）は -1
+	};
+
+	/// @brief 料金所アイランド（ブースと柱を載せる縁石で囲った島）。along は屋根の中心からの A→B 方向の距離 [m]。
+	struct TollIsland
+	{
+		float left = 0, width = 0, from = 0, to = 0;
+	};
+
+	/// @brief IC の料金所広場の平面形。寸法は NEXCO 設計要領 第六集 建築施設編（料金所）に合わせる。
+	/// @details レーン幅は ETC レーンと最も左のレーンが 3.5m（標準 3.0m）。アイランドは幅 2.2m・縁石高 0.15m、
+	///   長さは入口 ETC 48.5m・出口 32.5m。屋根は進行方向 11.9m、長辺の軒は最も外のアイランドの中心から 7.1m。
+	///   ブースは 1 レーンに 1 棟、運転者の右のアイランドに置く（2.8 × 1.6 × 2.5m）。料金所事務所は出口側。
+	///   IC の料金所は出口 3（一般・ETC/一般・ETC 専用）、入口 2（ETC/一般・ETC 専用）レーン。
+	///   往復の境は中央のアイランドで、連絡路の分離帯の延長上に置く。
+	struct TollPlazaLayout
+	{
+		static constexpr float kLaneWidth = 3.5f, kIslandWidth = 2.2f, kIslandCurb = .15f;
+		static constexpr float kCanopyLength = 11.9f, kCanopyEave = 7.1f, kCanopyClearance = 5.0f;
+		static constexpr float kExitUpstream = 22.0f, kExitDownstream = 10.5f;        ///< 出口アイランド 32.5m
+		static constexpr float kEntranceUpstream = 36.0f, kEntranceDownstream = 12.5f; ///< 入口アイランド 48.5m
+		/// @brief 料金所区間（車線が広がり切った区間）の長さと、その A 端から屋根の中心まで。
+		/// 中央アイランドの両端をこの区間の両端に合わせ、前後のすり付け区間の分離帯へ続ける。
+		static constexpr float kSectionLength = kExitUpstream + kEntranceUpstream, kCanopyAt = kExitUpstream;
+		static constexpr float kOuterShoulder = 1.0f;
+		Array<TollLane> lanes;
+		Array<TollIsland> islands;
+		float left = 0, right = 0;  ///< 舗装の両端（外側のアイランドの外縁）
+
+		static const TollPlazaLayout& get()
+		{
+			static const TollPlazaLayout layout = []
+			{
+				TollPlazaLayout result;
+				constexpr float w = kLaneWidth, island = kIslandWidth;
+				const auto islandFor = [](bool exitSide, bool entranceSide, float left)
+				{
+					TollIsland value;
+					value.left = left; value.width = kIslandWidth;
+					value.from = -Max(exitSide ? kExitUpstream : 0.0f, entranceSide ? kEntranceDownstream : 0.0f);
+					value.to = Max(exitSide ? kExitDownstream : 0.0f, entranceSide ? kEntranceUpstream : 0.0f);
+					return value;
+				};
+				result.islands << islandFor(true, true, -island * .5f);
+				// 出口: 中央から左へ ETC 専用・ETC/一般・一般。車両は ETC の 2 レーンを通る。
+				float x = -island * .5f;
+				const std::array<std::pair<TollLaneKind, int>, 3> exits{ { { TollLaneKind::EtcOnly, 1 }, { TollLaneKind::EtcGeneral, 0 }, { TollLaneKind::General, -1 } } };
+				for (const auto& [kind, traffic] : exits)
+				{
+					x -= w;
+					result.lanes << TollLane{ x, w, kind, true, traffic };
+					x -= island;
+					result.islands << islandFor(true, false, x);
+				}
+				result.left = x;
+				// 入口: 中央から右へ ETC 専用・ETC/一般。B→A 向きの運転者の右が中央になる。
+				x = island * .5f;
+				const std::array<std::pair<TollLaneKind, int>, 2> entrances{ { { TollLaneKind::EtcOnly, 2 }, { TollLaneKind::EtcGeneral, 3 } } };
+				for (const auto& [kind, traffic] : entrances)
+				{
+					result.lanes << TollLane{ x, w, kind, false, traffic };
+					x += w;
+					result.islands << islandFor(false, true, x);
+					x += island;
+				}
+				result.right = x;
+				return result;
+			}();
+			return layout;
+		}
+
+		/// @brief 通行車線 index（0, 1 = 出口の左・右、2, 3 = 入口の中央側・外側）のレーン。
+		const TollLane& trafficLane(int index) const
+		{
+			for (const auto& lane : lanes) { if (lane.traffic == index) { return lane; } }
+			return lanes.front();
+		}
+	};
+
+	/// @brief 料金所前後の往復路の車線・部材の横位置（A→B 向きの左右）。すり付け区間の一端に使う。
+	struct TollProfile
+	{
+		std::array<std::pair<float, float>, 4> lanes;  ///< 出口 2・入口 2 の [左, 右]
+		float roadLeft = 0, roadRight = 0, medianHalf = 0, shoulder = 0;
+	};
+
+	inline TollProfile tollStemProfile()
+	{
+		const auto& c = GenerationSettings::get();
+		const float width = c.expressway_rampLaneWidth, half = kTollSeparator * .5f;
+		TollProfile profile;
+		profile.lanes = { { { -half - 2 * width, -half - width }, { -half - width, -half }, { half, half + width }, { half + width, half + 2 * width } } };
+		profile.roadLeft = -half - 2 * width; profile.roadRight = half + 2 * width;
+		profile.medianHalf = half; profile.shoulder = c.expressway_rampOuterShoulder;
+		return profile;
+	}
+
+	inline TollProfile tollPlazaProfile()
+	{
+		const auto& layout = TollPlazaLayout::get();
+		TollProfile profile;
+		for (int i = 0; i < 4; ++i)
+		{
+			const auto& lane = layout.trafficLane(i);
+			profile.lanes[i] = { lane.left, lane.left + lane.width };
+		}
+		profile.roadLeft = layout.left; profile.roadRight = layout.right;
+		profile.medianHalf = TollPlazaLayout::kIslandWidth * .5f; profile.shoulder = TollPlazaLayout::kOuterShoulder;
+		return profile;
+	}
+
+	/// @brief 料金所の前後のすり付け区間。往復路（2+2）から料金所の幅へ広げる。plazaAtB: B 端が料金所側。
+	/// @details 車線・路肩・防護柵の横位置を A 端と B 端で変え、区間内で直線的に移す。分離帯は中央アイランドへ続く。
+	inline void applyTollTaper(RoadEdge& edge, bool plazaAtB)
 	{
 		using namespace detail;
 		const auto& c = GenerationSettings::get();
-		const float width = c.expressway_rampLaneWidth, separator = kTollSeparator;
+		const TollProfile stem = tollStemProfile(), plaza = tollPlazaProfile();
+		const TollProfile& a = plazaAtB ? stem : plaza;
+		const TollProfile& b = plazaAtB ? plaza : stem;
 		edge.roadType = RoadType::Expressway;
 		edge.speedLimit = 40;
 		edge.lanes.clear();
-		// 料金所の前後（料金所広場）は車線を区切る線を引かない。ブースの島へ向けて車が自由に寄る。
-		for (int i = 0; i < 2; ++i) { edge.lanes << lane(-separator * .5f - (2 - i) * width, width, LaneDir::Forward, LineType::None, LineType::None); }
-		for (int i = 0; i < 2; ++i) { edge.lanes << lane(separator * .5f + i * width, width, LaneDir::Backward, LineType::None, LineType::None); }
+		for (int i = 0; i < 4; ++i)
+		{
+			Lane value = lane(a.lanes[i].first, a.lanes[i].second - a.lanes[i].first, i < 2 ? LaneDir::Forward : LaneDir::Backward, LineType::None, LineType::None);
+			value.offsetB_L = b.lanes[i].first; value.offsetB_R = b.lanes[i].second;
+			edge.lanes << value;
+		}
+		const auto tapered = [](RoadPart part, float aLeft, float aRight, float bLeft, float bRight)
+		{
+			part.offsetA_L = aLeft; part.offsetA_R = aRight; part.offsetB_L = bLeft; part.offsetB_R = bRight;
+			return part;
+		};
+		const float rail = c.expressway_guardrailWidth;
 		edge.parts.clear();
-		const float roadway = 2 * width, outer = separator * .5f + roadway;
-		edge.parts << strip(RoadPartType::Guardrail, -outer - c.expressway_rampOuterShoulder - c.expressway_guardrailWidth, c.expressway_guardrailWidth, U"guardrail_steel");
-		edge.parts << strip(RoadPartType::Shoulder, -outer - c.expressway_rampOuterShoulder, c.expressway_rampOuterShoulder, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Roadbed, -outer, roadway, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Median, -separator * .5f, separator, U"median_concrete");
-		edge.parts << strip(RoadPartType::Roadbed, separator * .5f, roadway, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Shoulder, outer, c.expressway_rampOuterShoulder, U"roadbed_asphalt");
-		edge.parts << strip(RoadPartType::Guardrail, outer + c.expressway_rampOuterShoulder, c.expressway_guardrailWidth, U"guardrail_steel");
-		edge.parts << repeat(-outer - c.expressway_rampOuterShoulder - c.expressway_guardrailWidth - .6f, U"expressway_light", c.expressway_rampLightSpacing);
+		const auto add = [&](RoadPartType type, StringView definition, float aLeft, float aRight, float bLeft, float bRight)
+		{
+			edge.parts << tapered(strip(type, 0, 1, definition), aLeft, aRight, bLeft, bRight);
+		};
+		add(RoadPartType::Guardrail, U"guardrail_steel", a.roadLeft - a.shoulder - rail, a.roadLeft - a.shoulder, b.roadLeft - b.shoulder - rail, b.roadLeft - b.shoulder);
+		add(RoadPartType::Shoulder, U"roadbed_asphalt", a.roadLeft - a.shoulder, a.roadLeft, b.roadLeft - b.shoulder, b.roadLeft);
+		add(RoadPartType::Roadbed, U"roadbed_asphalt", a.roadLeft, -a.medianHalf, b.roadLeft, -b.medianHalf);
+		add(RoadPartType::Median, U"median_concrete", -a.medianHalf, a.medianHalf, -b.medianHalf, b.medianHalf);
+		add(RoadPartType::Roadbed, U"roadbed_asphalt", a.medianHalf, a.roadRight, b.medianHalf, b.roadRight);
+		add(RoadPartType::Shoulder, U"roadbed_asphalt", a.roadRight, a.roadRight + a.shoulder, b.roadRight, b.roadRight + b.shoulder);
+		add(RoadPartType::Guardrail, U"guardrail_steel", a.roadRight + a.shoulder, a.roadRight + a.shoulder + rail, b.roadRight + b.shoulder, b.roadRight + b.shoulder + rail);
+		finish(edge);
+	}
+
+	/// @brief 料金所区間（アイランド・ブース・屋根の下）。全幅を舗装し、車線の線は引かない。
+	/// @details 車両は ETC 専用・ETC/一般の各レーンを通る（4 車線）。一般レーンとアイランドは料金所の施設として描く。
+	inline void applyTollPlaza(RoadEdge& edge)
+	{
+		using namespace detail;
+		const auto& c = GenerationSettings::get();
+		const TollProfile plaza = tollPlazaProfile();
+		edge.roadType = RoadType::Expressway;
+		// ETC 車線は 20km/h 以下で進入する（ETC システム利用規程）。
+		edge.speedLimit = 20;
+		edge.lanes.clear();
+		for (int i = 0; i < 4; ++i) { edge.lanes << lane(plaza.lanes[i].first, plaza.lanes[i].second - plaza.lanes[i].first, i < 2 ? LaneDir::Forward : LaneDir::Backward, LineType::None, LineType::None); }
+		const float rail = c.expressway_guardrailWidth;
+		edge.parts.clear();
+		edge.parts << strip(RoadPartType::Guardrail, plaza.roadLeft - plaza.shoulder - rail, rail, U"guardrail_steel");
+		edge.parts << strip(RoadPartType::Shoulder, plaza.roadLeft - plaza.shoulder, plaza.shoulder, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Roadbed, plaza.roadLeft, plaza.roadRight - plaza.roadLeft, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Shoulder, plaza.roadRight, plaza.shoulder, U"roadbed_asphalt");
+		edge.parts << strip(RoadPartType::Guardrail, plaza.roadRight + plaza.shoulder, rail, U"guardrail_steel");
 		finish(edge);
 	}
 
