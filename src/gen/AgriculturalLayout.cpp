@@ -366,7 +366,6 @@ namespace AgriculturalLayout
 			constexpr double kMerge=4.5;     ///< 隣の田の角をまとめる距離。0.97倍に縮めた区画の角どうしは最大約4m離れる。
 			constexpr double kRoadReach=6.5; ///< 道路の縁からこの距離にある畦の交点は、その道路へ取り付ける。
 			constexpr double kFrontage=5.0;  ///< 区画の辺の中点が道路の縁からこの距離なら、その田畑は道路に面している。
-			constexpr double kSample=8;
 			constexpr double kVertexCell=32;
 			Array<Array<Vec2>> fields;
 			for (int z=0;z<WORLD_CHUNKS;++z) { for (int x=0;x<WORLD_CHUNKS;++x)
@@ -805,7 +804,7 @@ namespace AgriculturalLayout
 					frontier=std::move(next);
 				}
 				double bestLength=config.agriculture_azemichiLoopReach; Array<int> bestPath, path;
-				const auto search=[&](auto&& self,int vertex,double length,int depth) -> void
+				const auto loopSearch=[&](auto&& self,int vertex,double length,int depth) -> void
 				{
 					for (const int bund:adjacency[vertex])
 					{
@@ -820,7 +819,7 @@ namespace AgriculturalLayout
 						path.pop_back();
 					}
 				};
-				search(search,leaf,0,1);
+				loopSearch(loopSearch,leaf,0,1);
 				if (bestPath.isEmpty()) { continue; }
 				for (const int bund:bestPath) { bunds[bund].built=true; ++degree[bunds[bund].a]; ++degree[bunds[bund].b]; }
 				++result.loops;
@@ -1748,8 +1747,8 @@ namespace AgriculturalLayout
 		const Stopwatch azemichiTimer{StartImmediately::Yes};
 		const auto azemichi=connectFieldsByAzemichi(world,roads,sites,railway);
 		stats.azemichi=azemichi.edges;stats.unservedFields=azemichi.unreachable;
-		DBG_LOG(U"[Azemichi] fields={} frontage={} connected={} unreachable={} edges={} lengthKm={:.1f} loops={} deadEnds={} bridges={} accesses={} stranded={} ms={:.0f} phases={}"_fmt(
-			azemichi.fields,azemichi.frontage,azemichi.connected,azemichi.unreachable,azemichi.edges,azemichi.length/1000,azemichi.loops,azemichi.deadEnds,azemichi.bridges,azemichi.accesses,azemichi.stranded,azemichiTimer.msF(),Array<int>(azemichi.phaseMs.begin(),azemichi.phaseMs.end())));
+		DBG_LOG(U"[Azemichi] fields={} frontage={} connected={} unreachable={} edges={} lengthKm={:.1f} loops={} deadEnds={} bridges={} accesses={} stranded={} ms={:.0f} phasesMs={}"_fmt(
+			azemichi.fields,azemichi.frontage,azemichi.connected,azemichi.unreachable,azemichi.edges,azemichi.length/1000,azemichi.loops,azemichi.deadEnds,azemichi.bridges,azemichi.accesses,azemichi.stranded,azemichiTimer.msF(),Array<double>(azemichi.phaseMs.begin(),azemichi.phaseMs.end())));
 
 		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={} roads={} roadRejected={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches,gridRoads.size(),gridRoadRejected));
 		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(
