@@ -98,7 +98,7 @@ namespace
 		const int verticals = Max(1, static_cast<int>(span / 3.0f));
 		for (int i = 0; i <= verticals; ++i)
 		{
-			const Vec3 p = at(Math::Lerp(left, right, i / static_cast<double>(verticals)));
+			const Vec3 p = at(Math::Lerp(left, right, i / static_cast<float>(verticals)));
 			MeshGeometry::appendOrientedBox(mesh, Vec3{ p.x, road + (beamBottom + beamTop) * .5, p.z }, Float3{ .12f, static_cast<float>(beamTop - beamBottom), .12f }, angle);
 		}
 		return mesh;

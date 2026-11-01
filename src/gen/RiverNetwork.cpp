@@ -580,9 +580,9 @@ void RiverNetwork::generate(double width, double depth, const std::function<doub
 		const Vec2 middle=(node.point+next.point)*.5;
 		// 谷壁は川から離れるほど高くなるので、近くと遠くの両方で測る。
 		double bankHigh=height(middle.x,middle.y);
-		for (const double probe : {settings.rivers_carveExtent,settings.rivers_maximumBankExtent*.33,settings.rivers_maximumBankExtent*.66,settings.rivers_maximumBankExtent})
+		for (const double reachOut : {settings.rivers_carveExtent,settings.rivers_maximumBankExtent*.33,settings.rivers_maximumBankExtent*.66,settings.rivers_maximumBankExtent})
 		{
-			const double distance=Max(reach.halfWidth,reach.endHalfWidth)+probe;
+			const double distance=Max(reach.halfWidth,reach.endHalfWidth)+reachOut;
 			bankHigh=Max(bankHigh,Max(height(middle.x+across.x*distance,middle.y+across.y*distance),height(middle.x-across.x*distance,middle.y-across.y*distance)));
 		}
 		const double relief=Max(0.0,bankHigh-(node.water+next.water)*.5);
