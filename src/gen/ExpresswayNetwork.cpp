@@ -2362,7 +2362,7 @@ namespace ExpresswayNetwork
 					const Vec2 travelIn = route.line.tangent(from) * side, travelOut = route.line.tangent(to) * side;
 					const Vec3 a = roads.getNode(diverge)->position, b = roads.getNode(merge)->position;
 					// 出入りの曲線がランプの最小曲線半径を守るまで、駐車場沿いの通路を短くして取付区間を延ばす（曲線区間の SA）。
-					Vec3 aisleStart, aisleEnd; CubicBezier lead, back; double bestRadius = -1;
+					Vec3 aisleStart{}, aisleEnd{}; CubicBezier lead, back; double bestRadius = -1;
 					for (const double fraction : { .22, .3, .38, .46 })
 					{
 						const double inner = c.expressway_serviceLength * fraction;
