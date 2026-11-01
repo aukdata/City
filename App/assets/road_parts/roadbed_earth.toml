@@ -1,0 +1,17 @@
+id = "roadbed_earth"
+name = "土の路盤（畦道）"
+type = "Roadbed"
+tiling = "CrossSection"
+model = "roadbed_asphalt.obj"
+model_unit_width = 0.5
+model_unit_len = 1.0
+height_offset = 0.0
+symmetric = true
+
+[material]
+texture = "../third_party/polyhaven/gravel_ground_01/gravel_ground_01_diff_1k.jpg"
+color = [0.66, 0.60, 0.48]
+
+[lod]
+mesh_names = ["center", "center_lod1"]
+distances = [800.0]

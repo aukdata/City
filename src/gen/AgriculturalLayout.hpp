@@ -23,6 +23,8 @@ namespace AgriculturalLayout
 	struct Stats
 	{
 		int candidates=0, fields=0, paddies=0, tracks=0, drains=0, disconnected=0, homes=0, connections=0;
+		int azemichi=0; ///< 田畑を道路網へつなぐ畦道の辺数。
+		int unservedFields=0; ///< 畦道でも道路へつなげなかった田畑。
 	};
 	/// @brief 建物より先に、一般道路に接続する農道と沿道の民家を確保する。
 	Stats prepare(World& world,RoadNetwork& network,uint64 seed,const Array<Frame>& frames={},const TrainNetwork* railway=nullptr);

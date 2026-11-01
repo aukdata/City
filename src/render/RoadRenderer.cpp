@@ -690,6 +690,7 @@ RoadRenderer::FallbackNodeData RoadRenderer::buildFallbackNodeData(int nodeId, c
 		vertex.tex = Float2{vertex.pos.x * kWorldUV, vertex.pos.z * kWorldUV};
 	}
 	orientRoadFaces(result.data);
+	result.roadbed = RoadRenderDetail::junctionRoadbed(network, nodeId);
 	if (const auto* node = network.getNode(nodeId))
 	{
 		result.valid = true;
@@ -700,10 +701,10 @@ RoadRenderer::FallbackNodeData RoadRenderer::buildFallbackNodeData(int nodeId, c
 
 void RoadRenderer::commitFallbackNode(int nodeId, FallbackNodeData&& data, bool createMeshes)
 {
-	const auto& definition = m_partRegistry.get(U"roadbed_asphalt");
+	const auto& definition = m_partRegistry.get(data.roadbed);
 	const Mesh mesh = data.data.indices.isEmpty() || !createMeshes ? Mesh{} : Mesh{data.data};
 	if (!createMeshes && !data.data.indices.isEmpty()) { m_pendingFallbackNodes[nodeId] = data.data; }
-	m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, ColorF{.29, .30, .32},
+	m_fallbackNodes.emplace(nodeId, PartMeshEntry{{mesh, mesh}, data.roadbed == U"roadbed_asphalt" ? ColorF{.29, .30, .32} : definition.color.removeSRGBCurve(),
 		definition.texture ? &*definition.texture : nullptr, RoadPartType::Roadbed});
 	if (data.valid)
 	{

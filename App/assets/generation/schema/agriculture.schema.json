@@ -38,7 +38,14 @@
     "connectionRadius",
     "deadEndConnectionRadius",
     "meanderAngle",
-    "meanderWavelength"
+    "meanderWavelength",
+    "azemichiWidth",
+    "azemichiSpeed",
+    "azemichiMaximumLength",
+    "azemichiLoopReach",
+    "azemichiTurnPenalty",
+    "azemichiAccessReach",
+    "azemichiBridgeReach"
   ],
   "properties": {
     "plotLength": {
@@ -215,6 +222,41 @@
       "type": "number",
       "minimum": 200.0,
       "maximum": 1200.0
+    },
+    "azemichiWidth": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 4.0
+    },
+    "azemichiSpeed": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 40.0
+    },
+    "azemichiMaximumLength": {
+      "type": "number",
+      "minimum": 50.0,
+      "maximum": 3000.0
+    },
+    "azemichiLoopReach": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 600.0
+    },
+    "azemichiTurnPenalty": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 500.0
+    },
+    "azemichiAccessReach": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 2000.0
+    },
+    "azemichiBridgeReach": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 400.0
     }
   }
 }

@@ -3,6 +3,7 @@
 #include "../render/RenderQuality.hpp"
 #include "../ui/LocationTooltip.hpp"
 #include "../gen/SettlementNames.hpp"
+#include "../gen/StreetProfile.hpp"
 #include "EdgeSectionState.hpp"
 #include "../traffic/VehiclePose.hpp"
 #include "../ui/DrivingHud.hpp"
@@ -1039,7 +1040,7 @@ void GameScene::render2DUI()
 				if(content.road.isEmpty() || route->kind==RoadRouteKind::Named) { content.road=route->name; }
 				if(route->kind==RoadRouteKind::NationalRoute) { content.nationalNumber=route->number; }
 			}
-			if(content.road.isEmpty()) { content.road=edge->farmAccess ? U"農道" : edge->roadType==RoadType::Arterial ? U"幹線道路" : U"生活道路"; }
+			if(content.road.isEmpty()) { content.road=GeneratedStreet::isAzemichi(*edge) ? U"畦道" : edge->farmAccess ? U"農道" : edge->roadType==RoadType::Arterial ? U"幹線道路" : U"生活道路"; }
 		}
 		const double bottomInset=m_frameRateGraph.visible ? Scene::Height()-m_frameRateGraph.bounds(Scene::Size()).y+12 : 12;
 		LocationTooltip::draw(Scene::Size(),content,FontAsset(Asset::CJK14),TextureAsset(Asset::NationalRoadSign),bottomInset);

@@ -139,4 +139,29 @@ namespace GeneratedStreet
 		pole.useDefinitionRepeatSpacing=false; pole.useDefinitionRepeatJitter=false; pole.build=BuildState::Built;
 		edge.parts << pole;
 	}
+
+	/// @brief 畦道（末端の耕作道）の路盤部品。土と砂利の路面で、舗装した農道と見分ける。
+	inline constexpr StringView kAzemichiRoadbed=U"roadbed_earth";
+
+	/// @brief 田と田の間を通る幅2m前後の畦道にする。路盤と区画線（なし）だけが道路と異なり、車両経路・接続・保存は通常の道路と共有する。
+	/// @details 農水省の標準図の耕作道路（全幅2.0〜2.5m）にならい、路肩・側溝・電柱・区画線を持たない。
+	inline void applyAzemichi(RoadEdge& edge)
+	{
+		const auto& config=GenerationSettings::get();
+		Profile profile=describe(Role::FarmAccess);
+		profile.laneWidth=static_cast<float>(config.agriculture_azemichiWidth/profile.lanes);
+		profile.speed=config.agriculture_azemichiSpeed;
+		profile.walkwayLeft=profile.walkwayRight=0; profile.shoulder=0;
+		profile.center=LineType::None; profile.edgeLines=false; profile.arterial=false; profile.coveredGutter=false;
+		apply(edge,profile);
+		edge.parts.remove_if([](const RoadPart& part) { return part.type!=RoadPartType::Roadbed; });
+		for (auto& part : edge.parts) { part.defId=kAzemichiRoadbed; }
+		edge.farmAccess=true;
+	}
+
+	/// @brief 畦道か。舗装した農道（同じく farmAccess）とは路盤で区別する。
+	inline bool isAzemichi(const RoadEdge& edge)
+	{
+		return edge.farmAccess && edge.parts.any([](const RoadPart& part) { return part.type==RoadPartType::Roadbed && part.defId==kAzemichiRoadbed; });
+	}
 }

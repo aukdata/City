@@ -363,13 +363,11 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 	{
 		if (!layout.elevated) { vertex.pos.y = static_cast<float>(world.sampleHeight(vertex.pos.x, vertex.pos.z) + kRoadSurfaceLift); }
 	}
-	const auto& roadbedDefinition = m_partRegistry.get(U"roadbed_asphalt");
+	const StringView roadbedId = junctionRoadbed(network, nodeId);
+	const auto& roadbedDefinition = m_partRegistry.get(roadbedId);
 	ColorF asphaltColor{ 0.29, 0.30, 0.32 };
-	for (const auto& attachment : network.getNode(nodeId)->attachments)
-	{
-		const auto* edge = network.getEdge(attachment.edgeId);
-		if (edge && edge->roadType == RoadType::Arterial) { asphaltColor = ColorF{ 0.29, 0.30, 0.32 }; break; }
-	}
+	// 畦道だけの節点は、畦道の路盤と同じ土の色で描く。
+	if (roadbedId != U"roadbed_asphalt") { asphaltColor = roadbedDefinition.color.removeSRGBCurve(); }
 	addEntry(std::move(asphalt), asphaltColor, roadbedDefinition.texture ? &*roadbedDefinition.texture : nullptr);
 	// Acute arms may overlap beyond their nominal cut mouths. Clip roadside
 	// bands against the entire connected pavement, not only the cap polygon.

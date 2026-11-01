@@ -267,7 +267,7 @@ private:
 	/// @brief GPU に依存しない遠景用メッシュの頂点計算。読み取り専用で、複数スレッドから同時に呼べる。
 	struct FallbackPartData { MeshData data; ColorF color; const Texture* texture = nullptr; RoadPartType type = RoadPartType::Roadbed; bool asphalt = true; };
 	struct FallbackEdgeData { int64 chunk = 0; int nodeA = -1, nodeB = -1; Array<FallbackPartData> parts; };
-	struct FallbackNodeData { bool valid = false; int64 chunk = 0; MeshData data; };
+	struct FallbackNodeData { bool valid = false; int64 chunk = 0; MeshData data; StringView roadbed = U"roadbed_asphalt"; };
 	[[nodiscard]] FallbackEdgeData buildFallbackEdgeData(const RoadEdge& edge,const RoadNetwork& network,const World& world) const;
 	[[nodiscard]] FallbackNodeData buildFallbackNodeData(int nodeId,const RoadNetwork& network,const World& world) const;
 	/// @param createMeshes false のとき GPU メッシュは初めて描く時まで作らず、遠景バッチ用の頂点だけを登録する。

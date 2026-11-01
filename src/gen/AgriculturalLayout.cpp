@@ -7,6 +7,7 @@
 #include "RoadTerrainFit.hpp"
 #include "../road/RoadPlanDraft.hpp"
 #include "../debug/DebugLog.hpp"
+#include <queue>
 
 namespace AgriculturalLayout
 {
@@ -214,6 +215,730 @@ namespace AgriculturalLayout
 				}
 			}
 			return placed;
+		}
+		/// @brief 既存道の接続点を節点にする。途中なら分割し、分割した道路に接道していた建物は近い方の子の道路へ付け替える。
+		int attachToRoad(World& world,RoadNetwork& roads,const RoadPlanSnapIndex::Hit& hit,double snap)
+		{
+			const auto* edge=roads.getEdge(*hit.edgeId); if (!edge) { return -1; }
+			for (const int nodeId : {edge->nodeA,edge->nodeB})
+			{
+				if (horizontal(roads.getNode(nodeId)->position).distanceFrom(horizontal(hit.position))<snap) { return nodeId; }
+			}
+			// 分割した道路に接道していた建物は、近い方の子の道路へ付け替える。
+			const int parent=*hit.edgeId;
+			const auto parentCurve=roads.getBezier(parent);
+			const int split=roads.splitEdgeAtParameter(parent,hit.curveT);
+			if (split<0 || !parentCurve) { return split; }
+			Array<std::pair<int,CubicBezier>> children;
+			for (const auto& attachment : roads.getNode(split)->attachments)
+			{
+				if (const auto curve=roads.getBezier(attachment.edgeId)) { children.emplace_back(attachment.edgeId,*curve); }
+			}
+			Vec2 low{Math::Inf,Math::Inf},high{-Math::Inf,-Math::Inf};
+			for (const Vec3 p : {parentCurve->p0,parentCurve->p1,parentCurve->p2,parentCurve->p3}) { low={Min(low.x,p.x),Min(low.y,p.z)};high={Max(high.x,p.x),Max(high.y,p.z)}; }
+			constexpr double kFrontageMargin=80;constexpr int kSamples=32;
+			const int left=static_cast<int>(Floor((low.x-kFrontageMargin)/kCellSize)),right=static_cast<int>(Floor((high.x+kFrontageMargin)/kCellSize));
+			const int top=static_cast<int>(Floor((low.y-kFrontageMargin)/kCellSize)),bottom=static_cast<int>(Floor((high.y+kFrontageMargin)/kCellSize));
+			for (int z=Max(0,top);z<=bottom;++z) for (int x=Max(0,left);x<=right;++x)
+			{
+				auto* chunk=world.getChunk({x/ZONE_CELLS,z/ZONE_CELLS}); if (!chunk) { continue; }
+				auto& building=chunk->buildingGrid[{x%ZONE_CELLS,z%ZONE_CELLS}];
+				if (building.edgeId!=parent) { continue; }
+				const Vec2 position=Vec2{(x+.5)*kCellSize+building.offsetX,(z+.5)*kCellSize+building.offsetZ};
+				double best=Math::Inf;
+				for (const auto& [childId,curve] : children)
+				{
+					for (int i=0;i<=kSamples;++i)
+					{
+						const float t=static_cast<float>(i)/kSamples;const double distance=horizontal(curve.evaluate(t)).distanceFrom(position);
+						if (distance<best) { best=distance;building.edgeId=childId;building.edgeT=t; }
+					}
+				}
+				chunk->markMeshDirty();
+			}
+			return split;
+		}
+		/// @brief 道路が横切る田畑・水路を、道路の両側に分けて残す。多数の道路は32m格子で区画と照合する。
+		/// @param trimEnds 端で角が触れるだけの区画を切らないよう、判定する帯を両端で幅の半分だけ短くする。
+		void clipFieldsAlong(World& world,const Array<std::pair<Vec2,Vec2>>& lines,double half,bool trimEnds=false)
+		{
+			const auto& config=GenerationSettings::get();
+			struct Corridor { Vec2 from, normal; Polygon band; RectF bounds; };
+			constexpr double kCell=32;
+			const auto cellOf=[](Vec2 p) { return Point{static_cast<int>(Floor(p.x/kCell)),static_cast<int>(Floor(p.y/kCell))}; };
+			Array<Corridor> corridors; HashTable<Point,Array<int>> grid; HashSet<Point> chunks;
+			for (const auto& [from,to]:lines)
+			{
+				if (from.distanceFromSq(to)<1e-6) { continue; }
+				const Vec2 direction=(to-from).normalized(),normal{-direction.y,direction.x};
+				const Vec2 trim=trimEnds && from.distanceFrom(to)>half*4 ? direction*half : Vec2{0,0};
+				Corridor corridor{from,normal,Polygon{Array<Vec2>{from+trim-normal*half,to-trim-normal*half,to-trim+normal*half,from+trim+normal*half}},
+					RectF{Vec2{Min(from.x,to.x),Min(from.y,to.y)},Vec2{Abs(to.x-from.x),Abs(to.y-from.y)}}.stretched(half+1)};
+				const int index=static_cast<int>(corridors.size());
+				const Point low=cellOf(corridor.bounds.tl()), high=cellOf(corridor.bounds.br());
+				for (int z=low.y;z<=high.y;++z) { for (int x=low.x;x<=high.x;++x) { grid[Point{x,z}] << index; } }
+				for (int z=static_cast<int>(corridor.bounds.y/CHUNK_SIZE);z<=static_cast<int>((corridor.bounds.y+corridor.bounds.h)/CHUNK_SIZE);++z)
+				{
+					for (int x=static_cast<int>(corridor.bounds.x/CHUNK_SIZE);x<=static_cast<int>((corridor.bounds.x+corridor.bounds.w)/CHUNK_SIZE);++x) { chunks.insert(Point{x,z}); }
+				}
+				corridors << std::move(corridor);
+			}
+			const auto clip=[](const Array<Vec2>& polygon,Vec2 origin,Vec2 keep)
+			{
+				Array<Vec2> result;
+				for (size_t i=0;i<polygon.size();++i)
+				{
+					const Vec2 p0=polygon[i],p1=polygon[(i+1)%polygon.size()];
+					const double d0=(p0-origin).dot(keep),d1=(p1-origin).dot(keep);
+					if (d0>=0) { result << p0; }
+					if ((d0>=0)!=(d1>=0)) { result << p0.lerp(p1,d0/(d0-d1)); }
+				}
+				return result;
+			};
+			const auto area=[](const Array<Vec2>& polygon)
+			{
+				double sum=0; for (size_t i=0;i<polygon.size();++i) { const Vec2 a=polygon[i],b=polygon[(i+1)%polygon.size()]; sum+=a.x*b.y-b.x*a.y; } return Abs(sum)*.5;
+			};
+			for (const Point coord:chunks)
+			{
+				auto* chunk=world.getChunk(coord); if (!chunk) { continue; }
+				Array<LandPatch> pieces; bool changed=false;
+				for (auto& patch:chunk->landPatches)
+				{
+					if ((patch.type!=LandPatchType::PaddyField && patch.type!=LandPatchType::FarmField && patch.type!=LandPatchType::IrrigationDitch)
+						|| patch.polygon.size()<3) { continue; }
+					Vec2 low=patch.polygon.front(),high=low;
+					for (const Vec2 p:patch.polygon) { low={Min(low.x,p.x),Min(low.y,p.y)}; high={Max(high.x,p.x),Max(high.y,p.y)}; }
+					const RectF bounds{low,high-low};
+					HashSet<int> nearby;
+					const Point a=cellOf(low), b=cellOf(high);
+					for (int z=a.y;z<=b.y;++z) { for (int x=a.x;x<=b.x;++x) { if (const auto found=grid.find(Point{x,z});found!=grid.end()) { for (const int i:found->second) { if (corridors[i].bounds.intersects(bounds)) { nearby.insert(i); } } } } }
+					if (nearby.empty()) { continue; }
+					Array<int> order(nearby.begin(),nearby.end()); order.sort();
+					Array<Array<Vec2>> parts{patch.polygon}; bool split=false;
+					for (const int i:order)
+					{
+						const auto& corridor=corridors[i];
+						Array<Array<Vec2>> next;
+						for (const auto& part:parts)
+						{
+							Array<Vec2> outline=part; UrbanParcel::normalize(outline);
+							if (outline.size()<3 || !Polygon{outline}.intersects(corridor.band)) { next << part; continue; }
+							// 線分の範囲外へはみ出す区画もあるので、両側を半平面で切る。
+							split=true;
+							for (const auto& side:{clip(part,corridor.from+corridor.normal*half,corridor.normal),clip(part,corridor.from-corridor.normal*half,-corridor.normal)})
+							{
+								// 畦道は区画の縁を通るので、角をかすめて生じる三角形の切れ端や細い帯は田として残さない。
+								const bool sliver=trimEnds && patch.type!=LandPatchType::IrrigationDitch && (side.size()<4 || area(side)<area(part)*.2);
+								if (!sliver && side.size()>=3 && area(side)>=(patch.type==LandPatchType::IrrigationDitch ? 1.0 : config.agriculture_minimumFieldArea*.25)) { next << side; }
+							}
+						}
+						parts=std::move(next);
+					}
+					if (!split) { continue; }
+					changed=true;
+					for (auto& part:parts) { LandPatch piece=patch; piece.polygon=std::move(part); pieces << std::move(piece); }
+					patch.polygon.clear();
+				}
+				if (changed)
+				{
+					chunk->landPatches.remove_if([](const LandPatch& patch) { return patch.polygon.size()<3; });
+					for (auto& piece:pieces) { piece.id=static_cast<int>(chunk->landPatches.size()); chunk->landPatches << std::move(piece); }
+					chunk->markMeshDirty();
+				}
+			}
+		}
+		/// @brief 畦道の生成結果。
+		struct AzemichiResult
+		{
+			int fields=0, frontage=0, connected=0, unreachable=0, edges=0, loops=0, deadEnds=0, bridges=0, accesses=0, stranded=0;
+			double length=0;
+			std::array<double,7> phaseMs{}; ///< 区画収集・畦の検査・経路探索・経路選択・道路追加・地形と区画の調整が終わった時刻。
+		};
+		/// @brief 道路に面していない田畑を、畦をたどる畦道で道路網へつなぐ。
+		/// @details 日本の水田では、農家は道路・農道から畦道を通って奥の田へ入る。区画の頂点を畦の交点、辺を畦とみなし、
+		///   道路沿いの交点から曲がりの少ない最短経路木を伸ばして、どの田畑も1辺以上が道路か畦道に面するようにする。
+		///   木の末端は近くの畦道・道路へ戻れれば輪にし、戻れなければ最後の田で終わる（末端の耕作道）。
+		AzemichiResult connectFieldsByAzemichi(World& world,RoadNetwork& roads,const Sites& sites,const TrainNetwork* railway)
+		{
+			const auto& config=GenerationSettings::get();
+			AzemichiResult result; const Stopwatch phase{StartImmediately::Yes};
+			constexpr double kMerge=4.5;     ///< 隣の田の角をまとめる距離。0.97倍に縮めた区画の角どうしは最大約4m離れる。
+			constexpr double kRoadReach=6.5; ///< 道路の縁からこの距離にある畦の交点は、その道路へ取り付ける。
+			constexpr double kFrontage=5.0;  ///< 区画の辺の中点が道路の縁からこの距離なら、その田畑は道路に面している。
+			constexpr double kSample=8;
+			constexpr double kVertexCell=32;
+			Array<Array<Vec2>> fields;
+			for (int z=0;z<WORLD_CHUNKS;++z) { for (int x=0;x<WORLD_CHUNKS;++x)
+			{
+				const auto* chunk=world.getChunk({x,z}); if (!chunk) { continue; }
+				for (const auto& patch:chunk->landPatches)
+				{
+					if ((patch.type==LandPatchType::PaddyField || patch.type==LandPatchType::FarmField) && (patch.materialVariant & kManagedField) && patch.polygon.size()>=3)
+					{
+						fields << patch.polygon;
+					}
+				}
+			} }
+			result.fields=static_cast<int>(fields.size());
+			if (fields.isEmpty()) { return result; }
+			RoadPlanSnapIndex roadIndex; roadIndex.rebuild(roads);
+			const auto accessRoad=[](const RoadEdge& edge)
+			{
+				return edge.hasRoadLanes() && edge.isRoadbedBuilt() && !edge.useElevation && !edge.tunnel && edge.roadType!=RoadType::Expressway;
+			};
+			const auto roadHit=[&](Vec2 point,double reach) { return roadIndex.find(roads,groundPoint(world,point),reach+16,Math::Inf,false,accessRoad); };
+			/// 道路の縁からの水平距離。道路の上なら負になる。
+			const auto roadGap=[&](Vec2 point,double reach)
+			{
+				const auto hit=roadHit(point,reach);
+				if (!hit.edgeId) { return Math::Inf; }
+				return horizontal(hit.position).distanceFrom(point)-roads.getEdge(*hit.edgeId)->totalWidth()*.5;
+			};
+			// 畦の交点: 隣り合う田の角を1点にまとめる。連鎖して遠くの角まで併合しないよう、最初の角を基準にする。
+			Array<Vec2> seeds, sums; Array<int> counts; HashTable<Point,Array<int>> mergeGrid;
+			const auto mergeCell=[](Vec2 p) { return Point{static_cast<int>(Floor(p.x/kMerge)),static_cast<int>(Floor(p.y/kMerge))}; };
+			const auto cluster=[&](Vec2 p)
+			{
+				const Point cell=mergeCell(p); int best=-1; double bestDistance=kMerge*kMerge;
+				for (int dz=-1;dz<=1;++dz) { for (int dx=-1;dx<=1;++dx)
+				{
+					const auto found=mergeGrid.find(cell+Point{dx,dz}); if (found==mergeGrid.end()) { continue; }
+					for (const int id:found->second) { const double d=seeds[id].distanceFromSq(p); if (d<=bestDistance) { best=id; bestDistance=d; } }
+				} }
+				if (best<0) { best=static_cast<int>(seeds.size()); seeds << p; sums << Vec2{0,0}; counts << 0; mergeGrid[cell] << best; }
+				sums[best]+=p; ++counts[best];
+				return best;
+			};
+			Array<Array<int>> corners(fields.size());
+			for (size_t i=0;i<fields.size();++i) { for (const Vec2 p:fields[i]) { corners[i] << cluster(p); } }
+			Array<Vec2> position(seeds.size());
+			for (size_t id=0;id<seeds.size();++id) { position[id]=sums[id]/counts[id]; }
+			HashTable<Point,Array<int>> vertexGrid;
+			const auto vertexCell=[](Vec2 p) { return Point{static_cast<int>(Floor(p.x/kVertexCell)),static_cast<int>(Floor(p.y/kVertexCell))}; };
+			for (size_t id=0;id<position.size();++id) { vertexGrid[vertexCell(position[id])] << static_cast<int>(id); }
+			// 畦: 区画の辺を交点で区切った線分。隣の区画の角が辺の途中に来る T 字も交点として分ける。
+			struct Bund { int a=0, b=0; double length=0; Array<int> fields; bool usable=true; bool built=false; };
+			Array<Bund> bunds; HashTable<uint64,int> bundIndex; Array<Array<int>> adjacency(position.size());
+			const auto addBund=[&](int a,int b,int field)
+			{
+				if (a==b) { return -1; }
+				const uint64 key=(static_cast<uint64>(Min(a,b))<<32)|static_cast<uint32>(Max(a,b));
+				auto found=bundIndex.find(key);
+				if (found==bundIndex.end())
+				{
+					found=bundIndex.emplace(key,static_cast<int>(bunds.size())).first;
+					Bund bund; bund.a=a; bund.b=b; bund.length=position[a].distanceFrom(position[b]); bunds << bund;
+					adjacency[a] << found->second; adjacency[b] << found->second;
+				}
+				auto& owners=bunds[found->second].fields;
+				if (!owners.contains(field)) { owners << field; }
+				return found->second;
+			};
+			for (size_t i=0;i<fields.size();++i)
+			{
+				const auto& ids=corners[i];
+				for (size_t k=0;k<ids.size();++k)
+				{
+					const int a=ids[k], b=ids[(k+1)%ids.size()];
+					if (a==b) { continue; }
+					const Vec2 pa=position[a], delta=position[b]-pa; const double lengthSq=delta.lengthSq();
+					if (lengthSq<1) { continue; }
+					Array<std::pair<double,int>> splits;
+					const Point low=vertexCell({Min(pa.x,position[b].x)-kMerge,Min(pa.y,position[b].y)-kMerge});
+					const Point high=vertexCell({Max(pa.x,position[b].x)+kMerge,Max(pa.y,position[b].y)+kMerge});
+					for (int cz=low.y;cz<=high.y;++cz) { for (int cx=low.x;cx<=high.x;++cx)
+					{
+						const auto found=vertexGrid.find(Point{cx,cz}); if (found==vertexGrid.end()) { continue; }
+						for (const int v:found->second)
+						{
+							if (v==a || v==b) { continue; }
+							const double t=(position[v]-pa).dot(delta)/lengthSq;
+							if (t>.02 && t<.98 && (pa+delta*t).distanceFrom(position[v])<=kMerge*.8) { splits.emplace_back(t,v); }
+						}
+					} }
+					std::sort(splits.begin(),splits.end());
+					int previous=a;
+					for (const auto& split:splits) { addBund(previous,split.second,static_cast<int>(i)); previous=split.second; }
+					addBund(previous,b,static_cast<int>(i));
+				}
+			}
+			// 道路に取り付けられる交点と、すでに道路に面している田畑。
+			Array<double> gap(position.size());
+			for (size_t id=0;id<position.size();++id) { gap[id]=roadGap(position[id],kRoadReach); }
+			Array<double> frontageGap=gap; ///< 草地を横切って道路へ出す交点は、取り付け用の短い畦道を別に作る。
+			const auto atRoad=[&](int v) { return gap[v]<=kRoadReach; };
+			Array<bool> served(fields.size(),false);
+			for (size_t i=0;i<fields.size();++i)
+			{
+				const auto& polygon=fields[i];
+				for (size_t k=0;k<polygon.size() && !served[i];++k)
+				{
+					const Vec2 a=polygon[k], b=polygon[(k+1)%polygon.size()];
+					served[i]=a.distanceFrom(b)>=8 && roadGap((a+b)*.5,kFrontage)<=kFrontage;
+				}
+				result.frontage+=served[i];
+			}
+			// 田畑の内部を横切る線は畦ではない。区画の境界から1m以上内側に入る標本があれば横切ると判定する。
+			constexpr double kFieldCell=64;
+			HashTable<Point,Array<int>> fieldGrid;
+			const auto fieldCell=[](Vec2 p) { return Point{static_cast<int>(Floor(p.x/kFieldCell)),static_cast<int>(Floor(p.y/kFieldCell))}; };
+			Array<RectF> fieldBounds(fields.size());
+			for (size_t i=0;i<fields.size();++i)
+			{
+				Vec2 low=fields[i].front(),high=fields[i].front();
+				for (const Vec2 p:fields[i]) { low={Min(low.x,p.x),Min(low.y,p.y)}; high={Max(high.x,p.x),Max(high.y,p.y)}; }
+				fieldBounds[i]=RectF{low,high-low};
+				const Point a=fieldCell(low), b=fieldCell(high);
+				for (int cz=a.y;cz<=b.y;++cz) { for (int cx=a.x;cx<=b.x;++cx) { fieldGrid[Point{cx,cz}] << static_cast<int>(i); } }
+			}
+			const auto insideField=[&](Vec2 p)
+			{
+				const auto found=fieldGrid.find(fieldCell(p)); if (found==fieldGrid.end()) { return false; }
+				for (const int i:found->second)
+				{
+					if (!fieldBounds[i].contains(p)) { continue; }
+					const auto& polygon=fields[i]; bool inside=false; double edge=Math::Inf;
+					for (size_t k=0,j=polygon.size()-1;k<polygon.size();j=k++)
+					{
+						const Vec2 a=polygon[k], b=polygon[j];
+						if ((a.y>p.y)!=(b.y>p.y) && p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x) { inside=!inside; }
+						const Vec2 d=b-a; const double t=Clamp((p-a).dot(d)/Max(d.lengthSq(),1e-9),0.0,1.0);
+						edge=Min(edge,(a+d*t).distanceFrom(p));
+					}
+					if (inside && edge>1.0) { return true; }
+				}
+				return false;
+			};
+			// 道路に沿う畦・道路や田を横切る畦・建物や線路にかかる畦・水際は畦道にしない。
+			RoadNetwork noRoads; ParcelRoadIndex rail{noRoads};
+			if (railway) { rail.addRailway(*railway); }
+			const double half=config.agriculture_azemichiWidth*.5;
+			const auto usableSegment=[&](int a,int b)
+			{
+				const Vec2 pa=position[a], pb=position[b]; const double length=pa.distanceFrom(pb);
+				if (atRoad(a) && atRoad(b) && roadGap((pa+pb)*.5,kRoadReach)<=kRoadReach) { return false; }
+				const int samples=Max(2,static_cast<int>(Ceil(length/4)));
+				for (int j=1;j<samples;++j)
+				{
+					const Vec2 p=pa.lerp(pb,static_cast<double>(j)/samples);
+					if (insideField(p)) { return false; }
+					if (j%2) { continue; }
+					const bool nearRoadEnd=(atRoad(a) && p.distanceFrom(pa)<kRoadReach+6) || (atRoad(b) && p.distanceFrom(pb)<kRoadReach+6);
+					if (!nearRoadEnd && roadGap(p,kRoadReach)<=1.5) { return false; }
+					if (groundPoint(world,p).y<=world.waterPlanningHeight(p.x,p.y)+.3) { return false; }
+				}
+				const auto quad=ribbon(pa,pb,half+.5);
+				return !sites.occupied.overlaps(quad) && !rail.overlaps(quad)
+					&& Abs(groundPoint(world,pa).y-groundPoint(world,pb).y)<=Max(length,1.0)*.15;
+			};
+			result.phaseMs[0]=phase.msF();
+			for (auto& bund:bunds) { bund.usable=usableSegment(bund.a,bund.b); }
+			result.phaseMs[1]=phase.msF();
+			// 道路沿いの交点から、曲がるたびに費用を足す最短経路木を伸ばす。状態は「どの畦をどちら向きに通ったか」。
+			const auto stateFrom=[&](int state) { return state&1 ? bunds[state>>1].b : bunds[state>>1].a; };
+			const auto stateTo=[&](int state) { return state&1 ? bunds[state>>1].a : bunds[state>>1].b; };
+			const auto heading=[&](int state) { return (position[stateTo(state)]-position[stateFrom(state)]).normalized(); };
+			const auto leaving=[&](int bund,int vertex) { return bunds[bund].a==vertex ? bund*2 : bund*2+1; };
+			Array<double> distance; Array<int> parent;
+			const auto search=[&]()
+			{
+				distance.assign(bunds.size()*2,Math::Inf); parent.assign(bunds.size()*2,-1);
+				std::priority_queue<std::pair<double,int>,std::vector<std::pair<double,int>>,std::greater<>> queue;
+				for (size_t v=0;v<position.size();++v)
+				{
+					if (!atRoad(static_cast<int>(v))) { continue; }
+					for (const int bund:adjacency[v])
+					{
+						if (!bunds[bund].usable) { continue; }
+						const int state=leaving(bund,static_cast<int>(v));
+						if (bunds[bund].length<distance[state]) { distance[state]=bunds[bund].length; queue.emplace(distance[state],state); }
+					}
+				}
+				while (!queue.empty())
+				{
+					const auto [cost,state]=queue.top(); queue.pop();
+					if (cost>distance[state]) { continue; }
+					const int vertex=stateTo(state);
+					// 別の道路沿いに着いたら、そこから先はその道路を起点にした方が短い。
+					if (atRoad(vertex)) { continue; }
+					const Vec2 incoming=heading(state);
+					for (const int bund:adjacency[vertex])
+					{
+						if (bund==(state>>1) || !bunds[bund].usable) { continue; }
+						const int next=leaving(bund,vertex);
+						const double turn=incoming.dot(heading(next));
+						if (turn<-.5) { continue; }
+						const double total=cost+bunds[bund].length+(turn<.94 ? config.agriculture_azemichiTurnPenalty : 0);
+						if (total<distance[next] && total<=config.agriculture_azemichiMaximumLength) { distance[next]=total; parent[next]=state; queue.emplace(total,next); }
+					}
+				}
+			};
+			search();
+			// 隣の田と角を共有しない離れた区画（家や道に挟まれた田、間に草地を挟む田など）は、近くの道路か
+			// 届いている交点まで草地を横切る短い畦道を足してから探し直す。届いた区画が次の区画の足掛かりになるので数回繰り返す。
+			for (int round=0;round<3;++round)
+			{
+				const double kBridge=config.agriculture_azemichiBridgeReach;
+				Array<bool> reached(position.size(),false);
+				for (size_t v=0;v<position.size();++v) { reached[v]=atRoad(static_cast<int>(v)); }
+				for (size_t state=0;state<distance.size();++state) { if (distance[state]<Math::Inf) { reached[stateTo(static_cast<int>(state))]=true; } }
+				int bridges=0;
+				for (size_t field=0;field<fields.size();++field)
+				{
+					if (served[field] || corners[field].any([&](int v) { return reached[v]; })) { continue; }
+					// 近い順に候補を並べ、通れる最初の1本だけを足す。道路へ直接出られるなら、その角を道路への取り付け点にする。
+					Array<std::tuple<double,int,int>> candidates; ///< 距離・区画の角・接続先の交点（-1は道路）
+					for (const int v:corners[field])
+					{
+						if (const auto hit=roadHit(position[v],kBridge); hit.edgeId)
+						{
+							const double reach=horizontal(hit.position).distanceFrom(position[v])-roads.getEdge(*hit.edgeId)->totalWidth()*.5;
+							if (reach<kBridge) { candidates.emplace_back(reach,v,-1); }
+						}
+						const Point low=vertexCell(position[v]-Vec2{kBridge,kBridge}), high=vertexCell(position[v]+Vec2{kBridge,kBridge});
+						for (int cz=low.y;cz<=high.y;++cz) { for (int cx=low.x;cx<=high.x;++cx)
+						{
+							const auto found=vertexGrid.find(Point{cx,cz}); if (found==vertexGrid.end()) { continue; }
+							for (const int w:found->second)
+							{
+								if (!reached[w] || corners[field].contains(w)) { continue; }
+								const double d=position[v].distanceFrom(position[w]);
+								if (d>=1 && d<kBridge) { candidates.emplace_back(d,v,w); }
+							}
+						} }
+					}
+					std::sort(candidates.begin(),candidates.end());
+					for (size_t index=0;index<Min<size_t>(candidates.size(),8);++index)
+					{
+						const auto [length,v,w]=candidates[index];
+						if (w>=0)
+						{
+							if (!usableSegment(v,w)) { continue; }
+							if (const int bund=addBund(v,w,static_cast<int>(field)); bund>=0) { bunds[bund].usable=true; }
+						}
+						else
+						{
+							const auto hit=roadHit(position[v],kBridge);
+							const Vec2 target=horizontal(hit.position);
+							bool clear=true;
+							const int samples=Max(2,static_cast<int>(Ceil(target.distanceFrom(position[v])/4)));
+							for (int j=1;j<samples && clear;++j)
+							{
+								const Vec2 p=position[v].lerp(target,static_cast<double>(j)/samples);
+								clear=!insideField(p) && groundPoint(world,p).y>world.waterPlanningHeight(p.x,p.y)+.3;
+							}
+							if (!clear || sites.occupied.overlaps(ribbon(position[v],position[v].lerp(target,.5),half+.5)) || rail.overlaps(ribbon(position[v],target,half+.5))) { continue; }
+							frontageGap[v]=Max(length,frontageGap[v]); gap[v]=0;
+						}
+						++bridges;
+						break;
+					}
+				}
+				result.bridges+=bridges;
+				if (bridges==0) { break; }
+				search();
+			}
+			// 道路から離れた田の集まり（ほ場整備の格子など）は、畦でつながる一団ごとに、最寄りの道路か
+			// すでに届いている畦道まで草地を通る耕作道を1本だけ引いてから探し直す。届いた一団が次の足掛かりになる。
+			for (int round=0;round<3;++round)
+			{
+				const double kLongReach=config.agriculture_azemichiAccessReach;
+				Array<int> root(position.size());
+				for (size_t v=0;v<root.size();++v) { root[v]=static_cast<int>(v); }
+				const auto find=[&](int v) { while (root[v]!=v) { root[v]=root[root[v]]; v=root[v]; } return v; };
+				for (const auto& bund:bunds) { if (bund.usable) { root[find(bund.a)]=find(bund.b); } }
+				Array<bool> reached(position.size(),false);
+				for (size_t v=0;v<position.size();++v) { reached[v]=atRoad(static_cast<int>(v)); }
+				for (size_t state=0;state<distance.size();++state) { if (distance[state]<Math::Inf) { reached[stateTo(static_cast<int>(state))]=true; } }
+				constexpr double kReachedCell=256;
+				HashTable<Point,Array<int>> reachedGrid;
+				for (size_t v=0;v<position.size();++v)
+				{
+					if (reached[v]) { reachedGrid[Point{static_cast<int>(Floor(position[v].x/kReachedCell)),static_cast<int>(Floor(position[v].y/kReachedCell))}] << static_cast<int>(v); }
+				}
+				HashTable<int,Array<int>> groups;
+				for (size_t field=0;field<fields.size();++field)
+				{
+					if (served[field] || corners[field].any([&](int v) { return reached[v]; })) { continue; }
+					groups[find(corners[field].front())] << static_cast<int>(field);
+				}
+				/// 草地を通る直線が、田・水域・急な起伏・道路の横断を避けているか。
+				const auto clearPath=[&](Vec2 from,Vec2 to,double endSlack)
+				{
+					const double length=from.distanceFrom(to);
+					const int samples=Max(2,static_cast<int>(Ceil(length/8)));
+					double previous=groundPoint(world,from).y;
+					for (int j=1;j<=samples;++j)
+					{
+						const Vec2 p=from.lerp(to,static_cast<double>(j)/samples);
+						const double height=groundPoint(world,p).y;
+						const bool nearEnd=p.distanceFrom(to)<endSlack;
+						if ((p.distanceFrom(from)>=3 && !nearEnd && insideField(p))
+							|| height<=world.waterPlanningHeight(p.x,p.y)+.3
+							|| Abs(height-previous)>length/samples*config.agriculture_maximumTrackGrade*2
+							|| (!nearEnd && roadGap(p,kRoadReach)<=1.5)) { return false; }
+						previous=height;
+					}
+					return true;
+				};
+				int accesses=0;
+				for (const auto& [group,members]:groups)
+				{
+					// 一団の角から近い道路と、一団の中心から近い到達済みの交点を候補にし、近い順に通れる1本を選ぶ。
+					Array<std::tuple<double,int,int>> candidates; ///< 距離・一団の角・接続先の交点（-1は道路）
+					Vec2 center{0,0}; int count=0;
+					for (const int member:members)
+					{
+						for (const int v:corners[member])
+						{
+							center+=position[v]; ++count;
+							const auto hit=roadHit(position[v],kLongReach);
+							if (!hit.edgeId) { continue; }
+							const double reach=horizontal(hit.position).distanceFrom(position[v])-roads.getEdge(*hit.edgeId)->totalWidth()*.5;
+							if (reach<=kLongReach) { candidates.emplace_back(reach,v,-1); }
+						}
+					}
+					center/=Max(count,1);
+					const int cells=static_cast<int>(Ceil(kLongReach/kReachedCell));
+					const Point middle{static_cast<int>(Floor(center.x/kReachedCell)),static_cast<int>(Floor(center.y/kReachedCell))};
+					Array<std::pair<double,int>> nearby;
+					for (int dz=-cells;dz<=cells;++dz) { for (int dx=-cells;dx<=cells;++dx)
+					{
+						const auto found=reachedGrid.find(middle+Point{dx,dz}); if (found==reachedGrid.end()) { continue; }
+						for (const int w:found->second) { nearby.emplace_back(position[w].distanceFromSq(center),w); }
+					} }
+					std::partial_sort(nearby.begin(),nearby.begin()+Min<size_t>(nearby.size(),24),nearby.end());
+					for (size_t index=0;index<Min<size_t>(nearby.size(),24);++index)
+					{
+						const int w=nearby[index].second; int best=-1; double bestDistance=kLongReach;
+						for (const int member:members) { for (const int v:corners[member]) { const double d=position[v].distanceFrom(position[w]); if (d<bestDistance) { bestDistance=d; best=v; } } }
+						if (best>=0) { candidates.emplace_back(bestDistance,best,w); }
+					}
+					std::sort(candidates.begin(),candidates.end());
+					for (size_t index=0;index<Min<size_t>(candidates.size(),40);++index)
+					{
+						const auto [length,v,w]=candidates[index];
+						if (w>=0)
+						{
+							if (!clearPath(position[v],position[w],3)) { continue; }
+							const auto quad=ribbon(position[v],position[w],half+.5);
+							if (sites.occupied.overlaps(quad) || rail.overlaps(quad)) { continue; }
+							int owner=members.front();
+							for (const int member:members) { if (corners[member].contains(v)) { owner=member; break; } }
+							if (const int bund=addBund(v,w,owner); bund>=0) { bunds[bund].usable=true; }
+						}
+						else
+						{
+							const auto hit=roadHit(position[v],kLongReach);
+							const Vec2 target=horizontal(hit.position);
+							const double width=roads.getEdge(*hit.edgeId)->totalWidth();
+							if (!clearPath(position[v],target,width*.5+6)) { continue; }
+							const auto quad=ribbon(position[v],target-(target-position[v]).normalized()*Min(position[v].distanceFrom(target)*.5,width*.5+2),half+.5);
+							if (sites.occupied.overlaps(quad) || rail.overlaps(quad)) { continue; }
+							gap[v]=0; frontageGap[v]=Max(length,kRoadReach+.1);
+						}
+						++accesses;
+						break;
+					}
+				}
+				result.accesses+=accesses;
+				if (accesses==0) { break; }
+				search();
+			}
+			result.phaseMs[2]=phase.msF();
+			// 近い田から順に、まだ道に面していない田畑へ経路を通す。後の田は先に通した畦道を共有する。
+			Array<Array<int>> fieldBunds(fields.size());
+			for (size_t bund=0;bund<bunds.size();++bund) { for (const int field:bunds[bund].fields) { fieldBunds[field] << static_cast<int>(bund); } }
+			struct Target { double cost; int field; int state; };
+			Array<int> arrival(position.size(),-1);
+			for (size_t state=0;state<distance.size();++state)
+			{
+				if (distance[state]==Math::Inf) { continue; }
+				int& best=arrival[stateTo(static_cast<int>(state))];
+				if (best<0 || distance[state]<distance[best]) { best=static_cast<int>(state); }
+			}
+			Array<Target> targets;
+			for (size_t field=0;field<fields.size();++field)
+			{
+				if (served[field]) { continue; }
+				Target best{Math::Inf,static_cast<int>(field),-1};
+				for (const int bund:fieldBunds[field])
+				{
+					for (const int state:{bund*2,bund*2+1}) { if (distance[state]<best.cost) { best.cost=distance[state]; best.state=state; } }
+				}
+				// 辺に沿って入れない田も、角まで畦道が来れば角の進入口から入れる（一筆進入路）。
+				if (best.state<0)
+				{
+					bool roadCorner=false;
+					for (const int v:corners[field])
+					{
+						roadCorner|=atRoad(v);
+						if (arrival[v]>=0 && distance[arrival[v]]<best.cost) { best.cost=distance[arrival[v]]; best.state=arrival[v]; }
+					}
+					if (roadCorner) { ++result.connected; continue; }
+				}
+				if (best.state<0) { ++result.unreachable; continue; }
+				targets << best;
+			}
+			targets.sort_by([](const Target& x,const Target& y) { return x.cost<y.cost; });
+			for (const auto& target:targets)
+			{
+				if (fieldBunds[target.field].any([&](int bund) { return bunds[bund].built; })) { ++result.connected; continue; }
+				for (int state=target.state;state>=0;state=parent[state]) { bunds[state>>1].built=true; }
+				++result.connected;
+			}
+			// 末端は、近くの畦道か道路へ畦を1〜3本たどって戻れるなら輪にする。戻れない末端は最後の田で終わる。
+			Array<int> degree(position.size(),0);
+			for (const auto& bund:bunds) { if (bund.built) { ++degree[bund.a]; ++degree[bund.b]; } }
+			const auto anchored=[&](int v) { return atRoad(v) || degree[v]>0; };
+			for (size_t start=0;start<position.size();++start)
+			{
+				const int leaf=static_cast<int>(start);
+				if (degree[leaf]!=1 || atRoad(leaf)) { continue; }
+				// 畦道で4本以内にたどれる交点へ戻ると1枚の田を囲むだけの輪になるので、戻り先から外す。
+				HashSet<int> nearby{leaf}; Array<int> frontier{leaf};
+				for (int hop=0;hop<4;++hop)
+				{
+					Array<int> next;
+					for (const int v:frontier) { for (const int bund:adjacency[v]) { if (!bunds[bund].built) { continue; } const int w=bunds[bund].a==v ? bunds[bund].b : bunds[bund].a; if (nearby.insert(w).second) { next << w; } } }
+					frontier=std::move(next);
+				}
+				double bestLength=config.agriculture_azemichiLoopReach; Array<int> bestPath, path;
+				const auto search=[&](auto&& self,int vertex,double length,int depth) -> void
+				{
+					for (const int bund:adjacency[vertex])
+					{
+						const auto& item=bunds[bund];
+						if (item.built || !item.usable || path.contains(bund)) { continue; }
+						const double total=length+item.length; if (total>=bestLength) { continue; }
+						const int next=item.a==vertex ? item.b : item.a;
+						if (next==leaf) { continue; }
+						path << bund;
+						if (anchored(next) && !nearby.contains(next)) { bestLength=total; bestPath=path; }
+						else if (depth<3) { self(self,next,total,depth+1); }
+						path.pop_back();
+					}
+				};
+				search(search,leaf,0,1);
+				if (bestPath.isEmpty()) { continue; }
+				for (const int bund:bestPath) { bunds[bund].built=true; ++degree[bunds[bund].a]; ++degree[bunds[bund].b]; }
+				++result.loops;
+			}
+			result.phaseMs[3]=phase.msF();
+			// 畦道を道路網へ加える。直進が続く交点はまとめ、曲がる交点・分岐・道路への取り付けだけを節点にする。
+			const auto straightThrough=[&](int v)
+			{
+				if (degree[v]!=2) { return false; }
+				Array<Vec2> directions;
+				for (const int bund:adjacency[v]) { if (bunds[bund].built) { directions << (position[bunds[bund].a==v ? bunds[bund].b : bunds[bund].a]-position[v]).normalized(); } }
+				return directions.size()==2 && directions[0].dot(directions[1])<-.995;
+			};
+			const auto junction=[&](int v) { return atRoad(v) || !straightThrough(v); };
+			Array<int> nodeOf(position.size(),-1);
+			HashSet<int> added; HashSet<int> touched; Array<std::pair<Vec2,Vec2>> corridors;
+			/// 2つの節点を直線の畦道で結ぶ。
+			const auto connect=[&](int a,int b)
+			{
+				const Vec3 pa=roads.getNode(a)->position, pb=roads.getNode(b)->position;
+				if (a==b || horizontal(pb-pa).length()<3) { return false; }
+				const auto id=roads.addEdge(a,b,pa.lerp(pb,1.0/3),pa.lerp(pb,2.0/3),RoadType::LocalRoad,2);
+				if (!id) { return false; }
+				auto* edge=roads.getEdge(*id);
+				GeneratedStreet::applyAzemichi(*edge); edge->edgeState=EdgeState::Existing;
+				added.insert(*id); touched.insert(a); touched.insert(b);
+				corridors.emplace_back(horizontal(pa),horizontal(pb));
+				result.length+=horizontal(pb-pa).length();
+				return true;
+			};
+			const auto nodeFor=[&](int v)
+			{
+				if (nodeOf[v]>=0 && roads.getNode(nodeOf[v])) { return nodeOf[v]; }
+				int id=-1;
+				if (atRoad(v))
+				{
+					const bool bridged=frontageGap[v]>kRoadReach;
+					const auto hit=roadHit(position[v],bridged ? frontageGap[v]+kRoadReach : kRoadReach);
+					if (hit.edgeId)
+					{
+						id=attachToRoad(world,roads,hit,8);
+						if (id>=0) { for (const int child:roads.getNode(id)->edgeIds()) { roadIndex.appendEdge(roads,child); } }
+						// 離れた田の角から道路までは、角に節点を置いて短い畦道で結ぶ。
+						if (id>=0 && bridged)
+						{
+							const int corner=roads.addNode(groundPoint(world,position[v]),NodeType::Joint);
+							id=connect(id,corner) ? corner : -1;
+						}
+					}
+				}
+				else { id=roads.addNode(groundPoint(world,position[v]),NodeType::Joint); }
+				nodeOf[v]=id;
+				return id;
+			};
+			Array<bool> walked(bunds.size(),false);
+			for (size_t start=0;start<position.size();++start)
+			{
+				const int origin=static_cast<int>(start);
+				if (degree[origin]==0 || !junction(origin)) { continue; }
+				for (const int first:adjacency[origin])
+				{
+					if (!bunds[first].built || walked[first]) { continue; }
+					int vertex=origin, bund=first;
+					while (true)
+					{
+						walked[bund]=true;
+						vertex=bunds[bund].a==vertex ? bunds[bund].b : bunds[bund].a;
+						if (junction(vertex)) { break; }
+						int next=-1;
+						for (const int other:adjacency[vertex]) { if (other!=bund && bunds[other].built) { next=other; } }
+						if (next<0 || walked[next]) { break; }
+						bund=next;
+					}
+					const int a=nodeFor(origin), b=nodeFor(vertex);
+					if (a<0 || b<0) { continue; }
+					connect(a,b);
+				}
+			}
+			// 途中の取り付けに失敗して既存の道路網へ戻れない畦道は、道路網に浮いた島になるので取り除く。
+			{
+				HashSet<int> connected; Array<int> pending;
+				for (const auto& edge:roads.edges())
+				{
+					if (edge.id<0 || added.contains(edge.id)) { continue; }
+					for (const int node:{edge.nodeA,edge.nodeB}) { if (connected.insert(node).second) { pending << node; } }
+				}
+				for (size_t next=0;next<pending.size();++next)
+				{
+					for (const int id:roads.getNode(pending[next])->edgeIds())
+					{
+						const auto* edge=roads.getEdge(id); if (!edge) { continue; }
+						for (const int node:{edge->nodeA,edge->nodeB}) { if (connected.insert(node).second) { pending << node; } }
+					}
+				}
+				Array<int> stranded;
+				for (const int id:added) { if (const auto* edge=roads.getEdge(id); edge && !connected.contains(edge->nodeA)) { stranded << id; } }
+				for (const int id:stranded)
+				{
+					const auto* edge=roads.getEdge(id);
+					result.length-=horizontal(roads.getNode(edge->nodeB)->position-roads.getNode(edge->nodeA)->position).length();
+					roads.removeEdge(id); added.erase(id); ++result.stranded;
+				}
+			}
+			// 端点のない孤立した節点（取り付けに失敗した交点）は残さない。
+			for (const int v:nodeOf) { if (v>=0 && roads.getNode(v) && roads.getNode(v)->attachments.isEmpty()) { roads.removeNode(v); touched.erase(v); } }
+			for (const int node:touched) { if (roads.getNode(node)) { roads.updateNodeCutoffs(node); roads.rebuildLaneConnections(node); } }
+			result.phaseMs[4]=phase.msF();
+			if (!added.empty()) { RoadTerrainFit::apply(roads,world,added); }
+			result.phaseMs[5]=phase.msF();
+			clipFieldsAlong(world,corridors,half+.3,true);
+			result.phaseMs[6]=phase.msF();
+			result.edges=static_cast<int>(added.size());
+			for (const int id:added)
+			{
+				const auto* edge=roads.getEdge(id); if (!edge) { continue; }
+				for (const int node:{edge->nodeA,edge->nodeB}) { result.deadEnds+=roads.getNode(node)->attachments.size()==1; }
+			}
+			return result;
 		}
 	}
 
@@ -1001,47 +1726,7 @@ namespace AgriculturalLayout
 					const double middle=(line.low+line.high)*.5;
 					const auto first=reach(middle,-1),second=reach(middle,1);
 					if (!first || !second || *first->edgeId==*second->edgeId) { ++gridRoadRejected; continue; }
-					const auto attach=[&](const RoadPlanSnapIndex::Hit& hit) -> int
-					{
-						const auto* edge=roads.getEdge(*hit.edgeId); if (!edge) { return -1; }
-						for (const int nodeId : {edge->nodeA,edge->nodeB})
-						{
-							if (horizontal(roads.getNode(nodeId)->position).distanceFrom(horizontal(hit.position))<kSnap) { return nodeId; }
-						}
-						// 分割した道路に接道していた建物は、近い方の子の道路へ付け替える。
-						const int parent=*hit.edgeId;
-						const auto parentCurve=roads.getBezier(parent);
-						const int split=roads.splitEdgeAtParameter(parent,hit.curveT);
-						if (split<0 || !parentCurve) { return split; }
-						Array<std::pair<int,CubicBezier>> children;
-						for (const auto& attachment : roads.getNode(split)->attachments)
-						{
-							if (const auto curve=roads.getBezier(attachment.edgeId)) { children.emplace_back(attachment.edgeId,*curve); }
-						}
-						Vec2 low{Math::Inf,Math::Inf},high{-Math::Inf,-Math::Inf};
-						for (const Vec3 p : {parentCurve->p0,parentCurve->p1,parentCurve->p2,parentCurve->p3}) { low={Min(low.x,p.x),Min(low.y,p.z)};high={Max(high.x,p.x),Max(high.y,p.z)}; }
-						constexpr double kFrontageMargin=80;constexpr int kSamples=32;
-						const int left=static_cast<int>(Floor((low.x-kFrontageMargin)/kCellSize)),right=static_cast<int>(Floor((high.x+kFrontageMargin)/kCellSize));
-						const int top=static_cast<int>(Floor((low.y-kFrontageMargin)/kCellSize)),bottom=static_cast<int>(Floor((high.y+kFrontageMargin)/kCellSize));
-						for (int z=Max(0,top);z<=bottom;++z) for (int x=Max(0,left);x<=right;++x)
-						{
-							auto* chunk=world.getChunk({x/ZONE_CELLS,z/ZONE_CELLS}); if (!chunk) { continue; }
-							auto& building=chunk->buildingGrid[{x%ZONE_CELLS,z%ZONE_CELLS}];
-							if (building.edgeId!=parent) { continue; }
-							const Vec2 position=Vec2{(x+.5)*kCellSize+building.offsetX,(z+.5)*kCellSize+building.offsetZ};
-							double best=Math::Inf;
-							for (const auto& [childId,curve] : children)
-							{
-								for (int i=0;i<=kSamples;++i)
-								{
-									const float t=static_cast<float>(i)/kSamples;const double distance=horizontal(curve.evaluate(t)).distanceFrom(position);
-									if (distance<best) { best=distance;building.edgeId=childId;building.edgeT=t; }
-								}
-							}
-							chunk->markMeshDirty();
-						}
-						return split;
-					};
+					const auto attach=[&](const RoadPlanSnapIndex::Hit& hit) { return attachToRoad(world,roads,hit,kSnap); };
 					const int a=attach(*first),b=attach(*second);
 					if (a<0 || b<0 || a==b) { ++gridRoadRejected; continue; }
 					const Vec3 start=roads.getNode(a)->position,end=roads.getNode(b)->position;
@@ -1054,61 +1739,17 @@ namespace AgriculturalLayout
 					for (const int node : {a,b}) { roads.updateNodeCutoffs(node);roads.rebuildLaneConnections(node); }
 					gridRoads.insert(*id);++stats.tracks;stats.connections+=2;
 					// 農道が横切る田畑は、農道の両側に分けて残す。
-					{
-						const Vec2 from=horizontal(start),to=horizontal(end),direction=(to-from).normalized(),normal{-direction.y,direction.x};
-						const double half=config.agriculture_trackWidth*.5+1;
-						const auto clip=[](const Array<Vec2>& polygon,Vec2 origin,Vec2 keep)
-						{
-							Array<Vec2> result;
-							for (size_t i=0;i<polygon.size();++i)
-							{
-								const Vec2 p0=polygon[i],p1=polygon[(i+1)%polygon.size()];
-								const double d0=(p0-origin).dot(keep),d1=(p1-origin).dot(keep);
-								if (d0>=0) { result << p0; }
-								if ((d0>=0)!=(d1>=0)) { result << p0.lerp(p1,d0/(d0-d1)); }
-							}
-							return result;
-						};
-						const auto area=[](const Array<Vec2>& polygon)
-						{
-							double sum=0; for (size_t i=0;i<polygon.size();++i) { const Vec2 a=polygon[i],b=polygon[(i+1)%polygon.size()]; sum+=a.x*b.y-b.x*a.y; } return Abs(sum)*.5;
-						};
-						const RectF bounds=RectF{Vec2{Min(from.x,to.x),Min(from.y,to.y)},Vec2{Abs(to.x-from.x),Abs(to.y-from.y)}}.stretched(half+1);
-						const Polygon corridor{Array<Vec2>{from-normal*half,to-normal*half,to+normal*half,from+normal*half}};
-						for (int cz=static_cast<int>(bounds.y/CHUNK_SIZE);cz<=static_cast<int>((bounds.y+bounds.h)/CHUNK_SIZE);++cz)
-						for (int cx=static_cast<int>(bounds.x/CHUNK_SIZE);cx<=static_cast<int>((bounds.x+bounds.w)/CHUNK_SIZE);++cx)
-						{
-							auto* chunk=world.getChunk({cx,cz}); if (!chunk) { continue; }
-							Array<LandPatch> pieces; bool changed=false;
-							for (auto& patch:chunk->landPatches)
-							{
-								if ((patch.type!=LandPatchType::PaddyField && patch.type!=LandPatchType::FarmField && patch.type!=LandPatchType::IrrigationDitch)
-									|| patch.polygon.size()<3) { continue; }
-								Array<Vec2> outline=patch.polygon; UrbanParcel::normalize(outline);
-								if (outline.size()<3 || !Polygon{outline}.intersects(corridor)) { continue; }
-								// 線分の範囲外へはみ出す区画もあるので、両側を半平面で切る。
-								const Array<Vec2> left=clip(patch.polygon,from+normal*half,normal),right=clip(patch.polygon,from-normal*half,-normal);
-								patch.polygon.clear(); changed=true;
-								for (const auto& part : {left,right})
-								{
-									if (part.size()>=3 && area(part)>=(patch.type==LandPatchType::IrrigationDitch ? 1.0 : config.agriculture_minimumFieldArea*.25))
-									{
-										LandPatch piece=patch; piece.polygon=part; pieces << std::move(piece);
-									}
-								}
-							}
-							if (changed)
-							{
-								chunk->landPatches.remove_if([](const LandPatch& patch) { return patch.polygon.size()<3; });
-								for (auto& piece:pieces) { piece.id=static_cast<int>(chunk->landPatches.size()); chunk->landPatches << std::move(piece); }
-								chunk->markMeshDirty();
-							}
-						}
-					}
+					clipFieldsAlong(world,{{horizontal(start),horizontal(end)}},config.agriculture_trackWidth*.5+1);
 				}
 			}
 		}
 		if (!gridRoads.empty()) { RoadTerrainFit::apply(roads,world,gridRoads); }
+		// 道路に面していない田畑を、畦をたどる畦道で道路網へつなぐ。
+		const Stopwatch azemichiTimer{StartImmediately::Yes};
+		const auto azemichi=connectFieldsByAzemichi(world,roads,sites,railway);
+		stats.azemichi=azemichi.edges;stats.unservedFields=azemichi.unreachable;
+		DBG_LOG(U"[Azemichi] fields={} frontage={} connected={} unreachable={} edges={} lengthKm={:.1f} loops={} deadEnds={} bridges={} accesses={} stranded={} ms={:.0f} phases={}"_fmt(
+			azemichi.fields,azemichi.frontage,azemichi.connected,azemichi.unreachable,azemichi.edges,azemichi.length/1000,azemichi.loops,azemichi.deadEnds,azemichi.bridges,azemichi.accesses,azemichi.stranded,azemichiTimer.msF(),Array<int>(azemichi.phaseMs.begin(),azemichi.phaseMs.end())));
 
 		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={} roads={} roadRejected={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches,gridRoads.size(),gridRoadRejected));
 		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(

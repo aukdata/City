@@ -33,5 +33,12 @@
   "connectionRadius": 80,
   "deadEndConnectionRadius": 280,
   "meanderAngle": 0.42,
-  "meanderWavelength": 480
+  "meanderWavelength": 480,
+  "azemichiWidth": 2.2,
+  "azemichiSpeed": 10,
+  "azemichiMaximumLength": 3000,
+  "azemichiLoopReach": 180,
+  "azemichiTurnPenalty": 40,
+  "azemichiAccessReach": 1200,
+  "azemichiBridgeReach": 100
 }

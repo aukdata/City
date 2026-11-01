@@ -11,6 +11,20 @@ namespace RoadRenderDetail
 	struct StripRange { float sStart; float sEnd; };
 	constexpr float kWorldUV = 0.5f;
 
+	/// @brief 交差点の路面に使う路盤部品。畦道だけが集まる節点は土の路面、舗装道路が1本でもあればアスファルトにする。
+	inline StringView junctionRoadbed(const RoadNetwork& network, int nodeId)
+	{
+		const auto* node = network.getNode(nodeId);
+		if (!node || node->attachments.isEmpty()) { return U"roadbed_asphalt"; }
+		for (const auto& attachment : node->attachments)
+		{
+			const auto* edge = network.getEdge(attachment.edgeId);
+			const bool earth = edge && edge->parts.any([](const RoadPart& part) { return part.type == RoadPartType::Roadbed && part.defId == U"roadbed_earth"; });
+			if (!earth) { return U"roadbed_asphalt"; }
+		}
+		return U"roadbed_earth";
+	}
+
 	/// @brief Cover arbitrary part offsets and the 25 m outside samples used for retaining walls.
 	inline double equipmentPadding(const RoadEdge& edge)
 	{

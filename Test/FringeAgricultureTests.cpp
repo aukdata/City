@@ -2,6 +2,8 @@
 #include "TestRunner.hpp"
 #include "src/gen/DistrictRoads.hpp"
 #include "src/gen/AgriculturalLayout.hpp"
+#include "src/gen/StreetProfile.hpp"
+#include "src/road/RoadPlanDraft.hpp"
 #include "src/gen/ParcelGeometry.hpp"
 #include "src/render/WorldRenderer.hpp"
 #include "src/world/LandPlot.hpp"
@@ -224,7 +226,18 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		}
 		AgriculturalLayout::Frame frame;frame.center={33792,33792};const auto stats=AgriculturalLayout::generate(world,roads,42,{frame});
 		HashSet<int> reachable;for (const auto& edge:roads.edges()) { if (edge.id>=0 && !edge.farmAccess) { reachable.insert(edge.nodeA);reachable.insert(edge.nodeB); } }
-		for (int pass=0;pass<20;++pass) { for (const auto& edge:roads.edges()) { if (edge.id>=0 && (reachable.contains(edge.nodeA) || reachable.contains(edge.nodeB))) { reachable.insert(edge.nodeA);reachable.insert(edge.nodeB); } } }
+		// 畦道は長い連鎖になるので、反復回数を決めずに幅優先でたどる。
+		{
+			Array<int> pending(reachable.begin(),reachable.end());
+			for (size_t next=0;next<pending.size();++next)
+			{
+				for (const int id:roads.getNode(pending[next])->edgeIds())
+				{
+					const auto* edge=roads.getEdge(id); if (!edge) { continue; }
+					for (const int node:{edge->nodeA,edge->nodeB}) { if (reachable.insert(node).second) { pending << node; } }
+				}
+			}
+		}
 		bool connected=true,grounded=true;int curved=0;double maximumGrade=0,nearArea=0,farArea=0;
 		for (const auto& edge:roads.edges())
 		{
@@ -243,9 +256,37 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		int dangling = 0;
 		for (const auto& node : roads.nodes())
 		{
-			if (node.id >= 0 && node.attachments.size() == 1 && roads.getEdge(node.attachments.front().edgeId)->farmAccess) { ++dangling; }
+			if (node.id < 0 || node.attachments.size() != 1) { continue; }
+			const auto* edge = roads.getEdge(node.attachments.front().edgeId);
+			if (edge->farmAccess && !GeneratedStreet::isAzemichi(*edge)) { ++dangling; }
 		}
 		context.expect(dangling == 0 && maximumGrade < .061,U"Farm blocks return to existing roads and respect the farm-road gradient");
+		// 畦道: どの田畑も辺か角で道路・畦道に接し、畦道は土の路盤で区画線を持たない。
+		RoadPlanSnapIndex roadIndex; roadIndex.rebuild(roads);
+		int fields = 0, fronting = 0, azemichi = 0; bool plain = true;
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id < 0 || !GeneratedStreet::isAzemichi(edge)) { continue; }
+			++azemichi; plain &= edge.totalWidth() < 3 && edge.lanes.all([](const Lane& lane) { return lane.lineLeft == LineType::None && lane.lineRight == LineType::None; });
+		}
+		for (int z=31;z<=34;++z) { for (int x=31;x<=34;++x) { for (const auto& patch:world.getChunk({x,z})->landPatches)
+		{
+			if (patch.type!=LandPatchType::FarmField && patch.type!=LandPatchType::PaddyField) { continue; }
+			++fields; bool faces = false;
+			for (size_t i = 0; i < patch.polygon.size() && !faces; ++i)
+			{
+				// 辺の中点か角（一筆の進入口）が道路・畦道の縁から6m以内なら、その田畑へ入れる。
+				const Vec2 a = patch.polygon[i], b = patch.polygon[(i + 1) % patch.polygon.size()];
+				for (const Vec2 point : {a, (a + b) * .5})
+				{
+					const auto hit = roadIndex.find(roads,{point.x,world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y)),point.y},24,Math::Inf,false);
+					faces |= hit.edgeId && Vec2{hit.position.x,hit.position.z}.distanceFrom(point) <= roads.getEdge(*hit.edgeId)->totalWidth() * .5 + 6;
+				}
+			}
+			fronting += faces;
+		} } }
+		context.expect(azemichi > 0 && plain,U"Azemichi are narrow earth roads without lane markings");
+		context.expect(fields > 0 && fronting >= fields * .95,U"Every field can be entered from a road, farm road or azemichi along a side or at a corner (at least 95 percent)");
 		context.expect(nearDensity>farDensity*1.3 && farArea>0,U"Field coverage decreases outward from the village, measured per unit area");
 		JSON report;
 		report[U"fields"] = stats.fields;
@@ -255,6 +296,10 @@ void registerFringeAgricultureTests(TestRunner& runner)
 		report[U"nearDensity"] = nearDensity;
 		report[U"farDensity"] = farDensity;
 		report[U"connected"] = connected;
+		report[U"azemichi"] = azemichi;
+		report[U"unservedFields"] = stats.unservedFields;
+		report[U"fieldsFacingRoads"] = fronting;
+		report[U"fieldsChecked"] = fields;
 		report.save(U"TestResults/farm_terrain_density.json");
 	});
 
@@ -287,7 +332,9 @@ void registerFringeAgricultureTests(TestRunner& runner)
 				int dangling = 0;
 				for (const auto& node : roads.nodes())
 				{
-					if (node.id >= 0 && node.attachments.size() == 1 && roads.getEdge(node.attachments.front().edgeId)->farmAccess) { ++dangling; }
+					if (node.id < 0 || node.attachments.size() != 1) { continue; }
+					const auto* edge = roads.getEdge(node.attachments.front().edgeId);
+					if (edge->farmAccess && !GeneratedStreet::isAzemichi(*edge)) { ++dangling; }
 				}
 				context.expect(dangling == 0,U"Generated farm tracks have no unsupported free ends");
 			}
