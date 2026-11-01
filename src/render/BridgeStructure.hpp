@@ -51,18 +51,25 @@ namespace BridgeStructure
 		}
 		return mesh;
 	}
-	inline MeshData girders(const CubicBezier& curve,double width,double endArc)
+	/// @param span 弧長 [m] → 構造の左端・右端（道路中心からの横位置、右が正）。桁は床版の幅と中心に合わせる。
+	template<class Span>
+	inline MeshData girdersAlong(const CubicBezier& curve,Span span,double endArc)
 	{
 		MeshData mesh;
 		for(double arc=0;arc<endArc-.01;arc+=5)
 		{
-			const Vec3 a=curve.positionAt(static_cast<float>(arc)),b=curve.positionAt(static_cast<float>(Min(endArc,arc+5)));
-			const Vec3 right=tangentToRight(curve.tangentAt(static_cast<float>((arc+Min(endArc,arc+5))*.5)));
-			for(double offset:{-width*.27,width*.27})
+			const double next=Min(endArc,arc+5);
+			const Vec3 rightA=tangentToRight(curve.tangentAt(static_cast<float>(arc))),rightB=tangentToRight(curve.tangentAt(static_cast<float>(next)));
+			const auto [leftA,rightEdgeA]=span(arc);const auto [leftB,rightEdgeB]=span(next);
+			const double centerA=(leftA+rightEdgeA)*.5,centerB=(leftB+rightEdgeB)*.5,widthA=rightEdgeA-leftA,widthB=rightEdgeB-leftB;
+			const Vec3 baseA=curve.positionAt(static_cast<float>(arc)),baseB=curve.positionAt(static_cast<float>(next));
+			const Vec3 right=tangentToRight(curve.tangentAt(static_cast<float>((arc+next)*.5)));
+			for(double side:{-1.0,1.0})
 			{
+				const Vec3 a=baseA+rightA*(centerA+side*widthA*.27),b=baseB+rightB*(centerB+side*widthB*.27);
 				for(const auto& layer:std::array<Vec3,3>{Vec3{.46,.10,-1.12},Vec3{.12,.86,-.65},Vec3{.46,.10,-.20}})
 				{
-					const Vec3 p=a+right*offset+Vec3{0,layer.z,0},q=b+right*offset+Vec3{0,layer.z,0};
+					const Vec3 p=a+Vec3{0,layer.z,0},q=b+Vec3{0,layer.z,0};
 					const Vec3 side=right*layer.x*.5,up{0,layer.y*.5,0};
 					quad(mesh,p-side-up,q-side-up,q-side+up,p-side+up);
 					quad(mesh,q+side-up,p+side-up,p+side+up,q+side+up);
@@ -74,5 +81,9 @@ namespace BridgeStructure
 			}
 		}
 		return mesh;
+	}
+	inline MeshData girders(const CubicBezier& curve,double width,double endArc)
+	{
+		return girdersAlong(curve,[width](double){return std::pair<double,double>{-width*.5,width*.5};},endArc);
 	}
 }

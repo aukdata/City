@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "RoadNetwork.hpp"
 #include "RoadGeometry.hpp"
+#include "NodeMarkings.hpp"
 
 /// @brief 道路構造と交通制御から canonical な道路標示配置を生成する。
 /// @details Renderer はここで生成した RoadMarkingPlacement をメッシュ化するだけにし、
@@ -56,7 +57,9 @@ public:
 
 		const RoadEdge* first=node->attachments.size()==2 ? network.getEdge(node->attachments[0].edgeId) : nullptr;
 		const RoadEdge* second=node->attachments.size()==2 ? network.getEdge(node->attachments[1].edgeId) : nullptr;
-		if (first && second && hasLaneLinesAtNode(network,*first,nodeId,options) && hasLaneLinesAtNode(network,*second,nodeId,options))
+		// 分合流部・区画線を手で設定したノードは、切り口どうしを結ぶ線（NodeMarkings）を引く。
+		if ((first && second && hasLaneLinesAtNode(network,*first,nodeId,options) && hasLaneLinesAtNode(network,*second,nodeId,options))
+			|| NodeMarkings::applies(network,*node))
 		{
 			RoadMarkingPlacement seam;
 			seam.kind = RoadMarkingKind::LaneLine;

@@ -76,6 +76,8 @@
     "borderMaximumRise",
     "terrainCostWeight",
     "tunnelCostScale",
+    "viaductCostScale",
+    "rampMaximumFill",
     "signScale",
     "antiGlareSpacing",
     "noiseBarrierPanel",
@@ -463,6 +465,16 @@
       "type": "number",
       "minimum": 0.1,
       "maximum": 50.0
+    },
+    "viaductCostScale": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 50.0
+    },
+    "rampMaximumFill": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 40.0
     },
     "signScale": {
       "type": "number",

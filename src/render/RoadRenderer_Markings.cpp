@@ -3,6 +3,7 @@
 #include "../road/RoadArrow.hpp"
 #include "../road/JunctionGeometry.hpp"
 #include "../road/RoadMarkingGenerator.hpp"
+#include "../road/NodeMarkings.hpp"
 
 using namespace RoadRenderDetail;
 
@@ -231,6 +232,70 @@ namespace
 		if (surface) { md = RoadGeometry::projectMarking(md,*surface); }
 		if (!md.vertices.isEmpty())
 			out << RoadRenderer::LaneLineBatch{ color.removeSRGBCurve(), Mesh{ md } };
+	}
+
+	/// @brief ノード内の区画線の曲線。両端の切り口から、道路の向きに沿って出る 3 次ベジェ（高さは線形補間）。
+	Optional<CubicBezier> nodeLineCurve(const RoadNetwork& network, int nodeId, const World& world, const NodeMarkingLine& line)
+	{
+		const RoadEdge* from = network.getEdge(line.from.edgeId);
+		const RoadEdge* to = network.getEdge(line.to.edgeId);
+		if (!from || !to) { return none; }
+		const auto a = calcEdgeLineAt(network, nodeId, world, *from, line.from.lateral);
+		const auto b = calcEdgeLineAt(network, nodeId, world, *to, line.to.lateral);
+		const double distance = (b.pos - a.pos).length();
+		if (distance < .1) { return none; }
+		const double handle = distance * .4;
+		const Vec3 c1 = a.pos + Vec3{ a.tangent.x, 0, a.tangent.z } * handle, c2 = b.pos + Vec3{ b.tangent.x, 0, b.tangent.z } * handle;
+		return CubicBezier{ a.pos, Vec3{ c1.x, Math::Lerp(a.pos.y, b.pos.y, 1.0 / 3), c1.z }, Vec3{ c2.x, Math::Lerp(a.pos.y, b.pos.y, 2.0 / 3), c2.z }, b.pos };
+	}
+
+	/// @brief ノード内の区画線と導流帯（縞）を描く。
+	void appendNodeMarkings(Array<RoadRenderer::LaneLineBatch>& out, const RoadNetwork& network, int nodeId, const World& world, const NodeMarkings::Set& set)
+	{
+		Array<Optional<CubicBezier>> curves;
+		for (const auto& line : set.lines)
+		{
+			curves << nodeLineCurve(network, nodeId, world, line);
+			if (!curves.back() || line.type == LineType::None) { continue; }
+			const LineStyle style = lineStyleFor(line.type);
+			MeshData md;
+			appendDashedStrip(md.vertices, md.indices, *curves.back(), world, 0, 0, style.lineWidth * .5f, style.dashLen, style.gapLen, 0, curves.back()->totalLength, 0.0f, true);
+			if (!md.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ style.color.removeSRGBCurve(), Mesh{ md } }; }
+		}
+		MeshData stripes;
+		constexpr float kStripeSpacing = 3.0f, kStripeHalfWidth = .15f;
+		for (const auto& zone : set.zones)
+		{
+			if (zone.leftLine < 0 || zone.rightLine < 0 || zone.leftLine >= static_cast<int>(curves.size()) || zone.rightLine >= static_cast<int>(curves.size())) { continue; }
+			const auto& left = curves[zone.leftLine];
+			const auto& right = curves[zone.rightLine];
+			if (!left || !right) { continue; }
+			const auto at = [](const CubicBezier& curve, double u) { return curve.positionAt(static_cast<float>(Clamp(u, 0.0, 1.0) * curve.totalLength)); };
+			const auto midAt = [&](double u) { return (at(*left, u) + at(*right, u)) * .5; };
+			// V の先は 2 本が近づく側（分流の鼻・合流の先）へ向ける。
+			const double towardNose = at(*left, 0).distanceFrom(at(*right, 0)) <= at(*left, 1).distanceFrom(at(*right, 1)) ? -1.0 : 1.0;
+			const double length = Max(1.0, (left->totalLength + right->totalLength) * .5);
+			for (double s = kStripeSpacing * .5; s < length; s += kStripeSpacing)
+			{
+				const double u = s / length;
+				const Vec3 pl = at(*left, u), pr = at(*right, u);
+				const double width = pl.distanceFrom(pr);
+				if (width < .6) { continue; }
+				const Vec3 ahead = midAt(Clamp(u + .5 / length, 0.0, 1.0)) - midAt(Clamp(u - .5 / length, 0.0, 1.0));
+				const Vec3 along = ahead.lengthSq() > 1e-8 ? ahead.normalized() : Vec3{ 1, 0, 0 };
+				if (zone.pattern == NodeZonePattern::Chevron)
+				{
+					const Vec3 apex = (pl + pr) * .5 + along * (towardNose * width * .5);
+					appendBar(stripes.vertices, stripes.indices, pl, apex, kStripeHalfWidth);
+					appendBar(stripes.vertices, stripes.indices, apex, pr, kStripeHalfWidth);
+				}
+				else
+				{
+					appendBar(stripes.vertices, stripes.indices, pl, at(*right, u + width / length), kStripeHalfWidth);
+				}
+			}
+		}
+		if (!stripes.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 1, 1, 1 }.removeSRGBCurve(), Mesh{ stripes } }; }
 	}
 
 	/// @brief 後方互換: 直線版（tangent を自動計算）
@@ -523,6 +588,14 @@ Array<RoadRenderer::LaneLineBatch> RoadRenderer::buildNodeCapLaneLines(
 {
 	const RoadNode* node = network.getNode(nodeId);
 	if (!node || node->attachments.size() < 2) return {};
+
+	// 分合流部・手で設定したノード — 切り口どうしを結ぶ区画線と導流帯
+	if (NodeMarkings::applies(network, *node))
+	{
+		Array<LaneLineBatch> custom;
+		appendNodeMarkings(custom, network, nodeId, world, NodeMarkings::effective(network, nodeId));
+		return custom;
+	}
 
 	// Intersection では車線区画線を描画しない（Joint / Diverge では描画）
 	if (node->type == NodeType::Intersection && node->attachments.size() > 2)

@@ -11,6 +11,7 @@
 #include "../road/GuideSign.hpp"
 #include "../road/RoadSign.hpp"
 #include "../road/RoadConstructionStart.hpp"
+#include "../road/NodeMarkings.hpp"
 
 /// @file
 /// @brief 道路の断面・計画・路線の編集。車両等の情報は InspectorPanels、信号現示は SignalPanel に置く。
@@ -1576,6 +1577,124 @@ void GameScene::drawNodePanel()
 				y += kLH + 2;
 			}
 		}
+	}
+
+	// ノード内の区画線・導流帯（分合流部・交差点）。手動にすると自動の線を写して自由に足し引きできる。
+	{
+		y += 4;
+		bool markingsDirty = false;
+		PanelWidget::label(pBold, U"区画線", pX, y, ColorF{ 1.0, 1.0, 0.4 });
+		bool custom = node->customMarkings;
+		if (PanelWidget::toggle(pFont, U"手動", U"自動", custom, pX + 60, y, 50, kLH, U"手動にすると線・導流帯を自由に編集できる（自動の線から始める）"))
+		{
+			if (custom)
+			{
+				const auto set = NodeMarkings::automatic(m_network, node->id);
+				node->markingLines = set.lines; node->markingZones = set.zones;
+			}
+			else { node->markingLines.clear(); node->markingZones.clear(); }
+			node->customMarkings = custom;
+			markingsDirty = true;
+		}
+		y += kLH + 2;
+		if (node->customMarkings && !node->attachments.isEmpty())
+		{
+			// 端の指定: 接続道路の番号と、その切り口での車線境界の番号。クリックで次の境界（最後の次は次の道路）、右クリックで前。
+			const auto stepEnd = [&](NodeLineEnd& end, int direction)
+			{
+				const int count = static_cast<int>(node->attachments.size());
+				int attachment = 0;
+				for (int i = 0; i < count; ++i) { if (node->attachments[i].edgeId == end.edgeId) { attachment = i; } }
+				const auto* edge = m_network.getEdge(node->attachments[attachment].edgeId);
+				auto bounds = edge ? NodeMarkings::boundaries(*edge, node->id) : Array<std::pair<float, LineType>>{};
+				int index = 0;
+				for (int i = 0; i < static_cast<int>(bounds.size()); ++i) { if (Abs(bounds[i].first - end.lateral) < Abs(bounds[index].first - end.lateral)) { index = i; } }
+				index += direction;
+				if (bounds.isEmpty() || index < 0 || index >= static_cast<int>(bounds.size()))
+				{
+					attachment = (attachment + count + direction) % count;
+					edge = m_network.getEdge(node->attachments[attachment].edgeId);
+					bounds = edge ? NodeMarkings::boundaries(*edge, node->id) : Array<std::pair<float, LineType>>{};
+					index = direction > 0 ? 0 : static_cast<int>(bounds.size()) - 1;
+				}
+				end.edgeId = node->attachments[attachment].edgeId;
+				end.lateral = bounds.isEmpty() ? 0.0f : bounds[Clamp(index, 0, static_cast<int>(bounds.size()) - 1)].first;
+			};
+			const auto endLabel = [&](const NodeLineEnd& end)
+			{
+				int attachment = 0;
+				for (int i = 0; i < static_cast<int>(node->attachments.size()); ++i) { if (node->attachments[i].edgeId == end.edgeId) { attachment = i; } }
+				return U"[{}] {:+.1f}m"_fmt(attachment, end.lateral);
+			};
+			const auto endButton = [&](NodeLineEnd& end, int x)
+			{
+				const auto hit = PanelWidget::hitTest(pFont, x, y, 74, kLH, U"クリック: 次の車線境界 / 右クリック: 前（[ ] は接続の番号）");
+				RectF{ static_cast<double>(x), static_cast<double>(y), 74.0, static_cast<double>(kLH) }.draw(hit.hover ? ColorF{ 0.3, 0.3, 0.4 } : ColorF{ 0.15, 0.15, 0.2 });
+				pFont(endLabel(end)).draw(Vec2{ x + 2, y }, ColorF{ 0.8 });
+				if (hit.clickL || hit.clickR) { stepEnd(end, hit.clickL ? 1 : -1); markingsDirty = true; }
+			};
+			static constexpr StringView lineNames[] = { U"なし", U"白実線", U"白破線", U"黄実線", U"黄二重", U"白太破線" };
+			for (int i = 0; i < static_cast<int>(node->markingLines.size()); ++i)
+			{
+				auto& line = node->markingLines[i];
+				PanelWidget::label(pFont, U"線{}"_fmt(i + 1), pX, y, ColorF{ 0.8 });
+				endButton(line.from, pX + 34);
+				PanelWidget::label(pFont, U"→", pX + 110, y, ColorF{ 0.6 });
+				endButton(line.to, pX + 124);
+				markingsDirty |= PanelWidget::cycle(pFont, line.type, lineNames, 6, pX + 202, y, 62, kLH, U"線の種類");
+				if (PanelWidget::buttonDanger(pFont, U"x", pX + 268, y, 16, kLH, U"この線を消す"))
+				{
+					node->markingLines.remove_at(i);
+					node->markingZones.remove_if([i](const NodeMarkingZone& zone) { return zone.leftLine == i || zone.rightLine == i; });
+					for (auto& zone : node->markingZones) { zone.leftLine -= zone.leftLine > i; zone.rightLine -= zone.rightLine > i; }
+					markingsDirty = true;
+					break;
+				}
+				y += kLH + 1;
+			}
+			static constexpr StringView zoneNames[] = { U"ゼブラ", U"V字" };
+			for (int i = 0; i < static_cast<int>(node->markingZones.size()); ++i)
+			{
+				auto& zone = node->markingZones[i];
+				const int lineCount = static_cast<int>(node->markingLines.size());
+				PanelWidget::label(pFont, U"導流帯{}"_fmt(i + 1), pX, y, ColorF{ 0.8 });
+				for (const auto& [index, x] : { std::pair{ &zone.leftLine, pX + 58 }, std::pair{ &zone.rightLine, pX + 108 } })
+				{
+					if (PanelWidget::button(pFont, U"線{}"_fmt(*index + 1), false, x, y, 46, kLH, U"縁になる線（クリックで次の線）") && lineCount > 0)
+					{
+						*index = (*index + 1) % lineCount; markingsDirty = true;
+					}
+				}
+				markingsDirty |= PanelWidget::cycle(pFont, zone.pattern, zoneNames, 2, pX + 160, y, 56, kLH, U"縞の形（ゼブラ = 斜線、V字 = V が連なる形）");
+				if (PanelWidget::buttonDanger(pFont, U"x", pX + 268, y, 16, kLH, U"この導流帯を消す"))
+				{
+					node->markingZones.remove_at(i); markingsDirty = true; break;
+				}
+				y += kLH + 1;
+			}
+			if (PanelWidget::button(pFont, U"+ 線", false, pX, y, 50, kLH, U"線を足す（端はクリックで選ぶ）"))
+			{
+				NodeMarkingLine line;
+				line.from.edgeId = node->attachments.front().edgeId;
+				line.to.edgeId = node->attachments[Min<size_t>(1, node->attachments.size() - 1)].edgeId;
+				stepEnd(line.from, 1); stepEnd(line.from, -1); stepEnd(line.to, 1); stepEnd(line.to, -1);
+				node->markingLines << line;
+				markingsDirty = true;
+			}
+			if (node->markingLines.size() >= 2 && PanelWidget::button(pFont, U"+ 導流帯", false, pX + 56, y, 70, kLH, U"2 本の線の間を縞で塗る"))
+			{
+				node->markingZones << NodeMarkingZone{ 0, 1, NodeZonePattern::Chevron };
+				markingsDirty = true;
+			}
+			if (PanelWidget::button(pFont, U"自動の線に戻す", false, pX + 132, y, 100, kLH, U"車線のつながりから引き直す"))
+			{
+				const auto set = NodeMarkings::automatic(m_network, node->id);
+				node->markingLines = set.lines; node->markingZones = set.zones;
+				markingsDirty = true;
+			}
+			y += kLH + 4;
+		}
+		if (markingsDirty) { m_roadRenderer.invalidateCachesAroundNode(node->id, m_network); dirty = true; }
 	}
 
 	// Dissolve ボタン（接続エッジが2本のときのみ表示）

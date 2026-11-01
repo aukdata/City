@@ -150,7 +150,8 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 				{
 					const double poured=phase==1 ? Clamp((fraction-.20)/.75,0.0,1.0) : 1;
 					const Vec3 right=tangentToRight(curve->tangentAt(object.arcPos));
-					Mesh concrete{BridgeStructure::pier(p,right,ground,top,edge.totalWidth(),poured)};
+					const auto [left,rightEdge]=edge.structuralSpanAt(curve->totalLength>0 ? Clamp(object.arcPos/curve->totalLength,0.0f,1.0f) : 0.0f);
+					Mesh concrete{BridgeStructure::pier(p+right*((left+rightEdge)*.5),right,ground,top,rightEdge-left,poured)};
 					cache.surfaces << PartMeshEntry{{concrete,concrete},ColorF{1},&m_constructionConcrete};
 					if(phase==1 && fraction<.95)
 					{
@@ -200,7 +201,8 @@ void RoadRenderer::drawConstruction(const RoadEdge& edge, const RoadNetwork& net
 			{
 				const double length=curve->totalLength*(phase==2 ? fraction : 1);
 				strip(0,length,-.06,&m_constructionConcrete,ColorF{.8},true);
-				Mesh girders{BridgeStructure::girders(*curve,edge.totalWidth(),length)};
+				const float total=curve->totalLength;
+				Mesh girders{BridgeStructure::girdersAlong(*curve,[&](double arc){const auto span=edge.structuralSpanAt(total>0 ? static_cast<float>(arc/total) : 0.0f);return std::pair<double,double>{span.first,span.second};},length)};
 				cache.surfaces << PartMeshEntry{{girders,girders},ColorF{.24,.29,.31}.removeSRGBCurve(),nullptr};
 			}
 		}

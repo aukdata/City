@@ -2,6 +2,7 @@
 #include "TestRunner.hpp"
 #include "src/road/RoadPlanConstruction.hpp"
 #include "src/save/RoadBinary.hpp"
+#include "src/road/NodeMarkings.hpp"
 #include <cstring>
 #include "src/gen/AgriculturalLayout.hpp"
 #include "src/ui/Camera.hpp"
@@ -532,6 +533,37 @@ void registerComprehensiveTests(TestRunner& runner)
 			context.expect(roads.getNode(node)->getAttachment(controlled)->control==control,U"Adding a new arm preserves existing authored approach controls");
 			context.expect(roads.getNode(node)->getAttachment(added)->control==TrafficControl::Signal,U"The genuinely new arm obeys the existing signal");
 			roads.removeEdge(added);
+		}
+	});
+
+	runner.add(U"Comprehensive.NodeMarkingsRoundTrip",[](TestContext& context)
+	{
+		// 交差点の区画線・導流帯を手で設定したノードは、保存・読込で線の端・線種・導流帯の形がそのまま残る。
+		RoadNetwork source; const Vec3 center{500,30,500}; const int node=source.addNode(center);
+		Array<int> edges;
+		for (const double angle:{0.0,Math::HalfPi,Math::Pi})
+		{
+			const Vec3 end=center+Vec3{Cos(angle)*100,0,Sin(angle)*100};
+			edges << *source.addEdge(node,source.addNode(end),center.lerp(end,1.0/3),center.lerp(end,2.0/3),RoadType::Arterial,4);
+		}
+		auto* authored=source.getNode(node);
+		authored->customMarkings=true;
+		authored->markingLines={NodeMarkingLine{{edges[0],-3.5f},{edges[2],1.75f},LineType::SolidWhite},NodeMarkingLine{{edges[0],0.0f},{edges[1],-1.75f},LineType::DashedWhiteThick}};
+		authored->markingZones={NodeMarkingZone{0,1,NodeZonePattern::Zebra}};
+		const FilePath path=U"TestResults/node_markings.bin";
+		context.expect(RoadBinary::writeGlobal(path,source),U"Write a node with authored markings");
+		for (const bool preserve:{false,true})
+		{
+			RoadNetwork restored;
+			context.expect(RoadBinary::readGlobal(path,restored,preserve),U"Load authored node markings");
+			const auto* node2=restored.getNode(node);
+			context.expect(node2 && node2->customMarkings && node2->markingLines.size()==2 && node2->markingZones.size()==1,U"Authored node markings survive save and load");
+			if (!node2 || node2->markingLines.size()!=2 || node2->markingZones.size()!=1) { continue; }
+			context.expect(node2->markingLines[1].from.edgeId==edges[0] && node2->markingLines[1].to.edgeId==edges[1] && node2->markingLines[1].to.lateral==-1.75f
+				&& node2->markingLines[1].type==LineType::DashedWhiteThick,U"Line ends and line type are exact");
+			context.expect(node2->markingZones[0].leftLine==0 && node2->markingZones[0].rightLine==1 && node2->markingZones[0].pattern==NodeZonePattern::Zebra,U"Zone boundaries and pattern are exact");
+			const auto set=NodeMarkings::effective(restored,node);
+			context.expect(set.lines.size()==2 && set.zones.size()==1,U"Authored markings replace the automatic ones");
 		}
 	});
 

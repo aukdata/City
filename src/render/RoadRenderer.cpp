@@ -225,9 +225,13 @@ void RoadRenderer::drawEdge(const RoadEdge& edge, const RoadNetwork& network,
 					const float height = topY - terrainY;
 					if (height < 1.0f) continue;
 
-					piers << Mesh{BridgeStructure::pier(pos,tangentToRight(tan),terrainY,topY-.65,edge.totalWidth())};
+					// 橋脚は床版の幅と中心に合わせる（端で車線を寄せた区間・中央分離帯の片側では道路中心からずれる）。
+					const auto [left, rightEdge] = edge.structuralSpanAt(bez->totalLength > 0 ? Clamp(obj.arcPos / bez->totalLength, 0.0f, 1.0f) : 0.0f);
+					const Vec3 right = tangentToRight(tan);
+					piers << Mesh{BridgeStructure::pier(pos + right * ((left + rightEdge) * .5), right, terrainY, topY-.65, rightEdge - left)};
 				}
-				piers << Mesh{BridgeStructure::girders(*bez,edge.totalWidth(),bez->totalLength)};
+				const float length = bez->totalLength;
+				piers << Mesh{BridgeStructure::girdersAlong(*bez, [&](double arc) { const auto span = edge.structuralSpanAt(length > 0 ? static_cast<float>(arc / length) : 0.0f); return std::pair<double, double>{ span.first, span.second }; }, length)};
 				m_pierMeshCache[edge.id] = std::move(piers);
 			}
 		}

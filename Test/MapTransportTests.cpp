@@ -16,6 +16,7 @@
 #include "../src/gen/RailwayAlignment.hpp"
 #include "../src/gen/ExpresswayNetwork.hpp"
 #include "../src/gen/ExpresswayCrossSection.hpp"
+#include "../src/road/NodeMarkings.hpp"
 #include "../src/traffic/OutsideConnections.hpp"
 #include "../src/traffic/VehicleManager.hpp"
 #include "../src/traffic/TrafficGraph.hpp"
@@ -209,6 +210,24 @@ void registerMapTransportTests(TestRunner& runner)
 		}
 		context.expect(gates >= 1 && elevatedGates == 0, U"{}: toll plazas stand on the ground ({} of {} elevated)"_fmt(label, elevatedGates, gates));
 		context.expect(laneBoards >= gates * 5, U"{}: every toll lane has a lane board ({} boards, {} plazas)"_fmt(label, laneBoards, gates));
+		// 分合流部（高速道路だけの 3 本以上の節点）は、切り口どうしを結ぶ区画線と導流帯を持つ。
+		int junctionNodes = 0, junctionLines = 0, junctionZones = 0;
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0 || !NodeMarkings::automaticApplies(roads, node)) { continue; }
+			const auto set = NodeMarkings::automatic(roads, node.id);
+			if (set.lines.isEmpty()) { continue; }
+			++junctionNodes; junctionLines += static_cast<int>(set.lines.size()); junctionZones += static_cast<int>(set.zones.size());
+		}
+		context.expect(junctionNodes >= 4 && junctionZones >= junctionNodes / 2, U"{}: merges and diverges draw lane lines and gore zones ({} nodes, {} lines, {} zones)"_fmt(label, junctionNodes, junctionLines, junctionZones));
+		// ランプは本線をまたぐ区間だけ橋。ランプの大半は地平（盛土）。
+		double rampLength = 0, elevatedRamp = 0;
+		for (const auto& edge : roads.edges())
+		{
+			if (edge.id < 0 || edge.roadType != RoadType::Expressway || edge.speedLimit >= mainlineSpeed) { continue; }
+			rampLength += edge.length; elevatedRamp += edge.useElevation && !edge.tunnel ? edge.length : 0.0;
+		}
+		context.expect(rampLength > 0 && elevatedRamp < rampLength * .25, U"{}: only the overpass of the ramps is a bridge ({:.0f} of {:.0f}m elevated)"_fmt(label, elevatedRamp, rampLength));
 		return g;
 	};
 	runner.add(U"Expressway.CrossesMapWithInterchange", [=](TestContext& context)
@@ -331,6 +350,18 @@ void registerMapTransportTests(TestRunner& runner)
 		}
 		context.expect(trips >= 3 && arrived == trips, U"Cars drive the mainline to their goals ({} of {})"_fmt(arrived, trips));
 		context.expect(slowestDrive >= cruising * .9f, U"Cars keep the mainline speed through every joint ({:.1f} of {:.1f} m/s at {})"_fmt(slowestDrive, cruising, driveInfo));
+	});
+	runner.add(U"Expressway.PierFollowsShiftedDeck", [](TestContext& context)
+	{
+		// 端で車線を横へ寄せたランプでは、橋脚・桁を置く構造の中心も同じだけ寄る（下部工と舗装がずれない）。
+		RoadEdge edge;
+		ExpresswayCrossSection::applyRamp(edge, 60);
+		const auto [leftA, rightA] = edge.structuralSpanAt(0);
+		ExpresswayCrossSection::shiftEnd(edge, true, -5.0f, 0);
+		const auto [leftB, rightB] = edge.structuralSpanAt(1);
+		const auto [leftA2, rightA2] = edge.structuralSpanAt(0);
+		context.expect(Abs((leftB + rightB) * .5f - ((leftA + rightA) * .5f - 5.0f)) < .01f, U"The deck centre follows the shifted end ({:.2f} -> {:.2f})"_fmt((leftA + rightA) * .5f, (leftB + rightB) * .5f));
+		context.expect(leftA2 == leftA && rightA2 == rightA, U"The other end keeps its deck");
 	});
 	runner.add(U"Expressway.SingleTownBehindPlateau", [=](TestContext& context)
 	{

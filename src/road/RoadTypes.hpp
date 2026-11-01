@@ -557,6 +557,22 @@ struct RoadEdge
 		return (minOff < maxOff) ? (maxOff - minOff) : 0.0f;
 	}
 
+	/// @brief 弧長割合 ft（0 = A 端、1 = B 端）での構造の左端・右端 [m]（右が正）。
+	/// @details 端で車線を横へ寄せた区間（ランプの端など）や片側に中央分離帯を持つ車道では、構造の中心が道路中心からずれる。
+	///   橋脚・桁はこの範囲の中心に置く。
+	std::pair<float, float> structuralSpanAt(float ft) const
+	{
+		float minOff = 1e9f, maxOff = -1e9f;
+		for (const auto& p : parts)
+		{
+			if (p.placement != RoadPartPlacement::Strip || p.envelopeRole != RoadPartEnvelopeRole::Structural) { continue; }
+			minOff = Min(minOff, p.offsetA_L + (p.offsetB_L - p.offsetA_L) * ft);
+			maxOff = Max(maxOff, p.offsetA_R + (p.offsetB_R - p.offsetA_R) * ft);
+		}
+		if (minOff >= maxOff) { const float half = totalWidth() * .5f; return { -half, half }; }
+		return { minOff, maxOff };
+	}
+
 	/// @brief 路盤パーツが建設済みかどうか
 	[[nodiscard]]
 	bool isRoadbedBuilt() const
@@ -613,6 +629,37 @@ struct SignalPlacement
 	Array<SignalPhaseDef> phases;
 };
 
+// ===== ノード内の区画線（交差点・分合流部） =====
+
+/// @brief ノード内の区画線の端。接続する道路の切り口（cutoff）での横位置。
+struct NodeLineEnd
+{
+	int   edgeId  = -1;
+	float lateral = 0.0f; ///< 道路中心からの横位置 [m]（その道路の A→B 向きで右が正。車線の offset と同じ座標）
+};
+
+/// @brief ノード内に引く区画線（2 本の道路の切り口を結ぶ曲線）。
+struct NodeMarkingLine
+{
+	NodeLineEnd from, to;
+	LineType    type = LineType::SolidWhite;
+};
+
+/// @brief 導流帯の塗り方。
+enum class NodeZonePattern : uint8
+{
+	Zebra,   ///< 斜線（ゼブラ）
+	Chevron, ///< V 字が連なる形（シェブロン）。V の先は 2 本の線が交わる側（分岐の鼻）を向く
+};
+
+/// @brief ノード内の導流帯。2 本の区画線（左右の縁）の間を縞で塗る。
+struct NodeMarkingZone
+{
+	int             leftLine  = -1; ///< RoadNode::markingLines の添字
+	int             rightLine = -1;
+	NodeZonePattern pattern   = NodeZonePattern::Chevron;
+};
+
 // ===== RoadNode =====
 
 /// @brief 道路ノード（端点・継ぎ目・交差点・分岐合流）
@@ -629,6 +676,11 @@ struct RoadNode
 
 	/// @brief 信号機の配置情報（none = 信号なし）
 	Optional<SignalPlacement> signalPlacement;
+
+	/// @brief ノード内の区画線を手で設定したか。false なら車線接続から自動で引く（markingLines・markingZones は使わない）。
+	bool                    customMarkings = false;
+	Array<NodeMarkingLine>  markingLines;
+	Array<NodeMarkingZone>  markingZones;
 
 	/// @brief 接続エッジ ID 一覧を返す（旧 edgeIds 互換）
 	[[nodiscard]] Array<int> edgeIds() const

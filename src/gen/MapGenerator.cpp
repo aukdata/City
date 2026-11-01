@@ -399,31 +399,38 @@ void MapGenerator::generateGlobalRoads(
 			if (!branchEdges.isEmpty())
 				branchRoutes << std::move(branchEdges);
 		}
-		// diameter 両端からマップ外端への幹線延伸
+		// diameter 両端からマップ外端への幹線延伸。幹線の二桁国道は地図の外から外へ通る（両端は別の辺）。
 		const float worldSize = WORLD_SIZE;
 		const int endIndices[2] = { diameter.front(), diameter.back() };
+		int usedSide = -1;
 		for (int ei2 = 0; ei2 < 2; ++ei2)
 		{
 			const int di = endIndices[ei2];
 			const int si = castleTownIdx[di];
 			const RoadNode* sn = network.getNode(nodeIds[si]);
+			const RoadNode* other = network.getNode(nodeIds[castleTownIdx[endIndices[1 - ei2]]]);
 			if (!sn) continue;
 
 			const float sx = static_cast<float>(sn->position.x);
 			const float sz = static_cast<float>(sn->position.z);
 
-			// 4辺への距離を計算し、最も近い外端の座標を選ぶ
-			const float dLeft   = sx;
-			const float dRight  = worldSize - sx;
-			const float dTop    = sz;
-			const float dBottom = worldSize - sz;
-			const float minEdgeDist = Min({ dLeft, dRight, dTop, dBottom });
+			// 反対側の端から離れる向きに最も開いた辺を選ぶ（近さも少し考える）。もう一方の端と同じ辺は使わない。
+			const Vec2 away = other ? Vec2{ sx - other->position.x, sz - other->position.z }.normalized() : Vec2{ 0, 0 };
+			const std::array<std::pair<Vec2, float>, 4> sides{ { { Vec2{ -1, 0 }, sx }, { Vec2{ 1, 0 }, worldSize - sx }, { Vec2{ 0, -1 }, sz }, { Vec2{ 0, 1 }, worldSize - sz } } };
+			int side = 0; double bestScore = -1e18;
+			for (int k = 0; k < 4; ++k)
+			{
+				if (k == usedSide) { continue; }
+				const double score = sides[k].first.dot(away) - sides[k].second / worldSize;
+				if (score > bestScore) { bestScore = score; side = k; }
+			}
+			usedSide = side;
 
 			float edgeX, edgeZ;
-			if (minEdgeDist == dLeft)        { edgeX = 0.0f;      edgeZ = sz; }
-			else if (minEdgeDist == dRight)  { edgeX = worldSize;  edgeZ = sz; }
-			else if (minEdgeDist == dTop)    { edgeX = sx;         edgeZ = 0.0f; }
-			else                             { edgeX = sx;         edgeZ = worldSize; }
+			if (side == 0)        { edgeX = 0.0f;      edgeZ = sz; }
+			else if (side == 1)   { edgeX = worldSize;  edgeZ = sz; }
+			else if (side == 2)   { edgeX = sx;         edgeZ = 0.0f; }
+			else                  { edgeX = sx;         edgeZ = worldSize; }
 
 			// マップ端に少し余裕を持たせる（10m内側）
 			edgeX = Clamp(edgeX, GenerationSettings::get().network_borderInset, worldSize - GenerationSettings::get().network_borderInset);
@@ -442,28 +449,30 @@ void MapGenerator::generateGlobalRoads(
 	}
 	else if (castleTownIdx.size() == 1)
 	{
-		// 城下町が1つだけ → マップ外端への接続のみ
+		// 城下町が1つだけ → 最も近い辺と、その反対の辺の両方へ延ばし、地図の外から外へ通す。
 		const float worldSize = WORLD_SIZE;
 		const int si = castleTownIdx[0];
 		const RoadNode* sn = network.getNode(nodeIds[si]);
 		if (sn)
 		{
-			const float sx = static_cast<float>(sn->position.x);
-			const float sz = static_cast<float>(sn->position.z);
-			const float dLeft = sx, dRight = worldSize - sx;
-			const float dTop = sz, dBottom = worldSize - sz;
-			const float minD = Min({ dLeft, dRight, dTop, dBottom });
-			float ex, ez;
-			if (minD == dLeft)       { ex = GenerationSettings::get().network_borderInset;           ez = sz; }
-			else if (minD == dRight) { ex = worldSize - GenerationSettings::get().network_borderInset; ez = sz; }
-			else if (minD == dTop)   { ex = sx;               ez = GenerationSettings::get().network_borderInset; }
-			else                     { ex = sx;               ez = worldSize - GenerationSettings::get().network_borderInset; }
-			const float ey = world.sampleHeight(ex, ez);
-			const Vec3 ep{ ex, ey, ez };
-			const int enid = network.addNode(ep, NodeType::Endpoint);
-			buildRoadSegment(world, network, nodeIds[si], sn->position, enid, ep,
-				RoadType::Arterial, 4, globalOccupied,
-				{}, {}, &chainEdges);
+			const Vec3 town = sn->position;
+			const float sx = static_cast<float>(town.x);
+			const float sz = static_cast<float>(town.z);
+			const float inset = GenerationSettings::get().network_borderInset;
+			const bool horizontal = Min(sx, worldSize - sx) <= Min(sz, worldSize - sz);
+			const bool nearLow = horizontal ? sx <= worldSize - sx : sz <= worldSize - sz;
+			for (const bool low : { nearLow, !nearLow })
+			{
+				const float ex = horizontal ? (low ? inset : worldSize - inset) : sx;
+				const float ez = horizontal ? sz : (low ? inset : worldSize - inset);
+				const float ey = world.sampleHeight(ex, ez);
+				const Vec3 ep{ ex, ey, ez };
+				const int enid = network.addNode(ep, NodeType::Endpoint);
+				Array<int>& extOut = low == nearLow ? frontExtEdges : backExtEdges;
+				buildRoadSegment(world, network, nodeIds[si], town, enid, ep,
+					RoadType::Arterial, 4, globalOccupied,
+					{}, {}, &extOut);
+			}
 		}
 	}
 
@@ -480,7 +489,9 @@ void MapGenerator::generateGlobalRoads(
 
 		if (!mainRoute.isEmpty())
 		{
-			network.addRoute(RoadRouteKind::NationalRoute, U"", std::move(mainRoute));
+			// 地図を貫く幹線は二桁国道（10〜99 号）。並行する高速道路はこの番号を路線番号に使う。
+			const int number = Random(10, 99);
+			network.addRoute(RoadRouteKind::NationalRoute, U"国道{}号"_fmt(number), std::move(mainRoute), number);
 		}
 	}
 	// 支線国道（MST 枝線）
