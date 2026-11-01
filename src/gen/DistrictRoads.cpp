@@ -1522,7 +1522,7 @@ namespace DistrictRoads
 				return Vec2{ along, outward } * kShear;
 			}
 			if (plan.origin != UrbanMorphology::Origin::Planned) { return { 0, 0 }; }
-			constexpr double kWarpAmplitude = 11.0;
+			constexpr double kWarpAmplitude = 4.0;
 			constexpr double kWarpFadeStart = 0.7, kWarpFadeEnd = 0.88;
 			const double extent = Max(Abs(lx) / plan.halfExtent.x, Abs(lz) / plan.halfExtent.y);
 			const double fade = 1.0 - Clamp((extent - kWarpFadeStart) / (kWarpFadeEnd - kWarpFadeStart), 0.0, 1.0);
@@ -1625,25 +1625,28 @@ namespace DistrictRoads
 			int edgeId = findEdgeBetweenNodes(network, nodeA, nodeB);
 			if (edgeId < 0)
 			{
-				// 城下町・計画市街地以外の生活道路は、外周を除いて緩く曲がる。
+				// 城下町・計画市街地以外の生活道路は、外周を除いて一部だけがわずかに曲がる。
+				// 日本の住宅地の街路は直線が主体で、どの区間も弧を描くと不自然になる。
 				double bendA = 0.0, bendB = 0.0;
-				if (organicStreets && !outerFrame && !useMosaic)
+				const uint64 bendHash = (seed + static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL)
+					^ (static_cast<uint64>(Min(nodeA, nodeB)) * 0xBF58476D1CE4E5B9ULL) ^ (static_cast<uint64>(Max(nodeA, nodeB)) * 0x94D049BB133111EBULL);
+				if (organicStreets && !outerFrame && !useMosaic && (bendHash >> 24) % 3u == 0u)
 				{
-					const uint64 hash = (seed + static_cast<uint64>(settlementIndex) * 0x9E3779B97F4A7C15ULL)
-						^ (static_cast<uint64>(Min(nodeA, nodeB)) * 0xBF58476D1CE4E5B9ULL) ^ (static_cast<uint64>(Max(nodeA, nodeB)) * 0x94D049BB133111EBULL);
-					const double reach = Min(7.0, start.distanceFrom(end) * 0.08);
+					const uint64 hash = bendHash;
+					const double reach = Min(3.0, start.distanceFrom(end) * 0.03);
 					const double amount = (static_cast<double>((hash >> 8) % 2001u) / 1000.0 - 1.0) * reach;
 					bendA = amount;
 					bendB = ((hash >> 40) % 5u) < 2u ? -amount : amount;
 				}
-				// 丘陵のニュータウンは、等高線に沿って曲がる街路で斜面を縫う。曲げ方の候補から縦断勾配が最も緩いものを選ぶ。
-				if (plan.origin == UrbanMorphology::Origin::Planned)
+				// 丘陵のニュータウンの幹線街路は、勾配が大きく緩む場合に限って等高線に沿って曲がる。
+				// 平坦な造成地と区画街路は直線のまま通す。
+				const int corridorLine = rowA == rowB ? rowA : colA;
+				const int centreLine = rowA == rowB ? rows / 2 : n / 2;
+				const bool distributor = outerFrame || Abs(corridorLine - centreLine) % 4 == 0;
+				if (plan.origin == UrbanMorphology::Origin::Planned && distributor)
 				{
-					const int corridorLine = rowA == rowB ? rowA : colA;
-					const int centreLine = rowA == rowB ? rows / 2 : n / 2;
-					const bool distributor = outerFrame || Abs(corridorLine - centreLine) % 4 == 0;
 					const double length = start.distanceFrom(end);
-					const double reach = Min(distributor ? 22.0 : 6.0, length * (distributor ? .22 : .08));
+					const double reach = Min(22.0, length * .22);
 					const Vec3 dir = end - start;
 					const Vec2 left = Vec2{ -dir.z, dir.x }.normalized();
 					double bestRoughness = Math::Inf;
@@ -1664,8 +1667,8 @@ namespace DistrictRoads
 								roughness += Square((height - previousHeight) / run) * run;
 								previousHeight = height; previousPoint = point;
 							}
-							// 曲げるほど道は長くなるため、勾配が十分に緩む場合だけ曲げる。
-							roughness *= 1.0 + Abs(first) * .03;
+							// 曲げるほど道は長くなり見通しも悪くなるため、勾配が大きく緩む場合だけ曲げる。
+							roughness *= 1.0 + Abs(first) * .8;
 							if (roughness < bestRoughness) { bestRoughness = roughness; bendA = first * reach; bendB = second * reach; }
 						}
 					}

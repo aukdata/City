@@ -1884,6 +1884,142 @@ void SettlementDevelopment::generateLandPatches(bool preserveExisting)
 			const Point coord{ chunkX, chunkY };
 			uint32 patchIndex = 0;
 			Grid<bool> agriculturePatchCovered(ZONE_CELLS, ZONE_CELLS, false);
+			// 公共緑地（公園・緑道沿い・緑地帯）は町の街路格子の向きに沿った区画で敷く。
+			// 世界軸の16mセルのまま並べると、傾いた町では公園が街区に対して斜めの階段状に見える。
+			{
+				constexpr double kTile = 8.0;
+				constexpr int kSpanX = 12, kSpanZ = 8;
+				HashTable<int, Array<Point>> civicByTown;
+				for (int row = 0; row < ZONE_CELLS; ++row)
+				{
+					for (int col = 0; col < ZONE_CELLS; ++col)
+					{
+						if (chunk.zoneMap[{ col, row }] != ZoneType::UrbanControl || chunk.buildingGrid[{ col, row }].type != BuildingType::None
+							|| facilityCells.contains(zoneCellKey(coord, col, row))) { continue; }
+						const Vec2 center = cellCenterXZ(coord, col, row);
+						const int si = nearestSettlementIndex(m_districts, static_cast<float>(center.x), static_cast<float>(center.y));
+						if (si < 0 || m_districts[si].gridAxisX.lengthSq() < 1e-6 || m_districts[si].gridAxisZ.lengthSq() < 1e-6) { continue; }
+						civicByTown[si] << Point{ col, row };
+					}
+				}
+				for (const auto& [si, cells] : civicByTown)
+				{
+					const auto& town = m_districts[si];
+					const Vec2 axisX = town.gridAxisX.normalized(), axisZ = town.gridAxisZ.normalized();
+					RectF localBounds{ Math::Inf, Math::Inf, 0, 0 };
+					double right = -Math::Inf, bottom = -Math::Inf;
+					constexpr float kCellSize = static_cast<float>(CHUNK_SIZE) / ZONE_CELLS;
+					for (const Point cell : cells) { agriculturePatchCovered[cell] = true; }
+					const Vec2 chunkCorner{ chunkX * CHUNK_SIZE, chunkY * CHUNK_SIZE };
+					for (const Vec2 point : { chunkCorner, chunkCorner + Vec2{ CHUNK_SIZE, 0 }, chunkCorner + Vec2{ 0, CHUNK_SIZE }, chunkCorner + Vec2{ CHUNK_SIZE, CHUNK_SIZE } })
+					{
+						const Vec2 local = planLocal(town, point);
+						localBounds.x = Min(localBounds.x, local.x); localBounds.y = Min(localBounds.y, local.y);
+						right = Max(right, local.x); bottom = Max(bottom, local.y);
+					}
+					// 範囲は町の計画の緑地形状で決める。用途地域の16mセルで決めると、境界が世界軸の階段になる。
+					localBounds.x = Max(localBounds.x, -town.plan.halfExtent.x); localBounds.y = Max(localBounds.y, -town.plan.halfExtent.y);
+					right = Min(right, town.plan.halfExtent.x); bottom = Min(bottom, town.plan.halfExtent.y);
+					const int ix0 = static_cast<int>(Floor(localBounds.x / kTile)), iz0 = static_cast<int>(Floor(localBounds.y / kTile));
+					const int width = static_cast<int>(Ceil(right / kTile)) - ix0, height = static_cast<int>(Ceil(bottom / kTile)) - iz0;
+					if (width <= 0 || height <= 0) { continue; }
+					const auto toWorld = [&](double lx, double lz) { return town.center + axisX * lx + axisZ * lz; };
+					// 区画の中心が属するセルで所有チャンクを決め、隣のチャンクと二重に敷かない。
+					const auto usableAt = [&](Vec2 center)
+					{
+						const int col = static_cast<int>(Floor(center.x / kCellSize)) - chunkX * ZONE_CELLS;
+						const int row = static_cast<int>(Floor(center.y / kCellSize)) - chunkY * ZONE_CELLS;
+						if (!InRange(col, 0, ZONE_CELLS - 1) || !InRange(row, 0, ZONE_CELLS - 1)) { return false; }
+						const ZoneType cellZone = chunk.zoneMap[{ col, row }];
+						const float cx = static_cast<float>(center.x), cz = static_cast<float>(center.y);
+						// 急斜面で用途地域から外れたセルも、区画の位置で平坦なら緑地に含め、外周を16mセルの階段にしない。
+						bool usable = cellZone == ZoneType::UrbanControl || isUrbanLandZone(cellZone);
+						if (!usable && cellZone == ZoneType::Unzoned)
+						{
+							const double slope = Max(Abs(m_world.sampleHeight(cx + 8, cz) - m_world.sampleHeight(cx - 8, cz)), Abs(m_world.sampleHeight(cx, cz + 8) - m_world.sampleHeight(cx, cz - 8))) / 16;
+							usable = slope <= GenerationSettings::get().development_maximumZonedSlope
+								&& m_world.sampleHeight(cx, cz) >= GenerationSettings::get().development_minimumZonedHeight;
+						}
+						if (!usable || chunk.buildingGrid[{ col, row }].type != BuildingType::None
+							|| facilityCells.contains(zoneCellKey(coord, col, row))) { return false; }
+						if (nearestSettlementIndex(m_districts, cx, cz) != si
+							|| UrbanMorphology::sample(town.plan, planLocal(town, center)).district != UrbanMorphology::District::Civic) { return false; }
+						return m_world.sampleHeight(cx, cz) > m_world.waterPlanningHeight(center.x, center.y) + 1;
+					};
+					const auto emit = [&](double lx0, double lz0, double lx1, double lz1, uint32 variant)
+					{
+						LandPatch green;
+						green.id = static_cast<int>(patchIndex++);
+						green.sourceParcelKey = -1;
+						green.type = LandPatchType::GardenSoil;
+						green.elevationOffset = GenerationSettings::get().development_fieldSurfaceLift;
+						green.materialVariant = variant;
+						green.polygon = { toWorld(lx0, lz0), toWorld(lx1, lz0), toWorld(lx1, lz1), toWorld(lx0, lz1) };
+						UrbanParcel::normalize(green.polygon);
+						chunk.landPatches << green;
+					};
+					Grid<bool> take(width, height, false);
+					for (int z = 0; z < height; ++z)
+					{
+						for (int x = 0; x < width; ++x) { take[{ x, z }] = usableAt(toWorld((ix0 + x + .5) * kTile, (iz0 + z + .5) * kTile)); }
+					}
+					// 緑地の縁にかかる区画は2m角に細分し、曲がった緑地帯の外形を粗い鋸歯にしない。
+					constexpr int kDetail = 4;
+					const double detail = kTile / kDetail;
+					Grid<bool> edge(width, height, false);
+					for (int z = 0; z < height; ++z)
+					{
+						for (int x = 0; x < width; ++x)
+						{
+							for (const Point offset : { Point{ 1, 0 }, Point{ -1, 0 }, Point{ 0, 1 }, Point{ 0, -1 } })
+							{
+								const int nx = x + offset.x, nz = z + offset.y;
+								if (InRange(nx, 0, width - 1) && InRange(nz, 0, height - 1) && take[{ nx, nz }] != take[{ x, z }]) { edge[{ x, z }] = true; }
+							}
+						}
+					}
+					for (int z = 0; z < height; ++z)
+					{
+						for (int x = 0; x < width; ++x)
+						{
+							if (!edge[{ x, z }]) { continue; }
+							take[{ x, z }] = false;
+							const double baseX = (ix0 + x) * kTile, baseZ = (iz0 + z) * kTile;
+							for (int sz = 0; sz < kDetail; ++sz)
+							{
+								for (int sx = 0; sx < kDetail;)
+								{
+									if (!usableAt(toWorld(baseX + (sx + .5) * detail, baseZ + (sz + .5) * detail))) { ++sx; continue; }
+									int run = 1;
+									while (sx + run < kDetail && usableAt(toWorld(baseX + (sx + run + .5) * detail, baseZ + (sz + .5) * detail))) { ++run; }
+									emit(baseX + sx * detail, baseZ + sz * detail, baseX + (sx + run) * detail, baseZ + (sz + 1) * detail,
+										settlementCellHash(m_seed, 211, ix0 + x, iz0 + z));
+									sx += run;
+								}
+							}
+						}
+					}
+					for (int z = 0; z < height; ++z)
+					{
+						for (int x = 0; x < width; ++x)
+						{
+							if (!take[{ x, z }]) { continue; }
+							int spanX = 0;
+							while (spanX < kSpanX && x + spanX < width && take[{ x + spanX, z }]) { ++spanX; }
+							int spanZ = 1;
+							for (; spanZ < kSpanZ && z + spanZ < height; ++spanZ)
+							{
+								bool available = true;
+								for (int dx = 0; dx < spanX; ++dx) { available &= take[{ x + dx, z + spanZ }]; }
+								if (!available) { break; }
+							}
+							for (int dz = 0; dz < spanZ; ++dz) { for (int dx = 0; dx < spanX; ++dx) { take[{ x + dx, z + dz }] = false; } }
+							const double lx0 = (ix0 + x) * kTile, lz0 = (iz0 + z) * kTile;
+							emit(lx0, lz0, lx0 + spanX * kTile, lz0 + spanZ * kTile, settlementCellHash(m_seed, 211, ix0 + x, iz0 + z));
+						}
+					}
+				}
+			}
 			for (int row = 0; row < ZONE_CELLS; ++row)
 			{
 				for (int col = 0; col < ZONE_CELLS; ++col)
