@@ -16,44 +16,41 @@ namespace
 	constexpr float kJointLateralAcceleration = 2.5f; ///< 継ぎ目の曲がりで許す横加速度 [m/s²]
 	constexpr float kOverspeedDeceleration    = 2.0f; ///< 制限速度が下がったときの減速度 [m/s²]
 
-	/// @brief 道路の継ぎ目（交差点ではない節点）を通る接続の巡航速度 [m/s]。
-	/// @details 自動車専用道だけの節点（本線の継ぎ目・分合流）が対象。一般道の節点は従来どおり交差点として扱う
-	///   （一般道まで広げると、曲がりの多い街路で車が次々に詰まり、トリップが終わらなくなった）。
-	///   前後の制限速度の平均で走り、接続の曲がりがきついときだけ横加速度で抑える。交差点は none。
-	Optional<float> jointCruiseSpeed(const Vehicle& v, const RoadNode& node, const LaneConnection& connection,
-		const SimGraph& simGraph, const RoadNetwork& network, float multiplier)
+}
+
+/// @brief 道路の継ぎ目（交差点ではない節点）を通る接続の巡航速度 [m/s]。
+/// @details 自動車専用道だけの節点（本線の継ぎ目・分合流）が対象。一般道の節点は従来どおり交差点として扱う
+///   （一般道まで広げると、曲がりの多い街路で車が次々に詰まり、トリップが終わらなくなった）。
+///   前後の制限速度の平均で走り、接続の曲がりがきついときだけ横加速度で抑える。交差点は none。
+Optional<float> VehicleManager::jointCruiseSpeed(VehicleType type, const RoadNode& node, const LaneConnection& connection,
+	const SimGraph& simGraph, const RoadNetwork& network, float multiplier)
+{
+	const bool expresswayOnly = node.attachments.size() >= 2 && node.attachments.all([&](const EdgeAttachment& attachment)
 	{
-		const bool expresswayOnly = node.attachments.size() >= 2 && node.attachments.all([&](const EdgeAttachment& attachment)
+		const auto* edge = network.getEdge(attachment.edgeId);
+		return edge && edge->roadType == RoadType::Expressway;
+	});
+	if (!expresswayOnly) { return none; }
+	const auto* from = simGraph.getEdge(connection.fromEdgeId);
+	const auto* to = simGraph.getEdge(connection.toEdgeId);
+	if (!from || !to) { return none; }
+	float speed = getDefaultIDMParams(type, (from->speedLimit + to->speedLimit) * .5f * multiplier).v0;
+	// 曲がりは接続の始点と終点の向きの差（正味の旋回角）を長さで割って求める。
+	// 継ぎ目の接続は数 m〜十数 m と短く、車線の横ずれ（変速車線の始終点・すり付け）による S 字を
+	// 区間ごとの接線の差で測ると半径数 m の急カーブに見え、100km/h の本線で約 10km/h まで落ちていた。
+	// 横ずれは車線変更と同じく速度を落とさずに移るものとし、向きが実際に変わる分だけ横加速度で抑える。
+	const auto& path = connection.path;
+	if (path.totalLength > 1)
+	{
+		const Vec3 start = path.tangentAt(0), end = path.tangentAt(path.totalLength);
+		const Vec2 a{ start.x, start.z }, b{ end.x, end.z };
+		if (a.lengthSq() > 1e-9 && b.lengthSq() > 1e-9)
 		{
-			const auto* edge = network.getEdge(attachment.edgeId);
-			return edge && edge->roadType == RoadType::Expressway;
-		});
-		if (!expresswayOnly) { return none; }
-		const auto* from = simGraph.getEdge(connection.fromEdgeId);
-		const auto* to = simGraph.getEdge(connection.toEdgeId);
-		if (!from || !to) { return none; }
-		float speed = getDefaultIDMParams(v.type, (from->speedLimit + to->speedLimit) * .5f * multiplier).v0;
-		const auto& path = connection.path;
-		if (path.totalLength > 1)
-		{
-			constexpr int kSamples = 8;
-			double turning = 0;
-			Vec3 previous = path.tangentAt(0);
-			for (int i = 1; i <= kSamples; ++i)
-			{
-				const Vec3 tangent = path.tangentAt(path.totalLength * i / kSamples);
-				const Vec2 a{ previous.x, previous.z }, b{ tangent.x, tangent.z };
-				if (a.lengthSq() > 1e-9 && b.lengthSq() > 1e-9)
-				{
-					const double angle = Abs(Atan2(a.x * b.y - a.y * b.x, a.dot(b)));
-					turning = Max(turning, angle / (path.totalLength / kSamples));
-				}
-				previous = tangent;
-			}
+			const double turning = Abs(Atan2(a.x * b.y - a.y * b.x, a.dot(b))) / path.totalLength;
 			if (turning > 1e-6) { speed = Min(speed, static_cast<float>(Sqrt(kJointLateralAcceleration / turning))); }
 		}
-		return Max(speed, 3.0f);
 	}
+	return Max(speed, 3.0f);
 }
 
 // ===== 初期化 =====
@@ -395,7 +392,7 @@ void VehicleManager::advanceOnConnection(Vehicle& v, double dt,
 	const float speedLimit=Min(fromEdge ? fromEdge->speedLimit : 30.0f,toEdge ? toEdge->speedLimit : 30.0f);
 	const IDMParams recovery=getDefaultIDMParams(v.type,speedLimit);
 	// 道路の継ぎ目は前後の制限速度の平均で通り抜ける。交差点の中だけ徐行する。
-	const auto cruise=jointCruiseSpeed(v,*node,*conn,simGraph,network,static_cast<float>(m_globalSpeedMultiplier));
+	const auto cruise=jointCruiseSpeed(v.type,*node,*conn,simGraph,network,static_cast<float>(m_globalSpeedMultiplier));
 	const float targetSpeed=cruise ? *cruise : Min(kConnectionRecoverySpeed,recovery.v0);
 	const auto pair = m_laneTraffic.neighbors(v.connectionNodeId, v.connectionId, v.arcPos, true, v.id, true);
 	const float length = static_cast<float>(TrafficSpawn::vehicleLength(v.type));
@@ -507,7 +504,7 @@ void VehicleManager::advanceOnLane(Vehicle& v, double dt,
 			for (const auto& connection : node->laneConnections)
 			{
 				if (connection.id != planned) { continue; }
-				const auto cruise = jointCruiseSpeed(v, *node, connection, simGraph, network, static_cast<float>(m_globalSpeedMultiplier));
+				const auto cruise = jointCruiseSpeed(v.type, *node, connection, simGraph, network, static_cast<float>(m_globalSpeedMultiplier));
 				if (cruise && v.speed > *cruise)
 				{
 					const float distance = Max(1.0f, distToStop + kStopLineOffset);
@@ -774,7 +771,7 @@ bool VehicleManager::transitToNextWaypoint(Vehicle& v, const SimGraph& simGraph,
 						&& conn.toEdgeId == wp.edgeId && conn.toLaneIndex == wp.laneIndex)
 					{
 						if (!m_laneTraffic.connectionEntryClear(exitNId, conn.id, v.type)) { --v.routeIdx; v.speed = 0; return false; }
-						enterConnection(v, exitNId, conn.id, jointCruiseSpeed(v, *node, conn, simGraph, network, 1).has_value()); m_laneTraffic.reserveConnection(v);
+						enterConnection(v, exitNId, conn.id, jointCruiseSpeed(v.type, *node, conn, simGraph, network, 1).has_value()); m_laneTraffic.reserveConnection(v);
 						return true;
 					}
 				}
@@ -838,7 +835,7 @@ bool VehicleManager::fallbackRandomTransit(Vehicle& v,
 	{
 		const auto* conn = candidates[Random(0, static_cast<int>(candidates.size()) - 1)];
 		if (!m_laneTraffic.connectionEntryClear(exitNId, conn->id, v.type)) { v.speed = 0; return false; }
-		enterConnection(v, exitNId, conn->id, jointCruiseSpeed(v, *node, *conn, simGraph, network, 1).has_value()); m_laneTraffic.reserveConnection(v);
+		enterConnection(v, exitNId, conn->id, jointCruiseSpeed(v.type, *node, *conn, simGraph, network, 1).has_value()); m_laneTraffic.reserveConnection(v);
 		return true;
 	}
 

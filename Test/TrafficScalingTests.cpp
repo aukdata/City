@@ -284,6 +284,34 @@ void registerTrafficScalingTests(TestRunner& runner)
 		}
 		context.expect(cruise.has_value() && crossed, U"The car drives through the joint");
 		context.expect(cruise && *cruise > 20 && slowest > *cruise * .95f, U"The car keeps its speed through the expressway joint ({} -> {} m/s)"_fmt(cruise.value_or(0), slowest));
+
+		// 車間を詰めて続く後続車も、先行車が継ぎ目を越えた直後に急ブレーキを踏まない。
+		bool platoon = false; float followerSlowest = Math::Inf, leaderSpeed = 0;
+		for (int attempt = 0; attempt < 200 && !platoon; ++attempt)
+		{
+			VehicleManager pair; pair.init(graph, roads);
+			pair.setTrafficDemand(demand);
+			pair.spawnOnEdge(edges[0], graph, VehicleType::PassengerCar, edges[2]);
+			pair.spawnOnEdge(edges[0], graph, VehicleType::PassengerCar, edges[2]);
+			const float separation = pair.vehicles()[0].arcPos - pair.vehicles()[1].arcPos;
+			if (Abs(separation) < 15 || Abs(separation) > 50) { continue; }
+			platoon = true;
+			const int leaderId = pair.vehicles()[separation > 0 ? 0 : 1].id, followerId = pair.vehicles()[separation > 0 ? 1 : 0].id;
+			bool steady = false;
+			for (int frame = 0; frame < 2400; ++frame)
+			{
+				pair.update(.05, frame * .05, graph, roads, {});
+				resolveTrips(pair, graph, routes);
+				const Vehicle* leader = nullptr; const Vehicle* follower = nullptr;
+				for (const auto& vehicle : pair.vehicles()) { if (vehicle.id == leaderId) { leader = &vehicle; } if (vehicle.id == followerId) { follower = &vehicle; } }
+				if (!follower) { break; }
+				if (follower->currentEdge == edges[1] && follower->location == VehicleLocation::OnLane && follower->arcPos > 300) { steady = true; leaderSpeed = leader ? leader->speed : 0; }
+				if (steady) { followerSlowest = Min(followerSlowest, follower->speed); }
+				if (follower->currentEdge == edges[2] && follower->location == VehicleLocation::OnLane && follower->arcPos > 200) { break; }
+			}
+		}
+		context.expect(platoon && leaderSpeed > 20, U"Two cars follow each other along the expressway (leader {} m/s)"_fmt(leaderSpeed));
+		context.expect(followerSlowest > leaderSpeed * .9f, U"The follower keeps its speed through the joint ({} -> {} m/s)"_fmt(leaderSpeed, followerSlowest));
 	});
 
 }

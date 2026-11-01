@@ -9,6 +9,14 @@
 
 namespace
 {
+	/// @brief 接続ベジェの端点から制御点までの距離。
+	/// @details 交差点の右左折では最低 5m とるが、端点間の距離の半分を超えると曲線が行き過ぎて折り返す
+	///   （短い継ぎ目の接続で車が一瞬後退し、急カーブとして扱われた）。端点間の半分までに抑える。
+	double connectionHandle(double dist)
+	{
+		return Min(Max(dist * 0.33, 5.0), dist * 0.5);
+	}
+
 	/// @brief カットオフ位置での車線端点（ワールド座標・接線・方向符号）を計算する
 	struct LaneEndpoint
 	{
@@ -218,7 +226,7 @@ void RoadNetwork::rebuildLaneConnections(int nodeId)
 		const auto entryPt = calcLaneEndpoint(*toBez,   *toEdge,   toEdge->lanes[to.laneIndex],     nodeId);
 
 		const double dist   = (exitPt.worldPos - entryPt.worldPos).length();
-		const double handle = Max(dist * 0.33, 5.0);
+		const double handle = connectionHandle(dist);
 		const Vec3 p1 = exitPt.worldPos  + (exitPt.tangent  * exitPt.dirSign).normalized()  * handle;
 		const Vec3 p2 = entryPt.worldPos - (entryPt.tangent * entryPt.dirSign).normalized() * handle;
 
@@ -602,7 +610,7 @@ void RoadNetwork::updateLaneConnectionPaths(int nodeId)
 		const auto entryPt = calcLaneEndpoint(*toBez,   *toEdge,   toEdge->lanes[conn.toLaneIndex],     nodeId);
 
 		const double dist   = (exitPt.worldPos - entryPt.worldPos).length();
-		const double handle = Max(dist * 0.33, 5.0);
+		const double handle = connectionHandle(dist);
 		const Vec3 p1 = exitPt.worldPos  + (exitPt.tangent  * exitPt.dirSign).normalized()  * handle;
 		const Vec3 p2 = entryPt.worldPos - (entryPt.tangent * entryPt.dirSign).normalized() * handle;
 

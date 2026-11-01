@@ -17,6 +17,8 @@
 #include "../src/gen/ExpresswayNetwork.hpp"
 #include "../src/gen/ExpresswayCrossSection.hpp"
 #include "../src/traffic/OutsideConnections.hpp"
+#include "../src/traffic/VehicleManager.hpp"
+#include "../src/traffic/TrafficGraph.hpp"
 #include <thread>
 #include <atomic>
 #include "../src/render/TreeGeometry.hpp"
@@ -202,6 +204,117 @@ void registerMapTransportTests(TestRunner& runner)
 		const auto summary = ExpresswayNetwork::generate(42, world, roads, towns);
 		auditExpressway(context, roads, summary, U"two cities");
 		auditGeometry(context, roads, U"two cities");
+	});
+	runner.add(U"Expressway.TrafficKeepsMainlineSpeed", [=](TestContext& context)
+	{
+		// 生成した本線の継ぎ目・変速車線の始終点・分合流を、車は制限速度のまま通り抜ける。
+		World world; flatWorld(world, [](Vec2) { return 20.0f; });
+		RoadNetwork roads;
+		const Array<MapGenerator::Settlement> towns{ town({ 22000, 30000 }, MapGenerator::SettlementKind::RegionalCity, U"西市"),
+			town({ 42000, 34000 }, MapGenerator::SettlementKind::RegionalCity, U"東市") };
+		ExpresswayNetwork::generate(42, world, roads, towns);
+		const auto graph = SimGraph::build(roads);
+		const float mainlineSpeed = static_cast<float>(GenerationSettings::get().expressway_speed);
+		const float cruising = getDefaultIDMParams(VehicleType::PassengerCar, mainlineSpeed).v0;
+		// 本線どうし・本線とランプの接続の巡航速度。本線どうしは制限速度、ランプへは前後の平均から大きく落とさない。
+		float slowestMain = Math::Inf, slowestRamp = Math::Inf; String mainInfo, rampInfo;
+		int loops = 0;
+		for (const auto& node : roads.nodes())
+		{
+			if (node.id < 0) { continue; }
+			for (const auto& connection : node.laneConnections)
+			{
+				const auto* from = roads.getEdge(connection.fromEdgeId);
+				const auto* to = roads.getEdge(connection.toEdgeId);
+				if (!from || !to || from->roadType != RoadType::Expressway || to->roadType != RoadType::Expressway) { continue; }
+				const auto& path = connection.path;
+				const double chord = path.positionAt(0).distanceFrom(path.positionAt(path.totalLength));
+				loops += path.totalLength > chord * 1.2 + .5;
+				const auto cruise = VehicleManager::jointCruiseSpeed(VehicleType::PassengerCar, node, connection, graph, roads, 1);
+				const float value = cruise.value_or(0);
+				const bool main = from->speedLimit >= mainlineSpeed - .5f && to->speedLimit >= mainlineSpeed - .5f;
+				const float average = getDefaultIDMParams(VehicleType::PassengerCar, (from->speedLimit + to->speedLimit) * .5f).v0;
+				const String info = U"node {} at {} lanes {}[{}]->{}[{}] path {:.1f}m chord {:.1f}m cruise {:.1f}m/s"_fmt(node.id, node.position,
+					from->lanes.size(), connection.fromLaneIndex, to->lanes.size(), connection.toLaneIndex, path.totalLength, chord, value);
+				if (main && value < slowestMain) { slowestMain = value; mainInfo = info; }
+				if (!main && value / average < slowestRamp) { slowestRamp = value / average; rampInfo = info; }
+			}
+		}
+		context.expect(slowestMain >= cruising * .95f, U"Mainline joints keep {:.1f} m/s (slowest {})"_fmt(cruising, mainInfo));
+		context.expect(slowestRamp >= .6f, U"Ramp joints keep most of the average limit (slowest {:.2f}: {})"_fmt(slowestRamp, rampInfo));
+		context.expect(loops == 0, U"Lane connections do not loop back inside a joint ({} loops)"_fmt(loops));
+
+		// 実際に本線を数 km 走らせ、継ぎ目で落ちる最低速度を測る。
+		const auto resolve = [](VehicleManager& manager, const SimGraph& simGraph, const TrafficGraph& routes)
+		{
+			for (const auto& message : manager.collectRequests())
+			{
+				const auto* request = std::get_if<RouteRequest>(&message);
+				if (!request) { continue; }
+				const auto path = routes.dijkstra(routes.entryNodeId(request->startEdge, request->startLane), request->goalEdge, request->goalLane);
+				RouteResponse response; response.vehicleId = request->vehicleId; response.found = path.found;
+				int previous = request->startEdge;
+				for (const int id : path.nodeIds)
+				{
+					const auto* laneNode = routes.getLaneNode(id);
+					if (!laneNode || laneNode->edgeId == previous) { continue; }
+					const auto* edge = simGraph.getEdge(laneNode->edgeId);
+					response.waypoints << RouteWaypoint{ edge->id, laneNode->laneIndex, laneNode->arcPos, edge->length, edge->length / 8 };
+					previous = edge->id;
+				}
+				manager.applyRouteResponse(response);
+			}
+		};
+		TrafficGraph routes; routes.rebuild(graph, 0, {});
+		Array<int> starts;
+		for (const auto& [id, edge] : graph.edges)
+		{
+			if (edge.roadType == RoadType::Expressway && edge.speedLimit >= mainlineSpeed - .5f && edge.lanes.size() == 2 && edge.length > 300) { starts << id; }
+		}
+		starts.sort();
+		int trips = 0, arrived = 0; float slowestDrive = Math::Inf; String driveInfo;
+		for (size_t index = 0; index < starts.size() && trips < 6; index += Max<size_t>(1, starts.size() / 6))
+		{
+			// 本線を下流へ 25 区間たどった先を目的地にする。
+			int current = starts[index], lane = 0, goal = -1;
+			for (int step = 0; step < 25; ++step)
+			{
+				const auto* edge = graph.getEdge(current);
+				const auto* node = edge ? graph.getNode(TrafficCommon::isForwardLane(*edge, lane) ? edge->nodeB : edge->nodeA) : nullptr;
+				if (!node) { break; }
+				bool moved = false;
+				for (const auto& connection : node->laneConnections)
+				{
+					const auto* next = graph.getEdge(connection.toEdgeId);
+					if (connection.fromEdgeId != current || connection.fromLaneIndex != lane || !next || next->speedLimit < mainlineSpeed - .5f) { continue; }
+					current = next->id; lane = connection.toLaneIndex; moved = true; break;
+				}
+				if (!moved) { break; }
+				goal = current;
+			}
+			if (goal < 0 || goal == starts[index]) { continue; }
+			++trips;
+			VehicleManager manager; manager.init(graph, roads);
+			TrafficDemand demand; demand.targetVehicleCount = 0; manager.setTrafficDemand(demand);
+			manager.spawnOnEdge(starts[index], graph, VehicleType::PassengerCar, goal);
+			bool cruisingNow = false;
+			for (int frame = 0; frame < 20000 && !manager.vehicles().isEmpty(); ++frame)
+			{
+				manager.update(.05, frame * .05, graph, roads, {});
+				resolve(manager, graph, routes);
+				if (manager.vehicles().isEmpty()) { break; }
+				const auto& car = manager.vehicles().front();
+				if (car.currentEdge == goal) { ++arrived; break; }
+				cruisingNow |= car.speed > cruising * .95f;
+				if (cruisingNow && car.speed < slowestDrive)
+				{
+					slowestDrive = car.speed;
+					driveInfo = U"edge {} lane {} location {} node {} at {}"_fmt(car.currentEdge, car.currentLane, static_cast<int>(car.location), car.connectionNodeId, car.position);
+				}
+			}
+		}
+		context.expect(trips >= 3 && arrived == trips, U"Cars drive the mainline to their goals ({} of {})"_fmt(arrived, trips));
+		context.expect(slowestDrive >= cruising * .9f, U"Cars keep the mainline speed through every joint ({:.1f} of {:.1f} m/s at {})"_fmt(slowestDrive, cruising, driveInfo));
 	});
 	runner.add(U"Expressway.SingleTownBehindPlateau", [=](TestContext& context)
 	{
