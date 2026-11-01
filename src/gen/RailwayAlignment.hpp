@@ -14,7 +14,8 @@
 namespace RailwayAlignment
 {
 	struct CandidateAudit { int variant; bool profile; double radius; double grade; };
-	struct Audit { Array<CandidateAudit> candidates; };
+	/// @brief turnarounds は駅の反対端から回り込んだ接続数、sharedStationEnds は反対端が空いているのに 2 本以上の線路が出る駅端の数（通り抜けると折り返す）。
+	struct Audit { Array<CandidateAudit> candidates; int turnarounds=0; int sharedStationEnds=0; };
 	inline void generate(TrainNetwork& network,World& world,const Array<MapGenerator::Settlement>& towns,RoadNetwork* roads=nullptr, Audit* audit=nullptr)
 	{
 		const TransportClearance crossings{roads,world};
@@ -33,8 +34,10 @@ namespace RailwayAlignment
 			}
 			return builtStations[candidate];
 		};
+		Array<Array<int>> townStations; HashTable<int,int> townOf;
 		for (const auto& town : towns)
 		{
+			townStations.emplace_back();
 			const auto positions=UrbanStructure::stationPositions(town.plan);
 			for (size_t stationIndex=0;stationIndex<positions.size();++stationIndex)
 			{
@@ -50,29 +53,98 @@ namespace RailwayAlignment
 				const double elevation=std::ceil(required/.5)*.5;
 				const int id=static_cast<int>(candidates.size());
 				candidates << StationCandidate{{point.x,elevation,point.y},stationIndex==0 ? town.name : U"{}第{}地区"_fmt(town.name,stationIndex+1),town.plan.scale==0 && stationIndex==0 ? StationKind::Terminal : StationKind::Local};
-				stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y};
+				stations << id; axes[id]={town.gridAxisX.x,0,town.gridAxisX.y}; townOf[id]=static_cast<int>(townStations.size()-1); townStations.back() << id;
 			}
 		}
 		if (stations.size()<2) { UrbanFacilities::generateSubways(world,network,towns); return; }
-		HashSet<int> connected{stations.front()}; HashSet<uint64> rejected; int lines=0,failures=0;
+		HashSet<int> connected; HashSet<uint64> rejected,strictRejected;
+		constexpr int kMaximumStrictAttempts=3; int strictFailures=0; int lines=0,failures=0;
 		// 近い順に3駅から通せない駅は、山や海で隔てられた別の地域とみなす。遠い駅からの探索を繰り返して生成を長引かせない。
 		constexpr int kMaximumTargetAttempts=3;
 		HashTable<int,int> targetFailures;
 		const auto pairKey=[](int a,int b) { return (static_cast<uint64>(Min(a,b))<<32)|static_cast<uint32>(Max(a,b)); };
-		// 2 つの候補を結ぶ線形を比較して敷設し、両端の駅 ID を返す。成立しなければ none。
-		const auto connect=[&](int from,int to) -> Optional<std::pair<int,int>>
+		// 駅の両端（0: 軸の正側、1: 負側）から出ている線路の数。同じ端から 2 本出すと、通り抜ける列車が駅で折り返す（スイッチバック）。
+		HashTable<int,std::array<int,2>> endUse;
+		const auto facingEnd=[&](int candidate,Vec2 target)
+		{
+			const Vec3 position=candidates[candidate].position;
+			return axes[candidate].x*(target.x-position.x)+axes[candidate].z*(target.y-position.z)>=0 ? 0 : 1;
+		};
+		const auto usedEnd=[&](int candidate,int side) { return endUse.contains(candidate) ? endUse[candidate][side] : 0; };
+		// 回り込みのループは最小半径の円より外を通す。駅構内へ戻る経路は探索で避ける。
+		const double kTurnaroundRadius=GenerationSettings::get().railway_minimumRadius*1.6+TransportCrossSection::kTrackSpacing;
+		// 駅で折り返さない接続を優先する。面した端が使用済みの駅からの接続は、ループ 1 周分ほど遠いものとして比べる。
+		const double kReversalPenalty=Math::Pi*GenerationSettings::get().railway_minimumRadius*2+GenerationSettings::get().railway_stationStraightLead*2;
+		int turnarounds=0,reversingJunctions=0,insertions=0;
+		// 駅間の線形計画。網へ敷設する前に、途中駅の挿入で計画を差し替えられるようにする。
+		struct Plan { int from=-1,to=-1,fromEnd=0,toEnd=0; Array<Vec3> points; bool turnaround=false; int variant=-1; double cost=0; };
+		Array<Plan> plans; Array<bool> livePlans;
+		bool lastProfileFeasible=false; ///< 直前の計画で、縦断勾配が成立する候補が 1 つでもあったか（平面線形だけの不成立か）
+		const auto recordPlan=[&](const Plan& plan,int sign) { endUse[plan.from][plan.fromEnd]+=sign; endUse[plan.to][plan.toEnd]+=sign; };
+		// 2 つの候補を fromEnd・toEnd の駅端で結ぶ線形を比較して計画する。成立しなければ none。
+		const auto planEnds=[&](int from,int to,int fromEnd,int toEnd,bool turnToTarget=false) -> Optional<Plan>
 		{
 				const Vec3 start=candidates[from].position,end=candidates[to].position;
 				const bool portalEnd=candidates[to].kind==StationKind::Portal;
 				const Vec2 delta{end.x-start.x,end.z-start.z};
 				const double kStationStraightLead=GenerationSettings::get().railway_stationStraightLead;
-				const Vec3 fromAxis=axes[from]*(axes[from].dot(end-start)>=0 ? 1.0 : -1.0);
-				const Vec3 toAxis=axes[to]*(axes[to].dot(end-start)>=0 ? 1.0 : -1.0);
+				// fromAxis は出発駅から出ていく向き、toAxis は到着駅へ入る向き。
+				const Vec3 fromAxis=axes[from]*(fromEnd==0 ? 1.0 : -1.0);
+				const Vec3 toAxis=axes[to]*(toEnd==0 ? -1.0 : 1.0);
 				const Vec3 startGate=start+fromAxis*kStationStraightLead,endGate=end-toAxis*kStationStraightLead;
+				// 相手に背を向けた駅端から出入りするときは、引き上げ線の先で相手の方へ向き直る円弧（ループ）を描いて駅の周りを回り込む。
+				// 戻り値は円弧上の標本（引き上げ線の端を除く）と円弧を出る向き。向き直る必要がなければ空。
+				const auto turnLead=[&](Vec3 gate,Vec3 axis,Vec3 target)
+				{
+					Array<Vec3> arc;
+					Vec2 position{gate.x,gate.z},heading=Vec2{axis.x,axis.z}.normalized();
+					const Vec2 goal{target.x,target.z};
+					// 通常は相手に背を向けるときだけ回り込む。turnToTarget では、引き上げ線の端で大きく向きを変える場合も円弧で向き直る。
+					if (heading.dot((goal-position).normalized())>=(turnToTarget ? std::cos(Math::ToRadians(30.0)) : 0.0)) { return std::pair{arc,Vec3{heading.x,0,heading.y}}; }
+					const double side=heading.x*(goal.y-position.y)-heading.y*(goal.x-position.x)>=0 ? 1.0 : -1.0;
+					constexpr double kStep=10;
+					const double turn=side*kStep/kTurnaroundRadius,sampleLength=GenerationSettings::get().railway_profileSampleLength;
+					double travelled=0,turned=0;
+					while (heading.dot((goal-position).normalized())<std::cos(Math::ToRadians(30.0)) && turned<Math::ToRadians(210.0))
+					{
+						heading=Vec2{heading.x*std::cos(turn)-heading.y*std::sin(turn),heading.x*std::sin(turn)+heading.y*std::cos(turn)};
+						position+=heading*kStep; travelled+=kStep; turned+=Abs(turn);
+						if (travelled>=sampleLength) { arc << Vec3{position.x,gate.y,position.y}; travelled=0; }
+					}
+					if (travelled>0) { arc << Vec3{position.x,gate.y,position.y}; }
+					// 円弧の先に直線を置き、探索経路の曲線が円弧へ急に折れ込まないようにする。
+					for (double run=sampleLength;run<=kStationStraightLead+1;run+=sampleLength) { arc << Vec3{position.x+heading.x*run,gate.y,position.y+heading.y*run}; }
+					return std::pair{arc,Vec3{heading.x,0,heading.y}};
+				};
+				const auto [startArc,startHeading]=turnLead(startGate,fromAxis,end);
+				auto [endArc,endHeading]=turnLead(endGate,-toAxis,start);
+				if (portalEnd) { endArc.clear(); endHeading=-toAxis; }
+				const bool fromTurnaround=!startArc.isEmpty(),toTurnaround=!endArc.isEmpty();
+				// 経路探索と曲線は routeStart から routeEnd まで。駅から引き上げ線・円弧までは固定の線形を前後に付ける。
+				const Vec3 routeStart=fromTurnaround ? startArc.back() : startGate,routeEnd=toTurnaround ? endArc.back() : endGate;
+				const Vec3 routeStartAxis=startHeading,routeEndAxis=-endHeading;
+				Array<Vec3> startLead,endLead;
+				{
+					const int count=Max(1,static_cast<int>(std::ceil(kStationStraightLead/GenerationSettings::get().railway_profileSampleLength)));
+					for (int i=0;i<count;++i) { startLead << start.lerp(startGate,static_cast<double>(i)/count); }
+					if (fromTurnaround) { startLead << startGate; for (size_t i=0;i+1<startArc.size();++i) { startLead << startArc[i]; } }
+					if (toTurnaround) { for (size_t i=endArc.size()-1;i-->0;) { endLead << endArc[i]; } }
+					for (int i=0;i<count;++i) { endLead << endGate.lerp(end,static_cast<double>(i)/count); }
+					endLead << end;
+				}
+				// 円弧で回り込む駅の周りは、探索経路が駅構内へ戻らないよう高くする。
+				const auto turnaroundCost=[&](Vec2 point)
+				{
+					double cost=0;
+					if (fromTurnaround && point.distanceFrom({start.x,start.z})<kTurnaroundRadius) { cost+=60; }
+					if (toTurnaround && point.distanceFrom({end.x,end.z})<kTurnaroundRadius) { cost+=60; }
+					return cost;
+				};
 				Array<Vec3> bestPoints; Array<double> bestHeights; double bestCost=Math::Inf; int chosen=-1;
+				lastProfileFeasible=false;
 				for (int alternative=0;alternative<5;++alternative)
 				{
-					Array<Vec3> points;
+					Array<Vec3> points=startLead;
 					// 解析曲線候補は探索経路を使わないため、破棄されていた5回目の探索を省く。
 					if (alternative < 4)
 					{
@@ -95,22 +167,22 @@ namespace RailwayAlignment
 												   : GenerationSettings::get().railway_corridorCostWeight3;
 							const double water = world.waterPlanningHeight(point.x, point.y);
 							return 1 + RailCostProfile::unitCost(reference - ground) * coefficient +
-								   (ground < water + 1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0);
+								   (ground < water + 1 ? GenerationSettings::get().railway_waterCorridorCost : 0.0) + turnaroundCost(point);
 						});
 						finder.setup(world, offset,
 							Max(2, static_cast<int>((upper.x - offset.x) / GenerationSettings::get().railway_routingCell)),
 							Max(2, static_cast<int>((upper.y - offset.y) / GenerationSettings::get().railway_routingCell)),
 							GenerationSettings::get().railway_routingCell);
 						const auto path = finder.findPath(
-							finder.worldToGrid(static_cast<float>(startGate.x), static_cast<float>(startGate.z)),
-							finder.worldToGrid(static_cast<float>(endGate.x), static_cast<float>(endGate.z)));
+							finder.worldToGrid(static_cast<float>(routeStart.x), static_cast<float>(routeStart.z)),
+							finder.worldToGrid(static_cast<float>(routeEnd.x), static_cast<float>(routeEnd.z)));
 						auto coarse = finder.samplePath(path, 2);
 						if (coarse.size() < 2)
 						{
 							continue;
 						}
-						coarse.front() = startGate;
-						coarse.back() = endGate;
+						coarse.front() = routeStart;
+						coarse.back() = routeEnd;
 						for (int pass = 0; pass < 24 + alternative * 12; ++pass)
 						{
 							auto next = coarse;
@@ -120,33 +192,23 @@ namespace RailwayAlignment
 							}
 							coarse = std::move(next);
 						}
-						coarse.insert(coarse.begin(), start);
-						coarse << end;
+						// 引き上げ線の端で向きを大きく変える探索点は、最小半径で曲がり切れる距離まで間引く。
+						const double kTurnRadius=GenerationSettings::get().railway_minimumRadius*1.4;
+						const auto required=[&](Vec3 gate,Vec3 axis,Vec3 next)
+						{
+							const Vec2 heading=Vec2{axis.x,axis.z}.normalized(),direction=Vec2{next.x-gate.x,next.z-gate.z};
+							const double angle=std::acos(Clamp(heading.dot(direction.normalized()),-1.0,1.0));
+							return direction.length()>=2*kTurnRadius*std::sin(angle*.5)*1.5;
+						};
+						while (coarse.size()>2 && !required(coarse.front(),routeStartAxis,coarse[1])) { coarse.erase(coarse.begin()+1); }
+						while (coarse.size()>2 && !required(coarse.back(),-routeEndAxis,coarse[coarse.size()-2])) { coarse.erase(coarse.end()-2); }
 						for (size_t i = 0; i + 1 < coarse.size(); ++i)
 						{
 							const Vec3 direction = coarse[i + 1] - coarse[i];
 							const double handle = Vec2{direction.x, direction.z}.length() / 3;
-							Vec3 a = i > 0 ? coarse[i + 1] - coarse[i - 1]
-										   : axes[from] * (axes[from].dot(direction) >= 0 ? 1.0 : -1.0);
-							Vec3 b = i + 2 < coarse.size() ? coarse[i + 2] - coarse[i]
-														   : axes[to] * (axes[to].dot(direction) >= 0 ? 1.0 : -1.0);
+							Vec3 a = i > 0 ? coarse[i + 1] - coarse[i - 1] : routeStartAxis;
+							Vec3 b = i + 2 < coarse.size() ? coarse[i + 2] - coarse[i] : routeEndAxis;
 							a.y = b.y = 0;
-							if (i == 0)
-							{
-								a = b = fromAxis;
-							}
-							else if (i == 1)
-							{
-								a = fromAxis;
-							}
-							if (i + 2 == coarse.size())
-							{
-								a = b = toAxis;
-							}
-							else if (i + 3 == coarse.size())
-							{
-								b = toAxis;
-							}
 							const CubicBezier curve{coarse[i], coarse[i] + a.normalized() * handle,
 								coarse[i + 1] - b.normalized() * handle, coarse[i + 1]};
 							const int count = Max(1,
@@ -157,24 +219,16 @@ namespace RailwayAlignment
 								points << curve.positionAt(curve.totalLength * sample / count);
 							}
 						}
-						points << end;
 					}
 					if (alternative == 4)
 					{
 						// 駅の接線を固定した大きな曲線も、地形追従候補と同じ費用・制約で比較する。
-						const double arm = Vec2{endGate.x-startGate.x,endGate.z-startGate.z}.length()/3;
-						const Array<CubicBezier> corridor{
-							{start,start+(startGate-start)/3,start+(startGate-start)*2/3,startGate},
-							{startGate,startGate+fromAxis*arm,endGate-toAxis*arm,endGate},
-							{endGate,endGate+(end-endGate)/3,endGate+(end-endGate)*2/3,end}};
-						points.clear();
-						for (const auto& curve : corridor)
-						{
-							const int count = Max(1,static_cast<int>(Ceil(curve.totalLength/GenerationSettings::get().railway_profileSampleLength)));
-							for (int i=0;i<count;++i) { points << curve.positionAt(curve.totalLength*i/count); }
-						}
-						points << end;
+						const double arm = Vec2{routeEnd.x-routeStart.x,routeEnd.z-routeStart.z}.length()/3;
+						const CubicBezier curve{routeStart,routeStart+routeStartAxis*arm,routeEnd-routeEndAxis*arm,routeEnd};
+						const int count = Max(1,static_cast<int>(Ceil(curve.totalLength/GenerationSettings::get().railway_profileSampleLength)));
+						for (int i=0;i<count;++i) { points << curve.positionAt(curve.totalLength*i/count); }
 					}
+					points.append(endLead);
 
 					// 地形・費用を評価する前に曲率を収める。平面を後から動かして縦断評価を無効にしない。
 					if (points.size() > 6)
@@ -233,6 +287,7 @@ namespace RailwayAlignment
 					}
 					if (audit) { audit->candidates << CandidateAudit{alternative,profile.feasible,Math::Inf,0}; }
 					DBG_LOG(U"[RailCostCandidate] line={} variant={} feasible={} cost={:.0f} points={}"_fmt(lines,alternative,profile.feasible,profile.cost,points.size()));
+					lastProfileFeasible|=profile.feasible;
 					if (profile.feasible && profile.cost<bestCost)
 					{
 						for (size_t i=0;i<points.size();++i) { points[i].y=profile.heights[i]; }
@@ -247,44 +302,200 @@ namespace RailwayAlignment
 							}
 						}
 						for (const auto& curve : curves) { legal &= RoadAlignment::respectsLimits(curve,RoadType::LocalRoad,TransportMode::Rail); }
+						// 回り込みが駅構内を横切らないこと（引き上げ線より先の区間が駅の近くへ戻らない）。
+						if (fromTurnaround || toTurnaround)
+						{
+							double travelled=0; const double total=[&] { double length=0; for (size_t i=1;i<points.size();++i) { length+=Vec2{points[i].x-points[i-1].x,points[i].z-points[i-1].z}.length(); } return length; }();
+							for (size_t i=1;i<points.size();++i)
+							{
+								travelled+=Vec2{points[i].x-points[i-1].x,points[i].z-points[i-1].z}.length();
+								const Vec2 flat{points[i].x,points[i].z};
+								const double clearance=kStationStraightLead*.75;
+								if (fromTurnaround && travelled>kStationStraightLead*1.5 && flat.distanceFrom({start.x,start.z})<clearance) { legal=false; }
+								if (toTurnaround && total-travelled>kStationStraightLead*1.5 && flat.distanceFrom({end.x,end.z})<clearance) { legal=false; }
+							}
+						}
 						// 線路中心だけでなく、内側軌道にも最小半径の余裕を確保する。
 						for (const auto& curve : curves) { legal &= curve.minimumHorizontalRadius()+.001 >= GenerationSettings::get().railway_minimumRadius+TransportCrossSection::kTrackSpacing*.5; }
 						if (legal) { bestCost=profile.cost; bestPoints=std::move(points); bestHeights=profile.heights; chosen=alternative; }
-						else { DBG_LOG(U"[RailAlignmentRejected] variant={} reason=radius-or-grade"_fmt(alternative)); }
-					}
-				}
-				if (bestPoints.isEmpty()) { DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to)); return Optional<std::pair<int,int>>{}; }
-				if (portalEnd) { candidates[to].position.y=bestHeights.back(); }
-				const int firstStation=buildStation(from),lastStation=buildStation(to);
-				Array<int> ids{firstStation};
-				for (size_t i=0;i<bestPoints.size();++i) { bestPoints[i].y=bestHeights[i]; if (i>0 && i+1<bestPoints.size()) { ids << network.addNode(bestPoints[i]); } } ids << lastStation;
-				const auto curves = RoadAlignment::fit(bestPoints);
-				for (size_t i=0;i<curves.size();++i)
-				{
-					const auto& curve = curves[i];
-					const int id = network.addEdge(ids[i],ids[i+1],curve.p1,curve.p2,80,true);
-					if (auto* edge = network.getEdge(id))
-					{
-						for (int sample=0;sample<=8;++sample)
+						else
 						{
-							const Vec3 point = curve.evaluate(sample/8.0f);
-							const double height = point.y-world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
-							edge->useElevation |= height>3; edge->tunnel |= height < -5;
+							double radius=Math::Inf,grade=0; size_t worst=0;
+							for (size_t i=0;i<curves.size();++i)
+							{
+								if (curves[i].minimumHorizontalRadius()<radius) { radius=curves[i].minimumHorizontalRadius(); worst=i; }
+								for (int k=0;k<=16;++k) { const Vec3 t=curves[i].tangent(k/16.0f); grade=Max(grade,Abs(t.y)/Max(1e-8,Vec2{t.x,t.z}.length())); }
+							}
+							DBG_LOG(U"[RailAlignmentRejected] variant={} reason=radius-or-grade radius={:.0f} at={}/{} grade={:.4f}"_fmt(alternative,radius,worst,curves.size(),grade));
 						}
-						if (edge->useElevation) { network.infrastructure().generatePiersForEdge(id,world); }
 					}
 				}
-				DBG_LOG(U"[RailCostChosen] line={} variant={} cost={:.0f} sections={}"_fmt(lines,chosen,bestCost,bestPoints.size()-1));
-				return Optional<std::pair<int,int>>{std::pair{firstStation,lastStation}};
+				if (bestPoints.isEmpty()) { DBG_LOG(U"[RailCostFailure] from={} to={}"_fmt(from,to)); return none; }
+				for (size_t i=0;i<bestPoints.size();++i) { bestPoints[i].y=bestHeights[i]; }
+				DBG_LOG(U"[RailCostPlanned] from={} to={} variant={} cost={:.0f} sections={} turnaround={}"_fmt(candidates[from].name,candidates[to].name,chosen,bestCost,bestPoints.size()-1,fromTurnaround || toTurnaround));
+				const bool turnaround=fromEnd!=facingEnd(from,{end.x,end.z}) || (!portalEnd && toEnd!=facingEnd(to,{start.x,start.z}));
+				return Plan{from,to,fromEnd,toEnd,std::move(bestPoints),turnaround,chosen,bestCost};
+		};
+		// 計画した線形を網へ敷設し、両端の駅 ID を返す。
+		const auto commit=[&](const Plan& plan)
+		{
+			if (candidates[plan.to].kind==StationKind::Portal) { candidates[plan.to].position.y=plan.points.back().y; }
+			const int firstStation=buildStation(plan.from),lastStation=buildStation(plan.to);
+			Array<int> ids{firstStation};
+			for (size_t i=1;i+1<plan.points.size();++i) { ids << network.addNode(plan.points[i]); }
+			ids << lastStation;
+			const auto curves = RoadAlignment::fit(plan.points);
+			for (size_t i=0;i<curves.size();++i)
+			{
+				const auto& curve = curves[i];
+				const int id = network.addEdge(ids[i],ids[i+1],curve.p1,curve.p2,80,true);
+				if (auto* edge = network.getEdge(id))
+				{
+					for (int sample=0;sample<=8;++sample)
+					{
+						const Vec3 point = curve.evaluate(sample/8.0f);
+						const double height = point.y-world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.z));
+						edge->useElevation |= height>3; edge->tunnel |= height < -5;
+					}
+					if (edge->useElevation) { network.infrastructure().generatePiersForEdge(id,world); }
+				}
+			}
+			turnarounds+=plan.turnaround;
+			DBG_LOG(U"[RailCostChosen] line={} variant={} cost={:.0f} sections={} turnaround={}"_fmt(lines,plan.variant,plan.cost,plan.points.size()-1,plan.turnaround));
+			return std::pair{firstStation,lastStation};
+		};
+		const auto flatPosition=[&](int candidate) { return Vec2{candidates[candidate].position.x,candidates[candidate].position.z}; };
+		const auto add=[&](Plan plan) { recordPlan(plan,1); plans << std::move(plan); livePlans << true; };
+		// station の end 端を使う計画のうち、target がその線の途中（両端の駅の間）にあるもの。target を途中駅として挿入できる。
+		const auto insertionCandidates=[&](int station,int end,int target)
+		{
+			Array<size_t> result;
+			if (candidates[target].kind==StationKind::Portal) { return result; }
+			const Vec2 x=flatPosition(station),t=flatPosition(target);
+			for (size_t k=0;k<plans.size();++k)
+			{
+				if (!livePlans[k]) { continue; }
+				const auto& plan=plans[k];
+				const bool atFrom=plan.from==station && plan.fromEnd==end,atTo=plan.to==station && plan.toEnd==end;
+				if (!atFrom && !atTo) { continue; }
+				const int other=atFrom ? plan.to : plan.from;
+				if (candidates[other].kind==StationKind::Portal) { continue; }
+				const Vec2 y=flatPosition(other);
+				if (x.distanceFrom(t)+t.distanceFrom(y)<=x.distanceFrom(y)*1.35 && facingEnd(target,x)!=facingEnd(target,y)) { result << k; }
+			}
+			return result;
+		};
+		// 駅で折り返さない端を選んで計画する。面した端が使用済みなら、その端の線の途中駅として挿入するか、反対端からループで回り込む。
+		// 成立しなければ到着駅の反対端へ回り込み、最後に相手に面した端を共用する分岐駅にする。成立した計画を plans に加える。
+		// Avoid は駅で折り返さない接続だけ、Only は Avoid で試し終えた後に折り返す接続だけを試す。
+		enum class Reversal { Avoid, Allow, Only };
+		const auto connect=[&](int from,int to,Reversal reversal) -> bool
+		{
+			const Vec2 start=flatPosition(from),end=flatPosition(to);
+			const int fromFacing=facingEnd(from,end),toFacing=facingEnd(to,start);
+			if (usedEnd(from,fromFacing)>0 && reversal!=Reversal::Only)
+			{
+				for (const size_t k : insertionCandidates(from,fromFacing,to))
+				{
+					const Plan line=plans[k];
+					const bool atFrom=line.from==from;
+					const int other=atFrom ? line.to : line.from,otherEnd=atFrom ? line.toEnd : line.fromEnd;
+					auto first=planEnds(from,to,fromFacing,toFacing);
+					if (!first) { continue; }
+					auto second=planEnds(to,other,facingEnd(to,flatPosition(other)),otherEnd);
+					if (!second) { continue; }
+					livePlans[k]=false; recordPlan(line,-1);
+					add(std::move(*first)); add(std::move(*second));
+					++insertions;
+					DBG_LOG(U"[RailStationInserted] station={} between={} and={}"_fmt(candidates[to].name,candidates[from].name,candidates[other].name));
+					return true;
+				}
+			}
+			// 両駅の端の組を、共用する駅端（折り返し）が少なく、回り込みが少ない順に試す。
+			Array<std::tuple<int,int,int>> options;
+			for (const int first : {0,1}) for (const int second : {0,1})
+			{
+				if (candidates[to].kind==StationKind::Portal && second!=toFacing) { continue; }
+				const int shared=(usedEnd(from,first)>0)+(usedEnd(to,second)>0),turns=(first!=fromFacing)+(second!=toFacing);
+				// 反対端が空いているのに同じ端を共用すると、通り抜ける列車が駅で折り返す。許可されたときだけ試す。
+				const bool reverses=(usedEnd(from,first)>0 && usedEnd(from,1-first)==0) || (candidates[to].kind!=StationKind::Portal && usedEnd(to,second)>0 && usedEnd(to,1-second)==0);
+				if (reverses && reversal==Reversal::Avoid) { continue; }
+				options << std::tuple{shared*10+turns+(reverses ? 100 : 0),first,second};
+			}
+			options.sort();
+			int attempts=0;
+			for (const auto& [score,first,second] : options)
+			{
+				if (++attempts>3) { break; }
+				// Only では、Avoid で試し終えた折り返さない組を数えるだけで計画し直さない。
+				if (reversal==Reversal::Only && score<100) { continue; }
+				auto plan=planEnds(from,to,first,second);
+				// 地形・高さで縦断が成立しない区間は、駅端や円弧を変えても通せないので打ち切る。
+				if (!plan && !lastProfileFeasible) { break; }
+				// 地図端への延長線は長く探索が重いので、円弧で向き直る再計画を省く。
+				if (!plan && candidates[to].kind!=StationKind::Portal) { plan=planEnds(from,to,first,second,true); }
+				if (plan)
+				{
+					add(std::move(*plan));
+					if ((usedEnd(from,first)>1 && usedEnd(from,1-first)==0) || (candidates[to].kind!=StationKind::Portal && usedEnd(to,second)>1 && usedEnd(to,1-second)==0))
+					{
+						++reversingJunctions;
+						DBG_LOG(U"[RailReversingJunction] from={} to={} reason=no-feasible-loop"_fmt(candidates[from].name,candidates[to].name));
+					}
+					return true;
+				}
+			}
+			return false;
+		};
+		// 同じ町の駅は町の軸に沿って並べ、先に 1 本の線でつなぐ。町の外からの線は並びの両端の駅へ入るので、町の中の駅で折り返さない。
+		HashTable<int,int> groupOf; Array<Array<int>> groups;
+		for (auto members : townStations)
+		{
+			if (members.isEmpty()) { continue; }
+			const Vec3 axis=axes[members.front()];
+			members.sort_by([&](int a,int b) { return axis.dot(candidates[a].position)<axis.dot(candidates[b].position); });
+			groups.push_back({members.front()});
+			for (size_t i=1;i<members.size();++i)
+			{
+				const int previous=members[i-1],current=members[i];
+				auto plan=planEnds(previous,current,facingEnd(previous,flatPosition(current)),facingEnd(current,flatPosition(previous)));
+				if (plan) { add(std::move(*plan)); groups.back() << current; }
+				else { groups.push_back({current}); }
+			}
+		}
+		for (size_t g=0;g<groups.size();++g) { for (const int member : groups[g]) { groupOf[member]=static_cast<int>(g); } }
+		const auto join=[&](int candidate) { for (const int member : groups[groupOf[candidate]]) { connected.insert(member); } };
+		join(stations.front());
+		// 町のどれかの駅が既に網につながっていれば、残りの駅は同じ町の駅からだけつなぐ。町の外から並行する 2 本目の線を引かない。
+		const auto parallelLine=[&](int a,int b)
+		{
+			return townOf[a]!=townOf[b] && townStations[townOf[b]].any([&](int member) { return member!=b && connected.contains(member); });
 		};
 		while (connected.size()<stations.size())
 		{
 			int from=-1,to=-1; double nearest=1e30;
 			for (const int a : stations) if (connected.contains(a)) for (const int b : stations) if (!connected.contains(b))
 			{
-				if (rejected.contains(pairKey(a,b))) { continue; }
-				const double distance=candidates[a].position.distanceFromSq(candidates[b].position);
+				if (rejected.contains(pairKey(a,b)) || strictRejected.contains(pairKey(a,b)) || parallelLine(a,b)) { continue; }
+				const Vec2 flatA=flatPosition(a),flatB=flatPosition(b);
+				const int facing=facingEnd(a,flatB);
+				const bool reverses=(usedEnd(a,facing)>0 && insertionCandidates(a,facing,b).isEmpty()) || usedEnd(b,facingEnd(b,flatA))>0;
+				const double distance=flatA.distanceFrom(flatB)+(reverses ? kReversalPenalty : 0.0);
 				if (distance<nearest) { nearest=distance; from=a; to=b; }
+			}
+			// 駅で折り返さない接続がどの組でも成立しないときだけ、折り返しを許して最も近い組を敷設する。
+			// 折り返さない接続の失敗が続く場合も、生成を長引かせないよう折り返しを許す。
+			bool allowReversal=false;
+			if (from<0 || strictFailures>=kMaximumStrictAttempts)
+			{
+				from=to=-1; nearest=1e30;
+				allowReversal=true;
+				for (const int a : stations) if (connected.contains(a)) for (const int b : stations) if (!connected.contains(b))
+				{
+					if (rejected.contains(pairKey(a,b)) || parallelLine(a,b)) { continue; }
+					const double distance=flatPosition(a).distanceFrom(flatPosition(b));
+					if (distance<nearest) { nearest=distance; from=a; to=b; }
+				}
 			}
 			if (from<0)
 			{
@@ -292,25 +503,31 @@ namespace RailwayAlignment
 				for (const int candidate : stations)
 				{
 					if (connected.contains(candidate)) { continue; }
-					connected.insert(candidate);
+					join(candidate);
 					DBG_LOG(U"[RailwaySeparateRegion] candidate={} position={} reason=no-feasible-corridor"_fmt(candidate,candidates[candidate].position));
 					break;
 				}
 				continue;
 			}
-			const auto built=connect(from,to);
-			if (!built)
+			if (!connect(from,to,!allowReversal ? Reversal::Avoid : strictRejected.contains(pairKey(from,to)) ? Reversal::Only : Reversal::Allow))
 			{
+				if (!allowReversal) { strictRejected.insert(pairKey(from,to)); ++strictFailures; continue; }
 				++failures; rejected.insert(pairKey(from,to));
 				if (++targetFailures[to]>=kMaximumTargetAttempts)
 				{
-					connected.insert(to);
+					join(to);
 					DBG_LOG(U"[RailwaySeparateRegion] candidate={} position={} reason=attempts-exhausted"_fmt(to,candidates[to].position));
 				}
 				continue;
 			}
-			connected.insert(to);
-			network.addSchedule(RailTimetable::makeDefault(network,built->first,built->second));
+			strictFailures=0;
+			join(to);
+		}
+		for (size_t k=0;k<plans.size();++k)
+		{
+			if (!livePlans[k]) { continue; }
+			const auto built=commit(plans[k]);
+			network.addSchedule(RailTimetable::makeDefault(network,built.first,built.second));
 			++lines;
 		}
 		// ---- 外部接続: 路線網の両端から地図端へ線路を延ばし、地図外と直通する列車を走らせる ----
@@ -381,19 +598,25 @@ namespace RailwayAlignment
 					if (!point || points.any([&](const auto& p) { return p.first.distanceFrom(*point)<3000; })) { continue; }
 					points << std::pair{*point,turned};
 				}
+				// 駅で折り返さないよう、空いている端の側にある候補を先に試す。
+				const int freeEnd=usedEnd(from,0)>0 && usedEnd(from,1)==0 ? 1 : usedEnd(from,1)>0 && usedEnd(from,0)==0 ? 0 : -1;
+				if (freeEnd>=0) { points.stable_sort_by([&](const auto& a,const auto& b) { return (facingEnd(from,a.first)==freeEnd)>(facingEnd(from,b.first)==freeEnd); }); }
 				if (points.isEmpty()) { DBG_LOG(U"[RailwayOutside] skipped station={} reason=no-border-land"_fmt(candidates[from].name)); continue; }
 				const int id=static_cast<int>(candidates.size());
 				candidates << StationCandidate{};
 				Optional<std::pair<int,int>> link;
-				for (const auto& [point,turned] : points)
+				// 折り返さない接続は空いている端の側の 2 地点まで試し、成立しなければ全地点で折り返しを許す。
+				for (const bool allowReversal : {false,true}) for (size_t index=0;index<points.size();++index)
 				{
+					if (link || (!allowReversal && index>=2)) { break; }
+					const auto& [point,turned]=points[index];
 					// 方面名は線路が抜ける地図端の向き。
 					const double toWest=point.x,toEast=WORLD_SIZE-point.x,toNorth=point.y,toSouth=WORLD_SIZE-point.y,nearest=Min({toWest,toEast,toNorth,toSouth});
 					const String compass=nearest==toEast ? U"東" : nearest==toWest ? U"西" : nearest==toSouth ? U"南" : U"北";
 					const double ground=world.sampleHeight(static_cast<float>(point.x),static_cast<float>(point.y));
 					candidates[id]=StationCandidate{{point.x,ground+settings.railway_stationBaseElevation,point.y},U"{}方面"_fmt(compass),StationKind::Portal};
 					axes[id]=Vec3{turned.x,0,turned.y};
-					link=connect(from,id);
+					if (connect(from,id,!allowReversal ? Reversal::Avoid : index<2 ? Reversal::Only : Reversal::Allow)) { link=commit(plans.back()); }
 					if (link) { break; }
 					DBG_LOG(U"[RailwayOutside] retry station={} point={} reason=no-feasible-corridor"_fmt(candidates[from].name,point));
 				}
@@ -483,6 +706,9 @@ namespace RailwayAlignment
 		DBG_LOG(U"[StationCurvature] violations={}"_fmt(stationViolations));
 		if (roads) { RailDepotBuilder::generate(network,world,*roads); }
 		UrbanFacilities::generateSubways(world,network,towns);
-		DBG_LOG(U"[RailwayAlignment] stations={} lines={} sections={} rejectedCorridors={}"_fmt(builtStations.size(),lines,network.edges().size(),failures));
+		int sharedEnds=0;
+		for (const auto& entry : endUse) { sharedEnds+=(entry.second[0]>1 && entry.second[1]==0)+(entry.second[1]>1 && entry.second[0]==0); }
+		if (audit) { audit->turnarounds=turnarounds; audit->sharedStationEnds=sharedEnds; }
+		DBG_LOG(U"[RailwayAlignment] stations={} lines={} sections={} rejectedCorridors={} turnarounds={} insertions={} sharedStationEnds={} reversingJunctions={}"_fmt(builtStations.size(),lines,network.edges().size(),failures,turnarounds,insertions,sharedEnds,reversingJunctions));
 	}
 }

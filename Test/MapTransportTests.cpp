@@ -365,6 +365,84 @@ void registerMapTransportTests(TestRunner& runner)
 		context.expect(busy < quiet, U"A larger population runs through trains more often ({} -> {} minutes)"_fmt(quiet, busy));
 		context.expect(!network.getNode(portals.front())->forecourt, U"The portal has no station forecourt");
 	});
+	/// 反対側の端が空いているのに、駅から同じ向きに出ていく線路の組の数。通り抜ける列車はその駅で折り返す。
+	/// 3 方向以上へ線路が出る分岐駅で、両端とも使ったうえで同じ端を共用するものは数えない。
+	const auto sharedStationEnds = [](const TrainNetwork& network)
+	{
+		int shared = 0;
+		for (const auto& node : network.nodes())
+		{
+			if (!node.isPassengerStation()) { continue; }
+			Array<Vec2> leaving;
+			for (const int edgeId : node.edgeIds)
+			{
+				const auto* edge = network.getEdge(edgeId); const auto curve = network.getBezier(edgeId);
+				if (!edge || !curve) { continue; }
+				const Vec3 point = curve->positionAt(edge->nodeA == node.id ? 60.0f : curve->totalLength - 60.0f);
+				leaving << Vec2{ point.x - node.position.x, point.z - node.position.z }.normalized();
+			}
+			for (size_t i = 0; i < leaving.size(); ++i) for (size_t j = i + 1; j < leaving.size(); ++j)
+			{
+				shared += leaving[i].dot(leaving[j]) > .5 && !leaving.any([&](Vec2 other) { return other.dot(leaving[i]) < -.5; });
+			}
+		}
+		return shared;
+	};
+	runner.add(U"Railway.NoNeedlessSwitchback", [=](TestContext& context)
+	{
+		// 西町—東町の線に、東町の北西にある北町をつなぐ。どちらの駅でも北町に面した端は西町—東町の線が使っている。
+		// 同じ駅端から 2 本目を出すと通り抜ける列車が折り返すので、反対端からループで回り込む。
+		World world; flatWorld(world, [](Vec2) { return 20.0f; });
+		const Array<MapGenerator::Settlement> towns{ town({ 26000, 32000 }, MapGenerator::SettlementKind::RegionalCity, U"西町"),
+			town({ 30000, 32000 }, MapGenerator::SettlementKind::RegionalCity, U"東町"), town({ 29000, 36000 }, MapGenerator::SettlementKind::RegionalCity, U"北町") };
+		TrainNetwork network; RailwayAlignment::Audit audit; RailwayAlignment::generate(network, world, towns, nullptr, &audit);
+		int stations = 0;
+		for (const auto& node : network.nodes()) { stations += node.isPassengerStation(); }
+		const int shared = sharedStationEnds(network);
+		context.expect(stations == 3, U"All three towns get a station ({})"_fmt(stations));
+		context.expect(shared == 0 && audit.sharedStationEnds == 0, U"No two tracks leave the same station end ({} pairs, {} ends)"_fmt(shared, audit.sharedStationEnds));
+		context.expect(audit.turnarounds >= 1, U"The third town is reached by a loop around a station ({})"_fmt(audit.turnarounds));
+		for (const auto& schedule : network.schedules()) { context.expect(RailTimetable::validate(network, schedule).isEmpty(), U"{} runs without reversing"_fmt(schedule.name)); }
+	});
+	runner.add(U"Railway.GeneratedSeedsSwitchback", [=](TestContext& context)
+	{
+		// 実際の地形・集落配置で、同じ駅端から 2 本以上の線路が出る（通り抜けると折り返す）駅端の数を記録する。
+		TextWriter report{ U"TestResults/railway_switchback_seeds.txt" };
+		for (const uint64 seed : { 42ULL, 7ULL, 20260316ULL })
+		{
+			World world; world.reserveChunks(); world.setGenerationParams(seed, WORLD_SIZE, WORLD_SIZE);
+			Array<HeightMapResult> buffer(WORLD_CHUNKS * WORLD_CHUNKS);
+			std::atomic<int> next{ 0 };
+			Array<std::thread> workers;
+			for (int worker = 0; worker < Max(1, static_cast<int>(std::thread::hardware_concurrency())); ++worker)
+			{
+				workers.emplace_back([&] { for (int index = next++; index < static_cast<int>(buffer.size()); index = next++) { buffer[index] = world.buildHeightMap({ index % WORLD_CHUNKS, index / WORLD_CHUNKS }); } });
+			}
+			for (auto& worker : workers) { worker.join(); }
+			for (int index = 0; index < static_cast<int>(buffer.size()); ++index) { world.installChunkDirect({ index % WORLD_CHUNKS, index / WORLD_CHUNKS }, std::move(buffer[index])); }
+			auto towns = MapGenerator::placeAllSettlements(seed, world);
+			for (size_t i = 0; i < towns.size(); ++i) { towns[i].name = U"町{}"_fmt(i); }
+			const Stopwatch timer{ StartImmediately::Yes };
+			DebugLog::initialize(U"TestResults/railway_switchback_seed_{}.log"_fmt(seed));
+			TrainNetwork network; RailwayAlignment::Audit audit; RailwayAlignment::generate(network, world, towns, nullptr, &audit);
+			DebugLog::shutdown();
+			int stations = 0;
+			for (const auto& node : network.nodes()) { stations += node.isPassengerStation(); }
+			const int shared = sharedStationEnds(network);
+			// 線路と駅の平面位置（路線図の比較用）。
+			TextWriter geometry{ U"TestResults/railway_switchback_seed_{}_geometry.txt"_fmt(seed) };
+			for (const auto& edge : network.edges())
+			{
+				const auto curve = network.getBezier(edge.id); if (!curve) { continue; }
+				String line = U"E";
+				for (int i = 0; i <= 4; ++i) { const Vec3 p = curve->evaluate(i / 4.0f); line += U" {:.0f},{:.0f}"_fmt(p.x, p.z); }
+				geometry << line;
+			}
+			for (const auto& node : network.nodes()) { if (node.type == TrackNodeType::Station) { geometry << U"S {:.0f},{:.0f} {}"_fmt(node.position.x, node.position.z, node.isPortal() ? 1 : 0); } }
+			report << U"seed={} towns={} stations={} edges={} sharedPairs={} sharedStationEnds={} turnarounds={} seconds={:.1f}"_fmt(seed, towns.size(), stations, network.edges().size(), shared, audit.sharedStationEnds, audit.turnarounds, timer.sF());
+			context.expect(shared <= 1, U"seed {}: tracks rarely leave a station on the same side ({})"_fmt(seed, shared));
+		}
+	});
 	runner.add(U"Expressway.GeneratedTerrainSeeds", [=](TestContext& context)
 	{
 		// 実際の地形・集落配置で、種ごとに本線が地図を貫通し IC を持つことを確かめる（一般道なし）。
