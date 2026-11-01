@@ -64,9 +64,9 @@ namespace BridgeStructure
 			const double centerA=(leftA+rightEdgeA)*.5,centerB=(leftB+rightEdgeB)*.5,widthA=rightEdgeA-leftA,widthB=rightEdgeB-leftB;
 			const Vec3 baseA=curve.positionAt(static_cast<float>(arc)),baseB=curve.positionAt(static_cast<float>(next));
 			const Vec3 right=tangentToRight(curve.tangentAt(static_cast<float>((arc+next)*.5)));
-			for(double side:{-1.0,1.0})
+			for(double girderSide:{-1.0,1.0})
 			{
-				const Vec3 a=baseA+rightA*(centerA+side*widthA*.27),b=baseB+rightB*(centerB+side*widthB*.27);
+				const Vec3 a=baseA+rightA*(centerA+girderSide*widthA*.27),b=baseB+rightB*(centerB+girderSide*widthB*.27);
 				for(const auto& layer:std::array<Vec3,3>{Vec3{.46,.10,-1.12},Vec3{.12,.86,-.65},Vec3{.46,.10,-.20}})
 				{
 					const Vec3 p=a+Vec3{0,layer.z,0},q=b+Vec3{0,layer.z,0};
