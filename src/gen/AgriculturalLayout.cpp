@@ -941,6 +941,57 @@ namespace AgriculturalLayout
 		}
 	}
 
+	/// @brief 地平の高速道路の路面（路肩・防護柵まで）にかかる農道・畦道を取り除き、取り除いた本数を返す。
+	static int removeExpresswayCrossings(RoadNetwork& roads)
+	{
+		struct Segment { Vec2 a, b; double half; };
+		constexpr double kCell=64;
+		HashTable<Point,Array<Segment>> cells;
+		const auto cellOf=[&](Vec2 p) { return Point{static_cast<int>(Floor(p.x/kCell)),static_cast<int>(Floor(p.y/kCell))}; };
+		for (const auto& edge:roads.edges())
+		{
+			if (edge.id<0 || edge.roadType!=RoadType::Expressway || edge.useElevation || edge.tunnel) { continue; }
+			const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
+			const double half=RoadGeometry::structuralWidth(edge)*.5;
+			for (float s=0;s<curve->totalLength;s+=8)
+			{
+				const Vec3 p=curve->positionAt(s),q=curve->positionAt(Min(curve->totalLength,s+8));
+				const Segment segment{Vec2{p.x,p.z},Vec2{q.x,q.z},half};
+				const Point low=cellOf(Vec2{Min(p.x,q.x)-half,Min(p.z,q.z)-half}),high=cellOf(Vec2{Max(p.x,q.x)+half,Max(p.z,q.z)+half});
+				for (int z=low.y;z<=high.y;++z) { for (int x=low.x;x<=high.x;++x) { cells[Point{x,z}] << segment; } }
+			}
+		}
+		if (cells.empty()) { return 0; }
+		Array<int> crossing;
+		for (const auto& edge:roads.edges())
+		{
+			if (edge.id<0 || edge.useElevation || edge.tunnel || edge.roadType==RoadType::Expressway) { continue; }
+			const bool earth=edge.parts.any([](const RoadPart& part) { return part.type==RoadPartType::Roadbed && part.defId==U"roadbed_earth"; });
+			if (!edge.farmAccess && !earth) { continue; }
+			const auto curve=roads.getBezier(edge.id);if (!curve) { continue; }
+			const double farmHalf=edge.totalWidth()*.5;
+			bool hits=false;
+			for (float s=0;s<=curve->totalLength && !hits;s+=2)
+			{
+				const Vec3 p3=curve->positionAt(s);const Vec2 p{p3.x,p3.z};
+				const auto found=cells.find(cellOf(p));if (found==cells.end()) { continue; }
+				for (const auto& segment:found->second)
+				{
+					const Vec2 d=segment.b-segment.a;const double t=Clamp((p-segment.a).dot(d)/Max(d.lengthSq(),1e-9),0.0,1.0);
+					if ((segment.a+d*t).distanceFrom(p)<segment.half+farmHalf) { hits=true;break; }
+				}
+			}
+			if (hits) { crossing << edge.id; }
+		}
+		for (const int id:crossing)
+		{
+			const auto* edge=roads.getEdge(id);if (!edge) { continue; }
+			const int a=edge->nodeA,b=edge->nodeB;roads.removeEdge(id);
+			for (const int node:{a,b}) { if (const auto* n=roads.getNode(node);n && n->attachments.isEmpty()) { roads.removeNode(node); } else if (n) { roads.updateNodeCutoffs(node);roads.rebuildLaneConnections(node); } }
+		}
+		return static_cast<int>(crossing.size());
+	}
+
 	Stats prepare(World& world,RoadNetwork& roads,uint64 seed,const Array<Frame>& inputFrames,const TrainNetwork* railway)
 	{
 		Stats stats;const auto& config=GenerationSettings::get();const auto frames=localFrames(roads,inputFrames);
@@ -1695,7 +1746,7 @@ namespace AgriculturalLayout
 			}
 			// 幹線農道：格子の農道用地を両方向へ延ばし、既存の道路に届く列だけを農道にする。行き止まりは作らない。
 			{
-				constexpr int kMinimumFields=12;constexpr double kStep=8,kReach=1500,kMaximumGrade=.06,kSnap=7;
+				constexpr int kMinimumFields=12;constexpr double kStep=8,kReach=1500,kMaximumGrade=.06,kSnap=7,kExpresswayClearance=16;
 				for (const auto& [key,line] : roadLines)
 				{
 					if (line.fields<kMinimumFields) { continue; }
@@ -1710,6 +1761,9 @@ namespace AgriculturalLayout
 							const Vec2 point=base+across*(startC+direction*distance);
 							const auto hit=roadIndex.find(roads,groundPoint(world,point),kSnap,Math::Inf,false,
 								[](const RoadEdge& edge) { return edge.hasRoadLanes() && !edge.useElevation && !edge.tunnel && edge.roadType!=RoadType::Expressway; });
+							// 高速道路（本線・ランプ）を平面で横切る農道は作らない。
+							if (roadIndex.find(roads,groundPoint(world,point),kExpresswayClearance,6.0,false,
+								[](const RoadEdge& edge) { return edge.roadType==RoadType::Expressway && !edge.useElevation && !edge.tunnel; }).edgeId) { return none; }
 							if (hit.edgeId) { return hit; }
 							// 田の外の草地・林も通れる。水域と急勾配だけは避ける。
 							const auto sample=terrainSample(point);
@@ -1749,6 +1803,10 @@ namespace AgriculturalLayout
 		stats.azemichi=azemichi.edges;stats.unservedFields=azemichi.unreachable;
 		DBG_LOG(U"[Azemichi] fields={} frontage={} connected={} unreachable={} edges={} lengthKm={:.1f} loops={} deadEnds={} bridges={} accesses={} stranded={} ms={:.0f} phasesMs={}"_fmt(
 			azemichi.fields,azemichi.frontage,azemichi.connected,azemichi.unreachable,azemichi.edges,azemichi.length/1000,azemichi.loops,azemichi.deadEnds,azemichi.bridges,azemichi.accesses,azemichi.stranded,azemichiTimer.msF(),Array<double>(azemichi.phaseMs.begin(),azemichi.phaseMs.end())));
+
+		// 高速道路（本線・ランプ）を平面で横切る農道・畦道は取り除く。高速道路の舗装の上に土の帯が透けて見える。
+		const int expresswayCrossings=removeExpresswayCrossings(roads);
+		if (expresswayCrossings>0) { DBG_LOG(U"[AgriculturalExpressway] removedCrossings={}"_fmt(expresswayCrossings)); }
 
 		DBG_LOG(U"[AgriculturalGrid] placed={} crowded={} blocked={} uneven={} ditches={} roads={} roadRejected={}"_fmt(infillGrid[0],infillGrid[1],infillGrid[2],infillGrid[3],gridDitches,gridRoads.size(),gridRoadRejected));
 		DBG_LOG(U"[AgriculturalFields] fields={} infill={} infillMs={:.0f} sparse={} unsuitable={} crowded={} blocked={} uneven={} disconnected={}"_fmt(

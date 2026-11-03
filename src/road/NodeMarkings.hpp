@@ -132,7 +132,8 @@ namespace NodeMarkings
 				{
 					for (const auto& a : fromBoundaries)
 					{
-						if (Abs(a.travel - b.travel) >= .3f || a.type == LineType::None || b.type == LineType::None) { continue; }
+						// 片方だけ線のない境界（料金所側の 2 車線の中央など）は、もう一方の線を節点の中へ延ばす。
+						if (Abs(a.travel - b.travel) >= .3f || stronger(a.type, b.type) == LineType::None) { continue; }
 						addLine(NodeLineEnd{ from->id, a.raw }, NodeLineEnd{ to->id, b.raw }, stronger(a.type, b.type));
 					}
 				}
@@ -149,6 +150,14 @@ namespace NodeMarkings
 			const Vec3 p = bez->positionAt(s) + tangentToRight(bez->tangentAt(s)) * static_cast<double>(end.lateral);
 			return p.xz();
 		};
+		// 導流帯は本線（車線境界の破線のある車道）の分合流だけ。ランプどうしの分岐（料金所側）は分離帯がすぐ始まり、
+		// 線の間の舗装がほとんど残らないので、縁の線だけを引く。
+		bool rampOnly = true;
+		for (const auto& attachment : node->attachments)
+		{
+			const RoadEdge* edge = network.getEdge(attachment.edgeId);
+			if (edge && edge->lanes.any([](const Lane& lane) { return lane.lineLeft == LineType::DashedWhite || lane.lineRight == LineType::DashedWhite; })) { rampOnly = false; }
+		}
 		struct Candidate { int i, j; int edgeLow, edgeHigh; double gap; };
 		Array<Candidate> candidates;
 		for (size_t i = 0; i < set.lines.size(); ++i)
@@ -177,7 +186,7 @@ namespace NodeMarkings
 				// 同じ 2 本の道路の間の分合流（共有する端が違っても同じ導流帯）は、最も近い組だけ残す。
 				if (o.gap < c.gap - 1e-6 || (Abs(o.gap - c.gap) <= 1e-6 && m < k)) { best = false; }
 			}
-			if (best) { set.zones << NodeMarkingZone{ c.i, c.j, NodeZonePattern::Chevron }; }
+			if (best && !rampOnly) { set.zones << NodeMarkingZone{ c.i, c.j, NodeZonePattern::Chevron }; }
 		}
 		return set;
 	}

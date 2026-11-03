@@ -177,7 +177,7 @@ namespace ExpresswayCrossSection
 
 	/// @brief IC・JCT のランプ（既定 1 車線）。立体分岐（CSL grade_split）の車線幅と勾配を共有する。
 	/// @param lanes 料金所と分合流の鼻を結ぶ区間は、料金所前の往復路の片側と同じ 2 車線。
-	///   この区間は料金所広場の続きなので車線を区切る線を引かない。
+	///   この区間は料金所広場の続きなので車線を区切る線を引かず、両端の車道外側線だけを引く。
 	inline void applyRamp(RoadEdge& edge, float speed, int lanes = 1)
 	{
 		using namespace detail;
@@ -190,8 +190,8 @@ namespace ExpresswayCrossSection
 		for (int i = 0; i < count; ++i)
 		{
 			const bool plaza = count > 1;
-			edge.lanes << lane(-half + i * width, width, LaneDir::Forward, plaza ? LineType::None : i == 0 ? LineType::SolidWhite : LineType::DashedWhite,
-				plaza ? LineType::None : i + 1 == count ? LineType::SolidWhite : LineType::DashedWhite);
+			edge.lanes << lane(-half + i * width, width, LaneDir::Forward, i == 0 ? LineType::SolidWhite : plaza ? LineType::None : LineType::DashedWhite,
+				i + 1 == count ? LineType::SolidWhite : plaza ? LineType::None : LineType::DashedWhite);
 		}
 		edge.parts.clear();
 		const float rail = c.expressway_guardrailWidth, slope = c.expressway_slopeWidth * .7f;

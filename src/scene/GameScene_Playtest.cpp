@@ -1,5 +1,6 @@
 ﻿#include "GameScene.hpp"
 #include "../ui/PanelWidget.hpp"
+#include "../road/NodeMarkings.hpp"
 
 /// @brief Opt-in diagnostics for real keyboard/mouse playtests; never transmits images.
 void GameScene::recordPlaytestFrame()
@@ -482,6 +483,42 @@ void GameScene::processPlaytestCommand()
 		report.save(U"river_review.json");
 	}
 	else if (action==U"water_save") { getData().saveName=command[U"name"].getOr<String>(U"source_water_review"); saveGame(); }
+	else if (action==U"dump_edges_near")
+	{
+		// 指定位置の近くを通る道路の種別・路盤・端点を debug.log へ出す（景観の調査用）。
+		const Vec2 at{number(U"x"),number(U"z")};const double radius=number(U"radius",30);
+		for (const auto& edge : m_network.edges())
+		{
+			if (edge.id<0) { continue; }
+			const auto bez=m_network.getBezier(edge.id);if (!bez) { continue; }
+			double nearest=Math::Inf;
+			for (float s=0;s<=bez->totalLength;s+=2) { const Vec3 p=bez->positionAt(s);nearest=Min(nearest,Vec2{p.x,p.z}.distanceFrom(at)); }
+			if (nearest>radius) { continue; }
+			String roadbed;for (const auto& part:edge.parts) { if (part.type==RoadPartType::Roadbed) { roadbed=part.defId; } }
+			DBG_LOG(U"[EdgeNear] edge={} type={} farm={} roadbed={} lanes={} nodes={}-{} len={:.0f} nearest={:.1f} elev={}"_fmt(edge.id,static_cast<int>(edge.roadType),edge.farmAccess,roadbed,edge.lanes.size(),edge.nodeA,edge.nodeB,bez->totalLength,nearest,edge.useElevation));
+		}
+	}
+	else if (action==U"dump_junctions")
+	{
+		// 自動の分合流区画線を引く節点（高速道路の分岐・合流）の位置と、つながる道路の向きを debug.log へ出す。
+		for (const auto& node : m_network.nodes())
+		{
+			const int nodeId=node.id;
+			if (node.id<0 || !NodeMarkings::automaticApplies(m_network,node)) { continue; }
+			const auto set=NodeMarkings::automatic(m_network,nodeId);
+			String edges;
+			for (const auto& attachment : node.attachments)
+			{
+				const auto* edge=m_network.getEdge(attachment.edgeId);
+				const auto bez=m_network.getBezier(attachment.edgeId);
+				if (!edge || !bez) { continue; }
+				const bool atA=edge->nodeA==nodeId;
+				const Vec3 t=bez->tangentAt(atA ? 0.0f : bez->totalLength)*(atA ? 1.0 : -1.0);
+				edges+=U" e{}(lanes={},len={:.0f},dir={:.0f}deg)"_fmt(edge->id,edge->lanes.size(),bez->totalLength,ToDegrees(Math::Atan2(t.x,t.z)));
+			}
+			DBG_LOG(U"[Junction] node={} pos=({:.1f},{:.1f},{:.1f}) lines={} zones={}{}"_fmt(nodeId,node.position.x,node.position.y,node.position.z,set.lines.size(),set.zones.size(),edges));
+		}
+	}
 	else if (action==U"snapshot") { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }
 	else if (action==U"exit") { System::Exit(); }
 	if (number(U"capture")!=0) { ScreenCapture::SaveCurrentFrame(U"playtest_command_{}.png"_fmt(id)); }

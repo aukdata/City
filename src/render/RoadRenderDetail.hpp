@@ -25,6 +25,21 @@ namespace RoadRenderDetail
 		return U"roadbed_earth";
 	}
 
+	/// @brief 交差点のアスファルト路面の色。つながる道路の路盤と同じ色にする（幹線・生活道路は明るめ、高速道路などは路盤部品の色）。
+	/// @details 道路の帯と色が違うと、分合流部の節点の範囲だけが明るい四角い継ぎはぎに見える。
+	inline ColorF junctionAsphaltColor(const RoadNetwork& network, int nodeId, const ColorF& roadbedColor)
+	{
+		const ColorF street{ 0.29, 0.30, 0.32 };
+		const auto* node = network.getNode(nodeId);
+		if (!node) { return street; }
+		for (const auto& attachment : node->attachments)
+		{
+			const auto* edge = network.getEdge(attachment.edgeId);
+			if (edge && (edge->roadType == RoadType::Arterial || edge->roadType == RoadType::LocalRoad)) { return street; }
+		}
+		return roadbedColor;
+	}
+
 	/// @brief Cover arbitrary part offsets and the 25 m outside samples used for retaining walls.
 	inline double equipmentPadding(const RoadEdge& edge)
 	{

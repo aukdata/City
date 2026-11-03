@@ -1,6 +1,7 @@
 ﻿#include "RoadRenderer.hpp"
 #include "RoadRenderDetail.hpp"
 #include "../road/JunctionGeometry.hpp"
+#include "../road/NodeMarkings.hpp"
 
 using namespace RoadRenderDetail;
 
@@ -245,10 +246,36 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 
 
 	const MeshData overlappingPavement = adjacentPavement(network,edge,world);
+	// 高速道路の分合流部（本線とランプが鋭角に分かれる長い節点）では、舗装（路盤・路肩）を節点の中まで延ばす。
+	// 節点の多角形は切り口どうしを結ぶだけなので、曲がった本線・ランプの間で舗装が欠けて草地が透ける。
+	const auto pavesThrough = [&](int nodeId)
+	{
+		const RoadNode* node = network.getNode(nodeId);
+		return node && NodeMarkings::automaticApplies(network, *node);
+	};
+	StripRange pavedRange = range;
+	if (pavesThrough(edge.nodeA)) { pavedRange.sStart = 0.0f; }
+	if (pavesThrough(edge.nodeB)) { pavedRange.sEnd = bezier.totalLength; }
 
 	for (const auto& part : edge.parts)
 	{
 		if (part.build != BuildState::Built || part.placement != RoadPartPlacement::Strip) continue;
+		StripRange partRange = part.asphalt() ? pavedRange : range;
+		// 端で幅 0 へ絞った防護柵・のり面・壁（ランプの本線側・分合流の鼻）は、細く潰れた区間を描かない。
+		// 潰れた部材は支柱やのり面が斜めの黒い三角・灰色の壁に見える。幅が通常の 6 割に戻った所から描く。
+		if ((part.type == RoadPartType::Guardrail || part.type == RoadPartType::Slope || part.type == RoadPartType::Wall) && bezier.totalLength > 0.0f)
+		{
+			const float widthA = part.widthA(), widthB = part.widthB(), nominal = Max(widthA, widthB);
+			if (nominal > 0.01f && Abs(widthA - widthB) > nominal * 0.2f)
+			{
+				const float threshold = nominal * 0.6f;
+				// 幅は A→B で線形。threshold に達する位置 t。
+				const float t = Clamp((threshold - widthA) / (widthB - widthA), 0.0f, 1.0f);
+				if (widthA < widthB) { partRange.sStart = Max(partRange.sStart, t * bezier.totalLength); }
+				else { partRange.sEnd = Min(partRange.sEnd, t * bezier.totalLength); }
+				if (partRange.sEnd - partRange.sStart < 1.0f) { continue; }
+			}
+		}
 
 		auto [color, heightOff, tex] = getPartVisual(part);
 		if (part.asphalt())
@@ -265,11 +292,11 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 		{
 			mdDetail = buildRoadPartModelStrip(bezier, world, def, model.center,
 				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
-				range.sStart, range.sEnd, 1.0f, edge.usesDesignHeight());
+				partRange.sStart, partRange.sEnd, 1.0f, edge.usesDesignHeight());
 			const PartModelData& lodModel = (!model.lods.isEmpty() && !model.lods[0].center.isEmpty()) ? model.lods[0].center : model.center;
 			mdLod = buildRoadPartModelStrip(bezier, world, def, lodModel,
 				part.offsetA_L, part.offsetA_R, part.offsetB_L, part.offsetB_R,
-				range.sStart, range.sEnd, 0.25f, edge.usesDesignHeight());
+				partRange.sStart, partRange.sEnd, 0.25f, edge.usesDesignHeight());
 		}
 		else
 		{
@@ -277,12 +304,12 @@ Array<PartMeshEntry> RoadRenderer::buildPartMeshes(const RoadNetwork& network, c
 				part.offsetA_L, part.offsetA_R,
 				part.offsetB_L, part.offsetB_R,
 				heightOff,
-				range.sStart, range.sEnd, 1.0f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
+				partRange.sStart, partRange.sEnd, 1.0f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
 			mdLod = buildStripMeshTapered(bezier, world,
 				part.offsetA_L, part.offsetA_R,
 				part.offsetB_L, part.offsetB_R,
 				heightOff,
-				range.sStart, range.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
+				partRange.sStart, partRange.sEnd, 0.25f, roadPartSideSkirtDrop(part.type, heightOff), edge.usesDesignHeight());
 		}
 		if (part.type != RoadPartType::Roadbed && !overlappingPavement.indices.isEmpty())
 		{
@@ -365,7 +392,7 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 	}
 	const StringView roadbedId = junctionRoadbed(network, nodeId);
 	const auto& roadbedDefinition = m_partRegistry.get(roadbedId);
-	ColorF asphaltColor{ 0.29, 0.30, 0.32 };
+	ColorF asphaltColor = junctionAsphaltColor(network, nodeId, roadbedDefinition.color);
 	// 畦道だけの節点は、畦道の路盤と同じ土の色で描く。
 	if (roadbedId != U"roadbed_asphalt") { asphaltColor = roadbedDefinition.color.removeSRGBCurve(); }
 	addEntry(std::move(asphalt), asphaltColor, roadbedDefinition.texture ? &*roadbedDefinition.texture : nullptr);

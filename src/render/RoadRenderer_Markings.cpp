@@ -1,5 +1,6 @@
 ﻿#include "RoadRenderer.hpp"
 #include "RoadRenderDetail.hpp"
+#include "MeshGeometry.hpp"
 #include "../road/RoadArrow.hpp"
 #include "../road/JunctionGeometry.hpp"
 #include "../road/RoadMarkingGenerator.hpp"
@@ -273,6 +274,48 @@ namespace
 	/// @brief ノード内の区画線と導流帯（縞）を描く。
 	void appendNodeMarkings(Array<RoadRenderer::LaneLineBatch>& out, const RoadNetwork& network, int nodeId, const World& world, const NodeMarkings::Set& set)
 	{
+		// 線と縞を、つながる道路の舗装（節点の中まで延ばした帯）の上へ載せる。切り口どうしを結ぶ曲線の高さは
+		// 両端の線形補間なので、地形に沿う舗装の下へ潜って縞が消えることがある。
+		struct Footprint { CubicBezier curve; float low, high; bool elevated; };
+		Array<Footprint> footprints;
+		if (const RoadNode* node = network.getNode(nodeId))
+		{
+			for (const auto& attachment : node->attachments)
+			{
+				const RoadEdge* edge = network.getEdge(attachment.edgeId);
+				const auto bez = network.getBezier(attachment.edgeId);
+				if (!edge || !bez) { continue; }
+				float low = Math::Inf, high = -Math::Inf;
+				for (const auto& part : edge->parts)
+				{
+					if (!part.asphalt()) { continue; }
+					low = Min({ low, part.offsetA_L, part.offsetB_L }); high = Max({ high, part.offsetA_R, part.offsetB_R });
+				}
+				if (low < high) { footprints << Footprint{ *bez, low, high, edge->usesDesignHeight() }; }
+			}
+		}
+		const auto seatHeight = [&](const Vec3& p) -> double
+		{
+			double best = p.y;
+			for (const auto& footprint : footprints)
+			{
+				const double length = footprint.curve.totalLength;
+				double nearestS = 0, nearestDistance = Math::Inf;
+				for (double s = 0; s <= length; s += 1.0)
+				{
+					const Vec3 c = footprint.curve.positionAt(static_cast<float>(s));
+					const double d = Vec2{ c.x - p.x, c.z - p.z }.lengthSq();
+					if (d < nearestDistance) { nearestDistance = d; nearestS = s; }
+				}
+				if (nearestDistance > Square(Max(Abs(footprint.low), Abs(footprint.high)) + 1.0)) { continue; }
+				const auto slice = makeSlice(footprint.curve, world, static_cast<float>(nearestS), kRoadLineLift, footprint.elevated);
+				const double lateral = (p - slice.center).dot(slice.right);
+				if (lateral < footprint.low - .2 || lateral > footprint.high + .2) { continue; }
+				best = Max(best, slice.center.y);
+			}
+			return best;
+		};
+		const auto seat = [&](MeshData& mesh) { for (auto& vertex : mesh.vertices) { vertex.pos.y = static_cast<float>(seatHeight(Vec3{ vertex.pos })); } };
 		Array<Optional<CubicBezier>> curves;
 		for (const auto& line : set.lines)
 		{
@@ -281,10 +324,27 @@ namespace
 			const LineStyle style = lineStyleFor(line.type);
 			MeshData md;
 			appendDashedStrip(md.vertices, md.indices, *curves.back(), world, 0, 0, style.lineWidth * .5f, style.dashLen, style.gapLen, 0, curves.back()->totalLength, 0.0f, true);
+			seat(md);
 			if (!md.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ style.color.removeSRGBCurve(), Mesh{ md } }; }
 		}
 		MeshData stripes;
 		constexpr float kStripeSpacing = 3.0f, kStripeHalfWidth = .15f;
+		// 高速道路の分合流の鼻の路上施設: 導流帯の中のポストコーン（緑の柱・白の反射帯）と、鼻の先の衝撃緩和装置。
+		const RoadNode* markingNode = network.getNode(nodeId);
+		const bool expresswayNose = markingNode && NodeMarkings::automaticApplies(network, *markingNode);
+		MeshData coneBodies, coneBands, cushionYellow, cushionBlack;
+		const auto addCylinder = [](MeshData& mesh, const Vec3& base, double radius, double height)
+		{
+			MeshGeometry::appendMeshData(mesh, MeshData::Cylinder(Float3{ base + Vec3{ 0, height * .5, 0 } }, static_cast<float>(radius), static_cast<float>(height), 10));
+		};
+		const auto addPostCone = [&](const Vec3& surface)
+		{
+			const Vec3 ground{ surface.x, seatHeight(surface) - kRoadLineLift, surface.z };
+			addCylinder(coneBodies, ground, .11, .05);   // 台座
+			addCylinder(coneBodies, ground, .04, .80);   // 柱
+			addCylinder(coneBands, ground + Vec3{ 0, .50, 0 }, .046, .07);
+			addCylinder(coneBands, ground + Vec3{ 0, .66, 0 }, .046, .07);
+		};
 		for (const auto& zone : set.zones)
 		{
 			if (zone.leftLine < 0 || zone.rightLine < 0 || zone.leftLine >= static_cast<int>(curves.size()) || zone.rightLine >= static_cast<int>(curves.size())) { continue; }
@@ -323,7 +383,8 @@ namespace
 				const double v = across(pl);
 				const Vec3 pr = at(*right, v);
 				const double width = pl.distanceFrom(pr);
-				if (width < .6) { continue; }
+				// 2 本の縁が開き始めた細い区間には縞を描かない（実際の導流帯も幅 1m 程度から縞が入る）。
+				if (width < 1.0) { continue; }
 				// 縞の向き: 2 本の縁の接線の平均（流れの向き）。
 				const Vec3 tangentL = left->tangentAt(static_cast<float>(u * left->totalLength)), tangentR = right->tangentAt(static_cast<float>(v * right->totalLength));
 				const Vec3 ahead{ tangentL.x + tangentR.x, 0, tangentL.z + tangentR.z };
@@ -336,11 +397,47 @@ namespace
 				}
 				else
 				{
-					appendBar(stripes.vertices, stripes.indices, pl, at(*right, v + width / Max(1.0, static_cast<double>(right->totalLength))), kStripeHalfWidth);
+					// 斜線は流れに対して約 60 度（実景のランプの分岐の縞）。細い区間は縞が線に重なって潰れるので描かない。
+					if (width < 1.6) { continue; }
+					appendBar(stripes.vertices, stripes.indices, pl, at(*right, v + width * .55 / Max(1.0, static_cast<double>(right->totalLength))), kStripeHalfWidth);
+				}
+			}
+			if (!expresswayNose) { continue; }
+			// 開いた側（鼻）の端: 2 本の縁の中点。ポストコーンは分流（出口）の導流帯だけ、中心線上の幅 1.2m 以上の区間に 6m 間隔。
+			// （出口の直前で本線から割り込むのを防ぐ。合流部には立てない。）
+			const double openU = towardNose < 0 ? 1.0 : 0.0;
+			const Vec3 noseLeft = at(*left, openU), noseRight = at(*right, across(noseLeft));
+			const double noseWidth = noseLeft.distanceFrom(noseRight);
+			const bool diverge = NodeMarkings::sameEnd(set.lines[zone.leftLine].from, set.lines[zone.rightLine].from);
+			for (double s = 3.0; diverge && s < length; s += 6.0)
+			{
+				const double u = towardNose < 0 ? s / length : 1.0 - s / length;
+				const Vec3 pl = at(*left, u), pr = at(*right, across(pl));
+				if (pl.distanceFrom(pr) < 1.2) { continue; }
+				addPostCone((pl + pr) * .5);
+			}
+			if (noseWidth >= 1.5)
+			{
+				// 衝撃緩和装置: 黄色の円筒（黒の帯）を鼻の先に 2 本並べる。
+				const Vec3 ahead = (noseLeft + noseRight) * .5 - (at(*left, Abs(openU - .9)) + at(*right, across(at(*left, Abs(openU - .9))))) * .5;
+				const Vec3 direction = Vec3{ ahead.x, 0, ahead.z }.lengthSq() > 1e-6 ? Vec3{ ahead.x, 0, ahead.z }.normalized() : Vec3{ 1, 0, 0 };
+				Vec3 nose = (noseLeft + noseRight) * .5 + direction * .6;
+				nose.y = seatHeight(nose) - kRoadLineLift;
+				for (int drum = 0; drum < 2; ++drum)
+				{
+					const Vec3 base = nose + direction * (drum * .95);
+					addCylinder(cushionYellow, base, .45, .35);
+					addCylinder(cushionBlack, base + Vec3{ 0, .35, 0 }, .452, .18);
+					addCylinder(cushionYellow, base + Vec3{ 0, .53, 0 }, .45, .37);
 				}
 			}
 		}
+		seat(stripes);
 		if (!stripes.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 1, 1, 1 }.removeSRGBCurve(), Mesh{ stripes } }; }
+		if (!coneBodies.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 0.20, 0.62, 0.36 }.removeSRGBCurve(), Mesh{ coneBodies } }; }
+		if (!coneBands.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 0.95, 0.95, 0.93 }.removeSRGBCurve(), Mesh{ coneBands } }; }
+		if (!cushionYellow.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 0.98, 0.78, 0.08 }.removeSRGBCurve(), Mesh{ cushionYellow } }; }
+		if (!cushionBlack.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ ColorF{ 0.06, 0.06, 0.06 }.removeSRGBCurve(), Mesh{ cushionBlack } }; }
 	}
 
 	/// @brief 後方互換: 直線版（tangent を自動計算）
