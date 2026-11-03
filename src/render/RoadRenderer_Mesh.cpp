@@ -399,11 +399,20 @@ Array<PartMeshEntry> RoadRenderer::buildNodeCapParts(const RoadNetwork& network,
 	// Acute arms may overlap beyond their nominal cut mouths. Clip roadside
 	// bands against the entire connected pavement, not only the cap polygon.
 	MeshData connectedPavement = layout.asphalt;
+	const RoadNode* capNode = network.getNode(nodeId);
+	const bool pavedThrough = capNode && NodeMarkings::automaticApplies(network, *capNode);
 	for (const auto& attachment : network.getNode(nodeId)->attachments)
 	{
 		const auto* edge = network.getEdge(attachment.edgeId);
 		if (!edge || !edge->isRoadbedBuilt() || (edge->edgeState != EdgeState::Open && edge->edgeState != EdgeState::Existing)) { continue; }
-		if (const auto bezier = network.getBezier(edge->id)) { appendMeshData(connectedPavement,RoadGeometry::roadbedSurface(*edge,*bezier,world)); }
+		if (const auto bezier = network.getBezier(edge->id))
+		{
+			// 高速道路の分合流部は舗装を節点の中まで延ばしている（buildPartMeshes）。路側の帯（防護柵など）は切り口どうしを
+			// 結ぶ角に沿うので、長い節点（料金所側の鼻は 90m 以上）では曲がった車道を横切り、区画線の上に載る。延ばした車道で抜く。
+			RoadEdge extended = *edge;
+			if (pavedThrough) { if (extended.nodeA == nodeId) { extended.cutoffA = 0; } if (extended.nodeB == nodeId) { extended.cutoffB = 0; } }
+			appendMeshData(connectedPavement,RoadGeometry::roadbedSurface(extended,*bezier,world));
+		}
 	}
 	for (const auto& corner : layout.corners)
 	{

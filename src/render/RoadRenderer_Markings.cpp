@@ -8,6 +8,8 @@
 
 using namespace RoadRenderDetail;
 
+static std::function<Vec3(const Vec3&, const Vec3&)> sharedEndLineAdjust(const RoadNetwork& network, const RoadEdge& edge, float lateral, bool atA);
+
 /// @file
 /// @brief 車線・横断歩道・停止線・矢印の構築。
 
@@ -27,7 +29,8 @@ namespace
 		float dashLength, float gapLength,
 		float sStart, float sEnd,
 		float terrainLift = static_cast<float>(kRoadLineLift),
-		bool useElevation = false)
+		bool useElevation = false,
+		const std::function<Vec3(const Vec3&, const Vec3&)>& adjust = {})
 	{
 		const float spanLen  = sEnd - sStart;
 		if (spanLen <= 0.0f) return;
@@ -55,7 +58,8 @@ namespace
 				// A端→B端のオフセット線形補間でテーパーを表現
 				const float   t  = (totalLen > 0.0f) ? (s / totalLen) : 0.0f;
 				const float   offset = offsetA * (1.0f - t) + offsetB * t;
-				const Vec3    lc = sl.center + sl.right * offset;
+				Vec3          lc = sl.center + sl.right * offset;
+				if (adjust) { lc = adjust(lc, sl.right); }
 				vertices << makeVert(lc - sl.right * halfLW, 0.0f, s / totalLen);
 				vertices << makeVert(lc + sl.right * halfLW, 1.0f, s / totalLen);
 			}
@@ -271,6 +275,75 @@ namespace
 		return CubicBezier{ a.pos, Vec3{ c1.x, Math::Lerp(a.pos.y, b.pos.y, 1.0 / 3), c1.z }, Vec3{ c2.x, Math::Lerp(a.pos.y, b.pos.y, 2.0 / 3), c2.z }, b.pos };
 	}
 
+	/// @brief 節点の区画線を、つながる 2 本の道路に沿う点列で作る。切り口 → 節点 → 切り口の順。
+	/// @details 各道路の上では、その車線境界の横位置（A 端と B 端の間を線形に移る）に沿う。2 本の道路が重なる区間で
+	///   相手の車線へ食い込む線は、向かい合う線と中点の 1 本にそろえる（sharedEndLineAdjust）。
+	Array<Vec3> nodeLinePath(const RoadNetwork& network, int nodeId, const World& world, const NodeMarkingLine& line)
+	{
+		Array<Vec3> points;
+		for (const bool incoming : { true, false })
+		{
+			const NodeLineEnd& end = incoming ? line.from : line.to;
+			const RoadEdge* edge = network.getEdge(end.edgeId);
+			const auto bez = network.getBezier(end.edgeId);
+			if (!edge || !bez || bez->totalLength <= 0) { return {}; }
+			const bool atA = edge->nodeA == nodeId;
+			const float length = bez->totalLength;
+			const float cut = Clamp(atA ? edge->cutoffA : edge->cutoffB, 0.0f, length);
+			// 境界の A 端・B 端の横位置。
+			Optional<std::pair<float, float>> offsets;
+			for (const auto& lane : edge->lanes)
+			{
+				if (Abs((atA ? lane.offsetA_L : lane.offsetB_L) - end.lateral) < .05f) { offsets = std::pair{ lane.offsetA_L, lane.offsetB_L }; break; }
+				if (Abs((atA ? lane.offsetA_R : lane.offsetB_R) - end.lateral) < .05f) { offsets = std::pair{ lane.offsetA_R, lane.offsetB_R }; break; }
+			}
+			if (!offsets) { offsets = std::pair{ end.lateral, end.lateral }; }
+			const auto adjust = sharedEndLineAdjust(network, *edge, end.lateral, atA);
+			const int count = Max(2, static_cast<int>(Ceil(cut / 1.5f)));
+			for (int i = 0; i <= count; ++i)
+			{
+				// 流入側は切り口から節点へ、流出側は節点から切り口へ。
+				const float fromNode = cut * (incoming ? 1.0f - i / static_cast<float>(count) : i / static_cast<float>(count));
+				if (!incoming && i == 0 && !points.isEmpty()) { continue; }
+				const float s = atA ? fromNode : length - fromNode;
+				const auto slice = makeSlice(*bez, world, s, kRoadLineLift, edge->usesDesignHeight());
+				Vec3 p = slice.center + slice.right * static_cast<double>(Math::Lerp(offsets->first, offsets->second, s / length));
+				if (adjust) { p = adjust(p, slice.right); }
+				points << p;
+			}
+		}
+		return points;
+	}
+
+	/// @brief 点列に沿う帯（実線・破線）。
+	void appendPolylineStrip(MeshData& md, const Array<Vec3>& points, float halfWidth, float dashLength, float gapLength)
+	{
+		const bool solid = dashLength <= 0 || gapLength <= 0;
+		double arc = 0;
+		for (size_t i = 0; i + 1 < points.size(); ++i)
+		{
+			const Vec3 a = points[i], b = points[i + 1];
+			const Vec3 d{ b.x - a.x, 0, b.z - a.z };
+			const double length = d.length();
+			if (length < 1e-4) { continue; }
+			const double mid = arc + length * .5;
+			arc += length;
+			if (!solid && Math::Fmod(mid, static_cast<double>(dashLength + gapLength)) >= dashLength) { continue; }
+			// 継ぎ目で隙間が出ないよう、両端の向きは前後の区間との平均にする。
+			const auto rightAt = [&](size_t k) -> Vec3
+			{
+				const Vec3 before = points[k > 0 ? k - 1 : k], after = points[Min(k + 1, points.size() - 1)];
+				Vec3 t{ after.x - before.x, 0, after.z - before.z };
+				if (t.lengthSq() < 1e-8) { t = d; }
+				return tangentToRight(t.normalized());
+			};
+			const Vec3 ra = rightAt(i) * static_cast<double>(halfWidth), rb = rightAt(i + 1) * static_cast<double>(halfWidth);
+			const uint32 base = static_cast<uint32>(md.vertices.size());
+			md.vertices << makeVert(a - ra, 0, 0) << makeVert(a + ra, 1, 0) << makeVert(b - rb, 0, 1) << makeVert(b + rb, 1, 1);
+			appendQuad(md.indices, base, base + 1, base + 2, base + 3);
+		}
+	}
+
 	/// @brief ノード内の区画線と導流帯（縞）を描く。
 	void appendNodeMarkings(Array<RoadRenderer::LaneLineBatch>& out, const RoadNetwork& network, int nodeId, const World& world, const NodeMarkings::Set& set)
 	{
@@ -280,10 +353,19 @@ namespace
 		Array<Footprint> footprints;
 		if (const RoadNode* node = network.getNode(nodeId))
 		{
-			for (const auto& attachment : node->attachments)
+			// 料金所側の鼻は上り・下りの 2 つの節点が 10m ほどで並び、両方の舗装が重なる。近くの分合流の節点の道路も含める。
+			Array<int> edgeIds;
+			for (const auto& attachment : node->attachments) { edgeIds << attachment.edgeId; }
+			for (const auto& other : network.nodes())
 			{
-				const RoadEdge* edge = network.getEdge(attachment.edgeId);
-				const auto bez = network.getBezier(attachment.edgeId);
+				if (other.id < 0 || other.id == nodeId || other.position.xz().distanceFromSq(node->position.xz()) > Square(40.0)
+					|| !NodeMarkings::automaticApplies(network, other)) { continue; }
+				for (const auto& attachment : other.attachments) { if (!edgeIds.contains(attachment.edgeId)) { edgeIds << attachment.edgeId; } }
+			}
+			for (const int edgeId : edgeIds)
+			{
+				const RoadEdge* edge = network.getEdge(edgeId);
+				const auto bez = network.getBezier(edgeId);
 				if (!edge || !bez) { continue; }
 				float low = Math::Inf, high = -Math::Inf;
 				for (const auto& part : edge->parts)
@@ -294,9 +376,28 @@ namespace
 				if (low < high) { footprints << Footprint{ *bez, low, high, edge->usesDesignHeight() }; }
 			}
 		}
+		// 節点の舗装（切り口どうしを結ぶ多角形）。長い節点ではつながる道路の路面より高くなる所があり、線を覆う。
+		const auto cap = JunctionGeometry::build(network, nodeId, false, &world);
+		const auto capHeight = [&](const Vec3& p) -> Optional<double>
+		{
+			const Vec2 q{ p.x, p.z };
+			for (const auto& triangle : cap.asphalt.indices)
+			{
+				const Vec3 a{ cap.asphalt.vertices[triangle.i0].pos }, b{ cap.asphalt.vertices[triangle.i1].pos }, c{ cap.asphalt.vertices[triangle.i2].pos };
+				const Vec2 v0{ b.x - a.x, b.z - a.z }, v1{ c.x - a.x, c.z - a.z }, v2{ q.x - a.x, q.y - a.z };
+				const double denominator = v0.x * v1.y - v1.x * v0.y;
+				if (Abs(denominator) < 1e-9) { continue; }
+				const double u = (v2.x * v1.y - v1.x * v2.y) / denominator, v = (v0.x * v2.y - v2.x * v0.y) / denominator;
+				if (u < -1e-6 || v < -1e-6 || u + v > 1 + 1e-6) { continue; }
+				if (!cap.elevated) { return world.sampleHeight(static_cast<float>(p.x), static_cast<float>(p.z)) + kRoadSurfaceLift + kRoadLineLift; }
+				return a.y + (b.y - a.y) * u + (c.y - a.y) * v + kRoadLineLift;
+			}
+			return none;
+		};
 		const auto seatHeight = [&](const Vec3& p) -> double
 		{
 			double best = p.y;
+			if (const auto h = capHeight(p)) { best = Max(best, *h); }
 			for (const auto& footprint : footprints)
 			{
 				const double length = footprint.curve.totalLength;
@@ -317,13 +418,18 @@ namespace
 		};
 		const auto seat = [&](MeshData& mesh) { for (auto& vertex : mesh.vertices) { vertex.pos.y = static_cast<float>(seatHeight(Vec3{ vertex.pos })); } };
 		Array<Optional<CubicBezier>> curves;
+		// 導流帯のない分合流（料金所側の鼻）は、2 本のランプが長く重なって切り口が節点から遠い（90m 以上）。
+		// 切り口どうしを 1 本の 3 次曲線で結ぶと路面からずれて扇状に広がるので、線をつながる道路の形に沿わせる。
+		const bool followRoads = set.zones.isEmpty();
 		for (const auto& line : set.lines)
 		{
 			curves << nodeLineCurve(network, nodeId, world, line);
 			if (!curves.back() || line.type == LineType::None) { continue; }
 			const LineStyle style = lineStyleFor(line.type);
 			MeshData md;
-			appendDashedStrip(md.vertices, md.indices, *curves.back(), world, 0, 0, style.lineWidth * .5f, style.dashLen, style.gapLen, 0, curves.back()->totalLength, 0.0f, true);
+			const Array<Vec3> path = followRoads ? nodeLinePath(network, nodeId, world, line) : Array<Vec3>{};
+			if (path.size() >= 2) { appendPolylineStrip(md, path, style.lineWidth * .5f, style.dashLen, style.gapLen); }
+			else { appendDashedStrip(md.vertices, md.indices, *curves.back(), world, 0, 0, style.lineWidth * .5f, style.dashLen, style.gapLen, 0, curves.back()->totalLength, 0.0f, true); }
 			seat(md);
 			if (!md.vertices.isEmpty()) { out << RoadRenderer::LaneLineBatch{ style.color.removeSRGBCurve(), Mesh{ md } }; }
 		}
@@ -595,6 +701,107 @@ static Array<RoadRenderer::LaneLineBatch> buildLaneLineBatchesFromPlacements(
 static Array<RoadRenderer::LaneLineBatch> buildCrosswalkBatchesFromPlacements(
 	const RoadNetwork& network, const Array<RoadMarkingPlacement>& placements, const World& world);
 
+
+/// @brief 同じ節点から同じ向きへ分かれる（または同じ向きから集まる）2 本の道路の、向かい合う車線境界の線を合わせる。
+/// @details 料金所側の鼻では、1 本の路面から分かれる 2 本のランプの端を左右へ寄せ、その寄せを道路の全長で戻す。
+///   2 本の中心線は鼻の近くではゆっくり離れるので、その間は相手の車線へ食い込み、向かい合う 2 本の線が X 字に交差する。
+///   食い込んでいる間は 2 本の線を中点の 1 本にそろえ、離れたところから導流帯の V 字に開くようにする。
+static std::function<Vec3(const Vec3&, const Vec3&)> sharedEndLineAdjust(const RoadNetwork& network, const RoadEdge& edge, float lateral, bool atA)
+{
+	if (edge.lanes.isEmpty() || edge.roadType != RoadType::Expressway) { return {}; }
+	const auto bezier = network.getBezier(edge.id);
+	if (!bezier || bezier->totalLength <= 1.0f) { return {}; }
+	float laneMin = Math::Inf, laneMax = -Math::Inf;
+	for (const auto& lane : edge.lanes) { laneMin = Min(laneMin, atA ? lane.offsetA_L : lane.offsetB_L); laneMax = Max(laneMax, atA ? lane.offsetA_R : lane.offsetB_R); }
+	const bool onLeft = Abs(lateral - laneMin) < .05f, onRight = Abs(lateral - laneMax) < .05f;
+	if (!onLeft && !onRight) { return {}; }
+	struct Sample { Vec2 position; Vec2 boundary; };
+	struct Facing { Array<Sample> samples; double side; };
+	Array<Facing> facings;
+	for (const int nodeId : { edge.nodeA, edge.nodeB })
+	{
+		const RoadNode* node = network.getNode(nodeId);
+		if (!node || !NodeMarkings::automaticApplies(network, *node)) { continue; }
+		const bool atStart = edge.nodeA == nodeId;
+		const float cut = atStart ? edge.cutoffA : bezier->totalLength - edge.cutoffB;
+		Vec3 direction = bezier->tangentAt(cut) * (atStart ? 1.0 : -1.0); direction.y = 0;
+		if (direction.lengthSq() < 1e-8) { continue; }
+		direction.normalize();
+		for (const auto& attachment : node->attachments)
+		{
+			const RoadEdge* other = network.getEdge(attachment.edgeId);
+			if (!other || other->id == edge.id || other->lanes.isEmpty()) { continue; }
+			const auto otherBezier = network.getBezier(other->id);
+			if (!otherBezier || otherBezier->totalLength <= 1.0f) { continue; }
+			const bool otherStart = other->nodeA == nodeId;
+			const float otherCut = otherStart ? other->cutoffA : otherBezier->totalLength - other->cutoffB;
+			Vec3 otherDirection = otherBezier->tangentAt(otherCut) * (otherStart ? 1.0 : -1.0); otherDirection.y = 0;
+			if (otherDirection.lengthSq() < 1e-8 || direction.dot(otherDirection.normalized()) < 0.80) { continue; }
+			// 相手が左右どちらにあるか: 節点から少し離れた所の相手の車線の中心を、こちらの横方向へ投影する。
+			const float probe = Min(20.0f, Min(bezier->totalLength, otherBezier->totalLength) * .5f);
+			const float sHere = atStart ? probe : bezier->totalLength - probe, sThere = otherStart ? probe : otherBezier->totalLength - probe;
+			float otherMid = 0;
+			{
+				const float t = sThere / otherBezier->totalLength;
+				float lo = Math::Inf, hi = -Math::Inf;
+				for (const auto& lane : other->lanes) { lo = Min(lo, Math::Lerp(lane.offsetA_L, lane.offsetB_L, t)); hi = Max(hi, Math::Lerp(lane.offsetA_R, lane.offsetB_R, t)); }
+				otherMid = (lo + hi) * .5f;
+			}
+			float hereMid = 0;
+			{
+				const float t = sHere / bezier->totalLength;
+				float lo = Math::Inf, hi = -Math::Inf;
+				for (const auto& lane : edge.lanes) { lo = Min(lo, Math::Lerp(lane.offsetA_L, lane.offsetB_L, t)); hi = Max(hi, Math::Lerp(lane.offsetA_R, lane.offsetB_R, t)); }
+				hereMid = (lo + hi) * .5f;
+			}
+			const Vec3 there = otherBezier->positionAt(sThere) + tangentToRight(otherBezier->tangentAt(sThere)) * static_cast<double>(otherMid);
+			const Vec3 here = bezier->positionAt(sHere) + tangentToRight(bezier->tangentAt(sHere)) * static_cast<double>(hereMid);
+			const double side = (there - here).dot(tangentToRight(bezier->tangentAt(sHere)));
+			// 向かい合う境界だけ: 相手が右なら自分の右端の線、左なら左端の線。
+			if ((side > 0) != onRight) { continue; }
+			Facing facing{ {}, side > 0 ? 1.0 : -1.0 };
+			for (double s = 0; s <= otherBezier->totalLength; s += 1.0)
+			{
+				const float t = static_cast<float>(s / otherBezier->totalLength);
+				float boundary = side > 0 ? Math::Inf : -Math::Inf;
+				for (const auto& lane : other->lanes)
+				{
+					boundary = side > 0 ? Min(boundary, Math::Lerp(lane.offsetA_L, lane.offsetB_L, t)) : Max(boundary, Math::Lerp(lane.offsetA_R, lane.offsetB_R, t));
+				}
+				const Vec3 c = otherBezier->positionAt(static_cast<float>(s));
+				const Vec3 q = c + tangentToRight(otherBezier->tangentAt(static_cast<float>(s))) * static_cast<double>(boundary);
+				facing.samples << Sample{ Vec2{ c.x, c.z }, Vec2{ q.x, q.z } };
+			}
+			facings << std::move(facing);
+		}
+	}
+	if (facings.isEmpty()) { return {}; }
+	return [facings = std::move(facings)](const Vec3& p, const Vec3& right) -> Vec3
+	{
+		Vec3 result = p;
+		for (const auto& facing : facings)
+		{
+			// 相手の中心線上で最も近い点の境界と比べる。
+			const Vec2 flat{ p.x, p.z };
+			double best = Math::Inf; Vec2 q{};
+			for (const auto& sample : facing.samples)
+			{
+				const double d = (sample.position - flat).lengthSq();
+				if (d < best) { best = d; q = sample.boundary; }
+			}
+			if (best > Square(12.0)) { continue; }
+			const Vec2 r{ right.x, right.z };
+			const double depth = (flat - q).dot(r) * facing.side;
+			// こちらの線が相手の境界を越えている（相手の車線に入っている）間は中点へ。
+			if (depth > 0 && depth < 4.0)
+			{
+				const Vec2 mid = (flat + q) * .5;
+				result = Vec3{ mid.x, p.y, mid.y };
+			}
+		}
+		return result;
+	};
+}
 static Array<RoadRenderer::LaneLineBatch> buildLaneLineBatchesFromPlacements(
 	const RoadNetwork& network, const RoadEdge& edge, const CubicBezier& bezier, const World& world,
 	float marginA, float marginB, const Array<RoadMarkingPlacement>& placements)
@@ -604,7 +811,7 @@ static Array<RoadRenderer::LaneLineBatch> buildLaneLineBatchesFromPlacements(
 
 	Array<RoadRenderer::LaneLineBatch> batches;
 	const MeshData surface = RoadGeometry::roadbedSurface(edge, bezier, world);
-	const MeshData overlap = adjacentPavement(network,edge,world);
+	const MeshData overlap = adjacentPavement(network,edge,world,true);
 	for (const RoadMarkingPlacement& marking : placements)
 	{
 		if (marking.kind != RoadMarkingKind::LaneLine || marking.scope != RoadMarkingScope::Edge) continue;
@@ -626,22 +833,32 @@ static Array<RoadRenderer::LaneLineBatch> buildLaneLineBatchesFromPlacements(
 		const float endMax = endRange.right - halfLineWidth - 0.45f;
 		if (startMin > startMax || endMin > endMax) continue;
 
-		const float offsetA = Clamp(marking.lateralCenter, startMin, startMax);
-		const float offsetB = Clamp(marking.lateralCenter, endMin, endMax);
 		MeshData md;
 		LineType type = LineType::SolidWhite;
 		float nearest = Math::Inf;
+		// 車線の境界に載る線は、A 端と B 端で横位置が違う（ランプの車線寄せなど）ときもその境界に沿わせる。
+		float lateralA = marking.lateralCenter, lateralB = marking.lateralCenter;
+		bool onBoundary = false;
 		for (const auto& lane : edge.lanes)
 		{
-			for (const auto boundary : { std::pair<float,LineType>{lane.offsetA_L,lane.lineLeft}, {lane.offsetA_R,lane.lineRight} })
+			for (const auto boundary : { std::tuple<float,float,LineType>{lane.offsetA_L,lane.offsetB_L,lane.lineLeft}, {lane.offsetA_R,lane.offsetB_R,lane.lineRight} })
 			{
-				const float distance = Abs(marking.lateralCenter-boundary.first);
-				if (distance < nearest) { nearest = distance; type = boundary.second; }
+				const float distance = Abs(marking.lateralCenter-std::get<0>(boundary));
+				if (distance < nearest)
+				{
+					nearest = distance; type = std::get<2>(boundary);
+					if (distance < .05f) { lateralB = marking.lateralCenter + (std::get<1>(boundary) - std::get<0>(boundary)); onBoundary = true; }
+				}
 			}
 		}
+		// appendDashedStrip の横位置は道路の A 端（s=0）と B 端（s=全長）の値で、その間を線形に移る。
+		// 車線境界の線はその境界の両端の値をそのまま使う（節点の区画線の端とずれないように）。
+		const float offsetA = onBoundary ? lateralA : Clamp(marking.lateralCenter, startMin, startMax);
+		const float offsetB = onBoundary ? lateralB : Clamp(marking.lateralCenter, endMin, endMax);
 		const auto style = lineStyleFor(type);
 		appendDashedStrip(md.vertices, md.indices, bezier, world, offsetA, offsetB, halfLineWidth,
-			style.dashLen, style.gapLen, sStart, sEnd, static_cast<float>(kRoadLineLift), edge.usesDesignHeight());
+			style.dashLen, style.gapLen, sStart, sEnd, static_cast<float>(kRoadLineLift), edge.usesDesignHeight(),
+			sharedEndLineAdjust(network, edge, lateralA, true));
 		md = RoadGeometry::projectMarking(md, surface);
 		if (!overlap.indices.isEmpty()) { md = RoadGeometry::excludeSurface(md,overlap); }
 		if (!md.vertices.isEmpty())

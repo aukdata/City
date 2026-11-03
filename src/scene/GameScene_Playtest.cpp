@@ -495,7 +495,10 @@ void GameScene::processPlaytestCommand()
 			for (float s=0;s<=bez->totalLength;s+=2) { const Vec3 p=bez->positionAt(s);nearest=Min(nearest,Vec2{p.x,p.z}.distanceFrom(at)); }
 			if (nearest>radius) { continue; }
 			String roadbed;for (const auto& part:edge.parts) { if (part.type==RoadPartType::Roadbed) { roadbed=part.defId; } }
-			DBG_LOG(U"[EdgeNear] edge={} type={} farm={} roadbed={} lanes={} nodes={}-{} len={:.0f} nearest={:.1f} elev={}"_fmt(edge.id,static_cast<int>(edge.roadType),edge.farmAccess,roadbed,edge.lanes.size(),edge.nodeA,edge.nodeB,bez->totalLength,nearest,edge.useElevation));
+			const Vec3 a=bez->positionAt(0),z=bez->positionAt(bez->totalLength);
+			double cover=-Math::Inf;Vec3 deepest{};for (float s=0;s<=bez->totalLength;s+=4) { const Vec3 p=bez->positionAt(s);const double d=m_world.sampleHeight(static_cast<float>(p.x),static_cast<float>(p.z))-p.y;if (d>cover) { cover=d;deepest=p; } }
+			DBG_LOG(U"[EdgeNear] edge={} maxCover={:.1f} at=({:.0f},{:.1f},{:.0f})"_fmt(edge.id,cover,deepest.x,deepest.y,deepest.z));
+			DBG_LOG(U"[EdgeNear] edge={} type={} farm={} roadbed={} lanes={} nodes={}-{} len={:.0f} nearest={:.1f} elev={} tunnel={} a=({:.0f},{:.1f},{:.0f}) b=({:.0f},{:.1f},{:.0f})"_fmt(edge.id,static_cast<int>(edge.roadType),edge.farmAccess,roadbed,edge.lanes.size(),edge.nodeA,edge.nodeB,bez->totalLength,nearest,edge.useElevation,edge.tunnel,a.x,a.y,a.z,z.x,z.y,z.z));
 		}
 	}
 	else if (action==U"dump_junctions")
@@ -514,7 +517,7 @@ void GameScene::processPlaytestCommand()
 				if (!edge || !bez) { continue; }
 				const bool atA=edge->nodeA==nodeId;
 				const Vec3 t=bez->tangentAt(atA ? 0.0f : bez->totalLength)*(atA ? 1.0 : -1.0);
-				edges+=U" e{}(lanes={},len={:.0f},dir={:.0f}deg)"_fmt(edge->id,edge->lanes.size(),bez->totalLength,ToDegrees(Math::Atan2(t.x,t.z)));
+				edges+=U" e{}(lanes={},len={:.0f},dir={:.0f}deg,cut={:.1f})"_fmt(edge->id,edge->lanes.size(),bez->totalLength,ToDegrees(Math::Atan2(t.x,t.z)),atA ? edge->cutoffA : edge->cutoffB);
 			}
 			DBG_LOG(U"[Junction] node={} pos=({:.1f},{:.1f},{:.1f}) lines={} zones={}{}"_fmt(nodeId,node.position.x,node.position.y,node.position.z,set.lines.size(),set.zones.size(),edges));
 		}

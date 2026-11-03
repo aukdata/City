@@ -354,7 +354,9 @@ namespace ExpresswayCrossSection
 		edge.lanes.clear();
 		for (int i = 0; i < 4; ++i)
 		{
-			Lane value = lane(a.lanes[i].first, a.lanes[i].second - a.lanes[i].first, i < 2 ? LaneDir::Forward : LaneDir::Backward, LineType::None, LineType::None);
+			// 車道の外側線と分離帯側の線だけを引き、料金所のアイランドへ向けて広げる（往復の内側どうしは区切らない）。
+			Lane value = lane(a.lanes[i].first, a.lanes[i].second - a.lanes[i].first, i < 2 ? LaneDir::Forward : LaneDir::Backward,
+				i == 0 || i == 2 ? LineType::SolidWhite : LineType::None, i == 1 || i == 3 ? LineType::SolidWhite : LineType::None);
 			value.offsetB_L = b.lanes[i].first; value.offsetB_R = b.lanes[i].second;
 			edge.lanes << value;
 		}

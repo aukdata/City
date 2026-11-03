@@ -167,7 +167,7 @@ void registerMapTransportTests(TestRunner& runner)
 		}
 		context.expect(merges >= 2 && diverges >= 2, U"{}: ramps merge and diverge ({} merges, {} diverges)"_fmt(label, merges, diverges));
 		context.expect(direct == 0, U"{}: every ramp joins the mainline through an acceleration or deceleration lane ({} direct)"_fmt(label, direct));
-		// 変速車線と本線の境界は太い短周期の破線。料金所前後（ランプより車線の多い取付区間）には区画線を引かない。
+		// 変速車線と本線の境界は太い短周期の破線。料金所前後（ランプより車線の多い取付区間）には車線を区切る線を引かない。
 		int thick = 0, markedToll = 0;
 		for (const auto& edge : roads.edges())
 		{
@@ -175,7 +175,9 @@ void registerMapTransportTests(TestRunner& runner)
 			for (const auto& lane : edge.lanes) { thick += (lane.lineLeft == LineType::DashedWhiteThick || lane.lineRight == LineType::DashedWhiteThick); }
 			if (edge.speedLimit < mainlineSpeed && edge.lanes.size() >= 3)
 			{
-				for (const auto& lane : edge.lanes) { markedToll += (lane.lineLeft != LineType::None || lane.lineRight != LineType::None); }
+				// 車道外側線・分離帯側の線は引く。車線どうしを区切る線（隣の車線と接する境界）は引かない。
+				const auto shared = [&](float offset) { int touching = 0; for (const auto& other : edge.lanes) { touching += Abs(other.offsetA_L - offset) < .05f || Abs(other.offsetA_R - offset) < .05f; } return touching > 1; };
+				for (const auto& lane : edge.lanes) { markedToll += (lane.lineLeft != LineType::None && shared(lane.offsetA_L)) || (lane.lineRight != LineType::None && shared(lane.offsetA_R)); }
 			}
 		}
 		context.expect(thick > 0, U"{}: the speed-change lanes are separated by a thick dashed line"_fmt(label));

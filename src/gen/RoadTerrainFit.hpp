@@ -7,7 +7,7 @@
 /// @brief 同じ設計路面から切土・盛土と橋を区分し、1:1.5の法面で地形へ戻す。
 namespace RoadTerrainFit
 {
-	/// @param highFillEdges 盛土の上限を highFill まで上げる道路（高速道路の IC のランプ・料金所。大きな盛土で地平に下ろす）
+	/// @param highFillEdges 盛土・切土の上限を highFill まで上げる道路（高速道路の IC のランプ・料金所。大きな盛土・切土で地平に下ろす）
 	inline int apply(RoadNetwork& roads,World& world,const HashSet<int>& onlyEdges={},const HashSet<int>& highFillEdges={},double highFill=0)
 	{
 		struct Target { double height=0,distance=1e30; };
@@ -22,6 +22,8 @@ namespace RoadTerrainFit
 			const int count=Max(2,static_cast<int>(std::ceil(curve->totalLength/6)));
 			bool fits=true;
 			const double maximumFill=highFillEdges.contains(edge.id) ? Max(highFill,GenerationSettings::get().roads_maximumFill) : GenerationSettings::get().roads_maximumFill;
+			// IC のランプ・料金所は切土も同じ深さまで許す（丘を浅いトンネルで抜けず、切通しにする）。
+			const double maximumCut=highFillEdges.contains(edge.id) ? Max(highFill,GenerationSettings::get().roads_maximumCut) : GenerationSettings::get().roads_maximumCut;
 			if (edge.useElevation)
 			{
 				for (int i=0;i<=count && fits;++i)
@@ -31,7 +33,7 @@ namespace RoadTerrainFit
 					{
 						const Vec3 sample=point+right*(edge.totalWidth()*.5*side);
 						const double terrain=world.sampleHeight(static_cast<float>(sample.x),static_cast<float>(sample.z));
-						fits&=point.y-terrain<=maximumFill && terrain-point.y<=GenerationSettings::get().roads_maximumCut && terrain>world.waterPlanningHeight(sample.x,sample.z)+GenerationSettings::get().crossings_earthworkWaterMargin;
+						fits&=point.y-terrain<=maximumFill && terrain-point.y<=maximumCut && terrain>world.waterPlanningHeight(sample.x,sample.z)+GenerationSettings::get().crossings_earthworkWaterMargin;
 					}
 				}
 				if (!fits) { continue; }

@@ -2637,6 +2637,7 @@ namespace ExpresswayNetwork
 
 		// ---- 土工・橋脚 ----
 		HashSet<int> earthwork;
+		Array<int> cutRamps; ///< トンネル扱いをやめて切通しにするランプ
 		Array<int> generated = mainlineEdges;
 		generated.append(rampEdges);
 		OccupiedGround access;
@@ -2644,6 +2645,10 @@ namespace ExpresswayNetwork
 		for (const int id : accessEdges) { if (const auto curve = roads.getBezier(id)) { access.addCurve(*curve); } }
 		for (const int id : generated)
 		{
+			// IC のランプは地中を抜けない。ランプの高さは本線の地盤から決めるので、丘に掛かると土被りが切土の上限を超えて
+			// トンネル扱いになり、ランプが地中へ消えて坑口の壁だけが野原に残る。ランプは切通しにして地上に出す。
+			// 近くに既存の道路があっても土工の対象にする（地中に残すとランプが丘の中へ消える）。
+			if (rampSet.contains(id)) { if (auto* ramp = roads.getEdge(id); ramp && ramp->tunnel) { ramp->tunnel = false; earthwork.insert(id); cutRamps << id; continue; } }
 			const auto* edge = roads.getEdge(id); const auto curve = roads.getBezier(id);
 			if (!edge || !curve || edge->tunnel || bridgeEdges.contains(id)) { continue; }
 			// 料金所広場とその前後は、陸上なら盛土・切土で必ず地上に置く（高架にすると料金所が橋の上に浮く）。
@@ -2664,6 +2669,13 @@ namespace ExpresswayNetwork
 			if (clear) { earthwork.insert(id); }
 		}
 		const int grounded = earthwork.empty() ? 0 : RoadTerrainFit::apply(roads, world, earthwork, rampSet, c.expressway_rampMaximumFill);
+		// 切土の上限（rampMaximumFill）を超えて地上にできなかったランプはトンネルに戻す（地中の高架として隠れないように）。
+		for (const int id : cutRamps)
+		{
+			auto* ramp = roads.getEdge(id);
+			if (ramp && ramp->useElevation) { ramp->tunnel = true; }
+			DBG_LOG(U"[ExpresswayRampCut] edge={} cut={}"_fmt(id, ramp && !ramp->tunnel));
+		}
 		int piers = 0, elevated = 0, tunnels = 0;
 		for (const int id : generated)
 		{

@@ -2,6 +2,7 @@
 #include "RoadRenderer.hpp"
 #include "MeshGeometry.hpp"
 #include "../road/RoadGeometry.hpp"
+#include "../road/NodeMarkings.hpp"
 
 /// @brief 道路描画実装だけで共有する断面・頂点・重なりの計算。
 namespace RoadRenderDetail
@@ -119,7 +120,7 @@ namespace RoadRenderDetail
 		}
 	}
 
-	inline MeshData adjacentPavement(const RoadNetwork& network, const RoadEdge& edge, const World& world)
+	inline MeshData adjacentPavement(const RoadNetwork& network, const RoadEdge& edge, const World& world, bool skipMarkedNodes = false)
 	{
 		MeshData mask;
 		const auto bezier = network.getBezier(edge.id);
@@ -129,6 +130,8 @@ namespace RoadRenderDetail
 		{
 			const auto* node = network.getNode(nodeId);
 			if (!node || node->attachments.size() < 2) { continue; }
+			// 区画線では、節点の線を引く分合流部は重なりを抜かない（線が切れ切れになる）。
+			if (skipMarkedNodes && node->attachments.size() >= 3 && NodeMarkings::automaticApplies(network, *node)) { continue; }
 			const bool atStart = edge.nodeA == nodeId;
 			Vec3 direction = bezier->tangentAt(atStart ? edge.cutoffA : bezier->totalLength-edge.cutoffB) * (atStart ? 1.0 : -1.0);
 			direction.y = 0.0;
