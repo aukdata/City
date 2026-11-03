@@ -763,7 +763,7 @@ static std::function<Vec3(const Vec3&, const Vec3&)> sharedEndLineAdjust(const R
 			for (double s = 0; s <= otherBezier->totalLength; s += 1.0)
 			{
 				const float t = static_cast<float>(s / otherBezier->totalLength);
-				float boundary = side > 0 ? Math::Inf : -Math::Inf;
+				float boundary = side > 0 ? Math::InfF : -Math::InfF;
 				for (const auto& lane : other->lanes)
 				{
 					boundary = side > 0 ? Min(boundary, Math::Lerp(lane.offsetA_L, lane.offsetB_L, t)) : Max(boundary, Math::Lerp(lane.offsetA_R, lane.offsetB_R, t));
